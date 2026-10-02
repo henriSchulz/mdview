@@ -47,13 +47,13 @@
     const tr = state.tr;
     if (!res.rows.length || !res.rows[0].length) { // nothing left of it
       tr.replaceWith(tablePos, tablePos + table.nodeSize, N.paragraph.create({ bid: table.attrs.bid }));
-      return { tr: tr.setSelection(TextSelection.create(tr.doc, tablePos + 1)).scrollIntoView(), res: {} };
+      return { tr: tr.setSelection(TextSelection.create(tr.doc, tablePos + 1)).scrollIntoView().setMeta("step", true), res: {} };
     }
     const made = build(table, res.rows, res.aligns);
     tr.replaceWith(tablePos, tablePos + table.nodeSize, made);
     const [r, c] = res.focus;
     select(tr, made, tablePos, Math.min(r, made.childCount - 1), Math.min(c, made.child(0).childCount - 1), false);
-    return { tr: tr.scrollIntoView(), res };
+    return { tr: tr.scrollIntoView().setMeta("step", true), res };
   }
   // … done in the view; what is new shimmers once
   function change(view, tablePos, fn) {
@@ -235,23 +235,9 @@
           return false;
         },
         keydown() { if (over) hide(); return false; },
-        contextmenu(view, e) {
-          const td = e.target.closest?.("td, th");
-          if (!view.editable || !td || td.closest(".pm") !== view.dom || td.closest(".isl")) return false;
-          e.preventDefault();
-          const cell = cellOfDom(view, td);
-          if (!cell) return true;
-          const here = cellAt(view.state.selection.$from);
-          if (!here || here.pos !== cell.pos) view.dispatch(select(view.state.tr, cell.table, cell.tablePos, cell.r, cell.c, false));
-          A.menu.open({
-            x: e.clientX, y: e.clientY, closed: () => view.focus(),
-            items: [...rowItems(view, cell), null, ...colItems(view, cell), null, item("table.delete", () => change(view, cell.tablePos, ops.remove()), { danger: true })],
-          });
-          return true;
-        },
       },
     },
   });
 
-  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide };
+  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems };
 })();

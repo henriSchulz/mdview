@@ -122,6 +122,31 @@
   const dlg = el("div", { id: "dlg", class: "surface", role: "dialog", "aria-modal": "true", "aria-labelledby": "dlg-title", tabindex: "-1" },
     `<header class="dlg-head"><span id="dlg-title"></span><div class="dlg-tools"></div></header><div class="dlg-body"></div>` +
     `<footer class="dlg-foot"><div class="dlg-info"></div><button class="btn" type="button" data-do="cancel"></button><button class="btn primary" type="button" data-do="done"></button></footer>`);
+  // the question when the window is closed over a dialog with changes in it
+  const asking = el("div", { class: "dlg-ask" },
+    `<div class="dlg-ask-box surface" role="alertdialog" aria-labelledby="dlg-ask-title"><b id="dlg-ask-title"></b><span class="dlg-ask-text"></span>` +
+    `<div class="dlg-ask-row"><button class="btn" type="button" data-ask="discard"></button><span></span><button class="btn" type="button" data-ask="cancel"></button><button class="btn primary" type="button" data-ask="apply"></button></div></div>`);
+  dlg.appendChild(asking);
+  let answer = null;
+  function ask() {
+    if (answer) return new Promise(() => {});
+    asking.querySelector("b").textContent = T("ask.title");
+    asking.querySelector(".dlg-ask-text").textContent = T("ask.text");
+    for (const [k, key] of [["discard", "ask.discard"], ["cancel", "dialog.cancel"], ["apply", "ask.apply"]]) asking.querySelector(`[data-ask="${k}"]`).textContent = T(key);
+    asking.dataset.open = "";
+    asking.querySelector('[data-ask="apply"]').focus();
+    return new Promise((resolve) => { answer = (how) => { answer = null; delete asking.dataset.open; resolve(how); }; });
+  }
+  asking.addEventListener("click", (e) => { const b = e.target.closest("[data-ask]"); if (b && answer) answer(b.dataset.ask); });
+  asking.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") { e.preventDefault(); if (answer) answer("cancel"); }
+    else if (e.key === "Tab") { // stays among the three buttons
+      const bs = [...asking.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+      e.preventDefault();
+      bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
+    }
+  });
   document.body.append(scrim, dlg);
   const title = dlg.querySelector("#dlg-title"), tools = dlg.querySelector(".dlg-tools"), body = dlg.querySelector(".dlg-body"), info = dlg.querySelector(".dlg-info");
   let open = null; // { anchor, done, cancel, … } while a dialog is up
@@ -243,5 +268,5 @@
     if (popOpen) applyFields();
     if (open) close("done");
   }
-  A.dialog = { show, close, finish, editor, fields, closeFields, get open() { return !!open || !!popOpen; }, el };
+  A.dialog = { show, close, finish, ask, get changed() { return !!open && open.parts.result() !== undefined; }, editor, fields, closeFields, get open() { return !!open || !!popOpen; }, el };
 })();

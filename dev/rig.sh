@@ -10,6 +10,7 @@
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
 #   dev/rig.sh islands               dialogs for code, formulas, properties, raw Markdown; popovers (on a copy)
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
+#   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
@@ -106,6 +107,27 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out/$name.m4.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.m4.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m4.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.m4.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+  m5)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{menu,bar,ask,m5,mode}.json
+    printf '%s' '**menupaste**' | WAYLAND_DISPLAY="$(wl)" wl-copy
+    app 90 MDVIEW_PROBE="$D/probe-m5.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in menu bar ask; do
+      for _ in $(seq 400); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.m5.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/m5-$v.png"
+    done
+    for _ in $(seq 500); do [[ -f $R/out/$name.m5.json ]] && break; sleep 0.1; done
+    [[ -f $R/out/$name.m5.json ]] || { pkill -f "python3 $APP" 2>/dev/null; echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.m5.json"
+    # Apply in the closing question: the dialog's change is saved and the window closes by itself
+    gone=FAIL; for _ in $(seq 60); do [[ $(HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl clients -j | jq length) == 0 ]] && { gone="ok  "; break; }; sleep 0.1; done
+    echo "$gone the window closed after Apply"; pkill -f "python3 $APP" 2>/dev/null
+    grep -q '^let a = 2;$' "$R/work/$name" && echo "ok   the dialog's change is in the file" || echo "FAIL the dialog's change is not in the file"
+    # the next start opens in the mode last used
+    app 30 MDVIEW_PROBE="$D/probe-mode.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_PROBE_MODE=1 -- "$R/work/$name"
+    for _ in $(seq 100); do [[ -f $R/out/$name.mode.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null)"
+    WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
   clip)
     # the real clipboard (the nested session's own): plain-text paste and a pasted picture go through the application
     name=m4.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{wantimage,clip}.json

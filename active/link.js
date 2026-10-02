@@ -62,7 +62,7 @@
   function info(view, link) {
     shown = { kind: "info", ...link };
     pop.innerHTML =
-      `<span class="lp-url" title="${esc(link.mark.attrs.href)}">${esc(short(link.mark.attrs.href))}</span>` +
+      `<span class="lp-url" data-tip="${esc(link.mark.attrs.href)}">${esc(short(link.mark.attrs.href))}</span>` +
       `<button class="btn" type="button" data-do="open">${esc(T("link.open"))}</button>` +
       `<button class="btn" type="button" data-do="edit">${esc(T("link.edit"))}</button>` +
       `<button class="btn" type="button" data-do="remove">${esc(T("link.remove"))}</button>`;

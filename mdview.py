@@ -377,6 +377,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.own_text = None
         self.own_write = None       # bytes just written here: the reload for them is skipped
         self.closing = False
+        self.mode_given = False  # the page was told which mode the app was last used in
         self.close_id = 0
 
         st = app.state
@@ -786,6 +787,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
             "error": error,
             "canBack": bool(self.back),
         }
+        if not self.mode_given and (not PROBE or os.environ.get("MDVIEW_PROBE_MODE")):
+            payload["startMode"] = self.app.state.get("mode", "read")
+        self.mode_given = True
         self.js("MdView.render", payload)
 
     def js(self, fn, *args):
@@ -849,12 +853,30 @@ class ViewerWindow(Gtk.ApplicationWindow):
             cb.store()
         elif t == "mode":
             self.editing = bool(msg.get("edit"))
+            if msg.get("name") in ("read", "edit", "active") and self.app.state.get("mode") != msg["name"]:
+                self.app.state["mode"] = msg["name"]  # the next window starts in it
+                save_state(self.app.state)
+        elif t == "closehold":
+            # the page has a question to ask before the window may go
+            if self.close_id:
+                GLib.source_remove(self.close_id)
+                self.close_id = 0
+            self.closing = False
         elif t == "save":
             # a late autosave must not land in whatever note is open by now
             if msg.get("path") in (None, str(self.path)):
                 self.save_text(msg.get("text"), exact=bool(msg.get("exact")))
         elif t == "pasteimage":
             self.paste_image(msg.get("path"), bool(msg.get("append")))
+        elif t == "pasteclip":
+            cb = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            sel = cb.wait_for_contents(Gdk.Atom.intern("text/html", False))
+            data = bytes(sel.get_data()) if sel and sel.get_data() else b""
+            if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+                html = data.decode("utf-16", "replace")
+            else:
+                html = data.decode("utf-8", "replace")
+            self.js("MdView.pasteClip", {"text": cb.wait_for_text() or "", "html": html})
         elif t == "pastetext":
             text = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()
             if text:

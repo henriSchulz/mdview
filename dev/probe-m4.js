@@ -107,7 +107,7 @@
     // the context menu
     cells()[4].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 300, clientY: 300 }));
     await sleep(300);
-    ok("a right click in a cell: rows, columns and the table", menu.hasAttribute("data-open") && items().includes("Delete Table") && items().includes("Insert Row Above") && items().includes("Align Left"), items());
+    ok("a right click in a cell: rows, columns and the table", menu.hasAttribute("data-open") && items().includes("Delete Table") && items().includes("Row") && items().includes("Column"), items());
     key(menu, "Escape");
     await sleep(250);
     ok("Esc closes the menu, the editor has the focus again", !menu.hasAttribute("data-open") && view.hasFocus());

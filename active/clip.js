@@ -178,6 +178,34 @@
     iatom: (n) => { const span = document.createElement("span"); span.innerHTML = n.attrs.html; return span; },
   }, base.marks);
 
+  /* What is on the clipboard, into the document (from a paste event, or handed over by the application
+   * for the menu's Paste). -> false: the editor reads the HTML itself. */
+  function pasteData(view, text, html) {
+    const { $from, empty } = view.state.selection;
+    if (!text && !foreign(html)) {
+      // a picture: the application saves it beside the note and answers with its Markdown (MdView.insertImage)
+      if (A.view.payload && A.view.payload.path) post("pasteimage", { path: A.view.payload.path });
+      return true;
+    }
+    if (M.code.isInSet(view.state.storedMarks || $from.marks())) return insertPlain(view, text);
+    if (!empty && ADDRESS.test(text.trim()) && $from.sameParent(view.state.selection.$to) && $from.parent.inlineContent) {
+      const href = text.trim(), { from, to } = view.state.selection;
+      view.dispatch(view.state.tr.removeMark(from, to, M.link).addMark(from, to, M.link.create({ href, cls: isExternal(href) ? "external" : null })).setMeta("paste", true));
+      return true;
+    }
+    if (foreign(html)) {
+      if ($from.parent.type === N.table_cell) return insertPlain(view, text); // a cell holds one line of text
+      return false; // the editor reads the reduced HTML with the schema's own rules
+    }
+    return insertMarkdown(view, text);
+  }
+  // from the application (MdView.pasteClip)
+  function pasteFrom(view, text, html) {
+    if (!view.editable) return;
+    view.focus();
+    if (!pasteData(view, text || "", html || "")) view.pasteHTML(html);
+  }
+
   const plugin = new Plugin({
     key: new PluginKey("clip"),
     props: {
@@ -196,27 +224,10 @@
       handlePaste(view, event) {
         const cd = event.clipboardData;
         if (!cd || !view.editable) return false;
-        const text = cd.getData("text/plain"), html = cd.getData("text/html");
-        const { $from, empty } = view.state.selection;
-        if (!text && !foreign(html)) {
-          // a picture: the application saves it beside the note and answers with its Markdown (MdView.insertImage)
-          if (A.view.payload && A.view.payload.path) post("pasteimage", { path: A.view.payload.path });
-          return true;
-        }
-        if (M.code.isInSet(view.state.storedMarks || $from.marks())) return insertPlain(view, text);
-        if (!empty && ADDRESS.test(text.trim()) && $from.sameParent(view.state.selection.$to) && $from.parent.inlineContent) {
-          const href = text.trim(), { from, to } = view.state.selection;
-          view.dispatch(view.state.tr.removeMark(from, to, M.link).addMark(from, to, M.link.create({ href, cls: isExternal(href) ? "external" : null })).setMeta("paste", true));
-          return true;
-        }
-        if (foreign(html)) {
-          if ($from.parent.type === N.table_cell) return insertPlain(view, text); // a cell holds one line of text
-          return false; // the editor reads the reduced HTML with the schema's own rules
-        }
-        return insertMarkdown(view, text);
+        return pasteData(view, cd.getData("text/plain"), cd.getData("text/html"));
       },
     },
   });
 
-  A.clip = { plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf };
+  A.clip = { plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf, pasteFrom };
 })();

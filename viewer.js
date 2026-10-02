@@ -431,6 +431,9 @@
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
     p.text = p.text.replace(/\r\n?/g, "\n");
     current = p;
+    if (!p.error) trailPush(p.path, p.text);
+    // the mode the app was last used in (once, for the window's first note)
+    if (p.startMode && p.startMode !== "read" && !p.error && !(p.startMode === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") setMode(p.startMode); }, 0);
     document.title = p.name || "Markdown";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images
     if (!prev || prev.path !== p.path) markActiveNote(true);
@@ -1126,17 +1129,84 @@
       p.raw = MdActive.view.take();
       p.text = p.raw.replace(/\r\n?/g, "\n");
       p.error = null;
+      trailPush(p.path, p.text);
       post("save", { text: p.raw, path: p.path, exact: true });
       return;
     }
     if (!dirty()) return;
     savedText = edInput.value;
-    if (current && current.path === edPath) { current.text = savedText; current.error = null; }
+    if (current && current.path === edPath) { current.text = savedText; current.error = null; trailPush(edPath, savedText); }
     post("save", { text: savedText, path: edPath });
   }
   function flush(thenClose) {
+    // the window is closing over a dialog with changes in it: they are not the document's yet — ask
+    if (thenClose && mode === "active" && window.MdActive?.dialog?.changed) {
+      post("closehold");
+      MdActive.dialog.ask().then((how) => {
+        if (how === "cancel") return;
+        MdActive.dialog.close(how === "apply" ? "done" : "cancel");
+        flushSave();
+        post("close");
+      });
+      return;
+    }
     flushSave();
     if (thenClose) post("close");
+  }
+
+  /* One history for a note across the modes: the texts it was saved as, in
+   * order. The source editor gets the steps made elsewhere replayed into its
+   * own undo history; the active mode steps back along them once its own
+   * history is used up (trailStep). */
+  const TRAIL_MAX = 60, REPLAY_MAX = 20;
+  let trail = { path: null, texts: [], at: -1 };
+  let trailFloor = 0, trailRedo = [], trailStepping = false, edReplay = null, edCaret = null, activeBuilt = -1;
+  function trailPush(path, text) {
+    if (trail.path !== path) { trail = { path, texts: [text], at: 0 }; trailFloor = 0; trailRedo = []; return; }
+    if (text === trail.texts[trail.at]) return;
+    trail.texts.length = trail.at + 1;
+    trail.texts.push(text);
+    if (trail.texts.length > TRAIL_MAX) { trail.texts.shift(); trailFloor = Math.max(0, trailFloor - 1); }
+    trail.at = trail.texts.length - 1;
+  }
+  function trailShow(text) {
+    const a = captureAnchor();
+    current.text = text;
+    current.raw = /\r\n/.test(current.raw || "") ? text.replace(/\n/g, "\r\n") : text;
+    trailStepping = true;
+    showActive(current, a);
+    MdActive.view.touch();
+    activeChanged();
+    trailStepping = false;
+    MdActive.view.focus();
+  }
+  function trailStep(dir) {
+    if (mode !== "active" || !current || trail.path !== current.path) return false;
+    if (MdActive.view.dirty) flushSave(); // (the step before this one, not saved yet)
+    if (dir < 0) {
+      if (trailFloor < 1) return false;
+      trailRedo.push(current.text);
+      trail.at = trailFloor - 1;
+      trailShow(trail.texts[trail.at]);
+    } else {
+      if (!trailRedo.length) return false;
+      const text = trailRedo.pop();
+      trailPush(current.path, text);
+      trailShow(text);
+    }
+    trailFloor = trail.at;
+    return true;
+  }
+  // a text into the source editor as one step of its own undo history
+  function edStep(text) {
+    const v = edInput.value;
+    if (v === text) return;
+    let a = 0;
+    const max = Math.min(v.length, text.length);
+    while (a < max && v.charCodeAt(a) === text.charCodeAt(a)) a++;
+    let b = 0;
+    while (b < max - a && v.charCodeAt(v.length - 1 - b) === text.charCodeAt(text.length - 1 - b)) b++;
+    edReplace(a, v.length - b, text.slice(a, text.length - b));
   }
   function saveFailed(msg) {
     if (mode === "active") MdActive.view.failed();
@@ -1171,11 +1241,22 @@
         return;
       }
     }
+    if (next === "edit" && current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
+    edCaret = mode === "active" && next === "edit" && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // current.text is what the active mode holds
     if (next === "edit") {
-      if (current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
       if (edPath !== current.path || (!dirty() && edInput.value !== current.text)) {
-        setEditorText(current.text);
+        // What was done in the active mode since the source editor last had the note goes into
+        // its undo history step by step (once it is on screen: swapView).
+        const from = trail.path !== current.path || trail.texts[trail.at] !== current.text ? -1
+          : edPath === current.path ? trail.texts.lastIndexOf(edInput.value, trail.at) : Math.max(0, trail.at - REPLAY_MAX);
+        if (from >= 0 && from < trail.at && trail.at - from <= REPLAY_MAX) {
+          if (edPath !== current.path) setEditorText(trail.texts[from]);
+          edReplay = trail.texts.slice(from + 1, trail.at + 1);
+        } else {
+          setEditorText(current.text);
+          edReplay = null;
+        }
         savedText = current.text;
         edPath = current.path;
         edFresh = true;
@@ -1186,7 +1267,7 @@
     }
     const prev = mode;
     mode = next;
-    post("mode", { edit: mode !== "read" });
+    post("mode", { edit: mode !== "read", name: mode });
     showMode();
     closeOutline();
     // Reading <-> active: the same document in the same place, nothing to fade.
@@ -1202,23 +1283,30 @@
       if (mode === "edit") {
         const a = window.scrollY < 4 ? { line: null } : captureAnchor();
         body.dataset.view = "edit";
+        if (edReplay) { for (const text of edReplay) edStep(text); edReplay = null; savedText = edInput.value; }
         const el = a.line == null ? null : edBack.children[Math.min(a.line, edBack.children.length - 1)];
         if (el) window.scrollBy({ top: el.getBoundingClientRect().top - a.top, behavior: "instant" });
         else window.scrollTo(0, 0);
-        if (edFresh) {
+        if (edCaret != null) { // the caret where it was in the active mode
+          edInput.setSelectionRange(edCaret, edCaret);
+          edFresh = false;
+        } else if (edFresh) {
           const pos = el ? lineStarts[Math.min(a.line, lineStarts.length - 1)] : 0;
           edInput.setSelectionRange(pos, pos);
           edFresh = false;
         }
+        edCaret = null;
       } else {
         const a = from === "edit" ? captureEditAnchor() : { line: null, y: window.scrollY };
+        const caret = from === "edit" && mode === "active" ? edInput.selectionStart : null;
         if (from === "edit") {
           edInput.blur();
           current.text = edInput.value;
+          trailPush(current.path, current.text);
         }
         if (mode === "active" && from === "read") MdActive.view.arriving(); // while the reading view can still be measured
         body.dataset.view = mode;
-        if (mode === "active") showActive(current, a);
+        if (mode === "active") { showActive(current, a); if (caret != null) MdActive.view.caretAt(caret); }
         else if (from === "edit" || !drawn || drawn.p !== current || drawn.text !== current.text) draw(current, a);
         if (mode === "read" && window.MdActive?.view) MdActive.view.leave();
         // links were resolved for the text as it was before editing
@@ -1256,15 +1344,17 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/view.js"]) await script(src);
       await css;
-      MdActive.view.onChange = activeChanged;
+      MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
   }
   function showActive(p, anchor) {
     const gen = ++generation;
     const fresh = MdActive.view.payload !== p && !(MdActive.view.payload && MdActive.view.payload.path === p.path && MdActive.view.edited);
     const store = MdActive.view.show(p);
+    // a document built anew starts its own undo history here; older steps are the trail's
+    if (MdActive.view.built !== activeBuilt) { activeBuilt = MdActive.view.built; trailPush(p.path, p.text); trailFloor = trail.at; }
     outline = store.env.outline;
     if (outlineOpen()) buildOutline();
     if (anchor) restoreAnchor(anchor, MdActive.view.dom);
@@ -1278,6 +1368,7 @@
   }
   // after every edit in the active mode: save soon, keep the find marks right
   function activeChanged() {
+    if (!trailStepping) trailRedo = [];
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flushSave, AUTOSAVE_MS);
     if (findOpen()) {
@@ -1894,10 +1985,14 @@
   }
 
   // Ctrl+Shift+V in the active mode: the clipboard's text, handed over by the application
+  // Paste from the context menu: the application hands over what the page may not read itself
+  function pasteClip(r) {
+    if (mode === "active" && window.MdActive?.view?.editable) MdActive.clip.pasteFrom(MdActive.view.pm, r.text, r.html);
+  }
   function pasteText(r) {
     if (mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
   }
-  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText,
+  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }),

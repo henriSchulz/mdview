@@ -1,0 +1,196 @@
+/* mdview active mode — the context menu, and the commands it shares with the
+ * formatting bar: what a selection is (bold, a heading, a list …) and what
+ * can be put in at the caret. */
+"use strict";
+(() => {
+  const A = window.MdActive, T = window.MdStrings.t;
+  const { Plugin, PluginKey, TextSelection, NodeSelection, Selection } = PM.state;
+  const C = PM.commands;
+  const N = A.schema.nodes, M = A.schema.marks;
+  const { copy, follow } = window.MdView.core;
+  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+
+  // ------------------------------------------------------------ what the selection is
+  function markActive(state, type) {
+    const { from, to, empty, $from } = state.selection;
+    return empty ? !!type.isInSet(state.storedMarks || $from.marks()) : state.doc.rangeHasMark(from, to, type);
+  }
+  // the kind of block the selection starts in: "text", "h1"…"h6", "bullet", "ordered", "task", plus quote
+  function blockKind(state) {
+    const { $from } = state.selection;
+    const item = A.edit.itemAt($from), list = A.edit.ancestor($from, (n) => /_list$/.test(n.type.name));
+    const quote = !!A.edit.ancestor($from, (n) => n.type === N.blockquote);
+    let kind = $from.parent.type === N.heading ? "h" + $from.parent.attrs.level : "text";
+    if (item && list) kind = item.node.attrs.task != null ? "task" : list.node.type === N.ordered_list ? "ordered" : "bullet";
+    return { kind, quote, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
+  }
+  const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? C.lift(state, dispatch) : C.wrapIn(N.blockquote)(state, dispatch));
+  // out of a list first, then the command (a heading does not sit in a list item by choice)
+  const E = () => A.edit.commands;
+  const PARAGRAPH = {
+    text: (s, d) => E().setParagraph(s, d),
+    h1: (s, d) => E().setHeading(1)(s, d), h2: (s, d) => E().setHeading(2)(s, d), h3: (s, d) => E().setHeading(3)(s, d),
+    h4: (s, d) => E().setHeading(4)(s, d), h5: (s, d) => E().setHeading(5)(s, d), h6: (s, d) => E().setHeading(6)(s, d),
+    bullet: (s, d) => E().toggleList(N.bullet_list)(s, d),
+    ordered: (s, d) => E().toggleList(N.ordered_list)(s, d),
+    task: (s, d) => E().toggleTaskList(s, d),
+    quote: toggleQuote,
+  };
+  const MARKS = { strong: "Mod-b", em: "Mod-i", s: "Shift-Mod-x", code: "Mod-`" };
+  const run = (view, command) => { view.focus(); return command(view.state, (tr) => view.dispatch(tr.setMeta("step", true)), view); };
+  const toggle = (view, mark) => run(view, A.edit.keys[MARKS[mark]]);
+
+  // the selected text as a formula
+  function toMath(view) {
+    const { from, to, empty, $from, $to } = view.state.selection;
+    if (empty || !$from.sameParent($to) || !$from.parent.isTextblock) return false;
+    const text = view.state.doc.textBetween(from, to).trim();
+    if (!text) return false;
+    const made = A.islands.blocksOf("$" + text + "$", A.view.store)[0];
+    let atom = null;
+    if (made) made.descendants((n) => { if (n.type === N.iatom && n.attrs.kind === "math") atom = n; });
+    if (!atom) return false;
+    view.dispatch(view.state.tr.replaceWith(from, to, atom).scrollIntoView().setMeta("step", true));
+    view.focus();
+    return true;
+  }
+
+  // ------------------------------------------------------------ putting something in
+  /* A block at the caret: in place of an empty paragraph, else below the block the caret is in. -> its position */
+  function putBlock(view, node, caretIn) {
+    const state = view.state, { $from } = state.selection;
+    const tr = state.tr;
+    let pos;
+    if ($from.parent.type === N.paragraph && !$from.parent.content.size && $from.node(-1).canReplaceWith($from.index(-1), $from.indexAfter(-1), node.type)) {
+      pos = $from.before();
+      tr.replaceWith(pos, $from.after(), node);
+    } else {
+      pos = $from.depth ? $from.after(1) : $from.pos;
+      tr.insert(pos, node);
+    }
+    if (caretIn) tr.setSelection(Selection.near(tr.doc.resolve(pos + 1), 1));
+    else if (NodeSelection.isSelectable(node)) tr.setSelection(NodeSelection.create(tr.doc, pos));
+    view.dispatch(tr.scrollIntoView().setMeta("step", true));
+    view.focus();
+    return pos;
+  }
+  const island = (raw, kind) => A.islands.blocksOf(raw, A.view.store).find((n) => n.type === N.island) || N.island.create({ kind, raw });
+  const INSERT = {
+    code(view) { const pos = putBlock(view, island("```\n```", "code")); setTimeout(() => A.islands.open(view, pos, true), 0); },
+    math(view) { const pos = putBlock(view, island("$$\n\n$$", "math")); setTimeout(() => A.islands.open(view, pos, true), 0); },
+    table(view) {
+      const row = (header) => N.table_row.create(null, [0, 1].map(() => N.table_cell.create({ header })));
+      putBlock(view, N.table.create(null, [row(true), row(false), row(false)]), true);
+    },
+    rule(view) {
+      const pos = putBlock(view, N.horizontal_rule.create());
+      const tr = view.state.tr, after = pos + 1;
+      if (after >= tr.doc.content.size) tr.insert(after, N.paragraph.create());
+      view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)), 1)));
+    },
+    footnote(view) { run(view, A.notes.insert); },
+  };
+
+  // ------------------------------------------------------------ the menu
+  const item = (key, runIt, more) => ({ label: T(key), run: runIt, ...more });
+  function clipboard(view, what) {
+    view.focus();
+    if (document.execCommand(what)) return;
+    // not allowed by the page: the Markdown by hand
+    const sel = view.state.selection;
+    copy(A.clip.markdownOf(view.state, sel.content()));
+    if (what === "cut") view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
+  }
+  function textItems(view, pos) {
+    const state = view.state, { empty } = state.selection, b = blockKind(state);
+    const link = A.link.linkAt(state, pos);
+    const go = (command) => () => run(view, command);
+    const para = (kind, key, more) => item(key, go(PARAGRAPH[kind]), { checked: kind === "quote" ? b.quote : b.kind === kind, ...more });
+    const items = [
+      item("menu.cut", () => clipboard(view, "cut"), { key: "Ctrl+X", disabled: empty }),
+      item("menu.copy", () => clipboard(view, "copy"), { key: "Ctrl+C", disabled: empty }),
+      item("menu.paste", () => { view.focus(); post("pasteclip"); }, { key: "Ctrl+V" }),
+      item("menu.pastePlain", () => { view.focus(); post("pastetext"); }, { key: "Ctrl+Shift+V" }),
+      null,
+    ];
+    if (link) items.push(item("menu.openLink", () => follow(link.mark.attrs.href)));
+    items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
+    items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
+      item("menu.bold", () => toggle(view, "strong"), { key: "Ctrl+B", checked: markActive(state, M.strong) }),
+      item("menu.italic", () => toggle(view, "em"), { key: "Ctrl+I", checked: markActive(state, M.em) }),
+      item("menu.strike", () => toggle(view, "s"), { key: "Ctrl+Shift+X", checked: markActive(state, M.s) }),
+      item("menu.code", () => toggle(view, "code"), { key: "Ctrl+`", checked: markActive(state, M.code) }),
+      null,
+      item("menu.math", () => toMath(view), { disabled: empty }),
+    ] });
+    if (!b.cell) {
+      items.push({ label: T("menu.paragraph"), items: [
+        para("text", "menu.text"),
+        ...[1, 2, 3, 4, 5, 6].map((n) => item("menu.heading", go(PARAGRAPH["h" + n]), { label: T("menu.heading", n), checked: b.kind === "h" + n })),
+        null,
+        para("bullet", "menu.bullet"), para("ordered", "menu.ordered"), para("task", "menu.task"), para("quote", "menu.quote"),
+      ] });
+      items.push({ label: T("menu.insert"), items: [
+        item("menu.codeBlock", () => INSERT.code(view)), item("menu.formula", () => INSERT.math(view)),
+        item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
+        item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
+      ] });
+    } else {
+      const cell = A.tableui.cellAt(state.selection.$from);
+      items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
+        item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
+    }
+    return items;
+  }
+  function nodeItems(view, pos, node) {
+    const raw = node.type === N.image ? A.clip.markdownOf(view.state, new PM.model.Slice(PM.model.Fragment.from(node), 0, 0)) : node.attrs.raw;
+    const editable = !(node.type === N.island && node.attrs.virtual);
+    return [
+      item("menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
+      null,
+      item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
+      item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
+      null,
+      item("menu.delete", () => { view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { danger: true, key: "⌫" }),
+    ];
+  }
+
+  const plugin = new Plugin({
+    key: new PluginKey("context"),
+    props: {
+      handleDOMEvents: {
+        contextmenu(view, e) {
+          if (!view.editable || e.target.closest?.(".pm") !== view.dom) return false;
+          e.preventDefault();
+          A.tableui.hide();
+          const at = view.posAtCoords({ left: e.clientX, top: e.clientY });
+          if (!at) return true;
+          // an island, a formula, a picture: the thing itself
+          const inside = at.inside >= 0 ? view.state.doc.nodeAt(at.inside) : null;
+          const atomDom = e.target.closest?.(".isl, .ia, .im");
+          let node = inside && inside.isAtom && !inside.isText && inside.type !== N.hard_break ? inside : null, pos = at.inside;
+          if (!node && atomDom && atomDom.closest(".pm") === view.dom) {
+            pos = view.posAtDOM(atomDom, 0);
+            const $p = view.state.doc.resolve(pos);
+            node = [$p.nodeAfter, $p.nodeBefore].find((n) => n && n.isAtom && !n.isText) || null;
+            if (node && node === $p.nodeBefore && node !== $p.nodeAfter) pos -= node.nodeSize;
+          }
+          if (node && (node.type === N.hidden || (node.type === N.island && node.attrs.virtual))) return true;
+          let items;
+          if (node) {
+            if (NodeSelection.isSelectable(node)) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+            items = nodeItems(view, pos, node);
+          } else {
+            const { from, to } = view.state.selection;
+            if (at.pos < from || at.pos > to) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))));
+            items = textItems(view, at.pos);
+          }
+          A.menu.open({ x: e.clientX, y: e.clientY, items, closed: () => view.focus() });
+          return true;
+        },
+      },
+    },
+  });
+
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, PARAGRAPH, INSERT, textItems, nodeItems };
+})();

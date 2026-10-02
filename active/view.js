@@ -136,13 +136,22 @@
       // the caret starts in text; an island at the top would otherwise show up selected
       const selection = PM.state.Selection.findFrom(open.doc.resolve(0), 1, true) || undefined;
       const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins(open) });
+      built++;
       if (view) view.updateState(state);
       else {
         view = new EditorView(el, {
           state, nodeViews,
           attributes: { class: "pm", role: "textbox", "aria-multiline": "true", "aria-label": window.MdStrings.t("active.label"), spellcheck: "false" },
           editable: () => !shown.p.readonly,
+          handleScrollToSelection: scrollToCaret,
           dispatchTransaction(tr) {
+            // An action (from a menu, a dialog, a paste) is a step of its own in the undo history:
+            // it does not run together with the typing before it or after it.
+            if (tr.docChanged && tr.getMeta("addToHistory") !== false && !tr.getMeta("history$")) {
+              const action = tr.getMeta("step") || tr.getMeta("paste") || /^(paste|cut|drop)$/.test(tr.getMeta("uiEvent") || "");
+              if (action || closeNext) PM.history.closeHistory(tr);
+              closeNext = !!action;
+            }
             view.updateState(view.state.apply(tr));
             if (tr.docChanged) { dirty = edited = true; if (A.view.onChange) A.view.onChange(); }
           },
@@ -213,10 +222,83 @@
     if (sel) view.dispatch(view.state.tr.setSelection(sel));
   }
 
+  /* The caret into view. Typing keeps it clear of the window's edges; after
+   * undo and redo it comes to rest a fifth of the window in, and gently. */
+  function scrollToCaret(v) {
+    const jump = A.view.gentle;
+    A.view.gentle = false;
+    let c;
+    try { c = v.coordsAtPos(v.state.selection.head); } catch (_e) { return false; }
+    const comfort = jump ? innerHeight * 0.2 : 0;
+    const top = Math.max(56, comfort), bottom = innerHeight - Math.max(28, comfort); // (the toolbar floats over the top)
+    const by = c.top < top ? c.top - top : c.bottom > bottom ? c.bottom - bottom : 0;
+    if (by) window.scrollBy({ top: by, behavior: jump && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "instant" });
+    return true;
+  }
+
+  /* The caret's place in the Markdown, and back: for keeping it when the
+   * source editor takes over or hands back. Found by the block it is in and
+   * the word before it (the n-th time that word stands in the block). */
+  const WORD = /[\p{L}\p{N}]+$/u;
+  const nth = (hay, needle, n) => { let at = -1; for (let i = 0; i <= n; i++) { at = hay.indexOf(needle, at + 1); if (at < 0) return -1; } return at; };
+  const count = (hay, needle) => { let n = 0, at = -1; while ((at = hay.indexOf(needle, at + 1)) >= 0) n++; return n; };
+  function blocks() { // [pos, node, from, to] of every block that is written, with its place in the Markdown
+    const offsets = [], out = [], doc = view.state.doc;
+    const text = A.document.serialize(open, doc, false, offsets);
+    let k = 0;
+    doc.forEach((node, pos) => {
+      if (node.type.name === "island" && node.attrs.virtual) return;
+      if (node.type.name === "paragraph" && !node.content.size && doc.childCount > 1) return;
+      out.push({ pos, node, from: offsets[k++] });
+    });
+    out.forEach((b, i) => { b.to = i + 1 < out.length ? out[i + 1].from : text.length; });
+    return { text, list: out };
+  }
+  function caretOffset() {
+    if (!view) return null;
+    const head = view.state.selection.head, { text, list } = blocks();
+    let b = null;
+    for (const x of list) { if (x.pos <= head) b = x; else break; }
+    if (!b) return 0;
+    const before = view.state.doc.textBetween(b.pos, Math.min(head, b.pos + b.node.nodeSize), "\n", " ");
+    const word = (WORD.exec(before) || [""])[0];
+    if (!word) return b.from;
+    const at = nth(text.slice(b.from, b.to), word, count(before, word) - 1);
+    return at < 0 ? b.from : b.from + at + word.length;
+  }
+  function caretAt(offset) {
+    if (!view || offset == null) return;
+    const { text, list } = blocks(), doc = view.state.doc;
+    let b = null;
+    for (const x of list) { if (x.from <= offset) b = x; else break; }
+    if (!b) return;
+    const before = text.slice(b.from, Math.min(offset, b.to));
+    const word = (WORD.exec(before) || [""])[0];
+    let pos = -1;
+    if (word) {
+      let left = count(before, word);
+      b.node.descendants((n, p) => {
+        if (pos >= 0 || !n.isText) return;
+        const c = count(n.text, word);
+        if (c >= left) pos = b.pos + 1 + p + nth(n.text, word, left - 1) + word.length - (b.node.isTextblock ? 0 : 0); else left -= c;
+      });
+      if (pos >= 0 && !b.node.isTextblock) pos = Math.min(pos, b.pos + b.node.nodeSize - 1);
+    }
+    const $at = doc.resolve(Math.max(0, Math.min(pos >= 0 ? pos : b.pos + 1, doc.content.size)));
+    const sel = $at.parent.isTextblock ? PM.state.TextSelection.create(doc, $at.pos) : PM.state.Selection.findFrom(doc.resolve(b.pos), 1, true);
+    if (sel) view.dispatch(view.state.tr.setSelection(sel));
+  }
+
+  let closeNext = false; // the last change was an action: what follows starts a new undo step
+  let built = 0;      // how many times a document was built anew (its undo history started over)
   let dirty = false;  // edits not yet handed over for saving
   let edited = false; // the document is not what it was built from any more
   A.view = {
-    el, show, serialize, take, anchor, restore, caretToView,
+    el, show, serialize, take, anchor, restore, caretToView, caretOffset, caretAt,
+    onHistory: null, // set by viewer.js: undo / redo beyond what was done in this mode (-1 / 1) -> done?
+    gentle: false,   // the next scroll to the caret is one after undo or redo
+    touch() { dirty = edited = true; }, // the document shown is not the one saved
+    get built() { return built; },
     // the reading view is still on screen and about to be left for this one
     arriving() { note(content); },
     onChange: null, // set by viewer.js: called after every edit

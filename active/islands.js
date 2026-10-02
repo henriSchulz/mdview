@@ -80,7 +80,7 @@
       const $at = tr.doc.resolve(Math.min(pos, tr.doc.content.size));
       tr.setSelection($at.nodeAfter && NodeSelection.isSelectable($at.nodeAfter) ? NodeSelection.create(tr.doc, pos) : Selection.near($at, 1));
     }
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(tr.scrollIntoView().setMeta("step", true));
     hydrate(view.dom);
     flash(view, pos);
   }
@@ -300,7 +300,7 @@
       tr.replaceWith(pos, pos + node.nodeSize, N.iatom.create({ kind, raw, html }, null, node.marks));
       tr.setSelection(TextSelection.create(tr.doc, pos + 1));
     }
-    view.dispatch(tr);
+    view.dispatch(tr.setMeta("step", true));
     view.focus();
   }
   function atomPopover(view, pos, node) {

@@ -131,7 +131,7 @@
         if (opts.fresh && !text.trim()) return drop();
         const now = find(view.state.doc, label);
         if (!now || text === now.def.text) return;
-        view.dispatch(view.state.tr.setNodeMarkup(now.pos, null, { ...now.node.attrs, raw: withDef(now.node.attrs.raw, now.def, text) }));
+        view.dispatch(view.state.tr.setNodeMarkup(now.pos, null, { ...now.node.attrs, raw: withDef(now.node.attrs.raw, now.def, text) }).setMeta("step", true));
       },
       cancel() { if (opts.fresh && !ed.value.trim()) drop(); },
     });

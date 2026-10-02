@@ -236,10 +236,14 @@
   const inList = (command) => (state, dispatch) => (itemAt(state.selection.$from) ? command(state, dispatch) : false);
   const swallow = () => true;
 
+  // after undo and redo the caret comes into view gently (view.js)
+  const gently = (command) => (state, dispatch, view) => { if (dispatch) A.view.gentle = true; const ok = command(state, dispatch, view); if (!ok) A.view.gentle = false; return ok; };
+  // nothing left to undo here: what was done before this mode took the document over (viewer.js)
+  const beyond = (dir) => (_state, dispatch) => !!(dispatch && A.view.onHistory && A.view.onHistory(dir));
   const keys = {
-    "Mod-z": C.chainCommands(IR.undoInputRule, H.undo),
-    "Shift-Mod-z": H.redo,
-    "Mod-y": H.redo,
+    "Mod-z": C.chainCommands(IR.undoInputRule, gently(H.undo), beyond(-1)),
+    "Shift-Mod-z": C.chainCommands(gently(H.redo), beyond(1)),
+    "Mod-y": C.chainCommands(gently(H.redo), beyond(1)),
     "Mod-b": C.toggleMark(M.strong),
     "Mod-i": C.toggleMark(M.em),
     "Shift-Mod-x": C.toggleMark(M.s),
@@ -564,7 +568,7 @@
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, A.notes.plugin, A.clip.plugin, clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.bar.plugin, clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
