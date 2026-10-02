@@ -133,7 +133,7 @@
       parseDOM: [{ tag: "a[href]", getAttrs: (dom) => ({ href: dom.getAttribute("href"), title: dom.getAttribute("title") }) }],
       toDOM: (m) => ["a", { href: m.attrs.href, ...(m.attrs.title == null ? {} : { title: m.attrs.title }), ...(m.attrs.cls ? { class: m.attrs.cls } : {}) }, 0],
     },
-    code: { code: true, attrs: { markup: { default: null } }, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },
+    code: { code: true, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },
     strong: simple("strong", { attrs: { markup: { default: null } } }),
     em: simple("em", { attrs: { markup: { default: null } } }),
     s: simple("s"),
@@ -201,7 +201,10 @@
       while (out.length > 1 && !out[out.length - 1].trim()) out.pop();
       return out.join("\n");
     };
-    const island = (kind, toks, ctx, attrs = {}) => ({ type: "island", attrs: { kind, html: html(toks), line: lineOf(toks[0]), raw: sourceOf(toks, ctx), ...attrs } });
+    const island = (kind, toks, ctx, attrs = {}) => ({ type: "island", attrs: { kind, html: html(toks), line: lineOf(toks[0]),
+      // code by indentation: its own four spaces are not the container's
+      raw: toks[0].type === "code_block" && ctx.length ? toks[0].content.replace(/\n$/, "").replace(/^(?=.)/gm, "    ") : sourceOf(toks, ctx),
+      ...attrs } });
 
     // a link that goes where a definition goes is written as a reference to it
     const refs = Object.entries(env.references || {});
@@ -264,7 +267,7 @@
           case "text": text(c.content); break;
           case "code_inline":
             if (!c.content.trim()) throw new Unsupported("empty code span");
-            text(c.content, [{ type: "code", attrs: { markup: c.markup } }]);
+            text(c.content, [{ type: "code" }]);
             break;
           case "softbreak":
             if (md.options.breaks) leaf({ type: "hard_break", attrs: { soft: true } }, true);
@@ -294,7 +297,9 @@
       }
       // A block with nothing to see has no height in the reading view (and the
       // margins around it fall together); a text block in the editor always has a line.
-      if (!seen) throw new Unsupported("nothing to see");
+      // A task without text yet is the exception: it has to stay a task one can type into.
+      const emptyTask = out.length === 0 && (tok.children || []).length === 1 && tok.children[0].type === "task_checkbox";
+      if (!seen && !emptyTask) throw new Unsupported("nothing to see");
       const last = out[out.length - 1]; // a block does not end in a space
       if (last && last.type === "text" && last.text.endsWith(" ")) {
         if (last.text.length > 1) last.text = last.text.slice(0, -1);
@@ -350,11 +355,11 @@
 
     function listOf(t, inner, attrs, ctx) {
       const items = [], ordered = t.type === "ordered_list_open";
-      let tight = false;
+      let tight = true; // unless a paragraph in it shows as one (markdown-it hides them in a tight list)
       for (let i = 0; i < inner.length; i++) {
         const li = inner[i], j = closeIndex(inner, i);
         const body = inner.slice(i + 1, j);
-        if (body.some((x, k) => x.type === "paragraph_open" && x.hidden && closeDepth(body, k) === 0)) tight = true;
+        if (body.some((x, k) => x.type === "paragraph_open" && !x.hidden && closeDepth(body, k) === 0)) tight = false;
         const first = body[0] && body[0].type === "paragraph_open" ? body[1] : null;
         const cb = first && first.children && first.children[0] && first.children[0].type === "task_checkbox" ? first.children[0] : null;
         const first1 = li.map ? li.map[0] + env.lineOffset : -1;

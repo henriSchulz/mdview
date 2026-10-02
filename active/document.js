@@ -23,15 +23,54 @@
    * from the store's slice; only a changed one is written anew.
    * exact: with the file's own line endings (false: "\n").
    * starts: if given, filled with the offset of every block written. */
+  /* May `cur` stand on the line right after `prev`? A paragraph only after
+   * what ends for sure (a heading, a rule, a fence); anything else also where
+   * it interrupts what stands before it. */
+  const kind = (n) => (n.type.name === "island" ? "island:" + n.attrs.kind : n.type.name);
+  function tight(prev, cur) {
+    const p = kind(prev), c = kind(cur);
+    const ended = /^(heading|horizontal_rule|island:(code|math|frontmatter))$/.test(p);
+    if (c === "paragraph") return ended;
+    if (ended || /^(hidden|island:)/.test(p)) return true;
+    // after a paragraph, a list or a quote: only what interrupts them
+    if (c === "heading") return cur.attrs.markup !== "=" && cur.attrs.markup !== "-";
+    if (c === "horizontal_rule") return !(p === "paragraph" && /^-/.test(cur.attrs.markup || "---"));
+    if (c === "blockquote" || c === "bullet_list") return true;
+    if (c === "ordered_list") return cur.attrs.start === 1;
+    return c === "island:code" && /^ {0,3}(```|~~~)/.test(cur.attrs.raw);
+  }
+
   function serialize(d, doc = d.doc, exact = true, starts = null) {
-    const parts = [];
+    // what gets written, in order
+    const nodes = [];
     doc.forEach((node) => {
       if (node.type.name === "island" && node.attrs.virtual) return;
       // an empty paragraph is a place to type, not something Markdown can hold
       if (node.type.name === "paragraph" && !node.content.size && doc.childCount > 1) return;
       const was = d.loaded.get(node.attrs.bid);
-      if (was && (was === node || was.eq(node))) parts.push({ id: node.attrs.bid });
-      else parts.push({ id: node.attrs.bid, text: A.markdown.block(node, d) });
+      nodes.push({ node, clean: !!was && (was === node || was.eq(node)) });
+    });
+    // Two lists of one kind in a row would read as one list: a changed one takes another marker.
+    const marker = (n) => A.markdown.markerOf(n.node, d);
+    nodes.forEach((n, i) => {
+      const prev = nodes[i - 1], next = nodes[i + 1];
+      if (n.clean || !/_list$/.test(n.node.type.name)) return;
+      const taken = [prev, next].filter((o) => o && o.node.type === n.node.type).map((o) => o.marker || marker(o));
+      if (!taken.includes(marker(n))) return;
+      n.marker = (n.node.type.name === "ordered_list" ? [".", ")"] : ["-", "*", "+"]).find((m) => !taken.includes(m));
+    });
+    const parts = nodes.map((n, i) => {
+      if (n.clean) return { id: n.node.attrs.bid };
+      const prev = nodes[i - 1];
+      return { id: n.node.attrs.bid, text: A.markdown.block(n.node, d, n.marker) };
+    });
+    // A separator without a blank line (a heading right under a paragraph) is only kept where it
+    // still separates once one of the two blocks has changed.
+    // (Two blocks that are still the kinds they were stand as they stood.)
+    const rekinded = (n) => { const was = d.loaded.get(n.node.attrs.bid); return !was || kind(was) !== kind(n.node); };
+    nodes.forEach((n, i) => {
+      const prev = nodes[i - 1];
+      if (prev && (rekinded(prev) || rekinded(n)) && !tight(prev.node, n.node)) parts[i].blank = true;
     });
     return A.store.serialize(d.store, parts, exact, starts);
   }

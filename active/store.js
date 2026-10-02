@@ -187,8 +187,8 @@
   /* The document as a string. `parts` lists what stands in the document now,
    * in order: { id } for a segment that is as it was loaded, { id, text } for
    * one that was changed (id: where it came from, if anywhere; text with "\n"
-   * line ends). Neighbours that were neighbours on load keep their separator;
-   * anything else gets a blank line. Called without `parts` it returns the
+   * line ends; blank: it needs a blank line before it). Neighbours that were
+   * neighbours on load keep their separator; anything else gets a blank line. Called without `parts` it returns the
    * loaded document. starts: if given, filled with the offset of every part. */
   function serialize(store, parts, exact = true, starts = null) {
     const pick = (s) => (exact ? s.orig : s.raw);
@@ -201,7 +201,7 @@
     parts.forEach((p, i) => {
       const prev = i ? parts[i - 1] : null;
       if (!i) out += pick(store.head);
-      else if (prev.id != null && p.id != null && prev.id + 1 === p.id) out += pick(segs[prev.id].sep);
+      else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) out += pick(segs[prev.id].sep);
       else out += nl + nl;
       if (starts) starts.push(out.length);
       out += p.text != null ? eol(p.text) : pick(segs[p.id]);

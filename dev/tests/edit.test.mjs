@@ -26,12 +26,14 @@ function probe(name, src, perDoc, random) {
     if (node.isText && !node.marks.some((m) => m.type.name === "code")) spots.push([pos, node.text.length]);
   });
   const failures = [];
+  const base = PM.state.EditorState.create({ doc: d.doc, plugins: A.edit.plugins(d) });
   let edits = 0, loose = 0, impossible = 0;
   for (let k = 0; k < perDoc && spots.length; k++) {
     const [start, len] = spots[Math.floor(random() * spots.length)];
     const pos = start + Math.floor(random() * (len + 1));
-    const tr = new PM.transform.Transform(d.doc);
-    tr.insert(pos, d.doc.type.schema.text(WORD, d.doc.resolve(pos).marks()));
+    // typed as in the editor: with its plugins, which keep a bare address linking to what its text says
+    const state = base.apply(base.tr.insert(pos, d.doc.type.schema.text(WORD, d.doc.resolve(pos).marks())));
+    const tr = { doc: state.doc };
     const out = A.document.serialize(d, tr.doc, false);
     edits++;
     const where = `${name} @${pos} ${JSON.stringify(d.doc.textBetween(Math.max(0, pos - 12), Math.min(d.doc.content.size, pos + 12), "¶"))}`;

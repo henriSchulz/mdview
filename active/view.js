@@ -111,7 +111,7 @@
       open = A.document.open(p);
       // the caret starts in text; an island at the top would otherwise show up selected
       const selection = PM.state.Selection.findFrom(open.doc.resolve(0), 1, true) || undefined;
-      const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins() });
+      const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins(open) });
       if (view) view.updateState(state);
       else {
         view = new EditorView(el, {

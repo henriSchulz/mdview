@@ -8,6 +8,8 @@
 #   dev/rig.sh compare FILE…         reading view vs. active mode: layout report + screenshots per file
 #   dev/rig.sh modes FILE            switching between the modes, find, outline, a task (on a copy of FILE)
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
+#   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
+#   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
@@ -76,6 +78,25 @@ case "${1:-}" in
     # the file on disk is what the editor said it saved
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.edit.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || { echo "FAIL the file on disk differs from the saved document"; exit 1; }
     jq -e .pass "$R/out/$name.edit.json" >/dev/null ;;
+  link)
+    name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{info,form,link}.json
+    app 40 MDVIEW_PROBE="$D/probe-link.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in info form; do
+      for _ in $(seq 150); do [[ -f $R/out/$name.$v.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/link-$v.png"
+    done
+    for _ in $(seq 200); do [[ -f $R/out/$name.link.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ -f $R/out/$name.link.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.link.json"
+    ! jq -r '.steps[], (.error // "ok")' "$R/out/$name.link.json" | grep -qv '^ok' ;;
+  native)
+    name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out"/*.native.json
+    app 40 MDVIEW_PROBE="$D/probe-native.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 200); do ls "$R/out"/*.native.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    ls "$R/out"/*.native.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.native.json
+    ! jq -r '.steps[], (.error // "ok")' "$R/out"/*.native.json | grep -qv '^ok' ;;
   folder)
     rm -rf "$R/work"; mkdir -p "$R/work/notes/sub"; cp "$D"/tests/fixtures/{basics,obsidian,math}.md "$R/work/notes/"; cp "$D/tests/fixtures/footnotes.md" "$R/work/notes/sub/"
     rm -f "$R/out"/*.folder.json

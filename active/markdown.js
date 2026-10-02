@@ -48,11 +48,12 @@
    * punctuation, an entity, a tag); 1: also the characters that start inline
    * constructs; 2: all punctuation. Higher levels are only tried when a lower
    * one does not parse back to the same block. */
-  function escapeText(str, level) {
+  function escapeText(str, level, inLink) {
     let s = str.replace(new RegExp(`\\\\(?=[${PUNCT}]|$)`, "g"), "\\\\");
     s = s.replace(/&(?=#\d{1,7};|#[xX][0-9a-fA-F]{1,6};|[a-zA-Z][a-zA-Z0-9]{1,31};)/g, "\\&");
     s = s.replace(/<(?=[a-zA-Z/!?])/g, "\\<");
     s = s.replace(/\n/g, "&#10;"); // a line break that is text (it came from an entity)
+    if (inLink && level < 1) s = s.replace(/[[\]]/g, "\\$&"); // a bracket would end the link's text
     if (level === 1) {
       s = s.replace(/[`[\]$~^]|\*|==|%%/g, (m) => "\\" + m)
         .replace(/_/g, (m, i, all) => (/[\p{L}\p{N}]/u.test(all[i - 1] || "") && /[\p{L}\p{N}]/u.test(all[i + 1] || "") ? m : "\\_"));
@@ -68,7 +69,7 @@
       .replace(/^( {0,3})([-+*])(?=[ \t]|$)/, "$1\\$2")
       .replace(/^( {0,3}\d{1,9})([.)])(?=[ \t]|$)/, "$1\\$2")
       .replace(/^( {0,3})>/, "$1\\>")
-      .replace(/^( {0,3})(`{3,}|~{3,})/, (m, a, b) => a + "\\" + b)
+      .replace(/^( {0,3})(`{3,}(?=[^`]*$)|~{3,})/, (m, a, b) => a + "\\" + b) // (backticks later in the line: a code span, no fence)
       .replace(/^( {0,3})([-_*=])(?=(?:[ \t]*\2)*[ \t]*$)/, (m, a, b) => (b === "=" && first ? m : a + "\\" + b))
       .replace(/^( {0,3})\$\$/, "$1\\$$$$")
       .replace(/^( {0,3}):(?=[ \t])/, "$1\\:")
@@ -77,6 +78,13 @@
   }
 
   // ------------------------------------------------------------ inline
+  /* Is a link with this text and address one that needs no brackets: <address>, or a bare address? */
+  const EMAIL = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  function plainOk(markup, text, href) {
+    if (markup === "autolink") return (text === href && /^[a-zA-Z][a-zA-Z0-9+.-]{1,31}:[^\s<>]*$/.test(text)) || (href === "mailto:" + text && EMAIL.test(text));
+    if (markup === "linkify") return (text === href && /^https?:\/\/[^\s<>]*[^\s<>.,;:!?)\]'"]$/.test(text)) || (href === "mailto:" + text && EMAIL.test(text));
+    return false;
+  }
   const DELIM = { s: "~~", mark: "==", sub: "~", sup: "^" };
   const WRAPS = new Set(["mark", "link", "strong", "em", "s", "sub", "sup"]); // marks written as delimiters around text
   const wordChar = (c) => !!c && /[\p{L}\p{N}]/u.test(c);
@@ -85,32 +93,54 @@
     const { profile, level } = cx;
     let out = "";
     const active = []; // marks open in the output, outermost first
+    const wraps = (n) => (n ? n.marks.filter((m) => WRAPS.has(m.type.name)) : []);
+    // one emphasis is like another, whatever delimiter it was written with; a link is its address
+    const like = (a, b) => a.type === b.type && (a.type.name !== "link" || a.eq(b));
+    const has = (marks, m) => marks.some((x) => like(x, m));
+    const isCode = (n) => n.isText && n.marks.some((m) => m.type.name === "code");
     const kids = [];
-    parent.forEach((n) => kids.push(n));
+    parent.forEach((n) => {
+      const last = kids[kids.length - 1];
+      // code next to code under the same marks is one code span (two would run their backticks together)
+      if (last && isCode(n) && isCode(last) && wraps(n).length === wraps(last).length && wraps(n).every((m) => has(wraps(last), m))) kids[kids.length - 1] = last.withText(last.text + n.text);
+      else kids.push(n);
+    });
     // a block does not end in a break, nor in white space
     while (kids.length && kids[kids.length - 1].type.name === "hard_break") kids.pop();
 
+    // <address> and a bare address only work while the text is an address, and the same one
+    const plainLink = (mark) => {
+      if (!mark.attrs.markup) return "";
+      let text = "", only = true;
+      for (const k of kids) if (has(k.marks, mark)) { if (k.isText && k.marks.length === 1) text += k.text; else only = false; }
+      return only && plainOk(mark.attrs.markup, text, mark.attrs.href) ? mark.attrs.markup : "";
+    };
     const open = (mark, next) => {
       switch (mark.type.name) {
         case "em": return emphasis(mark.attrs.markup || profile.em, out, next);
         case "strong": return emphasis(mark.attrs.markup || profile.strong, out, next);
-        case "link": return mark.attrs.markup === "autolink" ? "<" : mark.attrs.markup === "linkify" ? "" : "[";
+        case "link": { const kind = plainLink(mark); return kind === "autolink" ? "<" : kind === "linkify" ? "" : "["; }
         default: return DELIM[mark.type.name];
       }
     };
     const close = (mark, opened, after) => {
       switch (mark.type.name) {
         case "link":
-          if (mark.attrs.markup === "autolink") return ">";
-          if (mark.attrs.markup === "linkify") return "";
+          if (opened === "<") return ">";
+          if (opened === "") return "";
           if (mark.attrs.ref) return "][" + mark.attrs.ref + "]";
           return "](" + linkTarget(mark.attrs.href) + (mark.attrs.title ? ' "' + mark.attrs.title.replace(/"/g, '\\"') + '"' : "") + ")";
         default: return opened;
       }
     };
     // `_` does not open or close inside a word; there `*` has to do
-    const emphasis = (want, before, next) =>
-      (want[0] === "_" && (wordChar(before[before.length - 1]) && wordChar(next)) ? (want.length === 2 ? "**" : "*") : want);
+    const emphasis = (want, before, next) => {
+      const last = before[before.length - 1], other = want[0] === "_" ? "*" : "_";
+      if (want[0] === "_" && wordChar(last) && wordChar(next)) return want.length === 2 ? "**" : "*";
+      // right after a closing delimiter of the same character the two would run together: take the other one
+      if (last === want[0] && !(other === "_" && wordChar(next) && wordChar(last))) return other.repeat(want.length);
+      return want;
+    };
 
     const closeTo = (keep, after) => {
       while (active.length > keep) {
@@ -126,60 +156,56 @@
       }
     };
 
+    // how many of the open marks (outermost first) a set of marks continues
+    const kept = (open, marks) => { let k = 0; while (k < open.length && has(marks, open[k])) k++; return k; };
     for (let i = 0; i < kids.length; i++) {
       const node = kids[i];
       let text = node.isText ? node.text : null;
       const code = node.marks.find((m) => m.type.name === "code");
-      let marks = node.marks.filter((m) => WRAPS.has(m.type.name));
-      const nextKid = kids[i + 1];
-      const lasts = (m) => !nextKid || !m.isInSet(nextKid.marks);
-
+      const link = node.marks.find((m) => m.type.name === "link");
+      let marks = wraps(node);
+      const nextMarks = wraps(kids[i + 1]);
+      const open0 = active.map((a) => a.mark);
+      if ((text != null && !code && !text.trim()) || node.type.name === "hard_break") {
+        // white space or a line break alone: inside the marks that go on over it, outside all that start or end here
+        marks = open0.slice(0, kept(open0, marks.filter((m) => has(nextMarks, m))));
+      }
+      const keep = kept(open0, marks);
+      // what opens here: the mark that lasts longest goes outermost, so the others can end inside it
+      const lasting = (m) => { let n = 0; while (kids[i + n + 1] && has(kids[i + n + 1].marks, m)) n++; return n; };
+      const opening = marks.filter((m) => !has(open0.slice(0, keep), m))
+        .map((m, k) => [m, lasting(m), k]).sort((x, y) => y[1] - x[1] || x[2] - y[2]).map((x) => x[0]);
+      const after = open0.slice(0, keep).concat(opening);
       // white space at the edge of a mark goes outside of it
       let lead = "", trail = "";
-      if (text != null && !code) {
-        if (marks.some((m) => !active.some((a) => a.mark.eq(m)))) {
-          const m = /^\s+/.exec(text);
-          if (m) { lead = m[0]; text = text.slice(lead.length); }
-        }
-        if (marks.some(lasts)) {
-          const m = /\s+$/.exec(text);
-          if (m) { trail = m[0]; text = text.slice(0, -trail.length); }
-        }
-        if (!text) { // only white space: it belongs to no mark that starts or ends here
-          marks = marks.filter((m) => active.some((a) => a.mark.eq(m)) && !lasts(m));
-        }
+      if (text != null && !code && text.trim()) {
+        if (opening.length) { lead = /^\s*/.exec(text)[0]; text = text.slice(lead.length); }
+        if (kept(after, nextMarks) < after.length) { trail = /\s*$/.exec(text)[0]; text = text.slice(0, text.length - trail.length); }
       }
-      // keep what is open in the order it was opened, then the new ones
-      const kept = active.filter((a) => marks.some((m) => m.eq(a.mark)));
-      let keep = 0;
-      while (keep < active.length && kept[keep] === active[keep]) keep++;
-      const body = text != null ? (code ? codeSpan(text, code) : escapeText(text, level)) : leaf(node, cx);
-      const first = body[0] || "";
-      closeTo(keep, lead ? lead[0] : first);
+      const body = text == null ? leaf(node, cx) : code ? codeSpan(text, code)
+        : link && plainLink(link) ? text // an address is written as it is
+        : escapeText(text, level, !!link);
+      closeTo(keep, lead ? lead[0] : body[0] || "");
       out += lead;
-      const order = kept.slice(0, keep).map((a) => a.mark).concat(marks.filter((m) => !kept.slice(0, keep).some((a) => a.mark.eq(m))));
-      for (let k = keep; k < order.length; k++) {
-        if (!text && text != null) break;
-        const delim = open(order[k], first);
-        active.push({ mark: order[k], delim, at: out.length });
+      for (const mark of opening) {
+        const delim = open(mark, body[0] || "");
+        active.push({ mark, delim, at: out.length });
         out += delim;
       }
       out += body;
       if (trail) {
-        // close what ends here before the space
-        const ending = active.findIndex((a) => lasts(a.mark));
-        if (ending >= 0) closeTo(ending, trail[0]);
+        closeTo(kept(after, nextMarks), trail[0]);
         out += trail;
       }
     }
     closeTo(0, "");
-    return out.replace(/[ \t]+$/, "");
+    // a no-break space at either end would be trimmed away with the white space: as an entity it stays
+    return out.replace(/^[ \t]+|[ \t]+$/g, "").replace(/^\u00a0+|\u00a0+$/g, (m) => "&nbsp;".repeat(m.length));
   }
-  function codeSpan(text, mark) {
+  function codeSpan(text) {
     let longest = 0;
     for (const m of text.matchAll(/`+/g)) longest = Math.max(longest, m[0].length);
-    let fence = mark.attrs.markup || "`";
-    if (fence.length <= longest) fence = "`".repeat(longest + 1);
+    const fence = "`".repeat(longest + 1);
     const pad = /^`|`$/.test(text) || (/^ .* $/.test(text) && text.trim()) ? " " : "";
     return fence + pad + text + pad + fence;
   }
@@ -197,7 +223,7 @@
       case "hard_break": return node.attrs.soft ? "\n" : (cx.profile.hardBreak === "\\" ? "\\\n" : "  \n");
       case "image": {
         const { src, alt, title } = node.attrs;
-        return "![" + escapeText(alt, 1) + "](" + linkTarget(src) + (title ? ' "' + title.replace(/"/g, '\\"') + '"' : "") + ")";
+ return "![" + escapeText(alt, 1).replace(/&#10;/g, "\n") + "](" + linkTarget(src) + (title ? ' "' + title.replace(/"/g, '\\"') + '"' : "") + ")";
       }
       case "iatom": return node.attrs.raw;
       default: return "";
@@ -230,34 +256,51 @@
     }
   }
   // the blocks inside a quote or a list item, a blank line between them unless tight allows none
+  // Two lists of one kind in a row would read as one: the second takes the other marker.
+  const markerOf = (list, cx) => (list.type.name === "ordered_list" ? (/^[.)]$/.test(list.attrs.markup || "") ? list.attrs.markup : cx.profile.ordered)
+    : [list.firstChild && list.firstChild.attrs.markup, list.attrs.markup].find((m) => /^[-+*]$/.test(m || "")) || cx.profile.bullet);
+  function apart(child, prev, cx) {
+    if (!prev || prev.type !== child.type || !/_list$/.test(child.type.name)) return cx;
+    const before = cx.swap && cx.swap.node === prev ? cx.swap.marker : markerOf(prev, cx);
+    const mine = markerOf(child, cx);
+    if (mine !== before) return cx;
+    const other = child.type.name === "ordered_list" ? (mine === "." ? ")" : ".") : mine === "-" ? "*" : "-";
+    return { ...cx, swap: { node: child, marker: other } };
+  }
   function children(node, cx, tight) {
     const out = [];
     let prev = null;
     node.forEach((child) => {
-      const ls = lines(child, cx);
+      if (child.type.name === "paragraph" && !child.content.size && node.childCount > 1) return;
+      const ls = lines(child, apart(child, prev, cx));
       if (prev && !(tight && !(prev.type.name === "paragraph" && child.type.name === "paragraph"))) out.push("");
       out.push(...ls);
       prev = child;
     });
     return out;
   }
-  function list(node, cx) {
+  // -> the lines of every item of a list
+  function listItems(node, cx) {
     const ordered = node.type.name === "ordered_list";
-    const { tight, start } = node.attrs;
+    const { start } = node.attrs;
+    const tight = node.attrs.tight && !needsLoose(node);
     const nums = [];
     node.forEach((item) => nums.push(item.attrs.num));
     // "1. 1. 1." stays that way; anything else counts up
-    const same = ordered && nums.length > 1 && nums.every((n) => n != null && Number(n) === start);
-    const out = [];
+    const written = nums.filter((n) => n != null);
+    const same = ordered && written.length > 1 && written.every((n) => Number(n) === start);
+    const items = [];
     node.forEach((item, _o, i) => {
-      const marker = ordered ? String(same ? start : start + i) + (node.attrs.markup || cx.profile.ordered)
-        : item.attrs.markup || node.attrs.markup || cx.profile.bullet;
+      const forced = cx.swap && cx.swap.node === node ? cx.swap.marker : null;
+      const marker = ordered ? String(same ? start : start + i) + (forced || (/^[.)]$/.test(node.attrs.markup || "") ? node.attrs.markup : cx.profile.ordered))
+        : forced || [item.attrs.markup, node.attrs.markup].find((m) => /^[-+*]$/.test(m || "")) || cx.profile.bullet;
       const task = item.attrs.task != null && item.attrs.box ? `[${item.attrs.task}] ` : "";
       const width = marker.length + 1;
       const body = [];
       let prev = null;
       item.forEach((child) => {
-        let ls = lines(child, cx);
+        if (child.type.name === "paragraph" && !child.content.size && item.childCount > 1 && prev) return;
+        let ls = lines(child, apart(child, prev, cx));
         if (prev && !(tight && !(prev.type.name === "paragraph" && child.type.name === "paragraph"))) body.push("");
         // a list under a bullet may be indented further than the text needs (four spaces, a tab)
         const nested = /_list$/.test(child.type.name) && !ordered && prev ? cx.profile.indent : 0;
@@ -266,17 +309,31 @@
         body.push(...ls);
         prev = child;
       });
-      if (!tight && i > 0) out.push("");
+      const out = [];
       const pad = " ".repeat(width);
       body.forEach((l, k) => {
-        if (k === 0) out.push((marker + " " + task + l).replace(/[ \t]+$/, ""));
+        if (k === 0) out.push(l ? marker + " " + task + l : (marker + " " + task).trimEnd()); // (a line may end in the two spaces of a hard break)
         else out.push(l ? (l[0] === "\t" ? l : pad + l) : "");
       });
       if (!body.length) out.push(marker);
+      items.push(out);
     });
+    return { items, tight };
+  }
+  function list(node, cx) {
+    const { items, tight } = listItems(node, cx);
+    const out = [];
+    items.forEach((ls, i) => { if (!tight && i > 0) out.push(""); out.push(...ls); });
     return out;
   }
-
+  // two paragraphs in a row in one item need a blank line between them, and that makes the list loose
+  function needsLoose(list) {
+    let yes = false;
+    list.forEach((item) => {
+      for (let i = 1; i < item.childCount; i++) if (item.child(i).type.name === "paragraph" && item.child(i - 1).type.name === "paragraph") yes = true;
+    });
+    return yes;
+  }
   const canonical = (node, cx) => lines(node, cx).join("\n");
 
   // ------------------------------------------------------------ three-way merge
@@ -392,32 +449,59 @@
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {
+    if (node.type.name === "heading" && !node.content.size) return ["island", ["#".repeat(node.attrs.level)], []];
     if (node.isTextblock) {
+      // runs of text with the same marks. White space carries no formatting worth telling apart, a
+      // line break carries none, and where exactly a space sits between two runs says nothing:
+      // the runs are compared without the space at their edges, the whole text with it.
       const runs = [];
+      let plain = "";
+      const heading = node.type.name === "heading";
       node.forEach((n) => {
-        // a bare URL and <an autolink> are links to what their text says
-        const marks = n.marks.filter((m) => !/^(tag|abbr)$/.test(m.type.name) && !(m.type.name === "link" && m.attrs.markup === "linkify"))
-          .map((m) => m.type.name + (m.type.name === "link" && m.attrs.markup !== "autolink" ? JSON.stringify([m.attrs.href, m.attrs.title || null]) : "")).sort().join("+");
+        const isBreak = n.type.name === "hard_break";
+        if (isBreak && heading) { // a heading is one line: the break is a space there
+          plain += " ";
+          if (runs.length) runs[runs.length - 1][1] += " ";
+          return;
+        }
+        // a bare address is a link by itself (the parser makes it one), and <an address> links to what its text says
+        const bare = (m) => m.type.name === "link" && n.isText && plainOk(m.attrs.markup, n.text, m.attrs.href);
+        const marks = isBreak ? "" : n.marks.filter((m) => !/^(tag|abbr)$/.test(m.type.name) && !(bare(m) && m.attrs.markup === "linkify"))
+          .map((m) => m.type.name + (m.type.name === "link" && !bare(m) ? JSON.stringify([m.attrs.href, m.attrs.title || null]) : "")).sort().join("+");
         const what = n.isText ? n.text : "\u0000" + n.type.name + JSON.stringify((KEEP[n.type.name] || []).map((a) => n.attrs[a] ?? null));
+        plain += what;
         const last = runs[runs.length - 1];
+        if (n.isText && !n.text.trim()) { if (last) last[1] += " "; return; } // a space belongs to whatever run it is in
         if (last && last[0] === marks) last[1] += what; else runs.push([marks, what]);
       });
-      // a break at the end says nothing; white space counts once
-      const flat = runs.map(([m, t]) => [m, t.replace(/\s+/g, " ")]).filter(([, t]) => t);
-      if (flat.length) {
-        const last = flat[flat.length - 1];
-        last[1] = last[1].replace(/(\u0000hard_break\[\]|\s)+$/, "");
-        if (!last[1]) flat.pop();
+      const BREAKS = /(\s*\u0000hard_break\[\])+\s*$/; // a break at the end says nothing
+      const flat = runs.map(([m, t]) => [m, t.replace(/\s+/g, " ").trim()]).filter(([, t]) => t);
+      while (flat.length && BREAKS.test(flat[flat.length - 1][1])) {
+        const t = flat[flat.length - 1][1].replace(BREAKS, "");
+        if (t) { flat[flat.length - 1][1] = t; break; }
+        flat.pop();
       }
-      return [node.type.name, (KEEP[node.type.name] || []).map((a) => node.attrs[a] ?? null), flat];
+      const text = plain.replace(/\s+/g, " ").trim().replace(/(\s*\u0000hard_break\[\])+$/, "");
+      for (const run of flat) run[1] = run[1].replace(/\s*(\u0000hard_break\[\])\s*/g, "$1"); // the space around a break shows nowhere
+      return [node.type.name, (KEEP[node.type.name] || []).map((a) => node.attrs[a] ?? null), flat, text.replace(/\s+/g, "")];
     }
     const kids = [];
-    node.forEach((n) => kids.push(shape(n)));
+    // (an empty paragraph next to other blocks is a place to type, nothing the file holds)
+    node.forEach((n) => { if (!(n.type.name === "paragraph" && !n.content.size && node.childCount > 1)) kids.push(shape(n)); });
     const attrs = (KEEP[node.type.name] || []).map((a) => {
       const v = node.attrs[a] ?? null;
-      return a === "raw" ? String(v).replace(/[ \t]+$/gm, "").trim() : v;
+      if (a === "raw") return String(v).replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n\n").trim();
+      if (a === "tight") return (v && !needsLoose(node)) || !canBeLoose(node); // a list with nothing to put a blank line between is tight
+      if (a === "task") return v != null && node.firstChild.type.name !== "paragraph" && node.attrs.box ? null : v;
+      return v;
     });
     return [node.type.name, attrs, kids];
+  }
+  function canBeLoose(list) {
+    if (list.childCount > 1) return true;
+    let many = false;
+    list.forEach((item) => { if (item.childCount > 1) many = true; });
+    return many;
   }
   const same = (a, b) => JSON.stringify(shape(a)) === JSON.stringify(shape(b));
 
@@ -437,32 +521,84 @@
 
   /* The Markdown for a top-level block that is not as it was loaded.
    * d: { store, loaded } of the document. */
-  function block(node, d) {
+  function block(node, d, marker = null) {
     const store = d.store;
     const profile = store.profile || (store.profile = profileOf(store.text));
     if (node.type.name === "island" || node.type.name === "hidden") return node.attrs.raw;
     const was = node.attrs.bid == null ? null : d.loaded.get(node.attrs.bid);
     const seg = was ? store.segs[node.attrs.bid] : null;
-    const canon = (n, level) => canonical(n, { profile, level });
-    let first = null;
+    // marker: the list marker to use instead of the list's own (see document.js)
+    const canon = (n, level) => canonical(n, { profile, level, swap: marker && n === node ? { node, marker } : null });
+    if (seg && was.type === node.type && /_list$/.test(node.type.name)) {
+      const text = listByItem(node, was, seg, profile, marker, store);
+      if (text != null) return text;
+    }
     if (seg && was.type.name !== "island" && was.type.name !== "hidden") {
       for (const level of [0, 1, 2]) {
         const base = canon(was, level), now = canon(node, level);
         for (const reach of [0, 3, 12, Infinity]) {
-          const merged = merge3(base, seg.raw, now, reach);
-          first ??= merged;
+          const merged = merge3(base, seg.raw, now, reach).replace(/^[ \t]*\n+|\n+$/g, "");
           if (says(merged, node, store)) return merged;
         }
       }
     }
     for (const level of [0, 1, 2]) {
       const text = canon(node, level);
-      first ??= text;
       if (says(text, node, store)) return text;
     }
-    // nothing reads back as the same block: write what is closest to the source
-    A.markdown.onMismatch?.(node, first);
-    return first;
+    // Nothing reads back as the same block (Markdown cannot say it, see expressible()): the plain
+    // form is at least one block of the right kind, which a merge with the old text need not be.
+    const text = canon(node, 0);
+    A.markdown.onMismatch?.(node, text);
+    return text;
+  }
+  /* A list is written item by item: an item that is as it was loaded keeps
+   * its lines, one that changed is merged with its own lines, a new one is
+   * written plainly. So one edit in a long list does not put the others at
+   * the mercy of the merge. -> the text, or null if that does not work out. */
+  function listByItem(node, was, seg, profile, marker, store) {
+    const rawLines = seg.raw.split("\n");
+    // the source lines of each loaded item (with the blank lines after it), by the line it starts on
+    const starts = [];
+    was.forEach((item) => starts.push(item.attrs.line == null ? null : item.attrs.line - seg.line));
+    if (starts.some((l, i) => l == null || l < 0 || (i ? l <= starts[i - 1] : l !== 0))) return null;
+    const rawOf = (i) => rawLines.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : rawLines.length);
+    for (const level of [0, 1, 2]) {
+      const cx = { profile, level, swap: marker ? { node, marker } : null };
+      const now = listItems(node, cx), before = listItems(was, { profile, level, swap: null });
+      // the loaded item each item is: unchanged, or the next one that started on the same line
+      const from = [];
+      let used = -1;
+      node.forEach((item) => {
+        let j = -1;
+        for (let k = used + 1; k < was.childCount && j < 0; k++) if (was.child(k) === item || was.child(k).eq(item)) j = k;
+        if (j < 0 && item.attrs.line != null) {
+          for (let k = used + 1; k < was.childCount && j < 0; k++) if (was.child(k).attrs.line === item.attrs.line) j = k;
+        }
+        if (j >= 0) used = j;
+        from.push(j);
+      });
+      const out = [];
+      node.forEach((item, _o, i) => {
+        const last = i === node.childCount - 1, j = from[i];
+        let blanks = 0;
+        if (j < 0) out.push(...now.items[i]); // new: written plainly
+        else {
+          const raw = rawOf(j);
+          while (blanks < raw.length - 1 && !raw[raw.length - 1 - blanks].trim()) blanks++;
+          const body = raw.slice(0, raw.length - blanks).join("\n");
+          const same = was.child(j) === item || was.child(j).eq(item);
+          out.push(...(same && !marker ? body : merge3(before.items[j].join("\n"), body, now.items[i].join("\n"), 0)).split("\n"));
+        }
+        if (last) return;
+        // two items that followed each other keep what stood between them; elsewhere the list's spacing
+        const kept = j >= 0 && from[i + 1] === j + 1;
+        for (let k = 0; k < (kept ? blanks : Math.max(blanks, now.tight ? 0 : 1)); k++) out.push("");
+      });
+      const text = out.join("\n").replace(/\n+$/, "");
+      if (says(text, node, store)) return text;
+    }
+    return null;
   }
   /* Can Markdown say this block at all? (Emphasis that starts with a bracket
    * right after a letter, "x*(y)*", cannot be written.) */
@@ -471,5 +607,5 @@
     return [0, 1, 2].some((level) => says(canonical(node, { profile, level }), node, d.store));
   }
 
-  A.markdown = { block, canonical, merge3, same, shape, parseBlock, profileOf, escapeText, expressible };
+  A.markdown = { plainOk, block, canonical, markerOf: (list, d) => markerOf(list, { profile: d.store.profile || (d.store.profile = profileOf(d.store.text)) }), merge3, same, shape, parseBlock, profileOf, escapeText, expressible };
 })();

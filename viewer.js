@@ -1235,7 +1235,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/edit.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/link.js", "active/edit.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -1861,6 +1861,11 @@
     if (!typing && !mod && !e.altKey && e.key === "/") { e.preventDefault(); openFind(); }
   });
 
+  // open a link as a click on it would: another note here, anything else outside
+  function follow(href) {
+    if (href.startsWith("#")) { scrollToFragment(href.slice(1), true); return; }
+    post("link", { href: new URL(href, document.baseURI).href });
+  }
   // Ctrl held: links in the active mode show that a click follows them
   for (const type of ["keydown", "keyup", "blur"]) {
     addEventListener(type, (e) => document.body.classList.toggle("mod-down", type !== "blur" && (e.ctrlKey || e.metaKey)));
@@ -1868,5 +1873,5 @@
 
   window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, get current() { return current; } } };
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, get current() { return current; } } };
 })();

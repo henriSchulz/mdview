@@ -18,7 +18,10 @@
   }
   const isList = (n) => n.type === N.bullet_list || n.type === N.ordered_list;
   const itemAt = ($pos) => ancestor($pos, (n) => n.type === N.list_item);
-  const renderInline = (src) => md.renderInline(src, { links: (A.view.store && A.view.store.env.links) || {}, depth: 0 });
+  // the document a state belongs to ({ store, loaded }), for what depends on the file: its links, its style
+  const context = new PluginKey("context");
+  const storeOf = (state) => (context.getState(state) || {}).store || null;
+  const renderInline = (state, src) => md.renderInline(src, { links: (storeOf(state) && storeOf(state).env.links) || {}, depth: 0 });
 
   // ------------------------------------------------------------ commands
   const setParagraph = C.setBlockType(N.paragraph);
@@ -45,17 +48,24 @@
       const { $from } = state.selection;
       const list = ancestor($from, isList);
       if (list && list.node.type === type) return L.liftListItem(N.list_item)(state, dispatch);
-      if (list) { // the other kind of list: change it in place
-        if (dispatch) dispatch(state.tr.setNodeMarkup(list.pos, type, { ...attrs, tight: list.node.attrs.tight, tasks: list.node.attrs.tasks }));
+      if (list) { // the other kind of list: change it in place (its markers are the other kind's now)
+        if (dispatch) {
+          const tr = state.tr.setNodeMarkup(list.pos, type, { ...attrs, tight: list.node.attrs.tight, tasks: list.node.attrs.tasks });
+          list.node.forEach((item, offset) => tr.setNodeMarkup(list.pos + 1 + offset, null, { ...item.attrs, markup: null, num: null }));
+          dispatch(tr);
+        }
         return true;
       }
       return L.wrapInList(type, attrs)(state, dispatch);
     };
   }
+  // two lists of one kind next to each other are one list in Markdown
+  const sameList = (a, b) => isList(a) && a.type === b.type && (a.attrs.markup == null || b.attrs.markup == null || a.attrs.markup === b.attrs.markup);
   // every list item the selection touches: task ↔ plain
   function toggleTaskList(state, dispatch) {
     const { $from, $to } = state.selection;
     if (!itemAt($from)) {
+      if ($from.parent.type !== N.paragraph) return false;
       return L.wrapInList(N.bullet_list)(state, dispatch && ((tr) => {
         const item = itemAt(tr.selection.$from);
         if (item) tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: " " });
@@ -66,25 +76,27 @@
     state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => { if (node.type === N.list_item) items.push([node, pos]); });
     // only the innermost items the selection is in
     const inner = items.filter(([n, p]) => !items.some(([n2, p2]) => p2 > p && p2 < p + n.nodeSize));
-    const on = inner.some(([n]) => n.attrs.task == null);
+    const able = inner.filter(([n]) => n.firstChild.type === N.paragraph); // "[ ]" is the start of a paragraph
+    if (!able.length) return false;
+    const on = able.some(([n]) => n.attrs.task == null);
     if (dispatch) {
       const tr = state.tr;
-      for (const [n, p] of inner) tr.setNodeMarkup(p, null, { ...n.attrs, task: on ? (n.attrs.task ?? " ") : null, box: true });
+      for (const [n, p] of able) tr.setNodeMarkup(p, null, { ...n.attrs, task: on ? (n.attrs.task ?? " ") : null, box: true });
       dispatch(tr);
     }
     return true;
   }
-  const doneChar = () => {
-    const store = A.view.store;
+  const doneChar = (state) => {
+    const store = storeOf(state);
     if (!store) return "x";
     if (store.done == null) store.done = (store.text.match(/\[X\]/g) || []).length > (store.text.match(/\[x\]/g) || []).length ? "X" : "x";
     return store.done;
   };
-  const toggledTask = (ch) => (ch === " " ? doneChar() : " ");
+  const toggledTask = (state, ch) => (ch === " " ? doneChar(state) : " ");
   function toggleTask(state, dispatch) {
     const item = itemAt(state.selection.$from);
     if (!item || item.node.attrs.task == null) return false;
-    if (dispatch) dispatch(state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: toggledTask(item.node.attrs.task) }));
+    if (dispatch) dispatch(state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: toggledTask(state, item.node.attrs.task) }));
     return true;
   }
 
@@ -96,14 +108,29 @@
     if (!item || !$from.parent.isTextblock) return false;
     if (empty && $from.parent.content.size === 0 && item.node.childCount === 1) return L.liftListItem(N.list_item)(state, dispatch);
     const attrs = { markup: item.node.attrs.markup, task: item.node.attrs.task == null ? null : " " };
-    return L.splitListItem(N.list_item, attrs)(state, dispatch);
+    return trimSplit(L.splitListItem(N.list_item, attrs))(state, dispatch);
   }
   /* Enter in a heading: at its end a paragraph follows; in the middle the
    * second part becomes a paragraph. Elsewhere the block is split as it is. */
-  const splitBlock = C.splitBlockAs((node, atEnd) => {
+  const splitBlockAs = C.splitBlockAs((node, atEnd) => {
     if (node.type === N.heading) return { type: N.paragraph, attrs: atEnd ? null : { bid: node.attrs.bid } };
     return atEnd ? { type: N.paragraph } : null;
   });
+  // … and the space the line was broken at goes: neither block starts or ends with one
+  const trimSplit = (command) => (state, dispatch) => command(state, dispatch && ((tr) => {
+    const $pos = tr.selection.$from;
+    if ($pos.parent.isTextblock && $pos.parentOffset === 0) {
+      const lead = /^[ \t]+/.exec($pos.parent.textBetween(0, Math.min($pos.parent.content.size, 20), null, "\ufffc"));
+      if (lead) tr.delete($pos.pos, $pos.pos + lead[0].length);
+      const prev = tr.doc.resolve($pos.before()).nodeBefore;
+      if (prev && prev.isTextblock && prev.lastChild && prev.lastChild.isText) {
+        const tail = /[ \t]+$/.exec(prev.lastChild.text);
+        if (tail) { const end = $pos.before() - 1; tr.delete(end - tail[0].length, end); }
+      }
+    }
+    dispatch(tr);
+  }));
+  const splitBlock = trimSplit(splitBlockAs);
   // "---" (or *** or ___) and Enter: a rule
   function ruleOnEnter(state, dispatch) {
     const { $from, empty } = state.selection;
@@ -120,7 +147,13 @@
   function hardBreak(state, dispatch) {
     const { $from } = state.selection;
     if (!$from.parent.isTextblock || $from.parent.type === N.heading) return true; // a heading is one line
-    if (dispatch) dispatch(state.tr.replaceSelectionWith(N.hard_break.create()).scrollIntoView());
+    if (dispatch) {
+      const tr = state.tr.replaceSelectionWith(N.hard_break.create());
+      const $at = tr.selection.$from, next = $at.nodeAfter;
+      const lead = next && next.isText ? /^[ \t]+/.exec(next.text) : null; // the new line does not start with the old space
+      if (lead) tr.delete($at.pos, $at.pos + lead[0].length);
+      dispatch(tr.scrollIntoView());
+    }
     return true;
   }
 
@@ -200,6 +233,7 @@
     "Mod-i": C.toggleMark(M.em),
     "Shift-Mod-x": C.toggleMark(M.s),
     "Mod-`": C.toggleMark(M.code),
+    "Mod-k": (state, dispatch, view) => A.link.edit(view),
     "Shift-Mod-0": keepBid(setParagraph),
     "Shift-Mod-7": toggleList(N.ordered_list),
     "Shift-Mod-8": toggleList(N.bullet_list),
@@ -239,7 +273,7 @@
   function atomRule(re, kind) {
     return new IR.InputRule(re, (state, match, start, end) => {
       const raw = match[1], from = start + match[0].indexOf(raw);
-      const html = renderInline(raw);
+      const html = renderInline(state, raw);
       if (!/</.test(html)) return null; // the renderer does not see it as that
       return state.tr.replaceWith(from, end, N.iatom.create({ kind, raw, html }));
     });
@@ -293,7 +327,7 @@
     atomRule(/(\[\[[^\[\]\n]+\]\])$/, "wikilink"),
     // :smile: — whatever the reading view would show as an emoji
     new IR.InputRule(/(:[a-z0-9_+-]+:)$/, (state, match, start, end) => {
-      const shown = renderInline(match[1]);
+      const shown = renderInline(state, match[1]);
       if (shown === match[1] || /[<&]/.test(shown)) return null;
       return state.tr.insertText(shown, start + match[0].indexOf(match[1]), end);
     }),
@@ -407,14 +441,29 @@
       const touched = (node, pos) => {
         if (isList(node)) {
           let tasks = false;
-          node.forEach((item) => { if (item.attrs.task != null) tasks = true; });
+          node.forEach((item, offset) => {
+            if (item.attrs.task == null) return;
+            // "[ ]" needs a paragraph to start; without one the item is no task
+            if (item.firstChild.type === N.paragraph || !item.attrs.box) tasks = true;
+            else tr.setNodeMarkup(pos + 1 + offset, null, { ...item.attrs, task: null });
+          });
           if (tasks !== node.attrs.tasks) tr.setNodeMarkup(pos, null, { ...node.attrs, tasks });
         }
         if (node.isTextblock) {
+          // code is text: a picture, a formula or a line break inside it cannot be code
+          node.forEach((child, offset) => {
+            if (!child.isText && M.code.isInSet(child.marks)) tr.removeMark(pos + 1 + offset, pos + 1 + offset + child.nodeSize, M.code);
+          });
           let from = -1, text = "", mark = null;
           const flush = (end) => {
-            if (mark && text !== mark.attrs.href && /^\S+$/.test(text)) {
-              tr.removeMark(from, end, mark).addMark(from, end, M.link.create({ ...mark.attrs, href: text, cls: isExternal(text) ? "external" : null }));
+            if (mark) {
+              // <a@b.c> links to mailto:a@b.c, any other address to itself
+              const href = /^[^\s@:]+@[^\s@]+$/.test(text) ? "mailto:" + text : text;
+              // a bare address that is none any more is plain text again, as the reading view would show it
+              if (mark.attrs.markup === "linkify" && !A.markdown.plainOk("linkify", text, href)) tr.removeMark(from, end, mark);
+              else if (href !== mark.attrs.href && /^\S+$/.test(text)) {
+                tr.removeMark(from, end, mark).addMark(from, end, M.link.create({ ...mark.attrs, href, cls: isExternal(href) ? "external" : null }));
+              }
             }
             mark = null; text = "";
           };
@@ -434,6 +483,26 @@
         const a = Math.max(0, tr.mapping.map(from, -1) - 1), b = Math.min(size, tr.mapping.map(to, 1) + 1);
         tr.doc.nodesBetween(a, b, touched);
       }
+      // neighbouring lists of one kind become one (innermost first, from the end, so positions hold)
+      const joins = [];
+      for (const [from, to] of changed(trs)) {
+        const a = Math.max(0, Math.min(size, tr.mapping.map(from, -1)) - 1), b = Math.min(size, tr.mapping.map(to, 1) + 1);
+        tr.doc.nodesBetween(a, b, (node, pos, parent, index) => {
+          const next = parent && index + 1 < parent.childCount ? parent.child(index + 1) : null;
+          if (next && sameList(node, next)) joins.push(pos + node.nodeSize);
+          const prev = parent && index > 0 ? parent.child(index - 1) : null;
+          if (prev && sameList(prev, node)) joins.push(pos);
+          return !node.isTextblock;
+        });
+      }
+      for (const pos of [...new Set(joins)].sort((x, y) => y - x)) {
+        const $pos = tr.doc.resolve(pos);
+        if ($pos.nodeBefore && $pos.nodeAfter && sameList($pos.nodeBefore, $pos.nodeAfter)) {
+          const a = $pos.nodeBefore, tight = a.attrs.tight && $pos.nodeAfter.attrs.tight;
+          if (a.attrs.tight !== tight) tr.setNodeMarkup(pos - a.nodeSize, null, { ...a.attrs, tight });
+          tr.join(pos);
+        }
+      }
       return tr.docChanged ? tr : null;
     },
   });
@@ -451,7 +520,7 @@
             const pos = view.posAtDOM(li, 0);
             const item = itemAt(view.state.doc.resolve(pos + 1)) || itemAt(view.state.doc.resolve(pos));
             if (item && item.node.attrs.task != null) {
-              view.dispatch(view.state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: toggledTask(item.node.attrs.task) }));
+              view.dispatch(view.state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: toggledTask(view.state, item.node.attrs.task) }));
             }
             return true;
           }
@@ -462,14 +531,17 @@
   });
 
   A.edit = {
-    plugins: () => [
+    // d: the document ({ store, loaded }) the state is made for
+    plugins: (d) => [
+      new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
       IR.inputRules({ rules }),
       keymap(keys),
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, clicks,
+      ids, typing, order, clicks, A.link.plugin,
     ],
+    keys,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
     itemAt, ancestor,
   };

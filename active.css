@@ -64,6 +64,39 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 }
 .ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 
+/* link popover: under the link the caret is in; the form to make or change one */
+#linkpop {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 5px 5px 10px;
+  font: 400 13px/1.45 "Inter", sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  background: color-mix(in srgb, var(--fg) 4%, var(--bg)); /* it lies over text: not see-through */
+}
+#linkpop[data-kind="form"] { display: grid; gap: 6px; padding: 10px; width: min(340px, calc(100vw - 24px)); box-sizing: border-box; }
+.lp-url { color: var(--fg2); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 4px; }
+.lp-row { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 8px; color: var(--fg2); font-size: 12px; }
+.lp-field {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control-height, 28px);
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  outline: none;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--fg);
+  font: 400 13px "Inter", sans-serif;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.lp-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
+.lp-field::placeholder { color: var(--fg3); }
+
 /* first block: no top margin, as #content > :first-child. Hidden segments and
  * islands without anything in them (an HTML comment) are not blocks there. */
 .pm > :nth-child(1 of :not(.hid, .none)) { margin-top: 0; }
@@ -75,4 +108,4 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #active { display: none !important; } }
+@media print { #active, #linkpop { display: none !important; } }
