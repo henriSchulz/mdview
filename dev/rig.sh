@@ -8,6 +8,7 @@
 #   dev/rig.sh compare FILE…         reading view vs. active mode: layout report + screenshots per file
 #   dev/rig.sh modes FILE            switching between the modes, find, outline, a task (on a copy of FILE)
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
+#   dev/rig.sh islands               dialogs for code, formulas, properties, raw Markdown; popovers (on a copy)
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
@@ -79,6 +80,18 @@ case "${1:-}" in
     # the file on disk is what the editor said it saved
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.edit.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || { echo "FAIL the file on disk differs from the saved document"; exit 1; }
     jq -e .pass "$R/out/$name.edit.json" >/dev/null ;;
+  islands)
+    name=islands.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{code,math,atom,islands}.json
+    app 60 MDVIEW_PROBE="$D/probe-islands.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in code math atom; do
+      for _ in $(seq 200); do [[ -f $R/out/$name.$v.json ]] && break; sleep 0.1; done; sleep 0.8; shot "$R/out/island-$v.png"
+    done
+    for _ in $(seq 400); do [[ -f $R/out/$name.islands.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ -f $R/out/$name.islands.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.islands.json"
+    cmp -s <(jq -j '.saved // ""' "$R/out/$name.islands.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.islands.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.islands.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   link)
     name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{info,form,link}.json
     app 40 MDVIEW_PROBE="$D/probe-link.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

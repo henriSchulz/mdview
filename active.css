@@ -97,6 +97,185 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .lp-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
 .lp-field::placeholder { color: var(--fg3); }
 
+/* islands: a hint on hover that a click edits them, a shimmer when they were just changed */
+.pm[contenteditable="true"] .isl:not(.none) {
+  position: relative;
+  border-radius: var(--radius-control);
+  cursor: default;
+  transition: background-color var(--dur-slower) var(--ease-out);
+}
+.pm[contenteditable="true"] .isl:not(.none):hover { background-color: color-mix(in srgb, var(--fg) 4%, transparent); transition-duration: var(--dur-instant); }
+.pm .isl.fresh, .pm .fresh { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: 0s; }
+.pm[contenteditable="true"] .isl:not(.none, [data-kind="code"])::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  background: var(--fg2);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit);
+}
+.pm[contenteditable="true"] .isl:hover::after { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+
+/* the dialog an island is edited in: grows out of it, goes back into it */
+#dlg-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 0.18);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
+#dlg-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+#dlg {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(720px, 90vw);
+  height: fit-content;
+  min-height: 200px;
+  max-height: 80vh;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.25), 0 0 0 0.5px var(--line-strong);
+  font: 400 13px/1.45 "Inter", sans-serif;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity calc(var(--dur-slow) * 0.7) var(--ease-exit),
+    transform calc(var(--dur-slow) * 0.7) var(--ease-exit),
+    visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+#dlg[data-open] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #dlg { background: var(--bg); } }
+.dlg-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; }
+#dlg-title { flex: 1; font-weight: 600; }
+.dlg-tools { display: flex; gap: 6px; }
+.dlg-lang { width: 150px; }
+.dlg-rest { width: 180px; }
+.dlg-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 0 14px; overflow: auto; }
+.dlg-foot { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
+.dlg-info { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
+#dlg .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
+#dlg .btn.primary { background: var(--accent); color: #fff; box-shadow: none; }
+#dlg .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+#dlg .dlg-info .btn, #dlg .dlg-symbols .btn, #dlg .dlg-hint .btn { height: 24px; padding: 0 9px; font-size: 12px; }
+.dlg-preview {
+  flex: none;
+  max-height: 32vh;
+  overflow: auto;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+  transition: opacity var(--dur-fast) var(--ease-out);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.dlg-preview.math { min-height: 3.2em; text-align: center; font-size: 16px; }
+.dlg-preview.doc { font: 400 15px/1.6 "Inter", system-ui, sans-serif; }
+.dlg-preview.doc > :first-child { margin-top: 0; }
+.dlg-preview.doc > :last-child { margin-bottom: 0; }
+.dlg-preview svg { max-width: 100%; height: auto; }
+.dlg-preview.stale { opacity: 0.45; }
+.dlg-preview.stale[data-error]::after { content: attr(data-error); display: block; margin-top: 6px; color: var(--c-red); font-size: 12px; opacity: 1; }
+.dlg-error { min-height: 1.3em; color: var(--c-red); font-size: 12px; user-select: text; -webkit-user-select: text; }
+.dlg-hint { color: var(--fg2); font-size: 12px; }
+.dlg-hint:empty { display: none; }
+.dlg-symbols { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* the code editor in it: a textarea under a highlighted copy of its text */
+.ce {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 96px;
+  max-height: 46vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-control);
+  background: var(--code-bg);
+  font: 400 13.5px/1.6 var(--mono);
+  font-variant-ligatures: none;
+  tab-size: 4;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.ce-gutter { flex: none; padding: 14px 6px 14px 12px; min-width: 1.5em; text-align: right; color: var(--fg3); user-select: none; -webkit-user-select: none; }
+.ce-gutter .on { color: var(--fg2); }
+.ce-main { position: relative; flex: 1 0 auto; min-width: 0; }
+.ce-back, .ce-marks, .ce-in {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 16px 14px 8px;
+  border: 0;
+  font: inherit;
+  font-variant-ligatures: inherit;
+  tab-size: inherit;
+  white-space: pre;
+  letter-spacing: inherit;
+}
+.ce-back { position: relative; min-width: 100%; pointer-events: none; }
+.ce-back code { font: inherit; padding: 0; background: none; }
+.ce-marks { position: absolute; inset: 0; color: transparent; pointer-events: none; }
+.ce-err { text-decoration: underline wavy var(--c-red); text-decoration-skip-ink: none; }
+.ce-in {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--accent);
+}
+.ce-line { position: absolute; left: 0; right: 0; top: 14px; height: 1.6em; background: color-mix(in srgb, var(--fg) 4%, transparent); pointer-events: none; }
+
+/* the popover for a formula, a wikilink or a picture in a line (fields as in the link form) */
+#atompop {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 24px));
+  padding: 10px;
+  background: color-mix(in srgb, var(--fg) 4%, var(--bg));
+  font: 400 13px/1.45 "Inter", sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ap-preview { min-height: 1.8em; padding: 4px; text-align: center; font-size: 16px; transition: opacity var(--dur-fast) var(--ease-out); }
+.ap-preview.stale { opacity: 0.45; }
+.ap-error { color: var(--c-red); font-size: 12px; }
+.ap-error:empty { display: none; }
+.lp-field.mono { font-family: var(--mono); }
+
 /* first block: no top margin, as #content > :first-child. Hidden segments and
  * islands without anything in them (an HTML comment) are not blocks there. */
 .pm > :nth-child(1 of :not(.hid, .none)) { margin-top: 0; }
@@ -108,4 +287,4 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #active, #linkpop { display: none !important; } }
+@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim { display: none !important; } }

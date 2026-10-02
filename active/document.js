@@ -60,8 +60,14 @@
       n.marker = (n.node.type.name === "ordered_list" ? [".", ")"] : ["-", "*", "+"]).find((m) => !taken.includes(m));
     });
     const parts = nodes.map((n, i) => {
-      if (n.clean) return { id: n.node.attrs.bid };
       const prev = nodes[i - 1];
+      // Code by indentation right after a list would read as part of the last item: once one
+      // of the two has changed, it is written with a fence.
+      if (prev && /_list$/.test(prev.node.type.name) && !(prev.clean && n.clean) && kind(n.node) === "island:code" && !/^ {0,3}(```|~~~)/.test(n.node.attrs.raw)) {
+        const c = A.islands.parseCode(n.node.attrs.raw);
+        return { id: n.node.attrs.bid, text: A.islands.buildCode({ ...c, indented: false }) };
+      }
+      if (n.clean) return { id: n.node.attrs.bid };
       return { id: n.node.attrs.bid, text: A.markdown.block(n.node, d, n.marker) };
     });
     // A separator without a blank line (a heading right under a paragraph) is only kept where it

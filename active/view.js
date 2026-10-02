@@ -102,6 +102,11 @@
     dom.dataset.kind = node.attrs.kind;
     dom.innerHTML = node.attrs.html;
     if (!dom.firstElementChild && !dom.textContent.trim()) dom.classList.add("none"); // an HTML comment, an empty properties block
+    else if (tag === "div" && !node.attrs.virtual) { // what it is, and that Enter edits it
+      const T = window.MdStrings.t, kind = { code: "dialog.code", math: "dialog.math", frontmatter: "dialog.frontmatter", html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" }[node.attrs.kind] || "dialog.markdown";
+      dom.setAttribute("role", "button");
+      dom.setAttribute("aria-label", T("island.hint", T(kind), node.attrs.raw.split("\n").length));
+    }
     // what is to be clicked inside stays the page's business (copy button, fold marker, player)
     return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button, summary, input, audio, video, a") };
   };

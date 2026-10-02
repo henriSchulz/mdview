@@ -22,6 +22,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/roundtrip.test.mjs` | load → active mode → serialize gives the file back byte for byte: fixtures, spec examples, real documents, each with LF, CRLF, CR, mixed endings, a BOM, with and without a final newline, in and outside a vault |
 | `tests/edit.test.mjs` | tests B and C: a word typed at a random place changes the file only there, and the file then says what the editor shows |
 | `tests/commands.test.mjs` | keys and commands with the Markdown expected afterwards; escaping; random sequences of edits (`MDVIEW_FUZZ=200` for more rounds) |
+| `tests/islands.test.mjs` | code blocks, formulas and frontmatter taken apart for their dialogs and put together again |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
@@ -42,6 +43,7 @@ what it reports to `MDVIEW_PROBE_OUT`.
 ./rig.sh edit                                           # typing: rules, keys, lists, undo, saving
 ./rig.sh native                                         # the browser's own typing path: spaces, deleting, hard break
 ./rig.sh link                                           # the link popover
+./rig.sh islands                                        # dialogs and popovers for code, formulas, properties, raw Markdown
 ./rig.sh typing corpus/docs/pandoc-manual.md            # time per keystroke and per save
 ./rig.sh regress tests/fixtures/basics.md               # reading view and source editor unchanged since main?
 ./rig.sh stop

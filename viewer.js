@@ -9,8 +9,9 @@
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
   const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "trash"]);
+  let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
-    if (LEAVING.has(type)) flushSave();
+    if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
     window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   };
   const T = window.MdStrings.t;
@@ -644,6 +645,24 @@
     if (anchor) restoreAnchor(anchor, root);
   }
 
+  // one diagram as SVG (dialogs preview with it); rejects with the parser's message
+  async function mermaidSvg(src) {
+    await loadMermaid();
+    configureMermaid();
+    let out = mermaidCache.get(src);
+    if (!out) {
+      const id = "mmd" + ++mermaidSeq;
+      try {
+        out = (await mermaid.render(id, src)).svg;
+        mermaidCache.set(src, out);
+      } catch (e) {
+        document.getElementById("d" + id)?.remove();
+        document.getElementById(id)?.remove();
+        throw e;
+      }
+    }
+    return out;
+  }
   function setTheme(css, mode) {
     document.getElementById("theme").textContent = css;
     document.body.dataset.mode = mode;
@@ -1101,6 +1120,7 @@
   function flushSave() {
     clearTimeout(saveTimer);
     saveTimer = 0;
+    if (mode === "active" && leaving) window.MdActive?.dialog?.finish(); // a dialog still open: its content counts
     if (window.MdActive?.view?.dirty) { // edits made in the active mode: the file as it is to be, byte for byte
       const p = MdActive.view.payload;
       p.raw = MdActive.view.take();
@@ -1151,7 +1171,7 @@
         return;
       }
     }
-    if (mode === "active") flushSave(); // current.text is what the active mode holds
+    if (mode === "active") { leaving = true; flushSave(); leaving = false; } // current.text is what the active mode holds
     if (next === "edit") {
       if (current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
       if (edPath !== current.path || (!dirty() && edInput.value !== current.text)) {
@@ -1236,7 +1256,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/link.js", "active/edit.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/edit.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -1874,5 +1894,8 @@
 
   window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, get current() { return current; } } };
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
+      copy: (text) => post("copy", { text }),
+      hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
+      get current() { return current; } } };
 })();

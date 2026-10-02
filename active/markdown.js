@@ -299,7 +299,7 @@
       const body = [];
       let prev = null;
       item.forEach((child) => {
-        if (child.type.name === "paragraph" && !child.content.size && item.childCount > 1 && prev) return;
+        if (child.type.name === "paragraph" && !child.content.size && item.childCount > 1) return; // (an item cannot start with an empty line and go on)
         let ls = lines(child, apart(child, prev, cx));
         if (prev && !(tight && !(prev.type.name === "paragraph" && child.type.name === "paragraph"))) body.push("");
         // a list under a bullet may be indented further than the text needs (four spaces, a tab)
@@ -490,6 +490,10 @@
     node.forEach((n) => { if (!(n.type.name === "paragraph" && !n.content.size && node.childCount > 1)) kids.push(shape(n)); });
     const attrs = (KEEP[node.type.name] || []).map((a) => {
       const v = node.attrs[a] ?? null;
+      if (a === "raw" && node.attrs.kind === "code" && A.islands) { // code is its language and its text, however it is fenced
+        const c = A.islands.parseCode(String(v));
+        return JSON.stringify([c.lang, c.code.replace(/\s+$/, "")]);
+      }
       if (a === "raw") return String(v).replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n\n").trim();
       if (a === "tight") return (v && !needsLoose(node)) || !canBeLoose(node); // a list with nothing to put a blank line between is tight
       if (a === "task") return v != null && node.firstChild.type.name !== "paragraph" && node.attrs.box ? null : v;

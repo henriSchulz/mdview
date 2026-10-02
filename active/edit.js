@@ -222,6 +222,12 @@
     if (dispatch) dispatch(state.tr.setSelection(Selection.near(sel.$head, 1)));
     return true;
   }
+  // Enter or Space on a selected island, formula or picture: its dialog
+  function openSelected(state, dispatch, view) {
+    const sel = state.selection;
+    if (!(sel instanceof NodeSelection) || !view || ![N.island, N.iatom, N.image].includes(sel.node.type)) return false;
+    return A.islands.open(view, sel.from);
+  }
   const inList = (command) => (state, dispatch) => (itemAt(state.selection.$from) ? command(state, dispatch) : false);
   const swallow = () => true;
 
@@ -244,7 +250,9 @@
     "Shift-Tab": C.chainCommands(inList(L.liftListItem(N.list_item)), swallow),
     "Mod-Enter": toggleTask,
     "Shift-Enter": hardBreak,
-    Enter: C.chainCommands(ruleOnEnter, enterInList, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
+    // (A.islands is loaded by the time a key is pressed)
+    Enter: C.chainCommands(openSelected, (s, d, v) => A.islands.onEnter(s, d, v), ruleOnEnter, enterInList, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
+    Space: openSelected,
     Backspace: C.chainCommands(IR.undoInputRule, C.deleteSelection, backspaceAtStart, C.joinBackward, C.selectNodeBackward),
     Delete: C.chainCommands(C.deleteSelection, C.joinForward, C.selectNodeForward),
     "Mod-a": selectMore,
@@ -512,6 +520,16 @@
   const clicks = new Plugin({
     key: new PluginKey("clicks"),
     props: {
+      // a click on an island opens its dialog; on a formula its popover; a picture wants a double click
+      handleClickOn(view, pos, node, nodePos, event, direct) {
+        if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
+        if (node.type === N.island || (node.type === N.iatom && node.attrs.kind === "math")) return A.islands.open(view, nodePos);
+        return false;
+      },
+      handleDoubleClickOn(view, pos, node, nodePos, event, direct) {
+        if (!direct || !view.editable || ![N.image, N.iatom].includes(node.type)) return false;
+        return A.islands.open(view, nodePos);
+      },
       handleDOMEvents: {
         mousedown(view, event) {
           if (event.target.matches?.("input.task") && view.editable && event.target.closest(".pm") === view.dom && !event.target.closest(".isl")) {
@@ -541,7 +559,7 @@
       PM.gapcursor.gapCursor(),
       ids, typing, order, clicks, A.link.plugin,
     ],
-    keys,
+    keys, storeOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
     itemAt, ancestor,
   };

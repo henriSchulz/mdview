@@ -11,7 +11,7 @@ const SCRIPTS = [
   "vendor/highlight.min.js", "vendor/katex/katex.min.js", "strings.js", "viewer.js",
 ];
 
-export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/link.js", "active/edit.js", "active/view.js"];
+export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/edit.js", "active/view.js"];
 
 export async function loadPage(extra = []) {
   const base = pathToFileURL(ROOT + "/").href;
