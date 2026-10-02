@@ -1,7 +1,8 @@
 #!/bin/bash
 # mdview launcher. Fast path: hand the files or folders to the running instance over
-# D-Bus (~10 ms) instead of starting Python; otherwise start the app.
-app="$HOME/.local/share/mdview/mdview.py"
+# D-Bus (~10 ms) instead of starting Python; otherwise start the app, which
+# runs straight out of this checkout (~/.local/bin/mdview is a link to here).
+app="$(dirname "$(readlink -f "$0")")/../mdview.py"
 
 uri() {
   local p out="" c i LC_ALL=C

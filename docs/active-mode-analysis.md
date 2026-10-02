@@ -181,10 +181,9 @@ consistent with itself.
   edit → read switch does today.
 - **Size**: ProseMirror ≈ 250 KB and CodeMirror with languages ≈ 600 KB–1 MB
   minified, both lazy.
-- **Where this lives**: tests, a fixture corpus and build tooling are a lot
-  for a stow package inside the dotfiles. Moving mdview to its own repository
-  would be cleaner; until Henri decides, everything stays under
-  `.local/share/mdview/` (`docs/`, `tests/`, `tools/`; `node_modules` ignored).
+- **Where this lives**: when this was written mdview was a stow package in
+  the dotfiles; with tests, a fixture corpus and build tooling coming it moved
+  into its own repository (this one).
 
 ## 6. Inline or island (spec §21.1)
 

@@ -1,0 +1,38 @@
+#!/bin/bash
+# Install mdview from this checkout and make it the app for Markdown files.
+#
+#   mdview-install
+#
+# The app runs straight out of the checkout (bin/mdview finds mdview.py next
+# to itself), so nothing is copied but what the desktop needs to find it:
+#
+#   ~/.local/bin/mdview    `mdview FILE…`, `mdview FOLDER`, `mdview`
+#   desktop entry + icon   Spotlight, the dock, "Open With"
+#   default application    text/markdown opens here (xdg-open, file managers)
+set -euo pipefail
+src="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+apps="$HOME/.local/share/applications"
+icons="$HOME/.local/share/icons/hicolor/scalable/apps"
+install -dm755 "$apps" "$icons" "$HOME/.local/bin"
+
+# Whatever an older install left there (the dotfiles used to stow these as
+# links): remove the link itself, never what it points to.
+for old in "$HOME/.local/bin/mdview" "$apps/mdview.desktop" "$icons/mdview.svg" "$HOME/.local/share/mdview"; do
+  [[ -L $old ]] && rm -- "$old"
+done
+
+ln -sfn "$src/bin/mdview" "$HOME/.local/bin/mdview"
+install -m644 "$src/packaging/mdview.desktop" "$apps/mdview.desktop"
+install -m644 "$src/packaging/mdview.svg" "$icons/mdview.svg"
+
+command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -qt "$HOME/.local/share/icons/hicolor" || true
+
+if command -v xdg-mime >/dev/null; then
+  types="$(sed -n 's/^MimeType=//p' "$src/packaging/mdview.desktop" | tr ';' ' ')"
+  # shellcheck disable=SC2086
+  xdg-mime default mdview.desktop $types
+fi
+
+echo "installed: mdview -> $src/bin/mdview — Markdown files open in mdview"
