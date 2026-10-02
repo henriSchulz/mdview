@@ -46,7 +46,10 @@ function probe(name, src, perDoc, random) {
     if (out.split(WORD).join("") !== text) {
       loose++;
       const a = text.split("\n"), b = out.split("\n");
-      const bad = a.length !== b.length ? 0 : a.findIndex((l, i) => l !== b[i] && !b[i].includes(WORD) && !(i > 0 && b[i - 1].includes(WORD)));
+      // (A table with padded columns is padded again when a cell outgrows its column: its
+      // other lines change in their spaces and dashes, nothing else.)
+      const padding = (l) => /^\s*\|.*\|\s*$/.test(l) ? l.replace(/ +|-+/g, " ") : l;
+      const bad = a.length !== b.length ? 0 : a.findIndex((l, i) => l !== b[i] && !b[i].includes(WORD) && !(i > 0 && b[i - 1].includes(WORD)) && padding(l) !== padding(b[i]));
       if (bad !== -1) {
         let i = 0; while (i < a.length && a[i] === b[i]) i++;
         let j = 0; while (j < a.length - i && j < b.length - i && a[a.length - 1 - j] === b[b.length - 1 - j]) j++;

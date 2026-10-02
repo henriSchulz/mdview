@@ -80,6 +80,27 @@
           ["div", { class: "li-body" }, 0]];
       },
     },
+    /* A table as GFM has it: the first row is the header, a column has one
+     * alignment. Rows sit directly in <table> (the editor needs one element
+     * for them; active.css stripes them as the reading view's <tbody> rows).
+     * raw: its Markdown as loaded, for the way it was formatted. */
+    table: block({
+      content: "table_row+",
+      tableRole: "table",
+      isolating: true,
+      attrs: { raw: { default: null } },
+      parseDOM: [{ tag: "table" }],
+      toDOM: (n) => ["div", { class: "table-wrap", ...lineAttr(n) }, ["table", 0]],
+    }),
+    table_row: { content: "table_cell+", tableRole: "row", parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
+    table_cell: {
+      content: "inline*",
+      tableRole: "cell",
+      isolating: true,
+      attrs: { header: { default: false }, align: { default: null }, colspan: { default: 1 }, rowspan: { default: 1 }, colwidth: { default: null } },
+      parseDOM: ["td", "th"].map((tag) => ({ tag, getAttrs: (dom) => ({ header: tag === "th", align: /^(left|center|right)$/.test(dom.style.textAlign) ? dom.style.textAlign : null }) })),
+      toDOM: (n) => [n.attrs.header ? "th" : "td", n.attrs.align ? { style: `text-align:${n.attrs.align}` } : {}, 0],
+    },
     // rendered by the reading view's renderer, edited in a dialog
     island: block({
       atom: true,
@@ -214,7 +235,7 @@
       return hit ? hit[0].toLowerCase() : null;
     };
 
-    function inlineOf(tok) {
+    function inlineOf(tok, mayBeEmpty = false) {
       const out = [], stack = []; // stack: the marks around the current token, nested ones included
       let marks = [];            // the same without doubles (emphasis inside emphasis is one mark)
       const sync = () => {
@@ -299,7 +320,7 @@
       // margins around it fall together); a text block in the editor always has a line.
       // A task without text yet is the exception: it has to stay a task one can type into.
       const emptyTask = out.length === 0 && (tok.children || []).length === 1 && tok.children[0].type === "task_checkbox";
-      if (!seen && !emptyTask) throw new Unsupported("nothing to see");
+      if (!seen && !emptyTask && !mayBeEmpty) throw new Unsupported("nothing to see");
       const last = out[out.length - 1]; // a block does not end in a space
       if (last && last.type === "text" && last.text.endsWith(" ")) {
         if (last.text.length > 1) last.text = last.text.slice(0, -1);
@@ -334,6 +355,9 @@
             case "ordered_list_open":
               out.push(listOf(t, inner, attrs, ctx));
               break;
+            case "table_open":
+              out.push(tableOf(group, inner, attrs, ctx));
+              break;
             default:
               throw new Unsupported(t.type);
           }
@@ -344,6 +368,24 @@
         i = j;
       }
       return out;
+    }
+    function tableOf(group, inner, attrs, ctx) {
+      const rows = [];
+      let cells = null;
+      for (let i = 0; i < inner.length; i++) {
+        const t = inner[i];
+        if (t.type === "tr_open") cells = [];
+        else if (t.type === "tr_close") rows.push({ type: "table_row", content: cells });
+        else if (t.type === "th_open" || t.type === "td_open") {
+          const align = /text-align:\s*(left|center|right)/.exec(t.attrGet("style") || "");
+          const content = inlineOf(inner[i + 1], true);
+          if (content.some((n) => n.type === "hard_break")) throw new Unsupported("line break in a cell");
+          cells.push({ type: "table_cell", attrs: { header: t.type === "th_open", align: align ? align[1] : null }, content });
+        }
+      }
+      const width = rows.length ? rows[0].content.length : 0;
+      if (!width || rows.some((r) => r.content.length !== width)) throw new Unsupported("ragged table");
+      return { type: "table", attrs: { ...attrs, raw: sourceOf(group, ctx) }, content: rows };
     }
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);
@@ -401,7 +443,18 @@
       blocks.push(node);
     }
     for (const g of store.virtual) blocks.push(island(g.type, g.tokens, [], { virtual: true }));
-    return Node.fromJSON(schema, { type: "doc", content: blocks.length ? blocks : [{ type: "paragraph" }] });
+    const doc = Node.fromJSON(schema, { type: "doc", content: blocks.length ? blocks : [{ type: "paragraph" }] });
+    // every table cell's own Markdown, kept by the content it was built with (unchanged cells keep that object)
+    doc.descendants((node) => {
+      if (node.type !== schema.nodes.table) return !node.isTextblock;
+      const src = A.tables.cells(node.attrs.raw);
+      node.forEach((row, _o, r) => row.forEach((cell, _p, c) => {
+        const line = src[r === 0 ? 0 : r + 1];
+        if (cell.content.size && line && line[c] != null) A.tables.source.set(cell.content, line[c]);
+      }));
+      return false;
+    });
+    return doc;
   }
 
   A.schema = schema;

@@ -288,3 +288,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
 @media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim { display: none !important; } }
+
+/* ------------------------------------------------------------- tables */
+/* rows sit directly in <table> here: stripe them as the reading view's body rows */
+.pm table > tr:nth-child(odd) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }

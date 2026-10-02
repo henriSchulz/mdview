@@ -250,6 +250,7 @@
       case "blockquote": return children(node, cx, false).map((l) => (l ? "> " + l : ">"));
       case "bullet_list":
       case "ordered_list": return list(node, cx);
+      case "table": return table(node, cx);
       case "island":
       case "hidden": return node.attrs.raw.split("\n");
       default: return [];
@@ -278,6 +279,23 @@
       prev = child;
     });
     return out;
+  }
+  /* A table is written whole, in the way it was formatted (padded columns or
+   * not, pipes at the ends or not). A cell that was not changed keeps its
+   * own Markdown; `|` in a cell is escaped. */
+  function table(node, cx) {
+    const style = A.tables.styleOf(node.attrs.raw);
+    const rows = [], aligns = [];
+    node.forEach((row, _o, r) => {
+      const out = [];
+      row.forEach((cell) => {
+        if (r === 0) aligns.push(cell.attrs.align);
+        const kept = cell.content.size ? A.tables.source.get(cell.content) : null;
+        out.push(kept != null ? kept : inline(cell, cx).replace(/\n/g, " ").replace(/(?<!\\)\|/g, "\\|"));
+      });
+      rows.push(out);
+    });
+    return A.tables.write(rows, aligns, style);
   }
   // -> the lines of every item of a list
   function listItems(node, cx) {
@@ -445,7 +463,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {
@@ -533,6 +551,12 @@
     const seg = was ? store.segs[node.attrs.bid] : null;
     // marker: the list marker to use instead of the list's own (see document.js)
     const canon = (n, level) => canonical(n, { profile, level, swap: marker && n === node ? { node, marker } : null });
+    if (node.type.name === "table") { // re-formatted as a whole; its unchanged cells keep their Markdown
+      for (const level of [0, 1, 2]) {
+        const text = canon(node, level);
+        if (level === 2 || says(text, node, store)) return text;
+      }
+    }
     if (seg && was.type === node.type && /_list$/.test(node.type.name)) {
       const text = listByItem(node, was, seg, profile, marker, store);
       if (text != null) return text;

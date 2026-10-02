@@ -26,6 +26,7 @@ function wrapper(el) {
   if (tag === "DIV" && /^(isl|li-body|hid)\b/.test(el.className)) return true; // \b: ProseMirror adds its selection class
   if (tag === "SPAN" && (/^(ia|im)\b/.test(el.className) || !el.attributes.length)) return true;
   if (tag === "P" && el.parentElement.closest("li")) return true; // tight lists have none in the reading view
+  if (tag === "THEAD" || tag === "TBODY") return true; // the editor keeps a table's rows directly in it
   return false;
 }
 const BLOCK = /^(P|DIV|LI|UL|OL|H[1-6]|BLOCKQUOTE|PRE|TABLE|THEAD|TBODY|TR|TD|TH|HR|DL|DT|DD|DETAILS|SUMMARY|SECTION|BR)$/;
