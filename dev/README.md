@@ -26,6 +26,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/tables.test.mjs` | cells edited in place, the table's own formatting kept, keys, rows and columns |
 | `tests/notes.test.mjs` | footnote definitions found and written back, a new note |
 | `tests/clip.test.mjs` | Markdown pasted keeps its spelling, HTML reduced to Markdown, copy |
+| `tests/edges.test.mjs` | the spec's edge cases: byte-exact round trip and local edits for nested structures, fences, dollars, broken Markdown, comments, line endings, BOM, Unicode |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
@@ -49,6 +50,9 @@ what it reports to `MDVIEW_PROBE_OUT`.
 ./rig.sh islands                                        # dialogs and popovers for code, formulas, properties, raw Markdown
 ./rig.sh m4                                             # tables, footnotes, paste and copy
 ./rig.sh clip                                           # Ctrl+Shift+V, a pasted picture, 1 MB pasted (nested clipboard)
+./rig.sh edges                                          # empty document, one island, file changed under a dialog, narrow window, keyboard only
+./rig.sh perf FILE…                                     # the spec's performance figures (node gen-big.mjs LINES > file for large ones)
+MDVIEW_THEME_DIR=/nonexistent ./rig.sh m5               # any probe in the light fallback theme
 ./rig.sh m5                                             # context menu, formatting bar, undo and caret across modes, closing question
 ./rig.sh typing corpus/docs/pandoc-manual.md            # time per keystroke and per save
 ./rig.sh regress tests/fixtures/basics.md               # reading view and source editor unchanged since main?
