@@ -92,18 +92,17 @@ alternative of reusing the view's pipeline. Reasons for deviating:
   parse feeds both the reading view and the editor model.
 - The price: markdown-it gives block positions as line ranges (`token.map`)
   and no inline positions. Block ranges are all the source-preservation layer
-  needs (blocks are line-aligned). For inline fidelity the tokens already
-  carry the delimiter used (`markup`: `*` vs `_`, `**` vs `__`, fence
-  characters, list markers) and, with the `text_join` rule switched off for
-  the model parse, the original spelling of escapes and entities. Our own
-  inline rules (wikilink, math, tag) get the raw source added to their token.
+  needs (blocks are line-aligned). Inline fidelity inside an edited block
+  comes from merging the newly written block with its original text — see
+  decision 1 in `active-mode-m1.md`, which replaced the plan first written
+  here (keeping the source spelling on the tokens).
 
 **Dialog editor: CodeMirror 6** (spec recommendation). The existing edit mode
 is a textarea, so there is no editor to reuse.
 
 **How they get into an app without a build step:** the same way Mermaid
 already is — one prebuilt, minified file per library group in `vendor/`
-(`prosemirror.min.js`, `codemirror.min.js`), built by a script in `tools/`
+(`prosemirror.min.js`, `codemirror.min.js`), built by a script in `dev/`
 with pinned npm versions and esbuild, the output committed. Both load on
 demand the first time the active mode (or a dialog) is opened, so reading and
 editing start exactly as fast as today. The build needs node/npm (present,
@@ -137,12 +136,13 @@ Python (unchanged roles)            page
 - **Text blocks** use the same tags and classes the markdown-it renderer
   emits (`p`, `h1`–`h6`, `ul.contains-task-list`, `li.task-item`, `.callout`,
   `.table-wrap > table` …), so `viewer.css` applies unchanged.
-- **Line endings**: the active mode needs byte-exact saving. The store keeps
-  the ending of every line and re-applies it; Python gets an `exact` flag and
-  then writes the text as given. The existing edit-mode save path (CRLF
+- **Line endings**: the active mode needs byte-exact saving. Every slice of
+  the store keeps its original spelling next to the normalised one; Python
+  gets an `exact` flag and then writes the text as given. The existing edit-mode save path (CRLF
   heuristic) is left alone.
-- New files: `active/*.js` (store, blocks, schema, serializer, input rules,
-  dialogs), `active.css`, `strings.js` (all new UI texts), `tests/`, `tools/`.
+- New files: `active/*.js` (store, schema, document, view; later serializer,
+  input rules, dialogs), `active.css`, `strings.js` (all new UI texts), and
+  `dev/` (build of the vendored libraries, tests, rig).
   `viewer.js` gains the third mode in `setMode`/`swapView` and the segmented
   control; nothing in the read or edit code paths is rewritten.
 

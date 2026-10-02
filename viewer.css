@@ -467,6 +467,46 @@ body.swapping #content, body.swapping #editor {
 .tb:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .tb.active { color: var(--accent); }
 
+/* mode switch: source · active · read. The thumb glides to the chosen one. */
+.seg {
+  position: relative;
+  display: flex;
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+}
+.seg-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--control-height, 28px);
+  height: calc(var(--control-height, 28px) - 4px);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+  background: transparent;
+  color: var(--fg2);
+  cursor: default;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.seg-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.seg-btn:hover, .seg-btn[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
+.seg-btn:active { color: var(--fg2); }
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--control-height, 28px);
+  height: calc(var(--control-height, 28px) - 4px);
+  border-radius: calc(var(--radius-control) - 2px);
+  background: var(--bg);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.12);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%, var(--bg)); box-shadow: none; }
+
 #outline {
   position: fixed;
   top: 50px;

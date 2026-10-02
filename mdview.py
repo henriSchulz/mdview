@@ -48,6 +48,11 @@ THEME_DIR = HOME / ".local/state/omarchy/current"
 MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
 STATE_FILE = Path(GLib.get_user_state_dir()) / "mdview" / "state.json"
 DEBUG = bool(os.environ.get("MDVIEW_DEBUG"))
+# Development: a script evaluated in every page once it has rendered; what it
+# posts as {"type": "probe", "name": …, "text": …} is written into the directory
+# MDVIEW_PROBE_OUT as <file name>.<name>.json. See dev/rig.sh.
+PROBE = os.environ.get("MDVIEW_PROBE")
+PROBE_OUT = os.environ.get("MDVIEW_PROBE_OUT")
 RESIDENT_MS = 15 * 60 * 1000
 
 MD_EXT = {".md", ".markdown", ".mdown", ".mkd", ".mkdn", ".mdx"}
@@ -80,6 +85,7 @@ SCRIPTS = [
     "vendor/js-yaml.min.js",
     "vendor/highlight.min.js",
     "vendor/katex/katex.min.js",
+    "strings.js",
     "viewer.js",
 ]
 THEME_KEYS = (
@@ -447,6 +453,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.send_folder()
             self.render(fragment=self.pending_fragment)
             self.pending_fragment = None
+            if PROBE:
+                self.view.evaluate_javascript(Path(PROBE).read_text(), -1, None, None, None, None, None)
 
     def open_path(self, path, fragment=None, push=True):
         path = Path(path).expanduser()
@@ -878,6 +886,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.go(self.fwd, self.back)
         elif t == "log" and DEBUG:
             print("[js]", msg.get("text"), file=sys.stderr)
+        elif t == "probe" and PROBE_OUT:
+            name = f"{self.path.name if self.path else 'none'}.{msg.get('name', 'probe')}.json"
+            Path(PROBE_OUT, name).write_text(str(msg.get("text")))
 
     def handle_link(self, href):
         u = urlparse(href)

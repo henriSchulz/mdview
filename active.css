@@ -1,0 +1,41 @@
+/* mdview — active mode. The document inside #active has to look exactly like
+ * #content: the same rules apply, and what is below only undoes the
+ * differences in structure (wrappers around islands, paragraphs in tight
+ * lists). Colors and motion as in viewer.css. */
+
+#active {
+  display: none;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 56px 40px 40vh;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+@media (max-width: 640px) { #active { padding: 48px 20px 40vh; } }
+body[data-view="active"] #active { display: block; }
+body[data-view="active"] #content { display: none; }
+body.swapping #active { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+
+/* White space collapses as in the reading view. (An editor wants it kept,
+ * "pre-wrap", or a typed space at the end of a line would not show. But then
+ * the space a line wraps at hangs over the edge, visibly so inside code and
+ * highlights. So only the block being typed in keeps it.) */
+.pm { position: relative; outline: none; white-space: normal; }
+.pm .hid { display: none; }
+
+/* ProseMirror's own helpers (prosemirror.css) */
+.ProseMirror-hideselection *::selection { background: transparent; }
+.ProseMirror-hideselection { caret-color: transparent; }
+img.ProseMirror-separator { display: inline !important; border: none !important; margin: 0 !important; }
+
+/* first block: no top margin, as #content > :first-child. Hidden segments and
+ * islands without anything in them (an HTML comment) are not blocks there. */
+.pm > :nth-child(1 of :not(.hid, .none)) { margin-top: 0; }
+.pm > .isl:nth-child(1 of :not(.hid, .none)) > :first-child { margin-top: 0; }
+.pm blockquote > .isl:last-child > :last-child { margin-bottom: 0; }
+
+/* a tight list has no <p> in the reading view */
+.pm [data-tight] > li > p, .pm [data-tight] > li > .li-body > p { margin: 0; }
+.pm li.task-item > .li-body > p { margin: 0; }
+.pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
+
+@media print { #active { display: none !important; } }

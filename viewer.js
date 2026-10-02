@@ -13,6 +13,7 @@
     if (LEAVING.has(type)) flushSave();
     window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   };
+  const T = window.MdStrings.t;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const motionMs = (name, fallback) => {
@@ -26,6 +27,8 @@
     list: svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'),
     search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
     pencil: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+    source: svg('<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>'),
+    book: svg('<path d="M12 6.5C10.5 5 8 4.5 4 4.5v13c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-13c-4 0-6.5.5-8 2ZM12 6.5v13"/>'),
     up: svg('<path d="m18 15-6-6-6 6"/>'),
     down: svg('<path d="m6 9 6 6 6-6"/>'),
     x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
@@ -369,10 +372,11 @@
     `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
   md.renderer.rules.table_open = (t, i, o, _e, self) => '<div class="table-wrap">' + self.renderToken(t, i, o);
   md.renderer.rules.table_close = (t, i, o, _e, self) => self.renderToken(t, i, o) + "</div>";
+  const isExternal = (href) => /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^file:/i.test(href);
   const defaultLinkOpen = md.renderer.rules.link_open || ((t, i, o, _e, self) => self.renderToken(t, i, o));
   md.renderer.rules.link_open = (t, i, o, e, self) => {
     const href = t[i].attrGet("href") || "";
-    if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^file:/i.test(href)) t[i].attrJoin("class", "external");
+    if (isExternal(href) && !/\bexternal\b/.test(t[i].attrGet("class") || "")) t[i].attrJoin("class", "external");
     return defaultLinkOpen(t, i, o, e, self);
   };
 
@@ -418,10 +422,12 @@
 
   // ------------------------------------------------------------ rendering
   let current = null, outline = [], generation = 0;
-  let mode = "read"; // "read" | "edit"
+  let mode = "read"; // "read" | "edit" | "active"
+  let drawn = null;  // what #content shows: { p, text }
 
   function render(p) {
     const prev = current;
+    p.raw = p.text; // as on disk; the active mode keeps line endings as they are
     p.text = p.text.replace(/\r\n?/g, "\n");
     current = p;
     document.title = p.name || "Markdown";
@@ -431,13 +437,19 @@
       if (prev && prev.path === p.path) { adoptDisk(p); return; }
       leaveEditNow();
     }
+    if (mode === "active") {
+      if (!p.error) { showActive(p, p.keepScroll ? captureAnchor() : null); return; }
+      leaveActiveNow();
+    }
     draw(p, p.keepScroll ? captureAnchor() : null);
   }
 
   // A folder window with nothing to show (no notes yet).
   function clear() {
     if (mode === "edit") { flushSave(); leaveEditNow(); }
+    if (mode === "active") leaveActiveNow();
     current = null;
+    drawn = null;
     outline = [];
     document.title = folder ? folder.name : "Markdown";
     content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><p>No notes in this folder yet.</p></div>`;
@@ -449,6 +461,7 @@
   // quiet: fill the (hidden) reading view without touching scroll or find
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
+    drawn = { p, text: p.text };
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
       outline = [];
@@ -479,17 +492,19 @@
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
   }
 
-  function captureAnchor() {
-    for (const el of content.querySelectorAll("[data-line]")) {
+  // the rendered document on screen: the reading view, or the active mode's
+  const shownRoot = () => (document.body.dataset.view === "active" ? MdActive.view.dom : content);
+  function captureAnchor(root = shownRoot()) {
+    for (const el of root.querySelectorAll("[data-line]")) {
       const r = el.getBoundingClientRect();
       if (r.bottom > 0) return { line: Number(el.dataset.line), top: r.top, y: window.scrollY };
     }
     return { line: null, y: window.scrollY };
   }
-  function restoreAnchor(a) {
+  function restoreAnchor(a, root = shownRoot()) {
     if (a.line == null) { window.scrollTo(0, a.y); return; }
     let best = null;
-    for (const el of content.querySelectorAll("[data-line]")) {
+    for (const el of root.querySelectorAll("[data-line]")) {
       if (Number(el.dataset.line) <= a.line) best = el;
       else break;
     }
@@ -501,14 +516,20 @@
     if (!frag) return null;
     let f = frag;
     try { f = decodeURIComponent(frag); } catch (e) { /* keep raw */ }
+    const root = shownRoot();
     if (f.startsWith("^")) {
       const id = f.slice(1);
-      return [...content.querySelectorAll("[data-line]")].find((el) => el.textContent.trim().endsWith("^" + id)) || null;
+      return [...root.querySelectorAll("[data-line]")].find((el) => el.textContent.trim().endsWith("^" + id)) || null;
     }
-    const byId = document.getElementById(f) || document.getElementById(slugify(f));
+    const byId = elementById(f) || elementById(slugify(f));
     if (byId) return byId;
     const want = slugify(f.split("#").pop());
-    return [...content.querySelectorAll("h1,h2,h3,h4,h5,h6")].find((h) => slugify(h.textContent) === want) || null;
+    return [...root.querySelectorAll("h1,h2,h3,h4,h5,h6")].find((h) => slugify(h.textContent) === want) || null;
+  }
+  // The reading view stays in the page while the active mode shows the same ids.
+  function elementById(id) {
+    const root = shownRoot();
+    return root === content ? document.getElementById(id) : root.querySelector(`[id="${id.replace(/["\\]/g, "\\$&")}"]`);
   }
   function scrollToFragment(frag, smooth = true) {
     const el = findTarget(frag);
@@ -524,7 +545,7 @@
   function scrollToEnd() {
     const go = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: reducedMotion() ? "instant" : "smooth" });
     go();
-    const img = [...content.querySelectorAll("img")].pop();
+    const img = [...shownRoot().querySelectorAll("img")].pop();
     if (img && !img.complete) img.addEventListener("load", go, { once: true });
   }
 
@@ -579,8 +600,8 @@
       },
     });
   }
-  async function renderMermaid(gen, anchor) {
-    const blocks = [...content.querySelectorAll("pre.mermaid")];
+  async function renderMermaid(gen, anchor, root = content) {
+    const blocks = [...root.querySelectorAll("pre.mermaid")];
     if (!blocks.length) return;
     try {
       await loadMermaid();
@@ -609,7 +630,7 @@
       host.innerHTML = out;
       host.classList.add(fresh ? "rendered" : "cached");
     }
-    if (anchor) restoreAnchor(anchor);
+    if (anchor) restoreAnchor(anchor, root);
   }
 
   function setTheme(css, mode) {
@@ -628,7 +649,11 @@
     `<button class="tb" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
     `<button class="tb" data-act="outline" title="Outline (Ctrl+Shift+O)" aria-label="Outline">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="Find (Ctrl+F)" aria-label="Find">${ICON.search}</button>` +
-    `<button class="tb" data-act="edit" title="Edit (Ctrl+E)" aria-label="Edit" aria-pressed="false">${ICON.pencil}</button>`;
+    `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
+    [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
+      `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
+      ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
+    `</div>`;
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
@@ -691,7 +716,7 @@
     outlinePop.innerHTML = outline.map((o, i) =>
       `<button class="menu-item" role="menuitem" data-i="${i}" style="--indent:${o.level - minLevel}">${esc(o.text)}</button>`).join("");
   }
-  const headingEl = (o) => (mode === "edit" ? edBack.children[o.line] : document.getElementById(o.slug));
+  const headingEl = (o) => (mode === "edit" ? edBack.children[o.line] : elementById(o.slug));
   function currentSection() {
     let idx = -1;
     outline.forEach((o, i) => {
@@ -774,7 +799,7 @@
         hits.push(r);
       }
     } else {
-      const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
+      const walker = document.createTreeWalker(shownRoot(), NodeFilter.SHOW_TEXT, {
         acceptNode: (n) => (n.parentElement.closest(".katex-mathml, style, script") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
       });
       for (let n = walker.nextNode(); n && hits.length < 5000; n = walker.nextNode()) {
@@ -858,7 +883,12 @@
   const edWrap = editor.firstChild;
   const edInput = edWrap.firstChild;
   const edBack = edWrap.lastChild;
-  const editBtn = toolbar.querySelector('[data-act="edit"]');
+  const modeSeg = toolbar.querySelector(".seg");
+  const MODES = ["edit", "active", "read"]; // as in the toolbar
+  function showMode() {
+    modeSeg.style.setProperty("--i", MODES.indexOf(mode));
+    for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === mode));
+  }
 
   let edPath = null;     // file the editor holds; null = nothing loaded
   let edFresh = false;   // text was just loaded: put the caret where the reader was
@@ -1092,6 +1122,14 @@
   // the other (they share the page scroll) and stay on the same source line.
   function setMode(next, caret) {
     if (next === mode || !current) return;
+    if (next === "active") {
+      if (current.error) return;
+      if (!window.MdActive?.view) { // first use: ProseMirror and active/*.js
+        const from = mode;
+        loadActive().then(() => { if (mode === from) setMode(next); }, () => toast(T("active.loadFailed")));
+        return;
+      }
+    }
     if (next === "edit") {
       if (current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
       if (edPath !== current.path || (!dirty() && edInput.value !== current.text)) {
@@ -1104,20 +1142,21 @@
     } else {
       flushSave();
     }
+    const prev = mode;
     mode = next;
     post("mode", { edit: mode === "edit" });
-    editBtn.classList.toggle("active", mode === "edit");
-    editBtn.setAttribute("aria-pressed", String(mode === "edit"));
-    editBtn.title = mode === "edit" ? "Done (Ctrl+E)" : "Edit (Ctrl+E)";
+    showMode();
     closeOutline();
+    // Reading <-> active: the same document in the same place, nothing to fade.
+    if (prev !== "edit" && next !== "edit") { clearTimeout(swapTimer); swapView(); return; }
     document.body.classList.add("swapping", "swapped");
     clearTimeout(swapTimer);
     swapTimer = setTimeout(swapView, motionMs("--dur-fast", 160) * 0.7);
   }
   function swapView() {
     swapTimer = 0;
-    const body = document.body;
-    if ((body.dataset.view || "read") !== mode) {
+    const body = document.body, from = body.dataset.view || "read";
+    if (from !== mode) {
       if (mode === "edit") {
         const a = window.scrollY < 4 ? { line: null } : captureAnchor();
         body.dataset.view = "edit";
@@ -1130,13 +1169,17 @@
           edFresh = false;
         }
       } else {
-        const a = captureEditAnchor();
-        edInput.blur();
-        body.dataset.view = "read";
-        current.text = edInput.value;
-        draw(current, a);
+        const a = from === "edit" ? captureEditAnchor() : { line: null, y: window.scrollY };
+        if (from === "edit") {
+          edInput.blur();
+          current.text = edInput.value;
+        }
+        body.dataset.view = mode;
+        if (mode === "active") showActive(current, a);
+        else if (from === "edit" || !drawn || drawn.p !== current || drawn.text !== current.text) draw(current, a);
+        if (mode === "read" && window.MdActive?.view) MdActive.view.leave();
         // links were resolved for the text as it was before editing
-        if (current.text.includes("[[")) post("reload");
+        if (from === "edit" && current.text.includes("[[")) post("reload");
       }
       if (findOpen()) runFind(findInput.value);
     }
@@ -1145,6 +1188,56 @@
     if (mode === "edit" && !findOpen()) edInput.focus({ preventScroll: true });
     if (mode === "edit" && edReveal) revealCaret();
     edReveal = false;
+  }
+
+  // --- active mode: the rendered document, editable in place (active/*.js).
+  // Loaded on first use, so reading and editing start as fast as without it.
+  let activeLoad = null;
+  function loadActive() {
+    const script = (src) => new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.nonce = NONCE;
+      s.src = `${ASSETS}/${src}`;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(src + " missing"));
+      document.head.appendChild(s);
+    });
+    const style = (href) => new Promise((resolve, reject) => {
+      const l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = `${ASSETS}/${href}`;
+      l.onload = resolve;
+      l.onerror = () => reject(new Error(href + " missing"));
+      document.head.appendChild(l);
+    });
+    return activeLoad || (activeLoad = (async () => {
+      const css = style("active.css");
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/document.js", "active/view.js"]) await script(src);
+      await css;
+    })().catch((e) => { activeLoad = null; throw e; }));
+  }
+  function showActive(p, anchor) {
+    const gen = ++generation;
+    const store = MdActive.view.show(p);
+    outline = store.env.outline;
+    if (outlineOpen()) buildOutline();
+    if (anchor) restoreAnchor(anchor, MdActive.view.dom);
+    else if (p.fragment) scrollToFragment(p.fragment, false);
+    else if (p.toEnd) scrollToEnd();
+    else window.scrollTo(0, 0);
+    p.toEnd = false;
+    if (findOpen()) runFind(findInput.value, true);
+    renderMermaid(gen, anchor, MdActive.view.dom);
+  }
+  // The active mode can't show this (an error page): back to reading, at once.
+  function leaveActiveNow() {
+    MdActive.view.leave();
+    clearTimeout(swapTimer);
+    swapTimer = 0;
+    mode = "read";
+    document.body.dataset.view = "read";
+    document.body.classList.remove("swapping");
+    showMode();
   }
   // Another file took over the window: back to reading, without the fade.
   function leaveEditNow() {
@@ -1155,15 +1248,15 @@
     edPath = null;
     document.body.dataset.view = "read";
     document.body.classList.remove("swapping");
-    editBtn.classList.remove("active");
-    editBtn.setAttribute("aria-pressed", "false");
-    editBtn.title = "Edit (Ctrl+E)";
+    showMode();
     post("mode", { edit: false });
   }
   function printDoc() {
     if (mode === "edit") { // print the rendered page, not the source
       flushSave();
       draw({ ...current, text: edInput.value }, null, true);
+    } else if (mode === "active" && (!drawn || drawn.p !== current || drawn.text !== current.text)) {
+      draw(current, null, true); // what prints is the reading view
     }
     post("print");
   }
@@ -1580,7 +1673,7 @@
   // place (transform only; the width change itself is applied at once)
   function showSidebar(open, animate) {
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
-    const col = mode === "edit" ? editor : content;
+    const col = mode === "edit" ? editor : mode === "active" ? MdActive.view.el : content;
     const anchor = mode === "edit" ? captureEditAnchor() : captureAnchor();
     const before = col.getBoundingClientRect().left;
     sidebar.classList.toggle("no-anim", !animate);
@@ -1627,6 +1720,7 @@
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
     edit: () => setMode(mode === "edit" ? "read" : "edit"),
+    mode: (b) => setMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
@@ -1638,7 +1732,7 @@
   for (const root of [toolbar, findBar, sbHead]) {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
-      if (b) actions[b.dataset.act]();
+      if (b) actions[b.dataset.act](b);
     });
   }
 
@@ -1677,7 +1771,7 @@
       return;
     }
     const a = e.target.closest("a");
-    if (!a || !content.contains(a)) return;
+    if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
     if (a.dataset.wiki != null) { post("wikilink", { target: a.dataset.wiki }); return; }
     const href = a.getAttribute("href");
@@ -1704,6 +1798,7 @@
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
+    if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); setMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {
       // reading: an image on the clipboard goes to the end of the note
       if (!typing && mode === "read" && current && !current.error) post("pasteimage", { path: current.path, append: true });
@@ -1728,5 +1823,7 @@
     if (!typing && !mod && !e.altKey && e.key === "/") { e.preventDefault(); openFind(); }
   });
 
-  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage };
+  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage,
+    // what the active mode (active/*.js, loaded on demand) builds on
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, esc, ICON, get current() { return current; } } };
 })();
