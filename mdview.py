@@ -852,7 +852,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "save":
             # a late autosave must not land in whatever note is open by now
             if msg.get("path") in (None, str(self.path)):
-                self.save_text(msg.get("text"))
+                self.save_text(msg.get("text"), exact=bool(msg.get("exact")))
         elif t == "pasteimage":
             self.paste_image(msg.get("path"), bool(msg.get("append")))
         elif t == "external":
@@ -945,8 +945,20 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.js("MdView.toast", f"Couldn't save: {e.strerror}")
             self.render(keep_scroll=True)
 
-    def save_text(self, text):
+    def save_text(self, text, exact=False):
+        """exact: the text is the file as it is to be (the active mode keeps
+        every line ending as it was); else "\n" throughout, written the way
+        the file had it."""
         if not self.path or not isinstance(text, str):
+            return
+        if exact:
+            try:
+                data = text.encode("utf-8")
+                with open(self.path, "wb") as f:
+                    f.write(data)
+                self.own_write = data  # the file monitor will report it: nothing to reload
+            except (OSError, UnicodeEncodeError) as e:
+                self.js("MdView.saveFailed", getattr(e, "strerror", None) or str(e))
             return
         try:
             try:

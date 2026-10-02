@@ -36,7 +36,7 @@ const empty = (el) => [...el.childNodes].every((c) => (c.nodeType === 3 ? (BLOCK
 const KEEP = { A: ["href", "title", "class"], IMG: ["src", "alt", "title"], INPUT: ["type", "class", "checked", "disabled"], OL: ["start"], LI: ["class", "data-task"], UL: ["class"] };
 function sig(el) {
   const attrs = (KEEP[el.tagName] || (/^H\d$/.test(el.tagName) ? ["id"] : ["class"]))
-    .map((a) => [a, a === "class" ? [...new Set((el.getAttribute(a) || "").split(/\s+/))].filter((c) => c && c !== "ProseMirror-selectednode").join(" ") : el.getAttribute(a) || ""]).filter(([a, v]) => v || (el.hasAttribute(a) && a !== "class"))
+    .map((a) => [a, a === "class" ? [...new Set((el.getAttribute(a) || "").split(/\s+/))].filter((c) => c && !/^(ProseMirror-selectednode|typing|placeholder)$/.test(c)).join(" ") : el.getAttribute(a) || ""]).filter(([a, v]) => v || (el.hasAttribute(a) && a !== "class"))
     .map(([a, v]) => `${a}=${v}`).join(",");
   return el.tagName.toLowerCase() + (attrs ? `[${attrs}]` : "");
 }

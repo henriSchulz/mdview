@@ -438,7 +438,15 @@
       leaveEditNow();
     }
     if (mode === "active") {
-      if (!p.error) { showActive(p, p.keepScroll ? captureAnchor() : null); return; }
+      if (!p.error) {
+        if (prev && prev.path === p.path && MdActive.view.dirty) { // edits here that are not saved yet win, as in the source editor
+          if (p.text !== prev.text) toast(T("active.keptEdits"));
+          p.raw = MdActive.view.serialize();
+          p.text = p.raw.replace(/\r\n?/g, "\n");
+        }
+        showActive(p, p.keepScroll ? captureAnchor() : null);
+        return;
+      }
       leaveActiveNow();
     }
     draw(p, p.keepScroll ? captureAnchor() : null);
@@ -495,6 +503,8 @@
   // the rendered document on screen: the reading view, or the active mode's
   const shownRoot = () => (document.body.dataset.view === "active" ? MdActive.view.dom : content);
   function captureAnchor(root = shownRoot()) {
+    const edited = root !== content && MdActive.view.anchor(); // after edits the active mode counts lines itself
+    if (edited) return edited;
     for (const el of root.querySelectorAll("[data-line]")) {
       const r = el.getBoundingClientRect();
       if (r.bottom > 0) return { line: Number(el.dataset.line), top: r.top, y: window.scrollY };
@@ -503,6 +513,7 @@
   }
   function restoreAnchor(a, root = shownRoot()) {
     if (a.line == null) { window.scrollTo(0, a.y); return; }
+    if (root !== content && MdActive.view.restore(a)) return;
     let best = null;
     for (const el of root.querySelectorAll("[data-line]")) {
       if (Number(el.dataset.line) <= a.line) best = el;
@@ -733,7 +744,8 @@
   }
   function openOutline() {
     closeFind(false);
-    if (mode === "edit") outline = editorOutline();
+    if (mode === "edit") outline = outlineOf(edInput.value);
+    else if (mode === "active" && MdActive.view.edited) outline = outlineOf(MdActive.view.serialize(false));
     buildOutline();
     const cur = currentSection();
     outlinePop.querySelectorAll(".menu-item").forEach((el, k) => el.classList.toggle("current", k === cur));
@@ -1077,8 +1089,8 @@
     el.classList.add("flash");
     setTimeout(() => el.classList.remove("flash"), 1200);
   }
-  function editorOutline() {
-    const fm = stripFrontmatter(edInput.value);
+  function outlineOf(text) {
+    const fm = stripFrontmatter(text);
     const env = { lineOffset: fm.offset, links: {}, outline: [], depth: 0 };
     md.parse(stripComments(fm.body), env);
     return env.outline;
@@ -1089,6 +1101,14 @@
   function flushSave() {
     clearTimeout(saveTimer);
     saveTimer = 0;
+    if (window.MdActive?.view?.dirty) { // edits made in the active mode: the file as it is to be, byte for byte
+      const p = MdActive.view.payload;
+      p.raw = MdActive.view.take();
+      p.text = p.raw.replace(/\r\n?/g, "\n");
+      p.error = null;
+      post("save", { text: p.raw, path: p.path, exact: true });
+      return;
+    }
     if (!dirty()) return;
     savedText = edInput.value;
     if (current && current.path === edPath) { current.text = savedText; current.error = null; }
@@ -1099,6 +1119,7 @@
     if (thenClose) post("close");
   }
   function saveFailed(msg) {
+    if (mode === "active") MdActive.view.failed();
     savedText = null; // still dirty: the next edit or mode switch tries again
     toast(`Couldn't save: ${msg}`);
   }
@@ -1130,6 +1151,7 @@
         return;
       }
     }
+    if (mode === "active") flushSave(); // current.text is what the active mode holds
     if (next === "edit") {
       if (current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
       if (edPath !== current.path || (!dirty() && edInput.value !== current.text)) {
@@ -1144,7 +1166,7 @@
     }
     const prev = mode;
     mode = next;
-    post("mode", { edit: mode === "edit" });
+    post("mode", { edit: mode !== "read" });
     showMode();
     closeOutline();
     // Reading <-> active: the same document in the same place, nothing to fade.
@@ -1186,6 +1208,7 @@
     void body.offsetWidth;
     body.classList.remove("swapping");
     if (mode === "edit" && !findOpen()) edInput.focus({ preventScroll: true });
+    if (mode === "active" && !findOpen()) MdActive.view.focus();
     if (mode === "edit" && edReveal) revealCaret();
     edReveal = false;
   }
@@ -1212,12 +1235,14 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/document.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/markdown.js", "active/document.js", "active/edit.js", "active/view.js"]) await script(src);
       await css;
+      MdActive.view.onChange = activeChanged;
     })().catch((e) => { activeLoad = null; throw e; }));
   }
   function showActive(p, anchor) {
     const gen = ++generation;
+    const fresh = MdActive.view.payload !== p && !(MdActive.view.payload && MdActive.view.payload.path === p.path && MdActive.view.edited);
     const store = MdActive.view.show(p);
     outline = store.env.outline;
     if (outlineOpen()) buildOutline();
@@ -1228,10 +1253,21 @@
     p.toEnd = false;
     if (findOpen()) runFind(findInput.value, true);
     renderMermaid(gen, anchor, MdActive.view.dom);
+    if (fresh && window.scrollY > 4) MdActive.view.caretToView(); // type where you are, not at the top
+  }
+  // after every edit in the active mode: save soon, keep the find marks right
+  function activeChanged() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, AUTOSAVE_MS);
+    if (findOpen()) {
+      clearTimeout(findTimer);
+      findTimer = setTimeout(() => runFind(findInput.value, true), 120);
+    }
   }
   // The active mode can't show this (an error page): back to reading, at once.
   function leaveActiveNow() {
     MdActive.view.leave();
+    post("mode", { edit: false });
     clearTimeout(swapTimer);
     swapTimer = 0;
     mode = "read";
@@ -1773,6 +1809,8 @@
     const a = e.target.closest("a");
     if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
+    // In text that is being edited a click places the caret; Ctrl+click follows the link.
+    if (mode === "active" && MdActive.view.editable && !a.closest(".isl") && !(e.ctrlKey || e.metaKey)) return;
     if (a.dataset.wiki != null) { post("wikilink", { target: a.dataset.wiki }); return; }
     const href = a.getAttribute("href");
     if (!href) return;
@@ -1789,7 +1827,7 @@
   addEventListener("keydown", (e) => {
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key.toLowerCase();
-    const typing = e.target.matches?.("input[type=search], input[type=text], textarea");
+    const typing = e.target.matches?.("input[type=search], input[type=text], textarea") || e.target.isContentEditable;
     if (e.key === "Escape") {
       if (closeCtx(true) || closeNewNote() || closeOutline() || closeFind()) e.preventDefault();
       return;
@@ -1807,7 +1845,7 @@
     if (mod && !e.shiftKey && !e.altKey) {
       const map = {
         f: openFind, e: actions.edit, o: () => post("open"), r: () => post("reload"),
-        s: () => { if (mode === "edit") { flushSave(); toast("Saved"); } },
+        s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } },
         n: () => { if (folder) openNewNote(); },
         p: printDoc, w: () => post("close"), q: () => post("close"),
         "=": () => post("zoom", { step: 1 }), "+": () => post("zoom", { step: 1 }),
@@ -1823,7 +1861,12 @@
     if (!typing && !mod && !e.altKey && e.key === "/") { e.preventDefault(); openFind(); }
   });
 
+  // Ctrl held: links in the active mode show that a click follows them
+  for (const type of ["keydown", "keyup", "blur"]) {
+    addEventListener(type, (e) => document.body.classList.toggle("mod-down", type !== "blur" && (e.ctrlKey || e.metaKey)));
+  }
+
   window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, esc, ICON, get current() { return current; } } };
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, get current() { return current; } } };
 })();

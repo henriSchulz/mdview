@@ -13,6 +13,9 @@
       "mode.tip.active": "{0} (Ctrl+Alt+2)",
       "mode.tip.read": "{0} (Ctrl+Alt+3)",
       "active.loadFailed": "Couldn't load the active mode",
+      "active.placeholder": "Start writing…",
+      "active.label": "Document",
+      "active.keptEdits": "File changed on disk — keeping your edits",
     },
     de: {
       "mode.label": "Modus",
@@ -23,6 +26,9 @@
       "mode.tip.active": "{0} (Strg+Alt+2)",
       "mode.tip.read": "{0} (Strg+Alt+3)",
       "active.loadFailed": "Aktiv-Modus konnte nicht geladen werden",
+      "active.placeholder": "Schreib los …",
+      "active.label": "Dokument",
+      "active.keptEdits": "Datei wurde außerhalb geändert — deine Änderungen bleiben",
     },
   };
   const S = {

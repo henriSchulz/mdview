@@ -33,7 +33,7 @@
       } else joined.push({ t: w.t, r: w.r.slice() });
     }
     const boxes = [...root.querySelectorAll(BOXES)].filter((e) => e.getClientRects().length && !e.closest(".katex-mathml") && !/^ProseMirror-/.test(e.className))
-      .map((e) => ({ t: e.tagName.toLowerCase() + (e.className && typeof e.className === "string" ? "." + e.className.split(" ")[0] : ""), r: rel(e.getBoundingClientRect()) }));
+      .map((e) => ({ t: e.tagName.toLowerCase() + (typeof e.className === "string" ? e.className.split(" ").filter((c) => c && c !== "typing").slice(0, 1).map((c) => "." + c).join("") : ""), r: rel(e.getBoundingClientRect()) }));
     return { height: r1(o.height), words: joined, boxes };
   }
   function diff(a, b, what) {
@@ -71,6 +71,7 @@
     for (let i = 0; i < 100 && document.body.dataset.view !== "active"; i++) await sleep(50);
     const switched = performance.now() - t0;
     if (document.body.dataset.view !== "active") throw new Error("active mode did not come up");
+    MdActive.view.pm.dom.blur(); // compared is the document at rest, without the caret
     const jump = Math.abs(MdActive.view.el.getBoundingClientRect().height - read.height); // right after the switch, before anything settles
     await settled(MdActive.view.dom);
     const active = measure(MdActive.view.el); // #active is the column, as #content is
@@ -82,6 +83,7 @@
     MdView.setMode("active");
     void MdActive.view.el.offsetHeight; // with layout
     const again = performance.now() - t2;
+    MdActive.view.pm.dom.blur();
     out("compare", {
       file: cur.name, width: innerWidth, lines: cur.text.split("\n").length,
       firstSwitchMs: Math.round(switched), backMs: Math.round(back), againMs: Math.round(again), heightJump: r1(jump),

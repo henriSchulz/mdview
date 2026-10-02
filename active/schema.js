@@ -17,7 +17,7 @@
 "use strict";
 (() => {
   const A = window.MdActive;
-  const { md, renderProps, isExternal } = window.MdView.core;
+  const { md, renderProps, isExternal, slugify, inlineText } = window.MdView.core;
   const { Schema, Node } = PM.model;
 
   const line = { default: null };
@@ -34,12 +34,14 @@
     heading: block({
       content: "inline*",
       defining: true,
-      attrs: { level: { default: 1 }, id: { default: null }, markup: { default: "#" } },
+      // markup: "#", or "=" / "-" for a heading underlined in the source.
+      // slug: what its id is made from, as long as its text is `slugOf` (the id itself is a decoration, see edit.js)
+      attrs: { level: { default: 1 }, markup: { default: null }, slug: { default: null }, slugOf: { default: null } },
       parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: "h" + level, attrs: { level } })),
-      toDOM: (n) => ["h" + n.attrs.level, { ...(n.attrs.id ? { id: n.attrs.id } : {}), ...lineAttr(n) }, 0],
+      toDOM: (n) => ["h" + n.attrs.level, lineAttr(n), 0],
     }),
     horizontal_rule: block({
-      attrs: { markup: { default: "---" } },
+      attrs: { markup: { default: null } },
       parseDOM: [{ tag: "hr" }],
       toDOM: (n) => ["hr", lineAttr(n)],
     }),
@@ -51,44 +53,46 @@
     }),
     bullet_list: block({
       content: "list_item+",
-      attrs: { tight: { default: true }, tasks: { default: false }, markup: { default: "-" } },
+      attrs: { tight: { default: true }, tasks: { default: false }, markup: { default: null } },
       parseDOM: [{ tag: "ul" }],
       toDOM: (n) => ["ul", { ...listAttrs(n), ...lineAttr(n) }, 0],
     }),
     ordered_list: block({
       content: "list_item+",
-      attrs: { tight: { default: true }, tasks: { default: false }, markup: { default: "." }, start: { default: 1 } },
+      attrs: { tight: { default: true }, tasks: { default: false }, markup: { default: null }, start: { default: 1 } },
       parseDOM: [{ tag: "ol", getAttrs: (dom) => ({ start: dom.hasAttribute("start") ? Number(dom.getAttribute("start")) : 1 }) }],
       toDOM: (n) => ["ol", { ...(n.attrs.start === 1 ? {} : { start: n.attrs.start }), ...listAttrs(n), ...lineAttr(n) }, 0],
     }),
     list_item: {
       content: "block+",
       defining: true,
+      // markup: the bullet as written; num: the number as written (ordered lists);
       // task: null, or the character between the brackets; box: this node draws the checkbox
-      attrs: { bid: { default: null }, line, markup: { default: "-" }, task: { default: null }, box: { default: true }, boxLine: { default: null } },
+      attrs: { bid: { default: null }, line, markup: { default: null }, num: { default: null }, task: { default: null }, box: { default: true } },
       parseDOM: [{ tag: "li" }],
       toDOM(n) {
-        const { task, box, boxLine } = n.attrs;
+        const { task, box } = n.attrs;
         if (task == null) return ["li", lineAttr(n), 0];
         const checked = task !== " ";
         const attrs = { class: "task-item" + (checked ? " is-checked" : ""), ...(/[ xX]/.test(task) ? {} : { "data-task": task }), ...lineAttr(n) };
         if (!box) return ["li", attrs, 0];
-        const input = { type: "checkbox", class: "task", contenteditable: "false", ...(checked ? { checked: "" } : {}),
-          ...(boxLine == null || boxLine < 0 ? { disabled: "" } : { "data-line": boxLine }) };
-        return ["li", attrs, ["input", input], ["div", { class: "li-body" }, 0]];
+        return ["li", attrs, ["input", { type: "checkbox", class: "task", contenteditable: "false", tabindex: "-1", ...(checked ? { checked: "" } : {}) }],
+          ["div", { class: "li-body" }, 0]];
       },
     },
     // rendered by the reading view's renderer, edited in a dialog
     island: block({
       atom: true,
       selectable: true,
-      attrs: { kind: { default: "other" }, html: { default: "" }, virtual: { default: false } },
+      // raw: its Markdown (without the indentation or quote marks of what it sits in)
+      attrs: { kind: { default: "other" }, html: { default: "" }, raw: { default: "" }, virtual: { default: false } },
       toDOM: () => ["div", { class: "isl" }],
     }),
     // source lines without output of their own (definitions); kept in place, never shown
     hidden: block({
       atom: true,
       selectable: false,
+      attrs: { raw: { default: "" } },
       toDOM: () => ["div", { class: "hid", hidden: "" }],
     }),
     text: { group: "inline" },
@@ -107,7 +111,7 @@
     // inline island: math, wikilink, footnote reference
     iatom: {
       group: "inline", inline: true, atom: true,
-      attrs: { kind: { default: "other" }, html: { default: "" }, src: { default: "" } },
+      attrs: { kind: { default: "other" }, html: { default: "" }, raw: { default: "" } },
       toDOM: () => ["span", { class: "ia" }],
     },
   };
@@ -124,13 +128,14 @@
     tag: { inclusive: false, parseDOM: [{ tag: "span.tag" }], toDOM: () => ["span", { class: "tag" }, 0] },
     link: {
       inclusive: false,
-      attrs: { href: { default: "" }, title: { default: null }, cls: { default: null }, markup: { default: "" } },
+      // markup: "autolink" (<url>), "linkify" (a bare url), else ""; ref: label of the definition it uses, if it does
+      attrs: { href: { default: "" }, title: { default: null }, cls: { default: null }, markup: { default: "" }, ref: { default: null } },
       parseDOM: [{ tag: "a[href]", getAttrs: (dom) => ({ href: dom.getAttribute("href"), title: dom.getAttribute("title") }) }],
       toDOM: (m) => ["a", { href: m.attrs.href, ...(m.attrs.title == null ? {} : { title: m.attrs.title }), ...(m.attrs.cls ? { class: m.attrs.cls } : {}) }, 0],
     },
-    code: { code: true, attrs: { markup: { default: "`" } }, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },
-    strong: simple("strong", { attrs: { markup: { default: "**" } } }),
-    em: simple("em", { attrs: { markup: { default: "*" } } }),
+    code: { code: true, attrs: { markup: { default: null } }, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },
+    strong: simple("strong", { attrs: { markup: { default: null } } }),
+    em: simple("em", { attrs: { markup: { default: null } } }),
     s: simple("s"),
     sub: simple("sub"),
     sup: simple("sup"),
@@ -164,10 +169,47 @@
     return v == null ? null : Number(v);
   };
 
+  /* Containers a nested block sits in, outermost first: { quote: true } or
+   * { item: true, first: line, width: columns its content is indented by }.
+   * strip() takes their marks off a source line, which leaves the block's own text. */
+  function strip(text, line, ctx) {
+    for (const c of ctx) {
+      if (c.quote) text = text.replace(/^ {0,3}>[ \t]?/, "");
+      else if (line === c.first) text = text.slice(Math.min(c.width, text.length));
+      else text = text.replace(new RegExp(`^(?:\\t| {0,${c.width}})`), "");
+    }
+    return text;
+  }
+  function itemContext(head, first) {
+    const m = /^(\s*)(?:[-+*]|\d{1,9}[.)])/.exec(head);
+    const lead = m ? m[0].length : 0;
+    const gap = /^[ \t]*/.exec(head.slice(lead))[0].length;
+    return { item: true, first, width: lead + (gap >= 5 || gap === 0 ? 1 : gap) }; // 5 or more spaces: indented code after one
+  }
+
   function build(store) {
     const env = store.env;
+    const lines = store.text.split("\n");
     const html = (toks) => md.renderer.render(toks, md.options, env);
-    const island = (kind, toks, attrs = {}) => ({ type: "island", attrs: { kind, html: html(toks), line: lineOf(toks[0]), ...attrs } });
+    const sourceOf = (toks, ctx) => {
+      const map = toks[0].map;
+      if (!map) return "";
+      const from = map[0] + env.lineOffset;
+      let to = Math.min(map[1] + env.lineOffset, lines.length);
+      const out = [];
+      for (let l = from; l < to; l++) out.push(strip(lines[l], l, ctx));
+      while (out.length > 1 && !out[out.length - 1].trim()) out.pop();
+      return out.join("\n");
+    };
+    const island = (kind, toks, ctx, attrs = {}) => ({ type: "island", attrs: { kind, html: html(toks), line: lineOf(toks[0]), raw: sourceOf(toks, ctx), ...attrs } });
+
+    // a link that goes where a definition goes is written as a reference to it
+    const refs = Object.entries(env.references || {});
+    const refOf = (c) => {
+      const href = c.attrGet("href"), title = c.attrGet("title") || undefined;
+      const hit = refs.find(([, r]) => r.href === href && (r.title || undefined) === title);
+      return hit ? hit[0].toLowerCase() : null;
+    };
 
     function inlineOf(tok) {
       const out = [], stack = []; // stack: the marks around the current token, nested ones included
@@ -198,9 +240,9 @@
       };
       let seen = false; // something in this block takes up room
       const leaf = (node, breaks) => { out.push({ ...node, marks: marks.slice() }); spaced = !!breaks; seen = true; };
-      const atom = (kind, c) => {
+      const atom = (kind, c, raw) => {
         const html = md.renderer.renderInline([c], md.options, env), before = seen;
-        leaf({ type: "iatom", attrs: { kind, html, src: c.content || "" } });
+        leaf({ type: "iatom", attrs: { kind, html, raw } });
         // a formula that only defines a macro draws nothing
         seen = before || /<(img|svg)\b/.test(html) || /\S/.test(html.replace(/<[^>]*>/g, ""));
       };
@@ -208,7 +250,7 @@
         const open = /^(.+)_open$/.exec(c.type), close = /^(.+)_close$/.exec(c.type);
         if (open && MARK_OF[open[1]]) {
           const type = MARK_OF[open[1]];
-          const attrs = type === "link" ? { href: c.attrGet("href") || "", title: c.attrGet("title"), cls: linkClass(c), markup: c.markup || "" }
+          const attrs = type === "link" ? { href: c.attrGet("href") || "", title: c.attrGet("title"), cls: linkClass(c), markup: c.markup || "", ref: c.markup ? null : refOf(c) }
             : type === "abbr" ? { title: c.attrGet("title") || "" }
             : type === "em" || type === "strong" ? { markup: c.markup } : undefined;
           // nested in itself, emphasis looks the same; a highlight or a subscript does not
@@ -239,10 +281,13 @@
           case "math_inline":
             // $$…$$ inside a line is a block of its own there; the spaces around it would show
             if (c.meta && c.meta.display) throw new Unsupported("display math in a line");
-            atom("math", c);
+            atom("math", c, "$" + c.content + "$");
             break;
-          case "wikilink": atom("wikilink", c); break;
-          case "footnote_ref": atom("footnote", c); break;
+          case "wikilink": atom("wikilink", c, "[[" + c.meta.target + (c.meta.alias == null ? "" : "|" + c.meta.alias) + "]]"); break;
+          case "footnote_ref":
+            if (c.meta.label == null) throw new Unsupported("inline footnote");
+            atom("footnote", c, "[^" + c.meta.label + "]");
+            break;
           case "task_checkbox": break; // drawn by the list item
           default: throw new Unsupported(c.type);
         }
@@ -258,7 +303,7 @@
       return out;
     }
 
-    function blocksOf(toks) {
+    function blocksOf(toks, ctx) {
       const out = [];
       for (let i = 0; i < toks.length; i++) {
         const t = toks[i], j = closeIndex(toks, i);
@@ -270,7 +315,7 @@
               out.push({ type: "paragraph", attrs, content: inlineOf(inner[0]) });
               break;
             case "heading_open":
-              out.push({ type: "heading", attrs: { ...attrs, level: Number(t.tag.slice(1)), id: t.attrGet("id"), markup: t.markup }, content: inlineOf(inner[0]) });
+              out.push(headingOf(t, inner[0], attrs));
               break;
             case "hr":
               out.push({ type: "horizontal_rule", attrs: { ...attrs, markup: t.markup } });
@@ -278,27 +323,33 @@
             case "blockquote_open":
               if (t.tag !== "blockquote") throw new Unsupported("callout");
               if (!inner.length) throw new Unsupported("empty quote");
-              out.push({ type: "blockquote", attrs, content: blocksOf(inner) });
+              out.push({ type: "blockquote", attrs, content: blocksOf(inner, ctx.concat({ quote: true })) });
               break;
             case "bullet_list_open":
             case "ordered_list_open":
-              out.push(listOf(t, inner, attrs));
+              out.push(listOf(t, inner, attrs, ctx));
               break;
             default:
               throw new Unsupported(t.type);
           }
         } catch (e) {
           if (!(e instanceof Unsupported)) throw e;
-          out.push(island(A.store.typeOf(t), group));
+          out.push(island(A.store.typeOf(t), group, ctx));
         }
         i = j;
       }
       return out;
     }
+    function headingOf(t, inl, attrs) {
+      const content = inlineOf(inl);
+      const node = Node.fromJSON(schema, { type: "heading", content });
+      return { type: "heading", content, attrs: { ...attrs, level: Number(t.tag.slice(1)), markup: t.markup,
+        slug: slugify(inlineText(inl.children)) || "section", slugOf: node.textContent } };
+    }
     const orParagraph = (blocks) => (blocks.length ? blocks : [{ type: "paragraph" }]);
 
-    function listOf(t, inner, attrs) {
-      const items = [];
+    function listOf(t, inner, attrs, ctx) {
+      const items = [], ordered = t.type === "ordered_list_open";
       let tight = false;
       for (let i = 0; i < inner.length; i++) {
         const li = inner[i], j = closeIndex(inner, i);
@@ -306,16 +357,17 @@
         if (body.some((x, k) => x.type === "paragraph_open" && x.hidden && closeDepth(body, k) === 0)) tight = true;
         const first = body[0] && body[0].type === "paragraph_open" ? body[1] : null;
         const cb = first && first.children && first.children[0] && first.children[0].type === "task_checkbox" ? first.children[0] : null;
-        const content = orParagraph(blocksOf(body));
+        const first1 = li.map ? li.map[0] + env.lineOffset : -1;
+        const inside = ctx.concat(itemContext(first1 < 0 ? "" : strip(lines[first1] || "", first1, ctx), first1));
+        const content = orParagraph(blocksOf(body, inside));
+        // a first paragraph that became an island draws its own checkbox, and writes it too
+        const own = cb && content[0].type === "island";
         items.push({ type: "list_item", content, attrs: {
-          line: lineOf(li), markup: li.markup,
-          task: cb ? cb.meta.ch : null, boxLine: cb ? cb.meta.line : null,
-          // a first paragraph that became an island draws its own checkbox
-          box: !(cb && content[0].type === "island"),
+          line: lineOf(li), markup: li.markup, num: ordered ? li.info || null : null,
+          task: cb ? cb.meta.ch : null, box: !own,
         } });
         i = j;
       }
-      const ordered = t.type === "ordered_list_open";
       return {
         type: ordered ? "ordered_list" : "bullet_list",
         attrs: { ...attrs, tight, markup: t.markup, tasks: /\bcontains-task-list\b/.test(t.attrGet("class") || ""),
@@ -336,13 +388,14 @@
       if (seg.kind === "hidden") node = { type: "hidden" };
       else if (seg.type === "frontmatter") node = { type: "island", attrs: { kind: "frontmatter", html: renderProps(seg.props, { links: env.links, depth: 1 }), line: 0 } };
       else {
-        const built = seg.type === "html" ? [] : blocksOf(seg.tokens); // html: maybe several blocks under one open element
-        node = built.length === 1 ? built[0] : island(seg.type, seg.tokens);
+        const built = seg.type === "html" ? [] : blocksOf(seg.tokens, []); // html: maybe several blocks under one open element
+        node = built.length === 1 ? built[0] : island(seg.type, seg.tokens, []);
       }
       node.attrs = { ...node.attrs, bid: seg.id };
+      if (node.type === "island" || node.type === "hidden") node.attrs.raw = seg.raw;
       blocks.push(node);
     }
-    for (const g of store.virtual) blocks.push(island(g.type, g.tokens, { virtual: true }));
+    for (const g of store.virtual) blocks.push(island(g.type, g.tokens, [], { virtual: true }));
     return Node.fromJSON(schema, { type: "doc", content: blocks.length ? blocks : [{ type: "paragraph" }] });
   }
 

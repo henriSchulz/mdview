@@ -75,6 +75,10 @@
 
     md.set({ breaks: !!opts.vault });
     const env = { lineOffset: fm.offset, links: opts.links || {}, outline: [], depth: 0 };
+    // a single block parsed on its own still sees the document's definitions
+    if (opts.references) env.references = { ...opts.references };
+    if (opts.footnotes) env.footnotes = { refs: Object.fromEntries(Object.keys(opts.footnotes).map((k) => [k, -1])) };
+    if (opts.abbreviations) env.abbreviations = { ...opts.abbreviations };
     const tokens = md.parse(body, env);
 
     const segs = [];
@@ -181,11 +185,12 @@
   }
 
   /* The document as a string. `parts` lists what stands in the document now,
-   * in order: { id } for a segment that is as it was loaded, { text } for
-   * new or changed Markdown (with "\n" line ends). Neighbours that were
-   * neighbours on load keep their separator; anything else gets a blank line.
-   * Called without `parts` it returns the loaded document. */
-  function serialize(store, parts, exact = true) {
+   * in order: { id } for a segment that is as it was loaded, { id, text } for
+   * one that was changed (id: where it came from, if anywhere; text with "\n"
+   * line ends). Neighbours that were neighbours on load keep their separator;
+   * anything else gets a blank line. Called without `parts` it returns the
+   * loaded document. starts: if given, filled with the offset of every part. */
+  function serialize(store, parts, exact = true, starts = null) {
     const pick = (s) => (exact ? s.orig : s.raw);
     const nl = exact ? store.eol : "\n";
     const eol = (s) => (nl === "\n" ? s : s.replace(/\n/g, nl));
@@ -194,19 +199,18 @@
     if (!parts.length) return pick(store.head);
     let out = "";
     parts.forEach((p, i) => {
-      const seg = p.id != null ? segs[p.id] : null;
       const prev = i ? parts[i - 1] : null;
-      if (!i) out += seg && seg.id === 0 ? pick(store.head) : leadingOf(store, exact);
-      else if (!(prev.id != null && seg && prev.id + 1 === seg.id)) out += nl + nl;
-      else out += pick(segs[prev.id].sep);
-      out += seg ? pick(seg) : eol(p.text);
+      if (!i) out += pick(store.head);
+      else if (prev.id != null && p.id != null && prev.id + 1 === p.id) out += pick(segs[prev.id].sep);
+      else out += nl + nl;
+      if (starts) starts.push(out.length);
+      out += p.text != null ? eol(p.text) : pick(segs[p.id]);
     });
     const last = parts[parts.length - 1];
     out += last.id === segs.length - 1 ? pick(segs[last.id].sep) : trailingOf(store, exact);
     return out;
   }
-  // What the file starts and ends with stays, whichever block is first or last now.
-  const leadingOf = (store, exact) => (exact ? store.head.orig : store.head.raw);
+  // What the file ends with stays, whichever block is last now.
   const trailingOf = (store, exact) => {
     const s = store.segs[store.segs.length - 1];
     return s ? (exact ? s.sep.orig : s.sep.raw) : "";

@@ -83,7 +83,8 @@
     dom.dataset.kind = node.attrs.kind;
     dom.innerHTML = node.attrs.html;
     if (!dom.firstElementChild && !dom.textContent.trim()) dom.classList.add("none"); // an HTML comment, an empty properties block
-    return { dom, ignoreMutation: () => true };
+    // what is to be clicked inside stays the page's business (copy button, fold marker, player)
+    return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button, summary, input, audio, video, a") };
   };
   const nodeViews = {
     island: htmlView("div", "isl"),
@@ -100,24 +101,107 @@
     },
   };
 
-  /* p: the payload the reading view draws (text, raw, links, vault). */
+  /* p: the payload the reading view draws (text, raw, links, vault, readonly).
+   * The same text as last time keeps the editor as it is: undo history, caret. */
   function show(p) {
-    if (!(open && shown.p === p && shown.text === p.text)) { // else: still on screen as it is
+    const fresh = !(open && shown.text === p.text && shown.p.path === p.path && !!shown.p.vault === !!p.vault);
+    if (!fresh) open.store.env.links = p.links || {}; // what new wikilinks resolve against
+    shown = { p, text: p.text };
+    if (fresh) {
       open = A.document.open(p);
-      shown = { p, text: p.text };
-      const state = EditorState.create({ doc: open.doc });
+      // the caret starts in text; an island at the top would otherwise show up selected
+      const selection = PM.state.Selection.findFrom(open.doc.resolve(0), 1, true) || undefined;
+      const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins() });
       if (view) view.updateState(state);
-      else view = new EditorView(el, { state, nodeViews, editable: () => false, attributes: { class: "pm" } });
+      else {
+        view = new EditorView(el, {
+          state, nodeViews,
+          attributes: { class: "pm", role: "textbox", "aria-multiline": "true", "aria-label": window.MdStrings.t("active.label"), spellcheck: "false" },
+          editable: () => !shown.p.readonly,
+          dispatchTransaction(tr) {
+            view.updateState(view.state.apply(tr));
+            if (tr.docChanged) { dirty = edited = true; if (A.view.onChange) A.view.onChange(); }
+          },
+        });
+      }
+      dirty = edited = false;
     }
+    view.setProps({ editable: () => !shown.p.readonly }); // read again: the file may be read-only now
     lend(content, view.dom);
     return open.store;
   }
   const serialize = (exact = true) => A.document.serialize(open, view.state.doc, exact);
+  /* The document as it is to be saved. From here on it counts as saved. */
+  function take() {
+    const text = serialize(true);
+    dirty = false;
+    shown.text = text.replace(/\r\n?/g, "\n");
+    return text;
+  }
 
+  /* Where things are, for keeping the place across a change of mode. While
+   * nothing was edited the lines the blocks were built with are right, and
+   * viewer.js reads them off the DOM (down to list items). After an edit they
+   * are not; then the top-level blocks are counted out in the Markdown. */
+  function startLines() {
+    const offsets = [], out = [];
+    const text = A.document.serialize(open, view.state.doc, false, offsets);
+    let line = 0, at = 0, k = 0;
+    view.state.doc.forEach((node, pos, index) => {
+      if (node.type.name === "island" && node.attrs.virtual) return;
+      if (node.type.name === "paragraph" && !node.content.size && view.state.doc.childCount > 1) { out.push([pos, line]); return; }
+      const offset = offsets[k++];
+      for (; at < offset; at++) if (text.charCodeAt(at) === 10) line++;
+      out.push([pos, line]);
+    });
+    return out;
+  }
+  function anchor() {
+    if (!edited) return null;
+    for (const [pos, line] of startLines()) {
+      const dom = view.nodeDOM(pos);
+      if (!dom || !dom.getBoundingClientRect) continue;
+      const r = dom.getBoundingClientRect();
+      if (r.bottom > 0 && r.height > 0) return { line, top: r.top, y: window.scrollY };
+    }
+    return { line: null, y: window.scrollY };
+  }
+  function restore(a) {
+    if (!edited) return false;
+    let best = null;
+    for (const [pos, line] of startLines()) { if (line <= a.line) best = pos; else break; }
+    const dom = best == null ? null : view.nodeDOM(best);
+    if (!dom || !dom.getBoundingClientRect) { window.scrollTo(0, a.y || 0); return true; }
+    window.scrollBy({ top: dom.getBoundingClientRect().top - a.top, behavior: "instant" });
+    return true;
+  }
+  // the caret into the first block on screen (a fresh document has it at the very top)
+  function caretToView() {
+    const { doc } = view.state;
+    let target = null;
+    doc.forEach((node, pos) => {
+      if (target != null || node.type.name === "hidden") return;
+      const dom = view.nodeDOM(pos);
+      if (dom && dom.getBoundingClientRect && dom.getBoundingClientRect().bottom > 60) target = pos;
+    });
+    if (target == null) return;
+    const sel = PM.state.Selection.findFrom(doc.resolve(target), 1, true);
+    if (sel) view.dispatch(view.state.tr.setSelection(sel));
+  }
+
+  let dirty = false;  // edits not yet handed over for saving
+  let edited = false; // the document is not what it was built from any more
   A.view = {
-    el, show, serialize,
+    el, show, serialize, take, anchor, restore, caretToView,
+    onChange: null, // set by viewer.js: called after every edit
     // the reading view is about to show again: its pictures back
     leave() { if (view) lend(view.dom, content); },
+    focus() { if (view && view.editable) view.focus(); },
+    failed() { dirty = true; }, // the save did not happen
+    get dirty() { return dirty; },
+    get edited() { return edited; },
+    get editable() { return !!view && view.editable; },
+    get payload() { return shown.p; },
     get dom() { return view ? view.dom : el; },
     get store() { return open && open.store; },
     get pm() { return view; },

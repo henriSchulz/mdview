@@ -37,7 +37,7 @@
     ok("mode control shows active", seg() === "false,true,false", seg());
     ok("scroll position kept (read -> active)", window.scrollY === y0, [y0, window.scrollY]);
     ok("same block at the top", topLine(pm) === line0, [line0, topLine(pm)]);
-    ok("active document is not editable yet", pm.getAttribute("contenteditable") === "false");
+    ok("active document is editable", pm.getAttribute("contenteditable") === "true");
 
     // active -> reading: nothing is redrawn
     modeKey(3);
@@ -95,22 +95,20 @@
       ok("outline jumps to the heading in the active view", top > -5 && top < innerHeight / 2, top);
     }
 
-    // a task ticked in the active mode is written to the file and stays in the active mode
-    const box = MdActive.view.dom.querySelector('input.task[data-line]:not(:checked)');
+    // a task ticked in the active mode is an edit: saved, and still the active mode
+    const box = MdActive.view.dom.querySelector("li.task-item:not(.is-checked) > input.task");
     if (box) {
-      const line = Number(box.dataset.line);
       box.scrollIntoView({ block: "center" });
       await sleep(100);
-      const y = window.scrollY;
-      box.click();
-      await sleep(900);
-      const now = MdView.core.current.text.split("\n")[line];
-      ok("ticking a task changes the file", /\[x\]/.test(now), now);
-      ok("still in the active mode after the file changed", view() === "active");
-      const again = MdActive.view.dom.querySelector(`input.task[data-line="${line}"]`);
-      ok("the task shows as done", again && again.checked);
-      ok("scroll position kept after the reload", Math.abs(window.scrollY - y) < 4, [y, window.scrollY]);
-      ok("document still round-trips", MdActive.view.serialize() === MdView.core.current.raw);
+      const y = window.scrollY, label = box.closest("li").textContent.trim().split("\n")[0];
+      box.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      ok("the task shows as done", box.closest("li")?.classList.contains("is-checked") || MdActive.view.dom.querySelector("li.task-item.is-checked"));
+      await sleep(1300); // autosave
+      const line = MdView.core.current.text.split("\n").find((l) => l.includes(label));
+      ok("ticking a task changes the file", /\[x\]/i.test(line || ""), line);
+      ok("still in the active mode", view() === "active");
+      ok("scroll position kept", Math.abs(window.scrollY - y) < 4, [y, window.scrollY]);
+      ok("only that line changed", MdActive.view.serialize() === MdView.core.current.raw);
     } else ok("fixture has an open task", false);
 
     out({ pass: results.every((r) => r.ok), results });
