@@ -115,7 +115,10 @@
     if ($from.parent.type === N.table_cell && !(visible.length === 1 && visible[0].type === N.paragraph)) return insertPlain(view, text);
     if (visible.length === 1 && visible[0].type === N.paragraph && $from.parent.inlineContent) {
       // a line of text into a line of text; what it defines goes behind the block
-      tr.replaceSelection(new Slice(visible[0].content, 0, 0));
+      // (Markdown drops the spaces around a paragraph; between words they are meant)
+      const space = (on) => (on ? [state.schema.text(" ", $from.marks())] : []);
+      const content = Fragment.from([...space(/^[ \t]+\S/.test(text)), ...visible[0].content.content, ...space(/\S[ \t]+\n*$/.test(text))]);
+      tr.replaceSelection(new Slice(content, 0, 0));
       const hidden = nodes.filter((n) => n.type === N.hidden);
       if (hidden.length) tr.insert(tr.doc.resolve(tr.selection.from).after(1), hidden);
     } else if ($from.parent.type === N.paragraph && !$from.parent.content.size && $from.depth === 1) {
@@ -132,7 +135,7 @@
     const lines = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "").split("\n");
     const tr = state.tr;
     if (lines.length === 1 || M.code.isInSet(state.storedMarks || $from.marks()) || !$from.parent.inlineContent || $from.parent.type === N.table_cell) {
-      tr.insertText(lines.join(" "));
+      tr.insertText(lines.length === 1 ? lines[0] : lines.filter((l) => l.trim()).join(" "));
     } else {
       const paras = lines.filter((l) => l.trim()).map((l) => N.paragraph.create(null, state.schema.text(l)));
       if (!paras.length) return true;
@@ -171,7 +174,7 @@
   const serializer = new DOMSerializer({
     ...base.nodes,
     island: (n) => { const div = document.createElement("div"); div.innerHTML = n.attrs.html; return div; },
-    hidden: () => document.createTextNode(""),
+    hidden: () => document.createElement("span"),
     iatom: (n) => { const span = document.createElement("span"); span.innerHTML = n.attrs.html; return span; },
   }, base.marks);
 

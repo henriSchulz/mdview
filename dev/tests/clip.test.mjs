@@ -9,8 +9,8 @@ const A = w.MdActive, PM = w.PM;
 const { EditorState, TextSelection, AllSelection } = PM.state;
 const C = A.clip;
 
-function doc(text) {
-  const d = A.document.open({ text, raw: text, links: {}, vault: false });
+function doc(raw) {
+  const d = A.document.open({ text: raw.replace(/\r\n/g, "\n"), raw, links: {}, vault: false });
   const view = {
     state: EditorState.create({ doc: d.doc, plugins: A.edit.plugins(d) }),
     dispatch(tr) { this.state = this.state.apply(tr); },
@@ -51,9 +51,13 @@ test("Markdown pasted keeps the way it is written", () => {
   C.insertMarkdown(e.view, "__bold__ and `code`\n");
   assert.equal(e.md(), "Some __bold__ and `code`text here.\n", "a line into a line");
 
+  e = doc("One three\n").caretAfter("One");
+  C.insertMarkdown(e.view, " *two*");
+  assert.equal(e.md(), "One *two* three\n", "the space before a pasted word stays");
+
   e = doc("Before\n\nAfter\n").caretAfter("Before");
-  C.insertMarkdown(e.view, " more\n\n- item\n\nnew [ref] para\n\n[ref]: http://x.y\n");
-  assert.equal(e.md(), "Before more\n\n- item\n\nnew [ref] para\n\n[ref]: http://x.y\n\nAfter\n", "blocks into the middle; a definition comes along");
+  C.insertMarkdown(e.view, "more\n\n- item\n\nnew [ref] para\n\n[ref]: http://x.y\n");
+  assert.equal(e.md(), "Beforemore\n\n- item\n\nnew [ref] para\n\n[ref]: http://x.y\n\nAfter\n", "blocks into the middle; a definition comes along");
 
   e = doc("|a|b|\n|-|-|\n|1|2|\n").caretAfter("1");
   C.insertMarkdown(e.view, "x\n\n- y\n");
