@@ -93,7 +93,7 @@
       // --- 14: assistive technology
       const isl = (kind) => view.dom.querySelector(`.isl[data-kind="${kind}"]`);
       ok("the editor is a multi-line text box with a name", view.dom.getAttribute("role") === "textbox" && view.dom.getAttribute("aria-multiline") === "true" && view.dom.getAttribute("aria-label") === "Document");
-      ok("a code block says its language and length", isl("code").getAttribute("role") === "button" && isl("code").getAttribute("aria-label") === "Code block, js, 1 lines. Press Enter to edit.", isl("code").getAttribute("aria-label"));
+      ok("a code block says its language and length", isl("code").getAttribute("role") === "button" && isl("code").getAttribute("aria-label") === "Code block, js, one line. Press Enter to edit.", isl("code").getAttribute("aria-label"));
       A.islands.open(view, ip = (() => { let p = -1; view.state.doc.forEach((n, q) => { if (p < 0 && n.type.name === "island") p = q; }); return p; })());
       await sleep(450);
       ok("a dialog is modal, labelled, and holds the focus", dlg.getAttribute("role") === "dialog" && dlg.getAttribute("aria-modal") === "true" && document.getElementById(dlg.getAttribute("aria-labelledby"))?.textContent === "Code block" && dlg.contains(document.activeElement));

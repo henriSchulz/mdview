@@ -279,6 +279,11 @@
       const textStart = start + match[0].indexOf(match[1]);
       const innerStart = textStart + match[1].indexOf(match[2]), innerEnd = innerStart + match[2].length;
       if (state.doc.rangeHasMark(textStart, end, M.code)) return null;
+      // behind a backtick that is still open, this is code being typed: its stars stay stars
+      if (type !== M.code) {
+        const $s = state.doc.resolve(textStart);
+        if ((($s.parent.textBetween(0, $s.parentOffset, null, "\ufffc").match(/`/g) || []).length) % 2) return null;
+      }
       if (innerEnd < end) tr.delete(innerEnd, end);
       if (innerStart > textStart) tr.delete(textStart, innerStart);
       const to = textStart + match[2].length;

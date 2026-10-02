@@ -9,11 +9,7 @@
 
   const el = document.createElement("section");
   el.id = "active";
-  // both views in one place (active.css: #views)
-  const stack = document.createElement("div");
-  stack.id = "views";
-  document.getElementById("content").before(stack);
-  stack.append(document.getElementById("content"), el);
+  document.getElementById("content").after(el);
 
   let view = null, open = null; // open: { store, doc, loaded } of the document shown
   let shown = {};               // the payload and text it was built from
@@ -111,7 +107,7 @@
       dom.setAttribute("role", "button");
       // "Code block, python, 12 lines. …" / "Formula: a^2 + b^2. …" — a formula is read out by its source
       let label = T("island.hint", T(kind), node.attrs.raw.split("\n").length);
-      if (node.attrs.kind === "code") { const c = A.islands.parseCode(node.attrs.raw); label = T("island.code", c.lang ? T(kind) + ", " + c.lang : T(kind), c.code.split("\n").length); }
+      if (node.attrs.kind === "code") { const c = A.islands.parseCode(node.attrs.raw); const n = c.code.split("\n").length; label = T(n === 1 ? "island.code1" : "island.code", c.lang ? T(kind) + ", " + c.lang : T(kind), n); }
       else if (node.attrs.kind === "math") label = T("island.math", A.islands.parseMath(node.attrs.raw).tex.replace(/\s+/g, " ").trim().slice(0, 300));
       dom.setAttribute("aria-label", label);
     }
@@ -139,14 +135,13 @@
     const fresh = !(open && shown.text === p.text && shown.p.path === p.path && !!shown.p.vault === !!p.vault);
     if (!fresh) open.store.env.links = p.links || {}; // what new wikilinks resolve against
     shown = { p, text: p.text };
-    el.classList.remove("stale");
     if (fresh) {
       open = A.document.open(p);
       // the caret starts in text; an island at the top would otherwise show up selected
       const selection = PM.state.Selection.findFrom(open.doc.resolve(0), 1, true) || undefined;
       const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins(open) });
       built++;
-      el.classList.add("kept"); // from now on it stays laid out under the reading view (active.css)
+
       if (view) view.updateState(state);
       else {
         view = new EditorView(el, {
@@ -165,13 +160,14 @@
               closeNext = !!action;
             }
             view.updateState(view.state.apply(tr));
-            if (tr.docChanged) { dirty = edited = true; content.classList.add("stale"); if (A.view.onChange) A.view.onChange(); } // (the reading view is behind now)
+            if (tr.docChanged) { dirty = edited = true; if (A.view.onChange) A.view.onChange(); }
           },
         });
       }
       dirty = edited = false;
     }
     view.setProps({ editable: () => !shown.p.readonly }); // read again: the file may be read-only now
+
     lend(content, view.dom);
     return open.store;
   }

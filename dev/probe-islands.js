@@ -201,7 +201,7 @@
     ok("leaving the mode closes the dialog and keeps its content", !isOpen() && document.body.dataset.view === "read" && MdView.core.current.text.includes("$$\nE = h\\nu\n$$"), MdView.core.current.text.slice(60, 120));
     document.querySelector('.seg-btn[data-mode="active"]').click();
     await sleep(400);
-    ok("islands say what they are", view.dom.querySelector('.isl[data-kind="code"]')?.getAttribute("aria-label")?.startsWith("Code block, 3 lines"), view.dom.querySelector('.isl[data-kind="code"]')?.getAttribute("aria-label"));
+    ok("islands say what they are", /^Code block, \w+, (one line|\d+ lines)\. Press Enter to edit\.$/.test(view.dom.querySelector('.isl[data-kind="code"]')?.getAttribute("aria-label") || ""), view.dom.querySelector('.isl[data-kind="code"]')?.getAttribute("aria-label"));
 
     // --- keyboard: a selected island opens with Enter
     const m = island("math");

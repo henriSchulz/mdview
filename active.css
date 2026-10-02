@@ -12,16 +12,7 @@
 }
 @media (max-width: 640px) { #active { padding: 48px 20px 40vh; } }
 body[data-view="active"] #active { display: block; }
-/* Reading view and active view lie in the same place (one grid cell) and both stay laid out
- * while they show the same text: a change between them is a change of visibility and costs
- * no layout of the whole document. One that is out of date (.stale: the other was edited or
- * redrawn since) is taken out, so it has no say in the page's height. */
-#views { display: grid; max-width: calc(var(--measure) + 80px); margin: 0 auto; }
-#views > #content, #views > #active { grid-area: 1 / 1; min-width: 0; margin: 0; }
-body[data-view="active"] #views > #content { visibility: hidden; }
-body[data-view="active"] #views > #content.stale { display: none; }
-body[data-view="read"] #views > #active.kept { display: block; visibility: hidden; }
-body[data-view="read"] #views > #active.stale { display: none; }
+body[data-view="active"] #content { display: none; }
 body.swapping #active { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 
 /* White space collapses as in the reading view. (An editor wants it kept,
@@ -296,8 +287,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #content { visibility: visible !important; }
-  #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, #actsub, #notepop, #fmtbar, #acttip, .tbl-h { display: none !important; } }
+@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, #actsub, #notepop, #fmtbar, #acttip, .tbl-h { display: none !important; } }
 
 /* ------------------------------------------------------------- tables */
 /* rows sit directly in <table> here: stripe them as the reading view's body rows */
@@ -418,3 +408,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   .pm[contenteditable="true"] .isl:not(.none):hover, .pm .footnotes li.footnote-item:hover { outline: 1.5px solid var(--fg2); }
   .actmenu .menu-item:disabled { opacity: 0.75; }
 }
+
+/* Popovers that are not showing rest at the top of the page: left where the flow would put them
+ * (below the document), they would make the page longer by their height. */
+#linkpop, #atompop, #notepop, .tbl-h { top: 0; left: 0; }

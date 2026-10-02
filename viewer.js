@@ -477,9 +477,6 @@
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
     drawn = { p, text: p.text };
-    // the reading view is up to date again; the active view under it only if it holds this text
-    content.classList.remove("stale");
-    if (window.MdActive?.view) MdActive.view.el.classList.toggle("stale", !MdActive.view.shows(p));
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
       outline = [];
