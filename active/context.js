@@ -158,6 +158,15 @@
   const plugin = new Plugin({
     key: new PluginKey("context"),
     props: {
+      // the menu key, Shift+F10: the menu at the caret
+      handleKeyDown(view, e) {
+        if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) || !view.editable) return false;
+        e.preventDefault();
+        const sel = view.state.selection, c = view.coordsAtPos(sel.to, -1);
+        const node = sel.node && sel.node.isAtom ? sel.node : null;
+        A.menu.open({ x: c.left, y: c.bottom + 4, items: node ? nodeItems(view, sel.from, node) : textItems(view, sel.from), closed: () => view.focus() });
+        return true;
+      },
       handleDOMEvents: {
         contextmenu(view, e) {
           if (!view.editable || e.target.closest?.(".pm") !== view.dom) return false;

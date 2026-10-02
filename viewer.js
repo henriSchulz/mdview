@@ -428,6 +428,8 @@
 
   function render(p) {
     const prev = current;
+    // read from disk before the last save from here was written: older than what is on screen
+    if (prev && prev.path === p.path && p.seq != null && p.seq < saveSeq && !p.error) return;
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
     p.text = p.text.replace(/\r\n?/g, "\n");
     current = p;
@@ -443,6 +445,7 @@
     }
     if (mode === "active") {
       if (!p.error) {
+        if (prev && prev.path === p.path && !MdActive.view.shows(p)) MdActive.dialog.closeFields(); // a popover's place is gone; a dialog finds its block again (islands.js)
         if (prev && prev.path === p.path && MdActive.view.dirty) { // edits here that are not saved yet win, as in the source editor
           if (p.text !== prev.text) toast(T("active.keptEdits"));
           p.raw = MdActive.view.serialize();
@@ -474,6 +477,9 @@
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
     drawn = { p, text: p.text };
+    // the reading view is up to date again; the active view under it only if it holds this text
+    content.classList.remove("stale");
+    if (window.MdActive?.view) MdActive.view.el.classList.toggle("stale", !MdActive.view.shows(p));
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
       outline = [];
@@ -1120,6 +1126,17 @@
 
   // --- saving: automatic, shortly after the last keystroke
   const dirty = () => edPath != null && edInput.value !== savedText;
+  let saveSeq = 0; // counts the saves sent; the application says which one it had when it read the file (render)
+  // Some time after a save: does the file say what the editor holds? (An error is logged, nothing else.)
+  let verifyTimer = 0;
+  function verifySoon() {
+    clearTimeout(verifyTimer);
+    verifyTimer = setTimeout(() => {
+      if (mode !== "active" || MdActive.view.dirty) return;
+      const lost = MdActive.view.verify();
+      if (lost) { console.error("mdview: " + lost); post("log", { text: lost }); }
+    }, 3000);
+  }
   function flushSave() {
     clearTimeout(saveTimer);
     saveTimer = 0;
@@ -1130,13 +1147,14 @@
       p.text = p.raw.replace(/\r\n?/g, "\n");
       p.error = null;
       trailPush(p.path, p.text);
-      post("save", { text: p.raw, path: p.path, exact: true });
+      post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
+      verifySoon();
       return;
     }
     if (!dirty()) return;
     savedText = edInput.value;
     if (current && current.path === edPath) { current.text = savedText; current.error = null; trailPush(edPath, savedText); }
-    post("save", { text: savedText, path: edPath });
+    post("save", { text: savedText, path: edPath, seq: ++saveSeq });
   }
   function flush(thenClose) {
     // the window is closing over a dialog with changes in it: they are not the document's yet — ask
@@ -1159,6 +1177,7 @@
    * own undo history; the active mode steps back along them once its own
    * history is used up (trailStep). */
   const TRAIL_MAX = 60, REPLAY_MAX = 20;
+  const LARGE_LINES = 20000; // from here on the active mode says that it may be slow
   let trail = { path: null, texts: [], at: -1 };
   let trailFloor = 0, trailRedo = [], trailStepping = false, edReplay = null, edCaret = null, activeBuilt = -1;
   function trailPush(path, text) {
@@ -1244,6 +1263,10 @@
     if (next === "edit" && current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
     edCaret = mode === "active" && next === "edit" && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // current.text is what the active mode holds
+    if (next === "active" && !current.toldLarge && current.text.length > 400000 && current.text.split("\n").length > LARGE_LINES) {
+      current.toldLarge = true;
+      toast(T("active.large"));
+    }
     if (next === "edit") {
       if (edPath !== current.path || (!dirty() && edInput.value !== current.text)) {
         // What was done in the active mode since the source editor last had the note goes into

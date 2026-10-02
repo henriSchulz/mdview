@@ -24,7 +24,7 @@
     for (const ch of "The quick brown fox jumps over the lazy dog and keeps on typing. ") {
       const t = performance.now();
       const { from, to } = view.state.selection;
-      if (!view.someProp("handleTextInput", (f) => f(view, from, to, ch))) view.dispatch(view.state.tr.insertText(ch, from, to));
+      if (!view.someProp("handleTextInput", (f) => f(view, from, to, ch))) view.dispatch(view.state.tr.insertText(ch, from, to).scrollIntoView()); // (as the editor does for typed text)
       void view.dom.offsetHeight; // layout, as a frame would
       times.push(performance.now() - t);
       await sleep(15);

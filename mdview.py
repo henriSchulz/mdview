@@ -44,7 +44,7 @@ HOME = Path.home()
 SOURCE = Path(os.path.realpath(__file__))
 ASSETS = SOURCE.parent
 SOURCE_STAMP = SOURCE.stat().st_mtime_ns
-THEME_DIR = HOME / ".local/state/omarchy/current"
+THEME_DIR = Path(os.environ.get("MDVIEW_THEME_DIR") or HOME / ".local/state/omarchy/current")  # (the override: for tests)
 MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
 STATE_FILE = Path(GLib.get_user_state_dir()) / "mdview" / "state.json"
 DEBUG = bool(os.environ.get("MDVIEW_DEBUG"))
@@ -378,6 +378,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.own_write = None       # bytes just written here: the reload for them is skipped
         self.closing = False
         self.mode_given = False  # the page was told which mode the app was last used in
+        self.save_seq = 0
         self.close_id = 0
 
         st = app.state
@@ -786,6 +787,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             "toEnd": end,
             "error": error,
             "canBack": bool(self.back),
+            "seq": self.save_seq,  # the last save that was written before the file was read
         }
         if not self.mode_given and (not PROBE or os.environ.get("MDVIEW_PROBE_MODE")):
             payload["startMode"] = self.app.state.get("mode", "read")
@@ -865,6 +867,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "save":
             # a late autosave must not land in whatever note is open by now
             if msg.get("path") in (None, str(self.path)):
+                self.save_seq = msg.get("seq") or self.save_seq
                 self.save_text(msg.get("text"), exact=bool(msg.get("exact")))
         elif t == "pasteimage":
             self.paste_image(msg.get("path"), bool(msg.get("append")))

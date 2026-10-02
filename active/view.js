@@ -9,7 +9,11 @@
 
   const el = document.createElement("section");
   el.id = "active";
-  document.getElementById("content").after(el);
+  // both views in one place (active.css: #views)
+  const stack = document.createElement("div");
+  stack.id = "views";
+  document.getElementById("content").before(stack);
+  stack.append(document.getElementById("content"), el);
 
   let view = null, open = null; // open: { store, doc, loaded } of the document shown
   let shown = {};               // the payload and text it was built from
@@ -105,7 +109,11 @@
     else if (tag === "div" && !node.attrs.virtual) { // what it is, and that Enter edits it
       const T = window.MdStrings.t, kind = { code: "dialog.code", math: "dialog.math", frontmatter: "dialog.frontmatter", html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" }[node.attrs.kind] || "dialog.markdown";
       dom.setAttribute("role", "button");
-      dom.setAttribute("aria-label", T("island.hint", T(kind), node.attrs.raw.split("\n").length));
+      // "Code block, python, 12 lines. …" / "Formula: a^2 + b^2. …" — a formula is read out by its source
+      let label = T("island.hint", T(kind), node.attrs.raw.split("\n").length);
+      if (node.attrs.kind === "code") { const c = A.islands.parseCode(node.attrs.raw); label = T("island.code", c.lang ? T(kind) + ", " + c.lang : T(kind), c.code.split("\n").length); }
+      else if (node.attrs.kind === "math") label = T("island.math", A.islands.parseMath(node.attrs.raw).tex.replace(/\s+/g, " ").trim().slice(0, 300));
+      dom.setAttribute("aria-label", label);
     }
     // what is to be clicked inside stays the page's business (copy button, fold marker, player)
     return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button, summary, input, audio, video, a") };
@@ -131,12 +139,14 @@
     const fresh = !(open && shown.text === p.text && shown.p.path === p.path && !!shown.p.vault === !!p.vault);
     if (!fresh) open.store.env.links = p.links || {}; // what new wikilinks resolve against
     shown = { p, text: p.text };
+    el.classList.remove("stale");
     if (fresh) {
       open = A.document.open(p);
       // the caret starts in text; an island at the top would otherwise show up selected
       const selection = PM.state.Selection.findFrom(open.doc.resolve(0), 1, true) || undefined;
       const state = EditorState.create({ doc: open.doc, selection, plugins: A.edit.plugins(open) });
       built++;
+      el.classList.add("kept"); // from now on it stays laid out under the reading view (active.css)
       if (view) view.updateState(state);
       else {
         view = new EditorView(el, {
@@ -153,7 +163,7 @@
               closeNext = !!action;
             }
             view.updateState(view.state.apply(tr));
-            if (tr.docChanged) { dirty = edited = true; if (A.view.onChange) A.view.onChange(); }
+            if (tr.docChanged) { dirty = edited = true; content.classList.add("stale"); if (A.view.onChange) A.view.onChange(); } // (the reading view is behind now)
           },
         });
       }
@@ -297,7 +307,18 @@
     el, show, serialize, take, anchor, restore, caretToView, caretOffset, caretAt,
     onHistory: null, // set by viewer.js: undo / redo beyond what was done in this mode (-1 / 1) -> done?
     gentle: false,   // the next scroll to the caret is one after undo or redo
-    touch() { dirty = edited = true; }, // the document shown is not the one saved
+    touch() { dirty = edited = true; },
+    /* After a save: read the saved text again — every island the editor holds must still be one
+     * there. -> what is wrong, or null. */
+    verify() {
+      if (!open || !view || view.state.doc.childCount > 4000) return null;
+      const count = (doc) => { const n = {}; doc.descendants((x) => { if (x.type.name === "island" && !x.attrs.virtual) n[x.attrs.kind] = (n[x.attrs.kind] || 0) + 1; return !x.isTextblock; }); return n; };
+      const have = count(view.state.doc), again = count(A.document.open({ text: shown.text, raw: shown.text, links: shown.p.links, vault: shown.p.vault }).doc);
+      const lost = Object.keys(have).filter((k) => (again[k] || 0) < have[k]);
+      return lost.length ? "the saved file lost blocks the editor holds: " + lost.map((k) => `${k} ${have[k]} -> ${again[k] || 0}`).join(", ") : null;
+    },
+    // is what is built here the text of this payload?
+    shows(p) { return !!open && !dirty && shown.p.path === p.path && shown.text === p.text && !!shown.p.vault === !!p.vault; }, // the document shown is not the one saved
     get built() { return built; },
     // the reading view is still on screen and about to be left for this one
     arriving() { note(content); },

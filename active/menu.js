@@ -54,6 +54,7 @@
   }
   function place(p, x, y, origin) {
     p.el.style.setProperty("--origin", origin);
+    p.el.style.left = p.el.style.top = "0px"; // measured with room: where it stood last may leave it none
     p.el.style.left = Math.max(8, Math.min(x, innerWidth - p.el.offsetWidth - 8)) + "px";
     p.el.style.top = Math.max(8, Math.min(y, innerHeight - p.el.offsetHeight - 8)) + "px";
     p.el.dataset.open = "";
@@ -74,6 +75,7 @@
     if (!entry || !entry.item.items || entry.item.disabled) return closeSub();
     fill(sub, entry.item.items);
     subOf = i;
+    sub.el.style.left = "0px";
     const r = entry.el.getBoundingClientRect(), w = sub.el.offsetWidth;
     const right = r.right + 2 + w <= innerWidth - 8;
     place(sub, right ? r.right + 2 : r.left - 2 - w, r.top - 5, right ? "top left" : "top right");

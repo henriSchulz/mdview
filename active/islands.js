@@ -28,7 +28,7 @@
     const closed = lines.length > 1 && new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[ \\t]*$`).test(lines[lines.length - 1]);
     const body = lines.slice(1, closed ? -1 : undefined).map((l) => l.replace(new RegExp(`^ {0,${indent.length}}`), ""));
     const im = /^([ \t]*)(\S*)([\s\S]*)$/.exec(info);
-    return { indented: false, fence, indent, lang: im[2], rest: im[3], lead: im[1], code: body.join("\n") };
+    return { indented: false, closed, fence, indent, lang: im[2], rest: im[3], lead: im[1], code: body.join("\n") };
   }
   function buildCode(c) {
     if (c.indented && !c.lang) return c.code.split("\n").map((l) => (l ? "    " + l : "")).join("\n");
@@ -67,7 +67,20 @@
     return out;
   }
   /* Replace the block at `pos` by what `raw` is. One undo step. Empty: the block goes. */
-  function replace(view, pos, raw) {
+  /* The island a dialog was opened for. If the document was built anew under the dialog (the
+   * file changed on disk), the island is looked for again: the same Markdown, nearest to where it was. */
+  let target = null;
+  function locate(view, pos) {
+    if (!target || target.pos !== pos) return pos;
+    const doc = view.state.doc, same = (n) => !!n && n.type === target.node.type && n.attrs.raw === target.node.attrs.raw;
+    if (pos <= doc.content.size && same(doc.nodeAt(pos))) return pos;
+    let best = -1;
+    doc.descendants((n, p) => { if (same(n) && (best < 0 || Math.abs(p - pos) < Math.abs(best - pos))) best = p; return !n.isTextblock; });
+    return best;
+  }
+  function replace(view, at, raw) {
+    const pos = locate(view, at);
+    if (pos < 0) { copy(raw); toast(T("dialog.gone")); return; } // not lost: on the clipboard
     const state = view.state, node = state.doc.nodeAt(pos);
     if (!node) return;
     const tr = state.tr;
@@ -352,6 +365,9 @@
     if (node.type === N.image) { imagePopover(view, pos, node); return true; }
     if (node.type === N.iatom) { if (node.attrs.kind === "footnote") return A.notes.edit(view, A.notes.labelOf(node)); atomPopover(view, pos, node); return true; }
     if (node.type !== N.island || node.attrs.virtual) return false;
+    target = { pos, node };
+    // the block is selected while its dialog is up: closing it hands the focus back to the block
+    if (!(view.state.selection instanceof NodeSelection && view.state.selection.from === pos)) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
     const kind = node.attrs.kind;
     if (kind === "code") codeDialog(view, pos, node, fresh);
     else if (kind === "math") mathDialog(view, pos, node, fresh);

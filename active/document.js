@@ -69,6 +69,12 @@
         const c = A.islands.parseCode(n.node.attrs.raw);
         return { id: n.node.attrs.bid, text: A.islands.buildCode({ ...c, indented: false }) };
       }
+      // A code block that is not closed runs to the end of the file. With something below it
+      // (it was the last block when it was loaded), it has to end: its fence is closed.
+      if (i + 1 < nodes.length && kind(n.node) === "island:code") {
+        const c = A.islands.parseCode(n.node.attrs.raw);
+        if (!c.indented && !c.closed) return { id: n.node.attrs.bid, text: n.node.attrs.raw.replace(/\n+$/, "") + "\n" + c.indent + c.fence };
+      }
       if (n.clean) return { id: n.node.attrs.bid };
       return { id: n.node.attrs.bid, text: A.markdown.block(n.node, d, n.marker) };
     });

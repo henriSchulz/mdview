@@ -15,9 +15,9 @@ const K = A.edit.keys, M = A.schema.marks;
 
 /* A document with an editor state. `|` in the source marks the caret, or
  * with two of them the selection (they are not part of the document). */
-function doc(src) {
+function doc(src, plain = false) { // plain: the text as it is, pipes and all
   const marks = [];
-  const text = src.replace(/\|/g, (m, at) => { marks.push(at - marks.length); return ""; });
+  const text = plain ? src : src.replace(/\|/g, (m, at) => { marks.push(at - marks.length); return ""; });
   const d = A.document.open({ text, raw: text, links: {}, vault: false });
   let state = EditorState.create({ doc: d.doc, plugins: A.edit.plugins(d) });
   const api = {
@@ -36,6 +36,7 @@ function doc(src) {
     caretBefore(needle) { return api.select(api.at(needle, false)); },
     selectText(needle) { return api.select(api.at(needle, false), api.at(needle)); },
     run(command) { const ok = command(state, (tr) => { state = state.apply(tr); }); return ok; },
+    apply(tr) { state = state.apply(tr); return api; },
     press(key) { assert.ok(K[key], "no such key: " + key); return api.run(K[key]); },
     type(str) { state = state.apply(state.tr.insertText(str)); return api; },
   };
@@ -223,11 +224,16 @@ const blocksOf = (d) => {
   });
   return out;
 };
+const OPS = ["type", "type", "delete", "strong", "em", "code", "strike", "enter", "backspace", "heading", "paragraph", "bullets", "numbers", "task", "tab", "untab", "break", "paste", "table", "island", "note"];
 const FORBIDDEN = /<br\b|<span\b|<b>|<i>|<div\b|&nbsp;|[​‌‍﻿]/;
 
-function fuzz(name, src, random, steps) {
+const PASTES = ["* one\n* two", "**bold** text", "> quoted\n\nafter", "| x | y |\n|---|---|\n| 1 | 2 |", "~~~\ncode\n~~~", "plain words", "1) a\n2) b", "Setext\n------"];
+const N = A.schema.nodes;
+// each(out, op): called with the file after every step (it may return a failure)
+function fuzz(name, src, random, steps, each = null, ops = OPS) {
   const text = src.replace(/\r\n?/g, "\n");
-  const e = doc(text.replace(/\|/g, "¦"));
+  const e = doc(text, true);
+  const viewLike = { get state() { return e.state; }, dispatch(tr) { e.apply(tr); }, dom: w.document.createElement("div"), focus() {} };
   const clean = !FORBIDDEN.test(text);
   const pick = (list) => list[Math.floor(random() * list.length)];
   const log = [];
@@ -238,7 +244,7 @@ function fuzz(name, src, random, steps) {
     if (!blocks.length) break;
     const [block, pos] = pick(blocks);
     const a = pos + 1 + Math.floor(random() * (block.content.size + 1)), b = pos + 1 + Math.floor(random() * (block.content.size + 1));
-    const op = pick(["type", "type", "delete", "strong", "em", "code", "strike", "enter", "backspace", "heading", "paragraph", "bullets", "numbers", "task", "tab", "untab", "break"]);
+    const op = pick(ops);
     log.push(`${op}@${a},${b}`);
     try {
       if (op === "type") e.select(a).type(pick(["word", " and ", "x", "A.", " 12 "]));
@@ -254,11 +260,34 @@ function fuzz(name, src, random, steps) {
       else if (op === "tab") { e.select(a); e.press("Tab"); }
       else if (op === "untab") { e.select(a); e.press("Shift-Tab"); }
       else if (op === "break") { e.select(a); e.press("Shift-Enter"); }
+      else if (op === "paste") { e.select(a); A.clip.insertMarkdown(viewLike, pick(PASTES)); }
+      else if (op === "note") { e.select(a); e.run(A.notes.insert); }
+      else if (op === "table") { // something done to a table's rows and columns, if there is a table
+        const cells = [];
+        e.state.doc.descendants((n, p) => { if (n.type === N.table_cell) cells.push(p + 1); return !n.isTextblock; });
+        if (cells.length) {
+          e.select(pick(cells));
+          const c = A.tableui.cellAt(e.state.selection.$from), O = A.tableui.ops;
+          const make = pick([O.rowBelow(c.r), O.rowAbove(Math.max(1, c.r)), O.rowMove(c.r, 1), O.rowDelete(c.r), O.colLeft(c.c), O.colRight(c.c), O.colMove(c.c, 1), O.colDelete(c.c), O.align(c.c, pick(["left", "center", "right"]))]);
+          const did = (c.r === 0 && make.name === "") ? null : A.tableui.changed(e.state, c.tablePos, make);
+          if (did) e.apply(did.tr);
+        }
+      } else if (op === "island") { // a code block or a formula changed as its dialog would
+        const islands = [];
+        e.state.doc.descendants((n, p) => { if (n.type === N.island && !n.attrs.virtual && /^(code|math)$/.test(n.attrs.kind)) islands.push([n, p]); return !n.isTextblock && n.type !== N.island; });
+        if (islands.length) {
+          const [node, p] = pick(islands), I = A.islands;
+          const raw = node.attrs.kind === "code" ? I.buildCode({ ...I.parseCode(node.attrs.raw), code: I.parseCode(node.attrs.raw).code + "\nmore();" }) : I.buildMath({ ...I.parseMath(node.attrs.raw), tex: I.parseMath(node.attrs.raw).tex + " + 1" });
+          const made = I.blocksOf(raw, e.d.store).map((n, i) => n.type.create({ ...n.attrs, bid: i === 0 ? node.attrs.bid : null, line: null }, n.content, n.marks));
+          if (made.length === 1 && made[0].type === N.island) e.apply(e.state.tr.replaceWith(p, p + node.nodeSize, N.island.create({ ...made[0].attrs, raw })));
+        }
+      }
       e.state.doc.check();
     } catch (err) {
       return { failed: `${name}: ${err.message}\n  steps: ${log.join(" ")}` };
     }
     const out = e.md();
+    if (each) { const said = each(out, op); if (said) return { failed: `${name}: ${said}\n  steps: ${log.join(" ")}\n  file: ${JSON.stringify(out.slice(0, 500))}` }; }
     if (clean && FORBIDDEN.test(out)) return { failed: `${name}: forbidden output ${JSON.stringify(out.match(FORBIDDEN)[0])}\n  steps: ${log.join(" ")}` };
     const again = blocksOf(A.document.open({ text: out, raw: out, links: {}, vault: false }).doc), now = blocksOf(e.state.doc);
     const bad = again.length !== now.length ? -2 : now.findIndex((n, i) => !A.markdown.same(n, again[i]));
@@ -287,5 +316,70 @@ test("random edits: the file says what the editor shows", (t) => {
     }
   }
   t.diagnostic(`${runs} sequences of 12 edits; ${impossible} ended in something Markdown cannot write; ${failures.length} failed`);
-  if (failures.length) assert.fail(`${failures.length} of ${runs} sequences failed, first:\n${failures.slice(0, 3).join("\n\n")}`);
+  if (failures.length) assert.fail(`${failures.length} of ${runs} sequences failed, first:\n${failures.slice(0, Number(process.env.MDVIEW_SHOW || 3)).join("\n\n")}`);
+});
+
+// ------------------------------------------------------------ portability (test D)
+/* What the file says must not depend on this app's parser. A second,
+ * independent one (micromark with its GFM extension) reads every text the
+ * random edits produce; where the two agreed on the text before the edits,
+ * they must agree after each of them. */
+const { micromark } = await import("micromark");
+const { gfm, gfmHtml } = await import("micromark-extension-gfm");
+const other = (text) => micromark(text, { allowDangerousHtml: true, allowDangerousProtocol: true, extensions: [gfm()], htmlExtensions: [gfmHtml()] });
+const mine = (text) => w.MdView.core.md.render(text, { links: {}, outline: [], depth: 0, lineOffset: 0 });
+const KEEP = /^(P|H[1-6]|BLOCKQUOTE|UL|OL|LI|PRE|TABLE|TR|TD|TH|HR|STRONG|EM|DEL|S|CODE|A|IMG|BR)$/;
+// the structure of a rendering: its elements that mean something, and its text
+// bare: without the links a parser makes of an address standing in the text by itself
+function signature(html, bare = false) {
+  const box = w.document.createElement("div");
+  box.innerHTML = html;
+  const out = [];
+  let text = "";
+  const flush = () => { const t = text.replace(/\s+/g, " ").trim(); if (t) out.push('"' + t + '"'); text = ""; };
+  (function walk(node) {
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) { text += child.nodeValue; continue; }
+      if (child.nodeType !== 1) continue;
+      const tag = child.tagName;
+      if (tag === "BUTTON" || tag === "SVG" || /\b(code-tools|code-lang|anchor)\b/.test(child.className || "")) continue;
+      if (tag === "INPUT") { flush(); out.push(child.checked || child.hasAttribute("checked") ? "[x]" : "[ ]"); continue; }
+      if (tag === "P" && child.parentElement.tagName === "LI") { flush(); walk(child); flush(); continue; } // tight or loose: the same content
+      const address = bare && tag === "A" && [child.textContent, "mailto:" + child.textContent, "http://" + child.textContent].includes(decodeURI(child.getAttribute("href") || ""));
+      const keep = KEEP.test(tag) && !address; // (anything else — this app's tags, wrappers — counts as its text)
+      if (keep) { flush(); out.push("<" + (tag === "S" ? "DEL" : tag) + (tag === "A" ? " " + child.getAttribute("href") : tag === "IMG" ? " " + child.getAttribute("src") : "") + ">"); }
+      walk(child);
+      if (keep) { flush(); if (!/^(HR|BR|IMG)$/.test(tag)) out.push("</>"); }
+    }
+  })(box);
+  flush();
+  return out.join("");
+}
+test("portability: a second parser reads the edited file the same way", { skip: !fs.existsSync(path.join(ROOT, "dev/corpus/commonmark.json")) && "run dev/fetch-corpus.sh first" }, (t) => {
+  const examples = JSON.parse(fs.readFileSync(path.join(ROOT, "dev/corpus/commonmark.json"), "utf8")).map((x) => [`example ${x.example}`, x.markdown]);
+  const dir = path.join(ROOT, "dev/tests/fixtures");
+  const docs = [...examples, ...fs.readdirSync(dir).sort().map((f) => [f, fs.readFileSync(path.join(dir, f), "utf8")])];
+  const agree = (text) => { try { return signature(mine(text)) === signature(other(text)); } catch (_e) { return false; } };
+  // (no formulas, notes or code changed by dialog here: only what both parsers know)
+  const ops = OPS.filter((op) => !/^(note|island)$/.test(op));
+  let used = 0, steps = 0, addresses = 0;
+  const failures = [];
+  // Which bare text is an address is the one thing parsers settle differently (GFM leaves room): not a difference in what the file says.
+  const differ = (out) => {
+    steps++;
+    if (agree(out)) return null;
+    if (signature(mine(out), true) === signature(other(out), true)) { addresses++; return null; }
+    return `the parsers differ:\n   here:  ${signature(mine(out)).slice(0, 300)}\n   there: ${signature(other(out)).slice(0, 300)}`;
+  };
+  for (const [name, src] of docs) {
+    if (!src.trim() || !agree(src.replace(/\r\n?/g, "\n"))) continue;
+    used++;
+    for (let round = 0; round < 3; round++) {
+      const r = fuzz(name, src, rng(round * 7919 + name.length), 6, differ, ops);
+      if (r.failed && /the parsers differ/.test(r.failed)) failures.push(`[round ${round}] ` + r.failed);
+    }
+  }
+  t.diagnostic(`${used} of ${docs.length} texts read the same by both parsers before editing; ${steps} edited files compared; ${failures.length} differ (and ${addresses} only in which bare text counts as an address)`);
+  assert.ok(used > 400, "most of the examples take part");
+  if (failures.length) assert.fail(`${failures.length} edited files are read differently, first:\n${failures.slice(0, Number(process.env.MDVIEW_SHOW || 3)).join("\n\n")}`);
 });

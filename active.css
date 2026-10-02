@@ -12,7 +12,16 @@
 }
 @media (max-width: 640px) { #active { padding: 48px 20px 40vh; } }
 body[data-view="active"] #active { display: block; }
-body[data-view="active"] #content { display: none; }
+/* Reading view and active view lie in the same place (one grid cell) and both stay laid out
+ * while they show the same text: a change between them is a change of visibility and costs
+ * no layout of the whole document. One that is out of date (.stale: the other was edited or
+ * redrawn since) is taken out, so it has no say in the page's height. */
+#views { display: grid; max-width: calc(var(--measure) + 80px); margin: 0 auto; }
+#views > #content, #views > #active { grid-area: 1 / 1; min-width: 0; margin: 0; }
+body[data-view="active"] #views > #content { visibility: hidden; }
+body[data-view="active"] #views > #content.stale { display: none; }
+body[data-view="read"] #views > #active.kept { display: block; visibility: hidden; }
+body[data-view="read"] #views > #active.stale { display: none; }
 body.swapping #active { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 
 /* White space collapses as in the reading view. (An editor wants it kept,
@@ -173,9 +182,9 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #dlg { background: var(--bg); } }
 .dlg-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; }
 #dlg-title { flex: 1; font-weight: 600; }
-.dlg-tools { display: flex; gap: 6px; }
-.dlg-lang { width: 150px; }
-.dlg-rest { width: 180px; }
+.dlg-tools { display: flex; flex: 1; justify-content: flex-end; gap: 6px; min-width: 0; }
+.dlg-lang { flex: 0 1 150px; min-width: 60px; width: 150px; }
+.dlg-rest { flex: 0 1 180px; min-width: 60px; width: 180px; }
 .dlg-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 0 14px; overflow: auto; }
 .dlg-foot { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .dlg-info { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -287,7 +296,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, #actsub, #notepop, #fmtbar, #acttip, .tbl-h { display: none !important; } }
+@media print { #content { visibility: visible !important; }
+  #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, #actsub, #notepop, #fmtbar, #acttip, .tbl-h { display: none !important; } }
 
 /* ------------------------------------------------------------- tables */
 /* rows sit directly in <table> here: stripe them as the reading view's body rows */
@@ -321,7 +331,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
 .tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
 
-.actmenu { position: fixed; z-index: 45; min-width: 190px; padding: 5px; outline: none; user-select: none; -webkit-user-select: none; }
+.actmenu { position: fixed; z-index: 45; min-width: 190px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 5px; outline: none; user-select: none; -webkit-user-select: none; }
 #actsub { z-index: 46; }
 .actmenu .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .actmenu .menu-item:disabled { color: var(--fg2); opacity: 0.55; }
@@ -400,3 +410,11 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .dlg-ask-text { color: var(--fg2); }
 .dlg-ask-row { display: flex; gap: 8px; margin-top: 10px; }
 .dlg-ask-row span { flex: 1; }
+
+/* more contrast asked for: lines and edges of the active mode's own parts stand out */
+@media (prefers-contrast: more) {
+  #dlg, #fmtbar, #linkpop, #atompop, #notepop, .actmenu, .dlg-ask-box, .tbl-h { box-shadow: 0 0 0 1.5px var(--fg); }
+  .menu-rule, .fb-rule { background: var(--fg2); }
+  .pm[contenteditable="true"] .isl:not(.none):hover, .pm .footnotes li.footnote-item:hover { outline: 1.5px solid var(--fg2); }
+  .actmenu .menu-item:disabled { opacity: 0.75; }
+}

@@ -59,6 +59,7 @@
         .replace(/_/g, (m, i, all) => (/[\p{L}\p{N}]/u.test(all[i - 1] || "") && /[\p{L}\p{N}]/u.test(all[i + 1] || "") ? m : "\\_"));
     } else if (level >= 2) {
       s = s.replace(new RegExp(`(?<!\\\\)[${PUNCT.replace("\\\\\\\\", "").replace("&", "").replace("<", "")}]`, "g"), (m) => "\\" + m);
+      s = s.replace(/(?<!\\)</g, "\\<"); // (also where no tag could start: "<3" is a heart to some)
     }
     return s;
   }
@@ -182,9 +183,19 @@
         if (opening.length) { lead = /^\s*/.exec(text)[0]; text = text.slice(lead.length); }
         if (kept(after, nextMarks) < after.length) { trail = /\s*$/.exec(text)[0]; text = text.slice(0, text.length - trail.length); }
       }
-      const body = text == null ? leaf(node, cx) : code ? codeSpan(text, code)
+      let body = text == null ? leaf(node, cx) : code ? codeSpan(text, code)
         : link && plainLink(link) ? text // an address is written as it is
         : escapeText(text, level, !!link);
+      // A backslash at the end of a line right behind an address: some parsers take it into the
+      // address. There the break is written with two spaces.
+      if (node.type.name === "hard_break" && !node.attrs.soft && body[0] === "\\" && /(?:[:.@]\S*|[a-z0-9]\.[a-z]{2,}\S*)$/i.test(out.slice(out.lastIndexOf("\n") + 1).split(/\s/).pop() || "")) body = "  \n";
+      // A literal *, _ or ~ touching a delimiter: parsers disagree on which of them delimits. Escaped, none do.
+      if (text != null && !code && !(link && plainLink(link)) && level < 2) {
+        const before = keep < open0.length || opening.length > 0;
+        const next = kids[i + 1], behind = !!next && (kept(after, nextMarks) < after.length || nextMarks.some((m) => !has(after, m)));
+        if (before && !lead && /^[*_~]/.test(body)) body = "\\" + body;
+        if (behind && !trail && /(?<!\\)[*_~]$/.test(body)) body = body.slice(0, -1) + "\\" + body.slice(-1);
+      }
       closeTo(keep, lead ? lead[0] : body[0] || "");
       out += lead;
       for (const mark of opening) {
@@ -308,10 +319,11 @@
     const written = nums.filter((n) => n != null);
     const same = ordered && written.length > 1 && written.every((n) => Number(n) === start);
     const items = [];
+    const bullet = markerOf(node, cx); // one bullet for the whole list: another one would start another list
     node.forEach((item, _o, i) => {
       const forced = cx.swap && cx.swap.node === node ? cx.swap.marker : null;
       const marker = ordered ? String(same ? start : start + i) + (forced || (/^[.)]$/.test(node.attrs.markup || "") ? node.attrs.markup : cx.profile.ordered))
-        : forced || [item.attrs.markup, node.attrs.markup].find((m) => /^[-+*]$/.test(m || "")) || cx.profile.bullet;
+        : forced || bullet;
       const task = item.attrs.task != null && item.attrs.box ? `[${item.attrs.task}] ` : "";
       const width = marker.length + 1;
       const body = [];

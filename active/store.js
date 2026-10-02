@@ -226,9 +226,10 @@
     return out;
   }
   // What the file ends with stays, whichever block is last now.
+  // how the file ends: as it ended (its own last segment, not one that was pasted in); a file that was empty gets a last newline
   const trailingOf = (store, exact) => {
-    const s = store.segs[store.segs.length - 1];
-    return s ? (exact ? s.sep.orig : s.sep.raw) : "";
+    const s = store.segs[(store.count ?? store.segs.length) - 1];
+    return s ? (exact ? s.sep.orig : s.sep.raw) : exact ? store.eol : "\n";
   };
 
   A.store = { parse, serialize, groups, lineTable, typeOf: (token) => TYPES[token.type] || "other", adopt };
