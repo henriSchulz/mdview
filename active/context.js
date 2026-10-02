@@ -37,7 +37,7 @@
     quote: toggleQuote,
   };
   const MARKS = { strong: "Mod-b", em: "Mod-i", s: "Shift-Mod-x", code: "Mod-`" };
-  const run = (view, command) => { view.focus(); return command(view.state, (tr) => view.dispatch(tr.setMeta("step", true)), view); };
+  const run = (view, command) => { if (!view.hasFocus()) view.focus(); return command(view.state, (tr) => view.dispatch(tr.setMeta("step", true)), view); };
   const toggle = (view, mark) => run(view, A.edit.keys[MARKS[mark]]);
 
   // the selected text as a formula

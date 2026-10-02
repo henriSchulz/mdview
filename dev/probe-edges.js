@@ -106,7 +106,7 @@
       key(view.dom, "F10", { shiftKey: true });
       await sleep(300);
       const r = menu.getBoundingClientRect(), c = view.coordsAtPos(view.state.selection.to);
-      ok("Shift+F10 opens the menu at the caret", menu.hasAttribute("data-open") && document.activeElement === menu && Math.abs(r.top - c.bottom) < 12, [r.top, c.bottom]);
+      ok("Shift+F10 opens the menu at the caret", menu.hasAttribute("data-open") && A.menu.panel === "root" && view.hasFocus() && Math.abs(r.top - c.bottom) < 12, [r.top, c.bottom]);
       for (let i = 0; i < 6; i++) key(menu, "ArrowDown");
       key(menu, "ArrowRight");
       await sleep(200);
@@ -128,6 +128,19 @@
       ok("… and one undo makes it the characters again", !view.dom.querySelector("p:last-of-type strong") && view.dom.querySelector("p:last-of-type").textContent.endsWith("**b**"), view.dom.querySelector("p:last-of-type").textContent.slice(-20));
       for (let i = 0; i < 40 && md() !== original; i++) undo();
       ok("all of it undone", md() === original, md().slice(-80));
+
+      // --- $$…$$ typed: a formula on its own lines
+      end();
+      key(view.dom, "Enter");
+      type("$$x^2 $$");
+      ok("$$…$$ typed in a line of its own becomes a formula", view.state.doc.lastChild.type.name === "paragraph" && view.state.doc.child(view.state.doc.childCount - 2).attrs.kind === "math" && !!view.dom.querySelector(".isl[data-kind='math'] .katex") && md().endsWith("Last paragraph.\n\n$$x^2 $$\n"), md().slice(-60));
+      ok("… and the caret is on a new line below it", view.state.selection.empty && view.state.selection.$from.parent === view.state.doc.lastChild && view.state.doc.lastChild.content.size === 0);
+      type("Text with $$a+b$$");
+      ok("typed behind text, the formula goes below that text", /\n\nText with\n\n\$\$a\+b\$\$\n$/.test(md()), md().slice(-60));
+      type("then $5 and `$$` stay");
+      ok("… and writing goes on below it; dollars in code stay", /\$\$a\+b\$\$\n\nthen \\?\$5 and `\$\$` stay\n$/.test(md()), md().slice(-70));
+      for (let i = 0; i < 60 && md() !== original; i++) undo();
+      ok("all of it undone again", md() === original, md().slice(-80));
 
       // --- 17: a narrow window (the page zoomed: fewer CSS pixels across)
       const wide = innerWidth;

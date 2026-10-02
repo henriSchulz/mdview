@@ -237,7 +237,7 @@
     A.view.gentle = false;
     let c;
     try { c = v.coordsAtPos(v.state.selection.head); } catch (_e) { return false; }
-    const comfort = jump ? innerHeight * 0.2 : 0;
+    const comfort = jump === true ? innerHeight * 0.2 : 0; // ("near": gently, but only as far as needed)
     const top = Math.max(56, comfort), bottom = innerHeight - Math.max(28, comfort); // (the toolbar floats over the top)
     const by = c.top < top ? c.top - top : c.bottom > bottom ? c.bottom - bottom : 0;
     if (by) window.scrollBy({ top: by, behavior: jump && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "instant" });

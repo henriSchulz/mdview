@@ -54,10 +54,10 @@
     key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown");
     key(menu, "ArrowRight");
     await sleep(200);
-    ok("by keyboard: down to Format, right into it; what is on is ticked", sub.hasAttribute("data-open") && document.activeElement === sub && sub.querySelector('[aria-checked="true"]')?.firstChild.textContent === "Bold", [document.activeElement.id, labels(sub)]);
+    ok("by keyboard: down to Format, right into it; what is on is ticked", sub.hasAttribute("data-open") && A.menu.panel === "sub" && sub.querySelector('[aria-checked="true"]')?.firstChild.textContent === "Bold", [document.activeElement.id, labels(sub)]);
     key(sub, "ArrowLeft");
     await sleep(120);
-    ok("left closes it again", !sub.hasAttribute("data-open") && document.activeElement === menu);
+    ok("left closes it again", !sub.hasAttribute("data-open") && A.menu.panel === "root");
     key(menu, "Escape");
     await sleep(250);
     undo();

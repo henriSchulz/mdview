@@ -918,6 +918,28 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "probe" and PROBE_OUT:
             name = f"{self.path.name if self.path else 'none'}.{msg.get('name', 'probe')}.json"
             Path(PROBE_OUT, name).write_text(str(msg.get("text")))
+        elif t == "probe-pointer" and PROBE:
+            # (tests) a real pointer event at page coordinates: what a click does that script cannot do
+            self.probe_pointer(msg)
+
+    def probe_pointer(self, msg):
+        kinds = {"down": Gdk.EventType.BUTTON_PRESS, "up": Gdk.EventType.BUTTON_RELEASE, "move": Gdk.EventType.MOTION_NOTIFY}
+        kind = kinds.get(msg.get("kind"))
+        win = self.view.get_window()
+        if kind is None or win is None:
+            return
+        zoom = self.view.get_zoom_level()
+        ev = Gdk.Event.new(kind)
+        ev.window = win
+        ev.send_event = True
+        ev.time = Gtk.get_current_event_time() or GLib.get_monotonic_time() // 1000
+        ev.x, ev.y = float(msg.get("x", 0)) * zoom, float(msg.get("y", 0)) * zoom
+        ox, oy = win.get_root_coords(int(ev.x), int(ev.y))
+        ev.x_root, ev.y_root = float(ox), float(oy)
+        if kind != Gdk.EventType.MOTION_NOTIFY:
+            ev.button = int(msg.get("button", 1))
+        ev.set_device(Gdk.Display.get_default().get_default_seat().get_pointer())
+        self.view.event(ev)
 
     def handle_link(self, href):
         u = urlparse(href)

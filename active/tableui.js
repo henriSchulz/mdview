@@ -60,8 +60,10 @@
     const did = changed(view.state, tablePos, fn);
     if (!did) return false;
     const res = did.res;
+    A.view.gentle = "near"; // if the page has to move for it, it moves gently and no further than needed
     view.dispatch(did.tr);
-    view.focus();
+    A.view.gentle = false;
+    if (!view.hasFocus()) view.focus();
     const dom = view.nodeDOM(tablePos), rowsEl = dom && dom.querySelectorAll ? [...dom.querySelectorAll("tr")] : [];
     const cells = res.fresh && res.fresh.row != null ? [...(rowsEl[res.fresh.row]?.children || [])]
       : res.fresh && res.fresh.col != null ? rowsEl.map((row) => row.children[res.fresh.col]).filter(Boolean) : [];
@@ -71,13 +73,14 @@
   }
   const move = (list, from, to) => { const out = list.slice(); out.splice(to, 0, out.splice(from, 1)[0]); return out; };
   const ops = {
-    rowAbove: (r) => (rows, aligns) => ({ rows: [...rows.slice(0, r), aligns.map(empty), ...rows.slice(r)], aligns, focus: [r, 0], fresh: { row: r } }),
-    rowBelow: (r) => (rows, aligns) => ({ rows: [...rows.slice(0, r + 1), aligns.map(empty), ...rows.slice(r + 1)], aligns, focus: [r + 1, 0], fresh: { row: r + 1 } }),
-    rowMove: (r, by) => (rows, aligns) => (r + by < 0 || r + by >= rows.length ? null : { rows: move(rows, r, r + by), aligns, focus: [r + by, 0], fresh: { row: r + by } }),
+    // (c: the column the caret goes to in the new row — the one it was asked from)
+    rowAbove: (r, c = 0) => (rows, aligns) => ({ rows: [...rows.slice(0, r), aligns.map(empty), ...rows.slice(r)], aligns, focus: [r, c], fresh: { row: r } }),
+    rowBelow: (r, c = 0) => (rows, aligns) => ({ rows: [...rows.slice(0, r + 1), aligns.map(empty), ...rows.slice(r + 1)], aligns, focus: [r + 1, c], fresh: { row: r + 1 } }),
+    rowMove: (r, by, c = 0) => (rows, aligns) => (r + by < 0 || r + by >= rows.length ? null : { rows: move(rows, r, r + by), aligns, focus: [r + by, c], fresh: { row: r + by } }),
     rowDelete: (r) => (rows, aligns) => ({ rows: rows.filter((_x, i) => i !== r), aligns, focus: [Math.max(0, Math.min(r, rows.length - 2)), 0] }),
     colLeft: (c) => (rows, aligns) => ({ rows: rows.map((cells) => [...cells.slice(0, c), empty(), ...cells.slice(c)]), aligns: [...aligns.slice(0, c), null, ...aligns.slice(c)], focus: [0, c], fresh: { col: c } }),
     colRight: (c) => (rows, aligns) => ({ rows: rows.map((cells) => [...cells.slice(0, c + 1), empty(), ...cells.slice(c + 1)]), aligns: [...aligns.slice(0, c + 1), null, ...aligns.slice(c + 1)], focus: [0, c + 1], fresh: { col: c + 1 } }),
-    colMove: (c, by) => (rows, aligns) => (c + by < 0 || c + by >= aligns.length ? null : { rows: rows.map((cells) => move(cells, c, c + by)), aligns: move(aligns, c, c + by), focus: [0, c + by], fresh: { col: c + by } }),
+    colMove: (c, by, r = 0) => (rows, aligns) => (c + by < 0 || c + by >= aligns.length ? null : { rows: rows.map((cells) => move(cells, c, c + by)), aligns: move(aligns, c, c + by), focus: [r, c + by], fresh: { col: c + by } }),
     colDelete: (c) => (rows, aligns) => ({ rows: rows.map((cells) => cells.filter((_x, i) => i !== c)), aligns: aligns.filter((_x, i) => i !== c), focus: [0, Math.max(0, Math.min(c, aligns.length - 2))] }),
     align: (c, how, r = 0) => (rows, aligns) => ({ rows, aligns: aligns.map((a, i) => (i === c ? (a === how ? null : how) : a)), focus: [r, c] }),
     remove: () => () => ({ rows: [], aligns: [] }),
@@ -133,10 +136,10 @@
   function rowItems(view, cell) {
     const go = (op) => () => change(view, cell.tablePos, op), last = cell.table.childCount - 1;
     return [
-      item("table.rowAbove", go(ops.rowAbove(cell.r)), { disabled: cell.r === 0 }),
-      item("table.rowBelow", go(ops.rowBelow(cell.r))),
-      item("table.rowUp", go(ops.rowMove(cell.r, -1)), { disabled: cell.r < 2 }),
-      item("table.rowDown", go(ops.rowMove(cell.r, 1)), { disabled: cell.r === 0 || cell.r === last }),
+      item("table.rowAbove", go(ops.rowAbove(cell.r, cell.c)), { disabled: cell.r === 0 }),
+      item("table.rowBelow", go(ops.rowBelow(cell.r, cell.c))),
+      item("table.rowUp", go(ops.rowMove(cell.r, -1, cell.c)), { disabled: cell.r < 2 }),
+      item("table.rowDown", go(ops.rowMove(cell.r, 1, cell.c)), { disabled: cell.r === 0 || cell.r === last }),
       null,
       item("table.rowDelete", go(ops.rowDelete(cell.r)), { danger: true, disabled: cell.r === 0 }),
     ];
@@ -147,8 +150,8 @@
     return [
       item("table.colLeft", go(ops.colLeft(cell.c))),
       item("table.colRight", go(ops.colRight(cell.c))),
-      item("table.colMoveLeft", go(ops.colMove(cell.c, -1)), { disabled: cell.c === 0 }),
-      item("table.colMoveRight", go(ops.colMove(cell.c, 1)), { disabled: cell.c === last }),
+      item("table.colMoveLeft", go(ops.colMove(cell.c, -1, cell.r)), { disabled: cell.c === 0 }),
+      item("table.colMoveRight", go(ops.colMove(cell.c, 1, cell.r)), { disabled: cell.c === last }),
       null,
       ...["left", "center", "right"].map((how) => item("table.align." + how, go(ops.align(cell.c, how, cell.r)), { checked: align === how })),
       null,

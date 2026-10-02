@@ -1,6 +1,8 @@
 /* mdview active mode — a menu at a point (the app's menu look and behaviour:
  * highlight follows at once, a chosen entry blinks, then acts). An entry may
- * open a second menu beside it. */
+ * open a second menu beside it.
+ * The menu never takes the focus: the editor keeps it, with its selection as
+ * it is, and the keys go to the menu while it is open. */
 "use strict";
 (() => {
   const A = window.MdActive;
@@ -14,7 +16,7 @@
     return { el, entries: [], hl: -1 };
   }
   const root = panel("actmenu"), sub = panel("actsub");
-  let after = null, subOf = -1, subTimer = 0;
+  let after = null, subOf = -1, subTimer = 0, keys = root; // keys: the panel the arrow keys move in
   const isOpen = (p = root) => p.el.hasAttribute("data-open");
   const usable = (p, i) => p.entries[i] && !p.entries[i].item.disabled;
   function setHl(p, i) {
@@ -66,7 +68,7 @@
     fill(root, items);
     after = closed;
     place(root, x, y, origin);
-    root.el.focus({ preventScroll: true });
+    keys = root;
   }
   function openSub(i, viaKey) {
     clearTimeout(subTimer);
@@ -80,11 +82,12 @@
     const right = r.right + 2 + w <= innerWidth - 8;
     place(sub, right ? r.right + 2 : r.left - 2 - w, r.top - 5, right ? "top left" : "top right");
     setHl(root, i);
-    if (viaKey) { step(sub, 1, -1); sub.el.focus({ preventScroll: true }); }
+    if (viaKey) { step(sub, 1, -1); keys = sub; }
   }
   function closeSub() {
     clearTimeout(subTimer);
     subOf = -1;
+    keys = root;
     delete sub.el.dataset.open;
   }
   function close(chosen = false) {
@@ -120,24 +123,29 @@
     });
     p.el.addEventListener("mouseleave", (e) => { if (!(p === root && sub.el.contains(e.relatedTarget))) setHl(p, -1); });
     p.el.addEventListener("click", (e) => run(p, at(e)));
-    p.el.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Escape") { if (p === sub) { closeSub(); root.el.focus({ preventScroll: true }); setHl(root, root.hl); } else close(); }
-      else if (e.key === "ArrowDown") step(p, 1);
-      else if (e.key === "ArrowUp") step(p, -1, p.hl < 0 ? 0 : p.hl);
-      else if (e.key === "Home") step(p, 1, -1);
-      else if (e.key === "End") step(p, -1, 0);
-      else if (e.key === "ArrowRight" && p === root) openSub(p.hl, true);
-      else if (e.key === "ArrowLeft" && p === sub) { closeSub(); root.el.focus({ preventScroll: true }); setHl(root, root.hl); }
-      else if (e.key === "Enter" || e.key === " ") run(p, p.hl);
-      else return;
-      e.preventDefault();
-    });
-    p.el.addEventListener("blur", () => setTimeout(() => { if (isOpen() && document.activeElement !== root.el && document.activeElement !== sub.el) close(); }));
   }
-  sub.el.addEventListener("mouseenter", () => { clearTimeout(subTimer); setHl(root, subOf); });
+  // the keys, while a menu is open (before anything else sees them)
+  document.addEventListener("keydown", (e) => {
+    if (!isOpen()) return;
+    const p = keys === sub && isOpen(sub) ? sub : root;
+    if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.key === "Escape") { if (p === sub) { closeSub(); setHl(root, root.hl); } else close(); }
+    else if (e.key === "ArrowDown") step(p, 1);
+    else if (e.key === "ArrowUp") step(p, -1, p.hl < 0 ? 0 : p.hl);
+    else if (e.key === "Home") step(p, 1, -1);
+    else if (e.key === "End") step(p, -1, 0);
+    else if (e.key === "ArrowRight" && p === root) openSub(p.hl, true);
+    else if (e.key === "ArrowLeft" && p === sub) { closeSub(); setHl(root, root.hl); }
+    else if (e.key === "Enter" || e.key === " ") run(p, p.hl);
+    else if (e.key === "Tab") close();
+  }, true);
+  window.addEventListener("blur", () => close());
+  sub.el.addEventListener("mouseenter", () => { clearTimeout(subTimer); setHl(root, subOf); keys = sub; });
+  root.el.addEventListener("mouseenter", () => { keys = root; });
   document.addEventListener("mousedown", (e) => { if (isOpen() && !root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, true);
   window.addEventListener("scroll", () => close(), { passive: true });
 
-  A.menu = { open, close, el: root.el, sub: sub.el, get isOpen() { return isOpen(); } };
+  A.menu = { open, close, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
 })();

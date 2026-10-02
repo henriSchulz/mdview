@@ -72,9 +72,12 @@
     button("link").disabled = button("math").disabled = !one;
     button("para").disabled = A.context.blockKind(state).cell;
   }
-  function place() {
+  let placed = ""; // the selection the bar was placed for: it does not wander when the text under it changes its width
+  function place(again = false) {
     if (!view) return;
     const { from, to } = view.state.selection;
+    if (!again && shown && placed === from + ":" + to) return;
+    placed = from + ":" + to;
     const a = view.coordsAtPos(from), b = view.coordsAtPos(to, -1);
     const top = Math.min(a.top, b.top), bottom = Math.max(a.bottom, b.bottom);
     if (bottom < 0 || top > innerHeight) return hide(); // scrolled out of sight
@@ -88,7 +91,7 @@
   function show() {
     if (!view || !wanted(view.state) || !view.hasFocus() || A.menu.isOpen || A.dialog.open) return;
     reflect(view.state);
-    place();
+    place(true);
     bar.dataset.open = "";
     shown = true;
   }
@@ -120,8 +123,8 @@
     A.context.toggle(view, what);
     reflect(view.state);
   });
-  window.addEventListener("scroll", () => { if (shown) place(); }, { passive: true });
-  window.addEventListener("resize", () => { if (shown) place(); });
+  window.addEventListener("scroll", () => { if (shown) place(true); }, { passive: true });
+  window.addEventListener("resize", () => { if (shown) place(true); });
 
   const plugin = new Plugin({
     key: new PluginKey("bar"),

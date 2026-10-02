@@ -345,6 +345,40 @@
       if (state.doc.rangeHasMark(from, to, M.code) || state.doc.resolve(from).parent.type === N.heading && from === state.doc.resolve(from).start()) return null;
       return state.tr.addMark(from, to, M.tag.create()).insertText(" ", end);
     }),
+    // $$…$$: a formula on its own lines. What stands before and after it in the paragraph stays, above and below.
+    new IR.InputRule(/\$\$([^$]*[^$\\\s][^$]*)\$\$$/, (state, match, start, end) => {
+      const $start = state.doc.resolve(start), para = $start.parent;
+      if (M.code.isInSet($start.marks()) || (para.textBetween(0, $start.parentOffset, null, "\ufffc").match(/`/g) || []).length % 2) return null;
+      if (para.type !== N.paragraph) { // a heading, a cell: one line — the formula stays in it
+        const raw = "$" + match[1].trim() + "$", html = renderInline(state, raw);
+        return /</.test(html) ? state.tr.replaceWith(start, end, N.iatom.create({ kind: "math", raw, html })) : null;
+      }
+      const raw = "$$" + match[1] + "$$";
+      const island = A.islands.blocksOf(raw, storeOf(state)).find((n) => n.type === N.island && n.attrs.kind === "math");
+      if (!island) return null;
+      const from = $start.before(), to = $start.after(), a = $start.parentOffset, b = a + (end - start);
+      const before = para.cut(0, a), after = para.cut(b);
+      const trimmed = (node, atEnd) => { // the space that stood next to the dollars
+        const t = atEnd ? node.lastChild : node.firstChild;
+        if (!t || !t.isText) return node;
+        const text = atEnd ? t.text.replace(/\s+$/, "") : t.text.replace(/^\s+/, "");
+        return atEnd ? node.cut(0, node.content.size - (t.text.length - text.length)) : node.cut(t.text.length - text.length);
+      };
+      const head = trimmed(before, true), tail = trimmed(after, false);
+      const nodes = [];
+      if (head.content.size) nodes.push(head);
+      nodes.push(head.content.size ? island : N.island.create({ ...island.attrs, bid: para.attrs.bid }));
+      nodes.push(tail.content.size ? N.paragraph.create(null, tail.content) : null);
+      const tr = state.tr;
+      const last = nodes[nodes.length - 1];
+      // the caret goes on below the formula: in what followed it, or in a new line if nothing does
+      const following = $start.node(-1).maybeChild($start.indexAfter(-1));
+      const below = last || (following && following.isTextblock ? null : N.paragraph.create());
+      tr.replaceWith(from, to, nodes.filter(Boolean).concat(below && !last ? [below] : []));
+      let at = from;
+      for (const n of nodes.slice(0, 2)) if (n) at += n.nodeSize;
+      return tr.setSelection(PM.state.Selection.near(tr.doc.resolve(Math.min(at, tr.doc.content.size)), 1));
+    }),
     // math: nothing that looks like prices ("$5 and $10")
     atomRule(/(?:^|[^\\$\p{L}\p{N}])(\$[^\s$](?:[^$]*[^\s$\\])?\$)$/u, "math"),
     atomRule(/(\[\[[^\[\]\n]+\]\])$/, "wikilink"),
