@@ -82,6 +82,7 @@
     await sleep(1100);                              // autosave
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "e", ctrlKey: true, bubbles: true, cancelable: true }));
     await waitView("read");
+    for (let i = 0; i < 60 && [...content.querySelectorAll("img")].some((im) => !im.complete); i++) await sleep(150); // redrawn: its pictures load again
     await sleep(500);
     report.readAgain = { view: document.body.dataset.view || "read", html: hash(content.innerHTML), height: r1(content.getBoundingClientRect().height) };
 
