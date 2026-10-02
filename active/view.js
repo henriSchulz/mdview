@@ -155,6 +155,8 @@
           editable: () => !shown.p.readonly,
           handleScrollToSelection: scrollToCaret,
           dispatchTransaction(tr) {
+            // a file that cannot be written is not changed here either, whatever asks for it
+            if (tr.docChanged && shown.p.readonly && tr.getMeta("addToHistory") !== false) return;
             // An action (from a menu, a dialog, a paste) is a step of its own in the undo history:
             // it does not run together with the typing before it or after it.
             if (tr.docChanged && tr.getMeta("addToHistory") !== false && !tr.getMeta("history$")) {

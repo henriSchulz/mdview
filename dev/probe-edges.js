@@ -115,6 +115,20 @@
       ok("… and Bold is reached with the arrow keys alone", md().includes("**plain words**") && view.hasFocus(), md().slice(0, 80));
       undo();
 
+      // --- typing that looks like syntax: prices, code, and taking a rule back
+      const end = () => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos("Last paragraph."))));
+      end();
+      type(" It costs $5 and $10 now");
+      ok("prices are not a formula", !view.dom.querySelector("p:last-of-type .ia") && /costs \\?\$5 and \\?\$10 now/.test(md()), md().slice(-60));
+      type(" `**not bold**` x");
+      ok("in code, stars are stars", /`\*\*not bold\*\*` x/.test(md()) && !!view.dom.querySelector("p:last-of-type code") && !view.dom.querySelector("p:last-of-type strong"), md().slice(-60));
+      type(" **b**");
+      ok("**b** typed is bold", !!view.dom.querySelector("p:last-of-type strong"));
+      undo();
+      ok("… and one undo makes it the characters again", !view.dom.querySelector("p:last-of-type strong") && view.dom.querySelector("p:last-of-type").textContent.endsWith("**b**"), view.dom.querySelector("p:last-of-type").textContent.slice(-20));
+      for (let i = 0; i < 40 && md() !== original; i++) undo();
+      ok("all of it undone", md() === original, md().slice(-80));
+
       // --- 17: a narrow window (the page zoomed: fewer CSS pixels across)
       const wide = innerWidth;
       for (let i = 0; i < 15; i++) post("zoom", { step: 1 });

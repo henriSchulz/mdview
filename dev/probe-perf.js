@@ -21,6 +21,7 @@
     o.firstActiveMs = r1(performance.now() - t); // with loading the editor's code
     const A = MdActive, V = A.view, view = V.pm;
     o.blocks = view.state.doc.childCount;
+    o.hint = /Large document/.test(document.getElementById("toast")?.textContent || ""); // said for very large files
     await sleep(500);
     // --- changing the mode (the document already built: what a change of mode costs from then on)
     const sw = { toRead: [], toActive: [] };
