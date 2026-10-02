@@ -1256,7 +1256,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -1415,6 +1415,7 @@
     post("pasteimage", { path: edPath });
   });
   function insertImage(r) {
+    if (mode === "active" && current && current.path === r.path) { window.MdActive?.clip.insertMarkdown(MdActive.view.pm, r.markup); return; }
     if (mode !== "edit" || edPath !== r.path) return;
     edReplace(edInput.selectionStart, edInput.selectionEnd, r.markup);
   }
@@ -1892,7 +1893,11 @@
     addEventListener(type, (e) => document.body.classList.toggle("mod-down", type !== "blur" && (e.ctrlKey || e.metaKey)));
   }
 
-  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage,
+  // Ctrl+Shift+V in the active mode: the clipboard's text, handed over by the application
+  function pasteText(r) {
+    if (mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
+  }
+  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }),

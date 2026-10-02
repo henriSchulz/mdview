@@ -287,7 +287,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, .tbl-h { display: none !important; } }
+@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, #notepop, .tbl-h { display: none !important; } }
 
 /* ------------------------------------------------------------- tables */
 /* rows sit directly in <table> here: stripe them as the reading view's body rows */
@@ -325,3 +325,22 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 #actmenu .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 #actmenu .menu-item:disabled { color: var(--fg2); opacity: 0.55; }
 .menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }
+
+/* ------------------------------------------------------------- footnotes */
+.pm .footnotes li.footnote-item { border-radius: var(--radius-row); transition: background-color var(--dur-slow) var(--ease-out); }
+.pm[contenteditable="true"] .footnotes li.footnote-item:hover { background-color: color-mix(in srgb, var(--fg) 4%, transparent); transition-duration: var(--dur-instant); }
+.pm .footnotes li.footnote-item.note-hit { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: var(--dur-fast); }
+.pm .isl[data-kind="footnotes"], .pm .isl[data-kind="footnotes"]:hover { background-color: transparent; }
+.pm .isl[data-kind="footnotes"]::after { display: none; }
+#notepop {
+  position: absolute;
+  z-index: 30;
+  box-sizing: border-box;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px 12px;
+  font-size: 0.9em;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--fg) 4%, var(--bg));
+}
+#notepop > :first-child { margin-top: 0; }
+#notepop > :last-child { margin-bottom: 0; }

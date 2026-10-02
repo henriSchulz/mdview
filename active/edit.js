@@ -21,6 +21,7 @@
   // the document a state belongs to ({ store, loaded }), for what depends on the file: its links, its style
   const context = new PluginKey("context");
   const storeOf = (state) => (context.getState(state) || {}).store || null;
+  const docOf = (state) => context.getState(state) || null;
   const renderInline = (state, src) => md.renderInline(src, { links: (storeOf(state) && storeOf(state).env.links) || {}, depth: 0 });
 
   // ------------------------------------------------------------ commands
@@ -240,6 +241,7 @@
     "Shift-Mod-x": C.toggleMark(M.s),
     "Mod-`": C.toggleMark(M.code),
     "Mod-k": (state, dispatch, view) => A.link.edit(view),
+    "Mod-Alt-f": (s, d, v) => A.notes.insert(s, d, v),
     "Shift-Mod-0": keepBid(setParagraph),
     "Shift-Mod-7": toggleList(N.ordered_list),
     "Shift-Mod-8": toggleList(N.bullet_list),
@@ -436,7 +438,7 @@
       oldState.doc.forEach((n, pos) => {
         if ((n.type === N.hidden || (n.type === N.island && n.attrs.virtual)) && !have.has(n.attrs.bid ?? "virtual")) lost.push([n, pos]);
       });
-      if (lost.length) {
+      if (lost.length && !trs.some((t) => t.getMeta("allowLoss"))) {
         for (const [node, pos] of lost.reverse()) {
           let at = pos;
           for (const t of trs) at = t.mapping.map(at, -1);
@@ -523,6 +525,7 @@
       // a click on an island opens its dialog; on a formula its popover; a picture wants a double click
       handleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
+        if (node.type === N.island && node.attrs.virtual) return A.notes.clicked(view, event);
         if (node.type === N.island || (node.type === N.iatom && node.attrs.kind === "math")) return A.islands.open(view, nodePos);
         return false;
       },
@@ -552,14 +555,14 @@
     // d: the document ({ store, loaded }) the state is made for
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
-      IR.inputRules({ rules }),
+      IR.inputRules({ rules: [...rules, A.notes.rule] }),
       keymap(keys),
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, A.notes.plugin, A.clip.plugin, clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
-    keys, storeOf,
+    keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
     itemAt, ancestor,
   };

@@ -855,6 +855,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 self.save_text(msg.get("text"), exact=bool(msg.get("exact")))
         elif t == "pasteimage":
             self.paste_image(msg.get("path"), bool(msg.get("append")))
+        elif t == "pastetext":
+            text = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_text()
+            if text:
+                self.js("MdView.pasteText", {"text": text})
         elif t == "external":
             self.open_external()
         elif t == "note":

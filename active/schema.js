@@ -69,7 +69,7 @@
       // markup: the bullet as written; num: the number as written (ordered lists);
       // task: null, or the character between the brackets; box: this node draws the checkbox
       attrs: { bid: { default: null }, line, markup: { default: null }, num: { default: null }, task: { default: null }, box: { default: true } },
-      parseDOM: [{ tag: "li" }],
+      parseDOM: [{ tag: "li", getAttrs: (dom) => ({ task: dom.hasAttribute("data-task") ? dom.getAttribute("data-task") : null }) }],
       toDOM(n) {
         const { task, box } = n.attrs;
         if (task == null) return ["li", lineAttr(n), 0];
@@ -107,6 +107,11 @@
       selectable: true,
       // raw: its Markdown (without the indentation or quote marks of what it sits in)
       attrs: { kind: { default: "other" }, html: { default: "" }, raw: { default: "" }, virtual: { default: false } },
+      // (a code block out of pasted HTML: clip.js hands it over as its Markdown)
+      parseDOM: [{ tag: "div[data-md-code]", getAttrs(dom) {
+        const raw = dom.getAttribute("data-md-code"), made = A.islands.blocksOf(raw, A.view.store || { env: { links: {} }, vault: false }).find((n) => n.type.name === "island");
+        return made ? { kind: made.attrs.kind, html: made.attrs.html, raw } : { kind: "code", raw };
+      } }],
       toDOM: () => ["div", { class: "isl" }],
     }),
     // source lines without output of their own (definitions); kept in place, never shown
@@ -151,7 +156,7 @@
       inclusive: false,
       // markup: "autolink" (<url>), "linkify" (a bare url), else ""; ref: label of the definition it uses, if it does
       attrs: { href: { default: "" }, title: { default: null }, cls: { default: null }, markup: { default: "" }, ref: { default: null } },
-      parseDOM: [{ tag: "a[href]", getAttrs: (dom) => ({ href: dom.getAttribute("href"), title: dom.getAttribute("title") }) }],
+      parseDOM: [{ tag: "a[href]", getAttrs: (dom) => ({ href: dom.getAttribute("href"), title: dom.getAttribute("title"), cls: isExternal(dom.getAttribute("href")) ? "external" : null }) }],
       toDOM: (m) => ["a", { href: m.attrs.href, ...(m.attrs.title == null ? {} : { title: m.attrs.title }), ...(m.attrs.cls ? { class: m.attrs.cls } : {}) }, 0],
     },
     code: { code: true, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },

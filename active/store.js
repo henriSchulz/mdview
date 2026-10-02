@@ -147,6 +147,21 @@
     return store;
   }
 
+  /* The segments of another text (something pasted) join this store's: blocks built from them
+   * are written as they stand there. -> what to add to their ids. */
+  function adopt(store, other) {
+    if (store.count == null) store.count = store.segs.length; // the file's own segments end here
+    const eol = (s) => (store.eol === "\n" ? s : s.replace(/\n/g, store.eol));
+    store.segs.push({ id: store.segs.length, kind: "gap", type: "gap", tokens: null, raw: "", orig: "", sep: { raw: "\n\n", orig: eol("\n\n") } }); // never next to what was there
+    const base = store.segs.length;
+    other.segs.forEach((s, i) => {
+      const sep = i + 1 < other.segs.length ? s.sep.raw : "\n\n";
+      store.segs.push({ ...s, id: base + i, orig: eol(s.raw), sep: { raw: sep, orig: eol(sep) } });
+    });
+    for (const k of ["references", "abbreviations"]) if (other.env[k]) store.env[k] = { ...other.env[k], ...store.env[k] };
+    return base;
+  }
+
   /* HTML in a note may open an element in one block and close it blocks
    * later (<details> … </details>), or never. The reading view parses the
    * whole page at once, so everything in between ends up inside that element.
@@ -207,7 +222,7 @@
       out += p.text != null ? eol(p.text) : pick(segs[p.id]);
     });
     const last = parts[parts.length - 1];
-    out += last.id === segs.length - 1 ? pick(segs[last.id].sep) : trailingOf(store, exact);
+    out += last.id === (store.count ?? segs.length) - 1 ? pick(segs[last.id].sep) : trailingOf(store, exact);
     return out;
   }
   // What the file ends with stays, whichever block is last now.
@@ -216,5 +231,5 @@
     return s ? (exact ? s.sep.orig : s.sep.raw) : "";
   };
 
-  A.store = { parse, serialize, groups, lineTable, typeOf: (token) => TYPES[token.type] || "other" };
+  A.store = { parse, serialize, groups, lineTable, typeOf: (token) => TYPES[token.type] || "other", adopt };
 })();

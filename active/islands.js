@@ -266,6 +266,8 @@
 
   const RAW_TITLE = { html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" };
   // anything else: its Markdown as text, with what it becomes below
+  // Markdown as the document shows it
+  const htmlOf = (raw) => blocksOf(raw, A.view.store).map((n) => (n.type === N.island ? n.attrs.html : PM.model.DOMSerializer.fromSchema(A.schema).serializeNode(n).outerHTML)).join("");
   function rawDialog(view, pos, node) {
     const kind = node.attrs.kind;
     let ed;
@@ -278,7 +280,7 @@
         body.append(ed.el, preview);
         ed.onInput = infoBar(info, ed);
         follow(ed, (v) => {
-          preview.innerHTML = blocksOf(v, A.view.store).map((n) => (n.type === N.island ? n.attrs.html : PM.model.DOMSerializer.fromSchema(A.schema).serializeNode(n).outerHTML)).join("");
+          preview.innerHTML = htmlOf(v);
           hydrate(preview);
         });
         return { focus: () => ed.focus(), result: () => (ed.value === node.attrs.raw ? undefined : ed.value) };
@@ -348,7 +350,7 @@
     const node = view.state.doc.nodeAt(pos);
     if (!node || !view.editable || A.dialog.open) return false;
     if (node.type === N.image) { imagePopover(view, pos, node); return true; }
-    if (node.type === N.iatom) { if (node.attrs.kind === "footnote") return false; atomPopover(view, pos, node); return true; }
+    if (node.type === N.iatom) { if (node.attrs.kind === "footnote") return A.notes.edit(view, A.notes.labelOf(node)); atomPopover(view, pos, node); return true; }
     if (node.type !== N.island || node.attrs.virtual) return false;
     const kind = node.attrs.kind;
     if (kind === "code") codeDialog(view, pos, node, fresh);
@@ -373,5 +375,5 @@
     return true;
   }
 
-  A.islands = { open, onEnter, replace, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview };
+  A.islands = { open, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();
