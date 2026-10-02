@@ -59,11 +59,13 @@
       if (!taken.includes(marker(n))) return;
       n.marker = (n.node.type.name === "ordered_list" ? [".", ")"] : ["-", "*", "+"]).find((m) => !taken.includes(m));
     });
+    // (two blocks that are still the kinds they were stand as they stood)
+    const rekinded = (n) => { const was = d.loaded.get(n.node.attrs.bid); return !was || kind(was) !== kind(n.node); };
     const parts = nodes.map((n, i) => {
       const prev = nodes[i - 1];
-      // Code by indentation right after a list would read as part of the last item: once one
-      // of the two has changed, it is written with a fence.
-      if (prev && /_list$/.test(prev.node.type.name) && !(prev.clean && n.clean) && kind(n.node) === "island:code" && !/^ {0,3}(```|~~~)/.test(n.node.attrs.raw)) {
+      // Code by indentation right after a list would read as part of the last item. Where the two
+      // stood like that in the file it worked; behind a list that is new there, it gets a fence.
+      if (prev && /_list$/.test(prev.node.type.name) && (rekinded(prev) || rekinded(n)) && kind(n.node) === "island:code" && !/^ {0,3}(```|~~~)/.test(n.node.attrs.raw)) {
         const c = A.islands.parseCode(n.node.attrs.raw);
         return { id: n.node.attrs.bid, text: A.islands.buildCode({ ...c, indented: false }) };
       }
@@ -72,8 +74,6 @@
     });
     // A separator without a blank line (a heading right under a paragraph) is only kept where it
     // still separates once one of the two blocks has changed.
-    // (Two blocks that are still the kinds they were stand as they stood.)
-    const rekinded = (n) => { const was = d.loaded.get(n.node.attrs.bid); return !was || kind(was) !== kind(n.node); };
     nodes.forEach((n, i) => {
       const prev = nodes[i - 1];
       if (prev && (rekinded(prev) || rekinded(n)) && !tight(prev.node, n.node)) parts[i].blank = true;

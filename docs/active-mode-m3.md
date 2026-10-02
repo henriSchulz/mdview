@@ -74,7 +74,8 @@ pictures — stays rendered and opens in a dialog or popover.
 3. **`Esc`** discards without asking, as specified; the "restore discarded
    changes" offer is not built.
 4. **Indented code right after a list** would read as part of the list's last
-   item once the list is new or changed; it is then written with a fence.
+   item. Behind a list that was made there in the editor it is therefore
+   written with a fence.
 5. **Pictures**: the popover has the three text fields; "Choose file…" and
    drag and drop come with paste in M4.
 
