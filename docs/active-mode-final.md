@@ -16,7 +16,7 @@ branch `active`.
 | `active/tableui.js`, `menu.js`, `context.js`, `bar.js`, `clip.js` | table handles, menus, the formatting bar, the clipboard |
 | `viewer.js`, `mdview.py` | the mode switch, saving, one history across modes, the start mode, clipboard and closing hand-offs |
 | `vendor/prosemirror.min.js` | ProseMirror, bundled (271 kB); loaded on first use of the mode |
-| `dev/` | 56 unit tests (jsdom, the page's own scripts), ten probes for the running app in a nested compositor, the corpus |
+| `dev/` | 56 unit tests (jsdom, the page's own scripts), probes for the running app in a nested compositor (253 checks), the corpus |
 
 The parser is the reading view's own markdown-it: one parser for both views
 is what makes them look the same. About 5 200 lines of new code besides the
