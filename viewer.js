@@ -1256,7 +1256,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/edit.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged;
     })().catch((e) => { activeLoad = null; throw e; }));

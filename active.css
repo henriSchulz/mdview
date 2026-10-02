@@ -287,8 +287,41 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm li.task-item > .li-body > p { margin: 0; }
 .pm li > .li-body > ul, .pm li > .li-body > ol { margin: 0.25em 0; }
 
-@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim { display: none !important; } }
+@media print { #active, #linkpop, #atompop, #dlg, #dlg-scrim, #actmenu, .tbl-h { display: none !important; } }
 
 /* ------------------------------------------------------------- tables */
 /* rows sit directly in <table> here: stripe them as the reading view's body rows */
 .pm table > tr:nth-child(odd) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }
+.pm td, .pm th { transition: background-color var(--dur-slow) var(--ease-out); }
+.pm td.fresh, .pm th.fresh { transition-duration: 0s; }
+.pm .selectedCell { background-color: color-mix(in srgb, var(--accent) 16%, transparent) !important; }
+
+/* the handles over a column and beside a row: only while the pointer is in the table */
+.tbl-h {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 0;
+  border: var(--hairline);
+  border-radius: var(--radius-row);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  opacity: 0;
+  visibility: hidden;
+  cursor: default;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out);
+}
+.tbl-h[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-instant) var(--ease-out); }
+.tbl-h:hover, .tbl-h[data-held] { background: color-mix(in srgb, var(--fg) 10%, var(--surface)); }
+.tbl-h i { width: 3px; height: 3px; border-radius: 50%; background: var(--fg2); }
+.tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
+.tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
+
+#actmenu { position: fixed; z-index: 45; min-width: 190px; padding: 5px; outline: none; }
+#actmenu .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+#actmenu .menu-item:disabled { color: var(--fg2); opacity: 0.55; }
+.menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }

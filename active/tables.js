@@ -8,23 +8,31 @@
   const source = new WeakMap();
 
   // one line of a table -> the text of its cells
-  function splitRow(line) {
+  function splitRow(line, trim = true) {
     let s = line.trim();
     if (s.startsWith("|")) s = s.slice(1);
     if (/(^|[^\\])\|$/.test(s)) s = s.slice(0, -1);
-    return s.split(/(?<!\\)\|/).map((c) => c.trim());
+    return s.split(/(?<!\\)\|/).map((c) => (trim ? c.trim() : c));
   }
-  const cells = (raw) => (raw ? raw.split("\n").map(splitRow) : []);
+  const cells = (raw) => (raw ? raw.split("\n").map((l) => splitRow(l)) : []);
   const alignOf = (delim) => (/^:-+:$/.test(delim) ? "center" : /^:-+$/.test(delim) ? "left" : /^-+:$/.test(delim) ? "right" : null);
 
   /* How a table was formatted: { leading, trailing, spaced, aligned, delims, indent }.
    * aligned: the pipes stand under each other (cells padded to their column). */
   function styleOf(raw) {
-    if (!raw) return { leading: true, trailing: true, spaced: true, delimSpaced: true, aligned: true, delims: [], indent: "", lines: [], cells: [] };
+    if (!raw) return { leading: true, trailing: true, spaced: true, delimSpaced: true, aligned: true, byAlign: false, delims: [], indent: "", lines: [], cells: [] };
     const lines = raw.split("\n");
     const head = lines[0], pipes = (l) => [...l.matchAll(/(?<!\\)\|/g)].map((m) => m.index);
     const at = pipes(head);
+    // padded towards its alignment (numbers flush right), as some formatters do?
+    const delims = lines[1] ? splitRow(lines[1]) : [];
+    const pads = delims.map((_d, c) => {
+      let start = false, end = false;
+      lines.forEach((l, i) => { if (i === 1) return; const cell = splitRow(l, false)[c] || ""; if (/^\s{2,}\S/.test(cell)) start = true; if (/\S\s{2,}$/.test(cell)) end = true; });
+      return start && end ? "center" : start ? "right" : end ? "left" : null;
+    });
     return {
+      byAlign: pads.some((p) => p === "right" || p === "center") && pads.every((p, c) => !p || (p === "left" ? !/^(right|center)$/.test(alignOf(delims[c]) || "") : p === alignOf(delims[c]))),
       indent: /^[ \t]*/.exec(head)[0],
       leading: /^\s*\|/.test(head),
       trailing: /(^|[^\\])\|\s*$/.test(head),
@@ -33,7 +41,7 @@
       delimSpaced: !!lines[1] && /\|\s|\s\|/.test(lines[1]),
       delims: lines[1] ? splitRow(lines[1]) : [],
       lines,
-      cells: lines.map(splitRow),
+      cells: lines.map((l) => splitRow(l)),
     };
   }
   function delimiter(align, width, old) {
@@ -63,7 +71,12 @@
     };
     const line = (cellsOf, delim) => {
       const spaced = delim ? style.delimSpaced : style.spaced;
-      const padded = cellsOf.map((t, c) => (style.aligned && !delim ? t + " ".repeat(Math.max(0, width[c] - len(t))) : t));
+      const padded = cellsOf.map((t, c) => {
+        if (!style.aligned || delim) return t;
+        const gap = Math.max(0, width[c] - len(t)), how = style.byAlign ? aligns[c] : null;
+        const before = how === "right" ? gap : how === "center" ? Math.floor(gap / 2) : 0;
+        return " ".repeat(before) + t + " ".repeat(gap - before);
+      });
       const body = spaced ? padded.join(" | ") : padded.join("|");
       const out = (style.leading ? (spaced ? "| " : "|") : "") + body + (style.trailing ? (spaced ? " |" : "|") : "");
       return style.indent + (style.trailing ? out : out.trimEnd());
