@@ -321,7 +321,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
 .tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
 
-.actmenu { position: fixed; z-index: 45; min-width: 190px; padding: 5px; outline: none; }
+.actmenu { position: fixed; z-index: 45; min-width: 190px; padding: 5px; outline: none; user-select: none; -webkit-user-select: none; }
 #actsub { z-index: 46; }
 .actmenu .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .actmenu .menu-item:disabled { color: var(--fg2); opacity: 0.55; }

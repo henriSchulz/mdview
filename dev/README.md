@@ -49,6 +49,7 @@ what it reports to `MDVIEW_PROBE_OUT`.
 ./rig.sh islands                                        # dialogs and popovers for code, formulas, properties, raw Markdown
 ./rig.sh m4                                             # tables, footnotes, paste and copy
 ./rig.sh clip                                           # Ctrl+Shift+V, a pasted picture, 1 MB pasted (nested clipboard)
+./rig.sh m5                                             # context menu, formatting bar, undo and caret across modes, closing question
 ./rig.sh typing corpus/docs/pandoc-manual.md            # time per keystroke and per save
 ./rig.sh regress tests/fixtures/basics.md               # reading view and source editor unchanged since main?
 ./rig.sh stop

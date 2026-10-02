@@ -105,9 +105,10 @@
     type("Unit");
     ok("Insert Column Left", md().includes("| Name  | Unit | Qty |"), md().slice(0, 200));
     // the context menu
-    cells()[4].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 300, clientY: 300 }));
+    { const r = cells()[4].getBoundingClientRect(); cells()[4].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 14, clientY: r.top + r.height / 2 })); }
     await sleep(300);
-    ok("a right click in a cell: rows, columns and the table", menu.hasAttribute("data-open") && items().includes("Delete Table") && items().includes("Row") && items().includes("Column"), items());
+    const names = () => [...menu.querySelectorAll(".menu-item")].map((b) => b.firstChild.textContent);
+    ok("a right click in a cell: rows, columns and the table", menu.hasAttribute("data-open") && names().includes("Delete Table") && names().includes("Row") && names().includes("Column"), names());
     key(menu, "Escape");
     await sleep(250);
     ok("Esc closes the menu, the editor has the focus again", !menu.hasAttribute("data-open") && view.hasFocus());
