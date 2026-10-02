@@ -55,6 +55,7 @@
   const settled = async (root) => {
     for (let i = 0; i < 60 && [...root.querySelectorAll("img")].some((im) => !im.complete); i++) await sleep(150);
     for (let i = 0; i < 40 && root.querySelector("pre.mermaid"); i++) await sleep(150);
+    await document.fonts.ready; // formulas fetch their fonts when they first show
     await sleep(600);
   };
   try {

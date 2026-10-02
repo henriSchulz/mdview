@@ -9,6 +9,7 @@
 #   dev/rig.sh modes FILE            switching between the modes, find, outline, a task (on a copy of FILE)
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
+#   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
@@ -89,6 +90,15 @@ case "${1:-}" in
     [[ -f $R/out/$name.link.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.link.json"
     ! jq -r '.steps[], (.error // "ok")' "$R/out/$name.link.json" | grep -qv '^ok' ;;
+  typing)
+    shift
+    for f in "$@"; do
+      name=$(basename "$f"); rm -rf "$R/work"; mkdir -p "$R/work"; cp "$f" "$R/work/$name"; rm -f "$R/out/$name.typing.json"
+      app 60 MDVIEW_PROBE="$D/probe-typing.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+      for _ in $(seq 400); do [[ -f $R/out/$name.typing.json ]] && break; sleep 0.1; done
+      pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+      [[ -f $R/out/$name.typing.json ]] && jq -c . "$R/out/$name.typing.json" || echo "{\"file\":\"$name\",\"error\":\"no report\"}"
+    done ;;
   native)
     name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out"/*.native.json
     app 40 MDVIEW_PROBE="$D/probe-native.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

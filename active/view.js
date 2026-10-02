@@ -30,12 +30,24 @@
   };
   // loaded: from here on the picture's own size counts (a reserved one can be a pixel off)
   document.addEventListener("load", (e) => { if (e.target.tagName === "IMG") { remember(e.target); unreserve(e.target); } }, true);
+  document.addEventListener("error", (e) => { if (e.target.tagName === "IMG") unreserve(e.target); }, true);
+  /* Pictures that failed to load show a placeholder (their alternative text);
+   * how much room it takes is only known while the view is on screen. */
+  const broken = new Map(); // src -> [width, height]
+  function note(root) {
+    for (const img of pictures(root)) {
+      if (!img.complete || img.naturalWidth || !img.src) continue;
+      const r = img.getBoundingClientRect();
+      if (r.width || r.height) broken.set(img.src, [r.width, r.height]);
+    }
+  }
   const pictures = (root) => [...root.querySelectorAll("img:not(.ProseMirror-separator)")];
   function unreserve(img) {
     const set = reserved.get(img);
     if (!set) return;
     img.style.aspectRatio = "";
     if (set.width) img.style.width = "";
+    if (set.box) img.style.height = "";
     if (!img.getAttribute("style")) img.removeAttribute("style");
     reserved.delete(img);
   }
@@ -43,8 +55,15 @@
    * (`height: auto`, whatever the height attribute says), so that is what is
    * reserved: the proportions, and the natural width unless one is given. */
   function reserve(img) {
-    const size = sizes.get(img.src);
-    if (!size || img.complete || reserved.has(img)) return;
+    const size = sizes.get(img.src), box = broken.get(img.src);
+    if (img.complete || reserved.has(img)) return;
+    if (!size && box) { // it failed to load before and will again: the room its placeholder took
+      img.style.width = box[0] + "px";
+      img.style.height = box[1] + "px";
+      reserved.set(img, { width: true, box: true });
+      return;
+    }
+    if (!size) return;
     const width = !img.hasAttribute("width") && !img.style.width && !img.style.height;
     img.style.aspectRatio = `${size[0]} / ${size[1]}`;
     if (width) img.style.width = size[0] + "px";
@@ -193,9 +212,12 @@
   let edited = false; // the document is not what it was built from any more
   A.view = {
     el, show, serialize, take, anchor, restore, caretToView,
+    // the reading view is still on screen and about to be left for this one
+    arriving() { note(content); },
     onChange: null, // set by viewer.js: called after every edit
     // the reading view is about to show again: its pictures back
     leave() { if (view) lend(view.dom, content); },
+    leaving() { if (view) note(view.dom); },
     focus() { if (view && view.editable) view.focus(); },
     failed() { dirty = true; }, // the save did not happen
     get dirty() { return dirty; },

@@ -1196,6 +1196,7 @@
           edInput.blur();
           current.text = edInput.value;
         }
+        if (mode === "active" && from === "read") MdActive.view.arriving(); // while the reading view can still be measured
         body.dataset.view = mode;
         if (mode === "active") showActive(current, a);
         else if (from === "edit" || !drawn || drawn.p !== current || drawn.text !== current.text) draw(current, a);
