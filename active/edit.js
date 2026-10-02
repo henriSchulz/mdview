@@ -148,6 +148,10 @@
   function hardBreak(state, dispatch) {
     const { $from } = state.selection;
     if (!$from.parent.isTextblock || $from.parent.type === N.heading) return true; // a heading is one line
+    // a break needs a line to break: Markdown has no paragraph of nothing but line breaks
+    let lines = false;
+    $from.parent.forEach((child) => { if (child.type !== N.hard_break) lines = true; });
+    if (!lines) return true;
     if (dispatch) {
       const tr = state.tr.replaceSelectionWith(N.hard_break.create());
       const $at = tr.selection.$from, next = $at.nodeAfter;

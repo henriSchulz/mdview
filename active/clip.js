@@ -209,7 +209,10 @@
           view.dispatch(view.state.tr.removeMark(from, to, M.link).addMark(from, to, M.link.create({ href, cls: isExternal(href) ? "external" : null })).setMeta("paste", true));
           return true;
         }
-        if (foreign(html)) return false; // the editor reads the reduced HTML with the schema's own rules
+        if (foreign(html)) {
+          if ($from.parent.type === N.table_cell) return insertPlain(view, text); // a cell holds one line of text
+          return false; // the editor reads the reduced HTML with the schema's own rules
+        }
         return insertMarkdown(view, text);
       },
     },
