@@ -106,7 +106,10 @@
     // --- from a highlight back to the note, at the link
     T.go(2); await until(() => marks2().length >= 2);
     const m = marks2().find((x) => x.style.getPropertyValue("--hl") === "#ea5252").getBoundingClientRect();
+    page(2).querySelector(".textLayer").dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: m.left + 5, clientY: m.top + 4 }));
+    const tipShown = !!document.querySelector(".pdf-tip:not([hidden])");
     page(2).querySelector(".textLayer").dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: m.left + 5, clientY: m.top + 4 }));
+    ok("the pointer on a highlight names its note; opening the note takes that away", tipShown && !document.querySelector(".pdf-tip:not([hidden])"), tipShown);
     ok("a double click on a highlight opens its note", await until(() => MdView.core.current && MdView.core.current.name === "note.md" && !document.querySelector(".pdfv")), MdView.core.current && MdView.core.current.name);
     ok("… with its embeds drawn again", await until(() => embeds().length === 3 && embeds().every((e) => e.classList.contains("ready"))));
     window.scrollTo(0, 0);
