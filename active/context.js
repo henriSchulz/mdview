@@ -65,7 +65,9 @@
       pos = $from.before();
       tr.replaceWith(pos, $from.after(), node);
     } else {
-      pos = $from.depth ? $from.after(1) : $from.pos;
+      // below the block the caret is in (inside a list item or a quote: there), else below the whole block
+      const here = $from.depth > 1 && $from.node(-1).canReplaceWith($from.indexAfter(-1), $from.indexAfter(-1), node.type);
+      pos = here ? $from.after() : $from.depth ? $from.after(1) : $from.pos;
       tr.insert(pos, node);
     }
     if (caretIn) tr.setSelection(Selection.near(tr.doc.resolve(pos + 1), 1));

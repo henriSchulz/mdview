@@ -93,6 +93,33 @@
     ok("Esc closes it and the text stays", !menu.hasAttribute("data-open") && md().trimEnd().endsWith("/x"), md().slice(-30));
     for (let i = 0; i < 10 && md() !== original; i++) undo();
     ok("undone", md() === original, md().slice(-60));
+    // in a line that has text: what is chosen applies to that block
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos("Second paragraph for the bar and the menu."))));
+    type(" /");
+    await sleep(300);
+    ok("/ after a space in a line with text opens the menu too", menu.hasAttribute("data-open"));
+    type("h");
+    await sleep(100);
+    key(view.dom, "ArrowDown");
+    key(view.dom, "Enter");
+    await sleep(300);
+    ok("Heading 2 chosen: the line becomes that heading, the / is gone", md().includes("\n## Second paragraph for the bar and the menu.\n"), md().slice(40, 140));
+    undo(); undo(); undo();
+    for (let i = 0; i < 10 && md() !== original; i++) undo();
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos("Second paragraph"))));
+    type("a/b and http://x");
+    await sleep(200);
+    ok("a / inside a word or an address opens nothing", !menu.hasAttribute("data-open"));
+    for (let i = 0; i < 30 && md() !== original; i++) undo();
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos("Second paragraph for the bar and the menu."))));
+    type(" /tab");
+    await sleep(200);
+    key(view.dom, "Enter");
+    await sleep(300);
+    type("x");
+    ok("a table chosen in a line with text: it goes below that line", /menu\.\n\n\| x +\| +\|\n/.test(md()), md().slice(60, 180));
+    for (let i = 0; i < 30 && md() !== original; i++) undo();
+    ok("undone again", md() === original, md().slice(40, 140));
 
     // --- typographic quotes
     await set({ "Typographic quotes while typing": true });
