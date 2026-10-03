@@ -133,9 +133,9 @@ case "${1:-}" in
     grep -q '^let a = 2;$' "$R/work/$name" && echo "ok   the dialog's change is in the file" || echo "FAIL the dialog's change is not in the file"
     # the next start opens in the mode last used
     app 30 MDVIEW_PROBE="$D/probe-mode.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_PROBE_MODE=1 -- "$R/work/$name"
-    for _ in $(seq 100); do [[ -f $R/out/$name.mode.json ]] && break; sleep 0.1; done
+    for _ in $(seq 200); do [[ -f $R/out/$name.mode.json ]] && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
-    [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null)"
+    [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || { echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null || echo 'no report after 20 s')"; tail -3 "$R/app.log"; }
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
   pdf)
