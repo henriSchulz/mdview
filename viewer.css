@@ -812,3 +812,7 @@ body[data-folder] #toolbar [data-act="sidebar"] { display: grid; }
 }
 #apptip[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
 @media print { #apptip { display: none !important; } }
+
+/* figures (SVG pictures) stand centred in the column, in every view */
+#content img[src$=".svg" i], .pm img[src$=".svg" i] { display: block; margin-left: auto; margin-right: auto; }
+.pm .ia:has(> img[src$=".svg" i]) { display: block; }

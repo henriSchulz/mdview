@@ -59,7 +59,16 @@
     ok("Insert: the dialog closes, the figure stands in the note as a picture", await until(() => !dlg.hasAttribute("data-open") && /!\[\]\((RC-low-pass|A-half-adder[^)]*)\.svg\)/.test(md())), md().slice(-80));
     const pic = () => view.dom.querySelector('img[src$=".svg"]');
     ok("… and is shown there", await until(() => pic() && pic().complete && pic().naturalWidth > 0, 5000), pic() && pic().outerHTML.slice(0, 120));
+    const centred = (root) => { const i = root.querySelector('img[src$=".svg"]'); if (!i) return [null]; const r = i.getBoundingClientRect(), c = root.getBoundingClientRect(), cs = getComputedStyle(root); const mid = c.left + parseFloat(cs.paddingLeft) + (c.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) / 2; return [Math.round(r.left + r.width / 2 - mid), Math.round(r.width)]; };
+    { const [off, w] = centred(view.dom); ok("the figure stands centred in the column", off !== null && Math.abs(off) <= 2 && w > 20, [off, w]); }
     out("inserted", {}); await sleep(1500);
+    await sleep(900); // (saved)
+    MdView.setMode("read");
+    await until(() => (document.body.dataset.view || "read") === "read");
+    await sleep(400);
+    { const [off, w] = centred(document.getElementById("content")); ok("… in the reading view too", off !== null && Math.abs(off) <= 2 && w > 20, [off, w]); }
+    MdView.setMode("active");
+    await until(() => document.body.dataset.view === "active");
     await sleep(900);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
