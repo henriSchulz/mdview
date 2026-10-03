@@ -451,3 +451,27 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pf-switch:checked { background: var(--accent); }
 .pf-switch:checked::before { transform: translateX(14px); }
 .pf-switch:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+
+/* ------------------------------------------------------------- moving blocks */
+.blk-h {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 24;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-row);
+  color: var(--fg2);
+  cursor: grab;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out);
+}
+.blk-h[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-instant) var(--ease-out); }
+.blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
+.blk-h[data-dragging] { cursor: grabbing; }
+.blk-h svg { width: 10px; height: 16px; fill: currentColor; }
+.drop-line { background: var(--accent); border-radius: 1px; pointer-events: none; animation: none; }
+@media print { .blk-h, .drop-line { display: none !important; } }

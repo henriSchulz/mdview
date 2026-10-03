@@ -221,6 +221,18 @@
         }
         return false;
       },
+      // picture files dropped from elsewhere: the application saves them (or finds them) and answers (insertDropped)
+      handleDrop(view, event) {
+        if (view.dragging || !view.editable) return false;
+        const dt = event.dataTransfer;
+        const uris = (dt && dt.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => /^file:/.test(u.trim())).map((u) => u.trim());
+        if (!uris.length) return false;
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (at) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))));
+        view.focus();
+        if (A.view.payload && A.view.payload.path) post("dropfiles", { uris, path: A.view.payload.path });
+        return true;
+      },
       handlePaste(view, event) {
         const cd = event.clipboardData;
         if (!cd || !view.editable) return false;
@@ -229,5 +241,10 @@
     },
   });
 
-  A.clip = { plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf, pasteFrom };
+  // what the application made of dropped files: their Markdown, where they were dropped
+  function insertDropped(view, markups) {
+    if (!view.editable || !markups.length) return;
+    insertMarkdown(view, markups.join(" "));
+  }
+  A.clip = { insertDropped, plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf, pasteFrom };
 })();
