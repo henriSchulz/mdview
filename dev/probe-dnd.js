@@ -34,6 +34,18 @@
     await sleep(250);
     const h = document.querySelector(".blk-h"), hr = h.getBoundingClientRect(), sr = second.getBoundingClientRect();
     ok("pointing at a block shows its handle, left of its first line", h.hasAttribute("data-on") && hr.right <= sr.left && Math.abs(hr.top + hr.height / 2 - (sr.top + 13)) < 10, [hr, sr.top]);
+    // the real pointer goes from the text to the handle, across the gap between them
+    {
+      const at = (x, y) => post("probe-pointer", { kind: "move", x, y });
+      const b = second.getBoundingClientRect();
+      at(b.left + 20, b.top + 8); await sleep(250);
+      const g = h.getBoundingClientRect(), y = g.top + g.height / 2;
+      for (const x of [b.left + 2, b.left - 3, g.right + 2, g.left + g.width / 2]) { at(x, y); await sleep(90); }
+      await sleep(600);
+      ok("the handle can be reached: it stays while the pointer crosses over to it and rests on it", h.hasAttribute("data-on") && h.matches(":hover"), [h.hasAttribute("data-on"), h.matches(":hover")]);
+      at(b.left + 300, b.top + 200); await sleep(700);
+      at(b.left + 20, b.top + 8); await sleep(250);
+    }
     const dt = new DataTransfer();
     h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
     ok("dragging it carries its Markdown", dt.getData("text/plain") === "Second paragraph for the bar and the menu." && !!view.dragging);

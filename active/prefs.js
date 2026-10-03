@@ -5,7 +5,7 @@
 (() => {
   const A = window.MdActive, T = window.MdStrings.t;
   const DEFAULTS = {
-    lang: "en", startMode: "last", bar: true, slash: false, syntax: false, quotes: false, wrap: 0,
+    lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0,
     images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
   };

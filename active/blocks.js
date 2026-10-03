@@ -30,7 +30,10 @@
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
     handle.dataset.on = "";
   }
-  function hide() { over = null; delete handle.dataset.on; }
+  let leaving = 0;
+  function hide() { clearTimeout(leaving); over = null; delete handle.dataset.on; }
+  // the pointer left the block: the handle stays long enough to be reached across the gap beside the text
+  function hideSoon() { clearTimeout(leaving); leaving = setTimeout(() => { if (!handle.matches(":hover") && !handle.hasAttribute("data-dragging")) hide(); }, 350); }
 
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   handle.addEventListener("dragstart", (e) => {
@@ -65,15 +68,16 @@
         mousemove(v, e) {
           if (!v.editable || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false;
           const el = blockOf(v, e.target);
-          if (el && el !== over) place(el); else if (!el && over && !e.target.closest?.(".blk-h")) hide();
+          if (el) { clearTimeout(leaving); if (el !== over) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
-        mouseleave(_v, e) { if (over && !e.relatedTarget?.closest?.(".blk-h")) hide(); return false; },
+        mouseleave(_v, e) { if (over && !e.relatedTarget?.closest?.(".blk-h")) hideSoon(); return false; },
         keydown() { if (over) hide(); return false; },
       },
     },
   });
-  handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hide(); });
+  handle.addEventListener("mouseenter", () => clearTimeout(leaving));
+  handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hideSoon(); });
   window.addEventListener("scroll", () => { if (over && !handle.hasAttribute("data-dragging")) hide(); }, { passive: true });
 
   A.blocks = { plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };

@@ -78,7 +78,7 @@ PREFS = {
     "lang": "en",           # the active mode's own texts: "en" | "de"
     "startMode": "last",    # a new window: "last" (the mode used last) | "read" | "active" | "edit"
     "bar": True,            # the formatting bar over a selection
-    "slash": False,         # "/" at the start of an empty line opens the insert menu
+    "slash": True,          # "/" at the start of an empty line opens the insert menu
     "syntax": False,        # the Markdown of the formatting at the caret shows
     "quotes": False,        # typed quotes become typographic ones
     "wrap": 0,              # paragraphs written anew are wrapped at this many characters (0: not)

@@ -61,11 +61,12 @@
     await set({ "Formatting bar over a selection": true });
 
     // --- the "/" menu
+    await set({ "Insert menu with “/”": false });
     end();
     key(view.dom, "Enter");
     type("/");
     await sleep(200);
-    ok("off at first: a / is a /", !menu.hasAttribute("data-open"));
+    ok("switched off: a / is a /", !menu.hasAttribute("data-open"));
     undo(); undo();
     await set({ "Insert menu with “/”": true });
     end();
@@ -135,9 +136,9 @@
     ok("all of it undone", md() === original, md().slice(-80));
 
     // --- back as they were
-    post("prefs", { prefs: { bar: true, slash: false, syntax: false, quotes: false, wrap: 0, style: "auto", bullet: "-", strongMark: "**" } });
+    post("prefs", { prefs: { bar: true, slash: true, syntax: false, quotes: false, wrap: 0, style: "auto", bullet: "-", strongMark: "**" } });
     await sleep(400);
-    ok("the settings are back", window.MdPrefs.slash === false && window.MdPrefs.wrap === 0 && window.MdPrefs.style === "auto");
+    ok("the settings are back", window.MdPrefs.slash === true && window.MdPrefs.wrap === 0 && window.MdPrefs.style === "auto");
     await sleep(1100);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
