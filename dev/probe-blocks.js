@@ -82,6 +82,13 @@
     const typed = key("x");
     ok("a character typed: the caret is at the end of that block and the key goes on to be typed", !typed.defaultPrevented && picked().length === 0 && view.state.selection.$from.parentOffset === view.state.selection.$from.parent.content.size && view.state.selection.$from.parent.textContent.startsWith("Second"));
 
+    // --- a click into the empty space beside the text lets the selection go
+    A.blocks.select(view, view.posAtDOM(para("Second paragraph"), 0) - 1, false);
+    await sleep(100);
+    { const pr = view.dom.getBoundingClientRect();
+      at("move", pr.right + 60, 300); await sleep(60); at("down", pr.right + 60, 300); await sleep(50); at("up", pr.right + 60, 300); await sleep(250); }
+    ok("a click into the empty space beside the text lets the selected block go", picked().length === 0 && md() === original, picked());
+
     // --- a click below the last block
     window.scrollTo(0, document.documentElement.scrollHeight);
     await sleep(200);

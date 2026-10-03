@@ -191,6 +191,13 @@
     },
   });
 
+  // a click into the empty space around the text lets the selected blocks go
+  document.addEventListener("mousedown", (e) => {
+    if (!view || e.button !== 0 || !selOf(view.state)) return;
+    if (view.dom.contains(e.target) || e.target.closest?.(".blk-h, .tbl-h, .actmenu, #dlg, #dlg-scrim, #fmtbar, #linkpop, #atompop, #toolbar, #sidebar")) return;
+    const sel = selOf(view.state), node = view.state.doc.nodeAt(sel.head);
+    view.dispatch(view.state.tr.setMeta(selKey, null).setSelection(Selection.near(view.state.doc.resolve(sel.head + (node ? node.nodeSize : 0)), -1)));
+  });
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
