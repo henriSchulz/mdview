@@ -443,6 +443,36 @@
 
   /* The block being typed in keeps its white space (see active.css); an
    * empty document says what to do. */
+  /* The rules for what is typed ("$x$", "- ", "**bold**" …) are run by the editor when it is told
+   * of typed text. An input method may put its text into the page without that (seen with fcitx:
+   * formulas stayed as typed). So after every plain insertion at the caret the rules are looked at
+   * once more — a rule that already ran finds nothing left to do. */
+  let typed = null; // (made with the editor's plugins: the footnote rule comes from a file loaded later)
+  const caughtKey = new PluginKey("rulesCaught");
+  const caught = new Plugin({
+    key: caughtKey,
+    state: {
+      init: () => 0,
+      apply(tr, n) {
+        if (!tr.docChanged || tr.steps.length !== 1 || !typed || tr.getMeta(typed) || tr.getMeta("step") || tr.getMeta("paste") || tr.getMeta("uiEvent") || tr.getMeta("history$") || tr.getMeta("addToHistory") === false) return n;
+        const st = tr.steps[0], sl = st.slice;
+        if (!sl || st.from !== st.to || sl.openStart || sl.openEnd || sl.content.childCount !== 1 || !sl.content.firstChild.isText) return n;
+        const $c = tr.selection.$cursor;
+        return $c && $c.pos === st.from + sl.content.size ? n + 1 : n;
+      },
+    },
+    view() {
+      return {
+        update(view, prev) {
+          if (caughtKey.getState(view.state) === caughtKey.getState(prev)) return;
+          setTimeout(() => {
+            const $c = view.state.selection.$cursor;
+            if ($c && !view.composing && !view.isDestroyed) typed.props.handleTextInput(view, $c.pos, $c.pos, "");
+          }, 0);
+        },
+      };
+    },
+  });
   const typing = new Plugin({
     key: new PluginKey("typing"),
     props: {
@@ -636,7 +666,7 @@
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
       A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
-      IR.inputRules({ rules: [...rules, A.notes.rule] }),
+      (typed = IR.inputRules({ rules: [...rules, A.notes.rule] })), caught,
       keymap(keys),
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
