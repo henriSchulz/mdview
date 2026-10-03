@@ -323,6 +323,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 
 .actmenu { position: fixed; z-index: 45; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
 #actsub { z-index: 46; }
+/* the "/" menu: a few entries tall, the rest scrolls (half an entry shows that there is more) */
+.actmenu.steady { max-height: min(calc(var(--menu-item-height, 26px) * 9.5 + var(--menu-pad)), calc(100vh - 16px)); }
 .actmenu .menu-item:disabled { color: var(--fg3); }
 .actmenu .menu-item:disabled .menu-key { opacity: 0.6; }
 /* the tick of what is on stands in a column of its own, left of the names (as in a macOS menu);

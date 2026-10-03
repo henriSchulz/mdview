@@ -78,6 +78,16 @@ run; everything that does not depend on frames passed.
 - **A click below the last block** starts an empty line there (nothing in
   the file until something is written).
 - **The / menu** also opens in a line with text and applies to that block.
+- **The / menu, built as Craft builds its own** (branch `craft-feel`): every entry has a sign; text styles,
+  lists and formats are groups with a menu beside them (→ opens, ← leaves, the block's own style is ticked);
+  **Actions** duplicates, moves, selects, copies or deletes the block the caret is in (in a list: the item).
+  Typing filters all of it into one flat list. The panel is at most 9.5 entries tall and keeps the height it
+  opened with while it is filtered, so it does not jump under the eyes. Where the caret is decides what is
+  offered: a task can be ticked, a table's cell gets its rows and columns. Motion and colours stay the
+  app's (henri-ui tokens); Craft's own menu fades in in about 100 ms (measured from its help video).
+  Tests: `tests/slash.test.mjs`, `rig.sh prefs`. For screenshots with no monitor attached, give the nested
+  compositor an output of its own (`hyprctl output create headless` in the nested instance) and take the
+  picture there with `grim -o`; without it the page gets no frames and every transition stays at its start.
 
 Dragging is tested with made-up drag events, sent to the element under the
 pointer; a drag with the real pointer cannot be started in the rig.

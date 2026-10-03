@@ -28,7 +28,7 @@
     const undo = () => key(view.dom, "z", { ctrlKey: true });
     const menu = document.getElementById("actmenu"), dlg = document.getElementById("dlg");
     const items = () => [...menu.querySelectorAll(".menu-item")].map((b) => b.textContent);
-    const choose = async (label) => { const b = [...menu.querySelectorAll(".menu-item")].find((x) => x.firstChild.textContent === label); if (!b) throw new Error("no menu item " + label); b.click(); await sleep(260); };
+    const choose = async (label) => { const b = [...menu.querySelectorAll(".menu-item")].find((x) => x.querySelector(".menu-label").textContent === label); if (!b) throw new Error("no menu item " + label); b.click(); await sleep(260); };
     V.focus();
 
     // --- a table looks as in the reading view
@@ -94,7 +94,7 @@
     await sleep(100);
     hc.click();
     await sleep(300);
-    ok("the column handle opens the column menu; the alignment in use is ticked", items().length === 8 && menu.querySelector('[aria-checked="true"]')?.firstChild.textContent === "Align Right", items());
+    ok("the column handle opens the column menu; the alignment in use is ticked", items().length === 8 && menu.querySelector('[aria-checked="true"]')?.querySelector(".menu-label").textContent === "Align Right", items());
     await choose("Align Center");
     ok("Align Center: the marker changes, the view follows", md().includes("|-------|:---:|") && getComputedStyle(cells()[1]).textAlign === "center", md().slice(0, 200));
     cells()[1].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
@@ -107,7 +107,7 @@
     // the context menu
     { const r = cells()[4].getBoundingClientRect(); cells()[4].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 14, clientY: r.top + r.height / 2 })); }
     await sleep(300);
-    const names = () => [...menu.querySelectorAll(".menu-item")].map((b) => b.firstChild.textContent);
+    const names = () => [...menu.querySelectorAll(".menu-item")].map((b) => b.querySelector(".menu-label").textContent);
     ok("a right click in a cell: rows, columns and the table", menu.hasAttribute("data-open") && names().includes("Delete Table") && names().includes("Row") && names().includes("Column"), names());
     key(menu, "Escape");
     await sleep(250);

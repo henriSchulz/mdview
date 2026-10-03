@@ -168,7 +168,7 @@
       view.dom.querySelector("p").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: view.dom.getBoundingClientRect().right - 3, clientY: sc.top + 4 }));
       await sleep(300);
       ok("narrow: a menu opened at the right edge is inside the window", menu.hasAttribute("data-open") && inside(menu), menu.getBoundingClientRect());
-      [...menu.querySelectorAll(".menu-item")].find((b) => b.firstChild.textContent === "Paragraph").dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      [...menu.querySelectorAll(".menu-item")].find((b) => b.querySelector(".menu-label").textContent === "Paragraph").dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
       await sleep(300);
       const sub = document.getElementById("actsub");
       ok("… and so is the menu beside it", sub.hasAttribute("data-open") && inside(sub), sub.getBoundingClientRect());

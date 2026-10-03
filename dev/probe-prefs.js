@@ -85,12 +85,27 @@
     key(view.dom, "Enter");
     type("/");
     await sleep(300);
-    ok("on: / at the start of an empty line opens the insert menu", menu.hasAttribute("data-open") && menu.querySelectorAll(".menu-item").length === 13 && view.hasFocus(), menu.querySelectorAll(".menu-item").length);
+    ok("on: / at the start of an empty line opens the insert menu", menu.hasAttribute("data-open") && menu.querySelectorAll(".menu-item").length === 12 && view.hasFocus(), menu.querySelectorAll(".menu-item").length);
+    ok("every entry has its sign", [...menu.querySelectorAll(".menu-item")].every((b) => b.querySelector(".menu-icon svg")));
+    ok("it is no taller than its panel allows, the rest scrolls", menu.scrollHeight > menu.clientHeight && menu.scrollTop === 0, [menu.scrollHeight, menu.clientHeight]);
+    const sub = document.getElementById("actsub"), tall = menu.offsetHeight;
+    key(view.dom, "ArrowRight");
+    await sleep(300);
+    ok("→ opens the group's menu beside it", sub.hasAttribute("data-open") && [...sub.querySelectorAll(".menu-item")].map((b) => b.textContent).join("|") === "Text|Heading 1|Heading 2|Heading 3|Heading 4" && sub.querySelector(".menu-item.hl")?.textContent === "Text", [...sub.querySelectorAll(".menu-item")].map((b) => b.textContent));
+    ok("what the block is has its tick there", sub.querySelector('[aria-checked="true"]')?.textContent === "Text");
     out("slash", {});
     await sleep(1400); // screenshot
+    key(view.dom, "ArrowLeft");
+    await sleep(250);
+    ok("← leaves it", !sub.hasAttribute("data-open") && menu.hasAttribute("data-open") && md().endsWith("/\n"), md().slice(-12));
+    for (let i = 0; i < 11; i++) key(view.dom, "ArrowDown");
+    await sleep(60);
+    const last = menu.querySelector(".menu-item.hl"), lr = last.getBoundingClientRect(), mr = menu.getBoundingClientRect();
+    ok("↓ to the last entry brings it into sight", last.textContent === "Actions" && lr.bottom <= mr.bottom + 0.5 && lr.top >= mr.top, [last.textContent, lr.bottom, mr.bottom]);
     type("ta");
     await sleep(150);
     ok("typing on filters it", [...menu.querySelectorAll(".menu-item")].map((b) => b.textContent).join("|") === "Task List|Table", [...menu.querySelectorAll(".menu-item")].map((b) => b.textContent));
+    ok("filtered, the panel keeps its height", menu.offsetHeight === tall, [menu.offsetHeight, tall]);
     key(view.dom, "ArrowDown");
     key(view.dom, "Enter");
     await sleep(300);

@@ -29,8 +29,8 @@
     const undo = () => key(view().dom, "z", { ctrlKey: true });
     const redo = () => key(view().dom, "z", { ctrlKey: true, shiftKey: true });
     const menu = document.getElementById("actmenu"), sub = document.getElementById("actsub"), bar = document.getElementById("fmtbar"), dlg = document.getElementById("dlg");
-    const labels = (m) => [...m.querySelectorAll(".menu-item")].map((b) => b.firstChild.textContent);
-    const entry = (m, label) => { const b = [...m.querySelectorAll(".menu-item")].find((x) => x.firstChild.textContent === label); if (!b) throw new Error("no menu item " + label + " in " + labels(m)); return b; };
+    const labels = (m) => [...m.querySelectorAll(".menu-item")].map((b) => b.querySelector(".menu-label").textContent);
+    const entry = (m, label) => { const b = [...m.querySelectorAll(".menu-item")].find((x) => x.querySelector(".menu-label").textContent === label); if (!b) throw new Error("no menu item " + label + " in " + labels(m)); return b; };
     const choose = async (m, label) => { entry(m, label).click(); await sleep(260); };
     const hover = async (label) => { entry(menu, label).dispatchEvent(new MouseEvent("mousemove", { bubbles: true })); await sleep(260); };
     const context = async (el) => { const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 12, clientY: r.top + r.height / 2 })); await sleep(300); };
@@ -54,7 +54,7 @@
     key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown");
     key(menu, "ArrowRight");
     await sleep(200);
-    ok("by keyboard: down to Format, right into it; what is on is ticked", sub.hasAttribute("data-open") && A.menu.panel === "sub" && sub.querySelector('[aria-checked="true"]')?.firstChild.textContent === "Bold", [document.activeElement.id, labels(sub)]);
+    ok("by keyboard: down to Format, right into it; what is on is ticked", sub.hasAttribute("data-open") && A.menu.panel === "sub" && sub.querySelector('[aria-checked="true"]')?.querySelector(".menu-label").textContent === "Bold", [document.activeElement.id, labels(sub)]);
     key(sub, "ArrowLeft");
     await sleep(120);
     ok("left closes it again", !sub.hasAttribute("data-open") && A.menu.panel === "root");
@@ -70,7 +70,7 @@
     ok("Paragraph › Heading 2", md().includes("\n## Second paragraph for the bar and the menu.\n"), md().slice(40, 140));
     await contextHere();
     await hover("Paragraph");
-    ok("… is ticked there now", sub.querySelector('[aria-checked="true"]')?.firstChild.textContent === "Heading 2");
+    ok("… is ticked there now", sub.querySelector('[aria-checked="true"]')?.querySelector(".menu-label").textContent === "Heading 2");
     await choose(sub, "Text");
     ok("Paragraph › Text: as it was", md() === original);
     await contextHere();

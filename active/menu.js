@@ -1,6 +1,6 @@
 /* mdview active mode — a menu at a point (the app's menu look and behaviour:
  * highlight follows at once, a chosen entry blinks, then acts). An entry may
- * open a second menu beside it.
+ * open a second menu beside it, and may have a sign before its name.
  * The menu never takes the focus: the editor keeps it, with its selection as
  * it is, and the keys go to the menu while it is open. */
 "use strict";
@@ -25,15 +25,18 @@
     p.hl = i;
     p.entries.forEach((e, k) => e.el.classList.toggle("hl", k === i || (p === root && k === subOf && isOpen(sub))));
   }
+  // by the keys: what is highlighted is in sight (a menu longer than its panel)
+  const reveal = (p) => { if (p.entries[p.hl]) p.entries[p.hl].el.scrollIntoView({ block: "nearest" }); };
   function step(p, dir, from = p.hl) {
     for (let k = 1; k <= p.entries.length; k++) {
       const i = (from + dir * k + p.entries.length * 2) % p.entries.length;
-      if (usable(p, i)) return setHl(p, i);
+      if (usable(p, i)) { setHl(p, i); return reveal(p); }
     }
   }
   function fill(p, items) {
     p.el.textContent = "";
     p.entries = [];
+    const icons = items.some((item) => item && item.icon);
     if (!items.length) { const none = document.createElement("div"); none.className = "menu-empty"; none.textContent = window.MdStrings.t("menu.none"); p.el.appendChild(none); }
     for (const item of items) {
       if (!item) { const rule = document.createElement("div"); rule.className = "menu-rule"; p.el.appendChild(rule); continue; }
@@ -46,6 +49,7 @@
       // as a macOS menu: the tick in a column before the label, the shortcut (or the arrow to a menu beside it) behind
       const part = (cls, html) => { const el = document.createElement("span"); el.className = cls; if (html) el.innerHTML = html; return b.appendChild(el); };
       part("menu-check", ICON.check);
+      if (icons) part("menu-icon", item.icon || ""); // (a column: the names stand in one line)
       part("menu-label").textContent = item.label;
       if (item.key) part("menu-key").textContent = signs(item.key);
       if (item.items) part("menu-more", ICON.chevron);
@@ -66,14 +70,21 @@
     p.el.dataset.open = "";
   }
   /* items: { label, key, danger, disabled, checked, run } or { label, items } for a menu beside it,
-   * or null for a rule. closed: called when the menu goes without a choice. */
-  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null }) {
+   * or null for a rule; icon: a sign before the name. closed: called when the menu goes without a choice.
+   * typing: the document keeps the typing, the menu only the keys it is moved by.
+   * steady: no taller than a few entries, and as tall as it opens whatever it is filled with later
+   * (a menu filtered while one types does not jump under the eyes). */
+  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null, steady = false }) {
     closeSub();
+    root.el.classList.toggle("steady", steady);
+    root.el.style.height = "";
     fill(root, items);
     after = closed;
     passive = typing;
     if (typing) step(root, 1, -1);
     place(root, x, y, origin, above);
+    if (steady) root.el.style.height = root.el.offsetHeight + "px";
+    root.el.scrollTop = 0;
     keys = root;
   }
   function openSub(i, viaKey) {
@@ -139,7 +150,9 @@
     if (!isOpen()) return;
     const p = keys === sub && isOpen(sub) ? sub : root;
     if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;
-    if (passive && !/^(Escape|ArrowDown|ArrowUp|Enter|Tab)$/.test(e.key)) return; // typed on, into the document
+    // typed on, into the document — but → into the menu beside an entry and ← out of it are the menu's
+    const side = (e.key === "ArrowRight" && p === root && usable(p, p.hl) && !!p.entries[p.hl].item.items) || (e.key === "ArrowLeft" && p === sub);
+    if (passive && !side && !/^(Escape|ArrowDown|ArrowUp|Enter|Tab)$/.test(e.key)) return;
     e.stopPropagation();
     e.preventDefault();
     if (e.key === "Escape") { if (p === sub) { closeSub(); setHl(root, root.hl); } else close(); }
@@ -162,7 +175,9 @@
   // new entries, the menu where it is (the "/" menu while one types)
   function refill(items) {
     if (!isOpen()) return;
+    closeSub();
     fill(root, items);
+    root.el.scrollTop = 0;
     if (passive) step(root, 1, -1);
     root.el.style.left = Math.max(8, Math.min(parseFloat(root.el.style.left), innerWidth - root.el.offsetWidth - 8)) + "px";
     if (root.above != null) root.el.style.top = root.above - root.el.offsetHeight + "px"; // it stays on the line it stands on
