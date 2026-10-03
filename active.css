@@ -481,3 +481,27 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tbl-line[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
 .tbl-h:active, .tbl-h[data-held] { cursor: grabbing; }
 @media print { .tbl-line { display: none !important; } }
+
+/* two buttons that are one choice (the shape of a formula) */
+.dlg-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+#dlg .dlg-seg .btn { height: 24px; padding: 0 10px; font-size: 12px; background: transparent; box-shadow: none; }
+#dlg .dlg-seg .btn[aria-checked="true"] { background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.12); }
+#dlg .dlg-tools .btn { height: 24px; padding: 0 9px; font-size: 12px; }
+
+/* the corner a dialog is pulled larger by */
+.dlg-grip { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; cursor: nwse-resize; opacity: 0.5;
+  background: linear-gradient(135deg, transparent 0 55%, var(--fg2) 55% 60%, transparent 60% 70%, var(--fg2) 70% 75%, transparent 75%); }
+#dlg.sized .dlg-body { flex: 1; }
+#dlg.sized .ce { flex: 1; min-height: 0; }
+#dlg.sizing { transition: none; user-select: none; }
+#dlg.sized .ce { max-height: none; }
+
+/* properties as a form */
+.fm-form { display: grid; gap: 6px; overflow: auto; padding: 2px; }
+.fm-form[hidden], #dlg .ce[hidden] { display: none; }
+.fm-row { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 8px; }
+.fm-key { color: var(--fg2); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.fm-deep { color: var(--fg2); font-size: 12px; font-style: italic; }
+#dlg .fm-del { width: 24px; height: 24px; padding: 0; font-size: 15px; line-height: 1; }
+#dlg .fm-add { justify-self: start; height: 24px; padding: 0 9px; font-size: 12px; }
+.fm-row .pf-switch { justify-self: start; }

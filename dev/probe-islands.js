@@ -60,6 +60,14 @@
     ok("Esc leaves the block alone", !isOpen() && md() === original);
     click(island("code"));
     await sleep(300);
+    const back = [...dlg.querySelectorAll(".dlg-info .btn")].find((b) => b.textContent === "Restore Discarded Changes");
+    ok("opened again: what was thrown away can come back", !!back);
+    back.click();
+    ok("… and does", ed().value === "thrown away");
+    key(dlg, "Escape");
+    await sleep(300);
+    click(island("code"));
+    await sleep(300);
     setEditor("let a = 1;\n```\nfence inside");
     document.getElementById("dlg-scrim").dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     await sleep(80);
@@ -132,7 +140,18 @@
     // --- properties
     click(island("frontmatter"));
     await sleep(400);
-    ok("properties open as YAML", isOpen() && ed().value === "title: Test\ntags: [a, b]");
+    const form = dlg.querySelector(".fm-form");
+    ok("simple properties open as a form", isOpen() && !form.hidden && [...form.querySelectorAll(".fm-key")].map((k) => k.textContent).join(",") === "title,tags" && form.querySelector(".fm-value").value === "Test", form.textContent);
+    const fv = form.querySelectorAll(".fm-value");
+    fv[0].value = "From the form"; fv[0].dispatchEvent(new Event("input"));
+    await done();
+    ok("the form writes the changed line only", md().startsWith("---\ntitle: From the form\ntags: [a, b]\n---"), md().slice(0, 60));
+    key(view.dom, "z", { ctrlKey: true });
+    click(island("frontmatter"));
+    await sleep(400);
+    dlg.querySelector('.dlg-seg [data-shape="yaml"]').click();
+    await sleep(100);
+    ok("properties as YAML", isOpen() && ed().value === "title: Test\ntags: [a, b]");
     setEditor("title: [unclosed");
     await sleep(60);
     ok("invalid YAML is said", dlg.querySelector(".dlg-error").textContent.length > 5);

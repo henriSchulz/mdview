@@ -85,6 +85,7 @@ PREFS = {
     "images": "beside",     # pasted and dropped pictures: "beside" the note | "assets" | a folder relative to the note
     "style": "auto",        # new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
     "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
+    "dialogWidth": 0, "dialogHeight": 0,  # a dialog's size, once one was pulled to another (0: its own)
 }
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp"}
 
@@ -940,9 +941,39 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "probe" and PROBE_OUT:
             name = f"{self.path.name if self.path else 'none'}.{msg.get('name', 'probe')}.json"
             Path(PROBE_OUT, name).write_text(str(msg.get("text")))
+        elif t == "snapshot":
+            self.snapshot_to_clipboard(msg)
         elif t == "probe-pointer" and PROBE:
             # (tests) a real pointer event at page coordinates: what a click does that script cannot do
             self.probe_pointer(msg)
+
+    def snapshot_to_clipboard(self, msg):
+        """A part of the page (page coordinates of what is on screen) as a
+        picture on the clipboard: a formula copied as a picture."""
+        try:
+            x, y, w, h = (float(msg[k]) for k in ("x", "y", "w", "h"))
+        except (KeyError, TypeError, ValueError):
+            return
+        zoom = self.view.get_zoom_level()
+
+        def done(view, res):
+            try:
+                surface = view.get_snapshot_finish(res)
+            except GLib.Error:
+                self.js("MdView.toast", "Couldn't copy the picture")
+                return
+            sx, sy = surface.get_device_scale() if hasattr(surface, "get_device_scale") else (1, 1)
+            pad = 6
+            px = Gdk.pixbuf_get_from_surface(surface, max(0, int((x - pad) * zoom)), max(0, int((y - pad) * zoom)),
+                                             int((w + 2 * pad) * zoom), int((h + 2 * pad) * zoom))
+            if px is None:
+                self.js("MdView.toast", "Couldn't copy the picture")
+                return
+            Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_image(px)
+            if PROBE_OUT:
+                px.savev(str(Path(PROBE_OUT, "snapshot.png")), "png", [], [])
+            self.js("MdView.toast", msg.get("said") or "Copied")
+        self.view.get_snapshot(WebKit2.SnapshotRegion.VISIBLE, WebKit2.SnapshotOptions.NONE, None, done)
 
     def probe_pointer(self, msg):
         kinds = {"down": Gdk.EventType.BUTTON_PRESS, "up": Gdk.EventType.BUTTON_RELEASE, "move": Gdk.EventType.MOTION_NOTIFY}

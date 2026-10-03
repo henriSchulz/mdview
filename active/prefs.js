@@ -7,6 +7,7 @@
   const DEFAULTS = {
     lang: "en", startMode: "last", bar: true, slash: false, syntax: false, quotes: false, wrap: 0,
     images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
+    dialogWidth: 0, dialogHeight: 0,
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });

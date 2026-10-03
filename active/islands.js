@@ -138,6 +138,7 @@
     A.dialog.show({
       title: T("dialog.code"),
       anchor: () => view.nodeDOM(pos),
+      key: node.attrs.raw,
       build(body, tools, info) {
         lang = el("input", { class: "lp-field dlg-lang", type: "text", list: "dlg-langs", placeholder: T("dialog.nolang"), "aria-label": T("dialog.language"), spellcheck: "false", autocomplete: "off" });
         lang.value = c.lang;
@@ -174,7 +175,7 @@
         lang.addEventListener("input", () => { ed.setLanguage(hl(lang.value.trim())); showPreview(); });
         showPreview();
         follow(ed, draw);
-        return {
+        return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
           focus: () => (fresh || c.code ? ed.focus() : lang.focus()),
           result() {
             const next = { ...c, lang: lang.value.trim(), rest: rest ? (rest.value.trim() ? " " + rest.value.trim() : "") : c.rest, code: ed.value };
@@ -207,16 +208,32 @@
   /* inline: { from, to } of the atom when the formula stands in a line */
   function mathDialog(view, pos, node, fresh, inline) {
     const p = inline ? { head: "$", tex: inline.tex, tail: "$" } : parseMath(node.attrs.raw);
-    let ed;
+    let ed, asInline = !!inline;
     A.dialog.show({
       title: T("dialog.math"),
       anchor: () => (inline ? view.nodeDOM(inline.from) : view.nodeDOM(pos)),
+      key: inline ? "$" + inline.tex + "$" : node.attrs.raw,
       build(body, tools, info) {
         const preview = el("div", { class: "dlg-preview math" }), error = el("div", { class: "dlg-error" });
         const bar = el("div", { class: "dlg-symbols" }, SYMBOLS.map(([label, , ], i) => `<button class="btn" type="button" data-i="${i}" tabindex="-1">${esc(label)}</button>`).join(""));
         ed = A.dialog.editor({ value: p.tex, language: "latex", pairs: true, label: T("dialog.math") });
         const hint = el("div", { class: "dlg-hint" });
         body.append(preview, error, bar, ed.el, hint);
+        // block or in the line; the LaTeX, or the formula as a picture, to the clipboard
+        const shape = el("div", { class: "dlg-seg", role: "radiogroup", "aria-label": T("dialog.mathShape") },
+          `<button type="button" class="btn" role="radio" data-shape="block">${esc(T("dialog.block"))}</button><button type="button" class="btn" role="radio" data-shape="inline">${esc(T("dialog.inline"))}</button>`);
+        const showShape = () => shape.querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String((b.dataset.shape === "inline") === asInline)));
+        shape.onclick = (e) => { const b = e.target.closest("button"); if (!b) return; asInline = b.dataset.shape === "inline"; showShape(); };
+        showShape();
+        const copyTex = el("button", { class: "btn", type: "button" }, esc(T("dialog.copyLatex")));
+        copyTex.onclick = () => { copy(ed.value); toast(T("dialog.copied")); };
+        const copyPic = el("button", { class: "btn", type: "button" }, esc(T("dialog.copyPicture")));
+        copyPic.onclick = () => {
+          const k = preview.querySelector(".katex-display, .katex") || preview;
+          const r = k.getBoundingClientRect();
+          window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "snapshot", x: r.left, y: r.top, w: r.width, h: r.height, said: T("dialog.pictureCopied") }));
+        };
+        tools.append(shape, copyTex, copyPic);
         bar.addEventListener("mousedown", (e) => e.preventDefault());
         bar.addEventListener("click", (e) => {
           const b = e.target.closest("button");
@@ -237,15 +254,18 @@
         };
         ed.onInput = draw;
         draw(ed.value);
-        return {
+        return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
           focus: () => ed.focus(),
           result() {
             const raw = inline ? "$" + ed.value.replace(/\s*\n\s*/g, " ").trim() + "$" : buildMath({ ...p, tex: ed.value });
-            return !fresh && ed.value === p.tex ? undefined : raw;
+            return !fresh && ed.value === p.tex && asInline === !!inline ? undefined : raw;
           },
         };
       },
       done(raw) {
+        const tex = ed.value.trim();
+        if (!inline && asInline) return toLine(view, pos, tex);                 // the block becomes a formula in a line
+        if (inline && !asInline) return toBlock(view, inline.from, tex);        // and the other way round
         if (!inline) { replace(view, pos, /^\s*\$\$\s*\$\$\s*$/.test(raw) ? "" : raw); return; }
         setAtom(view, inline.from, "math", raw === "$$" ? "" : raw);
       },
@@ -253,29 +273,149 @@
     });
   }
 
+  /* Properties edited as a form: one field per property whose value is plain (text, a number, a
+   * date, yes/no, a list of such). What the form changes is written into the YAML line by line;
+   * every other line stays as it was. Anything deeper is edited as YAML. */
+  const plainValue = (v) => v === null || ["string", "number", "boolean"].includes(typeof v) || v instanceof Date;
+  const formable = (v) => plainValue(v) || (Array.isArray(v) && v.every((x) => plainValue(x) && !(x instanceof Date)));
+  const asText = (v) => (v === null ? "" : v instanceof Date ? v.toISOString().slice(0, v.getUTCHours() || v.getUTCMinutes() ? 16 : 10).replace("T", " ") : String(v));
+  // a value as YAML writes it on one line: as typed where YAML reads it back as that text, else quoted
+  function yamlScalar(text) {
+    try {
+      const v = jsyaml.load("k: " + text);
+      if (v && typeof v === "object" && !Array.isArray(v) && "k" in v && (v.k === null ? text.trim() === "" : !(typeof v.k === "object" && !(v.k instanceof Date))) && !/[#]/.test(text)) return text.trim();
+    } catch (_e) { /* quoted below */ }
+    return JSON.stringify(text);
+  }
+  // the lines of a top-level key: [from, to) in lines
+  function keyLines(lines, key) {
+    const esc2 = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`^(?:${esc2}|"${esc2}"|'${esc2}')[ \t]*:`);
+    const from = lines.findIndex((l) => re.test(l));
+    if (from < 0) return null;
+    let to = from + 1;
+    while (to < lines.length && (/^[ \t]+\S/.test(lines[to]) || /^-[ \t]/.test(lines[to]) || (!lines[to].trim() && to + 1 < lines.length && /^[ \t]/.test(lines[to + 1])))) to++;
+    return [from, to];
+  }
+  /* yaml with the form's changes: edits { key: text | text[] | boolean }, removed keys, added [key, text] */
+  function applyForm(yaml, data, edits, removed, added) {
+    const lines = yaml.split("\n");
+    for (const [key, value] of Object.entries(edits)) {
+      const at = keyLines(lines, key);
+      if (!at) continue;
+      const head = lines[at[0]].slice(0, lines[at[0]].indexOf(":") + 1);
+      let out;
+      if (Array.isArray(value)) {
+        const block = at[1] > at[0] + 1 && /^[ \t]*-[ \t]/.test(lines[at[0] + 1]);
+        const indent = block ? /^[ \t]*/.exec(lines[at[0] + 1])[0] : "  ";
+        out = block && value.length ? [head, ...value.map((x) => indent + "- " + yamlScalar(x))] : [head + " [" + value.map(yamlScalar).join(", ") + "]"];
+      } else if (typeof value === "boolean") out = [head + " " + value];
+      else out = [value === "" ? head : head + " " + yamlScalar(value)];
+      lines.splice(at[0], at[1] - at[0], ...out);
+    }
+    for (const key of removed) {
+      const at = keyLines(lines, key);
+      if (at) lines.splice(at[0], at[1] - at[0]);
+    }
+    for (const [key, text] of added) if (key.trim()) lines.push(yamlScalar(key.trim()).replace(/^"(.*)"$/, (m, k) => (/[:#]/.test(k) ? m : k)) + ":" + (text.trim() ? " " + yamlScalar(text) : ""));
+    return lines.join("\n").replace(/^\n+/, "");
+  }
+
   function frontDialog(view, pos, node) {
     const p = parseFront(node.attrs.raw);
-    let ed;
+    let ed, asForm = false, form = null, formState = null;
     A.dialog.show({
       title: T("dialog.frontmatter"),
       anchor: () => view.nodeDOM(pos),
+      key: node.attrs.raw,
       build(body, tools, info) {
         const error = el("div", { class: "dlg-error" });
         ed = A.dialog.editor({ value: p.yaml, language: "yaml", label: T("dialog.frontmatter") });
-        body.append(ed.el, error);
+        form = el("div", { class: "fm-form" });
+        body.append(form, ed.el, error);
         const update = infoBar(info, ed);
         const check = (v) => {
           update();
-          try { jsyaml.load(v); error.textContent = ""; ed.setError(null); }
-          catch (e) { error.textContent = String(e.reason || e.message || e); ed.setError(e.mark ? { pos: e.mark.position } : null); }
+          try { jsyaml.load(v); error.textContent = ""; ed.setError(null); return true; }
+          catch (e) { error.textContent = String(e.reason || e.message || e); ed.setError(e.mark ? { pos: e.mark.position } : null); return false; }
         };
         ed.onInput = check;
         check(ed.value);
-        return { focus: () => ed.focus(), result: () => (ed.value === p.yaml ? undefined : buildFront({ ...p, yaml: ed.value })) };
+        // the form, made from the YAML as it is now
+        function buildForm() {
+          let data;
+          try { data = jsyaml.load(ed.value) || {}; } catch (_e) { return false; }
+          if (typeof data !== "object" || Array.isArray(data)) return false;
+          formState = { data, edits: {}, removed: new Set(), added: [] };
+          form.textContent = "";
+          for (const [key, value] of Object.entries(data)) {
+            const row = el("div", { class: "fm-row" });
+            const name = el("span", { class: "fm-key" }, esc(key));
+            let input;
+            if (!formable(value)) input = el("span", { class: "fm-deep" }, esc(T("dialog.asYaml")));
+            else if (typeof value === "boolean") {
+              input = el("input", { type: "checkbox", class: "pf-switch" });
+              input.checked = value;
+              input.onchange = () => { formState.edits[key] = input.checked; };
+            } else {
+              input = el("input", { class: "lp-field fm-value", value: Array.isArray(value) ? value.map(asText).join(", ") : asText(value) });
+              if (Array.isArray(value)) input.dataset.list = "";
+              input.oninput = () => { formState.edits[key] = Array.isArray(value) ? input.value.split(",").map((x) => x.trim()).filter(Boolean) : input.value; };
+            }
+            const del = el("button", { class: "btn fm-del", type: "button", "aria-label": T("dialog.removeProperty") }, "×");
+            del.onclick = () => { formState.removed.add(key); delete formState.edits[key]; row.remove(); };
+            row.append(name, input, del);
+            form.appendChild(row);
+          }
+          const add = el("button", { class: "btn fm-add", type: "button" }, esc(T("dialog.addProperty")));
+          add.onclick = () => {
+            const row = el("div", { class: "fm-row" });
+            const k = el("input", { class: "lp-field fm-newkey", placeholder: T("dialog.propertyName") });
+            const v = el("input", { class: "lp-field fm-value", placeholder: T("dialog.propertyValue") });
+            const entry = ["", ""];
+            formState.added.push(entry);
+            k.oninput = () => { entry[0] = k.value; };
+            v.oninput = () => { entry[1] = v.value; };
+            row.append(k, v);
+            form.insertBefore(row, add);
+            k.focus();
+          };
+          form.appendChild(add);
+          return true;
+        }
+        const yamlOfForm = () => applyForm(ed.value, formState.data, formState.edits, [...formState.removed], formState.added);
+        const shape = el("div", { class: "dlg-seg", role: "radiogroup", "aria-label": T("dialog.frontmatter") },
+          `<button type="button" class="btn" role="radio" data-shape="form">${esc(T("dialog.form"))}</button><button type="button" class="btn" role="radio" data-shape="yaml">YAML</button>`);
+        const showShape = () => {
+          shape.querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String((b.dataset.shape === "form") === asForm)));
+          form.hidden = !asForm;
+          ed.el.hidden = asForm;
+        };
+        shape.onclick = (e) => {
+          const b = e.target.closest("button");
+          if (!b || (b.dataset.shape === "form") === asForm) return;
+          if (asForm) { ed.value = yamlOfForm(); ed.input.dispatchEvent(new Event("input")); asForm = false; }
+          else if (check(ed.value) && buildForm()) asForm = true;
+          showShape();
+          (asForm ? form.querySelector("input") : ed.input)?.focus();
+        };
+        tools.append(shape);
+        // simple properties open as the form, anything deeper as YAML
+        let data = null;
+        try { data = jsyaml.load(p.yaml); } catch (_e) { /* YAML */ }
+        if (data && typeof data === "object" && !Array.isArray(data) && Object.values(data).every(formable) && buildForm()) asForm = true;
+        showShape();
+        return {
+          text: () => (asForm ? yamlOfForm() : ed.value),
+          setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); if (asForm) buildForm(); },
+          focus: () => (asForm ? form.querySelector("input") || form : ed).focus(),
+          result: () => { const y = asForm ? yamlOfForm() : ed.value; return y === p.yaml ? undefined : buildFront({ ...p, yaml: y }); },
+        };
       },
       done(raw) { replace(view, pos, raw); },
     });
   }
+
 
   const RAW_TITLE = { html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" };
   // anything else: its Markdown as text, with what it becomes below
@@ -287,6 +427,7 @@
     A.dialog.show({
       title: T(RAW_TITLE[kind] || "dialog.markdown"),
       anchor: () => view.nodeDOM(pos),
+      key: node.attrs.raw,
       build(body, tools, info) {
         ed = A.dialog.editor({ value: node.attrs.raw, language: kind === "html" ? "xml" : "markdown", label: T(RAW_TITLE[kind] || "dialog.markdown") });
         const preview = el("div", { class: "dlg-preview doc" });
@@ -296,13 +437,40 @@
           preview.innerHTML = htmlOf(v);
           hydrate(preview);
         });
-        return { focus: () => ed.focus(), result: () => (ed.value === node.attrs.raw ? undefined : ed.value) };
+        return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, focus: () => ed.focus(), result: () => (ed.value === node.attrs.raw ? undefined : ed.value) };
       },
       done(raw) { replace(view, pos, raw); },
     });
   }
 
   // ------------------------------------------------------------ inline: a formula, a wikilink, a picture
+  /* A formula block made a formula in a line: a paragraph of its own with it. */
+  function toLine(view, at, tex) {
+    const pos = locate(view, at), node = pos < 0 ? null : view.state.doc.nodeAt(pos);
+    if (!node || !tex) return;
+    const raw = "$" + tex.replace(/\s*\n\s*/g, " ") + "$";
+    const html = md.renderInline(raw, { links: A.view.store.env.links, depth: 0 });
+    const tr = view.state.tr.replaceWith(pos, pos + node.nodeSize, N.paragraph.create({ bid: node.attrs.bid }, N.iatom.create({ kind: "math", raw, html })));
+    view.dispatch(tr.setSelection(TextSelection.create(tr.doc, pos + 2)).setMeta("step", true));
+    view.focus();
+  }
+  /* A formula in a line made a block: the paragraph is cut there, the block stands between its halves. */
+  function toBlock(view, from, tex) {
+    const state = view.state, $p = state.doc.resolve(from), para = $p.parent;
+    if (!tex || !$p.parent.isTextblock) return;
+    const island = blocksOf("$$\n" + tex + "\n$$", A.view.store).find((n) => n.type === N.island);
+    if (!island) return;
+    const before = para.cut(0, $p.parentOffset), after = para.cut($p.parentOffset + 1);
+    const nodes = [];
+    if (before.textContent.trim() || before.childCount > 1) nodes.push(before);
+    nodes.push(island);
+    if (after.textContent.trim() || after.childCount > 1) nodes.push(N.paragraph.create(null, after.content));
+    if (para.type !== N.paragraph || !$p.node(-1).canReplaceWith($p.index(-1), $p.indexAfter(-1), N.island)) return;
+    const tr = state.tr.replaceWith($p.before(), $p.after(), nodes);
+    const at = $p.before() + (nodes[0] === island ? 0 : nodes[0].nodeSize);
+    view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, at)).setMeta("step", true));
+    view.focus();
+  }
   function setAtom(view, pos, kind, raw) {
     const node = view.state.doc.nodeAt(pos);
     if (!node) return;
@@ -395,5 +563,5 @@
     return true;
   }
 
-  A.islands = { open, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  A.islands = { applyForm, open, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

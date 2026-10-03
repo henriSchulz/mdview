@@ -147,6 +147,47 @@
       bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
     }
   });
+  // the corner to pull the dialog larger by; a double click gives it its own size again
+  const grip = el("div", { class: "dlg-grip", "aria-hidden": "true" });
+  dlg.appendChild(grip);
+  const sized = () => { const p = window.MdPrefs || {}; return [Number(p.dialogWidth) || 0, Number(p.dialogHeight) || 0]; };
+  function applySize() {
+    const [w, h] = sized();
+    dlg.style.width = w ? Math.min(w, innerWidth * 0.96) + "px" : "";
+    dlg.style.height = h ? Math.min(h, innerHeight * 0.92) + "px" : "";
+    dlg.style.maxHeight = h ? "92vh" : "";
+    dlg.classList.toggle("sized", !!h);
+  }
+  grip.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const r = dlg.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
+    dlg.classList.add("sizing");
+    const move = (ev) => { // (centred: it grows to both sides, so twice the way of the pointer)
+      dlg.style.width = Math.max(380, Math.min(innerWidth * 0.96, r.width + 2 * (ev.clientX - x0))) + "px";
+      dlg.style.height = Math.max(220, Math.min(innerHeight * 0.92, r.height + 2 * (ev.clientY - y0))) + "px";
+      dlg.style.maxHeight = "92vh";
+      dlg.classList.add("sized");
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      dlg.classList.remove("sizing");
+      const b = dlg.getBoundingClientRect();
+      const prefs = { dialogWidth: Math.round(b.width), dialogHeight: Math.round(b.height) };
+      window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
+      window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "prefs", prefs }));
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  });
+  grip.addEventListener("dblclick", () => {
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 0, dialogHeight: 0 };
+    window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "prefs", prefs: { dialogWidth: 0, dialogHeight: 0 } }));
+    applySize();
+  });
+  // what a dialog held when it was left with Esc: offered again the next time the same block is opened
+  let discarded = null;
   document.body.append(scrim, dlg);
   const title = dlg.querySelector("#dlg-title"), tools = dlg.querySelector(".dlg-tools"), body = dlg.querySelector(".dlg-body"), info = dlg.querySelector(".dlg-info");
   let open = null; // { anchor, done, cancel, … } while a dialog is up
@@ -167,8 +208,15 @@
     tools.textContent = body.textContent = info.textContent = "";
     dlg.querySelector('[data-do="cancel"]').textContent = T("dialog.cancel");
     dlg.querySelector('[data-do="done"]').textContent = T("dialog.done");
+    applySize();
     const parts = opts.build(body, tools, info);
     open = { opts, parts };
+    if (opts.key != null && discarded && discarded.key === opts.key && parts.setText) {
+      const back = el("button", { class: "btn", type: "button" }, esc(T("dialog.restore")));
+      const text = discarded.text;
+      back.onclick = () => { parts.setText(text); back.remove(); discarded = null; parts.focus(); };
+      info.appendChild(back);
+    }
     dlg.style.transition = "none";
     dlg.style.transform = "none";
     dlg.dataset.open = scrim.dataset.open = "";
@@ -182,6 +230,8 @@
     if (!open) return;
     const { opts, parts } = open;
     const result = how === "done" ? parts.result() : undefined;
+    if (how !== "done" && opts.key != null && parts.text && parts.result() !== undefined) discarded = { key: opts.key, text: parts.text() };
+    else if (how === "done" && discarded && discarded.key === opts.key) discarded = null;
     open = null;
     if (how === "done" && result !== undefined) opts.done(result); else if (opts.cancel) opts.cancel(how);
     // back into the island as it is now

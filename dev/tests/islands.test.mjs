@@ -66,3 +66,18 @@ test("a formula's error says where", () => {
   assert.ok(bad.error && bad.html == null);
   assert.equal(typeof bad.pos, "number");
 });
+
+test("properties from the form: only the lines of what changed are written anew", () => {
+  const I = w.MdActive.islands;
+  const yaml = "title: A note\ntags: [one, two]\naliases:\n  - first\n  - second\ndate: 2026-10-02\ndraft: true\nnested:\n  key: value";
+  const data = w.jsyaml.load(yaml);
+  assert.equal(I.applyForm(yaml, data, {}, [], []), yaml, "nothing changed: nothing written");
+  assert.equal(I.applyForm(yaml, data, { title: "Another: note" }, [], []), yaml.replace("title: A note", 'title: "Another: note"'), "a value YAML would read otherwise is quoted");
+  assert.equal(I.applyForm(yaml, data, { title: "Plain" }, [], []), yaml.replace("A note", "Plain"));
+  assert.equal(I.applyForm(yaml, data, { tags: ["one", "two", "three"] }, [], []), yaml.replace("[one, two]", "[one, two, three]"), "a list on one line stays on one line");
+  assert.equal(I.applyForm(yaml, data, { aliases: ["first", "third"] }, [], []), yaml.replace("  - second", "  - third"), "a list of lines stays a list of lines");
+  assert.equal(I.applyForm(yaml, data, { draft: false, date: "2026-10-03" }, [], []), yaml.replace("draft: true", "draft: false").replace("2026-10-02", "2026-10-03"));
+  assert.equal(I.applyForm(yaml, data, {}, ["aliases"], []), yaml.replace("aliases:\n  - first\n  - second\n", ""), "a property removed with its lines");
+  assert.equal(I.applyForm(yaml, data, {}, [], [["author", "Henri"]]), yaml + "\nauthor: Henri", "a property added at the end");
+  assert.deepEqual(JSON.stringify(w.jsyaml.load(I.applyForm(yaml, data, { title: "x # y" }, [], [])).title), JSON.stringify("x # y"), "a # stays text");
+});

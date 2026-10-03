@@ -119,13 +119,14 @@
     A.dialog.show({
       title: T("dialog.footnote", label),
       anchor,
+      key: "note:" + label,
       build(body, _tools, info) {
         ed = A.dialog.editor({ value: f.def.text, language: "markdown", label: T("dialog.footnote", label) });
         const preview = el("div", { class: "dlg-preview doc" });
         body.append(ed.el, preview);
         ed.onInput = kit.infoBar(info, ed);
         kit.follow(ed, (v) => { preview.innerHTML = kit.html(v); hydrate(preview); });
-        return { focus: () => ed.focus(), result: () => (ed.value === f.def.text && !opts.fresh ? undefined : ed.value) };
+        return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, focus: () => ed.focus(), result: () => (ed.value === f.def.text && !opts.fresh ? undefined : ed.value) };
       },
       done(text) {
         if (opts.fresh && !text.trim()) return drop();
