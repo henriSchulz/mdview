@@ -359,6 +359,23 @@
       const apostrophe = single && /[\p{L}\p{N}]$/u.test(state.doc.textBetween(Math.max($s.start(), end - 1), end));
       return state.tr.insertText(apostrophe ? "\u2019" : q, start + match[0].length - 1, end); // (the quote typed is not in the document yet)
     }),
+    // LaTeX Suite's two triggers in the text: "mk" a formula in the line, "dm" one on its own lines.
+    // (Both as words of their own — "mk" stands in many German words.)
+    new IR.InputRule(/(^|[\s(\[{"'\u201e\u201c\u201a\u2018\u2014\u2013-])(mk|dm)$/, (state, match, start, end) => {
+      if ((window.MdPrefs || {}).latexText === false) return null;
+      const $start = state.doc.resolve(start), para = $start.parent;
+      if (!para.isTextblock || para.type.spec.code || M.code.isInSet($start.marks()) || (para.textBetween(0, $start.parentOffset, null, "\ufffc").match(/`/g) || []).length % 2) return null;
+      const $end = state.doc.resolve(end), next = para.textBetween($end.parentOffset, Math.min(para.content.size, $end.parentOffset + 1), null, "\ufffc");
+      if (next && !/[\s.,;:!?)\]}"']/.test(next)) return null;
+      const from = start + match[1].length, block = match[2] === "dm";
+      if (block && para.type !== N.paragraph) return null;
+      setTimeout(() => {
+        const view = A.view.pm;
+        if (!view || A.dialog.open) return;
+        if (block) A.context.INSERT.math(view); else A.islands.newMath(view, from);
+      }, 0);
+      return state.tr.delete(from, end);
+    }),
     // $$…$$: a formula on its own lines. What stands before and after it in the paragraph stays, above and below.
     new IR.InputRule(/\$\$([^$]*[^$\\\s][^$]*)\$\$$/, (state, match, start, end) => {
       const $start = state.doc.resolve(start), para = $start.parent;

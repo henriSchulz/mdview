@@ -205,18 +205,32 @@
       return { error: String(e.message || e).replace(/^KaTeX parse error: /, ""), pos: typeof e.position === "number" ? e.position : null };
     }
   }
+  // the caret into the line below a block (a new one, if none is there to write in)
+  function below(view, pos) {
+    const node = view.state.doc.nodeAt(pos);
+    if (!node || node.type !== N.island) return;
+    const end = pos + node.nodeSize, next = view.state.doc.resolve(end).nodeAfter;
+    const tr = view.state.tr;
+    if (!next || !next.isTextblock) tr.insert(end, N.paragraph.create());
+    view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end + 1)).scrollIntoView());
+    view.focus();
+  }
   /* inline: { from, to } of the atom when the formula stands in a line */
   function mathDialog(view, pos, node, fresh, inline) {
     const p = inline ? { head: "$", tex: inline.tex, tail: "$" } : parseMath(node.attrs.raw);
     let ed, asInline = !!inline;
     A.dialog.show({
       title: T("dialog.math"),
-      anchor: () => (inline ? view.nodeDOM(inline.from) : view.nodeDOM(pos)),
-      key: inline ? "$" + inline.tex + "$" : node.attrs.raw,
+      kind: "math",
+      anchor: () => (inline ? (inline.create ? null : view.nodeDOM(inline.from)) : view.nodeDOM(pos)),
+      key: inline ? (inline.create ? null : "$" + inline.tex + "$") : node.attrs.raw,
       build(body, tools, info) {
         const preview = el("div", { class: "dlg-preview math" }), error = el("div", { class: "dlg-error" });
         const bar = el("div", { class: "dlg-symbols" }, SYMBOLS.map(([label, , ], i) => `<button class="btn" type="button" data-i="${i}" tabindex="-1">${esc(label)}</button>`).join(""));
         ed = A.dialog.editor({ value: p.tex, language: "latex", pairs: true, label: T("dialog.math") });
+        // snippets, tabstops, auto-fraction, matrix keys, tabout (Tab at the end leaves the formula)
+        // (Tab at the end of a formula on its own lines: on with the line below it, as in a note)
+        const suite = A.latexsuite.attach(ed, { block: () => !asInline, exit: () => { const own = !inline && !asInline; A.dialog.close("done"); if (own) below(view, pos); } });
         const hint = el("div", { class: "dlg-hint" });
         body.append(preview, error, bar, ed.el, hint);
         // block or in the line; the LaTeX, or the formula as a picture, to the clipboard
@@ -238,7 +252,10 @@
           setTimeout(() => preview.classList.remove("shooting"), 900);
           requestAnimationFrame(() => requestAnimationFrame(() => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "snapshot", x: left, y: top, w: right - left, h: bottom - top, said: T("dialog.pictureCopied") }))));
         };
-        tools.append(shape, copyTex, copyPic);
+        const box = el("button", { class: "btn", type: "button" }, esc(T("dialog.box")));
+        box.onmousedown = (e) => e.preventDefault();
+        box.onclick = () => { ed.input.focus({ preventScroll: true }); suite.box(); };
+        tools.append(shape, box, copyTex, copyPic);
         bar.addEventListener("mousedown", (e) => e.preventDefault());
         bar.addEventListener("click", (e) => {
           const b = e.target.closest("button");
@@ -269,6 +286,15 @@
       },
       done(raw) {
         const tex = ed.value.trim();
+        if (inline && inline.create) { // a formula made new, where the caret stood
+          if (!tex) return;
+          const line = "$" + tex.replace(/\s*\n\s*/g, " ") + "$", html = md.renderInline(line, { links: A.view.store.env.links, depth: 0 });
+          const tr = view.state.tr.insert(inline.from, N.iatom.create({ kind: "math", raw: line, html }));
+          view.dispatch(tr.setSelection(TextSelection.create(tr.doc, inline.from + 1)).setMeta("step", true));
+          if (!asInline) toBlock(view, inline.from, tex);
+          view.focus();
+          return;
+        }
         if (!inline && asInline) return toLine(view, pos, tex);                 // the block becomes a formula in a line
         if (inline && !asInline) return toBlock(view, inline.from, tex);        // and the other way round
         if (!inline) { replace(view, pos, /^\s*\$\$\s*\$\$\s*$/.test(raw) ? "" : raw); return; }
@@ -568,5 +594,7 @@
     return true;
   }
 
-  A.islands = { applyForm, open, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  // a formula in the line, made new at this position: its dialog opens empty
+  const newMath = (view, pos) => mathDialog(view, pos, null, true, { from: pos, tex: "", create: true });
+  A.islands = { applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

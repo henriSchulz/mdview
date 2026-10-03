@@ -86,7 +86,29 @@ PREFS = {
     "style": "auto",        # new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
     "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
     "dialogWidth": 0, "dialogHeight": 0,  # a dialog's size, once one was pulled to another (0: its own)
+    # the formula editor (LaTeX Suite): snippets, "/" makes a fraction, matrix keys, Tab leaves
+    # brackets, brackets grow around sums, bracket pairs coloured, "mk" / "dm" in the text
+    "latexSnippets": True, "latexFraction": True, "latexMatrix": True, "latexTabout": True,
+    "latexEnlarge": True, "latexBrackets": True, "latexText": True,
 }
+# snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
+# ("export default [ … ]"); they take the place of the built-in ones
+SNIPPETS_FILE = Path(GLib.get_user_config_dir()) / "mdview" / "snippets.js"
+
+
+def user_snippets():
+    """The snippets file as a function the page can call, or "" (it is the user's own JavaScript,
+    run in the page like the plugin runs it)."""
+    try:
+        source = SNIPPETS_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    if not source.strip():
+        return ""
+    body, n = re.subn(r"export\s+default", "return ", source, count=1)
+    if not n:
+        body = "return (" + source.rstrip().rstrip(";") + "\n)"
+    return "window.MdSnippets = function (require) {\n" + body.replace("</", "<\\/") + "\n};"
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp"}
 
 SCRIPTS = [
@@ -451,7 +473,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
                "img-src file: data: blob: https: http:; "
                "font-src file: data:; media-src file: https: http:")
         prefs = json.dumps(self.app.prefs()).replace("</", "<\\/")
+        own = user_snippets()
         scripts = f'<script nonce="{nonce}">window.MdPrefs = {prefs};</script>' + \
+            (f'<script nonce="{nonce}">{own}</script>' if own else "") + \
             "".join(f'<script nonce="{nonce}" src="{a}/{s}"></script>' for s in SCRIPTS)
         page = (
             "<!doctype html><html lang='en'><head><meta charset='utf-8'>"

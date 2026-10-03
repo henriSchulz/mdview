@@ -558,3 +558,14 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 .blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
 @media print { .blk-line { display: none !important; } }
+
+/* the formula dialog: room for the formula and for writing it (a size pulled by hand stays) */
+#dlg[data-kind="math"] { width: min(1040px, 94vw); max-height: 90vh; }
+#dlg[data-kind="math"] .dlg-preview.math { min-height: 7em; font-size: 20px; display: grid; align-items: center; }
+#dlg[data-kind="math"] .ce { min-height: 240px; max-height: 56vh; }
+/* LaTeX Suite: places still to fill in, bracket pairs by depth */
+.ce-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.ce-stop.none { display: inline-block; width: 0; height: 0.5em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+.ce-b0 { color: var(--c-blue, var(--accent)); }
+.ce-b1 { color: var(--c-magenta, var(--accent)); }
+.ce-b2 { color: var(--c-green, var(--accent)); }

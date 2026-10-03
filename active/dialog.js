@@ -65,7 +65,7 @@
     const lineHeight = () => parseFloat(getComputedStyle(input).lineHeight) || 21;
     function paint() {
       const text = input.value;
-      back.firstChild.innerHTML = highlight(text, lang) + "\n";
+      back.firstChild.innerHTML = (lang === "latex" && (window.MdPrefs || {}).latexBrackets !== false ? rainbow(highlight(text, lang)) : highlight(text, lang)) + "\n";
       const n = text.split("\n").length;
       if (gutter.childElementCount !== n) gutter.innerHTML = Array.from({ length: n }, (_v, i) => `<div>${i + 1}</div>`).join("");
       marks.innerHTML = error && error.pos <= text.length
@@ -100,17 +100,52 @@
       }
       return null;
     }
+    // the brackets the caret stands in (when it is next to none)
+    function around(text, at) {
+      const depth = [0, 0, 0];
+      for (let i = at - 1; i >= 0 && at - i < 20000; i--) {
+        if (text[i - 1] === "\\") continue;
+        const o = OPEN.indexOf(text[i]), c = CLOSE.indexOf(text[i]);
+        if (c >= 0) depth[c]++;
+        else if (o >= 0 && depth[o]-- === 0) {
+          let d = 0;
+          for (let j = at; j < text.length && j - at < 20000; j++) {
+            if (text[j - 1] === "\\") continue;
+            if (text[j] === OPEN[o]) d++;
+            else if (text[j] === CLOSE[o] && d-- === 0) return [i, j];
+          }
+          return null;
+        }
+      }
+      return null;
+    }
+    // matching brackets in the same colour (LaTeX): the highlighted HTML, its brackets wrapped
+    function rainbow(html) {
+      let out = "", depth = 0, prev = "";
+      for (let i = 0; i < html.length; i++) {
+        const ch = html[i];
+        if (ch === "<") { const e = html.indexOf(">", i); out += html.slice(i, e + 1); i = e; continue; }
+        if (ch === "&") { const e = html.indexOf(";", i); out += html.slice(i, e + 1); i = e; prev = "&"; continue; }
+        if ("([{".includes(ch)) out += `<span class="ce-b${depth++ % 3}">${ch}</span>`;
+        else if (")]}".includes(ch)) out += `<span class="ce-b${(depth = Math.max(0, depth - 1)) % 3}">${ch}</span>`;
+        else out += ch;
+        prev = ch;
+      }
+      return out;
+    }
+    let stopMarks = [];
     function highlights() {
       const text = input.value, ranges = [];
       if (input.selectionStart === input.selectionEnd && document.activeElement === input) {
-        const pair = partner(text, input.selectionStart);
+        const pair = partner(text, input.selectionStart) || (lang === "latex" ? around(text, input.selectionStart) : null);
         if (pair) ranges.push([pair[0], pair[0] + 1, "ce-match"], [pair[1], pair[1] + 1, "ce-match"]);
       }
+      for (const r of stopMarks) if (r.to <= text.length) ranges.push([r.from, r.to, r.from === r.to ? "ce-stop none" : "ce-stop"]);
       hits.forEach(([a, b], i) => ranges.push([a, b, i === hit ? "ce-hit now" : "ce-hit"]));
       ranges.sort((x, y) => x[0] - y[0]);
       let out = "", at = 0;
       for (const [a, b, cls] of ranges) {
-        if (a < at) continue;
+        if (a < at || (a === at && a === b && at > 0 && out.endsWith("</span>") && !cls.startsWith("ce-stop"))) continue;
         out += esc(text.slice(at, a)) + `<span class="${cls}">${esc(text.slice(a, b))}</span>`;
         at = b;
       }
@@ -202,7 +237,7 @@
       if (!document.execCommand("insertText", false, text)) { input.setRangeText(text, input.selectionStart, input.selectionEnd, "end"); input.dispatchEvent(new Event("input")); }
       if (selA != null) input.setSelectionRange(selA, selB ?? selA);
     };
-    input.addEventListener("input", () => { paint(); completions(); if (find && find.isConnected) find.run(); if (api.onInput) api.onInput(input.value); });
+    input.addEventListener("input", () => { paint(); if (api.quiet) closeComp(); else completions(); if (find && find.isConnected) find.run(); if (api.onInput) api.onInput(input.value); });
     input.addEventListener("blur", () => setTimeout(closeComp, 100));
     for (const type of ["keyup", "click", "focus", "select"]) input.addEventListener(type, caretLine);
     input.addEventListener("keydown", (e) => {
@@ -218,6 +253,7 @@
         if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeComp(); return; }
       }
       if (e.key === "Escape" && find && find.isConnected) { e.preventDefault(); e.stopPropagation(); closeFind(false); return; }
+      if (api.onKey && !e.isComposing && api.onKey(e)) { caretLine(); return; } // (LaTeX Suite: snippets, tabstops, tabout)
       if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       const v = input.value, s = input.selectionStart, t = input.selectionEnd;
       if (e.key === "Tab") { // indents here; the dialog's buttons are reached with the mouse or Ctrl+Enter / Esc
@@ -255,6 +291,7 @@
     api.setLanguage = (l) => { lang = l; paint(); };
     api.find = openFind;
     api.setError = (e) => { error = e; paint(); };
+    api.setStops = (ranges) => { stopMarks = ranges.map((r) => ({ from: r.from, to: r.to })); highlights(); };
     api.insert = (text, selA, selB) => { input.focus({ preventScroll: true }); insert(text, selA, selB); };
     api.focus = (pos) => {
       input.focus({ preventScroll: true });
@@ -356,6 +393,7 @@
     tools.textContent = body.textContent = info.textContent = "";
     dlg.querySelector('[data-do="cancel"]').textContent = T("dialog.cancel");
     dlg.querySelector('[data-do="done"]').textContent = T("dialog.done");
+    dlg.dataset.kind = opts.kind || "";
     applySize();
     const parts = opts.build(body, tools, info);
     open = { opts, parts };

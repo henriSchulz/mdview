@@ -8,6 +8,7 @@
     lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0,
     images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
+    latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -24,6 +25,14 @@
     ["quotes", "switch"],
     ["wrap", "select", [[0, "prefs.wrap.off"], [72, "72"], [80, "80"], [100, "100"], [120, "120"]]],
     ["images", "select", [["beside", "prefs.images.beside"], ["assets", "prefs.images.assets"]]],
+    ["section", "prefs.latex"],
+    ["latexSnippets", "switch"],
+    ["latexFraction", "switch"],
+    ["latexMatrix", "switch"],
+    ["latexTabout", "switch"],
+    ["latexEnlarge", "switch"],
+    ["latexBrackets", "switch"],
+    ["latexText", "switch"],
     ["section", "prefs.newMarkdown"],
     ["style", "select", [["auto", "prefs.style.auto"], ["fixed", "prefs.style.fixed"]]],
     ["bullet", "select", [["-", "- item"], ["*", "* item"], ["+", "+ item"]], "fixed"],
