@@ -49,6 +49,14 @@
     quote: svg('<path d="M10 11H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.5-1.5 4-4 5M19 11h-4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.5-1.5 4-4 5"/>'),
     clip: svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
     todo: svg('<circle cx="12" cy="12" r="9.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
+    // menus
+    note: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>'),
+    folderPlus: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 10.5v5M9.5 13h5"/>'),
+    external: svg('<path d="M14 4h6v6M20 4l-9 9"/><path d="M19 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4"/>'),
+    apps: svg('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
+    reveal: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V11"/><path d="M3 7v10a2 2 0 0 0 2 2h6"/><circle cx="16.5" cy="16" r="3"/><path d="m21 20.5-2.3-2.3"/>'),
+    rename: svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17Z"/><path d="M14.5 7.5l3 3"/>'),
+    trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
   };
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const CALLOUT_ALIAS = {
@@ -1667,7 +1675,7 @@
     `<header class="sb-head">` +
     `<button class="sb-folder" data-act="folder" title="Open another folder (Ctrl+Alt+O)">${ICON.folder}<span class="sb-folder-name"></span></button>` +
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
-    `<button class="tb" data-act="newnote" title="New note (Ctrl+N)" aria-label="New note">${ICON.plus}</button>` +
+    `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header>` +
     `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
     `<nav class="sb-list" aria-label="Notes"></nav>`;
@@ -1885,22 +1893,32 @@
   ctx.style.setProperty("--origin", "top left");
   ctx.tabIndex = -1;
   ctx.setAttribute("role", "menu");
+  // one menu for a file, a folder, and the + button ("new"); data-for says where an entry shows
+  const entry = (cmd, icon, label, on, key = "", cls = "") =>
+    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${key}</span>` : ""}</button>`;
   ctx.innerHTML =
-    `<button class="menu-item" role="menuitem" data-cmd="default">Open in Default App</button>` +
-    `<button class="menu-item" role="menuitem" data-cmd="openwith">Open With…</button>` +
-    `<button class="menu-item" role="menuitem" data-cmd="reveal">Show in Finder</button>` +
-    `<div class="menu-rule"></div>` +
-    `<button class="menu-item" role="menuitem" data-cmd="rename">Rename<span class="menu-key">F2</span></button>` +
-    `<button class="menu-item danger" role="menuitem" data-cmd="trash">Move to Trash<span class="menu-key">Del</span></button>`;
+    entry("newnote", "note", "New Note", "dir new", "Ctrl+N") +
+    entry("newfolder", "folderPlus", "New Folder", "dir new") +
+    `<div class="menu-rule" data-for="dir"></div>` +
+    entry("default", "external", "Open in Default App", "file") +
+    entry("openwith", "apps", "Open With…", "file") +
+    entry("reveal", "reveal", "Show in Finder", "file dir") +
+    `<div class="menu-rule" data-for="file"></div>` +
+    entry("rename", "rename", "Rename", "file", "F2") +
+    entry("trash", "trash", "Move to Trash", "file", "Del", " danger");
   document.body.appendChild(ctx);
-  const ctxItems = [...ctx.querySelectorAll(".menu-item")];
-  let ctxFor = null, ctxHl = -1;
+  let ctxItems = [];
+  let ctxFor = null, ctxHl = -1, ctxKind = "file";
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
-  function openCtx(item, x, y) {
+  function openCtx(item, x, y, kind = "file") {
     if (ctxFor) ctxFor.classList.remove("ctx-target");
     ctxFor = item;
-    item.classList.add("ctx-target");
+    ctxKind = ctx.dataset.kind = kind;
+    for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind);
+    ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
+    ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
+    if (kind !== "new") item.classList.add("ctx-target");
     setCtxHl(-1);
     ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px";
     ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + "px";
@@ -1911,7 +1929,7 @@
     if (!ctxOpen()) return false;
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus) ctxFor.firstChild.firstChild.focus({ preventScroll: true });
+    if (refocus && ctxKind !== "new") ctxFor.firstChild.firstChild.focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -1921,10 +1939,12 @@
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
     setTimeout(() => {
+      const kind = ctxKind;
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd;
-      if (cmd === "rename") startRename(item);
+      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
+      else if (cmd === "rename") startRename(item);
       else if (cmd === "trash") post("trash", { path: item.dataset.key });
       else post("fileop", { op: cmd, path: item.dataset.key });
     }, flash * 2);
@@ -1932,7 +1952,7 @@
   sidebar.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     const item = e.target.closest(".sb-row")?.closest(".sb-item");
-    if (item && !item.classList.contains("is-dir")) openCtx(item, e.clientX, e.clientY);
+    if (item) openCtx(item, e.clientX, e.clientY, item.classList.contains("is-dir") ? "dir" : "file");
   });
   ctx.addEventListener("contextmenu", (e) => e.preventDefault());
   ctx.addEventListener("mousemove", (e) => {
@@ -2032,8 +2052,12 @@
   }
 
   // --- new note: a name field unfolds under the header; Enter creates the file
-  function openNewNote() {
+  let newKind = "note", newDir = null; // what the name field makes, and where (null: beside the note on screen)
+  function openNewNote(kind = "note", dir = null) {
     if (!sidebarOpen()) { showSidebar(true, true); post("sidebar", { visible: true }); }
+    newKind = kind; newDir = dir;
+    sbNewInput.placeholder = kind === "folder" ? "Folder name" : "Note name";
+    sbNewInput.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
     sbNewInput.value = "";
     sbNew.classList.add("open");
     sbNewInput.focus({ preventScroll: true });
@@ -2048,10 +2072,10 @@
     if (e.key !== "Enter" || e.isComposing) return;
     e.preventDefault();
     // next to the note on screen, if that one lives in this folder
-    const here = current && current.path.startsWith(folder.root + "/") ? current.path.replace(/\/[^/]*$/, "") : folder.root;
-    const name = sbNewInput.value;
+    const here = newDir || (current && current.path.startsWith(folder.root + "/") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
+    const name = sbNewInput.value, kind = newKind;
     closeNewNote();
-    post("newnote", { name, dir: here });
+    post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
   });
   sbNewInput.addEventListener("blur", () => closeNewNote());
 
@@ -2064,6 +2088,11 @@
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
+    newmenu: () => { // the + button: a note or a folder
+      const b = sidebar.querySelector('[data-act="newmenu"]'), r = b.getBoundingClientRect();
+      if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
+      openCtx(b, r.right - 190, r.bottom + 4, "new");
+    },
     folder: () => post("folder"),
     prev: () => focusHit(hitIdx - 1),
     next: () => focusHit(hitIdx + 1),

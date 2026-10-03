@@ -42,10 +42,36 @@
       row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: r.top + 8 }));
       await sleep(200);
       const menu = document.getElementById("ctxmenu");
-      ok("right click on a file: open in the default app, with another one, show in Finder, rename, trash", menu.hasAttribute("data-open") && [...menu.querySelectorAll(".menu-item")].map((b) => b.dataset.cmd).join() === "default,openwith,reveal,rename,trash", [...menu.querySelectorAll(".menu-item")].map((b) => b.dataset.cmd));
-      menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-      await sleep(250);
-      if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); }
+      const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
+      const cmds = () => shown().map((b) => b.dataset.cmd).join();
+      ok("right click on a file: open in the default app, with another one, show in Finder, rename, trash", menu.hasAttribute("data-open") && cmds() === "default,openwith,reveal,rename,trash", cmds());
+      ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon svg"); return i && i.getBoundingClientRect().width > 10; }));
+      const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
+      await shut();
+      // the + button: a note or a folder
+      document.querySelector('#sidebar [data-act="newmenu"]').click();
+      await sleep(200);
+      ok("the + button offers a note or a folder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder", cmds());
+      shown()[1].click();
+      await sleep(400);
+      const input = document.getElementById("sb-new-input");
+      ok("New Folder: the name field asks for a folder's name", document.activeElement === input && input.placeholder === "Folder name", input.placeholder);
+      const enter = async (name) => { input.value = name; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(900); };
+      await enter("Drafts");
+      const dirRow = () => [...document.querySelectorAll(".sb-item.is-dir > .sb-in > .sb-row")].find((x) => x.textContent.trim() === "Drafts");
+      ok("the new folder is in the sidebar, though it is empty", !!dirRow(), [...document.querySelectorAll(".sb-item.is-dir > .sb-in > .sb-row")].map((x) => x.textContent.trim()));
+      // a folder's menu: a note inside it
+      const dr = dirRow().getBoundingClientRect();
+      dirRow().dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: dr.left + 30, clientY: dr.top + 8 }));
+      await sleep(200);
+      ok("right click on a folder: new note, new folder, show in Finder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,reveal", cmds());
+      shown()[0].click();
+      await sleep(400);
+      ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);
+      await enter("Idea");
+      await sleep(600);
+      ok("the note is made inside that folder and opens", MdView.core.current.name === "Idea.md" && /\/Drafts\/Idea\.md$/.test(MdView.core.current.path), MdView.core.current.path);
+      MdView.setMode("read"); await sleep(500);
     }
     // the sidebar's edge, pulled with the real pointer
     {

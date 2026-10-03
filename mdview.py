@@ -230,7 +230,7 @@ def natural_key(name):
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", name.lower())]
 
 
-def scan_folder(root, cache, titles):
+def scan_folder(root, cache, titles, keep=()):
     """The notes below root as a tree, plus every directory walked (to watch).
     Hidden entries and SKIP_DIRS are left out, as are folders without notes.
     Titles are only read when asked for; cache maps path -> (stat key, title)."""
@@ -254,7 +254,7 @@ def scan_folder(root, cache, titles):
                             or time.monotonic() > deadline:
                         continue
                     sub = walk(Path(e.path), depth + 1)
-                    if sub["dirs"] or sub["notes"]:
+                    if sub["dirs"] or sub["notes"] or e.path in keep:  # (keep: folders made here, still empty)
                         node["dirs"].append(sub)
                 elif os.path.splitext(e.name)[1].lower() in MD_EXT and e.is_file() \
                         and count < NOTE_LIMIT:
@@ -448,6 +448,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.tree = None
         self.tree_json = None
         self.note_paths = set()
+        self.kept_dirs = set()      # folders made from the sidebar: shown although nothing is in them yet
         self.title_cache = {}
         self.dir_monitors = []
         self.rescan_id = 0
@@ -693,7 +694,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         if not self.folder:
             return False
         titles = bool(self.app.state.get("sidebar_titles"))
-        self.tree, walked = scan_folder(self.folder, self.title_cache, titles)
+        self.tree, walked = scan_folder(self.folder, self.title_cache, titles, self.kept_dirs)
         self.note_paths = {n["path"] for n in tree_notes(self.tree)}
         have = {m.dir for m in self.dir_monitors}
         want = set(walked[:WATCH_LIMIT])
@@ -767,6 +768,27 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.rescan_now()
         self.open_path(path)
         self.js("MdView.setMode", "edit", "end")
+
+    def new_folder(self, name, where):
+        if not self.folder:
+            return
+        target = Path(where) if where else self.folder
+        try:
+            target = target.resolve()
+        except OSError:
+            target = self.folder
+        if not target.is_dir() or not target.is_relative_to(self.folder):
+            target = self.folder
+        path = target / (clean_name(name) or "New Folder")
+        try:
+            path.mkdir()
+        except FileExistsError:
+            self.js("MdView.toast", f"“{path.name}” already exists")
+        except OSError as e:
+            self.js("MdView.toast", f"Couldn't create folder: {e.strerror}")
+            return
+        self.kept_dirs.add(str(path))
+        self.rescan_now()
 
     def rescan_now(self):
         if self.rescan_id:
@@ -1075,6 +1097,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 self.open_path(p, f"^line={int(msg.get('line') or 0)}")
         elif t == "newnote":
             self.new_note(msg.get("name"), msg.get("dir"))
+        elif t == "newfolder":
+            self.new_folder(msg.get("name"), msg.get("dir"))
         elif t == "rename":
             self.rename_note(msg.get("path"), msg.get("name"))
         elif t == "trash":
@@ -1392,7 +1416,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
     def file_op(self, op, path):
         """From a file's menu in the sidebar: open it in its default application, in one chosen
         from the system's list, or show it in the file manager."""
-        if not path or path not in self.note_paths:
+        inside = bool(path) and self.folder and Path(path).is_dir() and Path(path).resolve().is_relative_to(self.folder)
+        if not path or not (path in self.note_paths or (op == "reveal" and inside)):
             return
         gfile = Gio.File.new_for_path(path)
         try:
