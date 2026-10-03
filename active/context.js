@@ -78,6 +78,7 @@
   }
   const island = (raw, kind) => A.islands.blocksOf(raw, A.view.store).find((n) => n.type === N.island) || N.island.create({ kind, raw });
   const INSERT = {
+    graphic(view) { setTimeout(() => A.graphic.open(view), 0); }, // a figure drawn by Claude (graphic.js)
     code(view) { const pos = putBlock(view, island("```\n```", "code")); setTimeout(() => A.islands.open(view, pos, true), 0); },
     math(view) { const pos = putBlock(view, island("$$\n\n$$", "math")); setTimeout(() => A.islands.open(view, pos, true), 0); },
     table(view) {
@@ -142,6 +143,7 @@
         item("menu.codeBlock", () => INSERT.code(view)), item("menu.formula", () => INSERT.math(view)),
         item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
         item("menu.image", () => INSERT.image(view)),
+        item("menu.graphic", () => INSERT.graphic(view)),
         item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
       ] });
     } else {

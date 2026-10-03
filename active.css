@@ -577,3 +577,24 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 /* LaTeX Suite in the text: the places of a snippet still to fill in */
 .pm .ls-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .pm .ls-stop.none { display: inline-block; width: 0; height: 0.55em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* a figure drawn by Claude: the dialog */
+#dlg[data-kind="graphic"] { width: min(860px, 94vw); max-height: 92vh; }
+.gr-text { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; resize: vertical; font: 400 13px/1.45 "Inter", sans-serif; user-select: text; -webkit-user-select: text; }
+.gr-ref, .gr-change { display: flex; align-items: center; gap: 6px; }
+.gr-label { color: var(--fg2); font-size: 12px; }
+.gr-space { flex: 1; }
+.gr-thumb { width: 34px; height: 28px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 0.5px var(--line-strong); }
+.gr-thumb[hidden] { display: none; }
+.gr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gr-change-in { flex: 1; height: var(--control-height, 28px); padding: 0 10px; user-select: text; -webkit-user-select: text; }
+.gr-change[hidden] { display: none; }
+.gr-view { position: relative; display: grid; place-items: center; min-height: 260px; max-height: 52vh; padding: 14px; border-radius: var(--radius-control); background: var(--bg); box-shadow: inset 0 0 0 0.5px var(--line-strong); overflow: auto; }
+.gr-empty { color: var(--fg2); font-size: 12px; }
+.gr-img { display: block; max-width: 100%; max-height: 48vh; transition: opacity var(--dur-fast) var(--ease-out); }
+.gr-view.busy .gr-img { opacity: 0.35; }
+.gr-wait { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; animation: gr-in var(--dur-fast) var(--ease-out) var(--loading-delay, 300ms) both; }
+.gr-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 16%, transparent); border-top-color: var(--accent); animation: gr-spin 0.8s linear infinite; }
+@keyframes gr-spin { to { transform: rotate(360deg); } }
+@keyframes gr-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gr-spin { animation-duration: 2.4s; } }

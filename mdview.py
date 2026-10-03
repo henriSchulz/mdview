@@ -23,6 +23,8 @@ Colors follow the Omarchy theme, motion follows ~/.local/share/henri-ui.
 import base64
 import html
 import http.client
+import shutil
+import tempfile
 import threading
 import json
 import os
@@ -187,6 +189,119 @@ class Completer:
                 if attempt:
                     return None, f"Suggestions: {e}"
         return None, None
+
+
+GRAPHIC_SYSTEM = """You draw technical illustrations as SVG. Reply with one complete SVG document and nothing else — no prose, no code fence.
+
+Style (always):
+- Clean, calm line drawing in the manner of a well-typeset textbook. One stroke width (1.6) for everything that is drawn, 1 for hairlines such as dimension or grid lines; round line caps and joins.
+- Geometry on an 8-unit grid; wires horizontal or vertical with right angles; symbols aligned; generous, even spacing. Nothing overlaps; labels never touch lines.
+- Colour: strokes and text use currentColor. At most one accent colour (#0a84ff) for the one thing the figure is about, and its 12 % tint for fills. No gradients, no shadows, no backgrounds.
+- Text: font-family "Inter", system-ui, sans-serif; 13 px for labels, 11 px for secondary text; variables in italics; text-anchor chosen so labels sit centred on or next to what they name. Labels in the language of the request.
+- Standard symbols: circuits use IEC symbols (resistor as a rectangle, capacitor as two plates, ground, sources as circles), junction dots where wires join; logic uses the distinctive-shape gates (AND, OR, NOT bubble, XOR) with inputs left and outputs right; RTL and block diagrams use rounded rectangles for modules, trapezoids for multiplexers, a triangle marker for clocked registers, buses as thicker lines with a slash and width; arrows have small filled heads.
+- The <svg> has xmlns, a viewBox that fits the drawing with 16 units of margin, width and height attributes equal to the viewBox size, and this first child, exactly:
+  <style>:root{color:#1d1d1f}@media (prefers-color-scheme:dark){:root{color:#f5f5f7}}text{font-family:Inter,system-ui,sans-serif;fill:currentColor}</style>
+- No scripts, no external references, no images, no foreignObject."""
+
+
+def find_claude():
+    """The claude command line tool: on the PATH, or where its installers put it (an app started
+    from the desktop does not always have the shell's PATH)."""
+    hit = shutil.which("claude")
+    if hit:
+        return hit
+    for p in ("~/.local/share/mise/installs/claude/latest/claude", "~/.local/bin/claude",
+              "~/.claude/local/claude", "~/.local/share/mise/shims/claude"):
+        p = Path(p).expanduser()
+        if p.is_file() and os.access(p, os.X_OK):
+            return str(p)
+    return None
+
+
+def clean_svg(text):
+    """The SVG in the model's answer, without anything that could run or load: or None."""
+    m = re.search(r"<svg\b.*</svg>", text or "", re.S | re.I)
+    if not m:
+        return None
+    svg = m.group(0)
+    svg = re.sub(r"<script\b.*?</script\s*>|<foreignObject\b.*?</foreignObject\s*>", "", svg, flags=re.S | re.I)
+    svg = re.sub(r"\son\w+\s*=\s*(\"[^\"]*\"|'[^']*')", "", svg, flags=re.I)
+    svg = re.sub(r"(\s(?:xlink:)?href\s*=\s*)(\"(?!#)[^\"]*\"|'(?!#)[^']*')", r'\1"#"', svg, flags=re.I)
+    if "xmlns=" not in svg.split(">", 1)[0]:
+        svg = svg.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"', 1)
+    return svg
+
+
+class Illustrator:
+    """Has Claude draw a figure (the claude command line tool, without its tools — only reading
+    the reference picture, when there is one). One at a time; a new request or stop ends the old."""
+
+    def __init__(self):
+        self.proc = None
+        self.lock = threading.Lock()
+
+    def stop(self):
+        with self.lock:
+            proc, self.proc = self.proc, None
+        if proc and proc.poll() is None:
+            proc.kill()
+
+    def draw(self, reply, ident, text, image, previous, change):
+        self.stop()
+        threading.Thread(target=self.run, args=(reply, ident, text, image, previous, change), daemon=True).start()
+
+    def run(self, reply, ident, text, image, previous, change):
+        fake = os.environ.get("MDVIEW_GRAPHIC_FAKE")
+        if fake is not None:  # (tests: no model, a known figure)
+            time.sleep(0.4)
+            tag = "changed" if change else ("ref" if image else "new")
+            GLib.idle_add(reply, ident, fake.replace("TAG", tag), None)
+            return
+        exe = find_claude()
+        if not exe:
+            GLib.idle_add(reply, ident, None, "The claude command was not found")
+            return
+        work = tempfile.mkdtemp(prefix="mdview-graphic-")
+        try:
+            tools = ["--tools", ""]
+            if previous and change:
+                prompt = ("Here is the figure you drew:\n\n" + previous + "\n\nChange it as follows and reply with the "
+                          "complete new SVG: " + change)
+            else:
+                prompt = "Draw: " + text if text else ""
+                if image:
+                    ref = Path(work) / ("reference" + (Path(image).suffix.lower() or ".png"))
+                    shutil.copyfile(image, ref)
+                    tools = ["--tools", "Read", "--allowedTools", "Read", "--add-dir", work]
+                    prompt = (f"A reference picture is at {ref} — read it first. Redraw what it shows as a clean "
+                              "figure in your style" + (", following this description: " + text if text else "."))
+            args = [exe, "-p", prompt, "--system-prompt", GRAPHIC_SYSTEM, *tools, "--strict-mcp-config",
+                    "--disable-slash-commands", "--no-session-persistence", "--output-format", "text"]
+            proc = subprocess.Popen(args, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True, start_new_session=True)
+            with self.lock:
+                self.proc = proc
+            try:
+                out, err = proc.communicate(timeout=300)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out, err = "", "It took longer than five minutes"
+            with self.lock:
+                stopped = self.proc is not proc
+                if not stopped:
+                    self.proc = None
+            if stopped:
+                return
+            svg = clean_svg(out)
+            if svg:
+                GLib.idle_add(reply, ident, svg, None)
+            else:
+                said = (err or out or "").strip().splitlines()
+                GLib.idle_add(reply, ident, None, "Claude: " + (said[-1][:200] if said else "no figure came back"))
+        except OSError as e:
+            GLib.idle_add(reply, ident, None, f"Couldn't run claude: {e.strerror or e}")
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 def user_snippets():
@@ -1177,6 +1292,16 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.open_external()
         elif t == "note":
             self.open_note(msg.get("path"))
+        elif t == "graphic":
+            self.app.illustrator().draw(lambda i, svg, err: self.js("MdView.graphic", i, svg, err) and False,
+                                        msg.get("id"), str(msg.get("text") or "")[:6000], msg.get("image"),
+                                        msg.get("previous"), str(msg.get("change") or "")[:3000] or None)
+        elif t == "graphic-cancel":
+            self.app.illustrator().stop()
+        elif t == "graphic-image":
+            self.graphic_image(msg.get("how"))
+        elif t == "graphic-save":
+            self.save_graphic(msg.get("svg"), msg.get("name"))
         elif t == "complete":
             # the next words for what is being written (active/ghost.js); only when switched on
             if self.app.prefs().get("aiComplete"):
@@ -1517,6 +1642,59 @@ class ViewerWindow(Gtk.ApplicationWindow):
             except FileNotFoundError:
                 continue
 
+    def graphic_image(self, how):
+        """A reference picture for a figure: chosen from the files, or the one on the clipboard
+        (kept in the cache while it is needed). The page gets its path."""
+        if how == "paste":
+            got = clipboard_image()
+            if not got:
+                self.js("MdView.graphicImage", None, None, "No picture on the clipboard")
+                return
+            data, ext = got
+            d = Path(GLib.get_user_cache_dir()) / "mdview"
+            d.mkdir(parents=True, exist_ok=True)
+            p = d / f"reference{ext}"
+            p.write_bytes(data)
+        else:
+            dialog = Gtk.FileChooserNative.new("Reference picture", self, Gtk.FileChooserAction.OPEN, None, None)
+            f = Gtk.FileFilter()
+            f.set_name("Pictures")
+            f.add_mime_type("image/*")
+            dialog.add_filter(f)
+            ok = dialog.run() == Gtk.ResponseType.ACCEPT
+            name = dialog.get_filename() if ok else None
+            dialog.destroy()
+            if not name:
+                return
+            p = Path(name)
+        self.js("MdView.graphicImage", str(p), p.as_uri() + f"?{int(time.time())}", None)
+
+    def save_graphic(self, svg, name):
+        """The figure as a file where the note's pictures go, and its Markdown at the caret."""
+        svg = clean_svg(svg or "")
+        if not svg or not self.path or self.path.suffix.lower() == ".pdf":
+            return
+        vault = self.resolver.vault if self.resolver else None
+        words = re.findall(r"[\w-]+", clean_name(name or ""))[:5]
+        stem = "-".join(words)[:48].strip("-") or "graphic"
+        try:
+            folder = self.attachment_dir(vault)
+            folder.mkdir(parents=True, exist_ok=True)
+            for n in range(1, 200):
+                target = folder / f"{stem}{'' if n == 1 else f'-{n}'}.svg"
+                try:
+                    with open(target, "x", encoding="utf-8") as f:
+                        f.write(svg + "\n")
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise FileExistsError(17, "File exists")
+        except OSError as e:
+            self.js("MdView.toast", f"Couldn't save the figure: {e.strerror}")
+            return
+        self.js("MdView.insertImage", {"path": str(self.path), "markup": self.image_markup(target, vault)})
+
     def file_op(self, op, path):
         """From a file's menu in the sidebar: open it in its default application, in one chosen
         from the system's list, or show it in the file manager."""
@@ -1642,6 +1820,11 @@ class MdViewApp(Gtk.Application):
         self.web_settings = None
         self.monitors = []
         self.theme_id = 0
+
+    def illustrator(self):
+        if not getattr(self, "_illustrator", None):
+            self._illustrator = Illustrator()
+        return self._illustrator
 
     def completer(self):
         if not getattr(self, "_completer", None):

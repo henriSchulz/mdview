@@ -24,6 +24,7 @@
     ["menu.table", "table tabelle", (v) => A.context.INSERT.table(v)],
     ["menu.rule", "divider rule line hr trennlinie", (v) => A.context.INSERT.rule(v)],
     ["menu.image", "image picture bild", (v) => A.context.INSERT.image(v)],
+    ["menu.graphic", "graphic figure diagram svg ai claude circuit schematic logic rtl grafik schaltung schaltplan zeichnung ki", (v) => A.context.INSERT.graphic(v)],
     ["menu.footnote", "footnote note fußnote", (v) => A.context.INSERT.footnote(v)],
   ];
   // the "/…" being typed, right before the caret: { from, to, query }. Not inside a word or an address ("a/b", "http://").
