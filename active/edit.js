@@ -223,7 +223,7 @@
   }
   function escape(state, dispatch, view) {
     const sel = state.selection;
-    if (sel.empty && !(sel instanceof NodeSelection)) return false;
+    if (sel.empty && !(sel instanceof NodeSelection)) return !!view && !!dispatch && A.blocks.selectAt(view); // the block as a whole
     if (dispatch) dispatch(state.tr.setSelection(Selection.near(sel.$head, 1)));
     return true;
   }
@@ -267,6 +267,7 @@
     Backspace: C.chainCommands(IR.undoInputRule, C.deleteSelection, backspaceAtStart, C.joinBackward, C.selectNodeBackward),
     Delete: C.chainCommands(C.deleteSelection, C.joinForward, C.selectNodeForward),
     "Mod-a": selectMore,
+    "Mod-d": (s, d, v) => (v && d ? (A.slash.BLOCK.duplicate(v), true) : false), // the block the caret is in, once more
     Escape: escape,
   };
   for (let level = 1; level <= 6; level++) keys["Shift-Mod-" + level] = setHeading(level);

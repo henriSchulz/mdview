@@ -282,7 +282,11 @@
         return ["#".repeat(level) + (one ? " " + one : "")];
       }
       case "horizontal_rule": return [node.attrs.markup || cx.profile.rule];
-      case "blockquote": return children(node, cx, false).map((l) => (l ? "> " + l : ">"));
+      case "blockquote": {
+        const lines = children(node, cx, false).map((l) => (l ? "> " + l : ">"));
+        // a decoration says what it is in a line of its own before the text
+        return node.attrs.deco ? ["> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]"].concat(lines) : lines;
+      }
       case "bullet_list":
       case "ordered_list": return list(node, cx);
       case "table": return table(node, cx);

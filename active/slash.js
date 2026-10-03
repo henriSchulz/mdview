@@ -7,13 +7,16 @@
  * What is chosen applies to the block the caret is in (a heading, a list, a
  * quote) or is put in there (a code block, a table, … below the block). What
  * it offers follows where the caret is: a task can be ticked, a table's cell
- * gets its rows and columns. */
+ * gets its rows and columns.
+ * Decorations put a quote around the block — plain, as a tinted block or with
+ * a bar (focus) — and Color gives the block or the bar one of the theme's
+ * colours; a colour chosen for plain text makes a block of it. */
 "use strict";
 (() => {
   const A = window.MdActive, T = window.MdStrings.t;
   const { Plugin, PluginKey, Selection } = PM.state;
   const N = A.schema.nodes, M = A.schema.marks;
-  const { ICON, copy } = window.MdView.core;
+  const { ICON, DECO_COLORS, copy } = window.MdView.core;
 
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const I = {
@@ -24,6 +27,11 @@
     ordered: svg('<path d="M10 6h11M10 12h11M10 18h11M3.5 5 5 4v5M3.5 15.5c0-1.8 3-1.8 3 0 0 1.2-3 2-3 3.5h3"/>'),
     task: svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
     quote: ICON.quote,
+    block: svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 10h10M7 14h6"/>'),
+    focus: svg('<path d="M5 5v14M10 8h10M10 12h10M10 16h6"/>'),
+    color: svg('<path d="M12 3.5c3 3.6 5.5 6.6 5.5 9.8a5.5 5.5 0 0 1-11 0c0-3.2 2.5-6.2 5.5-9.8Z"/>'),
+    noColor: svg('<circle cx="12" cy="12" r="6.5"/>'),
+    dot: (c) => svg(`<circle cx="12" cy="12" r="7" style="fill: var(--c-${c}); stroke: none"/>`),
     format: svg('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>'),
     italic: svg('<path d="M10 5h8M6 19h8M14 5l-4 14"/>'),
     strike: svg('<path d="M4 12h16M16 7.5C15.5 6 14 5 12 5 9.5 5 8 6.3 8 8c0 1.2.7 2 2 2.5M8 16.5c.5 1.5 2 2.5 4 2.5 2.5 0 4-1.3 4-3"/>'),
@@ -62,10 +70,8 @@
     duplicate(view) {
       const b = blockAt(view.state);
       if (!b) return;
-      const at = b.pos + b.node.nodeSize;
-      let made = A.clip.blocksOf(view.state, A.clip.markdownOf(view.state, view.state.doc.slice(b.pos, at)));
-      if (b.node.type === N.list_item && made.length === 1 && made[0].type !== N.list_item) made = made[0].content.content;
-      if (!made.length || !b.parent.canReplaceWith(b.index + 1, b.index + 1, made[0].type)) return;
+      const at = b.pos + b.node.nodeSize, made = A.blocks.copyOf(view.state, b.pos, at);
+      if (!made || !b.parent.canReplaceWith(b.index + 1, b.index + 1, made.firstChild.type)) return;
       const tr = view.state.tr.insert(at, made);
       step(view, tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1)));
     },
@@ -95,6 +101,9 @@
     const state = view.state, k = A.context.blockKind(state), b = blockAt(state);
     const para = (kind) => (v) => A.context.run(v, A.context.PARAGRAPH[kind]);
     const leaf = (key, words, icon, act, more) => ({ key, words, icon, act, ...more });
+    // the decoration that is there goes when it is chosen again; a colour needs something to colour
+    const deco = (kind) => (v) => A.context.run(v, k.deco === kind ? A.context.PARAGRAPH.quote : A.context.setDeco(kind === "quote" ? null : kind, k.color));
+    const color = (c) => (v) => A.context.run(v, A.context.setDeco(!k.deco ? "block" : k.deco === "quote" ? (c ? "focus" : null) : k.deco, c));
     const format = { key: "menu.format", icon: I.format, items: [
       leaf("menu.bold", "bold strong fett", I.format, (v) => A.context.toggle(v, "strong"), { checked: A.context.markActive(state, M.strong) }),
       leaf("menu.italic", "italic emphasis kursiv", I.italic, (v) => A.context.toggle(v, "em"), { checked: A.context.markActive(state, M.em) }),
@@ -125,7 +134,15 @@
         leaf("menu.task", "task todo checkbox aufgabe", I.task, para("task"), { checked: k.kind === "task" }),
       ] },
       format,
-      leaf("menu.quote", "quote blockquote zitat", I.quote, para("quote")),
+      { key: "slash.deco", icon: I.quote, items: [
+        leaf("menu.quote", "quote blockquote zitat", I.quote, deco("quote"), { checked: k.deco === "quote" }),
+        leaf("slash.block", "block box callout kasten", I.block, deco("block"), { checked: k.deco === "block" }),
+        leaf("slash.focus", "focus bar fokus balken", I.focus, deco("focus"), { checked: k.deco === "focus" }),
+      ] },
+      { key: "slash.color", icon: I.color, items: [
+        leaf("slash.colorDefault", "color colour default farbe standard", I.noColor, color(null), { checked: !k.color }),
+        ...DECO_COLORS.map((c) => leaf("color." + c, "color colour farbe", I.dot(c), color(c), { checked: k.color === c })),
+      ] },
       null,
       leaf("menu.codeBlock", "code codeblock", I.codeBlock, (v) => A.context.INSERT.code(v)),
       leaf("menu.formula", "formula math latex equation formel", I.formula, (v) => A.context.INSERT.math(v)),

@@ -55,10 +55,13 @@
   function hideSoon() { clearTimeout(leaving); leaving = setTimeout(() => { if (!handle.matches(":hover") && !handle.hasAttribute("data-dragging")) hide(); }, 350); }
 
   /* ---------------------------------------------------------------- blocks selected as wholes
-   * A click on a handle selects its block. From then on the keyboard works on blocks:
+   * A click on a handle selects its block, and so does Esc in the text (the block the caret is
+   * in; Esc or Enter again puts the caret back where it was). From then on the keyboard works on blocks:
    *   ↑ ↓            the block before / after          Shift+↑ ↓   more blocks
    *   Ctrl+↑ ↓       the first / last block            (with Shift: up to there)
-   *   Alt+↑ ↓        move what is selected up / down
+   *   Alt+↑ ↓        move what is selected up / down   (with Shift: to the top / the end)
+   *   Space          a new, empty block below, the caret in it   (with Shift: above)
+   *   Ctrl+D         what is selected once more, below it
    *   Ctrl+A         all blocks beside it, then all of the document
    *   Enter          into the block (its dialog, for an island); Esc: the caret back into it
    *   Backspace / Delete, Ctrl+C / X   delete, copy, cut
@@ -91,6 +94,28 @@
     tr.setSelection(pmSel(state.doc, head));
     return tr.scrollIntoView();
   }
+  /* Blocks once more, made of their Markdown as pasted ones would be (so a copy is a block of its
+   * own in the file, not a second mention of the first). -> a Fragment, or null */
+  function copyOf(state, from, to) {
+    const first = state.doc.nodeAt(from);
+    let made = A.clip.blocksOf(state, A.clip.markdownOf(state, state.doc.slice(from, to)));
+    if (first && first.type.name === "list_item" && made.length === 1 && made[0].type.name !== "list_item") made = made[0].content.content;
+    return made.length ? Fragment.from(made) : null;
+  }
+  /* Esc in the text: the block the caret is in, as a whole — the item in a list, the table around
+   * a cell, else the paragraph or heading itself. Where the caret was is kept for the way back. */
+  function selectAt(v) {
+    const sel = v.state.selection, $f = sel.$from;
+    if (!v.editable || !sel.empty || !$f.depth || document.querySelector("#findbar[data-open], #outline[data-open]")) return false;
+    let d = $f.depth;
+    for (let k = d; k > 0; k--) if ($f.node(k).type.name === "table") d = k;
+    if (d > 1 && $f.node(d - 1).type.name === "list_item" && $f.index(d - 1) === 0) d--;
+    const pos = $f.before(d);
+    if (!usable(v.state.doc.nodeAt(pos))) return false;
+    const tr = v.state.tr.setMeta(selKey, { anchor: pos, head: pos, back: sel.from });
+    v.dispatch(tr.setSelection(pmSel(v.state.doc, pos)));
+    return true;
+  }
   function selectBlock(v, pos, extend) {
     const cur = selOf(v.state);
     const $p = v.state.doc.resolve(pos);
@@ -106,8 +131,16 @@
     const mod = e.ctrlKey || e.metaKey, up = e.key === "ArrowUp", down = e.key === "ArrowDown";
     const done = (tr) => { e.preventDefault(); v.dispatch(tr); return true; };
     if ((up || down) && e.altKey && !mod) { // the selected blocks change places with the one above / below
-      const k = up ? nextUsable(r, r.a, -1) : nextUsable(r, r.b, 1);
+      let k = up ? nextUsable(r, r.a, -1) : nextUsable(r, r.b, 1);
       if (k < 0) { e.preventDefault(); return true; }
+      if (e.shiftKey) { // all the way: before the first block there is, behind the last
+        k = up ? nextUsable(r, -1, 1) : nextUsable(r, r.parent.childCount, -1);
+        const slice = v.state.doc.slice(r.from, r.to), size = r.to - r.from, edge = posOfChild(r, k);
+        const at = up ? edge : edge + r.parent.child(k).nodeSize - size;
+        const tr = v.state.tr.delete(r.from, r.to).insert(at, slice.content), shift = at - r.from;
+        tr.setMeta(selKey, { anchor: sel.anchor + shift, head: sel.head + shift }).setMeta("step", true);
+        return done(tr.setSelection(pmSel(tr.doc, sel.head + shift)).scrollIntoView());
+      }
       const slice = v.state.doc.slice(r.from, r.to), size = r.to - r.from;
       const other = posOfChild(r, k), otherSize = r.parent.child(k).nodeSize;
       const tr = v.state.tr.delete(r.from, r.to);
@@ -140,9 +173,31 @@
     if (e.key === "Escape" || (e.key === "Enter" && !mod)) {
       const node = v.state.doc.nodeAt(sel.head);
       if (e.key === "Enter" && node && node.isAtom) { e.preventDefault(); v.dispatch(v.state.tr.setMeta(selKey, null)); A.islands.open(v, sel.head); return true; }
-      // the caret into the block: at its end
-      const $in = v.state.doc.resolve(sel.head + (node ? node.nodeSize : 0));
-      return done(v.state.tr.setMeta(selKey, null).setSelection(Selection.near($in, -1)));
+      // the caret into the block: where it was when Esc took the block, else at its end
+      const back = sel.back != null && sel.anchor === sel.head && sel.back > sel.head && sel.back < sel.head + (node ? node.nodeSize : 0);
+      const $in = v.state.doc.resolve(back ? sel.back : sel.head + (node ? node.nodeSize : 0));
+      return done(v.state.tr.setMeta(selKey, null).setSelection(back && $in.parent.inlineContent ? TextSelection.create(v.state.doc, sel.back) : Selection.near($in, -1)));
+    }
+    if (e.key === " " && !mod && !e.altKey) { // an empty block below (Shift: above), the caret in it
+      if (!v.editable) return false;
+      const like = r.parent.child(e.shiftKey ? r.a : r.b), S = A.schema.nodes;
+      const fresh = like.type === S.list_item
+        ? S.list_item.create({ markup: like.attrs.markup, task: like.attrs.task == null ? null : " " }, S.paragraph.create())
+        : S.paragraph.create();
+      const index = e.shiftKey ? r.a : r.b + 1, at = e.shiftKey ? r.from : r.to;
+      if (!r.parent.canReplaceWith(index, index, fresh.type)) { e.preventDefault(); return true; }
+      const tr = v.state.tr.insert(at, fresh).setMeta(selKey, null).setMeta("step", true);
+      return done(tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1)).scrollIntoView());
+    }
+    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "d") { // once more, below; the copies are selected
+      if (!v.editable) return false;
+      const copies = copyOf(v.state, r.from, r.to);
+      if (!copies || !r.parent.canReplaceWith(r.b + 1, r.b + 1, copies.firstChild.type)) { e.preventDefault(); return true; }
+      const tr = v.state.tr.insert(r.to, copies).setMeta("step", true);
+      let last = r.to;
+      for (let i = 0, p = r.to; i < copies.childCount; p += copies.child(i).nodeSize, i++) last = p;
+      tr.setMeta(selKey, { anchor: r.to, head: last });
+      return done(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     }
     if (e.key === "Backspace" || e.key === "Delete") {
       const tr = v.state.tr.deleteRange(r.from, r.to).setMeta(selKey, null).setMeta("step", true);
@@ -183,7 +238,7 @@
         if (tr.docChanged) { // it goes with its blocks, as long as they are there
           const a = tr.mapping.mapResult(value.anchor, 1), h = tr.mapping.mapResult(value.head, 1);
           if (a.deletedAfter || h.deletedAfter) return null; // (undone, deleted: what stands there now was never selected)
-          const next = { anchor: a.pos, head: h.pos };
+          const next = { anchor: a.pos, head: h.pos, ...(value.back != null ? { back: tr.mapping.map(value.back) } : null) };
           return rangeOf(state, next) ? next : null;
         }
         return tr.selectionSet && !tr.getMeta("appendedTransaction") ? null : value; // the caret put somewhere: the blocks are let go
@@ -452,5 +507,5 @@
     });
   }
 
-  A.blocks = { over: () => over, select: selectBlock, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

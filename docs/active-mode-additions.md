@@ -78,6 +78,19 @@ run; everything that does not depend on frames passed.
 - **A click below the last block** starts an empty line there (nothing in
   the file until something is written).
 - **The / menu** also opens in a line with text and applies to that block.
+- **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
+  the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
+  was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once
+  more below (also in the text, for the block the caret is in), Alt+Shift+↑ ↓ moves them to the top / the end.
+  Tests: `tests/blockkeys.test.mjs`.
+- **Decorations** (branch `craft-feel`, Craft's Block and Focus): a quote can be a tinted block or carry a bar
+  in a colour. In the file it is a callout without a title — `> [!block]`, `> [!focus|red]` (Obsidian's
+  metadata place holds the colour: red, orange, yellow, green, cyan, blue, magenta; elsewhere it shows as a
+  callout named Block / Focus). The reader keeps it a `<blockquote class="deco …">`, the active mode edits its
+  text in place (attrs `deco`, `color` on the quote). The / menu has Decorations and Color; a colour chosen
+  for plain text makes a block of it, for a quote a bar. With a title (`[!block] Title`) it stays a callout.
+  Craft's separator weights were left out: `***` and `___` would have to mean "strong" and "light", which
+  restyles the rules of every note that has them. Tests: `tests/deco.test.mjs`.
 - **The / menu, built as Craft builds its own** (branch `craft-feel`): every entry has a sign; text styles,
   lists and formats are groups with a menu beside them (→ opens, ← leaves, the block's own style is ticked);
   **Actions** duplicates, moves, selects, copies or deletes the block the caret is in (in a list: the item).

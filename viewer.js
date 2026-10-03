@@ -71,6 +71,7 @@
     trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
   };
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
+  const DECO_COLORS = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]; // (the theme's --c-…)
   const CALLOUT_ALIAS = {
     summary: "abstract", tldr: "abstract", hint: "tip", check: "success", done: "success",
     help: "question", faq: "question", attention: "warning", caution: "danger",
@@ -287,6 +288,19 @@
       const m = /^\[!([\w-]+)(?:\|([^\]]*))?\]([+-]?)\s*(.*)$/.exec(head.trim());
       if (!m) continue;
       const type = m[1].toLowerCase();
+      // a decoration: a quote with a look of its own and no title — [!block], [!focus|red]. It stays a quote.
+      if ((type === "block" || type === "focus") && !m[3] && !m[4]) {
+        const color = DECO_COLORS.includes((m[2] || "").trim().toLowerCase()) ? m[2].trim().toLowerCase() : null;
+        open.attrJoin("class", `deco deco-${type}` + (color ? ` deco-${color}` : ""));
+        open.meta = { deco: type, color };
+        const rest = restLines.join("\n");
+        if (rest.trim()) {
+          inl.content = rest;
+          if (inl.map) inl.map = [inl.map[0] + 1, inl.map[1]];
+          if (para.map) para.map = [para.map[0] + 1, para.map[1]];
+        } else toks.splice(i + 1, 3);
+        continue;
+      }
       const kind = CALLOUT_ALIAS[type] || (CALLOUT_ICON[type] ? type : type === "pdf" && CALLOUT_ICON.quote ? "quote" : "note");
       const fold = m[3];
       let depth = 0, j = i;
@@ -2351,7 +2365,7 @@
   window.addEventListener("blur", hideTip);
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, keys, follow, tex, mermaidSvg, toast,
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; } } };

@@ -48,8 +48,13 @@
     blockquote: block({
       content: "block+",
       defining: true,
-      parseDOM: [{ tag: "blockquote" }],
-      toDOM: (n) => ["blockquote", lineAttr(n), 0],
+      // deco: null (a quote), "block" or "focus"; color: null or one of the theme's colours
+      attrs: { deco: { default: null }, color: { default: null } },
+      parseDOM: [{ tag: "blockquote", getAttrs: (dom) => {
+        const deco = /\bdeco-(block|focus)\b/.exec(dom.className), color = /\bdeco-(red|orange|yellow|green|cyan|blue|magenta)\b/.exec(dom.className);
+        return { deco: deco ? deco[1] : null, color: deco && color ? color[1] : null };
+      } }],
+      toDOM: (n) => ["blockquote", { ...lineAttr(n), ...(n.attrs.deco ? { class: `deco deco-${n.attrs.deco}` + (n.attrs.color ? ` deco-${n.attrs.color}` : "") } : null) }, 0],
     }),
     bullet_list: block({
       content: "list_item+",
@@ -359,7 +364,7 @@
             case "blockquote_open":
               if (t.tag !== "blockquote") throw new Unsupported("callout");
               if (!inner.length) throw new Unsupported("empty quote");
-              out.push({ type: "blockquote", attrs, content: blocksOf(inner, ctx.concat({ quote: true })) });
+              out.push({ type: "blockquote", attrs: { ...attrs, deco: (t.meta && t.meta.deco) || null, color: (t.meta && t.meta.color) || null }, content: blocksOf(inner, ctx.concat({ quote: true })) });
               break;
             case "bullet_list_open":
             case "ordered_list_open":
