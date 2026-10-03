@@ -101,6 +101,7 @@
     dom.className = cls;
     dom.dataset.kind = node.attrs.kind;
     dom.innerHTML = node.attrs.html;
+    if (tag === "span" && /^<(br|wbr)\b/i.test(node.attrs.html.trim())) dom.classList.add("ia-br"); // (see active.css)
     if (!dom.firstElementChild && !dom.textContent.trim()) dom.classList.add("none"); // an HTML comment, an empty properties block
     else if (tag === "div" && !node.attrs.virtual) { // what it is, and that Enter edits it
       const T = window.MdStrings.t, kind = { code: "dialog.code", math: "dialog.math", frontmatter: "dialog.frontmatter", html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" }[node.attrs.kind] || "dialog.markdown";

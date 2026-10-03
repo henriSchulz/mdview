@@ -526,3 +526,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tick-cover { position: absolute; z-index: 5; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
   transition: transform calc(var(--dur-base) * 0.75) var(--ease-out); }
 .tick-cover.go { transform: scaleX(0); }
+
+/* A paragraph that ends in a <br> tag: the editor puts a break of its own behind a last atom (so
+ * the caret can stand there). Behind a line break that would be one line more than the reading
+ * view has; the <br> already gives the caret its line. */
+.pm .ia-br + img.ProseMirror-separator, .pm .ia-br + img.ProseMirror-separator + br.ProseMirror-trailingBreak { position: absolute; } /* (out of the line; display: none does not take an img out of it in WebKit) */

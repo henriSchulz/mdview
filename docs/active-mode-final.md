@@ -1,5 +1,7 @@
 # Active mode — final report
 
+(After this report, most of "What is not there" was built: see `active-mode-additions.md`.)
+
 The third mode of mdview: the rendered document, editable in place, with
 Markdown as the only thing that is stored. Built in the milestones of
 `SPEC-Aktiv-Modus.md` §17; each has its own report (`active-mode-analysis.md`,
