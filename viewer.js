@@ -1886,10 +1886,14 @@
   ctx.tabIndex = -1;
   ctx.setAttribute("role", "menu");
   ctx.innerHTML =
+    `<button class="menu-item" role="menuitem" data-cmd="default">Open in Default App</button>` +
+    `<button class="menu-item" role="menuitem" data-cmd="openwith">Open With…</button>` +
+    `<button class="menu-item" role="menuitem" data-cmd="reveal">Show in Finder</button>` +
+    `<div class="menu-rule"></div>` +
     `<button class="menu-item" role="menuitem" data-cmd="rename">Rename<span class="menu-key">F2</span></button>` +
     `<button class="menu-item danger" role="menuitem" data-cmd="trash">Move to Trash<span class="menu-key">Del</span></button>`;
   document.body.appendChild(ctx);
-  const ctxItems = [...ctx.children];
+  const ctxItems = [...ctx.querySelectorAll(".menu-item")];
   let ctxFor = null, ctxHl = -1;
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
@@ -1919,8 +1923,10 @@
     setTimeout(() => {
       closeCtx(false);
       if (!item.isConnected) return;
-      if (el.dataset.cmd === "rename") startRename(item);
-      else post("trash", { path: item.dataset.key });
+      const cmd = el.dataset.cmd;
+      if (cmd === "rename") startRename(item);
+      else if (cmd === "trash") post("trash", { path: item.dataset.key });
+      else post("fileop", { op: cmd, path: item.dataset.key });
     }, flash * 2);
   }
   sidebar.addEventListener("contextmenu", (e) => {

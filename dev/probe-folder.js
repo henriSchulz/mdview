@@ -36,6 +36,17 @@
     other.click(); await sleep(900);
     ok("leaving a note from the source editor lands in reading", (document.body.dataset.view || "read") === "read", document.body.dataset.view);
     ok("mode control shows reading", [...document.querySelectorAll(".seg-btn")].map((b) => b.getAttribute("aria-checked")).join() === "false,false,true");
+    // a file's menu in the sidebar
+    {
+      const row = document.querySelector(".sb-row[data-real]"), r = row.getBoundingClientRect();
+      row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: r.top + 8 }));
+      await sleep(200);
+      const menu = document.getElementById("ctxmenu");
+      ok("right click on a file: open in the default app, with another one, show in Finder, rename, trash", menu.hasAttribute("data-open") && [...menu.querySelectorAll(".menu-item")].map((b) => b.dataset.cmd).join() === "default,openwith,reveal,rename,trash", [...menu.querySelectorAll(".menu-item")].map((b) => b.dataset.cmd));
+      menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      await sleep(250);
+      if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); }
+    }
     // the sidebar's edge, pulled with the real pointer
     {
       const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));

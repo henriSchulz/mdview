@@ -1064,6 +1064,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "painted":
             # the page's content is drawn; a moment more for the frame to reach the screen
             GLib.timeout_add(int(os.environ.get("MDVIEW_COVER_MS", "120")), self.uncover)
+        elif t == "fileop":
+            self.file_op(msg.get("op"), msg.get("path"))
         elif t == "pdfdata":
             self.send_pdf(msg.get("path"), str(msg.get("id")))
         elif t == "pdfnote":
@@ -1386,6 +1388,54 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 return
             except FileNotFoundError:
                 continue
+
+    def file_op(self, op, path):
+        """From a file's menu in the sidebar: open it in its default application, in one chosen
+        from the system's list, or show it in the file manager."""
+        if not path or path not in self.note_paths:
+            return
+        gfile = Gio.File.new_for_path(path)
+        try:
+            if op == "default":
+                Gio.AppInfo.launch_default_for_uri(gfile.get_uri(), None)
+            elif op == "openwith":
+                dialog = Gtk.AppChooserDialog.new(self, Gtk.DialogFlags.MODAL, gfile)
+                if dialog.run() == Gtk.ResponseType.OK:
+                    info = dialog.get_app_info()
+                    if info:
+                        info.launch([gfile], None)
+                dialog.destroy()
+            elif op == "reveal":
+                self.reveal(gfile)
+        except GLib.Error as e:
+            self.js("MdView.toast", e.message)
+
+    def reveal(self, gfile):
+        """Show the file in the file manager (org.freedesktop.FileManager1 — Finder here). On the
+        session's own bus; a test instance has a bus of its own, so the user's is tried too."""
+        args = GLib.Variant("(ass)", ([gfile.get_uri()], ""))
+        buses = []
+        try:
+            buses.append(Gio.bus_get_sync(Gio.BusType.SESSION, None))
+        except GLib.Error:
+            pass
+        user_bus = f"unix:path=/run/user/{os.getuid()}/bus"
+        if os.environ.get("DBUS_SESSION_BUS_ADDRESS", "").split(",")[0] != user_bus and os.path.exists(user_bus[10:]):
+            try:
+                buses.insert(0, Gio.DBusConnection.new_for_address_sync(
+                    user_bus, Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+                    None, None))
+            except GLib.Error:
+                pass
+        for bus in buses:
+            try:
+                bus.call_sync("org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+                              "org.freedesktop.FileManager1", "ShowItems", args, None,
+                              Gio.DBusCallFlags.NONE, 5000, None)
+                return
+            except GLib.Error:
+                continue
+        launch_uri(gfile.get_parent().get_uri())  # (no file manager answers: its folder, at least)
 
     def zoom(self, step):
         level = 1.0 if step == 0 else self.view.get_zoom_level() + 0.1 * step
