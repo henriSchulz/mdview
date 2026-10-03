@@ -36,6 +36,15 @@
     other.click(); await sleep(900);
     ok("leaving a note from the source editor lands in reading", (document.body.dataset.view || "read") === "read", document.body.dataset.view);
     ok("mode control shows reading", [...document.querySelectorAll(".seg-btn")].map((b) => b.getAttribute("aria-checked")).join() === "false,false,true");
+    // a PDF in the folder: listed with its ending, and it opens in the window
+    const pdfRow = [...document.querySelectorAll(".sb-row[data-real]")].find((r) => r.textContent.trim() === "paper.pdf");
+    ok("a PDF in the folder is listed in the sidebar", !!pdfRow, [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim()));
+    if (pdfRow) {
+      pdfRow.click();
+      let shown = false;
+      for (let i = 0; i < 160 && !shown; i++) { await sleep(50); shown = !!(window.MdPdf && MdPdf.shown && MdPdf.shown.pages.length === 3 && MdView.core.current.kind === "pdf"); }
+      ok("a click on it opens the PDF in the window", shown, MdView.core.current && MdView.core.current.name);
+    }
   } catch (e) { o.error = String(e.stack || e); }
   window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "folder", text: JSON.stringify(o) }));
 })();

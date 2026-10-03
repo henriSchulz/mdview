@@ -269,6 +269,11 @@ def scan_folder(root, cache, titles):
                     node["notes"].append({"name": os.path.splitext(e.name)[0], "path": e.path,
                                           "real": os.path.realpath(e.path), "title": title})
                     count += 1
+                elif e.name.lower().endswith(".pdf") and e.is_file() and count < NOTE_LIMIT:
+                    # PDFs open in the window too: listed with their ending, to tell them from notes
+                    node["notes"].append({"name": e.name, "path": e.path, "real": os.path.realpath(e.path),
+                                          "title": None, "pdf": True})
+                    count += 1
             except OSError:
                 continue
         return node
@@ -634,7 +639,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.rescan()
         notes = {n["real"]: n for n in tree_notes(self.tree)}
         last = self.app.state.get("last_notes", {}).get(str(folder))
-        first = last if last in notes else next(iter(notes), None)
+        first = last if last in notes else next((r for r, n in notes.items() if not n.get("pdf")), None)  # (a note, not a PDF)
         if self.path and str(self.path) in notes:
             return
         if first:
