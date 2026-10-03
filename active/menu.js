@@ -56,22 +56,25 @@
     }
     setHl(p, -1);
   }
-  function place(p, x, y, origin) {
-    p.el.style.setProperty("--origin", origin);
+  // above: where its lower edge goes when there is no room below y (so it does not cover what it belongs to)
+  function place(p, x, y, origin, above = null) {
     p.el.style.left = p.el.style.top = "0px"; // measured with room: where it stood last may leave it none
+    const h = p.el.offsetHeight, up = above != null && y + h > innerHeight - 8 && above - h >= 8;
+    p.el.style.setProperty("--origin", up ? origin.replace("top", "bottom") : origin);
     p.el.style.left = Math.max(8, Math.min(x, innerWidth - p.el.offsetWidth - 8)) + "px";
-    p.el.style.top = Math.max(8, Math.min(y, innerHeight - p.el.offsetHeight - 8)) + "px";
+    p.el.style.top = (up ? above - h : Math.max(8, Math.min(y, innerHeight - h - 8))) + "px";
+    p.above = up ? above : null;
     p.el.dataset.open = "";
   }
   /* items: { label, key, danger, disabled, checked, run } or { label, items } for a menu beside it,
    * or null for a rule. closed: called when the menu goes without a choice. */
-  function open({ x, y, items, origin = "top left", closed = null, typing = false }) {
+  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null }) {
     closeSub();
     fill(root, items);
     after = closed;
     passive = typing;
     if (typing) step(root, 1, -1);
-    place(root, x, y, origin);
+    place(root, x, y, origin, above);
     keys = root;
   }
   function openSub(i, viaKey) {
@@ -159,6 +162,7 @@
     fill(root, items);
     if (passive) step(root, 1, -1);
     root.el.style.left = Math.max(8, Math.min(parseFloat(root.el.style.left), innerWidth - root.el.offsetWidth - 8)) + "px";
+    if (root.above != null) root.el.style.top = root.above - root.el.offsetHeight + "px"; // it stays on the line it stands on
   }
   A.menu = { open, close, refill, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
 })();

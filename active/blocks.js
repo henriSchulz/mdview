@@ -39,8 +39,7 @@
     const pos = $p.depth ? $p.before(1) : $p.pos;
     const node = view.state.doc.nodeAt(pos);
     if (!node) { e.preventDefault(); return; }
-    const sel = NodeSelection.create(view.state.doc, pos);
-    view.dispatch(view.state.tr.setSelection(sel));
+    const sel = NodeSelection.create(view.state.doc, pos); // (what is dragged; the selection on screen stays as it is)
     const slice = sel.content();
     view.dragging = { slice, move: true, node: sel }; // what ProseMirror's own drop takes and moves
     e.dataTransfer.effectAllowed = "copyMove";
@@ -54,6 +53,13 @@
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
     view(v) { view = v; return { destroy() { hide(); if (view === v) view = null; } }; },
+    // a block dropped is not left selected as a whole: the caret stands at its end
+    appendTransaction(trs, _old, state) {
+      if (!trs.some((tr) => tr.getMeta("uiEvent") === "drop")) return null;
+      const sel = state.selection;
+      if (!(sel instanceof NodeSelection) || !sel.node.isTextblock) return null;
+      return state.tr.setSelection(PM.state.TextSelection.create(state.doc, sel.to - 1));
+    },
     props: {
       handleDOMEvents: {
         mousemove(v, e) {
@@ -70,5 +76,5 @@
   handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hide(); });
   window.addEventListener("scroll", () => { if (over && !handle.hasAttribute("data-dragging")) hide(); }, { passive: true });
 
-  A.blocks = { plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2 })], hide, handle };
+  A.blocks = { plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

@@ -172,7 +172,7 @@
         e.preventDefault();
         const sel = view.state.selection, c = view.coordsAtPos(sel.to, -1);
         const node = sel.node && sel.node.isAtom ? sel.node : null;
-        A.menu.open({ x: c.left, y: c.bottom + 4, items: node ? nodeItems(view, sel.from, node) : textItems(view, sel.from), closed: () => view.focus() });
+        A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items: node ? nodeItems(view, sel.from, node) : textItems(view, sel.from), closed: () => view.focus() });
         return true;
       },
       handleDOMEvents: {

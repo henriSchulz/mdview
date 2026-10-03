@@ -12,6 +12,7 @@
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
+#   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
@@ -133,6 +134,15 @@ case "${1:-}" in
     [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null)"
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
+  shots)
+    name=shots.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
+    app 90 MDVIEW_PROBE="$D/probe-shots.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in form formula completion find blockhandle dropline rowdrag syntax; do
+      for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.shots.json ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/shot-$v.png"; echo "$R/out/shot-$v.png"
+    done
+    for _ in $(seq 200); do [[ -f $R/out/$name.shots.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    jq -r '.error // "ok"' "$R/out/$name.shots.json" ;;
   more)
     name=more.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{picture,more}.json "$R/out/snapshot.png"
     app 90 MDVIEW_PROBE="$D/probe-more.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

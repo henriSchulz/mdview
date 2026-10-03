@@ -507,15 +507,17 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .fm-row .pf-switch { justify-self: start; }
 
 /* in a dialog's editor: the bracket that belongs to the one at the caret, what a search found, LaTeX completion */
-.ce-hl { z-index: 0; }
+/* (under the text, so what it marks stays readable) */
+.ce-main { z-index: 0; }
+.ce-hl { z-index: -1; }
 .ce-match { border-radius: 2px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .ce-hit { border-radius: 2px; background: color-mix(in srgb, #ffcc00 32%, transparent); }
-.ce-hit.now { background: color-mix(in srgb, #ffcc00 70%, transparent); }
+.ce-hit.now { background: color-mix(in srgb, #ffcc00 42%, transparent); box-shadow: 0 0 0 1px #ffcc00; }
 .ce-find { display: flex; align-items: center; gap: 8px; }
 .ce-find .lp-field { flex: 1; }
 .ce-count { min-width: 64px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 .ce-comp {
-  position: absolute; z-index: 3; min-width: 160px; max-width: 320px; padding: 4px;
+  position: fixed; z-index: 62; min-width: 160px; max-width: 320px; padding: 4px;
   border-radius: var(--radius-control); background: var(--surface); border: var(--hairline); box-shadow: var(--shadow-popover);
   font: 400 12px/1.5 var(--mono); user-select: none; -webkit-user-select: none;
 }
@@ -531,3 +533,10 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
  * the caret can stand there). Behind a line break that would be one line more than the reading
  * view has; the <br> already gives the caret its line. */
 .pm .ia-br + img.ProseMirror-separator, .pm .ia-br + img.ProseMirror-separator + br.ProseMirror-trailingBreak { position: absolute; } /* (out of the line; display: none does not take an img out of it in WebKit) */
+
+/* while the application takes the formula's picture: a plain ground under it */
+.dlg-preview.shooting { background: var(--bg); transition: none; }
+
+/* Markdown at the caret: the marks, set back from the text they belong to */
+.pm .syn { color: var(--fg3, var(--fg2)); font-weight: 400; font-style: normal; text-decoration: none; opacity: 0.75; }
+.pm code .syn, .pm .syn { font-family: var(--mono); font-size: 0.86em; }

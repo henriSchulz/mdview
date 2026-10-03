@@ -54,7 +54,7 @@
         if (view.state.doc === prev.doc || t.query) return;
         openFor = t.from;
         const c = view.coordsAtPos(t.to);
-        A.menu.open({ x: c.left, y: c.bottom + 4, items: items(view, ""), typing: true, closed: () => { openFor = null; } });
+        A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items: items(view, ""), typing: true, closed: () => { openFor = null; } });
       },
       destroy() { if (openFor != null) A.menu.close(); },
     }),

@@ -81,7 +81,7 @@
     t.setSelectionRange(t.value.length, t.value.length);
     document.execCommand("insertText", false, " \\sq");
     await sleep(50);
-    const opts = [...dlg.querySelectorAll(".ce-comp .ce-opt")].map((x) => x.textContent);
+    const opts = [...document.querySelectorAll(".ce-comp .ce-opt")].map((x) => x.textContent);
     ok("typing \\sq offers LaTeX commands", opts[0] === "\\sqrt{…}", opts);
     key(t, "Enter");
     ok("Enter takes one, the caret inside its braces", t.value.endsWith(" \\sqrt{}") && t.selectionStart === t.value.length - 1, t.value.slice(-10));

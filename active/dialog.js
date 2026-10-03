@@ -183,10 +183,12 @@
       compSel = 0;
       if (!comp) { comp = el("div", { class: "ce-comp", role: "listbox" }); comp.addEventListener("mousedown", (e) => { e.preventDefault(); const i = [...comp.children].indexOf(e.target.closest(".ce-opt")); if (i >= 0) { compSel = i; accept(); } }); }
       comp.innerHTML = compList.map(([name, args], i) => `<div class="ce-opt${i === compSel ? " on" : ""}" role="option">\\${esc(name)}${esc(args ? "{…}".repeat(args) : "")}</div>`).join("");
-      const { x, y } = caretXY();
-      comp.style.left = x + "px";
-      comp.style.top = y + "px";
-      if (!comp.isConnected) main.appendChild(comp);
+      // over the dialog, not inside the editor's scrolling box (which would cut it off)
+      const { x, y } = caretXY(), box = input.getBoundingClientRect();
+      if (!comp.isConnected) document.body.appendChild(comp);
+      comp.style.left = Math.max(8, Math.min(box.left + x, innerWidth - comp.offsetWidth - 8)) + "px";
+      const below = box.top + y + 2;
+      comp.style.top = (below + comp.offsetHeight > innerHeight - 8 ? box.top + y - lineHeight() - comp.offsetHeight - 2 : below) + "px";
     }
     function closeComp() { if (comp && comp.isConnected) comp.remove(); compList = []; }
     function accept() {
@@ -374,6 +376,7 @@
   }
   function close(how) {
     if (!open) return;
+    document.querySelectorAll(".ce-comp").forEach((c) => c.remove());
     const { opts, parts } = open;
     const result = how === "done" ? parts.result() : undefined;
     if (how !== "done" && opts.key != null && parts.text && parts.result() !== undefined) discarded = { key: opts.key, text: parts.text() };

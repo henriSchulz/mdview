@@ -114,7 +114,7 @@
     if (what === "para") {
       const k = A.context.blockKind(view.state), r = b.getBoundingClientRect(), v = view;
       const entry = (kind, key, n) => ({ label: T(key, n), checked: kind === "quote" ? k.quote : k.kind === kind, run: () => { A.context.run(v, A.context.PARAGRAPH[kind]); later(); } });
-      A.menu.open({ x: r.left, y: r.bottom + 4, closed: () => v.focus(), items: [
+      A.menu.open({ x: r.left, y: r.bottom + 4, above: r.top - 4, closed: () => v.focus(), items: [
         entry("text", "menu.text"), entry("h1", "menu.heading", 1), entry("h2", "menu.heading", 2), entry("h3", "menu.heading", 3), null,
         entry("bullet", "menu.bullet"), entry("ordered", "menu.ordered"), entry("task", "menu.task"), entry("quote", "menu.quote"),
       ] });

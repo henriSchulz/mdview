@@ -229,9 +229,14 @@
         copyTex.onclick = () => { copy(ed.value); toast(T("dialog.copied")); };
         const copyPic = el("button", { class: "btn", type: "button" }, esc(T("dialog.copyPicture")));
         copyPic.onclick = () => {
-          const k = preview.querySelector(".katex-display, .katex") || preview;
-          const r = k.getBoundingClientRect();
-          window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "snapshot", x: r.left, y: r.top, w: r.width, h: r.height, said: T("dialog.pictureCopied") }));
+          // the formula's own box (its parts, not the full width it is centred in), on a plain ground
+          const parts = [...preview.querySelectorAll(".katex-html > .base, .katex-html > .tag")];
+          const rs = (parts.length ? parts : [preview]).map((x) => x.getBoundingClientRect());
+          const left = Math.min(...rs.map((r) => r.left)), top = Math.min(...rs.map((r) => r.top));
+          const right = Math.max(...rs.map((r) => r.right)), bottom = Math.max(...rs.map((r) => r.bottom));
+          preview.classList.add("shooting");
+          setTimeout(() => preview.classList.remove("shooting"), 900);
+          requestAnimationFrame(() => requestAnimationFrame(() => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "snapshot", x: left, y: top, w: right - left, h: bottom - top, said: T("dialog.pictureCopied") }))));
         };
         tools.append(shape, copyTex, copyPic);
         bar.addEventListener("mousedown", (e) => e.preventDefault());
