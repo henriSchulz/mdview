@@ -330,6 +330,7 @@ SCRIPTS = [
     "vendor/emoji.min.js",
     "vendor/js-yaml.min.js",
     "vendor/highlight.min.js",
+    "vendor/highlight-extra.min.js",
     "vendor/katex/katex.min.js",
     "strings.js",
     "viewer.js",
