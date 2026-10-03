@@ -19,7 +19,7 @@
     const md = () => V.serialize(false);
     const type = async (text) => { for (const ch of text) { view.dispatch(view.state.tr.insertText(ch).scrollIntoView()); await sleep(15); } };
     const key = (k, mods = {}) => { const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...mods }); Object.defineProperty(e, "keyCode", { get: () => ({ Tab: 9, Escape: 27, ArrowRight: 39 })[k] || 0 }); view.dom.dispatchEvent(e); return e; };
-    const ghost = () => { const g = view.dom.querySelector(".ghost"); return g ? g.textContent : null; };
+    const ghost = () => { const g = view.dom.querySelector("[data-ghost]"); return g ? g.dataset.ghost : null; };
     const endOf = (text) => { let pos = -1; view.state.doc.descendants((n, p) => { if (n.isTextblock && n.textContent.startsWith(text)) pos = p + n.nodeSize - 1; }); view.dispatch(view.state.tr.setSelection(PM.state.TextSelection.create(view.state.doc, pos)).scrollIntoView()); };
     V.focus();
     endOf("Last paragraph.");
@@ -43,6 +43,10 @@
       ok("switched on: in the pause, a continuation shows in grey", ghost() === " a good day for writing.", [t, ghost()]);
       ok("… after the pause, not at once", t >= 250 && t < 1500, t);
       ok("it is not part of the note", md().trimEnd().endsWith("Last paragraph. It was"), md().slice(-60));
+      {
+        const el = view.dom.querySelector("[data-ghost]"), sel = getSelection();
+        ok("nothing is put into the text for it: no element beside the caret, the caret where it was", !view.dom.querySelector(".ghost") && el.textContent.endsWith("It was") && sel.anchorNode.nodeType === 3 && sel.anchorOffset === sel.anchorNode.data.length && getComputedStyle(el, "::after").content.includes("a good day"), [el.textContent.slice(-10), getComputedStyle(el, "::after").content]);
+      }
       out("shown", {}); await sleep(1400);
       // typing what it says keeps it
       await type(" a");

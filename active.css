@@ -571,6 +571,5 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .ce-b2 { color: var(--c-green, var(--accent)); }
 
 /* a continuation offered while writing: there to read, not part of the text */
-.pm .ghost { color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; user-select: none; -webkit-user-select: none; animation: ghost-in var(--dur-fast) var(--ease-out); }
-@keyframes ghost-in { from { opacity: 0; } }
-@media print { .pm .ghost { display: none; } }
+.pm [data-ghost]::after { content: attr(data-ghost); white-space: pre-wrap; color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; }
+@media print { .pm [data-ghost]::after { content: none; } }

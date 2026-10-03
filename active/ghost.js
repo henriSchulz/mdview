@@ -32,7 +32,7 @@
   // may a suggestion stand here: a caret at the end of a block of text that is not code
   function place(state) {
     const $c = state.selection.$cursor;
-    if (!$c || !$c.parent.isTextblock || $c.parent.type.spec.code || $c.parentOffset !== $c.parent.content.size) return null;
+    if (!$c || !$c.parent.isTextblock || $c.parent.type.spec.code || $c.parentOffset !== $c.parent.content.size || !$c.parent.content.size) return null;
     if ($c.marks().some((m) => m.type.name === "code")) return null;
     return $c.pos;
   }
@@ -69,7 +69,7 @@
     const rest = s.text.slice(text.length);
     const tr = v.state.tr.insertText(text, s.pos).setMeta("step", true);
     tr.setMeta(key, rest ? { text: rest, pos: s.pos + text.length } : { text: "", pos: 0 });
-    v.dispatch(tr.scrollIntoView());
+    v.dispatch(tr);
     return true;
   }
   const plugin = new Plugin({
@@ -102,14 +102,15 @@
       };
     },
     props: {
+      /* Shown without putting anything into the text: the block the caret is in gets an attribute,
+       * and CSS writes it behind the block's last line. (An element beside the caret — as it was
+       * at first — made the caret jump: the browser may set the caret into or behind it, and an
+       * input method loses its place when the elements around it change.) */
       decorations(state) {
         const s = stateOf(state);
-        if (!s.text || place(state) !== s.pos) return null;
-        const span = document.createElement("span");
-        span.className = "ghost";
-        span.textContent = s.text;
-        span.setAttribute("aria-hidden", "true");
-        return DecorationSet.create(state.doc, [Decoration.widget(s.pos, span, { side: 1, key: "ghost:" + s.text, ignoreSelection: true })]);
+        if (!s.text || place(state) !== s.pos || (view && view.composing)) return null;
+        const $c = state.selection.$cursor;
+        return DecorationSet.create(state.doc, [Decoration.node($c.before(), $c.after(), { "data-ghost": s.text })]);
       },
       handleKeyDown(v, e) {
         if (!stateOf(v.state).text || e.isComposing) return false;
@@ -118,7 +119,10 @@
         if (e.key === "Escape") { e.preventDefault(); v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return true; }
         return false;
       },
-      handleDOMEvents: { blur(v) { clearTimeout(timer); waiting = null; if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; } },
+      handleDOMEvents: {
+        // an input method at work: nothing is offered, and nothing shown changes under it
+        compositionstart(v) { clearTimeout(timer); waiting = null; if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; },
+        blur(v) { clearTimeout(timer); waiting = null; if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; } },
     },
   });
 

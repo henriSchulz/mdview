@@ -241,6 +241,13 @@
     input.addEventListener("blur", () => setTimeout(closeComp, 100));
     for (const type of ["keyup", "click", "focus", "select"]) input.addEventListener(type, caretLine);
     input.addEventListener("keydown", (e) => {
+      // undo and redo in the field itself (Ctrl or Super; the key alone did nothing here)
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+        e.preventDefault(); e.stopPropagation();
+        closeComp();
+        document.execCommand(e.key.toLowerCase() === "y" || e.shiftKey ? "redo" : "undo");
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "f") { e.preventDefault(); e.stopPropagation(); openFind(); return; }
       if (compList.length && comp && comp.isConnected) { // the completion list has the arrows, Enter and Tab
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
