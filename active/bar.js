@@ -89,7 +89,7 @@
     bar.style.top = Math.max(8, Math.min(above ? top - 8 - h : bottom + 8, innerHeight - h - 8)) + "px";
   }
   function show() {
-    if (!view || !wanted(view.state) || !view.hasFocus() || A.menu.isOpen || A.dialog.open) return;
+    if (!view || !wanted(view.state) || !view.hasFocus() || A.menu.isOpen || A.dialog.open || !A.prefs.get().bar) return;
     reflect(view.state);
     place(true);
     bar.dataset.open = "";

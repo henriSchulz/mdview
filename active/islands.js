@@ -353,7 +353,11 @@
         view.dispatch(tr);
         view.focus();
       },
-      cancel() { view.focus(); },
+      cancel() { // a picture just put in, still without an address, goes again
+        const now = view.state.doc.nodeAt(pos);
+        if (now && now.type === N.image && !now.attrs.src) view.dispatch(view.state.tr.delete(pos, pos + now.nodeSize));
+        view.focus();
+      },
     });
   }
 

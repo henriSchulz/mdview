@@ -24,6 +24,14 @@
   // ------------------------------------------------------------ style
   /* How the document spells things, by majority; used for what is new. */
   function profileOf(text) {
+    const pr = window.MdPrefs || {};
+    if (pr.style === "fixed") { // the settings say how new Markdown looks (what is there stays as it is)
+      const auto = autoProfile(text);
+      return { ...auto, bullet: pr.bullet || auto.bullet, ordered: pr.ordered || auto.ordered, em: pr.emphasis || auto.em, strong: pr.strongMark || auto.strong };
+    }
+    return autoProfile(text);
+  }
+  function autoProfile(text) {
     const count = (re) => (text.match(re) || []).length;
     const pick = (pairs, fallback) => {
       let best = fallback, n = 0;
@@ -243,10 +251,26 @@
 
   // ------------------------------------------------------------ blocks
   // -> lines of the block, without the marks of what it sits in
+  /* A line wrapped at spaces to at most `width` characters (a word longer than that keeps its
+   * line). A line never starts with what would make it something else: a marker, a fence. */
+  function wrapLine(line, width) {
+    if (line.length <= width) return [line];
+    const end = /(\\| {2,})$/.exec(line), body = end ? line.slice(0, -end[0].length) : line; // (a hard break stays at the end)
+    const out = [];
+    let cur = "";
+    for (const word of body.split(" ")) {
+      if (cur && (cur + " " + word).length > width && word && !/^([-+*>#=|]|\d+[.)]|`{3}|~{3}|\$\$)/.test(word)) { out.push(cur); cur = word; }
+      else cur = cur ? cur + " " + word : word;
+    }
+    out.push(cur + (end ? end[0] : ""));
+    return out;
+  }
   function lines(node, cx) {
     switch (node.type.name) {
-      case "paragraph":
-        return inline(node, cx).split("\n").map((l, i) => guardLine(l, i === 0));
+      case "paragraph": {
+        const ls = inline(node, cx).split("\n");
+        return (cx.wrap > 0 ? ls.flatMap((l) => wrapLine(l, cx.wrap)) : ls).map((l, i) => guardLine(l, i === 0));
+      }
       case "heading": {
         const text = inline(node, cx);
         const { level, markup } = node.attrs;
@@ -580,6 +604,14 @@
           const merged = merge3(base, seg.raw, now, reach).replace(/^[ \t]*\n+|\n+$/g, "");
           if (says(merged, node, store)) return merged;
         }
+      }
+    }
+    // a block that is new: wrapped, if the settings say so
+    const wrap = Number((window.MdPrefs || {}).wrap) || 0;
+    if (wrap > 0 && !seg) {
+      for (const level of [0, 1, 2]) {
+        const text = canonical(node, { profile, level, wrap, swap: marker ? { node, marker } : null });
+        if (says(text, node, store)) return text;
       }
     }
     for (const level of [0, 1, 2]) {

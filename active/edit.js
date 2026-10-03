@@ -250,6 +250,7 @@
     "Mod-`": C.toggleMark(M.code),
     "Mod-k": (state, dispatch, view) => A.link.edit(view),
     "Mod-Alt-f": (s, d, v) => A.notes.insert(s, d, v),
+    "Mod-,": () => A.prefs.open(),
     "Shift-Mod-0": keepBid(setParagraph),
     "Shift-Mod-7": toggleList(N.ordered_list),
     "Shift-Mod-8": toggleList(N.bullet_list),
@@ -344,6 +345,19 @@
       const from = start + match[0].indexOf(match[1]), to = from + match[1].length;
       if (state.doc.rangeHasMark(from, to, M.code) || state.doc.resolve(from).parent.type === N.heading && from === state.doc.resolve(from).start()) return null;
       return state.tr.addMark(from, to, M.tag.create()).insertText(" ", end);
+    }),
+    // typographic quotes, when the settings have them: opening after a space or a bracket, closing elsewhere
+    new IR.InputRule(/(^|[\s(\[{\u2014\u2013-])?(["'])$/, (state, match, start, end) => {
+      if (!(window.MdPrefs || {}).quotes) return null;
+      const $s = state.doc.resolve(end);
+      if ($s.parent.type.spec.code || M.code.isInSet($s.marks())) return null;
+      if (($s.parent.textBetween(0, $s.parentOffset, null, "\ufffc").match(/`/g) || []).length % 2) return null; // code being typed
+      const de = (window.MdPrefs || {}).lang === "de", single = match[2] === "'";
+      const opening = match[1] !== undefined;
+      const q = single ? (opening ? (de ? "\u201a" : "\u2018") : (de ? "\u2018" : "\u2019")) : (opening ? (de ? "\u201e" : "\u201c") : (de ? "\u201c" : "\u201d"));
+      // (a ' inside a word is an apostrophe)
+      const apostrophe = single && /[\p{L}\p{N}]$/u.test(state.doc.textBetween(Math.max($s.start(), end - 1), end));
+      return state.tr.insertText(apostrophe ? "\u2019" : q, start + match[0].length - 1, end); // (the quote typed is not in the document yet)
     }),
     // $$…$$: a formula on its own lines. What stands before and after it in the paragraph stays, above and below.
     new IR.InputRule(/\$\$([^$]*[^$\\\s][^$]*)\$\$$/, (state, match, start, end) => {
@@ -607,7 +621,7 @@
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.bar.plugin, clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.bar.plugin, A.slash.plugin, A.syntax.plugin, clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },

@@ -12,6 +12,7 @@
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
+#   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
 #   dev/rig.sh edges                 edge cases: empty document, one island, file changed under a dialog, narrow window, keyboard only
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
@@ -130,6 +131,19 @@ case "${1:-}" in
     [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null)"
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
+  prefs)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
+    app 90 MDVIEW_PROBE="$D/probe-prefs.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in dialog slash; do
+      for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.prefs.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/prefs-$v.png"
+    done
+    for _ in $(seq 500); do [[ -f $R/out/$name.prefs.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    [[ -f $R/out/$name.prefs.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.prefs.json"
+    cmp -s <(jq -j '.saved // ""' "$R/out/$name.prefs.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.prefs.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.prefs.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   edges)
     rc=0
     for name in empty.md only-code.md m5.md; do

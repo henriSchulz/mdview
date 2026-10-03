@@ -1364,7 +1364,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2009,10 +2009,19 @@
   function pasteClip(r) {
     if (mode === "active" && window.MdActive?.view?.editable) MdActive.clip.pasteFrom(MdActive.view.pm, r.text, r.html);
   }
+  // the settings changed (here or in another window)
+  function setPrefs(p) {
+    window.MdPrefs = p;
+    if (window.MdActive?.onPrefs) MdActive.onPrefs();
+  }
+  // pictures dropped on the document, saved or found by the application
+  function insertDropped(r) {
+    if (mode === "active" && current && current.path === r.path) MdActive.clip.insertDropped(MdActive.view.pm, r.markups);
+  }
   function pasteText(r) {
     if (mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
   }
-  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip,
+  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }),

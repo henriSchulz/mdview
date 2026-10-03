@@ -89,6 +89,12 @@
       view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)), 1)));
     },
     footnote(view) { run(view, A.notes.insert); },
+    image(view) {
+      const { from, to } = view.state.selection;
+      if (!view.state.selection.$from.parent.inlineContent) return;
+      view.dispatch(view.state.tr.replaceWith(from, to, N.image.create({ src: "", alt: "" })).setMeta("step", true));
+      setTimeout(() => A.islands.open(view, from), 0);
+    },
   };
 
   // ------------------------------------------------------------ the menu
@@ -133,6 +139,7 @@
       items.push({ label: T("menu.insert"), items: [
         item("menu.codeBlock", () => INSERT.code(view)), item("menu.formula", () => INSERT.math(view)),
         item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
+        item("menu.image", () => INSERT.image(view)),
         item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
       ] });
     } else {
@@ -140,6 +147,7 @@
       items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
+    items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));
     return items;
   }
   function nodeItems(view, pos, node) {

@@ -17,6 +17,7 @@
   }
   const root = panel("actmenu"), sub = panel("actsub");
   let after = null, subOf = -1, subTimer = 0, keys = root; // keys: the panel the arrow keys move in
+  let passive = false; // the document still gets the typing (a menu that filters by it, like the "/" menu)
   const isOpen = (p = root) => p.el.hasAttribute("data-open");
   const usable = (p, i) => p.entries[i] && !p.entries[i].item.disabled;
   function setHl(p, i) {
@@ -32,6 +33,7 @@
   function fill(p, items) {
     p.el.textContent = "";
     p.entries = [];
+    if (!items.length) { const none = document.createElement("div"); none.className = "menu-empty"; none.textContent = window.MdStrings.t("menu.none"); p.el.appendChild(none); }
     for (const item of items) {
       if (!item) { const rule = document.createElement("div"); rule.className = "menu-rule"; p.el.appendChild(rule); continue; }
       const b = document.createElement("button");
@@ -63,10 +65,12 @@
   }
   /* items: { label, key, danger, disabled, checked, run } or { label, items } for a menu beside it,
    * or null for a rule. closed: called when the menu goes without a choice. */
-  function open({ x, y, items, origin = "top left", closed = null }) {
+  function open({ x, y, items, origin = "top left", closed = null, typing = false }) {
     closeSub();
     fill(root, items);
     after = closed;
+    passive = typing;
+    if (typing) step(root, 1, -1);
     place(root, x, y, origin);
     keys = root;
   }
@@ -129,6 +133,7 @@
     if (!isOpen()) return;
     const p = keys === sub && isOpen(sub) ? sub : root;
     if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;
+    if (passive && !/^(Escape|ArrowDown|ArrowUp|Enter|Tab)$/.test(e.key)) return; // typed on, into the document
     e.stopPropagation();
     e.preventDefault();
     if (e.key === "Escape") { if (p === sub) { closeSub(); setHl(root, root.hl); } else close(); }
@@ -145,7 +150,15 @@
   sub.el.addEventListener("mouseenter", () => { clearTimeout(subTimer); setHl(root, subOf); keys = sub; });
   root.el.addEventListener("mouseenter", () => { keys = root; });
   document.addEventListener("mousedown", (e) => { if (isOpen() && !root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, true);
-  window.addEventListener("scroll", () => close(), { passive: true });
+  // scrolled by the user: the menu goes (the page moving under the caret while one types does not count)
+  window.addEventListener("wheel", () => close(), { passive: true });
 
-  A.menu = { open, close, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
+  // new entries, the menu where it is (the "/" menu while one types)
+  function refill(items) {
+    if (!isOpen()) return;
+    fill(root, items);
+    if (passive) step(root, 1, -1);
+    root.el.style.left = Math.max(8, Math.min(parseFloat(root.el.style.left), innerWidth - root.el.offsetWidth - 8)) + "px";
+  }
+  A.menu = { open, close, refill, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
 })();

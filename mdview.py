@@ -73,6 +73,21 @@ SIDEBAR_WIDTH = 260       # extra default width of a folder window; matches --sb
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
 H1_RE = re.compile(r"^ {0,3}#[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")
 
+# Settings of the active mode (state.json "active"), with what they are when nothing is set.
+PREFS = {
+    "lang": "en",           # the active mode's own texts: "en" | "de"
+    "startMode": "last",    # a new window: "last" (the mode used last) | "read" | "active" | "edit"
+    "bar": True,            # the formatting bar over a selection
+    "slash": False,         # "/" at the start of an empty line opens the insert menu
+    "syntax": False,        # the Markdown of the formatting at the caret shows
+    "quotes": False,        # typed quotes become typographic ones
+    "wrap": 0,              # paragraphs written anew are wrapped at this many characters (0: not)
+    "images": "beside",     # pasted and dropped pictures: "beside" the note | "assets" | a folder relative to the note
+    "style": "auto",        # new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
+    "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
+}
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".bmp"}
+
 SCRIPTS = [
     "vendor/markdown-it.min.js",
     "vendor/footnote.min.js",
@@ -434,7 +449,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
                "style-src 'unsafe-inline' file: https:; "
                "img-src file: data: blob: https: http:; "
                "font-src file: data:; media-src file: https: http:")
-        scripts = "".join(f'<script nonce="{nonce}" src="{a}/{s}"></script>' for s in SCRIPTS)
+        prefs = json.dumps(self.app.prefs()).replace("</", "<\\/")
+        scripts = f'<script nonce="{nonce}">window.MdPrefs = {prefs};</script>' + \
+            "".join(f'<script nonce="{nonce}" src="{a}/{s}"></script>' for s in SCRIPTS)
         page = (
             "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
             f"<meta http-equiv='Content-Security-Policy' content=\"{csp}\">"
@@ -790,7 +807,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
             "seq": self.save_seq,  # the last save that was written before the file was read
         }
         if not self.mode_given and (not PROBE or os.environ.get("MDVIEW_PROBE_MODE")):
-            payload["startMode"] = self.app.state.get("mode", "read")
+            start = self.app.prefs()["startMode"]
+            payload["startMode"] = self.app.state.get("mode", "read") if start == "last" else start
         self.mode_given = True
         self.js("MdView.render", payload)
 
@@ -858,6 +876,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
             if msg.get("name") in ("read", "edit", "active") and self.app.state.get("mode") != msg["name"]:
                 self.app.state["mode"] = msg["name"]  # the next window starts in it
                 save_state(self.app.state)
+        elif t == "prefs":
+            self.app.set_prefs(msg.get("prefs") or {})
+        elif t == "dropfiles":
+            self.drop_files(msg.get("uris") or [], msg.get("path"))
         elif t == "closehold":
             # the page has a question to ask before the window may go
             if self.close_id:
@@ -1030,10 +1052,15 @@ class ViewerWindow(Gtk.ApplicationWindow):
     # -- pasted images ----------------------------------------------------
 
     def attachment_dir(self, vault):
-        """Where a pasted image goes: next to the note, or wherever the
-        Obsidian vault keeps its attachments (default: the vault root)."""
+        """Where a pasted image goes: next to the note (or where the settings
+        say, relative to it), or wherever the Obsidian vault keeps its
+        attachments (default: the vault root)."""
         if not vault:
-            return self.path.parent
+            where = str(self.app.prefs()["images"] or "beside").strip()
+            if where in ("", "beside", "."):
+                return self.path.parent
+            d = Path(os.path.normpath(self.path.parent / ("assets" if where == "assets" else where.lstrip("/"))))
+            return d if d.is_relative_to(self.path.parent) else self.path.parent
         try:
             conf = json.loads((vault / ".obsidian/app.json").read_text()).get("attachmentFolderPath")
         except (OSError, ValueError, AttributeError):
@@ -1084,7 +1111,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         except OSError as e:
             self.js("MdView.toast", f"Couldn't save image: {e.strerror}")
             return
-        markup = f"![[{target.name}]]" if vault else f"![]({quote(target.name)})"
+        markup = self.image_markup(target, vault)
         if not append:
             self.js("MdView.insertImage", {"path": str(self.path), "markup": markup})
             return
@@ -1104,6 +1131,57 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.own_write = new
         self.resolver = Resolver(self.path.parent)
         self.render(end=True)
+
+    def image_markup(self, target, vault):
+        if vault:
+            return f"![[{target.name}]]"
+        rel = os.path.relpath(target, self.path.parent).replace(os.sep, "/")
+        return f"![]({quote(rel)})"
+
+    def drop_files(self, uris, path):
+        """Pictures dropped on the document: one inside the note's folder is
+        linked where it is, any other is copied where pasted pictures go. The
+        page inserts the Markdown where they were dropped (insertDropped)."""
+        if not self.path or path != str(self.path):
+            return
+        vault = self.resolver.vault if self.resolver else None
+        markups, skipped = [], 0
+        for uri in uris:
+            try:
+                src = Path(Gio.File.new_for_uri(uri).get_path() or "")
+            except (TypeError, GLib.Error):
+                src = Path("")
+            if not src.name or src.suffix.lower() not in IMAGE_EXT or not src.is_file():
+                skipped += 1
+                continue
+            try:
+                inside = src.resolve().is_relative_to(self.path.parent.resolve())
+            except OSError:
+                inside = False
+            if inside:
+                markups.append(self.image_markup(src.resolve(), vault))
+                continue
+            try:
+                folder = self.attachment_dir(vault)
+                folder.mkdir(parents=True, exist_ok=True)
+                for n in range(1, 100):
+                    target = folder / (src.name if n == 1 else f"{src.stem}-{n}{src.suffix}")
+                    try:
+                        with open(target, "xb") as f:
+                            f.write(src.read_bytes())
+                        break
+                    except FileExistsError:
+                        continue
+                else:
+                    raise FileExistsError(17, "File exists")
+            except OSError as e:
+                self.js("MdView.toast", f"Couldn't copy picture: {e.strerror}")
+                continue
+            markups.append(self.image_markup(target, vault))
+        if skipped and not markups:
+            self.js("MdView.toast", "Only pictures can be dropped here")
+        if markups:
+            self.js("MdView.insertDropped", {"path": str(self.path), "markups": markups})
 
     def open_external(self):
         if not self.path:
@@ -1192,6 +1270,20 @@ class MdViewApp(Gtk.Application):
         self.web_settings = None
         self.monitors = []
         self.theme_id = 0
+
+    def prefs(self):
+        stored = self.state.get("active")
+        return {**PREFS, **{k: v for k, v in (stored if isinstance(stored, dict) else {}).items() if k in PREFS}}
+
+    def set_prefs(self, new):
+        prefs = self.prefs()
+        for k, v in new.items():
+            if k in PREFS and type(v) is type(PREFS[k]):
+                prefs[k] = v
+        self.state["active"] = {k: v for k, v in prefs.items() if v != PREFS[k]}
+        save_state(self.state)
+        for w in self.windows():
+            w.js("MdView.setPrefs", prefs)
 
     def read_motion(self):
         try:
