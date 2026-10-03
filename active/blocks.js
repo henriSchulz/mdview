@@ -170,7 +170,9 @@
         if (meta !== undefined) return meta;
         if (!value) return null;
         if (tr.docChanged) { // it goes with its blocks, as long as they are there
-          const next = { anchor: tr.mapping.map(value.anchor, 1), head: tr.mapping.map(value.head, 1) };
+          const a = tr.mapping.mapResult(value.anchor, 1), h = tr.mapping.mapResult(value.head, 1);
+          if (a.deletedAfter || h.deletedAfter) return null; // (undone, deleted: what stands there now was never selected)
+          const next = { anchor: a.pos, head: h.pos };
           return rangeOf(state, next) ? next : null;
         }
         return tr.selectionSet && !tr.getMeta("appendedTransaction") ? null : value; // the caret put somewhere: the blocks are let go
@@ -210,10 +212,11 @@
   /* Dragging by the handle. The move is the handle's own business from start to end: wherever
    * the pointer is (also beside the text, where the handle stands), a line shows the gap the
    * block will go to — before or after the block at the pointer's height — and letting go moves it. */
-  let drag = null; // { from, to, slice, target: { pos, el, after } | null }
+  let drag = null; // { from, to, slice, items, list, target: { pos, wrap, x, y, w } | null }
   const line = document.createElement("div");
   line.className = "blk-line";
   document.body.appendChild(line);
+  const isList = (node) => !!node && /_list$/.test(node.type.name);
   handle.addEventListener("dragstart", (e) => {
     if (!view || !over || !over.isConnected) { e.preventDefault(); return; }
     const desc = over.pmViewDesc, pos = desc && desc.posBefore;
@@ -222,69 +225,119 @@
     // all selected blocks, if this is one of them; else this one
     const sr = rangeOf(view.state), many = sr && pos >= sr.from && pos < sr.to;
     const from = many ? sr.from : pos, to = many ? sr.to : pos + node.nodeSize;
-    drag = { from, to, slice: view.state.doc.slice(from, to), target: null };
+    const slice = view.state.doc.slice(from, to);
+    // list items carry the kind of list they come from: outside a list they need one around them
+    let items = slice.content.childCount > 0;
+    slice.content.forEach((n) => { if (n.type.name !== "list_item") items = false; });
+    const parent = view.state.doc.resolve(from).parent;
+    drag = { from, to, slice, items, list: items && isList(parent) ? parent : null, target: null };
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, drag.slice));
+    e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
     e.dataTransfer.setDragImage(over, Math.min(40, r.width / 2), Math.min(16, r.height / 2));
     handle.dataset.dragging = "";
   });
-  // where it would go: the gap before or after the block at the pointer's height
+
+  /* Where it would go. The block at the pointer's height says between which blocks; how far in
+   * the pointer is says how deep:
+   *   list items   — beside an item (before / after it), under an item (pointer right of its
+   *                  text start: its first sub-item, or a new sub-list), or out a level (pointer
+   *                  left of the item); outside any list they get a list of their own
+   *   other blocks — before / after the block; over an item's text, into the item at its end
+   * -> { pos, wrap (the items need a list around them), x, y, w (the line) } or null */
+  const INDENT = 28;
+  const descOf = (el) => (el && el.pmViewDesc && el.pmViewDesc.node && el.pmViewDesc.dom === el ? el.pmViewDesc : null);
+  const outerOf = (v, el) => { let up = el.parentElement; while (up && up !== v.dom && !descOf(up)) up = up.parentElement; return up && up !== v.dom ? up : null; };
+  const liOf = (v, el) => { while (el && el !== v.dom && !(descOf(el) && descOf(el).node.type.name === "list_item")) el = el.parentElement; return el && el !== v.dom ? el : null; };
   function targetAt(e) {
-    const v = view, pm = v.dom.getBoundingClientRect();
+    const v = view, doc = v.state.doc, pm = v.dom.getBoundingClientRect();
     // (beside the text, the pointer counts as being over it: a little way in, where nested blocks begin too)
     const x = e.clientX < pm.left + 60 ? pm.left + 60 : Math.min(e.clientX, pm.right - 12), y = Math.max(pm.top + 1, Math.min(e.clientY, pm.bottom - 1));
     let el = blockOf(v, document.elementFromPoint(x, y));
     if (!el) { // between two blocks: the nearer one
       let best = null, d = Infinity;
       for (const c of v.dom.children) {
-        if (!c.pmViewDesc || c.classList.contains("hid")) continue;
+        if (!descOf(c) || c.classList.contains("hid")) continue;
         const r = c.getBoundingClientRect(), dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
         if (r.height && dist < d) { d = dist; best = c; }
       }
-      el = best && blockOf(v, best);
+      el = best;
     }
+    if (!el) return null;
+    const within = (pos) => pos > drag.from && pos < drag.to;
+    const fits = (pos, content) => { const $p = doc.resolve(pos); return $p.parent.canReplace($p.index(), $p.index(), content); };
+    const made = (pos, wrap, x0, y0) => (within(pos) || (!wrap && (pos === drag.from || pos === drag.to)) ? null : { pos, wrap, x: x0, y: y0, w: Math.max(40, pm.right - x0) });
+    // the edge between an element and its neighbour (the middle of the gap)
+    const edge = (elx, after) => {
+      const r = elx.getBoundingClientRect(), sib = after ? elx.nextElementSibling : elx.previousElementSibling, sr = sib && sib.getBoundingClientRect();
+      return sr && sr.height ? ((after ? r.bottom : r.top) + (after ? sr.top : sr.bottom)) / 2 : after ? r.bottom + 3 : r.top - 3;
+    };
+    const wrapped = PM.model.Fragment.from(drag.list ? drag.list.type.create(drag.list.attrs, drag.slice.content) : A.schema.nodes.bullet_list.create(null, drag.slice.content));
+
+    if (drag.items) {
+      let li = liOf(v, el);
+      if (li) {
+        // out a level for every indent the pointer is left of the item
+        while (e.clientX < li.getBoundingClientRect().left - INDENT && liOf(v, li.parentElement)) li = liOf(v, li.parentElement);
+        const d = descOf(li), r = li.getBoundingClientRect();
+        // its own first line decides before / after (an item with sub-items is tall)
+        const own = li.querySelector(":scope > p, :scope > .li-body > p") || li, or = own.getBoundingClientRect();
+        const after = e.clientY > or.top + or.height / 2;
+        if (after && e.clientX > r.left + INDENT) { // under it: its first sub-item, or a new sub-list
+          const last = d.node.lastChild;
+          if (isList(last) && d.node.childCount > 1) {
+            const pos = d.posBefore + d.node.nodeSize - 1 - last.nodeSize + 1;
+            const sub = li.querySelector(":scope > ul, :scope > ol, :scope > .li-body > ul, :scope > .li-body > ol");
+            return made(pos, false, (sub ? sub.querySelector("li") || sub : li).getBoundingClientRect().left, sub ? sub.getBoundingClientRect().top - 2 : or.bottom + 2);
+          }
+          const pos = d.posBefore + d.node.nodeSize - 1;
+          return fits(pos, wrapped) ? made(pos, true, r.left + INDENT, r.bottom + 2) : null;
+        }
+        const pos = d.posBefore + (after ? d.node.nodeSize : 0);
+        return fits(pos, drag.slice.content) ? made(pos, false, r.left, after && li.querySelector("ul, ol") ? r.bottom + 2 : edge(li, after)) : null;
+      }
+      // not over a list: between blocks, in a list of their own
+      while (outerOf(v, el) && e.clientX < el.getBoundingClientRect().left - INDENT) el = outerOf(v, el);
+      for (; el; el = outerOf(v, el)) {
+        const d = descOf(el);
+        if (!d) continue;
+        const r = el.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2, pos = d.posBefore + (after ? d.node.nodeSize : 0);
+        if (within(pos)) return null;
+        if (fits(pos, wrapped)) return made(pos, true, r.left, edge(el, after));
+      }
+      return null;
+    }
+
     // how far in the pointer is says how deep: left of a nested block, the block around it is meant
-    const outer = (x0) => { let up = x0.parentElement; while (up && up !== v.dom && !(up.pmViewDesc && up.pmViewDesc.node && up.pmViewDesc.dom === up)) up = up.parentElement; return up && up !== v.dom ? up : null; };
-    while (el && el.parentElement !== v.dom && e.clientX < el.getBoundingClientRect().left - 28 && outer(el)) el = outer(el);
-    while (el) {
-      const desc = el.pmViewDesc, r = el.getBoundingClientRect();
-      const after = e.clientY > r.top + r.height / 2;
-      const pos = desc.posBefore + (after ? desc.node.nodeSize : 0);
-      const $p = v.state.doc.resolve(pos);
-      const inside = pos > drag.from && pos < drag.to;
-      if (!inside && $p.parent.canReplace($p.index(), $p.index(), drag.slice.content)) {
-        return pos === drag.from || pos === drag.to ? null : { pos, el, after }; // (where it is already: nowhere to go)
-      }
+    while (el.parentElement !== v.dom && e.clientX < el.getBoundingClientRect().left - INDENT && outerOf(v, el)) el = outerOf(v, el);
+    for (; el; el = outerOf(v, el)) {
+      const d = descOf(el);
+      if (!d) continue;
+      const r = el.getBoundingClientRect(), after = e.clientY > r.top + r.height / 2;
+      const pos = d.posBefore + (after ? d.node.nodeSize : 0);
+      if (within(pos)) return null;
+      if (fits(pos, drag.slice.content)) return made(pos, false, r.left, edge(el, after));
       // it does not fit beside a list item (a table, a paragraph): into the item, at its end
-      if (!inside && desc.node.type.name === "list_item" && after && e.clientX >= r.left - 28) {
-        const end = desc.posBefore + desc.node.nodeSize - 1, $e = v.state.doc.resolve(end);
-        if (!(end > drag.from && end < drag.to) && end !== drag.to && $e.parent.canReplace($e.index(), $e.index(), drag.slice.content)) return { pos: end, el, after: true };
+      if (d.node.type.name === "list_item" && after && e.clientX >= r.left - INDENT) {
+        const end = d.posBefore + d.node.nodeSize - 1;
+        if (!within(end) && end !== drag.to && fits(end, drag.slice.content)) return made(end, false, r.left, r.bottom + 2);
       }
-      // it does not fit there (a paragraph among list items): one level up
-      if (inside) return null;
-      el = outer(el);
     }
     return null;
   }
   function showLine(t) {
     if (!t) { delete line.dataset.on; return; }
-    const r = t.el.getBoundingClientRect();
-    // in the middle of the gap to the neighbour
-    const sib = t.after ? t.el.nextElementSibling : t.el.previousElementSibling;
-    const edge = t.after ? r.bottom : r.top;
-    const other = sib && sib.getBoundingClientRect().height ? (t.after ? sib.getBoundingClientRect().top : sib.getBoundingClientRect().bottom) : edge + (t.after ? 8 : -8);
-    line.style.left = r.left + scrollX + "px";
-    line.style.width = r.width + "px";
-    line.style.top = (edge + other) / 2 - 1 + scrollY + "px";
+    line.style.left = t.x + scrollX + "px";
+    line.style.width = t.w + "px";
+    line.style.top = t.y - 1 + scrollY + "px";
     line.dataset.on = "";
   }
   document.addEventListener("dragover", (e) => {
     if (!drag || !view) return;
     e.preventDefault(); // (a drop is possible everywhere while one of the editor's blocks is dragged)
     e.dataTransfer.dropEffect = "move";
-    const t = targetAt(e);
-    if ((t && t.pos) !== (drag.target && drag.target.pos)) { drag.target = t; showLine(t); }
+    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x);
+    if (!same(t, drag.target)) { drag.target = t; showLine(t); }
   });
   document.addEventListener("drop", (e) => {
     if (!drag || !view) return;
@@ -293,14 +346,15 @@
     drag = null;
     showLine(null);
     if (!t) return;
-    const tr = view.state.tr.delete(d.from, d.to);
+    const content = t.wrap ? PM.model.Fragment.from(d.list ? d.list.type.create(d.list.attrs, d.slice.content) : A.schema.nodes.bullet_list.create(null, d.slice.content)) : d.slice.content;
+    const tr = view.state.tr.deleteRange(d.from, d.to); // (a list left without items goes with them)
     const at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
-    tr.insert(at, d.slice.content);
+    tr.insert(at, content);
     // what was moved stays selected as blocks: the keyboard can go on with it
-    const size = d.to - d.from;
-    let last = at;
-    tr.doc.nodesBetween(at, at + size, (n, p, parent) => { if (parent === tr.doc.resolve(at).parent && p >= at) last = p; return false; });
-    tr.setMeta(selKey, { anchor: at, head: last }).setMeta("uiEvent", "drop").setMeta("step", true);
+    const first = at + (t.wrap ? 1 : 0);
+    let last = first;
+    for (let i = 0, p = first; i < d.slice.content.childCount; p += d.slice.content.child(i).nodeSize, i++) last = p;
+    tr.setMeta(selKey, { anchor: first, head: last }).setMeta("uiEvent", "drop").setMeta("step", true);
     tr.setSelection(pmSel(tr.doc, last));
     view.dispatch(tr);
     view.focus();
