@@ -466,7 +466,7 @@
     if (!p.error) trailPush(p.path, p.text);
     // the mode the app was last used in (once, for the window's first note)
     if (p.startMode && p.startMode !== "read" && !p.error && !(p.startMode === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") setMode(p.startMode); }, 0);
-    document.title = p.name || "Markdown";
+    document.title = p.name || "Markdown Notes";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images
     if (!prev || prev.path !== p.path) markActiveNote(true);
     if (mode === "edit") {
@@ -496,7 +496,7 @@
     current = null;
     drawn = null;
     outline = [];
-    document.title = folder ? folder.name : "Markdown";
+    document.title = folder ? folder.name : "Markdown Notes";
     content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><p>No notes in this folder yet.</p></div>`;
     window.scrollTo(0, 0);
     reveal();

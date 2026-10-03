@@ -1,6 +1,9 @@
-# mdview
+# Markdown Notes
 
-A fast Markdown viewer and editor for the desktop (Python, GTK 3, WebKitGTK).
+Notes in plain Markdown for the desktop (Python, GTK 3, WebKitGTK): a reading
+view, writing in the rendered document, a source editor, formulas, PDFs
+beside the notes. The command and the repository are still called `mdview`;
+`mdnotes` starts it too.
 
 - Renders CommonMark and GFM plus Obsidian syntax (wikilinks, embeds,
   callouts, properties, `==highlight==`, `%%comments%%`, `#tags`), KaTeX math,

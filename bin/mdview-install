@@ -6,7 +6,7 @@
 # The app runs straight out of the checkout (bin/mdview finds mdview.py next
 # to itself), so nothing is copied but what the desktop needs to find it:
 #
-#   ~/.local/bin/mdview    `mdview FILE…`, `mdview FOLDER`, `mdview`
+#   ~/.local/bin/mdnotes   `mdnotes FILE…`, `mdnotes FOLDER`, `mdnotes` (and the same as `mdview`)
 #   desktop entry + icon   Spotlight, the dock, "Open With"
 #   default application    text/markdown opens here (xdg-open, file managers)
 set -euo pipefail
@@ -23,6 +23,7 @@ for old in "$HOME/.local/bin/mdview" "$apps/mdview.desktop" "$icons/mdview.svg" 
 done
 
 ln -sfn "$src/bin/mdview" "$HOME/.local/bin/mdview"
+ln -sfn "$src/bin/mdview" "$HOME/.local/bin/mdnotes"   # the app is called Markdown Notes; both names start it
 install -m644 "$src/packaging/mdview.desktop" "$apps/mdview.desktop"
 install -m644 "$src/packaging/mdview.svg" "$icons/mdview.svg"
 
@@ -35,4 +36,4 @@ if command -v xdg-mime >/dev/null; then
   xdg-mime default mdview.desktop $types
 fi
 
-echo "installed: mdview -> $src/bin/mdview — Markdown files open in mdview"
+echo "installed: Markdown Notes (mdnotes, mdview) -> $src/bin/mdview — Markdown files open in it"

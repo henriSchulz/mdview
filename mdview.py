@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""mdview — fast, complete Markdown viewer and editor (GTK 3 + WebKit).
+"""Markdown Notes (mdview) — notes in plain Markdown: read, write, formulas, PDFs (GTK 3 + WebKit).
 
 Renders CommonMark/GFM plus Obsidian syntax (wikilinks, embeds, callouts,
 properties, ==highlight==, %%comments%%, #tags), KaTeX math, Mermaid and
@@ -650,7 +650,7 @@ class Resolver:
 
 class ViewerWindow(Gtk.ApplicationWindow):
     def __init__(self, app, path, folder=None):
-        super().__init__(application=app, title="Markdown")
+        super().__init__(application=app, title="Markdown Notes")
         self.app = app
         self.path = None
         self.folder = None          # set: this window browses a folder (sidebar)
@@ -1958,7 +1958,7 @@ class MdViewApp(Gtk.Application):
 
 def main():
     GLib.set_prgname(APP_ID)
-    GLib.set_application_name("Markdown")
+    GLib.set_application_name("Markdown Notes")
     return MdViewApp().run(sys.argv)
 
 
