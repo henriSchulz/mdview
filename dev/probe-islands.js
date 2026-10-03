@@ -129,7 +129,7 @@
     const img = find((n) => n.type.name === "image");
     ok("one click on a picture opens nothing", !click(img) && !pop.hasAttribute("data-open"));
     // (a double click shows it large — probe graphic; its fields open from its menu's Edit, or Enter)
-    A.islands.open(view, img);
+    MdActive.islands.open(view, img);
     await sleep(350);
     ok("Edit opens the picture's fields", pop.hasAttribute("data-open") && pop.querySelectorAll("input").length === 3 && pop.querySelector("input").value === "alt");
     pop.querySelector("input").value = "a description";
