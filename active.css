@@ -523,6 +523,6 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .ce-opt.on { background: var(--accent); color: #fff; }
 
 /* a task ticked: the check is drawn (a cover in the box's colour shrinks away to the right) */
-.tick-cover { position: absolute; z-index: 1; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
+.tick-cover { position: absolute; z-index: 5; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
   transition: transform calc(var(--dur-base) * 0.75) var(--ease-out); }
 .tick-cover.go { transform: scaleX(0); }

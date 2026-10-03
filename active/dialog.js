@@ -308,7 +308,7 @@
   grip.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const r = dlg.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY;
+    const r = { width: dlg.offsetWidth, height: dlg.offsetHeight }, x0 = e.clientX, y0 = e.clientY; // (its size, not what a transform makes of it)
     dlg.classList.add("sizing");
     const move = (ev) => { // (centred: it grows to both sides, so twice the way of the pointer)
       dlg.style.width = Math.max(380, Math.min(innerWidth * 0.96, r.width + 2 * (ev.clientX - x0))) + "px";
@@ -320,8 +320,7 @@
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
       dlg.classList.remove("sizing");
-      const b = dlg.getBoundingClientRect();
-      const prefs = { dialogWidth: Math.round(b.width), dialogHeight: Math.round(b.height) };
+      const prefs = { dialogWidth: dlg.offsetWidth, dialogHeight: dlg.offsetHeight };
       window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
       window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "prefs", prefs }));
     };

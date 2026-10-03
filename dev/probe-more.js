@@ -91,21 +91,20 @@
     // --- a dialog pulled larger, kept
     A.islands.open(view, island("code"));
     await sleep(600);
-    const g = dlg.querySelector(".dlg-grip").getBoundingClientRect(), w0 = dlg.getBoundingClientRect().width;
-    post("probe-pointer", { kind: "move", x: g.left + 6, y: g.top + 6 }); await sleep(60);
-    post("probe-pointer", { kind: "down", x: g.left + 6, y: g.top + 6 }); await sleep(60);
-    post("probe-pointer", { kind: "move", x: g.left + 46, y: g.top + 66 }); await sleep(60);
-    post("probe-pointer", { kind: "up", x: g.left + 46, y: g.top + 66 }); await sleep(300);
-    const w1 = dlg.getBoundingClientRect().width;
+    const grip = dlg.querySelector(".dlg-grip"), g = grip.getBoundingClientRect(), w0 = dlg.offsetWidth;
+    grip.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, clientX: g.left + 6, clientY: g.top + 6 })); await sleep(30);
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: g.left + 46, clientY: g.top + 66 })); await sleep(30);
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: g.left + 46, clientY: g.top + 66 })); await sleep(300);
+    const w1 = dlg.offsetWidth;
     ok("pulled at its corner, the dialog grows", w1 > w0 + 40, [w0, w1]);
     key(dlg, "Escape");
     await sleep(400);
     A.islands.open(view, island("code"));
     await sleep(600);
-    ok("… and opens at that size again", Math.abs(dlg.getBoundingClientRect().width - w1) < 2, [dlg.getBoundingClientRect().width, w1]);
+    ok("… and opens at that size again", Math.abs(dlg.offsetWidth - w1) < 2, [dlg.offsetWidth, w1]);
     dlg.querySelector(".dlg-grip").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     await sleep(100);
-    ok("a double click on the corner: its own size again", Math.abs(dlg.getBoundingClientRect().width - w0) < 2 && window.MdPrefs.dialogWidth === 0, [dlg.getBoundingClientRect().width, w0]);
+    ok("a double click on the corner: its own size again", Math.abs(dlg.offsetWidth - w0) < 2 && window.MdPrefs.dialogWidth === 0, [dlg.offsetWidth, w0]);
     key(dlg, "Escape");
     await sleep(400);
 
@@ -114,9 +113,9 @@
     box.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
     await sleep(30);
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    ok(reduced ? "a task ticked (movement reduced here: no drawing)" : "a task ticked: its check is drawn (a cover slides off it)", !!view.dom.querySelector(".tick-cover.go") !== reduced && md().includes("- [x] a task to tick"), [reduced, md().slice(60, 140)]);
+    ok(reduced ? "a task ticked (movement reduced here: no drawing)" : "a task ticked: its check is drawn (a cover slides off it)", !!document.querySelector(".tick-cover.go") !== reduced && md().includes("- [x] a task to tick"), [reduced, md().slice(60, 140)]);
     await sleep(500);
-    ok("… and is gone after", !view.dom.querySelector(".tick-cover"));
+    ok("… and is gone after", !document.querySelector(".tick-cover"));
     undo();
     ok("all undone", md() === original, md());
     await sleep(1100);

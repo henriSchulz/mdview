@@ -585,13 +585,14 @@
   function drawTick(view, pos) {
     const li = view.nodeDOM(pos), box = li && li.querySelector(":scope > input.task");
     if (!box || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const cover = document.createElement("span");
+    const cover = document.createElement("span"); // (over the page, not in the editor's own elements)
+    const r = box.getBoundingClientRect();
     cover.className = "tick-cover";
-    cover.style.left = box.offsetLeft + 3 + "px";
-    cover.style.top = box.offsetTop + 3 + "px";
-    cover.style.width = box.offsetWidth - 6 + "px";
-    cover.style.height = box.offsetHeight - 6 + "px";
-    li.appendChild(cover);
+    cover.style.left = r.left + 3 + scrollX + "px";
+    cover.style.top = r.top + 3 + scrollY + "px";
+    cover.style.width = r.width - 6 + "px";
+    cover.style.height = r.height - 6 + "px";
+    document.body.appendChild(cover);
     void cover.offsetWidth;
     cover.classList.add("go");
     setTimeout(() => cover.remove(), 400);
