@@ -20,6 +20,7 @@ launcher that hands files to a running instance over D-Bus.
 Colors follow the Omarchy theme, motion follows ~/.local/share/henri-ui.
 """
 
+import base64
 import html
 import json
 import os
@@ -90,6 +91,9 @@ PREFS = {
     # brackets, brackets grow around sums, bracket pairs coloured, "mk" / "dm" in the text
     "latexSnippets": True, "latexFraction": True, "latexMatrix": True, "latexTabout": True,
     "latexEnlarge": True, "latexBrackets": True, "latexText": True,
+    # the PDF viewer: what a link to a selection is copied as ("callout" | "quote" | "link" |
+    # "embed"), and whether selecting text copies at once
+    "pdfFormat": "callout", "pdfAuto": False,
 }
 # snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
 # ("export default [ … ]"); they take the place of the built-in ones
@@ -309,6 +313,44 @@ def file_kind(path):
     return "file"
 
 
+PDF_LINK_RE = re.compile(r"!?\[\[([^\]\[|#]+\.pdf)(?:#([^\]\[|]*))?(?:\|[^\]\[]*)?\]\]|\]\(<?([^)\s#>]+\.pdf)(?:#([^)\s>]*))?>?\)", re.I)
+
+
+def pdf_backlinks(pdf, root):
+    """The links to this PDF in the notes below root: [{path, name, line, frag, text}] — what the
+    PDF viewer shows as highlights (a link to a selection is the annotation)."""
+    name = pdf.name.lower()
+    out, seen, deadline = [], 0, time.monotonic() + 1.5
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in SKIP_DIRS]
+        for f in filenames:
+            if Path(f).suffix.lower() not in MD_EXT:
+                continue
+            seen += 1
+            if seen > 5000 or time.monotonic() > deadline or len(out) >= 2000:
+                return out
+            p = os.path.join(dirpath, f)
+            try:
+                text = read_text(p, 2_000_000)
+            except OSError:
+                continue
+            if name not in text.lower() and quote(pdf.name).lower() not in text.lower():
+                continue
+            lines = text.split("\n")
+            for n, line in enumerate(lines):
+                for m in PDF_LINK_RE.finditer(line):
+                    target, frag = (m.group(1), m.group(2)) if m.group(1) else (unquote(m.group(3)), unquote(m.group(4) or ""))
+                    if Path(target.strip()).name.lower() != name or not frag:
+                        continue
+                    shown = re.sub(r"\s*!?\[\[[^\]]*\]\]", "", line)
+                    shown = re.sub(r"^\s*(?:>\s*)*(?:\[![^\]]*\]\s*)?", "", shown).strip()
+                    if not shown:  # the quote of a callout stands in the line below its link
+                        nxt = lines[n + 1] if n + 1 < len(lines) else ""
+                        shown = re.sub(r"^\s*(?:>\s*)*", "", nxt).strip()
+                    out.append({"path": p, "name": f, "line": n, "frag": frag, "text": shown[:240]})
+    return out
+
+
 def clipboard_image():
     """The image on the clipboard as (bytes, file extension), or None."""
     cb = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
@@ -524,7 +566,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
                     del last[old]
                 save_state(self.app.state)
         if same and self.shell_ready:
-            if fragment:
+            if fragment and path.suffix.lower() == ".pdf":
+                self.render_pdf(fragment)  # (a place in the PDF: the viewer goes there)
+            elif fragment:
                 self.js("MdView.scrollToFragment", fragment, True)
             return
         self.pending_fragment = fragment
@@ -801,8 +845,43 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 links[target] = info
         return links
 
+    def render_pdf(self, fragment=None):
+        """A PDF in the window: the page gets its name and the links to it; the bytes on request."""
+        try:
+            mtime, error = self.path.stat().st_mtime, None
+        except OSError as e:
+            mtime, error = 0, f"Can't read file: {e.strerror}"
+        root = (self.resolver.vault if self.resolver and self.resolver.vault else None) or self.folder or self.path.parent
+        self.mode_given = True
+        self.js("MdView.render", {
+            "kind": "pdf", "text": "", "name": self.path.name, "path": str(self.path),
+            "base": self.path.parent.as_uri() + "/", "readonly": "a PDF", "vault": False, "links": {},
+            "fragment": fragment, "error": error, "canBack": bool(self.back), "mtime": mtime,
+            "backlinks": [] if error else pdf_backlinks(self.path, root),
+        })
+
+    def send_pdf(self, path, ident):
+        """The bytes of a PDF for the page (it may not read files itself), in pieces."""
+        try:
+            p = Path(path or "").resolve()
+            if p.suffix.lower() != ".pdf" or not p.is_file():
+                raise OSError("not a PDF file")
+            if p.stat().st_size > 300_000_000:
+                raise OSError("larger than 300 MB")
+            data = p.read_bytes()
+        except OSError as e:
+            self.js("MdView.pdfChunk", ident, 0, 1, "", str(e.strerror or e))
+            return
+        size = 3_000_000
+        parts = [data[i:i + size] for i in range(0, len(data), size)] or [b""]
+        for i, part in enumerate(parts):
+            self.js("MdView.pdfChunk", ident, i, len(parts), base64.b64encode(part).decode("ascii"), None)
+
     def render(self, keep_scroll=False, fragment=None, end=False):
         if not self.shell_ready or not self.path:
+            return
+        if self.path.suffix.lower() == ".pdf":
+            self.render_pdf(fragment)
             return
         raw = None
         try:
@@ -935,6 +1014,13 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.open_external()
         elif t == "note":
             self.open_note(msg.get("path"))
+        elif t == "pdfdata":
+            self.send_pdf(msg.get("path"), str(msg.get("id")))
+        elif t == "pdfnote":
+            # from a highlight in a PDF to the note it comes from, at the line of its link
+            p = Path(msg.get("path") or "")
+            if p.is_file() and p.suffix.lower() in MD_EXT:
+                self.open_path(p, f"^line={int(msg.get('line') or 0)}")
         elif t == "newnote":
             self.new_note(msg.get("name"), msg.get("dir"))
         elif t == "rename":
@@ -1036,7 +1122,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             return
         if not p.exists():
             self.js("MdView.toast", f"Not found: {p.name}")
-        elif p.is_file() and p.suffix.lower() in MD_EXT:
+        elif p.is_file() and (p.suffix.lower() in MD_EXT or p.suffix.lower() == ".pdf"):
             self.open_path(p, frag)
         else:
             launch_uri(p.as_uri())
@@ -1046,7 +1132,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         p = self.resolver.resolve(target) if self.resolver else None
         if not p:
             self.js("MdView.toast", f"Note “{target.split('#')[0]}” doesn't exist")
-        elif file_kind(p) == "md":
+        elif file_kind(p) in ("md", "pdf"):
             self.open_path(p, heading)
         else:
             launch_uri(p.as_uri())
@@ -1077,6 +1163,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
         """exact: the text is the file as it is to be (the active mode keeps
         every line ending as it was); else "\n" throughout, written the way
         the file had it."""
+        if self.path and self.path.suffix.lower() == ".pdf":
+            return  # (never the text of a note into a PDF)
         if not self.path or not isinstance(text, str):
             return
         if exact:

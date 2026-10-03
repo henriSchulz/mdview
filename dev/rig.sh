@@ -12,6 +12,7 @@
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
+#   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
@@ -137,6 +138,27 @@ case "${1:-}" in
     [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null)"
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
+  pdf)
+    # a note with links into a PDF and embeds of it, and the PDF itself in the window
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json "$R/out"/paper.pdf.*.json
+    python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
+    printf '%s\n' '# Notes on the paper' '' 'The page: ![[paper.pdf#page=1]]' '' 'A quote: ![[paper.pdf#page=2&selection=4,0,4,30&color=red]]' '' 'A region: ![[paper.pdf#page=3&rect=60,600,420,790]]' '' \
+      'An important line: [[paper.pdf#page=2&selection=4,0,4,30&color=red|paper, page 2]] says it.' '' '> [!PDF|yellow] [[paper.pdf#page=2&selection=9,0,9,18|paper, page 2]]' '> Line 10 of page 2' '' 'Just the page: [[paper.pdf#page=5]].' > "$R/work/note.md"
+    app 90 MDVIEW_PROBE="$D/probe-pdf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
+    wait_for() { for _ in $(seq 400); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; return 1; }
+    wait_for note && { sleep 1.6; shot "$R/out/pdf-note.png"; }
+    wait_for pdf && { sleep 0.15; shot "$R/out/pdf-view0.png"; sleep 0.4; shot "$R/out/pdf-view.png"; }
+    copied=""
+    wait_for select && { sleep 0.4; WAYLAND_DISPLAY="$(wl)" wtype -M ctrl -M shift -k c -m shift -m ctrl; sleep 0.8; copied=$(WAYLAND_DISPLAY="$(wl)" timeout 3 wl-paste -n 2>/dev/null); }
+    wait_for noteagain && { sleep 0.6; shot "$R/out/pdf-note2.png"; }
+    wait_for pdfdone
+    pkill -f "python3 $APP" 2>/dev/null
+    f=$(ls "$R/out"/*.pdfdone.json 2>/dev/null | head -1)
+    [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty), (.errs | join("; "))' "$f"
+    want=$'> [!PDF|yellow] [[paper.pdf#page=2&selection=7,5,7,21|paper, page 2]]\n> '
+    [[ $copied == "$want"* ]] && echo "ok   Ctrl+Shift+C: the quote with its link is on the clipboard" || echo "FAIL the clipboard after Ctrl+Shift+C: $copied"
+    ! { jq -r '.steps[], (.error // "ok")' "$f"; } | grep -qv '^ok' ;;
   latex)
     # real keys (wtype) into the formula editor; the probe reports after each stage
     name=latex.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Formulas\n\nStart.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json

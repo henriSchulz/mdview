@@ -50,6 +50,7 @@
     clip: svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'),
     todo: svg('<circle cx="12" cy="12" r="9.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/>'),
   };
+  const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const CALLOUT_ALIAS = {
     summary: "abstract", tldr: "abstract", hint: "tip", check: "success", done: "success",
     help: "question", faq: "question", attention: "warning", caution: "danger",
@@ -221,6 +222,11 @@
       case "image": return `<img class="embed" src="${url}" alt="${esc(size ? wikiLabel(target) : alias || wikiLabel(target))}"${dims}>`;
       case "audio": return `<audio controls src="${url}"></audio>`;
       case "video": return `<video controls src="${url}"${dims}></video>`;
+      case "pdf": { // the page, or the part of it the link points to (pdfview.js draws it)
+        pdfEmbedsSoon();
+        const frag = target.includes("#") ? target.slice(target.indexOf("#") + 1) : "";
+        return `<span class="pdf-embed" data-pdf="${esc(info.path)}" data-frag="${esc(frag)}" data-wiki="${esc(target)}"${size ? ` data-width="${size[1]}"` : ""} title="${esc(wikiLabel(target))}"></span>`;
+      }
       case "md": {
         if ((env.depth || 0) >= 2 || info.text == null) break;
         const sub = target.includes("#") ? target.slice(target.indexOf("#") + 1) : "";
@@ -254,11 +260,12 @@
       const para = toks[i + 1], inl = toks[i + 2];
       if (!para || para.type !== "paragraph_open" || !inl || inl.type !== "inline") continue;
       const [head, ...restLines] = inl.content.split("\n");
-      const m = /^\[!([\w-]+)\]([+-]?)\s*(.*)$/.exec(head.trim());
+      // ([!type|meta]: Obsidian's metadata; a quote copied from a PDF carries its highlight colour there)
+      const m = /^\[!([\w-]+)(?:\|([^\]]*))?\]([+-]?)\s*(.*)$/.exec(head.trim());
       if (!m) continue;
       const type = m[1].toLowerCase();
-      const kind = CALLOUT_ALIAS[type] || (CALLOUT_ICON[type] ? type : "note");
-      const fold = m[2];
+      const kind = CALLOUT_ALIAS[type] || (CALLOUT_ICON[type] ? type : type === "pdf" && CALLOUT_ICON.quote ? "quote" : "note");
+      const fold = m[3];
       let depth = 0, j = i;
       for (; j < toks.length; j++) {
         if (toks[j].type === "blockquote_open") depth++;
@@ -268,11 +275,12 @@
       open.tag = toks[j].tag = tag;
       open.attrJoin("class", `callout callout-${kind}`);
       open.attrSet("data-callout", type);
+      if (type === "pdf") open.attrSet("style", `--cc: color-mix(in srgb, ${PDF_COLORS[(m[2] || "").trim().toLowerCase()] || PDF_COLORS.yellow} 72%, var(--fg))`);
       if (fold === "+") open.attrSet("open", "");
       const titleOpen = new state.Token("callout_title_open", fold ? "summary" : "div", 1);
       titleOpen.meta = { kind, fold: !!fold };
       const title = new state.Token("inline", "", 0);
-      title.content = m[3] || type.charAt(0).toUpperCase() + type.slice(1);
+      title.content = m[4] || (type === "pdf" ? "PDF" : type.charAt(0).toUpperCase() + type.slice(1));
       title.children = [];
       title.map = inl.map;
       const titleClose = new state.Token("callout_title_close", fold ? "summary" : "div", -1);
@@ -428,6 +436,16 @@
 
   function render(p) {
     const prev = current;
+    if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
+      if (mode === "edit") { flushSave(); leaveEditNow(); }
+      if (mode === "active") leaveActiveNow();
+      p.text = p.raw = "";
+      current = p;
+      document.title = p.name;
+      if (!prev || prev.path !== p.path) markActiveNote(true);
+      draw(p, null);
+      return;
+    }
     // read from disk before the last save from here was written: older than what is on screen
     if (prev && prev.path === p.path && p.seq != null && p.seq < saveSeq && !p.error) return;
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
@@ -477,6 +495,14 @@
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
     drawn = { p, text: p.text };
+    content.classList.toggle("pdf", p.kind === "pdf" && !p.error);
+    if (p.kind === "pdf" && !p.error) {
+      outline = [];
+      reveal();
+      loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast("The PDF viewer could not be loaded"));
+      return;
+    }
+    if (window.MdPdf) MdPdf.leave();
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
       outline = [];
@@ -569,7 +595,10 @@
     return root === content ? document.getElementById(id) : root.querySelector(`[id="${id.replace(/["\\]/g, "\\$&")}"]`);
   }
   function scrollToFragment(frag, smooth = true) {
-    const el = findTarget(frag);
+    const ln = /^\^line=(\d+)$/.exec(frag || ""); // a source line (from a highlight in a PDF to the note's link)
+    let el = null;
+    if (ln) { for (const x of shownRoot().querySelectorAll("[data-line]")) { if (Number(x.dataset.line) <= Number(ln[1])) el = x; else break; } }
+    else el = findTarget(frag);
     if (!el) { if (smooth) toast("Section not found"); return; }
     el.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "instant", block: "start" });
     el.classList.remove("flash");
@@ -1269,6 +1298,7 @@
   // the other (they share the page scroll) and stay on the same source line.
   function setMode(next, caret) {
     if (next === mode || !current) return;
+    if (current.kind === "pdf") { toast("A PDF is read here, not edited"); return; }
     if (next === "active") {
       if (current.error) return;
       if (!window.MdActive?.view) { // first use: ProseMirror and active/*.js
@@ -1368,6 +1398,26 @@
 
   // --- active mode: the rendered document, editable in place (active/*.js).
   // Loaded on first use, so reading and editing start as fast as without it.
+  // --- PDFs: the viewer and embeds (pdfview.js, pdf.js), loaded on first use
+  let pdfLoad = null;
+  function loadPdf() {
+    const script = (src) => new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.nonce = NONCE; s.src = `${ASSETS}/${src}`; s.onload = resolve; s.onerror = () => reject(new Error(src + " missing"));
+      document.head.appendChild(s);
+    });
+    return pdfLoad || (pdfLoad = (async () => {
+      const l = document.createElement("link");
+      l.rel = "stylesheet"; l.href = `${ASSETS}/pdfview.css`;
+      document.head.appendChild(l);
+      for (const src of ["vendor/pdfjs/pdf.worker.min.js", "vendor/pdfjs/pdf.min.js", "pdfview.js"]) await script(src);
+    })().catch((e) => { pdfLoad = null; throw e; }));
+  }
+  let pdfEmbedTimer = 0;
+  function pdfEmbedsSoon() { // an embedded PDF was written into the page: draw it once it stands there
+    clearTimeout(pdfEmbedTimer);
+    pdfEmbedTimer = setTimeout(() => loadPdf().then(() => MdPdf.hydrate(document), () => {}), 30);
+  }
   let activeLoad = null;
   function loadActive() {
     const script = (src) => new Promise((resolve, reject) => {
@@ -1963,6 +2013,9 @@
       setTimeout(() => { copy.textContent = "Copy"; copy.classList.remove("done"); }, 1400);
       return;
     }
+    // a PDF embedded in the note: a click opens it at that place (Ctrl+click while editing)
+    const pe = e.target.closest(".pdf-embed[data-wiki]");
+    if (pe && shownRoot().contains(pe) && !(mode === "active" && MdActive.view.editable && !pe.closest(".isl") && !(e.ctrlKey || e.metaKey))) { post("wikilink", { target: pe.dataset.wiki }); return; }
     const a = e.target.closest("a");
     if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
@@ -2075,10 +2128,10 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
-  window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }),
+      copy: (text) => post("copy", { text }), post,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; } } };
 })();

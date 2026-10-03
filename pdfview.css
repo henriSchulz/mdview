@@ -1,0 +1,85 @@
+/* mdview — the PDF viewer and PDFs embedded in notes (pdfview.js). */
+#content.pdf { max-width: none; padding: 56px 24px 30vh; }
+.pdfv { position: relative; }
+.pdf-bar {
+  position: sticky; top: 10px; z-index: 20;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center;
+  width: fit-content; max-width: calc(100% - 180px); margin: 0 auto 14px; padding: 5px 8px;
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14), 0 0 0 0.5px var(--line-strong);
+  font: 400 12px/1 "Inter", sans-serif; user-select: none; -webkit-user-select: none;
+}
+.pdf-b { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-row, 6px); background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+.pdf-b:hover:not(:disabled) { background: color-mix(in srgb, var(--fg) 8%, transparent); transition-duration: var(--dur-instant); }
+.pdf-b:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
+.pdf-b:disabled { opacity: 0.4; }
+.pdf-b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.pdf-b svg { width: 16px; height: 16px; }
+.pdf-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--line-strong); }
+.pdf-page-in { width: 38px; height: 22px; border: 0; border-radius: var(--radius-chip, 5px); background: color-mix(in srgb, var(--fg) 7%, transparent); color: inherit; font: inherit; text-align: center; outline: none; }
+.pdf-page-in:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+.pdf-of, .pdf-zoom { color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); font-variant-numeric: tabular-nums; }
+.pdf-zoom { min-width: 40px; text-align: center; }
+.pdf-color { width: 18px; height: 18px; margin: 0 2px; padding: 0; border: 0; border-radius: 50%; background: var(--hl); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14); cursor: default; transition: transform var(--dur-fast) var(--ease-out); }
+.pdf-color[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14), 0 0 0 2px var(--bg), 0 0 0 3.5px var(--hl); }
+.pdf-color:active { transform: scale(var(--press-scale, 0.97)); }
+.pdf-format { height: 24px; margin-left: 4px; font-size: 12px; }
+
+.pdf-main { display: flex; align-items: flex-start; gap: 20px; }
+.pdf-pages { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pdf-wait { padding: 30vh 0; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); }
+.pdf-page { position: relative; flex: none; background: #fff; border-radius: 3px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
+.pdf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pdf-marks, .pdf-links { position: absolute; inset: 0; pointer-events: none; }
+.pdf-marks { z-index: 1; mix-blend-mode: multiply; }
+.pdf-links { z-index: 3; }
+.pdf-link { position: absolute; pointer-events: auto; border-radius: 2px; }
+.pdf-link:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.pdf-backlink { position: absolute; border-radius: 2px; background: color-mix(in srgb, var(--hl) 55%, transparent); transition: background-color var(--dur-fast) var(--ease-out); }
+.pdf-backlink.rect { background: color-mix(in srgb, var(--hl) 14%, transparent); box-shadow: inset 0 0 0 2px var(--hl); }
+.pdf-backlink.hovered { background: color-mix(in srgb, var(--hl) 85%, transparent); transition-duration: var(--dur-instant); }
+.pdf-focus { position: absolute; border-radius: 2px; background: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent); }
+.pdf-pages.on-mark .textLayer { cursor: default; }
+.pdfv.rect-tool .pdf-page { cursor: crosshair; }
+.pdfv.rect-tool .textLayer, .pdfv.rect-tool .pdf-links { pointer-events: none; }
+.pdf-drag { position: absolute; z-index: 5; border-radius: 2px; background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--accent); pointer-events: none; }
+.pdf-tip { position: fixed; z-index: 60; max-width: 360px; padding: 5px 8px; border-radius: var(--radius-row, 6px); background: color-mix(in srgb, var(--fg) 88%, var(--bg)); color: var(--bg); font: 400 12px/1.35 "Inter", sans-serif; pointer-events: none; }
+.pdf-tip[hidden] { display: none; }
+
+/* pdf.js text layer: the text itself, see-through over the picture, for selecting */
+.textLayer { position: absolute; inset: 0; z-index: 2; overflow: hidden; line-height: 1; text-align: initial; -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; user-select: text; -webkit-user-select: text; }
+.textLayer :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer span.markedContent { top: 0; height: 0; }
+.textLayer ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: transparent; }
+.textLayer br::selection { background: transparent; }
+.textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; -webkit-user-select: none; }
+
+/* outline, pages, notes */
+.pdf-side { position: sticky; top: 56px; flex: none; width: 230px; max-height: calc(100vh - 76px); display: flex; flex-direction: column; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, transparent); font: 400 12.5px/1.35 "Inter", sans-serif; user-select: none; -webkit-user-select: none; }
+.pdf-side[hidden] { display: none; }
+.pdf-tabs { display: flex; gap: 2px; padding: 6px; }
+.pdf-tabs button { flex: 1; height: 24px; border: 0; border-radius: var(--radius-row, 6px); background: transparent; color: inherit; font: inherit; cursor: default; }
+.pdf-tabs button[aria-pressed="true"] { background: color-mix(in srgb, var(--fg) 9%, transparent); font-weight: 600; }
+.pdf-side-body { overflow: auto; padding: 0 6px 8px; overscroll-behavior: contain; }
+.pdf-out { padding: 4px 8px 4px calc(8px + var(--depth) * 12px); border-radius: var(--radius-row, 6px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-out:hover, .pdf-note:hover, .pdf-note.hovered { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.pdf-thumb { display: grid; justify-items: center; gap: 3px; padding: 6px; border-radius: var(--radius-row, 6px); color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); font-size: 11px; }
+.pdf-thumb-img { width: 150px; background: #fff; border-radius: 2px; box-shadow: 0 0 0 0.5px var(--line-strong); overflow: hidden; }
+.pdf-thumb-img canvas { display: block; width: 100%; }
+.pdf-thumb.on .pdf-thumb-img { box-shadow: 0 0 0 2px var(--accent); }
+.pdf-note { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 6px; align-items: center; padding: 6px 8px; border-radius: var(--radius-row, 6px); opacity: 0.7; }
+.pdf-note.here { opacity: 1; }
+.pdf-note > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pdf-note > i { color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); font-style: normal; font-size: 11px; }
+.pdf-note > span:last-child { grid-column: 1 / -1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted, color-mix(in srgb, var(--fg) 65%, transparent)); }
+.pdf-note-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hl); }
+
+/* a PDF page, or a part of one, in a note */
+.pdf-embed { display: inline-block; max-width: 100%; min-height: 1.4em; vertical-align: top; border-radius: 4px; overflow: hidden; cursor: pointer; line-height: 0; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.pdf-embed:not(.ready) { min-width: 120px; min-height: 60px; }
+.pdf-embed.ready { background: #fff; box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 4px rgb(0 0 0 / 0.08); }
+.pdf-embed-img { display: block; max-width: 100%; height: auto; }
+.pdf-embed.failed { padding: 6px 10px; line-height: 1.4; font-size: 0.85em; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); cursor: default; }
+@media print { .pdf-bar, .pdf-side { display: none !important; } }
