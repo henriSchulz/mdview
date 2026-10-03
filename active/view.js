@@ -220,11 +220,16 @@
   // the caret into the first block on screen (a fresh document has it at the very top)
   function caretToView() {
     const { doc } = view.state;
-    let target = null;
+    let target = null, whole = false;
     doc.forEach((node, pos) => {
-      if (target != null || node.type.name === "hidden") return;
+      if ((target != null && whole) || node.type.name === "hidden") return;
       const dom = view.nodeDOM(pos);
-      if (dom && dom.getBoundingClientRect && dom.getBoundingClientRect().bottom > 60) target = pos;
+      if (!dom || !dom.getBoundingClientRect) return;
+      const r = dom.getBoundingClientRect();
+      // the first block that begins on screen; if none does (one block fills the window), the one cut by its top
+      if (target == null && r.bottom > 60) target = pos;
+      if (!whole && r.top >= 0 && r.top < innerHeight - 40 && node.isTextblock) { target = pos; whole = true; }
+      if (r.top > innerHeight) whole = true;
     });
     if (target == null) return;
     const sel = PM.state.Selection.findFrom(doc.resolve(target), 1, true);
@@ -325,7 +330,21 @@
     // the reading view is about to show again: its pictures back
     leave() { if (view) lend(view.dom, content); },
     leaving() { if (view) note(view.dom); },
-    focus() { if (view && view.editable) view.focus(); },
+    // (WebKit brings the caret into view when the editor gets the focus, wherever the page was
+    // scrolled to: the page stays where it is)
+    focus() {
+      if (!view || !view.editable) return;
+      const x = window.scrollX, y = window.scrollY;
+      view.focus();
+      if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+    },
+    // coming into this mode with the caret somewhere off screen: it goes to where one is reading
+    caretHere() {
+      if (!view || !view.editable) return;
+      let c = null;
+      try { c = view.coordsAtPos(view.state.selection.head); } catch (_e) { /* no place: moved below */ }
+      if (!c || c.bottom < 0 || c.top > innerHeight) caretToView();
+    },
     failed() { dirty = true; }, // the save did not happen
     get dirty() { return dirty; },
     get edited() { return edited; },

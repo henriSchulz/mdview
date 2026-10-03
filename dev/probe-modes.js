@@ -66,6 +66,23 @@
     await waitView("read");
     ok("Ctrl+E again returns to reading", view() === "read");
 
+    // coming back into the active mode further down: the page stays where it is (the caret, left
+    // at the top, does not pull it back) and the caret comes to where one is reading
+    {
+      const far = Math.round((document.documentElement.scrollHeight - innerHeight) * 0.7);
+      if (far > 200) {
+        window.scrollTo(0, far); await sleep(150);
+        const y = window.scrollY;
+        MdView.setMode("active"); await waitView("active"); await sleep(250);
+        const pm = MdActive.view.pm, c = pm.coordsAtPos(pm.state.selection.head);
+        ok("reading -> active, scrolled down: the page stays where it is", Math.abs(window.scrollY - y) <= 2, [y, window.scrollY]);
+        ok("… and the caret is on screen there", pm.hasFocus() && c.bottom > 0 && c.top < innerHeight, [c.top, innerHeight]);
+        MdView.setMode("read"); await waitView("read"); await sleep(150);
+        ok("active -> reading: still there", Math.abs(window.scrollY - y) <= 2, [y, window.scrollY]);
+        window.scrollTo(0, 0); await sleep(100);
+      }
+    }
+
     // clicking the mode control
     document.querySelector('.seg-btn[data-mode="active"]').click();
     await waitView("active");

@@ -509,25 +509,44 @@
 
   // the rendered document on screen: the reading view, or the active mode's
   const shownRoot = () => (document.body.dataset.view === "active" ? MdActive.view.dom : content);
-  function captureAnchor(root = shownRoot()) {
+  // deep: between the active mode and the source editor (reading <-> source stays as it always was)
+  function captureAnchor(root = shownRoot(), deep = false) {
     const edited = root !== content && MdActive.view.anchor(); // after edits the active mode counts lines itself
     if (edited) return edited;
+    // the innermost block that reaches over the window's top edge (an item, not the list it is in),
+    // and how far into it the edge is: `into` of its `lines` source lines
+    let hit = null;
     for (const el of root.querySelectorAll("[data-line]")) {
       const r = el.getBoundingClientRect();
-      if (r.bottom > 0) return { line: Number(el.dataset.line), top: r.top, y: window.scrollY };
+      if (r.bottom <= 0) continue;
+      if (!deep) return { line: Number(el.dataset.line), top: r.top, y: window.scrollY };
+      if (r.top > 0) {
+        if (!hit) return { line: Number(el.dataset.line), top: r.top, y: window.scrollY };
+        hit.lines = Math.max(1, Number(el.dataset.line) - hit.line);
+        break;
+      }
+      hit = { line: Number(el.dataset.line), top: r.top, y: window.scrollY, into: r.height ? -r.top / r.height : 0, lines: 1 };
     }
-    return { line: null, y: window.scrollY };
+    return hit || { line: null, y: window.scrollY };
   }
   function restoreAnchor(a, root = shownRoot()) {
     if (a.line == null) { window.scrollTo(0, a.y); return; }
     if (root !== content && MdActive.view.restore(a)) return;
-    let best = null;
+    let best = null, next = null;
     for (const el of root.querySelectorAll("[data-line]")) {
       if (Number(el.dataset.line) <= a.line) best = el;
-      else break;
+      else { next = el; break; }
     }
     if (!best) { window.scrollTo(0, a.y); return; }
-    window.scrollBy({ top: best.getBoundingClientRect().top - a.top, behavior: "instant" });
+    const r = best.getBoundingClientRect(), line = Number(best.dataset.line);
+    // from the source editor: a line inside a block — as far into the block as that line is into its lines
+    if (a.source && (a.line > line || a.top < 0)) {
+      const lines = Math.max(1, (next ? Number(next.dataset.line) : line + 1) - line);
+      const into = Math.min(1, (a.line - line + Math.max(0, -a.top) / (a.height || 1)) / lines);
+      window.scrollBy({ top: r.top + into * r.height - Math.max(0, a.top), behavior: "instant" });
+      return;
+    }
+    window.scrollBy({ top: r.top - a.top, behavior: "instant" });
   }
 
   function findTarget(frag) {
@@ -1101,7 +1120,8 @@
       const mid = (lo + hi) >> 1;
       if (els[mid].getBoundingClientRect().bottom > 0) hi = mid; else lo = mid + 1;
     }
-    return { line: lo, top: els[lo].getBoundingClientRect().top, y: window.scrollY };
+    const r = els[lo].getBoundingClientRect();
+    return { line: lo, top: r.top, height: r.height, y: window.scrollY };
   }
   function goToLine(line) {
     const el = edBack.children[line];
@@ -1301,23 +1321,27 @@
     const body = document.body, from = body.dataset.view || "read";
     if (from !== mode) {
       if (mode === "edit") {
-        const a = window.scrollY < 4 ? { line: null } : captureAnchor();
+        const a = window.scrollY < 4 ? { line: null } : captureAnchor(undefined, from === "active");
         body.dataset.view = "edit";
         if (edReplay) { for (const text of edReplay) edStep(text); edReplay = null; savedText = edInput.value; }
-        const el = a.line == null ? null : edBack.children[Math.min(a.line, edBack.children.length - 1)];
-        if (el) window.scrollBy({ top: el.getBoundingClientRect().top - a.top, behavior: "instant" });
+        // (a block cut by the window's top edge: the source line that far into the block's lines)
+        const deep = a.line != null && a.into > 0 ? a.into * a.lines : 0;
+        const at = a.line == null ? 0 : Math.min(a.line + Math.floor(deep), edBack.children.length - 1);
+        const el = a.line == null ? null : edBack.children[at];
+        if (el) { const r = el.getBoundingClientRect(); window.scrollBy({ top: deep ? r.top + (deep - Math.floor(deep)) * r.height : r.top - a.top, behavior: "instant" }); }
         else window.scrollTo(0, 0);
         if (edCaret != null) { // the caret where it was in the active mode
           edInput.setSelectionRange(edCaret, edCaret);
           edFresh = false;
         } else if (edFresh) {
-          const pos = el ? lineStarts[Math.min(a.line, lineStarts.length - 1)] : 0;
+          const pos = el ? lineStarts[Math.min(at, lineStarts.length - 1)] : 0;
           edInput.setSelectionRange(pos, pos);
           edFresh = false;
         }
         edCaret = null;
       } else {
         const a = from === "edit" ? captureEditAnchor() : { line: null, y: window.scrollY };
+        if (from === "edit" && mode === "active") a.source = true;
         const caret = from === "edit" && mode === "active" ? edInput.selectionStart : null;
         if (from === "edit") {
           edInput.blur();
@@ -1337,7 +1361,7 @@
     void body.offsetWidth;
     body.classList.remove("swapping");
     if (mode === "edit" && !findOpen()) edInput.focus({ preventScroll: true });
-    if (mode === "active" && !findOpen()) MdActive.view.focus();
+    if (mode === "active" && !findOpen()) { MdActive.view.caretHere(); MdActive.view.focus(); }
     if (mode === "edit" && edReveal) revealCaret();
     edReveal = false;
   }
