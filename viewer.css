@@ -622,6 +622,13 @@ body[data-sidebar="open"] #sidebar {
   transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
 }
 #sidebar.no-anim { transition: none; }
+/* the settings: a gear at the window's lower left corner — the foot of the sidebar when that is open */
+#settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; opacity: 0.55; }
+#settings-btn:hover, #settings-btn:focus-visible { opacity: 1; }
+body[data-sidebar="open"] #settings-btn { opacity: 0.8; }
+#settings-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+body[data-sidebar="open"] .sb-list { padding-bottom: 46px; }
+@media print { #settings-btn { display: none !important; } }
 /* its edge, to pull it wider, narrower, away — and, from the window's edge, out again */
 #sb-grip { position: fixed; top: 0; bottom: 0; left: 0; z-index: 16; width: 6px; cursor: col-resize; display: none; }
 body[data-folder] #sb-grip { display: block; }

@@ -51,7 +51,7 @@
       // the + button: a note or a folder
       document.querySelector('#sidebar [data-act="newmenu"]').click();
       await sleep(200);
-      ok("the + button offers a note or a folder, and the sidebar's settings", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,settings", cmds());
+      ok("the + button offers a note or a folder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder", cmds());
       shown()[1].click();
       await sleep(400);
       const input = document.getElementById("sb-new-input");
@@ -89,7 +89,18 @@
       for (let i = 0; i < 100 && !(dlg && dlg.hasAttribute("data-open")); i++) { await sleep(50); dlg = document.getElementById("dlg"); }
       const labels = dlg ? [...dlg.querySelectorAll(".pf-name")].map((x) => x.textContent) : [];
       ok("Ctrl+, opens the settings from any mode; the sidebar's switches are there", !!dlg && dlg.hasAttribute("data-open") && ["PDFs", "Pictures", "Sound and video", "All other files"].every((l) => labels.includes(l)), labels);
-      if (dlg) { dlg.querySelector('[data-do="cancel"]').click(); await sleep(400); }
+      ok("they are the app's settings, not one mode's", !!dlg && document.getElementById("dlg-title").textContent === "Settings", dlg && document.getElementById("dlg-title").textContent);
+      if (dlg) { dlg.querySelector('[data-do="cancel"]').click(); await sleep(500); }
+      // the gear at the lower left
+      const g = document.getElementById("settings-btn"), gr = g.getBoundingClientRect();
+      ok("a gear stands at the window's lower left corner", gr.left < 20 && innerHeight - gr.bottom < 20 && gr.width > 20 && document.elementFromPoint(gr.left + gr.width / 2, gr.top + gr.height / 2).closest("#settings-btn") === g, [gr.left, innerHeight - gr.bottom]);
+      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "move", x: gr.left + 14, y: gr.top + 14 })); await sleep(120);
+      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "down", x: gr.left + 14, y: gr.top + 14 })); await sleep(60);
+      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "up", x: gr.left + 14, y: gr.top + 14 }));
+      let opened = false;
+      for (let i = 0; i < 60 && !opened; i++) { await sleep(50); opened = document.getElementById("dlg").hasAttribute("data-open"); }
+      ok("a click on it opens the settings", opened);
+      if (opened) { document.getElementById("dlg").querySelector('[data-do="cancel"]').click(); await sleep(500); }
     }
     // the sidebar's edge, pulled with the real pointer
     {

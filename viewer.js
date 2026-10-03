@@ -56,6 +56,7 @@
     apps: svg('<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>'),
     reveal: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V11"/><path d="M3 7v10a2 2 0 0 0 2 2h6"/><circle cx="16.5" cy="16" r="3"/><path d="m21 20.5-2.3-2.3"/>'),
     rename: svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17Z"/><path d="M14.5 7.5l3 3"/>'),
+    gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'),
     trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
   };
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
@@ -1471,6 +1472,17 @@
     }
   }
   // the settings, from any mode (their dialog is the active mode's: loaded when first asked for)
+  // — by Ctrl+, and by the gear at the window's lower left corner (the foot of the sidebar)
+  const gear = document.createElement("button");
+  gear.id = "settings-btn";
+  gear.className = "tb";
+  gear.type = "button";
+  gear.dataset.tip = "Settings (Ctrl+,)";
+  gear.setAttribute("aria-label", "Settings");
+  gear.innerHTML = ICON.gear;
+  gear.addEventListener("mousedown", (e) => e.preventDefault());
+  gear.addEventListener("click", () => openSettings());
+  document.body.appendChild(gear);
   function openSettings() {
     loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
   }
@@ -1909,9 +1921,7 @@
     entry("reveal", "reveal", "Show in Finder", "file dir") +
     `<div class="menu-rule" data-for="file"></div>` +
     entry("rename", "rename", "Rename", "file", "F2") +
-    entry("trash", "trash", "Move to Trash", "file", "Del", " danger") +
-    `<div class="menu-rule" data-for="new"></div>` +
-    entry("settings", "list", "Sidebar Settings…", "new", "Ctrl+,");
+    entry("trash", "trash", "Move to Trash", "file", "Del", " danger");
   document.body.appendChild(ctx);
   let ctxItems = [];
   let ctxFor = null, ctxHl = -1, ctxKind = "file";
@@ -1949,8 +1959,7 @@
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd;
-      if (cmd === "settings") openSettings();
-      else if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
+      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
       else if (cmd === "rename") startRename(item);
       else if (cmd === "trash") post("trash", { path: item.dataset.key });
       else post("fileop", { op: cmd, path: item.dataset.key });

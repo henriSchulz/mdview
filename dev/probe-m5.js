@@ -42,7 +42,7 @@
     // --- the context menu on text
     select("plain words");
     await contextHere();
-    ok("a right click on text: the editing menu", menu.hasAttribute("data-open") && labels(menu).join("|") === "Cut|Copy|Paste|Paste and Match Style|Add Link…|Format|Paragraph|Insert|Active Mode Settings…", labels(menu));
+    ok("a right click on text: the editing menu", menu.hasAttribute("data-open") && labels(menu).join("|") === "Cut|Copy|Paste|Paste and Match Style|Add Link…|Format|Paragraph|Insert|Settings…", labels(menu));
     ok("… and the selection stays", view().state.doc.textBetween(view().state.selection.from, view().state.selection.to) === "plain words");
     await hover("Format");
     ok("Format opens a menu beside it", sub.hasAttribute("data-open") && labels(sub).join("|") === "Bold|Italic|Strikethrough|Code|Formula from Selection" && sub.getBoundingClientRect().left >= menu.getBoundingClientRect().right - 8, [labels(sub), sub.getBoundingClientRect().left, menu.getBoundingClientRect().right, sub.hasAttribute("data-open")]);

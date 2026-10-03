@@ -45,7 +45,7 @@
     // --- the dialog
     key(view.dom, ",", { ctrlKey: true });
     await sleep(450);
-    ok("Ctrl+, opens the settings", dlg.hasAttribute("data-open") && document.getElementById("dlg-title").textContent === "Active Mode Settings" && dlg.querySelectorAll(".pf-row").length >= 10, document.getElementById("dlg-title").textContent);
+    ok("Ctrl+, opens the settings", dlg.hasAttribute("data-open") && document.getElementById("dlg-title").textContent === "Settings" && dlg.querySelectorAll(".pf-row").length >= 10, document.getElementById("dlg-title").textContent);
     ok("the style choices show only with a fixed style", [...dlg.querySelectorAll(".pf-row.pf-sub")].every((r) => r.hidden));
     out("dialog", {});
     await sleep(1400); // screenshot
