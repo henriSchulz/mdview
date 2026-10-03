@@ -432,6 +432,22 @@
     if (b && (b.dataset.do === "done" || b.dataset.do === "cancel")) close(b.dataset.do);
   });
   scrim.addEventListener("mousedown", (e) => { e.preventDefault(); close("done"); }); // a click beside it loses nothing
+  // The wheel belongs to the dialog while it is open: what is under it does not scroll — not
+  // from beside the dialog, and not when a list in it has reached its end.
+  function holdWheel(e) {
+    if (e.ctrlKey) return;
+    const dy = e.deltaY, dx = e.deltaX;
+    for (let el = e.target; el && el !== document.body; el = el.parentElement) {
+      if (el.nodeType !== 1) continue;
+      const cs = getComputedStyle(el);
+      if (dy && /auto|scroll/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1 && (dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1)) return;
+      if (dx && !dy && /auto|scroll/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 && (dx < 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1)) return;
+      if (el === dlg || el === scrim) break;
+    }
+    e.preventDefault();
+  }
+  scrim.addEventListener("wheel", holdWheel, { passive: false });
+  dlg.addEventListener("wheel", holdWheel, { passive: false });
   dlg.addEventListener("keydown", (e) => {
     if (e.isComposing) return;
     e.stopPropagation(); // the page's shortcuts are not for here

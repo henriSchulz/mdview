@@ -46,6 +46,18 @@
     key(view.dom, ",", { ctrlKey: true });
     await sleep(450);
     ok("Ctrl+, opens the settings", dlg.hasAttribute("data-open") && document.getElementById("dlg-title").textContent === "Settings" && dlg.querySelectorAll(".pf-row").length >= 10, document.getElementById("dlg-title").textContent);
+    // the wheel over the dialog scrolls the dialog, never the note under it
+    {
+      const y0 = window.scrollY, body = [...dlg.querySelectorAll("*")].find((x) => /auto|scroll/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 1) || dlg.querySelector(".dlg-body");
+      const wheel = (el, dy) => { const e = new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
+      body.scrollTop = 0;
+      const free = wheel(body.querySelector(".pf-row"), 120);
+      body.scrollTop = body.scrollHeight;
+      const held = wheel(body.querySelector(".pf-row"), 120), heldUpAtTopFree = (body.scrollTop = 0, wheel(body.querySelector(".pf-row"), -120));
+      const beside = wheel(document.getElementById("dlg-scrim"), 120), head = wheel(dlg.querySelector(".dlg-head"), 120);
+      ok("the wheel in the settings: the list scrolls while it can; at its end, on the title and beside the dialog nothing under it moves", body.scrollHeight > body.clientHeight && !free && held && heldUpAtTopFree && beside && head && window.scrollY === y0, [body.scrollHeight, body.clientHeight, free, held, heldUpAtTopFree, beside, head]);
+      body.scrollTop = 0;
+    }
     ok("the style choices show only with a fixed style", [...dlg.querySelectorAll(".pf-row.pf-sub")].every((r) => r.hidden));
     out("dialog", {});
     await sleep(1400); // screenshot
