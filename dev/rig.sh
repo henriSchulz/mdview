@@ -316,7 +316,7 @@ case "${1:-}" in
     rm -rf "$R/work"; mkdir -p "$R/work/notes/sub"; cp "$D"/tests/fixtures/{basics,obsidian,math}.md "$R/work/notes/"; cp "$D/tests/fixtures/footnotes.md" "$R/work/notes/sub/"
     python3 "$D/gen-pdf.py" "$R/work/notes/paper.pdf" 3
     rm -f "$R/out"/*.folder.json
-    app 50 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    app 60 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
     for _ in $(seq 200); do ls "$R/out"/*.folder.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
     ls "$R/out"/*.folder.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }

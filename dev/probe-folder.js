@@ -36,6 +36,22 @@
     other.click(); await sleep(900);
     ok("leaving a note from the source editor lands in reading", (document.body.dataset.view || "read") === "read", document.body.dataset.view);
     ok("mode control shows reading", [...document.querySelectorAll(".seg-btn")].map((b) => b.getAttribute("aria-checked")).join() === "false,false,true");
+    // the sidebar's edge, pulled with the real pointer
+    {
+      const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));
+      const w = () => Math.round(document.getElementById("sidebar").getBoundingClientRect().width), open = () => document.body.dataset.sidebar === "open";
+      if (!open()) { window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", ctrlKey: true, altKey: true, bubbles: true, cancelable: true })); await sleep(900); }
+      const w0 = w();
+      const pull = async (from, to) => { at("move", from, 300); await sleep(80); at("down", from, 300); await sleep(60); for (let i = 1; i <= 6; i++) { at("move", from + ((to - from) * i) / 6, 300); await sleep(30); } at("up", to, 300); await sleep(350); };
+      await pull(w0 - 1, 380);
+      ok("the sidebar's edge pulled to the right: it is wider, the text makes room", open() && Math.abs(w() - 380) <= 3 && Math.abs(parseFloat(getComputedStyle(document.body).paddingLeft) - w()) <= 1, [w0, w(), getComputedStyle(document.body).paddingLeft]);
+      await pull(w() - 1, 210);
+      ok("… and to the left: narrower", open() && Math.abs(w() - 210) <= 3, w());
+      await pull(w() - 1, 40);
+      ok("pulled far to the left: it goes away", !open(), document.body.dataset.sidebar);
+      await pull(2, 300);
+      ok("pulled from the window's edge: it comes out again, at the width it is pulled to", open() && Math.abs(w() - 300) <= 3, [document.body.dataset.sidebar, w()]);
+    }
     // a PDF in the folder: listed with its ending, and it opens in the window
     const pdfRow = [...document.querySelectorAll(".sb-row[data-real]")].find((r) => r.textContent.trim() === "paper.pdf");
     ok("a PDF in the folder is listed in the sidebar", !!pdfRow, [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim()));
@@ -44,6 +60,12 @@
       let shown = false;
       for (let i = 0; i < 160 && !shown; i++) { await sleep(50); shown = !!(window.MdPdf && MdPdf.shown && MdPdf.shown.pages.length === 3 && MdView.core.current.kind === "pdf"); }
       ok("a click on it opens the PDF in the window", shown, MdView.core.current && MdView.core.current.name);
+      // (back to a note: the folder's last document is where the next run starts)
+      const note = [...document.querySelectorAll(".sb-row[data-real]")].find((r) => r.textContent.trim() === "footnotes");
+      note.click();
+      for (let i = 0; i < 100 && MdView.core.current.kind === "pdf"; i++) await sleep(50);
+      ok("and a click on a note shows the note again", MdView.core.current.name === "footnotes.md" && !document.querySelector(".pdfv") && /\S/.test(document.getElementById("content").textContent), MdView.core.current.name);
+      await sleep(300);
     }
   } catch (e) { o.error = String(e.stack || e); }
   window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "folder", text: JSON.stringify(o) }));

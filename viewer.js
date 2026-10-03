@@ -1697,6 +1697,52 @@
       fresh.forEach((el) => el.classList.remove("enter"));
     }
   }
+  /* The sidebar's edge can be pulled, as in Finder: wider and narrower; pulled far to the left it
+   * goes away, and from the window's left edge it comes out again. A double click: its own width. */
+  let sbDragging = false;
+  const sbGrip = document.createElement("div");
+  sbGrip.id = "sb-grip";
+  sbGrip.setAttribute("aria-hidden", "true");
+  document.body.appendChild(sbGrip);
+  const SB_MIN = 180, SB_GONE = 110, SB_OWN = 260;
+  const sbMax = () => Math.max(SB_MIN, Math.min(640, innerWidth * 0.6));
+  const sbWidth = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || SB_OWN;
+  sbGrip.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || !folder) return;
+    e.preventDefault();
+    const was = sbWidth(), wasOpen = sidebarOpen();
+    let gone = !wasOpen, moved = false;
+    sbDragging = true;
+    document.body.classList.add("sb-sizing");
+    sidebar.classList.add("no-anim");
+    const move = (ev) => {
+      moved = true;
+      const x = ev.clientX;
+      if (x < SB_GONE) { if (!gone) { gone = true; document.body.dataset.sidebar = "closed"; } return; }
+      if (gone) { gone = false; document.body.dataset.sidebar = "open"; }
+      document.documentElement.style.setProperty("--sb-w", Math.round(Math.max(SB_MIN, Math.min(sbMax(), x))) + "px");
+    };
+    const up = (ev) => {
+      if (moved || Math.abs(ev.clientX - e.clientX) > 2) move(ev); // (where it was let go)
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      sbDragging = false;
+      document.body.classList.remove("sb-sizing");
+      sidebar.classList.remove("no-anim");
+      if (!moved) return;
+      if (gone) document.documentElement.style.setProperty("--sb-w", was + "px"); // (it comes back as wide as it was)
+      post("sidebar", { width: Math.round(sbWidth()), visible: !gone });
+      window.dispatchEvent(new Event("resize")); // (what fits itself to the column's width does so again)
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  });
+  sbGrip.addEventListener("dblclick", () => {
+    if (!sidebarOpen()) return;
+    document.documentElement.style.setProperty("--sb-w", SB_OWN + "px");
+    post("sidebar", { width: SB_OWN, visible: true });
+    window.dispatchEvent(new Event("resize"));
+  });
   function setFolder(f) {
     if (titlesAt) { // the list is fading out for a names/titles switch: swap once it is gone
       const wait = titlesAt + motionMs("--dur-fast", 160) * 0.7 - performance.now();
@@ -1708,6 +1754,7 @@
     applyFolder(f, true);
   }
   function applyFolder(f, animate) {
+    if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
     const first = !folder || folder.root !== f.root;
     if (first) { sbOpen.clear(); sbList.textContent = ""; }
     folder = f;

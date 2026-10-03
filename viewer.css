@@ -622,6 +622,14 @@ body[data-sidebar="open"] #sidebar {
   transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
 }
 #sidebar.no-anim { transition: none; }
+/* its edge, to pull it wider, narrower, away — and, from the window's edge, out again */
+#sb-grip { position: fixed; top: 0; bottom: 0; left: 0; z-index: 16; width: 6px; cursor: col-resize; display: none; }
+body[data-folder] #sb-grip { display: block; }
+body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; }
+#sb-grip::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: var(--accent); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+body[data-sidebar="open"] #sb-grip:hover::after, body.sb-sizing[data-sidebar="open"] #sb-grip::after { opacity: 0.5; transition-duration: var(--dur-instant); }
+body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+@media print { #sb-grip { display: none !important; } }
 /* The text column makes room at once; viewer.js glides it over (transform). */
 body[data-sidebar="open"] { padding-left: var(--sb-w); }
 #toolbar [data-act="sidebar"] { display: none; }

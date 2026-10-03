@@ -701,6 +701,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             "tree": self.tree,
             "titles": bool(st.get("sidebar_titles")),
             "visible": st.get("sidebar", True),
+            "width": st.get("sidebar_width", 0),
         }
         blob = json.dumps(payload, sort_keys=True)
         if blob != self.tree_json:
@@ -808,6 +809,15 @@ class ViewerWindow(Gtk.ApplicationWindow):
 
     def sidebar_pref(self, msg):
         st = self.app.state
+        if "width" in msg:  # pulled to another width: kept, nothing to scan again for
+            try:
+                st["sidebar_width"] = max(180, min(640, int(msg["width"])))
+            except (TypeError, ValueError):
+                pass
+            if "visible" in msg:
+                st["sidebar"] = bool(msg["visible"])
+            save_state(st)
+            return
         if "visible" in msg:
             st["sidebar"] = bool(msg["visible"])
         if "titles" in msg:
