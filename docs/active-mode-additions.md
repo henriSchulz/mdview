@@ -51,3 +51,33 @@ still and screenshots came out empty. The checks that wait for an animation
 to end (dialog settled, bar faded in, table handles, sidebar), and the
 pixel comparisons of reading and source mode against `main`, could not be
 run; everything that does not depend on frames passed.
+
+## Blocks as wholes (2026-10-03)
+
+`active/blocks.js`; probes `blocks` (28 checks) and `lists` (35).
+
+- **Selecting.** A click on a block's handle selects the block (Shift+click
+  extends). Then the keys work on blocks: ↑ ↓, Shift+↑ ↓, Ctrl+↑ ↓ (first /
+  last), Alt+↑ ↓ (move), Ctrl+A (siblings, then everything), Enter (into
+  the block; an island's dialog), Esc, Backspace / Delete, copy and cut as
+  Markdown. A typed character continues at the end of the block. A click
+  into the empty space beside the text lets the selection go. A table is
+  not node-selected (the table plugin would make cells of it); the caret
+  waits in its first cell.
+- **Dragging.** The handle does the whole move itself: `dragover` and
+  `drop` are handled on the document in the capture phase, a line of its own
+  (`.blk-line`) shows the gap. Several selected blocks move together; what
+  was moved stays selected.
+- **List items.** The depth follows the pointer's way sideways from where
+  the item was taken (`drag.dx`): straight up or down keeps it, right goes
+  under the item above, left goes out. Every gap offers only the depths
+  possible there; the line starts at the depth the item will have. Outside
+  a list the items get a list of their kind.
+- **The handle.** On a list's own space (bullets, indent) it is the item's
+  at that height. To drag a whole list: select an item, Ctrl+A, drag.
+- **A click below the last block** starts an empty line there (nothing in
+  the file until something is written).
+- **The / menu** also opens in a line with text and applies to that block.
+
+Dragging is tested with made-up drag events, sent to the element under the
+pointer; a drag with the real pointer cannot be started in the rig.
