@@ -72,6 +72,12 @@
       handleDOMEvents: {
         mousemove(v, e) {
           if (!v.editable || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false;
+          // on the way to the handle the pointer crosses what lies left of the block (the list it is in):
+          // the handle stays the block's while the pointer is beside it, at its height
+          if (over && over.isConnected) {
+            const r = over.getBoundingClientRect(), h = handle.getBoundingClientRect();
+            if (e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4 && e.clientX < r.left + 6 && e.clientX >= h.left - 8) { clearTimeout(leaving); return false; }
+          }
           const el = blockOf(v, e.target);
           if (el) { clearTimeout(leaving); if (el !== over) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
@@ -85,5 +91,5 @@
   handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hideSoon(); });
   window.addEventListener("scroll", () => { if (over && !handle.hasAttribute("data-dragging")) hide(); }, { passive: true });
 
-  A.blocks = { plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { over: () => over, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();
