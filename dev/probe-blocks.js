@@ -82,6 +82,27 @@
     const typed = key("x");
     ok("a character typed: the caret is at the end of that block and the key goes on to be typed", !typed.defaultPrevented && picked().length === 0 && view.state.selection.$from.parentOffset === view.state.selection.$from.parent.content.size && view.state.selection.$from.parent.textContent.startsWith("Second"));
 
+    // --- a table selected as a block: the arrows move over blocks, not through its cells
+    {
+      const wrap = view.dom.querySelector(".table-wrap");
+      A.blocks.select(view, wrap.pmViewDesc.posBefore, false);
+      await sleep(100);
+      ok("a table can be selected as a block", picked().length === 1 && !!view.dom.querySelector(".table-wrap.blk-sel"), picked());
+      key("ArrowDown");
+      ok("↓ from a selected table goes to the next block", picked().join("|").startsWith("Filler paragraph 1"), picked());
+      key("ArrowUp"); key("ArrowUp");
+      ok("↑ ↑ over the table to the block above it", picked()[0].includes("let a"), picked());
+      key("ArrowDown"); key("ArrowDown", { shiftKey: true });
+      ok("Shift+↓ from the table takes the next block too", picked().length === 2 && !!view.dom.querySelector(".table-wrap.blk-sel"), picked());
+      key("ArrowUp", { shiftKey: true });
+      key("ArrowUp", { altKey: true });
+      ok("Alt+↑ moves the table above the code block", md().indexOf("| Name") < md().indexOf("```js") && !!view.dom.querySelector(".table-wrap.blk-sel"), md().slice(60, 200));
+      key("ArrowDown", { altKey: true });
+      ok("… and Alt+↓ back", md() === original);
+      key("Enter");
+      ok("Enter puts the caret into the table", picked().length === 0 && !!A.tableui.cellAt(view.state.selection.$from));
+    }
+
     // --- a click into the empty space beside the text lets the selection go
     A.blocks.select(view, view.posAtDOM(para("Second paragraph"), 0) - 1, false);
     await sleep(100);

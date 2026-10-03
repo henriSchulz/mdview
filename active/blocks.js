@@ -69,10 +69,15 @@
   }
   const posOfChild = (r, index) => { let pos = r.start; for (let i = 0; i < index; i++) pos += r.parent.child(i).nodeSize; return pos; };
   // a selection of blocks set: the editor's own selection goes to the block it reaches to
+  // (A table is not selected as a node: the table plugin would turn that into a selection of
+  // cells, and the blocks would be let go. The caret waits in its first cell instead.)
+  const pmSel = (doc, head) => {
+    const node = doc.nodeAt(head);
+    return node && node.type.name !== "table" && NodeSelection.isSelectable(node) ? NodeSelection.create(doc, head) : Selection.near(doc.resolve(head + (node && node.type.name === "table" ? 3 : 0)), 1);
+  };
   function setSel(state, anchor, head) {
     const tr = state.tr.setMeta(selKey, { anchor, head });
-    const node = state.doc.nodeAt(head);
-    tr.setSelection(node && NodeSelection.isSelectable(node) ? NodeSelection.create(state.doc, head) : Selection.near(state.doc.resolve(head), 1));
+    tr.setSelection(pmSel(state.doc, head));
     return tr.scrollIntoView();
   }
   function selectBlock(v, pos, extend) {
@@ -99,8 +104,7 @@
       tr.insert(at, slice.content);
       const shift = at - r.from;
       tr.setMeta(selKey, { anchor: sel.anchor + shift, head: sel.head + shift }).setMeta("step", true);
-      const head = sel.head + shift, node = tr.doc.nodeAt(head);
-      tr.setSelection(node && NodeSelection.isSelectable(node) ? NodeSelection.create(tr.doc, head) : Selection.near(tr.doc.resolve(head), 1));
+      tr.setSelection(pmSel(tr.doc, sel.head + shift));
       return done(tr.scrollIntoView());
     }
     if (up || down) {
@@ -169,7 +173,7 @@
           const next = { anchor: tr.mapping.map(value.anchor, 1), head: tr.mapping.map(value.head, 1) };
           return rangeOf(state, next) ? next : null;
         }
-        return tr.selectionSet ? null : value; // the caret put somewhere: the blocks are let go
+        return tr.selectionSet && !tr.getMeta("appendedTransaction") ? null : value; // the caret put somewhere: the blocks are let go
       },
     },
     props: {
@@ -297,8 +301,7 @@
     let last = at;
     tr.doc.nodesBetween(at, at + size, (n, p, parent) => { if (parent === tr.doc.resolve(at).parent && p >= at) last = p; return false; });
     tr.setMeta(selKey, { anchor: at, head: last }).setMeta("uiEvent", "drop").setMeta("step", true);
-    const node = tr.doc.nodeAt(last);
-    tr.setSelection(node && NodeSelection.isSelectable(node) ? NodeSelection.create(tr.doc, last) : Selection.near(tr.doc.resolve(last), 1));
+    tr.setSelection(pmSel(tr.doc, last));
     view.dispatch(tr);
     view.focus();
   });
