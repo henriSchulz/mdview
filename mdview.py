@@ -94,6 +94,8 @@ PREFS = {
     # the PDF viewer: what a link to a selection is copied as ("callout" | "quote" | "link" |
     # "embed"), and whether selecting text copies at once
     "pdfFormat": "callout", "pdfAuto": False,
+    # what the folder sidebar lists beside the notes: PDFs, pictures, sound and film, everything else
+    "sidebarPdf": True, "sidebarImages": False, "sidebarMedia": False, "sidebarOther": False,
 }
 # snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
 # ("export default [ … ]"); they take the place of the built-in ones
@@ -230,7 +232,7 @@ def natural_key(name):
     return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", name.lower())]
 
 
-def scan_folder(root, cache, titles, keep=()):
+def scan_folder(root, cache, titles, keep=(), show=("pdf",)):
     """The notes below root as a tree, plus every directory walked (to watch).
     Hidden entries and SKIP_DIRS are left out, as are folders without notes.
     Titles are only read when asked for; cache maps path -> (stat key, title)."""
@@ -269,11 +271,15 @@ def scan_folder(root, cache, titles, keep=()):
                     node["notes"].append({"name": os.path.splitext(e.name)[0], "path": e.path,
                                           "real": os.path.realpath(e.path), "title": title})
                     count += 1
-                elif e.name.lower().endswith(".pdf") and e.is_file() and count < NOTE_LIMIT:
-                    # PDFs open in the window too: listed with their ending, to tell them from notes
-                    node["notes"].append({"name": e.name, "path": e.path, "real": os.path.realpath(e.path),
-                                          "title": None, "pdf": True})
-                    count += 1
+                elif count < NOTE_LIMIT and e.is_file():
+                    # what the settings ask for beside the notes — with its ending, to tell it
+                    # from a note. (PDFs open in the window; the rest in its own application.)
+                    kind = file_kind(Path(e.name))
+                    group = {"pdf": "pdf", "image": "image", "audio": "media", "video": "media"}.get(kind, "other")
+                    if group in show:
+                        node["notes"].append({"name": e.name, "path": e.path, "real": os.path.realpath(e.path),
+                                              "title": None, "pdf": True, "kind": kind})
+                        count += 1
             except OSError:
                 continue
         return node
@@ -694,7 +700,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
         if not self.folder:
             return False
         titles = bool(self.app.state.get("sidebar_titles"))
-        self.tree, walked = scan_folder(self.folder, self.title_cache, titles, self.kept_dirs)
+        prefs = self.app.prefs()
+        show = {g for g, key in (("pdf", "sidebarPdf"), ("image", "sidebarImages"), ("media", "sidebarMedia"),
+                                 ("other", "sidebarOther")) if prefs.get(key)}
+        self.tree, walked = scan_folder(self.folder, self.title_cache, titles, self.kept_dirs, show)
         self.note_paths = {n["path"] for n in tree_notes(self.tree)}
         have = {m.dir for m in self.dir_monitors}
         want = set(walked[:WATCH_LIMIT])
@@ -738,7 +747,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
 
     def open_note(self, path):
         if self.folder and path in self.note_paths:
-            self.open_path(path)
+            if file_kind(Path(path)) in ("md", "pdf"):
+                self.open_path(path)
+            else:  # a picture, a film, any other file: in its own application
+                launch_uri(Path(path).as_uri())
 
     def new_note(self, name, where):
         if not self.folder:
@@ -1552,6 +1564,8 @@ class MdViewApp(Gtk.Application):
         save_state(self.state)
         for w in self.windows():
             w.js("MdView.setPrefs", prefs)
+            if w.folder and any(k.startswith("sidebar") for k in new):
+                w.rescan()  # (what the sidebar lists may have changed)
 
     def read_motion(self):
         try:

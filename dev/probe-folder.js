@@ -51,7 +51,7 @@
       // the + button: a note or a folder
       document.querySelector('#sidebar [data-act="newmenu"]').click();
       await sleep(200);
-      ok("the + button offers a note or a folder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder", cmds());
+      ok("the + button offers a note or a folder, and the sidebar's settings", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,settings", cmds());
       shown()[1].click();
       await sleep(400);
       const input = document.getElementById("sb-new-input");
@@ -72,6 +72,24 @@
       await sleep(600);
       ok("the note is made inside that folder and opens", MdView.core.current.name === "Idea.md" && /\/Drafts\/Idea\.md$/.test(MdView.core.current.path), MdView.core.current.path);
       MdView.setMode("read"); await sleep(500);
+    }
+    // which kinds of files the sidebar lists: the settings
+    {
+      const names = () => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim());
+      const set = async (o) => { window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "prefs", prefs: o })); await sleep(900); };
+      ok("as it comes: notes and PDFs, no pictures or other files", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv"), names());
+      await set({ sidebarImages: true, sidebarOther: true, sidebarPdf: false });
+      ok("pictures and other files on, PDFs off: the list follows at once", !names().includes("paper.pdf") && names().includes("photo.png") && names().includes("data.csv") && names().includes("basics"), names());
+      await set({ sidebarImages: false, sidebarOther: false, sidebarPdf: true });
+      ok("and back", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv"), names());
+      // the dialog itself, from the reading mode
+      MdView.setMode("read"); await sleep(400);
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", code: "Comma", ctrlKey: true, bubbles: true, cancelable: true }));
+      let dlg = null;
+      for (let i = 0; i < 100 && !(dlg && dlg.hasAttribute("data-open")); i++) { await sleep(50); dlg = document.getElementById("dlg"); }
+      const labels = dlg ? [...dlg.querySelectorAll(".pf-name")].map((x) => x.textContent) : [];
+      ok("Ctrl+, opens the settings from any mode; the sidebar's switches are there", !!dlg && dlg.hasAttribute("data-open") && ["PDFs", "Pictures", "Sound and video", "All other files"].every((l) => labels.includes(l)), labels);
+      if (dlg) { dlg.querySelector('[data-do="cancel"]').click(); await sleep(400); }
     }
     // the sidebar's edge, pulled with the real pointer
     {

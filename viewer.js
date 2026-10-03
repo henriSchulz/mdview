@@ -1470,6 +1470,10 @@
       pdfWatch.observe(document.body, { childList: true, subtree: true });
     }
   }
+  // the settings, from any mode (their dialog is the active mode's: loaded when first asked for)
+  function openSettings() {
+    loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
+  }
   let activeLoad = null;
   function loadActive() {
     const script = (src) => new Promise((resolve, reject) => {
@@ -1905,7 +1909,9 @@
     entry("reveal", "reveal", "Show in Finder", "file dir") +
     `<div class="menu-rule" data-for="file"></div>` +
     entry("rename", "rename", "Rename", "file", "F2") +
-    entry("trash", "trash", "Move to Trash", "file", "Del", " danger");
+    entry("trash", "trash", "Move to Trash", "file", "Del", " danger") +
+    `<div class="menu-rule" data-for="new"></div>` +
+    entry("settings", "list", "Sidebar Settings…", "new", "Ctrl+,");
   document.body.appendChild(ctx);
   let ctxItems = [];
   let ctxFor = null, ctxHl = -1, ctxKind = "file";
@@ -1943,7 +1949,8 @@
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd;
-      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
+      if (cmd === "settings") openSettings();
+      else if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
       else if (cmd === "rename") startRename(item);
       else if (cmd === "trash") post("trash", { path: item.dataset.key });
       else post("fileop", { op: cmd, path: item.dataset.key });
@@ -2183,6 +2190,7 @@
         f: openFind, e: actions.edit, o: () => post("open"), r: () => post("reload"),
         s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } },
         n: () => { if (folder) openNewNote(); },
+        ",": openSettings,
         p: printDoc, w: () => post("close"), q: () => post("close"),
         "=": () => post("zoom", { step: 1 }), "+": () => post("zoom", { step: 1 }),
         "-": () => post("zoom", { step: -1 }), "0": () => post("zoom", { step: 0 }),

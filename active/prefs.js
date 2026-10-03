@@ -9,6 +9,7 @@
     images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
+    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false,
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -18,6 +19,11 @@
     ["section", "prefs.general"],
     ["lang", "select", [["en", "English"], ["de", "Deutsch"]]],
     ["startMode", "select", [["last", "prefs.start.last"], ["read", "mode.read"], ["active", "mode.active"], ["edit", "mode.edit"]]],
+    ["section", "prefs.sidebar"],
+    ["sidebarPdf", "switch"],
+    ["sidebarImages", "switch"],
+    ["sidebarMedia", "switch"],
+    ["sidebarOther", "switch"],
     ["section", "prefs.editing"],
     ["bar", "switch"],
     ["slash", "switch"],
