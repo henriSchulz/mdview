@@ -15,18 +15,24 @@
   document.body.appendChild(handle);
   let over = null, view = null; // the block element the handle belongs to
 
+  /* The block under the pointer: a block of the document, or one inside a list item or a quote.
+   * The first block of a list item stands for the item (dragging it moves the item). */
   const blockOf = (v, target) => {
     let el = target && target.nodeType === 1 ? target : target && target.parentElement;
-    while (el && el.parentElement !== v.dom) el = el.parentElement;
-    if (!el || el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes") return null;
+    while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote") && !el.matches(".li-body, input"))) el = el.parentElement;
+    if (!el || el === v.dom || !v.dom.contains(el)) return null;
+    const holder = el.parentElement.matches(".li-body") ? el.parentElement.parentElement : el.parentElement;
+    if (holder.matches("li") && !el.previousElementSibling) el = holder; // the item itself
+    if (el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes" || !el.pmViewDesc || !el.pmViewDesc.node) return null;
     return el;
   };
   function place(el) {
     over = el;
-    const r = el.getBoundingClientRect(), pm = view.dom.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     const line = parseFloat(getComputedStyle(el).lineHeight) || 26;
-    const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
-    handle.style.left = pm.left - 26 + scrollX + "px";
+    const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
+    // left of the block; left of its bullet or checkbox for a list item
+    handle.style.left = r.left - (el.matches("li") ? 48 : 26) + scrollX + "px";
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
     handle.dataset.on = "";
   }
@@ -38,10 +44,9 @@
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   handle.addEventListener("dragstart", (e) => {
     if (!view || !over || !over.isConnected) { e.preventDefault(); return; }
-    const $p = view.state.doc.resolve(view.posAtDOM(over, 0));
-    const pos = $p.depth ? $p.before(1) : $p.pos;
-    const node = view.state.doc.nodeAt(pos);
-    if (!node) { e.preventDefault(); return; }
+    const desc = over.pmViewDesc, pos = desc && desc.posBefore;
+    const node = pos == null ? null : view.state.doc.nodeAt(pos);
+    if (!node || node !== desc.node) { e.preventDefault(); return; }
     const sel = NodeSelection.create(view.state.doc, pos); // (what is dragged; the selection on screen stays as it is)
     const slice = sel.content();
     view.dragging = { slice, move: true, node: sel }; // what ProseMirror's own drop takes and moves

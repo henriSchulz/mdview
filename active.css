@@ -540,3 +540,6 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 /* Markdown at the caret: the marks, set back from the text they belong to */
 .pm .syn { color: var(--fg3, var(--fg2)); font-weight: 400; font-style: normal; text-decoration: none; opacity: 0.75; }
 .pm code .syn, .pm .syn { font-family: var(--mono); font-size: 0.86em; }
+
+/* a menu that is closed (or fading out) takes no pointer */
+.actmenu:not([data-open]) { pointer-events: none; }

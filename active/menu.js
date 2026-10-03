@@ -79,6 +79,7 @@
   }
   function openSub(i, viaKey) {
     clearTimeout(subTimer);
+    if (!isOpen()) return closeSub(); // (its menu is gone, or going)
     if (subOf === i && isOpen(sub)) return;
     const entry = root.entries[i];
     if (!entry || !entry.item.items || entry.item.disabled) return closeSub();
@@ -98,7 +99,7 @@
     delete sub.el.dataset.open;
   }
   function close(chosen = false) {
-    if (!isOpen()) return false;
+    if (!isOpen()) { closeSub(); return false; }
     closeSub();
     delete root.el.dataset.open;
     const f = after;
@@ -106,21 +107,24 @@
     if (!chosen && f) f();
     return true;
   }
+  let chosen = false;
   function run(p, i) {
-    if (!usable(p, i)) return;
+    if (!usable(p, i) || chosen) return;
     const { el: b, item } = p.entries[i];
     if (item.items) return openSub(i, true);
     const cs = getComputedStyle(document.documentElement).getPropertyValue("--flash-duration");
     const flash = parseFloat(cs) * (/ms\s*$/.test(cs) ? 1 : 1000) || 70; // blink once, then act — like NSMenu
     b.classList.remove("hl");
     setTimeout(() => b.classList.add("hl"), flash);
-    setTimeout(() => { close(true); item.run(); }, flash * 2);
+    chosen = true; // (one choice per menu: a second click while it blinks does nothing)
+    setTimeout(() => { chosen = false; close(true); item.run(); }, flash * 2);
   }
   for (const p of [root, sub]) {
     const at = (e) => p.entries.findIndex((x) => x.el === e.target.closest(".menu-item"));
     p.el.addEventListener("contextmenu", (e) => e.preventDefault());
     p.el.addEventListener("mousedown", (e) => e.preventDefault()); // the focus stays where it is
     p.el.addEventListener("mousemove", (e) => {
+      if (!isOpen()) return; // fading out: the pointer may still be over it
       const i = at(e);
       if (i !== p.hl) setHl(p, usable(p, i) ? i : -1);
       if (p !== root) return;
@@ -129,7 +133,7 @@
       else if (isOpen(sub)) subTimer = setTimeout(closeSub, 200);
     });
     p.el.addEventListener("mouseleave", (e) => { if (!(p === root && sub.el.contains(e.relatedTarget))) setHl(p, -1); });
-    p.el.addEventListener("click", (e) => run(p, at(e)));
+    p.el.addEventListener("click", (e) => { if (isOpen()) run(p, at(e)); });
   }
   // the keys, while a menu is open (before anything else sees them)
   document.addEventListener("keydown", (e) => {
@@ -152,7 +156,7 @@
   window.addEventListener("blur", () => close());
   sub.el.addEventListener("mouseenter", () => { clearTimeout(subTimer); setHl(root, subOf); keys = sub; });
   root.el.addEventListener("mouseenter", () => { keys = root; });
-  document.addEventListener("mousedown", (e) => { if (isOpen() && !root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, true);
+  document.addEventListener("mousedown", (e) => { if ((isOpen() || isOpen(sub)) && !root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, true);
   // scrolled by the user: the menu goes (the page moving under the caret while one types does not count)
   window.addEventListener("wheel", () => close(), { passive: true });
 

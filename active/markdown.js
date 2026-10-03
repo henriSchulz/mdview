@@ -355,7 +355,7 @@
       item.forEach((child) => {
         if (child.type.name === "paragraph" && !child.content.size && item.childCount > 1) return; // (an item cannot start with an empty line and go on)
         let ls = lines(child, apart(child, prev, cx));
-        if (prev && !(tight && !(prev.type.name === "paragraph" && child.type.name === "paragraph"))) body.push("");
+        if (prev && (!(tight && !(prev.type.name === "paragraph" && child.type.name === "paragraph")) || child.type.name === "table")) body.push("");
         // a list under a bullet may be indented further than the text needs (four spaces, a tab)
         const nested = /_list$/.test(child.type.name) && !ordered && prev ? cx.profile.indent : 0;
         if (nested === "\t") ls = ls.map((l) => (l ? "\t" + l : l));
