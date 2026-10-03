@@ -31,9 +31,9 @@
       h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hx, clientY: hr.top + 9, dataTransfer: dt }));
       const t = own(where).getBoundingClientRect(), left = item(where).getBoundingClientRect().left;
       const x = left + inX - dx, y = half === "upper" ? t.top + 3 : t.bottom - 3;
-      document.body.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+      (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       const shown = line.hasAttribute("data-on"), lx = Math.round(line.getBoundingClientRect().left - left);
-      document.body.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+      (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
       await sleep(200);
       return { shown, lx };

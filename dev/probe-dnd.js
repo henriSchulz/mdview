@@ -52,10 +52,10 @@
     const target = para("Filler paragraph 2 ");
     const tr = target.getBoundingClientRect();
     // the pointer beside the text, in the margin where the handle is: the line shows there too
-    document.body.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
+    (document.elementFromPoint(tr.left - 30, tr.top + 3) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
     const ln = document.querySelector(".blk-line"), lr = ln.getBoundingClientRect();
     ok("a line shows the gap it will go to, also with the pointer beside the text", ln.hasAttribute("data-on") && lr.top < tr.top && lr.top > tr.top - 20 && Math.abs(lr.left - tr.left) < 2, [lr.top, tr.top, lr.left, tr.left]);
-    document.body.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
+    (document.elementFromPoint(tr.left - 30, tr.top + 3) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
     h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
     await sleep(200);
     ok("… and is gone after the drop; the moved block is selected", !ln.hasAttribute("data-on") && view.dom.querySelector(".blk-sel")?.textContent.startsWith("Second paragraph"));

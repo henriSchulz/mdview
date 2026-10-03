@@ -368,15 +368,18 @@
     line.style.top = t.y - 1 + scrollY + "px";
     line.dataset.on = "";
   }
+  // (Both before anything else sees them: the editor's own drop handling and drop line stay out of it.)
   document.addEventListener("dragover", (e) => {
     if (!drag || !view) return;
+    e.stopPropagation();
     e.preventDefault(); // (a drop is possible everywhere while one of the editor's blocks is dragged)
     e.dataTransfer.dropEffect = "move";
     const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x);
     if (!same(t, drag.target)) { drag.target = t; showLine(t); }
-  });
+  }, true);
   document.addEventListener("drop", (e) => {
     if (!drag || !view) return;
+    e.stopPropagation();
     e.preventDefault();
     const d = drag, t = d.target;
     drag = null;
@@ -394,7 +397,7 @@
     tr.setSelection(pmSel(tr.doc, last));
     view.dispatch(tr);
     view.focus();
-  });
+  }, true);
   handle.addEventListener("dragend", () => { drag = null; showLine(null); delete handle.dataset.dragging; hide(); });
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
@@ -403,7 +406,6 @@
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
       handleDOMEvents: {
-        dragover(_v, e) { if (drag) e.stopImmediatePropagation(); return false; },
         mousemove(v, e) {
           if (!v.editable || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false;
           // on the way to the handle the pointer crosses what lies left of the block (the list it is in):
