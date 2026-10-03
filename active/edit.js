@@ -635,6 +635,7 @@
     // d: the document ({ store, loaded }) the state is made for
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
+      A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
       IR.inputRules({ rules: [...rules, A.notes.rule] }),
       keymap(keys),
       keymap(C.baseKeymap),

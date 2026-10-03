@@ -543,3 +543,15 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 
 /* a menu that is closed (or fading out) takes no pointer */
 .actmenu:not([data-open]) { pointer-events: none; }
+
+/* blocks selected as wholes (a click on a handle, then the keyboard) */
+.pm .blk-sel { background-color: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); border-radius: var(--radius-row); }
+.pm li.blk-sel { box-shadow: -1.7em 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent), 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+.pm.has-blocksel ::selection { background: transparent; }
+.pm.has-blocksel { caret-color: transparent; }
+.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+
+/* where a block dragged by its handle will go */
+.blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
+@media print { .blk-line { display: none !important; } }

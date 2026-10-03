@@ -48,12 +48,17 @@
     }
     const dt = new DataTransfer();
     h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
-    ok("dragging it carries its Markdown", dt.getData("text/plain") === "Second paragraph for the bar and the menu." && !!view.dragging);
+    ok("dragging it carries its Markdown", dt.getData("text/plain") === "Second paragraph for the bar and the menu.");
     const target = para("Filler paragraph 2 ");
     const tr = target.getBoundingClientRect();
-    drop(view.dom, tr.left + 10, tr.top + 2, dt);
+    // the pointer beside the text, in the margin where the handle is: the line shows there too
+    document.body.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
+    const ln = document.querySelector(".blk-line"), lr = ln.getBoundingClientRect();
+    ok("a line shows the gap it will go to, also with the pointer beside the text", ln.hasAttribute("data-on") && lr.top < tr.top && lr.top > tr.top - 20 && Math.abs(lr.left - tr.left) < 2, [lr.top, tr.top, lr.left, tr.left]);
+    document.body.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: tr.left - 30, clientY: tr.top + 3, dataTransfer: dt }));
     h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
     await sleep(200);
+    ok("… and is gone after the drop; the moved block is selected", !ln.hasAttribute("data-on") && view.dom.querySelector(".blk-sel")?.textContent.startsWith("Second paragraph"));
     const moved = original.replace("Second paragraph for the bar and the menu.\n\n", "").replace("Filler paragraph 2 ", "Second paragraph for the bar and the menu.\n\nFiller paragraph 2 ");
     ok("dropped: the block stands where it was dropped, and nowhere else", md() === moved, md().slice(0, 400));
     key("z", { ctrlKey: true });
