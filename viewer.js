@@ -22,6 +22,14 @@
     return v.endsWith("ms") ? parseFloat(v) : v.endsWith("s") ? parseFloat(v) * 1000 : fallback;
   };
 
+  // a shortcut as macOS writes it in a menu: "Ctrl+Shift+V" -> "⌃⇧V" (modifiers in Apple's order)
+  const KEY_SIGN = { Ctrl: "⌃", Alt: "⌥", Shift: "⇧", Del: "⌦", Enter: "↩", Esc: "⎋", Tab: "⇥" };
+  function keys(k) {
+    if (!k) return "";
+    const parts = k.split("+"), last = parts.pop() || "+";
+    return ["Ctrl", "Alt", "Shift"].filter((m) => parts.includes(m)).map((m) => KEY_SIGN[m]).join("") + (KEY_SIGN[last] || last);
+  }
+
   // ------------------------------------------------------------ icons
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const ICON = {
@@ -57,6 +65,9 @@
     reveal: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V11"/><path d="M3 7v10a2 2 0 0 0 2 2h6"/><circle cx="16.5" cy="16" r="3"/><path d="m21 20.5-2.3-2.3"/>'),
     rename: svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17Z"/><path d="M14.5 7.5l3 3"/>'),
     gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'),
+    pdf: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M8.5 17.5c2-1.5 3.6-4.6 3.6-6.6 0-1.2-1.6-1.2-1.6 0 0 2.2 2.6 5 5 5 1.2 0 1.2-1.4 0-1.4-2 0-5 1.2-7 3Z"/>'),
+    picture: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17.5 4.5-4 3 2.5 3-3 4 4"/>'),
+    file: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>'),
     trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
   };
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
@@ -731,9 +742,19 @@
     }
     return out;
   }
+  // text on the accent (a menu's chosen entry, a primary button): white or black, whichever reads better on it
+  function setOnAccent() {
+    const m = /^#?([0-9a-f]{6})/i.exec(getComputedStyle(document.documentElement).getPropertyValue("--c-accent").trim());
+    if (!m) return;
+    const [r, g, b] = [0, 2, 4].map((i) => { const c = parseInt(m[1].slice(i, i + 2), 16) / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    document.documentElement.style.setProperty("--on-accent", 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.05 ? "#fff" : "#000");
+  }
+  setOnAccent();
   function setTheme(css, mode) {
     document.getElementById("theme").textContent = css;
     document.body.dataset.mode = mode;
+    setOnAccent();
     if (current && mode === "read" && content.querySelector(".mermaid-block")) draw(current, captureAnchor());
   }
   function setMotion(css) {
@@ -1768,12 +1789,14 @@
     const notes = dir.notes.map((n) => ({ key: n.path, note: n, label: (sbTitles && n.title) || n.name }));
     return [...dirs.sort(byLabel), ...notes.sort(byLabel)];
   }
+  const rowIcon = (path) => (/\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf
+    : /\.(png|jpe?g|gif|webp|svg|avif|bmp|tiff?|heic)$/i.test(path) ? ICON.picture : ICON.file);
   function makeItem(e, depth) {
     const item = document.createElement("div");
     item.className = e.dir ? "sb-item sb-fold is-dir" : "sb-item sb-fold";
     item.dataset.key = e.key;
     item.innerHTML = `<div class="sb-in"><button class="sb-row" type="button" style="--depth:${depth}">` +
-      (e.dir ? `<span class="sb-chev">${ICON.chevron}</span>` : "") + `<span class="sb-label"></span></button>` +
+      (e.dir ? `<span class="sb-chev">${ICON.chevron}</span>` : "") + `<span class="sb-icon">${e.dir ? ICON.folder : rowIcon(e.key)}</span><span class="sb-label"></span></button>` +
       (e.dir ? `<div class="sb-kids sb-fold"><div class="sb-in"></div></div>` : "") + `</div>`;
     if (e.note) item.firstChild.firstChild.dataset.real = e.note.real;
     return item;
@@ -1965,7 +1988,7 @@
   ctx.setAttribute("role", "menu");
   // one menu for a file, a folder, and the + button ("new"); data-for says where an entry shows
   const entry = (cmd, icon, label, on, key = "", cls = "") =>
-    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${key}</span>` : ""}</button>`;
+    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
     entry("newnote", "note", "New Note", "dir new", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new") +
@@ -1990,6 +2013,7 @@
     ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
     if (kind !== "new") item.classList.add("ctx-target");
     setCtxHl(-1);
+    if (kind === "new") x -= ctx.offsetWidth; // (it hangs from the button's right edge)
     ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px";
     ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + "px";
     ctx.dataset.open = "";
@@ -2040,7 +2064,7 @@
 
   function startRename(item) {
     const row = item.firstChild.firstChild;
-    if (row.hidden) return;
+    if (row.classList.contains("renaming")) return;
     const stem = item.dataset.key.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
     const input = document.createElement("input");
     input.className = "sb-field sb-rename";
@@ -2057,7 +2081,7 @@
       const name = input.value.trim();
       const focused = document.activeElement === input;
       input.remove();
-      row.hidden = false;
+      row.classList.remove("renaming");
       if (focused) row.focus({ preventScroll: true });
       if (commit && name && name !== stem) post("rename", { path: item.dataset.key, name });
     };
@@ -2068,7 +2092,7 @@
       else if (e.key.startsWith("Arrow") || e.key === "Delete" || e.key === "F2") e.stopPropagation(); // not the list's keys
     });
     input.addEventListener("blur", () => finish(true)); // clicking away keeps the name, like Finder
-    row.hidden = true;
+    row.classList.add("renaming");
     row.after(input);
     input.focus({ preventScroll: true });
     input.select();
@@ -2161,7 +2185,7 @@
     newmenu: () => { // the + button: a note or a folder
       const b = sidebar.querySelector('[data-act="newmenu"]'), r = b.getBoundingClientRect();
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
-      openCtx(b, r.right - 190, r.bottom + 4, "new");
+      openCtx(b, r.right, r.bottom + 4, "new");
     },
     folder: () => post("folder"),
     prev: () => focusHit(hitIdx - 1),
@@ -2327,7 +2351,7 @@
   window.addEventListener("blur", hideTip);
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; } } };

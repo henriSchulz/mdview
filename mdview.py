@@ -17,7 +17,8 @@ by title (first H1), and can create, rename and trash them.
 
 Assets live next to the real path of this script; bin/mdview is a thin
 launcher that hands files to a running instance over D-Bus.
-Colors follow the Omarchy theme, motion follows ~/.local/share/henri-ui.
+Colors follow the Omarchy theme, motion follows ~/.local/share/henri-ui, the
+sizes of sidebar and menus ~/.local/share/apple-ui.
 """
 
 import base64
@@ -51,6 +52,7 @@ ASSETS = SOURCE.parent
 SOURCE_STAMP = SOURCE.stat().st_mtime_ns
 THEME_DIR = Path(os.environ.get("MDVIEW_THEME_DIR") or HOME / ".local/state/omarchy/current")  # (the override: for tests)
 MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
+APPLE_CSS = HOME / ".local/share/apple-ui/apple.css"   # sizes and radii measured on macOS (sidebar, menus)
 STATE_FILE = Path(GLib.get_user_state_dir()) / "mdview" / "state.json"
 DEBUG = bool(os.environ.get("MDVIEW_DEBUG"))
 # Development: a script evaluated in every page once it has rendered; what it
@@ -1849,10 +1851,13 @@ class MdViewApp(Gtk.Application):
                 w.rescan()  # (what the sidebar lists may have changed)
 
     def read_motion(self):
-        try:
-            return MOTION_CSS.read_text().replace("</", "<\\/")
-        except OSError:
-            return ""
+        css = ""
+        for path in (MOTION_CSS, APPLE_CSS):
+            try:
+                css += path.read_text().replace("</", "<\\/") + "\n"
+            except OSError:
+                pass
+        return css
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -1876,7 +1881,8 @@ class MdViewApp(Gtk.Application):
         self.web_settings = s
         for path, cb in ((THEME_DIR / "theme.name", self.on_theme_changed),
                          (THEME_DIR / "theme/colors.toml", self.on_theme_changed),
-                         (MOTION_CSS, self.on_motion_changed)):
+                         (MOTION_CSS, self.on_motion_changed),
+                         (APPLE_CSS, self.on_motion_changed)):
             try:
                 mon = Gio.File.new_for_path(str(path)).monitor_file(Gio.FileMonitorFlags.NONE, None)
                 mon.connect("changed", cb)

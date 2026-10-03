@@ -72,7 +72,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
   align-items: center;
   gap: 6px;
   padding: 5px 5px 5px 10px;
-  font: 400 13px/1.45 "Inter", sans-serif;
+  font: 400 13px/1.45 var(--ui);
   user-select: none;
   -webkit-user-select: none;
   background: color-mix(in srgb, var(--fg) 4%, var(--bg)); /* it lies over text: not see-through */
@@ -91,7 +91,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
   background: var(--bg);
   box-shadow: inset 0 0 0 1px var(--line-strong);
   color: var(--fg);
-  font: 400 13px "Inter", sans-serif;
+  font: 400 13px var(--ui);
   transition: box-shadow var(--dur-fast) var(--ease-out);
 }
 .lp-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
@@ -154,7 +154,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   -webkit-backdrop-filter: blur(30px) saturate(180%);
   backdrop-filter: blur(30px) saturate(180%);
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.25), 0 0 0 0.5px var(--line-strong);
-  font: 400 13px/1.45 "Inter", sans-serif;
+  font: 400 13px/1.45 var(--ui);
   outline: none;
   user-select: none;
   -webkit-user-select: none;
@@ -180,7 +180,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .dlg-foot { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .dlg-info { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
 #dlg .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
-#dlg .btn.primary { background: var(--accent); color: #fff; box-shadow: none; }
+#dlg .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
 #dlg .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
 #dlg .dlg-info .btn, #dlg .dlg-symbols .btn, #dlg .dlg-hint .btn { height: 24px; padding: 0 9px; font-size: 12px; }
 .dlg-preview {
@@ -266,7 +266,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   width: min(360px, calc(100vw - 24px));
   padding: 10px;
   background: color-mix(in srgb, var(--fg) 4%, var(--bg));
-  font: 400 13px/1.45 "Inter", sans-serif;
+  font: 400 13px/1.45 var(--ui);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -321,11 +321,18 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
 .tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
 
-.actmenu { position: fixed; z-index: 45; min-width: 190px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 5px; outline: none; user-select: none; -webkit-user-select: none; }
+.actmenu { position: fixed; z-index: 45; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
 #actsub { z-index: 46; }
-.actmenu .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.actmenu .menu-item:disabled { color: var(--fg2); opacity: 0.55; }
-.menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }
+.actmenu .menu-item:disabled { color: var(--fg3); }
+.actmenu .menu-item:disabled .menu-key { opacity: 0.6; }
+/* the tick of what is on stands in a column of its own, left of the names (as in a macOS menu);
+ * the column is only there in a menu that has something to tick */
+.menu-check { display: none; place-items: center; flex: none; width: 12px; height: 12px; margin-left: -2px; }
+.actmenu.has-checks .menu-check { display: grid; }
+.menu-check svg, .menu-more svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.menu-item:not([aria-checked="true"]) > .menu-check svg { visibility: hidden; }
+.menu-more { display: grid; place-items: center; flex: none; width: 12px; height: 12px; margin: 0 -3px 0 16px; color: var(--fg3); }
+.menu-item.hl .menu-more { color: var(--on-accent, #fff); }
 
 /* ------------------------------------------------------------- footnotes */
 .pm .footnotes li.footnote-item { border-radius: var(--radius-row); transition: background-color var(--dur-slow) var(--ease-out); }
@@ -364,7 +371,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 }
 #fmtbar[data-side="below"] { transform: translateY(-4px); }
 #fmtbar[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out), visibility 0s; }
-.fb { font: 500 14px/1 "Inter", sans-serif; }
+.fb { font: 500 14px/1 var(--ui); }
 .fb b { font-weight: 700; }
 .fb i { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 15px; }
 .fb:disabled { opacity: 0.4; pointer-events: none; }
@@ -376,9 +383,10 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   z-index: 60;
   padding: 3px 8px;
   border-radius: var(--radius-row);
-  background: color-mix(in srgb, var(--fg) 88%, var(--bg));
-  color: var(--bg);
-  font: 400 12px/1.45 "Inter", sans-serif;
+  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 2px 8px rgb(0 0 0 / 0.16);
+  color: var(--fg);
+  font: 400 12px/1.45 var(--ui);
   white-space: nowrap;
   max-width: min(560px, calc(100vw - 16px));
   overflow: hidden;
@@ -522,7 +530,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   font: 400 12px/1.5 var(--mono); user-select: none; -webkit-user-select: none;
 }
 .ce-opt { padding: 2px 8px; border-radius: var(--radius-row); white-space: nowrap; }
-.ce-opt.on { background: var(--accent); color: #fff; }
+.ce-opt.on { background: var(--accent); color: var(--on-accent, #fff); }
 
 /* a task ticked: the check is drawn (a cover in the box's colour shrinks away to the right) */
 .tick-cover { position: absolute; z-index: 5; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
@@ -580,7 +588,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 
 /* a figure drawn by Claude: the dialog */
 #dlg[data-kind="graphic"] { width: min(860px, 94vw); max-height: 92vh; }
-.gr-text { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; resize: vertical; font: 400 13px/1.45 "Inter", sans-serif; user-select: text; -webkit-user-select: text; }
+.gr-text { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; resize: vertical; font: 400 13px/1.45 var(--ui); user-select: text; -webkit-user-select: text; }
 .gr-ref, .gr-change { display: flex; align-items: center; gap: 6px; }
 .gr-label { color: var(--fg2); font-size: 12px; }
 .gr-space { flex: 1; }

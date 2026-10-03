@@ -105,7 +105,7 @@
     // the sidebar's edge, pulled with the real pointer
     {
       const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));
-      const w = () => Math.round(document.getElementById("sidebar").getBoundingClientRect().width), open = () => document.body.dataset.sidebar === "open";
+      const w = () => Math.round(document.getElementById("sidebar").getBoundingClientRect().right), open = () => document.body.dataset.sidebar === "open";
       if (!open()) { window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", ctrlKey: true, altKey: true, bubbles: true, cancelable: true })); await sleep(900); }
       const w0 = w();
       const pull = async (from, to) => { at("move", from, 300); await sleep(80); at("down", from, 300); await sleep(60); for (let i = 1; i <= 6; i++) { at("move", from + ((to - from) * i) / 6, 300); await sleep(30); } at("up", to, 300); await sleep(350); };

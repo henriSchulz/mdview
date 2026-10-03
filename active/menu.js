@@ -6,6 +6,7 @@
 "use strict";
 (() => {
   const A = window.MdActive;
+  const { ICON, keys: signs } = window.MdView.core;
   function panel(id) {
     const el = document.createElement("div");
     el.id = id;
@@ -42,18 +43,16 @@
       if (item.checked != null) b.setAttribute("aria-checked", String(!!item.checked));
       if (item.items) b.setAttribute("aria-haspopup", "menu");
       b.disabled = !!item.disabled;
-      const label = document.createElement("span");
-      label.textContent = item.label;
-      b.appendChild(label);
-      if (item.checked || item.key || item.items) {
-        const k = document.createElement("span");
-        k.className = "menu-key";
-        k.textContent = item.items ? "›" : item.checked ? "✓" : item.key;
-        b.appendChild(k);
-      }
+      // as a macOS menu: the tick in a column before the label, the shortcut (or the arrow to a menu beside it) behind
+      const part = (cls, html) => { const el = document.createElement("span"); el.className = cls; if (html) el.innerHTML = html; return b.appendChild(el); };
+      part("menu-check", ICON.check);
+      part("menu-label").textContent = item.label;
+      if (item.key) part("menu-key").textContent = signs(item.key);
+      if (item.items) part("menu-more", ICON.chevron);
       p.el.appendChild(b);
       p.entries.push({ el: b, item });
     }
+    p.el.classList.toggle("has-checks", items.some((item) => item && item.checked != null));
     setHl(p, -1);
   }
   // above: where its lower edge goes when there is no room below y (so it does not cover what it belongs to)

@@ -16,7 +16,9 @@ beside the notes. The command and the repository are still called `mdview`;
   window gets a sidebar with the folder's notes: create, rename, trash.
 - Stays resident for a while after the last window closes, so reopening is
   instant; `bin/mdview` hands files to the running instance over D-Bus.
-- Colors follow the Omarchy theme, motion follows `~/.local/share/henri-ui`.
+- Colors follow the Omarchy theme, motion follows `~/.local/share/henri-ui`. The
+  sidebar, menus and bars are built as macOS builds them (a floating sidebar card,
+  glass menus, shortcuts as `⌃⇧V`), with the sizes in `~/.local/share/apple-ui`.
 
 ## Install
 
