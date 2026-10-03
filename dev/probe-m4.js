@@ -201,6 +201,38 @@
     view.dispatch(view.state.tr.setSelection(new PM.state.AllSelection(view.state.doc)));
     got = copyOf();
     ok("everything copied: the file's Markdown and its HTML", got.text.includes("|-------|----:|\n| apple |   3 |") && got.text.includes("[^1]: The first note.") && /<table/.test(got.html) && /<strong>/.test(got.html), [got.text.slice(0, 200), got.html.slice(0, 200)]);
+    // dragging a row and a column by their handles (real pointer events, through the application)
+    {
+      const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+      const at = (kind, x, y) => post("probe-pointer", { kind, x, y });
+      const before = md();
+      const pearTd = [...view.dom.querySelectorAll("table")[0].querySelectorAll("td")].find((c) => c.textContent === "pear");
+      const pr = pearTd.getBoundingClientRect();
+      at("move", pr.left + 6, pr.top + 6); await sleep(300);
+      const hr = document.querySelector(".tbl-h-row").getBoundingClientRect();
+      const appleTd = [...view.dom.querySelectorAll("table")[0].querySelectorAll("td")].find((c) => c.textContent === "apple");
+      const ar = appleTd.getBoundingClientRect();
+      at("down", hr.left + hr.width / 2, hr.top + hr.height / 2); await sleep(80);
+      at("move", hr.left + hr.width / 2, ar.top + 8); await sleep(80);
+      at("move", hr.left + hr.width / 2, ar.top + 4); await sleep(150);
+      const lineOn = document.querySelector(".tbl-line").hasAttribute("data-on");
+      at("up", hr.left + hr.width / 2, ar.top + 4); await sleep(300);
+      ok("a row dragged by its handle moves; a line shows where it goes", lineOn && md().includes("|-------|----:|\n| pear  |  12 |\n| apple |   3 |"), [lineOn, md().slice(30, 140)]);
+      ok("… and no menu opens for it", !menu.hasAttribute("data-open"));
+      key(view.dom, "z", { ctrlKey: true });
+      const nameTh = view.dom.querySelectorAll("table")[0].querySelector("th");
+      const qtyTh = view.dom.querySelectorAll("table")[0].querySelectorAll("th")[1];
+      const nr = nameTh.getBoundingClientRect(), qr = qtyTh.getBoundingClientRect();
+      at("move", qr.left + 6, qr.top + 6); await sleep(300);
+      const ch = document.querySelector(".tbl-h-col").getBoundingClientRect();
+      at("down", ch.left + ch.width / 2, ch.top + ch.height / 2); await sleep(80);
+      at("move", nr.left + 10, ch.top + ch.height / 2); await sleep(80);
+      at("move", nr.left + 4, ch.top + ch.height / 2); await sleep(150);
+      at("up", nr.left + 4, ch.top + ch.height / 2); await sleep(300);
+      ok("a column dragged by its handle moves, with its alignment", md().includes("| Qty | Name  |\n|----:|-------|\n|   3 | apple |"), md().slice(0, 140));
+      key(view.dom, "z", { ctrlKey: true });
+      ok("both undone", md() === before, md().slice(0, 140));
+    }
     caret(after("Typed here."));
     await sleep(1200);
     o.saved = md();

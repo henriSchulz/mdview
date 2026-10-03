@@ -132,3 +132,16 @@ test("| a | b | and Enter make a table", () => {
   e.press("Enter");
   assert.equal(e.state.doc.child(0).type.name, "paragraph", "not without pipes at both ends");
 });
+
+test("a cell with a <br> in it: the table is edited in its cells, the <br> stays", () => {
+  const text = "| a | b |\n|---|---|\n| one<br>two | x |\n";
+  const e = doc(text);
+  assert.equal(e.state.doc.child(0).type.name, "table", "a table, not an island");
+  assert.equal(e.md(), text);
+  e.caretAfter("x");
+  e.type("y");
+  assert.equal(e.md(), "| a | b |\n|---|---|\n| one<br>two | xy |\n");
+  e.caretAfter("two");
+  e.type("!");
+  assert.equal(e.md(), "| a | b |\n|---|---|\n| one<br>two! | xy |\n");
+});

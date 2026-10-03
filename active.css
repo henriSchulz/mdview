@@ -475,3 +475,9 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .blk-h svg { width: 10px; height: 16px; fill: currentColor; }
 .drop-line { background: var(--accent); border-radius: 1px; pointer-events: none; animation: none; }
 @media print { .blk-h, .drop-line { display: none !important; } }
+
+/* a row or column dragged by its handle: where it goes */
+.tbl-line { position: absolute; top: 0; left: 0; z-index: 26; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.tbl-line[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+.tbl-h:active, .tbl-h[data-held] { cursor: grabbing; }
+@media print { .tbl-line { display: none !important; } }

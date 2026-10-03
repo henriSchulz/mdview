@@ -188,9 +188,10 @@
     delete handles.row.dataset.on;
   }
   for (const [kind, h] of Object.entries(handles)) {
-    h.addEventListener("mousedown", (e) => e.preventDefault()); // the caret stays
-    h.addEventListener("mouseleave", (e) => { if (!e.relatedTarget?.closest?.(".pm table, .tbl-h") && !A.menu.isOpen) hide(); });
+    h.addEventListener("mousedown", (e) => { e.preventDefault(); if (e.button === 0) startDrag(kind, h, e); }); // the caret stays
+    h.addEventListener("mouseleave", (e) => { if (!drag && !e.relatedTarget?.closest?.(".pm table, .tbl-h") && !A.menu.isOpen) hide(); });
     h.addEventListener("click", () => {
+      if (dragged) { dragged = false; return; } // the end of a drag, not a click
       const view = A.view.pm, td = over;
       if (!view || !td || !td.isConnected) return;
       const cell = cellOfDom(view, td);
@@ -202,6 +203,68 @@
       done.observe(A.menu.el, { attributes: true });
     });
   }
+
+  /* Dragging a handle moves its row or column: a line shows where it goes, the
+   * row (column) under it is lifted a little. Let go, it moves there — one step. */
+  let drag = null, dragged = false;
+  const line = document.createElement("div");
+  line.className = "tbl-line";
+  document.body.appendChild(line);
+  function startDrag(kind, h, e) {
+    const view = A.view.pm, td = over;
+    if (!view || !td || !td.isConnected || !view.editable) return;
+    const cell = cellOfDom(view, td);
+    if (!cell || (kind === "row" && cell.r === 0)) return; // (the header row stays the header row)
+    drag = { kind, h, view, cell, td, x: e.clientX, y: e.clientY, moving: false, to: null };
+  }
+  function slots(d) { // the places it can go: [index, edge position]
+    const table = d.td.closest("table"), rows = [...table.rows];
+    if (d.kind === "row") return rows.map((r, i) => [i, r.getBoundingClientRect()]).filter(([i]) => i > 0);
+    return [...rows[0].cells].map((c, i) => [i, c.getBoundingClientRect()]);
+  }
+  function target(d, e) {
+    const list = slots(d);
+    // the index the dragged one ends up at
+    const from = d.kind === "row" ? d.cell.r : d.cell.c;
+    let to = from;
+    for (const [i, r] of list) {
+      const mid = d.kind === "row" ? r.top + r.height / 2 : r.left + r.width / 2;
+      const p = d.kind === "row" ? e.clientY : e.clientX;
+      if (i < from && p < mid) { to = i; break; }
+      if (i > from && p > mid) to = i;
+    }
+    return to;
+  }
+  function showLine(d, to) {
+    const list = slots(d), from = d.kind === "row" ? d.cell.r : d.cell.c;
+    const table = d.td.closest("table").getBoundingClientRect();
+    const r = list.find(([i]) => i === to)[1];
+    const edge = d.kind === "row" ? (to > from ? r.bottom : r.top) : (to > from ? r.right : r.left);
+    if (d.kind === "row") Object.assign(line.style, { left: table.left + scrollX + "px", top: edge - 1 + scrollY + "px", width: table.width + "px", height: "2px" });
+    else Object.assign(line.style, { left: edge - 1 + scrollX + "px", top: table.top + scrollY + "px", width: "2px", height: table.height + "px" });
+    line.dataset.on = "";
+  }
+  document.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    if (!drag.moving && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    drag.moving = true;
+    drag.h.dataset.held = "";
+    drag.to = target(drag, e);
+    showLine(drag, drag.to);
+  });
+  document.addEventListener("mouseup", () => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    delete line.dataset.on;
+    delete d.h.dataset.held;
+    if (!d.moving) return;
+    dragged = true; // (the click that follows is not one)
+    setTimeout(() => { dragged = false; }, 0);
+    const from = d.kind === "row" ? d.cell.r : d.cell.c;
+    if (d.to == null || d.to === from) return;
+    change(d.view, d.cell.tablePos, d.kind === "row" ? ops.rowMove(from, d.to - from, d.cell.c) : ops.colMove(from, d.to - from, d.cell.r));
+  });
 
   const key = new PluginKey("tables");
   const plugin = new Plugin({

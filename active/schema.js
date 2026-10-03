@@ -318,6 +318,11 @@
             atom("footnote", c, "[^" + c.meta.label + "]");
             break;
           case "task_checkbox": break; // drawn by the list item
+          case "html_inline":
+            // An HTML tag that stands by itself (a line break in a table cell, a comment, a picture) is
+            // an atom of its own; one that opens or closes an element would cut what it wraps apart.
+            if (/^<(br|wbr)\s*\/?>$/i.test(c.content) || /^<!--[\s\S]*-->$/.test(c.content) || /^<img\b[^>]*>$/i.test(c.content)) { atom("html", c, c.content); break; }
+            throw new Unsupported("inline HTML");
           default: throw new Unsupported(c.type);
         }
       }
