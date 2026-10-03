@@ -26,9 +26,11 @@
       own(what).dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
       await sleep(120);
       const dt = new DataTransfer();
-      h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      // taken at the handle: from there on, the pointer's way sideways says how deep
+      const hr = h.getBoundingClientRect(), hx = hr.left + 9, dx = item(what).getBoundingClientRect().left - hx;
+      h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hx, clientY: hr.top + 9, dataTransfer: dt }));
       const t = own(where).getBoundingClientRect(), left = item(where).getBoundingClientRect().left;
-      const x = left + inX, y = half === "upper" ? t.top + 3 : t.bottom - 3;
+      const x = left + inX - dx, y = half === "upper" ? t.top + 3 : t.bottom - 3;
       document.body.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       const shown = line.hasAttribute("data-on"), lx = Math.round(line.getBoundingClientRect().left - left);
       document.body.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
@@ -49,17 +51,27 @@
       "two into the bullet list, after B": "- A\n  - A1\n  - A2\n- B\n  - B1\n  - B2\n- two\n- C\n\nParagraph.\n\n1. one",
       "B2 under B1 (a third level)": "- A\n  - A1\n  - A2\n- B\n  - B1\n    - B2\n- C",
     };
+    EXPECT["A2 above A1 (own sub-list, straight up)"] = "- A\n  - A2\n  - A1\n- B\n  - B1\n  - B2\n- C";
+    EXPECT["A1 below A2 (own sub-list, straight down)"] = "- A\n  - A2\n  - A1\n- B\n  - B1\n  - B2\n- C";
+    EXPECT["A2 between B1 and B2, pointer on B2's upper half"] = "- A\n  - A1\n- B\n  - B1\n  - A2\n  - B2\n- C";
+    EXPECT["C above B, straight up (stays an outer item)"] = "- A\n  - A1\n  - A2\n- C\n- B\n  - B1\n  - B2";
+    EXPECT["A above C, straight down (stays an outer item)"] = "- B\n  - B1\n  - B2\n- A\n  - A1\n  - A2\n- C";
     const cases = [
+      ["A2 above A1 (own sub-list, straight up)", async () => drag("A2", "A1", "upper", 0), 0],
+      ["A1 below A2 (own sub-list, straight down)", async () => drag("A1", "A2", "lower", 0), 0],
+      ["A2 between B1 and B2, pointer on B2's upper half", async () => drag("A2", "B2", "upper", 0), 0],
+      ["C above B, straight up (stays an outer item)", async () => drag("C", "B", "upper", 0), 0],
+      ["A above C, straight down (stays an outer item)", async () => drag("A", "C", "upper", 0), 0],
       ["A2 before B1", async () => drag("A2", "B1", "upper", 4), 0],
       ["A2 after B2", async () => drag("A2", "B2", "lower", 4), 0],
       ["A1 after B2, then A2 too (A's sub-list is gone)", async () => { await drag("A1", "B2", "lower", 4); return drag("A2", "A1", "lower", 4); }, 0],
-      ["B1 out a level, after B", async () => drag("B1", "B2", "lower", -50), null],
+      ["B1 out a level, after B", async () => drag("B1", "B2", "lower", -50), "out"],
       ["C under A (first sub-item)", async () => drag("C", "A", "lower", 40), null],
-      ["A1 under C (a new sub-list)", async () => drag("A1", "C", "lower", 40), 28],
+      ["A1 under C (a new sub-list)", async () => drag("A1", "C", "lower", 40), "in"],
       ["B (with its sub-items) before A", async () => drag("B", "A", "upper", 4), 0],
       ["C out of the list, below the paragraph", async () => drag("C", "Paragraph.", "lower", 4), 0],
       ["two into the bullet list, after B", async () => drag("two", "B2", "lower", -50), null],
-      ["B2 under B1 (a third level)", async () => drag("B2", "B1", "lower", 40), 28],
+      ["B2 under B1 (a third level)", async () => drag("B2", "B1", "lower", 40), "in"],
     ];
     for (const [name, run, lx] of cases) {
       const r = await run();
@@ -67,12 +79,30 @@
       o.got[name] = got;
       const want = EXPECT[name];
       const body = (t) => t.replace(/^# Lists\n\n/, "").trimEnd();
-      ok(name, r.shown && (want.includes("Paragraph") ? body(got) === want : body(got).startsWith(want + "\n\nParagraph.") || body(got).startsWith(want + "\n\n")) && (lx == null || Math.abs(r.lx - lx) <= 3), [r, body(got)]);
+      ok(name, r.shown && (want.includes("Paragraph") ? body(got) === want : body(got).startsWith(want + "\n\nParagraph.") || body(got).startsWith(want + "\n\n")) && (lx == null || (lx === "in" ? r.lx > 12 : lx === "out" ? r.lx < -12 : Math.abs(r.lx - lx) <= 3)), [r, body(got)]);
       await reset();
       ok("… undone", md() === original, md());
     }
+    // --- the handle of a sub-item, with the real pointer: reached from its text, and from its bullet
+    {
+      const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+      const at = (kind, x, y) => post("probe-pointer", { kind, x, y });
+      const t = own("B1").getBoundingClientRect(), li = item("B1");
+      at("move", t.left + 10, t.top + t.height / 2); await sleep(250);
+      ok("pointer on a sub-item's text: its handle", A.blocks.over() === li && h.hasAttribute("data-on"));
+      const hr = h.getBoundingClientRect();
+      let held = true;
+      for (let x = t.left; x > hr.left + 9; x -= 6) { at("move", x, t.top + t.height / 2 + 5); await sleep(25); if (A.blocks.over() !== li || !h.hasAttribute("data-on")) held = false; }
+      at("move", hr.left + 9, hr.top + 9); await sleep(500);
+      ok("… it stays that item's all the way to the handle, and while the pointer rests on it", held && A.blocks.over() === li && h.hasAttribute("data-on") && h.matches(":hover"), [held, h.matches(":hover")]);
+      at("move", 600, 40); await sleep(600);
+      const b2 = own("B2").getBoundingClientRect(), li2 = item("B2");
+      at("move", li2.getBoundingClientRect().left - 14, b2.top + b2.height / 2); await sleep(250);
+      ok("pointer on a sub-item's bullet: that item's handle (not the list's)", A.blocks.over() === li2, A.blocks.over() && A.blocks.over().tagName + ":" + A.blocks.over().textContent.slice(0, 8));
+      at("move", 600, 40); await sleep(500);
+    }
     // nowhere to go: onto itself, into its own sub-items
-    let r = await drag("B", "B1", "lower", 4);
+    let r = await drag("B", "B1", "lower", 0);
     ok("an item cannot go into itself: no line, nothing moves", !r.shown && md() === original, [r, md()]);
     await sleep(900);
     o.saved = md();

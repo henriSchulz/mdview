@@ -19,8 +19,19 @@
 
   /* The block under the pointer: a block of the document, or one inside a list item or a quote.
    * The first block of a list item stands for the item (dragging it moves the item). */
-  const blockOf = (v, target) => {
+  const itemIn = (list, y) => { // the item of this list at that height (the nearest one)
+    let best = null, d = Infinity;
+    for (const li of list.children) {
+      if (!li.matches("li")) continue;
+      const r = li.getBoundingClientRect(), dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+      if (dist < d) { d = dist; best = li; }
+    }
+    return best;
+  };
+  const blockOf = (v, target, y = null) => {
     let el = target && target.nodeType === 1 ? target : target && target.parentElement;
+    // on a list itself (its bullets, its indent): the item at that height
+    if (y != null && el && el.matches("ul, ol") && v.dom.contains(el)) el = itemIn(el, y) || el;
     while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote, ul, ol") && !el.matches(".li-body, input"))) el = el.parentElement;
     if (!el || el === v.dom || !v.dom.contains(el)) return null;
     const holder = el.parentElement.matches(".li-body") ? el.parentElement.parentElement : el.parentElement;
@@ -230,7 +241,10 @@
     let items = slice.content.childCount > 0;
     slice.content.forEach((n) => { if (n.type.name !== "list_item") items = false; });
     const parent = view.state.doc.resolve(from).parent;
-    drag = { from, to, slice, items, list: items && isList(parent) ? parent : null, target: null };
+    // how far in the pointer is says how deep the block goes — measured from where it was taken:
+    // moved straight up or down it keeps its depth, moved right it goes deeper, left further out
+    const dx = e.clientX ? over.getBoundingClientRect().left - e.clientX : 0;
+    drag = { from, to, slice, items, dx, list: items && isList(parent) ? parent : null, target: null };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
@@ -253,7 +267,7 @@
     const v = view, doc = v.state.doc, pm = v.dom.getBoundingClientRect();
     // (beside the text, the pointer counts as being over it: a little way in, where nested blocks begin too)
     const x = e.clientX < pm.left + 60 ? pm.left + 60 : Math.min(e.clientX, pm.right - 12), y = Math.max(pm.top + 1, Math.min(e.clientY, pm.bottom - 1));
-    let el = blockOf(v, document.elementFromPoint(x, y));
+    let el = blockOf(v, document.elementFromPoint(x, y), y);
     if (!el) { // between two blocks: the nearer one
       let best = null, d = Infinity;
       for (const c of v.dom.children) {
@@ -274,30 +288,52 @@
     };
     const wrapped = PM.model.Fragment.from(drag.list ? drag.list.type.create(drag.list.attrs, drag.slice.content) : A.schema.nodes.bullet_list.create(null, drag.slice.content));
 
+    const xe = e.clientX + drag.dx; // where the dragged block's left edge would be
     if (drag.items) {
-      let li = liOf(v, el);
+      // the deepest item at this height
+      const row = document.elementFromPoint(pm.right - 24, y);
+      let li = liOf(v, row && v.dom.contains(row) ? row : el);
+      if (!li && el.matches("ul, ol")) li = itemIn(el, y);
+      const ownOf = (x0) => (x0.querySelector(":scope > p, :scope > .li-body > p") || x0).getBoundingClientRect();
+      const subOf = (x0) => { const d = descOf(x0), last = d && d.node.lastChild; return d && d.node.childCount > 1 && isList(last) ? [...x0.querySelectorAll(":scope > ul, :scope > ol, :scope > .li-body > ul, :scope > .li-body > ol")].pop() || null : null; };
+      for (let sub; li && (sub = subOf(li)) && y > ownOf(li).bottom && itemIn(sub, y); ) li = itemIn(sub, y); // (between two rows)
       if (li) {
-        // out a level for every indent the pointer is left of the item
-        while (e.clientX < li.getBoundingClientRect().left - INDENT && liOf(v, li.parentElement)) li = liOf(v, li.parentElement);
-        const d = descOf(li), r = li.getBoundingClientRect();
-        // its own first line decides before / after (an item with sub-items is tall)
-        const own = li.querySelector(":scope > p, :scope > .li-body > p") || li, or = own.getBoundingClientRect();
-        const after = e.clientY > or.top + or.height / 2;
-        if (after && e.clientX > r.left + INDENT) { // under it: its first sub-item, or a new sub-list
-          const last = d.node.lastChild;
-          if (isList(last) && d.node.childCount > 1) {
-            const pos = d.posBefore + d.node.nodeSize - 1 - last.nodeSize + 1;
-            const sub = li.querySelector(":scope > ul, :scope > ol, :scope > .li-body > ul, :scope > .li-body > ol");
-            return made(pos, false, (sub ? sub.querySelector("li") || sub : li).getBoundingClientRect().left, sub ? sub.getBoundingClientRect().top - 2 : or.bottom + 2);
+        const d0 = descOf(li), or = ownOf(li);
+        const after = y > or.top + or.height / 2;
+        /* the gap below item D: beside it, under it, or beside one of the items around it (if it is the last there) */
+        const below = (D, yLine) => {
+          const d = descOf(D), r = D.getBoundingClientRect(), sub = subOf(D), cands = [];
+          if (sub) { // its sub-items begin right below: only as their first
+            const firstLi = sub.querySelector(":scope > li");
+            cands.push({ pos: d.posBefore + d.node.nodeSize - 1 - d.node.lastChild.nodeSize + 1, wrap: false, left: (firstLi || sub).getBoundingClientRect().left });
+          } else {
+            const P = liOf(v, D.parentElement);
+            const indent = P ? r.left - P.getBoundingClientRect().left : parseFloat(getComputedStyle(D.parentElement).paddingLeft) || INDENT;
+            cands.push({ pos: d.posBefore + d.node.nodeSize, wrap: false, left: r.left });
+            cands.push({ pos: d.posBefore + d.node.nodeSize - 1, wrap: true, left: r.left + indent });
+            for (let cur = D, up = P; up && !cur.nextElementSibling && !cur.parentElement.nextElementSibling; cur = up, up = liOf(v, up.parentElement)) {
+              const du = descOf(up);
+              cands.push({ pos: du.posBefore + du.node.nodeSize, wrap: false, left: up.getBoundingClientRect().left });
+            }
           }
-          const pos = d.posBefore + d.node.nodeSize - 1;
-          return fits(pos, wrapped) ? made(pos, true, r.left + INDENT, r.bottom + 2) : null;
+          let best = null;
+          for (const c of cands) {
+            if (within(c.pos) || !fits(c.pos, c.wrap ? wrapped : drag.slice.content)) continue;
+            if (!best || Math.abs(c.left - xe) < Math.abs(best.left - xe)) best = c;
+          }
+          return best && made(best.pos, best.wrap, best.left, yLine);
+        };
+        if (after) return below(li, subOf(li) ? or.bottom + 2 : li.nextElementSibling ? edge(li, true) : li.getBoundingClientRect().bottom + 2);
+        const S = li.previousElementSibling;
+        if (S && S.matches("li")) { // the gap above it is the gap below what stands before it
+          let D = S;
+          for (let sub; (sub = subOf(D)) && sub.querySelector(":scope > li"); ) D = [...sub.querySelectorAll(":scope > li")].pop();
+          return below(D, li.getBoundingClientRect().top - 3);
         }
-        const pos = d.posBefore + (after ? d.node.nodeSize : 0);
-        return fits(pos, drag.slice.content) ? made(pos, false, r.left, after && li.querySelector("ul, ol") ? r.bottom + 2 : edge(li, after)) : null;
+        return fits(d0.posBefore, drag.slice.content) ? made(d0.posBefore, false, li.getBoundingClientRect().left, li.getBoundingClientRect().top - 3) : null;
       }
       // not over a list: between blocks, in a list of their own
-      while (outerOf(v, el) && e.clientX < el.getBoundingClientRect().left - INDENT) el = outerOf(v, el);
+      while (outerOf(v, el) && xe < el.getBoundingClientRect().left - INDENT / 2) el = outerOf(v, el);
       for (; el; el = outerOf(v, el)) {
         const d = descOf(el);
         if (!d) continue;
@@ -309,7 +345,7 @@
     }
 
     // how far in the pointer is says how deep: left of a nested block, the block around it is meant
-    while (el.parentElement !== v.dom && e.clientX < el.getBoundingClientRect().left - INDENT && outerOf(v, el)) el = outerOf(v, el);
+    while (el.parentElement !== v.dom && xe < el.getBoundingClientRect().left - INDENT / 2 && outerOf(v, el)) el = outerOf(v, el);
     for (; el; el = outerOf(v, el)) {
       const d = descOf(el);
       if (!d) continue;
@@ -318,7 +354,7 @@
       if (within(pos)) return null;
       if (fits(pos, drag.slice.content)) return made(pos, false, r.left, edge(el, after));
       // it does not fit beside a list item (a table, a paragraph): into the item, at its end
-      if (d.node.type.name === "list_item" && after && e.clientX >= r.left - INDENT) {
+      if (d.node.type.name === "list_item" && after) {
         const end = d.posBefore + d.node.nodeSize - 1;
         if (!within(end) && end !== drag.to && fits(end, drag.slice.content)) return made(end, false, r.left, r.bottom + 2);
       }
@@ -374,9 +410,10 @@
           // the handle stays the block's while the pointer is beside it, at its height
           if (over && over.isConnected) {
             const r = over.getBoundingClientRect(), h = handle.getBoundingClientRect();
-            if (e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4 && e.clientX < r.left + 6 && e.clientX >= h.left - 8) { clearTimeout(leaving); return false; }
+            const bottom = over.matches("li") ? Math.min(r.bottom, h.bottom + 6) : r.bottom;
+            if (e.clientY >= r.top - 6 && e.clientY <= bottom + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12) { clearTimeout(leaving); return false; }
           }
-          const el = blockOf(v, e.target);
+          const el = blockOf(v, e.target, e.clientY);
           if (el) { clearTimeout(leaving); if (el !== over) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
