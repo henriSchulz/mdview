@@ -816,3 +816,13 @@ body[data-folder] #toolbar [data-act="sidebar"] { display: grid; }
 /* figures (SVG pictures) stand centred in the column, in every view */
 #content img[src$=".svg" i], .pm img[src$=".svg" i] { display: block; margin-left: auto; margin-right: auto; }
 .pm .ia:has(> img[src$=".svg" i]) { display: block; }
+
+/* a picture, large (a double click on it) */
+#zoom { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); opacity: 0; visibility: hidden; cursor: zoom-out;
+  transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+#zoom[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+#zoom img { position: absolute; transform-origin: 0 0; border-radius: 4px; transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+#zoom[data-open] img { transition: transform var(--spring-gentle-dur, var(--dur-slow)) var(--spring-gentle, var(--ease-out)); }
+#content img:not(.pdf-embed-img), .pm img:not(.pdf-embed-img) { cursor: zoom-in; }
+@media (prefers-reduced-motion: reduce) { #zoom img { transition: none !important; } }
+@media print { #zoom { display: none !important; } }

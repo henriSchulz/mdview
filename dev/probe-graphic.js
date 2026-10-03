@@ -67,8 +67,34 @@
     await until(() => (document.body.dataset.view || "read") === "read");
     await sleep(400);
     { const [off, w] = centred(document.getElementById("content")); ok("… in the reading view too", off !== null && Math.abs(off) <= 2 && w > 20, [off, w]); }
+    // a double click on a picture shows it large
+    {
+      const zoom = document.getElementById("zoom"), small = document.querySelector('#content img[src$=".svg"]'), sr = small.getBoundingClientRect();
+      small.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: sr.left + 5, clientY: sr.top + 5 }));
+      await sleep(700);
+      const br = zoom.firstChild.getBoundingClientRect();
+      ok("reading view: a double click on the picture shows it large, in the middle of the window", zoom.hasAttribute("data-open") && br.width > sr.width * 1.5 && Math.abs(br.left + br.width / 2 - innerWidth / 2) < 3 && Math.abs(br.top + br.height / 2 - innerHeight / 2) < 3 && br.width <= innerWidth && br.height <= innerHeight, [sr.width, br.width, br.left, br.top]);
+      out("zoomed", {}); await sleep(1300);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      await sleep(500);
+      ok("Esc puts it back", !zoom.hasAttribute("data-open") && getComputedStyle(small).visibility === "visible");
+    }
     MdView.setMode("active");
     await until(() => document.body.dataset.view === "active");
+    await sleep(300);
+    {
+      const zoom = document.getElementById("zoom"), small = view.dom.querySelector('img[src$=".svg"]');
+      small.scrollIntoView({ block: "center" }); await sleep(250);
+      const sr = small.getBoundingClientRect();
+      const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));
+      const x = sr.left + sr.width / 2, y = sr.top + sr.height / 2;
+      at("move", x, y); await sleep(80);
+      for (let i = 0; i < 2; i++) { at("down", x, y); await sleep(40); at("up", x, y); await sleep(70); }
+      await sleep(700);
+      ok("active mode: a double click with the real pointer does the same (no edit popover)", zoom.hasAttribute("data-open") && !document.getElementById("dlg").hasAttribute("data-open") && !document.querySelector("#atompop[data-open], #linkpop[data-open]"), [zoom.hasAttribute("data-open")]);
+      zoom.click(); await sleep(500);
+      ok("a click puts it back", !zoom.hasAttribute("data-open"));
+    }
     await sleep(900);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }

@@ -1471,6 +1471,60 @@
       pdfWatch.observe(document.body, { childList: true, subtree: true });
     }
   }
+  /* A picture, large: a double click on it lets it grow from its place to the size of the window
+   * (a drawing as large as fits, a photo no larger than it is). A click, Esc or scrolling puts it back. */
+  const zoomBox = document.createElement("div");
+  zoomBox.id = "zoom";
+  zoomBox.setAttribute("role", "dialog");
+  zoomBox.setAttribute("aria-label", "Picture");
+  zoomBox.innerHTML = '<img alt="">';
+  document.body.appendChild(zoomBox);
+  let zoomFrom = null;
+  const zoomOpen = () => zoomBox.hasAttribute("data-open");
+  function zoomPlace(img) { // where the large picture lies, and the transform that puts it over the small one
+    const big = zoomBox.firstChild, r = img.getBoundingClientRect();
+    const nw = img.naturalWidth || r.width, nh = img.naturalHeight || r.height;
+    const vector = /\.svg([?#]|$)/i.test(img.currentSrc || img.src) || /^data:image\/svg|^blob:/.test(img.src);
+    const scale = Math.min((innerWidth * 0.94) / nw, (innerHeight * 0.92) / nh, vector ? Infinity : Math.max(1, r.width / nw));
+    const w = nw * scale, h = nh * scale, left = (innerWidth - w) / 2, top = (innerHeight - h) / 2;
+    big.style.width = w + "px"; big.style.height = h + "px"; big.style.left = left + "px"; big.style.top = top + "px";
+    return `translate(${r.left - left}px, ${r.top - top}px) scale(${r.width / w}, ${r.height / h})`;
+  }
+  function zoomImage(img) {
+    if (!img || !img.complete || !img.naturalWidth || zoomOpen()) return false;
+    const big = zoomBox.firstChild;
+    zoomFrom = img;
+    big.src = img.currentSrc || img.src;
+    big.style.transition = "none";
+    big.style.transform = zoomPlace(img);
+    zoomBox.dataset.open = "";
+    void big.offsetWidth;
+    big.style.transition = "";
+    big.style.transform = "none";
+    img.style.visibility = "hidden"; // (it is the one that flies)
+    return true;
+  }
+  function zoomClose() {
+    if (!zoomOpen()) return false;
+    const big = zoomBox.firstChild, img = zoomFrom;
+    delete zoomBox.dataset.open;
+    if (img && img.isConnected) big.style.transform = zoomPlace(img);
+    setTimeout(() => { if (img) img.style.visibility = ""; if (!zoomOpen()) big.removeAttribute("src"); }, motionMs("--dur-slow", 270) * 0.7);
+    zoomFrom = null;
+    return true;
+  }
+  zoomBox.addEventListener("click", zoomClose);
+  window.addEventListener("wheel", () => zoomClose(), { passive: true });
+  window.addEventListener("resize", () => zoomClose());
+  document.addEventListener("keydown", (e) => { if (zoomOpen() && (e.key === "Escape" || e.key === " " || e.key === "Enter")) { e.preventDefault(); e.stopPropagation(); zoomClose(); } }, true);
+  // (reading view; in the active mode the editor says when a picture was double clicked)
+  content.addEventListener("dblclick", (e) => {
+    const img = e.target.closest?.("img");
+    if (!img || img.closest(".pdf-embed, .pdfv, a")) return;
+    e.preventDefault();
+    getSelection()?.removeAllRanges();
+    zoomImage(img);
+  });
   // the settings, from any mode (their dialog is the active mode's: loaded when first asked for)
   // — by Ctrl+, and by the gear at the window's lower left corner (the foot of the sidebar)
   const gear = document.createElement("button");
@@ -2274,7 +2328,7 @@
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post,
+      copy: (text) => post("copy", { text }), post, zoomImage,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; } } };
 })();

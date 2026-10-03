@@ -656,6 +656,9 @@
       },
       handleDoubleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || !view.editable || ![N.image, N.iatom].includes(node.type)) return false;
+        // a picture grows to the size of the window (its address is edited from its menu, or with Enter)
+        const img = event.target?.closest?.("img");
+        if (img && !img.closest(".pdf-embed") && view.dom.contains(img)) return window.MdView.core.zoomImage(img) || true;
         return A.islands.open(view, nodePos);
       },
       handleDOMEvents: {

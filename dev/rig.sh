@@ -143,14 +143,14 @@ case "${1:-}" in
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
   graphic)
     # a figure drawn by Claude; `dev/rig.sh graphic real` asks Claude itself (takes about half a minute)
-    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{drawn,inserted,graphic}.json
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{drawn,inserted,zoomed,graphic}.json
     if [[ ${2:-} == real ]]; then
       { echo 'window.__graphicReal = true;'; cat "$D/probe-graphic.js"; } > "$R/probe-graphic-real.js"
       app 200 MDVIEW_PROBE="$R/probe-graphic-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     else
       app 60 MDVIEW_PROBE="$D/probe-graphic.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GRAPHIC_FAKE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80"><script>alert(1)</script><rect x="8" y="8" width="184" height="64" rx="8" fill="none" stroke="#1d1d1f" stroke-width="1.6" onclick="x()"/><text x="100" y="46" text-anchor="middle" font-size="14">TAG</text></svg>' -- "$R/work/$name"
     fi
-    for v in drawn inserted; do for _ in $(seq 1500); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.graphic.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/graphic-$v.png"; done
+    for v in drawn inserted zoomed; do for _ in $(seq 1500); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.graphic.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/graphic-$v.png"; done
     for _ in $(seq 400); do [[ -f $R/out/$name.graphic.json ]] && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
     [[ -f $R/out/$name.graphic.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
