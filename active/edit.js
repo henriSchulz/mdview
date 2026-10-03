@@ -580,6 +580,22 @@
 
   /* A click on a task's box ticks it; Ctrl+click on a link follows it (the
    * page's own click handler does that, a plain click only places the caret). */
+  /* A task ticked: its check is drawn from left to right. A cover in the box's colour lies over
+   * the check and shrinks away to the right (only a transform moves). */
+  function drawTick(view, pos) {
+    const li = view.nodeDOM(pos), box = li && li.querySelector(":scope > input.task");
+    if (!box || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cover = document.createElement("span");
+    cover.className = "tick-cover";
+    cover.style.left = box.offsetLeft + 3 + "px";
+    cover.style.top = box.offsetTop + 3 + "px";
+    cover.style.width = box.offsetWidth - 6 + "px";
+    cover.style.height = box.offsetHeight - 6 + "px";
+    li.appendChild(cover);
+    void cover.offsetWidth;
+    cover.classList.add("go");
+    setTimeout(() => cover.remove(), 400);
+  }
   const clicks = new Plugin({
     key: new PluginKey("clicks"),
     props: {
@@ -602,7 +618,9 @@
             const pos = view.posAtDOM(li, 0);
             const item = itemAt(view.state.doc.resolve(pos + 1)) || itemAt(view.state.doc.resolve(pos));
             if (item && item.node.attrs.task != null) {
-              view.dispatch(view.state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: toggledTask(view.state, item.node.attrs.task) }));
+              const task = toggledTask(view.state, item.node.attrs.task);
+              view.dispatch(view.state.tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task }));
+              if (task !== " ") drawTick(view, item.pos);
             }
             return true;
           }

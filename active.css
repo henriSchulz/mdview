@@ -505,3 +505,24 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 #dlg .fm-del { width: 24px; height: 24px; padding: 0; font-size: 15px; line-height: 1; }
 #dlg .fm-add { justify-self: start; height: 24px; padding: 0 9px; font-size: 12px; }
 .fm-row .pf-switch { justify-self: start; }
+
+/* in a dialog's editor: the bracket that belongs to the one at the caret, what a search found, LaTeX completion */
+.ce-hl { z-index: 0; }
+.ce-match { border-radius: 2px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ce-hit { border-radius: 2px; background: color-mix(in srgb, #ffcc00 32%, transparent); }
+.ce-hit.now { background: color-mix(in srgb, #ffcc00 70%, transparent); }
+.ce-find { display: flex; align-items: center; gap: 8px; }
+.ce-find .lp-field { flex: 1; }
+.ce-count { min-width: 64px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.ce-comp {
+  position: absolute; z-index: 3; min-width: 160px; max-width: 320px; padding: 4px;
+  border-radius: var(--radius-control); background: var(--surface); border: var(--hairline); box-shadow: var(--shadow-popover);
+  font: 400 12px/1.5 var(--mono); user-select: none; -webkit-user-select: none;
+}
+.ce-opt { padding: 2px 8px; border-radius: var(--radius-row); white-space: nowrap; }
+.ce-opt.on { background: var(--accent); color: #fff; }
+
+/* a task ticked: the check is drawn (a cover in the box's colour shrinks away to the right) */
+.tick-cover { position: absolute; z-index: 1; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
+  transition: transform calc(var(--dur-base) * 0.75) var(--ease-out); }
+.tick-cover.go { transform: scaleX(0); }

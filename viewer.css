@@ -769,3 +769,24 @@ body[data-folder] #toolbar [data-act="sidebar"] { display: grid; }
   body { font-size: 11pt; }
   .code-block, .callout, table, img, .mermaid-block { break-inside: avoid; }
 }
+
+/* the app's own tooltips (viewer.js) */
+#apptip {
+  position: fixed;
+  z-index: 60;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 3px 8px;
+  border-radius: var(--radius-row);
+  background: color-mix(in srgb, var(--fg) 88%, var(--bg));
+  color: var(--bg);
+  font: 400 12px/1.45 "Inter", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7);
+}
+#apptip[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+@media print { #apptip { display: none !important; } }

@@ -36,13 +36,28 @@
   const PAIRS = { "{": "}", "(": ")", "[": "]" };
 
   /* -> { el, value, setLanguage, focus, setError, onInput } */
+  // LaTeX commands to complete: [name, number of {} arguments]
+  const LATEX = [
+    ...["alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta", "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi", "pi", "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon", "phi", "varphi", "chi", "psi", "omega",
+      "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega"].map((n) => [n, 0]),
+    ...[["frac", 2], ["dfrac", 2], ["tfrac", 2], ["sqrt", 1], ["binom", 2], ["text", 1], ["textbf", 1], ["textit", 1], ["mathrm", 1], ["mathbf", 1], ["mathit", 1], ["mathbb", 1], ["mathcal", 1], ["mathfrak", 1], ["mathsf", 1], ["mathtt", 1],
+      ["operatorname", 1], ["hat", 1], ["widehat", 1], ["bar", 1], ["overline", 1], ["underline", 1], ["vec", 1], ["dot", 1], ["ddot", 1], ["tilde", 1], ["widetilde", 1], ["overbrace", 1], ["underbrace", 1],
+      ["boxed", 1], ["tag", 1], ["begin", 1], ["end", 1], ["color", 1], ["overset", 2], ["underset", 2], ["stackrel", 2], ["cancel", 1], ["phantom", 1]],
+    ...["sum", "prod", "coprod", "int", "iint", "iiint", "oint", "lim", "limsup", "liminf", "sup", "inf", "max", "min", "arg", "det", "dim", "exp", "log", "ln", "lg", "sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "gcd", "deg",
+      "infty", "partial", "nabla", "cdot", "cdots", "ldots", "vdots", "ddots", "times", "div", "pm", "mp", "ast", "star", "circ", "bullet", "oplus", "otimes", "odot",
+      "leq", "le", "geq", "ge", "neq", "ne", "approx", "equiv", "sim", "simeq", "cong", "propto", "ll", "gg", "prec", "succ", "preceq", "succeq",
+      "in", "notin", "ni", "subset", "subseteq", "supset", "supseteq", "cup", "cap", "setminus", "emptyset", "varnothing", "forall", "exists", "nexists", "neg", "lnot", "land", "lor", "wedge", "vee",
+      "to", "gets", "mapsto", "rightarrow", "leftarrow", "leftrightarrow", "Rightarrow", "Leftarrow", "Leftrightarrow", "implies", "iff", "uparrow", "downarrow", "longrightarrow", "longmapsto", "hookrightarrow",
+      "left", "right", "big", "Big", "bigg", "Bigg", "langle", "rangle", "lfloor", "rfloor", "lceil", "rceil", "lvert", "rvert", "lVert", "rVert", "mid", "parallel", "perp", "angle",
+      "quad", "qquad", "displaystyle", "textstyle", "limits", "nolimits", "hbar", "ell", "Re", "Im", "aleph", "prime", "degree", "dagger", "checkmark", "therefore", "because"].map((n) => [n, 0]),
+  ].sort((a, b) => a[0].length - b[0].length || a[0].localeCompare(b[0]));
   function editor({ value = "", language = "", pairs = false, label = "" } = {}) {
     const wrap = el("div", { class: "ce" },
       `<div class="ce-gutter" aria-hidden="true"></div><div class="ce-main"><div class="ce-line" aria-hidden="true"></div>` +
-      `<pre class="ce-back" aria-hidden="true"><code class="hljs"></code></pre><pre class="ce-marks" aria-hidden="true"></pre>` +
+      `<pre class="ce-back" aria-hidden="true"><code class="hljs"></code></pre><pre class="ce-marks" aria-hidden="true"></pre><pre class="ce-marks ce-hl" aria-hidden="true"></pre>` +
       `<textarea class="ce-in" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea></div>`);
     const gutter = wrap.firstChild, main = wrap.lastChild;
-    const [line, back, marks, input] = main.children;
+    const [line, back, marks, hl, input] = main.children;
     input.setAttribute("aria-label", label);
     input.value = value;
     const api = { el: wrap, input, onInput: null };
@@ -62,14 +77,145 @@
       const row = input.value.slice(0, at).split("\n").length - 1;
       line.style.transform = `translateY(${row * lineHeight()}px)`;
       for (const [i, d] of [...gutter.children].entries()) d.classList.toggle("on", i === row);
+      highlights();
+    }
+    // ---- a second layer: the bracket that belongs to the one at the caret, and what a search found
+    let hits = [], hit = -1;
+    const OPEN = "([{", CLOSE = ")]}";
+    function partner(text, at) { // the bracket next to the caret and its partner: [a, b] or null
+      for (const i of [at - 1, at]) {
+        const ch = text[i];
+        if (ch == null || text[i - 1] === "\\") continue;
+        const o = OPEN.indexOf(ch), c = CLOSE.indexOf(ch);
+        if (o < 0 && c < 0) continue;
+        const dir = o >= 0 ? 1 : -1, mine = ch, other = o >= 0 ? CLOSE[o] : OPEN[c];
+        let depth = 0;
+        for (let j = i; j >= 0 && j < text.length; j += dir) {
+          if (text[j - 1] === "\\") continue;
+          if (text[j] === mine) depth++;
+          else if (text[j] === other && --depth === 0) return [Math.min(i, j), Math.max(i, j)];
+          if (Math.abs(j - i) > 20000) break;
+        }
+        return null;
+      }
+      return null;
+    }
+    function highlights() {
+      const text = input.value, ranges = [];
+      if (input.selectionStart === input.selectionEnd && document.activeElement === input) {
+        const pair = partner(text, input.selectionStart);
+        if (pair) ranges.push([pair[0], pair[0] + 1, "ce-match"], [pair[1], pair[1] + 1, "ce-match"]);
+      }
+      hits.forEach(([a, b], i) => ranges.push([a, b, i === hit ? "ce-hit now" : "ce-hit"]));
+      ranges.sort((x, y) => x[0] - y[0]);
+      let out = "", at = 0;
+      for (const [a, b, cls] of ranges) {
+        if (a < at) continue;
+        out += esc(text.slice(at, a)) + `<span class="${cls}">${esc(text.slice(a, b))}</span>`;
+        at = b;
+      }
+      hl.innerHTML = ranges.length ? out + esc(text.slice(at)) : "";
+    }
+    // ---- searching in it: Ctrl+F
+    let find = null;
+    function openFind() {
+      if (!find) {
+        find = el("div", { class: "ce-find" }, `<input class="lp-field" type="search" spellcheck="false" aria-label="${esc(T("dialog.find"))}" placeholder="${esc(T("dialog.find"))}"><span class="ce-count"></span>`);
+        const field = find.firstChild, count = find.lastChild;
+        const run = () => {
+          const q = field.value.toLowerCase(), text = input.value.toLowerCase();
+          hits = [];
+          if (q) for (let i = text.indexOf(q); i >= 0 && hits.length < 5000; i = text.indexOf(q, i + Math.max(1, q.length))) hits.push([i, i + q.length]);
+          hit = hits.length ? Math.max(0, hits.findIndex(([a]) => a >= input.selectionStart)) : -1;
+          show();
+        };
+        const show = () => {
+          count.textContent = q() ? T("dialog.found", hits.length ? hit + 1 : 0, hits.length) : "";
+          highlights();
+          if (hit >= 0) { // into view in the editor's scrolling box
+            const row = input.value.slice(0, hits[hit][0]).split("\n").length - 1, box = wrap.getBoundingClientRect(), y = row * lineHeight();
+            if (y < wrap.scrollTop || y > wrap.scrollTop + box.height - 3 * lineHeight()) wrap.scrollTop = Math.max(0, y - box.height / 3);
+          }
+        };
+        const q = () => field.value;
+        field.addEventListener("input", run);
+        field.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter" && hits.length) { e.preventDefault(); hit = (hit + (e.shiftKey ? -1 : 1) + hits.length) % hits.length; show(); }
+          else if (e.key === "Escape") { e.preventDefault(); closeFind(true); }
+        });
+        find.run = run;
+      }
+      if (!find.isConnected) wrap.before(find);
+      const field = find.firstChild;
+      const sel = input.value.slice(input.selectionStart, input.selectionEnd);
+      if (sel && !sel.includes("\n")) field.value = sel;
+      field.focus();
+      field.select();
+      find.run();
+    }
+    function closeFind(selectHit) {
+      if (!find || !find.isConnected) return;
+      const h = hits[hit];
+      find.remove();
+      hits = []; hit = -1;
+      input.focus({ preventScroll: true });
+      if (selectHit && h) input.setSelectionRange(h[0], h[1]);
+      highlights();
+    }
+    // ---- LaTeX commands, completed while they are typed
+    let comp = null, compAt = -1, compSel = 0, compList = [];
+    function caretXY() {
+      const at = input.selectionStart, text = input.value, ls = text.lastIndexOf("\n", at - 1) + 1;
+      const row = text.slice(0, at).split("\n").length - 1, col = text.slice(ls, at).replace(/\t/g, "    ").length;
+      const cs = getComputedStyle(input), ctx = (caretXY.c ||= document.createElement("canvas").getContext("2d"));
+      ctx.font = cs.font;
+      return { x: parseFloat(cs.paddingLeft) + col * ctx.measureText("M").width, y: parseFloat(cs.paddingTop) + (row + 1) * lineHeight() };
+    }
+    function completions() {
+      if (lang !== "latex" || input.selectionStart !== input.selectionEnd) return closeComp();
+      const before = input.value.slice(Math.max(0, input.selectionStart - 30), input.selectionStart);
+      const m = /\\([a-zA-Z]{1,})$/.exec(before);
+      if (!m) return closeComp();
+      compList = LATEX.filter(([name]) => name.startsWith(m[1]) && name !== m[1]).slice(0, 8);
+      if (!compList.length) return closeComp();
+      compAt = input.selectionStart - m[1].length;
+      compSel = 0;
+      if (!comp) { comp = el("div", { class: "ce-comp", role: "listbox" }); comp.addEventListener("mousedown", (e) => { e.preventDefault(); const i = [...comp.children].indexOf(e.target.closest(".ce-opt")); if (i >= 0) { compSel = i; accept(); } }); }
+      comp.innerHTML = compList.map(([name, args], i) => `<div class="ce-opt${i === compSel ? " on" : ""}" role="option">\\${esc(name)}${esc(args ? "{…}".repeat(args) : "")}</div>`).join("");
+      const { x, y } = caretXY();
+      comp.style.left = x + "px";
+      comp.style.top = y + "px";
+      if (!comp.isConnected) main.appendChild(comp);
+    }
+    function closeComp() { if (comp && comp.isConnected) comp.remove(); compList = []; }
+    function accept() {
+      const [name, args] = compList[compSel];
+      const typedLen = input.selectionStart - compAt;
+      input.setSelectionRange(compAt, compAt + typedLen);
+      insert(name + "{}".repeat(args || 0), compAt + name.length + (args ? 1 : 0));
+      closeComp();
     }
     const insert = (text, selA, selB) => {
       if (!document.execCommand("insertText", false, text)) { input.setRangeText(text, input.selectionStart, input.selectionEnd, "end"); input.dispatchEvent(new Event("input")); }
       if (selA != null) input.setSelectionRange(selA, selB ?? selA);
     };
-    input.addEventListener("input", () => { paint(); if (api.onInput) api.onInput(input.value); });
+    input.addEventListener("input", () => { paint(); completions(); if (find && find.isConnected) find.run(); if (api.onInput) api.onInput(input.value); });
+    input.addEventListener("blur", () => setTimeout(closeComp, 100));
     for (const type of ["keyup", "click", "focus", "select"]) input.addEventListener(type, caretLine);
     input.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "f") { e.preventDefault(); e.stopPropagation(); openFind(); return; }
+      if (compList.length && comp && comp.isConnected) { // the completion list has the arrows, Enter and Tab
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          compSel = (compSel + (e.key === "ArrowDown" ? 1 : -1) + compList.length) % compList.length;
+          [...comp.children].forEach((c, i) => c.classList.toggle("on", i === compSel));
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); accept(); return; }
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeComp(); return; }
+      }
+      if (e.key === "Escape" && find && find.isConnected) { e.preventDefault(); e.stopPropagation(); closeFind(false); return; }
       if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       const v = input.value, s = input.selectionStart, t = input.selectionEnd;
       if (e.key === "Tab") { // indents here; the dialog's buttons are reached with the mouse or Ctrl+Enter / Esc
@@ -105,6 +251,7 @@
     });
     Object.defineProperty(api, "value", { get: () => input.value, set: (t) => { input.value = t; paint(); } });
     api.setLanguage = (l) => { lang = l; paint(); };
+    api.find = openFind;
     api.setError = (e) => { error = e; paint(); };
     api.insert = (text, selA, selB) => { input.focus({ preventScroll: true }); insert(text, selA, selB); };
     api.focus = (pos) => {

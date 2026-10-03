@@ -2021,6 +2021,36 @@
   function pasteText(r) {
     if (mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
   }
+  /* Tooltips of the app's own (after 700 ms, in the app's look) for everything that has a
+   * title: the title moves to data-tip, so the browser's tooltip never shows. */
+  const tipEl = document.createElement("div");
+  tipEl.id = "apptip";
+  tipEl.setAttribute("role", "tooltip");
+  document.body.appendChild(tipEl);
+  let tipTimer = 0, tipFor = null, tipWarm = 0;
+  const hideTip = () => { clearTimeout(tipTimer); tipFor = null; delete tipEl.dataset.open; };
+  document.addEventListener("mouseover", (e) => {
+    const t = e.target.closest?.("[title], [data-tip]");
+    if (t && t.hasAttribute("title")) { const v = t.getAttribute("title"); t.removeAttribute("title"); if (v && !t.dataset.tip) t.dataset.tip = v; }
+    const el = t && t.dataset.tip && !t.closest("#fmtbar, #linkpop") ? t : null; // (the active mode's own have their own)
+    if (el === tipFor) return;
+    hideTip();
+    if (!el) return;
+    tipFor = el;
+    tipTimer = setTimeout(() => {
+      if (!el.isConnected || tipFor !== el) return;
+      tipEl.textContent = el.dataset.tip;
+      const r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+      const below = r.bottom + 6 + h <= innerHeight - 8;
+      tipEl.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + "px";
+      tipEl.style.top = (below ? r.bottom + 6 : r.top - 6 - h) + "px";
+      tipEl.dataset.open = "";
+      tipWarm = Date.now();
+    }, Date.now() - tipWarm < 1000 ? 0 : 700); // moving on from one tooltip to the next: at once
+  });
+  document.addEventListener("mousedown", hideTip, true);
+  document.addEventListener("keydown", hideTip, true);
+  window.addEventListener("blur", hideTip);
   window.MdView = { render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
