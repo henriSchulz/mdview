@@ -22,6 +22,8 @@ Colors follow the Omarchy theme, motion follows ~/.local/share/henri-ui.
 
 import base64
 import html
+import http.client
+import threading
 import json
 import os
 import re
@@ -96,10 +98,95 @@ PREFS = {
     "pdfFormat": "callout", "pdfAuto": False,
     # what the folder sidebar lists beside the notes: PDFs, pictures, sound and film, everything else
     "sidebarPdf": True, "sidebarImages": False, "sidebarMedia": False, "sidebarOther": False,
+    # a continuation suggested while typing (the text around the caret goes to the model's maker)
+    "aiComplete": False,
 }
 # snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
 # ("export default [ … ]"); they take the place of the built-in ones
 SNIPPETS_FILE = Path(GLib.get_user_config_dir()) / "mdview" / "snippets.js"
+
+
+AI_ENV = Path(GLib.get_user_config_dir()) / "mdview" / ".env"
+AI_MODEL = "gemini-3.5-flash-lite"
+AI_HOST = "generativelanguage.googleapis.com"
+AI_SYSTEM = (
+    "You are the autocomplete of a note-taking app. The user's note is given with the caret "
+    "marked as <caret/>. Reply with the text that continues at the caret and nothing else: at "
+    "most twelve words, finishing the current clause or sentence, in the language of the note, "
+    "in its tone. Do not repeat text that is already there, do not add quotes or explanations. "
+    "If the note uses Markdown or LaTeX there, continue in it. If nothing sensible follows, "
+    "reply with nothing.")
+
+
+def ai_key():
+    """The key for the model: GEMINI_API_KEY from the environment or ~/.config/mdview/.env."""
+    key = os.environ.get("GEMINI_API_KEY")
+    if key:
+        return key.strip()
+    try:
+        for line in AI_ENV.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("GEMINI_API_KEY="):
+                return line.split("=", 1)[1].strip().strip("'\"")
+    except OSError:
+        pass
+    return None
+
+
+class Completer:
+    """Asks the model for a continuation, off the main thread. One request at a time over a
+    connection that is kept open; while one is under way, only the newest question waits."""
+
+    def __init__(self):
+        self.pending = None
+        self.cond = threading.Condition()
+        self.conn = None
+        threading.Thread(target=self.run, daemon=True).start()
+
+    def ask(self, reply, ident, before, after):
+        with self.cond:
+            self.pending = (reply, ident, before, after)
+            self.cond.notify()
+
+    def run(self):
+        while True:
+            with self.cond:
+                while self.pending is None:
+                    self.cond.wait()
+                reply, ident, before, after = self.pending
+                self.pending = None
+            text, error = self.complete(before, after)
+            GLib.idle_add(reply, ident, text, error)
+
+    def complete(self, before, after):
+        fake = os.environ.get("MDVIEW_AI_FAKE")
+        if fake is not None:  # (tests: no network, a known answer)
+            time.sleep(0.05)
+            return fake, None
+        key = ai_key()
+        if not key:
+            return None, f"No GEMINI_API_KEY in {AI_ENV}"
+        body = json.dumps({
+            "systemInstruction": {"parts": [{"text": AI_SYSTEM}]},
+            "contents": [{"role": "user", "parts": [{"text": before + "<caret/>" + after}]}],
+            "generationConfig": {"maxOutputTokens": 40, "temperature": 0.2, "stopSequences": ["\n"]},
+        })
+        for attempt in (0, 1):  # (a connection kept open may have been closed by the other side)
+            try:
+                if self.conn is None:
+                    self.conn = http.client.HTTPSConnection(AI_HOST, timeout=8)
+                self.conn.request("POST", f"/v1beta/models/{AI_MODEL}:generateContent", body,
+                                  {"Content-Type": "application/json", "x-goog-api-key": key})
+                res = self.conn.getresponse()
+                data = json.loads(res.read().decode("utf-8", "replace") or "{}")
+                if res.status != 200:
+                    return None, "Suggestions: " + str((data.get("error") or {}).get("message") or res.status)[:160]
+                parts = ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+                return "".join(p.get("text", "") for p in parts), None
+            except (OSError, http.client.HTTPException, ValueError) as e:
+                self.conn = None
+                if attempt:
+                    return None, f"Suggestions: {e}"
+        return None, None
 
 
 def user_snippets():
@@ -1090,6 +1177,11 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.open_external()
         elif t == "note":
             self.open_note(msg.get("path"))
+        elif t == "complete":
+            # the next words for what is being written (active/ghost.js); only when switched on
+            if self.app.prefs().get("aiComplete"):
+                self.app.completer().ask(lambda i, text, err: self.js("MdView.completion", i, text, err) and False,
+                                         msg.get("id"), str(msg.get("before") or "")[-6000:], str(msg.get("after") or "")[:1000])
         elif t == "resolve":
             # a link written after the note was read: where it points
             target = str(msg.get("target") or "")
@@ -1550,6 +1642,11 @@ class MdViewApp(Gtk.Application):
         self.web_settings = None
         self.monitors = []
         self.theme_id = 0
+
+    def completer(self):
+        if not getattr(self, "_completer", None):
+            self._completer = Completer()
+        return self._completer
 
     def prefs(self):
         stored = self.state.get("active")

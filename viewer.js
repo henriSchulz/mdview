@@ -1506,7 +1506,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/blocks.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/ghost.js", "active/blocks.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2271,7 +2271,7 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
-  window.MdView = { linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post,

@@ -10,6 +10,7 @@
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false,
+    aiComplete: false,
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -31,6 +32,8 @@
     ["quotes", "switch"],
     ["wrap", "select", [[0, "prefs.wrap.off"], [72, "72"], [80, "80"], [100, "100"], [120, "120"]]],
     ["images", "select", [["beside", "prefs.images.beside"], ["assets", "prefs.images.assets"]]],
+    ["section", "prefs.ai"],
+    ["aiComplete", "switch"],
     ["section", "prefs.latex"],
     ["latexSnippets", "switch"],
     ["latexFraction", "switch"],

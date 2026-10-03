@@ -569,3 +569,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .ce-b0 { color: var(--c-blue, var(--accent)); }
 .ce-b1 { color: var(--c-magenta, var(--accent)); }
 .ce-b2 { color: var(--c-green, var(--accent)); }
+
+/* a continuation offered while writing: there to read, not part of the text */
+.pm .ghost { color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; user-select: none; -webkit-user-select: none; animation: ghost-in var(--dur-fast) var(--ease-out); }
+@keyframes ghost-in { from { opacity: 0; } }
+@media print { .pm .ghost { display: none; } }

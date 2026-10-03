@@ -12,6 +12,7 @@
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
+#   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
@@ -138,6 +139,21 @@ case "${1:-}" in
     [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || { echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null || echo 'no report after 20 s')"; tail -3 "$R/app.log"; }
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
+  ghost)
+    # the continuation offered while typing; `dev/rig.sh ghost real` asks the real model (the key in ~/.config/mdview/.env)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{shown,ghost}.json
+    if [[ ${2:-} == real ]]; then
+      { echo 'window.__ghostReal = true;'; cat "$D/probe-ghost.js"; } > "$R/probe-ghost-real.js"
+      app 60 MDVIEW_PROBE="$R/probe-ghost-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    else
+      app 60 MDVIEW_PROBE="$D/probe-ghost.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" a good day for writing." -- "$R/work/$name"
+    fi
+    for _ in $(seq 300); do [[ -f $R/out/$name.shown.json || -f $R/out/$name.ghost.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ghost.png"
+    for _ in $(seq 400); do [[ -f $R/out/$name.ghost.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 300 ms pause)" else empty end)' "$R/out/$name.ghost.json"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
   pdf)
     # a note with links into a PDF and embeds of it, and the PDF itself in the window
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json "$R/out"/paper.pdf.*.json
