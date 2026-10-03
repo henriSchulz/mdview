@@ -34,6 +34,7 @@
     const $c = state.selection.$cursor;
     if (!$c || !$c.parent.isTextblock || $c.parent.type.spec.code || $c.parentOffset !== $c.parent.content.size || !$c.parent.content.size) return null;
     if ($c.marks().some((m) => m.type.name === "code")) return null;
+    if (A.mathtext && A.mathtext.at(state)) return null; // (a formula being typed has its own help)
     return $c.pos;
   }
   function ask() {

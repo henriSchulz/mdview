@@ -11,7 +11,7 @@ const SCRIPTS = [
   "vendor/highlight.min.js", "vendor/katex/katex.min.js", "strings.js", "viewer.js",
 ];
 
-export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/ghost.js", "active/blocks.js", "active/view.js"];
+export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/mathtext.js", "active/ghost.js", "active/blocks.js", "active/view.js"];
 
 export async function loadPage(extra = []) {
   const base = pathToFileURL(ROOT + "/").href;

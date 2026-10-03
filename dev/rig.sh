@@ -14,6 +14,7 @@
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
+#   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
@@ -175,6 +176,27 @@ case "${1:-}" in
     want=$'> [!PDF|yellow] [[paper.pdf#page=2&selection=7,5,7,21|paper, page 2]]\n> '
     [[ $copied == "$want"* ]] && echo "ok   Ctrl+Shift+C: the quote with its link is on the clipboard" || echo "FAIL the clipboard after Ctrl+Shift+C: $copied"
     ! { jq -r '.steps[], (.error // "ok")' "$f"; } | grep -qv '^ok' ;;
+  mathtext)
+    # LaTeX Suite in the text, between dollars, with real keys (wtype); the probe is latex's (it reports the document per stage)
+    name=latex.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Formulas\n\nStart.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
+    app 90 MDVIEW_PROBE="$D/probe-latex.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    keys() { WAYLAND_DISPLAY="$(wl)" wtype -d 45 "$@"; }
+    stage() { for _ in $(seq 300); do [[ -f $R/out/$name.ready-$1.json ]] && break; sleep 0.1; done; sleep 0.25; }
+    stage s1; keys ' Then $xsr + @a'                                   # snippets while the formula is still open
+    stage s2; keys '$'; sleep 0.3; keys ' and $(a/b'                    # closed by hand: a formula; the next one: a fraction in brackets
+    stage s3; keys -k Tab; keys -k Tab; keys -k Tab; sleep 0.3; keys ' end.'   # out of the fraction, the brackets, the formula (its dollar is written)
+    stage s4; keys ' It is *not* $a*b*c$ here.'                        # no italics inside a formula
+    stage s5; keys ' Sum $\sum'; keys -k Tab; keys 'k'; keys -k Tab; keys '0'; keys -k Tab; keys 'n'; keys -k Tab; keys 'k'; keys -k Tab; sleep 0.3; keys '.'
+    stage s6
+    for _ in $(seq 400); do [[ -f $R/out/$name.latex.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ -f $R/out/$name.latex.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.stages | to_entries[] | "\(.key): \(.value.md | split("\n")[2])"' "$R/out/$name.latex.json"
+    jq -r '(.error // empty), (.errs | join("; "))' "$R/out/$name.latex.json"
+    want='Start. Then $x^{2} + \alpha$ and $\left( \frac{a}{b} \right)$ end. It is *not* $a*b*c$ here. Sum $\sum_{k=0}^{n}k$.'
+    got=$(jq -r '.saved | split("\n")[2]' "$R/out/$name.latex.json")
+    [[ $got == "$want" ]] && echo "ok   LaTeX Suite between dollars in the text: the line is as expected" || { echo "FAIL the line differs:"; echo "  got:  $got"; echo "  want: $want"; }
+    cmp -s <(jq -j '.saved // ""' "$R/out/$name.latex.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document" ;;
   latex)
     # real keys (wtype) into the formula editor; the probe reports after each stage
     name=latex.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Formulas\n\nStart.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json

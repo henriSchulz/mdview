@@ -471,7 +471,7 @@
     state: {
       init: () => 0,
       apply(tr, n) {
-        if (!tr.docChanged || tr.steps.length !== 1 || !typed || tr.getMeta(typed) || tr.getMeta("step") || tr.getMeta("paste") || tr.getMeta("uiEvent") || tr.getMeta("history$") || tr.getMeta("addToHistory") === false) return n;
+        if (!tr.docChanged || tr.steps.length !== 1 || !typed || tr.getMeta(typed) || tr.getMeta("mathtext") || tr.getMeta("step") || tr.getMeta("paste") || tr.getMeta("uiEvent") || tr.getMeta("history$") || tr.getMeta("addToHistory") === false) return n;
         const st = tr.steps[0], sl = st.slice;
         if (!sl || st.from !== st.to || sl.openStart || sl.openEnd || sl.content.childCount !== 1 || !sl.content.firstChild.isText) return n;
         const $c = tr.selection.$cursor;
@@ -683,6 +683,7 @@
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
       A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
+      A.mathtext.plugin,  // (in a formula being typed in the text: LaTeX Suite's keys)
       A.ghost.plugin,     // (and with a suggestion shown, Tab, Ctrl+→ and Esc are the suggestion's)
       (typed = IR.inputRules({ rules: [...rules, A.notes.rule] })), caught,
       keymap(keys),

@@ -573,3 +573,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 /* a continuation offered while writing: there to read, not part of the text */
 .pm [data-ghost]::after { content: attr(data-ghost); white-space: pre-wrap; color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; }
 @media print { .pm [data-ghost]::after { content: none; } }
+
+/* LaTeX Suite in the text: the places of a snippet still to fill in */
+.pm .ls-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.pm .ls-stop.none { display: inline-block; width: 0; height: 0.55em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
