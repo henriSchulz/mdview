@@ -8,7 +8,7 @@
   const until = async (f, ms = 8000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
   const o = { steps: [] }; const errs = [];
   window.addEventListener("error", (e) => errs.push(String(e.message)));
-  const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
+  const ok = (name, cond, detail) => (post("log", { text: (cond ? "ok " : "FAIL ") + name }), o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail))));
   try {
     await document.fonts.ready;
     await sleep(700);
@@ -19,6 +19,23 @@
     ok("they are drawn", await until(() => embeds().every((e) => e.classList.contains("ready") && e.querySelector("img"))), embeds().map((e) => e.className + ":" + e.textContent.slice(0, 60)));
     const sizes = embeds().map((e) => { const c = e.querySelector("img"); return c ? [Math.round(c.getBoundingClientRect().width), Math.round(c.getBoundingClientRect().height)] : null; });
     ok("a whole page is as tall as a page; a selection and a region are cut to what they show", sizes[0] && sizes[0][1] > sizes[0][0] && sizes[1][1] < 120 && sizes[2][1] < sizes[0][1] / 3 && sizes[2][0] < sizes[0][0] * 0.7, sizes);
+    // --- the same in the active mode, and a region's embed pasted there
+    MdView.setMode("active");
+    await until(() => window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active");
+    const pmEmbeds = () => [...MdActive.view.pm.dom.querySelectorAll(".pdf-embed")];
+    ok("active mode: the embeds are drawn there too", await until(() => pmEmbeds().length === 3 && pmEmbeds().every((e) => e.classList.contains("ready") && e.querySelector("img"))), pmEmbeds().map((e) => e.className));
+    {
+      const view = MdActive.view.pm, endSel = PM.state.Selection.atEnd(view.state.doc);
+      view.dispatch(view.state.tr.setSelection(endSel));
+      MdActive.clip.insertMarkdown(view, "\n\nPasted: ![[paper.pdf#page=4&rect=60,640,380,790]]\n");
+      ok("a region's embed pasted into the note is drawn", await until(() => pmEmbeds().length === 4 && pmEmbeds()[3].classList.contains("ready") && pmEmbeds()[3].querySelector("img") && pmEmbeds()[3].getBoundingClientRect().height > 60), pmEmbeds().map((e) => e.className + "|" + e.dataset.frag));
+      await sleep(600);
+      ok("… and stays drawn (the editor does not throw it away again)", pmEmbeds().length === 4 && pmEmbeds().every((e) => e.querySelector("img")));
+      ok("the note holds it as it was pasted", MdActive.view.serialize(false).includes("Pasted: ![[paper.pdf#page=4&rect=60,640,380,790]]"), MdActive.view.serialize(false).slice(-120));
+      for (let i = 0; i < 4 && MdActive.view.serialize(false).includes("Pasted"); i++) PM.history.undo(view.state, view.dispatch);
+      await sleep(900); // (saved without the pasted line)
+    }
+    MdView.setMode("read"); await until(() => (document.body.dataset.view || "read") === "read");
     out("note", { opacity: getComputedStyle(content).opacity, cls: content.className, y: scrollY, h: document.documentElement.scrollHeight, vis: document.visibilityState }); await sleep(2200);
     ok("a link to a PDF is a link like any other", !!content.querySelector('a.wikilink[data-wiki^="paper.pdf#page=2"]'));
 

@@ -488,7 +488,21 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.view.connect("decide-policy", self.on_decide_policy)
         self.view.connect("context-menu", self.on_context_menu)
         self.view.connect("web-process-terminated", lambda *_: self.load_shell(force=True))
-        self.add(self.view)
+        # The web view's very first frame can come out of the GPU unpainted (a magenta flash on
+        # this machine): a plain cover in the window's colour lies over it until the page has
+        # drawn its content.
+        overlay = Gtk.Overlay()
+        overlay.add(self.view)
+        self.cover = Gtk.DrawingArea()
+        self.cover.connect("draw", self.draw_cover)
+        overlay.add_overlay(self.cover)
+        self.add(overlay)
+        overlay.show()
+        if PROBE:  # (tests compare this page with older ones, which never say that they are drawn)
+            self.uncover()
+        else:
+            self.cover.show()
+            GLib.timeout_add(2500, self.uncover)  # (at the latest)
         self.connect("delete-event", self.on_delete)
         self.view.show()
 
@@ -536,6 +550,19 @@ class ViewerWindow(Gtk.ApplicationWindow):
             f"{scripts}</body></html>"
         )
         self.view.load_html(page, target_dir.as_uri() + "/")
+
+    def draw_cover(self, _widget, cr):
+        c = Gdk.RGBA()
+        c.parse(self.app.theme["colors"]["background"])
+        cr.set_source_rgb(c.red, c.green, c.blue)
+        cr.paint()
+        return True
+
+    def uncover(self):
+        if self.cover:
+            self.cover.destroy()
+            self.cover = None
+        return False
 
     def on_load_changed(self, view, event):
         if event == WebKit2.LoadEvent.FINISHED:
@@ -1029,6 +1056,14 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.open_external()
         elif t == "note":
             self.open_note(msg.get("path"))
+        elif t == "resolve":
+            # a link written after the note was read: where it points
+            target = str(msg.get("target") or "")
+            p = self.resolver.resolve(target) if self.resolver and target else None
+            self.js("MdView.linkResolved", target, {"path": str(p), "url": p.as_uri(), "kind": file_kind(p)} if p else None)
+        elif t == "painted":
+            # the page's content is drawn; a moment more for the frame to reach the screen
+            GLib.timeout_add(int(os.environ.get("MDVIEW_COVER_MS", "120")), self.uncover)
         elif t == "pdfdata":
             self.send_pdf(msg.get("path"), str(msg.get("id")))
         elif t == "pdfnote":

@@ -214,7 +214,10 @@
   md.renderer.rules.wiki_embed = (t, i, _o, env) => {
     const { target, alias } = t[i].meta;
     const info = env.links && env.links[target];
-    if (!info) return `<span class="embed-missing">${esc(wikiLabel(target))}</span>`;
+    if (!info) { // (written just now: the application is asked where it points; see linkResolved)
+      if (env.links && !(target in env.links) && /\.pdf(#|$)/i.test(target)) resolveSoon(target);
+      return `<span class="embed-missing" data-wiki="${esc(target)}">${esc(wikiLabel(target))}</span>`;
+    }
     const size = alias && /^(\d+)(?:x(\d+))?$/.exec(alias);
     const dims = size ? ` width="${size[1]}"${size[2] ? ` height="${size[2]}"` : ""}` : "";
     const url = esc(info.url);
@@ -529,7 +532,9 @@
     renderMermaid(gen, anchor);
   }
 
+  let painted = false;
   function reveal() {
+    if (!painted) { painted = true; setTimeout(() => post("painted"), 30); } // (the window lifts its cover)
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
   }
 
@@ -1413,10 +1418,49 @@
       for (const src of ["vendor/pdfjs/pdf.worker.min.js", "vendor/pdfjs/pdf.min.js", "pdfview.js"]) await script(src);
     })().catch((e) => { pdfLoad = null; throw e; }));
   }
-  let pdfEmbedTimer = 0;
+  /* An embed typed or pasted after the note was read has no place yet (the application resolves
+   * links when it reads the note). It is asked for, and what shows the embed is drawn anew. */
+  const asked = new Set();
+  function resolveSoon(target) {
+    if (asked.has(target) || !current) return;
+    asked.add(target);
+    setTimeout(() => post("resolve", { target }), 0);
+  }
+  function linkResolved(target, info) {
+    if (!current || !current.links) return;
+    current.links[target] = info;
+    if (!info) return;
+    const html = md.renderInline(`![[${target}]]`, { links: current.links, depth: 0 });
+    for (const span of document.querySelectorAll(".embed-missing[data-wiki]")) {
+      if (span.dataset.wiki === target) span.outerHTML = html;
+    }
+    // the active mode keeps the HTML of what it shows: there too
+    const pm = window.MdActive && MdActive.view && MdActive.view.pm;
+    if (pm) {
+      let tr = null;
+      pm.state.doc.descendants((node, pos) => {
+        if (node.type.name === "iatom" && typeof node.attrs.html === "string" && node.attrs.html.includes("embed-missing") && node.attrs.raw === `![[${target}]]`) {
+          tr = (tr || pm.state.tr).setNodeMarkup(pos, null, { ...node.attrs, html });
+        }
+      });
+      if (tr) pm.dispatch(tr.setMeta("addToHistory", false).setMeta("allowLoss", true));
+    }
+    pdfEmbedsSoon();
+  }
+  let pdfEmbedTimer = 0, pdfWatch = null;
   function pdfEmbedsSoon() { // an embedded PDF was written into the page: draw it once it stands there
     clearTimeout(pdfEmbedTimer);
     pdfEmbedTimer = setTimeout(() => loadPdf().then(() => MdPdf.hydrate(document), () => {}), 30);
+    // (the active mode builds its elements anew from kept HTML, without coming through the
+    // renderer: from the first embed on, new ones are looked for whenever the page changes)
+    if (!pdfWatch) {
+      pdfWatch = new MutationObserver(() => {
+        if (!document.querySelector(".pdf-embed:not([data-done])")) return;
+        clearTimeout(pdfEmbedTimer);
+        pdfEmbedTimer = setTimeout(() => loadPdf().then(() => MdPdf.hydrate(document), () => {}), 30);
+      });
+      pdfWatch.observe(document.body, { childList: true, subtree: true });
+    }
   }
   let activeLoad = null;
   function loadActive() {
@@ -2175,7 +2219,7 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
-  window.MdView = { pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post,

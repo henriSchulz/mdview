@@ -633,9 +633,13 @@
   /* <span class="pdf-embed" data-pdf="/path/file.pdf" data-frag="page=3&selection=…">: the page,
    * or only what the link points to (the selection with a margin, the region). */
   const EMBED_MARGIN = 8;
+  const drawnEmbeds = new Map(); // what was drawn once is put in again at once (the active mode rebuilds its elements)
   async function embed(span) {
     span.dataset.done = "1";
     const at = parseFrag(span.dataset.frag);
+    const key = span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.dataset.width || "") + "/" + Math.round((span.parentElement && span.parentElement.clientWidth) || 0);
+    const have = drawnEmbeds.get(key);
+    if (have) { const img = have.cloneNode(); span.replaceChildren(img); span.classList.add("ready"); return; }
     try {
       const doc = await docOf(span.dataset.pdf);
       const page = await doc.getPage(Math.min(doc.numPages, at.page));
@@ -682,7 +686,9 @@
       img.alt = basename(span.dataset.pdf) + ", page " + at.page;
       img.src = URL.createObjectURL(blob);
       await img.decode().catch(() => {});
-      if (span.isConnected) { span.replaceChildren(img); span.classList.add("ready"); }
+      drawnEmbeds.set(key, img);
+      if (drawnEmbeds.size > 60) drawnEmbeds.delete(drawnEmbeds.keys().next().value);
+      if (span.isConnected) { span.replaceChildren(img.cloneNode()); span.classList.add("ready"); }
     } catch (e) {
       span.classList.add("failed");
       span.textContent = basename(span.dataset.pdf) + ": " + (e.message || e);
