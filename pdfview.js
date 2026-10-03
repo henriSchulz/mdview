@@ -133,6 +133,7 @@
     document.removeEventListener("selectionchange", V.onSelect);
     window.removeEventListener("focus", V.onFocus);
     document.body.classList.remove("pdf-open");
+    tip(null); // (the note under the pointer is gone with the PDF)
     V = null;
   }
 
@@ -169,7 +170,7 @@
     toolbar();
     layout();
     v.pages.forEach((pg) => v.io.observe(pg.div));
-    v.onScroll = () => { clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); };
+    v.onScroll = () => { tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); };
     v.onResize = () => { if (v.fit) { clearTimeout(v.resizeTimer); v.resizeTimer = setTimeout(() => zoomTo(v.fit), 120); } };
     v.onKey = keys;
     v.onSelect = () => { clearTimeout(v.selTimer); v.selTimer = setTimeout(selected, 250); };
@@ -540,7 +541,7 @@
       if (m) { const b = v.backlinks[m.dataset.bl]; tip(e, b.name.replace(/\.md$/i, "") + (b.text ? " — " + b.text : "") + "  (double click opens the note)"); } else tip(null);
     });
     v.box.addEventListener("mouseleave", () => { hover(null); tip(null); });
-    v.box.addEventListener("dblclick", (e) => { const m = markAt(e); if (!m) return; e.preventDefault(); document.getSelection().removeAllRanges(); const b = v.backlinks[m.dataset.bl]; post("pdfnote", { path: b.path, line: b.line }); });
+    v.box.addEventListener("dblclick", (e) => { const m = markAt(e); if (!m) return; e.preventDefault(); tip(null); document.getSelection().removeAllRanges(); const b = v.backlinks[m.dataset.bl]; post("pdfnote", { path: b.path, line: b.line }); });
     v.box.addEventListener("click", async (e) => {
       const a = e.target.closest(".pdf-link");
       if (!a) return;
@@ -599,6 +600,10 @@
     if (i != null) v.root.querySelectorAll(`[data-bl="${i}"]`).forEach((x) => x.classList.add("hovered"));
   }
   let tipEl = null;
+  // (it belongs to the highlight under the pointer: gone when the pointer is anywhere else, or the window is left)
+  document.addEventListener("mousemove", (e) => { if (tipEl && !tipEl.hidden && !(e.target.closest && e.target.closest(".pdf-pages"))) tip(null); }, true);
+  window.addEventListener("blur", () => tip(null));
+  document.addEventListener("mouseleave", () => tip(null));
   function tip(e, text) {
     if (!e) { if (tipEl) tipEl.hidden = true; return; }
     if (!tipEl) { tipEl = el("div", { class: "pdf-tip" }); document.body.appendChild(tipEl); }
