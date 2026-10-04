@@ -174,7 +174,7 @@ case "${1:-}" in
     for _ in $(seq 400); do [[ -f $R/out/$name.ghost.json ]] && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 300 ms pause)" else empty end)' "$R/out/$name.ghost.json"
+    jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
   pdf)
     # a note with links into a PDF and embeds of it, and the PDF itself in the window

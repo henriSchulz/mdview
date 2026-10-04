@@ -41,7 +41,7 @@
       ok("Tab takes it", ghost() === null && md().includes("It was" + o.real.suggestion.trimEnd()), md().slice(-160));
     } else {
       ok("switched on: in the pause, a continuation shows in grey", ghost() === " a good day for writing.", [t, ghost()]);
-      ok("… after the pause, not at once", t >= 250 && t < 1500, t);
+      ok("… after a short pause, not at once", t >= 60 && t < 1000, t);
       ok("it is not part of the note", md().trimEnd().endsWith("Last paragraph. It was"), md().slice(-60));
       {
         const el = view.dom.querySelector("[data-ghost]"), sel = getSelection();
@@ -71,6 +71,31 @@
       await type("y");
       await sleep(800);
       ok("in the middle of a line nothing is suggested", ghost() === null, ghost());
+      // in a formula being typed in the text, too (Tab takes the suggestion, before LaTeX Suite's Tab)
+      endOf("Last paragraph.");
+      await type(" $x^2 +");
+      await until(() => ghost() !== null, 3000);
+      ok("in a formula being typed a continuation is offered", ghost() === " a good day for writing.", ghost());
+      key("Tab"); await sleep(60);
+      ok("Tab takes it there as well", ghost() === null && md().includes("$x^2 + a good day for writing."), md().slice(-80));
+      // and in the editor of a code block (the dialog)
+      {
+        let f = -1; view.state.doc.forEach((n, p) => { if (f < 0 && n.type.name === "island" && n.attrs.kind === "code") f = p; });
+        A.islands.open(view, f); await sleep(600);
+        const dlg = document.getElementById("dlg"), ta = dlg.querySelector(".ce-in");
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        document.execCommand("insertText", false, "\nconsole.");
+        const tg = await until(() => dlg.querySelector(".ce-ghost-text"), 3000);
+        const gt = () => dlg.querySelector(".ce-ghost-text")?.textContent ?? null;
+        ok("in a code block's editor a continuation is offered, in grey at the caret", gt() === " a good day for writing.", [tg, gt()]);
+        const e = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }); ta.dispatchEvent(e); await sleep(60);
+        ok("Tab takes it into the code", e.defaultPrevented && gt() === null && ta.value.endsWith("console. a good day for writing."), ta.value.slice(-40));
+        await until(() => gt() !== null, 3000);
+        ok("the next one comes by itself", gt() !== null, gt());
+        const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }); ta.dispatchEvent(esc); await sleep(60);
+        ok("Esc puts it away, the dialog stays", gt() === null && dlg.hasAttribute("data-open"));
+        dlg.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(400);
+      }
       // Tab without a suggestion is still Tab (a list item goes in)
       post("prefs", { prefs: { aiComplete: false } }); await sleep(300);
     }

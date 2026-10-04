@@ -280,6 +280,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .ce-back code { font: inherit; padding: 0; background: none; }
 .ce-marks { position: absolute; inset: 0; color: transparent; pointer-events: none; }
 .ce-err { text-decoration: underline wavy var(--c-red); text-decoration-skip-ink: none; }
+.ce-ghost-text { color: color-mix(in srgb, var(--fg) 42%, transparent); } /* (a continuation offered: the layer's text is transparent, this is read) */
 .ce-in {
   position: absolute;
   inset: 0;

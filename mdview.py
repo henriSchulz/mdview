@@ -134,8 +134,9 @@ AI_SYSTEM = (
     "marked as <caret/>. Reply with the text that continues at the caret and nothing else: at "
     "most twelve words, finishing the current clause or sentence, in the language of the note, "
     "in its tone. Do not repeat text that is already there, do not add quotes or explanations. "
-    "If the note uses Markdown or LaTeX there, continue in it. If nothing sensible follows, "
-    "reply with nothing.")
+    "If the note uses Markdown or LaTeX there, continue in it; inside a formula ($…$ or $$…$$) "
+    "reply with LaTeX only, inside a code span or a fenced code block with code in its "
+    "language only. If nothing sensible follows, reply with nothing.")
 
 
 def ai_key_state():
@@ -193,14 +194,19 @@ def ai_key():
 
 
 class Completer:
-    """Asks the model for a continuation, off the main thread. One request at a time over a
-    connection that is kept open; while one is under way, only the newest question waits."""
+    """Asks the model for a continuation, off the main thread — the way GitHub Copilot asks:
+    a few questions may be under way at once, each over its own connection that is kept
+    open, so that an answer on its way never holds up a newer question. When all are busy,
+    only the newest question waits (the page drops answers that no longer fit)."""
+
+    WORKERS = 3
 
     def __init__(self):
         self.pending = None
         self.cond = threading.Condition()
-        self.conn = None
-        threading.Thread(target=self.run, daemon=True).start()
+        self.thinking = True  # (thinkingLevel "minimal": a model that does not know it is asked without)
+        for _ in range(self.WORKERS):
+            threading.Thread(target=self.run, daemon=True).start()
 
     def ask(self, reply, ident, before, after):
         with self.cond:
@@ -208,16 +214,17 @@ class Completer:
             self.cond.notify()
 
     def run(self):
+        conn = [None]
         while True:
             with self.cond:
                 while self.pending is None:
                     self.cond.wait()
                 reply, ident, before, after = self.pending
                 self.pending = None
-            text, error = self.complete(before, after)
+            text, error = self.complete(conn, before, after)
             GLib.idle_add(reply, ident, text, error)
 
-    def complete(self, before, after):
+    def complete(self, conn, before, after):
         fake = os.environ.get("MDVIEW_AI_FAKE")
         if fake is not None:  # (tests: no network, a known answer)
             time.sleep(0.05)
@@ -225,26 +232,33 @@ class Completer:
         key = ai_key()
         if not key:
             return None, f"No GEMINI_API_KEY in {AI_ENV}"
-        body = json.dumps({
-            "systemInstruction": {"parts": [{"text": AI_SYSTEM}]},
-            "contents": [{"role": "user", "parts": [{"text": before + "<caret/>" + after}]}],
-            "generationConfig": {"maxOutputTokens": 40, "temperature": 0.2, "stopSequences": ["\n"]},
-        })
-        for attempt in (0, 1):  # (a connection kept open may have been closed by the other side)
+        for attempt in (0, 1, 2):  # (a connection kept open may have been closed by the other side)
+            config = {"maxOutputTokens": 40, "temperature": 0.2, "stopSequences": ["\n"]}
+            if self.thinking:
+                config["thinkingConfig"] = {"thinkingLevel": "minimal"}
+            body = json.dumps({
+                "systemInstruction": {"parts": [{"text": AI_SYSTEM}]},
+                "contents": [{"role": "user", "parts": [{"text": before + "<caret/>" + after}]}],
+                "generationConfig": config,
+            })
             try:
-                if self.conn is None:
-                    self.conn = http.client.HTTPSConnection(AI_HOST, timeout=8)
-                self.conn.request("POST", f"/v1beta/models/{ai_model()}:generateContent", body,
-                                  {"Content-Type": "application/json", "x-goog-api-key": key})
-                res = self.conn.getresponse()
+                if conn[0] is None:
+                    conn[0] = http.client.HTTPSConnection(AI_HOST, timeout=8)
+                conn[0].request("POST", f"/v1beta/models/{ai_model()}:generateContent", body,
+                                {"Content-Type": "application/json", "x-goog-api-key": key})
+                res = conn[0].getresponse()
                 data = json.loads(res.read().decode("utf-8", "replace") or "{}")
                 if res.status != 200:
-                    return None, "Suggestions: " + str((data.get("error") or {}).get("message") or res.status)[:160]
+                    message = str((data.get("error") or {}).get("message") or res.status)
+                    if res.status == 400 and self.thinking and "hinking" in message:
+                        self.thinking = False  # (this model is asked without the setting)
+                        continue
+                    return None, "Suggestions: " + message[:160]
                 parts = ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
                 return "".join(p.get("text", "") for p in parts), None
             except (OSError, http.client.HTTPException, ValueError) as e:
-                self.conn = None
-                if attempt:
+                conn[0] = None
+                if attempt == 2:
                     return None, f"Suggestions: {e}"
         return None, None
 

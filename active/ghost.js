@@ -5,7 +5,12 @@
  *   Esc       away with it            typing what it says keeps it, shortened
  * The text around the caret goes to the application, which asks the model
  * (the page itself reaches no network, and never sees the key). Off unless
- * switched on in the settings. */
+ * switched on in the settings.
+ * Asked the way GitHub Copilot asks: a few ms after each key, several questions
+ * may be under way at once, and an answer that comes after more was written
+ * still counts when what was written is how it begins. In a formula being typed
+ * ("$x + |") and in code in a line as well; the dialogs' editor (code blocks,
+ * formulas) asks through request() and shows the answer itself. */
 "use strict";
 (() => {
   const A = window.MdActive;
@@ -13,13 +18,14 @@
   const { Decoration, DecorationSet } = PM.view;
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const on = () => !!(window.MdPrefs || {}).aiComplete;
-  const PAUSE = 300;      // ms without a key before the model is asked
+  const PAUSE = 75;       // ms without a key before the model is asked (Copilot: the same)
   const BEFORE = 2400, AFTER = 400, MAX = 120; // characters of context, and of a suggestion
 
   const key = new PluginKey("ghost");
   // state: { text, pos } — what is offered and where; typed: counts plain typing (a reason to ask)
   const stateOf = (state) => key.getState(state);
-  let view = null, timer = 0, asked = 0, waiting = null, told = false;
+  let view = null, timer = 0, asked = 0, told = false;
+  const waiting = new Map(); // id → { pos, doc }: the questions under way
 
   // text typed at the caret: the one step of the transaction, or null
   function typedIn(tr) {
@@ -29,13 +35,31 @@
     const $c = tr.selection.$cursor;
     return $c && $c.pos === st.from + sl.content.size ? { at: st.from, text: sl.content.firstChild.text } : null;
   }
-  // may a suggestion stand here: a caret at the end of a block of text that is not code
+  // may a suggestion stand here: a caret at the end of a block of text (a formula or code being
+  // typed there as well — the model continues in LaTeX or in the code's language)
   function place(state) {
     const $c = state.selection.$cursor;
     if (!$c || !$c.parent.isTextblock || $c.parent.type.spec.code || $c.parentOffset !== $c.parent.content.size || !$c.parent.content.size) return null;
-    if ($c.marks().some((m) => m.type.name === "code")) return null;
-    if (A.mathtext && A.mathtext.at(state)) return null; // (a formula being typed has its own help)
     return $c.pos;
+  }
+  /* The answer, made to fit: its first line, not said again what is there already (`before`:
+   * the text in front of the place asked about), a word not glued to the one before it, and
+   * without `since` — what was typed at that place while the answer was on its way, which has to
+   * be how the answer begins. The rest, or null. */
+  function fit(before, text, since = "") {
+    let t = String(text).replace(/\r/g, "").split("\n")[0].slice(0, MAX);
+    if (/\s$/.test(before) || before === "") t = t.replace(/^\s+/, "");
+    else if (/^[\p{L}\p{N}]/u.test(t) && /[.,;:!?)\]]$/.test(before)) t = " " + t;
+    if (since && (!t.startsWith(since) || t.length === since.length)) return null;
+    t = t.slice(since.length);
+    return t.trim() ? t : null;
+  }
+  // a question of someone else's (the dialogs' editor): the answer goes to `cb(text)`; the id
+  function request(before, after, cb) {
+    const id = ++asked;
+    waiting.set(id, { cb });
+    post("complete", { id, before, after });
+    return id;
   }
   function ask() {
     if (!view || !on() || view.composing || A.dialog.open || A.menu.isOpen) return;
@@ -44,23 +68,25 @@
     const before = state.doc.textBetween(Math.max(0, pos - BEFORE), pos, "\n", " ");
     if (before.trim().length < 12) return;
     const after = state.doc.textBetween(pos, Math.min(state.doc.content.size, pos + AFTER), "\n", " ");
-    waiting = { id: ++asked, pos, doc: state.doc };
-    post("complete", { id: waiting.id, before, after });
+    const id = ++asked;
+    waiting.set(id, { pos, doc: state.doc });
+    post("complete", { id, before, after });
   }
   // the model's answer (from the application)
   function result(id, text, error) {
     if (error && !told) { told = true; window.MdView.core.toast(error); }
-    const w = waiting;
-    if (!view || !w || w.id !== id || !text) return;
-    waiting = null;
-    if (view.state.doc !== w.doc || place(view.state) !== w.pos || !on()) return; // (written on meanwhile)
-    let t = String(text).replace(/\r/g, "").split("\n")[0].slice(0, MAX);
-    // what is there already is not said again; a word is not glued to the one before it
-    const before = view.state.doc.textBetween(Math.max(0, w.pos - 60), w.pos, "\n", " ");
-    if (/\s$/.test(before) || before === "") t = t.replace(/^\s+/, "");
-    else if (/^[\p{L}\p{N}]/u.test(t) && /[.,;:!?)\]]$/.test(before)) t = " " + t;
-    if (!t.trim()) return;
-    view.dispatch(view.state.tr.setMeta(key, { text: t, pos: w.pos }).setMeta("addToHistory", false));
+    const w = waiting.get(id);
+    waiting.delete(id);
+    if (!w || !text || !on()) return;
+    if (w.cb) return w.cb(text);
+    if (!view || stateOf(view.state).text) return;
+    // still at the place asked about — or further along it, having written what the answer begins with
+    const cur = view.state.doc, pos = place(view.state);
+    if (pos == null || pos < w.pos) return;
+    if (cur !== w.doc && !(cur.slice(0, w.pos).eq(w.doc.slice(0, w.pos)) && cur.slice(pos).eq(w.doc.slice(w.pos)))) return;
+    const t = fit(cur.textBetween(Math.max(0, w.pos - 60), w.pos, "\n", " "), text, cur.textBetween(w.pos, pos, "\n", " "));
+    if (!t) return;
+    view.dispatch(view.state.tr.setMeta(key, { text: t, pos }).setMeta("addToHistory", false));
   }
   function take(v, part) {
     const s = stateOf(v.state);
@@ -78,11 +104,11 @@
     state: {
       init: () => ({ text: "", pos: 0, typed: 0 }),
       apply(tr, value) {
-        const set = tr.getMeta(key);
-        if (set) return { ...value, text: set.text, pos: set.pos };
         const typed = typedIn(tr);
         let next = value;
-        if (typed) next = { ...next, typed: next.typed + 1 };
+        if (typed) next = { ...next, typed: next.typed + 1 }; // (Tab's text too: the next continuation is asked for at once)
+        const set = tr.getMeta(key);
+        if (set) return { ...next, text: set.text, pos: set.pos };
         if (!value.text) return next;
         // typing what the suggestion says keeps it, shortened by what was typed
         if (typed && typed.at === value.pos && value.text.startsWith(typed.text) && value.text.length > typed.text.length) return { ...next, text: value.text.slice(typed.text.length), pos: value.pos + typed.text.length };
@@ -97,7 +123,7 @@
           const a = stateOf(now.state), b = stateOf(prev);
           clearTimeout(timer);
           if (!on() || a.text) return;
-          if (a.typed !== b.typed) { waiting = null; timer = setTimeout(ask, PAUSE); }
+          if (a.typed !== b.typed) timer = setTimeout(ask, PAUSE);
         },
         destroy() { clearTimeout(timer); if (view === v) view = null; },
       };
@@ -122,10 +148,10 @@
       },
       handleDOMEvents: {
         // an input method at work: nothing is offered, and nothing shown changes under it
-        compositionstart(v) { clearTimeout(timer); waiting = null; if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; },
-        blur(v) { clearTimeout(timer); waiting = null; if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; } },
+        compositionstart(v) { clearTimeout(timer); waiting.clear(); if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; },
+        blur(v) { clearTimeout(timer); waiting.clear(); if (stateOf(v.state).text) v.dispatch(v.state.tr.setMeta(key, { text: "", pos: 0 }).setMeta("addToHistory", false)); return false; } },
     },
   });
 
-  A.ghost = { plugin, result, shown: (state) => stateOf(state).text, take };
+  A.ghost = { plugin, result, shown: (state) => stateOf(state).text, take, request, forget: (id) => waiting.delete(id), fit, on, PAUSE };
 })();

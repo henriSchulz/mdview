@@ -54,10 +54,10 @@
   function editor({ value = "", language = "", pairs = false, label = "" } = {}) {
     const wrap = el("div", { class: "ce" },
       `<div class="ce-gutter" aria-hidden="true"></div><div class="ce-main"><div class="ce-line" aria-hidden="true"></div>` +
-      `<pre class="ce-back" aria-hidden="true"><code class="hljs"></code></pre><pre class="ce-marks" aria-hidden="true"></pre><pre class="ce-marks ce-hl" aria-hidden="true"></pre>` +
+      `<pre class="ce-back" aria-hidden="true"><code class="hljs"></code></pre><pre class="ce-marks" aria-hidden="true"></pre><pre class="ce-marks ce-hl" aria-hidden="true"></pre><pre class="ce-marks ce-ghost" aria-hidden="true"></pre>` +
       `<textarea class="ce-in" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea></div>`);
     const gutter = wrap.firstChild, main = wrap.lastChild;
-    const [line, back, marks, hl, input] = main.children;
+    const [line, back, marks, hl, ghostEl, input] = main.children;
     input.setAttribute("aria-label", label);
     input.value = value;
     const api = { el: wrap, input, onInput: null };
@@ -198,6 +198,51 @@
       if (selectHit && h) input.setSelectionRange(h[0], h[1]);
       highlights();
     }
+    // ---- a continuation offered while one writes (active/ghost.js asks the model), as in the text:
+    // at the end of a line, in grey; Tab takes it, Ctrl+→ the next word, Esc puts it away
+    let ghost = null, ghostValue = "", ghostTimer = 0, ghostId = 0; // ghost: { text, at }
+    const G = () => window.MdActive && window.MdActive.ghost;
+    const ghostAsk = () => {
+      ghostId = 0;
+      if (!G() || !G().on() || api.quiet || document.activeElement !== input || input.selectionStart !== input.selectionEnd) return;
+      const v = input.value, s = input.selectionStart, le = v.indexOf("\n", s);
+      if (!v.slice(0, s).trim() || v.slice(s, le < 0 ? v.length : le).trim()) return; // (only at a line's end, after something)
+      // the model sees the editor's text as it stands in the note: a formula between $$, code in its fence
+      const open = lang === "latex" ? "$$\n" : "```" + (lang || "") + "\n", close = lang === "latex" ? "\n$$" : "\n```";
+      const id = G().request(open + v.slice(Math.max(0, s - 2400), s), v.slice(s, s + 400) + close, (text) => {
+        if (id !== ghostId || ghost || document.activeElement !== input) return;
+        // still at the place asked about, or further along it having typed what the answer begins with
+        const now = input.value, c = input.selectionStart;
+        if (c !== input.selectionEnd || c < s || now.slice(0, s) !== v.slice(0, s) || now.slice(c) !== v.slice(s)) return;
+        const t = G().fit(v.slice(Math.max(0, s - 60), s), text, now.slice(s, c));
+        if (t) ghostShow({ text: t, at: c });
+      });
+      ghostId = id;
+    };
+    const ghostShow = (g) => {
+      ghost = g; ghostValue = input.value;
+      ghostEl.innerHTML = g ? esc(ghostValue.slice(0, g.at)) + `<span class="ce-ghost-text">${esc(g.text)}</span>` : "";
+    };
+    const ghostClear = () => { clearTimeout(ghostTimer); if (G() && ghostId) G().forget(ghostId); ghostId = 0; if (ghost) ghostShow(null); };
+    // after a change: the suggestion shortened by what was typed of it, else gone; and in a moment, a new question
+    const ghostTyped = () => {
+      clearTimeout(ghostTimer);
+      if (ghost) {
+        const v = input.value, c = input.selectionStart, since = v.slice(ghost.at, c);
+        if (c === input.selectionEnd && c > ghost.at && v.slice(0, ghost.at) === ghostValue.slice(0, ghost.at) && v.slice(c) === ghostValue.slice(ghost.at) && ghost.text.startsWith(since) && ghost.text.length > since.length) ghostShow({ text: ghost.text.slice(since.length), at: c });
+        else ghostShow(null);
+      }
+      if (!ghost && G()) ghostTimer = setTimeout(ghostAsk, G().PAUSE);
+    };
+    const ghostTake = (part) => {
+      let text = ghost.text;
+      if (part === "word") { const m = /^\s*\S+/.exec(text); text = m ? m[0] : text; }
+      input.setSelectionRange(ghost.at, ghost.at);
+      insert(text); // (the input event shortens the suggestion, or ends it)
+    };
+    input.addEventListener("blur", ghostClear);
+    for (const type of ["keyup", "click", "select"]) input.addEventListener(type, () => { if (ghost && (input.selectionStart !== ghost.at || input.selectionEnd !== ghost.at)) ghostShow(null); });
+
     // ---- LaTeX commands, completed while they are typed
     let comp = null, compAt = -1, compSel = 0, compList = [];
     function caretXY() {
@@ -237,7 +282,7 @@
       if (!document.execCommand("insertText", false, text)) { input.setRangeText(text, input.selectionStart, input.selectionEnd, "end"); input.dispatchEvent(new Event("input")); }
       if (selA != null) input.setSelectionRange(selA, selB ?? selA);
     };
-    input.addEventListener("input", () => { paint(); if (api.quiet) closeComp(); else completions(); if (find && find.isConnected) find.run(); if (api.onInput) api.onInput(input.value); });
+    input.addEventListener("input", () => { paint(); ghostTyped(); if (api.quiet) closeComp(); else completions(); if (find && find.isConnected) find.run(); if (api.onInput) api.onInput(input.value); });
     input.addEventListener("blur", () => setTimeout(closeComp, 100));
     for (const type of ["keyup", "click", "focus", "select"]) input.addEventListener(type, caretLine);
     input.addEventListener("keydown", (e) => {
@@ -260,6 +305,11 @@
         if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeComp(); return; }
       }
       if (e.key === "Escape" && find && find.isConnected) { e.preventDefault(); e.stopPropagation(); closeFind(false); return; }
+      if (ghost && !e.isComposing) { // the suggestion's keys, as in the text
+        if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); ghostTake("all"); return; }
+        if (e.key === "ArrowRight" && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); ghostTake("word"); return; }
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); ghostClear(); return; }
+      }
       if (api.onKey && !e.isComposing && api.onKey(e)) { caretLine(); return; } // (LaTeX Suite: snippets, tabstops, tabout)
       if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       const v = input.value, s = input.selectionStart, t = input.selectionEnd;

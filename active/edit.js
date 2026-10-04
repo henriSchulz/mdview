@@ -710,8 +710,8 @@
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
       A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
+      A.ghost.plugin,     // (with a suggestion shown, Tab, Ctrl+→ and Esc are the suggestion's — in a formula too)
       A.mathtext.plugin,  // (in a formula being typed in the text: LaTeX Suite's keys)
-      A.ghost.plugin,     // (and with a suggestion shown, Tab, Ctrl+→ and Esc are the suggestion's)
       (typed = IR.inputRules({ rules: [...rules, A.notes.rule] })), caught,
       keymap(keys),
       keymap(C.baseKeymap),
