@@ -1865,16 +1865,38 @@ class ViewerWindow(Gtk.ApplicationWindow):
             if op == "default":
                 Gio.AppInfo.launch_default_for_uri(gfile.get_uri(), None)
             elif op == "openwith":
-                dialog = Gtk.AppChooserDialog.new(self, Gtk.DialogFlags.MODAL, gfile)
-                if dialog.run() == Gtk.ResponseType.OK:
-                    info = dialog.get_app_info()
-                    if info:
-                        info.launch([gfile], None)
-                dialog.destroy()
+                if not self.open_with_portal(path):
+                    dialog = Gtk.AppChooserDialog.new(self, Gtk.DialogFlags.MODAL, gfile)
+                    if dialog.run() == Gtk.ResponseType.OK:
+                        info = dialog.get_app_info()
+                        if info:
+                            info.launch([gfile], None)
+                    dialog.destroy()
             elif op == "reveal":
                 self.reveal(gfile)
         except GLib.Error as e:
             self.js("MdView.toast", e.message)
+
+    def open_with_portal(self, path):
+        """Ask xdg-desktop-portal which application should open the file (OpenURI with ask):
+        the desktop's own chooser answers — Finder's — and launches the choice itself. False
+        when there is no portal, so the caller falls back to GTK's dialog."""
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            fd = os.open(path, os.O_RDONLY)
+            try:
+                fds = Gio.UnixFDList.new()
+                index = fds.append(fd)
+            finally:
+                os.close(fd)
+            bus.call_with_unix_fd_list_sync(
+                "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
+                "org.freedesktop.portal.OpenURI", "OpenFile",
+                GLib.Variant("(sha{sv})", ("", index, {"ask": GLib.Variant("b", True)})),
+                None, Gio.DBusCallFlags.NONE, 5000, fds, None)
+            return True
+        except (GLib.Error, OSError):
+            return False
 
     def reveal(self, gfile):
         """Show the file in the file manager (org.freedesktop.FileManager1 — Finder here). On the
