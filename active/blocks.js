@@ -43,8 +43,8 @@
    * of its bullet or checkbox for a list item. In a column that is not the first, it stays in the
    * gap before that column (further left is the text of the column beside it). */
   function leftOf(el, r) {
-    const left = r.left - (el.matches("li") ? 56 : 32), col = el.closest(".col");
-    return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 24) : left;
+    const left = r.left - (el.matches("li") || el.classList.contains("cols") ? 56 : 32), col = el.closest(".col"); // (a row of columns: further out than the handles of its first column's blocks)
+    return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 20) : left;
   }
   function place(el) {
     over = el;
@@ -826,20 +826,88 @@
             const bottom = handle.hasAttribute("data-group") ? h.bottom : over.matches("li") ? Math.min(r.bottom, h.bottom + 6) : r.bottom;
             if (e.clientY >= r.top - 6 && e.clientY <= bottom + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12) { clearTimeout(leaving); return false; }
           }
-          let el = blockOf(v, e.target, e.clientY);
-          // inside a selected block (a block of a selected row of columns): that block's handle, not its own
-          if (el && selOf(v.state)) { const holder = pickedOf(v.state).map((x) => v.nodeDOM(x.pos)).find((d) => d && d.nodeType === 1 && d !== el && d.contains(el)); if (holder) el = holder; }
-          // over one of several selected blocks: the handle they share
-          const group = el ? groupEls(v.state) : null;
-          const mine = group && group.find((x) => x === el || x.contains(el));
-          if (mine) { clearTimeout(leaving); if (!handle.hasAttribute("data-group") || over !== (handle.hasAttribute("data-apart") ? mine : group[0]) || !handle.hasAttribute("data-on")) placeGroup(group, mine); return false; }
-          if (el) { clearTimeout(leaving); if (el !== over || handle.hasAttribute("data-group")) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
+          if (bare(e)) return false; // (between blocks, in a row's gap: the pointer beside a block decides, below)
+          if (!showFor(v, blockOf(v, e.target, e.clientY)) && over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
         mouseleave(_v, e) { if (over && !e.relatedTarget?.closest?.(".blk-h")) hideSoon(); return false; },
         keydown() { if (over) hide(); return false; },
       },
     },
+  });
+  // the handle for this block (or for what is selected around it, with it). -> shown?
+  function showFor(v, el) {
+    // inside a selected block (a block of a selected row of columns): that block's handle, not its own
+    if (el && selOf(v.state)) { const holder = pickedOf(v.state).map((x) => v.nodeDOM(x.pos)).find((d) => d && d.nodeType === 1 && d !== el && d.contains(el)); if (holder) el = holder; }
+    // over one of several selected blocks: the handle they share
+    const group = el ? groupEls(v.state) : null;
+    const mine = group && group.find((x) => x === el || x.contains(el));
+    clearTimeout(leaving);
+    if (mine) { if (!handle.hasAttribute("data-group") || over !== (handle.hasAttribute("data-apart") ? mine : group[0]) || !handle.hasAttribute("data-on")) placeGroup(group, mine); return true; }
+    if (el && (el !== over || handle.hasAttribute("data-group") || !handle.hasAttribute("data-on"))) place(el);
+    return !!el;
+  }
+  /* The handle is a part of its block: it shows where it stands, too — with the pointer beside the
+   * block, at the place the handle has, not only with the pointer over the block's text.
+   *   left of the text      the block at the pointer's height (in a list: the item; in a row of
+   *                         columns: the block of its first column — further out, the row itself)
+   *   in a row's gap        the block of the column right of it whose first line is at that height
+   * -> the block's element, or null */
+  const GUTTER = 44, FAR = 76; // px left of the text: a block's own handle; beyond it, up to here: the row of columns'
+  const inner = (el, y) => { // the block meant at height y: an item of a list, not the list
+    if (el && el.matches("ul, ol")) { const li = itemIn(el, y); return li && li.pmViewDesc ? li : el; }
+    return el;
+  };
+  const blockAtY = (parent, y, slack = 3) => {
+    for (const c of parent.children) {
+      const d = c.pmViewDesc;
+      if (!d || !d.node || d.dom !== c || !usable(d.node) || c.classList.contains("hid")) continue;
+      const r = c.getBoundingClientRect();
+      if (r.height && y >= r.top - slack && y <= r.bottom + slack) return c;
+    }
+    return null;
+  };
+  function besideAt(v, e) {
+    const pm = v.dom.getBoundingClientRect(), x = e.clientX, y = e.clientY;
+    // (in a row's gap the pointer is over the grip for the widths, which lies over the row)
+    const gapRow = e.target.classList?.contains("col-grip") ? document.elementsFromPoint(x, y).find((n) => n.classList && n.classList.contains("cols") && n.parentElement === v.dom) : null;
+    if (!v.dom.contains(e.target) && !gapRow) { // left of the text
+      if (e.target.closest?.(CHROME) || x > pm.left + 2 || x < pm.left - FAR || y < pm.top || y > pm.bottom) return null;
+      const top = blockAtY(v.dom, y);
+      if (!top) return null;
+      if (top.classList.contains("cols")) {
+        const first = x >= pm.left - GUTTER ? top.querySelector(":scope > .col") : null, b = first && blockAtY(first, y);
+        return b ? inner(b, y) : top;
+      }
+      return inner(top, y);
+    }
+    if (!gapRow && !e.target.matches?.(".cols, .col")) return null;
+    const row = gapRow || e.target.closest(".cols");
+    for (const col of row.children) { // in the gap before a column: the block of that column that begins at this height
+      if (!col.previousElementSibling || !col.classList.contains("col")) continue;
+      const a = col.getBoundingClientRect();
+      if (x < a.left - 22 || x >= a.left + 2) continue; // (the gap's left part is for pulling the columns' widths, at any height)
+      for (const c of col.children) {
+        const b = inner(c, y), d = b.pmViewDesc;
+        if (!d || !d.node || !usable(d.node)) continue;
+        const r = b.getBoundingClientRect(), line = Math.min(r.height, parseFloat(getComputedStyle(b).lineHeight) || 28);
+        if (y >= r.top - 5 && y <= r.top + line + 5) return b;
+      }
+    }
+    return null;
+  }
+  document.addEventListener("mousemove", (e) => {
+    if (!view || !view.editable || document.body.dataset.view !== "active" || e.buttons || rubber || drag || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return;
+    if (handle.contains(e.target)) return;
+    const inText = view.dom.contains(e.target);
+    if (inText && !bare(e)) return; // (over a block: the editor's own handler has it)
+    const el = besideAt(view, e);
+    if (el) showFor(view, el);
+    else if (over) {
+      // on the way to the handle, beside its block: it stays (as within the text)
+      const r = over.getBoundingClientRect(), h = handle.getBoundingClientRect();
+      if (!(e.clientY >= r.top - 6 && e.clientY <= Math.max(r.bottom, h.bottom) + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12)) hideSoon();
+    }
   });
   handle.addEventListener("mouseenter", () => clearTimeout(leaving));
   handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hideSoon(); });

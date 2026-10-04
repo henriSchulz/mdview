@@ -189,7 +189,9 @@
   function place(g) {
     hot = g;
     const cs = colEls(g.el), a = cs[g.i].getBoundingClientRect(), b = cs[g.i + 1].getBoundingClientRect(), r = g.el.getBoundingClientRect();
-    grip.style.left = (a.right + b.left) / 2 - 6 + scrollX + "px";
+    // the whole gap takes the pull (a block's handle, where one shows in it, lies over the grip)
+    grip.style.left = a.right + scrollX + "px";
+    grip.style.width = Math.max(8, b.left - a.right) + "px";
     grip.style.top = r.top + scrollY + "px";
     grip.style.height = r.height + "px";
     grip.dataset.on = "";
@@ -228,7 +230,7 @@
     pull.now[i + 1] = both - left;
     view.dispatch(view.state.tr.setMeta(key, { pos: pull.pos, widths: pull.now }).setMeta("addToHistory", false));
     const cs = colEls(pull.el);
-    if (cs[i] && cs[i + 1]) { const a = cs[i].getBoundingClientRect(), b = cs[i + 1].getBoundingClientRect(); grip.style.left = (a.right + b.left) / 2 - 6 + scrollX + "px"; }
+    if (cs[i] && cs[i + 1]) grip.style.left = cs[i].getBoundingClientRect().right + scrollX + "px";
   }, true);
   function endPull(write) {
     const p = pull;

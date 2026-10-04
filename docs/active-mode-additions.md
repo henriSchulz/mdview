@@ -160,6 +160,13 @@ run; everything that does not depend on frames passed.
   block of every column of a row picked, the row itself is what is selected (`selFor`), and its handle
   shows over any block in it; two or more whole columns of a row, dragged, go as a row of their own (the
   row they leave closes up). Tests: `tests/pick.test.mjs`, `rig.sh columns`.
+- **The handle is a part of its block** (branch `craft-feel`, blocks.js `besideAt`): it shows where it stands,
+  too — with the pointer beside the block at the handle's place, not only over the block's text. Left of the
+  text (up to 44 px out): the block at that height, in a list the item, in a row of columns the block of its
+  first column; further out (up to 76 px): the row itself, whose handle stands further out than its blocks'.
+  In a row's gap: its right 22 px, at the first line of a block of the next column, are that block's handle;
+  the rest of the gap, at any height, pulls the widths (the grip is as wide as the gap and lies under the
+  handles; the gap is 36 px). The handle comes at once (`--dur-instant`).
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

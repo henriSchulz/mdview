@@ -38,10 +38,10 @@
 
     // --- the gap is pulled (the real pointer)
     cols = [...view.dom.querySelectorAll(".cols > .col")];
-    const a = cols[0].getBoundingClientRect(), b = cols[1].getBoundingClientRect(), gx = (a.right + b.left) / 2, gy = a.top + 8;
+    const a = cols[0].getBoundingClientRect(), b = cols[1].getBoundingClientRect(), gx = a.right + 7, gy = a.top + 8; // (the gap's left part: right of it, at a first line, is the next column's handle)
     const grip = document.querySelector(".col-grip");
     post("probe-pointer", { kind: "move", x: gx, y: gy }); await sleep(250);
-    ok("the pointer in the gap: a grip there, as tall as the row", grip.hasAttribute("data-on") && Math.abs(grip.getBoundingClientRect().left + 6 - gx) < 2, [grip.hasAttribute("data-on"), grip.getBoundingClientRect().left, gx]);
+    ok("the pointer in the gap: a grip there, as tall as the row", grip.hasAttribute("data-on") && Math.abs(grip.getBoundingClientRect().left - a.right) < 2 && Math.abs(grip.getBoundingClientRect().right - b.left) < 2 && Math.abs(grip.getBoundingClientRect().height - view.dom.querySelector(".cols").getBoundingClientRect().height) < 2, [grip.hasAttribute("data-on"), grip.getBoundingClientRect().left, a.right]);
     post("probe-pointer", { kind: "down", x: gx, y: gy }); await sleep(80);
     post("probe-pointer", { kind: "move", x: gx + 40, y: gy, held: true }); await sleep(80);
     post("probe-pointer", { kind: "move", x: gx + 90, y: gy, held: true }); await sleep(150);
@@ -95,6 +95,22 @@
     para("Delta").dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: para("Delta").getBoundingClientRect().left + 20, clientY: para("Delta").getBoundingClientRect().top + 6 }));
     await sleep(200);
     ok("a block in a column has its own handle", h.hasAttribute("data-on") && A.blocks.over() === para("Delta") && h.getBoundingClientRect().height < 30, A.blocks.over() && A.blocks.over().textContent);
+
+    // --- handles beside blocks in a row (the real pointer)
+    {
+      const hh = document.querySelector(".blk-h"), grip2 = document.querySelector(".col-grip"), pmr = view.dom.getBoundingClientRect();
+      const rr = para("Right").getBoundingClientRect(), al2 = para("Alpha").getBoundingClientRect(), rowEl = view.dom.querySelector(".cols"), rowR = rowEl.getBoundingClientRect();
+      post("probe-pointer", { kind: "move", x: pmr.right + 90, y: rowR.bottom + 200 }); await sleep(500);
+      post("probe-pointer", { kind: "move", x: rr.left - 30, y: rr.top + 10 }); await sleep(300);
+      ok("in the gap's left part: the grip for the widths, no handle", grip2.hasAttribute("data-on") && !hh.hasAttribute("data-on"), [grip2.hasAttribute("data-on"), hh.hasAttribute("data-on")]);
+      post("probe-pointer", { kind: "move", x: rr.left - 12, y: rr.top + 10 }); await sleep(300);
+      ok("in the gap, at the first line of the next column's block: that block's handle, inside the gap", hh.hasAttribute("data-on") && A.blocks.over() === para("Right") && hh.getBoundingClientRect().left >= al2.right && hh.getBoundingClientRect().right <= rr.left, [A.blocks.over() && A.blocks.over().textContent.slice(0, 8), hh.getBoundingClientRect().left, rr.left]);
+      post("probe-pointer", { kind: "move", x: pmr.left - 20, y: al2.top + 10 }); await sleep(300);
+      ok("left of the row, near: the handle of the first column's block", hh.hasAttribute("data-on") && A.blocks.over() === para("Alpha"), A.blocks.over() && A.blocks.over().className);
+      post("probe-pointer", { kind: "move", x: pmr.left - 60, y: al2.top + 10 }); await sleep(300);
+      ok("further out: the handle of the row itself, standing further out", A.blocks.over() === rowEl && hh.getBoundingClientRect().left < pmr.left - 44, [A.blocks.over() && A.blocks.over().className, hh.getBoundingClientRect().left, pmr.left]);
+      post("probe-pointer", { kind: "move", x: pmr.right + 90, y: rowR.bottom + 200 }); await sleep(500);
+    }
 
     // --- in a column: the / menu's commands
     caret("Right side.");

@@ -261,7 +261,7 @@ table { border-collapse: collapse; font-size: 0.94em; font-variant-numeric: tabu
 .table-wrap.wide > table { width: 100%; }
 /* columns: blocks side by side (<!-- columns --> … <!-- column --> … <!-- /columns -->); a column's
  * width is its share (flex). In a narrow window they stand one under the other again. */
-.cols { display: flex; align-items: flex-start; gap: 28px; margin: 0 0 1em; }
+.cols { display: flex; align-items: flex-start; gap: 36px; margin: 0 0 1em; }
 .col { flex: var(--w-live, var(--w, 1)) 1 0; min-width: 0; }   /* --w: its share; --w-live: while its gap is pulled */
 .col > :first-child { margin-top: 0; }
 .col > :last-child { margin-bottom: 0; }

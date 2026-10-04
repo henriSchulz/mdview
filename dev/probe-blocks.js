@@ -110,6 +110,24 @@
       at("move", pr.right + 60, 300); await sleep(60); at("down", pr.right + 60, 300); await sleep(50); at("up", pr.right + 60, 300); await sleep(250); }
     ok("a click into the empty space beside the text lets the selected block go", picked().length === 0 && md() === original, picked());
 
+    // --- the handle shows where it stands: with the pointer beside a block, not only over its text
+    {
+      at("move", view.dom.getBoundingClientRect().right + 80, 400); await sleep(500);
+      const hh = document.querySelector(".blk-h"), pr = view.dom.getBoundingClientRect(), fp = para("First paragraph").getBoundingClientRect();
+      ok("away from the text: no handle", !hh.hasAttribute("data-on"));
+      at("move", pr.left - 22, fp.top + fp.height / 2); await sleep(250);
+      ok("the pointer left of a block, where its handle stands: the handle is there", hh.hasAttribute("data-on") && A.blocks.over() === para("First paragraph") && Math.abs(hh.getBoundingClientRect().left + 9 - (pr.left - 23)) < 4, [hh.hasAttribute("data-on"), A.blocks.over() && A.blocks.over().textContent.slice(0, 12), hh.getBoundingClientRect().left, pr.left]);
+      const sp = para("Second paragraph").getBoundingClientRect();
+      at("move", pr.left - 22, sp.top + sp.height / 2); await sleep(250);
+      ok("moved down beside the next block: that block's handle", A.blocks.over() === para("Second paragraph") && hh.hasAttribute("data-on"));
+      const g = hh.getBoundingClientRect();
+      at("move", g.left + 9, g.top + 9); await sleep(120); at("down", g.left + 9, g.top + 9); await sleep(50); at("up", g.left + 9, g.top + 9); await sleep(300);
+      ok("… and it is clicked from there", picked().join("|") === "Second paragraph f", picked());
+      key("Escape");
+      at("move", pr.left - 140, sp.top + 8); await sleep(600);
+      ok("further out it goes", !hh.hasAttribute("data-on"));
+    }
+
     // --- a click below the last block
     window.scrollTo(0, document.documentElement.scrollHeight);
     await sleep(200);
