@@ -17,8 +17,12 @@ beside the notes. The command and the repository are still called `mdview`;
 - Stays resident for a while after the last window closes, so reopening is
   instant; `bin/mdview` hands files to the running instance over D-Bus.
 - Colors follow the Omarchy theme, motion follows `~/.local/share/henri-ui`. The
-  sidebar, menus and bars are built as macOS builds them (a floating sidebar card,
-  glass menus, shortcuts as `⌃⇧V`), with the sizes in `~/.local/share/apple-ui`.
+  sidebar and bars are built as macOS builds them (a floating sidebar card, shortcuts
+  as `⌃⇧V`), with the sizes in `~/.local/share/apple-ui`; context menus and the `/`
+  menu are the Things rebuild's dark popover, the app's own icons SF Symbols where
+  that font is installed.
+- Everything it does, with the Markdown it reads: `docs/FEATURES.md`. A Claude skill
+  for writing notes it renders: `skill/mdview-notes` (linked by the installer).
 
 ## Install
 
@@ -44,5 +48,6 @@ fonts Inter and JetBrains Mono Nerd Font.
 | `overview.js`, `overview.css` | all notes of a folder as tiles |
 | `strings.js` | user-facing strings of the active mode (English, German) |
 | `active/`, `active.css` | the active mode: the rendered document, editable in place (in progress, see `docs/`) |
-| `docs/` | design notes and milestone reports |
+| `docs/` | `FEATURES.md` (what the app does), design notes and milestone reports |
+| `skill/` | the Claude skill `mdview-notes` |
 | `dev/` | build of the vendored editor libraries, tests, a rig that runs the app off-screen — see `dev/README.md` |
