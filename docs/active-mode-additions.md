@@ -85,6 +85,10 @@ run; everything that does not depend on frames passed.
   Esc closes. The application reads the beginnings (`previews` message, 2.4 KB per note, 60 per request);
   they are rendered once and again only when the file changed. Not there yet: sorting, a new note from the
   overview, pictures embedded with `![[…]]`. Probe: `rig.sh overview` (notes in `dev/tests/overview-notes`).
+- **A table as wide as the text column** (branch `craft-feel`): a right click in a table has **Full Width**
+  (ticked when on; the / menu in a cell has it too). In the file it is a line `<!-- wide -->` right before
+  the table — a comment no renderer shows; the parser takes the line into the table (`wide_tables` core rule,
+  `.table-wrap.wide`), the active mode keeps it as the table's `wide` attribute. Tests: `tests/widetable.test.mjs`.
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

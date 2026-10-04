@@ -93,9 +93,10 @@
       content: "table_row+",
       tableRole: "table",
       isolating: true,
-      attrs: { raw: { default: null } },
-      parseDOM: [{ tag: "table" }],
-      toDOM: (n) => ["div", { class: "table-wrap", ...lineAttr(n) }, ["table", 0]],
+      // wide: as wide as the text column (a line <!-- wide --> before it in the file)
+      attrs: { raw: { default: null }, wide: { default: false } },
+      parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !!(dom.parentElement && dom.parentElement.classList.contains("wide")) }) }],
+      toDOM: (n) => ["div", { class: "table-wrap" + (n.attrs.wide ? " wide" : ""), ...lineAttr(n) }, ["table", 0]],
     }),
     table_row: { content: "table_cell+", tableRole: "row", parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
     table_cell: {
@@ -400,7 +401,8 @@
       }
       const width = rows.length ? rows[0].content.length : 0;
       if (!width || rows.some((r) => r.content.length !== width)) throw new Unsupported("ragged table");
-      return { type: "table", attrs: { ...attrs, raw: sourceOf(group, ctx) }, content: rows };
+      const wide = !!(group[0].meta && group[0].meta.wide), raw = sourceOf(group, ctx);
+      return { type: "table", attrs: { ...attrs, wide, raw: wide ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
     }
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);

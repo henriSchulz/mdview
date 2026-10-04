@@ -157,6 +157,7 @@
     } else {
       const cell = A.tableui.cellAt(state.selection.$from);
       items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
+        item("table.wide", () => A.tableui.wide(view, cell), { checked: !!cell.table.attrs.wide }),
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
     items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));

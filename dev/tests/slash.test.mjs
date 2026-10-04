@@ -43,7 +43,7 @@ test("what it offers follows the caret", () => {
   assert.equal(v.md(), "- [ ] open\n- [ ] done\n");
 
   v = open("| a | b |\n| - | - |\n| c | d |\n", "c");
-  assert.equal(keys(A.slash.entries(v)), "table.row table.column menu.format - table.delete");
+  assert.equal(keys(A.slash.entries(v)), "table.row table.column menu.format table.wide - table.delete");
   v.dispatch(v.state.tr.insertText(" /"));
   assert.equal(A.slash.typed(v.state)?.query, ""); // a "/" typed in a cell opens it too
 });

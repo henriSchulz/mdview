@@ -133,6 +133,11 @@
 
   // ------------------------------------------------------------ menu
   const item = (key, run, more) => ({ label: T(key), run, ...more });
+  // the table as wide as the text column, or as wide as what it holds
+  const wide = (view, cell) => {
+    view.dispatch(view.state.tr.setNodeMarkup(cell.tablePos, null, { ...cell.table.attrs, wide: !cell.table.attrs.wide }).setMeta("step", true));
+    view.focus();
+  };
   function rowItems(view, cell) {
     const go = (op) => () => change(view, cell.tablePos, op), last = cell.table.childCount - 1;
     return [
@@ -305,5 +310,5 @@
     },
   });
 
-  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems };
+  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems, wide };
 })();

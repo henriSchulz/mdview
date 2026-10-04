@@ -51,6 +51,7 @@
     select: svg('<rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 3.4"/>'),
     copy: ICON.clip,
     check: ICON.check,
+    wide: svg('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
     row: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 12h18"/>'),
     column: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M12 5v14"/>'),
   };
@@ -123,6 +124,7 @@
         { key: "table.row", icon: I.row, items: own(A.tableui.rowItems(view, cell)) },
         { key: "table.column", icon: I.column, items: own(A.tableui.colItems(view, cell)) },
         format,
+        leaf("table.wide", "wide width full breite voll", I.wide, (v) => A.tableui.wide(v, A.tableui.cellAt(v.state.selection.$from))),
         null,
         leaf("table.delete", "table tabelle", I.remove, (v) => A.tableui.change(v, cell.tablePos, A.tableui.ops.remove()), { danger: true }),
       ];

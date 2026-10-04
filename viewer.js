@@ -418,7 +418,19 @@
   };
   md.renderer.rules.code_block = (toks, idx) =>
     `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
-  md.renderer.rules.table_open = (t, i, o, _e, self) => '<div class="table-wrap">' + self.renderToken(t, i, o);
+  md.renderer.rules.table_open = (t, i, o, _e, self) => `<div class="table-wrap${t[i].meta && t[i].meta.wide ? " wide" : ""}">` + self.renderToken(t, i, o);
+  // a table as wide as the text column: the line before it says so, as a comment no renderer shows
+  const WIDE = /^<!--\s*wide\s*-->\s*$/;
+  md.core.ruler.after("block", "wide_tables", (state) => {
+    const toks = state.tokens;
+    for (let i = 0; i < toks.length - 1; i++) {
+      const c = toks[i], t = toks[i + 1];
+      if (c.type !== "html_block" || t.type !== "table_open" || !WIDE.test(c.content) || !c.map || !t.map || c.map[1] !== t.map[0]) continue;
+      t.meta = { ...t.meta, wide: true };
+      t.map = [c.map[0], t.map[1]]; // (the line belongs to the table)
+      toks.splice(i, 1);
+    }
+  });
   md.renderer.rules.table_close = (t, i, o, _e, self) => self.renderToken(t, i, o) + "</div>";
   const isExternal = (href) => /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^file:/i.test(href);
   const defaultLinkOpen = md.renderer.rules.link_open || ((t, i, o, _e, self) => self.renderToken(t, i, o));

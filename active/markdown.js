@@ -334,7 +334,8 @@
       });
       rows.push(out);
     });
-    return A.tables.write(rows, aligns, style);
+    const lines = A.tables.write(rows, aligns, style);
+    return node.attrs.wide ? [style.indent + "<!-- wide -->"].concat(lines) : lines;
   }
   // -> the lines of every item of a list
   function listItems(node, cx) {
