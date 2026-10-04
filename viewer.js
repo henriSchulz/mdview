@@ -276,6 +276,8 @@
   md.renderer.rules.tag = (t, i) => `<span class="tag">#${esc(t[i].content)}</span>`;
 
   // --- callouts (Obsidian + GitHub alerts)
+  const calloutKind = (type) => CALLOUT_ALIAS[type] || (CALLOUT_ICON[type] ? type : type === "pdf" && CALLOUT_ICON.quote ? "quote" : "note");
+  const calloutTitle = (type, given) => given || (type === "pdf" ? "PDF" : type.charAt(0).toUpperCase() + type.slice(1));
   md.core.ruler.after("block", "callouts", (state) => {
     const toks = state.tokens;
     for (let i = 0; i < toks.length; i++) {
@@ -303,8 +305,9 @@
         } else toks.splice(i + 1, 3);
         continue;
       }
-      const kind = CALLOUT_ALIAS[type] || (CALLOUT_ICON[type] ? type : type === "pdf" && CALLOUT_ICON.quote ? "quote" : "note");
+      const kind = calloutKind(type);
       const fold = m[3];
+      open.meta = { callout: { type: m[1], title: m[4] || "", fold: !!fold, meta: m[2] || "" } }; // (as written: what the active mode writes back)
       let depth = 0, j = i;
       for (; j < toks.length; j++) {
         if (toks[j].type === "blockquote_open") depth++;
@@ -319,7 +322,7 @@
       const titleOpen = new state.Token("callout_title_open", fold ? "summary" : "div", 1);
       titleOpen.meta = { kind, fold: !!fold };
       const title = new state.Token("inline", "", 0);
-      title.content = m[4] || (type === "pdf" ? "PDF" : type.charAt(0).toUpperCase() + type.slice(1));
+      title.content = calloutTitle(type, m[4]);
       title.children = [];
       title.map = inl.map;
       const titleClose = new state.Token("callout_title_close", fold ? "summary" : "div", -1);
@@ -2383,7 +2386,7 @@
   window.addEventListener("blur", hideTip);
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, keys, follow, tex, mermaidSvg, toast,
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },

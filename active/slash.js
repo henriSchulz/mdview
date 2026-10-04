@@ -10,13 +10,15 @@
  * gets its rows and columns.
  * Decorations put a quote around the block — plain, as a tinted block, with
  * a bar (focus), or both — and Color gives the block or the bar one of the theme's
- * colours; a colour chosen for plain text makes a block of it. */
+ * colours; a colour chosen for plain text makes a block of it. Callout puts
+ * one of the boxes with a title around it: an info, a warning, an error … */
 "use strict";
 (() => {
   const A = window.MdActive, T = window.MdStrings.t;
   const { Plugin, PluginKey, Selection } = PM.state;
   const N = A.schema.nodes, M = A.schema.marks;
-  const { ICON, DECO_COLORS, copy } = window.MdView.core;
+  const { ICON, DECO_COLORS, callout: CALLOUT, copy } = window.MdView.core;
+  const CALLOUTS = ["note", "info", "tip", "success", "question", "warning", "error", "bug", "example", "important"];
 
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const I = {
@@ -109,6 +111,8 @@
       const next = ["block", "focus"].filter((p) => (p === part ? !has(p) : has(p))).join("-");
       return A.context.run(v, next ? A.context.setDeco(next, k.color) : A.context.PARAGRAPH.quote);
     };
+    // a callout: the kind chosen again takes it away
+    const callout = (type) => (v) => A.context.run(v, k.callout === type ? A.context.PARAGRAPH.quote : A.context.setCallout(type));
     // a colour needs something to colour: plain text becomes a block, a quote gets a bar
     const color = (c) => (v) => A.context.run(v, A.context.setDeco(!k.deco ? "block" : k.deco === "quote" ? (c ? "focus" : null) : k.deco, c));
     const format = { key: "menu.format", icon: I.format, items: [
@@ -148,9 +152,11 @@
         leaf("slash.focus", "focus bar fokus balken", I.focus, deco("focus"), { checked: has("focus") }),
       ] },
       { key: "slash.color", icon: I.color, items: [
-        leaf("slash.colorDefault", "color colour default farbe standard", I.noColor, color(null), { checked: !k.color }),
-        ...DECO_COLORS.map((c) => leaf("color." + c, "color colour farbe", I.dot(c), color(c), { checked: k.color === c })),
+        leaf("slash.colorDefault", "color colour default farbe standard", I.noColor, color(null), { checked: !k.color, disabled: !!k.callout }),
+        ...DECO_COLORS.map((c) => leaf("color." + c, "color colour farbe", I.dot(c), color(c), { checked: k.color === c, disabled: !!k.callout })), // (a callout has its kind's colour)
       ] },
+      { key: "slash.callout", icon: CALLOUT.icon.info, items: CALLOUTS.map((c) =>
+        leaf("callout." + c, "callout box kasten hinweis " + c, CALLOUT.icon[CALLOUT.kind(c)], callout(c), { checked: k.callout === c })) },
       null,
       leaf("menu.codeBlock", "code codeblock", I.codeBlock, (v) => A.context.INSERT.code(v)),
       leaf("menu.formula", "formula math latex equation formel", I.formula, (v) => A.context.INSERT.math(v)),

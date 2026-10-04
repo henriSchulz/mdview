@@ -22,7 +22,8 @@
     const q = A.edit.ancestor($from, (n) => n.type === N.blockquote), quote = !!q;
     let kind = $from.parent.type === N.heading ? "h" + $from.parent.attrs.level : "text";
     if (item && list) kind = item.node.attrs.task != null ? "task" : list.node.type === N.ordered_list ? "ordered" : "bullet";
-    return { kind, quote, deco: q ? q.node.attrs.deco || "quote" : null, color: q ? q.node.attrs.color : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
+    return { kind, quote, deco: q ? (q.node.attrs.callout ? "callout" : q.node.attrs.deco || "quote") : null, color: q ? q.node.attrs.color : null,
+      callout: q && q.node.attrs.callout ? q.node.attrs.callout.toLowerCase() : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
   }
   const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? C.lift(state, dispatch) : C.wrapIn(N.blockquote)(state, dispatch));
   /* A decoration around the block: a quote (deco null), a tinted block, a focus bar — in a colour.
@@ -30,7 +31,14 @@
   const setDeco = (deco, color = null) => (state, dispatch) => {
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
     if (!q) return C.wrapIn(N.blockquote, { deco, color: deco ? color : null })(state, dispatch);
-    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco, color: deco ? color : null }));
+    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco, color: deco ? color : null, callout: null, title: null }));
+    return true;
+  };
+  // a callout around the block (an info, a warning …); a quote or a callout that is there becomes it, its title stays
+  const setCallout = (type) => (state, dispatch) => {
+    const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
+    if (!q) return C.wrapIn(N.blockquote, { callout: type })(state, dispatch);
+    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco: null, color: null, callout: type }));
     return true;
   };
   // out of a list first, then the command (a heading does not sit in a list item by choice)
@@ -222,5 +230,5 @@
     },
   });
 
-  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, PARAGRAPH, INSERT, textItems, nodeItems };
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, PARAGRAPH, INSERT, textItems, nodeItems };
 })();

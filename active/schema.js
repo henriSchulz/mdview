@@ -22,6 +22,22 @@
 
   const line = { default: null };
   const lineAttr = (node) => (node.attrs.line == null ? {} : { "data-line": node.attrs.line });
+  // a quote as the reading view shows it — and a callout: its title (not typed in) above what it holds
+  const quoteDOM = (n) => ["blockquote", { ...lineAttr(n), ...(n.attrs.deco ? { class: "deco " + n.attrs.deco.split("-").map((d) => "deco-" + d).join(" ") + (n.attrs.color ? ` deco-${n.attrs.color}` : "") } : null) }, 0];
+  function calloutDOM(n) {
+    const C = window.MdView.core, type = n.attrs.callout.toLowerCase();
+    const dom = document.createElement("div");
+    dom.className = "callout callout-" + C.callout.kind(type);
+    dom.setAttribute("data-callout", type);
+    if (n.attrs.line != null) dom.setAttribute("data-line", n.attrs.line);
+    const title = dom.appendChild(document.createElement("div"));
+    title.className = "callout-title";
+    title.contentEditable = "false";
+    title.innerHTML = `<span class="callout-icon">${C.callout.icon[C.callout.kind(type)]}</span><span class="callout-title-text">${C.md.renderInline(C.callout.title(type, n.attrs.title), { links: {}, outline: [], depth: 1 })}</span>`;
+    const content = dom.appendChild(document.createElement("div"));
+    content.className = "callout-content";
+    return { dom, contentDOM: content };
+  }
   const block = (spec) => ({ group: "block", ...spec, attrs: { bid: { default: null }, line, ...spec.attrs } });
 
   const nodes = {
@@ -49,12 +65,13 @@
       content: "block+",
       defining: true,
       // deco: null (a quote), "block", "focus" or "block-focus"; color: null or one of the theme's colours
-      attrs: { deco: { default: null }, color: { default: null } },
-      parseDOM: [{ tag: "blockquote", getAttrs: (dom) => {
+      // callout: null, or the type of a callout as written ("info", "WARNING"), with its title (null: the type's name)
+      attrs: { deco: { default: null }, color: { default: null }, callout: { default: null }, title: { default: null } },
+      parseDOM: [{ tag: "div.callout", contentElement: ".callout-content", getAttrs: (dom) => ({ callout: dom.getAttribute("data-callout") || "note" }) }, { tag: "blockquote", getAttrs: (dom) => {
         const deco = ["block", "focus"].filter((d) => dom.classList.contains("deco-" + d)).join("-") || null, color = /\bdeco-(red|orange|yellow|green|cyan|blue|magenta)\b/.exec(dom.className);
         return { deco, color: deco && color ? color[1] : null };
       } }],
-      toDOM: (n) => ["blockquote", { ...lineAttr(n), ...(n.attrs.deco ? { class: "deco " + n.attrs.deco.split("-").map((d) => "deco-" + d).join(" ") + (n.attrs.color ? ` deco-${n.attrs.color}` : "") } : null) }, 0],
+      toDOM: (n) => (n.attrs.callout ? calloutDOM(n) : quoteDOM(n)),
     }),
     bullet_list: block({
       content: "list_item+",
@@ -363,7 +380,13 @@
               out.push({ type: "horizontal_rule", attrs: { ...attrs, markup: t.markup } });
               break;
             case "blockquote_open":
-              if (t.tag !== "blockquote") throw new Unsupported("callout");
+              if (t.tag !== "blockquote") { // a callout: edited in place when it is a plain one with something in it
+                const c = t.meta && t.meta.callout, b0 = inner.findIndex((x) => x.type === "callout_body_open");
+                const body = b0 < 0 ? [] : inner.slice(b0 + 1, inner.length - 1);
+                if (!c || c.fold || c.meta || t.tag !== "div" || !body.length) throw new Unsupported("callout");
+                out.push({ type: "blockquote", attrs: { ...attrs, callout: c.type, title: c.title || null }, content: blocksOf(body, ctx.concat({ quote: true })) });
+                break;
+              }
               if (!inner.length) throw new Unsupported("empty quote");
               out.push({ type: "blockquote", attrs: { ...attrs, deco: (t.meta && t.meta.deco) || null, color: (t.meta && t.meta.color) || null }, content: blocksOf(inner, ctx.concat({ quote: true })) });
               break;

@@ -89,6 +89,14 @@ run; everything that does not depend on frames passed.
   (ticked when on; the / menu in a cell has it too). In the file it is a line `<!-- wide -->` right before
   the table — a comment no renderer shows; the parser takes the line into the table (`wide_tables` core rule,
   `.table-wrap.wide`), the active mode keeps it as the table's `wide` attribute. Tests: `tests/widetable.test.mjs`.
+- **Callouts in place, and from the / menu** (branch `craft-feel`): a plain callout — a kind, maybe a title,
+  something in it — is no island any more: it is a quote with the attributes `callout` (the kind as written)
+  and `title`, drawn as the reading view draws it (title bar not typed in, the text below edited in place;
+  `calloutDOM` in schema.js). The / menu's **Callout** group puts one around the block (Note, Info, Tip,
+  Success, Question, Warning, Error, Bug, Example, Important); another kind keeps the title, the same kind
+  again takes it away, a decoration replaces it. Still islands (their Markdown in a dialog): folded callouts,
+  those of PDFs (`[!pdf|yellow]`), those with nothing in them. Not there yet: changing the title in place.
+  Tests: `tests/callout.test.mjs`; `rig.sh compare` on obsidian.md shows both views laid out alike.
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

@@ -32,7 +32,7 @@
     let el = target && target.nodeType === 1 ? target : target && target.parentElement;
     // on a list itself (its bullets, its indent): the item at that height
     if (y != null && el && el.matches("ul, ol") && v.dom.contains(el)) el = itemIn(el, y) || el;
-    while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote, ul, ol") && !el.matches(".li-body, input"))) el = el.parentElement;
+    while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote, .callout-content, ul, ol") && !el.matches(".li-body, input"))) el = el.parentElement;
     if (!el || el === v.dom || !v.dom.contains(el)) return null;
     const holder = el.parentElement.matches(".li-body") ? el.parentElement.parentElement : el.parentElement;
     if (holder.matches("li") && !el.previousElementSibling) el = holder; // the item itself

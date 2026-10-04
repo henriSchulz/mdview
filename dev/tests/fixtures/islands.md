@@ -17,7 +17,7 @@ Inline $x^2$ here and a picture ![alt](missing.png).
 
     indented code
 
-> [!note] Callout
+> [!note]- Callout
 > body
 
 | a | b |

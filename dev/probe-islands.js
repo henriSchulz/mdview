@@ -164,12 +164,12 @@
     // --- anything else: its Markdown
     click(island("blockquote"));
     await sleep(400);
-    ok("a callout opens as Markdown with a preview", isOpen() && ed().value === "> [!note] Callout\n> body" && !!dlg.querySelector(".dlg-preview .callout"));
-    setEditor("> [!tip] Better\n> body");
+    ok("a folded callout opens as Markdown with a preview", isOpen() && ed().value === "> [!note]- Callout\n> body" && !!dlg.querySelector(".dlg-preview .callout"));
+    setEditor("> [!tip]- Better\n> body");
     await sleep(400);
     ok("the preview follows", dlg.querySelector(".dlg-preview .callout-title-text")?.textContent === "Better");
     await done();
-    ok("the callout is written", md().includes("> [!tip] Better\n> body") && view.dom.querySelector(".callout-tip"), md().slice(180, 260));
+    ok("the callout is written", md().includes("> [!tip]- Better\n> body") && view.dom.querySelector(".callout-tip"), md().slice(180, 260));
     key(view.dom, "z", { ctrlKey: true });
     ok("everything undone: the file is the original", md() === original, md());
 
