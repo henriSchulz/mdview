@@ -53,6 +53,11 @@ SOURCE_STAMP = SOURCE.stat().st_mtime_ns
 THEME_DIR = Path(os.environ.get("MDVIEW_THEME_DIR") or HOME / ".local/state/omarchy/current")  # (the override: for tests)
 MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
 APPLE_CSS = HOME / ".local/share/apple-ui/apple.css"   # sizes and radii measured on macOS (sidebar, menus)
+# The context and "/" menus wear the Things rebuild's dark popover: its tokens, where its launcher
+# looks for them too. Without the file the values written in viewer.css hold.
+THINGS_TOKENS = "replica/design/tokens.json"
+THINGS_DIRS = [Path(d) for d in (os.environ.get("THINGS_DIR"), HOME / ".local/share/things-clone",
+                                 HOME / "Projects/things-clone") if d]
 STATE_FILE = Path(GLib.get_user_state_dir()) / "mdview" / "state.json"
 DEBUG = bool(os.environ.get("MDVIEW_DEBUG"))
 # Development: a script evaluated in every page once it has rendered; what it
@@ -375,8 +380,31 @@ def load_theme():
     return {"mode": mode, "colors": colors}
 
 
+def things_tokens_path():
+    for folder in THINGS_DIRS:
+        if (folder / THINGS_TOKENS).exists():
+            return folder / THINGS_TOKENS
+    return None
+
+
+def things_css():
+    """What the menus need of the Things tokens, as --things-* (lengths are its points, as px)."""
+    path = things_tokens_path()
+    try:
+        t = json.loads(path.read_text())
+        color, body = t["color"], t["type"]["body"]
+        out = [f"--things-{k}:{color[k]}" for k in ("popover", "popover-text", "popover-muted", "popover-selection",
+                                                    "popover-button", "on-accent", "danger")]
+        out += [f"--things-radius-popover:{t['radius']['popover']}px", f"--things-radius-sm:{t['radius']['sm']}px",
+                f"--things-shadow-pop:{t['shadow']['pop']}", f"--things-popover-row:{t['layout']['popover']['row']}px",
+                f"--things-type-body-size:{body['size']}px", f"--things-type-body-weight:{body['weight']}"]
+        return ";" + ";".join(out)
+    except (AttributeError, OSError, ValueError, KeyError, TypeError):
+        return ""
+
+
 def theme_css(theme):
-    body = ";".join(f"--c-{k.replace('_', '-')}:{v}" for k, v in theme["colors"].items())
+    body = ";".join(f"--c-{k.replace('_', '-')}:{v}" for k, v in theme["colors"].items()) + things_css()
     return f":root{{{body};color-scheme:{theme['mode']}}}"
 
 
@@ -1904,6 +1932,7 @@ class MdViewApp(Gtk.Application):
         self.web_settings = s
         for path, cb in ((THEME_DIR / "theme.name", self.on_theme_changed),
                          (THEME_DIR / "theme/colors.toml", self.on_theme_changed),
+                         (things_tokens_path() or HOME / ".local/share/things-clone" / THINGS_TOKENS, self.on_theme_changed),
                          (MOTION_CSS, self.on_motion_changed),
                          (APPLE_CSS, self.on_motion_changed)):
             try:
