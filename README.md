@@ -41,6 +41,7 @@ fonts Inter and JetBrains Mono Nerd Font.
 | `vendor/` | markdown-it and plugins, KaTeX, highlight.js, Mermaid (minified, committed) |
 | `bin/` | launcher and installer |
 | `packaging/` | desktop entry and icon |
+| `overview.js`, `overview.css` | all notes of a folder as tiles |
 | `strings.js` | user-facing strings of the active mode (English, German) |
 | `active/`, `active.css` | the active mode: the rendered document, editable in place (in progress, see `docs/`) |
 | `docs/` | design notes and milestone reports |

@@ -780,6 +780,7 @@
   toolbar.id = "toolbar";
   toolbar.innerHTML =
     `<button class="tb" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
+    `<button class="tb" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.apps}</button>` +
     `<button class="tb" data-act="outline" title="Outline (Ctrl+Shift+O)" aria-label="Outline">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="Find (Ctrl+F)" aria-label="Find">${ICON.search}</button>` +
     `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
@@ -1928,6 +1929,7 @@
     markActiveNote(first);
     showSidebar(f.visible, !first);
     if (!current) clear();
+    if (window.MdOverview) MdOverview.folderChanged();
   }
 
   // --- the note on screen: highlighted, its folders open, scrolled into view
@@ -2194,6 +2196,7 @@
     edit: () => setMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => setMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
+    overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder
@@ -2279,6 +2282,7 @@
     if (mod && e.shiftKey && k === "o") { e.preventDefault(); actions.outline(); return; }
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
+    if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); actions.overview(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
     if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); setMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {
@@ -2368,5 +2372,6 @@
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage,
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
-      get current() { return current; } } };
+      get current() { return current; }, get folder() { return folder; } },
+    setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };
 })();

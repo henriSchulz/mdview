@@ -78,6 +78,13 @@ run; everything that does not depend on frames passed.
 - **A click below the last block** starts an empty line there (nothing in
   the file until something is written).
 - **The / menu** also opens in a line with text and applies to that block.
+- **All notes as tiles** (branch `craft-feel`, Craft's document overview; `overview.js`, `overview.css`): in a
+  folder window the toolbar's grid button or Ctrl+Alt+G shows every note of the folder as a tile — the note
+  in small, its name above the beginning of what it says, grouped by folder. A note whose properties say
+  `color: red` (one of the theme's colours) has a frame and a wash in that colour. Arrows move, Enter opens,
+  Esc closes. The application reads the beginnings (`previews` message, 2.4 KB per note, 60 per request);
+  they are rendered once and again only when the file changed. Not there yet: sorting, a new note from the
+  overview, pictures embedded with `![[…]]`. Probe: `rig.sh overview` (notes in `dev/tests/overview-notes`).
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

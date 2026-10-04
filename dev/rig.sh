@@ -379,6 +379,15 @@ case "${1:-}" in
     ls "$R/out"/*.folder.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json | grep -qv '^ok' ;;
+  overview)
+    rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.ov.json "$R/out"/*.shot.json
+    app 60 MDVIEW_PROBE="$D/probe-overview.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    for _ in $(seq 200); do ls "$R/out"/*.shot.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.7; shot "$R/out/overview.png"
+    for _ in $(seq 200); do ls "$R/out"/*.ov.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    ls "$R/out"/*.ov.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json
+    ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
   regress)
     # The page as it is on BASE (viewer.js, viewer.css), started by this checkout's mdview.py for the probe hook.
     shift; base="${BASE:-main}"; B="$R/base"; rm -rf "$B"; mkdir -p "$B"; top=$(git -C "$D" rev-parse --show-toplevel); rel=$(git -C "$D" rev-parse --show-prefix)

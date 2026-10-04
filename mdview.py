@@ -75,6 +75,8 @@ EMBED_LIMIT = 256 * 1024
 EDIT_LIMIT = 2 * 1024 * 1024
 TITLE_SCAN = 16 * 1024    # a note's title (first H1) is looked for this far in
 NOTE_LIMIT = 5000         # notes listed in the sidebar at most
+PREVIEW_BYTES = 2400      # of a note's beginning, for its tile in the overview
+PREVIEW_BATCH = 60        # notes read per request for the overview
 WATCH_LIMIT = 400         # directories watched below an open folder
 SIDEBAR_WIDTH = 260       # extra default width of a folder window; matches --sb-w
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
@@ -336,6 +338,7 @@ SCRIPTS = [
     "vendor/katex/katex.min.js",
     "strings.js",
     "viewer.js",
+    "overview.js",
 ]
 THEME_KEYS = (
     "background", "foreground", "accent", "muted", "selection",
@@ -758,6 +761,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             f"<style id='theme'>{theme_css(self.app.theme)}</style>"
             f"<link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>"
             f"<link rel='stylesheet' href='{a}/viewer.css'>"
+            f"<link rel='stylesheet' href='{a}/overview.css'>"
             f"</head><body data-mode='{self.app.theme['mode']}'><main id='content'></main>"
             f"{scripts}</body></html>"
         )
@@ -949,6 +953,18 @@ class ViewerWindow(Gtk.ApplicationWindow):
         if blob != self.tree_json:
             self.tree_json = blob
             self.js("MdView.setFolder", payload)
+
+    def send_previews(self, paths):
+        """The beginning of notes of this folder, for their tiles in the overview."""
+        out = {}
+        for p in (paths if isinstance(paths, list) else [])[:PREVIEW_BATCH]:
+            if not isinstance(p, str) or p not in self.note_paths or file_kind(Path(p)) != "md":
+                continue
+            try:
+                out[p] = {"text": read_text(p, PREVIEW_BYTES), "mtime": os.stat(p).st_mtime}
+            except OSError:
+                out[p] = {"text": "", "mtime": 0}
+        self.js("MdView.setPreviews", out)
 
     def open_note(self, path):
         if self.folder and path in self.note_paths:
@@ -1337,6 +1353,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.trash_note(msg.get("path"))
         elif t == "sidebar":
             self.sidebar_pref(msg)
+        elif t == "previews":
+            self.send_previews(msg.get("paths"))
         elif t == "folder":
             self.choose_folder()
         elif t == "open":

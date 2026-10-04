@@ -1,0 +1,93 @@
+/* mdview — all notes of the folder as tiles (overview.js). Sizes are layout; times, curves and
+ * radii are the central ones (henri-ui's motion.css). */
+#overview {
+  position: fixed;
+  inset: 0;
+  z-index: 14;                       /* under the sidebar and the toolbar */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 64px 40px 80px;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-overview-exit) var(--ease-out), visibility 0s linear var(--dur-overview-exit);
+}
+#overview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-overview) var(--ease-in-out), visibility 0s; }
+body[data-sidebar="open"] #overview { left: var(--sb-w); }
+body[data-overview] { overflow: hidden; }       /* the note under it does not scroll along */
+@media print { #overview { display: none !important; } }
+
+.ov-head, .ov-dir, .ov-name, .ov-none { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */
+.ov-head { display: flex; align-items: baseline; gap: 12px; max-width: 1400px; margin: 0 auto 28px; }
+.ov-title { margin: 0; font: 700 28px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--fg); }
+.ov-count { font: 400 13px/1.2 var(--ui); color: var(--fg2); }
+.ov-body { max-width: 1400px; margin: 0 auto; }
+.ov-dir { margin: 28px 0 12px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
+.ov-none { color: var(--fg2); text-align: center; padding-top: 16vh; }
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+
+/* a tile: the note in small. It comes in after the one before it (the first few), then rests. */
+.ov-tile {
+  --cc: transparent;                  /* the frame */
+  --paper: var(--bg);                 /* the sheet; --wash: the sheet with the note's colour in it */
+  position: relative;
+  height: 236px;
+  box-sizing: border-box;
+  padding: 6px;                       /* the frame, in the note's colour if it has one */
+  border-radius: calc(var(--radius-panel) + 6px);
+  background: var(--cc);
+  cursor: default;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--dur-overview-exit) var(--ease-out), transform 0s linear var(--dur-overview-exit);
+}
+#overview[data-open] .ov-tile {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)),
+    transform var(--spring-smooth-dur) var(--spring-smooth) calc(var(--i, 0) * var(--stagger-step));
+}
+#overview[data-open] .ov-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+.ov-sheet {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 14px 16px 0;
+  border-radius: var(--radius-panel);       /* concentric with the frame */
+  background: var(--wash, var(--paper));
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);
+  transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+body[data-mode="light"] .ov-tile { --paper: #fff; }
+body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
+body[data-mode="dark"] .ov-sheet { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 6px 18px rgb(0 0 0 / 0.3); }
+/* the text runs out towards the tile's foot */
+.ov-sheet::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: linear-gradient(to bottom, transparent, var(--wash, var(--paper))); pointer-events: none; }
+.ov-tile:hover .ov-sheet { box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); transition-duration: var(--dur-instant); }
+.ov-tile:focus-visible .ov-sheet, .ov-tile[aria-current] .ov-sheet { box-shadow: 0 0 0 var(--focus-ring) var(--accent), 0 6px 18px rgb(0 0 0 / 0.07); }
+.ov-name { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); font: 600 15px/1.25 var(--ui); color: var(--fg); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ov-prev { zoom: 0.56; color: var(--fg); pointer-events: none; overflow: hidden; }
+.ov-prev > :first-child { margin-top: 0; }
+.ov-prev h1:first-child { display: none; }  /* (the name stands above already) */
+.ov-prev img { max-height: 220px; object-fit: cover; }
+.ov-empty .ov-prev::before { content: "Empty"; color: var(--fg3); }
+
+.ov-red { --c: var(--c-red); }
+.ov-orange { --c: var(--c-orange); }
+.ov-yellow { --c: var(--c-yellow); }
+.ov-green { --c: var(--c-green); }
+.ov-cyan { --c: var(--c-cyan); }
+.ov-blue { --c: var(--c-blue); }
+.ov-magenta { --c: var(--c-magenta); }
+.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta {
+  --cc: color-mix(in srgb, var(--c) 60%, var(--paper));
+  --wash: color-mix(in srgb, var(--c) 13%, var(--paper));
+}
+
+#toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent); }
+@media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }

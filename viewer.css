@@ -698,8 +698,8 @@ body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: non
 @media print { #sb-grip { display: none !important; } }
 /* The text column makes room at once; viewer.js glides it over (transform). */
 body[data-sidebar="open"] { padding-left: var(--sb-w); }
-#toolbar [data-act="sidebar"] { display: none; }
-body[data-folder] #toolbar [data-act="sidebar"] { display: grid; }
+#toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
+body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [data-act="overview"] { display: grid; }
 
 .sb-head { display: flex; align-items: center; gap: 2px; padding: var(--sb-pad) var(--sb-pad) 6px; }
 .sb-head .tb { border-radius: var(--radius-pill); }
