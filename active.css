@@ -118,9 +118,15 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm .isl.fresh, .pm .fresh { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: 0s; }
 /* (a picture or an embedded PDF page that stands alone is a picture, not a block to open: no tint,
  * no pencil — its dialog is in its menu) */
-.pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child):hover, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed)):hover { background-color: transparent; }
-.pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child)::after, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed))::after { content: none; }
-.pm[contenteditable="true"] .isl:has(:is(.pdf-embed, img.embed)) { cursor: default; }
+.pm[contenteditable="true"] .isl.isl-pic:hover, .pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child):hover, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed)):hover { background-color: transparent; }
+.pm[contenteditable="true"] .isl.isl-pic::after, .pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child)::after, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed))::after { content: none; }
+.pm[contenteditable="true"] .isl.isl-pic, .pm[contenteditable="true"] .isl:has(:is(.pdf-embed, img.embed)) { cursor: default; }
+/* The block is as wide as its picture, so what marks it selected lies around the picture and not
+ * across the column; it stands where the reading view puts the picture — in the middle for an
+ * embedded PDF page and a drawing, at the left otherwise. (One that fills the column stays as wide,
+ * and an embedded page too: it is as wide as the column lets it be.) */
+.pm .isl.isl-pic:has(> p > img:not(.full)) { width: fit-content; max-width: 100%; }
+.pm .isl.isl-pic:has(> p > img[src$=".svg" i]:not(.full)) { margin-left: auto; margin-right: auto; }
 /* (a callout that folds: likewise — a click on its title folds it, its dialog is in its menu) */
 .pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]:hover { background-color: transparent; }
 .pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]::after { content: none; }

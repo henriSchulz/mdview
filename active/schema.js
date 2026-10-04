@@ -391,9 +391,15 @@
         const attrs = { line: lineOf(t) };
         try {
           switch (t.type) {
-            case "paragraph_open":
+            case "paragraph_open": {
+              // A picture that stands alone is a block of its own (as an embed alone is): selected,
+              // moved and sized as a whole, its Markdown in its dialog — not a line of text that
+              // happens to hold a picture, with a caret before and behind it.
+              const kids = ((inner[0] && inner[0].children) || []).filter((c) => !(c.type === "text" && !c.content.trim()));
+              if (kids.length === 1 && kids[0].type === "image") throw new Unsupported("a picture alone");
               out.push({ type: "paragraph", attrs, content: inlineOf(inner[0]) });
               break;
+            }
             case "heading_open":
               out.push(headingOf(t, inner[0], attrs));
               break;

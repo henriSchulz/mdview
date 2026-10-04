@@ -107,7 +107,13 @@
   }
   function insertMarkdown(view, text) {
     const state = view.state, { $from } = state.selection;
-    const nodes = blocksOf(state, text);
+    let nodes = blocksOf(state, text);
+    // A picture put into a line that has text stays in the line (alone, a picture is a block of
+    // its own: read with a letter before it, it is a picture in a line, and the letter goes again).
+    if ($from.parent.inlineContent && $from.parent.content.size && /^\s*!\[[^\]]*\]\([^)]*\)\s*$/.test(text)) {
+      const para = blocksOf(state, "x" + text.trim()).find((n) => n.type === N.paragraph);
+      if (para && para.content.size > 1) nodes = [para.copy(para.content.cut(1))];
+    }
     if (!nodes.length) return true;
     const tr = state.tr;
     const visible = nodes.filter((n) => n.type !== N.hidden);

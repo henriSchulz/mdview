@@ -650,6 +650,7 @@
   }
   function renderNow(p) {
     const prev = current;
+    p.arriving = !prev || prev.path !== p.path; // (only a note come to is put where it was left — not one drawn again)
     clearTimeout(placeTimer); // (a place still to be kept is the note's that is leaving — it was kept as it was scrolled)
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
       if (mode !== "read") modeBeforePdf = mode; // (the note after the PDF is in this mode again)
@@ -745,7 +746,7 @@
     if (anchor) restoreAnchor(anchor);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();
-    else window.scrollTo(0, placeOf(p)); // (where it was left; the top the first time)
+    else { window.scrollTo(0, p.arriving ? placeOf(p) : 0); p.arriving = false; } // (a note come to: where it was left; the top the first time)
     p.toEnd = false;
     if (findOpen()) runFind(findInput.value, true);
     renderMermaid(gen, anchor);
@@ -1828,7 +1829,7 @@
     if (anchor) restoreAnchor(anchor, MdActive.view.dom);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();
-    else window.scrollTo(0, placeOf(p)); // (where it was left; the top the first time)
+    else { window.scrollTo(0, p.arriving ? placeOf(p) : 0); p.arriving = false; } // (a note come to: where it was left; the top the first time)
     p.toEnd = false;
     if (findOpen()) runFind(findInput.value, true);
     renderMermaid(gen, anchor, MdActive.view.dom);

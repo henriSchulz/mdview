@@ -247,6 +247,9 @@ width — in the menu of a picture or an embed (right click → Size), in a pict
 click or Enter on it) and in the dialog of an embed.
 
 Paths are relative to the note. SVG files and embedded PDF pages stand centred. A double click shows a picture large.
+A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
+whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
+a picture stays part of the line.
 `Ctrl+V` with a picture on the clipboard saves it beside the note (or in `./assets`, a setting) and
 embeds it; picture files dropped on the note do the same.
 
@@ -324,6 +327,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   switches at the head: *All Notes* (grouped by folder) or *Folders* (one folder at a time, click
   into its folders, `Backspace` goes up), and tiles or list. It opens in the folder of the note on
   screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
+- **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
+  PDF or another note, and in a new window — and in the mode it was in.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
 
 ## Finding

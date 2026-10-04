@@ -102,6 +102,10 @@
     dom.dataset.kind = node.attrs.kind;
     dom.innerHTML = node.attrs.html;
     if (tag === "span" && /^<(br|wbr)\b/i.test(node.attrs.html.trim())) dom.classList.add("ia-br"); // (see active.css)
+    // a picture standing alone (an embedded PDF page too): a block that is its picture — see active.css
+    const para = tag === "div" && dom.children.length === 1 && dom.firstElementChild.tagName === "P" ? dom.firstElementChild : null;
+    const pic = para && para.children.length === 1 && para.firstElementChild.matches("img, .pdf-embed") ? para.firstElementChild : null;
+    if (pic && [...para.childNodes].every((n) => n === pic || (n.nodeType === 3 && !n.data.trim()))) dom.classList.add("isl-pic");
     if (!dom.firstElementChild && !dom.textContent.trim()) dom.classList.add("none"); // an HTML comment, an empty properties block
     else if (tag === "div" && !node.attrs.virtual) { // what it is, and that Enter edits it
       const T = window.MdStrings.t, kind = { code: "dialog.code", math: "dialog.math", frontmatter: "dialog.frontmatter", html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" }[node.attrs.kind] || "dialog.markdown";

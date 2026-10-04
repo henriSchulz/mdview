@@ -796,7 +796,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
         ucm = WebKit2.UserContentManager()
         ucm.register_script_message_handler("mdview")
         ucm.connect("script-message-received::mdview", self.on_message)
-        self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
+        # (A probe's page keeps nothing: what an earlier run left — the place a note was scrolled to,
+        # an embed's size — would decide how the next one starts, and would land in the real store.)
+        self.view = (WebKit2.WebView(user_content_manager=ucm, web_context=app.probe_context) if PROBE
+                     else WebKit2.WebView.new_with_user_content_manager(ucm))
         self.view.set_settings(app.web_settings)
         self.view.set_background_color(bg)
         # Two fingers pulled apart on a touchpad are the PDF viewer's (pdfview.js pinch): the page as a
@@ -2065,6 +2068,7 @@ class MdViewApp(Gtk.Application):
         self.set_inactivity_timeout(RESIDENT_MS)
         ctx = WebKit2.WebContext.get_default()
         ctx.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
+        self.probe_context = WebKit2.WebContext.new_ephemeral() if PROBE else None
         s = WebKit2.Settings()
         s.set_allow_file_access_from_file_urls(True)
         s.set_allow_universal_access_from_file_urls(False)
