@@ -37,7 +37,7 @@
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
 #   dev/rig.sh shot NAME             screenshot of the nested compositor
 #   dev/rig.sh stop
-D="$(cd "$(dirname "$0")" && pwd)"; APP="${MDVIEW_BIN:-$D/../src-tauri/target/debug/mdview}"
+D="$(cd "$(dirname "$0")" && pwd)"; APP="${MDVIEW_BIN:-$D/../src-tauri/target/debug/mdview}"; [[ -x $APP ]] || APP="$D/../src-tauri/target/release/mdview"
 R="${MDVIEW_RIG:-$HOME/.cache/mdview-rig}"; H="$XDG_RUNTIME_DIR/hypr"; WS="${MDVIEW_RIG_WS:-name:spare}"
 mkdir -p "$R/out" "$R/state"
 sig() { cat "$R/sig" 2>/dev/null; }

@@ -718,6 +718,15 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
 .pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
 .pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px -50px; z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (-50px: its handle stands 46 out) */
+/* (a rule is one pixel high: a shadow shifted up cannot fill the gap above it, and a tint as its
+ * background would be the line gone. Its tint is a layer of its own that reaches up to the block
+ * before it, and the line is drawn over it — the same however the rule came to be selected.) */
+.pm hr.blk-sel, .pm.has-blocksel.ProseMirror-focused hr.blk-sel.ProseMirror-selectednode { position: relative; isolation: isolate; overflow: visible; background-color: transparent; box-shadow: none; }
+.pm hr.blk-sel::before { content: ""; position: absolute; inset: -8px -4px -8px calc(-4px - var(--blk-out)); z-index: -2; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; }
+.pm hr.blk-sel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--line-strong); pointer-events: none; }
+.pm .blk-sel + hr.blk-sel { --up: calc(2.2em - 8px); }
+.pm .blk-sel + hr.blk-sel::before { top: calc(-4px - var(--up)); border-top-left-radius: 0; border-top-right-radius: 0; }
+.pm hr.blk-sel:has(+ .blk-sel)::before { bottom: -4px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 /* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
 .pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
 .pm .blk-sel { caret-color: transparent; }

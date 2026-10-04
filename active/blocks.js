@@ -430,7 +430,7 @@
   /* ---------------------------------------------------------------- a rectangle pulled over blocks
    * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;
    * the blocks of the document it reaches are selected as wholes (not the text in them), and stay
-   * so when it is let go: the keyboard works on them. Near the window's upper and lower edge the
+   * so when it is let go: the keyboard works on them. Inside one list it takes the items it reaches. Near the window's upper and lower edge the
    * page scrolls along. A press let go where it was is a click: the blocks are let go, and below
    * the last block an empty line is made. */
   const band = document.createElement("div");
@@ -472,6 +472,22 @@
     }
     return out.length ? out : null;
   }
+  /* Only a list reached: the items of it the rectangle touches, not the whole list — and where that
+   * is one item, touched only below its own text, the items of the list inside it. All of a list's
+   * items touched: the list itself. -> their positions, or null */
+  function reachedItems(pos, y0, y1) {
+    let list = view.nodeDOM(pos), out = null;
+    const T = Math.min(y0, y1) - scrollY, B = Math.max(y0, y1) - scrollY;
+    while (list && list.matches && list.matches("ul, ol")) {
+      const items = [...list.children].filter((li) => li.matches("li") && li.pmViewDesc && li.pmViewDesc.dom === li && usable(li.pmViewDesc.node));
+      const got = items.filter((li) => { const r = li.getBoundingClientRect(); return r.height && r.bottom >= T && r.top <= B; });
+      if (!got.length || (!out && got.length === items.length && items.length > 1)) break;
+      out = got.map((li) => li.pmViewDesc.posBefore);
+      const sub = got.length === 1 ? got[0].querySelector(":scope > ul, :scope > ol, :scope > .li-body > ul, :scope > .li-body > ol") : null;
+      list = sub && T >= sub.getBoundingClientRect().top ? sub : null;
+    }
+    return out;
+  }
   function pull() {
     const r = rubber, x = r.cx + scrollX, y = r.cy + scrollY;
     band.style.left = Math.min(r.x, x) + "px";
@@ -482,7 +498,7 @@
     // from the block the pull began at to the one it has reached (pulled upwards: the other way round)
     const anchor = got && (y >= r.y ? got[0] : got[1]), head = got && (y >= r.y ? got[1] : got[0]);
     if (!got) { if (cur) view.dispatch(view.state.tr.setMeta(selKey, null)); return; }
-    const inner = got[0] === got[1] ? reachedIn(got[0], r.x, r.y, x, y) : null;
+    const inner = got[0] === got[1] ? reachedIn(got[0], r.x, r.y, x, y) || reachedItems(got[0], r.y, y) : null;
     const next = inner ? selFor(view.state.doc, inner, y >= r.y ? inner[inner.length - 1] : inner[0]) : { anchor, head };
     if (cur && cur.anchor === next.anchor && cur.head === next.head && String(cur.more || "") === String(next.more || "")) return;
     const tr = view.state.tr.setMeta(selKey, next);
