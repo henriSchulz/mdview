@@ -455,6 +455,111 @@
   }
 
 
+  /* An embed of a PDF page — ![[file.pdf#page=3&rect=…]] — can have its region adjusted by hand: the
+   * dialog's Adjust shows the whole page with a frame on it for what the embed shows; the frame is
+   * moved and pulled at its edges and corners, the page can be changed, and every change is
+   * written into the text as `page=` and `rect=`. A page embedded whole starts with the frame
+   * around all of it. (Embeds of a text selection have no region to pull.) */
+  const PDF_EMBED = /^(\s*!\[\[)([^\]|#]+\.pdf)#([^\]|]*)((?:\|[^\]]*)?\]\]\s*)$/i;
+  function pdfAdjust(ed, preview, tools) {
+    const btn = el("button", { class: "btn", type: "button", hidden: "" }, esc(T("dialog.adjust")));
+    tools.append(btn);
+    const self = { on: false, look };
+    let shot = null, box = [0, 0, 1, 1], stage = null, frame = null, label = null, seq = 0;
+    const parts = () => PDF_EMBED.exec(ed.value);
+    const frag = () => { const m = parts(); return m ? window.MdPdf.parseFrag(m[3]) : null; };
+    function look(text) { // (is what is written one embed of a page or a region?)
+      const m = PDF_EMBED.exec(text), ok = !!m && !!window.MdPdf && !/(^|&)selection=/.test(m[3]) && !!preview.querySelector(".pdf-embed, .pdf-adjust");
+      btn.hidden = !(ok || (self.on && m));
+      if (self.on && !m) leave();
+    }
+    function write() {
+      const m = parts();
+      if (!m || !shot) return;
+      const rest = m[3].split("&").filter((p) => p && !/^(page|rect)=/.test(p));
+      const whole = box[0] < 0.004 && box[1] < 0.004 && box[2] > 0.992 && box[3] > 0.992;
+      const next = ["page=" + shot.page, ...(whole ? [] : ["rect=" + shot.rect(...box).join(",")]), ...rest].join("&");
+      const text = m[1] + m[2] + "#" + next + m[4];
+      if (text === ed.value) return;
+      ed.value = text;
+      ed.input.dispatchEvent(new Event("input"));
+    }
+    function place() {
+      frame.style.left = box[0] * 100 + "%"; frame.style.top = box[1] * 100 + "%";
+      frame.style.width = box[2] * 100 + "%"; frame.style.height = box[3] * 100 + "%";
+    }
+    async function show(page) {
+      const m = parts(), span = preview.querySelector(".pdf-embed"), path = (span && span.dataset.pdf) || (stage && stage.dataset.pdf);
+      if (!m || !path) return;
+      const mine = ++seq, width = Math.min(900, Math.max(320, preview.clientWidth - 28));
+      let got;
+      try { got = await window.MdPdf.pageShot(path, page, width); } catch (e) { toast(String(e.message || e)); return; }
+      if (mine !== seq) return;
+      shot = got;
+      stage = el("div", { class: "pdf-adjust" });
+      stage.dataset.pdf = path;
+      const bar = el("div", { class: "pa-bar" });
+      const prev = el("button", { class: "btn", type: "button", "aria-label": T("dialog.adjustPrev") }, "‹"), next = el("button", { class: "btn", type: "button", "aria-label": T("dialog.adjustNext") }, "›");
+      label = el("span", { class: "pa-page" }, esc(T("dialog.adjustPage", shot.page, shot.pages)));
+      prev.disabled = shot.page <= 1; next.disabled = shot.page >= shot.pages;
+      prev.onclick = () => show(shot.page - 1); next.onclick = () => show(shot.page + 1);
+      bar.append(prev, label, next, el("span", { class: "pa-hint" }, esc(T("dialog.adjustHint"))));
+      const sheet = el("div", { class: "pa-sheet" });
+      frame = el("div", { class: "pa-frame" }, ["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((h) => `<i class="pa-h" data-h="${h}"></i>`).join(""));
+      sheet.append(shot.img, frame);
+      stage.append(bar, sheet);
+      preview.replaceChildren(stage);
+      place();
+      sheet.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const r = sheet.getBoundingClientRect(), h = e.target.closest(".pa-h")?.dataset.h || (e.target.closest(".pa-frame") ? "move" : "new");
+        const x0 = (e.clientX - r.left) / r.width, y0 = (e.clientY - r.top) / r.height, was = [...box], MIN = 0.02;
+        const clamp = (v) => Math.max(0, Math.min(1, v));
+        const move = (ev) => {
+          const x = clamp((ev.clientX - r.left) / r.width), y = clamp((ev.clientY - r.top) / r.height);
+          let [l, t, w, hh] = was, rr = l + w, bb = t + hh;
+          if (h === "move") { l = Math.max(0, Math.min(1 - w, was[0] + x - x0)); t = Math.max(0, Math.min(1 - hh, was[1] + y - y0)); rr = l + w; bb = t + hh; }
+          else if (h === "new") { l = Math.min(clamp(x0), x); rr = Math.max(clamp(x0), x); t = Math.min(clamp(y0), y); bb = Math.max(clamp(y0), y); }
+          else {
+            if (h.includes("w")) l = Math.min(x, rr - MIN);
+            if (h.includes("e")) rr = Math.max(x, l + MIN);
+            if (h.includes("n")) t = Math.min(y, bb - MIN);
+            if (h.includes("s")) bb = Math.max(y, t + MIN);
+          }
+          if (rr - l < MIN || bb - t < MIN) return; // (a frame just begun: nothing yet)
+          box = [l, t, rr - l, bb - t];
+          place();
+        };
+        const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); stage.classList.remove("pulling"); write(); };
+        stage.classList.add("pulling");
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", up);
+      });
+      if (page !== (frag() || {}).page) write(); // (another page: the text says so)
+    }
+    function leave() {
+      self.on = false; seq++;
+      btn.textContent = T("dialog.adjust");
+      btn.setAttribute("aria-pressed", "false");
+      preview.innerHTML = htmlOf(ed.value);
+      hydrate(preview);
+    }
+    btn.onclick = () => {
+      if (self.on) { leave(); return; }
+      const f = frag();
+      if (!f) return;
+      self.on = true;
+      btn.textContent = T("dialog.adjustDone");
+      btn.setAttribute("aria-pressed", "true");
+      box = [0, 0, 1, 1];
+      show(f.page).then(() => { if (shot && f.rect) { box = shot.box(f.rect).map((v) => Math.max(0, Math.min(1, v))); place(); } });
+    };
+    // (the embed is drawn a moment after the dialog opens: look again when it is there)
+    new MutationObserver(() => look(ed.value)).observe(preview, { childList: true, subtree: true });
+    return self;
+  }
+
   const RAW_TITLE = { html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" };
   // anything else: its Markdown as text, with what it becomes below
   // Markdown as the document shows it
@@ -471,7 +576,10 @@
         const preview = el("div", { class: "dlg-preview doc" });
         body.append(ed.el, preview);
         ed.onInput = infoBar(info, ed);
+        const adjust = pdfAdjust(ed, preview, tools);
         follow(ed, (v) => {
+          adjust.look(v);
+          if (adjust.on) return; // (the page with its frame stands there: the frame writes the text, not the other way round)
           preview.innerHTML = htmlOf(v);
           hydrate(preview);
         });

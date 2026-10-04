@@ -20,6 +20,7 @@
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
+#   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -314,6 +315,17 @@ case "${1:-}" in
     [[ -f $R/out/$name.zoom.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.zoom.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.zoom.json" | grep -qv '^ok' ;;
+  adjust)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
+    python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
+    printf '%s\n' '# Notes on the paper' '' '![[paper.pdf#page=3&rect=60,600,420,790]]' '' 'End.' > "$R/work/note.md"
+    app 90 MDVIEW_PROBE="$D/probe-adjust.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
+    for _ in $(seq 400); do [[ -f $R/out/note.md.shot-adjust.json || -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/adjust.png"
+    for _ in $(seq 400); do [[ -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    [[ -f $R/out/note.md.adjust.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json"
+    ! jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json" | grep -qv '^ok' ;;
   textmenu)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".textmenu.json
     app 60 MDVIEW_PROBE="$D/probe-textmenu.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

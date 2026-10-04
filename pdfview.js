@@ -710,6 +710,39 @@
       span.textContent = basename(span.dataset.pdf) + ": " + (e.message || e);
     }
   }
+  /* A whole page as a picture, with the way between a frame on it and a region of the PDF — for
+   * adjusting the region an embed shows (the dialog of the active mode). Shares of the page's
+   * width and height on the one side, the PDF's own points (as `rect=` writes them) on the other. */
+  async function pageShot(path, pageNo, width) {
+    const doc = await docOf(path);
+    const n = Math.max(1, Math.min(doc.numPages, Math.floor(pageNo) || 1));
+    const page = await doc.getPage(n), base = page.getViewport({ scale: 1 });
+    const scale = Math.min(3, Math.max(200, width) / base.width), ratio = Math.min(2, window.devicePixelRatio || 1);
+    const vp = page.getViewport({ scale: scale * ratio });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    const img = new Image();
+    img.width = Math.round(canvas.width / ratio); img.height = Math.round(canvas.height / ratio);
+    img.alt = basename(path) + ", page " + n;
+    img.draggable = false;
+    img.src = URL.createObjectURL(blob);
+    await img.decode().catch(() => {});
+    return {
+      img, page: n, pages: doc.numPages,
+      // a region of the PDF -> [left, top, width, height] as shares of the page
+      box(rect) {
+        const [x1, y1, x2, y2] = base.convertToViewportRectangle(rect);
+        return [Math.min(x1, x2) / base.width, Math.min(y1, y2) / base.height, Math.abs(x2 - x1) / base.width, Math.abs(y2 - y1) / base.height];
+      },
+      // … and back, in whole points, as the viewer's region tool writes it
+      rect(l, t, w, h) {
+        const [ax, ay] = base.convertToPdfPoint(l * base.width, (t + h) * base.height), [bx, by] = base.convertToPdfPoint((l + w) * base.width, t * base.height);
+        return [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)].map((v) => Math.round(v));
+      },
+    };
+  }
   function hydrate(root = document) {
     for (const span of root.querySelectorAll(".pdf-embed:not([data-done])")) embed(span);
   }
@@ -734,7 +767,7 @@
     pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015));
   }, { capture: true, passive: false });
 
-  window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, get shown() { return V; },
+  window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },
     // for the tests
     test: { selectionNow, copySelection, copyView, go, goFrag, zoomTo, act, sidePanel, boxesOf, joined, textOf, linkText, pageNow, placeOf } };
 })();

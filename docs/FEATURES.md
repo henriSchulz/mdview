@@ -329,6 +329,11 @@ A link or embed to a PDF opens it in the window; nothing is ever written into th
 ![[paper.pdf#page=3&rect=72,400,300,520]]              a region of the page
 ```
 
+**Adjusting a region.** In the active mode a click on an embed that stands on a line of its own opens
+its dialog; **Adjust Region** there shows the whole page with a frame on it. Move the frame, pull its
+edges and corners, pull anywhere else for a new one, step to another page — `page=` and `rect=` in the
+text follow. **Show Result** shows the embed as the note will; Done writes it.
+
 In the viewer: select text, then a colour or `Ctrl+Shift+C` copies a link to it (as a callout, a
 quote, a link or an embed). Every such link in the notes shows as a highlight in the PDF; a double
 click on one opens the note. Side panel: outline, pages, notes. Larger and smaller: two fingers on
