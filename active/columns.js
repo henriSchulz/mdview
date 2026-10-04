@@ -232,6 +232,7 @@
     if (!cols || cols.type !== N.columns) return;
     const w = columnsOf(cols).map((c) => c.attrs.width), total = w.reduce((a, b) => a + b, 0);
     pull = { ...hot, x: e.clientX, w, total, px: cs.map((c) => c.getBoundingClientRect().width), now: w.slice() };
+    if (A.blocks) A.blocks.hide(); // (no block's handle stands about while the columns move)
     grip.dataset.pulling = "";
     document.body.classList.add("col-pulling");
   });

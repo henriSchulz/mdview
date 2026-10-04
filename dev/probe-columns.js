@@ -42,11 +42,17 @@
     const grip = document.querySelector(".col-grip");
     post("probe-pointer", { kind: "move", x: gx, y: gy }); await sleep(250);
     ok("the pointer in the gap: a grip there, as tall as the row", grip.hasAttribute("data-on") && Math.abs(grip.getBoundingClientRect().left - a.right) < 2 && Math.abs(grip.getBoundingClientRect().right - b.left) < 2 && Math.abs(grip.getBoundingClientRect().height - view.dom.querySelector(".cols").getBoundingClientRect().height) < 2, [grip.hasAttribute("data-on"), grip.getBoundingClientRect().left, a.right]);
+    // (a block's handle shown before: it must not stay behind where its block was)
+    const rp = para("Right side").getBoundingClientRect(), hb = document.querySelector(".blk-h");
+    post("probe-pointer", { kind: "move", x: rp.left + 30, y: rp.top + 10 }); await sleep(400);
+    const hadHandle = hb.hasAttribute("data-on") && A.blocks.over() === para("Right side");
+    post("probe-pointer", { kind: "move", x: gx, y: gy }); await sleep(300);
     post("probe-pointer", { kind: "down", x: gx, y: gy }); await sleep(80);
     post("probe-pointer", { kind: "move", x: gx + 40, y: gy, held: true }); await sleep(80);
     post("probe-pointer", { kind: "move", x: gx + 90, y: gy, held: true }); await sleep(150);
     cols = [...view.dom.querySelectorAll(".cols > .col")];
     const wa = cols[0].getBoundingClientRect().width, wb = cols[1].getBoundingClientRect().width;
+    ok("the handle of a block does not stay behind where the block was", hadHandle && (!hb.hasAttribute("data-on") || Math.abs(hb.getBoundingClientRect().right - para("Right side").getBoundingClientRect().left + 2) < 3), [hadHandle, hb.hasAttribute("data-on"), hb.getBoundingClientRect().left, para("Right side").getBoundingClientRect().left]);
     ok("pulled: the columns follow at once, the file not yet", wa > a.width + 70 && wb < b.width - 70 && !/columns \d/.test(md()), [wa, a.width, wb, b.width]);
     post("probe-pointer", { kind: "up", x: gx + 90, y: gy }); await sleep(250);
     const m = /<!-- columns ([\d.]+):([\d.]+) -->/.exec(md());

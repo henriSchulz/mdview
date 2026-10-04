@@ -813,7 +813,7 @@
   });
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (handle.hasAttribute("data-group") && handle.hasAttribute("data-on") && !handle.hasAttribute("data-dragging") && !groupEls(now.state)) hide(); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -852,6 +852,14 @@
     if (over) hideSoon();
     rest(mine || el, () => { clearTimeout(leaving); if (mine) placeGroup(group, mine); else place(el); });
     return true;
+  }
+  /* What is shown moved under the handle — a column's width pulled, a block above it changed: the
+   * handle goes with its block (it stood where the block had been). Its block gone, it goes too. */
+  function follow(state) {
+    if (!handle.hasAttribute("data-on") || handle.hasAttribute("data-dragging") || !over) return;
+    if (!over.isConnected) { hide(); return; }
+    if (handle.hasAttribute("data-group")) { const g = groupEls(state); if (!g) hide(); else placeGroup(g, g.includes(over) ? over : null); }
+    else place(over);
   }
   let resting = null, restTimer = 0; // the block the pointer is on, waiting for its handle
   function rest(el, show) {
