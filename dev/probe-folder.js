@@ -133,6 +133,20 @@
       ok("and a click on a note shows the note again", MdView.core.current.name === "footnotes.md" && !document.querySelector(".pdfv") && /\S/.test(document.getElementById("content").textContent), MdView.core.current.name);
       await sleep(300);
     }
+    // the order of the notes: the one opened last first; the empty room's menu changes it
+    {
+      const top = () => [...document.querySelectorAll("#sidebar .sb-list > .sb-item:not(.is-dir) > .sb-in > .sb-row")].map((r) => r.textContent.trim());
+      const menu = document.getElementById("ctxmenu"), pick = (cmd) => [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === cmd);
+      const row = (name) => [...document.querySelectorAll(".sb-row[data-real]")].find((r) => r.textContent.trim() === name);
+      row("math").click(); await sleep(1200);
+      row("basics").click(); await sleep(1200);
+      ok("the notes stand in the order they were opened in, the last one first", top()[0] === "basics" && top()[1] === "math", top().join());
+      document.querySelector("#sidebar .sb-list").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 60, clientY: innerHeight - 120 })); await sleep(400);
+      ok("the empty room's menu offers the orders, the one in use ticked", !!pick("sort:name") && pick("sort:opened").getAttribute("aria-checked") === "true" && pick("sort:name").getAttribute("aria-checked") === "false", menu.textContent);
+      pick("sort:name").click(); await sleep(900);
+      ok("Sort by Name: by name", top().join() === [...top()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })).join() && top()[0] === "basics", top().join());
+      ok("and the settings know", window.MdPrefs.sidebarSort === "name", window.MdPrefs.sidebarSort);
+    }
   } catch (e) { o.error = String(e.stack || e); }
   window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "folder", text: JSON.stringify(o) }));
 })();

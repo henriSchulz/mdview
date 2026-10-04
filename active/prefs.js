@@ -9,7 +9,7 @@
     images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false,
+    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
     aiComplete: false,
     panel: false, panelTab: "insert",
   };
@@ -21,6 +21,7 @@
     ["section", "prefs.general"],
     ["lang", "select", [["en", "English"], ["de", "Deutsch"]]],
     ["startMode", "select", [["last", "prefs.start.last"], ["read", "mode.read"], ["active", "mode.active"], ["edit", "mode.edit"]]],
+    ["sidebarSort", "select", [["opened", "prefs.sort.opened"], ["name", "prefs.sort.name"], ["modified", "prefs.sort.modified"]]],
     ["section", "prefs.sidebar"],
     ["sidebarPdf", "switch"],
     ["sidebarImages", "switch"],

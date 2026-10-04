@@ -46,7 +46,7 @@
   function groups(tree) {
     const out = [];
     const walk = (node, label) => {
-      const notes = node.notes.filter((n) => !n.pdf);
+      const notes = core.sortNotes(node.notes.filter((n) => !n.pdf)); // (in the sidebar's order)
       if (notes.length) out.push({ label, notes });
       for (const d of node.dirs) walk(d, label ? label + " / " + d.name : d.name);
     };
@@ -103,7 +103,7 @@
       // the way here, to click back along
       title.innerHTML = [folder.name, ...at].map((name, i, all) => (i < all.length - 1
         ? `<button class="ov-crumb" data-up="${all.length - 1 - i}">${esc(name)}</button><span class="ov-sep">${ICON.chevron}</span>` : `<span>${esc(name)}</span>`)).join("");
-      gs = [{ label: "", dirs: node.dirs, notes: node.notes.filter((n) => !n.pdf) }];
+      gs = [{ label: "", dirs: node.dirs, notes: core.sortNotes(node.notes.filter((n) => !n.pdf)) }];
       total = gs[0].notes.length;
       el.querySelector(".ov-count").textContent = [node.dirs.length ? plural(node.dirs.length, "folder") : "", plural(total, "note")].filter(Boolean).join(", ");
       total += node.dirs.length;

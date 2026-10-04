@@ -373,9 +373,10 @@ case "${1:-}" in
     python3 "$D/gen-pdf.py" "$R/work/notes/paper.pdf" 3
     printf 'a,b\n1,2\n' > "$R/work/notes/data.csv"; magick -size 8x8 xc:red "$R/work/notes/photo.png"
     rm -f "$R/out"/*.folder.json
-    app 60 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
-    for _ in $(seq 200); do ls "$R/out"/*.folder.json >/dev/null 2>&1 && break; sleep 0.1; done
+    app 90 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    for _ in $(seq 500); do ls "$R/out"/*.folder.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.folder.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json | grep -qv '^ok' ;;

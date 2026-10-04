@@ -1876,11 +1876,31 @@
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const sidebarOpen = () => document.body.dataset.sidebar === "open";
   const byLabel = (a, b) => collator.compare(a.label, b.label);
+  // the order of a folder's notes (the settings' sidebarSort): the one opened last first, by name,
+  // or the one changed last first — by name where that does not tell them apart. Folders: by name.
+  const SORTS = ["opened", "name", "modified"];
+  const sortKey = () => (SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "opened");
+  const noteLabel = (n) => (sbTitles && n.title) || n.name;
+  function sortNotes(notes) {
+    const key = sortKey(), by = key === "opened" ? "opened" : key === "modified" ? "mtime" : null;
+    return [...notes].sort((a, b) => (by && (b[by] || 0) - (a[by] || 0)) || collator.compare(noteLabel(a), noteLabel(b)));
+  }
+  function setSort(key) {
+    if (key === sortKey()) return;
+    window.MdPrefs = { ...(window.MdPrefs || {}), sidebarSort: key };
+    post("prefs", { prefs: { sidebarSort: key } });
+    resort();
+  }
+  function resort() {
+    if (!folder) return;
+    syncList(true);
+    if (window.MdOverview) MdOverview.folderChanged();
+  }
 
   function entriesOf(dir) {
     const dirs = dir.dirs.map((d) => ({ key: d.path, dir: d, label: d.name }));
-    const notes = dir.notes.map((n) => ({ key: n.path, note: n, label: (sbTitles && n.title) || n.name }));
-    return [...dirs.sort(byLabel), ...notes.sort(byLabel)];
+    const notes = sortNotes(dir.notes).map((n) => ({ key: n.path, note: n, label: noteLabel(n) }));
+    return [...dirs.sort(byLabel), ...notes];
   }
   const rowIcon = (path) => (/\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf
     : /\.(png|jpe?g|gif|webp|svg|avif|bmp|tiff?|heic)$/i.test(path) ? ICON.picture : ICON.file);
@@ -1926,10 +1946,24 @@
   }
   function syncList(animate) {
     const fresh = animate ? [] : null;
+    // rows that change their place glide there (where they stood, before the list is put in order)
+    const stood = new Map();
+    if (animate && sidebarOpen()) for (const el of sbList.querySelectorAll(".sb-item")) stood.set(el.dataset.key, el.getBoundingClientRect().top);
     const any = folder.tree.dirs.length || folder.tree.notes.length;
     sbList.querySelector(":scope > .menu-empty")?.remove();
     syncDir(sbList, folder.tree, 0, fresh);
     if (!any) sbList.insertAdjacentHTML("afterbegin", '<div class="menu-empty">No notes yet</div>');
+    const moved = [];
+    for (const [key, top] of stood) {
+      const el = sbList.querySelector(`.sb-item[data-key="${CSS.escape(key)}"]:not(.leaving)`), dy = el ? top - el.getBoundingClientRect().top : 0;
+      if (el && Math.abs(dy) > 1 && !el.parentNode.closest(".sb-item:not(.open)")) { el.style.transition = "none"; el.style.transform = `translateY(${dy}px)`; moved.push(el); }
+    }
+    if (moved.length) {
+      void sbList.offsetWidth;
+      const ms = motionMs("--spring-smooth-dur", 510);
+      for (const el of moved) { el.style.transition = "transform var(--spring-smooth-dur) var(--spring-smooth)"; el.style.transform = ""; }
+      setTimeout(() => { for (const el of moved) el.style.transition = ""; }, ms);
+    }
     if (fresh && fresh.length) {
       void sbList.offsetWidth;
       fresh.forEach((el) => el.classList.remove("enter"));
@@ -2090,6 +2124,10 @@
     `<div class="menu-rule" data-for="ovnote ovdir"></div>` +
     entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
+    `<div class="menu-rule" data-for="blank"></div>` +
+    entry("sort:opened", "check", "Sort by Last Opened", "blank") +
+    entry("sort:name", "check", "Sort by Name", "blank") +
+    entry("sort:modified", "check", "Sort by Date Modified", "blank") +
     `<div class="menu-rule" data-for="dir"></div>` +
     entry("default", "external", "Open in Default App", "file ovnote") +
     entry("openwith", "apps", "Open With…", "file ovnote") +
@@ -2108,6 +2146,11 @@
     ctxKind = ctx.dataset.kind = kind;
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind);
     ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
+    for (const el of ctxItems) if (el.dataset.cmd.startsWith("sort:")) { // the order in use is ticked
+      const on = el.dataset.cmd.slice(5) === sortKey();
+      el.setAttribute("role", "menuitemradio"); el.setAttribute("aria-checked", String(on));
+      el.querySelector(".menu-icon").style.visibility = on ? "" : "hidden";
+    }
     ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
     if (kind !== "new" && kind !== "blank") item.classList.add("ctx-target");
     setCtxHl(-1);
@@ -2136,6 +2179,7 @@
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
+      else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "open") MdOverview.go(item);
       else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
       else if (cmd === "trash") post("trash", { path });
@@ -2418,7 +2462,9 @@
   }
   // the settings changed (here or in another window)
   function setPrefs(p) {
+    const sorted = sortKey();
     window.MdPrefs = p;
+    if (sortKey() !== sorted) resort();
     if (window.MdActive?.onPrefs) MdActive.onPrefs();
   }
   // pictures dropped on the document, saved or found by the application
@@ -2461,7 +2507,7 @@
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

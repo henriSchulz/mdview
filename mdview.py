@@ -55,6 +55,7 @@ MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
 APPLE_CSS = HOME / ".local/share/apple-ui/apple.css"   # sizes and radii measured on macOS (sidebar, menus)
 # The context and "/" menus wear the Things rebuild's dark popover: its tokens, where its launcher
 # looks for them too. Without the file the values written in viewer.css hold.
+OPENED_LIMIT = 3000   # notes whose last opening is remembered
 SF_SYMBOLS = ".SF Symbols Fallback"   # the font the app's signs are set in, where it is installed (viewer.js)
 THINGS_TOKENS = "replica/design/tokens.json"
 THINGS_DIRS = [Path(d) for d in (os.environ.get("THINGS_DIR"), HOME / ".local/share/things-clone",
@@ -110,6 +111,7 @@ PREFS = {
     "pdfFormat": "callout", "pdfAuto": False,
     # what the folder sidebar lists beside the notes: PDFs, pictures, sound and film, everything else
     "sidebarPdf": True, "sidebarImages": False, "sidebarMedia": False, "sidebarOther": False,
+    "sidebarSort": "opened",  # the notes of a folder, in the sidebar and the tiles: "opened" (last opened first) | "name" | "modified"
     # a continuation suggested while typing (the text around the caret goes to the model's maker)
     "aiComplete": False,
     "panel": False, "panelTab": "insert",   # the panel at the window's right (insert, format): open, and its tab
@@ -509,15 +511,16 @@ def scan_folder(root, cache, titles, keep=(), show=("pdf",)):
                 elif os.path.splitext(e.name)[1].lower() in MD_EXT and e.is_file() \
                         and count < NOTE_LIMIT:
                     title = None
+                    st = e.stat()
                     if titles:
-                        st = e.stat()
                         key = (st.st_mtime_ns, st.st_size)
                         hit = cache.get(e.path)
                         if not hit or hit[0] != key:
                             hit = cache[e.path] = (key, note_title(e.path))
                         title = hit[1]
                     node["notes"].append({"name": os.path.splitext(e.name)[0], "path": e.path,
-                                          "real": os.path.realpath(e.path), "title": title})
+                                          "real": os.path.realpath(e.path), "title": title,
+                                          "mtime": int(st.st_mtime)})
                     count += 1
                 elif count < NOTE_LIMIT and e.is_file():
                     # what the settings ask for beside the notes — with its ending, to tell it
@@ -852,7 +855,14 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 last[str(self.folder)] = str(path)
                 for old in list(last)[:-20]:
                     del last[old]
+                # when it was opened: what the sidebar sorts by ("opened")
+                opened = self.app.state.setdefault("opened", {})
+                opened.pop(str(path), None)
+                opened[str(path)] = int(time.time())
+                for old in list(opened)[:-OPENED_LIMIT]:
+                    del opened[old]
                 save_state(self.app.state)
+                self.send_folder()
         if same and self.shell_ready:
             if fragment and path.suffix.lower() == ".pdf":
                 self.render_pdf(fragment)  # (a place in the PDF: the viewer goes there)
@@ -981,6 +991,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
         if not self.folder or not self.shell_ready:
             return
         st = self.app.state
+        opened = st.get("opened", {})
+        for n in tree_notes(self.tree):
+            n["opened"] = opened.get(n["real"], 0)
         payload = {
             "root": str(self.folder),
             "name": self.folder.name or str(self.folder),
