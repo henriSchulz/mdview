@@ -784,7 +784,13 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.view = WebKit2.WebView.new_with_user_content_manager(ucm)
         self.view.set_settings(app.web_settings)
         self.view.set_background_color(bg)
-        self.view.set_zoom_level(st.get("zoom", 1.0))
+        # Two fingers pulled apart on a touchpad are the PDF viewer's (pdfview.js pinch): the page as a
+        # whole has one size. Taken here, before the web view makes a zoom of its own of them.
+        self.view.add_events(Gdk.EventMask.TOUCHPAD_GESTURE_MASK)
+        self.pinch = Gtk.GestureZoom.new(self.view)
+        self.pinch.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        self.pinch.connect("begin", self.on_pinch_begin)
+        self.pinch.connect("scale-changed", lambda _g, scale: self.js("MdView.pinch", "move", scale))
         self.view.connect("load-changed", self.on_load_changed)
         self.view.connect("decide-policy", self.on_decide_policy)
         self.view.connect("context-menu", self.on_context_menu)
@@ -1309,6 +1315,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.mode_given = True
         self.js("MdView.render", payload)
 
+    def on_pinch_begin(self, gesture, _sequence):
+        gesture.set_state(Gtk.EventSequenceState.CLAIMED)
+        self.js("MdView.pinch", "begin", 1)
+
     def js(self, fn, *args):
         script = f"{fn}({','.join(json.dumps(a, ensure_ascii=False) for a in args)})"
         self.view.evaluate_javascript(script, -1, None, None, None, None, None)
@@ -1467,8 +1477,9 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "reload":
             self.resolver = Resolver(self.path.parent) if self.path else None
             self.render(keep_scroll=True)
-        elif t == "zoom":
-            self.zoom(msg.get("step", 0), msg.get("level"))
+        elif t == "zoom" and PROBE:
+            # (tests only: the page larger, to see it in a narrow window — the app itself has one size)
+            self.view.set_zoom_level(min(2.5, self.view.get_zoom_level() + 0.1 * msg["step"]) if msg.get("step") else 1.0)
         elif t == "settings-info":
             self.settings_info()
         elif t == "aikey":
@@ -1926,18 +1937,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
         launch_uri(gfile.get_parent().get_uri())  # (no file manager answers: its folder, at least)
 
     def settings_info(self):
-        self.js("MdView.settingsInfo", {"aiKey": ai_key_state(), "aiModel": AI_MODEL, "zoom": self.view.get_zoom_level(),
+        self.js("MdView.settingsInfo", {"aiKey": ai_key_state(), "aiModel": AI_MODEL,
                                         "version": app_version(), "configDir": str(AI_ENV.parent).replace(str(HOME), "~")})
-
-    def zoom(self, step, to=None):
-        level = 1.0 if step == 0 else self.view.get_zoom_level() + 0.1 * step
-        if isinstance(to, (int, float)) and not isinstance(to, bool):
-            level = float(to)
-        level = round(min(2.5, max(0.5, level)), 2)
-        self.view.set_zoom_level(level)
-        self.app.state["zoom"] = level
-        save_state(self.app.state)
-        self.js("MdView.toast", f"{round(level * 100)} %")
 
     def go(self, src, dst):
         if not src:

@@ -33,7 +33,6 @@
     ]],
     ["appearance", "title", [
       [null, [
-        ["zoom", "zoom"],
         ["measure", "select", [["narrow", "prefs.measure.narrow"], ["normal", "prefs.measure.normal"], ["wide", "prefs.measure.wide"], ["full", "prefs.measure.full"]]],
         ["hinting", "switch"],
       ]],
@@ -127,17 +126,6 @@
       refresh.push(() => { input.placeholder = (key === "aiModel" && info.aiModel) || ""; });
       input.onchange = () => set(key, input.value.trim());
       return input;
-    }
-    if (kind === "zoom") { // the text's size: the window's zoom, kept by the application
-      const input = el("select", { class: "lp-field pf-select" });
-      for (const z of [80, 90, 100, 110, 125, 150, 175, 200]) input.appendChild(el("option", { value: String(z) }, z + " %"));
-      refresh.push(() => {
-        const z = Math.round((info.zoom || 1) * 100);
-        if (![...input.options].some((o) => Number(o.value) === z)) input.appendChild(el("option", { value: String(z) }, z + " %"));
-        input.value = String(z);
-      });
-      input.onchange = () => { info.zoom = Number(input.value) / 100; post("zoom", { level: info.zoom }); };
-      return popup(input);
     }
     if (kind === "key") { // the model's key: typed in here, kept by the application; only its end is ever shown
       const box = el("div", { class: "pf-key" });
@@ -280,7 +268,7 @@
     focusBack = null;
     return true;
   }
-  // what the application knows: { aiKey: { set, tail, env }, aiModel, zoom, version, configDir }
+  // what the application knows: { aiKey: { set, tail, env }, aiModel, version, configDir }
   function gotInfo(data) { info = { ...info, ...(data || {}) }; refresh.forEach((f) => f()); }
 
   // the settings changed: what depends on them follows at once

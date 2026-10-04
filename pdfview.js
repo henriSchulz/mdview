@@ -253,11 +253,15 @@
     }
     return n;
   }
-  function zoomTo(what) {
+  let drawLater = 0;
+  function zoomTo(what, live = false) {
     const v = V, n = pageNow(true), pg = v.pages[n - 1], r = pg.div.getBoundingClientRect(), into = r.height ? Math.max(0, -r.top) / r.height : 0;
     if (typeof what === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, what)); } else v.fit = what;
     layout();
-    v.pages.forEach((x) => { if (x.near) draw(x); });
+    // (while the size is being pulled — a pinch, the wheel — the pages are only stretched; they are drawn anew when it rests)
+    clearTimeout(drawLater);
+    if (live) drawLater = setTimeout(() => { if (V === v) v.pages.forEach((x) => { if (x.near) draw(x); }); }, 140);
+    else v.pages.forEach((x) => { if (x.near) draw(x); });
     const r2 = pg.div.getBoundingClientRect();
     window.scrollBy({ top: r2.top + into * r2.height - Math.min(0, r.top) * 0 - (r.top > 0 ? r.top : 0), behavior: "instant" });
     v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
@@ -619,6 +623,12 @@
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") { stop(); copySelection(); return; }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "v") { stop(); copyView(); return; }
     if (e.altKey && e.key === "ArrowLeft" && V.history.length) { stop(); back(); return; }
+    // Ctrl or Super with + and −: larger and smaller (0: the page's width again) — also from a field
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      if (e.key === "+" || e.key === "=" || e.code === "NumpadAdd") { stop(); act("in"); return; }
+      if (e.key === "-" || e.key === "_" || e.code === "NumpadSubtract") { stop(); act("out"); return; }
+      if (!e.shiftKey && (e.key === "0" || e.code === "Numpad0")) { stop(); zoomTo("width"); return; }
+    }
     if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     if (k === "+" || k === "=") { stop(); act("in"); }
@@ -704,7 +714,27 @@
     for (const span of root.querySelectorAll(".pdf-embed:not([data-done])")) embed(span);
   }
 
-  window.MdPdf = { show, leave, hydrate, chunk, parseFrag, get shown() { return V; },
+  /* The size pulled: two fingers on a touchpad (the application tells: "begin", then the size the
+   * fingers have made of it so far), or Ctrl with the wheel. It follows at once, a frame at a time. */
+  let pinchBase = 1, zoomWant = 0, zoomFrame = 0;
+  const shown = () => V && V.root.isConnected && V.pages && V.pages.length;
+  function pull(scale) {
+    zoomWant = scale;
+    if (zoomFrame) return;
+    zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; if (shown()) zoomTo(zoomWant, true); });
+  }
+  function pinch(phase, scale) {
+    if (!shown()) return;
+    if (phase === "begin") { pinchBase = V.scale; return; }
+    if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale);
+  }
+  addEventListener("wheel", (e) => {
+    if (!e.ctrlKey || !shown()) return;
+    e.preventDefault(); e.stopPropagation();
+    pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015));
+  }, { capture: true, passive: false });
+
+  window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, get shown() { return V; },
     // for the tests
     test: { selectionNow, copySelection, copyView, go, goFrag, zoomTo, act, sidePanel, boxesOf, joined, textOf, linkText, pageNow, placeOf } };
 })();

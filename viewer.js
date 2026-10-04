@@ -2670,8 +2670,6 @@
         n: () => { if (folder) openNewNote(); },
         ",": openSettings,
         p: printDoc, w: () => post("close"), q: () => post("close"),
-        "=": () => post("zoom", { step: 1 }), "+": () => post("zoom", { step: 1 }),
-        "-": () => post("zoom", { step: -1 }), "0": () => post("zoom", { step: 0 }),
         g: () => focusHit(hitIdx + 1),
       };
       if (map[k]) { e.preventDefault(); map[k](); }
@@ -2753,7 +2751,7 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
-  window.MdView = { prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),

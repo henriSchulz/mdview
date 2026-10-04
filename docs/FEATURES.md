@@ -328,7 +328,9 @@ A link or embed to a PDF opens it in the window; nothing is ever written into th
 
 In the viewer: select text, then a colour or `Ctrl+Shift+C` copies a link to it (as a callout, a
 quote, a link or an embed). Every such link in the notes shows as a highlight in the PDF; a double
-click on one opens the note. Side panel: outline, pages, notes. Keys: `+` `−` zoom, `W` fit width,
+click on one opens the note. Side panel: outline, pages, notes. Larger and smaller: two fingers on
+the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
+again. Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `Alt+←` back.
 
 ## Keys
@@ -350,7 +352,6 @@ click on one opens the note. Side panel: outline, pages, notes. Keys: `+` `−` 
 | `Ctrl+Shift+V` | paste and match style |
 | `Ctrl+D` | duplicate the block |
 | `Alt+←` / `Alt+→` | back / forward |
-| `Ctrl` + `+` / `−` / `0` | zoom |
 
 ## Settings (`Ctrl+,`)
 
@@ -360,7 +361,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size, width of the text column, sharper text (letters on whole pixels; at the next start) |
+| Appearance | width of the text column, sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |

@@ -84,6 +84,29 @@
     ok("zoom in: the page grows, stays the page on screen", page(2).getBoundingClientRect().width > w0 * 1.1 && T.pageNow(true) === 2, [w0, page(2).getBoundingClientRect().width, T.pageNow(true)]);
     T.zoomTo("width"); await sleep(300);
     ok("fit width again", Math.abs(page(2).getBoundingClientRect().width - w0) < 16, [w0, page(2).getBoundingClientRect().width, V.box.clientWidth, V.scale]);
+    // larger and smaller by Ctrl (or Super) with + and −, by Ctrl with the wheel, by two fingers
+    {
+      const width = () => page(2).getBoundingClientRect().width;
+      const ctrl = (k, more = {}) => { const e = new KeyboardEvent("keydown", { key: k, ctrlKey: true, bubbles: true, cancelable: true, ...more }); document.body.dispatchEvent(e); return e.defaultPrevented; };
+      const held = ctrl("+"); await sleep(300);
+      ok("Ctrl and +: the pages are larger", held && width() > w0 * 1.1, [w0, width()]);
+      const w1 = width();
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "=", metaKey: true, shiftKey: true, bubbles: true, cancelable: true })); await sleep(300);
+      ok("Super and + (typed as Shift+=) too", width() > w1 * 1.1, [w1, width()]);
+      ctrl("-"); await sleep(300);
+      ok("Ctrl and −: smaller", Math.abs(width() - w1) < 4, [w1, width()]);
+      ctrl("0"); await sleep(300);
+      ok("Ctrl+0: the page's width again", Math.abs(width() - w0) < 16 && V.fit === "width", [w0, width(), V.fit]);
+      const wheel = (dy) => { const e = new WheelEvent("wheel", { deltaY: dy, ctrlKey: true, bubbles: true, cancelable: true }); page(2).dispatchEvent(e); return e.defaultPrevented; };
+      const y0 = wheel(-120); await sleep(400);
+      ok("Ctrl and the wheel up: larger, the wheel is not the page's", y0 && width() > w0 * 1.1, [w0, width()]);
+      T.zoomTo("width"); await sleep(300);
+      MdView.pinch("begin", 1); MdView.pinch("move", 1.2); MdView.pinch("move", 1.5); await sleep(400);
+      ok("two fingers pulled apart to one and a half: the pages are that much larger", Math.abs(width() / w0 - 1.5) < 0.05, width() / w0);
+      MdView.pinch("begin", 1); MdView.pinch("move", 0.5); await sleep(400);
+      ok("and together again", Math.abs(width() / w0 - 0.75) < 0.05, width() / w0);
+      T.zoomTo("width"); await sleep(300);
+    }
     await until(() => V.outline);
     T.sidePanel("outline"); await sleep(200);
     const items = [...V.side.querySelectorAll(".pdf-out")];
