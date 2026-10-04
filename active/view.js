@@ -296,7 +296,7 @@
       if (!dom || !dom.getBoundingClientRect) return;
       const r = dom.getBoundingClientRect();
       // the first block that begins on screen; if none does (one block fills the window), the one cut by its top
-      if (target == null && r.bottom > 60) target = pos;
+      if (target == null && r.bottom > 60 + (window.MdView.core.top || 0)) target = pos;
       if (!whole && r.top >= 0 && r.top < innerHeight - 40 && node.isTextblock) { target = pos; whole = true; }
       if (r.top > innerHeight) whole = true;
     });
@@ -313,7 +313,7 @@
     let c;
     try { c = v.coordsAtPos(v.state.selection.head); } catch (_e) { return false; }
     const comfort = jump === true ? innerHeight * 0.2 : 0; // ("near": gently, but only as far as needed)
-    const top = Math.max(56, comfort), bottom = innerHeight - Math.max(28, comfort); // (the toolbar floats over the top)
+    const top = Math.max(56 + (window.MdView.core.top || 0), comfort), bottom = innerHeight - Math.max(28, comfort); // (the toolbar floats over the top)
     const by = c.top < top ? c.top - top : c.bottom > bottom ? c.bottom - bottom : 0;
     if (by) window.scrollBy({ top: by, behavior: jump && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "instant" });
     return true;

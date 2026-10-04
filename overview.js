@@ -32,7 +32,7 @@
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
   const body = el.querySelector(".ov-body");
-  const button = () => document.querySelector('#toolbar [data-act="overview"]');
+  const pressed = (on) => document.querySelectorAll('[data-act="overview"]').forEach((b) => b.setAttribute("aria-pressed", String(on))); // (the toolbar's button, the tabs' house)
 
   const cache = new Map();   // path -> { mtime, html, color }
   const tiles = new Map();   // path -> the note's element (a tile or a row)
@@ -220,7 +220,7 @@
     delete el.dataset.keys;
     core.lockScroll(true); // (the note under the tiles holds still)
     document.body.dataset.overview = "";
-    button()?.setAttribute("aria-pressed", "true");
+    pressed(true);
     el.scrollTop = 0;
     const cur = body.querySelector('.ov-item[aria-current]') || items[0];
     if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); }
@@ -231,21 +231,25 @@
     delete el.dataset.open;
     core.lockScroll(false);
     delete document.body.dataset.overview;
-    button()?.setAttribute("aria-pressed", "false");
+    pressed(false);
     if (refocus && focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true });
     focusBack = null;
     return true;
   }
-  const toggle = () => (isOpen() ? close() : open());
-  function go(tile) {
+  // (an empty tab has nothing under the tiles: they stay until a note is chosen)
+  const toggle = () => (!isOpen() ? open() : core.current ? close() : false);
+  // tab: in a tab of its own (Ctrl held, the middle button)
+  function go(tile, tab = false) {
     if (tile.dataset.dir) { at.push(tile.dataset.dir); rebuild(); return; }
     const path = tile.dataset.path;
     close(false);
     core.going(path);
-    post("note", { path });
+    post("note", { path, tab });
   }
 
-  body.addEventListener("click", (e) => { const t = e.target.closest(".ov-item"); if (t && !e.target.closest(".ov-rename")) go(t); });
+  body.addEventListener("click", (e) => { const t = e.target.closest(".ov-item"); if (t && !e.target.closest(".ov-rename")) go(t, e.ctrlKey || e.metaKey); });
+  body.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".ov-item")) e.preventDefault(); });
+  body.addEventListener("auxclick", (e) => { const t = e.target.closest(".ov-item"); if (t && e.button === 1 && !e.target.closest(".ov-rename")) { e.preventDefault(); go(t, true); } });
   el.querySelector(".ov-head").addEventListener("click", (e) => {
     const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb");
     if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
@@ -306,7 +310,7 @@
   el.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const tile = e.target.closest?.(".ov-item");
-    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (core.current) close(); return; }
     if (e.key === "Backspace" && up()) { e.preventDefault(); return; }
     if (!tile) return;
     if (e.key === "F2" && !tile.dataset.dir) { e.preventDefault(); rename(tile); return; }

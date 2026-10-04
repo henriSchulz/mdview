@@ -10,7 +10,7 @@
   window.addEventListener("error", (e) => { o.jsError = String(e.message); });
   try {
     await document.fonts.ready; await sleep(1200);
-    const ov = document.getElementById("overview"), btn = document.querySelector('#toolbar [data-act="overview"]');
+    const ov = document.getElementById("overview"), btn = document.querySelector('#tabs [data-act="overview"]'); // (the house before the tabs)
     ok("the button shows in a folder window", btn && getComputedStyle(btn).display !== "none");
     btn.click();
     await sleep(1500);
@@ -66,7 +66,7 @@
     const sorted = (sel) => names(sel).sort().join("|"); // (their order is the sidebar's: the one opened last first)
     const note = [...ov.querySelectorAll(".ov-tile")].find((t) => t.querySelector(".ov-name").textContent === "Commute thoughts");
     note.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in Default App|Open With…|Show in Finder|Rename|Move to Trash", shown());
+    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Rename|Move to Trash", shown());
     out("shot-menu", {}); await sleep(1300);
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "rename").click(); await sleep(500);
     const field = ov.querySelector(".ov-rename");

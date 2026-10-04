@@ -40,7 +40,7 @@ body[data-mode="dark"] {
   --sb-selected: color-mix(in srgb, var(--fg) 12%, transparent);
 }
 
-html { background: var(--bg); scroll-padding-top: 24px; }
+html { background: var(--bg); scroll-padding-top: calc(24px + var(--top, 0px)); } /* (--top: what the tabs take of the window's top) */
 body {
   margin: 0;
   background: var(--bg);
@@ -768,7 +768,99 @@ body[data-sidebar="open"] { padding-left: var(--sb-w); }
 /* the panel at the right is the active mode's: elsewhere its button stands dimmed and takes no click */
 #toolbar [data-act="panel"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
-body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [data-act="overview"] { display: grid; }
+body[data-folder] #toolbar [data-act="sidebar"] { display: grid; } /* (all notes: the house before the tabs) */
+
+/* ------------------------------------------------------------- tabs (folder windows) */
+/* A strip above the note, as Craft has it: the house (all notes), the tabs — each a rounded field,
+ * the one shown a shade darker — and a plus. It stands on the page's colour, so the note scrolls
+ * away under it; the toolbar's capsule floats at its right end. Sizes are layout; times, curves
+ * and radii are the central ones. */
+:root { --tabs-h: 52px; --tab-h: 34px; --tab-w: 168px; }
+#tabs {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: none;
+  box-sizing: border-box;
+  height: var(--tabs-h);
+  padding: 10px calc(var(--tb-w, 230px) + 28px) 0 12px;
+  background: var(--bg);
+  clip-path: inset(0 0 -14px 0);   /* (what glides in from under the sidebar is cut at its edge; the shade below is not) */
+  font: 400 13px/1.2 var(--ui);
+  font-variation-settings: "opsz" 17;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+#tabs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; background: linear-gradient(var(--bg), transparent); pointer-events: none; }
+body[data-tabs] #tabs { display: block; }
+body[data-sidebar="open"] #tabs { left: var(--sb-w); padding-left: 6px; }
+/* the note begins under the strip; what sticks to the window's top sticks under it */
+body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }
+.tab-row { display: flex; align-items: center; gap: 4px; height: var(--tab-h); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.tab-list { position: relative; display: flex; flex: 0 1 auto; gap: 4px; min-width: 0; height: 100%; }
+.tab, .tab-home, .tab-new {
+  box-sizing: border-box;
+  height: var(--tab-h);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fg) 4.5%, transparent);
+  color: var(--fg2);
+  font: inherit;
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--spring-smooth-dur) var(--spring-smooth),
+    scale var(--spring-snappy-dur) var(--spring-snappy);
+}
+.tab { position: relative; display: flex; align-items: center; gap: 8px; flex: 0 1 auto; width: var(--tab-w); min-width: 0; padding: 0 12px 0 10px; outline-offset: -2px; }
+.tab-home, .tab-new { flex: none; display: grid; place-items: center; width: 44px; padding: 0; outline-offset: -2px; }
+.tab-new { width: var(--tab-h); background: transparent; }
+:is(.tab, .tab-home, .tab-new):hover, .tab.ctx-target { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--spring-snappy-dur); }
+:is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
+.tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: color-mix(in srgb, var(--fg) 12%, transparent); color: var(--fg); }
+.tab-home { color: var(--fg); }
+.tab-home[aria-pressed="true"] { color: var(--accent); }
+.tab:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); }
+:is(.tab, .tab-home, .tab-new) svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tab-icon { flex: none; display: grid; place-items: center; width: 16px; height: 16px; transition: opacity var(--dur-fast) var(--ease-out); }
+.tab-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* closing: a ✕ in the icon's place while the pointer is on the tab (or the keyboard in it) */
+.tab-x {
+  position: absolute;
+  left: 8px;
+  top: calc(50% - 10px);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--fg2);
+  cursor: default;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tab-x svg { width: 12px; height: 12px; stroke-width: 2; }
+.tab-x .sf { font-size: 10px; }
+.tab:is(:hover, :focus-visible) .tab-icon { opacity: 0; transition-duration: var(--dur-instant); }
+.tab:is(:hover, :focus-visible) .tab-x { opacity: 1; transition-duration: var(--dur-instant); }
+.tab-x:hover { background: var(--fill-pressed); color: var(--fg); }
+.tab-x:active { background: color-mix(in srgb, var(--fg) 20%, transparent); }
+/* a new tab comes in, a closed one fades where it stood (out of the others' way), a pulled one is lifted */
+.tab.enter { opacity: 0; scale: var(--menu-from-scale, 0.96); }
+.tab.leaving { position: absolute; top: 0; opacity: 0; scale: var(--exit-to-scale, 0.98); pointer-events: none; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), scale calc(var(--dur-base) * 0.7) var(--ease-exit); }
+.tab.pulled { z-index: 2; scale: var(--lift-scale); background: color-mix(in srgb, var(--fg) 12%, var(--bg)); box-shadow: 0 4px 14px rgb(0 0 0 / 0.12); transition-property: background-color, color, opacity, scale; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy); }
+.tab.landing { z-index: 2; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy), var(--spring-snappy); }
+@media (prefers-reduced-motion: reduce) { .tab, .tab-home, .tab-new, .tab.pulled { scale: 1 !important; } .tab-row { transition: none; } }
+@media (prefers-contrast: more) { .tab, .tab-home { box-shadow: inset 0 0 0 1px var(--fg2); } .tab[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--fg); } }
+@media (max-width: 640px) { .tab-home { width: var(--tab-h); } }
 
 .sb-head { display: flex; align-items: center; gap: 2px; padding: var(--sb-pad) var(--sb-pad) 6px; }
 .sb-head .tb { border-radius: var(--radius-pill); }
@@ -908,6 +1000,8 @@ body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [dat
 #ctxmenu { position: fixed; z-index: 35; min-width: 200px; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
 #ctxmenu .menu-item, .actmenu .menu-item { display: flex; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
 #ctxmenu .menu-item[hidden], #ctxmenu .menu-rule[hidden] { display: none; }
+#ctxmenu .menu-item:disabled { color: var(--fg3); }
+#ctxmenu .menu-item:disabled .menu-key { color: var(--fg3); }
 .menu-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .menu-icon { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--fg2); }
 .menu-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -953,7 +1047,7 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 ::-webkit-scrollbar-corner { background: transparent; }
 
 @media print {
-  #toolbar, #outline, #findbar, #toast, #editor, #sidebar, #ctxmenu, .code-tools { display: none !important; }
+  #toolbar, #tabs, #outline, #findbar, #toast, #editor, #sidebar, #ctxmenu, .code-tools { display: none !important; }
   body { padding-left: 0 !important; }
   #content { display: block !important; opacity: 1 !important; }
   #content { max-width: none; padding: 0; }

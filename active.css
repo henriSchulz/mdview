@@ -821,6 +821,7 @@ body[data-view="active"][data-panel] { padding-right: var(--rp-w); }
 body[data-view="active"][data-panel] #toolbar { transform: translateX(calc(-1 * var(--rp-w))); }
 body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(calc(-1 * var(--rp-w)), -6px); }
 body[data-view="active"][data-panel] #outline, body[data-view="active"][data-panel] #findbar { right: calc(12px + var(--rp-w)); }
+body[data-view="active"][data-panel] #tabs { right: var(--rp-w); }
 #toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent); }
 @media (max-width: 760px) { body[data-view="active"][data-panel] { padding-right: 0; } }
 

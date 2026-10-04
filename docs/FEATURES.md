@@ -316,8 +316,19 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 
 ## A folder of notes
 
+- **Tabs**: a strip above the note with the notes and PDFs that are open, each where it was left
+  and with its own way back. `Ctrl`+click or the middle button on a note — in the sidebar, among
+  the tiles, on a link — opens it in a tab of its own, as does Open in New Tab in a file's menu; a
+  plain click opens it in the tab shown, or goes to the tab the note already has. `+` (`Ctrl+T`)
+  makes an empty tab, which shows All Notes to choose from; the house before the tabs shows All
+  Notes over the note. The ✕ in the icon's place under the pointer, the middle button or `Ctrl+W`
+  closes a tab (the last one: the window), `Ctrl+Shift+T` opens the one closed last again.
+  `Ctrl+Tab` and `Ctrl+Shift+Tab` go to the next and the one before, `Ctrl+1` … `8` to a tab by
+  its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
+  Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
+  next time it is opened.
 - **Sidebar** (`Ctrl+Alt+S`): the folder's notes and folders. `+` makes a note or folder, a right
-  click on a file has Open in Default App, Open With…, Show in Finder, Rename (`F2`), Move to Trash
+  click on a file has Open in New Tab, Open in Default App, Open With…, Show in Finder, Rename (`F2`), Move to Trash
   (`Del`); a right click on the empty room has New Note, New Folder and the order of the notes. Its
   edge can be pulled wider or away. `Aa` switches between file names and the notes' titles.
 - **Order of the notes**: Last Opened (the default), Name, Date Modified.
@@ -375,6 +386,9 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Alt+P` | panel (active mode) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+N` | new note |
+| `Ctrl+T` / `Ctrl+W` / `Ctrl+Shift+T` | new tab / close the tab / open the closed one again (folder windows) |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | next tab / the one before |
+| `Ctrl+1` … `9` | the tab at that place (`9`: the last) |
 | `Ctrl+,` | settings |
 | `Ctrl+B` / `I` / `K` | bold / italic / link |
 | `Ctrl+Shift+X` | strikethrough |

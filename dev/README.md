@@ -44,6 +44,7 @@ what it reports to `MDVIEW_PROBE_OUT`.
 ./rig.sh compare tests/fixtures/*.md corpus/docs/*.md   # active mode laid out like the reading view?
 ./rig.sh modes tests/fixtures/obsidian.md               # switching modes, find, outline, a task
 ./rig.sh folder                                         # the active mode in a folder window
+./rig.sh tabs                                           # the tabs of a folder window
 ./rig.sh overview                                       # all notes of a folder as tiles
 ./rig.sh panel                                          # the panel at the right: Insert and Format
 ./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others

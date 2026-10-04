@@ -32,6 +32,7 @@
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
+#   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
 #   dev/rig.sh shot NAME             screenshot of the nested compositor
@@ -410,10 +411,26 @@ case "${1:-}" in
     app 90 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
     for _ in $(seq 500); do ls "$R/out"/*.folder.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "python3 $APP" 2>/dev/null
-    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.folder.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json | grep -qv '^ok' ;;
+  tabs)
+    rm -rf "$R/work"; mkdir -p "$R/work/notes/sub"; cp "$D"/tests/fixtures/{basics,obsidian,math}.md "$R/work/notes/"; cp "$D/tests/fixtures/footnotes.md" "$R/work/notes/sub/"
+    python3 "$D/gen-pdf.py" "$R/work/notes/paper.pdf" 3
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.tabs, .opened, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (it starts with one tab, on a note)
+    rm -f "$R/out"/*.tabs.json "$R/out"/*.shot-*.json
+    app 120 MDVIEW_PROBE="$D/probe-tabs.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    for v in empty pdf pull menu tabs; do
+      for _ in $(seq 600); do [[ -n $(ls "$R/out"/*.shot-$v.json "$R/out"/*.tabs.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/tabs-$v.png"
+    done
+    for _ in $(seq 300); do ls "$R/out"/*.tabs.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    ls "$R/out"/*.tabs.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.tabs.json
+    echo "kept: $(jq -c '.tabs | to_entries[-1].value | {tabs: (.paths | map(split("/")[-1])), active}' "$st")"
+    jq 'del(.tabs, .active, .opened, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (what the test left never stays)
+    ! jq -r '.steps[], (.error // empty)' "$R/out"/*.tabs.json | grep -qv '^ok' ;;
   overview)
     rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.ov.json "$R/out"/*.shot.json "$R/out"/*.shot-*.json
     app 90 MDVIEW_PROBE="$D/probe-overview.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"

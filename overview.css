@@ -16,6 +16,7 @@
 body[data-sidebar="open"] #overview { left: var(--sb-w); }
 /* (the note under it does not scroll along: overview.js holds it, lockScroll — a rule that takes
  * the page's scrollbar away would lay the whole note out anew, twice) */
+body[data-tabs] #overview { padding-top: calc(var(--tabs-h) + 28px); } /* (under the tabs) */
 @media print { #overview { display: none !important; } }
 
 .ov-head, .ov-dir, .ov-name, .ov-none, .ov-row, .ov-sub { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */

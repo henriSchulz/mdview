@@ -8,7 +8,7 @@
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
-  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "trash"]);
+  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "trash", "tab"]);
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
@@ -73,6 +73,7 @@
     updown: svg('<path d="m8 9 4-4 4 4M8 15l4 4 4-4"/>'),
     // the settings' groups
     sigma: svg('<path d="M18 6V5H6l6 7-6 7h12v-1"/>'),
+    home: svg('<path d="m3.5 10.5 8.5-7 8.5 7"/><path d="M5.5 9v10.5h4.75V14h3.5v5.5h4.75V9"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
   };
   // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
@@ -86,7 +87,7 @@
     x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, plus: 0x10017c, title: 0x100151, folder: 0x100215,
     note: 0x10023f, folderPlus: 0x100219, external: 0x100114, apps: 0x1001f7, reveal: 0x1002ab, rename: 0x10016b,
     gear: 0x1008cb, pdf: 0x100245, picture: 0x1003c5, file: 0x100237, trash: 0x100211,
-    info: 0x100174, sigma: 0x10016d, spark: 0x1001bf, updown: 0x10018f,
+    info: 0x100174, sigma: 0x10016d, spark: 0x1001bf, updown: 0x10018f, home: 0x10039e,
   };
   const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
     : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
@@ -704,6 +705,8 @@
   function clear() {
     if (mode === "edit") { flushSave(); leaveEditNow(); }
     if (mode === "active") leaveActiveNow();
+    if (window.MdPdf) MdPdf.leave();
+    content.classList.remove("pdf");
     current = null;
     drawn = null;
     outline = [];
@@ -718,6 +721,8 @@
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
     drawn = { p, text: p.text };
+    // (a PDF that makes way is let go as it stands — it keeps its place — before the column is the note's again)
+    if (window.MdPdf && !(p.kind === "pdf" && !p.error)) MdPdf.leave();
     content.classList.toggle("pdf", p.kind === "pdf" && !p.error);
     if (p.kind === "pdf" && !p.error) {
       outline = [];
@@ -725,7 +730,6 @@
       loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast("The PDF viewer could not be loaded"));
       return;
     }
-    if (window.MdPdf) MdPdf.leave();
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
       outline = [];
@@ -1020,7 +1024,7 @@
 
   // toolbar hides while reading downwards, returns on scroll up or near the top
   let lastY = 0;
-  const showToolbar = (show) => toolbar.classList.toggle("hidden", !show);
+  const showToolbar = (show) => toolbar.classList.toggle("hidden", !show && !document.body.hasAttribute("data-tabs")); // (beside the tabs it stays)
   addEventListener("scroll", () => {
     const y = window.scrollY;
     if (y < 48 || y < lastY - 6) showToolbar(true);
@@ -1400,7 +1404,7 @@
     if (mode !== "edit") return;
     const pos = edInput.selectionDirection === "backward" ? edInput.selectionStart : edInput.selectionEnd;
     const r = rangeOf(pos, pos).getClientRects()[0] || edBack.children[lineOf(pos)].getBoundingClientRect();
-    const top = 64, bottom = innerHeight - 48;
+    const top = 64 + topRoom(), bottom = innerHeight - 48;
     if (r.top < top) window.scrollBy({ top: r.top - top, behavior: "instant" });
     else if (r.bottom > bottom) window.scrollBy({ top: r.bottom - bottom, behavior: "instant" });
   }
@@ -2181,6 +2185,7 @@
     markActiveNote(first);
     showSidebar(f.visible, !first);
     if (!current) clear();
+    for (const el of tabEls()) { const t = tabs.find((x) => String(x.id) === el.dataset.id); if (t) paintTab(el, t); } // (names or titles, as the list)
     if (window.MdOverview) MdOverview.folderChanged();
   }
 
@@ -2220,7 +2225,20 @@
     if (!row) return;
     const item = row.closest(".sb-item");
     if (item.classList.contains("is-dir")) toggleDir(item);
-    else if (!row.classList.contains("active")) { going(row.dataset.real || item.dataset.key); post("note", { path: item.dataset.key }); }
+    else if (!row.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(item, e.ctrlKey || e.metaKey);
+  });
+  // a note asked for in the list; with Ctrl held or the middle button: in a tab of its own
+  function openRow(item, tab) {
+    const row = item.firstChild.firstChild;
+    going(row.dataset.real || item.dataset.key);
+    post("note", { path: item.dataset.key, tab });
+  }
+  sbList.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".sb-row")) e.preventDefault(); }); // (no scrolling by the middle button here)
+  sbList.addEventListener("auxclick", (e) => {
+    const item = e.button === 1 && e.target.closest(".sb-row")?.closest(".sb-item");
+    if (!item || item.classList.contains("is-dir")) return;
+    e.preventDefault();
+    openRow(item, true);
   });
   sbList.addEventListener("keydown", (e) => {
     const row = e.target.closest(".sb-row");
@@ -2261,7 +2279,13 @@
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
     entry("open", "note", "Open", "ovnote ovdir") +
-    `<div class="menu-rule" data-for="ovnote ovdir"></div>` +
+    entry("opentab", "plus", "Open in New Tab", "file ovnote") +
+    `<div class="menu-rule" data-for="file ovnote ovdir"></div>` +
+    entry("tab:new", "plus", "New Tab", "tab", "Ctrl+T") +
+    entry("tab:reopen", "note", "Reopen Closed Tab", "tab", "Ctrl+Shift+T") +
+    `<div class="menu-rule" data-for="tab"></div>` +
+    entry("tab:close", "x", "Close Tab", "tab", "Ctrl+W") +
+    entry("tab:others", "x", "Close Other Tabs", "tab") +
     entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
     `<div class="menu-rule" data-for="blank"></div>` +
@@ -2291,6 +2315,11 @@
       el.setAttribute("role", "menuitemradio"); el.setAttribute("aria-checked", String(on));
       el.querySelector(".menu-icon").style.visibility = on ? "" : "hidden";
     }
+    if (kind === "tab") for (const el of ctxItems) { // what there is nothing to do for stands dimmed
+      const off = (el.dataset.cmd === "tab:reopen" && !tabClosed) || (el.dataset.cmd === "tab:others" && tabs.length < 2);
+      el.disabled = off; el.classList.toggle("off", off);
+    }
+    ctxItems = ctxItems.filter((el) => !el.disabled);
     ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
     if (kind !== "new" && kind !== "blank") item.classList.add("ctx-target");
     setCtxHl(-1);
@@ -2304,7 +2333,7 @@
     if (!ctxOpen()) return false;
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus && ctxKind !== "new" && ctxKind !== "blank") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
+    if (refocus && ctxKind !== "new" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -2321,6 +2350,8 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "open") MdOverview.go(item);
+      else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
       else if (cmd === "trash") post("trash", { path });
       else post("fileop", { op: cmd, path });
@@ -2625,20 +2656,23 @@
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
     const col = mode === "edit" ? editor : mode === "active" ? MdActive.view.el : content;
     const anchor = mode === "edit" ? captureEditAnchor() : captureAnchor();
-    const before = col.getBoundingClientRect().left;
+    const before = col.getBoundingClientRect().left, tabsBefore = tabRow.getBoundingClientRect().left;
     sidebar.classList.toggle("no-anim", !animate);
     document.body.dataset.sidebar = open ? "open" : "closed";
     if (mode === "edit") {
       const el = anchor.line == null ? null : edBack.children[anchor.line];
       if (el) window.scrollBy({ top: el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
     } else if (current) restoreAnchor(anchor);
-    const dx = before - col.getBoundingClientRect().left;
-    if (!animate || !dx || reducedMotion()) return;
-    col.style.transition = "none";
-    col.style.transform = `translateX(${dx}px)`;
-    void col.offsetWidth;
-    col.style.transition = "";
-    col.style.transform = "";
+    const dx = before - col.getBoundingClientRect().left, tdx = tabsBefore - tabRow.getBoundingClientRect().left;
+    if (!animate || reducedMotion()) return;
+    for (const [el, d] of [[col, dx], [tabRow, tdx]]) {
+      if (!d) continue;
+      el.style.transition = "none";
+      el.style.transform = `translateX(${d}px)`;
+      void el.offsetWidth;
+      el.style.transition = "";
+      el.style.transform = "";
+    }
   }
 
   // --- new note: a name field unfolds under the header; Enter creates the file
@@ -2670,6 +2704,221 @@
   });
   sbNewInput.addEventListener("blur", () => closeNewNote());
 
+
+  // ------------------------------------------------------------ tabs (folder windows)
+  /* A folder window has tabs, as Craft has them: a strip above the note with the notes and PDFs
+   * that are open; before them the way to all notes (the house), behind them a new tab (+). The
+   * application keeps them (mdview.py, tabs) — the file each one shows, its way back, their
+   * order, from one opening of the folder to the next — the page draws the strip and says what
+   * was asked for. A click shows a tab; the ✕ that takes its icon's place under the pointer, or
+   * the middle button, closes it; it can be pulled to another place. A note opens in a tab of its
+   * own with Ctrl or the middle button (sidebar, tiles, links). An empty tab shows all notes.
+   * Keys: Ctrl+T, Ctrl+W, Ctrl+Shift+T, Ctrl+Tab and Ctrl+Shift+Tab, Ctrl+1 … 9. */
+  const tabbar = document.createElement("nav");
+  tabbar.id = "tabs";
+  tabbar.setAttribute("aria-label", "Tabs");
+  tabbar.innerHTML = `<div class="tab-row">` +
+    `<button class="tab-home" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.home}</button>` +
+    `<div class="tab-list" role="tablist"></div>` +
+    `<button class="tab-new" data-act="newtab" title="New tab (Ctrl+T)" aria-label="New tab">${ICON.plus}</button></div>`;
+  document.body.appendChild(tabbar);
+  const tabRow = tabbar.firstChild, tabList = tabbar.querySelector(".tab-list");
+  let tabs = [], tabActive = null, tabShown = null, tabClosed = false; // tabActive: the one marked (at once, on a click); tabShown: the one the application says is shown
+  const tabsOn = () => document.body.hasAttribute("data-tabs");
+  const topRoom = () => (tabsOn() ? tabbar.offsetHeight : 0); // what of the window's top the strip takes
+  const tabEls = () => [...tabList.children].filter((el) => !el.classList.contains("leaving"));
+  function tabLabel(t) {
+    if (!t.path) return "All Notes";
+    let title = "";
+    if (sbTitles && folder) { // as the sidebar names it
+      const find = (dir) => dir.notes.find((n) => n.real === t.path) || dir.dirs.reduce((hit, d) => hit || find(d), null);
+      title = find(folder.tree)?.title || "";
+    }
+    return title || t.name.replace(/\.(md|markdown|mdown|mkd|mkdn|mdx|pdf)$/i, "");
+  }
+  function paintTab(el, t) {
+    const label = tabLabel(t), text = el.lastChild;
+    if (el.dataset.path !== (t.path || "")) {
+      el.dataset.path = t.path || "";
+      el.firstChild.innerHTML = t.path ? rowIcon(t.path) : ICON.apps;
+      if (t.path) el.dataset.tip = folder && t.path.startsWith(folder.root + "/") ? t.path.slice(folder.root.length + 1) : t.path; else delete el.dataset.tip;
+    }
+    if (text.textContent !== label) {
+      const had = text.textContent;
+      text.textContent = label;
+      if (had && text.animate) text.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motionMs("--dur-fast", 160), easing: "ease-out" }); // (another note in the tab: its name fades in)
+    }
+  }
+  function markTabs() {
+    for (const el of tabEls()) {
+      const on = Number(el.dataset.id) === tabActive;
+      el.setAttribute("aria-selected", String(on));
+      el.tabIndex = on ? 0 : -1;
+    }
+  }
+  // tabs that stand elsewhere than before glide there (stood: where each one was, by element)
+  function tabGlide(stood) {
+    const moved = [];
+    for (const [el, left] of stood) {
+      if (!el.isConnected || el.classList.contains("leaving")) continue;
+      el.style.transition = "none";
+      el.style.transform = "";
+      const dx = left - el.getBoundingClientRect().left;
+      if (Math.abs(dx) > 1 && !reducedMotion()) { el.style.transform = `translateX(${dx}px)`; moved.push(el); } else el.style.transition = "";
+    }
+    if (!moved.length) return;
+    void tabList.offsetWidth;
+    for (const el of moved) { el.style.transition = ""; el.style.transform = ""; }
+  }
+  function setTabs(d) {
+    const first = !tabsOn();
+    if (first) { document.body.dataset.tabs = ""; document.documentElement.style.setProperty("--top", tabbar.offsetHeight + "px"); showToolbar(true); }
+    const stood = new Map(), have = new Map(), fresh = [];
+    for (const el of tabEls()) { stood.set(el, el.getBoundingClientRect().left); have.set(el.dataset.id, el); }
+    const box = tabList.getBoundingClientRect();
+    let prev = null;
+    for (const t of d.tabs) {
+      let el = have.get(String(t.id));
+      if (el) have.delete(String(t.id));
+      else {
+        el = document.createElement("div");
+        el.className = "tab";
+        el.setAttribute("role", "tab");
+        el.dataset.id = t.id;
+        el.innerHTML = `<span class="tab-icon"></span><button class="tab-x" type="button" tabindex="-1" aria-label="Close tab" data-tip="Close tab (${keys("Ctrl+W")})">${ICON.x}</button><span class="tab-label"></span>`;
+        if (!first) { el.classList.add("enter"); fresh.push(el); }
+      }
+      const at = prev ? prev.nextSibling : tabList.firstChild;
+      if (at !== el) tabList.insertBefore(el, at);
+      prev = el;
+      paintTab(el, t);
+    }
+    for (const el of have.values()) { // a closed one fades where it stood, out of the others' way
+      const r = el.getBoundingClientRect();
+      el.style.left = r.left - box.left + "px";
+      el.style.width = r.width + "px";
+      el.style.transform = "";
+      el.classList.add("leaving");
+      setTimeout(() => el.remove(), motionMs("--dur-base", 240));
+    }
+    const was = tabShown, wasPath = tabs.find((t) => t.id === was)?.path;
+    tabs = d.tabs; tabActive = tabShown = d.active; tabClosed = !!d.closed;
+    markTabs();
+    tabGlide(stood);
+    if (fresh.length) { void tabList.offsetWidth; fresh.forEach((el) => el.classList.remove("enter")); }
+    // an empty tab shows all notes; a tab come to shows its note, not the tiles
+    const now = tabs.find((t) => t.id === tabShown);
+    if (window.MdOverview && now) {
+      if (!now.path && (was !== tabShown || wasPath)) MdOverview.open();
+      else if (now.path && was !== tabShown) MdOverview.close(false);
+    }
+  }
+  function selectTab(id) {
+    const t = tabs.find((x) => x.id === id);
+    if (!t || id === tabActive) return;
+    tabActive = id; // marked at once; the application answers with the tabs as they then are
+    markTabs();
+    if (t.path) going(t.path);
+    post("tab", { op: "select", id });
+  }
+  const closeTab = (id) => post("tab", { op: "close", id });
+  // pulled sideways, a tab goes along and the others make room; let go, it lands in the gap
+  function pullTab(el, e) {
+    const x0 = e.clientX;
+    let els = null, from = -1, to = -1, step = 0, min = 0, max = 0;
+    const move = (ev) => {
+      const dx = ev.clientX - x0;
+      if (!els) {
+        const all = tabEls();
+        if (Math.abs(dx) < 4 || all.length < 2) return;
+        els = all; from = to = els.indexOf(el);
+        const r = el.getBoundingClientRect(), a = els[0].getBoundingClientRect(), z = els[els.length - 1].getBoundingClientRect();
+        step = els[1].getBoundingClientRect().left - a.left;
+        min = a.left - r.left; max = z.right - r.right;
+        el.classList.add("pulled");
+        hideTip();
+      }
+      const d = Math.max(min, Math.min(max, dx));
+      el.style.transform = `translateX(${d}px)`;
+      to = Math.max(0, Math.min(els.length - 1, from + Math.round(d / step)));
+      els.forEach((t, i) => {
+        if (t === el) return;
+        const s = i > from && i <= to ? -step : i < from && i >= to ? step : 0;
+        t.style.transform = s ? `translateX(${s}px)` : "";
+      });
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      if (!els) return;
+      const stood = new Map(els.map((t) => [t, t.getBoundingClientRect().left + (t.getBoundingClientRect().width - t.offsetWidth) / 2]));
+      el.classList.remove("pulled");
+      if (to !== from) {
+        tabList.insertBefore(el, to > from ? els[to].nextSibling : els[to]);
+        const t = tabs.splice(from, 1)[0];
+        tabs.splice(to, 0, t);
+        post("tab", { op: "move", id: Number(el.dataset.id), to });
+      }
+      el.classList.add("landing");
+      setTimeout(() => el.classList.remove("landing"), motionMs("--spring-snappy-dur", 560));
+      tabGlide(stood);
+    };
+    try { el.setPointerCapture(e.pointerId); } catch (_e) { /* (a pointer that is gone) */ }
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  }
+  tabList.addEventListener("pointerdown", (e) => {
+    const el = e.target.closest(".tab");
+    if (!el || el.classList.contains("leaving") || e.target.closest(".tab-x")) return;
+    if (e.button === 1) { e.preventDefault(); return; } // (the middle button closes, on its click)
+    if (e.button !== 0) return;
+    selectTab(Number(el.dataset.id));
+    pullTab(el, e);
+  });
+  tabList.addEventListener("click", (e) => {
+    const x = e.target.closest(".tab-x");
+    if (x) closeTab(Number(x.parentNode.dataset.id));
+  });
+  tabList.addEventListener("auxclick", (e) => {
+    const el = e.target.closest(".tab");
+    if (el && e.button === 1) { e.preventDefault(); closeTab(Number(el.dataset.id)); }
+  });
+  tabbar.addEventListener("dblclick", (e) => { if (!e.target.closest(".tab, button")) post("tab", { op: "new" }); }); // (the empty room of the strip)
+  tabbar.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const el = e.target.closest(".tab");
+    if (el && !el.classList.contains("leaving")) openCtx(el, e.clientX, e.clientY, "tab");
+  });
+  tabList.addEventListener("keydown", (e) => {
+    const el = e.target.closest(".tab");
+    if (!el || e.ctrlKey || e.metaKey || e.altKey) return;
+    const els = tabEls(), i = els.indexOf(el);
+    const next = e.key === "ArrowRight" ? els[i + 1] : e.key === "ArrowLeft" ? els[i - 1] : e.key === "Home" ? els[0] : e.key === "End" ? els[els.length - 1] : null;
+    if (next) { e.preventDefault(); selectTab(Number(next.dataset.id)); next.focus({ preventScroll: true }); }
+    else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); closeTab(Number(el.dataset.id)); }
+  });
+  /* The keys, before any part of the page sees them (Ctrl+Tab is the text's in no editor here).
+   * Not under a dialog: what it holds belongs to the note on screen. */
+  addEventListener("keydown", (e) => {
+    if (!tabsOn() || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+    if (locks > (document.body.hasAttribute("data-overview") ? 1 : 0)) return;
+    const k = e.key.toLowerCase(), i = tabs.findIndex((t) => t.id === tabActive), n = tabs.length;
+    let run = null;
+    if (e.key === "Tab" || (!e.shiftKey && (e.key === "PageDown" || e.key === "PageUp"))) {
+      const back = e.key === "Tab" ? e.shiftKey : e.key === "PageUp";
+      run = () => { if (n > 1) selectTab(tabs[(i + (back ? n - 1 : 1)) % n].id); };
+    } else if (k === "t") run = () => post("tab", { op: e.shiftKey ? "reopen" : "new" });
+    else if (!e.shiftKey && k === "w") run = () => post("tab", { op: "close" });
+    else if (!e.shiftKey && /^Digit[1-9]$/.test(e.code)) run = () => { const t = e.code === "Digit9" ? tabs[n - 1] : tabs[e.code.slice(5) - 1]; if (t) selectTab(t.id); }; // (9: the last, as in a browser)
+    if (!run) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    run();
+  }, true);
+  // the room the toolbar takes at the strip's right end
+  if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tb-w", toolbar.offsetWidth + "px")).observe(toolbar);
+
   // --- toolbar + find buttons
   const actions = {
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
@@ -2689,13 +2938,14 @@
       openCtx(b, r.right, r.bottom + 4, "new");
     },
     folder: () => post("folder"),
+    newtab: () => post("tab", { op: "new" }),
     prev: () => focusHit(hitIdx - 1),
     next: () => focusHit(hitIdx + 1),
     closefind: () => closeFind(),
   };
   // the panel's button leaves the focus where it is (in the text one goes on typing in)
   toolbar.addEventListener("mousedown", (e) => { if (e.target.closest('[data-act="panel"]')) e.preventDefault(); });
-  for (const root of [toolbar, findBar, sbHead]) {
+  for (const root of [toolbar, findBar, sbHead, tabbar]) {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");
       if (b) actions[b.dataset.act](b);
@@ -2751,7 +3001,16 @@
     if (href.startsWith("#")) { scrollToFragment(href.slice(1), true); return; }
     post("link", { href: a.href });
   });
-  document.addEventListener("auxclick", (e) => { if (e.target.closest("a")) e.preventDefault(); });
+  document.addEventListener("auxclick", (e) => {
+    const a = e.target.closest("a");
+    if (!a) return;
+    e.preventDefault();
+    // the middle button on a link to a note or a PDF: in a tab of its own (not in text that is being edited: there it pastes)
+    if (e.button !== 1 || !tabsOn() || !shownRoot().contains(a) || (mode === "active" && MdActive.view.editable && !a.closest(".isl"))) return;
+    const href = a.getAttribute("href");
+    if (a.dataset.wiki != null) post("wikilink", { target: a.dataset.wiki, tab: true });
+    else if (href && !href.startsWith("#")) post("link", { href: a.href, tab: true });
+  });
   addEventListener("mouseup", (e) => {
     if (e.button === 3) post("back");
     else if (e.button === 4) post("forward");
@@ -2808,7 +3067,7 @@
         s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } },
         n: () => { if (folder) openNewNote(); },
         ",": openSettings,
-        p: printDoc, w: () => post("close"), q: () => post("close"),
+        p: printDoc, w: () => post("close"), q: () => post("close"), // (Ctrl+W in a window with tabs: the tab, see there)
         g: () => focusHit(hitIdx + 1),
       };
       if (map[k]) { e.preventDefault(); map[k](); }
@@ -2911,11 +3170,11 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
-      get current() { return current; }, get folder() { return folder; } },
+      get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };
 })();

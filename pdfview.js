@@ -124,9 +124,17 @@
   // ================================================================ the viewer
   let V = null; // the PDF shown: { p, doc, root, pages, scale, … }
 
+  /* Where each PDF was left — the page at the window's top, how far into it, its size — for when
+   * it is come back to (another tab, back from a note): it stands there again. */
+  const left = new Map();
+  const topRoom = () => (window.MdView && MdView.core.top) || 0; // (what the tabs take of the window's top)
   function leave() {
     if (!V) return;
-    V.io.disconnect();
+    if (V.io && V.root.isConnected) {
+      const pg = V.pages.find((x) => x.div.getBoundingClientRect().bottom > 0), r = pg && pg.div.getBoundingClientRect();
+      if (r && r.height) left.set(V.p.path, { n: pg.n, into: -r.top / r.height, fit: V.fit, scale: V.scale });
+    }
+    if (V.io) V.io.disconnect(); // (none yet: left while it was being opened)
     window.removeEventListener("scroll", V.onScroll);
     window.removeEventListener("resize", V.onResize);
     document.removeEventListener("keydown", V.onKey, true);
@@ -167,7 +175,10 @@
       v.pages.push({ n, div, state: "none", w: v.base.width, h: v.base.height });
     }
     v.io = new IntersectionObserver((entries) => { for (const e of entries) { const pg = v.pages[e.target.dataset.page - 1]; pg.near = e.isIntersecting; if (pg.near) draw(pg); } tidy(); }, { rootMargin: "900px 0px" });
+    const was = p.fragment ? null : left.get(p.path);
+    if (was) { v.fit = was.fit; v.scale = was.scale; }
     toolbar();
+    if (was) v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
     layout();
     v.pages.forEach((pg) => v.io.observe(pg.div));
     v.onScroll = () => { tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); };
@@ -182,7 +193,17 @@
     document.addEventListener("selectionchange", v.onSelect);
     window.addEventListener("focus", v.onFocus);
     events();
-    if (p.fragment) goFrag(p.fragment, true); else window.scrollTo(0, 0);
+    if (p.fragment) goFrag(p.fragment, true);
+    else if (was && v.pages[was.n - 1]) {
+      const place = () => { const r = v.pages[was.n - 1].div.getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top + was.into * r.height, behavior: "instant" }); pageNow(); };
+      place();
+      // (the pages were fitted to a window that had no scrollbar yet: once it has one, they are fitted again, and the place is the same)
+      requestAnimationFrame(() => {
+        if (V !== v) return;
+        if (v.fit && Math.abs(fitScale(v.fit) - v.scale) > 1e-4) { layout(); v.pages.forEach((x) => { if (x.near) draw(x); }); }
+        place();
+      });
+    } else window.scrollTo(0, 0);
     doc.getOutline().then((o) => { if (V === v) { v.outline = o || []; } }, () => {});
   }
 
@@ -273,7 +294,7 @@
     n = Math.max(1, Math.min(v.pages.length, n));
     if (remember) { v.history.push({ n: pageNow(true), y: window.scrollY }); v.bar.querySelector('[data-do="back"]').disabled = false; }
     const r = v.pages[n - 1].div.getBoundingClientRect();
-    window.scrollTo({ top: window.scrollY + r.top - 64 + (top != null ? top * v.scale : 0), behavior: "instant" });
+    window.scrollTo({ top: window.scrollY + r.top - 64 - topRoom() + (top != null ? top * v.scale : 0), behavior: "instant" });
     pageNow();
   }
   function back() {
@@ -295,7 +316,7 @@
     if (V !== v) return;
     if (at.offset && Number.isFinite(at.offset[1])) { // (left, top) in PDF points, from the page's bottom left
       const y = pg.h - at.offset[1];
-      window.scrollBy({ top: pg.div.getBoundingClientRect().top - 64 + y * v.scale, behavior: "instant" });
+      window.scrollBy({ top: pg.div.getBoundingClientRect().top - 64 - topRoom() + y * v.scale, behavior: "instant" });
     }
     if (v.flash && pg.state === "done") flash(pg);
   }

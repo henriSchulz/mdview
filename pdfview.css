@@ -87,3 +87,6 @@
 .pdf-embed.full .pdf-embed-img { width: 100%; }
 .pdf-embed.failed { padding: 6px 10px; line-height: 1.4; font-size: 0.85em; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); cursor: default; }
 @media print { .pdf-bar, .pdf-side { display: none !important; } }
+/* under the tabs of a folder window (viewer.css): the bar and the side column stick below them */
+body[data-tabs] .pdf-bar { top: calc(var(--tabs-h) + 2px); }
+body[data-tabs] .pdf-side { top: calc(var(--tabs-h) + 48px); max-height: calc(100vh - var(--tabs-h) - 68px); }

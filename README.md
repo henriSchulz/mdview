@@ -13,7 +13,8 @@ beside the notes. The command and the repository are still called `mdview`;
   rendered document itself and changes the file only where it was edited. `Ctrl+V` with an image on the clipboard saves it as
   a file and embeds it.
 - Opened on a folder (or started bare, which reopens the last folder) the
-  window gets a sidebar with the folder's notes: create, rename, trash.
+  window gets a sidebar with the folder's notes: create, rename, trash —
+  and tabs, as Craft has them: notes and PDFs open beside each other.
 - Stays resident for a while after the last window closes, so reopening is
   instant; `bin/mdview` hands files to the running instance over D-Bus.
 - Colors follow the Omarchy theme, motion follows `~/.local/share/henri-ui`. The

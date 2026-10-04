@@ -771,6 +771,13 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.loading_shell = False
         self.pending_fragment = None
         self.back, self.fwd = [], []
+        # a folder window's tabs: {"id", "path", "back", "fwd"} each. The one shown is the window's
+        # own path, back and fwd; it is written into its tab when another takes its place.
+        self.tabs = []
+        self.tab = 0
+        self.tab_seq = 0
+        self.tabs_json = None
+        self.closed_tabs = []       # {"path", "at"} of tabs closed here, for Ctrl+Shift+T
         self.monitor = None
         self.reload_id = 0
         self.resolver = None
@@ -848,6 +855,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         # <base>, which the page points at the directory of the note shown.
         target_dir = self.path.parent if self.path else self.folder or HOME
         self.tree_json = None
+        self.tabs_json = None
         self.shell_ready = False
         self.loading_shell = True
         self.editing = False
@@ -895,6 +903,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.loading_shell = False
             self.shell_ready = True
             self.send_folder()
+            self.send_tabs()
             self.render(fragment=self.pending_fragment)
             self.pending_fragment = None
             if PROBE:
@@ -930,6 +939,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
                     del opened[old]
                 save_state(self.app.state)
                 self.send_folder()
+        self.send_tabs()
         if same and self.shell_ready:
             if fragment and path.suffix.lower() == ".pdf":
                 self.render_pdf(fragment)  # (a place in the PDF: the viewer goes there)
@@ -1000,12 +1010,28 @@ class ViewerWindow(Gtk.ApplicationWindow):
         notes = {n["real"]: n for n in tree_notes(self.tree)}
         last = self.app.state.get("last_notes", {}).get(str(folder))
         first = last if last in notes else next((r for r, n in notes.items() if not n.get("pdf")), None)  # (a note, not a PDF)
-        if self.path and str(self.path) in notes:
+        # the tabs this folder was left with (an empty one only where it was the one shown)
+        self.tabs, self.tab, self.closed_tabs = [], 0, []
+        saved = self.app.state.get("tabs", {}).get(str(folder))
+        if isinstance(saved, dict) and isinstance(saved.get("paths"), list):
+            for i, p in enumerate(saved["paths"]):
+                shown = i == saved.get("active")
+                if isinstance(p, str) and (p and Path(p).is_file() and file_kind(Path(p)) in ("md", "pdf") or not p and shown):
+                    if shown:
+                        self.tab = len(self.tabs)
+                    self.tabs.append(self.make_tab(p or None))
+        if self.path and str(self.path) in notes:  # (a window that shows a note of this folder already)
+            i = next((k for k, t in enumerate(self.tabs) if t["path"] == self.path), -1)
+            if i < 0:
+                self.tabs.append(self.make_tab(self.path))
+                i = len(self.tabs) - 1
+            self.tab = i
+            self.send_tabs()
             return
-        if first:
-            self.open_path(first, push=bool(self.path))
-        else:
-            self.show_nothing()
+        if not self.tabs:
+            self.tabs = [self.make_tab(first)]
+        self.back, self.fwd = [], []
+        self.show_tab(self.tab)
 
     def show_nothing(self):
         """Nothing to show: an empty folder, or its last note is gone."""
@@ -1020,6 +1046,157 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.js("MdView.clear")
         else:
             self.load_shell()
+        self.send_tabs()
+
+    # -- tabs (folder windows) ----------------------------------------------
+
+    def make_tab(self, path=None):
+        self.tab_seq += 1
+        if path:
+            path = Path(path)
+            try:
+                path = path.resolve()
+            except OSError:
+                pass
+        return {"id": self.tab_seq, "path": path or None, "back": [], "fwd": []}
+
+    def tab_index(self, ident):
+        return next((i for i, t in enumerate(self.tabs) if t["id"] == ident), -1)
+
+    def stash_tab(self):
+        """What the window shows, written into its tab."""
+        if self.tabs:
+            self.tabs[self.tab].update(path=self.path, back=self.back, fwd=self.fwd)
+
+    def send_tabs(self):
+        """The tabs as they stand: kept for the folder's next opening, and told to the page."""
+        if not self.folder:
+            return
+        if not self.tabs:
+            self.tabs, self.tab = [self.make_tab(self.path)], 0
+        self.stash_tab()
+        kept = {"paths": [str(t["path"]) if t["path"] else "" for t in self.tabs], "active": self.tab}
+        every = self.app.state.setdefault("tabs", {})
+        if every.get(str(self.folder)) != kept:
+            every.pop(str(self.folder), None)
+            every[str(self.folder)] = kept
+            for old in list(every)[:-20]:
+                del every[old]
+            save_state(self.app.state)
+        if not self.shell_ready:
+            return
+        payload = {
+            "tabs": [{"id": t["id"], "path": str(t["path"]) if t["path"] else None,
+                      "name": t["path"].name if t["path"] else ""} for t in self.tabs],
+            "active": self.tabs[self.tab]["id"],
+            "closed": bool(self.closed_tabs),
+        }
+        blob = json.dumps(payload, sort_keys=True)
+        if blob != self.tabs_json:
+            self.tabs_json = blob
+            self.js("MdView.setTabs", payload)
+
+    def show_tab(self, i, fragment=None):
+        """Tab i takes the window (the one shown before is written down already)."""
+        self.tab = i
+        t = self.tabs[i]
+        self.back, self.fwd = t["back"], t["fwd"]
+        if t["path"] and t["path"].is_file():
+            self.open_path(t["path"], fragment, push=False)
+        else:  # an empty tab, or its file is gone
+            self.show_nothing()
+
+    def select_tab(self, ident):
+        i = self.tab_index(ident)
+        if i < 0 or i == self.tab:
+            return
+        self.stash_tab()
+        self.show_tab(i)
+
+    def new_tab(self, path=None, fragment=None, at=None):
+        """A tab beside the one shown, and shown at once: empty (the folder's notes to choose from), or on a file."""
+        if not self.folder:
+            return
+        self.stash_tab()
+        i = min(len(self.tabs), self.tab + 1 if at is None else at)
+        self.tabs.insert(i, self.make_tab(path))
+        self.show_tab(i, fragment)
+
+    def close_tab(self, ident):
+        i = self.tab_index(ident)
+        if i < 0:
+            return
+        if len(self.tabs) == 1:  # the last one: the window goes with it
+            self.close()
+            return
+        self.stash_tab()
+        gone = self.tabs.pop(i)
+        if gone["path"]:
+            self.closed_tabs.append({"path": gone["path"], "at": i})
+            del self.closed_tabs[:-20]
+        if i == self.tab:
+            self.show_tab(min(i, len(self.tabs) - 1))
+        else:
+            if i < self.tab:
+                self.tab -= 1
+            self.send_tabs()
+
+    def close_other_tabs(self, ident):
+        i = self.tab_index(ident)
+        if i < 0 or len(self.tabs) == 1:
+            return
+        self.stash_tab()
+        shown = self.tabs[self.tab]
+        keep = self.tabs[i]
+        self.closed_tabs += [{"path": t["path"], "at": k} for k, t in enumerate(self.tabs) if t is not keep and t["path"]]
+        del self.closed_tabs[:-20]
+        self.tabs = [keep]
+        if keep is shown:
+            self.tab = 0
+            self.send_tabs()
+        else:
+            self.show_tab(0)
+
+    def reopen_tab(self):
+        while self.closed_tabs:
+            was = self.closed_tabs.pop()
+            if was["path"].is_file():
+                self.new_tab(was["path"], at=was["at"])
+                return
+        self.send_tabs()
+
+    def move_tab(self, ident, to):
+        i = self.tab_index(ident)
+        if i < 0:
+            return
+        self.stash_tab()
+        shown = self.tabs[self.tab]
+        t = self.tabs.pop(i)
+        self.tabs.insert(max(0, min(len(self.tabs), to)), t)
+        self.tab = self.tabs.index(shown)
+        self.send_tabs()
+
+    def tab_op(self, msg):
+        if not self.folder or not self.tabs:
+            return
+        op = msg.get("op")
+        ident = msg.get("id")
+        ident = int(ident) if isinstance(ident, (int, str)) and str(ident).isdigit() else self.tabs[self.tab]["id"]
+        if op == "select":
+            self.select_tab(ident)
+        elif op == "new":
+            self.new_tab()
+        elif op == "close":
+            self.close_tab(ident)
+        elif op == "others":
+            self.close_other_tabs(ident)
+        elif op == "reopen":
+            self.reopen_tab()
+        elif op == "move":
+            try:
+                self.move_tab(ident, int(msg.get("to")))
+            except (TypeError, ValueError):
+                pass
 
     def rescan(self):
         self.rescan_id = 0
@@ -1086,10 +1263,19 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 out[p] = {"text": "", "mtime": 0}
         self.js("MdView.setPreviews", out)
 
-    def open_note(self, path):
+    def open_note(self, path, tab=False):
         if self.folder and path in self.note_paths:
             if file_kind(Path(path)) in ("md", "pdf"):
-                self.open_path(path)
+                # in a tab of its own where that was asked for; a note that has a tab already: that tab
+                real = Path(os.path.realpath(path))
+                there = next((k for k, t in enumerate(self.tabs) if k != self.tab and t["path"] == real), -1)
+                if tab:
+                    self.new_tab(real)
+                elif there >= 0:
+                    self.stash_tab()
+                    self.show_tab(there)
+                else:
+                    self.open_path(path)
             else:  # a picture, a film, any other file: in its own application
                 launch_uri(Path(path).as_uri())
 
@@ -1171,6 +1357,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
         swap = lambda p: Path(new_real) if str(p) == old_real else p
         self.back = [swap(p) for p in self.back]
         self.fwd = [swap(p) for p in self.fwd]
+        for t in self.tabs:  # (the one shown is written down from the window again)
+            t.update(path=swap(t["path"]) if t["path"] else None, back=[swap(p) for p in t["back"]], fwd=[swap(p) for p in t["fwd"]])
         if self.path and str(self.path) == old_real and new_real != old_real:
             # the note on screen: it stays as it is (also mid-edit), under its new name
             self.path = Path(new_real)
@@ -1182,6 +1370,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         self.js("MdView.noteRenamed", {"old": str(old), "path": str(new), "oldReal": old_real,
                                        "real": new_real, "name": Path(new_real).name})
         self.rescan_now()
+        self.send_tabs()
 
     def trash_note(self, path):
         if not self.folder or path not in self.note_paths:
@@ -1200,6 +1389,14 @@ class ViewerWindow(Gtk.ApplicationWindow):
             return
         self.back = [p for p in self.back if str(p) != real]
         self.fwd = [p for p in self.fwd if str(p) != real]
+        if self.tabs:  # other tabs: none stays on the file, none goes back to it
+            self.stash_tab()
+            shown = self.tabs[self.tab]
+            for t in self.tabs:
+                t.update(back=[p for p in t["back"] if str(p) != real], fwd=[p for p in t["fwd"] if str(p) != real])
+            self.tabs = [t for t in self.tabs if t is shown or not (t["path"] and str(t["path"]) == real)]
+            self.tab = self.tabs.index(shown)
+            self.closed_tabs = [c for c in self.closed_tabs if str(c["path"]) != real]
         self.js("MdView.toast", f"Moved “{Path(path).name}” to Trash")
         was_current = self.path and str(self.path) == real
         self.rescan_now()
@@ -1208,6 +1405,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 self.open_path(nxt, push=False)
             else:
                 self.show_nothing()
+        else:
+            self.send_tabs()
 
     def sidebar_pref(self, msg):
         st = self.app.state
@@ -1390,9 +1589,11 @@ class ViewerWindow(Gtk.ApplicationWindow):
             return
         t = msg.get("type")
         if t == "link":
-            self.handle_link(msg.get("href", ""))
+            self.handle_link(msg.get("href", ""), bool(msg.get("tab")))
         elif t == "wikilink":
-            self.open_wikilink(msg.get("target", ""))
+            self.open_wikilink(msg.get("target", ""), bool(msg.get("tab")))
+        elif t == "tab":
+            self.tab_op(msg)
         elif t == "toggle":
             self.toggle_task(int(msg.get("line", -1)), bool(msg.get("checked")))
         elif t == "editcmd":
@@ -1443,7 +1644,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "external":
             self.open_external()
         elif t == "note":
-            self.open_note(msg.get("path"))
+            self.open_note(msg.get("path"), bool(msg.get("tab")))
         elif t == "graphic":
             self.app.illustrator().draw(lambda i, svg, err: self.js("MdView.graphic", i, svg, err) and False,
                                         msg.get("id"), str(msg.get("text") or "")[:6000], msg.get("image"),
@@ -1597,7 +1798,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
         ev.set_device(Gdk.Display.get_default().get_default_seat().get_pointer())
         self.view.event(ev)
 
-    def handle_link(self, href):
+    def handle_link(self, href, tab=False):
         u = urlparse(href)
         if u.scheme != "file":
             if u.scheme:
@@ -1609,24 +1810,30 @@ class ViewerWindow(Gtk.ApplicationWindow):
             alt = p.with_name(p.name + ".md")
             if alt.exists():
                 p = alt
-        if self.path and p == self.path:
+        if self.path and p == self.path and not (tab and self.tabs):
             if frag:
                 self.js("MdView.scrollToFragment", frag, True)
             return
         if not p.exists():
             self.js("MdView.toast", f"Not found: {p.name}")
         elif p.is_file() and (p.suffix.lower() in MD_EXT or p.suffix.lower() == ".pdf"):
-            self.open_path(p, frag)
+            if tab and self.tabs:
+                self.new_tab(p, frag)
+            else:
+                self.open_path(p, frag)
         else:
             launch_uri(p.as_uri())
 
-    def open_wikilink(self, target):
+    def open_wikilink(self, target, tab=False):
         heading = target.split("#", 1)[1] if "#" in target else None
         p = self.resolver.resolve(target) if self.resolver else None
         if not p:
             self.js("MdView.toast", f"Note “{target.split('#')[0]}” doesn't exist")
         elif file_kind(p) in ("md", "pdf"):
-            self.open_path(p, heading)
+            if tab and self.tabs:
+                self.new_tab(p, heading)
+            else:
+                self.open_path(p, heading)
         else:
             launch_uri(p.as_uri())
 
