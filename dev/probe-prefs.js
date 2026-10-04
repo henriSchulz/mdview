@@ -88,6 +88,8 @@
     ok("on: / at the start of an empty line opens the insert menu", menu.hasAttribute("data-open") && menu.querySelectorAll(".menu-item").length === 15 && view.hasFocus(), menu.querySelectorAll(".menu-item").length);
     ok("every entry has its sign", [...menu.querySelectorAll(".menu-item")].every((b) => b.querySelector(".menu-icon svg")));
     ok("it is no taller than its panel allows, the rest scrolls", menu.scrollHeight > menu.clientHeight && menu.scrollTop === 0, [menu.scrollHeight, menu.clientHeight]);
+    menu.querySelector(".menu-item").dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 60 }));
+    ok("the wheel over the menu scrolls it and leaves it open", menu.hasAttribute("data-open"));
     const sub = document.getElementById("actsub"), tall = menu.offsetHeight;
     key(view.dom, "ArrowRight");
     await sleep(300);

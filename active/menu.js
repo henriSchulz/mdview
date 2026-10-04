@@ -179,7 +179,8 @@
   root.el.addEventListener("mouseenter", () => { keys = root; });
   document.addEventListener("mousedown", (e) => { if ((isOpen() || isOpen(sub)) && !root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, true);
   // scrolled by the user: the menu goes (the page moving under the caret while one types does not count)
-  window.addEventListener("wheel", () => close(), { passive: true });
+  // (the wheel over the menu itself scrolls the menu — the "/" menu is longer than its panel)
+  window.addEventListener("wheel", (e) => { if (!root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, { passive: true });
 
   // new entries, the menu where it is (the "/" menu while one types)
   function refill(items) {
