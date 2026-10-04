@@ -46,6 +46,10 @@ body {
   background: var(--bg);
   color: var(--fg);
   font: 400 16px/1.65 "Inter", system-ui, sans-serif;
+  /* No bold made by smearing a face: SF Pro's Semibold stands a little under the weight the engine
+   * calls bold, and was thickened on top of that — every 600 in the chrome came out heavier than
+   * the 700 and unsharp. A weight is the face the font has for it. */
+  font-synthesis-weight: none;
   font-feature-settings: "cv05", "cv08", "ss03";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
