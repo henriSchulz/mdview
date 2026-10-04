@@ -175,8 +175,10 @@
   }
   /* Backspace at the start of a block takes its formatting off first: a
    * heading becomes a paragraph, a list item or quote is left. Only then does
-   * the next Backspace join it with what is above; an island above is
-   * selected first, so that nothing is deleted by accident. */
+   * the next Backspace join it with what is above — under a list: with the
+   * list's last line, so Backspace pressed again and again goes up through a
+   * list, line by line; an island above is selected first, so that nothing is
+   * deleted by accident. */
   function backspaceAtStart(state, dispatch, view) {
     const { $cursor } = state.selection;
     if (!$cursor || $cursor.parentOffset > 0) return false;
@@ -190,6 +192,23 @@
     }
     const before = visibleBefore($cursor, depth);
     if (!before) return true; // only hidden segments above: nothing to join with
+    // A list above (the item left by the Backspace before stands right under it): the text goes
+    // up to the end of the list's last line, and deleting goes on there. What was one list before
+    // the item was taken out of it is one list again.
+    if (block.type === N.paragraph && /_list$/.test(before.node.type.name) && before.pos + before.node.nodeSize === $cursor.before()) {
+      const $end = Selection.near(state.doc.resolve($cursor.before()), -1).$from;
+      if ($end.parent.isTextblock && $end.pos > before.pos && $end.pos < $cursor.before() && $end.parentOffset === $end.parent.content.size) {
+        if (dispatch) {
+          const tr = state.tr.delete($cursor.before(), $cursor.after());
+          if (block.content.size) tr.insert($end.pos, block.content);
+          const seam = tr.mapping.map($cursor.before());
+          const $seam = tr.doc.resolve(seam), a = $seam.nodeBefore, b = $seam.nodeAfter;
+          if (a && b && a.type === b.type && /_list$/.test(a.type.name) && PM.transform.canJoin(tr.doc, seam)) tr.join(seam);
+          dispatch(tr.setSelection(TextSelection.create(tr.doc, $end.pos)).scrollIntoView());
+        }
+        return true;
+      }
+    }
     if (before.node.isAtom && NodeSelection.isSelectable(before.node)) {
       if (dispatch) {
         const tr = state.tr;

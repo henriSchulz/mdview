@@ -74,6 +74,49 @@ test("Enter and Backspace", () => {
   is(e, "- one\n\ntwo\n");
 });
 
+test("Backspace again and again goes up through a list", () => {
+  // an item emptied: its bullet goes, then the caret is at the end of the item above, and deleting goes on there
+  let e = doc("- one\n- two\n").caretAfter("two");
+  e.press("Enter");                           // a new, empty item
+  assert.equal(e.state.selection.$from.parent.content.size, 0);
+  e.press("Backspace");                       // its bullet goes: an empty line under the list
+  assert.equal(e.state.selection.$from.depth, 1);
+  e.press("Backspace");                       // up: the caret stands at the end of "two"
+  is(e, "- one\n- two\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "two");
+  assert.equal(e.state.selection.$from.parentOffset, 3);
+  e.apply(e.state.tr.delete(e.state.selection.from - 3, e.state.selection.from)); // (three characters deleted, as the keys would)
+  e.press("Backspace"); e.press("Backspace"); // the bullet of the emptied item, then up into "one"
+  is(e, "- one\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "one");
+  assert.equal(e.state.selection.$from.parentOffset, 3);
+
+  // an item with text, in the middle: its text joins the item above, and the list is one again
+  e = doc("- one\n- two\n- three\n").caretBefore("two");
+  e.press("Backspace");
+  is(e, "- one\n\ntwo\n\n- three\n");
+  e.press("Backspace");
+  is(e, "- onetwo\n- three\n");
+  assert.equal(e.state.selection.$from.parentOffset, 3);
+  e.press("Mod-z"); e.press("Mod-z");
+  is(e, "- one\n- two\n- three\n");
+
+  // a nested item: out a level first, then as above
+  e = doc("- one\n  - sub\n").caretBefore("sub");
+  e.press("Backspace");
+  is(e, "- one\n- sub\n");
+  e.press("Backspace"); e.press("Backspace");
+  is(e, "- onesub\n");
+
+  // numbers and tasks alike
+  e = doc("1. one\n2. two\n").caretBefore("two");
+  e.press("Backspace"); e.press("Backspace");
+  is(e, "1. onetwo\n");
+  e = doc("- [ ] one\n- [ ] two\n").caretBefore("two");
+  e.press("Backspace"); e.press("Backspace");
+  is(e, "- [ ] onetwo\n");
+});
+
 test("a definition between two paragraphs stays when they are joined", () => {
   const e = doc("first[^1]\n\n[^1]: note\n\nsecond\n").caretBefore("second");
   e.press("Backspace");

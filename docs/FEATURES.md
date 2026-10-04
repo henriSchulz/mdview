@@ -272,6 +272,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 ## Writing in the active mode
 
 - **Typing Markdown** formats as you type (`# `, `- `, `1. `, `> `, `**bold**`, `` `code` `` …).
+- **Backspace at the start of a line** takes its formatting off first (a heading becomes text, a list
+  item loses its bullet); pressed again it joins the line above — in a list the item above, so
+  holding Backspace goes up through a list line by line.
 - **`/` menu** at the start of an empty line, or in a line with text: text styles, lists, formats,
   decorations, colours, callouts, columns, code block, formula, table, divider, picture, footnote,
   graphic, and actions on the block (duplicate, move, select, copy, delete). Typing filters it.
