@@ -658,7 +658,11 @@
     let have = drawnEmbeds.get(key);
     // (in a dialog the picture drawn for the note serves: the same page and region, at whatever width it was drawn for)
     if (!have && span.closest("#dlg")) { const stem = key.slice(0, key.lastIndexOf("/") + 1); for (const [k, img] of drawnEmbeds) if (k.startsWith(stem)) have = img; }
-    if (have) { const img = have.cloneNode(); span.replaceChildren(img); span.classList.add("ready"); return; }
+    if (have) { // (the room kept for it while it waited is given up: the picture has its own size)
+      const img = have.cloneNode(); span.replaceChildren(img); span.classList.add("ready");
+      span.style.removeProperty("width"); span.style.removeProperty("height");
+      return;
+    }
     try {
       const doc = await docOf(span.dataset.pdf);
       const page = await doc.getPage(Math.min(doc.numPages, at.page));
@@ -755,8 +759,13 @@
     let m = null;
     try { m = /^(\d+)x(\d+)$/.exec(localStorage.getItem(sizeKey(span)) || ""); } catch (e) { m = null; }
     if (!m || span.classList.contains("ready")) return;
-    if (!span.hasAttribute("data-full")) span.style.width = m[1] + "px";
-    span.style.height = (span.hasAttribute("data-full") && span.parentElement ? Math.round(span.parentElement.clientWidth * m[2] / m[1]) : m[2]) + "px";
+    // (as it will stand: no wider than its column, as wide as the column when it is to fill it —
+    // and nothing kept when the column cannot be measured yet: a height of nothing made a strip of it)
+    const room = span.parentElement ? span.parentElement.clientWidth : 0, w = Number(m[1]), h = Number(m[2]);
+    if (!room || !w || !h) return;
+    const shown = span.hasAttribute("data-full") ? room : Math.min(w, room);
+    if (!span.hasAttribute("data-full")) span.style.width = shown + "px";
+    span.style.height = Math.round(shown * h / w) + "px";
   }
   const queue = [];
   let drawing = false;

@@ -607,6 +607,23 @@
   document.body.appendChild(loader);
   let goingAt = 0, goingTimer = 0, pendingRender = null, renderFrame = 0;
   let modeBeforePdf = null; // the mode a note was in when a PDF took its place
+  /* Where each note was left: opened again — after a PDF, another note, in a new window — it stands
+   * at that place. Kept as the note is scrolled (the page's own storage, by the file's path). */
+  const places = new Map();
+  let placeTimer = 0;
+  const placeKey = (path) => "mdview-place:" + path;
+  function placeOf(p) {
+    if (!p || !p.path || p.kind === "pdf") return 0;
+    if (places.has(p.path)) return places.get(p.path);
+    try { return Math.max(0, Number(localStorage.getItem(placeKey(p.path))) || 0); } catch (e) { return 0; }
+  }
+  function keepPlace() {
+    if (!current || !current.path || current.kind === "pdf" || current.error || goingAt || document.body.hasAttribute("data-overview")) return;
+    const y = Math.round(scrollY);
+    places.set(current.path, y);
+    try { if (y > 0) localStorage.setItem(placeKey(current.path), String(y)); else localStorage.removeItem(placeKey(current.path)); } catch (e) { /* no storage: this window remembers */ }
+  }
+  addEventListener("scroll", () => { clearTimeout(placeTimer); placeTimer = setTimeout(keepPlace, 250); }, { passive: true });
   function going(path) {
     if (!current || path === current.path) return;
     goingAt = performance.now();
@@ -633,6 +650,7 @@
   }
   function renderNow(p) {
     const prev = current;
+    clearTimeout(placeTimer); // (a place still to be kept is the note's that is leaving — it was kept as it was scrolled)
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
       if (mode !== "read") modeBeforePdf = mode; // (the note after the PDF is in this mode again)
       if (mode === "edit") { flushSave(); leaveEditNow(); }
@@ -727,7 +745,7 @@
     if (anchor) restoreAnchor(anchor);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();
-    else window.scrollTo(0, 0);
+    else window.scrollTo(0, placeOf(p)); // (where it was left; the top the first time)
     p.toEnd = false;
     if (findOpen()) runFind(findInput.value, true);
     renderMermaid(gen, anchor);
@@ -1810,7 +1828,7 @@
     if (anchor) restoreAnchor(anchor, MdActive.view.dom);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();
-    else window.scrollTo(0, 0);
+    else window.scrollTo(0, placeOf(p)); // (where it was left; the top the first time)
     p.toEnd = false;
     if (findOpen()) runFind(findInput.value, true);
     renderMermaid(gen, anchor, MdActive.view.dom);
