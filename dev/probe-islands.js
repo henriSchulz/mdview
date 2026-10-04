@@ -164,7 +164,10 @@
     // --- anything else: its Markdown
     click(island("blockquote"));
     await sleep(400);
-    ok("a folded callout opens as Markdown with a preview", isOpen() && ed().value === "> [!note]- Callout\n> body" && !!dlg.querySelector(".dlg-preview .callout"));
+    ok("a click on a folded callout opens nothing (its title folds it; its dialog is in its menu)", !isOpen() && getComputedStyle(view.nodeDOM(island("blockquote")), "::after").content === "none", [isOpen(), getComputedStyle(view.nodeDOM(island("blockquote")), "::after").content]);
+    MdActive.context.nodeItems(view, island("blockquote"), view.state.doc.nodeAt(island("blockquote"))).find((x) => x && x.label === "Edit…").run();
+    await sleep(400);
+    ok("Edit… in its menu: a folded callout opens as Markdown with a preview", isOpen() && ed().value === "> [!note]- Callout\n> body" && !!dlg.querySelector(".dlg-preview .callout"));
     setEditor("> [!tip]- Better\n> body");
     await sleep(400);
     ok("the preview follows", dlg.querySelector(".dlg-preview .callout-title-text")?.textContent === "Better");

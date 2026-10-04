@@ -671,15 +671,19 @@
       handleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
         if (node.type === N.island && node.attrs.virtual) return A.notes.clicked(view, event);
+        // (an embedded picture or PDF page is a picture: a click selects it, its dialog is in its menu)
+        // … and a callout that folds is its own control: a click on its title folds it
+        if (node.type === N.island && (node.attrs.kind === "blockquote" || A.islands.picture(view, nodePos, node))) return false;
         if (node.type === N.island || (node.type === N.iatom && node.attrs.kind === "math")) return A.islands.open(view, nodePos);
         return false;
       },
       handleDoubleClickOn(view, pos, node, nodePos, event, direct) {
-        if (!direct || !view.editable || ![N.image, N.iatom].includes(node.type)) return false;
+        const pictured = node.type === N.island && !!A.islands.picture(view, nodePos, node);
+        if (!direct || !view.editable || !([N.image, N.iatom].includes(node.type) || pictured)) return false;
         // a picture grows to the size of the window (its address is edited from its menu, or with Enter)
         const img = event.target?.closest?.("img");
-        if (img && !img.closest(".pdf-embed") && view.dom.contains(img)) return window.MdView.core.zoomImage(img) || true;
-        return A.islands.open(view, nodePos);
+        if (img && view.dom.contains(img)) return window.MdView.core.zoomImage(img) || true;
+        return pictured ? true : A.islands.open(view, nodePos);
       },
       handleDOMEvents: {
         mousedown(view, event) {

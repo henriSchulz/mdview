@@ -333,7 +333,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 
 ## PDFs
 
-A link or embed to a PDF opens it in the window; nothing is ever written into the PDF.
+A link to a PDF opens it in the window; nothing is ever written into the PDF. An embedded page or
+region is a picture in the note: a double click shows it large, `Ctrl`+click or **Go to PDF** in its
+menu opens the PDF at that place, and in the active mode its menu also has Edit…, Size and Adjust
+Region….
 
 ```markdown
 [[paper.pdf#page=3]]                                   a link to a page

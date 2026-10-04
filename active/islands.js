@@ -581,6 +581,7 @@
     if (!m || (now && !/^(\d+(x\d+)?|full)$/.test(now))) return null;
     const pdf = PDF_EMBED.exec(node.attrs.raw);
     return { size: now, sizes: sizeOptions(now), pdf: !!pdf && !/(^|&)selection=/.test(pdf[3]),
+      target: pdf ? (pdf[2] + "#" + pdf[3]).trim() : null, // (a PDF: where a click on it leads)
       setSize(v) { target = null; replace(view, pos, m[1] + (v ? "|" + v : "") + m[3]); view.focus(); } }; // (no dialog is open: the block is the one at pos)
   }
   // the dialog of a PDF embed, opened with its region to be adjusted at once

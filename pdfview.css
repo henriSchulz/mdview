@@ -79,7 +79,7 @@
 
 /* a PDF page, or a part of one, in a note */
 /* (a block of its own, in the middle of the column — as figures stand) */
-.pdf-embed { display: block; width: fit-content; margin: 0 auto; max-width: 100%; min-height: 1.4em; vertical-align: top; border-radius: 4px; overflow: hidden; cursor: pointer; line-height: 0; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.pdf-embed { display: block; width: fit-content; margin: 0 auto; max-width: 100%; min-height: 1.4em; vertical-align: top; border-radius: 4px; overflow: hidden; cursor: zoom-in; line-height: 0; background: color-mix(in srgb, var(--fg) 5%, transparent); }
 .pdf-embed:not(.ready) { min-width: 120px; min-height: 60px; }
 .pdf-embed.ready { background: #fff; box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 4px rgb(0 0 0 / 0.08); }
 .pdf-embed-img { display: block; max-width: 100%; height: auto; }

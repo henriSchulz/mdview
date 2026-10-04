@@ -585,6 +585,11 @@ body.swapping #content, body.swapping #editor {
 .seg-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .seg-btn:hover, .seg-btn[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
 .seg-btn:active { color: var(--fg2); }
+/* the mode being changed to, while the note is laid out for it: its sign gives way to a wheel */
+.seg-btn.busy > * { opacity: 0; }
+.seg-btn.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top-color: var(--fg); animation: seg-spin 0.7s linear infinite; will-change: transform; }
+@keyframes seg-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .seg-btn.busy::after { animation-duration: 2s; } }
 .seg-thumb {
   position: absolute;
   top: 2px;
@@ -977,7 +982,7 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 #zoom[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
 #zoom img { position: absolute; transform-origin: 0 0; border-radius: 4px; transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
 #zoom[data-open] img { transition: transform var(--spring-gentle-dur, var(--dur-slow)) var(--spring-gentle, var(--ease-out)); }
-#content img:not(.pdf-embed-img), .pm img:not(.pdf-embed-img) { cursor: zoom-in; }
+#content img, .pm img { cursor: zoom-in; }
 @media (prefers-reduced-motion: reduce) { #zoom img { transition: none !important; } }
 @media print { #zoom { display: none !important; } }
 

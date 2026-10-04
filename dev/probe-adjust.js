@@ -96,6 +96,27 @@
       ok("Adjust Region… opens the dialog with the page and its frame at once", dlg.hasAttribute("data-open") && !!dlg.querySelector(".pa-sheet img") && !!dlg.querySelector(".pa-frame"));
       dlg.querySelector('[data-do="cancel"]').click(); await sleep(600);
     }
+    // an embedded PDF region is a picture: a click selects it, a double click shows it large; its
+    // dialog and the PDF itself are in its menu
+    {
+      let f = -1; view.state.doc.forEach((n, p) => { if (f < 0 && n.type.name === "island" && /paper\.pdf/.test(n.attrs.raw)) f = p; });
+      const isl = view.nodeDOM(f); isl.scrollIntoView({ block: "center" }); await sleep(300);
+      const r = isl.querySelector(".pdf-embed").getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const zoom = document.getElementById("zoom");
+      at("move", x, y); await sleep(250);
+      ok("no pencil on it, and the pointer says it can be shown large", getComputedStyle(isl, "::after").content === "none" && getComputedStyle(isl.querySelector("img")).cursor === "zoom-in", [getComputedStyle(isl, "::after").content, getComputedStyle(isl.querySelector("img")).cursor]);
+      at("down", x, y); await sleep(60); at("up", x, y); await sleep(900);
+      ok("a click on it opens no dialog and stays in the note", !dlg.hasAttribute("data-open") && MdView.core.current.kind !== "pdf" && !document.querySelector(".pdfv") && !zoom.hasAttribute("data-open"), [dlg.hasAttribute("data-open"), MdView.core.current.kind]);
+      isl.querySelector("img").dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 2 }));
+      at("down", x, y); await sleep(40); at("up", x, y); await sleep(60); at("down", x, y); await sleep(40); at("up", x, y); await sleep(700);
+      ok("a double click shows it large, like a picture", zoom.hasAttribute("data-open") && !dlg.hasAttribute("data-open") && MdView.core.current.kind !== "pdf", [zoom.hasAttribute("data-open"), dlg.hasAttribute("data-open")]);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(500);
+      const items = A.context.nodeItems(view, f, view.state.doc.nodeAt(f)).filter(Boolean), labels = items.map((x) => x.label);
+      ok("its menu has Edit…, Size, Adjust Region… and Go to PDF", ["Edit…", "Size", "Adjust Region…", "Go to PDF"].every((l) => labels.includes(l)), labels);
+      items.find((x) => x.label === "Edit…").run(); await until(() => dlg.hasAttribute("data-open"), 60); await sleep(400);
+      ok("Edit… opens its dialog", dlg.hasAttribute("data-open"));
+      dlg.querySelector('[data-do="cancel"]').click(); await sleep(600);
+    }
     // a picture in a line: its popover has the size too
     {
       const img = view.dom.querySelector('img[alt="a photo"]');

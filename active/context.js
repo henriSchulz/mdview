@@ -188,7 +188,8 @@
     return [
       item("menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
-        ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : [])] : []),
+        ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
+        ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target }), { key: "Ctrl+Click" })] : [])] : []),
       null,
       item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
       item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),

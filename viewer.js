@@ -1155,6 +1155,29 @@
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === mode));
   }
 
+  /* A change of mode asked for by hand. In a long note it lays the whole note out anew, and the
+   * page stands still for that long (0.2 s and more): so the switch answers first — its thumb is on
+   * its way, the chosen mode's sign turns into a wheel (it turns on the compositor, also while the
+   * page is busy) — and the change itself begins two frames later. A short note changes at once. */
+  const HEAVY = 6000; // characters of Markdown from which the change is felt
+  let switching = 0;
+  function switchMode(next) {
+    if (next === mode || !current || switching) return;
+    if (current.kind === "pdf" || !current.text || current.text.length < HEAVY || (next === "active" && current.error) || (next === "edit" && current.readonly)) { setMode(next); return; }
+    const btn = modeSeg.querySelector(`.seg-btn[data-mode="${next}"]`);
+    modeSeg.style.setProperty("--i", MODES.indexOf(next));
+    for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b === btn));
+    btn.classList.add("busy");
+    const done = () => { cancelAnimationFrame(switching); switching = 0; requestAnimationFrame(() => requestAnimationFrame(() => { btn.classList.remove("busy"); showMode(); })); };
+    switching = requestAnimationFrame(() => { switching = requestAnimationFrame(() => {
+      try { setMode(next); } finally {
+        // (the active mode's first use fetches its scripts: the wheel turns until the mode is there)
+        if (mode === next) done();
+        else { const t0 = performance.now(), wait = () => { if (mode === next || performance.now() - t0 > 6000) done(); else switching = requestAnimationFrame(wait); }; wait(); }
+      }
+    }); });
+  }
+
   let edPath = null;     // file the editor holds; null = nothing loaded
   let edFresh = false;   // text was just loaded: put the caret where the reader was
   let edReveal = false;  // caret was placed by the caller (new note): scroll to it
@@ -1689,7 +1712,7 @@
   // (reading view; in the active mode the editor says when a picture was double clicked)
   content.addEventListener("dblclick", (e) => {
     const img = e.target.closest?.("img");
-    if (!img || img.closest(".pdf-embed, .pdfv, a")) return;
+    if (!img || img.closest(".pdfv, a")) return; // (an embedded PDF page is a picture like any other here)
     e.preventDefault();
     getSelection()?.removeAllRanges();
     zoomImage(img);
@@ -2413,13 +2436,14 @@
     const editable = field ? !field.readOnly && !field.disabled && !/^(checkbox|radio|range|button|submit)$/.test(field.type) : !!rich;
     if (field && !editable && field.tagName === "INPUT" && /^(checkbox|radio|range|button|submit)$/.test(field.type)) return;
     const selected = field ? field.selectionStart !== field.selectionEnd : !getSelection().isCollapsed;
-    const link = t.closest("a[href]"), img = t.closest("img");
+    const link = t.closest("a[href]"), img = t.closest("img"), pdf = t.closest(".pdf-embed[data-wiki]");
     const href = link && !link.getAttribute("href").startsWith("#") ? link.href : null;
     const edit = (cmd) => () => post("editcmd", { cmd });
     const rows = [];
     if (editable) rows.push(["Cut", "Ctrl+X", selected, edit("Cut")]);
     rows.push(["Copy", "Ctrl+C", selected, edit("Copy")]);
     if (editable) rows.push(["Paste", "Ctrl+V", true, edit("Paste")]);
+    if (pdf) rows.push(["Go to PDF", "", true, () => post("wikilink", { target: pdf.dataset.wiki })], null);
     if (href || (img && img.src)) rows.push(null);
     if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
     if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
@@ -2590,8 +2614,8 @@
   const actions = {
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
-    edit: () => setMode(mode === "edit" ? "read" : "edit"),
-    mode: (b) => setMode(b.dataset.mode),
+    edit: () => switchMode(mode === "edit" ? "read" : "edit"),
+    mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
     overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); },
     // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
@@ -2652,9 +2676,10 @@
       setTimeout(() => { copy.textContent = "Copy"; copy.classList.remove("done"); }, 1400);
       return;
     }
-    // a PDF embedded in the note: a click opens it at that place (Ctrl+click while editing)
+    // A PDF embedded in the note is a picture: a double click shows it large, like any picture. To
+    // the PDF itself it is Ctrl+click, or Go to PDF in its menu.
     const pe = e.target.closest(".pdf-embed[data-wiki]");
-    if (pe && shownRoot().contains(pe) && !(mode === "active" && MdActive.view.editable && !pe.closest(".isl") && !(e.ctrlKey || e.metaKey))) { post("wikilink", { target: pe.dataset.wiki }); return; }
+    if (pe && shownRoot().contains(pe)) { if (e.ctrlKey || e.metaKey) post("wikilink", { target: pe.dataset.wiki }); return; }
     const a = e.target.closest("a");
     if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
@@ -2711,7 +2736,7 @@
     if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); actions.overview(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "p") { e.preventDefault(); actions.panel(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
-    if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); setMode(MODES[e.code.slice(5) - 1]); return; }
+    if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); switchMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {
       // reading: an image on the clipboard goes to the end of the note
       if (!typing && mode === "read" && current && !current.error) post("pasteimage", { path: current.path, append: true });

@@ -110,6 +110,14 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 }
 .pm[contenteditable="true"] .isl:not(.none):hover { background-color: color-mix(in srgb, var(--fg) 4%, transparent); transition-duration: var(--dur-instant); }
 .pm .isl.fresh, .pm .fresh { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: 0s; }
+/* (a picture or an embedded PDF page that stands alone is a picture, not a block to open: no tint,
+ * no pencil — its dialog is in its menu) */
+.pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child):hover, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed)):hover { background-color: transparent; }
+.pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child)::after, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed))::after { content: none; }
+.pm[contenteditable="true"] .isl:has(:is(.pdf-embed, img.embed)) { cursor: default; }
+/* (a callout that folds: likewise — a click on its title folds it, its dialog is in its menu) */
+.pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]:hover { background-color: transparent; }
+.pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]::after { content: none; }
 .pm[contenteditable="true"] .isl:not(.none, [data-kind="code"])::after {
   content: "";
   position: absolute;
