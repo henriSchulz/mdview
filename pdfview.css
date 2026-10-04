@@ -78,9 +78,12 @@
 .pdf-note-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hl); }
 
 /* a PDF page, or a part of one, in a note */
-.pdf-embed { display: inline-block; max-width: 100%; min-height: 1.4em; vertical-align: top; border-radius: 4px; overflow: hidden; cursor: pointer; line-height: 0; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+/* (a block of its own, in the middle of the column — as figures stand) */
+.pdf-embed { display: block; width: fit-content; margin: 0 auto; max-width: 100%; min-height: 1.4em; vertical-align: top; border-radius: 4px; overflow: hidden; cursor: pointer; line-height: 0; background: color-mix(in srgb, var(--fg) 5%, transparent); }
 .pdf-embed:not(.ready) { min-width: 120px; min-height: 60px; }
 .pdf-embed.ready { background: #fff; box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 4px rgb(0 0 0 / 0.08); }
 .pdf-embed-img { display: block; max-width: 100%; height: auto; }
+.pdf-embed.full { width: 100%; }
+.pdf-embed.full .pdf-embed-img { width: 100%; }
 .pdf-embed.failed { padding: 6px 10px; line-height: 1.4; font-size: 0.85em; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); cursor: default; }
 @media print { .pdf-bar, .pdf-side { display: none !important; } }

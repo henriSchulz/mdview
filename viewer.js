@@ -259,17 +259,18 @@
       if (env.links && !(target in env.links)) resolveSoon(target);
       return `<span class="embed-missing" data-wiki="${esc(target)}">${esc(wikiLabel(target))}</span>`;
     }
-    const size = alias && /^(\d+)(?:x(\d+))?$/.exec(alias);
+    // how large: |300 or |300x200 (as Obsidian), |full for the column's whole width; nothing: its own size
+    const size = alias && /^(\d+)(?:x(\d+))?$/.exec(alias), full = !!alias && /^full$/i.test(alias);
     const dims = size ? ` width="${size[1]}"${size[2] ? ` height="${size[2]}"` : ""}` : "";
     const url = esc(info.url);
     switch (info.kind) {
-      case "image": return `<img class="embed" src="${url}" alt="${esc(size ? wikiLabel(target) : alias || wikiLabel(target))}"${dims}>`;
+      case "image": return `<img class="embed${full ? " full" : ""}" src="${url}" alt="${esc(size || full ? wikiLabel(target) : alias || wikiLabel(target))}"${dims}>`;
       case "audio": return `<audio controls src="${url}"></audio>`;
       case "video": return `<video controls src="${url}"${dims}></video>`;
       case "pdf": { // the page, or the part of it the link points to (pdfview.js draws it)
         pdfEmbedsSoon();
         const frag = target.includes("#") ? target.slice(target.indexOf("#") + 1) : "";
-        return `<span class="pdf-embed" data-pdf="${esc(info.path)}" data-frag="${esc(frag)}" data-wiki="${esc(target)}"${size ? ` data-width="${size[1]}"` : ""} title="${esc(wikiLabel(target))}"></span>`;
+        return `<span class="pdf-embed${full ? " full" : ""}" data-pdf="${esc(info.path)}" data-frag="${esc(frag)}" data-wiki="${esc(target)}"${size ? ` data-width="${size[1]}"` : ""}${full ? " data-full" : ""} title="${esc(wikiLabel(target))}"></span>`;
       }
       case "md": {
         if ((env.depth || 0) >= 2 || info.text == null) break;
@@ -280,6 +281,20 @@
       }
     }
     return `<a class="wikilink file" href="#" data-wiki="${esc(target)}">${esc(alias || wikiLabel(target))}</a>`;
+  };
+
+  // A Markdown picture says how large it is at the end of its description, as in Obsidian:
+  // ![a tree|300](tree.png), ![a tree|full](tree.png). (imageSize: the same, for the active mode's node.)
+  const imageSize = (alt) => { const m = /^(.*)\|(\d+|full)$/i.exec(alt || ""); return m ? { alt: m[1], size: m[2].toLowerCase() } : { alt: alt || "", size: "" }; };
+  const plainImage = md.renderer.rules.image;
+  md.renderer.rules.image = (toks, idx, opts, env, self) => {
+    const t = toks[idx], last = t.children && t.children[t.children.length - 1];
+    const m = last && last.type === "text" ? /\|(\d+|full)$/i.exec(last.content) : null;
+    if (m) {
+      last.content = last.content.slice(0, m.index);
+      if (m[1].toLowerCase() === "full") t.attrJoin("class", "full"); else t.attrSet("width", m[1]);
+    }
+    return plainImage(toks, idx, opts, env, self);
   };
 
   // --- #tags
@@ -2795,7 +2810,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, lockScroll, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

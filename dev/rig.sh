@@ -318,7 +318,8 @@ case "${1:-}" in
   adjust)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
     python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
-    printf '%s\n' '# Notes on the paper' '' '![[paper.pdf#page=3&rect=60,600,420,790]]' '' 'End.' > "$R/work/note.md"
+    magick -size 600x200 gradient:blue-white "$R/work/photo.png"
+    printf '%s\n' '# Notes on the paper' '' '![[paper.pdf#page=3&rect=60,600,420,790]]' '' 'A picture ![a photo|240](photo.png) in a line.' '' '![[photo.png|full]]' '' 'End.' > "$R/work/note.md"
     app 90 MDVIEW_PROBE="$D/probe-adjust.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
     for _ in $(seq 400); do [[ -f $R/out/note.md.shot-adjust.json || -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/adjust.png"
     for _ in $(seq 400); do [[ -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done

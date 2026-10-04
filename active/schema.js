@@ -164,8 +164,13 @@
     image: {
       group: "inline", inline: true, atom: true,
       attrs: { src: { default: "" }, alt: { default: "" }, title: { default: null } },
-      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("src"), alt: dom.getAttribute("alt") || "", title: dom.getAttribute("title") }) }],
-      toDOM: (n) => ["img", { src: n.attrs.src, alt: n.attrs.alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }) }],
+      // (its size is the end of the description — "a tree|300", "a tree|full" — and shows as the reading view shows it)
+      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("src"), title: dom.getAttribute("title"),
+        alt: (dom.getAttribute("alt") || "") + (dom.classList.contains("full") ? "|full" : /^\d+$/.test(dom.getAttribute("width") || "") ? "|" + dom.getAttribute("width") : "") }) }],
+      toDOM: (n) => {
+        const { alt, size } = window.MdView.core.imageSize(n.attrs.alt);
+        return ["img", { src: n.attrs.src, alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }), ...(size === "full" ? { class: "full" } : size ? { width: size } : {}) }];
+      },
     },
     hard_break: {
       group: "inline", inline: true, selectable: false,

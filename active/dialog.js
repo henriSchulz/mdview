@@ -496,10 +496,13 @@
   function fields(opts) {
     closeFields();
     pop.setAttribute("aria-label", opts.label);
-    pop.innerHTML = (opts.preview ? `<div class="ap-preview"></div><div class="ap-error"></div>` : "") + opts.fields.map((f) =>
-      `<label class="lp-row"><span>${esc(f.label)}</span><input class="lp-field${f.mono ? " mono" : ""}" data-key="${f.key}" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(f.placeholder || "")}"></label>`).join("");
-    const inputs = [...pop.querySelectorAll("input")];
+    // (a field with `options` is a choice: [[value, label], …])
+    pop.innerHTML = (opts.preview ? `<div class="ap-preview"></div><div class="ap-error"></div>` : "") + opts.fields.map((f) => (f.options
+      ? `<div class="lp-row"><span>${esc(f.label)}</span><select data-key="${f.key}" aria-label="${esc(f.label)}">${f.options.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select></div>`
+      : `<label class="lp-row"><span>${esc(f.label)}</span><input class="lp-field${f.mono ? " mono" : ""}" data-key="${f.key}" type="text" spellcheck="false" autocomplete="off" placeholder="${esc(f.placeholder || "")}"></label>`)).join("");
+    const inputs = [...pop.querySelectorAll("input, select")];
     inputs.forEach((inp, i) => { inp.value = opts.fields[i].value || ""; });
+    for (const sel of pop.querySelectorAll("select")) window.MdView.core.popup(sel);
     const values = () => Object.fromEntries(inputs.map((inp) => [inp.dataset.key, inp.value]));
     const preview = () => {
       if (!opts.preview) return;
@@ -540,7 +543,7 @@
     delete pop.dataset.open;
     return true;
   }
-  pop.addEventListener("focusout", (e) => { if (popOpen && !pop.contains(e.relatedTarget)) applyFields(); });
+  pop.addEventListener("focusout", (e) => { if (popOpen && !pop.contains(e.relatedTarget) && !e.relatedTarget?.closest?.("#pickmenu")) applyFields(); }); // (a choice's menu is the popover's own)
 
   /* Leaving the mode or the note with a dialog up: what was entered is taken, as with a click beside it. */
   function finish() {

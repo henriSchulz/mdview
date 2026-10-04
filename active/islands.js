@@ -560,6 +560,34 @@
     return self;
   }
 
+  /* How large a picture or an embedded PDF page shows: its own size, three fixed widths, the whole
+   * column. Written as Obsidian writes a width — ![[tree.png|400]], ![a tree|400](tree.png) — and
+   * |full for the column's width. */
+  const SIZES = [["", "size.auto"], ["240", "size.small"], ["400", "size.medium"], ["640", "size.large"], ["full", "size.full"]];
+  const sizeOptions = (now) => [...SIZES.map(([v, k]) => [v, T(k)]), ...(now && !SIZES.some(([v]) => v === now) ? [[now, /^\d+$/.test(now) ? now + " px" : now]] : [])];
+  // what is written is one picture or one embed of a picture or a PDF: [before, size, after] of its size
+  const WIKI_PIC = /^(\s*!\[\[[^\]|]+\.(?:png|jpe?g|gif|webp|svg|avif|bmp|pdf)(?:#[^\]|]*)?)(?:\|([^\]]*))?(\]\]\s*)$/i, MD_PIC = /^(\s*!\[[^\]]*?)(?:\|(\d+|full))?(\]\([^)]*\)\s*)$/i;
+  function sizeChoice(ed, tools) {
+    const select = el("select", { "aria-label": T("dialog.size") }), parts = (t) => WIKI_PIC.exec(t) || MD_PIC.exec(t);
+    tools.append(select);
+    const wrap = window.MdView.core.popup(select);
+    const look = (text) => {
+      const m = parts(text), now = m ? (m[2] || "").toLowerCase() : "";
+      wrap.hidden = !m || (!!now && !/^(\d+(x\d+)?|full)$/.test(now)); // (a description of one's own in the size's place: left alone)
+      if (wrap.hidden) return;
+      select.innerHTML = sizeOptions(now).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+      select.value = now;
+      wrap.sync();
+    };
+    select.addEventListener("change", () => {
+      const m = parts(ed.value);
+      if (!m) return;
+      ed.value = m[1] + (select.value ? "|" + select.value : "") + m[3];
+      ed.input.dispatchEvent(new Event("input"));
+    });
+    return { look };
+  }
+
   const RAW_TITLE = { html: "dialog.html", table: "dialog.table", deflist: "dialog.deflist", blockquote: "dialog.callout" };
   // anything else: its Markdown as text, with what it becomes below
   // Markdown as the document shows it
@@ -576,8 +604,9 @@
         const preview = el("div", { class: "dlg-preview doc" });
         body.append(ed.el, preview);
         ed.onInput = infoBar(info, ed);
-        const adjust = pdfAdjust(ed, preview, tools);
+        const size = sizeChoice(ed, tools), adjust = pdfAdjust(ed, preview, tools);
         follow(ed, (v) => {
+          size.look(v);
           adjust.look(v);
           if (adjust.on) return; // (the page with its frame stands there: the frame writes the text, not the other way round)
           preview.innerHTML = htmlOf(v);
@@ -656,14 +685,15 @@
     }
   }
   function imagePopover(view, pos, node) {
-    const dom = view.nodeDOM(pos);
+    const dom = view.nodeDOM(pos), was = window.MdView.core.imageSize(node.attrs.alt);
     A.dialog.fields({
       rect: dom.getBoundingClientRect(), label: T("dialog.image"),
-      fields: [{ key: "alt", label: T("dialog.alt"), value: node.attrs.alt }, { key: "src", label: T("link.url"), value: node.attrs.src }, { key: "title", label: T("dialog.imgtitle"), value: node.attrs.title || "" }],
+      fields: [{ key: "alt", label: T("dialog.alt"), value: was.alt }, { key: "src", label: T("link.url"), value: node.attrs.src }, { key: "title", label: T("dialog.imgtitle"), value: node.attrs.title || "" },
+        { key: "size", label: T("dialog.size"), value: was.size, options: sizeOptions(was.size) }],
       apply(v) {
         const src = v.src.trim(), tr = view.state.tr;
         if (!src) tr.delete(pos, pos + node.nodeSize);
-        else tr.setNodeMarkup(pos, null, { src, alt: v.alt, title: v.title.trim() || null });
+        else tr.setNodeMarkup(pos, null, { src, alt: v.alt.replace(/\|(\d+|full)$/i, "") + (v.size ? "|" + v.size : ""), title: v.title.trim() || null });
         view.dispatch(tr);
         view.focus();
       },

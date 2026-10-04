@@ -38,6 +38,7 @@ the note better. The full reference, with every example rendered, is
 | link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]` |
 | a note shown in place | `![[Note]]` |
 | picture | `![alt](file.png)` or `![[file.png]]` (relative to the note) |
+| picture at a width | `![alt\|400](file.png)`, `![[file.png\|400]]`; `\|full` for the column's whole width (PDF embeds too) |
 | formula in the line | `$a^2 + b^2 = c^2$` |
 | formula as a block | `$$` on its own line, the LaTeX, `$$` on its own line |
 | diagram | a fence named `mermaid` |

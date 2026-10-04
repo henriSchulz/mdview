@@ -184,8 +184,10 @@
     image(node) {
       const dom = document.createElement("span"), img = document.createElement("img");
       dom.className = "im";
+      const { alt, size } = window.MdView.core.imageSize(node.attrs.alt); // (its size is the end of its description)
       img.src = node.attrs.src;
-      img.alt = node.attrs.alt;
+      img.alt = alt;
+      if (size === "full") img.className = "full"; else if (size) img.setAttribute("width", size);
       if (node.attrs.title != null) img.title = node.attrs.title;
       dom.appendChild(img);
       return { dom, ignoreMutation: () => true };

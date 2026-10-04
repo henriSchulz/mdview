@@ -653,7 +653,7 @@
   async function embed(span) {
     span.dataset.done = "1";
     const at = parseFrag(span.dataset.frag);
-    const key = span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.dataset.width || "") + "/" + Math.round((span.parentElement && span.parentElement.clientWidth) || 0);
+    const key = span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.hasAttribute("data-full") ? "full" : span.dataset.width || "") + "/" + Math.round((span.parentElement && span.parentElement.clientWidth) || 0);
     const have = drawnEmbeds.get(key);
     if (have) { const img = have.cloneNode(); span.replaceChildren(img); span.classList.add("ready"); return; }
     try {
@@ -672,7 +672,7 @@
       }
       if (!span.isConnected) return;
       const room = Math.max(200, Math.min(span.parentElement.clientWidth || 700, 1100));
-      const want = Number(span.dataset.width) || 0;
+      const want = span.hasAttribute("data-full") ? room : Number(span.dataset.width) || 0;
       // (a region is shown as large as it is on its page, when the page fills the column)
       const scale = Math.min(3, (want || room) / (crop && (want || !at.rect) ? crop[2] : base.width));
       const ratio = Math.min(2, window.devicePixelRatio || 1);

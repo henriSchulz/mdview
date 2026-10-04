@@ -233,7 +233,19 @@ handlers and foreign content are left out. Code that is not valid SVG stays a co
 ![[picture.png]]
 ```
 
-Paths are relative to the note. SVG files stand centred. A double click shows a picture large.
+How large a picture shows is written at the end of its description, as Obsidian writes a width:
+
+```markdown
+![a tree|400](tree.png)        400 px wide
+![[tree.png|400]]              the same, for an embed
+![[tree.png|full]]             as wide as the text column
+![[paper.pdf#page=3|full]]     an embedded PDF page, likewise
+```
+
+In the active mode the size is a choice — its own size, Small (240), Medium (400), Large (640), Full
+width — in a picture's popover (double click or Enter on it) and in the dialog of an embed.
+
+Paths are relative to the note. SVG files and embedded PDF pages stand centred. A double click shows a picture large.
 `Ctrl+V` with a picture on the clipboard saves it beside the note (or in `./assets`, a setting) and
 embeds it; picture files dropped on the note do the same.
 

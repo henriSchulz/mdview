@@ -10,6 +10,16 @@
   try {
     await document.fonts.ready;
     await sleep(900);
+    // how large pictures and embeds show, in the reading view
+    MdView.setMode("read"); await sleep(500);
+    {
+      const c = document.getElementById("content"), col = c.getBoundingClientRect(), pad = parseFloat(getComputedStyle(c).paddingLeft);
+      await until(() => c.querySelector(".pdf-embed.ready"));
+      const e = c.querySelector(".pdf-embed").getBoundingClientRect(), small = c.querySelector('img[alt="a photo"]'), full = c.querySelector("img.embed.full");
+      ok("an embedded PDF region stands in the middle of the column", Math.abs((e.left + e.right) / 2 - (col.left + col.right) / 2) < 2 && e.width < col.width - 2 * pad - 20, [e.left, e.right, col.left, col.right]);
+      ok("![a photo|240](…): 240 wide, the size is not part of its description", !!small && Math.round(small.getBoundingClientRect().width) === 240);
+      ok("![[photo.png|full]]: as wide as the text column", !!full && Math.abs(full.getBoundingClientRect().width - (col.width - 2 * pad)) < 2, full && full.getBoundingClientRect().width);
+    }
     MdView.setMode("active");
     await until(() => window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active", 300);
     await sleep(600);
@@ -20,6 +30,22 @@
     await until(() => dlg.hasAttribute("data-open") && dlg.querySelector(".dlg-preview .pdf-embed.ready"));
     const ed = dlg.querySelector(".ce-in"), btn = () => [...dlg.querySelectorAll(".dlg-tools .btn")].find((b) => /Adjust|Show Result/.test(b.textContent));
     ok("the dialog of a PDF region has Adjust Region", !!btn() && !btn().hidden && btn().textContent === "Adjust Region", dlg.querySelector(".dlg-tools").textContent);
+    // the size, chosen in the dialog
+    {
+      const sel = dlg.querySelector(".dlg-tools select"), pop = dlg.querySelector(".dlg-tools .pop"), pv = dlg.querySelector(".dlg-preview");
+      ok("the dialog offers the size: its own, three widths, the full one", !!sel && !pop.parentNode.hidden && [...sel.options].map((x) => x.value).join() === ",240,400,640,full" && pop.textContent.trim() === "Its own size", sel && [...sel.options].map((x) => x.value).join());
+      sel.value = "full"; sel.dispatchEvent(new Event("change"));
+      await until(() => pv.querySelector(".pdf-embed.full.ready"));
+      const w = pv.querySelector(".pdf-embed.full")?.getBoundingClientRect().width || 0;
+      ok("Full width: written as |full, the embed fills the width", /rect=60,600,420,790\|full\]\]/.test(ed.value) && w > pv.clientWidth - 40, [ed.value, w, pv.clientWidth]);
+      sel.value = "240"; sel.dispatchEvent(new Event("change"));
+      await until(() => /\|240\]\]/.test(ed.value) && pv.querySelector(".pdf-embed.ready") && Math.abs(pv.querySelector(".pdf-embed.ready").getBoundingClientRect().width - 240) < 3);
+      ok("Small: |240, 240 wide", /\|240\]\]/.test(ed.value) && Math.abs(pv.querySelector(".pdf-embed").getBoundingClientRect().width - 240) < 3, [ed.value, pv.querySelector(".pdf-embed").getBoundingClientRect().width]);
+      sel.value = ""; sel.dispatchEvent(new Event("change"));
+      await until(() => !/\|/.test(ed.value) && pv.querySelector(".pdf-embed.ready"));
+      ok("its own size again: nothing written", ed.value.trim() === "![[paper.pdf#page=3&rect=60,600,420,790]]", ed.value);
+      await sleep(400);
+    }
     btn().click();
     await until(() => dlg.querySelector(".pa-sheet img"));
     await sleep(500);
@@ -52,6 +78,19 @@
     const want = ed.value;
     dlg.querySelector('[data-do="done"]').click(); await sleep(700);
     ok("Done writes it into the note", A.view.serialize(false).includes(want.trim()) && /page=4&rect=/.test(want), A.view.serialize(false).slice(0, 160));
+    // a picture in a line: its popover has the size too
+    {
+      const img = view.dom.querySelector('img[alt="a photo"]');
+      ok("the active mode shows the picture at its width as well", !!img && Math.round(img.getBoundingClientRect().width) === 240, img && img.getBoundingClientRect().width);
+      let ipos = -1; view.state.doc.descendants((n, p) => { if (ipos < 0 && n.type.name === "image") ipos = p; });
+      view.dispatch(view.state.tr.setSelection(PM.state.NodeSelection.create(view.state.doc, ipos)));
+      view.dom.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(500);
+      const pop = document.getElementById("atompop"), sel = pop.querySelector("select");
+      ok("its popover: the description without the size, the size as a choice", pop.hasAttribute("data-open") && pop.querySelector('[data-key="alt"]').value === "a photo" && !!sel && sel.value === "240", pop.textContent);
+      sel.value = "full"; sel.dispatchEvent(new Event("change"));
+      pop.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(500);
+      ok("Full width chosen there is written into the description's end", A.view.serialize(false).includes("![a photo|full](photo.png)"), A.view.serialize(false));
+    }
   } catch (e) { o.error = String(e && e.stack || e); }
   window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "adjust", text: JSON.stringify(o) }));
 })();
