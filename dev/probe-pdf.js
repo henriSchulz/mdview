@@ -2,8 +2,8 @@
  * a link into the PDF, highlights from the links in the notes, a link to a
  * selection, outline, pages, links inside the PDF, back to the note. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
-  const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (f, ms = 8000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
   const o = { steps: [] }; const errs = [];

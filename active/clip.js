@@ -15,7 +15,7 @@
   const { Slice, Fragment, DOMSerializer } = PM.model;
   const N = A.schema.nodes, M = A.schema.marks;
   const { isExternal, hydrate } = window.MdView.core;
-  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
 
   // ------------------------------------------------------------ HTML from elsewhere, reduced
   const SKIP = /^(script|style|head|meta|link|title|noscript|template|iframe|object|embed|svg|math|button|select|textarea|input|caption|colgroup|col|canvas|audio|video)$/;

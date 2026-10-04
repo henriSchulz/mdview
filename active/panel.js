@@ -21,7 +21,7 @@
   const { Plugin, PluginKey, Selection, TextSelection } = PM.state;
   const N = A.schema.nodes;
   const { ICON, esc, callout: CALLOUT } = window.MdView.core;
-  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const pref = () => ({ panel: false, panelTab: "insert", ...(window.MdPrefs || {}) });
   const view = () => (A.view && A.view.pm) || null;
 

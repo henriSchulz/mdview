@@ -1,7 +1,7 @@
 /* Development probe (dev/rig.sh panel): the panel at the window's right — its Insert tab (tiles,
  * search, a click, a drop between blocks) and its Format tab (what is on, and changing it). */
 (async () => {
-  const out = (name, x) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(x) }));
+  const out = (name, x) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(x) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));

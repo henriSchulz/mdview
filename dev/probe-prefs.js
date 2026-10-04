@@ -3,8 +3,8 @@
  * Markdown at the caret, wrapping, the style of new Markdown. Works on a copy
  * of tests/fixtures/m5.md; the settings are put back at the end. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
-  const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));

@@ -1,6 +1,6 @@
 /* mdview — renderer, source editor, folder sidebar + UI inside the web view.
- * Python calls MdView.render(payload) and friends; the page talks back via
- * window.webkit.messageHandlers.mdview (JSON strings). */
+ * The shell (src-tauri) calls MdView.render(payload) and friends; the page talks back via
+ * window.MdHost.post (JSON strings). */
 "use strict";
 (() => {
   const NONCE = document.currentScript.nonce;
@@ -12,7 +12,7 @@
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
-    window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+    window.MdHost?.post(JSON.stringify({ type, ...data }));
   };
   const T = window.MdStrings.t;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
@@ -1971,7 +1971,7 @@
     else if (mod && !e.shiftKey && !e.altKey && EDIT_KEYS[e.key.toLowerCase()]) { e.preventDefault(); EDIT_KEYS[e.key.toLowerCase()](); }
     else if (/^(Arrow|Home|End)/.test(e.key)) requestAnimationFrame(revealCaret);
   });
-  // Pasting an image: the page can't get at the image data, so Python saves it
+  // Pasting an image: the page can't get at the image data, so the shell saves it
   // as a file and answers with the Markdown to insert (insertImage).
   edInput.addEventListener("paste", (e) => {
     if (!e.clipboardData || e.clipboardData.getData("text/plain")) return;
@@ -1993,7 +1993,7 @@
   });
 
   // ------------------------------------------------------------ sidebar (folder windows)
-  // Python sends the folder's notes as a tree (setFolder) and again whenever
+  // The shell sends the folder's notes as a tree (setFolder) and again whenever
   // something in the folder changes. The DOM is reconciled by path, so rows
   // keep their state and only new or removed ones animate.
   const sidebar = document.createElement("aside");
@@ -2624,7 +2624,7 @@
     input.focus({ preventScroll: true });
     input.select();
   }
-  // Python renamed a file: keep its row (and the open note) instead of removing and re-adding it.
+  // The shell renamed a file: keep its row (and the open note) instead of removing and re-adding it.
   function noteRenamed(r) {
     for (const item of sbList.querySelectorAll(".sb-item:not(.is-dir)")) {
       if (item.dataset.key !== r.old) continue;
@@ -2642,7 +2642,7 @@
   // --- file names <-> titles: the list crossfades, since every row may move
   let titlesTimer = 0, titlesAt = 0;
   function setTitles(on) {
-    post("sidebar", { titles: on }); // Python rescans (titles are only read when shown) and answers with setFolder
+    post("sidebar", { titles: on }); // the shell rescans (titles are only read when shown) and answers with setFolder
     sbTitlesBtn.classList.toggle("active", on);
     sbList.classList.add("swap");
     titlesAt = performance.now();

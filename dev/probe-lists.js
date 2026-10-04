@@ -4,7 +4,7 @@
  * tests/fixtures/lists.md. EXPECT is filled in below; without it the probe
  * only reports what came out. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [], got: {} };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
@@ -85,7 +85,7 @@
     }
     // --- the handle of a sub-item, with the real pointer: reached from its text, and from its bullet
     {
-      const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+      const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
       const at = (kind, x, y) => post("probe-pointer", { kind, x, y });
       const t = own("B1").getBoundingClientRect(), li = item("B1");
       at("move", t.left + 10, t.top + t.height / 2); await sleep(250);

@@ -38,5 +38,5 @@
     sel.value = "100"; sel.dispatchEvent(new Event("change")); await sleep(400);
     st.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(400);
   } catch (e) { o.error = String(e && e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "zoom", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "zoom", text: JSON.stringify(o) }));
 })();

@@ -3,7 +3,7 @@
  * undo, saving, and what ends up in the file. Works on a copy of
  * tests/fixtures/editing.md. Evaluated by mdview.py (MDVIEW_PROBE). */
 (async () => {
-  const out = (o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "edit", text: JSON.stringify(o) }));
+  const out = (o) => window.MdHost.post(JSON.stringify({ type: "probe", name: "edit", text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const results = [];
   const ok = (name, cond, detail) => results.push({ name, ok: !!cond, ...(cond ? {} : { detail }) });

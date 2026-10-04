@@ -4,7 +4,7 @@
  * The probe only sets the caret, says when it is ready, and reports what
  * stands in the document and the dialog at each stage. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { stages: {} }; const errs = [];
   window.addEventListener("error", (e) => errs.push(String(e.message)));

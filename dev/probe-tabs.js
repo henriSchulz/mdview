@@ -7,7 +7,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
-  const out = (name, data) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(data) }));
+  const out = (name, data) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(data) }));
   const key = (k, more = {}) => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: k, ctrlKey: true, bubbles: true, cancelable: true, ...more }));
   const els = () => [...document.querySelectorAll("#tabs .tab:not(.leaving)")];
   const labels = () => els().map((t) => t.querySelector(".tab-label").textContent).join();

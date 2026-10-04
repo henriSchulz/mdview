@@ -16,7 +16,7 @@
   const A = window.MdActive;
   const { Plugin, PluginKey } = PM.state;
   const { Decoration, DecorationSet } = PM.view;
-  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const on = () => !!(window.MdPrefs || {}).aiComplete;
   const PAUSE = 75;       // ms without a key before the model is asked (Copilot: the same)
   const BEFORE = 2400, AFTER = 400, MAX = 120; // characters of context, and of a suggestion

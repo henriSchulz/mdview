@@ -76,7 +76,7 @@
     // which kinds of files the sidebar lists: the settings
     {
       const names = () => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim());
-      const set = async (o) => { window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "prefs", prefs: o })); await sleep(900); };
+      const set = async (o) => { window.MdHost.post(JSON.stringify({ type: "prefs", prefs: o })); await sleep(900); };
       ok("as it comes: notes and PDFs, no pictures or other files", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv"), names());
       await set({ sidebarImages: true, sidebarOther: true, sidebarPdf: false });
       ok("pictures and other files on, PDFs off: the list follows at once", !names().includes("paper.pdf") && names().includes("photo.png") && names().includes("data.csv") && names().includes("basics"), names());
@@ -94,9 +94,9 @@
       // the gear at the lower left
       const g = document.getElementById("settings-btn"), gr = g.getBoundingClientRect();
       ok("a gear stands at the window's lower left corner", gr.left < 20 && innerHeight - gr.bottom < 20 && gr.width > 20 && document.elementFromPoint(gr.left + gr.width / 2, gr.top + gr.height / 2).closest("#settings-btn") === g, [gr.left, innerHeight - gr.bottom]);
-      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "move", x: gr.left + 14, y: gr.top + 14 })); await sleep(120);
-      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "down", x: gr.left + 14, y: gr.top + 14 })); await sleep(60);
-      window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "up", x: gr.left + 14, y: gr.top + 14 }));
+      window.MdHost.post(JSON.stringify({ type: "probe-pointer", kind: "move", x: gr.left + 14, y: gr.top + 14 })); await sleep(120);
+      window.MdHost.post(JSON.stringify({ type: "probe-pointer", kind: "down", x: gr.left + 14, y: gr.top + 14 })); await sleep(60);
+      window.MdHost.post(JSON.stringify({ type: "probe-pointer", kind: "up", x: gr.left + 14, y: gr.top + 14 }));
       let opened = false;
       for (let i = 0; i < 60 && !opened; i++) { await sleep(50); opened = !!document.getElementById("settings")?.hasAttribute("data-open"); }
       ok("a click on it opens the settings", opened);
@@ -104,7 +104,7 @@
     }
     // the sidebar's edge, pulled with the real pointer
     {
-      const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));
+      const at = (kind, x, y) => window.MdHost.post(JSON.stringify({ type: "probe-pointer", kind, x, y }));
       const w = () => Math.round(document.getElementById("sidebar").getBoundingClientRect().right), open = () => document.body.dataset.sidebar === "open";
       if (!open()) { window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", ctrlKey: true, altKey: true, bubbles: true, cancelable: true })); await sleep(900); }
       const w0 = w();
@@ -148,5 +148,5 @@
       ok("and the settings know", window.MdPrefs.sidebarSort === "name", window.MdPrefs.sidebarSort);
     }
   } catch (e) { o.error = String(e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "folder", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "folder", text: JSON.stringify(o) }));
 })();

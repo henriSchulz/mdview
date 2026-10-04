@@ -1,7 +1,7 @@
 /* Development probe (dev/rig.sh callout): callouts in the active mode — made from the / menu's
  * entries, their text typed in place, the title typed in where it stands. */
 (async () => {
-  const out = (name, x) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(x) }));
+  const out = (name, x) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(x) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));

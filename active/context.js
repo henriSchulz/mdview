@@ -8,7 +8,7 @@
   const C = PM.commands;
   const N = A.schema.nodes, M = A.schema.marks;
   const { copy, follow } = window.MdView.core;
-  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
 
   // ------------------------------------------------------------ what the selection is
   function markActive(state, type) {

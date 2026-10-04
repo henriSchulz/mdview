@@ -3,7 +3,7 @@
  * it as a file beside the note. The model is replaced by a fixed figure
  * (MDVIEW_GRAPHIC_FAKE); `dev/rig.sh graphic real` asks Claude itself. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
   const o = { steps: [] };
@@ -86,7 +86,7 @@
       const zoom = document.getElementById("zoom"), small = view.dom.querySelector('img[src$=".svg"]');
       small.scrollIntoView({ block: "center" }); await sleep(250);
       const sr = small.getBoundingClientRect();
-      const at = (kind, x, y) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind, x, y }));
+      const at = (kind, x, y) => window.MdHost.post(JSON.stringify({ type: "probe-pointer", kind, x, y }));
       const x = sr.left + sr.width / 2, y = sr.top + sr.height / 2;
       at("move", x, y); await sleep(80);
       for (let i = 0; i < 2; i++) { at("down", x, y); await sleep(40); at("up", x, y); await sleep(70); }

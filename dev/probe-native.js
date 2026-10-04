@@ -57,5 +57,5 @@
     ok("a point in a list item maps into it", hit && view.state.doc.resolve(hit.pos).parent.textContent === "one", hit);
     o.text = V.serialize(false).split("\n").slice(0, 7);
   } catch (e) { o.error = String(e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "native", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "native", text: JSON.stringify(o) }));
 })();

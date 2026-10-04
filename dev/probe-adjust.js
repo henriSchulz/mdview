@@ -2,7 +2,7 @@
  * whole page with a frame, moved and pulled with the real pointer, written back as page= and rect=. */
 (async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const at = (kind, x, y) => post("probe-pointer", { kind, x, y });
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
@@ -71,7 +71,7 @@
     await until(() => /Page 4 of 6/.test(dlg.querySelector(".pa-page")?.textContent || ""));
     await sleep(400);
     ok("the next page: the text says page 4, the frame stays where it was", /page=4&rect=/.test(ed.value) && Math.abs(fr()[0] - b2[0]) < 0.01, ed.value);
-    window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "shot-adjust", text: "{}" })); await sleep(1500);
+    window.MdHost.post(JSON.stringify({ type: "probe", name: "shot-adjust", text: "{}" })); await sleep(1500);
     btn().click();
     await until(() => dlg.querySelector(".dlg-preview .pdf-embed.ready"));
     ok("Show Result: the embed as the note will show it", !!dlg.querySelector(".dlg-preview .pdf-embed.ready") && !dlg.querySelector(".pa-sheet") && btn().textContent === "Adjust Region");
@@ -136,5 +136,5 @@
       ok("Medium from the menu", A.view.serialize(false).includes("![a photo|400](photo.png)"), A.view.serialize(false));
     }
   } catch (e) { o.error = String(e && e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "adjust", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "adjust", text: JSON.stringify(o) }));
 })();

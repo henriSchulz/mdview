@@ -128,5 +128,5 @@
     window.removeEventListener("error", onError); window.removeEventListener("unhandledrejection", onError);
     o.quickModes = { errors, textKept: MdView.core.current.text === original.replace(/\r\n/g, "\n") && V.serialize() === original, view: document.body.dataset.view, nodesAfter30: once, nodesAfter60: document.getElementsByTagName("*").length };
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "perf", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "perf", text: JSON.stringify(o) }));
 })();

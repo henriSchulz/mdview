@@ -40,5 +40,5 @@
     o.serializeAgainMs = r1(performance.now() - t);
     o.changedLines = text.split("\n").filter((l, i) => l !== MdView.core.current.raw.split("\n")[i]).length;
   } catch (e) { o.error = String(e && e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "typing", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "typing", text: JSON.stringify(o) }));
 })();

@@ -38,5 +38,5 @@
     item("Select All").click(); await sleep(600);
     ok("Select All selects the field's text", f.selectionStart === 0 && f.selectionEnd === f.value.length, [f.selectionStart, f.selectionEnd]);
   } catch (e) { o.error = String(e && e.stack || e); }
-  window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "textmenu", text: JSON.stringify(o) }));
+  window.MdHost.post(JSON.stringify({ type: "probe", name: "textmenu", text: JSON.stringify(o) }));
 })();

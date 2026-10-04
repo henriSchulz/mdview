@@ -1,5 +1,5 @@
 #!/bin/bash
-# Development rig: runs this checkout's mdview inside a nested Hyprland, with
+# Development rig: runs this checkout's mdview (src-tauri, built with `cargo build`) inside a nested Hyprland, with
 # its own D-Bus session and state, so the installed app and the desktop are
 # left alone. The nested compositor is parked on the workspace "spare" (an
 # off-screen output on Henri's machine; any workspace name works).
@@ -37,7 +37,7 @@
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
 #   dev/rig.sh shot NAME             screenshot of the nested compositor
 #   dev/rig.sh stop
-D="$(cd "$(dirname "$0")" && pwd)"; APP="$D/../mdview.py"
+D="$(cd "$(dirname "$0")" && pwd)"; APP="${MDVIEW_BIN:-$D/../src-tauri/target/debug/mdview}"
 R="${MDVIEW_RIG:-$HOME/.cache/mdview-rig}"; H="$XDG_RUNTIME_DIR/hypr"; WS="${MDVIEW_RIG_WS:-name:spare}"
 mkdir -p "$R/out" "$R/state"
 sig() { cat "$R/sig" 2>/dev/null; }
@@ -46,7 +46,7 @@ app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
     XDG_STATE_HOME="$R/state" MDVIEW_DEBUG=1 "${envs[@]}" \
-    setsid -f timeout "$secs" dbus-run-session -- python3 "$APP" "$@" >"$R/app.log" 2>&1
+    setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
 shot() { local id; id=$(hyprctl clients -j | jq -r '.[] | select(.class=="aquamarine") | .stableId' | head -1); grim -T "$id" "$1"; }
 case "${1:-}" in
@@ -72,7 +72,7 @@ case "${1:-}" in
       sleep 0.8; shot "$R/out/$name.read.png"
       for _ in $(seq 350); do [[ -f $R/out/$name.compare.json ]] && break; sleep 0.1; done
       sleep 0.5; shot "$R/out/$name.active.png"
-      pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+      pkill -f "^$APP" 2>/dev/null; sleep 0.3
       if [[ -f $R/out/$name.compare.json ]]; then
         # without the window frame; pixels that differ by more than anti-aliasing does
         for v in read active; do magick "$R/out/$name.$v.png" -shave 40x40 +repage "$R/out/$name.$v.png"; done
@@ -86,7 +86,7 @@ case "${1:-}" in
     name=$(basename "$2"); rm -rf "$R/work"; mkdir -p "$R/work"; cp "$2" "$R/work/$name"; rm -f "$R/out/$name.modes.json"
     app 60 MDVIEW_PROBE="$D/probe-modes.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 300); do [[ -f $R/out/$name.modes.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.modes.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$R/out/$name.modes.json"
     jq -e .pass "$R/out/$name.modes.json" >/dev/null ;;
@@ -94,7 +94,7 @@ case "${1:-}" in
     name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name.edit.json"
     app 60 MDVIEW_PROBE="$D/probe-edit.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 400); do [[ -f $R/out/$name.edit.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.edit.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$R/out/$name.edit.json"
     # the file on disk is what the editor said it saved
@@ -107,7 +107,7 @@ case "${1:-}" in
       for _ in $(seq 200); do [[ -f $R/out/$name.$v.json ]] && break; sleep 0.1; done; sleep 0.8; shot "$R/out/island-$v.png"
     done
     for _ in $(seq 400); do [[ -f $R/out/$name.islands.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.islands.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.islands.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.islands.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
@@ -119,7 +119,7 @@ case "${1:-}" in
       for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.m4.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/m4-$v.png"
     done
     for _ in $(seq 500); do [[ -f $R/out/$name.m4.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.m4.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.m4.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.m4.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
@@ -132,16 +132,16 @@ case "${1:-}" in
       for _ in $(seq 400); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.m5.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/m5-$v.png"
     done
     for _ in $(seq 500); do [[ -f $R/out/$name.m5.json ]] && break; sleep 0.1; done
-    [[ -f $R/out/$name.m5.json ]] || { pkill -f "python3 $APP" 2>/dev/null; echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    [[ -f $R/out/$name.m5.json ]] || { pkill -f "^$APP" 2>/dev/null; echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.m5.json"
     # Apply in the closing question: the dialog's change is saved and the window closes by itself
     gone=FAIL; for _ in $(seq 60); do [[ $(HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl clients -j | jq length) == 0 ]] && { gone="ok  "; break; }; sleep 0.1; done
-    echo "$gone the window closed after Apply"; pkill -f "python3 $APP" 2>/dev/null
+    echo "$gone the window closed after Apply"; pkill -f "^$APP" 2>/dev/null
     grep -q '^let a = 2;$' "$R/work/$name" && echo "ok   the dialog's change is in the file" || echo "FAIL the dialog's change is not in the file"
     # the next start opens in the mode last used
     app 30 MDVIEW_PROBE="$D/probe-mode.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_PROBE_MODE=1 -- "$R/work/$name"
     for _ in $(seq 200); do [[ -f $R/out/$name.mode.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] && echo "ok   the next window opens in the mode last used" || { echo "FAIL the next window opened in: $(cat "$R/out/$name.mode.json" 2>/dev/null || echo 'no report after 20 s')"; tail -3 "$R/app.log"; }
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.m5.json"; [[ $gone == "ok  " ]] || echo FAIL; grep -q '^let a = 2;$' "$R/work/$name" || echo FAIL; [[ $(jq -r '.view' "$R/out/$name.mode.json" 2>/dev/null) == active ]] || echo FAIL; } | grep -qv '^ok' ;;
@@ -156,7 +156,7 @@ case "${1:-}" in
     fi
     for v in drawn inserted zoomed; do for _ in $(seq 1500); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.graphic.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/graphic-$v.png"; done
     for _ in $(seq 400); do [[ -f $R/out/$name.graphic.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.graphic.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.graphic.json"
     f=$(ls "$R/work"/*.svg 2>/dev/null | head -1)
@@ -173,7 +173,7 @@ case "${1:-}" in
     fi
     for _ in $(seq 300); do [[ -f $R/out/$name.shown.json || -f $R/out/$name.ghost.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ghost.png"
     for _ in $(seq 400); do [[ -f $R/out/$name.ghost.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
@@ -191,7 +191,7 @@ case "${1:-}" in
     wait_for select && { sleep 0.4; WAYLAND_DISPLAY="$(wl)" wtype -M ctrl -M shift -k c -m shift -m ctrl; sleep 0.8; copied=$(WAYLAND_DISPLAY="$(wl)" timeout 3 wl-paste -n 2>/dev/null); }
     wait_for noteagain && { sleep 0.6; shot "$R/out/pdf-note2.png"; }
     wait_for pdfdone
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.pdfdone.json 2>/dev/null | head -1)
     [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (.errs | join("; "))' "$f"
@@ -211,7 +211,7 @@ case "${1:-}" in
     stage s5; keys ' Sum $\sum'; keys -k Tab; keys 'k'; keys -k Tab; keys '0'; keys -k Tab; keys 'n'; keys -k Tab; keys 'k'; keys -k Tab; sleep 0.3; keys '.'
     stage s6
     for _ in $(seq 400); do [[ -f $R/out/$name.latex.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.latex.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.stages | to_entries[] | "\(.key): \(.value.md | split("\n")[2])"' "$R/out/$name.latex.json"
     jq -r '(.error // empty), (.errs | join("; "))' "$R/out/$name.latex.json"
@@ -232,7 +232,7 @@ case "${1:-}" in
     stage s5; keys -k Tab; keys -k Tab; keys ' + dint'                             # out of the fraction and the brackets; an integral with places to fill
     stage s6; keys -k Tab; keys '@a'; keys -k Tab; keys 'sin @t'; keys -k Tab; keys '@t'; keys -k Tab; keys -k Tab; sleep 0.5; keys 'After.'   # … and out of the formula: on in the line below
     for _ in $(seq 400); do [[ -f $R/out/$name.latex.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.latex.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -c '.stages | to_entries[] | {s: .key, open: .value.open, tex: .value.tex, w: .value.w, colours: .value.colours, stops: .value.stops}' "$R/out/$name.latex.json"
     jq -r '.saved, (.error // empty), (.errs | join("; "))' "$R/out/$name.latex.json"
@@ -243,7 +243,7 @@ case "${1:-}" in
     name=lists.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".lists.json
     app 90 MDVIEW_PROBE="$D/probe-lists.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 600); do [[ -f $R/out/$name.lists.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.lists.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.lists.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.lists.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
@@ -253,7 +253,7 @@ case "${1:-}" in
     app 90 MDVIEW_PROBE="$D/probe-blocks.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for v in selected heading; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.blocks.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/blocks-$v.png"; done
     for _ in $(seq 500); do [[ -f $R/out/$name.blocks.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.blocks.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.blocks.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.blocks.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
@@ -265,13 +265,13 @@ case "${1:-}" in
       for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.shots.json ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/shot-$v.png"; echo "$R/out/shot-$v.png"
     done
     for _ in $(seq 200); do [[ -f $R/out/$name.shots.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     jq -r '.error // "ok"' "$R/out/$name.shots.json" ;;
   more)
     name=more.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{picture,more}.json "$R/out/snapshot.png"
     app 90 MDVIEW_PROBE="$D/probe-more.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 500); do [[ -f $R/out/$name.more.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
     [[ -f $R/out/$name.more.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.more.json"
@@ -284,7 +284,7 @@ case "${1:-}" in
     magick -size 20x20 xc:'#e5484d' "$R/drop.png"; echo text > "$R/notes.txt"
     app 90 MDVIEW_PROBE="$D/probe-dnd.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 500); do [[ -f $R/out/$name.dnd.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
     [[ -f $R/out/$name.dnd.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.dnd.json"
@@ -301,7 +301,7 @@ case "${1:-}" in
       for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.prefs.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/prefs-$v.png"
     done
     for _ in $(seq 500); do [[ -f $R/out/$name.prefs.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.prefs.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.prefs.json"
@@ -311,7 +311,7 @@ case "${1:-}" in
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".zoom.json
     app 60 MDVIEW_PROBE="$D/probe-zoom.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 400); do [[ -f $R/out/$name.zoom.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.zoom.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.zoom.json"
@@ -324,7 +324,7 @@ case "${1:-}" in
     app 90 MDVIEW_PROBE="$D/probe-adjust.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
     for _ in $(seq 400); do [[ -f $R/out/note.md.shot-adjust.json || -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/adjust.png"
     for _ in $(seq 400); do [[ -f $R/out/note.md.adjust.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/note.md.adjust.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json" | grep -qv '^ok' ;;
@@ -332,7 +332,7 @@ case "${1:-}" in
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".textmenu.json
     app 60 MDVIEW_PROBE="$D/probe-textmenu.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 300); do [[ -f $R/out/$name.textmenu.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.textmenu.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.textmenu.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.textmenu.json" | grep -qv '^ok' ;;
@@ -343,7 +343,7 @@ case "${1:-}" in
       app 90 MDVIEW_PROBE="$D/probe-edges.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
       if [[ $name == m5.md ]]; then for _ in $(seq 400); do [[ -f $R/out/$name.narrow.json || -f $R/out/$name.edges.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/edges-narrow.png"; fi
       for _ in $(seq 600); do [[ -f $R/out/$name.edges.json ]] && break; sleep 0.1; done
-      pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+      pkill -f "^$APP" 2>/dev/null; sleep 0.3
       [[ -f $R/out/$name.edges.json ]] || { echo "FAIL $name: no report"; tail -5 "$R/app.log"; rc=1; continue; }
       jq -r --arg n "$name" '(.steps[] | sub("^(?<a>ok   |FAIL )"; "\(.a)\($n): ")), (.error // empty)' "$R/out/$name.edges.json"
       cmp -s <(jq -j '.saved // ""' "$R/out/$name.edges.json") "$R/work/$name" && echo "ok   $name: the file on disk is the saved document" || { echo "FAIL $name: the file on disk differs from the saved document"; rc=1; }
@@ -358,7 +358,7 @@ case "${1:-}" in
     for _ in $(seq 300); do [[ -f $R/out/$name.wantimage.json || -f $R/out/$name.clip.json ]] && break; sleep 0.1; done
     magick -size 40x30 xc:'#3b82f6' "$R/out/clip.png" && WAYLAND_DISPLAY="$(wl)" wl-copy -t image/png < "$R/out/clip.png"
     for _ in $(seq 500); do [[ -f $R/out/$name.clip.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     [[ -f $R/out/$name.clip.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.clip.json"
@@ -372,7 +372,7 @@ case "${1:-}" in
       for _ in $(seq 150); do [[ -f $R/out/$name.$v.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/link-$v.png"
     done
     for _ in $(seq 200); do [[ -f $R/out/$name.link.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.link.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.link.json"
     ! jq -r '.steps[], (.error // "ok")' "$R/out/$name.link.json" | grep -qv '^ok' ;;
@@ -382,7 +382,7 @@ case "${1:-}" in
       name=$(basename "$f"); rm -rf "$R/work"; mkdir -p "$R/work"; cp "$f" "$R/work/$name"; rm -f "$R/out/$name.perf.json"
       app 240 MDVIEW_PROBE="$D/probe-perf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
       for _ in $(seq 2300); do [[ -f $R/out/$name.perf.json ]] && break; sleep 0.1; done
-      pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+      pkill -f "^$APP" 2>/dev/null; sleep 0.3
       [[ -f $R/out/$name.perf.json ]] && jq -c . "$R/out/$name.perf.json" || echo "{\"file\":\"$name\",\"error\":\"no report\"}"
       cmp -s "$f" "$R/work/$name" || echo "{\"file\":\"$name\",\"error\":\"the file on disk changed\"}"
     done ;;
@@ -392,14 +392,14 @@ case "${1:-}" in
       name=$(basename "$f"); rm -rf "$R/work"; mkdir -p "$R/work"; cp "$f" "$R/work/$name"; rm -f "$R/out/$name.typing.json"
       app 60 MDVIEW_PROBE="$D/probe-typing.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
       for _ in $(seq 400); do [[ -f $R/out/$name.typing.json ]] && break; sleep 0.1; done
-      pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+      pkill -f "^$APP" 2>/dev/null; sleep 0.3
       [[ -f $R/out/$name.typing.json ]] && jq -c . "$R/out/$name.typing.json" || echo "{\"file\":\"$name\",\"error\":\"no report\"}"
     done ;;
   native)
     name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out"/*.native.json
     app 40 MDVIEW_PROBE="$D/probe-native.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 200); do ls "$R/out"/*.native.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     ls "$R/out"/*.native.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.native.json
     ! jq -r '.steps[], (.error // "ok")' "$R/out"/*.native.json | grep -qv '^ok' ;;
@@ -410,7 +410,7 @@ case "${1:-}" in
     rm -f "$R/out"/*.folder.json
     app 90 MDVIEW_PROBE="$D/probe-folder.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
     for _ in $(seq 500); do ls "$R/out"/*.folder.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.folder.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.folder.json
@@ -425,7 +425,7 @@ case "${1:-}" in
       for _ in $(seq 600); do [[ -n $(ls "$R/out"/*.shot-$v.json "$R/out"/*.tabs.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/tabs-$v.png"
     done
     for _ in $(seq 300); do ls "$R/out"/*.tabs.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     ls "$R/out"/*.tabs.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.tabs.json
     echo "kept: $(jq -c '.tabs | to_entries[-1].value | {tabs: (.paths | map(split("/")[-1])), active}' "$st")"
@@ -439,7 +439,7 @@ case "${1:-}" in
       for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.shot-$v.json "$R/out"/*.ov.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/overview-$v.png"
     done
     for _ in $(seq 200); do ls "$R/out"/*.ov.json >/dev/null 2>&1 && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.ov.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json
@@ -451,7 +451,7 @@ case "${1:-}" in
       for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
     done
     for _ in $(seq 300); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"
@@ -461,7 +461,7 @@ case "${1:-}" in
     app 90 MDVIEW_PROBE="$D/probe-columns.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 400); do [[ -f $R/out/$name.shot.json || -f $R/out/$name.columns.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/columns.png"
     for _ in $(seq 400); do [[ -f $R/out/$name.columns.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.columns.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.columns.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.columns.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
@@ -470,26 +470,27 @@ case "${1:-}" in
     name=callout.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Callouts\n\n> [!info]\n> An info.\n\nPlain text.\n\nEnd.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 60 MDVIEW_PROBE="$D/probe-callout.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 300); do [[ -f $R/out/$name.callout.json ]] && break; sleep 0.1; done
-    pkill -f "python3 $APP" 2>/dev/null
+    pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.callout.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json" | grep -qv '^ok' ;;
   regress)
-    # The page as it is on BASE (viewer.js, viewer.css), started by this checkout's mdview.py for the probe hook.
+    # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.
+    # (A BASE from before the move to Tauri posts to WebKit's message handler: pointed at MdHost here.)
     shift; base="${BASE:-main}"; B="$R/base"; rm -rf "$B"; mkdir -p "$B"; top=$(git -C "$D" rev-parse --show-toplevel); rel=$(git -C "$D" rev-parse --show-prefix)
     for f in viewer.js viewer.css; do git -C "$top" show "$base:${rel%dev/}$f" > "$B/$f"; done
-    cp "$D/../mdview.py" "$B/"; ln -s "$D/../vendor" "$B/vendor"; echo 'window.MdStrings = { t: (k) => k };' > "$B/strings.js"
+    sed -i 's/window\.webkit?\.messageHandlers?\.mdview?\.postMessage(/window.MdHost?.post(/g' "$B/viewer.js"; ln -s "$D/../vendor" "$B/vendor"; echo 'window.MdStrings = { t: (k) => k };' > "$B/strings.js"
     fail=0
     for f in "$@"; do
       name=$(basename "$f")
       for side in base new; do
         rm -rf "$R/work"; mkdir -p "$R/work"; cp "$f" "$R/work/$name"; rm -f "$R/out/$name".{read,edit,report}.json
-        [[ $side == base ]] && APP="$B/mdview.py" || APP="$D/../mdview.py"
-        app 60 MDVIEW_PROBE="$D/probe-baseline.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+        [[ $side == base ]] && assets="$B" || assets="$D/.."
+        app 60 MDVIEW_ASSETS="$assets" MDVIEW_PROBE="$D/probe-baseline.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
         for _ in $(seq 250); do [[ -f $R/out/$name.read.json ]] && break; sleep 0.1; done; sleep 0.8; shot "$R/out/$name.$side.read.png"
         for _ in $(seq 250); do [[ -f $R/out/$name.edit.json ]] && break; sleep 0.1; done; sleep 0.8; shot "$R/out/$name.$side.edit.png"
         for _ in $(seq 300); do [[ -f $R/out/$name.report.json ]] && break; sleep 0.1; done
-        pkill -f "python3 $APP" 2>/dev/null; sleep 0.3
+        pkill -f "^$APP" 2>/dev/null; sleep 0.3
         mv "$R/out/$name.report.json" "$R/out/$name.$side.report.json" 2>/dev/null; cp "$R/work/$name" "$R/out/$name.$side.saved"
       done
       same=yes
@@ -503,6 +504,6 @@ case "${1:-}" in
     done
     exit $fail ;;
   shot) shot "$R/$2.png" && echo "$R/$2.png" ;;
-  stop) pkill -f "python3 $APP" 2>/dev/null; HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl dispatch "hl.dsp.exit()" >/dev/null 2>&1; rm -f "$R/sig"; echo stopped ;;
+  stop) pkill -f "^$APP" 2>/dev/null; HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl dispatch "hl.dsp.exit()" >/dev/null 2>&1; rm -f "$R/sig"; echo stopped ;;
   *) sed -n '2,12p' "$0" ;;
 esac

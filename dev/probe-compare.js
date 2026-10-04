@@ -2,7 +2,7 @@
  * like the reading view? Measures every word and every box in both and
  * reports where they differ. Evaluated by mdview.py (MDVIEW_PROBE). */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const BOXES = "hr, img, input, pre, blockquote, table, th, td, li, h1, h2, h3, h4, h5, h6, mark, .tag, code, .callout, " +
     ".callout-title, .callout-content, .code-block, .math-block, .mermaid-block, details, summary, .katex, .transclusion, dl, dt, dd, " +

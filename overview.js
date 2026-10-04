@@ -178,7 +178,7 @@
     try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
     const box = document.createElement("template");
     box.innerHTML = html;
-    const dir = "file://" + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
+    const dir = (window.MdHost?.files || "file://") + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
     for (const x of box.content.querySelectorAll("[id], [data-line]")) { x.removeAttribute("id"); x.removeAttribute("data-line"); }
     for (const x of box.content.querySelectorAll("script, iframe, video, audio, .code-tools")) x.remove();
     for (const img of box.content.querySelectorAll("img")) {

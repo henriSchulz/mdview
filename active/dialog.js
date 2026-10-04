@@ -418,14 +418,14 @@
       dlg.classList.remove("sizing");
       const prefs = { dialogWidth: dlg.offsetWidth, dialogHeight: dlg.offsetHeight };
       window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
-      window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "prefs", prefs }));
+      window.MdHost?.post(JSON.stringify({ type: "prefs", prefs }));
     };
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
   });
   grip.addEventListener("dblclick", () => {
     window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 0, dialogHeight: 0 };
-    window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "prefs", prefs: { dialogWidth: 0, dialogHeight: 0 } }));
+    window.MdHost?.post(JSON.stringify({ type: "prefs", prefs: { dialogWidth: 0, dialogHeight: 0 } }));
     applySize();
   });
   // what a dialog held when it was left with Esc: offered again the next time the same block is opened

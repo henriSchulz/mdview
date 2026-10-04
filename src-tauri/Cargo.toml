@@ -1,0 +1,41 @@
+[package]
+name = "mdview"
+version = "0.1.0"
+description = "Markdown Notes — notes in plain Markdown: read, write, formulas, PDFs"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "mdview"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+regex = "1"
+toml = "0.8"
+notify = "6"
+trash = "5"
+ureq = "2"
+base64 = "0.22"
+percent-encoding = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+webkit2gtk = { version = "2.0", features = ["v2_40"] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+arboard = "3"
+
+[profile.release]
+opt-level = 2
+lto = "thin"
+strip = true

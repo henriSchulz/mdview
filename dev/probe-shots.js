@@ -2,7 +2,7 @@
  * one after the other, for looking at (the rig takes a screenshot at each
  * step). Works on a copy of tests/fixtures/shots.md; nothing is checked. */
 (async () => {
-  const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const shot = async (name) => { await sleep(500); post("probe", { name: "shot-" + name, text: "{}" }); await sleep(1500); };
   const o = {};

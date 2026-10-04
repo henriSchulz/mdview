@@ -257,7 +257,7 @@
           const right = Math.max(...rs.map((r) => r.right)), bottom = Math.max(...rs.map((r) => r.bottom));
           preview.classList.add("shooting");
           setTimeout(() => preview.classList.remove("shooting"), 900);
-          requestAnimationFrame(() => requestAnimationFrame(() => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type: "snapshot", x: left, y: top, w: right - left, h: bottom - top, said: T("dialog.pictureCopied") }))));
+          requestAnimationFrame(() => requestAnimationFrame(() => window.MdHost?.post(JSON.stringify({ type: "snapshot", x: left, y: top, w: right - left, h: bottom - top, said: T("dialog.pictureCopied") }))));
         };
         const box = el("button", { class: "btn", type: "button" }, esc(T("dialog.box")));
         box.onmousedown = (e) => e.preventDefault();

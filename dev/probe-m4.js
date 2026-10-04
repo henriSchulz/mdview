@@ -1,7 +1,7 @@
 /* Development probe (dev/rig.sh m4): tables, footnotes and the clipboard in
  * the running app. Works on a copy of tests/fixtures/m4.md. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
@@ -203,7 +203,7 @@
     ok("everything copied: the file's Markdown and its HTML", got.text.includes("|-------|----:|\n| apple |   3 |") && got.text.includes("[^1]: The first note.") && /<table/.test(got.html) && /<strong>/.test(got.html), [got.text.slice(0, 200), got.html.slice(0, 200)]);
     // dragging a row and a column by their handles (real pointer events, through the application)
     {
-      const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+      const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
       const at = (kind, x, y) => post("probe-pointer", { kind, x, y });
       const before = md();
       const pearTd = [...view.dom.querySelectorAll("table")[0].querySelectorAll("td")].find((c) => c.textContent === "pear");

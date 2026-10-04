@@ -8,7 +8,7 @@
 (() => {
   const A = window.MdActive, T = window.MdStrings.t;
   const { esc, toast } = window.MdView.core;
-  const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
+  const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   let live = null; // the open dialog: { id, onResult, onImage }
   let nextId = 1;
 

@@ -2,8 +2,8 @@
  * typing. The model is replaced by a fixed answer (MDVIEW_AI_FAKE), or — with
  * `dev/rig.sh ghost real` — asked for real. Works on a copy of m5.md. */
 (async () => {
-  const out = (name, o) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
-  const post = (type, data = {}) => window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type, ...data }));
+  const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 25) { if (f()) return t; await sleep(25); } return -1; };
   const o = { steps: [] };
