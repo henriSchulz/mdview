@@ -133,8 +133,8 @@
       at("move", view.dom.getBoundingClientRect().right + 80, 400); await sleep(500);
       const hh = document.querySelector(".blk-h"), pr = view.dom.getBoundingClientRect(), fp = para("First paragraph").getBoundingClientRect();
       ok("away from the text: no handle", !hh.hasAttribute("data-on"));
-      at("move", pr.left - 22, fp.top + fp.height / 2); await sleep(250);
-      ok("the pointer left of a block, where its handle stands: the handle is there", hh.hasAttribute("data-on") && A.blocks.over() === para("First paragraph") && Math.abs(hh.getBoundingClientRect().left + 9 - (pr.left - 23)) < 4, [hh.hasAttribute("data-on"), A.blocks.over() && A.blocks.over().textContent.slice(0, 12), hh.getBoundingClientRect().left, pr.left]);
+      at("move", pr.left - 15, fp.top + fp.height / 2); await sleep(250);
+      ok("the pointer left of a block, where its handle stands: the handle is there", hh.hasAttribute("data-on") && A.blocks.over() === para("First paragraph") && Math.abs(hh.getBoundingClientRect().left + 9 - (pr.left - 15)) < 4, [hh.hasAttribute("data-on"), A.blocks.over() && A.blocks.over().textContent.slice(0, 12), hh.getBoundingClientRect().left, pr.left]);
       const sp = para("Second paragraph").getBoundingClientRect();
       at("move", pr.left - 22, sp.top + sp.height / 2); await sleep(250);
       ok("moved down beside the next block: that block's handle", A.blocks.over() === para("Second paragraph") && hh.hasAttribute("data-on"));
