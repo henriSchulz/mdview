@@ -32,6 +32,9 @@ body.swapping #active { opacity: 0; transition: opacity calc(var(--dur-fast) * 0
  * in a note of ordinary size, on every click on a formula or a picture. The highlight is hidden
  * on the selected node itself instead.) */
 .pm .ProseMirror-selectednode::selection, .pm .ProseMirror-selectednode *::selection { background: transparent; }
+/* (the browser's selection reaches to the start of what follows the selected block, and showed as a
+ * strip across its first line) */
+.pm .ProseMirror-selectednode + *::selection, .pm .ProseMirror-selectednode + * *::selection { background: transparent; }
 img.ProseMirror-separator { display: inline !important; border: none !important; margin: 0 !important; }
 
 /* editing */
@@ -706,7 +709,7 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
 .pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px -50px; z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (-50px: its handle stands 46 out) */
 /* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
-.pm .blk-sel::selection, .pm .blk-sel *::selection { background: transparent; }
+.pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
 .pm .blk-sel { caret-color: transparent; }
 .pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: var(--blk-box); }
 .pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }

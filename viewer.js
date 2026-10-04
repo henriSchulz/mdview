@@ -606,6 +606,7 @@
   loader.setAttribute("aria-hidden", "true");
   document.body.appendChild(loader);
   let goingAt = 0, goingTimer = 0, pendingRender = null, renderFrame = 0;
+  let modeBeforePdf = null; // the mode a note was in when a PDF took its place
   function going(path) {
     if (!current || path === current.path) return;
     goingAt = performance.now();
@@ -633,6 +634,7 @@
   function renderNow(p) {
     const prev = current;
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
+      if (mode !== "read") modeBeforePdf = mode; // (the note after the PDF is in this mode again)
       if (mode === "edit") { flushSave(); leaveEditNow(); }
       if (mode === "active") leaveActiveNow();
       p.text = p.raw = "";
@@ -649,6 +651,12 @@
     current = p;
     if (!p.error) trailPush(p.path, p.text);
     // the mode the app was last used in (once, for the window's first note)
+    // back from a PDF: the mode the note before it was in (a PDF has no modes; it only looked like a change to reading)
+    if (prev && prev.kind === "pdf") {
+      const back = modeBeforePdf;
+      modeBeforePdf = null;
+      if (back && !p.error && !(back === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") setMode(back); }, 0);
+    }
     if (p.startMode && p.startMode !== "read" && !p.error && !(p.startMode === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") setMode(p.startMode); }, 0);
     document.title = p.name || "Markdown Notes";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images
