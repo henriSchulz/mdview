@@ -2221,6 +2221,133 @@
   });
   ctx.addEventListener("contextmenu", (e) => e.preventDefault());
 
+  /* --- A choice among a few: a button that says what is chosen, and the app's own menu for the
+   * others (the toolkit's select and its menu look like nothing else here). The <select> stays in
+   * the page, unseen, and holds the value: what sets it and sends "change" sets the button too.
+   * And a field with suggestions (combo): the same menu under the field, narrowed by what is typed. */
+  const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  const pick = document.createElement("div");
+  pick.id = "pickmenu";
+  pick.className = "ui-menu surface actmenu has-checks";
+  pick.setAttribute("role", "menu");
+  pick.tabIndex = -1;
+  document.body.appendChild(pick);
+  let pickFor = null, pickItems = [], pickHl = -1;
+  const pickOpen = () => pick.hasAttribute("data-open");
+  const pickSetHl = (i, scroll) => { pickHl = i; pickItems.forEach((b, k) => b.classList.toggle("hl", k === i)); if (scroll && pickItems[i]) pickItems[i].scrollIntoView({ block: "nearest" }); };
+  function closePick(refocus) {
+    if (!pickOpen()) return false;
+    delete pick.dataset.open;
+    const f = pickFor;
+    pickFor = null;
+    if (f && f.button) { f.button.setAttribute("aria-expanded", "false"); if (refocus) f.button.focus({ preventScroll: true }); }
+    return true;
+  }
+  function pickShow(owner, anchor, entries, current) {
+    pick.innerHTML = entries.map(([v, text]) => `<button class="menu-item" role="menuitemradio" type="button" aria-checked="${v === current}" data-v="${esc(v)}"><span class="menu-check">${TICK}</span><span class="menu-label">${esc(text)}</span></button>`).join("");
+    pickItems = [...pick.children];
+    pickFor = owner;
+    pick.classList.toggle("no-checks", !!owner.input); // (a field's suggestions: nothing to tick)
+    const r = anchor.getBoundingClientRect();
+    pick.style.minWidth = Math.round(r.width) + "px";
+    pick.style.maxHeight = "";
+    const room = Math.max(innerHeight - r.bottom, r.top) - 16;
+    pick.style.maxHeight = Math.min(room, 320) + "px";
+    const h = pick.offsetHeight, w = Math.max(pick.offsetWidth, r.width), below = r.bottom + 4 + h <= innerHeight - 8;
+    pick.style.setProperty("--origin", below ? "top right" : "bottom right");
+    pick.style.left = Math.max(8, Math.min(owner.button ? r.right - w : r.left, innerWidth - w - 8)) + "px";
+    pick.style.top = (below ? r.bottom + 4 : Math.max(8, r.top - 4 - h)) + "px";
+    pick.dataset.open = "";
+  }
+  function pickChoose(i) {
+    const item = pickItems[i], owner = pickFor;
+    if (!item || !owner) return;
+    const flash = motionMs("--flash-duration", 70); // blink once, then act — like NSMenu
+    item.classList.remove("hl");
+    setTimeout(() => item.classList.add("hl"), flash);
+    setTimeout(() => { closePick(true); owner.take(item.dataset.v); }, flash * 2);
+  }
+  pick.addEventListener("mousedown", (e) => { if (pickFor && pickFor.input) e.preventDefault(); }); // (a field keeps the focus)
+  pick.addEventListener("mousemove", (e) => { const i = pickItems.indexOf(e.target.closest(".menu-item")); if (i !== pickHl) pickSetHl(i); });
+  pick.addEventListener("mouseleave", () => { if (!(pickFor && pickFor.input)) pickSetHl(-1); });
+  pick.addEventListener("click", (e) => pickChoose(pickItems.indexOf(e.target.closest(".menu-item"))));
+  pick.addEventListener("contextmenu", (e) => e.preventDefault());
+  // the keys, whether the menu has the focus (a button's) or the field has it (a combo's)
+  function pickKey(e) {
+    const n = pickItems.length;
+    if (e.key === "ArrowDown") pickSetHl(pickHl < 0 ? 0 : Math.min(n - 1, pickHl + 1), true);
+    else if (e.key === "ArrowUp") pickSetHl(pickHl < 0 ? n - 1 : Math.max(0, pickHl - 1), true);
+    else if (e.key === "Home" && !pickFor.input) pickSetHl(0, true);
+    else if (e.key === "End" && !pickFor.input) pickSetHl(n - 1, true);
+    else if (e.key === "Enter" || (e.key === " " && !pickFor.input)) { if (pickHl < 0) return false; pickChoose(pickHl); }
+    else if (e.key === "Escape" || (e.key === "Tab" && !pickFor.input)) closePick(true);
+    else return false;
+    e.preventDefault(); e.stopPropagation();
+    return true;
+  }
+  pick.addEventListener("keydown", (e) => { e.stopPropagation(); pickKey(e); });
+  // a press beside it closes it and does nothing else
+  addEventListener("pointerdown", (e) => {
+    if (!pickOpen() || pick.contains(e.target)) return;
+    const own = pickFor && (pickFor.button || pickFor.input).contains(e.target);
+    if (own && pickFor.input) return;
+    closePick(false);
+    if (own) return;
+    e.preventDefault(); e.stopPropagation();
+    const eat = (c) => { c.preventDefault(); c.stopPropagation(); };
+    addEventListener("click", eat, { capture: true, once: true });
+    setTimeout(() => removeEventListener("click", eat, true), 500);
+  }, true);
+  function popup(select) {
+    const wrap = document.createElement("span"), button = document.createElement("button");
+    wrap.className = "pop-wrap";
+    button.className = "pop"; button.type = "button";
+    button.setAttribute("aria-haspopup", "menu"); button.setAttribute("aria-expanded", "false");
+    if (select.getAttribute("aria-label")) button.setAttribute("aria-label", select.getAttribute("aria-label"));
+    if (select.dataset.tip) { button.dataset.tip = select.dataset.tip; delete select.dataset.tip; }
+    button.innerHTML = `<span class="pop-text"></span><span class="pop-chev">${ICON.updown}</span>`;
+    const text = button.firstChild;
+    const owner = { button, take: (v) => { if (select.value !== v) { select.value = v; select.dispatchEvent(new Event("change", { bubbles: true })); } } };
+    wrap.sync = () => { text.textContent = select.selectedOptions[0] ? select.selectedOptions[0].textContent : ""; };
+    select.hidden = true;
+    select.tabIndex = -1;
+    select.addEventListener("change", wrap.sync);
+    const open = () => {
+      pickShow(owner, button, [...select.options].map((o) => [o.value, o.textContent]), select.value);
+      pickSetHl(pickItems.findIndex((b) => b.getAttribute("aria-checked") === "true"));
+      button.setAttribute("aria-expanded", "true");
+      pick.focus({ preventScroll: true });
+    };
+    button.addEventListener("click", () => { if (pickOpen() && pickFor === owner) closePick(true); else open(); });
+    button.addEventListener("keydown", (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); open(); } });
+    if (select.parentNode) select.parentNode.insertBefore(wrap, select);
+    wrap.append(select, button);
+    wrap.sync();
+    return wrap;
+  }
+  // a field that offers values while it is typed in: those that begin with what is typed, then those that hold it
+  function combo(input, values) {
+    const owner = { input, take: (v) => { input.value = v; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); } };
+    const show = () => {
+      const q = input.value.trim().toLowerCase(), all = values();
+      const hits = q ? [...all.filter((v) => v.toLowerCase().startsWith(q)), ...all.filter((v) => !v.toLowerCase().startsWith(q) && v.toLowerCase().includes(q))] : all;
+      if (!hits.length || (hits.length === 1 && hits[0].toLowerCase() === q)) { if (pickFor === owner) closePick(false); return; }
+      pickShow(owner, input, hits.slice(0, 60).map((v) => [v, v]), input.value.trim());
+      pickSetHl(-1);
+      pick.scrollTop = 0;
+    };
+    input.removeAttribute("list");
+    input.setAttribute("role", "combobox"); input.setAttribute("aria-autocomplete", "list");
+    input.addEventListener("input", (e) => { if (e.isTrusted || document.activeElement === input) show(); });
+    input.addEventListener("mousedown", () => { if (!(pickOpen() && pickFor === owner)) setTimeout(show); });
+    input.addEventListener("blur", () => { if (pickFor === owner) closePick(false); });
+    input.addEventListener("keydown", (e) => {
+      if (pickOpen() && pickFor === owner) { pickKey(e); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); show(); }
+    }, true);
+    return input;
+  }
+
   /* --- the menu for text everywhere else: a field, a title typed in place, the source editor, the
    * reading view — wherever no part of the app has a menu of its own. The toolkit's menu is never
    * shown (mdview.py); this one looks as the others do. It takes no focus, so the selection it
@@ -2629,7 +2756,7 @@
   window.MdView = { prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

@@ -893,8 +893,24 @@ body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [dat
 .menu-item.danger .menu-icon { color: inherit; }
 .menu-item.hl .menu-icon { color: var(--on-accent, #fff); }
 /* the menu for text where no part has one of its own (viewer.js) */
-#textmenu { position: fixed; z-index: 62; min-width: 180px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
-#textmenu:not([data-open]) { pointer-events: none; }
+#textmenu, #pickmenu { position: fixed; z-index: 62; min-width: 180px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+#textmenu:not([data-open]), #pickmenu:not([data-open]) { pointer-events: none; }
+/* a choice among a few (viewer.js popup, combo): the button, and the menu with a tick at what is chosen */
+#pickmenu { z-index: 64; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+#pickmenu .menu-check { display: grid; place-items: center; flex: none; width: 12px; height: 12px; margin-left: -2px; }
+#pickmenu.no-checks .menu-check { display: none; }
+#pickmenu .menu-check svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+#pickmenu .menu-item:not([aria-checked="true"]) > .menu-check svg { visibility: hidden; }
+.pop-wrap { display: inline-flex; min-width: 0; }
+.pop { display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box; max-width: 100%; height: var(--control-height, 28px); padding: 0 6px 0 10px; border: 0; border-radius: var(--radius-control); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.06); color: var(--fg); font: 400 13px var(--ui); text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+body[data-mode="dark"] .pop { background: color-mix(in srgb, var(--fg) 12%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12); }
+.pop:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+.pop:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.pop-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-chev { display: grid; place-items: center; flex: none; width: 14px; color: var(--fg2); }
+.pop-chev svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pop-chev .sf { font-size: 11px; }
 #textmenu .menu-item:disabled { color: var(--fg3); }
 #textmenu .menu-item:disabled .menu-key { color: var(--fg3); }
 /* a shortcut, as macOS writes it (⌃⇧V) */

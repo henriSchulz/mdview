@@ -140,10 +140,10 @@
       anchor: () => view.nodeDOM(pos),
       key: node.attrs.raw,
       build(body, tools, info) {
-        lang = el("input", { class: "lp-field dlg-lang", type: "text", list: "dlg-langs", placeholder: T("dialog.nolang"), "aria-label": T("dialog.language"), spellcheck: "false", autocomplete: "off" });
+        lang = el("input", { class: "lp-field dlg-lang", type: "text", placeholder: T("dialog.nolang"), "aria-label": T("dialog.language"), spellcheck: "false", autocomplete: "off" });
         lang.value = c.lang;
-        const list = el("datalist", { id: "dlg-langs" }, LANGS().map((l) => `<option value="${esc(l)}"></option>`).join(""));
-        tools.append(lang, list);
+        window.MdView.core.combo(lang, LANGS); // (the languages, offered in the app's own menu while it is typed in)
+        tools.append(lang);
         if (c.rest.trim()) {
           rest = el("input", { class: "lp-field dlg-rest", type: "text", "aria-label": T("dialog.info"), spellcheck: "false", autocomplete: "off" });
           rest.value = c.rest.trim();

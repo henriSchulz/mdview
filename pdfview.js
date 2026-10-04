@@ -506,6 +506,7 @@
     });
     v.bar.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // the selection stays
     v.bar.querySelector(".pdf-format").addEventListener("change", (e) => setPref({ pdfFormat: e.target.value }));
+    window.MdView.core.popup(v.bar.querySelector(".pdf-format")); // (a button with the app's own menu)
     const inp = v.bar.querySelector(".pdf-page-in");
     inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { const n = parseInt(inp.value, 10); if (n >= 1) go(n, null, true); inp.blur(); } else if (e.key === "Escape") { inp.value = pageNow(true); inp.blur(); } });
     inp.addEventListener("focus", () => inp.select());

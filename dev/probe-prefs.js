@@ -60,8 +60,8 @@
       // page's block selection must not take it)
       {
         st().querySelector('.st-nav[data-page="general"]').click(); await sleep(300);
-        const row = st().querySelector('.pf-row[data-key="startMode"]'), pop = row.querySelector(".pf-pop"), sel = row.querySelector("select"), r = pop.getBoundingClientRect();
-        const menu = () => document.getElementById("st-menu");
+        const row = st().querySelector('.pf-row[data-key="startMode"]'), pop = row.querySelector(".pop"), sel = row.querySelector("select"), r = pop.getBoundingClientRect();
+        const menu = () => document.getElementById("pickmenu");
         ok("a choice shows what is chosen, on a button — no control of the toolkit's", pop.textContent.trim() === sel.selectedOptions[0].textContent && sel.hidden && r.width > 100, pop.textContent);
         for (const kind of ["move", "down", "up"]) { post("probe-pointer", { kind, x: r.left + 20, y: r.top + 10 }); await sleep(180); }
         await sleep(300);
