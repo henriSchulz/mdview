@@ -56,6 +56,19 @@
       // the wheel belongs to the window: the note under it does not scroll
       const y0 = window.scrollY, wheel = (el, dy) => { const e = new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
       ok("the wheel beside the window, on its head and at the end of its list moves nothing under it", wheel(document.getElementById("settings-scrim"), 120) && wheel(st().querySelector(".st-head"), 120) && wheel(st().querySelector(".st-page[data-on] .pf-row"), 120) && window.scrollY === y0);
+      // a press on a choice is the choice's own (the page's block selection must not take it: its menu would never open)
+      {
+        st().querySelector('.st-nav[data-page="general"]').click(); await sleep(300);
+        const sel = st().querySelector(".st-page[data-on] select"), r = sel.getBoundingClientRect();
+        let prevented = null;
+        const spy = (e) => { prevented = e.defaultPrevented; };
+        window.addEventListener("mousedown", spy);
+        for (const kind of ["move", "down", "up"]) { post("probe-pointer", { kind, x: r.left + 20, y: r.top + 10 }); await sleep(180); }
+        window.removeEventListener("mousedown", spy);
+        ok("a press with the pointer on a choice reaches it", prevented === false && document.activeElement === sel, prevented);
+        key(sel, "Escape"); await sleep(400); // (its menu, and with it the window)
+        key(view.dom, ",", { ctrlKey: true }); await sleep(450);
+      }
       // the key for the model: asked of the application, never shown whole
       st().querySelector('.st-nav[data-page="ai"]').click(); await sleep(400);
       const keyRow = st().querySelector('.pf-row[data-key="aiKey"]'), field = keyRow.querySelector("input"), state = keyRow.querySelector(".pf-state");
