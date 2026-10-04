@@ -115,7 +115,69 @@
     // what is to be clicked inside stays the page's business (copy button, fold marker, player)
     return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button, summary, input, audio, video, a") };
   };
+  /* A quote as its node says (schema.js). A callout's title is typed in where it stands: a click
+   * puts the caret into it and shows its Markdown, all of it selected; Enter or leaving it writes
+   * it (the kind's own name, or nothing: no title of its own), Esc leaves it as it was. */
+  function quoteView(node, view, getPos) {
+    const made = PM.model.DOMSerializer.renderSpec(document, node.type.spec.toDOM(node));
+    const dom = made.dom, contentDOM = made.contentDOM || made.dom;
+    const SAME = ["deco", "color", "callout", "title"];
+    const nv = {
+      dom, contentDOM,
+      update(n) { // (another look: built anew)
+        if (n.type !== node.type || SAME.some((a) => n.attrs[a] !== node.attrs[a])) return false;
+        if (n.attrs.line == null) dom.removeAttribute("data-line"); else dom.setAttribute("data-line", n.attrs.line);
+        node = n;
+        return true;
+      },
+    };
+    if (!node.attrs.callout) return nv;
+    const C = window.MdView.core, text = dom.querySelector(".callout-title-text"), bar = text.parentElement;
+    const own = () => C.callout.title(node.attrs.callout.toLowerCase(), null); // what it is called without a title
+    const shown = text.innerHTML;
+    let editing = false;
+    text.contentEditable = "plaintext-only";
+    text.spellcheck = false;
+    text.setAttribute("role", "textbox");
+    text.setAttribute("aria-label", window.MdStrings.t("callout.title"));
+    const leave = (write) => {
+      if (!editing) return;
+      editing = false;
+      const typed = text.textContent.replace(/\s+/g, " ").trim(), title = !typed || typed === own() ? null : typed;
+      text.innerHTML = shown;
+      if (write && view.editable && title !== (node.attrs.title || null)) {
+        const pos = getPos();
+        view.dispatch(view.state.tr.setNodeMarkup(pos, null, { ...view.state.doc.nodeAt(pos).attrs, title }).setMeta("step", true));
+      }
+    };
+    text.addEventListener("focus", () => {
+      if (!view.editable) { text.blur(); return; }
+      editing = true;
+      text.textContent = node.attrs.title || own();
+      const r = document.createRange();
+      r.selectNodeContents(text);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    });
+    text.addEventListener("blur", () => leave(true));
+    text.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== "Escape" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const pos = getPos(); // (writing it builds the callout anew: asked before)
+      leave(e.key !== "Escape");
+      // on into the text below the title
+      if (pos != null && pos < view.state.doc.content.size) view.dispatch(view.state.tr.setSelection(PM.state.Selection.near(view.state.doc.resolve(pos + 1), 1)));
+      view.focus();
+    });
+    nv.stopEvent = (e) => bar.contains(e.target);
+    nv.ignoreMutation = (m) => bar.contains(m.target);
+    nv.destroy = () => { editing = false; };
+    return nv;
+  }
   const nodeViews = {
+    blockquote: quoteView,
     island: htmlView("div", "isl"),
     iatom: htmlView("span", "ia"),
     // in a wrapper, so the <img> inside can change places with the reading view's

@@ -16,7 +16,7 @@ function open(text, needle) {
     dispatch(tr) { v.state = v.state.apply(tr); },
     focus() {}, hasFocus: () => true,
     md: () => A.document.serialize(d, v.state.doc, false),
-    pick(group, key) { A.slash.entries(v).find((e) => e && e.key === group).items.find((e) => e.key === key).act(v); },
+    pick(group, key) { A.slash.entries(v).find((e) => e && e.key === group).items.find((e) => e && e.key === key).act(v); },
   };
   let at = -1;
   v.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes(needle)) at = pos + n.text.indexOf(needle) + needle.length; });
@@ -72,7 +72,7 @@ test("the / menu: decorations and colours", () => {
   assert.equal(v.md(), "one\n\n> [!block|green]\n> two\n");
   v.pick("slash.deco", "slash.focus"); // a bar as well: it is both, the colour stays
   assert.equal(v.md(), "one\n\n> [!block-focus|green]\n> two\n");
-  assert.equal(A.slash.entries(v).find((e) => e && e.key === "slash.deco").items.filter((e) => e.checked).map((e) => e.key).join(), "slash.block,slash.focus");
+  assert.equal(A.slash.entries(v).find((e) => e && e.key === "slash.deco").items.filter((e) => e && e.checked).map((e) => e.key).join(), "slash.block,slash.focus");
   v.pick("slash.deco", "slash.block"); // the block switched off: the bar stays
   assert.equal(v.md(), "one\n\n> [!focus|green]\n> two\n");
   v.pick("slash.color", "slash.colorDefault");
@@ -91,6 +91,6 @@ test("the / menu: decorations and colours", () => {
   v = open("> quoted\n", "quoted"); // … and a quote gets a bar in that colour
   v.pick("slash.color", "color.blue");
   assert.equal(v.md(), "> [!focus|blue]\n> quoted\n");
-  const ticks = (g) => A.slash.entries(v).find((e) => e && e.key === g).items.filter((e) => e.checked).map((e) => e.key).join();
+  const ticks = (g) => A.slash.entries(v).find((e) => e && e.key === g).items.filter((e) => e && e.checked).map((e) => e.key).join();
   assert.equal(ticks("slash.deco") + " " + ticks("slash.color"), "slash.focus color.blue");
 });

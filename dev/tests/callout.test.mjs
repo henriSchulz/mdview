@@ -17,7 +17,7 @@ function open(text, needle) {
     dispatch(tr) { v.state = v.state.apply(tr); },
     focus() {}, hasFocus: () => true,
     md: () => A.document.serialize(d, v.state.doc, false),
-    pick(group, key) { A.slash.entries(v).find((e) => e && e.key === group).items.find((e) => e.key === key).act(v); },
+    pick(group, key) { A.slash.entries(v).find((e) => e && e.key === group).items.find((e) => e && e.key === key).act(v); },
   };
   let at = -1;
   v.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes(needle)) at = pos + n.text.indexOf(needle) + needle.length; });
@@ -62,7 +62,7 @@ test("the / menu: a callout around the block, another kind, and away again", () 
   assert.equal(v.state.selection.$from.parent.textContent + "@" + v.state.selection.$from.parentOffset, "two@3"); // the caret stays
   v.pick("slash.callout", "callout.error");
   assert.equal(v.md(), "one\n\n> [!error]\n> two\n");
-  assert.equal(A.slash.entries(v).find((e) => e && e.key === "slash.callout").items.filter((e) => e.checked).map((e) => e.key).join(), "callout.error");
+  assert.equal(A.slash.entries(v).find((e) => e && e.key === "slash.callout").items.filter((e) => e && e.checked).map((e) => e.key).join(), "callout.error");
   v.pick("slash.callout", "callout.error"); // the same again: it goes
   assert.equal(v.md(), "one\n\ntwo\n");
 

@@ -32,6 +32,7 @@
     block: svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 10h10M7 14h6"/>'),
     focus: svg('<path d="M5 5v14M10 8h10M10 12h10M10 16h6"/>'),
     color: svg('<path d="M12 3.5c3 3.6 5.5 6.6 5.5 9.8a5.5 5.5 0 0 1-11 0c0-3.2 2.5-6.2 5.5-9.8Z"/>'),
+    title: ICON.title,
     noColor: svg('<circle cx="12" cy="12" r="6.5"/>'),
     dot: (c) => svg(`<circle cx="12" cy="12" r="7" style="fill: var(--c-${c}); stroke: none"/>`),
     format: svg('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>'),
@@ -111,6 +112,12 @@
       const next = ["block", "focus"].filter((p) => (p === part ? !has(p) : has(p))).join("-");
       return A.context.run(v, next ? A.context.setDeco(next, k.color) : A.context.PARAGRAPH.quote);
     };
+    // the caret into the title of the callout around the block (view.js types in it)
+    const editTitle = (v) => {
+      const q = A.edit.ancestor(v.state.selection.$from, (n) => n.type === N.blockquote && !!n.attrs.callout);
+      const el = q && v.nodeDOM && v.nodeDOM(q.pos);
+      if (el && el.querySelector) el.querySelector(".callout-title-text")?.focus();
+    };
     // a callout: the kind chosen again takes it away
     const callout = (type) => (v) => A.context.run(v, k.callout === type ? A.context.PARAGRAPH.quote : A.context.setCallout(type));
     // a colour needs something to colour: plain text becomes a block, a quote gets a bar
@@ -156,7 +163,8 @@
         ...DECO_COLORS.map((c) => leaf("color." + c, "color colour farbe", I.dot(c), color(c), { checked: k.color === c, disabled: !!k.callout })), // (a callout has its kind's colour)
       ] },
       { key: "slash.callout", icon: CALLOUT.icon.info, items: CALLOUTS.map((c) =>
-        leaf("callout." + c, "callout box kasten hinweis " + c, CALLOUT.icon[CALLOUT.kind(c)], callout(c), { checked: k.callout === c })) },
+        leaf("callout." + c, "callout box kasten hinweis " + c, CALLOUT.icon[CALLOUT.kind(c)], callout(c), { checked: k.callout === c }))
+        .concat(k.callout ? [null, leaf("callout.title", "title titel rename umbenennen", I.title, editTitle)] : []) },
       null,
       leaf("menu.codeBlock", "code codeblock", I.codeBlock, (v) => A.context.INSERT.code(v)),
       leaf("menu.formula", "formula math latex equation formel", I.formula, (v) => A.context.INSERT.math(v)),
