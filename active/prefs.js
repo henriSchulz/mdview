@@ -281,5 +281,7 @@
     if (!now().slash && A.menu.isOpen) A.menu.close();
     if (A.view.pm) A.view.pm.dispatch(A.view.pm.state.tr.setMeta("prefs", true)); // decorations drawn again
   };
+  // (the window is put together in a quiet moment: built on the first Ctrl+, it made that one slow)
+  setTimeout(() => { if (!root) { try { build(); } catch (e) { root = scrim = null; } } }, 2500);
   A.prefs = { open, close, get: now, DEFAULTS, info: gotInfo, get isOpen() { return isOpen(); } };
 })();

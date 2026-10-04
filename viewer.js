@@ -103,6 +103,14 @@
     danger: SVG_ICON.zap, bug: SVG_ICON.bug, example: SVG_ICON.list, quote: SVG_ICON.quote, important: SVG_ICON.alert,
   };
 
+  /* The formulas' fonts are fetched at once, before the first note is drawn. Left to the page they
+   * arrive one by one after it is on screen, and each arrival lays a note with many formulas out
+   * anew — seven or eight pauses of 100 to 350 ms in the first second and a half. */
+  if (document.fonts && document.fonts.load) {
+    for (const face of ["1em KaTeX_Main", "bold 1em KaTeX_Main", "italic 1em KaTeX_Main", "italic 1em KaTeX_Math", "italic bold 1em KaTeX_Math",
+      "1em KaTeX_Size1", "1em KaTeX_Size2", "1em KaTeX_Size3", "1em KaTeX_Size4", "1em KaTeX_AMS", "1em KaTeX_Caligraphic", "1em KaTeX_Script"]) document.fonts.load(face).catch(() => {});
+  }
+
   // ------------------------------------------------------------ helpers
   const slugify = (s) => String(s).trim().toLowerCase()
     .replace(/<[^>]*>/g, "")
@@ -688,6 +696,9 @@
   function reveal() {
     if (!painted) { painted = true; setTimeout(() => post("painted"), 30); } // (the window lifts its cover)
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
+    // (the active mode's scripts are fetched in a quiet moment after the first note is on screen:
+    // the first change into that mode then only has to build the note)
+    if (!preloadTimer && !activeLoad) preloadTimer = setTimeout(() => { if (!activeLoad && current && current.kind !== "pdf") loadActive().catch(() => {}); }, 1500);
   }
 
   // the rendered document on screen: the reading view, or the active mode's
@@ -1572,14 +1583,17 @@
   function loadPdf() {
     const script = (src) => new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.nonce = NONCE; s.src = `${ASSETS}/${src}`; s.onload = resolve; s.onerror = () => reject(new Error(src + " missing"));
+      s.nonce = NONCE; s.async = false; s.src = `${ASSETS}/${src}`; s.onload = resolve; s.onerror = () => reject(new Error(src + " missing"));
       document.head.appendChild(s);
     });
     return pdfLoad || (pdfLoad = (async () => {
       const l = document.createElement("link");
       l.rel = "stylesheet"; l.href = `${ASSETS}/pdfview.css`;
       document.head.appendChild(l);
-      for (const src of ["vendor/pdfjs/pdf.worker.min.js", "vendor/pdfjs/pdf.min.js", "pdfview.js"]) await script(src);
+      // All of them are asked for at once and run in this order (a script put in by a script runs
+      // in the order it was put in when it is not `async`). One after the other, each waiting for
+      // the one before, the first change into this mode took half a second longer.
+      await Promise.all(["vendor/pdfjs/pdf.worker.min.js", "vendor/pdfjs/pdf.min.js", "pdfview.js"].map(script));
     })().catch((e) => { pdfLoad = null; throw e; }));
   }
   /* An embed typed or pasted after the note was read has no place yet (the application resolves
@@ -1695,11 +1709,12 @@
   function openSettings() {
     loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
   }
-  let activeLoad = null;
+  let activeLoad = null, preloadTimer = 0;
   function loadActive() {
     const script = (src) => new Promise((resolve, reject) => {
       const s = document.createElement("script");
       s.nonce = NONCE;
+      s.async = false;
       s.src = `${ASSETS}/${src}`;
       s.onload = resolve;
       s.onerror = () => reject(new Error(src + " missing"));
@@ -1715,7 +1730,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"]) await script(src);
+      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2742,12 +2757,16 @@
     if (window.MdActive?.onPrefs) MdActive.onPrefs();
   }
   // a dialog over the note: the note holds still (counted: one may open over another)
-  let locks = 0;
+  // Not by a style on the page (taking its scrollbar away lays a long note out anew, 150 ms each
+  // way): the place is kept, and whatever moves the page — a wheel beside the dialog, a key, a
+  // touchpad still gliding — is put back at once.
+  let locks = 0, lockX = 0, lockY = 0;
+  const holdPlace = () => { if (scrollY !== lockY || scrollX !== lockX) scrollTo({ left: lockX, top: lockY, behavior: "instant" }); };
   function lockScroll(on) {
+    const was = locks;
     locks = Math.max(0, locks + (on ? 1 : -1));
-    const root = document.documentElement;
-    if (locks === 1 && on) { root.style.setProperty("--lock-pad", Math.max(0, innerWidth - root.clientWidth) + "px"); root.classList.add("scroll-locked"); }
-    else if (locks === 0) { root.classList.remove("scroll-locked"); root.style.removeProperty("--lock-pad"); }
+    if (!was && locks) { lockX = scrollX; lockY = scrollY; addEventListener("scroll", holdPlace, { passive: true }); }
+    else if (was && !locks) removeEventListener("scroll", holdPlace);
   }
   // what of the page follows the settings: the order of the notes, the width of the text column
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };

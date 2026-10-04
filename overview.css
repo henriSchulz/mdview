@@ -14,7 +14,8 @@
 }
 #overview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-overview) var(--ease-in-out), visibility 0s; }
 body[data-sidebar="open"] #overview { left: var(--sb-w); }
-body[data-overview] { overflow: hidden; }       /* the note under it does not scroll along */
+/* (the note under it does not scroll along: overview.js holds it, lockScroll — a rule that takes
+ * the page's scrollbar away would lay the whole note out anew, twice) */
 @media print { #overview { display: none !important; } }
 
 .ov-head, .ov-dir, .ov-name, .ov-none, .ov-row, .ov-sub { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */

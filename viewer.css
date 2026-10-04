@@ -66,11 +66,6 @@ body {
   transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
 }
 #content.ready { opacity: 1; }
-/* While a dialog or the settings stand over the note, the note does not scroll (lockScroll,
- * viewer.js) — not by the wheel, the keys or a touchpad's glide. The room the scrollbar took is
- * kept (--lock-pad), so nothing under the dialog moves aside. */
-html.scroll-locked { overflow: hidden; margin-right: var(--lock-pad, 0px); }
-html.scroll-locked :is(#toolbar, #outline, #findbar, #rpanel) { margin-right: var(--lock-pad, 0px); }
 /* the note's own size (Ctrl + and −, viewer.js): its text is scaled, in every mode; what the app
  * itself is made of keeps its size, and a PDF has a zoom of its own */
 #content:not(.pdf), #active, #editor { zoom: var(--doc-zoom, 1); }

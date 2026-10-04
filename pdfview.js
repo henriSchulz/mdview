@@ -178,6 +178,7 @@
     window.addEventListener("scroll", v.onScroll, { passive: true });
     window.addEventListener("resize", v.onResize);
     document.addEventListener("keydown", v.onKey, true);
+    v.root.addEventListener("wheel", onWheel, { passive: false });
     document.addEventListener("selectionchange", v.onSelect);
     window.addEventListener("focus", v.onFocus);
     events();
@@ -676,22 +677,20 @@
       // (a region is shown as large as it is on its page, when the page fills the column)
       const scale = Math.min(3, (want || room) / (crop && (want || !at.rect) ? crop[2] : base.width));
       const ratio = Math.min(2, window.devicePixelRatio || 1);
-      const vp = page.getViewport({ scale: scale * ratio });
-      const full = document.createElement("canvas");
-      full.width = Math.floor(vp.width); full.height = Math.floor(vp.height);
-      const ctx = full.getContext("2d");
+      // Only what is shown is drawn: the canvas is as large as the region, the page shifted under it
+      // (a whole page drawn at this scale and then cut cost several times the work, on the page's own thread).
+      const k = scale * ratio, cut = crop || [0, 0, base.width, base.height];
+      const ox = Math.floor(cut[0] * k), oy = Math.floor(cut[1] * k);
+      const vp = page.getViewport({ scale: k, offsetX: -ox, offsetY: -oy });
+      const shown = document.createElement("canvas");
+      shown.width = Math.max(1, Math.floor(cut[2] * k)); shown.height = Math.max(1, Math.floor(cut[3] * k));
+      const ctx = shown.getContext("2d");
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       if (boxes.length) { // the selection, highlighted as in the viewer
         ctx.globalCompositeOperation = "multiply";
         ctx.fillStyle = colorOf(at.color);
         ctx.globalAlpha = 0.45;
-        for (const b of boxes) ctx.fillRect(b[0] * scale * ratio, b[1] * scale * ratio, b[2] * scale * ratio, b[3] * scale * ratio);
-      }
-      let shown = full;
-      if (crop) {
-        shown = document.createElement("canvas");
-        shown.width = Math.max(1, Math.floor(crop[2] * scale * ratio)); shown.height = Math.max(1, Math.floor(crop[3] * scale * ratio));
-        shown.getContext("2d").drawImage(full, -Math.floor(crop[0] * scale * ratio), -Math.floor(crop[1] * scale * ratio));
+        for (const b of boxes) ctx.fillRect(b[0] * k - ox, b[1] * k - oy, b[2] * k, b[3] * k);
       }
       // as a picture, not a canvas: a canvas put into the page straight after drawing showed
       // magenta here (WebKitGTK on this GPU) until something made it paint again
@@ -704,7 +703,8 @@
       await img.decode().catch(() => {});
       drawnEmbeds.set(key, img);
       if (drawnEmbeds.size > 60) drawnEmbeds.delete(drawnEmbeds.keys().next().value);
-      if (span.isConnected) { span.replaceChildren(img.cloneNode()); span.classList.add("ready"); }
+      rememberSize(span, img.width, img.height);
+      if (span.isConnected) { span.replaceChildren(img.cloneNode()); span.classList.add("ready"); span.style.removeProperty("width"); span.style.removeProperty("height"); }
     } catch (e) {
       span.classList.add("failed");
       span.textContent = basename(span.dataset.pdf) + ": " + (e.message || e);
@@ -743,9 +743,43 @@
       },
     };
   }
-  function hydrate(root = document) {
-    for (const span of root.querySelectorAll(".pdf-embed:not([data-done])")) embed(span);
+  /* Embeds are drawn when they come near the window, one after the other with a breath between
+   * them — a note with many would otherwise hold the page for seconds when it opens. Until then an
+   * embed keeps the room it took last time (remembered by what it shows), so the note does not jump
+   * when it is drawn. In a dialog, and for printing, they are drawn at once. */
+  const sizeKey = (span) => "mdview-embed:" + span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.hasAttribute("data-full") ? "full" : span.dataset.width || "");
+  function rememberSize(span, w, h) { try { localStorage.setItem(sizeKey(span), w + "x" + h); } catch (e) { /* no storage: it jumps once */ } }
+  function reserve(span) {
+    let m = null;
+    try { m = /^(\d+)x(\d+)$/.exec(localStorage.getItem(sizeKey(span)) || ""); } catch (e) { m = null; }
+    if (!m || span.classList.contains("ready")) return;
+    if (!span.hasAttribute("data-full")) span.style.width = m[1] + "px";
+    span.style.height = (span.hasAttribute("data-full") && span.parentElement ? Math.round(span.parentElement.clientWidth * m[2] / m[1]) : m[2]) + "px";
   }
+  const queue = [];
+  let drawing = false;
+  async function drain() {
+    if (drawing) return;
+    drawing = true;
+    while (queue.length) {
+      const span = queue.shift();
+      if (span.isConnected && !span.dataset.done) { await embed(span); await new Promise((r) => setTimeout(r, 30)); }
+    }
+    drawing = false;
+  }
+  const near = typeof IntersectionObserver === "function" ? new IntersectionObserver((entries) => {
+    for (const en of entries) if (en.isIntersecting) { near.unobserve(en.target); if (!en.target.dataset.done) queue.push(en.target); }
+    drain();
+  }, { rootMargin: "800px 0px" }) : null;
+  function hydrate(root = document, now = false) {
+    for (const span of root.querySelectorAll(".pdf-embed:not([data-done])")) {
+      const have = drawnEmbeds.get(span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.hasAttribute("data-full") ? "full" : span.dataset.width || "") + "/" + Math.round((span.parentElement && span.parentElement.clientWidth) || 0));
+      if (now || !near || have || span.closest("#dlg, #atompop, #notepop")) { embed(span); continue; } // (drawn before, or wanted at once)
+      reserve(span);
+      near.observe(span);
+    }
+  }
+  addEventListener("beforeprint", () => hydrate(document, true));
 
   /* The size pulled: two fingers on a touchpad (the application tells: "begin", then the size the
    * fingers have made of it so far), or Ctrl with the wheel. It follows at once, a frame at a time. */
@@ -761,11 +795,13 @@
     if (phase === "begin") { pinchBase = V.scale; return; }
     if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale);
   }
-  addEventListener("wheel", (e) => {
+  // (On the viewer itself, never on the window: a wheel listener that may hold the wheel back makes
+  // every scroll of every note wait for the page's scripts.)
+  function onWheel(e) {
     if (!e.ctrlKey || !shown()) return;
     e.preventDefault(); e.stopPropagation();
     pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015));
-  }, { capture: true, passive: false });
+  }
 
   window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },
     // for the tests

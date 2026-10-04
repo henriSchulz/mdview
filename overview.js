@@ -218,6 +218,7 @@
     void el.offsetHeight; // (the tiles are there, unseen: from here they come in)
     el.dataset.open = "";
     delete el.dataset.keys;
+    core.lockScroll(true); // (the note under the tiles holds still)
     document.body.dataset.overview = "";
     button()?.setAttribute("aria-pressed", "true");
     el.scrollTop = 0;
@@ -228,6 +229,7 @@
   function close(refocus = true) {
     if (!isOpen()) return false;
     delete el.dataset.open;
+    core.lockScroll(false);
     delete document.body.dataset.overview;
     button()?.setAttribute("aria-pressed", "false");
     if (refocus && focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true });
