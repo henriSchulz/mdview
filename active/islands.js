@@ -10,7 +10,7 @@
 "use strict";
 (() => {
   const A = window.MdActive;
-  const { md, esc, tex, mermaidSvg, hydrate, copy, toast } = window.MdView.core;
+  const { md, esc, tex, mermaidSvg, svgPicture, hydrate, copy, toast } = window.MdView.core;
   const T = window.MdStrings.t;
   const { NodeSelection, TextSelection, Selection } = PM.state;
   const N = A.schema.nodes;
@@ -51,7 +51,7 @@
   }
   const buildFront = (p) => p.head + p.yaml + (p.yaml && !p.tail.startsWith("\n") ? "\n" : "") + p.tail;
 
-  const LANGS = () => [...new Set([...recent, ...hljs.listLanguages().filter((l) => !/^(plaintext|python-repl|php-template)$/.test(l)), "mermaid", "math"])];
+  const LANGS = () => [...new Set([...recent, ...hljs.listLanguages().filter((l) => !/^(plaintext|python-repl|php-template)$/.test(l)), "mermaid", "math", "svg"])];
   const ALIAS = { js: "javascript", ts: "typescript", py: "python", sh: "bash", zsh: "bash", shell: "bash", html: "xml", yml: "yaml", md: "markdown", "c++": "cpp", rs: "rust", rb: "ruby" };
   const hl = (lang) => { const l = lang.toLowerCase(); return hljs.getLanguage(l) ? l : ALIAS[l] || ""; };
   const recent = []; // languages picked in this session, newest first
@@ -156,7 +156,7 @@
         let preview = null;
         const showPreview = () => {
           const kind = lang.value.trim().toLowerCase();
-          if (kind !== "mermaid" && kind !== "math") { if (preview) { preview.remove(); preview = null; } return; }
+          if (kind !== "mermaid" && kind !== "math" && kind !== "svg") { if (preview) { preview.remove(); preview = null; } return; }
           if (!preview) { preview = el("div", { class: "dlg-preview" }); body.append(preview); }
           draw(ed.value);
         };
@@ -165,6 +165,13 @@
           if (!preview) return;
           const kind = lang.value.trim().toLowerCase(), mine = ++seq;
           if (kind === "math") { preview.innerHTML = tex(v, true); return; }
+          if (kind === "svg") { // (the picture; while the code is not one, the last one stays, dimmed)
+            const svg = svgPicture(v);
+            if (svg) preview.innerHTML = svg;
+            preview.classList.toggle("stale", !svg);
+            delete preview.dataset.error;
+            return;
+          }
           try {
             const svg = await mermaidSvg(v);
             if (mine === seq && preview) { preview.innerHTML = svg; preview.classList.remove("stale"); }

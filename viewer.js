@@ -413,10 +413,31 @@
   });
   const lineAttr = (t) => (t.map && t.attrGet && t.attrGet("data-line") != null ? ` data-line="${t.attrGet("data-line")}"` : "");
 
-  // --- code fences: highlight, copy button, mermaid, math
+  // A fence of SVG is the picture it describes. Its code is parsed as SVG and written out again
+  // without what could run (scripts, handlers, foreign content, javascript: links); code that is
+  // not one <svg> gives null, and the fence stays code.
+  function svgPicture(code) {
+    if (!/<svg[\s>]/i.test(code)) return null;
+    let root;
+    try { root = new DOMParser().parseFromString(code.trim(), "image/svg+xml").documentElement; } catch (e) { return null; }
+    if (!root || root.localName !== "svg" || root.getElementsByTagName("parsererror").length) return null;
+    for (const el of [...root.querySelectorAll("script, foreignObject, iframe")]) el.remove();
+    for (const el of [root, ...root.querySelectorAll("*")]) {
+      for (const a of [...el.attributes]) {
+        if (/^on/i.test(a.name) || (/^(xlink:)?href$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name);
+      }
+    }
+    return new XMLSerializer().serializeToString(root);
+  }
+
+  // --- code fences: highlight, copy button, mermaid, math, svg
   md.renderer.rules.fence = (toks, idx) => {
     const t = toks[idx];
     const lang = t.info.trim().split(/\s+/)[0].toLowerCase();
+    if (lang === "svg") {
+      const svg = svgPicture(t.content);
+      if (svg) return `<div class="svg-block"${lineAttr(t)}>${svg}</div>`;
+    }
     if (lang === "mermaid") {
       return `<div class="mermaid-block"${lineAttr(t)}><pre class="mermaid">${esc(t.content)}</pre></div>`;
     }
@@ -2507,7 +2528,7 @@
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

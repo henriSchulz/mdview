@@ -7,7 +7,7 @@ beside the notes. The command and the repository are still called `mdview`;
 
 - Renders CommonMark and GFM plus Obsidian syntax (wikilinks, embeds,
   callouts, properties, `==highlight==`, `%%comments%%`, `#tags`), KaTeX math,
-  Mermaid diagrams and highlighted code. Works on any file, no vault needed.
+  Mermaid diagrams, SVG drawn from a ```svg block and highlighted code. Works on any file, no vault needed.
 - `Ctrl+E` switches between reading and editing the source in place; edits
   are saved automatically. A third, active mode (`Ctrl+Alt+2`) edits the
   rendered document itself and changes the file only where it was edited. `Ctrl+V` with an image on the clipboard saves it as
