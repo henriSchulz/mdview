@@ -611,3 +611,118 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 @keyframes gr-spin { to { transform: rotate(360deg); } }
 @keyframes gr-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .gr-spin { animation-duration: 2.4s; } }
+
+/* ------------------------------------------------------------- the panel at the right (panel.js)
+ * A card beside the text like the sidebar on the left, with two tabs: what can be put in (tiles
+ * with a small picture each), and the formats of the block the caret is in. Sizes are layout;
+ * times, curves and radii are the central ones. */
+:root { --rp-w: 320px; }
+#rpanel {
+  position: fixed;
+  top: var(--sb-inset);
+  bottom: var(--sb-inset);
+  right: var(--sb-inset);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--rp-w) - var(--sb-inset));
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--apple-win-sidebar-radius, var(--radius-panel));
+  background: var(--raised);
+  box-shadow: 0 0 0 0.5px var(--line), var(--apple-win-sidebar-shadow, 0 0 8px rgb(0 0 0 / 0.05)), 0 2px 12px rgb(0 0 0 / 0.04);
+  font: 400 13px/1.3 var(--ui);
+  font-variation-settings: "opsz" 17;
+  color: var(--fg);
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateX(calc(100% + var(--sb-inset) * 3));
+  visibility: hidden;
+  transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+body[data-view="active"][data-panel] #rpanel { transform: none; visibility: visible; transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
+#rpanel.no-anim { transition: none; }
+@media (prefers-contrast: more) { #rpanel { box-shadow: 0 0 0 1.5px var(--fg2); } }
+@media print { #rpanel { display: none !important; } }
+/* the text column makes room (panel.js glides it over); what floats at the top right moves beside the panel */
+body[data-view="active"][data-panel] { padding-right: var(--rp-w); }
+body[data-view="active"][data-panel] #toolbar { transform: translateX(calc(-1 * var(--rp-w))); }
+body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(calc(-1 * var(--rp-w)), -6px); }
+body[data-view="active"][data-panel] #outline, body[data-view="active"][data-panel] #findbar { right: calc(12px + var(--rp-w)); }
+#toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent); }
+@media (max-width: 760px) { body[data-view="active"][data-panel] { padding-right: 0; } }
+
+.rp-tabs { display: flex; gap: 14px; margin: 0 16px; padding: 14px 0 10px; border-bottom: 1px solid var(--line); flex: none; }
+.rp-tab { padding: 0; border: 0; background: none; font: 500 13px/1.3 var(--ui); color: var(--fg3); cursor: default; transition: color var(--dur-fast) var(--ease-out); }
+.rp-tab:hover { color: var(--fg2); transition-duration: var(--dur-instant); }
+.rp-tab[aria-selected="true"] { color: var(--fg); font-weight: 600; }
+.rp-tab:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 3px; border-radius: var(--radius-chip); }
+/* the two tabs lie on each other: the one chosen shows (a crossfade) */
+.rp-pane { position: absolute; inset: 44px 0 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 24px; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+#rpanel[data-tab="insert"] [data-pane="insert"], #rpanel[data-tab="format"] [data-pane="format"] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+.rp-hint { margin: 0 0 10px; font-size: 12px; color: var(--fg3); }
+.rp-none { margin: 24px 0; text-align: center; color: var(--fg2); }
+.rp-search { display: flex; align-items: center; gap: 6px; height: var(--control-height, 28px); padding: 0 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); transition: box-shadow var(--dur-fast) var(--ease-out); }
+.rp-search:focus-within { box-shadow: 0 0 0 var(--focus-ring) var(--accent); }
+.rp-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rp-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: var(--fg); user-select: text; -webkit-user-select: text; }
+.rp-search input::placeholder { color: var(--fg3); }
+.rp-search input::-webkit-search-cancel-button { display: none; }
+.rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg3); }
+.rp-sec[hidden], .rp-grid[hidden], .rp-tile[hidden] { display: none; }
+
+/* a tile: a card with a small picture of the thing, its name below */
+.rp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 8px; align-items: start; }
+.rp-tile { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; padding: 0; border: 0; background: none; color: var(--fg); cursor: default; outline: none; }
+.rp-card {
+  display: grid; place-items: center; width: 100%; aspect-ratio: 1; box-sizing: border-box;
+  border-radius: var(--radius-popover);
+  background: var(--tile, #fff);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.07);
+  transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 1px 3px rgb(0 0 0 / 0.3); }
+.rp-tile:hover .rp-card { box-shadow: 0 0 0 0.5px var(--line-strong), 0 3px 10px rgb(0 0 0 / 0.14); transition-duration: var(--dur-instant); }
+.rp-tile:active .rp-card { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+.rp-tile:focus-visible .rp-card { box-shadow: 0 0 0 var(--focus-ring) var(--accent); }
+.rp-pic { width: 76%; height: auto; }
+.rp-name { max-width: 100%; font-size: 11px; line-height: 1.25; color: var(--fg2); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Format: buttons that show what is on */
+.rp-row { display: grid; gap: 6px; margin-bottom: 6px; }
+.rp-row.rp-3 { grid-template-columns: repeat(3, 1fr); }
+.rp-gap { height: 14px; }
+.rp-list { display: grid; gap: 4px; }
+.rp-btn {
+  display: grid; place-items: center; min-width: 0; height: 34px; padding: 0 8px; box-sizing: border-box;
+  border: 0; border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  color: var(--fg); font: 400 13px/1.2 var(--ui); cursor: default; outline: none;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.rp-btn > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-btn:hover { background: color-mix(in srgb, var(--fg) 11%, transparent); transition-duration: var(--dur-instant); }
+.rp-btn:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+.rp-btn:focus-visible { box-shadow: 0 0 0 var(--focus-ring) var(--accent); }
+.rp-btn:disabled { opacity: 0.4; pointer-events: none; }
+.rp-btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
+.rp-btn.rp-h1 { font-weight: 700; font-size: 14px; }
+.rp-btn.rp-h2, .rp-btn.rp-h3, .rp-btn.rp-h4 { font-weight: 600; }
+.rp-btn.rp-danger { color: var(--c-red); }
+.rp-list .rp-btn { justify-items: start; height: 30px; }
+/* rows of signs, joined: bold, italic …; the lists and the indent */
+.rp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; margin-bottom: 6px; border-radius: var(--radius-control); overflow: hidden; }
+.rp-seg .rp-btn { border-radius: 0; height: 32px; }
+.rp-sign svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* colours: round, the chosen one ringed */
+.rp-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.rp-swatch { height: auto; aspect-ratio: 1; padding: 0; border-radius: 50%; background: none; }
+.rp-swatch:hover { background: none; }
+.rp-swatch i { width: 72%; aspect-ratio: 1; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 18%, transparent); }
+.rp-swatch[aria-pressed="true"] { background: none; box-shadow: 0 0 0 2px var(--accent); }
+/* callouts: a sign in the kind's colour */
+.rp-kinds { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 6px; }
+.rp-kind { color: var(--cc); background: color-mix(in srgb, var(--cc) 12%, transparent); }
+.rp-kind:hover { background: color-mix(in srgb, var(--cc) 20%, transparent); }
+.rp-kind[aria-pressed="true"] { background: color-mix(in srgb, var(--cc) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 60%, transparent); }
+.rp-kind svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

@@ -43,6 +43,7 @@
     x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
     chevron: svg('<path d="m9 18 6-6-6-6"/>'),
     sidebar: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
+    panel: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/>'),
     plus: svg('<path d="M12 5v14M5 12h14"/>'),
     title: svg('<path d="M5 7V5h14v2M12 5v14M9 19h6"/>'),
     folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>'),
@@ -804,7 +805,8 @@
     [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
-    `</div>`;
+    `</div>` +
+    `<button class="tb" data-act="panel" title="Insert and Format (Ctrl+Alt+P)" aria-label="Insert and Format" aria-pressed="false">${ICON.panel}</button>`;
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
@@ -1613,7 +1615,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/blocks.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/blocks.js", "active/panel.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2213,7 +2215,16 @@
     edit: () => setMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => setMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
-    overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); }, // all notes of the folder as tiles (overview.js)
+    overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); },
+    // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
+    // active mode: asked for elsewhere, that mode comes with it
+    panel: () => {
+      if (mode === "active" && window.MdActive && MdActive.panel) { MdActive.panel.toggle(); return; }
+      if (!current || current.error || current.kind === "pdf") return;
+      window.MdPrefs = { ...(window.MdPrefs || {}), panel: true };
+      post("prefs", { prefs: { panel: true } });
+      setMode("active");
+    }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder
@@ -2300,6 +2311,7 @@
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); actions.overview(); return; }
+    if (mod && e.altKey && !e.shiftKey && k === "p") { e.preventDefault(); actions.panel(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
     if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); setMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {

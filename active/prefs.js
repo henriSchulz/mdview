@@ -11,6 +11,7 @@
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false,
     aiComplete: false,
+    panel: false, panelTab: "insert",
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });

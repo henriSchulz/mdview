@@ -232,6 +232,7 @@
     view.setProps({ editable: () => !shown.p.readonly }); // read again: the file may be read-only now
 
     lend(content, view.dom);
+    if (A.panel) A.panel.sync(); // the panel at the right, if the settings have it open
     return open.store;
   }
   const serialize = (exact = true) => A.document.serialize(open, view.state.doc, exact);

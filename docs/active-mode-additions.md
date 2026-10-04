@@ -89,6 +89,18 @@ run; everything that does not depend on frames passed.
   (ticked when on; the / menu in a cell has it too). In the file it is a line `<!-- wide -->` right before
   the table — a comment no renderer shows; the parser takes the line into the table (`wide_tables` core rule,
   `.table-wrap.wide`), the active mode keeps it as the table's `wide` attribute. Tests: `tests/widetable.test.mjs`.
+- **The panel at the right** (branch `craft-feel`, Craft's right sidebar; `active/panel.js`, styles at the end
+  of active.css; what was found of the original is in `~/Projects/craft-clone/replica/recon.md`, addendum):
+  the toolbar's last button or Ctrl+Alt+P. Asked for in another mode, the active mode comes with it.
+  **Insert**: tiles with a small picture each, in sections (Blocks, Lists, Decorations, Callout, Separators,
+  Media), a search field above them. A click puts the thing below the block the caret is in (inside a quote
+  or a list item: in there, as the / menu does); dragged, it goes between the blocks where it is dropped (a
+  line shows the gap; top level only). Footnote and Graphic are by click only. **Format**: the / menu's
+  entries for the block the caret is in, laid out — text styles, bold/italic/strike/code, lists and indent,
+  decorations, colours, callouts, in a table Full Width and its rows and columns; what is on is shown and
+  follows the caret (a plugin's view update, once per frame). The panel never takes the focus from the text
+  except for its search field. Open or not and the tab are settings (`panel`, `panelTab`). Craft's Style
+  and Info tabs are not built. Probe: `rig.sh panel`.
 - **Callouts in place, and from the / menu** (branch `craft-feel`): a plain callout — a kind, maybe a title,
   something in it — is no island any more: it is a quote with the attributes `callout` (the kind as written)
   and `title`, drawn as the reading view draws it (title bar not typed in, the text below edited in place;

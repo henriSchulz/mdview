@@ -388,6 +388,18 @@ case "${1:-}" in
     ls "$R/out"/*.ov.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
+  panel)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
+    app 60 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_MODE=read MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in insert format; do
+      for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
+    done
+    for _ in $(seq 300); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
+    pkill -f "python3 $APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json" | grep -qv '^ok' ;;
   callout)
     name=callout.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Callouts\n\n> [!info]\n> An info.\n\nPlain text.\n\nEnd.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 60 MDVIEW_PROBE="$D/probe-callout.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

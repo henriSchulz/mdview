@@ -72,12 +72,16 @@
   }
 
   // ------------------------------------------------------------ putting something in
-  /* A block at the caret: in place of an empty paragraph, else below the block the caret is in. -> its position */
-  function putBlock(view, node, caretIn) {
+  /* A block at the caret: in place of an empty paragraph, else below the block the caret is in.
+   * at: a place between two blocks instead (something dropped there). -> its position */
+  function putBlock(view, node, caretIn, at = null) {
     const state = view.state, { $from } = state.selection;
     const tr = state.tr;
     let pos;
-    if ($from.parent.type === N.paragraph && !$from.parent.content.size && $from.node(-1).canReplaceWith($from.index(-1), $from.indexAfter(-1), node.type)) {
+    if (at != null) {
+      pos = at;
+      tr.insert(pos, node);
+    } else if ($from.parent.type === N.paragraph && !$from.parent.content.size && $from.node(-1).canReplaceWith($from.index(-1), $from.indexAfter(-1), node.type)) {
       pos = $from.before();
       tr.replaceWith(pos, $from.after(), node);
     } else {
@@ -95,14 +99,14 @@
   const island = (raw, kind) => A.islands.blocksOf(raw, A.view.store).find((n) => n.type === N.island) || N.island.create({ kind, raw });
   const INSERT = {
     graphic(view) { setTimeout(() => A.graphic.open(view), 0); }, // a figure drawn by Claude (graphic.js)
-    code(view) { const pos = putBlock(view, island("```\n```", "code")); setTimeout(() => A.islands.open(view, pos, true), 0); },
-    math(view) { const pos = putBlock(view, island("$$\n\n$$", "math")); setTimeout(() => A.islands.open(view, pos, true), 0); },
-    table(view) {
+    code(view, at) { const pos = putBlock(view, island("```\n```", "code"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
+    math(view, at) { const pos = putBlock(view, island("$$\n\n$$", "math"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
+    table(view, at) {
       const row = (header) => N.table_row.create(null, [0, 1].map(() => N.table_cell.create({ header })));
-      putBlock(view, N.table.create(null, [row(true), row(false), row(false)]), true);
+      putBlock(view, N.table.create(null, [row(true), row(false), row(false)]), true, at);
     },
-    rule(view) {
-      const pos = putBlock(view, N.horizontal_rule.create());
+    rule(view, at) {
+      const pos = putBlock(view, N.horizontal_rule.create(), false, at);
       const tr = view.state.tr, after = pos + 1;
       if (after >= tr.doc.content.size) tr.insert(after, N.paragraph.create());
       view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)), 1)));
@@ -230,5 +234,5 @@
     },
   });
 
-  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, PARAGRAPH, INSERT, textItems, nodeItems };
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
 })();

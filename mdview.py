@@ -106,6 +106,7 @@ PREFS = {
     "sidebarPdf": True, "sidebarImages": False, "sidebarMedia": False, "sidebarOther": False,
     # a continuation suggested while typing (the text around the caret goes to the model's maker)
     "aiComplete": False,
+    "panel": False, "panelTab": "insert",   # the panel at the window's right (insert, format): open, and its tab
 }
 # snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
 # ("export default [ … ]"); they take the place of the built-in ones
