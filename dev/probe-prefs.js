@@ -85,7 +85,7 @@
     key(view.dom, "Enter");
     type("/");
     await sleep(300);
-    ok("on: / at the start of an empty line opens the insert menu", menu.hasAttribute("data-open") && menu.querySelectorAll(".menu-item").length === 14 && view.hasFocus(), menu.querySelectorAll(".menu-item").length);
+    ok("on: / at the start of an empty line opens the insert menu", menu.hasAttribute("data-open") && menu.querySelectorAll(".menu-item").length === 15 && view.hasFocus(), menu.querySelectorAll(".menu-item").length);
     ok("every entry has its sign", [...menu.querySelectorAll(".menu-item")].every((b) => b.querySelector(".menu-icon svg")));
     ok("it is no taller than its panel allows, the rest scrolls", menu.scrollHeight > menu.clientHeight && menu.scrollTop === 0, [menu.scrollHeight, menu.clientHeight]);
     const sub = document.getElementById("actsub"), tall = menu.offsetHeight;
@@ -98,7 +98,7 @@
     key(view.dom, "ArrowLeft");
     await sleep(250);
     ok("← leaves it", !sub.hasAttribute("data-open") && menu.hasAttribute("data-open") && md().endsWith("/\n"), md().slice(-12));
-    for (let i = 0; i < 13; i++) key(view.dom, "ArrowDown");
+    for (let i = 0; i < 14; i++) key(view.dom, "ArrowDown");
     await sleep(60);
     const last = menu.querySelector(".menu-item.hl"), lr = last.getBoundingClientRect(), mr = menu.getBoundingClientRect();
     ok("↓ to the last entry brings it into sight", last.textContent === "Actions" && lr.bottom <= mr.bottom + 0.5 && lr.top >= mr.top, [last.textContent, lr.bottom, mr.bottom]);

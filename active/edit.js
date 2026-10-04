@@ -694,7 +694,7 @@
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.columns.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },

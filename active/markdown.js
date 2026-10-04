@@ -288,6 +288,18 @@
         if (node.attrs.callout) return ["> [!" + node.attrs.callout + "]" + (node.attrs.title ? " " + node.attrs.title : "")].concat(lines);
         return node.attrs.deco ? ["> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]"].concat(lines) : lines;
       }
+      case "columns": {
+        // one under the other, between the comment lines that say what stands side by side
+        const widths = [];
+        node.forEach((col) => widths.push(Math.round(col.attrs.width * 100) / 100));
+        const out = ["<!-- columns" + (widths.every((w) => w === widths[0]) ? "" : " " + widths.join(":")) + " -->"];
+        node.forEach((col, _o, i) => {
+          if (i) out.push("<!-- column -->");
+          const kids = children(col, cx, false);
+          out.push("", ...(kids.some((l) => l) ? kids.concat("") : [])); // (a column with nothing in it: one empty line)
+        });
+        return out.concat("<!-- /columns -->");
+      }
       case "bullet_list":
       case "ordered_list": return list(node, cx);
       case "table": return table(node, cx);
@@ -505,7 +517,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    table_cell: ["header", "align"], table: ["wide"], blockquote: ["deco", "color", "callout", "title"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], table: ["wide"], column: ["width"], blockquote: ["deco", "color", "callout", "title"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {

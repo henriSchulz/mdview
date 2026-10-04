@@ -55,6 +55,9 @@
     copy: ICON.clip,
     check: ICON.check,
     wide: svg('<path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/>'),
+    columns: svg('<rect x="3" y="5" width="7.5" height="14" rx="2"/><rect x="13.5" y="5" width="7.5" height="14" rx="2"/>'),
+    left: svg('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
+    right: svg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
     row: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 12h18"/>'),
     column: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M12 5v14"/>'),
   };
@@ -63,7 +66,8 @@
   // (an item of a list, or what stands in the document itself)
   const usable = (node) => !!node && node.type !== N.hidden && !(node.type === N.island && node.attrs.virtual);
   function blockAt(state) {
-    const { $from } = state.selection, item = A.edit.itemAt($from), d = item ? item.depth : 1;
+    // (in a column: one of the column's own blocks, not the row of columns around it)
+    const { $from } = state.selection, item = A.edit.itemAt($from), col = A.columns.around($from), d = item ? item.depth : col ? $from.sharedDepth(col.colPos + 1) + 1 : 1;
     if ($from.depth < d) return null;
     const parent = $from.node(d - 1), index = $from.index(d - 1), node = $from.node(d);
     return { node, pos: $from.before(d), parent, index, before: index > 0 ? parent.child(index - 1) : null, after: index < parent.childCount - 1 ? parent.child(index + 1) : null };
@@ -112,6 +116,7 @@
       const next = ["block", "focus"].filter((p) => (p === part ? !has(p) : has(p))).join("-");
       return A.context.run(v, next ? A.context.setDeco(next, k.color) : A.context.PARAGRAPH.quote);
     };
+    const cols = A.columns.at(state), colDo = (command) => (v) => A.context.run(v, command);
     // the caret into the title of the callout around the block (view.js types in it)
     const editTitle = (v) => {
       const q = A.edit.ancestor(v.state.selection.$from, (n) => n.type === N.blockquote && !!n.attrs.callout);
@@ -165,6 +170,17 @@
       { key: "slash.callout", icon: CALLOUT.icon.info, items: CALLOUTS.map((c) =>
         leaf("callout." + c, "callout box kasten hinweis " + c, CALLOUT.icon[CALLOUT.kind(c)], callout(c), { checked: k.callout === c }))
         .concat(k.callout ? [null, leaf("callout.title", "title titel rename umbenennen", I.title, editTitle)] : []) },
+      // a row of columns: made of the caret's block — or, in one, what can be done with its columns
+      { key: "slash.columns", icon: I.columns, items: cols ? [
+        leaf("columns.addLeft", "column add left spalte links", I.left, colDo(A.columns.add(-1))),
+        leaf("columns.addRight", "column add right spalte rechts", I.right, colDo(A.columns.add(1))),
+        leaf("columns.moveLeft", "column move left spalte verschieben", I.left, colDo(A.columns.move(-1)), { disabled: cols.index === 0 }),
+        leaf("columns.moveRight", "column move right spalte verschieben", I.right, colDo(A.columns.move(1)), { disabled: cols.index === cols.cols.childCount - 1 }),
+        leaf("columns.equal", "column equal widths same gleich breit", I.columns, colDo(A.columns.equal), { disabled: A.columns.alike(cols.cols) && cols.cols.firstChild.attrs.width === 1 }),
+        null,
+        leaf("columns.unwrap", "column unwrap stack auflösen", I.text, colDo(A.columns.unwrap)),
+        leaf("columns.remove", "column remove delete spalte entfernen löschen", I.remove, colDo(A.columns.remove), { danger: true }),
+      ] : [2, 3, 4].map((n) => leaf("columns.n", "column columns spalten " + n, I.columns, colDo(A.columns.make(n)), { n })) },
       null,
       leaf("menu.codeBlock", "code codeblock", I.codeBlock, (v) => A.context.INSERT.code(v)),
       leaf("menu.formula", "formula math latex equation formel", I.formula, (v) => A.context.INSERT.math(v)),

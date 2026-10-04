@@ -46,6 +46,7 @@ what it reports to `MDVIEW_PROBE_OUT`.
 ./rig.sh folder                                         # the active mode in a folder window
 ./rig.sh overview                                       # all notes of a folder as tiles
 ./rig.sh panel                                          # the panel at the right: Insert and Format
+./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others
 ./rig.sh callout                                        # callouts made from the / menu, their titles typed in place
 ./rig.sh edit                                           # typing: rules, keys, lists, undo, saving
 ./rig.sh native                                         # the browser's own typing path: spaces, deleting, hard break

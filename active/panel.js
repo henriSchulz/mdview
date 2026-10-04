@@ -45,6 +45,7 @@
     block: pic('<rect x="4" y="6" width="36" height="20" rx="4" fill="currentColor" opacity="0.12"/>' + bar(9, 11.5, 24) + bar(9, 17.5, 16)),
     focus: pic('<rect x="7" y="7" width="2.6" height="18" rx="1.3" fill="var(--accent)"/>' + bar(14, 9, 22) + bar(14, 14.5, 18) + bar(14, 20, 20)),
     both: pic('<rect x="6" y="6" width="34" height="20" rx="4" fill="var(--accent)" opacity="0.14"/><rect x="6" y="6" width="2.8" height="20" rx="1.4" fill="var(--accent)"/>' + bar(13, 11.5, 22) + bar(13, 17.5, 15)),
+    cols: (n) => pic(Array.from({ length: n }, (_x, i) => { const w = (34 - (n - 1) * 3) / n, x = 5 + i * (w + 3); return `<rect x="${x}" y="5" width="${w}" height="22" rx="2.5" fill="currentColor" opacity="0.1"/>` + bar(x + 2.5, 9, w - 5, 0.3) + bar(x + 2.5, 14, w - 7, 0.2) + bar(x + 2.5, 19, w - 5, 0.2); }).join("")),
     rule: pic(bar(8, 8, 28, 0.16) + '<path d="M5 16h34" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round"/>' + bar(8, 21, 20, 0.16)),
     callout: (kind) => `<svg class="rp-pic callout-${kind}" viewBox="0 0 44 32" aria-hidden="true"><rect x="4" y="5" width="36" height="22" rx="4" fill="var(--cc)" opacity="0.16"/><rect x="4.5" y="5.5" width="35" height="21" rx="3.5" fill="none" stroke="var(--cc)" stroke-opacity="0.3"/><circle cx="11" cy="12" r="2.6" fill="var(--cc)"/><rect x="16" y="10.5" width="14" height="3" rx="1.5" fill="var(--cc)"/>${bar(8.5, 19, 24, 0.22)}</svg>`,
   };
@@ -78,6 +79,7 @@
     ["slash.deco", ["slash.focus"], "focus bar fokus balken", PIC.focus, put(quote({ deco: "focus" }))],
     ["slash.deco", ["panel.both"], "block focus fokus", PIC.both, put(quote({ deco: "block-focus" }))],
     ...CALLOUTS.map((c) => ["slash.callout", ["callout." + c], "callout box hinweis " + c, PIC.callout(CALLOUT.kind(c)), put(quote({ callout: c }))]),
+    ...[2, 3].map((n) => ["slash.columns", ["columns.n", n], "column columns spalten " + n, PIC.cols(n), put(() => N.columns.create(null, Array.from({ length: n }, () => A.columns.empty())))]),
     ["panel.separators", ["menu.rule"], "divider rule line separator trennlinie", PIC.rule, (v, at) => A.context.INSERT.rule(v, at)],
     ["panel.media", ["menu.image"], "image picture photo bild foto", PIC.picture, picture],
   ];
@@ -218,6 +220,8 @@
       html += sec("slash.callout") + `<div class="rp-kinds">${kinds.map((e) => btn("slash.callout", e, e.icon, "rp-kind callout-" + CALLOUT.kind(e.key.slice(8)))).join("")}</div>` +
         (title ? `<div class="rp-row">${named("slash.callout", title)}</div>` : "");
     }
+    const columns = by("slash.columns");
+    if (columns) html += sec("slash.columns") + `<div class="rp-list">${leaves(columns).map((e) => named("slash.columns", e, e.danger ? "rp-danger" : "")).join("")}</div>`;
     const wide = by("table.wide"), row = by("table.row"), col = by("table.column");
     if (wide) {
       html += sec("menu.table") + `<div class="rp-row">${named("", wide)}</div>`;

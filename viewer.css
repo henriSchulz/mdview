@@ -258,7 +258,15 @@ code, pre { font-family: var(--mono); }
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; font-size: 0.94em; font-variant-numeric: tabular-nums; }
 .table-wrap table { margin: 0; }
-.table-wrap.wide > table { width: 100%; }   /* as wide as the text column (<!-- wide --> before it) */
+.table-wrap.wide > table { width: 100%; }
+/* columns: blocks side by side (<!-- columns --> … <!-- column --> … <!-- /columns -->); a column's
+ * width is its share (flex). In a narrow window they stand one under the other again. */
+.cols { display: flex; align-items: flex-start; gap: 28px; margin: 0 0 1em; }
+.col { flex: 1 1 0; min-width: 0; }
+.col > :first-child { margin-top: 0; }
+.col > :last-child { margin-bottom: 0; }
+@media (max-width: 640px) { .cols { flex-direction: column; gap: 0; } .col { flex: none !important; width: 100%; } .col > :last-child { margin-bottom: 1em; } }
+@media print { .cols { break-inside: avoid; } }   /* as wide as the text column (<!-- wide --> before it) */
 th, td { padding: 7px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 th { font-weight: 600; border-bottom-color: var(--line-strong); }
 tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }

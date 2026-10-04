@@ -24,7 +24,7 @@
   const TYPES = {
     paragraph_open: "paragraph", heading_open: "heading", bullet_list_open: "list", ordered_list_open: "list",
     blockquote_open: "blockquote", table_open: "table", fence: "code", code_block: "code", math_block: "math",
-    html_block: "html", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes",
+    html_block: "html", columns_open: "columns", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes",
   };
 
   // Offsets of every line in the normalised text and in the original.

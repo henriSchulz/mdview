@@ -41,7 +41,7 @@
   const block = (spec) => ({ group: "block", ...spec, attrs: { bid: { default: null }, line, ...spec.attrs } });
 
   const nodes = {
-    doc: { content: "block+" },
+    doc: { content: "(block | columns)+" },
     paragraph: block({
       content: "inline*",
       parseDOM: [{ tag: "p" }],
@@ -73,6 +73,22 @@
       } }],
       toDOM: (n) => (n.attrs.callout ? calloutDOM(n) : quoteDOM(n)),
     }),
+    /* Columns: blocks side by side, only among the document's own blocks. A column's width is its
+     * share of the row (1 and 1: alike; 2 and 1: two thirds and one). */
+    columns: {
+      content: "column column+",
+      attrs: { bid: { default: null }, line },
+      isolating: true,
+      parseDOM: [{ tag: "div.cols" }],
+      toDOM: (n) => ["div", { class: "cols", ...lineAttr(n) }, 0],
+    },
+    column: {
+      content: "block+",
+      attrs: { width: { default: 1 } },
+      isolating: true,
+      parseDOM: [{ tag: "div.col", getAttrs: (dom) => ({ width: parseFloat(dom.style.flexGrow) || 1 }) }],
+      toDOM: (n) => ["div", { class: "col", style: `flex: ${n.attrs.width} 1 0` }, 0],
+    },
     bullet_list: block({
       content: "list_item+",
       attrs: { tight: { default: true }, tasks: { default: false }, markup: { default: null } },
@@ -390,6 +406,16 @@
               if (!inner.length) throw new Unsupported("empty quote");
               out.push({ type: "blockquote", attrs: { ...attrs, deco: (t.meta && t.meta.deco) || null, color: (t.meta && t.meta.color) || null }, content: blocksOf(inner, ctx.concat({ quote: true })) });
               break;
+            case "columns_open": {
+              const cols = [];
+              for (let a = 0; a < inner.length; a++) {
+                const b = closeIndex(inner, a), made = blocksOf(inner.slice(a + 1, b), ctx);
+                cols.push({ type: "column", attrs: { width: (inner[a].meta && inner[a].meta.width) || 1 }, content: made.length ? made : [{ type: "paragraph" }] }); // (a column with nothing in it: a place to type)
+                a = b;
+              }
+              out.push({ type: "columns", attrs, content: cols });
+              break;
+            }
             case "bullet_list_open":
             case "ordered_list_open":
               out.push(listOf(t, inner, attrs, ctx));

@@ -32,7 +32,7 @@
     let el = target && target.nodeType === 1 ? target : target && target.parentElement;
     // on a list itself (its bullets, its indent): the item at that height
     if (y != null && el && el.matches("ul, ol") && v.dom.contains(el)) el = itemIn(el, y) || el;
-    while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote, .callout-content, ul, ol") && !el.matches(".li-body, input"))) el = el.parentElement;
+    while (el && el !== v.dom && !(el.parentElement && el.parentElement.matches(".pm, li, .li-body, blockquote, .callout-content, .col, ul, ol") && !el.matches(".li-body, input"))) el = el.parentElement;
     if (!el || el === v.dom || !v.dom.contains(el)) return null;
     const holder = el.parentElement.matches(".li-body") ? el.parentElement.parentElement : el.parentElement;
     if (holder.matches("li") && !el.previousElementSibling) el = holder; // the item itself
@@ -277,7 +277,7 @@
   });
 
   // what floats over or stands beside the text: a press there is neither a click into the empty space nor the start of a rectangle
-  const CHROME = ".blk-h, .tbl-h, .actmenu, #dlg, #dlg-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #findbar, #ctxmenu, #zoom, #toast, #acttip, #apptip";
+  const CHROME = ".blk-h, .tbl-h, .col-grip, .actmenu, #dlg, #dlg-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #findbar, #ctxmenu, #zoom, #toast, #acttip, #apptip";
 
   /* ---------------------------------------------------------------- a rectangle pulled over blocks
    * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;
@@ -406,7 +406,9 @@
     // how far in the pointer is says how deep the block goes — measured from where it was taken:
     // moved straight up or down it keeps its depth, moved right it goes deeper, left further out
     const dx = e.clientX ? over.getBoundingClientRect().left - e.clientX : 0;
-    drag = { from, to, slice, items, dx, list: items && isList(parent) ? parent : null, target: null };
+    let cols = false; // a row of columns among them: it goes beside nothing (no columns in columns)
+    slice.content.forEach((n) => { if (n.type.name === "columns") cols = true; });
+    drag = { from, to, slice, items, cols, dx, list: items && isList(parent) ? parent : null, target: null };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
@@ -491,6 +493,30 @@
     };
     const wrapped = PM.model.Fragment.from(drag.list ? drag.list.type.create(drag.list.attrs, drag.slice.content) : A.schema.nodes.bullet_list.create(null, drag.slice.content));
 
+    /* To the side of a block of the document, or of a column of a row: beside it, as a column.
+     * (At a block's right end, or at the very left of the text; at a column's own edges.) */
+    if (!drag.cols) {
+      let top = el;
+      while (top.parentElement !== v.dom && outerOf(v, top)) top = outerOf(v, top);
+      const d = top.parentElement === v.dom ? descOf(top) : null;
+      if (d && !(d.posBefore >= drag.from && d.posBefore < drag.to) && e.clientY >= top.getBoundingClientRect().top && e.clientY <= top.getBoundingClientRect().bottom) {
+        const r = top.getBoundingClientRect(), mk = (pos, side, x0, box) => ({ pos, side, wrap: false, x: x0, y: box.top, h: box.height, w: 2 });
+        if (d.node.type.name === "columns") {
+          for (const c of top.children) {
+            const cd = descOf(c);
+            if (!cd || cd.node.type.name !== "column") continue;
+            const a = c.getBoundingClientRect(), alone = cd.posBefore + 1 === drag.from && cd.posBefore + cd.node.nodeSize - 1 === drag.to; // (all its column holds: it would only change places with itself)
+            if (alone || e.clientX < a.left - 14 || e.clientX > a.right + 14) continue;
+            if (e.clientX < a.left + 16) return mk(cd.posBefore, -1, a.left - 14, r);
+            if (e.clientX > a.right - 16) return mk(cd.posBefore, 1, a.right + 12, r);
+          }
+        } else if (usable(d.node) && !(drag.items && isList(d.node))) { // (items over a list: how far in the pointer is says how deep, nothing else)
+          if (e.clientX > r.right - Math.max(40, r.width * 0.16) && e.clientX <= pm.right + 24) return mk(d.posBefore, 1, r.right + 8, r);
+          // (a list's left is where its bullets are pointed at: no column from there)
+          if (!isList(d.node) && e.clientX >= pm.left - 6 && e.clientX < r.left + 16) return mk(d.posBefore, -1, r.left - 10, r);
+        }
+      }
+    }
     const xe = e.clientX + drag.dx; // where the dragged block's left edge would be
     if (drag.items) {
       // the deepest item at this height
@@ -568,7 +594,8 @@
     if (!t) { delete line.dataset.on; return; }
     line.style.left = t.x + scrollX + "px";
     line.style.width = t.w + "px";
-    line.style.top = t.y - 1 + scrollY + "px";
+    line.style.height = t.side ? t.h + "px" : ""; // (beside a block: a line down its side)
+    line.style.top = t.y - (t.side ? 0 : 1) + scrollY + "px";
     line.dataset.on = "";
   }
   // (Both before anything else sees them: the editor's own drop handling and drop line stay out of it.)
@@ -577,7 +604,7 @@
     e.stopPropagation();
     e.preventDefault(); // (a drop is possible everywhere while one of the editor's blocks is dragged)
     e.dataTransfer.dropEffect = "move";
-    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x);
+    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && (a.side || 0) === (b.side || 0));
     if (!same(t, drag.target)) { drag.target = t; showLine(t); }
   }, true);
   document.addEventListener("drop", (e) => {
@@ -588,7 +615,19 @@
     drag = null;
     showLine(null);
     if (!t) return;
-    const content = t.wrap ? PM.model.Fragment.from(d.list ? d.list.type.create(d.list.attrs, d.slice.content) : A.schema.nodes.bullet_list.create(null, d.slice.content)) : d.slice.content;
+    const listed = () => PM.model.Fragment.from(d.list ? d.list.type.create(d.list.attrs, d.slice.content) : A.schema.nodes.bullet_list.create(null, d.slice.content));
+    if (t.side) { // beside a block or a column: as a column of its own
+      const tr = view.state.tr.deleteRange(d.from, d.to);
+      const began = A.columns.beside(tr, tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1), t.side, d.items ? listed() : d.slice.content);
+      if (began < 0) return;
+      const n = tr.steps.length;
+      A.columns.tidy(tr, tr.mapping.map(d.from)); // (the column they came from, if nothing is left in it)
+      tr.setSelection(Selection.near(tr.doc.resolve(tr.mapping.slice(n).map(began)), 1)).setMeta("uiEvent", "drop").setMeta("step", true);
+      view.dispatch(tr.scrollIntoView());
+      view.focus();
+      return;
+    }
+    const content = t.wrap ? listed() : d.slice.content;
     const tr = view.state.tr.deleteRange(d.from, d.to); // (a list left without items goes with them)
     const at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
     tr.insert(at, content);
@@ -596,8 +635,12 @@
     const first = at + (t.wrap ? 1 : 0);
     let last = first;
     for (let i = 0, p = first; i < d.slice.content.childCount; p += d.slice.content.child(i).nodeSize, i++) last = p;
-    tr.setMeta(selKey, { anchor: first, head: last }).setMeta("uiEvent", "drop").setMeta("step", true);
-    tr.setSelection(pmSel(tr.doc, last));
+    // a column left with nothing in it goes (what was moved is found again behind that change)
+    const n = tr.steps.length;
+    A.columns.tidy(tr, tr.mapping.map(d.from));
+    const after = tr.mapping.slice(n), anchor = after.map(first), head = after.map(last);
+    tr.setMeta(selKey, { anchor, head }).setMeta("uiEvent", "drop").setMeta("step", true);
+    tr.setSelection(pmSel(tr.doc, head));
     view.dispatch(tr);
     view.focus();
   }, true);
@@ -651,5 +694,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

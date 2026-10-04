@@ -89,6 +89,23 @@ run; everything that does not depend on frames passed.
   (ticked when on; the / menu in a cell has it too). In the file it is a line `<!-- wide -->` right before
   the table — a comment no renderer shows; the parser takes the line into the table (`wide_tables` core rule,
   `.table-wrap.wide`), the active mode keeps it as the table's `wide` attribute. Tests: `tests/widetable.test.mjs`.
+- **Columns** (branch `craft-feel`; `active/columns.js`, nodes `columns` / `column` in schema.js, the `columns`
+  core rule in viewer.js): blocks side by side. In the file they stand one under the other between comment
+  lines no renderer shows — `<!-- columns 2:1 -->`, `<!-- column -->`, `<!-- /columns -->` (the widths as a
+  ratio, left out when all are alike) — so elsewhere the text simply reads top to bottom. Only among the
+  document's own blocks, never inside each other, a list or a quote; at least two columns to a row. Under
+  640 px they stand one under the other.
+  *Making them*: / → Columns → 2 / 3 / 4 (the caret's block becomes the first), the panel's tiles (a new
+  empty row), or a block dragged to the side of another: at its right end, or at the very left of the text
+  → the two become a row; at a column's edge → a new column of that row (a line down the side shows it;
+  list items dragged over a list never do this). *In a column*: Add Column Left / Right, Move Column, Equal
+  Widths, Unwrap Columns, Remove Column (what it holds joins the column beside it), also in the panel's
+  Format tab; Backspace in a column with nothing in it takes it away; a column a drag has emptied goes, and
+  with one column left the row is no row. *Widths*: the gap between two columns is pulled (`.col-grip`; the
+  two share what they had, none under 12 % of the row; shown at once by a decoration, written when let go
+  as shares of a hundred, alike again when nearly so); a double click makes all alike. Blocks in a column
+  have their handles, are dragged, selected and duplicated there. Tests: `tests/columns.test.mjs`; probe
+  `rig.sh columns` (the gap with the real pointer, the drags with made-up drag events).
 - **The panel at the right** (branch `craft-feel`, Craft's right sidebar; `active/panel.js`, styles at the end
   of active.css; what was found of the original is in `~/Projects/craft-clone/replica/recon.md`, addendum):
   the toolbar's last button or Ctrl+Alt+P — in the active mode only: in the reading view and the source

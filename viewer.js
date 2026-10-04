@@ -423,6 +423,51 @@
   md.renderer.rules.code_block = (toks, idx) =>
     `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
   md.renderer.rules.table_open = (t, i, o, _e, self) => `<div class="table-wrap${t[i].meta && t[i].meta.wide ? " wide" : ""}">` + self.renderToken(t, i, o);
+  /* Columns: blocks side by side. In the file they stand one under the other, between comment
+   * lines no renderer shows — elsewhere the text simply reads top to bottom:
+   *     <!-- columns 2:1 -->      (the widths, as a ratio; without it all are alike)
+   *     …blocks…
+   *     <!-- column -->
+   *     …blocks…
+   *     <!-- /columns -->
+   * Only among the document's own blocks (not in a list or a quote), and not inside each other. */
+  const COLS = /^<!--\s*columns(?:\s+(\d+(?:\.\d+)?(?:\s*:\s*\d+(?:\.\d+)?)*))?\s*-->$/, COL = /^<!--\s*column\s*-->$/, COLS_END = /^<!--\s*\/columns\s*-->$/;
+  md.core.ruler.after("block", "columns", (state) => {
+    const toks = state.tokens;
+    const token = (type, nesting, level) => { const t = new state.Token(type, "div", nesting); t.block = true; t.level = level; return t; };
+    for (let i = 0; i < toks.length; i++) {
+      const open = toks[i], m = open.type === "html_block" && open.level === 0 && open.map ? COLS.exec(open.content.trim()) : null;
+      if (!m) continue;
+      let end = -1;
+      const cuts = [];
+      for (let j = i + 1; j < toks.length; j++) {
+        const t = toks[j], c = t.type === "html_block" && t.level === 0 ? t.content.trim() : "";
+        if (!c) continue;
+        if (COLS.test(c)) break; // (a second beginning: the first has no end)
+        if (COLS_END.test(c)) { end = j; break; }
+        if (COL.test(c)) cuts.push(j);
+      }
+      if (end < 0 || !cuts.length || !toks[end].map) continue;
+      const n = cuts.length + 1, given = m[1] ? m[1].split(":").map(Number) : [];
+      const widths = given.length === n && given.every((w) => w > 0) ? given : Array(n).fill(1);
+      const all = token("columns_open", 1, 0);
+      all.attrSet("class", "cols");
+      all.map = [open.map[0], toks[end].map[1]];
+      const out = [all], bounds = [i, ...cuts, end];
+      for (let k = 0; k < n; k++) {
+        const col = token("column_open", 1, 1), inner = toks.slice(bounds[k] + 1, bounds[k + 1]);
+        col.attrSet("class", "col");
+        col.attrSet("style", `flex: ${widths[k]} 1 0`);
+        col.meta = { width: widths[k] };
+        col.map = [toks[bounds[k]].map[1], toks[bounds[k + 1]].map[0]];
+        for (const t of inner) t.level += 2;
+        out.push(col, ...inner, token("column_close", -1, 1));
+      }
+      out.push(token("columns_close", -1, 0));
+      toks.splice(i, end - i + 1, ...out);
+      i += out.length - 1;
+    }
+  });
   // a table as wide as the text column: the line before it says so, as a comment no renderer shows
   const WIDE = /^<!--\s*wide\s*-->\s*$/;
   md.core.ruler.after("block", "wide_tables", (state) => {
@@ -1615,7 +1660,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/blocks.js", "active/panel.js", "active/view.js"]) await script(src);
+      for (const src of ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"]) await script(src);
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
