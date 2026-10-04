@@ -41,12 +41,25 @@
   };
   function place(el) {
     over = el;
+    delete handle.dataset.group;
+    handle.style.height = "";
     const r = el.getBoundingClientRect();
     const line = parseFloat(getComputedStyle(el).lineHeight) || 26;
     const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
     // left of the block; left of its bullet or checkbox for a list item
     handle.style.left = r.left - (el.matches("li") ? 56 : 32) + scrollX + "px"; // (clear of the highlight a selected block gets)
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
+    handle.dataset.on = "";
+  }
+  /* Several blocks selected have one handle between them: it stands beside all of them, from the
+   * first to the last, and dragging it takes them all. */
+  function placeGroup(els) {
+    over = els[0];
+    const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
+    handle.style.left = a.left - (els[0].matches("li") ? 56 : 32) + scrollX + "px";
+    handle.style.top = a.top - 4 + scrollY + "px"; // (as far as the highlight of the selected blocks goes)
+    handle.style.height = b.bottom - a.top + 8 + "px";
+    handle.dataset.group = "";
     handle.dataset.on = "";
   }
   let leaving = 0;
@@ -366,6 +379,7 @@
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
+    if (handle.hasAttribute("data-group")) { view.focus(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
   });
   /* Dragging by the handle. The move is the handle's own business from start to end: wherever
@@ -396,9 +410,50 @@
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
-    e.dataTransfer.setDragImage(over, Math.min(40, r.width / 2), Math.min(16, r.height / 2));
+    // the picture under the pointer: the block — or all the blocks that go, as they stand
+    const els = many ? groupEls(view.state) : null;
+    if (els) {
+      const ghost = ghostOf(els);
+      e.dataTransfer.setDragImage(ghost, Math.max(0, Math.min(e.clientX - r.left + 10, ghost.offsetWidth - 10)), Math.max(0, Math.min(e.clientY - r.top + 6, ghost.offsetHeight - 10)));
+      setTimeout(() => ghost.remove(), 0);
+    } else e.dataTransfer.setDragImage(over, Math.min(40, r.width / 2), Math.min(16, r.height / 2));
+    // (after the picture is taken:) the selected blocks stand back where they are while they are dragged.
+    // By a class on the page — the editor's own elements are not touched, it would draw them anew
+    if (els) setTimeout(() => { if (drag) document.body.classList.add("blk-dragging"); }, 0);
     handle.dataset.dragging = "";
   });
+  // the elements of the blocks selected (two or more), or null
+  function groupEls(state) {
+    const r = view ? rangeOf(state) : null;
+    if (!r || r.a === r.b) return null;
+    const els = [];
+    for (let i = r.a; i <= r.b; i++) {
+      const dom = usable(r.parent.child(i)) ? view.nodeDOM(posOfChild(r, i)) : null;
+      if (dom && dom.nodeType === 1) els.push(dom);
+    }
+    return els.length > 1 ? els : null;
+  }
+  /* What is dragged, as a picture: the blocks as they stand, one under the other, on a card. A long
+   * selection is shown by its beginning. */
+  function ghostOf(els) {
+    const box = document.createElement("div"), inner = box.appendChild(document.createElement("div"));
+    box.className = "blk-ghost";
+    inner.className = view.dom.className.replace(/\b(has-blocksel|ProseMirror-focused)\b/g, "");
+    inner.contentEditable = "false";
+    box.style.width = view.dom.getBoundingClientRect().width + "px";
+    let list = null; // items stand in a list like the one they come from
+    for (const el of els) {
+      const copy = el.cloneNode(true);
+      copy.classList.remove("blk-sel", "ProseMirror-selectednode");
+      if (el.matches("li")) {
+        if (!list || list.dataset.of !== String(els.indexOf(el) - 1)) list = inner.appendChild(el.parentElement.cloneNode(false));
+        list.dataset.of = String(els.indexOf(el));
+        list.appendChild(copy);
+      } else { list = null; inner.appendChild(copy); }
+    }
+    document.body.appendChild(box);
+    return box;
+  }
 
   /* Where it would go. The block at the pointer's height says between which blocks; how far in
    * the pointer is says how deep:
@@ -546,10 +601,13 @@
     view.dispatch(tr);
     view.focus();
   }, true);
-  handle.addEventListener("dragend", () => { drag = null; showLine(null); delete handle.dataset.dragging; hide(); });
+  handle.addEventListener("dragend", () => {
+    drag = null; showLine(null); delete handle.dataset.dragging; hide();
+    document.body.classList.remove("blk-dragging");
+  });
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (handle.hasAttribute("data-group") && handle.hasAttribute("data-on") && !handle.hasAttribute("data-dragging") && !groupEls(now.state)) hide(); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -560,11 +618,14 @@
           // the handle stays the block's while the pointer is beside it, at its height
           if (over && over.isConnected) {
             const r = over.getBoundingClientRect(), h = handle.getBoundingClientRect();
-            const bottom = over.matches("li") ? Math.min(r.bottom, h.bottom + 6) : r.bottom;
+            const bottom = handle.hasAttribute("data-group") ? h.bottom : over.matches("li") ? Math.min(r.bottom, h.bottom + 6) : r.bottom;
             if (e.clientY >= r.top - 6 && e.clientY <= bottom + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12) { clearTimeout(leaving); return false; }
           }
           const el = blockOf(v, e.target, e.clientY);
-          if (el) { clearTimeout(leaving); if (el !== over) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
+          // over one of several selected blocks: the handle they share
+          const group = el ? groupEls(v.state) : null;
+          if (group && group.some((x) => x === el || x.contains(el))) { clearTimeout(leaving); if (!handle.hasAttribute("data-group") || over !== group[0] || !handle.hasAttribute("data-on")) placeGroup(group); return false; }
+          if (el) { clearTimeout(leaving); if (el !== over || handle.hasAttribute("data-group")) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
         mouseleave(_v, e) { if (over && !e.relatedTarget?.closest?.(".blk-h")) hideSoon(); return false; },
@@ -590,5 +651,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

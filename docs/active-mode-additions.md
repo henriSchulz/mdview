@@ -120,6 +120,11 @@ run; everything that does not depend on frames passed.
   a click as before (the selected blocks are let go; below the last block an empty line). The panel at the
   right and the overview count as chrome now: a click there no longer lets the selected blocks go. Top-level
   blocks only. Probe: `rig.sh blocks` (real pointer; `probe-pointer` moves with `held` for a drag).
+  Several selected blocks have **one handle**: it stands beside all of them, from the first to the last, its
+  grip at the first (`placeGroup`); a click on it leaves them selected, dragging it takes them all. What is
+  under the pointer while they are dragged is a picture of all of them on a card (`ghostOf`, at most 340 px
+  tall), and the blocks themselves stand back (a class on the page, `blk-dragging` — the editor's own
+  elements are not touched: a class set on them makes it draw them anew and lets the selection go).
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

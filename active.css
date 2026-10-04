@@ -485,6 +485,17 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .blk-h[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-instant) var(--ease-out); }
 .blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
 .blk-h[data-dragging] { cursor: grabbing; }
+/* the one handle of several selected blocks: beside all of them, its grip at the first */
+.blk-h[data-group] { place-items: start center; padding-top: 5px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); color: var(--accent); }
+/* what is dragged stands back where it was while its picture is under the pointer */
+.pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
+body.blk-dragging .pm .blk-sel { opacity: 0.35; }
+/* that picture, for several blocks: as they stand, on a card (made for the drag, off the page) */
+.blk-ghost { position: fixed; top: 0; left: -10000px; z-index: -1; box-sizing: border-box; max-height: 340px; overflow: hidden; padding: 8px 12px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; }
+.blk-ghost > div { margin: 0; padding: 0; min-height: 0; }
+.blk-ghost > div > :first-child { margin-top: 0; }
+.blk-ghost > div > :last-child { margin-bottom: 0; }
 .blk-h svg { width: 10px; height: 16px; fill: currentColor; }
 .drop-line { background: var(--accent); border-radius: 1px; pointer-events: none; animation: none; }
 @media print { .blk-h, .drop-line { display: none !important; } }

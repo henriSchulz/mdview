@@ -145,6 +145,19 @@
       drag(pr.right - 60, s2.bottom - 4); await sleep(100);
       at("up", pr.right - 60, s2.bottom - 4); await sleep(300);
       ok("let go: the rectangle is gone, the blocks stay selected, the text has the focus", !band.hasAttribute("data-on") && picked().length === 2 && view.hasFocus(), picked());
+      // the handle they share
+      at("move", pr.left + 40, f.top + 8); await sleep(300);
+      const gh = document.querySelector(".blk-h"), gr = gh.getBoundingClientRect();
+      ok("several blocks selected have one handle, beside all of them", gh.hasAttribute("data-group") && gh.hasAttribute("data-on") && gr.top <= f.top && gr.bottom >= s2.bottom && gr.right <= f.left, [gr.top, gr.bottom, f.top, s2.bottom]);
+      at("move", pr.left + 40, s2.top + 8); await sleep(200);
+      ok("… the same one over the second of them", gh.hasAttribute("data-group") && Math.abs(gh.getBoundingClientRect().top - gr.top) < 1);
+      at("move", gr.left + 9, gr.bottom - 12); await sleep(150); at("down", gr.left + 9, gr.bottom - 12); await sleep(50); at("up", gr.left + 9, gr.bottom - 12); await sleep(250);
+      ok("a click on it leaves them selected", picked().length === 2 && gh.hasAttribute("data-on"), picked());
+      const ghost = A.blocks.ghostOf(A.blocks.groupEls(view.state));
+      ok("what is dragged shows all of them", ghost.textContent.includes("First paragraph") && ghost.textContent.includes("Second paragraph") && !ghost.querySelector(".blk-sel") && Math.abs(ghost.offsetWidth - pr.width) < 2 && ghost.offsetHeight > f.height + s2.height, [ghost.offsetWidth, ghost.offsetHeight]);
+      ghost.remove();
+      at("move", pr.left + 40, para("Filler paragraph 1").getBoundingClientRect().top + 8); await sleep(300);
+      ok("over a block that is not selected: that block's own handle", !gh.hasAttribute("data-group") && gh.getBoundingClientRect().height < 30, gh.getBoundingClientRect().height);
       key("ArrowDown", { altKey: true }); await sleep(120);
       ok("the keyboard works on them: Alt+↓ moves both", md().indexOf("```js") < md().indexOf("First paragraph") && picked().length === 2, md().slice(0, 120));
       undo(); await sleep(120);
