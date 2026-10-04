@@ -32,7 +32,7 @@
 
   // ------------------------------------------------------------ icons
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
-  const ICON = {
+  const SVG_ICON = {
     list: svg('<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>'),
     search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
     pencil: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
@@ -71,6 +71,20 @@
     file: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>'),
     trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
   };
+  // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
+  // that font (mdview.py says so: body[data-sf]): set as text, they are drawn with the text's
+  // hinting and stand sharp on a screen of ordinary resolution, where a 24-unit drawing scaled to
+  // 16 px does not. Only code points are written here; without the font the drawings above stay.
+  // (The glyph is CSS content, not text: a row's text stays its name.)
+  // What stands in the document (callouts) and in the "/" menu keeps the drawings.
+  const SF = {
+    list: 0x1002f2, search: 0x1002ab, pencil: 0x10020a, source: 0x100246, book: 0x10025a, up: 0x100187, down: 0x100188,
+    x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, plus: 0x10017c, title: 0x100151, folder: 0x100215,
+    note: 0x10023f, folderPlus: 0x100219, external: 0x100114, apps: 0x1001f7, reveal: 0x1002ab, rename: 0x10016b,
+    gear: 0x1008cb, pdf: 0x100245, picture: 0x1003c5, file: 0x100237, trash: 0x100211,
+  };
+  const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
+    : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const DECO_COLORS = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]; // (the theme's --c-…)
   const CALLOUT_ALIAS = {
@@ -79,9 +93,9 @@
     fail: "failure", missing: "failure", error: "danger", cite: "quote",
   };
   const CALLOUT_ICON = {
-    note: ICON.pencil, info: ICON.info, todo: ICON.todo, abstract: ICON.clip, tip: ICON.flame,
-    success: ICON.check, question: ICON.help, warning: ICON.warn, failure: ICON.x,
-    danger: ICON.zap, bug: ICON.bug, example: ICON.list, quote: ICON.quote, important: ICON.alert,
+    note: SVG_ICON.pencil, info: SVG_ICON.info, todo: SVG_ICON.todo, abstract: SVG_ICON.clip, tip: SVG_ICON.flame,
+    success: SVG_ICON.check, question: SVG_ICON.help, warning: SVG_ICON.warn, failure: SVG_ICON.x,
+    danger: SVG_ICON.zap, bug: SVG_ICON.bug, example: SVG_ICON.list, quote: SVG_ICON.quote, important: SVG_ICON.alert,
   };
 
   // ------------------------------------------------------------ helpers
@@ -2446,7 +2460,7 @@
   window.addEventListener("blur", hideTip);
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
+    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },

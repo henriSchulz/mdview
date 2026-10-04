@@ -45,7 +45,7 @@
       const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
       const cmds = () => shown().map((b) => b.dataset.cmd).join();
       ok("right click on a file: open in the default app, with another one, show in Finder, rename, trash", menu.hasAttribute("data-open") && cmds() === "default,openwith,reveal,rename,trash", cmds());
-      ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon svg"); return i && i.getBoundingClientRect().width > 10; }));
+      ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon :is(svg, .sf)"); return i && i.getBoundingClientRect().width > 10; }));
       const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
       await shut();
       // the + button: a note or a folder

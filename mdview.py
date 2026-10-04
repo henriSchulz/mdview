@@ -55,6 +55,7 @@ MOTION_CSS = HOME / ".local/share/henri-ui/motion.css"
 APPLE_CSS = HOME / ".local/share/apple-ui/apple.css"   # sizes and radii measured on macOS (sidebar, menus)
 # The context and "/" menus wear the Things rebuild's dark popover: its tokens, where its launcher
 # looks for them too. Without the file the values written in viewer.css hold.
+SF_SYMBOLS = ".SF Symbols Fallback"   # the font the app's signs are set in, where it is installed (viewer.js)
 THINGS_TOKENS = "replica/design/tokens.json"
 THINGS_DIRS = [Path(d) for d in (os.environ.get("THINGS_DIR"), HOME / ".local/share/things-clone",
                                  HOME / "Projects/things-clone") if d]
@@ -402,6 +403,15 @@ def things_css():
         return ";" + ";".join(out)
     except (AttributeError, OSError, ValueError, KeyError, TypeError):
         return ""
+
+
+def has_font(family):
+    try:
+        gi.require_version("PangoCairo", "1.0")
+        from gi.repository import PangoCairo
+        return any(f.get_name() == family for f in PangoCairo.font_map_get_default().list_families())
+    except (ValueError, ImportError):
+        return False
 
 
 def theme_css(theme):
@@ -792,7 +802,7 @@ class ViewerWindow(Gtk.ApplicationWindow):
             f"<link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>"
             f"<link rel='stylesheet' href='{a}/viewer.css'>"
             f"<link rel='stylesheet' href='{a}/overview.css'>"
-            f"</head><body data-mode='{self.app.theme['mode']}'><main id='content'></main>"
+            f"</head><body data-mode='{self.app.theme['mode']}'{' data-sf' if self.app.sf_symbols else ''}><main id='content'></main>"
             f"{scripts}</body></html>"
         )
         self.view.load_html(page, target_dir.as_uri() + "/")
@@ -1872,6 +1882,7 @@ class MdViewApp(Gtk.Application):
         self.state = load_state()
         self.theme = load_theme()
         self.motion_css = self.read_motion()
+        self.sf_symbols = has_font(SF_SYMBOLS)
         self.web_settings = None
         self.monitors = []
         self.theme_id = 0

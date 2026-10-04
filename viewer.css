@@ -951,3 +951,20 @@ body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [dat
 #content img:not(.pdf-embed-img), .pm img:not(.pdf-embed-img) { cursor: zoom-in; }
 @media (prefers-reduced-motion: reduce) { #zoom img { transition: none !important; } }
 @media print { #zoom { display: none !important; } }
+
+/* ------------------------------------------------------------- signs set as text (SF Symbols)
+ * A sign is a glyph in the box its drawing had; its size is the type's, its colour the text's. */
+.sf { display: inline-block; font: 400 15px/1 ".SF Symbols Fallback"; font-variation-settings: normal; text-rendering: auto; -webkit-user-select: none; user-select: none; }
+.sf::before { content: attr(data-g); }
+.find-icon .sf, .menu-icon .sf, .rp-search .sf { font-size: 14px; }
+#settings-btn .sf { font-size: 16px; }
+.sb-folder .sf { flex: none; color: var(--accent); }
+.sb-chev .sf { font-size: 9px; }
+.callout-fold .sf { font-size: 11px; }
+details.props .callout-fold .sf { font-size: 10px; }
+.empty-icon .sf { font-size: 34px; }
+.ov-sep .sf { font-size: 12px; }
+.ov-opt .sf { font-size: 14px; }
+.ov-folder.ov-tile .ov-icon .sf { font-size: 40px; color: var(--accent); }
+.ov-row .ov-icon .sf { font-size: 18px; }
+.ov-go .sf { font-size: 11px; }

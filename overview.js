@@ -19,7 +19,7 @@
 "use strict";
 (() => {
   const core = window.MdView.core;
-  const { md, stripFrontmatter, stripComments, esc, post, DECO_COLORS, ICON } = core;
+  const { md, stripFrontmatter, stripComments, esc, post, DECO_COLORS, UI: ICON } = core;
   const BATCH = 40;
 
   const el = document.createElement("section");
