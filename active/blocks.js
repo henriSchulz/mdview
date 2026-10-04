@@ -363,7 +363,16 @@
     }
     return true;
   }
+  let drawnDoc = null; // the document the page shows (see decorations)
   const selPlugin = new Plugin({
+    view(v) {
+      drawnDoc = v.state.doc;
+      return { update(now, prev) {
+        const doc = now.state.doc;
+        drawnDoc = doc;
+        if (prev.doc !== doc && pickedOf(now.state).length) requestAnimationFrame(() => { if (now.state.doc === doc && !now.isDestroyed) now.dispatch(now.state.tr.setMeta("addToHistory", false)); });
+      } };
+    },
     key: selKey,
     state: {
       init: () => null,
@@ -384,7 +393,19 @@
     props: {
       decorations(state) {
         const P = pickedOf(state);
-        return P.length ? DecorationSet.create(state.doc, P.map((x) => Decoration.node(x.pos, x.pos + x.node.nodeSize, { class: "blk-sel" }))) : null;
+        if (!P.length) return null;
+        // Blocks that follow each other are one box (active.css): each reaches up over the gap to the
+        // one before it. How far is measured — the gap is the blocks' margins, and those differ (a
+        // formula, a table, a heading) — and handed over as --up: the gap less the 4 px each of the
+        // two reaches into it already.
+        // (only when what is drawn is this document: after a change the blocks are measured a frame later)
+        const view = A.view.pm;
+        const rectAt = (pos) => { try { const d = view && drawnDoc === state.doc ? view.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; } catch (e) { return null; } };
+        return DecorationSet.create(state.doc, P.map((x, i) => {
+          const before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
+          const up = before && here ? Math.max(0, Math.round((here.top - before.bottom - 8) * 10) / 10) : null;
+          return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null ? { class: "blk-sel" } : { class: "blk-sel", style: `--up: ${up}px` });
+        }));
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : null),
       handleKeyDown: keydown,

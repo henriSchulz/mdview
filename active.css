@@ -687,8 +687,8 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * the block before ends and covers nothing of it. */
 .pm .blk-sel + .blk-sel { --up: 8px; --blk-box: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel), 0 calc(-1 * var(--up)) 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) calc(-1 * var(--up)) 0 4px var(--blk-sel); }
 /* (where two join, the corners between them are square: a round one would leave a notch) */
-.pm .blk-sel + .blk-sel { border-top-left-radius: 0; border-top-right-radius: 0; }
-.pm .blk-sel:has(+ .blk-sel) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.pm .blk-sel + .blk-sel { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; }   /* (a block with corners of its own — a formula, a code block — too) */
+.pm .blk-sel:has(+ .blk-sel) { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
 .pm .blk-sel + :is(h2, h3, h4, h5, h6).blk-sel { --up: calc(1.8em - 8px); }
 .pm .blk-sel + h1.blk-sel { --up: calc(1.2em - 8px); }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
