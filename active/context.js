@@ -172,6 +172,11 @@
         item("table.wide", () => A.tableui.wide(view, cell), { checked: !!cell.table.attrs.wide }),
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
+    // in a column: what can be done with the columns (the "/" menu's entries for them)
+    if (A.columns.at(state)) {
+      const group = A.slash.entries(view).find((e) => e && e.key === "slash.columns");
+      if (group) items.push(null, { label: T("slash.columns"), items: group.items.map((e) => e && { label: e.label || T(e.key, e.n), run: () => e.act(view), disabled: e.disabled, danger: e.danger }) });
+    }
     items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));
     return items;
   }

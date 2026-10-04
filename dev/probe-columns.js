@@ -186,6 +186,24 @@
       post("probe-pointer", { kind: "up", x: al.left + 200, y: gapY }); await sleep(250);
       ok("a click between two blocks puts the caret into the text, as before", picked() === "" && view.state.selection.empty && view.hasFocus());
     }
+
+    // --- a right click in a column: its commands, and the whole row deleted from there
+    {
+      const el = para("Gamma"), r = el.getBoundingClientRect(), menu = document.getElementById("actmenu"), sub = document.getElementById("actsub");
+      el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 12, clientY: r.top + r.height / 2 }));
+      await sleep(300);
+      const item = (m, label) => [...m.querySelectorAll(".menu-item")].find((b) => b.querySelector(".menu-label").textContent === label);
+      ok("a right click in a column: the menu has Columns", menu.hasAttribute("data-open") && !!item(menu, "Columns"), [...menu.querySelectorAll(".menu-label")].map((x) => x.textContent));
+      item(menu, "Columns").dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+      await sleep(350);
+      ok("… with what can be done with them", sub.hasAttribute("data-open") && !!item(sub, "Remove Column") && !!item(sub, "Unwrap Columns") && !!item(sub, "Delete Columns"), [...sub.querySelectorAll(".menu-label")].map((x) => x.textContent));
+      const before = shape();
+      item(sub, "Delete Columns").click();
+      await sleep(400);
+      ok("Delete Columns: the row is gone, with all it held", before.includes("(Gamma | Beta)") && !shape().includes("Gamma") && !view.dom.querySelector(".cols"), shape());
+      undo(); await sleep(200);
+      ok("… and one undo brings it back", shape() === before, shape());
+    }
     out("shot", {});
     await sleep(1500); // screenshot
     for (let i = 0; i < 30 && md() !== original; i++) undo();

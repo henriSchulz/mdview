@@ -148,7 +148,7 @@ test("the / menu: columns for a block, column commands in a column; a block's ac
   assert.equal(group().map((e) => e.key + (e.n || "")).join(), "columns.n2,columns.n3,columns.n4");
   group()[1].act(v);
   assert.equal(v.shape(), "paragraph columns(1:p'two' | 1:p | 1:p)");
-  assert.equal(group().map((e) => e.key).join(), "columns.addLeft,columns.addRight,columns.moveLeft,columns.moveRight,columns.equal,columns.unwrap,columns.remove");
+  assert.equal(group().map((e) => e.key).join(), "columns.addLeft,columns.addRight,columns.moveLeft,columns.moveRight,columns.equal,columns.unwrap,columns.remove,columns.delete");
   assert.equal(group().filter((e) => e.disabled).map((e) => e.key).join(), "columns.moveLeft,columns.equal");
   A.slash.BLOCK.duplicate(v); // the paragraph, not the row of columns
   assert.equal(v.shape(), "paragraph columns(1:p'two',p'two' | 1:p | 1:p)");
@@ -179,4 +179,17 @@ test("a line that marks columns but belongs to no row is kept in the file and is
     v.dispatch(v.state.tr.insertText("!"));
     assert.equal(v.md(true), src.replace(/(two|b)\n$/, "$1!\n")); // … also when the note is edited
   }
+});
+
+test("a right click in a column has the columns' commands; Delete Columns takes the row with all it holds", () => {
+  const v = open("before\n\n<!-- columns -->\n\nleft\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n\nafter\n", "right");
+  const view = { ...v, get state() { return v.state; }, dispatch: (tr) => v.dispatch(tr) };
+  const menu = A.context.textItems(view, v.state.selection.from).find((i) => i && i.label === "Columns");
+  assert.deepEqual(menu.items.filter(Boolean).map((i) => i.label).join("|"), "Add Column Left|Add Column Right|Move Column Left|Move Column Right|Equal Widths|Unwrap Columns|Remove Column|Delete Columns");
+  assert.equal(A.context.textItems(open("plain\n", "plain"), 1).some((i) => i && i.label === "Columns"), false); // not outside a row
+  menu.items.find((i) => i && i.label === "Remove Column").run();
+  assert.equal(v.md(), "before\n\nleft\n\nright\n\nafter\n"); // what it held stays
+  const w2 = open("before\n\n<!-- columns -->\n\nleft\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n\nafter\n", "left");
+  run(w2, C.destroy);
+  assert.equal(w2.md(), "before\n\nafter\n");
 });

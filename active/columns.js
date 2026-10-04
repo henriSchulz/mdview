@@ -6,8 +6,10 @@
  *                   two of them, dragged to the side of a column a new column
  *                   (blocks.js)
  *   in a column     add one left or right, move it, take it away (what it
- *                   holds goes to the one beside it), make all alike, or put
- *                   everything one under the other again
+ *                   holds goes to the one beside it), make all alike, put
+ *                   everything one under the other again, or delete the row
+ *                   with all it holds — in the "/" menu, the panel, and by a
+ *                   right click in a column
  *   widths          the gap between two columns can be pulled: both change,
  *                   the others stay; a double click makes all alike
  *   Backspace       in a column with nothing in it takes the column away
@@ -114,6 +116,17 @@
       c.cols.forEach((x) => { if (!blank(x)) blocks = blocks.append(x.content); });
       tr.replaceWith(c.colsPos, c.colsPos + c.cols.nodeSize, blocks.size ? blocks : N.paragraph.create());
       dispatch(caretIn(tr, c.colsPos));
+    }
+    return true;
+  }
+  // the whole row goes, with all it holds
+  function destroy(state, dispatch) {
+    const c = at(state);
+    if (!c) return false;
+    if (dispatch) {
+      const tr = state.tr.delete(c.colsPos, c.colsPos + c.cols.nodeSize);
+      if (!tr.doc.content.size) tr.insert(0, N.paragraph.create());
+      dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(c.colsPos, tr.doc.content.size)), -1)));
     }
     return true;
   }
@@ -289,5 +302,5 @@
     },
   });
 
-  A.columns = { plugin, at, around, blank, make, add, remove, unwrap, equal, move, alike, tidy, beside, empty };
+  A.columns = { plugin, at, around, blank, make, add, remove, unwrap, destroy, equal, move, alike, tidy, beside, empty };
 })();
