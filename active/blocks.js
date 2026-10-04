@@ -97,7 +97,8 @@
    * (siblings: both in the document, or both in the same list, item or quote). */
   const selKey = new PluginKey("blocksel");
   const selOf = (state) => selKey.getState(state);
-  const usable = (node) => !!node && node.type.name !== "hidden" && !(node.type.name === "island" && node.attrs.virtual);
+  // (a comment shows nothing: it is no block to select or to take by a handle)
+  const usable = (node) => !!node && node.type.name !== "hidden" && !(node.type.name === "island" && (node.attrs.virtual || (node.attrs.kind === "html" && !String(node.attrs.raw || "").replace(/<!--[\s\S]*?-->/g, "").trim())));
   // the range of a selection: { parent, start (position of the parent's content), a, b (indexes), from, to }
   function rangeOf(state, sel = selOf(state)) {
     if (!sel) return null;

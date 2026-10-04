@@ -498,7 +498,9 @@
     const blocks = [];
     for (const seg of store.segs) {
       let node;
-      if (seg.kind === "hidden") node = { type: "hidden" };
+      // (a line that marks columns but belongs to no row — left over, or typed by hand: it is kept in
+      // the file and shown nowhere, like a definition; as a block it could be selected and moved about)
+      if (seg.kind === "hidden" || (seg.type === "html" && /^<!--\s*(columns(\s+[\d.:\s]+)?|column|\/columns)\s*-->$/.test(seg.raw.trim()))) node = { type: "hidden" };
       else if (seg.type === "frontmatter") node = { type: "island", attrs: { kind: "frontmatter", html: renderProps(seg.props, { links: env.links, depth: 1 }), line: 0 } };
       else {
         const built = seg.type === "html" ? [] : blocksOf(seg.tokens, []); // html: maybe several blocks under one open element

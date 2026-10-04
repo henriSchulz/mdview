@@ -160,6 +160,15 @@ run; everything that does not depend on frames passed.
   block of every column of a row picked, the row itself is what is selected (`selFor`), and its handle
   shows over any block in it; two or more whole columns of a row, dragged, go as a row of their own (the
   row they leave closes up). Tests: `tests/pick.test.mjs`, `rig.sh columns`.
+- **Columns: stray marker lines** (branch `craft-feel`). A selection that reached into one column of a row —
+  copied, cut, dragged as text — was written as a row with one column: `<!-- columns -->` … `<!-- /columns -->`
+  around it, which reads back as two comments and no row. Pasted, those were two empty blocks that could be
+  selected (a thin strip), moved and deleted — and a row that loses one of its lines is no row any more.
+  Now a part of a row is written as its blocks (`lines`, markdown.js); a marker line that belongs to no row
+  is a `hidden` node (kept in the file, shown nowhere, no block); and a comment is no block to select
+  (`usable`, blocks.js). `same` compares column widths as shares and takes a column of empty lines for an
+  empty one. `tests/columns-fuzz.test.mjs`: random column operations, picks, block keys and drags, after
+  each of which the file must read back as what the editor shows (`MDVIEW_FUZZ=1500` for more rounds).
 - **The handle is a part of its block** (branch `craft-feel`, blocks.js `besideAt`): it shows where it stands,
   too — with the pointer beside the block at the handle's place, not only over the block's text. Left of the
   text (up to 44 px out): the block at that height, in a list the item, in a row of columns the block of its

@@ -155,3 +155,28 @@ test("the / menu: columns for a block, column commands in a column; a block's ac
   A.slash.entries(v).find((e) => e && e.key === "slash.callout").items.find((e) => e && e.key === "callout.info").act(v);
   assert.match(v.md(), /<!-- columns -->\n\n> \[!info\]\n> two\n\ntwo\n\n<!-- column -->/);
 });
+
+test("a selection that reaches into one column: copied, it is its blocks — no stray comment lines", () => {
+  const v = open("top\n\n<!-- columns -->\n\nleft one\n\nleft two\n\n<!-- column -->\n\nright one\n\n<!-- /columns -->\n\nbelow\n");
+  const at = (t) => { let f = -1; v.state.doc.descendants((n, p) => { if (f < 0 && n.isText && n.text.includes(t)) f = p + n.text.indexOf(t); }); return f; };
+  const copied = (from, to) => A.clip.markdownOf(v.state, v.state.doc.slice(from, to));
+  assert.equal(copied(at("top"), at("left one") + 4), "top\n\nleft");
+  assert.equal(copied(at("right one"), at("below") + 3), "right one\n\nbel");
+  assert.equal(copied(at("left two"), at("below") + 3), "<!-- columns -->\n\nleft two\n\n<!-- column -->\n\nright one\n\n<!-- /columns -->\n\nbel"); // two columns of it: a row
+  for (const [a, b] of [[at("top"), at("left one") + 4], [at("left one"), at("left two") + 4], [at("right one"), at("below") + 3], [at("left two"), at("right one") + 5]]) {
+    assert.equal(A.clip.blocksOf(v.state, copied(a, b)).some((n) => n.type.name === "island"), false);
+  }
+});
+
+test("a line that marks columns but belongs to no row is kept in the file and is no block", () => {
+  for (const src of ["one\n\n<!-- /columns -->\n\ntwo\n", "<!-- columns -->\n\na\n\n<!-- column -->\n\nb\n", "a\n\n<!-- column -->\n\nb\n"]) {
+    const v = open(src);
+    const kinds = []; v.state.doc.forEach((n) => kinds.push(n.type.name));
+    assert.equal(kinds.includes("island"), false, src);
+    assert.ok(kinds.includes("hidden"), src);
+    assert.equal(v.md(true), src);
+    v.caret(src.includes("two") ? "two" : "b");
+    v.dispatch(v.state.tr.insertText("!"));
+    assert.equal(v.md(true), src.replace(/(two|b)\n$/, "$1!\n")); // … also when the note is edited
+  }
+});

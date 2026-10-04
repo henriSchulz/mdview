@@ -289,6 +289,9 @@
         return node.attrs.deco ? ["> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]"].concat(lines) : lines;
       }
       case "columns": {
+        // a part of a row (a selection that reaches into one column of it): its blocks, no row — one
+        // column between the comment lines would read as nothing but two stray comments
+        if (node.childCount < 2) { const part = []; node.forEach((col) => part.push(...children(col, cx, false))); return part; }
         // one under the other, between the comment lines that say what stands side by side
         const widths = [];
         node.forEach((col) => widths.push(Math.round(col.attrs.width * 100) / 100));
@@ -517,7 +520,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    table_cell: ["header", "align"], table: ["wide"], column: ["width"], blockquote: ["deco", "color", "callout", "title"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], table: ["wide"], blockquote: ["deco", "color", "callout", "title"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {
@@ -559,7 +562,7 @@
     }
     const kids = [];
     // (an empty paragraph next to other blocks is a place to type, nothing the file holds)
-    node.forEach((n) => { if (!(n.type.name === "paragraph" && !n.content.size && node.childCount > 1)) kids.push(shape(n)); });
+    node.forEach((n) => { if (!(n.type.name === "paragraph" && !n.content.size && (node.childCount > 1 || node.type.name === "column"))) kids.push(shape(n)); }); // (a column with only empty lines holds nothing)
     const attrs = (KEEP[node.type.name] || []).map((a) => {
       const v = node.attrs[a] ?? null;
       if (a === "raw" && node.attrs.kind === "code" && A.islands) { // code is its language and its text, however it is fenced
@@ -571,6 +574,12 @@
       if (a === "task") return v != null && node.firstChild.type.name !== "paragraph" && node.attrs.box ? null : v;
       return v;
     });
+    // columns: what counts is each one's share of the row (1:1 and 2:2 say the same)
+    if (node.type.name === "columns") {
+      let sum = 0;
+      node.forEach((col) => { sum += col.attrs.width; });
+      node.forEach((col) => attrs.push(Math.round((col.attrs.width / (sum || 1)) * 200) / 200));
+    }
     return [node.type.name, attrs, kids];
   }
   function canBeLoose(list) {
