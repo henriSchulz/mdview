@@ -28,16 +28,20 @@ body[data-overview] { overflow: hidden; }       /* the note under it does not sc
 
 /* a tile: the note in small. It comes in after the one before it (the first few), then rests. */
 .ov-tile {
-  --cc: transparent;                  /* the frame */
   --paper: var(--bg);                 /* the sheet; --wash: the sheet with the note's colour in it */
+  --frame: 0px;                       /* a note with a colour has a frame in it */
+  --edge: var(--line-strong);         /* the tile's own edge: a hairline, or the frame's colour */
   position: relative;
   height: 236px;
   box-sizing: border-box;
-  padding: 6px;                       /* the frame, in the note's colour if it has one */
-  border-radius: calc(var(--radius-panel) + 6px);
-  background: var(--cc);
+  padding: var(--frame);
+  border-radius: calc(var(--radius-panel) + 4px);
+  background: var(--cc, var(--paper));
+  /* one edge and one shadow, the tile's own (the sheet inside has none) */
+  box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);
   cursor: default;
-  outline: none;
+  outline: var(--focus-ring) solid transparent;
+  outline-offset: 2px;
   user-select: none;
   -webkit-user-select: none;
   opacity: 0;
@@ -49,27 +53,25 @@ body[data-overview] { overflow: hidden; }       /* the note under it does not sc
   transform: none;
   transition:
     opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)),
-    transform var(--spring-smooth-dur) var(--spring-smooth) calc(var(--i, 0) * var(--stagger-step));
+    transform var(--spring-smooth-dur) var(--spring-smooth) calc(var(--i, 0) * var(--stagger-step)),
+    box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
 }
 #overview[data-open] .ov-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+#overview[data-open] .ov-tile:hover { box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); transition-duration: var(--dur-base), var(--spring-smooth-dur), var(--dur-instant), var(--dur-instant); }
+.ov-tile:focus-visible, .ov-tile[aria-current] { outline-color: var(--accent); }
 .ov-sheet {
   position: relative;
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  padding: 14px 16px 0;
-  border-radius: var(--radius-panel);       /* concentric with the frame */
+  padding: calc(14px - var(--frame)) calc(16px - var(--frame)) 0;
+  border-radius: calc(var(--radius-panel) + 4px - var(--frame));   /* concentric with the frame */
   background: var(--wash, var(--paper));
-  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);
-  transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 body[data-mode="light"] .ov-tile { --paper: #fff; }
-body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
-body[data-mode="dark"] .ov-sheet { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 6px 18px rgb(0 0 0 / 0.3); }
+body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); --edge: rgb(255 255 255 / 0.12); box-shadow: 0 0 0 0.5px var(--edge), 0 6px 18px rgb(0 0 0 / 0.3); }
 /* the text runs out towards the tile's foot */
 .ov-sheet::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: linear-gradient(to bottom, transparent, var(--wash, var(--paper))); pointer-events: none; }
-.ov-tile:hover .ov-sheet { box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); transition-duration: var(--dur-instant); }
-.ov-tile:focus-visible .ov-sheet, .ov-tile[aria-current] .ov-sheet { box-shadow: 0 0 0 var(--focus-ring) var(--accent), 0 6px 18px rgb(0 0 0 / 0.07); }
 .ov-name { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); font: 600 15px/1.25 var(--ui); color: var(--fg); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .ov-prev { zoom: 0.56; color: var(--fg); pointer-events: none; overflow: hidden; }
 .ov-prev > :first-child { margin-top: 0; }
@@ -85,9 +87,14 @@ body[data-mode="dark"] .ov-sheet { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1
 .ov-blue { --c: var(--c-blue); }
 .ov-magenta { --c: var(--c-magenta); }
 .ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta {
-  --cc: color-mix(in srgb, var(--c) 60%, var(--paper));
-  --wash: color-mix(in srgb, var(--c) 13%, var(--paper));
+  /* a soft frame of the colour around a sheet with a little of it — no dark edge, no second outline */
+  --frame: 5px;
+  --cc: color-mix(in srgb, var(--c) 38%, var(--paper));
+  --wash: color-mix(in srgb, var(--c) 9%, var(--paper));
+  --edge: color-mix(in srgb, var(--c) 30%, transparent);
 }
+.ov-red .ov-name, .ov-orange .ov-name, .ov-yellow .ov-name, .ov-green .ov-name, .ov-cyan .ov-name, .ov-blue .ov-name, .ov-magenta .ov-name { border-bottom-color: color-mix(in srgb, var(--c) 22%, transparent); }
+body[data-mode="dark"] .ov-red, body[data-mode="dark"] .ov-orange, body[data-mode="dark"] .ov-yellow, body[data-mode="dark"] .ov-green, body[data-mode="dark"] .ov-cyan, body[data-mode="dark"] .ov-blue, body[data-mode="dark"] .ov-magenta { --cc: color-mix(in srgb, var(--c) 50%, var(--paper)); --wash: color-mix(in srgb, var(--c) 12%, var(--paper)); }
 
 #toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent); }
 @media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }
