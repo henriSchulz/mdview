@@ -98,3 +98,9 @@ body[data-mode="dark"] .ov-red, body[data-mode="dark"] .ov-orange, body[data-mod
 
 #toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent); }
 @media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }
+
+/* over the tiles there is no note to outline, search, switch the mode of or format: those stand
+ * dimmed and take no click (the sidebar's and the tiles' own buttons stay) */
+#toolbar [data-act="outline"], #toolbar [data-act="find"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+#toolbar .seg { transition: opacity var(--dur-fast) var(--ease-out); }
+body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-act="panel"], .seg) { opacity: 0.4; pointer-events: none; }
