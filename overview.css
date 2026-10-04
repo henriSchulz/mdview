@@ -58,7 +58,8 @@ body[data-overview] { overflow: hidden; }       /* the note under it does not sc
 }
 #overview[data-open] .ov-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
 #overview[data-open] .ov-tile:hover { box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); transition-duration: var(--dur-base), var(--spring-smooth-dur), var(--dur-instant), var(--dur-instant); }
-.ov-tile:focus-visible, .ov-tile[aria-current] { outline-color: var(--accent); }
+/* (the ring is the keyboard's place, once the arrow keys are used: the note on screen wears none) */
+#overview[data-keys] .ov-tile:focus-visible { outline-color: var(--accent); }
 .ov-sheet {
   position: relative;
   height: 100%;

@@ -19,12 +19,16 @@
     ok("the notes are rendered into their tiles", tiles.filter((t) => t.querySelector(".ov-prev").children.length).length >= 7, tiles.map((t) => t.querySelector(".ov-prev").children.length));
     ok("a note's colour is its tile's", ov.querySelector('.ov-tile.ov-red .ov-name')?.textContent === "Reading list" && ov.querySelectorAll(".ov-tile[class*=' ov-']").length >= 5);
     ok("folders have their headings", [...ov.querySelectorAll(".ov-dir")].map((h) => h.textContent).join("|") === "Ideen|Projekte", [...ov.querySelectorAll(".ov-dir")].map((h) => h.textContent));
+    o.ring = getComputedStyle(ov.querySelector(".ov-tile[aria-current]")).outlineColor;
+    ok("opened with the button, the note on screen wears no ring", /rgba\(.*, 0\)|transparent/.test(o.ring), o.ring);
     ok("the note on screen is marked and has the focus", ov.querySelector(".ov-tile[aria-current]") === document.activeElement, document.activeElement && document.activeElement.className);
     ok("no ids from the notes in the page twice", new Set([...document.querySelectorAll("[id]")].map((x) => x.id)).size === document.querySelectorAll("[id]").length);
     const key = (k) => document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
     const first = tiles[0]; first.focus();
     key("ArrowRight");
     ok("→ goes to the next tile", document.activeElement === tiles[1], document.activeElement.dataset.path);
+    await sleep(400); // (the ring fades in)
+    ok("the arrow keys show their place: a ring around that tile", !/rgba\(.*, 0\)|transparent/.test(getComputedStyle(document.activeElement).outlineColor), getComputedStyle(document.activeElement).outlineColor);
     key("ArrowDown");
     ok("↓ goes a row down (into the next folder's grid)", document.activeElement !== tiles[1] && document.activeElement.classList.contains("ov-tile"), document.activeElement.dataset && document.activeElement.dataset.path);
     o.focusName = document.activeElement.querySelector(".ov-name")?.textContent;

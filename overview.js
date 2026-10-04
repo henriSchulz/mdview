@@ -125,6 +125,7 @@
     build();
     void el.offsetHeight; // (the tiles are there, unseen: from here they come in)
     el.dataset.open = "";
+    delete el.dataset.keys;
     document.body.dataset.overview = "";
     button()?.setAttribute("aria-pressed", "true");
     el.scrollTop = 0;
@@ -169,12 +170,14 @@
     if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (!tile) return;
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (d || e.key === "Tab") el.dataset.keys = ""; // (from here the keyboard's place shows: a ring around its tile)
     if (d) {
       e.preventDefault();
       const next = toward(tile, d[0], d[1]);
       if (next) { next.focus({ preventScroll: true }); next.scrollIntoView({ block: "nearest" }); }
     } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(tile); }
   });
+  el.addEventListener("pointermove", () => { delete el.dataset.keys; }); // (the pointer takes over: no ring)
   // a note chosen in the sidebar while the tiles show: the note
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
