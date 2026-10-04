@@ -398,6 +398,8 @@
    * it grows by what its preview lacks, as far as the window lets it (for this showing only — the
    * size kept is the one it was pulled to). Looked at when it opens, and whenever what the preview
    * shows comes or changes: a picture loaded, an embed drawn. */
+  const SETTLE = 460; // ms from the call: the dialog is built and its opening has run (the spring's visible part)
+  let settled = Promise.resolve(true), shows = 0;
   let fitTimer = 0;
   function fit() {
     clearTimeout(fitTimer);
@@ -417,6 +419,9 @@
     dlg.querySelector('[data-do="cancel"]').textContent = T("dialog.cancel");
     dlg.querySelector('[data-do="done"]').textContent = T("dialog.done");
     dlg.dataset.kind = opts.kind || "";
+    // (what is costly in a dialog — a PDF page drawn, a diagram — waits until it has opened: `settled`)
+    const turn = ++shows;
+    settled = new Promise((resolve) => setTimeout(() => resolve(shows === turn && !!open), SETTLE));
     applySize();
     const parts = opts.build(body, tools, info);
     open = { opts, parts };
@@ -550,5 +555,5 @@
     if (popOpen) applyFields();
     if (open) close("done");
   }
-  A.dialog = { show, close, finish, ask, get changed() { return !!open && open.parts.result() !== undefined; }, editor, fields, closeFields, get open() { return !!open || !!popOpen; }, el };
+  A.dialog = { get settled() { return settled; }, show, close, finish, ask, get changed() { return !!open && open.parts.result() !== undefined; }, editor, fields, closeFields, get open() { return !!open || !!popOpen; }, el };
 })();

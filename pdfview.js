@@ -655,7 +655,9 @@
     span.dataset.done = "1";
     const at = parseFrag(span.dataset.frag);
     const key = span.dataset.pdf + "#" + span.dataset.frag + "@" + (span.hasAttribute("data-full") ? "full" : span.dataset.width || "") + "/" + Math.round((span.parentElement && span.parentElement.clientWidth) || 0);
-    const have = drawnEmbeds.get(key);
+    let have = drawnEmbeds.get(key);
+    // (in a dialog the picture drawn for the note serves: the same page and region, at whatever width it was drawn for)
+    if (!have && span.closest("#dlg")) { const stem = key.slice(0, key.lastIndexOf("/") + 1); for (const [k, img] of drawnEmbeds) if (k.startsWith(stem)) have = img; }
     if (have) { const img = have.cloneNode(); span.replaceChildren(img); span.classList.add("ready"); return; }
     try {
       const doc = await docOf(span.dataset.pdf);

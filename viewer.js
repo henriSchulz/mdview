@@ -597,7 +597,40 @@
   let mode = "read"; // "read" | "edit" | "active"
   let drawn = null;  // what #content shows: { p, text }
 
+  /* Another note asked for by hand (the sidebar, a tile): the window answers at once — the row is
+   * marked, the note on screen makes way, a wheel turns in its place after a moment — and the note
+   * is drawn two frames later, when that has been shown. Drawing a long note holds the page for
+   * some tenths of a second; without this the click seemed not to have been taken. */
+  const loader = document.createElement("div");
+  loader.id = "loading";
+  loader.setAttribute("aria-hidden", "true");
+  document.body.appendChild(loader);
+  let goingAt = 0, goingTimer = 0, pendingRender = null, renderFrame = 0;
+  function going(path) {
+    if (!current || path === current.path) return;
+    goingAt = performance.now();
+    document.body.dataset.going = "";
+    for (const row of document.querySelectorAll("#sidebar .sb-row[data-real]")) row.classList.toggle("active", row.dataset.real === path || row.closest(".sb-item")?.dataset.key === path);
+    clearTimeout(goingTimer);
+    goingTimer = setTimeout(arrived, 5000); // (whatever happens, the page does not stay empty)
+  }
+  function arrived() {
+    clearTimeout(goingTimer);
+    goingAt = 0;
+    delete document.body.dataset.going;
+  }
   function render(p) {
+    if (!goingAt) { renderNow(p); return; }
+    pendingRender = p; // (the newest, if another comes before it is drawn)
+    if (renderFrame) return;
+    renderFrame = requestAnimationFrame(() => { renderFrame = requestAnimationFrame(() => {
+      renderFrame = 0;
+      const q = pendingRender;
+      pendingRender = null;
+      try { renderNow(q); } finally { requestAnimationFrame(arrived); }
+    }); });
+  }
+  function renderNow(p) {
     const prev = current;
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
       if (mode === "edit") { flushSave(); leaveEditNow(); }
@@ -2160,7 +2193,7 @@
     if (!row) return;
     const item = row.closest(".sb-item");
     if (item.classList.contains("is-dir")) toggleDir(item);
-    else if (!row.classList.contains("active")) post("note", { path: item.dataset.key });
+    else if (!row.classList.contains("active")) { going(row.dataset.real || item.dataset.key); post("note", { path: item.dataset.key }); }
   });
   sbList.addEventListener("keydown", (e) => {
     const row = e.target.closest(".sb-row");
@@ -2854,7 +2887,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

@@ -139,9 +139,9 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgb(0 0 0 / 0.18);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  /* (no blur of what lies under it: a blur across the whole window, worked out anew for every
+   * frame of the dialog's opening, is what made that opening stutter) */
+  background: rgb(0 0 0 / 0.22);
   opacity: 0;
   visibility: hidden;
   transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
@@ -162,9 +162,9 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   max-height: 90vh;
   border: 0;
   border-radius: var(--radius-panel);
-  background: color-mix(in srgb, var(--bg) 84%, transparent);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  backdrop-filter: blur(30px) saturate(180%);
+  background: var(--bg);   /* (opaque: a see-through sheet over a blur costs a blur per frame while it grows) */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.25), 0 0 0 0.5px var(--line-strong);
   font: 400 13px/1.45 var(--ui);
   outline: none;
@@ -182,7 +182,6 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   visibility: visible;
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { #dlg { background: var(--bg); } }
 .dlg-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; }
 #dlg-title { flex: 1; font-weight: 600; }
 .dlg-tools { display: flex; flex: 1; justify-content: flex-end; gap: 6px; min-width: 0; }

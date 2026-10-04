@@ -66,6 +66,17 @@ body {
   transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
 }
 #content.ready { opacity: 1; }
+/* On the way to another note (viewer.js going): the note on screen makes way at once — hidden, not
+ * taken out, so nothing is laid out for it — and a wheel turns where the new one will stand. It
+ * shows only after a moment: a short note is there before it would. */
+body[data-going] :is(#content, #active, #editor) { visibility: hidden; }
+#loading { position: fixed; top: 34vh; left: 0; right: 0; margin: 0 auto; width: 22px; height: 22px; box-sizing: border-box; z-index: 13; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 14%, transparent); border-top-color: color-mix(in srgb, var(--fg) 55%, transparent); opacity: 0; visibility: hidden; pointer-events: none; }
+body[data-sidebar="open"] #loading { left: var(--sb-w); }
+body[data-going] #loading { visibility: visible; animation: loading-in var(--dur-fast) var(--ease-out) 140ms both, loading-spin 0.75s linear infinite; will-change: transform, opacity; }
+@keyframes loading-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { body[data-going] #loading { animation-duration: var(--dur-fast), 2.4s; } }
+@media print { #loading { display: none !important; } }
 /* the note's own size (Ctrl + and −, viewer.js): its text is scaled, in every mode; what the app
  * itself is made of keeps its size, and a PDF has a zoom of its own */
 #content:not(.pdf), #active, #editor { zoom: var(--doc-zoom, 1); }
@@ -977,7 +988,7 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 .pm .ia:has(> img[src$=".svg" i]) { display: block; }
 
 /* a picture, large (a double click on it) */
-#zoom { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); opacity: 0; visibility: hidden; cursor: zoom-out;
+#zoom { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--bg) 94%, transparent); opacity: 0; visibility: hidden; cursor: zoom-out;
   transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
 #zoom[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
 #zoom img { position: absolute; transform-origin: 0 0; border-radius: 4px; transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }

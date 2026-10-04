@@ -631,7 +631,8 @@
           adjust.look(v);
           if (adjust.on) return; // (the page with its frame stands there: the frame writes the text, not the other way round)
           preview.innerHTML = htmlOf(v);
-          hydrate(preview);
+          // (pictures of PDF pages and diagrams are drawn once the dialog stands: drawn while it opens, they hold its opening up)
+          A.dialog.settled.then((still) => { if (still && preview.isConnected) hydrate(preview); });
         });
         return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, focus: () => ed.focus(), result: () => (ed.value === node.attrs.raw ? undefined : ed.value) };
       },

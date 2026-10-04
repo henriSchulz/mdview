@@ -241,6 +241,7 @@
     if (tile.dataset.dir) { at.push(tile.dataset.dir); rebuild(); return; }
     const path = tile.dataset.path;
     close(false);
+    core.going(path);
     post("note", { path });
   }
 
