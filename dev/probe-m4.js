@@ -68,7 +68,7 @@
     // --- handles and their menu
     const td = cells()[2]; // "apple"
     td.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: td.getBoundingClientRect().left + 5, clientY: td.getBoundingClientRect().top + 5 }));
-    await sleep(250);
+    await sleep(550); // (the handles come when the pointer has rested on the cell a moment)
     const hc = document.querySelector(".tbl-h-col"), hr = document.querySelector(".tbl-h-row");
     const tr0 = td.getBoundingClientRect(), tb = td.closest("table").getBoundingClientRect(), c0 = hc.getBoundingClientRect(), r0 = hr.getBoundingClientRect();
     ok("over a cell, a handle shows above its column and beside its row", getComputedStyle(hc).opacity === "1" && getComputedStyle(hr).opacity === "1"
@@ -85,20 +85,20 @@
     ok("Insert Row Below: an empty row, the caret in it", md().includes("| apple |   3 |\n|       |     |\n| pear  |  12 |") && A.tableui.cellAt(view.state.selection.$from).r === 2 && view.hasFocus(), md().slice(0, 200));
     type("fig");
     cells()[4].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    await sleep(100);
+    await sleep(400); // (the handles come when the pointer has rested on the cell a moment)
     document.querySelector(".tbl-h-row").click();
     await sleep(300);
     await choose("Move Row Down");
     ok("Move Row Down", md().includes("| pear  |  12 |\n| fig   |     |"), md().slice(0, 200));
     cells()[1].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    await sleep(100);
+    await sleep(400); // (the handles come when the pointer has rested on the cell a moment)
     hc.click();
     await sleep(300);
     ok("the column handle opens the column menu; the alignment in use is ticked", items().length === 8 && menu.querySelector('[aria-checked="true"]')?.querySelector(".menu-label").textContent === "Align Right", items());
     await choose("Align Center");
     ok("Align Center: the marker changes, the view follows", md().includes("|-------|:---:|") && getComputedStyle(cells()[1]).textAlign === "center", md().slice(0, 200));
     cells()[1].dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    await sleep(100);
+    await sleep(400); // (the handles come when the pointer has rested on the cell a moment)
     hc.click();
     await sleep(300);
     await choose("Insert Column Left");

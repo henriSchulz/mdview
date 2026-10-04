@@ -169,6 +169,11 @@ run; everything that does not depend on frames passed.
   (`usable`, blocks.js). `same` compares column widths as shares and takes a column of empty lines for an
   empty one. `tests/columns-fuzz.test.mjs`: random column operations, picks, block keys and drags, after
   each of which the file must read back as what the editor shows (`MDVIEW_FUZZ=1500` for more rounds).
+- **Nothing shows in passing** (branch `craft-feel`): a block's handle, a table's handles and the grip between
+  two columns come only when the pointer has rested on the same block, cell or gap for a moment (`A.dwell()`,
+  the central `--dur-fast`; `rest` in blocks.js). Moved across the text on its way elsewhere, the pointer
+  sets nothing off; gone from the text, nothing is waited for. What is shown already stays as before while
+  the pointer travels to it. Probe: `rig.sh blocks` (five blocks crossed without resting: no handle).
 - **The handle is a part of its block** (branch `craft-feel`, blocks.js `besideAt`): it shows where it stands,
   too — with the pointer beside the block at the handle's place, not only over the block's text. Left of the
   text (up to 44 px out): the block at that height, in a list the item, in a row of columns the block of its

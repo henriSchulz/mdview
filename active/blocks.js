@@ -78,7 +78,7 @@
     handle.dataset.on = "";
   }
   let leaving = 0;
-  function hide() { clearTimeout(leaving); over = null; delete handle.dataset.on; }
+  function hide() { clearTimeout(leaving); if (typeof rest === "function") rest(null); over = null; delete handle.dataset.on; }
   // the pointer left the block: the handle stays long enough to be reached across the gap beside the text
   function hideSoon() { clearTimeout(leaving); leaving = setTimeout(() => { if (!handle.matches(":hover") && !handle.hasAttribute("data-dragging")) hide(); }, 350); }
 
@@ -831,7 +831,7 @@
           if (!showFor(v, blockOf(v, e.target, e.clientY)) && over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
-        mouseleave(_v, e) { if (over && !e.relatedTarget?.closest?.(".blk-h")) hideSoon(); return false; },
+        mouseleave(_v, e) { rest(null); if (over && !e.relatedTarget?.closest?.(".blk-h")) hideSoon(); return false; }, // (gone from the text: nothing is waited for)
         keydown() { if (over) hide(); return false; },
       },
     },
@@ -843,10 +843,23 @@
     // over one of several selected blocks: the handle they share
     const group = el ? groupEls(v.state) : null;
     const mine = group && group.find((x) => x === el || x.contains(el));
-    clearTimeout(leaving);
-    if (mine) { if (!handle.hasAttribute("data-group") || over !== (handle.hasAttribute("data-apart") ? mine : group[0]) || !handle.hasAttribute("data-on")) placeGroup(group, mine); return true; }
-    if (el && (el !== over || handle.hasAttribute("data-group") || !handle.hasAttribute("data-on"))) place(el);
-    return !!el;
+    if (!el) { rest(null); return false; }
+    // there already: it stays
+    const there = handle.hasAttribute("data-on") && (mine ? handle.hasAttribute("data-group") && over === (handle.hasAttribute("data-apart") ? mine : group[0]) : el === over && !handle.hasAttribute("data-group"));
+    if (there) { clearTimeout(leaving); rest(null); return true; }
+    /* Not at once: the pointer has to rest on the block a moment. Passing over the text on its way
+     * elsewhere, it sets nothing off; the handle shown last goes meanwhile, as when the text is left. */
+    if (over) hideSoon();
+    rest(mine || el, () => { clearTimeout(leaving); if (mine) placeGroup(group, mine); else place(el); });
+    return true;
+  }
+  let resting = null, restTimer = 0; // the block the pointer is on, waiting for its handle
+  function rest(el, show) {
+    if (el && el === resting) return;
+    clearTimeout(restTimer);
+    resting = el;
+    if (!el) return;
+    restTimer = setTimeout(() => { resting = null; if (el.isConnected && view && !rubber && !drag) show(); }, A.dwell());
   }
   /* The handle is a part of its block: it shows where it stands, too — with the pointer beside the
    * block, at the place the handle has, not only with the pointer over the block's text.
@@ -904,7 +917,8 @@
     if (inText && !bare(e)) return; // (over a block: the editor's own handler has it)
     const el = besideAt(view, e);
     if (el) showFor(view, el);
-    else if (over) {
+    else rest(null);
+    if (!el && over) {
       // on the way to the handle, beside its block: it stays (as within the text)
       const r = over.getBoundingClientRect(), h = handle.getBoundingClientRect();
       if (!(e.clientY >= r.top - 6 && e.clientY <= Math.max(r.bottom, h.bottom) + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12)) hideSoon();

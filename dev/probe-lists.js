@@ -24,7 +24,7 @@
     /* drag `what` to `where`: half = "upper" | "lower" of the target's own line; inX = pixels right of the target item's left edge */
     const drag = async (what, where, half, inX) => {
       own(what).dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-      await sleep(120);
+      await sleep(320); // (the handle comes when the pointer has rested on the block a moment)
       const dt = new DataTransfer();
       // taken at the handle: from there on, the pointer's way sideways says how deep
       const hr = h.getBoundingClientRect(), hx = hr.left + 9, dx = item(what).getBoundingClientRect().left - hx;

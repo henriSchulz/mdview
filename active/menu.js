@@ -7,6 +7,10 @@
 (() => {
   const A = window.MdActive;
   const { ICON, keys: signs } = window.MdView.core;
+  /* How long the pointer has to rest on something before what belongs to it shows (a block's
+   * handle, a table's handles, the grip between columns): the central time for small changes.
+   * Moved across the text in passing, the pointer sets nothing off. */
+  A.dwell = () => { const v = getComputedStyle(document.documentElement).getPropertyValue("--dur-fast"); return parseFloat(v) * (/ms\s*$/.test(v) ? 1 : 1000) || 160; };
   function panel(id) {
     const el = document.createElement("div");
     el.id = id;

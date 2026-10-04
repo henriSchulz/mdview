@@ -176,6 +176,7 @@
     document.body.appendChild(h);
   }
   let over = null; // the cell element the handles belong to
+  let resting = null, restTimer = 0; // the cell the pointer is on, waiting for its handles
   function place(td) {
     over = td;
     const table = td.closest("table").getBoundingClientRect(), wrap = td.closest(".table-wrap").getBoundingClientRect(), r = td.getBoundingClientRect();
@@ -297,11 +298,14 @@
         mousemove(view, e) {
           if (!view.editable || A.menu.isOpen) return false;
           const td = e.target.closest?.("td, th");
-          if (td && td.closest(".pm") === view.dom && !td.closest(".isl")) { if (td !== over) place(td); }
-          else if (over) hide();
+          // (not at once: the pointer rests on a cell a moment before its handles come)
+          if (td && td.closest(".pm") === view.dom && !td.closest(".isl")) {
+            if (td !== over && td !== resting) { clearTimeout(restTimer); resting = td; restTimer = setTimeout(() => { resting = null; if (td.isConnected && !drag && !A.menu.isOpen) place(td); }, A.dwell()); }
+          } else { clearTimeout(restTimer); resting = null; if (over) hide(); }
           return false;
         },
         mouseleave(_view, e) {
+          clearTimeout(restTimer); resting = null;
           if (over && !e.relatedTarget?.closest?.(".tbl-h") && !A.menu.isOpen) hide();
           return false;
         },

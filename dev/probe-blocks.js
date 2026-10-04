@@ -110,6 +110,24 @@
       at("move", pr.right + 60, 300); await sleep(60); at("down", pr.right + 60, 300); await sleep(50); at("up", pr.right + 60, 300); await sleep(250); }
     ok("a click into the empty space beside the text lets the selected block go", picked().length === 0 && md() === original, picked());
 
+    // --- the pointer passing over the text sets nothing off: a handle comes when it rests
+    {
+      at("move", view.dom.getBoundingClientRect().right + 80, 420); await sleep(500);
+      const hh = document.querySelector(".blk-h"), seen = [];
+      for (const t of ["First paragraph", "Second paragraph", "Filler paragraph 1", "Filler paragraph 2", "Filler paragraph 3"]) {
+        const r = para(t).getBoundingClientRect();
+        at("move", r.left + 120, r.top + r.height / 2); await sleep(45);
+        seen.push(hh.hasAttribute("data-on"));
+      }
+      at("move", view.dom.getBoundingClientRect().right + 80, 420); await sleep(400);
+      ok("moved across five blocks without resting: no handle shows, then or after", seen.every((x) => !x) && !hh.hasAttribute("data-on"), seen);
+      const r = para("Second paragraph").getBoundingClientRect();
+      at("move", r.left + 120, r.top + r.height / 2); await sleep(60);
+      const early = hh.hasAttribute("data-on");
+      await sleep(300);
+      ok("resting on a block: its handle, after a moment", !early && hh.hasAttribute("data-on") && A.blocks.over() === para("Second paragraph"), [early, hh.hasAttribute("data-on")]);
+    }
+
     // --- the handle shows where it stands: with the pointer beside a block, not only over its text
     {
       at("move", view.dom.getBoundingClientRect().right + 80, 400); await sleep(500);

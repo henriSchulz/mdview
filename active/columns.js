@@ -187,6 +187,7 @@
   grip.className = "col-grip";
   grip.setAttribute("aria-hidden", "true");
   document.body.appendChild(grip);
+  let resting = null, restTimer = 0; // the gap the pointer is in, waiting for the grip
   let view = null, hot = null, pull = null, leaving = 0; // hot: { el, pos, i } the gap the grip stands in
   const colEls = (el) => [...el.children].filter((x) => x.classList.contains("col"));
   function gapAt(e) {
@@ -215,8 +216,12 @@
     if (e.buttons) return; // (something else is being dragged)
     if (grip.contains(e.target)) { clearTimeout(leaving); return; }
     const g = gapAt(e);
-    if (g) { clearTimeout(leaving); if (!hot || hot.el !== g.el || hot.i !== g.i) place(g); }
-    else if (hot) { clearTimeout(leaving); leaving = setTimeout(hide, 120); }
+    // (not at once: the pointer rests in the gap a moment before the grip comes)
+    if (g) {
+      clearTimeout(leaving);
+      const same = (x) => x && x.el === g.el && x.i === g.i;
+      if (!same(hot) && !same(resting)) { clearTimeout(restTimer); resting = g; restTimer = setTimeout(() => { resting = null; if (g.el.isConnected && !pull) place(g); }, A.dwell()); }
+    } else { clearTimeout(restTimer); resting = null; if (hot) { clearTimeout(leaving); leaving = setTimeout(hide, 120); } }
   });
   window.addEventListener("scroll", hide, { passive: true });
   grip.addEventListener("mousedown", (e) => {

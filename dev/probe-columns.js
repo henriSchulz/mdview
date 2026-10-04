@@ -68,7 +68,7 @@
     const h = document.querySelector(".blk-h"), line = document.querySelector(".blk-line");
     const drag = async (what, x, y) => {
       para(what).dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: para(what).getBoundingClientRect().left + 20, clientY: para(what).getBoundingClientRect().top + 6 }));
-      await sleep(150);
+      await sleep(320); // (the handle comes when the pointer has rested on the block a moment)
       const dt = new DataTransfer(), hr = h.getBoundingClientRect();
       h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hr.left + 9, clientY: hr.top + 9, dataTransfer: dt }));
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
