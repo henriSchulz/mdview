@@ -1430,6 +1430,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
             ev.button = int(msg.get("button", 1))
         elif msg.get("held"):  # (the pointer moved with its button down: a drag)
             ev.state = Gdk.ModifierType.BUTTON1_MASK
+        if msg.get("ctrl"):  # (with Ctrl held)
+            ev.state = Gdk.ModifierType(int(ev.state) | int(Gdk.ModifierType.CONTROL_MASK))
         ev.set_device(Gdk.Display.get_default().get_default_seat().get_pointer())
         self.view.event(ev)
 

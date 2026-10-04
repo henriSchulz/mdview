@@ -49,9 +49,15 @@
     const wa = cols[0].getBoundingClientRect().width, wb = cols[1].getBoundingClientRect().width;
     ok("pulled: the columns follow at once, the file not yet", wa > a.width + 70 && wb < b.width - 70 && !/columns \d/.test(md()), [wa, a.width, wb, b.width]);
     post("probe-pointer", { kind: "up", x: gx + 90, y: gy }); await sleep(250);
-    const m = /<!-- columns (\d+):(\d+) -->/.exec(md());
-    ok("let go: the widths are in the file, as shares of a hundred", !!m && +m[1] + +m[2] === 100 && +m[1] > 55, md().slice(0, 60));
-    ok("… and the columns stay as wide", Math.abs([...view.dom.querySelectorAll(".cols > .col")][0].getBoundingClientRect().width - wa) < 3);
+    const m = /<!-- columns ([\d.]+):([\d.]+) -->/.exec(md());
+    ok("let go: the widths are in the file, as shares of a hundred", !!m && Math.abs(+m[1] + +m[2] - 100) < 0.11 && +m[1] > 55, md().slice(0, 60));
+    ok("… and the columns stay exactly as wide", Math.abs([...view.dom.querySelectorAll(".cols > .col")][0].getBoundingClientRect().width - wa) < 1, [[...view.dom.querySelectorAll(".cols > .col")][0].getBoundingClientRect().width, wa]);
+    // pressed and let go where it was: nothing changes — the widths least of all
+    post("probe-pointer", { kind: "move", x: gx + 90, y: gy }); await sleep(250);
+    post("probe-pointer", { kind: "down", x: gx + 90, y: gy }); await sleep(80);
+    post("probe-pointer", { kind: "move", x: gx + 91, y: gy, held: true }); await sleep(80);
+    post("probe-pointer", { kind: "up", x: gx + 91, y: gy }); await sleep(250);
+    ok("the grip pressed and hardly moved: the columns keep their widths", Math.abs([...view.dom.querySelectorAll(".cols > .col")][0].getBoundingClientRect().width - wa) < 3 && /<!-- columns [\d.]+:[\d.]+ -->/.test(md()), [[...view.dom.querySelectorAll(".cols > .col")][0].getBoundingClientRect().width, wa]);
     post("probe-pointer", { kind: "move", x: gx + 90, y: gy }); await sleep(250);
     grip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
     await sleep(200);
@@ -99,6 +105,53 @@
     entry("columns.unwrap").act(view);
     await sleep(150);
     ok("Unwrap: one under the other again", shape() === "Columns Right Alpha Delta (Gamma | Beta)", shape());
+
+    // --- blocks picked with Ctrl held, and a rectangle pulled inside a row (the real pointer)
+    {
+      const picked = () => A.blocks.picked(view.state).map((x) => x.node.textContent.split(" ")[0]).join("|");
+      const mid = (text) => { const r = para(text).getBoundingClientRect(); return [r.left + 30, r.top + r.height / 2]; };
+      const click = async (text, ctrl) => { const [x, y] = mid(text); post("probe-pointer", { kind: "move", x, y, ctrl }); await sleep(80); post("probe-pointer", { kind: "down", x, y, ctrl }); await sleep(50); post("probe-pointer", { kind: "up", x, y, ctrl }); await sleep(220); };
+      const dragTo = (x, y) => post("probe-pointer", { kind: "move", x, y, held: true });
+      await click("Right", true);
+      ok("Ctrl+click on a block selects it", picked() === "Right" && view.hasFocus(), picked());
+      await click("Delta", true);
+      await click("Gamma", true);
+      ok("… and further ones join it, wherever they stand (also in a column)", picked() === "Right|Delta|Gamma", picked());
+      ok("the text between them is not selected", String(getSelection()).length === 0 || view.dom.classList.contains("has-blocksel"));
+      const hd = document.querySelector(".blk-h");
+      post("probe-pointer", { kind: "move", x: mid("Delta")[0] + 40, y: mid("Delta")[1] }); await sleep(300);
+      ok("over one of them: its handle, which takes them all", hd.hasAttribute("data-on") && hd.hasAttribute("data-group") && hd.hasAttribute("data-apart") && hd.getBoundingClientRect().height < 30 && (A.blocks.groupEls(view.state) || []).length === 3, [hd.hasAttribute("data-group"), hd.getBoundingClientRect().height]);
+      await click("Delta", true);
+      ok("Ctrl+click on one of them lets it go", picked() === "Right|Gamma", picked());
+      await click("Alpha", false);
+      ok("a plain click puts the caret there and lets them all go", picked() === "" && view.state.selection.$from.parent.textContent.startsWith("Alpha"), picked());
+
+      // a rectangle from beside the row into one of its columns
+      const row = view.dom.querySelector(".cols").getBoundingClientRect(), g = para("Gamma").getBoundingClientRect(), bb = para("Beta").getBoundingClientRect(), pmr = view.dom.getBoundingClientRect();
+      post("probe-pointer", { kind: "down", x: pmr.right + 50, y: bb.top + 2 }); await sleep(60);
+      dragTo(pmr.right + 30, bb.top + 6); await sleep(60);
+      dragTo(bb.left + 40, bb.bottom - 3); await sleep(150);
+      ok("a rectangle pulled into a row takes the blocks of the column it reaches", picked() === "Beta", picked());
+      dragTo(g.left + 40, g.bottom - 3); await sleep(150);
+      ok("… pulled on over the next column: its blocks as well", picked() === "Gamma|Beta", picked());
+      const al = para("Alpha").getBoundingClientRect();
+      dragTo(g.left + 40, al.top + 4); await sleep(150);
+      ok("… pulled on over other blocks: those, and the row as a whole", picked().split("|").length >= 3 && !!view.dom.querySelector(".cols.blk-sel"), picked());
+      post("probe-pointer", { kind: "up", x: g.left + 40, y: al.top + 4 }); await sleep(250);
+      await click("Alpha", false);
+
+      // a rectangle begun between two blocks, where no text is
+      const dl = para("Delta").getBoundingClientRect(), gapY = (al.bottom + dl.top) / 2;
+      post("probe-pointer", { kind: "move", x: al.left + 200, y: gapY }); await sleep(80);
+      post("probe-pointer", { kind: "down", x: al.left + 200, y: gapY }); await sleep(60);
+      dragTo(al.left + 215, gapY + 8); await sleep(60);
+      dragTo(al.left + 260, dl.bottom - 4); await sleep(150);
+      ok("pressed between two blocks and pulled: a rectangle there too, taking blocks", document.querySelector(".blk-band").hasAttribute("data-on") && picked() === "Delta", [picked(), document.elementFromPoint(al.left + 200, gapY).className]);
+      post("probe-pointer", { kind: "up", x: al.left + 260, y: dl.bottom - 4 }); await sleep(250);
+      post("probe-pointer", { kind: "down", x: al.left + 200, y: gapY }); await sleep(60);
+      post("probe-pointer", { kind: "up", x: al.left + 200, y: gapY }); await sleep(250);
+      ok("a click between two blocks puts the caret into the text, as before", picked() === "" && view.state.selection.empty && view.hasFocus());
+    }
     out("shot", {});
     await sleep(1500); // screenshot
     for (let i = 0; i < 30 && md() !== original; i++) undo();

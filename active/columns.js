@@ -239,10 +239,11 @@
     if (!view) return;
     const tr = view.state.tr.setMeta(key, null);
     if (write && p.now.some((x, k) => Math.abs(x - p.w[k]) > 1e-6) && view.state.doc.nodeAt(p.pos)?.type === N.columns) {
-      // written as whole shares of a hundred (62:38); alike again when they are nearly so
+      // written as shares of a hundred, to a tenth (61.8:38.2): the columns stay where they were let
+      // go, and the ones not pulled as wide as they were; alike again when they are nearly so
       const sum = p.now.reduce((a, b) => a + b, 0);
-      let shares = p.now.map((x) => Math.max(1, Math.round((x / sum) * 100)));
-      if (shares.every((s) => Math.abs(s - 100 / shares.length) <= 1.5)) shares = shares.map(() => 1);
+      let shares = p.now.map((x) => Math.max(1, Math.round((x / sum) * 1000) / 10));
+      if (shares.every((s) => Math.abs(s - 100 / shares.length) <= 1)) shares = shares.map(() => 1);
       widthsTr(tr, p.pos, shares).setMeta("step", true);
     } else tr.setMeta("addToHistory", false);
     view.dispatch(tr);
@@ -271,7 +272,8 @@
         if (!cols || cols.type !== N.columns || cols.childCount !== p.widths.length) return null;
         const decos = [];
         let pos = p.pos + 1;
-        cols.forEach((col, _o, i) => { decos.push(Decoration.node(pos, pos + col.nodeSize, { style: `flex: ${p.widths[i]} 1 0` })); pos += col.nodeSize; });
+        // (a property of its own: taken away again, it leaves the column's own width as it is)
+        cols.forEach((col, _o, i) => { decos.push(Decoration.node(pos, pos + col.nodeSize, { style: `--w-live: ${p.widths[i]}` })); pos += col.nodeSize; });
         return DecorationSet.create(state.doc, decos);
       },
       // Backspace in a column with nothing in it: the column goes

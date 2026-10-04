@@ -457,7 +457,7 @@
       for (let k = 0; k < n; k++) {
         const col = token("column_open", 1, 1), inner = toks.slice(bounds[k] + 1, bounds[k + 1]);
         col.attrSet("class", "col");
-        col.attrSet("style", `flex: ${widths[k]} 1 0`);
+        col.attrSet("style", `--w: ${widths[k]}`); // (its share of the row: viewer.css makes the flex of it)
         col.meta = { width: widths[k] };
         col.map = [toks[bounds[k]].map[1], toks[bounds[k + 1]].map[0]];
         for (const t of inner) t.level += 2;

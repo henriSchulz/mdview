@@ -143,6 +143,20 @@ run; everything that does not depend on frames passed.
   under the pointer while they are dragged is a picture of all of them on a card (`ghostOf`, at most 340 px
   tall), and the blocks themselves stand back (a class on the page, `blk-dragging` — the editor's own
   elements are not touched: a class set on them makes it draw them anew and lets the selection go).
+- **Blocks picked one by one** (branch `craft-feel`, blocks.js): Ctrl+click on a block (or on its handle) adds
+  it to the selected blocks, or takes it out; a link keeps its own Ctrl+click. Beside the range
+  (`anchor`…`head`) the selection has `more`, positions of blocks picked apart; where the picked blocks stand
+  together it is a range again (`selFor`). Not together: a block and one inside it, list items and other
+  blocks (what is clicked then begins anew). With blocks picked apart: Backspace deletes them, Ctrl+C / X
+  takes each of them one after the other, Ctrl+D makes them once more below the last, Alt+↑ ↓ first brings
+  them together where the first stands; dragged (the handle of the one under the pointer takes them all),
+  they land together. The **rectangle** now also begins in the empty space inside the text — between two
+  blocks, in a row's gap, below a short column (a press let go there is a click: the caret) — and, reaching
+  only a row of columns, takes the blocks of the columns it touches instead of the row.
+  In columns the handle of a block stays in the gap before its column; the width shown while a gap is
+  pulled is a property of its own (`--w-live`; taking a `flex` decoration away took the column's own width
+  with it — every press on the grip that changed nothing made the columns alike), and widths are written
+  to a tenth so nothing moves when the grip is let go. Tests: `tests/pick.test.mjs`, `rig.sh columns`.
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

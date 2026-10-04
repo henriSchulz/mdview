@@ -39,24 +39,39 @@
     if (el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes" || !el.pmViewDesc || !el.pmViewDesc.node) return null;
     return el;
   };
+  /* Where the handle stands: left of the block, clear of the highlight a selected block gets; left
+   * of its bullet or checkbox for a list item. In a column that is not the first, it stays in the
+   * gap before that column (further left is the text of the column beside it). */
+  function leftOf(el, r) {
+    const left = r.left - (el.matches("li") ? 56 : 32), col = el.closest(".col");
+    return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 24) : left;
+  }
   function place(el) {
     over = el;
     delete handle.dataset.group;
+    delete handle.dataset.apart;
     handle.style.height = "";
     const r = el.getBoundingClientRect();
     const line = parseFloat(getComputedStyle(el).lineHeight) || 26;
     const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
     // left of the block; left of its bullet or checkbox for a list item
-    handle.style.left = r.left - (el.matches("li") ? 56 : 32) + scrollX + "px"; // (clear of the highlight a selected block gets)
+    handle.style.left = leftOf(el, r) + scrollX + "px";
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
     handle.dataset.on = "";
   }
   /* Several blocks selected have one handle between them: it stands beside all of them, from the
    * first to the last, and dragging it takes them all. */
-  function placeGroup(els) {
+  function placeGroup(els, at = null) {
+    if (view && ((selOf(view.state) || {}).more || []).length) { // picked one by one: the handle of the block under the pointer takes them all
+      place(at && els.includes(at) ? at : els[0]);
+      handle.dataset.group = "";
+      handle.dataset.apart = "";
+      return;
+    }
+    delete handle.dataset.apart;
     over = els[0];
     const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
-    handle.style.left = a.left - (els[0].matches("li") ? 56 : 32) + scrollX + "px";
+    handle.style.left = leftOf(els[0], a) + scrollX + "px";
     handle.style.top = a.top - 4 + scrollY + "px"; // (as far as the highlight of the selected blocks goes)
     handle.style.height = b.bottom - a.top + 8 + "px";
     handle.dataset.group = "";
@@ -102,6 +117,48 @@
     const node = doc.nodeAt(head);
     return node && node.type.name !== "table" && NodeSelection.isSelectable(node) ? NodeSelection.create(doc, head) : Selection.near(doc.resolve(head + (node && node.type.name === "table" ? 3 : 0)), 1);
   };
+  /* Beside the range, blocks picked one by one (Ctrl+click; a rectangle pulled inside a row of
+   * columns): `more`, their positions. -> all selected blocks in the document's order: [{ pos, node }] */
+  function pickedOf(state, sel = selOf(state)) {
+    const r = rangeOf(state, sel);
+    if (!r) return [];
+    const out = [];
+    for (let i = r.a, pos = posOfChild(r, r.a); i <= r.b; pos += r.parent.child(i).nodeSize, i++) if (usable(r.parent.child(i))) out.push({ pos, node: r.parent.child(i) });
+    for (const p of sel.more || []) {
+      const n = p <= state.doc.content.size ? state.doc.nodeAt(p) : null;
+      if (n && usable(n) && !out.some((x) => x.pos === p)) out.push({ pos: p, node: n });
+    }
+    return out.sort((a, b) => a.pos - b.pos);
+  }
+  /* The selection for these blocks (positions), `head` the one the keyboard goes on from: a range
+   * where they stand one after the other in the same place, else one of them and the others beside it. */
+  function selFor(doc, list, head) {
+    list = [...new Set(list)].sort((a, b) => a - b);
+    if (!list.length) return null;
+    if (!list.includes(head)) head = list[list.length - 1];
+    const $ = list.map((p) => doc.resolve(p));
+    const row = $.every((x, i) => x.depth === $[0].depth && x.start() === $[0].start() && (!i || x.index() === $[i - 1].index() + 1));
+    return row ? { anchor: head === list[0] ? list[list.length - 1] : list[0], head: head === list[0] ? list[0] : list[list.length - 1] } : { anchor: head, head, more: list.filter((p) => p !== head) };
+  }
+  // Ctrl+click on a block: it joins what is selected, or leaves it
+  function toggle(v, pos) {
+    const doc = v.state.doc, node = doc.nodeAt(pos);
+    if (!node || !usable(node)) return false;
+    const item = (n) => n.type.name === "list_item";
+    let list = pickedOf(v.state);
+    if (list.some((x) => x.pos === pos)) list = list.filter((x) => x.pos !== pos);
+    else {
+      // not a block and one inside it, and not list items among other blocks: what is clicked then begins anew
+      list = list.filter((x) => !(x.pos < pos && pos < x.pos + x.node.nodeSize) && !(pos < x.pos && x.pos < pos + node.nodeSize));
+      if (list.some((x) => item(x.node) !== item(node))) list = [];
+      list.push({ pos, node });
+    }
+    const sel = selFor(doc, list.map((x) => x.pos), pos);
+    const tr = v.state.tr.setMeta(selKey, sel);
+    v.dispatch(sel ? tr.setSelection(pmSel(doc, sel.head)) : tr.setSelection(Selection.near(doc.resolve(pos + node.nodeSize), -1)));
+    v.focus();
+    return true;
+  }
   function setSel(state, anchor, head) {
     const tr = state.tr.setMeta(selKey, { anchor, head });
     tr.setSelection(pmSel(state.doc, head));
@@ -143,6 +200,42 @@
     if (!r) return false;
     const mod = e.ctrlKey || e.metaKey, up = e.key === "ArrowUp", down = e.key === "ArrowDown";
     const done = (tr) => { e.preventDefault(); v.dispatch(tr); return true; };
+    if (sel.more && sel.more.length) { // blocks picked one by one, not standing together
+      const P = pickedOf(v.state, sel);
+      if ((up || down) && e.altKey && !mod) { // moved: first they come together, where the first of them stands
+        let all = Fragment.empty;
+        for (const x of P) all = all.addToEnd(x.node);
+        const tr = v.state.tr;
+        for (const x of P.slice().reverse()) tr.delete(x.pos, x.pos + x.node.nodeSize);
+        const at = tr.mapping.map(P[0].pos, -1), $at = tr.doc.resolve(at);
+        if (!$at.parent.canReplace($at.index(), $at.index(), all)) { e.preventDefault(); return true; } // (they do not all fit where the first stands)
+        tr.insert(at, all);
+        let last = at;
+        for (let i = 0, p = at; i < all.childCount; p += all.child(i).nodeSize, i++) last = p;
+        tr.setMeta(selKey, { anchor: at, head: last }).setMeta("step", true);
+        return done(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        const tr = v.state.tr;
+        for (const x of P.slice().reverse()) tr.deleteRange(x.pos, x.pos + x.node.nodeSize);
+        if (!tr.doc.content.size || !tr.doc.firstChild) tr.insert(0, A.schema.nodes.paragraph.create());
+        tr.setMeta(selKey, null).setMeta("step", true);
+        return done(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(tr.mapping.map(P[0].pos), tr.doc.content.size)), -1)).scrollIntoView());
+      }
+      if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "d") { // once more, below the last of them
+        if (!v.editable) return false;
+        const end = P[P.length - 1], at = end.pos + end.node.nodeSize, $at = v.state.doc.resolve(at);
+        let copies = Fragment.empty;
+        for (const x of P) { const c = copyOf(v.state, x.pos, x.pos + x.node.nodeSize); if (c) copies = copies.append(c); }
+        if (!copies.childCount || !$at.parent.canReplace($at.index(), $at.index(), copies)) { e.preventDefault(); return true; }
+        const tr = v.state.tr.insert(at, copies).setMeta("step", true);
+        let last = at;
+        for (let i = 0, p = at; i < copies.childCount; p += copies.child(i).nodeSize, i++) last = p;
+        tr.setMeta(selKey, { anchor: at, head: last });
+        return done(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
+      }
+      // (the arrows, Space, Enter and Esc go on from the block picked last, as for a range of one)
+    }
     if ((up || down) && e.altKey && !mod) { // the selected blocks change places with the one above / below
       let k = up ? nextUsable(r, r.a, -1) : nextUsable(r, r.b, 1);
       if (k < 0) { e.preventDefault(); return true; }
@@ -225,16 +318,21 @@
     return false;
   }
   function toClipboard(v, e, cut) {
-    const r = rangeOf(v.state);
+    const r = rangeOf(v.state), P = pickedOf(v.state);
     if (!r || !e.clipboardData) return false;
-    const slice = v.state.doc.slice(r.from, r.to);
+    const apart = P.length && (selOf(v.state).more || []).length; // picked one by one: each of them, one after the other
+    let all = Fragment.empty;
+    if (apart) for (const x of P) all = all.addToEnd(x.node);
+    const slice = apart ? new Slice(all, 0, 0) : v.state.doc.slice(r.from, r.to);
     e.preventDefault();
     e.clipboardData.setData("text/plain", A.clip.markdownOf(v.state, slice));
     const box = document.createElement("div");
     box.appendChild(A.clip.plugin.props.clipboardSerializer.serializeFragment(slice.content));
     e.clipboardData.setData("text/html", box.innerHTML);
     if (cut && v.editable) {
-      const tr = v.state.tr.deleteRange(r.from, r.to).setMeta(selKey, null).setMeta("step", true);
+      const tr = v.state.tr;
+      if (apart) for (const x of P.slice().reverse()) tr.deleteRange(x.pos, x.pos + x.node.nodeSize); else tr.deleteRange(r.from, r.to);
+      tr.setMeta(selKey, null).setMeta("step", true);
       if (!tr.doc.content.size) tr.insert(0, A.schema.nodes.paragraph.create());
       v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(r.from, tr.doc.content.size)), -1)));
     }
@@ -251,7 +349,8 @@
         if (tr.docChanged) { // it goes with its blocks, as long as they are there
           const a = tr.mapping.mapResult(value.anchor, 1), h = tr.mapping.mapResult(value.head, 1);
           if (a.deletedAfter || h.deletedAfter) return null; // (undone, deleted: what stands there now was never selected)
-          const next = { anchor: a.pos, head: h.pos, ...(value.back != null ? { back: tr.mapping.map(value.back) } : null) };
+          const more = (value.more || []).map((p) => tr.mapping.mapResult(p, 1)).filter((m) => !m.deletedAfter).map((m) => m.pos);
+          const next = { anchor: a.pos, head: h.pos, ...(value.back != null ? { back: tr.mapping.map(value.back) } : null), ...(more.length ? { more } : null) };
           return rangeOf(state, next) ? next : null;
         }
         return tr.selectionSet && !tr.getMeta("appendedTransaction") ? null : value; // the caret put somewhere: the blocks are let go
@@ -259,17 +358,20 @@
     },
     props: {
       decorations(state) {
-        const r = rangeOf(state);
-        if (!r) return null;
-        const decos = [];
-        for (let i = r.a, pos = posOfChild(r, r.a); i <= r.b; pos += r.parent.child(i).nodeSize, i++) {
-          if (usable(r.parent.child(i))) decos.push(Decoration.node(pos, pos + r.parent.child(i).nodeSize, { class: "blk-sel" }));
-        }
-        return DecorationSet.create(state.doc, decos);
+        const P = pickedOf(state);
+        return P.length ? DecorationSet.create(state.doc, P.map((x) => Decoration.node(x.pos, x.pos + x.node.nodeSize, { class: "blk-sel" }))) : null;
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : null),
       handleKeyDown: keydown,
       handleDOMEvents: {
+        // Ctrl+click on a block: it joins the selected blocks, or leaves them (a link keeps its own Ctrl+click)
+        mousedown(v, e) {
+          if (e.button !== 0 || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.target.closest?.("a[href], .task")) return false;
+          const el = blockOf(v, e.target, e.clientY);
+          if (!el || !el.pmViewDesc) return false;
+          e.preventDefault();
+          return toggle(v, el.pmViewDesc.posBefore);
+        },
         copy: (v, e) => toClipboard(v, e, false),
         cut: (v, e) => toClipboard(v, e, true),
       },
@@ -291,7 +393,8 @@
   const THRESHOLD = 4; // px the pointer moves before it is a pull and no click
   let rubber = null;   // { x, y (page), pulled, scroll (px per frame), cx, cy (client), frame }
   // may a rectangle start where this press is?
-  const rubberAt = (e) => !!view && e.button === 0 && document.body.dataset.view === "active" && !view.dom.contains(e.target) &&
+  const bare = (e) => !!view && (e.target === view.dom || (view.dom.contains(e.target) && e.target.matches?.(".cols, .col"))); // no block under the pointer
+  const rubberAt = (e) => !!view && e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && document.body.dataset.view === "active" && (!view.dom.contains(e.target) || bare(e)) &&
     !e.target.closest?.(CHROME) && e.clientX < document.documentElement.clientWidth && !A.menu.isOpen && !A.dialog.open;
   // the blocks of the document the rectangle (page coordinates) reaches: [first, last] positions, or null
   function reached(x0, y0, x1, y1) {
@@ -309,6 +412,20 @@
     }
     return first == null ? null : [first, last];
   }
+  /* Only a row of columns reached: the blocks in its columns the rectangle touches (they are picked
+   * one by one, column by column). -> their positions, or null */
+  function reachedIn(pos, x0, y0, x1, y1) {
+    const row = view.nodeDOM(pos);
+    if (!row || !row.classList || !row.classList.contains("cols")) return null;
+    const L = Math.min(x0, x1) - scrollX, R = Math.max(x0, x1) - scrollX, T = Math.min(y0, y1) - scrollY, B = Math.max(y0, y1) - scrollY, out = [];
+    for (const col of row.children) for (const c of col.children) {
+      const d = c.pmViewDesc;
+      if (!d || !d.node || d.dom !== c || !usable(d.node)) continue;
+      const r = c.getBoundingClientRect();
+      if (r.height && r.right >= L && r.left <= R && r.bottom >= T && r.top <= B) out.push(d.posBefore);
+    }
+    return out.length ? out : null;
+  }
   function pull() {
     const r = rubber, x = r.cx + scrollX, y = r.cy + scrollY;
     band.style.left = Math.min(r.x, x) + "px";
@@ -319,9 +436,11 @@
     // from the block the pull began at to the one it has reached (pulled upwards: the other way round)
     const anchor = got && (y >= r.y ? got[0] : got[1]), head = got && (y >= r.y ? got[1] : got[0]);
     if (!got) { if (cur) view.dispatch(view.state.tr.setMeta(selKey, null)); return; }
-    if (cur && cur.anchor === anchor && cur.head === head) return;
-    const tr = view.state.tr.setMeta(selKey, { anchor, head });
-    view.dispatch(tr.setSelection(pmSel(view.state.doc, head)));
+    const inner = got[0] === got[1] ? reachedIn(got[0], r.x, r.y, x, y) : null;
+    const next = inner ? selFor(view.state.doc, inner, y >= r.y ? inner[inner.length - 1] : inner[0]) : { anchor, head };
+    if (cur && cur.anchor === next.anchor && cur.head === next.head && String(cur.more || "") === String(next.more || "")) return;
+    const tr = view.state.tr.setMeta(selKey, next);
+    view.dispatch(tr.setSelection(pmSel(view.state.doc, next.head)));
   }
   function scrollAlong() {
     if (!rubber) return;
@@ -340,14 +459,22 @@
     delete band.dataset.on;
     document.body.classList.remove("blk-pulling");
     if (r.pulled || cancel || !view) return;
+    if (r.inText && e) { // a click between blocks: the caret where the editor would have put it
+      const p = view.posAtCoords({ left: e.clientX, top: e.clientY });
+      if (p) view.dispatch(view.state.tr.setMeta(selKey, null).setSelection(Selection.near(view.state.doc.resolve(p.pos), 1)));
+      view.focus();
+      return;
+    }
     // a click: below the last block an empty line, the caret in it
     if (view.editable && e && e.clientY > view.dom.getBoundingClientRect().bottom && view.dom.parentElement && view.dom.parentElement.contains(e.target)) lineBelow(view);
   }
   document.addEventListener("mousedown", (e) => {
     if (!rubberAt(e)) return;
     e.preventDefault(); // (no text is selected by the pull)
+    const inText = bare(e);
+    if (inText) e.stopPropagation(); // (the editor does not take the press for a click of its own; let go where it was, it gets its caret below)
     hide();
-    rubber = { x: e.clientX + scrollX, y: e.clientY + scrollY, cx: e.clientX, cy: e.clientY, pulled: false, frame: 0 };
+    rubber = { x: e.clientX + scrollX, y: e.clientY + scrollY, cx: e.clientX, cy: e.clientY, pulled: false, frame: 0, inText };
     if (!view.hasFocus()) view.focus(); // (blocks selected before are let go by the click into the empty space, below)
   }, true);
   document.addEventListener("mousemove", (e) => {
@@ -379,6 +506,7 @@
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
+    if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
     if (handle.hasAttribute("data-group")) { view.focus(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
   });
@@ -396,9 +524,17 @@
     const node = pos == null ? null : view.state.doc.nodeAt(pos);
     if (!node || node !== desc.node) { e.preventDefault(); return; }
     // all selected blocks, if this is one of them; else this one
-    const sr = rangeOf(view.state), many = sr && pos >= sr.from && pos < sr.to;
-    const from = many ? sr.from : pos, to = many ? sr.to : pos + node.nodeSize;
-    const slice = view.state.doc.slice(from, to);
+    const P = pickedOf(view.state), many = P.some((x) => x.pos === pos);
+    // what goes, as stretches of the document (blocks standing together are one stretch)
+    const ranges = [];
+    for (const x of many ? P : [{ pos, node }]) {
+      const last = ranges[ranges.length - 1];
+      if (last && last.to === x.pos) last.to = x.pos + x.node.nodeSize; else ranges.push({ from: x.pos, to: x.pos + x.node.nodeSize });
+    }
+    const from = ranges[0].from, to = ranges[0].to;
+    let all = Fragment.empty;
+    for (const x of many ? P : [{ pos, node }]) all = all.addToEnd(x.node);
+    const slice = ranges.length === 1 ? view.state.doc.slice(from, to) : new Slice(all, 0, 0);
     // list items carry the kind of list they come from: outside a list they need one around them
     let items = slice.content.childCount > 0;
     slice.content.forEach((n) => { if (n.type.name !== "list_item") items = false; });
@@ -408,7 +544,7 @@
     const dx = e.clientX ? over.getBoundingClientRect().left - e.clientX : 0;
     let cols = false; // a row of columns among them: it goes beside nothing (no columns in columns)
     slice.content.forEach((n) => { if (n.type.name === "columns") cols = true; });
-    drag = { from, to, slice, items, cols, dx, list: items && isList(parent) ? parent : null, target: null };
+    drag = { from, to, ranges, slice, items, cols, dx, list: items && isList(parent) ? parent : null, target: null };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
@@ -426,13 +562,8 @@
   });
   // the elements of the blocks selected (two or more), or null
   function groupEls(state) {
-    const r = view ? rangeOf(state) : null;
-    if (!r || r.a === r.b) return null;
     const els = [];
-    for (let i = r.a; i <= r.b; i++) {
-      const dom = usable(r.parent.child(i)) ? view.nodeDOM(posOfChild(r, i)) : null;
-      if (dom && dom.nodeType === 1) els.push(dom);
-    }
+    for (const x of view ? pickedOf(state) : []) { const dom = view.nodeDOM(x.pos); if (dom && dom.nodeType === 1) els.push(dom); }
     return els.length > 1 ? els : null;
   }
   /* What is dragged, as a picture: the blocks as they stand, one under the other, on a card. A long
@@ -483,9 +614,9 @@
       el = best;
     }
     if (!el) return null;
-    const within = (pos) => pos > drag.from && pos < drag.to;
+    const within = (pos) => drag.ranges.some((r) => pos > r.from && pos < r.to);
     const fits = (pos, content) => { const $p = doc.resolve(pos); return $p.parent.canReplace($p.index(), $p.index(), content); };
-    const made = (pos, wrap, x0, y0) => (within(pos) || (!wrap && (pos === drag.from || pos === drag.to)) ? null : { pos, wrap, x: x0, y: y0, w: Math.max(40, pm.right - x0) });
+    const made = (pos, wrap, x0, y0) => (within(pos) || (!wrap && drag.ranges.length === 1 && (pos === drag.from || pos === drag.to)) ? null : { pos, wrap, x: x0, y: y0, w: Math.max(40, pm.right - x0) });
     // the edge between an element and its neighbour (the middle of the gap)
     const edge = (elx, after) => {
       const r = elx.getBoundingClientRect(), sib = after ? elx.nextElementSibling : elx.previousElementSibling, sr = sib && sib.getBoundingClientRect();
@@ -499,7 +630,7 @@
       let top = el;
       while (top.parentElement !== v.dom && outerOf(v, top)) top = outerOf(v, top);
       const d = top.parentElement === v.dom ? descOf(top) : null;
-      if (d && !(d.posBefore >= drag.from && d.posBefore < drag.to) && e.clientY >= top.getBoundingClientRect().top && e.clientY <= top.getBoundingClientRect().bottom) {
+      if (d && !drag.ranges.some((x) => d.posBefore >= x.from && d.posBefore < x.to) && e.clientY >= top.getBoundingClientRect().top && e.clientY <= top.getBoundingClientRect().bottom) {
         const r = top.getBoundingClientRect(), mk = (pos, side, x0, box) => ({ pos, side, wrap: false, x: x0, y: box.top, h: box.height, w: 2 });
         if (d.node.type.name === "columns") {
           for (const c of top.children) {
@@ -617,18 +748,20 @@
     if (!t) return;
     const listed = () => PM.model.Fragment.from(d.list ? d.list.type.create(d.list.attrs, d.slice.content) : A.schema.nodes.bullet_list.create(null, d.slice.content));
     if (t.side) { // beside a block or a column: as a column of its own
-      const tr = view.state.tr.deleteRange(d.from, d.to);
+      const tr = view.state.tr;
+      for (const x of d.ranges.slice().reverse()) tr.deleteRange(x.from, x.to);
       const began = A.columns.beside(tr, tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1), t.side, d.items ? listed() : d.slice.content);
       if (began < 0) return;
       const n = tr.steps.length;
-      A.columns.tidy(tr, tr.mapping.map(d.from)); // (the column they came from, if nothing is left in it)
+      for (const x of d.ranges.slice().reverse()) A.columns.tidy(tr, tr.mapping.map(x.from)); // (the columns they came from, if nothing is left in them)
       tr.setSelection(Selection.near(tr.doc.resolve(tr.mapping.slice(n).map(began)), 1)).setMeta("uiEvent", "drop").setMeta("step", true);
       view.dispatch(tr.scrollIntoView());
       view.focus();
       return;
     }
     const content = t.wrap ? listed() : d.slice.content;
-    const tr = view.state.tr.deleteRange(d.from, d.to); // (a list left without items goes with them)
+    const tr = view.state.tr;
+    for (const x of d.ranges.slice().reverse()) tr.deleteRange(x.from, x.to); // (a list left without items goes with them)
     const at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
     tr.insert(at, content);
     // what was moved stays selected as blocks: the keyboard can go on with it
@@ -637,7 +770,7 @@
     for (let i = 0, p = first; i < d.slice.content.childCount; p += d.slice.content.child(i).nodeSize, i++) last = p;
     // a column left with nothing in it goes (what was moved is found again behind that change)
     const n = tr.steps.length;
-    A.columns.tidy(tr, tr.mapping.map(d.from));
+    for (const x of d.ranges.slice().reverse()) A.columns.tidy(tr, tr.mapping.map(x.from));
     const after = tr.mapping.slice(n), anchor = after.map(first), head = after.map(last);
     tr.setMeta(selKey, { anchor, head }).setMeta("uiEvent", "drop").setMeta("step", true);
     tr.setSelection(pmSel(tr.doc, head));
@@ -667,7 +800,8 @@
           const el = blockOf(v, e.target, e.clientY);
           // over one of several selected blocks: the handle they share
           const group = el ? groupEls(v.state) : null;
-          if (group && group.some((x) => x === el || x.contains(el))) { clearTimeout(leaving); if (!handle.hasAttribute("data-group") || over !== group[0] || !handle.hasAttribute("data-on")) placeGroup(group); return false; }
+          const mine = group && group.find((x) => x === el || x.contains(el));
+          if (mine) { clearTimeout(leaving); if (!handle.hasAttribute("data-group") || over !== (handle.hasAttribute("data-apart") ? mine : group[0]) || !handle.hasAttribute("data-on")) placeGroup(group, mine); return false; }
           if (el) { clearTimeout(leaving); if (el !== over || handle.hasAttribute("data-group")) place(el); } else if (over && !e.target.closest?.(".blk-h")) hideSoon();
           return false;
         },
@@ -694,5 +828,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

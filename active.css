@@ -488,6 +488,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 /* the one handle of several selected blocks: beside all of them, its grip at the first */
 .blk-h[data-group] { place-items: start center; padding-top: 5px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); color: var(--accent); }
+.blk-h[data-apart] { place-items: center; padding-top: 0; } /* (blocks picked one by one: the handle of the one under the pointer) */
 /* what is dragged stands back where it was while its picture is under the pointer */
 .pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
 body.blk-dragging .pm .blk-sel { opacity: 0.35; }
@@ -583,7 +584,7 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
 @media print { .blk-line { display: none !important; } }
 /* columns: the gap between two can be pulled (columns.js). The grip stands in the gap, as tall as the row. */
-.col-grip { position: absolute; top: 0; left: 0; z-index: 25; width: 12px; cursor: col-resize; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+.col-grip { position: absolute; top: 0; left: 0; z-index: 23; width: 12px; cursor: col-resize; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 .col-grip::after { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; border-radius: 1px; background: var(--accent); opacity: 0.45; transition: opacity var(--dur-fast) var(--ease-out); }
 .col-grip[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
 .col-grip:hover::after, .col-grip[data-pulling]::after { opacity: 1; transition-duration: var(--dur-instant); }

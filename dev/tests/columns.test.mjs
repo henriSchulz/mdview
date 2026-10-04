@@ -26,13 +26,13 @@ const TWO = "<!-- columns -->\n\nleft\n\n<!-- column -->\n\nright\n\n<!-- /colum
 const flat = (html) => html.replace(/ data-line="\d+"/g, "").replace(/\n/g, "");
 
 test("the reader: a row of columns, the comment lines gone", () => {
-  assert.equal(flat(md.render(TWO)), '<div class="cols"><div class="col" style="flex: 1 1 0"><p>left</p></div><div class="col" style="flex: 1 1 0"><p>right</p></div></div>');
-  assert.match(flat(md.render("<!-- columns 2:1 -->\na\n<!-- column -->\nb\n<!-- /columns -->\n")), /style="flex: 2 1 0"><p>a<\/p><\/div><div class="col" style="flex: 1 1 0"><p>b/);
+  assert.equal(flat(md.render(TWO)), '<div class="cols"><div class="col" style="--w: 1"><p>left</p></div><div class="col" style="--w: 1"><p>right</p></div></div>');
+  assert.match(flat(md.render("<!-- columns 2:1 -->\na\n<!-- column -->\nb\n<!-- /columns -->\n")), /style="--w: 2"><p>a<\/p><\/div><div class="col" style="--w: 1"><p>b/);
   assert.equal((md.render("<!-- columns -->\na\n<!-- column -->\n\n- x\n- y\n\n<!-- column -->\n# H\n<!-- /columns -->\n").match(/class="col"/g) || []).length, 3);
   // what is no row of columns stays what it was
   for (const src of ["<!-- columns -->\n\na\n\n<!-- /columns -->\n", "<!-- columns -->\n\na\n\n<!-- column -->\n\nb\n", "<!-- column -->\n\na\n", "- x\n\n  <!-- columns -->\n\n  a\n\n  <!-- column -->\n\n  b\n\n  <!-- /columns -->\n"]) assert.equal(md.render(src).includes('class="cols"'), false, src);
   // widths that do not fit the columns: alike
-  assert.match(flat(md.render("<!-- columns 2:1:1 -->\na\n<!-- column -->\nb\n<!-- /columns -->\n")), /flex: 1 1 0"><p>a/);
+  assert.match(flat(md.render("<!-- columns 2:1:1 -->\na\n<!-- column -->\nb\n<!-- /columns -->\n")), /--w: 1"><p>a/);
   // a wide table, a callout and a decoration inside
   const inside = md.render("<!-- columns -->\n\n<!-- wide -->\n| a |\n| - |\n\n<!-- column -->\n\n> [!info]\n> x\n\n> [!block]\n> y\n\n<!-- /columns -->\n");
   assert.ok(inside.includes("table-wrap wide") && inside.includes("callout-info") && inside.includes("deco-block") && inside.includes('class="cols"'));

@@ -86,8 +86,8 @@
       content: "block+",
       attrs: { width: { default: 1 } },
       isolating: true,
-      parseDOM: [{ tag: "div.col", getAttrs: (dom) => ({ width: parseFloat(dom.style.flexGrow) || 1 }) }],
-      toDOM: (n) => ["div", { class: "col", style: `flex: ${n.attrs.width} 1 0` }, 0],
+      parseDOM: [{ tag: "div.col", getAttrs: (dom) => ({ width: parseFloat(dom.style.getPropertyValue("--w")) || 1 }) }],
+      toDOM: (n) => ["div", { class: "col", style: `--w: ${n.attrs.width}` }, 0],
     },
     bullet_list: block({
       content: "list_item+",
