@@ -488,6 +488,18 @@ body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, v
 .pf-text-col { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .pf-name { font-weight: 500; }
 .pf-hint { color: var(--fg2); font-size: 12px; line-height: 1.4; }
+/* a choice: a button that says what is chosen (its menu is the app's own, prefs.js) */
+.pf-pop-wrap { flex: none; display: flex; justify-content: flex-end; min-width: 0; max-width: 50%; }
+.pf-pop { display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box; min-width: 190px; max-width: 100%; height: var(--control-height, 28px); padding: 0 6px 0 10px; border: 0; border-radius: var(--radius-control); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.06); color: var(--fg); font: 400 13px var(--ui); text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+body[data-mode="dark"] .pf-pop { background: color-mix(in srgb, var(--fg) 12%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12); }
+.pf-pop:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+body[data-mode="dark"] .pf-pop:hover { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+.pf-pop:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.pf-pop-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-pop-chev { display: grid; place-items: center; flex: none; width: 14px; color: var(--fg2); }
+.pf-pop-chev svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pf-pop-chev .sf { font-size: 11px; }
+#st-menu { z-index: 60; }
 .pf-select { flex: none; width: auto; min-width: 190px; max-width: 46%; }
 .pf-text { flex: none; width: 220px; }
 .pf-value { flex: none; max-width: 60%; color: var(--fg2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }

@@ -56,18 +56,24 @@
       // the wheel belongs to the window: the note under it does not scroll
       const y0 = window.scrollY, wheel = (el, dy) => { const e = new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
       ok("the wheel beside the window, on its head and at the end of its list moves nothing under it", wheel(document.getElementById("settings-scrim"), 120) && wheel(st().querySelector(".st-head"), 120) && wheel(st().querySelector(".st-page[data-on] .pf-row"), 120) && window.scrollY === y0);
-      // a press on a choice is the choice's own (the page's block selection must not take it: its menu would never open)
+      // a choice is a button with the app's own menu; a press with the real pointer reaches it (the
+      // page's block selection must not take it)
       {
         st().querySelector('.st-nav[data-page="general"]').click(); await sleep(300);
-        const sel = st().querySelector(".st-page[data-on] select"), r = sel.getBoundingClientRect();
-        let prevented = null;
-        const spy = (e) => { prevented = e.defaultPrevented; };
-        window.addEventListener("mousedown", spy);
+        const row = st().querySelector('.pf-row[data-key="startMode"]'), pop = row.querySelector(".pf-pop"), sel = row.querySelector("select"), r = pop.getBoundingClientRect();
+        const menu = () => document.getElementById("st-menu");
+        ok("a choice shows what is chosen, on a button — no control of the toolkit's", pop.textContent.trim() === sel.selectedOptions[0].textContent && sel.hidden && r.width > 100, pop.textContent);
         for (const kind of ["move", "down", "up"]) { post("probe-pointer", { kind, x: r.left + 20, y: r.top + 10 }); await sleep(180); }
-        window.removeEventListener("mousedown", spy);
-        ok("a press with the pointer on a choice reaches it", prevented === false && document.activeElement === sel, prevented);
-        key(sel, "Escape"); await sleep(400); // (its menu, and with it the window)
-        key(view.dom, ",", { ctrlKey: true }); await sleep(450);
+        await sleep(300);
+        const items = () => [...menu().querySelectorAll(".menu-item")];
+        ok("a press on it opens the app's menu with the choices, the one in use ticked", !!menu() && menu().hasAttribute("data-open") && items().length === sel.options.length && items().filter((b) => b.getAttribute("aria-checked") === "true").length === 1 && menu().getBoundingClientRect().top >= r.bottom, menu() && items().length);
+        out("slash-shot-menu", {}); await sleep(100);
+        key(menu(), "ArrowDown"); key(menu(), "Enter"); await sleep(500);
+        ok("↓ and Enter choose the next one: the button says it, the setting is taken", !menu().hasAttribute("data-open") && sel.selectedIndex === 1 && pop.textContent.trim() === sel.options[1].textContent && window.MdPrefs.startMode === sel.options[1].value && document.activeElement === pop, [sel.selectedIndex, window.MdPrefs.startMode]);
+        pop.click(); await sleep(300);
+        key(menu(), "Escape"); await sleep(300);
+        ok("Esc closes the menu, not the settings", !menu().hasAttribute("data-open") && st().hasAttribute("data-open"));
+        sel.value = sel.options[0].value; sel.dispatchEvent(new Event("change")); await sleep(300);
       }
       // the key for the model: asked of the application, never shown whole
       st().querySelector('.st-nav[data-page="ai"]').click(); await sleep(400);

@@ -101,6 +101,101 @@
     refresh.forEach((f) => f());
   }
 
+  /* A choice: a button that says what is chosen, and the app's own menu for the others (the
+   * toolkit's menu looks like nothing else here). The <select> stays in the row, unseen, and holds
+   * the value: what sets it and sends "change" — the settings themselves, a test — sets the button. */
+  const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  let menu = null, menuFor = null, menuItems = [], menuHl = -1;
+  const menuOpen = () => !!menu && menu.hasAttribute("data-open");
+  const setHl = (i) => { menuHl = i; menuItems.forEach((b, k) => b.classList.toggle("hl", k === i)); };
+  function closeMenu(refocus) {
+    if (!menuOpen()) return false;
+    delete menu.dataset.open;
+    const b = menuFor && menuFor.button;
+    if (b) { b.setAttribute("aria-expanded", "false"); if (refocus) b.focus({ preventScroll: true }); }
+    menuFor = null;
+    return true;
+  }
+  function choose(i) {
+    const item = menuItems[i], pop = menuFor;
+    if (!item || !pop) return;
+    const flash = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--flash-duration")) || 70; // blink once, then act — like NSMenu
+    item.classList.remove("hl");
+    setTimeout(() => item.classList.add("hl"), flash);
+    setTimeout(() => {
+      closeMenu(true);
+      if (pop.select.value !== item.dataset.v) { pop.select.value = item.dataset.v; pop.select.dispatchEvent(new Event("change")); }
+    }, flash * 2);
+  }
+  function openMenu(pop) {
+    if (!menu) {
+      menu = el("div", { id: "st-menu", class: "ui-menu surface actmenu has-checks", role: "menu", tabindex: "-1" });
+      menu.style.setProperty("--origin", "top right");
+      document.body.appendChild(menu);
+      menu.addEventListener("mousemove", (e) => { const i = menuItems.indexOf(e.target.closest(".menu-item")); if (i !== menuHl) setHl(i); });
+      menu.addEventListener("mouseleave", () => setHl(-1));
+      menu.addEventListener("click", (e) => choose(menuItems.indexOf(e.target.closest(".menu-item"))));
+      menu.addEventListener("contextmenu", (e) => e.preventDefault());
+      menu.addEventListener("keydown", (e) => {
+        e.stopPropagation(); // (not the page's keys, and Esc closes the menu only)
+        const n = menuItems.length;
+        if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); }
+        else if (e.key === "ArrowDown") { e.preventDefault(); setHl(menuHl < 0 ? 0 : Math.min(n - 1, menuHl + 1)); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setHl(menuHl < 0 ? n - 1 : Math.max(0, menuHl - 1)); }
+        else if (e.key === "Home") { e.preventDefault(); setHl(0); }
+        else if (e.key === "End") { e.preventDefault(); setHl(n - 1); }
+        else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (menuHl >= 0) choose(menuHl); }
+      });
+      // a press beside it closes it and does nothing else
+      addEventListener("pointerdown", (e) => {
+        if (!menuOpen() || menu.contains(e.target)) return;
+        const own = menuFor && menuFor.button.contains(e.target);
+        closeMenu(false);
+        if (own) return;
+        e.preventDefault(); e.stopPropagation();
+        // (the click that follows the press is swallowed too)
+        const eat = (c) => { c.preventDefault(); c.stopPropagation(); };
+        addEventListener("click", eat, { capture: true, once: true });
+        setTimeout(() => removeEventListener("click", eat, true), 500);
+      }, true);
+    }
+    menu.textContent = "";
+    for (const o of pop.select.options) {
+      const b = el("button", { class: "menu-item", role: "menuitemradio", "aria-checked": String(o.value === pop.select.value), "data-v": o.value, type: "button" });
+      b.innerHTML = `<span class="menu-check">${TICK}</span>`;
+      b.appendChild(el("span", { class: "menu-label" }, o.textContent));
+      menu.appendChild(b);
+    }
+    menuItems = [...menu.children];
+    menuFor = pop;
+    const r = pop.button.getBoundingClientRect();
+    menu.style.minWidth = Math.round(r.width) + "px";
+    const h = menu.offsetHeight, w = Math.max(menu.offsetWidth, r.width), below = r.bottom + 4 + h <= innerHeight - 8;
+    menu.style.setProperty("--origin", below ? "top right" : "bottom right");
+    menu.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
+    menu.style.top = (below ? r.bottom + 4 : Math.max(8, r.top - 4 - h)) + "px";
+    setHl(menuItems.findIndex((b) => b.getAttribute("aria-checked") === "true"));
+    menu.dataset.open = "";
+    pop.button.setAttribute("aria-expanded", "true");
+    menu.focus({ preventScroll: true });
+  }
+  function popup(select) {
+    const wrap = el("span", { class: "pf-pop-wrap" }), button = el("button", { class: "pf-pop", type: "button", "aria-haspopup": "menu", "aria-expanded": "false" });
+    const text = el("span", { class: "pf-pop-text" });
+    button.append(text);
+    button.insertAdjacentHTML("beforeend", `<span class="pf-pop-chev">${UI.updown}</span>`);
+    const pop = { select, button };
+    const sync = () => { text.textContent = select.selectedOptions[0] ? select.selectedOptions[0].textContent : ""; };
+    select.hidden = true;
+    select.tabIndex = -1;
+    select.addEventListener("change", sync);
+    refresh.push(sync);
+    button.addEventListener("click", () => { if (menuOpen() && menuFor === pop) closeMenu(true); else openMenu(pop); });
+    button.addEventListener("keydown", (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); openMenu(pop); } });
+    wrap.append(select, button);
+    return wrap;
+  }
+
   function control(key, kind, choices) {
     if (kind === "switch") {
       const input = el("input", { type: "checkbox", class: "pf-switch", role: "switch" });
@@ -115,7 +210,7 @@
       if (key === "images" && !choices.some(([v]) => v === now().images)) input.appendChild(el("option", { value: now().images }, now().images));
       input.value = String(now()[key]);
       input.onchange = () => set(key, typeof DEFAULTS[key] === "number" ? Number(input.value) : input.value);
-      return input;
+      return popup(input);
     }
     if (kind === "text") {
       const input = el("input", { type: "text", class: "lp-field pf-text", spellcheck: "false", autocomplete: "off" });
@@ -133,7 +228,7 @@
         input.value = String(z);
       });
       input.onchange = () => { info.zoom = Number(input.value) / 100; post("zoom", { level: info.zoom }); };
-      return input;
+      return popup(input);
     }
     if (kind === "key") { // the model's key: typed in here, kept by the application; only its end is ever shown
       const box = el("div", { class: "pf-key" });
@@ -254,7 +349,7 @@
     focusBack = document.activeElement;
     // (the values as they are now: another window may have changed them)
     for (const row of root.querySelectorAll(".pf-row")) {
-      const key = row.dataset.key, input = row.querySelector(":scope > input, :scope > select");
+      const key = row.dataset.key, input = row.querySelector(":scope > input, select");
       if (!input || !(key in DEFAULTS)) continue;
       if (input.type === "checkbox") input.checked = !!now()[key]; else input.value = String(now()[key] ?? "");
     }
@@ -268,6 +363,7 @@
   }
   function close() {
     if (!isOpen()) return false;
+    closeMenu(false);
     if (document.activeElement && root.contains(document.activeElement) && document.activeElement.blur) document.activeElement.blur(); // (a text field's change is taken)
     delete scrim.dataset.open; delete root.dataset.open;
     const view = A.view && A.view.pm;
