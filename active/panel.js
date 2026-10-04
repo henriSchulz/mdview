@@ -9,6 +9,8 @@
  *            decoration, a colour, a callout — and bold, italic and the like.
  *            It shows what is on, and follows the caret.
  *
+ * It can only be opened in the active mode (the button is dimmed in the others).
+ *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
  * except for its search field. Open or not, and the tab, are settings

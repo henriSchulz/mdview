@@ -2217,14 +2217,8 @@
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
     overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); },
     // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
-    // active mode: asked for elsewhere, that mode comes with it
-    panel: () => {
-      if (mode === "active" && window.MdActive && MdActive.panel) { MdActive.panel.toggle(); return; }
-      if (!current || current.error || current.kind === "pdf") return;
-      window.MdPrefs = { ...(window.MdPrefs || {}), panel: true };
-      post("prefs", { prefs: { panel: true } });
-      setMode("active");
-    }, // all notes of the folder as tiles (overview.js)
+    // active mode: in the others its button is dimmed and does nothing
+    panel: () => { if (mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder

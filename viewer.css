@@ -705,6 +705,9 @@ body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: non
 /* The text column makes room at once; viewer.js glides it over (transform). */
 body[data-sidebar="open"] { padding-left: var(--sb-w); }
 #toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
+/* the panel at the right is the active mode's: elsewhere its button stands dimmed and takes no click */
+#toolbar [data-act="panel"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
 body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [data-act="overview"] { display: grid; }
 
 .sb-head { display: flex; align-items: center; gap: 2px; padding: var(--sb-pad) var(--sb-pad) 6px; }

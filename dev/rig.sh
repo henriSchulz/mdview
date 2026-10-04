@@ -390,7 +390,7 @@ case "${1:-}" in
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
   panel)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
-    app 60 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_MODE=read MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    app 60 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for v in insert format; do
       for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
     done

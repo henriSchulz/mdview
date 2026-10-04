@@ -91,7 +91,8 @@ run; everything that does not depend on frames passed.
   `.table-wrap.wide`), the active mode keeps it as the table's `wide` attribute. Tests: `tests/widetable.test.mjs`.
 - **The panel at the right** (branch `craft-feel`, Craft's right sidebar; `active/panel.js`, styles at the end
   of active.css; what was found of the original is in `~/Projects/craft-clone/replica/recon.md`, addendum):
-  the toolbar's last button or Ctrl+Alt+P. Asked for in another mode, the active mode comes with it.
+  the toolbar's last button or Ctrl+Alt+P — in the active mode only: in the reading view and the source
+  editor the button stands dimmed and does nothing.
   **Insert**: tiles with a small picture each, in sections (Blocks, Lists, Decorations, Callout, Separators,
   Media), a search field above them. A click puts the thing below the block the caret is in (inside a quote
   or a list item: in there, as the / menu does); dragged, it goes between the blocks where it is dropped (a

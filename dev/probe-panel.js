@@ -9,7 +9,14 @@
     await document.fonts.ready; await sleep(700);
     const btn = document.querySelector('#toolbar [data-act="panel"]');
     ok("the toolbar has the panel's button", !!btn);
-    btn.click(); // in the reading view: the active mode comes with the panel
+    MdView.setMode("read");
+    for (let i = 0; i < 300 && document.body.dataset.view === "active"; i++) await sleep(10);
+    await sleep(400);
+    btn.click(); // in the reading view: nothing
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    await sleep(400);
+    ok("in the reading view it is dimmed and opens nothing, the mode stays", document.body.dataset.view !== "active" && !document.body.hasAttribute("data-panel") && getComputedStyle(btn).pointerEvents === "none" && !(window.MdPrefs || {}).panel, [document.body.dataset.view, getComputedStyle(btn).pointerEvents]);
+    MdView.setMode("active");
     for (let i = 0; i < 400 && !(window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active"); i++) await sleep(10);
     await sleep(500);
     const A = MdActive, view = A.view.pm, { TextSelection } = PM.state, panel = document.getElementById("rpanel");
@@ -19,7 +26,10 @@
     const tile = (name) => [...panel.querySelectorAll(".rp-tile")].find((t) => t.querySelector(".rp-name").textContent === name);
     const fbtn = (name) => [...panel.querySelectorAll('[data-pane="format"] .rp-btn')].find((b) => b.getAttribute("aria-label") === name);
     const press = (b) => { b.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true })); b.click(); };
-    ok("asked for in the reading view, the active mode comes with it open", document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && window.MdPrefs.panel === true);
+    ok("the active mode alone does not open it", !document.body.hasAttribute("data-panel") && getComputedStyle(btn).pointerEvents !== "none");
+    btn.click();
+    await sleep(400);
+    ok("in the active mode the button opens it", document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && window.MdPrefs.panel === true);
     ok("the Insert tab shows, with its tiles in sections", panel.dataset.tab === "insert" && panel.querySelectorAll(".rp-tile").length === 25 && [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent).join("|") === "Blocks|Lists|Decorations|Callout|Separators|Media", [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent));
     ok("every tile has its picture", [...panel.querySelectorAll(".rp-tile")].every((t) => t.querySelector(".rp-card svg")));
     ok("the text column made room", view.dom.getBoundingClientRect().right <= panel.getBoundingClientRect().left + 1, [view.dom.getBoundingClientRect().right, panel.getBoundingClientRect().left]);
