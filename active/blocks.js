@@ -39,11 +39,12 @@
     if (el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes" || !el.pmViewDesc || !el.pmViewDesc.node) return null;
     return el;
   };
-  /* Where the handle stands: left of the block, clear of the highlight a selected block gets; left
+  /* Where the handle stands: close to the left of the block, inside the highlight a selected block
+   * gets (active.css --blk-out is this distance); left
    * of its bullet or checkbox for a list item. In a column that is not the first, it stays in the
    * gap before that column (further left is the text of the column beside it). */
   function leftOf(el, r) {
-    const left = r.left - (el.matches("li") || el.classList.contains("cols") ? 48 : 24), col = el.closest(".col"); // (a row of columns: further out than the handles of its first column's blocks)
+    const left = r.left - (el.matches("li") || el.classList.contains("cols") ? 46 : 22), col = el.closest(".col"); // (a row of columns: further out than the handles of its first column's blocks)
     return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 20) : left;
   }
   function place(el) {

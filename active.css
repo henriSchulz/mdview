@@ -486,8 +486,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
 .blk-h[data-dragging] { cursor: grabbing; }
 /* the one handle of several selected blocks: beside all of them, its grip at the first */
-.blk-h[data-group] { place-items: start center; padding-top: 5px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); color: var(--accent); }
+.blk-h[data-group] { place-items: start center; padding-top: 5px; box-sizing: border-box; background: transparent; color: var(--accent); } /* (it stands in the blocks' own highlight) */
+.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
 .blk-h[data-apart] { place-items: center; padding-top: 0; } /* (blocks picked one by one: the handle of the one under the pointer) */
 /* what is dragged stands back where it was while its picture is under the pointer */
 .pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
@@ -570,13 +570,18 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .actmenu:not([data-open]) { pointer-events: none; }
 
 /* blocks selected as wholes (a click on a handle, then the keyboard) */
-.pm .blk-sel { background-color: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); border-radius: var(--radius-row); }
+/* The highlight reaches out to the left over the block's handle (--blk-out: how far the handle
+ * stands out, blocks.js leftOf), so the two are one box. Its colour is opaque: the part over the
+ * handle is a second shadow, and two see-through ones would show double where they overlap. */
+.pm { --blk-sel: color-mix(in srgb, var(--accent) 16%, var(--bg)); --blk-out: 22px; }
+.pm .blk-sel { background-color: var(--blk-sel); box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); border-radius: var(--radius-row); }
+.pm .cols.blk-sel { --blk-out: 46px; }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
 .pm li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
-.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.9em - 4px); z-index: -1; border-radius: var(--radius-row); background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
+.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px -50px; z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (-50px: its handle stands 46 out) */
 .pm.has-blocksel ::selection { background: transparent; }
 .pm.has-blocksel { caret-color: transparent; }
-.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); }
 .pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
 
 /* where a block dragged by its handle will go */
