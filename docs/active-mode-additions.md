@@ -156,7 +156,10 @@ run; everything that does not depend on frames passed.
   In columns the handle of a block stays in the gap before its column; the width shown while a gap is
   pulled is a property of its own (`--w-live`; taking a `flex` decoration away took the column's own width
   with it — every press on the grip that changed nothing made the columns alike), and widths are written
-  to a tenth so nothing moves when the grip is let go. Tests: `tests/pick.test.mjs`, `rig.sh columns`.
+  to a tenth so nothing moves when the grip is let go. Columns stay columns when they are moved: with every
+  block of every column of a row picked, the row itself is what is selected (`selFor`), and its handle
+  shows over any block in it; two or more whole columns of a row, dragged, go as a row of their own (the
+  row they leave closes up). Tests: `tests/pick.test.mjs`, `rig.sh columns`.
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

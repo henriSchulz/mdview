@@ -133,13 +133,31 @@
       dragTo(bb.left + 40, bb.bottom - 3); await sleep(150);
       ok("a rectangle pulled into a row takes the blocks of the column it reaches", picked() === "Beta", picked());
       dragTo(g.left + 40, g.bottom - 3); await sleep(150);
-      ok("… pulled on over the next column: its blocks as well", picked() === "Gamma|Beta", picked());
+      ok("… pulled on over the next column, all the row holds: the row itself", A.blocks.picked(view.state).map((x) => x.node.type.name).join() === "columns" && !!view.dom.querySelector(".cols.blk-sel"), picked());
       const al = para("Alpha").getBoundingClientRect();
       dragTo(g.left + 40, al.top + 4); await sleep(150);
       ok("… pulled on over other blocks: those, and the row as a whole", picked().split("|").length >= 3 && !!view.dom.querySelector(".cols.blk-sel"), picked());
       post("probe-pointer", { kind: "up", x: g.left + 40, y: al.top + 4 }); await sleep(250);
       await click("Alpha", false);
 
+      // whole columns picked and dragged stay columns
+      {
+        for (const t of ["Gamma", "Beta"]) A.blocks.toggle(view, view.posAtDOM(para(t), 0) - 1);
+        ok("all a row holds picked: the row itself is what is selected", A.blocks.picked(view.state).map((x) => x.node.type.name).join() === "columns", A.blocks.picked(view.state).map((x) => x.node.type.name));
+        const h2 = document.querySelector(".blk-h"), dt = new DataTransfer(), first = para("Right").getBoundingClientRect();
+        para("Gamma").dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: para("Gamma").getBoundingClientRect().left + 20, clientY: para("Gamma").getBoundingClientRect().top + 6 }));
+        await sleep(200);
+        const hr = h2.getBoundingClientRect();
+        h2.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hr.left + 9, clientY: hr.top + 9, dataTransfer: dt }));
+        const x = first.left + 120, y = first.top + 2;
+        (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+        (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+        h2.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
+        await sleep(250);
+        ok("dragged above another block, it is still a row of columns", shape() === "Columns (Gamma | Beta) Right Alpha Delta", shape());
+        undo(); await sleep(200);
+        await click("Alpha", false);
+      }
       // a rectangle begun between two blocks, where no text is
       const dl = para("Delta").getBoundingClientRect(), gapY = (al.bottom + dl.top) / 2;
       post("probe-pointer", { kind: "move", x: al.left + 200, y: gapY }); await sleep(80);

@@ -82,7 +82,7 @@ test("copied and cut: each of them, one after the other", () => {
 test("not a block and one inside it; not list items among other blocks", () => {
   const v = open("para\n\n- a\n- b\n\n<!-- columns -->\n\nleft\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n");
   v.click("left"); v.click("right");
-  assert.equal(v.picked(), "left|right"); // blocks of two columns
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns"); // all a row holds: the row
   A.blocks.toggle(v, v.item("a")); // a list item: what was picked is let go
   assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "list_item");
   A.blocks.toggle(v, v.item("b"));
@@ -92,4 +92,16 @@ test("not a block and one inside it; not list items among other blocks", () => {
   A.blocks.toggle(v, 0 + v.state.doc.child(0).nodeSize + v.state.doc.child(1).nodeSize); // the row of columns
   v.click("left"); // a block of it: the row itself is let go
   assert.equal(v.picked(), "para|left");
+});
+
+test("every block of every column of a row picked: the row itself", () => {
+  const v = open("para\n\n<!-- columns -->\n\nleft\n\nmore\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n\nend\n");
+  v.click("left"); v.click("more");
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "paragraph,paragraph"); // one column: its blocks
+  v.click("right");
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns");
+  v.key("ArrowUp", { altKey: true }); // moved, it stays a row
+  assert.equal(v.md(), "<!-- columns -->\n\nleft\n\nmore\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n\npara\n\nend\n");
+  v.click("para"); // together with another block
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns,paragraph");
 });

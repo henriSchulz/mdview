@@ -132,9 +132,32 @@
   }
   /* The selection for these blocks (positions), `head` the one the keyboard goes on from: a range
    * where they stand one after the other in the same place, else one of them and the others beside it. */
+  // the columns of the row a block stands in that are picked whole (every block of theirs): { colsPos, cols, full: [column index…] } or null
+  function fullColumns(doc, list, pos) {
+    const c = A.columns.around(doc.resolve(pos));
+    if (!c) return null;
+    const full = [];
+    let colPos = c.colsPos + 1;
+    c.cols.forEach((col, _o, i) => {
+      let p = colPos + 1, all = true, any = false;
+      col.forEach((b) => { if (usable(b)) { any = true; if (!list.includes(p)) all = false; } p += b.nodeSize; });
+      if (all && any) full.push(i);
+      colPos += col.nodeSize;
+    });
+    return { colsPos: c.colsPos, cols: c.cols, full };
+  }
   function selFor(doc, list, head) {
     list = [...new Set(list)].sort((a, b) => a - b);
     if (!list.length) return null;
+    // every block of every column of a row picked: the row itself is what is picked (moved, it stays a row)
+    for (const p of list.slice()) {
+      if (!list.includes(p)) continue;
+      const f = fullColumns(doc, list, p);
+      if (!f || f.full.length !== f.cols.childCount) continue;
+      const inRow = (x) => x > f.colsPos && x < f.colsPos + f.cols.nodeSize;
+      if (inRow(head)) head = f.colsPos;
+      list = list.filter((x) => !inRow(x)).concat(f.colsPos).sort((a, b) => a - b);
+    }
     if (!list.includes(head)) head = list[list.length - 1];
     const $ = list.map((p) => doc.resolve(p));
     const row = $.every((x, i) => x.depth === $[0].depth && x.start() === $[0].start() && (!i || x.index() === $[i - 1].index() + 1));
@@ -534,7 +557,13 @@
     const from = ranges[0].from, to = ranges[0].to;
     let all = Fragment.empty;
     for (const x of many ? P : [{ pos, node }]) all = all.addToEnd(x.node);
-    const slice = ranges.length === 1 ? view.state.doc.slice(from, to) : new Slice(all, 0, 0);
+    let slice = ranges.length === 1 ? view.state.doc.slice(from, to) : new Slice(all, 0, 0);
+    // whole columns of one row, two or more of them and nothing else: they go as columns, a row of their own
+    if (many && P.length > 1) {
+      const list = P.map((x) => x.pos), f = fullColumns(view.state.doc, list, list[0]);
+      const inFull = (p) => { const c = A.columns.around(view.state.doc.resolve(p)); return !!c && c.colsPos === f.colsPos && f.full.includes(c.index); };
+      if (f && f.full.length >= 2 && list.every(inFull)) slice = new Slice(Fragment.from(A.schema.nodes.columns.create(null, f.full.map((i) => f.cols.child(i)))), 0, 0);
+    }
     // list items carry the kind of list they come from: outside a list they need one around them
     let items = slice.content.childCount > 0;
     slice.content.forEach((n) => { if (n.type.name !== "list_item") items = false; });
@@ -797,7 +826,9 @@
             const bottom = handle.hasAttribute("data-group") ? h.bottom : over.matches("li") ? Math.min(r.bottom, h.bottom + 6) : r.bottom;
             if (e.clientY >= r.top - 6 && e.clientY <= bottom + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12) { clearTimeout(leaving); return false; }
           }
-          const el = blockOf(v, e.target, e.clientY);
+          let el = blockOf(v, e.target, e.clientY);
+          // inside a selected block (a block of a selected row of columns): that block's handle, not its own
+          if (el && selOf(v.state)) { const holder = pickedOf(v.state).map((x) => v.nodeDOM(x.pos)).find((d) => d && d.nodeType === 1 && d !== el && d.contains(el)); if (holder) el = holder; }
           // over one of several selected blocks: the handle they share
           const group = el ? groupEls(v.state) : null;
           const mine = group && group.find((x) => x === el || x.contains(el));
