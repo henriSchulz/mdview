@@ -1,6 +1,6 @@
 ---
 name: mdview-notes
-description: Write Markdown files for Henri's notes app Markdown Notes (mdview / mdnotes) so they use what the app renders — callouts, decorations, columns, wide tables, KaTeX, Mermaid, svg fences, wikilinks, properties with a tile colour, PDF links. Use whenever a note, summary, cheat sheet, lecture notes, study sheet, documentation page or any .md file is written for Henri to read in mdview, or when he asks for "eine Notiz", "eine md-Datei", "für mdview", "für meine Notizen", "Zusammenfassung als Markdown". Triggers: mdview, mdnotes, Markdown Notes, Notiz, note, .md, Zusammenfassung, Lernzettel, cheat sheet.
+description: Write Markdown files for Henri's notes app Markdown Notes (mdview / mdnotes) so they use what the app renders — callouts, decorations, columns, wide tables, KaTeX, Mermaid, svg fences, wikilinks, properties with a tile colour, PDF links and figures embedded straight out of a PDF (PDF++ style, no extracted images). Use whenever a note, summary, cheat sheet, lecture notes, study sheet, documentation page or any .md file is written for Henri to read in mdview, or when he asks for "eine Notiz", "eine md-Datei", "für mdview", "für meine Notizen", "Zusammenfassung als Markdown". Triggers: mdview, mdnotes, Markdown Notes, Notiz, note, .md, Zusammenfassung, Lernzettel, cheat sheet.
 ---
 
 # Notes for Markdown Notes (mdview)
@@ -43,6 +43,29 @@ the note better. The full reference, with every example rendered, is
 | diagram | a fence named `mermaid` |
 | drawing | a fence named `svg` with one `<svg>` element |
 | PDF page link / embed | `[[paper.pdf#page=3]]`, `![[paper.pdf#page=3]]` |
+| a figure out of a PDF | `![[paper.pdf#page=3&rect=72,400,300,520]]` — see *Pictures from a PDF* |
+
+### Pictures from a PDF
+
+When a note is written from a PDF (a summary, lecture notes, a paper read) and needs its figures,
+tables or formulas as pictures, **do not extract them to PNG files**. Embed the region of the page
+the way PDF++ does — the app shows the region in the note and a click opens the PDF there:
+
+```markdown
+![[paper.pdf#page=3&rect=72,400,300,520]]
+```
+
+- `rect` is `x1,y1,x2,y2` in PDF points (1/72 in), **origin at the lower left** of the page, as in
+  the PDF itself. The path is relative to the note, like a picture.
+- Find the region with PyMuPDF: `page.get_image_info()` or `page.get_drawings()` give the bounding
+  boxes of a figure's parts, `page.search_for("Figure 3")` the caption. PyMuPDF counts y from the
+  **top**, so convert: `y_pdf = page.rect.height - y_fitz`, and swap so that `y1 < y2`. Round to
+  whole points and leave a few points of air around the figure.
+- No clear box (a figure drawn in many pieces, a scanned page): embed the whole page,
+  `![[paper.pdf#page=3]]`, or a region guessed from the caption's position.
+- Quote the PDF with a link to the page, `[[paper.pdf#page=3|S. 3]]`, so the claim can be checked;
+  a `selection=` link needs the viewer's text indices and is made in the app, not by hand.
+- The PDF stays beside the note (or in the folder the note refers to); nothing is written into it.
 
 ### Callouts
 
@@ -126,4 +149,5 @@ Two to four columns; elsewhere they read as blocks one under the other.
 
 - Every fence is closed and has its language; `$$` blocks are balanced.
 - Wikilinks point to notes that exist in the folder (or are meant as notes to come).
-- Pictures referenced exist beside the note.
+- Pictures referenced exist beside the note; PDF embeds name a PDF that exists, a page it has and a
+  `rect` with `x1 < x2`, `y1 < y2` inside the page.
