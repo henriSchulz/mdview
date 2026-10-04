@@ -49,6 +49,36 @@
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "g", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(500);
     ok("Ctrl+Alt+G opens it again, the note on screen marked", ov.hasAttribute("data-open") && ov.querySelector(".ov-tile[aria-current] .ov-name")?.textContent === "Decorations");
+    // the head's choices: a list, folders to click through; the file menu on a note
+    const opt = (seg, v) => ov.querySelector(`[data-seg="${seg}"] [data-v="${v}"]`);
+    const names = (sel) => [...ov.querySelectorAll(sel)].map((t) => t.querySelector(".ov-name").textContent);
+    const menu = document.getElementById("ctxmenu"), shown = () => [...menu.querySelectorAll(".menu-item:not([hidden]) .menu-label")].map((x) => x.textContent).join("|");
+    opt("layout", "list").click(); await sleep(900);
+    ok("List: a row per note, the note on screen marked, its first words beside the name", ov.querySelectorAll(".ov-row").length === 8 && !ov.querySelector(".ov-tile") && ov.querySelector(".ov-row[aria-current] .ov-name")?.textContent === "Decorations" && [...ov.querySelectorAll(".ov-row .ov-snip")].filter((x) => x.textContent).length >= 6, names(".ov-row").join());
+    out("shot-list", {}); await sleep(1300);
+    opt("scope", "folders").click(); await sleep(600);
+    ok("Folders: the folder's own folders first, then its notes", names(".ov-row").join("|") === "Ideen|Projekte|Lecture Notes|Reading list|Weekend Trip|Workout routine" && ov.querySelectorAll(".ov-row.ov-folder").length === 2, names(".ov-row").join("|"));
+    opt("layout", "tiles").click(); await sleep(600);
+    ok("as tiles too", ov.querySelectorAll(".ov-tile").length === 6 && ov.querySelectorAll(".ov-tile.ov-folder").length === 2 && /2 notes/.test(ov.querySelector(".ov-folder .ov-sub").textContent), ov.querySelectorAll(".ov-tile").length);
+    out("shot-folders", {}); await sleep(1300);
+    [...ov.querySelectorAll(".ov-folder")].find((t) => t.dataset.dir === "Projekte").click(); await sleep(600);
+    ok("a click on a folder goes into it; the way back stands in the title", names(".ov-tile").join("|") === "Commute thoughts|Decorations" && ov.querySelector(".ov-crumb")?.textContent === "Notes" && ov.querySelector(".ov-title").textContent.endsWith("Projekte"), ov.querySelector(".ov-title").textContent);
+    const note = ov.querySelector(".ov-tile");
+    note.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
+    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in Default App|Open With…|Show in Finder|Rename|Move to Trash", shown());
+    out("shot-menu", {}); await sleep(1300);
+    [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "rename").click(); await sleep(500);
+    const field = ov.querySelector(".ov-rename");
+    ok("Rename: the name is a field where it stood", !!field && field.value === "Commute thoughts" && document.activeElement === field, field && field.value);
+    field.value = "Commute ideas"; field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(1200);
+    ok("Enter renames the file; the tiles follow", names(".ov-tile").join("|") === "Commute ideas|Decorations", names(".ov-tile").join("|"));
+    ov.querySelector(".ov-tile").focus(); key("Backspace"); await sleep(600);
+    ok("Backspace goes up, onto the folder left", document.activeElement.dataset.dir === "Projekte" && !ov.querySelector(".ov-crumb"), document.activeElement.className);
+    ov.querySelector(".ov-folder").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
+    ok("a folder's menu: Open, Show in Finder", shown() === "Open|Show in Finder", shown());
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(300);
+    opt("scope", "all").click(); await sleep(500);
+    ok("All Notes again: every note, by folder", ov.querySelectorAll(".ov-tile").length === 8 && ov.querySelectorAll(".ov-dir").length === 2);
   } catch (e) { o.error = String(e && e.stack || e); }
   post("probe", { name: "ov", text: JSON.stringify(o) });
 })();

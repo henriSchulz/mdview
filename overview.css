@@ -17,8 +17,8 @@ body[data-sidebar="open"] #overview { left: var(--sb-w); }
 body[data-overview] { overflow: hidden; }       /* the note under it does not scroll along */
 @media print { #overview { display: none !important; } }
 
-.ov-head, .ov-dir, .ov-name, .ov-none { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */
-.ov-head { display: flex; align-items: baseline; gap: 12px; max-width: 1400px; margin: 0 auto 28px; }
+.ov-head, .ov-dir, .ov-name, .ov-none, .ov-row, .ov-sub { font-variation-settings: "opsz" 17; } /* (SF Pro's text cut, as the sidebar and the menus) */
+.ov-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; max-width: 1400px; margin: 0 auto 28px; }
 .ov-title { margin: 0; font: 700 28px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--fg); }
 .ov-count { font: 400 13px/1.2 var(--ui); color: var(--fg2); }
 .ov-body { max-width: 1400px; margin: 0 auto; }
@@ -105,3 +105,60 @@ body[data-mode="dark"] .ov-red, body[data-mode="dark"] .ov-orange, body[data-mod
 #toolbar [data-act="outline"], #toolbar [data-act="find"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 #toolbar .seg { transition: opacity var(--dur-fast) var(--ease-out); }
 body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-act="panel"], .seg) { opacity: 0.4; pointer-events: none; }
+
+/* ------------------------------------------------------------- the head's choices, folders, the list */
+.ov-title { display: flex; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+/* the way to the folder shown: the folders above it, to click back to */
+.ov-crumb { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; color: var(--fg2); cursor: default; border-radius: var(--radius-chip); transition: color var(--dur-fast) var(--ease-out); }
+.ov-crumb:hover { color: var(--fg); transition-duration: var(--dur-instant); }
+.ov-sep { display: inline-grid; place-items: center; align-self: center; width: 22px; color: var(--fg3); }
+.ov-sep svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.ov-space { flex: 1; }
+/* two choices, each a capsule whose thumb glides to the chosen one (as the toolbar's mode switch) */
+.ov-seg { position: relative; align-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); user-select: none; -webkit-user-select: none; }
+.ov-opt { position: relative; display: grid; place-items: center; min-width: var(--control-height, 28px); height: calc(var(--control-height, 28px) - 4px); padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--fg2); font: 500 12px/1 var(--ui); white-space: nowrap; cursor: default; transition: color var(--dur-fast) var(--ease-out); }
+.ov-opt[title] { padding: 0 8px; }
+.ov-opt svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ov-opt:hover, .ov-opt[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
+.ov-opt:focus-visible { outline-offset: -2px; }
+.ov-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 2)); border-radius: var(--radius-pill); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%, var(--bg)); box-shadow: none; }
+
+/* a folder among the tiles: its sign, its name, how many notes lie in it */
+.ov-folder .ov-sheet { display: grid; align-content: center; justify-items: center; gap: 6px; padding-bottom: 14px; text-align: center; }
+.ov-folder .ov-sheet::after { content: none; }
+.ov-folder.ov-tile .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.ov-folder .ov-name { padding: 0; margin: 0; border: 0; }
+.ov-sub { font: 400 12px/1.3 var(--ui); color: var(--fg2); }
+.ov-name[hidden] { display: none; }
+/* the menu is open on it */
+.ov-tile.ctx-target { box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); }
+.ov-tile .ov-rename { position: static; width: 100%; height: 26px; margin: 0 0 8px; padding: 0 6px; font-size: 14px; }
+
+/* the list: a row per note — its sign (in the note's colour), its name, the first words */
+.ov-list { display: grid; grid-template-columns: minmax(0, 1fr); }
+.ov-row {
+  display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 36px; padding: 0 10px;
+  border-radius: var(--radius-control); font: 400 14px/1.3 var(--ui); color: var(--fg); cursor: default;
+  outline: var(--focus-ring) solid transparent; outline-offset: -2px; user-select: none; -webkit-user-select: none;
+  opacity: 0;
+  transition: opacity var(--dur-overview-exit) var(--ease-out);
+}
+#overview[data-open] .ov-row { opacity: 1; transition: opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)), background-color var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); }
+#overview[data-open] .ov-row:hover, .ov-row.ctx-target { background: var(--fill-hover); transition-duration: var(--dur-base), var(--dur-instant), var(--dur-instant); }
+#overview[data-open] .ov-row:active { background: var(--fill-pressed); }
+.ov-row[aria-current] { background: var(--sb-selected); }
+#overview[data-keys] .ov-row:focus-visible { outline-color: var(--accent); }
+.ov-row + .ov-row { box-shadow: 0 -1px 0 var(--line); }
+.ov-row:hover, .ov-row:hover + .ov-row, .ov-row[aria-current], .ov-row[aria-current] + .ov-row, .ov-row.ctx-target, .ov-row.ctx-target + .ov-row { box-shadow: none; }
+.ov-row .ov-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--c, var(--fg2)); }
+.ov-row .ov-icon svg, .ov-go svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ov-row.ov-folder .ov-icon { color: var(--accent); }
+.ov-row .ov-name { flex: none; max-width: 45%; padding: 0; margin: 0; border: 0; font: 500 14px/1.3 var(--ui); display: block; white-space: nowrap; text-overflow: ellipsis; }
+.ov-snip { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg2); font-size: 13px; }
+.ov-row.ov-empty .ov-snip::before { content: "Empty"; color: var(--fg3); }
+.ov-go { display: grid; place-items: center; flex: none; color: var(--fg3); }
+.ov-go svg { width: 13px; height: 13px; stroke-width: 2.4; }
+.ov-row .ov-rename { position: static; flex: 0 1 320px; width: auto; height: 26px; margin: 0; padding: 0 6px; font-size: 14px; }
+/* (a row's colour is its sign's: no frame, no wash) */
+.ov-row { --frame: 0px; }

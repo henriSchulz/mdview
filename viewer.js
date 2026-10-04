@@ -2066,19 +2066,22 @@
   ctx.style.setProperty("--origin", "top left");
   ctx.tabIndex = -1;
   ctx.setAttribute("role", "menu");
-  // one menu for a file, a folder, and the + button ("new"); data-for says where an entry shows
+  // one menu for a file, a folder, the + button ("new"), and a note or folder among the tiles
+  // ("ovnote", "ovdir": overview.js); data-for says where an entry shows
   const entry = (cmd, icon, label, on, key = "", cls = "") =>
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
+    entry("open", "note", "Open", "ovnote ovdir") +
+    `<div class="menu-rule" data-for="ovnote ovdir"></div>` +
     entry("newnote", "note", "New Note", "dir new", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new") +
     `<div class="menu-rule" data-for="dir"></div>` +
-    entry("default", "external", "Open in Default App", "file") +
-    entry("openwith", "apps", "Open With…", "file") +
-    entry("reveal", "reveal", "Show in Finder", "file dir") +
-    `<div class="menu-rule" data-for="file"></div>` +
-    entry("rename", "rename", "Rename", "file", "F2") +
-    entry("trash", "trash", "Move to Trash", "file", "Del", " danger");
+    entry("default", "external", "Open in Default App", "file ovnote") +
+    entry("openwith", "apps", "Open With…", "file ovnote") +
+    entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
+    `<div class="menu-rule" data-for="file ovnote"></div>` +
+    entry("rename", "rename", "Rename", "file ovnote", "F2") +
+    entry("trash", "trash", "Move to Trash", "file ovnote", "Del", " danger");
   document.body.appendChild(ctx);
   let ctxItems = [];
   let ctxFor = null, ctxHl = -1, ctxKind = "file";
@@ -2103,7 +2106,7 @@
     if (!ctxOpen()) return false;
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus && ctxKind !== "new") ctxFor.firstChild.firstChild.focus({ preventScroll: true });
+    if (refocus && ctxKind !== "new") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -2116,11 +2119,12 @@
       const kind = ctxKind;
       closeCtx(false);
       if (!item.isConnected) return;
-      const cmd = el.dataset.cmd;
+      const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
-      else if (cmd === "rename") startRename(item);
-      else if (cmd === "trash") post("trash", { path: item.dataset.key });
-      else post("fileop", { op: cmd, path: item.dataset.key });
+      else if (cmd === "open") MdOverview.go(item);
+      else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
+      else if (cmd === "trash") post("trash", { path });
+      else post("fileop", { op: cmd, path });
     }, flash * 2);
   }
   sidebar.addEventListener("contextmenu", (e) => {
@@ -2440,7 +2444,7 @@
   window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage,
+      copy: (text) => post("copy", { text }), post, zoomImage, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };
