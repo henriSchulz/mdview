@@ -112,6 +112,14 @@ run; everything that does not depend on frames passed.
   it and shows its Markdown, all of it selected; Enter, ↓ or leaving it writes it, Esc leaves it as it was;
   emptied (or the kind's own name) there is no title of its own. From the keyboard: / → Callout → Edit Title.
   Tests: `tests/callout.test.mjs`, `rig.sh callout`; `rig.sh compare` on obsidian.md shows both views laid out alike.
+- **A rectangle pulled over blocks** (branch `craft-feel`, blocks.js): pressed in the empty space beside or
+  below the text and pulled, the pointer draws a rectangle (`.blk-band`); the blocks of the document it
+  reaches are selected as wholes, never the text in them, and stay so when it is let go — the keyboard and
+  the handle's drag go on with them. It starts after 4 px, takes nothing while it is only beside the text,
+  scrolls the page near the window's upper and lower edge, Esc gives it up. A press let go where it was is
+  a click as before (the selected blocks are let go; below the last block an empty line). The panel at the
+  right and the overview count as chrome now: a click there no longer lets the selected blocks go. Top-level
+  blocks only. Probe: `rig.sh blocks` (real pointer; `probe-pointer` moves with `held` for a drag).
 - **Blocks by the keyboard** (branch `craft-feel`, as Craft's block mode): Esc in the text takes the block
   the caret is in (the item in a list, the table around a cell); Esc or Enter gives the caret back where it
   was. On blocks: Space puts an empty block below (Shift: above) with the caret in it, Ctrl+D makes them once

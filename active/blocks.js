@@ -263,10 +263,103 @@
     },
   });
 
+  // what floats over or stands beside the text: a press there is neither a click into the empty space nor the start of a rectangle
+  const CHROME = ".blk-h, .tbl-h, .actmenu, #dlg, #dlg-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #findbar, #ctxmenu, #zoom, #toast, #acttip, #apptip";
+
+  /* ---------------------------------------------------------------- a rectangle pulled over blocks
+   * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;
+   * the blocks of the document it reaches are selected as wholes (not the text in them), and stay
+   * so when it is let go: the keyboard works on them. Near the window's upper and lower edge the
+   * page scrolls along. A press let go where it was is a click: the blocks are let go, and below
+   * the last block an empty line is made. */
+  const band = document.createElement("div");
+  band.className = "blk-band";
+  document.body.appendChild(band);
+  const THRESHOLD = 4; // px the pointer moves before it is a pull and no click
+  let rubber = null;   // { x, y (page), pulled, scroll (px per frame), cx, cy (client), frame }
+  // may a rectangle start where this press is?
+  const rubberAt = (e) => !!view && e.button === 0 && document.body.dataset.view === "active" && !view.dom.contains(e.target) &&
+    !e.target.closest?.(CHROME) && e.clientX < document.documentElement.clientWidth && !A.menu.isOpen && !A.dialog.open;
+  // the blocks of the document the rectangle (page coordinates) reaches: [first, last] positions, or null
+  function reached(x0, y0, x1, y1) {
+    const pm = view.dom.getBoundingClientRect();
+    if (Math.max(x0, x1) - scrollX < pm.left || Math.min(x0, x1) - scrollX > pm.right) return null; // (not as far as the text yet)
+    const top = Math.min(y0, y1) - scrollY, bottom = Math.max(y0, y1) - scrollY;
+    let first = null, last = null;
+    for (const c of view.dom.children) {
+      const d = c.pmViewDesc;
+      if (!d || !d.node || d.dom !== c || !usable(d.node) || c.classList.contains("hid")) continue;
+      const r = c.getBoundingClientRect();
+      if (!r.height || r.bottom < top || r.top > bottom) continue;
+      if (first == null) first = d.posBefore;
+      last = d.posBefore;
+    }
+    return first == null ? null : [first, last];
+  }
+  function pull() {
+    const r = rubber, x = r.cx + scrollX, y = r.cy + scrollY;
+    band.style.left = Math.min(r.x, x) + "px";
+    band.style.top = Math.min(r.y, y) + "px";
+    band.style.width = Math.abs(x - r.x) + "px";
+    band.style.height = Math.abs(y - r.y) + "px";
+    const got = reached(r.x, r.y, x, y), cur = selOf(view.state);
+    // from the block the pull began at to the one it has reached (pulled upwards: the other way round)
+    const anchor = got && (y >= r.y ? got[0] : got[1]), head = got && (y >= r.y ? got[1] : got[0]);
+    if (!got) { if (cur) view.dispatch(view.state.tr.setMeta(selKey, null)); return; }
+    if (cur && cur.anchor === anchor && cur.head === head) return;
+    const tr = view.state.tr.setMeta(selKey, { anchor, head });
+    view.dispatch(tr.setSelection(pmSel(view.state.doc, head)));
+  }
+  function scrollAlong() {
+    if (!rubber) return;
+    rubber.frame = 0;
+    const edge = 48, y = rubber.cy, speed = y < edge ? -Math.ceil((edge - y) / 4) : y > innerHeight - edge ? Math.ceil((y - (innerHeight - edge)) / 4) : 0;
+    if (!speed) return;
+    const before = scrollY;
+    window.scrollBy({ top: speed, behavior: "instant" });
+    if (scrollY !== before) { pull(); rubber.frame = requestAnimationFrame(scrollAlong); }
+  }
+  function endRubber(e, cancel = false) {
+    const r = rubber;
+    if (!r) return;
+    rubber = null;
+    cancelAnimationFrame(r.frame);
+    delete band.dataset.on;
+    document.body.classList.remove("blk-pulling");
+    if (r.pulled || cancel || !view) return;
+    // a click: below the last block an empty line, the caret in it
+    if (view.editable && e && e.clientY > view.dom.getBoundingClientRect().bottom && view.dom.parentElement && view.dom.parentElement.contains(e.target)) lineBelow(view);
+  }
+  document.addEventListener("mousedown", (e) => {
+    if (!rubberAt(e)) return;
+    e.preventDefault(); // (no text is selected by the pull)
+    hide();
+    rubber = { x: e.clientX + scrollX, y: e.clientY + scrollY, cx: e.clientX, cy: e.clientY, pulled: false, frame: 0 };
+    if (!view.hasFocus()) view.focus(); // (blocks selected before are let go by the click into the empty space, below)
+  }, true);
+  document.addEventListener("mousemove", (e) => {
+    if (!rubber || !view) return;
+    if (e.buttons === 0) { endRubber(e, true); return; } // (let go outside the window)
+    rubber.cx = e.clientX;
+    rubber.cy = e.clientY;
+    if (!rubber.pulled) {
+      if (Math.hypot(e.clientX + scrollX - rubber.x, e.clientY + scrollY - rubber.y) < THRESHOLD) return;
+      rubber.pulled = true;
+      band.dataset.on = "";
+      document.body.classList.add("blk-pulling");
+    }
+    e.preventDefault();
+    pull();
+    if (!rubber.frame) rubber.frame = requestAnimationFrame(scrollAlong);
+  }, true);
+  document.addEventListener("mouseup", (e) => { if (rubber && e.button === 0) endRubber(e); }, true);
+  window.addEventListener("blur", () => endRubber(null, true));
+  document.addEventListener("keydown", (e) => { if (rubber && rubber.pulled && e.key === "Escape") { e.preventDefault(); e.stopPropagation(); endRubber(null, true); if (view && selOf(view.state)) view.dispatch(view.state.tr.setMeta(selKey, null)); } }, true);
+
   // a click into the empty space around the text lets the selected blocks go
   document.addEventListener("mousedown", (e) => {
     if (!view || e.button !== 0 || !selOf(view.state)) return;
-    if (view.dom.contains(e.target) || e.target.closest?.(".blk-h, .tbl-h, .actmenu, #dlg, #dlg-scrim, #fmtbar, #linkpop, #atompop, #toolbar, #sidebar")) return;
+    if (view.dom.contains(e.target) || e.target.closest?.(CHROME)) return;
     const sel = selOf(view.state), node = view.state.doc.nodeAt(sel.head);
     view.dispatch(view.state.tr.setMeta(selKey, null).setSelection(Selection.near(view.state.doc.resolve(sel.head + (node ? node.nodeSize : 0)), -1)));
   });
@@ -462,7 +555,7 @@
       handleDrop: () => !!drag,
       handleDOMEvents: {
         mousemove(v, e) {
-          if (!v.editable || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false;
+          if (!v.editable || rubber || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false; // (no handle while a rectangle is pulled)
           // on the way to the handle the pointer crosses what lies left of the block (the list it is in):
           // the handle stays the block's while the pointer is beside it, at its height
           if (over && over.isConnected) {
@@ -495,17 +588,7 @@
     v.dispatch(tr.scrollIntoView());
     v.focus();
   }
-  let hooked = false;
-  function hookBelow(v) { // (the column around the editor exists once there is a view)
-    if (hooked || !v.dom.parentElement) return;
-    hooked = true;
-    v.dom.parentElement.addEventListener("mousedown", (e) => {
-      if (!view || !view.editable || e.button !== 0 || view.dom.contains(e.target)) return;
-      if (e.clientY <= view.dom.getBoundingClientRect().bottom) return; // beside or above the text: nothing
-      e.preventDefault();
-      lineBelow(view);
-    });
-  }
+  const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
   A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

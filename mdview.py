@@ -1428,6 +1428,8 @@ class ViewerWindow(Gtk.ApplicationWindow):
         ev.x_root, ev.y_root = float(ox), float(oy)
         if kind != Gdk.EventType.MOTION_NOTIFY:
             ev.button = int(msg.get("button", 1))
+        elif msg.get("held"):  # (the pointer moved with its button down: a drag)
+            ev.state = Gdk.ModifierType.BUTTON1_MASK
         ev.set_device(Gdk.Display.get_default().get_default_seat().get_pointer())
         self.view.event(ev)
 

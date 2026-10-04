@@ -120,6 +120,44 @@
     ok("… which is nothing in the file until something is written", md() === original);
     at("down", pm.left + 100, pm.bottom + 120); await sleep(50); at("up", pm.left + 100, pm.bottom + 120); await sleep(300);
     ok("a second click makes no second line", view.state.doc.childCount === blocks + 1);
+
+    // --- a rectangle pulled from the empty space beside the text takes blocks as wholes (the real pointer)
+    for (let i = 0; i < 6 && md() !== original; i++) undo();
+    window.scrollTo(0, 0);
+    await sleep(250);
+    {
+      const drag = (x, y) => post("probe-pointer", { kind: "move", x, y, held: true });
+      const band = document.querySelector(".blk-band"), pr = view.dom.getBoundingClientRect();
+      const f = para("First paragraph").getBoundingClientRect(), s2 = para("Second paragraph").getBoundingClientRect(), h1 = view.dom.firstElementChild.getBoundingClientRect();
+      const x0 = pr.right + 50;
+      at("move", x0, f.top + 4); await sleep(60); at("down", x0, f.top + 4); await sleep(60);
+      drag(x0 - 2, f.top + 5); await sleep(60);
+      ok("pressed and barely moved: no rectangle yet", !band.hasAttribute("data-on") && picked().length === 0);
+      drag(x0 - 20, f.top + 12); await sleep(80);
+      ok("pulled: a rectangle, but beside the text it takes nothing", band.hasAttribute("data-on") && picked().length === 0, picked());
+      drag(pr.right - 60, s2.bottom - 4); await sleep(120);
+      ok("pulled into the text: the blocks it reaches are selected as wholes", picked().join("|") === "First paragraph wi|Second paragraph f", picked());
+      ok("… and no text in them", String(getSelection()) === "" || view.dom.classList.contains("has-blocksel"), String(getSelection()));
+      const br = band.getBoundingClientRect();
+      ok("the rectangle spans from where it began to the pointer", Math.abs(br.right - x0) < 2 && Math.abs(br.left - (pr.right - 60)) < 2 && Math.abs(br.top - (f.top + 4)) < 2, [br.left, br.right, br.top]);
+      drag(pr.right - 60, f.bottom - 2); await sleep(120);
+      ok("pulled back: fewer blocks", picked().join("|") === "First paragraph wi", picked());
+      drag(pr.right - 60, s2.bottom - 4); await sleep(100);
+      at("up", pr.right - 60, s2.bottom - 4); await sleep(300);
+      ok("let go: the rectangle is gone, the blocks stay selected, the text has the focus", !band.hasAttribute("data-on") && picked().length === 2 && view.hasFocus(), picked());
+      key("ArrowDown", { altKey: true }); await sleep(120);
+      ok("the keyboard works on them: Alt+↓ moves both", md().indexOf("```js") < md().indexOf("First paragraph") && picked().length === 2, md().slice(0, 120));
+      undo(); await sleep(120);
+      // upwards, from beside the second paragraph to the heading
+      at("down", x0, s2.bottom - 2); await sleep(60);
+      drag(x0 - 20, s2.bottom - 10); await sleep(60);
+      drag(pr.right - 80, h1.top + 6); await sleep(120);
+      at("up", pr.right - 80, h1.top + 6); await sleep(250);
+      const sel = A.blocks.selection(view.state);
+      ok("pulled upwards: from the heading to the block it began at", picked().length === 3 && picked()[0].startsWith("Polish") && sel && sel.a === 0 && sel.head === 0, [picked(), sel && sel.head]);
+      at("down", x0, f.top + 4); await sleep(60); at("up", x0, f.top + 4); await sleep(250);
+      ok("a press let go where it was is a click: the blocks are let go", picked().length === 0 && md() === original, picked());
+    }
     await sleep(1100);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
