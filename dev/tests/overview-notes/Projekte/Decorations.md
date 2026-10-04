@@ -12,6 +12,12 @@ color: blue
 > [!block|magenta]
 > A block in magenta.
 
+> [!block-focus|green]
+> Block and focus at once, in green.
+
+> [!block-focus]
+> Block and focus without a colour.
+
 > An ordinary quote.
 
 ```js

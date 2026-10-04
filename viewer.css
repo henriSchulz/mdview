@@ -123,17 +123,18 @@ blockquote {
   color: var(--fg2);
 }
 blockquote > :last-child { margin-bottom: 0; }
-/* decorations: a quote as a tinted block ([!block]) or with a bar in a colour of its own ([!focus]) */
-blockquote.deco { --cc: var(--accent); color: var(--fg); }
-blockquote.deco-focus { border-left-color: var(--cc); }
-blockquote.deco-block { --cc: var(--fg2); padding: 10px 14px; border-left: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cc) 10%, transparent); }
-blockquote.deco-red { --cc: var(--c-red); }
-blockquote.deco-orange { --cc: var(--c-orange); }
-blockquote.deco-yellow { --cc: var(--c-yellow); }
-blockquote.deco-green { --cc: var(--c-green); }
-blockquote.deco-cyan { --cc: var(--c-cyan); }
-blockquote.deco-blue { --cc: var(--c-blue); }
-blockquote.deco-magenta { --cc: var(--c-magenta); }
+/* decorations: a quote as a tinted block ([!block]), with a bar in a colour of its own ([!focus]),
+ * or both ([!block-focus]). --cc: the bar's colour, --ct: the tint's; a colour chosen sets both. */
+blockquote.deco { --cc: var(--accent); --ct: var(--fg2); color: var(--fg); }
+blockquote.deco-block { padding: 10px 14px; border-left: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--ct) 10%, transparent); }
+blockquote.deco-focus { border-left: 3px solid var(--cc); }
+blockquote.deco-red { --cc: var(--c-red); --ct: var(--c-red); }
+blockquote.deco-orange { --cc: var(--c-orange); --ct: var(--c-orange); }
+blockquote.deco-yellow { --cc: var(--c-yellow); --ct: var(--c-yellow); }
+blockquote.deco-green { --cc: var(--c-green); --ct: var(--c-green); }
+blockquote.deco-cyan { --cc: var(--c-cyan); --ct: var(--c-cyan); }
+blockquote.deco-blue { --cc: var(--c-blue); --ct: var(--c-blue); }
+blockquote.deco-magenta { --cc: var(--c-magenta); --ct: var(--c-magenta); }
 
 .tag {
   display: inline-block;

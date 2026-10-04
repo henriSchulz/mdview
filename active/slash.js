@@ -8,8 +8,8 @@
  * quote) or is put in there (a code block, a table, … below the block). What
  * it offers follows where the caret is: a task can be ticked, a table's cell
  * gets its rows and columns.
- * Decorations put a quote around the block — plain, as a tinted block or with
- * a bar (focus) — and Color gives the block or the bar one of the theme's
+ * Decorations put a quote around the block — plain, as a tinted block, with
+ * a bar (focus), or both — and Color gives the block or the bar one of the theme's
  * colours; a colour chosen for plain text makes a block of it. */
 "use strict";
 (() => {
@@ -72,8 +72,7 @@
       if (!b) return;
       const at = b.pos + b.node.nodeSize, made = A.blocks.copyOf(view.state, b.pos, at);
       if (!made || !b.parent.canReplaceWith(b.index + 1, b.index + 1, made.firstChild.type)) return;
-      const tr = view.state.tr.insert(at, made);
-      step(view, tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1)));
+      step(view, view.state.tr.insert(at, made)); // (the caret stays where it is, in the block the copy was made of)
     },
     remove(view) {
       const b = blockAt(view.state);
@@ -101,8 +100,15 @@
     const state = view.state, k = A.context.blockKind(state), b = blockAt(state);
     const para = (kind) => (v) => A.context.run(v, A.context.PARAGRAPH[kind]);
     const leaf = (key, words, icon, act, more) => ({ key, words, icon, act, ...more });
-    // the decoration that is there goes when it is chosen again; a colour needs something to colour
-    const deco = (kind) => (v) => A.context.run(v, k.deco === kind ? A.context.PARAGRAPH.quote : A.context.setDeco(kind === "quote" ? null : kind, k.color));
+    /* Block and focus are switched on and off each by itself (a block can be both); the last one
+     * switched off, the quote around the text goes too. Quote: a plain one — chosen again, it goes. */
+    const has = (part) => !!k.deco && k.deco.split("-").includes(part);
+    const deco = (part) => (v) => {
+      if (part === "quote") return A.context.run(v, k.deco === "quote" ? A.context.PARAGRAPH.quote : A.context.setDeco(null));
+      const next = ["block", "focus"].filter((p) => (p === part ? !has(p) : has(p))).join("-");
+      return A.context.run(v, next ? A.context.setDeco(next, k.color) : A.context.PARAGRAPH.quote);
+    };
+    // a colour needs something to colour: plain text becomes a block, a quote gets a bar
     const color = (c) => (v) => A.context.run(v, A.context.setDeco(!k.deco ? "block" : k.deco === "quote" ? (c ? "focus" : null) : k.deco, c));
     const format = { key: "menu.format", icon: I.format, items: [
       leaf("menu.bold", "bold strong fett", I.format, (v) => A.context.toggle(v, "strong"), { checked: A.context.markActive(state, M.strong) }),
@@ -136,8 +142,8 @@
       format,
       { key: "slash.deco", icon: I.quote, items: [
         leaf("menu.quote", "quote blockquote zitat", I.quote, deco("quote"), { checked: k.deco === "quote" }),
-        leaf("slash.block", "block box callout kasten", I.block, deco("block"), { checked: k.deco === "block" }),
-        leaf("slash.focus", "focus bar fokus balken", I.focus, deco("focus"), { checked: k.deco === "focus" }),
+        leaf("slash.block", "block box callout kasten", I.block, deco("block"), { checked: has("block") }),
+        leaf("slash.focus", "focus bar fokus balken", I.focus, deco("focus"), { checked: has("focus") }),
       ] },
       { key: "slash.color", icon: I.color, items: [
         leaf("slash.colorDefault", "color colour default farbe standard", I.noColor, color(null), { checked: !k.color }),
@@ -192,8 +198,10 @@
     if (!q) return all.map(item);
     // filtered: one list of what the groups hold, no rules
     const flat = all.flatMap((e) => (!e ? [] : e.items ? e.items.filter(Boolean).map((x) => ({ icon: e.icon, ...x })) : [e]));
-    return flat.filter((e) => !e.disabled && (labelOf(e).toLowerCase() + " " + e.words).split(/\s+/).some((w) => w.startsWith(q)))
-      .map((e) => item({ ...e, checked: undefined }));
+    // what is called so comes before what is only found by another word for it
+    const byName = (e) => labelOf(e).toLowerCase().split(/\s+/).some((w) => w.startsWith(q));
+    const found = flat.filter((e) => !e.disabled && (byName(e) || e.words.split(/\s+/).some((w) => w.startsWith(q))));
+    return found.filter(byName).concat(found.filter((e) => !byName(e))).map((e) => item({ ...e, checked: undefined }));
   }
   let openFor = null; // the paragraph's start the menu is open for
   const key = new PluginKey("slash");

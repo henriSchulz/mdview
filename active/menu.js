@@ -165,6 +165,15 @@
     else if (e.key === "Enter" || e.key === " ") run(p, p.hl);
     else if (e.key === "Tab") close();
   }, true);
+  /* A menu the document types under: Enter chooses. Where the key itself does not reach the page as
+   * Enter (an input method may hand it on as a line break), the line break is the choice — and it
+   * never gets into the text while an entry blinks. */
+  document.addEventListener("beforeinput", (e) => {
+    if (!passive || !/^insert(Paragraph|LineBreak)$/.test(e.inputType) || !(isOpen() || chosen)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!chosen) { const p = keys === sub && isOpen(sub) ? sub : root; run(p, p.hl); }
+  }, true);
   window.addEventListener("blur", () => close());
   sub.el.addEventListener("mouseenter", () => { clearTimeout(subTimer); setHl(root, subOf); keys = sub; });
   root.el.addEventListener("mouseenter", () => { keys = root; });

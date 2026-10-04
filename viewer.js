@@ -288,11 +288,13 @@
       const m = /^\[!([\w-]+)(?:\|([^\]]*))?\]([+-]?)\s*(.*)$/.exec(head.trim());
       if (!m) continue;
       const type = m[1].toLowerCase();
-      // a decoration: a quote with a look of its own and no title — [!block], [!focus|red]. It stays a quote.
-      if ((type === "block" || type === "focus") && !m[3] && !m[4]) {
+      // a decoration: a quote with a look of its own and no title — [!block], [!focus|red], or both
+      // at once, [!block-focus]. It stays a quote.
+      if (/^(block|focus|block-focus|focus-block)$/.test(type) && !m[3] && !m[4]) {
         const color = DECO_COLORS.includes((m[2] || "").trim().toLowerCase()) ? m[2].trim().toLowerCase() : null;
-        open.attrJoin("class", `deco deco-${type}` + (color ? ` deco-${color}` : ""));
-        open.meta = { deco: type, color };
+        const deco = type.includes("-") ? "block-focus" : type;
+        open.attrJoin("class", "deco " + deco.split("-").map((d) => "deco-" + d).join(" ") + (color ? ` deco-${color}` : ""));
+        open.meta = { deco, color };
         const rest = restLines.join("\n");
         if (rest.trim()) {
           inl.content = rest;

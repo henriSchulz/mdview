@@ -96,6 +96,11 @@ run; everything that does not depend on frames passed.
   callout named Block / Focus). The reader keeps it a `<blockquote class="deco …">`, the active mode edits its
   text in place (attrs `deco`, `color` on the quote). The / menu has Decorations and Color; a colour chosen
   for plain text makes a block of it, for a quote a bar. With a title (`[!block] Title`) it stays a callout.
+  A block can be both at once (`> [!block-focus|green]`): in the menu Block and Focus are switched on and
+  off each by itself, and the last one switched off takes the quote away. A command of the / menu never
+  moves the caret out of the block it was called in — Duplicate puts the copy below and leaves the caret
+  where it is. Enter that reaches the page as a line break instead of a key (an input method) is taken as
+  the choice too (`beforeinput` in menu.js), so no line break gets into the text while the menu is open.
   Craft's separator weights were left out: `***` and `___` would have to mean "strong" and "light", which
   restyles the rules of every note that has them. Tests: `tests/deco.test.mjs`.
 - **The / menu, built as Craft builds its own** (branch `craft-feel`): every entry has a sign; text styles,

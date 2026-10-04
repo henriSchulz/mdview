@@ -48,13 +48,13 @@
     blockquote: block({
       content: "block+",
       defining: true,
-      // deco: null (a quote), "block" or "focus"; color: null or one of the theme's colours
+      // deco: null (a quote), "block", "focus" or "block-focus"; color: null or one of the theme's colours
       attrs: { deco: { default: null }, color: { default: null } },
       parseDOM: [{ tag: "blockquote", getAttrs: (dom) => {
-        const deco = /\bdeco-(block|focus)\b/.exec(dom.className), color = /\bdeco-(red|orange|yellow|green|cyan|blue|magenta)\b/.exec(dom.className);
-        return { deco: deco ? deco[1] : null, color: deco && color ? color[1] : null };
+        const deco = ["block", "focus"].filter((d) => dom.classList.contains("deco-" + d)).join("-") || null, color = /\bdeco-(red|orange|yellow|green|cyan|blue|magenta)\b/.exec(dom.className);
+        return { deco, color: deco && color ? color[1] : null };
       } }],
-      toDOM: (n) => ["blockquote", { ...lineAttr(n), ...(n.attrs.deco ? { class: `deco deco-${n.attrs.deco}` + (n.attrs.color ? ` deco-${n.attrs.color}` : "") } : null) }, 0],
+      toDOM: (n) => ["blockquote", { ...lineAttr(n), ...(n.attrs.deco ? { class: "deco " + n.attrs.deco.split("-").map((d) => "deco-" + d).join(" ") + (n.attrs.color ? ` deco-${n.attrs.color}` : "") } : null) }, 0],
     }),
     bullet_list: block({
       content: "list_item+",
