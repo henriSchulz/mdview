@@ -2220,6 +2220,90 @@
     else if (folder && !e.target.closest(".sb-head, .sb-field")) openCtx(sidebar, e.clientX, e.clientY, "blank", folder.root); // the empty room: new, in the folder itself
   });
   ctx.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  /* --- the menu for text everywhere else: a field, a title typed in place, the source editor, the
+   * reading view — wherever no part of the app has a menu of its own. The toolkit's menu is never
+   * shown (mdview.py); this one looks as the others do. It takes no focus, so the selection it
+   * is about stays as it is; the application runs the editing command where the focus is. */
+  const tmenu = document.createElement("div");
+  tmenu.id = "textmenu";
+  tmenu.className = "ui-menu surface actmenu";
+  tmenu.setAttribute("role", "menu");
+  tmenu.style.setProperty("--origin", "top left");
+  document.body.appendChild(tmenu);
+  let tItems = [], tHl = -1, tDo = {};
+  const tOpen = () => tmenu.hasAttribute("data-open");
+  const tSetHl = (i) => { tHl = i; tItems.forEach((b, k) => b.classList.toggle("hl", k === i)); };
+  function closeTextMenu() {
+    if (!tOpen()) return false;
+    delete tmenu.dataset.open;
+    return true;
+  }
+  function runTextMenu(i) {
+    const b = tItems[i];
+    if (!b || b.disabled) return;
+    const flash = motionMs("--flash-duration", 70); // blink once, then act — like NSMenu
+    b.classList.remove("hl");
+    setTimeout(() => b.classList.add("hl"), flash);
+    setTimeout(() => { closeTextMenu(); tDo[b.dataset.cmd]?.(); }, flash * 2);
+  }
+  document.addEventListener("contextmenu", (e) => {
+    if (e.defaultPrevented) return; // (a part with a menu of its own)
+    e.preventDefault();
+    const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
+    if (!t || t.closest("#settings-scrim, #dlg-scrim, #toolbar, #zoom")) return;
+    const field = t.closest("input, textarea"), rich = t.closest('[contenteditable="true"]');
+    const editable = field ? !field.readOnly && !field.disabled && !/^(checkbox|radio|range|button|submit)$/.test(field.type) : !!rich;
+    if (field && !editable && field.tagName === "INPUT" && /^(checkbox|radio|range|button|submit)$/.test(field.type)) return;
+    const selected = field ? field.selectionStart !== field.selectionEnd : !getSelection().isCollapsed;
+    const link = t.closest("a[href]"), img = t.closest("img");
+    const href = link && !link.getAttribute("href").startsWith("#") ? link.href : null;
+    const edit = (cmd) => () => post("editcmd", { cmd });
+    const rows = [];
+    if (editable) rows.push(["Cut", "Ctrl+X", selected, edit("Cut")]);
+    rows.push(["Copy", "Ctrl+C", selected, edit("Copy")]);
+    if (editable) rows.push(["Paste", "Ctrl+V", true, edit("Paste")]);
+    if (href || (img && img.src)) rows.push(null);
+    if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
+    if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
+    rows.push(null);
+    rows.push(["Select All", "Ctrl+A", true, edit("SelectAll")]);
+    tDo = {};
+    tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}><span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
+    rows.forEach((r, i) => { if (r) tDo[i] = r[3]; });
+    tItems = [...tmenu.querySelectorAll(".menu-item")];
+    tSetHl(-1);
+    tmenu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - tmenu.offsetWidth - 8)) + "px";
+    tmenu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - tmenu.offsetHeight - 8)) + "px";
+    tmenu.dataset.open = "";
+  });
+  tmenu.addEventListener("contextmenu", (e) => e.preventDefault());
+  tmenu.addEventListener("mousedown", (e) => e.preventDefault()); // (the focus, and with it the selection, stays where it is)
+  tmenu.addEventListener("mousemove", (e) => { const b = e.target.closest(".menu-item"), i = b && !b.disabled ? tItems.indexOf(b) : -1; if (i !== tHl) tSetHl(i); });
+  tmenu.addEventListener("mouseleave", () => tSetHl(-1));
+  tmenu.addEventListener("click", (e) => runTextMenu(tItems.indexOf(e.target.closest(".menu-item"))));
+  // while it is open: a press beside it closes it (a left one does nothing else), the keys are its own
+  addEventListener("pointerdown", (e) => {
+    if (!tOpen() || tmenu.contains(e.target)) return;
+    closeTextMenu();
+    if (e.button !== 0) return; // a right click goes on to open the next menu
+    e.preventDefault(); e.stopPropagation();
+    const eat = (c) => { c.preventDefault(); c.stopPropagation(); };
+    addEventListener("click", eat, { capture: true, once: true });
+    setTimeout(() => removeEventListener("click", eat, true), 500);
+  }, true);
+  addEventListener("keydown", (e) => {
+    if (!tOpen()) return;
+    const live = tItems.map((b, i) => (b.disabled ? -1 : i)).filter((i) => i >= 0), at = live.indexOf(tHl);
+    if (e.key === "Escape") closeTextMenu();
+    else if (e.key === "ArrowDown") tSetHl(live[Math.min(live.length - 1, at + 1)]);
+    else if (e.key === "ArrowUp") tSetHl(live[at < 0 ? live.length - 1 : Math.max(0, at - 1)]);
+    else if (e.key === "Enter") { if (tHl >= 0) runTextMenu(tHl); else closeTextMenu(); }
+    else { closeTextMenu(); return; } // (any other key is the text's)
+    e.preventDefault(); e.stopPropagation();
+  }, true);
+  addEventListener("blur", closeTextMenu);
+  addEventListener("scroll", closeTextMenu, true);
   ctx.addEventListener("mousemove", (e) => {
     const i = ctxItems.indexOf(e.target.closest(".menu-item"));
     if (i !== ctxHl) setCtxHl(i);

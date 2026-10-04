@@ -892,6 +892,11 @@ body[data-folder] #toolbar [data-act="sidebar"], body[data-folder] #toolbar [dat
 .menu-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .menu-item.danger .menu-icon { color: inherit; }
 .menu-item.hl .menu-icon { color: var(--on-accent, #fff); }
+/* the menu for text where no part has one of its own (viewer.js) */
+#textmenu { position: fixed; z-index: 62; min-width: 180px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+#textmenu:not([data-open]) { pointer-events: none; }
+#textmenu .menu-item:disabled { color: var(--fg3); }
+#textmenu .menu-item:disabled .menu-key { color: var(--fg3); }
 /* a shortcut, as macOS writes it (⌃⇧V) */
 .menu-key { flex: none; margin-left: 16px; color: var(--fg3); font-size: 13px; font-variant-numeric: tabular-nums; }
 .menu-item.danger { color: var(--c-red); }

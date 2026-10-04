@@ -1347,7 +1347,10 @@ class ViewerWindow(Gtk.ApplicationWindow):
         for item in list(menu.get_items()):
             if item.get_stock_action() not in keep:
                 menu.remove(item)
-        return menu.get_n_items() == 0
+        # The page shows a menu of its own for text (viewer.js, #textmenu); the toolkit's is only
+        # for a test build's Inspect, with Shift held.
+        shift = bool(_event and _event.get_state()[1] & Gdk.ModifierType.SHIFT_MASK) if DEBUG else False
+        return not shift or menu.get_n_items() == 0
 
     # -- actions -----------------------------------------------------------
 
@@ -1364,6 +1367,12 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.open_wikilink(msg.get("target", ""))
         elif t == "toggle":
             self.toggle_task(int(msg.get("line", -1)), bool(msg.get("checked")))
+        elif t == "editcmd":
+            # the page's text menu: the command runs where the focus is, as the key would
+            if msg.get("cmd") in ("Cut", "Copy", "Paste", "SelectAll"):
+                self.view.execute_editing_command(msg["cmd"])
+        elif t == "copyimage":
+            self.copy_image(str(msg.get("src") or ""))
         elif t == "copy":
             cb = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
             cb.set_text(msg.get("text", ""), -1)
@@ -1490,6 +1499,23 @@ class ViewerWindow(Gtk.ApplicationWindow):
         elif t == "probe-pointer" and PROBE:
             # (tests) a real pointer event at page coordinates: what a click does that script cannot do
             self.probe_pointer(msg)
+
+    def copy_image(self, src):
+        """A picture of the note, by its file, onto the clipboard."""
+        u = urlparse(src)
+        if u.scheme != "file":
+            self.js("MdView.toast", "Only pictures in files can be copied")
+            return
+        try:
+            gi.require_version("GdkPixbuf", "2.0")
+            from gi.repository import GdkPixbuf
+            px = GdkPixbuf.Pixbuf.new_from_file(unquote(u.path))
+        except (GLib.Error, ValueError):
+            self.js("MdView.toast", "Couldn't copy the picture")
+            return
+        cb = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        cb.set_image(px)
+        cb.store()
 
     def snapshot_to_clipboard(self, msg):
         """A part of the page (page coordinates of what is on screen) as a
