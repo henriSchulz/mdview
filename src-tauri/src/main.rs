@@ -194,6 +194,10 @@ fn main() {
     let cwd = std::env::current_dir().map(|d| scan::s(&d)).unwrap_or_default();
     let _ = tx.send(Event::Open { args, cwd });
 
+    // (what the desktop knows the app's windows by: the desktop entry's StartupWMClass)
+    #[cfg(target_os = "linux")]
+    gtk::glib::set_prgname(Some("dev.henri.MdView"));
+
     let again = tx.clone();
     let events = tx.clone();
     let start = Mutex::new(Some((tx.clone(), rx)));

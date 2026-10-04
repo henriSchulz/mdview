@@ -36,7 +36,8 @@ must not be committed can be added per run: `MDVIEW_CORPUS=~/Documents/Notes npm
 
 Runs this checkout inside a nested Hyprland with its own D-Bus session and
 state directory, so neither the installed app nor the desktop is touched.
-`mdview.py` evaluates a probe script in the page (`MDVIEW_PROBE`) and writes
+The shell (`../src-tauri`, built with `cargo build`; another build: `MDVIEW_BIN=…`)
+evaluates a probe script in the page (`MDVIEW_PROBE`) and writes
 what it reports to `MDVIEW_PROBE_OUT`.
 
 ```sh

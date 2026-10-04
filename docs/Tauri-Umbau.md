@@ -1,49 +1,79 @@
 ---
-tags: [mdview, idee]
+tags: [mdview, umbau]
 date: 2026-10-04
 color: orange
 ---
 
 # Tauri-Umbau
 
-Eine Idee für später, nichts Beschlossenes: die Hülle der App von Python auf Tauri (Rust) umbauen,
-damit sie auch auf Windows und macOS läuft. Die Oberfläche bliebe die heutige Web-Seite.
+Die Hülle der App ist von Python (GTK 3 + WebKit2GTK) auf Tauri (Rust) umgezogen – auf dem
+Branch `tauri`. Die Oberfläche ist die bisherige Web-Seite; `main` bleibt bis zum Merge die
+Python-Fassung.
 
-> [!important] Wann es sich lohnt
-> Nur für Portabilität oder zum Weitergeben. Auf Linux nutzt Tauri ebenfalls WebKitGTK – Rendern
-> und Scrollen wären dort genauso schnell wie heute.
+> [!important] Stand
+> Auf Linux macht die Rust-Hülle alles, was `mdview.py` machte, und das Rig läuft gegen sie
+> genauso durch wie gegen die Python-Hülle. Windows und macOS sind vorbereitet, aber noch
+> nie gebaut oder gestartet worden.
 
-## Stand heute
+## Was jetzt wie gebaut ist
 
-- **Hülle:** `mdview.py`, rund 2400 Zeilen Python mit GTK 3 und WebKit2GTK 4.1. Sie macht Fenster,
-  Dateien, Ordner-Scan, Tabs und Verlauf, D-Bus, Theme.
-- **Oberfläche:** reines JavaScript und CSS im WebView (`viewer.js`, `active/`, `overview.js`,
-  `pdfview.js`), ohne Framework und ohne Build-Schritt.
-- **Bibliotheken:** markdown-it, KaTeX, Mermaid, highlight.js, ProseMirror, pdf.js.
-- So wie sie ist, läuft die App nur auf Linux: WebKitGTK gibt es für Windows nicht und auf macOS
-  nur als Eigenbau.
+- **Hülle:** `src-tauri/`, rund 3800 Zeilen Rust. `shell.rs` sind die Fenster (Tabs, Verlauf,
+  Speichern, Sidebar), `scan.rs` der Ordner-Scan, Titel, Wikilinks und PDF-Rücklinks, `host.rs`
+  alles Systemnahe (Zwischenablage, WebKit-Einstellungen, Portal), `ai.rs` Vorschläge und
+  Grafiken, `main.rs` der Start und das Protokoll.
+- **Seite:** unverändert bis auf den Weg zur Hülle. Statt `window.webkit.messageHandlers.mdview`
+  ruft sie `MdHost.post(…)`; die Hülle antwortet wie bisher mit `MdView.render(…)` und Co.
+- **Ein eigenes Protokoll** statt `file://`: `md://localhost/shell/…` ist die Seite des
+  Fensters, `md://localhost/app/…` sind Skripte und Styles, `md://localhost/file/…` die Dateien
+  neben einer Notiz (Bilder, Ton, Film; in Stücken, wenn danach gefragt wird).
+- **Ein Thread für die Fensterlogik:** Ordner-Scan, Rücklink-Suche und Datei-Lesen laufen
+  nicht mehr im Thread des Fensters.
+- **Zweiter Start:** übergibt seine Dateien an die laufende Instanz (Single-Instance-Plugin
+  statt `gdbus` im Launcher) und ist nach rund 70 ms wieder weg (Debug-Build).
+- **Kein Build für die Seite:** `viewer.js` und Co. werden bei jedem Fenster frisch aus dem
+  Checkout gelesen. Nur Änderungen in `src-tauri` brauchen `cargo build`.
 
-## Was ein Umbau brächte
+## Geprüft
 
-- **Windows und macOS** aus demselben Code, jeweils mit dem eingebauten WebView.
-- **Installer** (`.dmg`, `.msi`, AppImage) aus einem Build, signierbar, mit Auto-Updater.
-- **Keine Abhängigkeit** von Python und GTK 3; die Portierung auf GTK 4 entfiele.
-- **Schnellerer Kaltstart**, weil der Python- und GTK-Import wegfällt.
-- **Hintergrundarbeit ohne Ruckeln:** Ordner-Scan, Rücklink-Suche und PDF-Laden laufen heute im
-  Haupt-Thread; PDFs könnten über ein eigenes Protokoll gestreamt werden statt als Base64-Stücke.
-- **Mehrere WebViews pro Fenster** (bei Tauri noch als instabil markiert): Tabs könnten im
-  Hintergrund weiterleben, statt beim Wechsel neu gezeichnet zu werden.
+| Was | Ergebnis |
+|---|---|
+| `npm test` (jsdom) | 111 bestanden, 9 übersprungen (ohne `corpus/`) |
+| Rig: `modes`, `edit`, `islands`, `m4`, `m5`, `folder`, `tabs`, `callout`, `link`, `native`, `edges`, `compare`, `pdf`, `clip`, `dnd`, `zoom`, `adjust`, `textmenu`, `more`, `lists`, `latex`, `mathtext`, `ghost`, `graphic` | bestanden |
+| Rig: `regress` (Seite von `main` gegen diese) | Bericht und Screenshots gleich |
+| Rig: `overview`, `panel`, `columns`, `prefs`, `blocks` | dieselben Fehlschläge wie auf `main` mit der Python-Hülle – nicht vom Umbau |
+| Von Hand im Rig | Bilder über `md://`, Theme-Wechsel im Lauf, zweiter Start, Ordner-Fenster, Schließen aus der Seite |
 
-## Was er kostet
+Nicht geprüft: `perf`, `typing`, `shots`; der Datei-Dialog beim Start ohne Argument und ohne
+letzten Ordner; Drucken; „Öffnen mit“ und „Im Dateimanager zeigen“; Vorschläge und Grafiken
+mit dem echten Modell (im Rig nur mit festen Antworten).
 
-- Die Hülle neu schreiben, dazu das Rig und die Probes, die an `MDVIEW_PROBE` hängen.
-- Ein Build-Schritt: heute Datei ändern und neu starten, dann kompiliert Rust mit.
-- Omarchy-Integration nachbauen oder ersetzen: Live-Theme, henri-ui-Motion, D-Bus-Launcher.
-- Schriften mitliefern oder ersetzen (Inter, JetBrains Mono); die SF-Symbole dürfen nicht
-  weitergegeben werden, auf Windows blieben die SVG-Icons.
-- Drei Engines testen: WebKit (macOS), Chromium (Windows), WebKitGTK (Linux). Zuerst zu prüfen:
-  Editor im aktiven Modus, Glas-Effekt, Drucken.
-- Angezeigte Tastenkürzel auf macOS anpassen (Cmd statt Strg).
+## Was anders ist als in der Python-Hülle
+
+- **Kennung:** `dev.henri.MdViewRs` statt `dev.henri.MdView`, damit die Rust-Fassung neben der
+  noch laufenden Python-App startet, ohne dass deren D-Bus-Name sie abfängt. Die Fensterklasse
+  bleibt `dev.henri.MdView` (Desktop-Eintrag, Dock). Beim Merge: Kennung in
+  `src-tauri/tauri.conf.json` zurückstellen.
+- **Kein Deckblatt** über dem ersten Bild des WebViews (das war gegen ein magentafarbenes
+  Aufblitzen auf diesem Rechner). Das Fenster hat von Anfang an die Farbe des Themes; ob es
+  trotzdem blitzt, muss man am echten Bildschirm sehen.
+- **„Öffnen mit“** fragt nur noch das Portal; ohne Portal öffnet die Standard-App (früher ein
+  GTK-Dialog).
+- **Was die Seite sich merkt** (Scroll-Stellen, Embed-Größen) liegt unter der neuen Adresse
+  `md://localhost` und fängt leer an.
+- `![](file:///…)` mit ausgeschriebener `file:`-Adresse lädt nicht mehr; relative Pfade und
+  Wikilinks wie bisher.
+
+## Offen
+
+- [ ] Auf macOS und Windows bauen und starten. Dort fehlen noch: Bild und HTML aus der
+      Zwischenablage, Formel als Bild kopieren, Zwei-Finger-Zoom im PDF, die WebView-Schriften.
+      Pfade mit `\` in der Seite (`overview.js`) sind ungeprüft.
+- [ ] Angezeigte Tastenkürzel auf macOS (Cmd statt Strg).
+- [ ] Schriften mitliefern oder ersetzen (Inter, JetBrains Mono); die SF-Symbole dürfen nicht
+      weitergegeben werden.
+- [ ] Installer (`bundle.active` ist aus; Icons für macOS fehlen), Signatur, Auto-Updater.
+- [ ] PDFs über `md://` streamen statt als Base64-Stücke (der Weg ist da, die Seite nutzt ihn
+      noch nicht).
 
 ## Verworfene Alternativen
 
@@ -54,16 +84,7 @@ damit sie auch auf Windows und macOS läuft. Die Oberfläche bliebe die heutige 
 | pywebview (Python bleibt) | weniger Arbeit, aber Python-Apps für macOS und Windows zu verpacken ist umständlich |
 | Rust nur für Geschwindigkeit | die spürbare Zeit steckt im WebView, nicht in der Hülle |
 
-## Erster Schritt, falls es ernst wird
-
-Ein kleiner Durchstich statt des ganzen Umbaus:
-
-- [ ] Tauri-Fenster, das die heutige Seite lädt
-- [ ] eine Notiz lesen und speichern
-- [ ] Ordner mit Sidebar und Tabs
-- [ ] auf macOS oder Windows starten und sehen, was von der Seite ohne Änderung läuft
-
 ## Was unabhängig davon mehr Tempo brächte
 
 - Lange Notizen nur im sichtbaren Bereich rendern.
-- Pro Tab einen eigenen WebView halten (ginge auch in der jetzigen Hülle).
+- Pro Tab einen eigenen WebView halten (bei Tauri noch als instabil markiert).
