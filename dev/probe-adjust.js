@@ -78,6 +78,24 @@
     const want = ed.value;
     dlg.querySelector('[data-do="done"]').click(); await sleep(700);
     ok("Done writes it into the note", A.view.serialize(false).includes(want.trim()) && /page=4&rect=/.test(want), A.view.serialize(false).slice(0, 160));
+    // the same from the menu of the embed in the text
+    {
+      const find = () => { let f = -1; view.state.doc.forEach((n, p) => { if (f < 0 && n.type.name === "island" && /paper\.pdf/.test(n.attrs.raw)) f = p; }); return f; };
+      const isl = view.nodeDOM(find()), ir = isl.getBoundingClientRect(), menu = document.getElementById("actmenu");
+      isl.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: ir.left + 30, clientY: ir.top + 20 })); await sleep(400);
+      const labels = [...menu.querySelectorAll(".menu-item .menu-label")].map((x) => x.textContent);
+      ok("a right click on the embed: its menu has Size and Adjust Region…", menu.hasAttribute("data-open") && labels.includes("Size") && labels.includes("Adjust Region…"), labels);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(300);
+      const items = () => A.context.nodeItems(view, find(), view.state.doc.nodeAt(find()));
+      const sizes = items().find((x) => x && x.label === "Size").items;
+      ok("Size lists the sizes, the one in use ticked", sizes.map((x) => x.label).join("|") === "Its own size|Small|Medium|Large|Full width" && sizes.filter((x) => x.checked).map((x) => x.label).join() === "Its own size", sizes.map((x) => x.label + (x.checked ? "*" : "")));
+      sizes.find((x) => x.label === "Full width").run(); await sleep(500);
+      ok("Full width from the menu: written into the note, ticked next time", /rect=[\d,]+\|full\]\]/.test(A.view.serialize(false)) && items().find((x) => x && x.label === "Size").items.find((x) => x.checked).label === "Full width", A.view.serialize(false).slice(0, 120));
+      items().find((x) => x && x.label === "Adjust Region…").run();
+      await until(() => dlg.hasAttribute("data-open") && dlg.querySelector(".pa-sheet img"), 160);
+      ok("Adjust Region… opens the dialog with the page and its frame at once", dlg.hasAttribute("data-open") && !!dlg.querySelector(".pa-sheet img") && !!dlg.querySelector(".pa-frame"));
+      dlg.querySelector('[data-do="cancel"]').click(); await sleep(600);
+    }
     // a picture in a line: its popover has the size too
     {
       const img = view.dom.querySelector('img[alt="a photo"]');
@@ -90,6 +108,11 @@
       sel.value = "full"; sel.dispatchEvent(new Event("change"));
       pop.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(500);
       ok("Full width chosen there is written into the description's end", A.view.serialize(false).includes("![a photo|full](photo.png)"), A.view.serialize(false));
+      let ip = -1; view.state.doc.descendants((n, p) => { if (ip < 0 && n.type.name === "image") ip = p; });
+      const picItems = A.context.nodeItems(view, ip, view.state.doc.nodeAt(ip)), sz = picItems.find((x) => x && x.label === "Size");
+      ok("a picture's menu has Size too (and no region to adjust)", !!sz && sz.items.find((x) => x.checked).label === "Full width" && !picItems.some((x) => x && x.label === "Adjust Region…"));
+      sz.items.find((x) => x.label === "Medium").run(); await sleep(400);
+      ok("Medium from the menu", A.view.serialize(false).includes("![a photo|400](photo.png)"), A.view.serialize(false));
     }
   } catch (e) { o.error = String(e && e.stack || e); }
   window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe", name: "adjust", text: JSON.stringify(o) }));

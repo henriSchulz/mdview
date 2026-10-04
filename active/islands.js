@@ -472,6 +472,7 @@
       const m = PDF_EMBED.exec(text), ok = !!m && !!window.MdPdf && !/(^|&)selection=/.test(m[3]) && !!preview.querySelector(".pdf-embed, .pdf-adjust");
       btn.hidden = !(ok || (self.on && m));
       if (self.on && !m) leave();
+      if (adjustSoon && !btn.hidden && !self.on) { adjustSoon = false; btn.onclick(); } // (asked for from the menu)
     }
     function write() {
       const m = parts();
@@ -567,6 +568,25 @@
   const sizeOptions = (now) => [...SIZES.map(([v, k]) => [v, T(k)]), ...(now && !SIZES.some(([v]) => v === now) ? [[now, /^\d+$/.test(now) ? now + " px" : now]] : [])];
   // what is written is one picture or one embed of a picture or a PDF: [before, size, after] of its size
   const WIKI_PIC = /^(\s*!\[\[[^\]|]+\.(?:png|jpe?g|gif|webp|svg|avif|bmp|pdf)(?:#[^\]|]*)?)(?:\|([^\]]*))?(\]\]\s*)$/i, MD_PIC = /^(\s*!\[[^\]]*?)(?:\|(\d+|full))?(\]\([^)]*\)\s*)$/i;
+  /* The same for the menu of a picture or an embed in the text (context.js): what it is, the size
+   * it has, and how to give it another. null: not a picture. */
+  function picture(view, pos, node) {
+    if (node.type === N.image) {
+      const was = window.MdView.core.imageSize(node.attrs.alt);
+      return { size: was.size, pdf: false, sizes: sizeOptions(was.size),
+        setSize(v) { view.dispatch(view.state.tr.setNodeMarkup(pos, null, { ...node.attrs, alt: was.alt + (v ? "|" + v : "") })); view.focus(); } };
+    }
+    if (node.type !== N.island || node.attrs.virtual || typeof node.attrs.raw !== "string") return null;
+    const m = WIKI_PIC.exec(node.attrs.raw) || MD_PIC.exec(node.attrs.raw), now = m ? (m[2] || "").toLowerCase() : "";
+    if (!m || (now && !/^(\d+(x\d+)?|full)$/.test(now))) return null;
+    const pdf = PDF_EMBED.exec(node.attrs.raw);
+    return { size: now, sizes: sizeOptions(now), pdf: !!pdf && !/(^|&)selection=/.test(pdf[3]),
+      setSize(v) { target = null; replace(view, pos, m[1] + (v ? "|" + v : "") + m[3]); view.focus(); } }; // (no dialog is open: the block is the one at pos)
+  }
+  // the dialog of a PDF embed, opened with its region to be adjusted at once
+  let adjustSoon = false;
+  function adjust(view, pos) { adjustSoon = true; open(view, pos); setTimeout(() => { adjustSoon = false; }, 4000); }
+
   function sizeChoice(ed, tools) {
     const select = el("select", { "aria-label": T("dialog.size") }), parts = (t) => WIKI_PIC.exec(t) || MD_PIC.exec(t);
     tools.append(select);
@@ -741,5 +761,5 @@
 
   // a formula in the line, made new at this position: its dialog opens empty
   const newMath = (view, pos) => mathDialog(view, pos, null, true, { from: pos, tex: "", create: true });
-  A.islands = { applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  A.islands = { picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

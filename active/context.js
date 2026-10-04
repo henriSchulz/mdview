@@ -183,8 +183,12 @@
   function nodeItems(view, pos, node) {
     const raw = node.type === N.image ? A.clip.markdownOf(view.state, new PM.model.Slice(PM.model.Fragment.from(node), 0, 0)) : node.attrs.raw;
     const editable = !(node.type === N.island && node.attrs.virtual);
+    // a picture, an embedded picture or PDF page: how large it shows, and — a PDF — which part of the page
+    const pic = editable ? A.islands.picture(view, pos, node) : null;
     return [
       item("menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
+      ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
+        ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : [])] : []),
       null,
       item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
       item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
