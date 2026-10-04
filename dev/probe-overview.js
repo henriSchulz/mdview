@@ -72,11 +72,22 @@
     ok("Rename: the name is a field where it stood", !!field && field.value === "Commute thoughts" && document.activeElement === field, field && field.value);
     field.value = "Commute ideas"; field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(1200);
     ok("Enter renames the file; the tiles follow", names(".ov-tile").join("|") === "Commute ideas|Decorations", names(".ov-tile").join("|"));
+    ov.querySelector(".ov-body").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 900, clientY: 600 })); await sleep(400);
+    ok("a right click on the empty room: New Note, New Folder", menu.hasAttribute("data-open") && shown() === "New Note|New Folder", shown());
+    [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "newfolder").click(); await sleep(500);
+    const nf = document.querySelector(".sb-new input");
+    ok("New Folder: the sidebar's field asks for its name", document.activeElement === nf && /Folder/.test(nf.placeholder), nf && nf.placeholder);
+    nf.value = "Skizzen"; nf.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(1200);
+    ok("it is made in the folder shown, and stands among the tiles", names(".ov-tile.ov-folder").join("|") === "Skizzen" && ov.querySelector(".ov-folder").dataset.path.endsWith("/Projekte/Skizzen"), names(".ov-tile").join("|"));
     ov.querySelector(".ov-tile").focus(); key("Backspace"); await sleep(600);
     ok("Backspace goes up, onto the folder left", document.activeElement.dataset.dir === "Projekte" && !ov.querySelector(".ov-crumb"), document.activeElement.className);
     ov.querySelector(".ov-folder").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
     ok("a folder's menu: Open, Show in Finder", shown() === "Open|Show in Finder", shown());
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(300);
+    key("Escape"); await sleep(500);
+    btn.click(); await sleep(700);
+    ok("opened again in Folders: in the folder of the note on screen, that note marked", ov.querySelector(".ov-title").textContent.endsWith("Projekte") && ov.querySelector(".ov-item[aria-current] .ov-name")?.textContent === "Decorations", ov.querySelector(".ov-title").textContent);
+    ov.querySelector(".ov-crumb").click(); await sleep(500);
     opt("scope", "all").click(); await sleep(500);
     ok("All Notes again: every note, by folder", ov.querySelectorAll(".ov-tile").length === 8 && ov.querySelectorAll(".ov-dir").length === 2);
   } catch (e) { o.error = String(e && e.stack || e); }

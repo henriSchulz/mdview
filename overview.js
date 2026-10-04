@@ -6,8 +6,9 @@
  *
  * Two choices at the head, both remembered: what is shown — all notes, grouped
  * by the folder they lie in, or one folder at a time, its folders to click
- * into — and how: as tiles or as a list (a row per note: name and first words).
- * A right click on a note or folder opens the file menu the sidebar has.
+ * into — and how: as tiles or as a list (a row per note: its name, under it its first words).
+ * A right click on a note or folder opens the file menu the sidebar has; one
+ * on the empty room beside them offers a new note or folder there.
  *
  * The beginnings come from the application (the page may not read files): it
  * is asked for a batch, renders what comes, asks for the next. What was read
@@ -84,7 +85,7 @@
     if (dir) t.dataset.dir = n.name;
     t.style.setProperty("--i", Math.min(i, 10)); // (the first ones come one after the other, the rest together)
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? plural(count(n), "note") : "";
-    if (list) t.innerHTML = `<span class="ov-icon">${dir ? ICON.folder : ICON.note}</span><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span>${dir ? `<span class="ov-go">${ICON.chevron}</span>` : ""}`;
+    if (list) t.innerHTML = `<span class="ov-icon">${dir ? ICON.folder : ICON.note}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>${dir ? `<span class="ov-go">${ICON.chevron}</span>` : ""}`;
     else if (dir) t.innerHTML = `<div class="ov-sheet"><span class="ov-icon">${ICON.folder}</span><div class="ov-name">${name}</div><div class="ov-sub">${sub}</div></div>`;
     else t.innerHTML = `<div class="ov-sheet"><div class="ov-name">${name}</div><div class="ov-prev" inert></div></div>`;
     return t;
@@ -210,7 +211,9 @@
     const prefs = window.MdPrefs || {};
     scope = prefs.ovScope === "folders" ? "folders" : "all";
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
-    at = [];
+    // it opens where the note on screen lies (place() drops what the tree does not have)
+    const root = core.folder.root, shown = core.current && core.current.path;
+    at = shown && shown.startsWith(root + "/") ? shown.slice(root.length + 1).split("/").slice(0, -1) : [];
     build();
     void el.offsetHeight; // (the tiles are there, unseen: from here they come in)
     el.dataset.open = "";
@@ -250,6 +253,8 @@
     e.preventDefault();
     const t = e.target.closest(".ov-item");
     if (t && !e.target.closest(".ov-rename")) core.fileMenu(t, e.clientX, e.clientY, t.dataset.dir ? "ovdir" : "ovnote");
+    // the empty room: a new note or folder, in the folder shown
+    else if (!t && core.folder && !e.target.closest(".ov-seg, .ov-crumb")) core.fileMenu(el, e.clientX, e.clientY, "blank", scope === "folders" ? place(core.folder.tree).path : core.folder.root);
   });
   // a note's name, changed where it stands (the menu's Rename, F2)
   function rename(t) {

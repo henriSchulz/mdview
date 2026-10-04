@@ -2067,14 +2067,15 @@
   ctx.tabIndex = -1;
   ctx.setAttribute("role", "menu");
   // one menu for a file, a folder, the + button ("new"), and a note or folder among the tiles
-  // ("ovnote", "ovdir": overview.js); data-for says where an entry shows
+  // ("ovnote", "ovdir": overview.js), and the empty room beside them ("blank": a new note or folder
+  // in the folder `dir`); data-for says where an entry shows
   const entry = (cmd, icon, label, on, key = "", cls = "") =>
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
     entry("open", "note", "Open", "ovnote ovdir") +
     `<div class="menu-rule" data-for="ovnote ovdir"></div>` +
-    entry("newnote", "note", "New Note", "dir new", "Ctrl+N") +
-    entry("newfolder", "folderPlus", "New Folder", "dir new") +
+    entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
+    entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
     `<div class="menu-rule" data-for="dir"></div>` +
     entry("default", "external", "Open in Default App", "file ovnote") +
     entry("openwith", "apps", "Open With…", "file ovnote") +
@@ -2084,17 +2085,17 @@
     entry("trash", "trash", "Move to Trash", "file ovnote", "Del", " danger");
   document.body.appendChild(ctx);
   let ctxItems = [];
-  let ctxFor = null, ctxHl = -1, ctxKind = "file";
+  let ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
-  function openCtx(item, x, y, kind = "file") {
+  function openCtx(item, x, y, kind = "file", dir = null) {
     if (ctxFor) ctxFor.classList.remove("ctx-target");
-    ctxFor = item;
+    ctxFor = item; ctxDir = dir;
     ctxKind = ctx.dataset.kind = kind;
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind);
     ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
     ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
-    if (kind !== "new") item.classList.add("ctx-target");
+    if (kind !== "new" && kind !== "blank") item.classList.add("ctx-target");
     setCtxHl(-1);
     if (kind === "new") x -= ctx.offsetWidth; // (it hangs from the button's right edge)
     ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px";
@@ -2106,7 +2107,7 @@
     if (!ctxOpen()) return false;
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus && ctxKind !== "new") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
+    if (refocus && ctxKind !== "new" && ctxKind !== "blank") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -2116,11 +2117,11 @@
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
     setTimeout(() => {
-      const kind = ctxKind;
+      const kind = ctxKind, dir = ctxDir;
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
-      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : null);
+      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd === "open") MdOverview.go(item);
       else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
       else if (cmd === "trash") post("trash", { path });
@@ -2131,6 +2132,7 @@
     e.preventDefault();
     const item = e.target.closest(".sb-row")?.closest(".sb-item");
     if (item) openCtx(item, e.clientX, e.clientY, item.classList.contains("is-dir") ? "dir" : "file");
+    else if (folder && !e.target.closest(".sb-head, .sb-field")) openCtx(sidebar, e.clientX, e.clientY, "blank", folder.root); // the empty room: new, in the folder itself
   });
   ctx.addEventListener("contextmenu", (e) => e.preventDefault());
   ctx.addEventListener("mousemove", (e) => {
@@ -2253,6 +2255,7 @@
     const here = newDir || (current && current.path.startsWith(folder.root + "/") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
     const name = sbNewInput.value, kind = newKind;
     closeNewNote();
+    if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
     post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
   });
   sbNewInput.addEventListener("blur", () => closeNewNote());
