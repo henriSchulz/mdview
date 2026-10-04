@@ -592,6 +592,10 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 #dlg.sized .ce { flex: 1; min-height: 0; }
 #dlg.sizing { transition: none; user-select: none; }
 #dlg.sized .ce { max-height: none; }
+/* (a dialog pulled to a size has no room to give: the picture of what is written yields first, so
+ * the field it is written in is never squeezed away under a tall preview) */
+#dlg.sized .ce { flex: 1 1 0; min-height: 96px; }
+#dlg.sized .dlg-preview { flex: 0 1 auto; min-height: 0; }
 
 /* properties as a form */
 .fm-form { display: grid; gap: 6px; overflow: auto; padding: 2px; }
