@@ -263,7 +263,7 @@ color: green
 ---
 ```
 
-`color` (one of the seven colours above) gives the note's tile and list row that colour in All Notes.
+`color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name on the tile, its sign in that colour in the list.
 
 ### HTML
 

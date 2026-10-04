@@ -87,15 +87,9 @@ body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(
 .ov-cyan { --c: var(--c-cyan); }
 .ov-blue { --c: var(--c-blue); }
 .ov-magenta { --c: var(--c-magenta); }
-.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta {
-  /* a soft frame of the colour around a sheet with a little of it — no dark edge, no second outline */
-  --frame: 5px;
-  --cc: color-mix(in srgb, var(--c) 38%, var(--paper));
-  --wash: color-mix(in srgb, var(--c) 9%, var(--paper));
-  --edge: color-mix(in srgb, var(--c) 30%, transparent);
-}
-.ov-red .ov-name, .ov-orange .ov-name, .ov-yellow .ov-name, .ov-green .ov-name, .ov-cyan .ov-name, .ov-blue .ov-name, .ov-magenta .ov-name { border-bottom-color: color-mix(in srgb, var(--c) 22%, transparent); }
-body[data-mode="dark"] .ov-red, body[data-mode="dark"] .ov-orange, body[data-mode="dark"] .ov-yellow, body[data-mode="dark"] .ov-green, body[data-mode="dark"] .ov-cyan, body[data-mode="dark"] .ov-blue, body[data-mode="dark"] .ov-magenta { --cc: color-mix(in srgb, var(--c) 50%, var(--paper)); --wash: color-mix(in srgb, var(--c) 12%, var(--paper)); }
+/* a note's colour is a small dot before its name: the tile itself stays the plain sheet (a frame
+ * and a wash in the colour were too much) */
+.ov-tile:is(.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta) .ov-name::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; background: var(--c); vertical-align: 0.04em; }
 
 #toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent); }
 @media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }
@@ -153,7 +147,7 @@ body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12
 #overview[data-open] .ov-row { opacity: 1; transition: opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)), background-color var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); }
 #overview[data-open] .ov-row:hover, .ov-row.ctx-target { background: var(--sb-hover); transition-duration: var(--dur-base), var(--dur-instant), var(--dur-instant); }
 #overview[data-open] .ov-row:active { background: var(--sb-selected); }
-.ov-row[aria-current] { background: var(--sb-selected); }
+/* (the note on screen wears no mark here, as among the tiles) */
 #overview[data-keys] .ov-row:focus-visible { outline-color: var(--accent); }
 .ov-row + .ov-row::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
 .ov-row .ov-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--c, var(--fg)) 11%, transparent); color: var(--c, var(--fg2)); }

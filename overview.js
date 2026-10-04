@@ -2,7 +2,7 @@
  * grid button, Ctrl+Alt+G). A tile is the note in small: its name, a line,
  * and the beginning of what it says, rendered as the reading view renders it.
  * A note whose properties name a colour (`color: red` — one of the theme's)
- * has a frame in that colour.
+ * has a dot in that colour before its name.
  *
  * Two choices at the head, both remembered: what is shown — all notes, grouped
  * by the folder they lie in, or one folder at a time, its folders to click
