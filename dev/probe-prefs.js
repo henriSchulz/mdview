@@ -27,17 +27,18 @@
     const undo = () => key(view.dom, "z", { ctrlKey: true });
     const dlg = document.getElementById("dlg"), menu = document.getElementById("actmenu"), bar = document.getElementById("fmtbar");
     const end = () => view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos("Last paragraph."))));
-    const set = async (changes) => { // through the dialog, as a user would
+    const st = () => document.getElementById("settings");
+    const set = async (changes) => { // through the settings window, as a user would
       key(view.dom, ",", { ctrlKey: true });
       await sleep(450);
       for (const [k, v] of Object.entries(changes)) {
-        const row = [...dlg.querySelectorAll(".pf-row")].find((r) => r.querySelector(".pf-name").textContent === k);
+        const row = [...st().querySelectorAll(".pf-row")].find((r) => r.querySelector(".pf-name").textContent === k);
         if (!row) throw new Error("no setting " + k);
         const input = row.querySelector("input, select");
         if (input.type === "checkbox") input.checked = v; else input.value = String(v);
         input.dispatchEvent(new Event("change"));
       }
-      key(dlg, "Enter", { ctrlKey: true });
+      key(st(), "Escape"); // (a change is taken at once: there is nothing to apply)
       await sleep(500);
     };
     V.focus();
@@ -45,23 +46,34 @@
     // --- the dialog
     key(view.dom, ",", { ctrlKey: true });
     await sleep(450);
-    ok("Ctrl+, opens the settings", dlg.hasAttribute("data-open") && document.getElementById("dlg-title").textContent === "Settings" && dlg.querySelectorAll(".pf-row").length >= 10, document.getElementById("dlg-title").textContent);
-    // the wheel over the dialog scrolls the dialog, never the note under it
+    ok("Ctrl+, opens the settings: a window with its groups at the left", !!st() && st().hasAttribute("data-open") && st().querySelector(".st-name").textContent === "Settings" && st().querySelectorAll(".st-nav").length >= 8 && st().querySelectorAll(".pf-row").length >= 20 && document.getElementById("st-title").textContent === "General", st() && document.getElementById("st-title").textContent);
     {
-      const y0 = window.scrollY, body = [...dlg.querySelectorAll("*")].find((x) => /auto|scroll/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 1) || dlg.querySelector(".dlg-body");
-      const wheel = (el, dy) => { const e = new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
-      body.scrollTop = 0;
-      const free = wheel(body.querySelector(".pf-row"), 120);
-      body.scrollTop = body.scrollHeight;
-      const held = wheel(body.querySelector(".pf-row"), 120), heldUpAtTopFree = (body.scrollTop = 0, wheel(body.querySelector(".pf-row"), -120));
-      const beside = wheel(document.getElementById("dlg-scrim"), 120), head = wheel(dlg.querySelector(".dlg-head"), 120);
-      ok("the wheel in the settings: the list scrolls while it can; at its end, on the title and beside the dialog nothing under it moves", body.scrollHeight > body.clientHeight && !free && held && heldUpAtTopFree && beside && head && window.scrollY === y0, [body.scrollHeight, body.clientHeight, free, held, heldUpAtTopFree, beside, head]);
-      body.scrollTop = 0;
+      const shown = () => [...st().querySelectorAll(".st-page")].filter((p) => getComputedStyle(p).display !== "none").map((p) => p.dataset.page).join();
+      st().querySelector('.st-nav[data-page="editing"]').click(); await sleep(250);
+      ok("a group chosen at the left shows its settings, and only those", shown() === "editing" && document.getElementById("st-title").textContent === "Editing" && st().querySelector('.st-nav[data-page="editing"]').getAttribute("aria-current") === "page", shown());
+      key(st().querySelector('.st-nav[data-page="editing"]'), "ArrowDown"); await sleep(250);
+      ok("↓ in the groups goes to the next one", shown() === "newMarkdown" && document.activeElement === st().querySelector('.st-nav[data-page="newMarkdown"]'), shown());
+      // the wheel belongs to the window: the note under it does not scroll
+      const y0 = window.scrollY, wheel = (el, dy) => { const e = new WheelEvent("wheel", { deltaY: dy, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
+      ok("the wheel beside the window, on its head and at the end of its list moves nothing under it", wheel(document.getElementById("settings-scrim"), 120) && wheel(st().querySelector(".st-head"), 120) && wheel(st().querySelector(".st-page[data-on] .pf-row"), 120) && window.scrollY === y0);
+      // the key for the model: asked of the application, never shown whole
+      st().querySelector('.st-nav[data-page="ai"]').click(); await sleep(400);
+      const keyRow = st().querySelector('.pf-row[data-key="aiKey"]'), field = keyRow.querySelector("input"), state = keyRow.querySelector(".pf-state");
+      field.value = "test-key-1234567890abcd"; keyRow.querySelector(".pf-link").click(); await sleep(700);
+      ok("a key typed in is stored: the row says how it ends, the field is empty again", /abcd$/.test(state.textContent) && !/1234567890/.test(st().textContent) && field.value === "" && !keyRow.querySelector(".pf-link.danger").hidden, state.textContent);
+      keyRow.querySelector(".pf-link.danger").click(); await sleep(700);
+      ok("Remove takes it out again", state.textContent === "No key" && keyRow.querySelector(".pf-link.danger").hidden, state.textContent);
+      st().querySelector('.st-nav[data-page="about"]').click(); await sleep(300);
+      ok("About says the version", /^[0-9a-f]{7,} · \d{4}-\d\d-\d\d$/.test(st().querySelector('.pf-row[data-key="version"] .pf-value').textContent), st().querySelector('.pf-row[data-key="version"] .pf-value').textContent);
+      st().querySelector('.st-nav[data-page="newMarkdown"]').click(); await sleep(250);
     }
-    ok("the style choices show only with a fixed style", [...dlg.querySelectorAll(".pf-row.pf-sub")].every((r) => r.hidden));
+    ok("the style choices show only with a fixed style", [...st().querySelectorAll(".pf-row.pf-sub")].every((r) => r.hidden));
+    st().querySelector('.st-nav[data-page="editing"]').click(); await sleep(300);
     out("dialog", {});
     await sleep(1400); // screenshot
-    key(dlg, "Escape");
+    key(st(), "Escape");
+    await sleep(400);
+    ok("Esc closes it", !st().hasAttribute("data-open"));
     await sleep(400);
 
     // --- the formatting bar off

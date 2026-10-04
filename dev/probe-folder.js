@@ -86,10 +86,10 @@
       MdView.setMode("read"); await sleep(400);
       window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", code: "Comma", ctrlKey: true, bubbles: true, cancelable: true }));
       let dlg = null;
-      for (let i = 0; i < 100 && !(dlg && dlg.hasAttribute("data-open")); i++) { await sleep(50); dlg = document.getElementById("dlg"); }
+      for (let i = 0; i < 100 && !(dlg && dlg.hasAttribute("data-open")); i++) { await sleep(50); dlg = document.getElementById("settings"); }
       const labels = dlg ? [...dlg.querySelectorAll(".pf-name")].map((x) => x.textContent) : [];
       ok("Ctrl+, opens the settings from any mode; the sidebar's switches are there", !!dlg && dlg.hasAttribute("data-open") && ["PDFs", "Pictures", "Sound and video", "All other files"].every((l) => labels.includes(l)), labels);
-      ok("they are the app's settings, not one mode's", !!dlg && document.getElementById("dlg-title").textContent === "Settings", dlg && document.getElementById("dlg-title").textContent);
+      ok("they are the app's settings, not one mode's", !!dlg && dlg.querySelector(".st-name").textContent === "Settings", dlg && dlg.querySelector(".st-name").textContent);
       if (dlg) { dlg.querySelector('[data-do="cancel"]').click(); await sleep(500); }
       // the gear at the lower left
       const g = document.getElementById("settings-btn"), gr = g.getBoundingClientRect();
@@ -98,9 +98,9 @@
       window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "down", x: gr.left + 14, y: gr.top + 14 })); await sleep(60);
       window.webkit.messageHandlers.mdview.postMessage(JSON.stringify({ type: "probe-pointer", kind: "up", x: gr.left + 14, y: gr.top + 14 }));
       let opened = false;
-      for (let i = 0; i < 60 && !opened; i++) { await sleep(50); opened = document.getElementById("dlg").hasAttribute("data-open"); }
+      for (let i = 0; i < 60 && !opened; i++) { await sleep(50); opened = !!document.getElementById("settings")?.hasAttribute("data-open"); }
       ok("a click on it opens the settings", opened);
-      if (opened) { document.getElementById("dlg").querySelector('[data-do="cancel"]').click(); await sleep(500); }
+      if (opened) { document.getElementById("settings").querySelector('[data-do="cancel"]').click(); await sleep(500); }
     }
     // the sidebar's edge, pulled with the real pointer
     {

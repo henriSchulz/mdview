@@ -354,10 +354,25 @@ click on one opens the note. Side panel: outline, pages, notes. Keys: `+` `−` 
 
 ## Settings (`Ctrl+,`)
 
-Language of the app's texts (English, German), start mode, order of the notes, what the sidebar
-lists beside notes, formatting bar, `/` menu, Markdown shown at the caret, typographic quotes,
-wrapping of new paragraphs, where pasted pictures go, suggestions while typing, the formula editor's
-helpers, and the style of new Markdown (bullets, numbers, italic and bold marks).
+A window of its own (also the gear at the lower left): the groups at the left, their settings at
+the right. A change takes effect at once.
+
+| Group | What is set |
+|---|---|
+| General | language of the app's texts (English, German), the mode a new window starts in |
+| Appearance | text size, width of the text column, sharper text (letters on whole pixels; at the next start) |
+| Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
+| All Notes | all notes or one folder at a time, tiles or a list |
+| Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
+| New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
+| Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
+| PDFs | what a link to selected text is copied as, copy on select |
+| Writing Help | suggestions while typing, the Gemini API key, the model |
+| About | version, this guide, the settings folder |
+
+The Gemini key is typed into the settings and kept in `~/.config/mdview/.env`, readable by the
+user alone; the window only ever shows its last four signs. A key in the environment
+(`GEMINI_API_KEY`) takes precedence.
 
 ## Look
 

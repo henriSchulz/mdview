@@ -116,6 +116,9 @@ PREFS = {
     "aiComplete": False,
     "panel": False, "panelTab": "insert",   # the panel at the window's right (insert, format): open, and its tab
     "ovScope": "all", "ovLayout": "tiles",  # all notes: "all" | "folders" (one at a time), as "tiles" | "list"
+    "measure": "normal",      # the text column's width: "narrow" | "normal" | "wide" | "full"
+    "hinting": False,         # text drawn on whole pixels (sharper on a screen of ordinary resolution); at the next start
+    "aiModel": "",            # the model asked for suggestions ("": AI_MODEL)
 }
 # snippets of one's own for the formula editor, as Obsidian LaTeX Suite reads them
 # ("export default [ … ]"); they take the place of the built-in ones
@@ -132,6 +135,46 @@ AI_SYSTEM = (
     "in its tone. Do not repeat text that is already there, do not add quotes or explanations. "
     "If the note uses Markdown or LaTeX there, continue in it. If nothing sensible follows, "
     "reply with nothing.")
+
+
+def ai_key_state():
+    """What the settings show of the key: whether there is one, its last four signs, and whether
+    it comes from the environment (then the file's is not used). Never the key itself."""
+    env = os.environ.get("GEMINI_API_KEY", "").strip()
+    key = env or ai_key() or ""
+    return {"set": bool(key), "tail": key[-4:] if len(key) > 8 else "", "env": bool(env)}
+
+
+def store_ai_key(key):
+    """Writes GEMINI_API_KEY into ~/.config/mdview/.env (only the user may read it), or takes it
+    out; the file's other lines stay."""
+    key = re.sub(r"\s", "", key or "")
+    try:
+        lines = [l for l in AI_ENV.read_text(encoding="utf-8").splitlines() if not l.strip().startswith("GEMINI_API_KEY=")]
+    except OSError:
+        lines = []
+    if key:
+        lines.append(f"GEMINI_API_KEY={key}")
+    AI_ENV.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(AI_ENV, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + ("\n" if lines else ""))
+    os.chmod(AI_ENV, 0o600)
+
+
+def ai_model():
+    """The model asked: the settings' own, if it reads like a model's name, else AI_MODEL."""
+    app = Gio.Application.get_default()
+    name = app.prefs().get("aiModel", "") if app else ""
+    return name if re.fullmatch(r"[A-Za-z0-9._-]{3,80}", name or "") else AI_MODEL
+
+
+def app_version():
+    try:
+        out = subprocess.run(["git", "-C", str(SOURCE.parent), "log", "-1", "--format=%h · %cs"], capture_output=True, text=True, timeout=2)
+        return out.stdout.strip() or "?"
+    except (OSError, subprocess.SubprocessError):
+        return "?"
 
 
 def ai_key():
@@ -190,7 +233,7 @@ class Completer:
             try:
                 if self.conn is None:
                     self.conn = http.client.HTTPSConnection(AI_HOST, timeout=8)
-                self.conn.request("POST", f"/v1beta/models/{AI_MODEL}:generateContent", body,
+                self.conn.request("POST", f"/v1beta/models/{ai_model()}:generateContent", body,
                                   {"Content-Type": "application/json", "x-goog-api-key": key})
                 res = self.conn.getresponse()
                 data = json.loads(res.read().decode("utf-8", "replace") or "{}")
@@ -1416,7 +1459,19 @@ class ViewerWindow(Gtk.ApplicationWindow):
             self.resolver = Resolver(self.path.parent) if self.path else None
             self.render(keep_scroll=True)
         elif t == "zoom":
-            self.zoom(msg.get("step", 0))
+            self.zoom(msg.get("step", 0), msg.get("level"))
+        elif t == "settings-info":
+            self.settings_info()
+        elif t == "aikey":
+            try:
+                store_ai_key(str(msg.get("key") or ""))
+            except OSError as e:
+                self.js("MdView.toast", f"Couldn't save the key: {e.strerror}")
+            self.settings_info()
+        elif t == "help":
+            guide = SOURCE.parent / "docs" / "FEATURES.md"
+            if guide.is_file():
+                self.app.open([Gio.File.new_for_path(str(guide))], "")
         elif t == "print":
             WebKit2.PrintOperation.new(self.view).run_dialog(self)
         elif t == "close":
@@ -1822,8 +1877,14 @@ class ViewerWindow(Gtk.ApplicationWindow):
                 continue
         launch_uri(gfile.get_parent().get_uri())  # (no file manager answers: its folder, at least)
 
-    def zoom(self, step):
+    def settings_info(self):
+        self.js("MdView.settingsInfo", {"aiKey": ai_key_state(), "aiModel": AI_MODEL, "zoom": self.view.get_zoom_level(),
+                                        "version": app_version(), "configDir": str(AI_ENV.parent).replace(str(HOME), "~")})
+
+    def zoom(self, step, to=None):
         level = 1.0 if step == 0 else self.view.get_zoom_level() + 0.1 * step
+        if isinstance(to, (int, float)) and not isinstance(to, bool):
+            level = float(to)
         level = round(min(2.5, max(0.5, level)), 2)
         self.view.set_zoom_level(level)
         self.app.state["zoom"] = level
@@ -1955,6 +2016,8 @@ class MdViewApp(Gtk.Application):
         s.set_default_font_size(16)
         s.set_default_monospace_font_size(14)
         self.web_settings = s
+        if self.prefs().get("hinting"):  # (text on whole pixels: the app's own choice, not the desktop's)
+            Gtk.Settings.get_default().set_property("gtk-xft-hintstyle", "hintfull")
         for path, cb in ((THEME_DIR / "theme.name", self.on_theme_changed),
                          (THEME_DIR / "theme/colors.toml", self.on_theme_changed),
                          (things_tokens_path() or HOME / ".local/share/things-clone" / THINGS_TOKENS, self.on_theme_changed),

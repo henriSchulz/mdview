@@ -70,6 +70,9 @@
     picture: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.5"/><path d="m5 17.5 4.5-4 3 2.5 3-3 4 4"/>'),
     file: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>'),
     trash: svg('<path d="M4 7h16M10 4h4M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M10 11v6M14 11v6"/>'),
+    // the settings' groups
+    sigma: svg('<path d="M18 6V5H6l6 7-6 7h12v-1"/>'),
+    spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
   };
   // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
   // that font (mdview.py says so: body[data-sf]): set as text, they are drawn with the text's
@@ -82,6 +85,7 @@
     x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, plus: 0x10017c, title: 0x100151, folder: 0x100215,
     note: 0x10023f, folderPlus: 0x100219, external: 0x100114, apps: 0x1001f7, reveal: 0x1002ab, rename: 0x10016b,
     gear: 0x1008cb, pdf: 0x100245, picture: 0x1003c5, file: 0x100237, trash: 0x100211,
+    info: 0x100174, sigma: 0x10016d, spark: 0x1001bf,
   };
   const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
     : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
@@ -1910,6 +1914,7 @@
     if (key === sortKey()) return;
     window.MdPrefs = { ...(window.MdPrefs || {}), sidebarSort: key };
     post("prefs", { prefs: { sidebarSort: key } });
+    sortedBy = key;
     resort();
   }
   function resort() {
@@ -2483,10 +2488,21 @@
   }
   // the settings changed (here or in another window)
   function setPrefs(p) {
-    const sorted = sortKey();
     window.MdPrefs = p;
-    if (sortKey() !== sorted) resort();
+    prefsChanged();
     if (window.MdActive?.onPrefs) MdActive.onPrefs();
+  }
+  // what of the page follows the settings: the order of the notes, the width of the text column
+  const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
+  let sortedBy = "opened", measured = "normal";
+  function prefsChanged() {
+    const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
+    if (sort !== sortedBy) { sortedBy = sort; resort(); }
+    if (measure !== measured) {
+      measured = measure;
+      if (measure === "normal") document.documentElement.style.removeProperty("--measure"); else document.documentElement.style.setProperty("--measure", MEASURES[measure]);
+      window.dispatchEvent(new Event("resize")); // (what fits itself to the column's width does so again)
+    }
   }
   // pictures dropped on the document, saved or found by the application
   function insertDropped(r) {
@@ -2525,7 +2541,7 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
-  window.MdView = { graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, fileMenu: (...a) => openCtx(...a),

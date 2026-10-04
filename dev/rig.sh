@@ -290,7 +290,9 @@ case "${1:-}" in
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./assets/drop.png ./drop.png ./m5.md " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
-    app 90 MDVIEW_PROBE="$D/probe-prefs.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)
+    rm -rf "$R/config"; mkdir -p "$R/config"
+    app 120 MDVIEW_PROBE="$D/probe-prefs.js" MDVIEW_PROBE_OUT="$R/out" XDG_CONFIG_HOME="$R/config" GEMINI_API_KEY= -- "$R/work/$name"
     for v in dialog slash; do
       for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.prefs.json ]] && break; sleep 0.1; done; sleep 0.7; shot "$R/out/prefs-$v.png"
     done
