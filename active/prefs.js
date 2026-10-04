@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
     aiComplete: false, aiModel: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false,
+    ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100,
   };
   const post = (type, data = {}) => window.webkit?.messageHandlers?.mdview?.postMessage(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -33,6 +33,7 @@
     ]],
     ["appearance", "title", [
       [null, [
+        ["docZoom", "select", [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250].map((z) => [z, z + " %"])],
         ["measure", "select", [["narrow", "prefs.measure.narrow"], ["normal", "prefs.measure.normal"], ["wide", "prefs.measure.wide"], ["full", "prefs.measure.full"]]],
         ["hinting", "switch"],
       ]],

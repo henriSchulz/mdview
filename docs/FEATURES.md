@@ -352,6 +352,8 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Shift+V` | paste and match style |
 | `Ctrl+D` | duplicate the block |
 | `Alt+←` / `Alt+→` | back / forward |
+| `Ctrl` or `Super` + `+` / `−` | the note's text larger / smaller (50 % to 250 %); in a PDF: its pages |
+| `Ctrl+0` | the note at 100 % again; in a PDF: fit the width |
 
 ## Settings (`Ctrl+,`)
 
@@ -361,7 +363,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | width of the text column, sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, width of the text column, sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |

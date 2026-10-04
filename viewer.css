@@ -66,6 +66,9 @@ body {
   transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
 }
 #content.ready { opacity: 1; }
+/* the note's own size (Ctrl + and −, viewer.js): its text is scaled, in every mode; what the app
+ * itself is made of keeps its size, and a PDF has a zoom of its own */
+#content:not(.pdf), #active, #editor { zoom: var(--doc-zoom, 1); }
 @media (max-width: 640px) { #content { padding: 48px 20px 40vh; } }
 
 /* ------------------------------------------------------------- text */

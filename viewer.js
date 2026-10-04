@@ -2642,6 +2642,30 @@
     else if (e.button === 4) post("forward");
   });
 
+  /* --- A note larger and smaller: Ctrl or Super with + and −, Ctrl+0 for its own size. Only the
+   * note's text is scaled (the settings' docZoom, in percent) — the toolbar, the sidebar, menus and
+   * dialogs keep their size. A PDF on screen has these keys for its pages (pdfview.js). Taken
+   * before any part of the page sees them, so they work with the caret in the text too. */
+  const DOC_ZOOMS = [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250];
+  const docZoom = () => (DOC_ZOOMS.includes(window.MdPrefs?.docZoom) ? MdPrefs.docZoom : 100);
+  function setDocZoom(z) {
+    if (z === docZoom()) { toast(z + " %"); return; }
+    window.MdPrefs = { ...(window.MdPrefs || {}), docZoom: z };
+    post("prefs", { prefs: { docZoom: z } });
+    prefsChanged();
+    toast(z + " %");
+  }
+  addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const up = e.key === "+" || e.key === "=" || e.code === "NumpadAdd", down = e.key === "-" || e.key === "_" || e.code === "NumpadSubtract";
+    const reset = !e.shiftKey && (e.key === "0" || e.code === "Numpad0");
+    if (!up && !down && !reset) return;
+    if (window.MdPdf && MdPdf.shown && MdPdf.shown.root.isConnected) return; // (the PDF's own)
+    e.preventDefault(); e.stopPropagation();
+    const i = DOC_ZOOMS.indexOf(docZoom());
+    setDocZoom(reset ? 100 : DOC_ZOOMS[Math.max(0, Math.min(DOC_ZOOMS.length - 1, i + (up ? 1 : -1)))]);
+  }, true);
+
   // --- keyboard
   addEventListener("keydown", (e) => {
     const mod = e.ctrlKey || e.metaKey;
@@ -2704,8 +2728,16 @@
   }
   // what of the page follows the settings: the order of the notes, the width of the text column
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
-  let sortedBy = "opened", measured = "normal";
+  let sortedBy = "opened", measured = "normal", zoomed = 100;
   function prefsChanged() {
+    if (docZoom() !== zoomed) {
+      // (what was at the top of the window stays there: the place is kept as a share of the page's height)
+      const share = document.documentElement.scrollHeight > innerHeight ? scrollY / document.documentElement.scrollHeight : 0;
+      zoomed = docZoom();
+      if (zoomed === 100) document.documentElement.style.removeProperty("--doc-zoom"); else document.documentElement.style.setProperty("--doc-zoom", String(zoomed / 100));
+      scrollTo({ top: share * document.documentElement.scrollHeight, behavior: "instant" });
+      window.dispatchEvent(new Event("resize"));
+    }
     const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
     if (sort !== sortedBy) { sortedBy = sort; resort(); }
     if (measure !== measured) {
@@ -2751,6 +2783,7 @@
   document.addEventListener("mousedown", hideTip, true);
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
+  prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,

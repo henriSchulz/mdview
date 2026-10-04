@@ -117,6 +117,7 @@ PREFS = {
     "panel": False, "panelTab": "insert",   # the panel at the window's right (insert, format): open, and its tab
     "ovScope": "all", "ovLayout": "tiles",  # all notes: "all" | "folders" (one at a time), as "tiles" | "list"
     "measure": "normal",      # the text column's width: "narrow" | "normal" | "wide" | "full"
+    "docZoom": 100,           # the note's text, in percent (Ctrl + and −)
     "hinting": False,         # text drawn on whole pixels (sharper on a screen of ordinary resolution); at the next start
     "aiModel": "",            # the model asked for suggestions ("": AI_MODEL)
 }
