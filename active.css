@@ -147,7 +147,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   width: min(720px, 90vw);
   height: fit-content;
   min-height: 200px;
-  max-height: 80vh;
+  max-height: 90vh;
   border: 0;
   border-radius: var(--radius-panel);
   background: color-mix(in srgb, var(--bg) 84%, transparent);
@@ -176,17 +176,20 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .dlg-tools { display: flex; flex: 1; justify-content: flex-end; gap: 6px; min-width: 0; }
 .dlg-lang { flex: 0 1 150px; min-width: 60px; width: 150px; }
 .dlg-rest { flex: 0 1 180px; min-width: 60px; width: 180px; }
-.dlg-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 0 14px; overflow: auto; }
+.dlg-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 0 14px; overflow: auto; overscroll-behavior: contain; }
 .dlg-foot { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
 .dlg-info { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
 #dlg .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
 #dlg .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
 #dlg .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
 #dlg .dlg-info .btn, #dlg .dlg-symbols .btn, #dlg .dlg-hint .btn { height: 24px; padding: 0 9px; font-size: 12px; }
+/* (as tall as what it shows — a picture is seen whole; where the window has no room for that it
+ * yields and scrolls, never the field above it) */
 .dlg-preview {
-  flex: none;
-  max-height: 32vh;
+  flex: 0 1 auto;
+  min-height: 3em;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 10px 14px;
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--fg) 3%, transparent);
@@ -596,6 +599,9 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * the field it is written in is never squeezed away under a tall preview) */
 #dlg.sized .ce { flex: 1 1 0; min-height: 96px; }
 #dlg.sized .dlg-preview { flex: 0 1 auto; min-height: 0; }
+/* a text field of a line or two takes no more than it needs when a picture stands under it */
+.dlg-body:has(> .dlg-preview.doc) > .ce { flex: 0 1 auto; }
+#dlg.sized .dlg-body:has(> .dlg-preview.doc) > .ce { flex: 1 1 0; }
 
 /* properties as a form */
 .fm-form { display: grid; gap: 6px; overflow: auto; padding: 2px; }

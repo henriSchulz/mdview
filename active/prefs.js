@@ -255,6 +255,7 @@
     show(PAGES.some((p) => p[0] === at) ? at : page);
     post("settings-info");
     void root.offsetWidth;
+    window.MdView.core.lockScroll(true);
     scrim.dataset.open = root.dataset.open = "";
     root.focus({ preventScroll: true }); // (the window itself: no ring on a group until the keyboard is used)
     return true;
@@ -264,6 +265,7 @@
     closeMenu(false);
     if (document.activeElement && root.contains(document.activeElement) && document.activeElement.blur) document.activeElement.blur(); // (a text field's change is taken)
     delete scrim.dataset.open; delete root.dataset.open;
+    window.MdView.core.lockScroll(false);
     const view = A.view && A.view.pm;
     if (focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true }); else if (view) view.focus();
     focusBack = null;

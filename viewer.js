@@ -2726,6 +2726,14 @@
     prefsChanged();
     if (window.MdActive?.onPrefs) MdActive.onPrefs();
   }
+  // a dialog over the note: the note holds still (counted: one may open over another)
+  let locks = 0;
+  function lockScroll(on) {
+    locks = Math.max(0, locks + (on ? 1 : -1));
+    const root = document.documentElement;
+    if (locks === 1 && on) { root.style.setProperty("--lock-pad", Math.max(0, innerWidth - root.clientWidth) + "px"); root.classList.add("scroll-locked"); }
+    else if (locks === 0) { root.classList.remove("scroll-locked"); root.style.removeProperty("--lock-pad"); }
+  }
   // what of the page follows the settings: the order of the notes, the width of the text column
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
   let sortedBy = "opened", measured = "normal", zoomed = 100;
@@ -2787,7 +2795,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, sortNotes, svgPicture, lockScroll, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

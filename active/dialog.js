@@ -394,6 +394,22 @@
   }
   /* opts: { title, anchor: () => element, build(body, tools, info) -> { focus(), result() }, done(result), cancel() }
    * result() gives what was entered, or undefined to say "as it was". */
+  /* A dialog pulled to a size of its own is too low for a picture taller than it was pulled for:
+   * it grows by what its preview lacks, as far as the window lets it (for this showing only — the
+   * size kept is the one it was pulled to). Looked at when it opens, and whenever what the preview
+   * shows comes or changes: a picture loaded, an embed drawn. */
+  let fitTimer = 0;
+  function fit() {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(() => {
+      if (!open || !dlg.classList.contains("sized") || dlg.classList.contains("sizing")) return;
+      const p = body.querySelector(".dlg-preview");
+      const lack = p ? p.scrollHeight - p.clientHeight : 0;
+      if (lack > 1) dlg.style.height = Math.min(innerHeight * 0.92, dlg.offsetHeight + lack) + "px";
+    }, 30);
+  }
+  dlg.addEventListener("load", fit, true);
+  new MutationObserver(fit).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "src"] });
   function show(opts) {
     if (open) return;
     title.textContent = opts.title;
@@ -412,12 +428,14 @@
     }
     dlg.style.transition = "none";
     dlg.style.transform = "none";
+    window.MdView.core.lockScroll(true);
     dlg.dataset.open = scrim.dataset.open = "";
     dlg.style.transform = from(opts.anchor());
     void dlg.offsetWidth;
     dlg.style.transition = "";
     dlg.style.transform = "none";
     parts.focus();
+    fit();
   }
   function close(how) {
     if (!open) return;
@@ -431,6 +449,7 @@
     // back into the island as it is now
     delete scrim.dataset.open;
     delete dlg.dataset.open;
+    window.MdView.core.lockScroll(false);
     dlg.style.transform = from(opts.anchor());
     if (A.view.pm) A.view.pm.focus();
   }
