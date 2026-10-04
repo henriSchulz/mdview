@@ -6,9 +6,8 @@ color: orange
 
 # Tauri-Umbau
 
-Die Hülle der App ist von Python (GTK 3 + WebKit2GTK) auf Tauri (Rust) umgezogen – auf dem
-Branch `tauri`. Die Oberfläche ist die bisherige Web-Seite; `main` bleibt bis zum Merge die
-Python-Fassung.
+Die Hülle der App ist von Python (GTK 3 + WebKit2GTK) auf Tauri (Rust) umgezogen – und seit dem
+4. Oktober 2026 auf `main`. Die Oberfläche ist die bisherige Web-Seite.
 
 > [!important] Stand
 > Auf Linux macht die Rust-Hülle alles, was `mdview.py` machte, und das Rig läuft gegen sie
@@ -49,10 +48,6 @@ mit dem echten Modell (im Rig nur mit festen Antworten).
 
 ## Was anders ist als in der Python-Hülle
 
-- **Kennung:** `dev.henri.MdViewRs` statt `dev.henri.MdView`, damit die Rust-Fassung neben der
-  noch laufenden Python-App startet, ohne dass deren D-Bus-Name sie abfängt. Die Fensterklasse
-  bleibt `dev.henri.MdView` (Desktop-Eintrag, Dock). Beim Merge: Kennung in
-  `src-tauri/tauri.conf.json` zurückstellen.
 - **Kein Deckblatt** über dem ersten Bild des WebViews (das war gegen ein magentafarbenes
   Aufblitzen auf diesem Rechner). Das Fenster hat von Anfang an die Farbe des Themes; ob es
   trotzdem blitzt, muss man am echten Bildschirm sehen.

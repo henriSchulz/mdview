@@ -3,7 +3,7 @@
   "productName": "Markdown Notes",
   "mainBinaryName": "mdview",
   "version": "0.1.0",
-  "identifier": "dev.henri.MdViewRs",
+  "identifier": "dev.henri.MdView",
   "app": {
     "windows": [],
     "security": { "csp": null }
