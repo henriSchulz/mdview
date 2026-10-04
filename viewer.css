@@ -522,6 +522,8 @@ body.swapping #content, body.swapping #editor {
 .tb:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .tb.active { color: var(--accent); }
 #toolbar .tb { border-radius: var(--radius-pill); }
+/* (the keyboard's ring stands inside the round button: outside it, the capsule's edge cut it off) */
+#toolbar .tb:focus-visible, #toolbar .seg-btn:focus-visible { outline-offset: -2px; }
 
 /* mode switch: source · active · read. The thumb glides to the chosen one. */
 .seg {
