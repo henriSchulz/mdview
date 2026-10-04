@@ -486,8 +486,10 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
 .blk-h[data-dragging] { cursor: grabbing; }
 /* the one handle of several selected blocks: beside all of them, its grip at the first */
-.blk-h[data-group] { place-items: start center; padding-top: 5px; box-sizing: border-box; background: transparent; color: var(--accent); } /* (it stands in the blocks' own highlight) */
-.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+/* (It stands in the blocks' own highlight, which is one box: the handle is the grip at its top and
+ * takes the pointer all the way down, but draws nothing of its own — no strip across the box.) */
+.blk-h[data-group], .blk-h[data-group]:hover { place-items: start center; padding-top: 5px; box-sizing: border-box; background: transparent; color: var(--accent); }
+.blk-h[data-group]:hover { color: color-mix(in srgb, var(--accent) 70%, var(--fg)); }
 .blk-h[data-apart] { place-items: center; padding-top: 0; } /* (blocks picked one by one: the handle of the one under the pointer) */
 /* what is dragged stands back where it was while its picture is under the pointer */
 .pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
@@ -574,14 +576,24 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * stands out, blocks.js leftOf), so the two are one box. Its colour is opaque: the part over the
  * handle is a second shadow, and two see-through ones would show double where they overlap. */
 .pm { --blk-sel: color-mix(in srgb, var(--accent) 16%, var(--bg)); --blk-out: 22px; }
-.pm .blk-sel { background-color: var(--blk-sel); box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); border-radius: var(--radius-row); }
+.pm .blk-sel { --blk-box: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
 .pm .cols.blk-sel { --blk-out: 46px; }
+/* Selected blocks that follow each other are one box: each reaches up over the gap to the one
+ * before it — a shadow shifted up by the gap less the 4 px each of the two already reaches into
+ * it (--up; the gap is the 1em under a block, or a heading's own room above it), so it ends where
+ * the block before ends and covers nothing of it. */
+.pm .blk-sel + .blk-sel { --up: 8px; --blk-box: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel), 0 calc(-1 * var(--up)) 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) calc(-1 * var(--up)) 0 4px var(--blk-sel); }
+/* (where two join, the corners between them are square: a round one would leave a notch) */
+.pm .blk-sel + .blk-sel { border-top-left-radius: 0; border-top-right-radius: 0; }
+.pm .blk-sel:has(+ .blk-sel) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.pm .blk-sel + :is(h2, h3, h4, h5, h6).blk-sel { --up: calc(1.8em - 8px); }
+.pm .blk-sel + h1.blk-sel { --up: calc(1.2em - 8px); }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
-.pm li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
+.pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
 .pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px -50px; z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (-50px: its handle stands 46 out) */
 .pm.has-blocksel ::selection { background: transparent; }
 .pm.has-blocksel { caret-color: transparent; }
-.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); }
+.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: var(--blk-box); }
 .pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
 
 /* where a block dragged by its handle will go */
