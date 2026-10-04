@@ -711,8 +711,11 @@ body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(-
 .rp-btn.rp-danger { color: var(--c-red); }
 .rp-list .rp-btn { justify-items: start; height: 30px; }
 /* rows of signs, joined: bold, italic …; the lists and the indent */
-.rp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; margin-bottom: 6px; border-radius: var(--radius-control); overflow: hidden; }
+.rp-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; margin-bottom: 6px; }
 .rp-seg .rp-btn { border-radius: 0; height: 32px; }
+/* (the row's corners are its first and last button's own: the ring of one that is on follows them) */
+.rp-seg .rp-btn:first-child { border-top-left-radius: var(--radius-control); border-bottom-left-radius: var(--radius-control); }
+.rp-seg .rp-btn:last-child { border-top-right-radius: var(--radius-control); border-bottom-right-radius: var(--radius-control); }
 .rp-sign svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 /* colours: round, the chosen one ringed */
 .rp-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
