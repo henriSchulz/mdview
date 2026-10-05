@@ -42,6 +42,33 @@
   const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
   const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r)); // the files as they are here
   let tip = { device: "", time: 0 }; // who made the commit the branch stands at
+  /* When a file was last changed. Git keeps no date for a file: it is the time of the last commit
+   * that changed it, asked for only where the sidebar is ordered by it, and kept by the blob's id
+   * (a file is another blob once it is changed). A draft is as old as it was written. */
+  const dates = load(KEY + ":dates", {}); // a blob's id → seconds (0: asked, and no commit knows it)
+  let dating = false;
+  const byDate = () => prefs.sidebarSort === "modified";
+  const changedAt = (r) => (drafts.has(r) ? Math.floor((drafts.get(r).at || 0) / 1000) : dates[(files.get(r) || {}).sha] || 0);
+  async function askDates() {
+    if (dating || !head) return;
+    const need = every().filter((r) => C.shown(r) && !drafts.has(r) && files.has(r) && !(files.get(r).sha in dates));
+    if (!need.length) return;
+    dating = true;
+    try {
+      const at = head, shaOf = new Map(need.map((r) => [r, files.get(r).sha]));
+      for (let i = 0; i < need.length; i += 200) {
+        const some = need.slice(i, i + 200);
+        const res = await ask(API + "/dates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ head: at, paths: some }) });
+        if (!res.ok) return;
+        const got = (await res.json()).dates || {};
+        for (const r of some) dates[shaOf.get(r)] = got[r] || 0;
+        const live = new Set([...files.values()].map((f) => f.sha));
+        for (const sha of Object.keys(dates)) if (!live.has(sha)) delete dates[sha]; // (what no file is any more)
+        keep(KEY + ":dates", dates);
+        sendFolder(); // (told as far as it is known)
+      }
+    } catch { /* (not reached: ordered by name until it is) */ } finally { dating = false; }
+  }
   const exists = (path) => path.startsWith(BASE + "/") && has(rel(path));
   const paths = () => every().map((f) => BASE + "/" + f);
   // the guide: no file of the repository — the app's own, shown as a note that cannot be written
@@ -98,8 +125,10 @@
       titles = new Map();
       for (const p of every()) { const t = drafts.has(p) ? drafts.get(p).text : texts.get((files.get(p) || {}).sha); if (t != null && C.isMd(p)) titles.set(BASE + "/" + p, C.noteTitle(t)); }
     }
+    const changed = byDate() ? new Map(every().map((r) => [BASE + "/" + r, changedAt(r)])) : null;
+    if (changed) askDates();
     const payload = {
-      root: BASE, name: W.repo, tree: C.buildTree(BASE, every(), { show, titles, opened: here.opened, keep: [...keptDirs] }),
+      root: BASE, name: W.repo, tree: C.buildTree(BASE, every(), { show, titles, changed, opened: here.opened, keep: [...keptDirs] }),
       titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(),
     };
     const blob = JSON.stringify(payload);
@@ -217,7 +246,7 @@
   function write(r, text) {
     const f = files.get(r);
     if (f && !gone.has(r) && committed(r) === text) drafts.delete(r); // (as the branch has it: nothing to keep)
-    else drafts.set(r, { text, base: drafts.has(r) ? drafts.get(r).base : f && !gone.has(r) ? f.sha : null });
+    else drafts.set(r, { text, at: Date.now(), base: drafts.has(r) ? drafts.get(r).base : f && !gone.has(r) ? f.sha : null });
     if (drafts.has(r)) gone.delete(r);
     keepDrafts();
     later();
@@ -279,6 +308,7 @@
           const sha = await blobId(d.text);
           files.set(r, { sha, size: d.text.length });
           texts.set(sha, d.text);
+          dates[sha] = Math.floor(Date.now() / 1000); // (the commit is of now)
           if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) drafts.get(r).base = sha; // (written on meanwhile: the next commit's)
         }
         for (const [r, base64] of pictures) { const bytes = bytesOf(base64); files.set(r, { sha: await blobId(bytes), size: bytes.length }); blobs.delete(r); }
@@ -373,7 +403,8 @@
       const some = (wanted || []).filter((p) => exists(p) && C.isMd(p)).slice(0, PREVIEW_BATCH), out = {};
       const sha = (p) => (files.get(rel(p)) || {}).sha;
       try { await fetchTexts(some.map(sha).filter(Boolean)); } catch { /* (shown empty) */ }
-      for (const p of some) out[p] = { text: ((drafts.get(rel(p)) || {}).text ?? texts.get(sha(p)) ?? "").slice(0, PREVIEW_BYTES), mtime: 0 };
+      // (mtime: what tells the page a tile is another by now — a draft's time, else a number of the blob's id)
+      for (const p of some) out[p] = { text: ((drafts.get(rel(p)) || {}).text ?? texts.get(sha(p)) ?? "").slice(0, PREVIEW_BYTES), mtime: drafts.has(rel(p)) ? drafts.get(rel(p)).at || 1 : parseInt((sha(p) || "0").slice(0, 12), 16) };
       tell("setPreviews", out);
     },
     pdfnote({ path, line }) { if (exists(path) && C.isMd(path)) openPath(path, `^line=${Math.trunc(Number(line) || 0)}`, true); },

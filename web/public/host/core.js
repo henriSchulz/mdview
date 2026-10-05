@@ -40,8 +40,9 @@
    * { name, path, dirs: [same], notes: [{ name, path, real, title, mtime, pdf?, kind?, opened }] }.
    * base: the path the repository stands at ("/owner/repo"). show: which kinds beside notes
    * ("pdf", "image", "media", "other"). titles: path → a note's title, where they are wanted.
-   * opened: path → when it was last opened. A folder with nothing to show is left out. */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, keep = [] } = {}) {
+   * opened: path → when it was last opened. changed: path → when it was last changed (a Map),
+   * where that is known. A folder with nothing to show is left out. */
+  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [] } = {}) {
     const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [] });
     const top = node(base), dirs = new Map([[base, top]]);
     const dir = (path) => {
@@ -54,7 +55,7 @@
       if (!shown(rel) || count >= NOTE_LIMIT) continue;
       const path = base + "/" + rel, kind = kindOf(rel);
       if (kind === "md") {
-        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: 0, opened: opened[path] || 0 });
+        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, opened: opened[path] || 0 });
       } else {
         const group = kind === "pdf" ? "pdf" : kind === "image" ? "image" : kind === "audio" || kind === "video" ? "media" : "other";
         if (!show.includes(group)) continue;

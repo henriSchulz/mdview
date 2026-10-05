@@ -29,6 +29,7 @@ Tests in `web/` (`npm run build && npm test`); der Plan dazu ist [[Git-Phase-3]]
 - [ ] „Help" öffnet den Leitfaden in einem eigenen Tab
 - [ ] <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd>: „Alle Notizen" zeigt Kacheln mit dem Anfang jeder Notiz
 - [ ] Die Seite neu laden: dieselben Tabs, dieselbe Notiz
+- [ ] Seitenleiste nach „Date Modified" sortieren: die zuletzt geänderte Notiz steht oben (bei vielen Notizen nach einem Moment)
 - [ ] Die Adresse einer Notiz in einem neuen Tab öffnen: Diese Notiz erscheint
 - [ ] Dunkles Thema im System: Die App ist dunkel
 

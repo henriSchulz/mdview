@@ -86,6 +86,18 @@ export function fakeGitHub() {
         gh.commits.push({ headline: input.message.headline, body: input.message.body, added: (input.fileChanges.additions || []).map((a) => a.path), deleted: (input.fileChanges.deletions || []).map((d) => d.path), by: "octo" });
         return json({ data: { createCommitOnBranch: { commit: { oid: gh.head() } } } });
       }
+      if (url.pathname === "/graphql" && JSON.parse(body).query.includes("history(first: 1")) { // (when each path was last changed, up to a commit)
+        const { query, variables } = JSON.parse(body), object = {};
+        note("written elsewhere");
+        const upTo = gh.past.findIndex((c) => c.oid === variables.oid), id = (c, p) => { const b = c && c.files.get(p); return b ? blobSha(b) : null; };
+        for (const m of query.matchAll(/(p\d+): history\(first: 1, path: ("(?:[^"\\]|\\.)*")\)/g)) {
+          const path = JSON.parse(m[2]);
+          let i = upTo;
+          while (i > 0 && id(gh.past[i], path) === id(gh.past[i - 1], path)) i--;
+          object[m[1]] = { nodes: upTo >= 0 && id(gh.past[i], path) ? [{ committedDate: new Date(gh.past[i].time * 1000).toISOString() }] : [] };
+        }
+        return json({ data: { repository: { object: upTo >= 0 ? object : null } } });
+      }
       if (url.pathname === "/graphql") {
         const q = JSON.parse(body).query, repository = {};
         for (const m of q.matchAll(/(b\d+): object\(oid: "([0-9a-f]+)"\)/g)) {

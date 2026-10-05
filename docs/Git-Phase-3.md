@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 40 Tests in `web/`, davon 22
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 41 Tests in `web/`, davon 23
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -306,14 +306,20 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
   (`previous_filename`), geht der Verlauf unter ihm weiter, bis zu fünf Umbenennungen zurück.
   Jede Version kennt den Pfad, unter dem sie die Notiz hat. Gegen das echte GitHub steht das
   aus: GitHub erkennt eine Umbenennung an der Ähnlichkeit, nicht immer.
+- **Änderungsdatum:** Git kennt keines je Datei. An seiner Stelle steht die Zeit des letzten
+  Commits, der die Datei geändert hat (`…/dates`, GraphQL, 40 Pfade je Anfrage). Gefragt wird
+  nur, wenn die Seitenleiste nach „Date Modified" sortiert ist; die Antwort bleibt im Browser
+  liegen, nach der ID des Blobs, und wird erst wieder gebraucht, wenn eine Datei sich ändert.
+  Bei sehr vielen Notizen dauert das erste Sortieren; bis dahin gilt der Name. Die Kacheln in
+  „Alle Notizen" merken jetzt auch, wenn eine Notiz sich geändert hat (vorher blieb ihr Anfang
+  stehen, bis neu geladen wurde).
 - Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
   zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
   Byte; der Verlauf einer umbenannten Notiz bis zur ältesten Version. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
-  PDFs. `test/core.test.mjs` – Rücklinks Verweis für Verweis.
+  PDFs; die Reihenfolge nach Änderungsdatum, auch nach Neuladen. `test/core.test.mjs` – Rücklinks Verweis für Verweis.
 
 ### Was Phase 3 nicht hat
 
-- **Änderungsdatum:** Git kennt keines je Datei; die Sortierung danach greift nicht.
 - **Vergleich Desktop gegen Web** Notiz für Notiz, wie er für Schritt 3 gedacht war.
 - **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
   sehr großen Repositories wäre das Paket aus einem Archiv der nächste Schritt.

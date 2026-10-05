@@ -171,6 +171,19 @@ test("what another device sent appears without reloading", async () => {
   assert.deepEqual((await rows()).sort(), ["Deep", "Home", "New here", "paper.pdf", "Second note"].sort());
 });
 
+test("ordered by when a note was last changed: the time of the commit that changed it", async () => {
+  const top = async () => (await rows()).filter((r) => r !== "Deep"); // (the folder's own note apart)
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "modified" } })));
+  // what the other device wrote last comes first; the rest, of one commit, by name
+  for (let t = 0; t < 8000 && JSON.stringify(await top()) !== JSON.stringify(["New here", "Second note", "Home", "paper.pdf"]); t += 100) await page.waitForTimeout(100);
+  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf"]);
+  await page.reload(); // (the dates are kept in the browser, by the blobs' ids)
+  await untilNote("Second note.md");
+  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf"]);
+  assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("mdview:octo/notes:dates"))).length > 3), true);
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "name" } })));
+});
+
 test("nothing was refused or thrown along the way", () => {
   const real = problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p));
   assert.deepEqual(real, []);

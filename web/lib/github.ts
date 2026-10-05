@@ -152,6 +152,31 @@ export async function texts(access: string, owner: string, repo: string, shas: s
   return out;
 }
 
+/** When files were last changed: for each path the time (seconds) of the last commit, up to
+ * `head`, that changed it — many in one question (GraphQL). A path no commit knows is left out. */
+export async function dates(access: string, owner: string, repo: string, head: string, paths: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (let i = 0; i < paths.length; i += 40) {
+    const some = paths.slice(i, i + 40);
+    const fields = some.map((path, n) => `p${n}: history(first: 1, path: ${JSON.stringify(path)}) { nodes { committedDate } }`).join(" ");
+    const res = await fetch(`${API}/graphql`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", "User-Agent": "mdview-web" },
+      body: JSON.stringify({ query: `query($owner: String!, $name: String!, $oid: GitObjectID!) { repository(owner: $owner, name: $name) { object(oid: $oid) { ... on Commit { ${fields} } } } }`, variables: { owner, name: repo, oid: head } }),
+      cache: "no-store",
+    });
+    if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+    if (!res.ok) throw new Error(`GitHub: ${res.status} for the dates`);
+    const said = (await res.json()) as { data?: { repository?: { object?: Record<string, { nodes: { committedDate: string }[] } | null> | null } } };
+    const got = said.data?.repository?.object || {};
+    some.forEach((path, n) => {
+      const time = Math.floor(Date.parse(got[`p${n}`]?.nodes?.[0]?.committedDate || "") / 1000);
+      if (time) out[path] = time;
+    });
+  }
+  return out;
+}
+
 /** A file of the repository as it is on its branch now, as bytes (pictures, PDFs, and a note too
  * large for texts). The answer is GitHub's own: its status, its ETag. */
 export function raw(access: string, owner: string, repo: string, path: string, etag?: string | null, ref?: string): Promise<Response> {
