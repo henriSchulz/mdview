@@ -12,11 +12,11 @@ im Hintergrund abgleichen, Konflikte lösen. GitHub ist danach die Quelle der Wa
 Verknüpfung läuft alles wie bisher.
 
 > [!important] Stand
-> Die Schritte 1 bis 5 sind gebaut: holen, hochladen, abgleichen, Konflikte lösen
-> (`sync.rs`, `dev/rig.sh sync` mit 24 Prüfungen), Anmeldung und Verknüpfen (`github.rs`,
-> `dev/rig.sh github` mit 20 Prüfungen gegen ein GitHub-Double). Die Anmeldung ist am
-> 5. Oktober 2026 auch gegen das echte GitHub gelaufen (@henriSchulz). Noch nicht gegen das echte
-> GitHub geprüft: Verknüpfen und Abgleich mit `md-view-test-notes`. Schritt 6 ist Plan.
+> Alle sechs Schritte sind gebaut. Geprüft mit `cargo test` (28 Tests), `dev/rig.sh sync` (24
+> Prüfungen) und `dev/rig.sh github` (20 Prüfungen gegen ein GitHub-Double). Gegen das echte
+> GitHub ist bisher nur die Anmeldung gelaufen (5. Oktober 2026, @henriSchulz). Verknüpfen,
+> Abgleich und Konflikt gegen `md-view-test-notes` stehen aus: [[Git-Phase-2-Check]] ist die
+> Liste zum Durchklicken.
 
 ## Was am Ende da ist
 
@@ -212,8 +212,23 @@ dient ein nacktes Repository in einem Temp-Ordner.
 
 ### 6. Abschluss
 
-- `dev/rig.sh sync` gegen ein nacktes Repository, Abschnitt in `docs/FEATURES.md`.
-- Eine Liste zum Durchklicken gegen das echte GitHub mit zwei Geräten.
+- `dev/rig.sh sync` (gegen ein nacktes Repository) und `dev/rig.sh github` (gegen ein
+  GitHub-Double, `dev/fake-github.py`) prüfen, was sich ohne Menschen prüfen lässt.
+- Abschnitt „Linked to GitHub" in `docs/FEATURES.md`, dazu <kbd>Ctrl</kbd>+<kbd>S</kbd> in der
+  Tastentabelle und die Einstellungsseite.
+- [[Git-Phase-2-Check]]: die Liste zum Durchklicken gegen das echte GitHub, mit zwei Ordnern
+  als zwei Geräten. Sie enthält auch die beiden Systemdialoge, die aus Phase 1 offen sind.
+
+### Was Phase 2 nicht hat
+
+- **Abgleich beim Fokus:** nach jedem Commit, mit <kbd>Ctrl</kbd>+<kbd>S</kbd> und einmal pro
+  Minute, aber nicht eigens, wenn ein Fenster den Fokus bekommt.
+- **Rückmeldung nach dem Hochladen:** Der Stand steht in den Einstellungen und im Tooltip der
+  Uhr; eine Einblendung gibt es nur bei einem Konflikt.
+- **Verknüpfen, wenn beide Seiten schon Inhalt haben:** wird abgelehnt (so entschieden).
+- **Repository aus der App anlegen:** Die GitHub App hat die Berechtigung dafür nicht.
+- **Zusammenführen auf Blockebene:** Gits zeilenweiser Merge entscheidet, was ein Konflikt ist.
+- **Windows und macOS:** nie gebaut; `git2` braucht dort OpenSSL zum Mitbauen.
 
 ## Die GitHub App registrieren
 

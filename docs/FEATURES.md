@@ -379,6 +379,42 @@ computer.
 - **Settings › History** shows where the folder stands: on or off, the repository's name and
   place, its branch, how many versions, the last one, and what is not kept yet.
 
+### Linked to GitHub
+
+A project can be linked to a repository on GitHub. Linked, the two are kept the same: what is
+kept here goes there, and what another device sent comes here — the repository is what counts.
+Without a link, and without GitHub, everything above works as it does.
+
+- **Signing in**: Settings › History › GitHub › Sign In…. The app shows a code; Copy Code and
+  Open GitHub puts it on the clipboard and opens the page where it is confirmed. No password is
+  typed into the app. The sign-in is kept in the system's keyring and taken up again at the next
+  start; Sign Out forgets it.
+- **What the app reaches**: only the repositories it was given on GitHub — chosen when the app
+  is installed on the account, and changed there at any time (Choose on GitHub, where none is given).
+- **Linking**: Settings › History › This folder › GitHub › Link… opens a chooser — a field to
+  search, and the list of the repositories given. Nothing is picked beforehand; a click picks,
+  Link links. An empty repository takes the project as it is. One that holds the same project
+  (another device linked it before) is joined with what is here. One that holds something else
+  is not linked, and that is said.
+- **Getting a repository**: Settings › History › GitHub › Get… — the same chooser, then the
+  folder to put it in. It is fetched into a folder of its own and opens as a project, linked.
+- **When the two are reconciled**: after every version kept, with `Ctrl+S`, and once a minute
+  while a window shows the project. A change from another device appears in the open note
+  without anything done. Without a connection everything is kept here and goes over later.
+- **How they stand**: the clock's tooltip and Settings › History say it — the same on both, not
+  reached, sign in to go on, files to resolve.
+- **Both changed the same note**: other places of it, and it is joined by itself. The same place,
+  and nothing is touched — no marks in the note, nothing sent. The clock turns red, and its menu
+  has Resolve Conflicts…: the files at the left, and for each place both versions, with the
+  device and the time and the words that differ marked. Mine, Theirs or Both for each; a picture
+  or another file that is not text, as a whole (Both: the other one beside it, named after its
+  device). Join makes one version of the two and sends it.
+- **Versions name who and where**: the GitHub account that was signed in, and the device.
+- **Unlink** takes the link away, nothing else: the repository stays as it is on GitHub, the
+  history stays here.
+- **Nothing is ever overwritten**: the app does not force a push and does not rewrite versions;
+  a file changed since it was last kept is never replaced by what comes from the other side.
+
 ## Finding
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
@@ -423,6 +459,7 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Alt+P` | panel (active mode) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
+| `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |
 | `Ctrl+N` | new note |
 | `Ctrl+T` / `Ctrl+W` / `Ctrl+Shift+T` | new tab / close the tab / open the closed one again (folder windows) |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | next tab / the one before |
@@ -447,7 +484,7 @@ the right. A change takes effect at once.
 | Appearance | text size of a note, width of the text column, sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
-| History | the folder's history at a glance (and turning it on), how long a change waits to be kept, this device's name |
+| History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
