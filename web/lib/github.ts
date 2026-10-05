@@ -87,5 +87,70 @@ export async function repositories(access: string): Promise<Repo[]> {
   return all.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }
 
+export type Entry = { path: string; sha: string; size: number };
+export type State = { empty: true } | { empty: false; branch: string; head: string; private: boolean; tree: Entry[]; truncated: boolean };
+
+const part = (s: string) => encodeURIComponent(s);
+const repoPath = (owner: string, repo: string) => `/repos/${part(owner)}/${part(repo)}`;
+
+/** A request that may be answered with "not there" or "nothing in it yet" without that being an error. */
+async function ask(access: string, path: string, accept = "application/vnd.github+json", more: Record<string, string> = {}): Promise<Response> {
+  const res = await fetch(`${API}${path}`, { headers: { Accept: accept, Authorization: `Bearer ${access}`, "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28", ...more }, cache: "no-store" });
+  if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+  return res;
+}
+
+/** A repository as it is now: the commit its branch stands at, and every file in it (path, the
+ * blob's id, size). empty: nothing was ever pushed. null: not there, or not the app's to see. */
+export async function state(access: string, owner: string, repo: string): Promise<State | null> {
+  const about = await ask(access, repoPath(owner, repo));
+  if (!about.ok) return null;
+  const info = (await about.json()) as { default_branch: string; private: boolean };
+  const tip = await ask(access, `${repoPath(owner, repo)}/commits/${part(info.default_branch)}`);
+  if (tip.status === 409 || tip.status === 404) return { empty: true }; // (GitHub: "Git Repository is empty")
+  if (!tip.ok) throw new Error(`GitHub: ${tip.status} for the branch`);
+  const commit = (await tip.json()) as { sha: string; commit: { tree: { sha: string } } };
+  const listed = await ask(access, `${repoPath(owner, repo)}/git/trees/${commit.commit.tree.sha}?recursive=1`);
+  if (!listed.ok) throw new Error(`GitHub: ${listed.status} for the tree`);
+  const all = (await listed.json()) as { tree: { path: string; type: string; sha: string; size?: number }[]; truncated: boolean };
+  const tree = all.tree.filter((e) => e.type === "blob").map((e) => ({ path: e.path, sha: e.sha, size: e.size || 0 }));
+  return { empty: false, branch: info.default_branch, head: commit.sha, private: !!info.private, tree, truncated: !!all.truncated };
+}
+
+const BATCH = 80; // blobs asked for in one question
+
+/** The text of blobs, by their ids: many in one question (GraphQL). null for one that is not
+ * text, is too large to be handed out this way, or is not there. */
+export async function texts(access: string, owner: string, repo: string, shas: string[]): Promise<Record<string, string | null>> {
+  const out: Record<string, string | null> = {};
+  const ids = [...new Set(shas)].filter((s) => /^[0-9a-f]{40,64}$/.test(s));
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const some = ids.slice(i, i + BATCH);
+    const fields = some.map((sha, n) => `b${n}: object(oid: "${sha}") { ... on Blob { text isBinary isTruncated } }`).join(" ");
+    const res = await fetch(`${API}/graphql`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", "User-Agent": "mdview-web" },
+      body: JSON.stringify({ query: `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ${fields} } }`, variables: { owner, name: repo } }),
+      cache: "no-store",
+    });
+    if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+    if (!res.ok) throw new Error(`GitHub: ${res.status} for the texts`);
+    const said = (await res.json()) as { data?: { repository?: Record<string, { text: string | null; isBinary: boolean | null; isTruncated: boolean } | null> } };
+    const got = said.data?.repository || {};
+    some.forEach((sha, n) => {
+      const b = got[`b${n}`];
+      out[sha] = b && !b.isBinary && !b.isTruncated && typeof b.text === "string" ? b.text : null;
+    });
+  }
+  return out;
+}
+
+/** A file of the repository as it is on its branch now, as bytes (pictures, PDFs, and a note too
+ * large for texts). The answer is GitHub's own: its status, its ETag. */
+export function raw(access: string, owner: string, repo: string, path: string, etag?: string | null): Promise<Response> {
+  const at = path.split("/").map(part).join("/");
+  return ask(access, `${repoPath(owner, repo)}/contents/${at}`, "application/vnd.github.raw+json", etag ? { "If-None-Match": etag } : {});
+}
+
 /** Where the user says which repositories the app is given. */
 export const GIVE = "https://github.com/settings/installations";

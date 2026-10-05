@@ -3,52 +3,14 @@
 // Run: npm run build && npm test
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { createServer } from "node:http";
 import { after, before, test } from "node:test";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fakeGitHub, freePort } from "./fake-github.mjs";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
-const seen = []; // what the fake GitHub was asked: [path, form or header]
-let github, app, base, lifetime = 28800, refreshes = 0;
-let serial = 0, validAccess = "", validRefresh = ""; // the tokens GitHub takes just now: every one it hands out is new
-
-function fakeGitHub() {
-  return createServer((req, res) => {
-    let body = "";
-    req.on("data", (c) => (body += c));
-    req.on("end", () => {
-      const url = new URL(req.url, "http://x"), form = new URLSearchParams(body);
-      const json = (data, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(data)); };
-      seen.push([url.pathname, req.method === "POST" ? Object.fromEntries(form) : req.headers.authorization || ""]);
-      if (url.pathname === "/login/oauth/access_token") {
-        if (form.get("client_secret") !== "the-secret") return json({ error: "incorrect_client_credentials" });
-        if (form.get("grant_type") === "refresh_token") {
-          if (form.get("refresh_token") !== validRefresh) return json({ error: "bad_refresh_token", error_description: "The refresh token passed is incorrect or expired." });
-          refreshes++; serial++;
-          [validAccess, validRefresh] = [`ghu_${serial}`, `ghr_${serial}`];
-          return json({ access_token: validAccess, expires_in: 28800, refresh_token: validRefresh, refresh_token_expires_in: 15897600 });
-        }
-        // the code is only good with the verifier whose challenge the user was sent to GitHub with
-        const ok = form.get("code") === "the-code" && createHash("sha256").update(form.get("code_verifier") || "").digest("base64url") === fakeGitHub.challenge;
-        if (!ok) return json({ error: "bad_verification_code" });
-        serial++;
-        [validAccess, validRefresh] = [`ghu_${serial}`, `ghr_${serial}`];
-        return json({ access_token: validAccess, expires_in: lifetime, refresh_token: validRefresh, refresh_token_expires_in: 15897600 });
-      }
-      const token = (req.headers.authorization || "").replace("Bearer ", "");
-      if (token !== validAccess) return json({ message: "Bad credentials" }, 401);
-      if (url.pathname === "/user") return json({ login: "octo", name: "Octo Cat", id: 42 });
-      if (url.pathname === "/user/installations") return json({ installations: [{ id: 7 }] });
-      if (url.pathname === "/user/installations/7/repositories") return json({ repositories: [
-        { full_name: "octo/Zeta", private: true, default_branch: "main" }, { full_name: "octo/alpha-notes", private: false, default_branch: "trunk" } ] });
-      json({ message: "Not Found" }, 404);
-    });
-  });
-}
-
-const listen = (server) => new Promise((r) => server.listen(0, "127.0.0.1", () => r(server.address().port)));
+const gh = fakeGitHub(), seen = gh.seen;
+let app, base;
 
 /** A browser, as far as it matters here: it keeps cookies and is told where it is sent. */
 function browser() {
@@ -69,9 +31,7 @@ function browser() {
 }
 
 before(async () => {
-  github = fakeGitHub();
-  const at = `http://127.0.0.1:${await listen(github)}`;
-  const probe = createServer(); const port = await listen(probe); await new Promise((r) => probe.close(r));
+  const at = await gh.listen(), port = await freePort();
   base = `http://127.0.0.1:${port}`;
   app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-test-that-is-long-enough", APP_ORIGIN: base }, stdio: "pipe" });
   let log = ""; app.stdout.on("data", (d) => (log += d)); app.stderr.on("data", (d) => (log += d));
@@ -82,13 +42,13 @@ before(async () => {
   throw new Error("the app did not start:\n" + log);
 });
 
-after(() => { app?.kill(); github?.close(); });
+after(() => { app?.kill(); gh.close(); });
 
 /** Up to GitHub and back with its code. -> where the app sends the browser then */
 async function signIn(b, next) {
   const sent = await b.go("/auth/login" + (next ? `?next=${encodeURIComponent(next)}` : ""));
   const to = new URL(sent.to);
-  fakeGitHub.challenge = to.searchParams.get("code_challenge");
+  gh.challenge = to.searchParams.get("code_challenge");
   return { sent, to, back: await b.go(`/auth/callback?code=the-code&state=${to.searchParams.get("state")}`) };
 }
 
@@ -146,7 +106,7 @@ test("an answer that does not belong to the sign-in is not taken", async () => {
   assert.equal((await b.go(`/auth/callback?error=access_denied&state=${new URL(sent.to).searchParams.get("state")}`)).to, base + "/signin?why=denied");
   // a code GitHub does not take
   const again = await b.go("/auth/login");
-  fakeGitHub.challenge = "another-challenge";
+  gh.challenge = "another-challenge";
   assert.equal((await b.go(`/auth/callback?code=the-code&state=${new URL(again.to).searchParams.get("state")}`)).to, base + "/signin?why=github");
   assert.ok(!b.jar.has("mdview"));
   assert.match((await b.go("/signin?why=denied")).text, /was not allowed/);
@@ -162,36 +122,36 @@ test("after signing in the user is where they wanted to go — but never somewhe
 });
 
 test("a token about to end is renewed, and the sign-in goes on", async () => {
-  lifetime = 60; // (the next sign-in gets a token that is about to end)
-  refreshes = 0;
+  gh.lifetime = 60; // (the next sign-in gets a token that is about to end)
+  gh.refreshes = 0;
   const b = browser();
   await signIn(b);
-  lifetime = 28800;
-  const was = b.jar.get("mdview"), first = validRefresh;
+  gh.lifetime = 28800;
+  const was = b.jar.get("mdview"), first = gh.validRefresh;
   const home = await b.go("/");
   assert.equal(home.to, base + "/auth/renew?next=%2F"); // (a page cannot write the cookie: the route does)
   const renewed = await b.go(home.to);
   assert.equal(renewed.to, base + "/");
   assert.notEqual(b.jar.get("mdview"), was);
-  assert.equal(refreshes, 1);
+  assert.equal(gh.refreshes, 1);
   const renewal = seen.findLast(([p, f]) => p === "/login/oauth/access_token" && f.grant_type === "refresh_token");
   assert.deepEqual([renewal[1].refresh_token, renewal[1].client_secret], [first, "the-secret"]);
   assert.match((await b.go("/")).text, /octo\/Zeta/); // (with the new token)
   // two requests at once that still carry the old cookie renew once, not twice
-  lifetime = 60; refreshes = 0;
+  gh.lifetime = 60; gh.refreshes = 0;
   const e = browser();
   await signIn(e);
-  lifetime = 28800;
+  gh.lifetime = 28800;
   const [one, two] = await Promise.all([e.go("/auth/renew?next=/"), e.go("/auth/renew?next=/")]);
-  assert.deepEqual([one.to, two.to, refreshes], [base + "/", base + "/", 1]);
+  assert.deepEqual([one.to, two.to, gh.refreshes], [base + "/", base + "/", 1]);
 });
 
 test("a sign-in GitHub takes no more ends at the sign-in page; signing out forgets it", async () => {
-  lifetime = 60; refreshes = 0;
+  gh.lifetime = 60; gh.refreshes = 0;
   const b = browser();
   await signIn(b);
-  lifetime = 28800;
-  validRefresh = "none"; // (the token that renews is not GitHub's any more)
+  gh.lifetime = 28800;
+  gh.validRefresh = "none"; // (the token that renews is not GitHub's any more)
   const over = await b.go("/auth/renew?next=/");
   assert.equal(over.to, base + "/signin?why=over");
   assert.ok(!b.jar.has("mdview"));

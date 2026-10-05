@@ -11,12 +11,13 @@ Umsetzungsplan für die dritte Phase. Nach [[Git-Phase-1]] (lokale Historie) und
 mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI-Funktionen.
 
 > [!important] Stand
-> Entschieden am 6. Oktober 2026: zuerst nur Lesen; es gibt einen Knopf „Mit GitHub anmelden";
-> die App läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository, das
-> öffentlich bleibt (MIT). Gebaut sind Schritt 1 (die Liste der Naht) und Schritt 2 (Gerüst,
-> Anmeldung, Liste der Repositories; `web/`, 7 Tests gegen ein GitHub-Double). Gegen das echte
-> GitHub und bei Firebase ist noch nichts gelaufen: Dafür fehlen das Backend bei Firebase, die
-> Callback-URL und das Client-Secret (siehe „Was du dafür tun musst"). Schritt 3 bis 6 sind Plan.
+> Entschieden am 6. Oktober 2026: zuerst nur Lesen; ein Knopf „Mit GitHub anmelden"; die App
+> läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository, das
+> öffentlich bleibt (MIT). Gebaut sind die Schritte 1 bis 3: die Liste der Naht, Gerüst und
+> Anmeldung (am 5. Oktober auch gegen das echte GitHub durchlaufen), und das Lesen – die
+> unveränderte Desktop-Seite im Browser, mit einer Hülle, die ihr ein Repository liefert
+> (`web/`, 21 Tests, davon 8 in einem echten Browser gegen ein GitHub-Double). Das Lesen ist
+> gegen das echte GitHub noch nicht durchlaufen. Die Schritte 4 bis 6 sind Plan.
 
 ## Was am Ende da ist
 
@@ -202,11 +203,34 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ### 3. Lesen
 
-- Server: der Stand eines Commits in Stücken; `/file/…` für Bilder und PDFs.
-- `host.ts`: Baum und Seitenleiste, Notiz laden, Wikilinks und Rücklinks, Tabs, Zurück und Vor,
-  Alle Notizen, PDFs, Einstellungen ohne die Seiten, die es im Web nicht gibt.
-- Prüfung: derselbe Testordner in Desktop und Web, die gerenderte Seite Notiz für Notiz
-  verglichen (wie `dev/rig.sh compare`, mit Playwright statt des Rigs).
+- Server (`web/app/api/r/…`, `web/app/file/…`): der Stand eines Repositorys (Commit des
+  Standard-Branches und alle Dateien), die Texte von Notizen (viele in einer GraphQL-Anfrage,
+  nach der ID ihres Blobs), und die Dateien selbst unter `/file/<owner>/<repo>/<pfad>` – die
+  Adressen spiegeln das Repository, damit relative Adressen einer Notiz wie auf der Platte
+  auflösen.
+- Das Dokument (`web/app/r/[owner]/[repo]/route.ts`) ist dasselbe, das die Rust-Hülle für ein
+  Fenster schreibt: die Styles der Seite, ihr eines Element, ihre Skripte in ihrer Reihenfolge –
+  danach `host/core.js` und `host/host.js` anstelle der Hülle. Keine React-Seite.
+- `public/host/core.js`: was die Hülle ausrechnet, aus `scan.rs` und `shell.rs` übertragen – der
+  Baum der Seitenleiste, der Titel einer Notiz, wohin ein Wikilink führt (wie Obsidian sucht),
+  Adressen, die Tabs mit je eigenem Weg zurück.
+- `public/host/host.js`: beantwortet die Nachrichten der Seite aus dem Stand und den Texten;
+  Tabs, zuletzt Geöffnetes, Seitenleiste und Einstellungen merkt sich der Browser je Repository.
+  Jede Minute und beim Zurückkehren in den Tab wird der Stand neu geholt; eine geänderte Notiz
+  erscheint ohne Neuladen.
+- **Was aus einem Repository kommt, kann nichts ausführen.** Die Seite erlaubt nur Skripte mit
+  der Kennung dieses einen Dokuments; HTML in einer Notiz läuft nicht. Dateien unter `/file`
+  werden abgeschottet ausgeliefert (CSP `sandbox`), Unbekanntes nur als Download.
+- Schreiben wird abgelehnt und gesagt („The notes are read only here for now").
+- Nicht gebaut: der Vergleich Desktop gegen Web Notiz für Notiz; Rücklinks in PDFs; das
+  Änderungsdatum (Git kennt keines je Datei, die Sortierung „Date Modified" greift im Web
+  nicht); die Hilfe öffnet `docs/FEATURES.md` auf GitHub; die Einstellungen zeigen noch Seiten,
+  die es im Web nicht gibt.
+- Prüfung: `npm run build && npm test` in `web/`. `test/core.test.mjs` prüft die übertragene
+  Logik; `test/read.test.mjs` öffnet ein Repository in Chromium: Notiz mit Bild, Formel und
+  eingebetteter Notiz, Wikilinks und gewöhnliche Links, zurück und vor, Seitenleiste, Tabs (auch
+  nach Neuladen), ein PDF, die Lese-Sperre, eine Änderung von außen, und dass ein Skript in
+  einer Notiz nicht läuft.
 
 ### 4. Schreiben
 
