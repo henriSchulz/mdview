@@ -20,6 +20,7 @@ mod github;
 mod history;
 mod host;
 mod scan;
+mod share;
 mod shell;
 mod sync;
 mod theme;

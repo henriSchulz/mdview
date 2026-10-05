@@ -47,6 +47,9 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   pasteimage: ["write", "a picture from the clipboard, kept beside the note"],
   dropfiles: ["write", "files dropped on a note, by their addresses (a browser has the files themselves: MdHost.drop)"],
   "history-restore": ["write", "a version put back as the note"],
+  "share-info": ["answer", "how a note's sharing stands"],
+  "share-set": ["write", "a note shared under a link, or its password set, changed or taken away"],
+  "share-stop": ["write", "a note shared no more"],
   "history-now": ["write", "Ctrl+S: kept now"],
   "sync-resolve": ["write", "the conflicts' window: joined as picked"],
   // the history
@@ -104,6 +107,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   scrollToFragment: ["answer", "to a place in the note shown"],
   linkResolved: ["answer", "where a link leads"],
   pdfChunk: ["answer", "a piece of a PDF"],
+  share: ["answer", "how a note's sharing stands: whether it can be, its link, whether it has a password"],
   history: ["answer", "a note's versions"],
   historyText: ["answer", "a note as a version has it"],
   flush: ["write", "what is typed is to be saved now"],

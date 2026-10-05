@@ -15,6 +15,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // (not the framework's own files, nor the page's scripts and styles: they hold no notes)
-  matcher: ["/((?!_next/|app/|host/|favicon.ico).*)"],
+  // (not the framework's own files, nor the page's scripts and styles: they hold no notes — and
+  // not a shared note, /s/…: that is for whoever has its link, and guards itself)
+  matcher: ["/((?!_next/|app/|host/|s/|favicon.ico).*)"],
 };

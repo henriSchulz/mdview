@@ -24,6 +24,13 @@ SESSION_SECRET=…         # 32 characters or more, anything random
 
 and the GitHub App must name `http://localhost:3000/auth/callback` among its callback URLs.
 
+A third is needed only for sharing notes under a link (`../docs/Teilen.md`); without it nothing
+is shared from the server, and everything else works:
+
+```
+GITHUB_APP_PRIVATE_KEY=…   # the GitHub App's private key (the .pem's text; line ends may be written \n)
+```
+
 `npm run dev` and `npm run build` first copy the page's own files (`viewer.js`, `active/`,
 `vendor/`, the stylesheets) from the checkout into `public/app/`; they are not kept twice.
 
@@ -51,4 +58,7 @@ PATH) opens a repository and reads it.
 | `public/host/core.js` | what the host works out: the tree, titles, where links lead, tabs |
 | `public/host/host.js` | the host: answers the page from the repository |
 | `host/contract.ts` | everything the page and its host say to each other, and what the web host does with each (held to it by `test/contract.test.mjs`) |
+| `lib/app.ts`, `lib/share.ts` | the app as itself: a token that reads one repository; a shared note, its files, its password |
+| `app/s/[owner]/[repo]/[id]/` | a shared note, for whoever has its link: the page, its data, its files |
+| `public/host/share.js` | the host of a shared note: one note, to be read |
 | `apphosting.yaml` | how it runs on Firebase App Hosting |

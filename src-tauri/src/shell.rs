@@ -24,6 +24,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 use crate::ai::{self, Completer, Drawing, Illustrator};
 use crate::github::{self, News, Session};
 use crate::history::{self, Historian, Place, Stamp};
+use crate::share;
 use crate::sync::{self, Access};
 use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
 use crate::theme::{self, home, Theme};
@@ -316,6 +317,7 @@ pub struct Win {
     tree_json: Option<String>,
     note_paths: HashSet<String>,
     kept_dirs: HashSet<String>, // folders made from the sidebar: shown although nothing is in them yet
+    share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
     watched: HashSet<PathBuf>,   // every directory the watcher looks at
@@ -463,6 +465,13 @@ impl App {
 
     fn access(&self) -> Access {
         Access { token: self.session.as_ref().map(|s| s.access.clone()) }
+    }
+
+    /// What waits in a project is kept now, and a linked one reconciled — not after the quiet while.
+    fn keep_now(&mut self, root: &Path) {
+        self.unsnapped.remove(root);
+        let (stamp, access) = (self.stamp(), self.access());
+        self.historian.snapshot(root, stamp, access);
     }
 
     /// The name the sign-in is kept under in the keyring: the folder this instance's state is in.
@@ -802,6 +811,12 @@ impl App {
                         }
                     });
                 }
+                // (a share's window says whether its link shows yet what was set)
+                for w in self.wins.values() {
+                    if let Some(path) = w.share_asked.as_deref().filter(|p| p.starts_with(&root)) {
+                        w.js("MdView.share", &[share::info(path)]);
+                    }
+                }
             }
             Event::Snapshotted { root, kept, skipped, error, asked } => {
                 if asked {
@@ -983,6 +998,7 @@ impl Win {
             tree_json: None,
             note_paths: HashSet::new(),
             kept_dirs: HashSet::new(),
+            share_asked: None,
             title_cache: TitleCache::new(),
             watcher,
             watched: HashSet::new(),
@@ -1599,6 +1615,7 @@ impl Win {
             return self.toast(format!("Couldn't rename: {}", strerror(&e)));
         }
         let new_real = fs::canonicalize(&new).unwrap_or_else(|_| new.clone());
+        let _ = share::moved(&old_real, Some(&new_real)); // (a link to the note goes on showing it)
         let swap = |p: &mut PathBuf| {
             if *p == old_real {
                 *p = new_real.clone();
@@ -1643,6 +1660,7 @@ impl Win {
         if let Err(e) = trash::delete(path) {
             return self.toast(format!("Couldn't move to Trash: {e}"));
         }
+        let _ = share::moved(&real, None); // (a link to it shows nothing any more)
         self.back.retain(|p| *p != real);
         self.fwd.retain(|p| *p != real);
         if !self.tabs.is_empty() {
@@ -1970,6 +1988,33 @@ impl Win {
                         self.settings_info(app);
                     }
                 }
+            }
+            // sharing a note (active/share.js): how it stands, shared or its password set, shared no
+            // more — written into the project (share.rs), kept and sent on at once
+            "share-info" => {
+                let path = PathBuf::from(text_of("path"));
+                self.js("MdView.share", &[share::info(&path)]);
+                self.share_asked = Some(path);
+            }
+            "share-set" | "share-stop" => {
+                let path = PathBuf::from(text_of("path"));
+                let known = self.path.as_deref() == Some(path.as_path()) || self.note_paths.contains(text_of("path"));
+                let done = if !known || !is_md(&path) || share::info(&path)["can"] != true {
+                    Ok(None)
+                } else if text_of("type") == "share-stop" {
+                    share::stop(&path)
+                } else {
+                    // (password: a text sets it, null takes it away, none said leaves it)
+                    let password = msg.get("password").map(|p| p.as_str().filter(|p| !p.is_empty()));
+                    share::set(&path, password).map(Some)
+                };
+                match done {
+                    Ok(Some(root)) => app.keep_now(&root),
+                    Ok(None) => {}
+                    Err(e) => self.toast(format!("Couldn't share: {e}")),
+                }
+                self.js("MdView.share", &[share::info(&path)]);
+                self.share_asked = Some(path);
             }
             "history-now" => {
                 // Ctrl+S: what waits in the project is kept now, and a linked one reconciled — not

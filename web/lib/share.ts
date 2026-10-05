@@ -1,0 +1,134 @@
+// A note that was shared: read by anyone who has its link, signed in or not — and never anything
+// else of the repository.
+//
+// What is shared stands in the repository itself, in .mdview/shares.json:
+//   { "version": 1, "shares": { "<id>": { "path": "docs/Note.md", "created": "…",
+//       "password": null | { "salt": "<base64>", "hash": "<base64>", "iterations": 600000 } } } }
+// The id is 128 random bits: the link is the secret. A password is kept as PBKDF2-SHA256 of it
+// (what a browser and the desktop app can both work out). Taking an entry out ends the link.
+// The server keeps nothing: it reads the file, as the app (lib/app.ts), whenever the link is used.
+//
+// With the note go the files it shows — its pictures, the notes and PDFs it embeds, and theirs —
+// and nothing it merely links to.
+import "../public/host/core.js"; // (the host's own working out, the same the browser runs: sets globalThis.MdWebCore)
+import { createHmac, pbkdf2, timingSafeEqual } from "node:crypto";
+import { repoToken } from "./app";
+import { state, texts } from "./github";
+
+type Core = {
+  isMd(p: string): boolean; kindOf(p: string): string; dirOf(p: string): string; nameOf(p: string): string;
+  wikiTargets(text: string): { target: string; embed: boolean }[];
+  resolver(base: string, paths: string[], noteDir: string): { vault: string | null; resolve(target: string): string | null };
+};
+const C = (globalThis as unknown as { MdWebCore: Core }).MdWebCore;
+
+export const SHARES = ".mdview/shares.json";
+export const ID = /^[A-Za-z0-9_-]{16,64}$/;
+const EMBED_LIMIT = 256 * 1024, FILES_MOST = 400, KEEP = Number(process.env.SHARE_KEEP_MS ?? 30 * 1000); // (KEEP: the tests want none)
+
+export type Password = { salt: string; hash: string; iterations: number };
+export type Link = { path: string; url: string; kind: string; text?: string };
+export type Shared = {
+  token: string; head: string; path: string; password: Password | null;
+  text: string; links: Record<string, Link | null>; vault: boolean;
+  files: Set<string>; // the paths in the repository that go with the note
+};
+
+const seen = new Map<string, { at: number; shared: Promise<Shared | null> }>(); // (a link used again within half a minute is not read anew)
+
+/** What a link shows, or null: no such link (any more), the note is gone, or sharing is not set
+ * up. `at`: the address its files are served under ("/s/<owner>/<repo>/<id>/file"). */
+export function shared(owner: string, repo: string, id: string, at: string): Promise<Shared | null> {
+  const key = `${owner}/${repo}/${id}`.toLowerCase() + " " + at, had = seen.get(key);
+  if (had && Date.now() - had.at < KEEP) return had.shared;
+  const going = read(owner, repo, id, at).catch((e) => { seen.delete(key); throw e; });
+  seen.set(key, { at: Date.now(), shared: going });
+  if (seen.size > 500) for (const [k, v] of seen) if (Date.now() - v.at >= KEEP) seen.delete(k);
+  return going;
+}
+
+async function read(owner: string, repo: string, id: string, at: string): Promise<Shared | null> {
+  if (!ID.test(id)) return null;
+  const token = await repoToken(owner, repo);
+  if (!token) return null;
+  const now = await state(token, owner, repo);
+  if (!now || now.empty) return null;
+  const sha = new Map(now.tree.map((e) => [e.path, e.sha]));
+  const list = sha.get(SHARES);
+  if (!list) return null;
+  let entry: { path?: unknown; password?: unknown } | undefined;
+  try { entry = (JSON.parse((await texts(token, owner, repo, [list]))[list] || "{}").shares || {})[id]; } catch { return null; }
+  if (!entry || typeof entry.path !== "string" || !sha.has(entry.path) || !C.isMd(entry.path)) return null;
+  const p = entry.password as Partial<Password> | null | undefined;
+  const password = p && typeof p.salt === "string" && typeof p.hash === "string" && Number.isInteger(p.iterations) ? { salt: p.salt, hash: p.hash, iterations: p.iterations as number } : null;
+  if (entry.password && !password) return null; // (a password that cannot be read: closed, not open)
+
+  // the note, and what it shows: looked up as the host in the browser does, but here — the
+  // visitor is told only where these lead, and can fetch only these
+  const base = `/${owner}/${repo}`, paths = [...sha.keys()].map((f) => base + "/" + f), rel = (path: string) => path.slice(base.length + 1);
+  const url = (path: string) => at + "/" + rel(path).split("/").map(encodeURIComponent).join("/");
+  const textOf = async (r: string) => { const s = sha.get(r) as string; return (await texts(token, owner, repo, [s]))[s] ?? ""; };
+  const files = new Set<string>([entry.path]), links: Record<string, Link | null> = {};
+  const text = await textOf(entry.path), note = base + "/" + entry.path;
+  let vault = false;
+  const queue: [string, string][] = [[text, C.dirOf(note)]];
+  while (queue.length) {
+    const [body, dir] = queue.pop() as [string, string];
+    const r = C.resolver(base, paths, dir);
+    if (dir === C.dirOf(note)) vault = !!r.vault;
+    for (const { target, embed } of C.wikiTargets(body)) {
+      if (target in links || target.startsWith("#")) continue;
+      const to = r.resolve(target);
+      if (!to) { links[target] = null; continue; }
+      const info: Link = { path: to, url: url(to), kind: C.kindOf(to) };
+      if (embed && files.size < FILES_MOST) {
+        files.add(rel(to));
+        if (info.kind === "md") { info.text = (await textOf(rel(to))).slice(0, EMBED_LIMIT); queue.push([info.text, C.dirOf(to)]); }
+      }
+      links[target] = info;
+    }
+    // pictures the Markdown way, and in HTML: addresses beside the note
+    for (const m of body.matchAll(/!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)|<(?:img|source|video|audio)\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)) {
+      const href = (m[1] || m[2] || "").split(/[#?]/)[0];
+      if (!href || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(href) || href.startsWith("/")) continue;
+      let name = href;
+      try { name = decodeURIComponent(href); } catch { /* (as it stands) */ }
+      const out = dir.split("/");
+      for (const part of name.split("/")) { if (part === "..") out.pop(); else if (part && part !== ".") out.push(part); }
+      const to = out.join("/");
+      if (to.startsWith(base + "/") && sha.has(rel(to)) && files.size < FILES_MOST) files.add(rel(to));
+    }
+  }
+  return { token, head: now.head, path: entry.path, password, text, links, vault, files };
+}
+
+// ------------------------------------------------------------ a password
+
+const secret = () => { const s = process.env.SESSION_SECRET; if (!s || s.length < 32) throw new Error("SESSION_SECRET is not set (32 characters or more)"); return s; };
+
+/** Whether this is the password. (Slow on purpose: a guess costs what the one who set it chose.) */
+export function matches(password: string, p: Password): Promise<boolean> {
+  return new Promise((done) => {
+    let want: Buffer, salt: Buffer;
+    try { want = Buffer.from(p.hash, "base64"); salt = Buffer.from(p.salt, "base64"); } catch { return done(false); }
+    if (want.length < 16 || p.iterations < 1 || p.iterations > 5_000_000) return done(false);
+    pbkdf2(password, salt, p.iterations, want.length, "sha256", (err, got) => done(!err && got.length === want.length && timingSafeEqual(got, want)));
+  });
+}
+
+/** What a browser carries once the password was given: good for this link and this password only
+ * — a password changed, or a link made anew, and it is asked for again. */
+export const pass = (owner: string, repo: string, id: string, p: Password) => createHmac("sha256", secret()).update(`share\n${owner}/${repo}/${id}\n${p.hash}`.toLowerCase()).digest("base64url");
+export const cookieName = (id: string) => `mdshare-${id.slice(0, 16)}`;
+
+// Guessing is slowed: after a few wrong passwords for a link, none is looked at for a while.
+const wrong = new Map<string, { n: number; until: number }>();
+export function mayTry(key: string): boolean { const w = wrong.get(key); return !w || Date.now() >= w.until; }
+export function tried(key: string, right: boolean): void {
+  if (right) return void wrong.delete(key);
+  const w = wrong.get(key) || { n: 0, until: 0 };
+  w.n++;
+  w.until = w.n < 5 ? 0 : Date.now() + Math.min(15 * 60, 30 * 2 ** (w.n - 5)) * 1000;
+  wrong.set(key, w);
+  if (wrong.size > 2000) wrong.clear();
+}

@@ -448,6 +448,24 @@ counts — and has no writing help by a model.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
   a repository is shown sandboxed.
 
+### Sharing a note
+
+A note can be read by people who have neither the app nor the folder: under a link, in a
+browser. Only a project linked to GitHub can share; the web app shows the note.
+
+- **Share…** (a note's menu in the sidebar, or the clock › Share This Note…): a small window with
+  the link to copy. Anyone who has the link can read the note — and only read it.
+- **A password** can be set there, changed, and taken away. With one, the link asks for it
+  first. Of the password only a hash is kept.
+- **What goes with the note**: its pictures, and what it embeds (`![[…]]`) — notes, PDFs,
+  pictures, and theirs. Nothing it merely links to: such a link is there to see and leads
+  nowhere.
+- **The link shows the note as it is now**, a commit after it was changed. A renamed note keeps
+  its link.
+- **Stop Sharing** ends the link, within half a minute. So does deleting the note.
+- What is shared is written down in the project (`.mdview/shares.json`), so every device of
+  yours knows it, and whoever can read the repository can too.
+
 ## Finding
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.

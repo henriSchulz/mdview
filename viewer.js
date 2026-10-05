@@ -75,6 +75,7 @@
     sigma: svg('<path d="M18 6V5H6l6 7-6 7h12v-1"/>'),
     home: svg('<path d="m3.5 10.5 8.5-7 8.5 7"/><path d="M5.5 9v10.5h4.75V14h3.5v5.5h4.75V9"/>'),
     history: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+    share: svg('<path d="M12 15V3.5M8 7l4-4 4 4"/><path d="M7.5 11H6a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 18 11h-1.5"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
   };
   // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
@@ -1797,6 +1798,10 @@
   function openHistory() {
     loadActive().then(() => { MdActive.history.open(); }, () => toast(T("active.loadFailed")));
   }
+  // a note shared under a link (active/share.js): for anyone, or with a password
+  function openShare(path) {
+    loadActive().then(() => { MdActive.share.open(path); }, () => toast(T("active.loadFailed")));
+  }
   // a linked project whose two sides changed the same place: the window to say how it is to be (active/conflict.js)
   function openConflicts() {
     loadActive().then(() => { MdActive.conflict.open(); }, () => toast(T("active.loadFailed")));
@@ -1825,7 +1830,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "vendor/diff.min.js", "active/history.js", "active/conflict.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
+      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "vendor/diff.min.js", "active/history.js", "active/conflict.js", "active/share.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2319,6 +2324,7 @@
     entry("history:conflicts", "info", "Resolve Conflicts…", "history", "", "", ' data-sync="conflict"') +
     `<div class="menu-rule" data-for="history" data-sync="conflict"></div>` +
     entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
+    entry("history:share", "share", "Share This Note…", "history", "", "", ' data-state="project"') +
     `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt paused"></div>` +
     entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none paused"') +
     entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
@@ -2337,6 +2343,7 @@
     entry("openwith", "apps", "Open With…", "file ovnote") +
     entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
     `<div class="menu-rule" data-for="file ovnote"></div>` +
+    entry("share", "share", "Share…", "file ovnote") +
     entry("rename", "rename", "Rename", "file ovnote", "F2") +
     entry("trash", "trash", "Move to Trash", "file ovnote", "Del", " danger");
   document.body.appendChild(ctx);
@@ -2397,6 +2404,8 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
+      else if (cmd === "history:share") openShare();
+      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast("Only notes can be shared"); }
       else if (cmd === "history:conflicts") openConflicts();
       else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
@@ -3229,7 +3238,7 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),

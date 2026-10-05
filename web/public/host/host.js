@@ -366,6 +366,38 @@
     if (there.length) tell("insertDropped", { path, markups: there.map((t) => markupOf(path, t)) });
   }
 
+  // ------------------------------------------------------------ sharing a note
+  /* What is shared stands in the repository (.mdview/shares.json, see lib/share.ts on the
+   * server): a link's id, the note's path, and of a password only what it hashes to. Sharing,
+   * a password set or taken away, and the end of it are commits like any other. */
+  const shares = async () => C.sharesOf(has(C.SHARES) ? await textOf(BASE + "/" + C.SHARES) : "");
+  const b64 = (bytes) => base64Of(new Uint8Array(bytes));
+  async function hashed(password) { // (PBKDF2-SHA256: what the server works out again when the password is given)
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iterations = 600000;
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    return { salt: b64(salt), hash: b64(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256)), iterations };
+  }
+  async function tellShare(path) {
+    const why = !W.sharing ? "Notes are not shared from this address yet: the server has no key for it." : !project() ? "Turn the history on first: the clock in the sidebar." : null;
+    const found = why ? null : C.shareOf(await shares(), rel(path));
+    tell("share", { path, can: !why, why, link: found ? `${location.origin}/s/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}/${found[0]}` : null, password: !!(found && found[1].password), pending: drafts.has(C.SHARES) });
+  }
+  /* The list changed and kept, at once; the page is told how it stands, and again once GitHub has it. */
+  async function keepShares(all, path) {
+    write(C.SHARES, C.sharesText(all));
+    await tellShare(path);
+    await commit();
+    await tellShare(path);
+  }
+  /* A note that has another name, or is gone (now: null): what was shared of it follows, or ends. */
+  async function sharesFollow(was, now) {
+    if (!has(C.SHARES)) return;
+    const all = await shares(), found = C.shareOf(all, was);
+    if (!found) return;
+    if (now) found[1].path = now; else delete all.shares[found[0]];
+    write(C.SHARES, C.sharesText(all));
+  }
+
   // ------------------------------------------------------------ what the page says
   const noteDir = () => (onScreen ? C.dirOf(onScreen) : BASE);
   const on = {
@@ -517,6 +549,25 @@
       commit();
     },
 
+    // sharing (active/share.js)
+    "share-info"({ path }) { if (exists(path) && C.isMd(path)) return tellShare(path); },
+    async "share-set"({ path, password }) {
+      if (!exists(path) || !C.isMd(path) || !W.sharing || !mayWrite()) return tellShare(path);
+      const all = await shares(), found = C.shareOf(all, rel(path));
+      const id = found ? found[0] : base64Of(crypto.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const entry = found ? found[1] : { path: rel(path), created: new Date().toISOString().replace(/\.\d+Z$/, "Z"), password: null };
+      if (password !== undefined) entry.password = typeof password === "string" && password ? await hashed(password) : null;
+      all.shares[id] = entry;
+      await keepShares(all, path);
+    },
+    async "share-stop"({ path }) {
+      if (!exists(path) || !mayWrite()) return tellShare(path);
+      const all = await shares(), found = C.shareOf(all, rel(path));
+      if (!found) return tellShare(path);
+      delete all.shares[found[0]];
+      await keepShares(all, path);
+    },
+
     // writing
     save({ text, path, exact, seq }) {
       const p = path || onScreen;
@@ -566,6 +617,7 @@
         drafts.delete(r);
         if (files.has(r)) gone.add(r);
         write(rel(now), text);
+        await sharesFollow(r, rel(now)); // (its link goes on showing it)
       } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
         blobs.set(rel(now), blobs.get(r));
         blobs.delete(r);
@@ -597,6 +649,7 @@
       if (files.has(r)) gone.add(r);
       keepDrafts();
       later();
+      if (C.isMd(path)) await sharesFollow(r, null); // (a link to it shows nothing any more)
       tabs.drop(path);
       toast(`Deleted “${C.nameOf(path)}”. Its versions stay in the repository`);
       sendFolder();

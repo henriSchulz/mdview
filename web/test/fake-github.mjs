@@ -1,7 +1,7 @@
 // A GitHub of the tests' own: signing in (the web flow and renewing), who a token is, the
 // repositories the app was given, and one repository's files — whatever is in `repo.files`
 // (path → Buffer) at the moment, as a commit that changes whenever the files do.
-import { createHash } from "node:crypto";
+import { createVerify, createHash } from "node:crypto";
 import { createServer } from "node:http";
 
 export function fakeGitHub() {
@@ -11,6 +11,7 @@ export function fakeGitHub() {
     repo: { owner: "octo", name: "notes", files: new Map(), private: true },
     blobs: new Map(),
     past: [], // the repository as every commit seen had it: { oid, message, time, files }, oldest first
+    appKey: null, installed: true, appToken: "", appAsked: [], // the app as itself: its public key, whether it is installed on the repository, the token it was given, what it asked for
     commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by }
   };
   const blobSha = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
@@ -51,7 +52,20 @@ export function fakeGitHub() {
         [gh.validAccess, gh.validRefresh] = [`ghu_${gh.serial}`, `ghr_${gh.serial}`];
         return json({ access_token: gh.validAccess, expires_in: gh.lifetime, refresh_token: gh.validRefresh, refresh_token_expires_in: 15897600 });
       }
-      if ((req.headers.authorization || "").replace("Bearer ", "") !== gh.validAccess) return json({ message: "Bad credentials" }, 401);
+      const bearer = (req.headers.authorization || "").replace("Bearer ", "");
+      // the app as itself: it says who it is, signed with its key, and gets a token for one repository
+      if (/^\/repos\/[^/]+\/[^/]+\/installation$/.test(url.pathname) || url.pathname === "/app/installations/7/access_tokens") {
+        const [h, p, sig] = bearer.split("."), claims = (() => { try { return JSON.parse(Buffer.from(p, "base64url")); } catch { return {}; } })();
+        const signed = !!gh.appKey && !!sig && createVerify("RSA-SHA256").update(`${h}.${p}`).verify(gh.appKey, Buffer.from(sig, "base64url"));
+        if (!signed || claims.iss !== "Iv23liovowgVJASctV6s" || claims.exp < Date.now() / 1000 || claims.exp - claims.iat > 660) return json({ message: "A JSON web token could not be decoded" }, 401);
+        if (!gh.installed || (url.pathname.startsWith("/repos/") && url.pathname !== `/repos/${gh.repo.owner}/${gh.repo.name}/installation`)) return json({ message: "Not Found" }, 404);
+        if (url.pathname.startsWith("/repos/")) return json({ id: 7 });
+        const asked = JSON.parse(body || "{}");
+        gh.appAsked.push(asked);
+        gh.appToken = `ghs_${++gh.serial}`;
+        return json({ token: gh.appToken, expires_at: new Date(Date.now() + 3600e3).toISOString() }, 201);
+      }
+      if (bearer !== gh.validAccess && !(gh.appToken && bearer === gh.appToken)) return json({ message: "Bad credentials" }, 401);
       const { owner, name, files } = gh.repo, at = `/repos/${owner}/${name}`;
       if (url.pathname === "/user") return json({ login: "octo", name: "Octo Cat", id: 42 });
       if (url.pathname === "/user/installations") return json({ installations: [{ id: 7 }] });

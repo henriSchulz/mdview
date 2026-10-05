@@ -34,6 +34,7 @@
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
+#   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
 #   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
@@ -536,6 +537,29 @@ case "${1:-}" in
     ok "the project is the one it was: the same marker as before it was switched off" '[[ $(git -C "$P" log --format=%H -- .mdview/project.json | wc -l) == 1 ]]' 'git -C "$P" log --oneline -- .mdview/project.json'
     pkill -f "^$APP" 2>/dev/null
     exit $fail ;;
+  share)
+    rm -rf "$R/work"; mkdir -p "$R/work/a/.mdview"; cp "$D"/tests/fixtures/basics.md "$R/work/a/Note.md"; A="$R/work/a"; rm -f "$R/out"/*.share*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    echo '{"id":"rig","version":1}' > "$A/.mdview/project.json"
+    git -C "$A" init -q -b main; git -C "$A" -c user.name=Rig -c user.email=rig@example.invalid add -A; git -C "$A" -c user.name=Rig -c user.email=rig@example.invalid commit -q -m first
+    git -C "$A" remote add origin https://github.com/henriSchulz/mdview-rig-not-there.git   # (linked to GitHub, as far as the shell can tell: nothing arrives there)
+    app 60 MDVIEW_PROBE="$D/probe-share.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_WEB=https://notes.example -- "$A"
+    wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    sh() { jq -r "$1" "$A/.mdview/shares.json"; }
+    wait_for share-shared 200; id=$(sh '.shares | keys[0]')
+    ok "the clock's menu offers it" 'jq -e ".offered | index(\"Share This Note…\")" "$R/out"/*.share-shared.json >/dev/null' 'jq -c .offered "$R/out"/*.share-shared.json'
+    ok "not shared yet: the window offers to" '[[ $(jq -c ".open | [.title, .link, .go, .stop]" "$R/out"/*.share-shared.json) == "[\"Share “Note”\",null,true,false]" ]]' 'jq -c .open "$R/out"/*.share-shared.json'
+    ok "shared: the file names the note, without a password" '[[ $(sh ".shares[\"$id\"] | [.path, .password] | @json") == "[\"Note.md\",null]" && ${#id} == 22 ]]' 'cat "$A/.mdview/shares.json"'
+    ok "the window shows the link, at the web app" '[[ $(jq -r .shared.link "$R/out"/*.share-shared.json) == "https://notes.example/s/henriSchulz/mdview-rig-not-there/$id" ]]' 'jq -c .shared "$R/out"/*.share-shared.json'
+    ok "… and says that it is not at GitHub yet" 'jq -r .shared.text "$R/out"/*.share-shared.json | grep -q "once this is sent to GitHub"'
+    ok "kept as a commit at once" 'git -C "$A" log --format=%s -1 -- .mdview/shares.json | grep -q "shares.json"' 'git -C "$A" log --oneline | head -3; git -C "$A" status --porcelain'
+    wait_for share-locked 200
+    ok "a password: of it only what it hashes to is in the file" '[[ $(sh ".shares[\"$id\"].password | keys | @json") == "[\"hash\",\"iterations\",\"salt\"]" ]] && ! grep -q sesame "$A/.mdview/shares.json"' 'cat "$A/.mdview/shares.json"'
+    ok "the window says so" 'jq -r .locked.text "$R/out"/*.share-locked.json | grep -q "and the password"' 'jq -c .locked "$R/out"/*.share-locked.json'
+    wait_for share 200; sleep 1; pkill -f "^$APP" 2>/dev/null
+    ok "shared no more: nothing in the file, the window offers to share again" '[[ $(sh ".shares | length") == 0 && $(jq -c "[.stopped.link, .stopped.go]" "$R/out"/Note.md.share.json) == "[null,true]" ]]' 'cat "$A/.mdview/shares.json"; jq -c .stopped "$R/out"/Note.md.share.json'
+    ok "nothing went wrong in the page" '[[ $(jq -r ".error // empty" "$R/out"/Note.md.share.json) == "" ]]' 'jq -r .error "$R/out"/Note.md.share.json'
+    exit $fail;;
   sync)
     rm -rf "$R/work"; mkdir -p "$R/work/a"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/a/"
     A="$R/work/a"; B="$R/work/b"; HUB="$R/work/hub.git"; rm -f "$R/out"/*.sync*.json; fail=0

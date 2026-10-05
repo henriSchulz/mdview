@@ -172,6 +172,19 @@
     return out;
   }
 
+  /* What is shared of a project, as it stands in .mdview/shares.json: { version, shares: { id →
+   * { path, created, password } } } — read forgivingly, written with the ids in order (two
+   * devices that each share a note then change different lines of it). */
+  const SHARES = ".mdview/shares.json";
+  function sharesOf(text) {
+    let all = null;
+    try { all = JSON.parse(text || "{}"); } catch { /* (not to be read: as if empty) */ }
+    const shares = all && typeof all.shares === "object" && all.shares && !Array.isArray(all.shares) ? all.shares : {};
+    return { version: 1, shares: Object.fromEntries(Object.entries(shares).filter(([, e]) => e && typeof e.path === "string")) };
+  }
+  const sharesText = (all) => JSON.stringify({ version: 1, shares: Object.fromEntries(Object.keys(all.shares).sort().map((id) => [id, all.shares[id]])) }, null, 2) + "\n";
+  const shareOf = (all, path) => Object.entries(all.shares).find(([, e]) => e.path === path) || null; // → [id, entry]
+
   /* An address the page was about to go to, as the path of a file here (and the place in it), or
    * null where it is an address elsewhere. files: where the app serves a repository's files
    * ("https://…/file"). */
@@ -340,5 +353,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, linkPath, tabs };
+  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

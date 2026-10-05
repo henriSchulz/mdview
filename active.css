@@ -1001,3 +1001,25 @@ body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(-
 .rp-kind:hover { background: color-mix(in srgb, var(--cc) 20%, transparent); }
 .rp-kind[aria-pressed="true"] { background: color-mix(in srgb, var(--cc) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 60%, transparent); }
 .rp-kind svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* --- sharing a note (share.js): a small window over the page, as the question a dialog asks */
+.share-scrim { position: fixed; inset: 0; z-index: 52; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+.share-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+.share-box { display: grid; gap: 10px; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); color: var(--fg); transform: scale(0.96); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+.share-scrim[data-open] .share-box { transform: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.share-box:focus { outline: none; }
+.share-box b { font-weight: 600; }
+.share-text { margin: 0; min-height: 2.9em; color: var(--fg2); }
+.share-row { display: flex; gap: 8px; align-items: center; }
+.share-row[hidden], .share-box [hidden] { display: none; }
+.share-row .lp-field { flex: 1; min-width: 0; }
+.share-box .btn { flex: none; height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.share-box .btn:disabled { opacity: 0.4; pointer-events: none; }
+.share-box .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+.share-box .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+.share-foot { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.share-foot span { flex: 1; }
+.share-foot .pf-link { margin-left: -8px; }
+.share-foot .pf-link + .pf-link { margin-left: 0; }
+@media (prefers-reduced-motion: reduce) { .share-box, .share-scrim[data-open] .share-box { transform: none; transition: none; } }
+@media (prefers-contrast: more) { .share-box { box-shadow: 0 0 0 1.5px var(--fg); } }

@@ -13,10 +13,13 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 46 Tests in `web/`, davon 25
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 54 Tests in `web/`, davon 27
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
+
+> [!info] Danach
+> Eine Notiz unter einem Link teilen, für alle oder mit Passwort: [[Teilen]].
 
 ## Was am Ende da ist
 

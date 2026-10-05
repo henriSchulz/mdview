@@ -13,3 +13,7 @@ env:
     secret: GITHUB_CLIENT_SECRET
   - variable: SESSION_SECRET
     secret: SESSION_SECRET
+  # the GitHub App's private key: with it notes can be shared under a link (docs/Teilen.md).
+  # Switched on once the secret exists — a build that names a secret that is not there fails.
+  # - variable: GITHUB_APP_PRIVATE_KEY
+  #   secret: GITHUB_APP_PRIVATE_KEY
