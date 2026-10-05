@@ -59,7 +59,7 @@ mod linux {
     use super::*;
     use gtk::prelude::*;
     use gtk::{gdk, gio, glib};
-    use webkit2gtk::{CacheModel, ContextMenuAction, ContextMenuExt, ContextMenuItemExt, SettingsExt, SnapshotOptions, SnapshotRegion, WebContextExt, WebViewExt};
+    use webkit2gtk::{CacheModel, ContextMenuAction, ContextMenuExt, ContextMenuItemExt, LoadEvent, SettingsExt, SnapshotOptions, SnapshotRegion, WebContextExt, WebViewExt};
 
     // clipboard formats kept as they are when pasted; anything else is saved as PNG
     const PASTE_MIME: &[(&str, &str)] =
@@ -131,7 +131,23 @@ mod linux {
                 !shift || menu.n_items() == 0
             });
             wv.connect_web_process_terminated(move |_, _| crashed());
+            // Until its first page is drawn, the web view is not: the window shows its own colour.
+            // What the GPU path hands over before the page has painted is a buffer nobody wrote
+            // to — on some drivers a magenta one, for as long as the page takes. The page says
+            // when it is drawn (show_view); one that says nothing is shown a moment after loading.
+            wv.set_opacity(0.0);
+            wv.connect_load_changed(move |wv, ev| {
+                if ev == LoadEvent::Finished {
+                    let wv = wv.clone();
+                    glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || wv.set_opacity(1.0));
+                }
+            });
         });
+    }
+
+    /// The web view drawn again: its page has painted (see setup).
+    pub fn show_view(window: &WebviewWindow) {
+        let _ = window.with_webview(|pw| pw.inner().set_opacity(1.0));
     }
 
     /// Cut, Copy, Paste, SelectAll: run where the focus is, as the key would.
@@ -394,6 +410,8 @@ mod other {
     use super::*;
 
     pub fn setup(_window: &WebviewWindow, _debug: bool, _crashed: impl Fn() + 'static + Send) {}
+
+    pub fn show_view(_window: &WebviewWindow) {}
 
     pub fn edit_command(window: &WebviewWindow, cmd: &str) {
         let name = match cmd {

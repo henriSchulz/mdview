@@ -1650,7 +1650,12 @@ impl Win {
                 let info = found.map_or(Value::Null, |p| json!({ "path": s(&p), "url": file_url(&p), "kind": file_kind(&p) }));
                 self.js("MdView.linkResolved", &[json!(target), info]);
             }
-            "painted" => {} // (the page's content is drawn: Python's shell lifted a cover then; this window needs none)
+            "painted" => {
+                // (the page's content is drawn: the web view, not shown until now, is)
+                if let Some(window) = &self.window {
+                    host::show_view(window);
+                }
+            }
             "fileop" => self.file_op(text_of("op"), text_of("path")),
             "pdfdata" => {
                 let id = match &msg["id"] {

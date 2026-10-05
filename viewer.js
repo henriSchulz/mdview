@@ -758,7 +758,9 @@
 
   let painted = false;
   function reveal() {
-    if (!painted) { painted = true; setTimeout(() => post("painted"), 30); } // (the window lifts its cover)
+    // (the window shows the web view from here on — once a frame with this content has gone out,
+    // not before: until then the view holds nothing of the page's)
+    if (!painted) { painted = true; requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => post("painted"), 30))); }
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
     // (the active mode's scripts are fetched in a quiet moment after the first note is on screen:
     // the first change into that mode then only has to build the note)
