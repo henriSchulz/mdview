@@ -27,6 +27,8 @@ base64 = "0.22"
 percent-encoding = "2"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 libc = "0.2"
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"

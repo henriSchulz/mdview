@@ -32,6 +32,7 @@
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
+#   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
@@ -474,6 +475,52 @@ case "${1:-}" in
     [[ -f $R/out/$name.callout.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json" | grep -qv '^ok' ;;
+  history)
+    rm -rf "$R/work"; mkdir -p "$R/work/notes/sub"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/notes/"; cp "$D/tests/fixtures/footnotes.md" "$R/work/notes/sub/"
+    W="$R/work/notes"; rm -f "$R/out"/*.history.json "$R/out"/*.history-ready.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -3 | tr '\n' ' '))}"; fail=1; fi; }
+    app 60 MDVIEW_PROBE="$D/probe-history.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=1500 -- "$W"
+    for _ in $(seq 150); do ls "$R/out"/*.history-ready.json >/dev/null 2>&1 && break; sleep 0.1; done
+    ls "$R/out"/*.history-ready.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    ok "after switching on and one change: two commits" '[[ $(git -C "$W" rev-list --count HEAD) == 2 ]]' 'git -C "$W" log --oneline'
+    printf '\nfrom outside\n' >> "$W/sub/footnotes.md"   # (another program writes into the folder)
+    for _ in $(seq 100); do ls "$R/out"/*.history.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.8                                             # (less than the quiet while: the last commit is the closing's)
+    note=$(jq -r .note "$R/out"/*.history.json)
+    rep=$(ls "$R/out"/*.history.json | head -1)
+    ok "the sidebar's clock says the history is off, and offers it" '[[ $(jq -r "[.before.says, .before.quiet, .offered[0]] | join(\"|\")" "$rep") == "History: off|true|Turn On History" ]]' 'jq -c "[.before, .offered]" "$rep"'
+    ok "switched on from its menu, it says so and offers the note's history" '[[ $(jq -r "[.after.says, .after.quiet, .then[1]] | join(\"|\")" "$rep") == "History: on|false|History Is On (off)" && $(jq -r ".then[0]" "$rep") == "Show History of This Note"* ]]' 'jq -c "[.after, .then]" "$rep"'
+    ok "four commits: switched on, a change, one from outside, one at closing" '[[ $(git -C "$W" rev-list --count HEAD) == 4 ]]' 'git -C "$W" log --oneline'
+    ok "their subjects name what changed" '[[ $(git -C "$W" log --reverse --format=%s | paste -sd"|") == "History switched on|$note|footnotes.md|$note" ]]' 'git -C "$W" log --reverse --format=%s'
+    ok "the folder is as the last commit says" '[[ -z $(git -C "$W" status --porcelain) ]]' 'git -C "$W" status --porcelain'
+    ok "marker and repository are both there" '[[ -f $W/.mdview/project.json && -d $W/.git ]]'
+    dev=$(jq -r '.device | "\(.name) (\(.id))"' "$R/state/mdview/state.json")
+    ok "every commit names this device" '[[ $(git -C "$W" log --format="%(trailers:key=Device,valueonly)" | grep -c -F "$dev") == 4 ]]' 'git -C "$W" log -1 --format=%B; echo "$dev"'
+    ok "the device has an id of its own" '[[ $(jq -r .device.id "$R/state/mdview/state.json") =~ ^[0-9a-f-]{36}$ ]]'
+    ok "and the program that made it" '[[ $(git -C "$W" log --format="%(trailers:key=Client,valueonly)" | grep -c "^desktop ") == 4 ]]'
+    ok "the note on disk has both changes" 'grep -q "second change" "$W/$note" && grep -q "first change" "$W/$note"'
+    pkill -f "^$APP" 2>/dev/null; sleep 0.5
+    # the history's window, on the note that now has three versions
+    rm -f "$R/out"/*.history-window.json
+    app 60 MDVIEW_PROBE="$D/probe-history-window.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=700 -- "$W"
+    for _ in $(seq 250); do ls "$R/out"/*.history-window.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    win=$(ls "$R/out"/*.history-window.json 2>/dev/null | head -1); [[ -n $win ]] || { echo "no report of the window"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$win"; jq -e .pass "$win" >/dev/null || fail=1
+    ok "the file on disk is the restored version" 'cmp -s <(jq -j .restored "$win") "$W/$note"'
+    ok "and kept as a fifth commit" '[[ $(git -C "$W" rev-list --count HEAD) == 5 ]]' 'git -C "$W" log --oneline'
+    # a folder above that project becomes a project, and takes it in
+    P="$R/work"; cp "$D/tests/fixtures/obsidian.md" "$P/top.md"; rm -f "$R/out"/*.history-nested.json
+    app 60 MDVIEW_PROBE="$D/probe-history-nested.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=700 -- "$P"
+    for _ in $(seq 150); do ls "$R/out"/*.history-nested.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    nest=$(ls "$R/out"/*.history-nested.json 2>/dev/null | head -1); [[ -n $nest ]] || { echo "no report of the taking in"; tail -5 "$R/app.log"; exit 1; }
+    ok "the folder above was no project, and is one now" '[[ $(jq -r "[.before, .after] | join(\"|\")" "$nest") == "History: off|History: on" ]]' 'cat "$nest"'
+    ok "the inner project's repository and marker are gone from its folder" '[[ ! -e $W/.git && ! -e $W/.mdview && -d $P/.git && -f $P/.mdview/project.json ]]'
+    ok "its commits are the outer project's: five, the folder as it was, and the one that joins them" '[[ $(git -C "$P" rev-list --count HEAD) == 7 && $(git -C "$P" rev-list --merges --count HEAD) == 1 ]]' 'git -C "$P" log --oneline --graph'
+    ok "its notes are in the outer project, and nothing waits" '[[ -n $(git -C "$P" ls-files "notes/$note") && -z $(git -C "$P" status --porcelain) ]]' 'git -C "$P" status --porcelain'
+    ok "its repository is put aside, not thrown away" '[[ $(ls "$P/.git/mdview-absorbed" | wc -l) == 1 ]]'
+    exit $fail ;;
   regress)
     # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.
     # (A BASE from before the move to Tauri posts to WebKit's message handler: pointed at MdHost here.)

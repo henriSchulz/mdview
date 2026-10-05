@@ -16,6 +16,7 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
 mod ai;
+mod history;
 mod host;
 mod scan;
 mod shell;
@@ -53,6 +54,10 @@ pub enum Event {
     ApplyTheme { turn: u64 },
     MotionChanged,
     Idle { turn: u64 },
+    /// a project has been quiet since it was last touched: time for its snapshot
+    Snapshot { root: PathBuf, turn: u64 },
+    /// asked: the page's doing (projects taken in), so what went wrong is said, and the folder told anew
+    Snapshotted { root: PathBuf, kept: bool, skipped: Vec<String>, error: Option<String>, asked: bool },
 }
 
 #[derive(Clone, Copy)]

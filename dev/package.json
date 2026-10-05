@@ -8,6 +8,7 @@
     "test": "node --test tests/"
   },
   "devDependencies": {
+    "diff": "9.0.0",
     "esbuild": "0.28.2",
     "jsdom": "30.1.1",
     "micromark": "4.0.3",

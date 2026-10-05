@@ -10,7 +10,7 @@
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
-    aiComplete: false, aiModel: "",
+    aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
     ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100,
   };
@@ -50,6 +50,15 @@
         ["ovLayout", "select", [["tiles", "prefs.ovLayout.tiles"], ["list", "prefs.ovLayout.list"]]],
       ]],
     ]],
+    ["history", "history", [
+      // the folder this window shows: where it stands, and what its repository holds (told by the application)
+      ["prefs.history.here", [
+        ["historyState", "historyState"], ["historyName", "about"], ["historyRoot", "about"], ["historyBranch", "about"],
+        ["historyCount", "about"], ["historyLast", "about"], ["historyChanged", "about"],
+      ]],
+      [null, [["historyQuiet", "select", [[10, "10 s"], [30, "30 s"], [60, "1 min"], [300, "5 min"]]]]],
+      ["prefs.history.device", [["deviceName", "text"], ["deviceId", "about"]]],
+    ]],
     ["editing", "pencil", [
       [null, [["bar", "switch"], ["slash", "switch"], ["syntax", "switch"], ["quotes", "switch"]]],
       ["prefs.paragraphs", [["wrap", "select", [[0, "prefs.wrap.off"], [72, "72"], [80, "80"], [100, "100"], [120, "120"]]]]],
@@ -81,7 +90,7 @@
       [null, [["version", "about"], ["guide", "action"], ["configDir", "about"]]],
     ]],
   ];
-  const GROUPS = [[null, ["general", "appearance"]], ["prefs.group.notes", ["sidebarPage", "allNotes"]], ["prefs.group.writing", ["editing", "newMarkdown", "latex", "pdf", "ai"]], [null, ["about"]]];
+  const GROUPS = [[null, ["general", "appearance"]], ["prefs.group.notes", ["sidebarPage", "allNotes", "history"]], ["prefs.group.writing", ["editing", "newMarkdown", "latex", "pdf", "ai"]], [null, ["about"]]];
   const label = (k) => (/^[a-z]+\.[a-zA-Z.]+$/.test(k) ? T(k) : k);
   const el = (tag, attrs = {}, text) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
 
@@ -124,7 +133,7 @@
     if (kind === "text") {
       const input = el("input", { type: "text", class: "lp-field pf-text", spellcheck: "false", autocomplete: "off" });
       input.value = now()[key] || "";
-      refresh.push(() => { input.placeholder = (key === "aiModel" && info.aiModel) || ""; });
+      refresh.push(() => { input.placeholder = (key === "aiModel" && info.aiModel) || (key === "deviceName" && info.deviceName) || ""; });
       input.onchange = () => set(key, input.value.trim());
       return input;
     }
@@ -145,6 +154,19 @@
         field.disabled = save.disabled = !!k.env;
       });
       box.append(state, field, save, remove);
+      return box;
+    }
+    if (kind === "historyState") { // on or off, and the button that turns it on where that can be done
+      const box = el("div", { class: "pf-history" });
+      const state = el("span", { class: "pf-value" }), on = el("button", { class: "pf-link", type: "button" });
+      on.onclick = () => post("history-enable"); // (a repository that is there: the application asks first)
+      refresh.push(() => {
+        const st = historyState();
+        state.textContent = T("prefs.history.is." + st);
+        on.hidden = st !== "none" && st !== "adopt";
+        on.textContent = T(st === "adopt" ? "prefs.history.adopt" : "prefs.history.on");
+      });
+      box.append(state, on);
       return box;
     }
     if (kind === "action") {
@@ -193,6 +215,7 @@
           if (hint !== "prefs." + key + ".hint") text.appendChild(el("span", { class: "pf-hint" }, hint));
           row.append(text, control(key, kind, choices));
           if (when) refresh.push(() => { row.hidden = now().style !== when; });
+          if (/^history[A-Z]/.test(key) && kind === "about") refresh.push(() => { row.hidden = info[key] == null; }); // (only what there is to say)
           card.appendChild(row);
         }
         pg.appendChild(card);
@@ -272,7 +295,27 @@
     return true;
   }
   // what the application knows: { aiKey: { set, tail, env }, aiModel, version, configDir }
-  function gotInfo(data) { info = { ...info, ...(data || {}) }; refresh.forEach((f) => f()); }
+  const historyState = () => { const h = info.history || {}; return h.state === "foreign" && h.own ? "adopt" : h.state || "none"; };
+  // the folder's history as the rows show it (a row with nothing to say is not shown)
+  function historyRows(h) {
+    const short = (p) => (info.home && p && p.startsWith(info.home) ? "~" + p.slice(info.home.length) : p);
+    const when = (t) => new Date(t * 1000).toLocaleString(now().lang === "de" ? "de-DE" : "en-GB", { dateStyle: "medium", timeStyle: "short" });
+    const kept = h.state === "project" || h.state === "inside";
+    return {
+      historyName: h.name ?? null,
+      historyRoot: short(h.root) ?? null,
+      historyBranch: h.root ? h.branch || T("prefs.history.noBranch") : null,
+      historyCount: h.root ? String(h.versions ?? 0) : null,
+      historyLast: h.last ? when(h.last.time) + " · " + h.last.device.replace(/ \([0-9a-f-]{36}\)$/, "") : null,
+      historyChanged: !kept ? null : !h.changed ? T("prefs.history.allKept") : T((h.waiting ? "prefs.history.waiting" : "prefs.history.changed") + (h.changed === 1 ? ".one" : "")).replace("%s", h.changed),
+    };
+  }
+  function gotInfo(data) {
+    info = { ...info, ...(data || {}) };
+    if (data && data.history) Object.assign(info, historyRows(data.history));
+    refresh.forEach((f) => f());
+  }
+  const stale = () => { if (isOpen()) post("settings-info"); }; // (the application kept a version: what is shown is no longer so)
 
   // the settings changed: what depends on them follows at once
   A.onPrefs = () => {
@@ -283,5 +326,5 @@
   };
   // (the window is put together in a quiet moment: built on the first Ctrl+, it made that one slow)
   setTimeout(() => { if (!root) { try { build(); } catch (e) { root = scrim = null; } } }, 2500);
-  A.prefs = { open, close, get: now, DEFAULTS, info: gotInfo, get isOpen() { return isOpen(); } };
+  A.prefs = { open, close, get: now, DEFAULTS, info: gotInfo, stale, get isOpen() { return isOpen(); } };
 })();

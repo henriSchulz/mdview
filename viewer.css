@@ -768,6 +768,9 @@ body[data-sidebar="open"] { padding-left: var(--sb-w); }
 /* the panel at the right is the active mode's: elsewhere its button stands dimmed and takes no click */
 #toolbar [data-act="panel"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
+/* the history's button where this app keeps none: dimmed, and still to be clicked */
+.sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sb-head [data-act="historymenu"].quiet { opacity: 0.4; }
 body[data-folder] #toolbar [data-act="sidebar"] { display: grid; } /* (all notes: the house before the tabs) */
 
 /* ------------------------------------------------------------- tabs (folder windows) */

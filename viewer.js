@@ -74,6 +74,7 @@
     // the settings' groups
     sigma: svg('<path d="M18 6V5H6l6 7-6 7h12v-1"/>'),
     home: svg('<path d="m3.5 10.5 8.5-7 8.5 7"/><path d="M5.5 9v10.5h4.75V14h3.5v5.5h4.75V9"/>'),
+    history: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
   };
   // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
@@ -87,7 +88,7 @@
     x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, plus: 0x10017c, title: 0x100151, folder: 0x100215,
     note: 0x10023f, folderPlus: 0x100219, external: 0x100114, apps: 0x1001f7, reveal: 0x1002ab, rename: 0x10016b,
     gear: 0x1008cb, pdf: 0x100245, picture: 0x1003c5, file: 0x100237, trash: 0x100211,
-    info: 0x100174, sigma: 0x10016d, spark: 0x1001bf, updown: 0x10018f, home: 0x10039e,
+    info: 0x100174, sigma: 0x10016d, spark: 0x1001bf, updown: 0x10018f, home: 0x10039e, history: 0x10042b,
   };
   const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
     : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
@@ -1795,6 +1796,10 @@
   gear.addEventListener("mousedown", (e) => e.preventDefault());
   gear.addEventListener("click", () => openSettings());
   document.body.appendChild(gear);
+  // the history of the note shown (active/history.js): its versions, what each changed, one put back
+  function openHistory() {
+    loadActive().then(() => { MdActive.history.open(); }, () => toast(T("active.loadFailed")));
+  }
   function openSettings() {
     loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
   }
@@ -1819,7 +1824,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
+      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "vendor/diff.min.js", "active/history.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2004,6 +2009,7 @@
     `<header class="sb-head">` +
     `<button class="sb-folder" data-act="folder" title="Open another folder (Ctrl+Alt+O)">${ICON.folder}<span class="sb-folder-name"></span></button>` +
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
+    `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
     `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header>` +
     `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
@@ -2014,6 +2020,16 @@
   const sbNew = sidebar.querySelector(".sb-new");
   const sbNewInput = sidebar.querySelector("#sb-new-input");
   const sbTitlesBtn = sbHead.querySelector('[data-act="titles"]');
+  const sbHistoryBtn = sbHead.querySelector('[data-act="historymenu"]');
+  // where the folder stands with a history (the shell says: f.history) — as the menu's entries name it
+  const historyState = () => { const h = (folder && folder.history) || {}; return h.state === "foreign" && h.own ? "adopt" : h.state || "none"; };
+  const HISTORY_SAYS = {
+    none: () => "History: off",
+    adopt: () => "History: off (a Git repository is here)",
+    foreign: (h) => `History: kept by the repository “${h.name}”`,
+    project: () => "History: on",
+    inside: (h) => `History: on, in the project “${h.name}”`,
+  };
 
   let folder = null;        // { root, name, tree } while this window browses a folder
   let sbTitles = false;     // rows show the note title (first H1) instead of the file name
@@ -2181,6 +2197,9 @@
     sbTitlesBtn.setAttribute("aria-pressed", String(sbTitles));
     sbTitlesBtn.title = sbTitlesBtn.ariaLabel = sbTitles ? "Show file names" : "Show note titles";
     sidebar.querySelector(".sb-folder-name").textContent = f.name;
+    const hs = historyState();
+    sbHistoryBtn.classList.toggle("quiet", hs !== "project" && hs !== "inside"); // (dimmed: this app keeps no history here)
+    sbHistoryBtn.title = sbHistoryBtn.ariaLabel = HISTORY_SAYS[hs](f.history || {});
     document.body.dataset.folder = "";
     if (first) openAncestors();
     syncList(animate && !first);
@@ -2277,8 +2296,8 @@
   // one menu for a file, a folder, the + button ("new"), and a note or folder among the tiles
   // ("ovnote", "ovdir": overview.js), and the empty room beside them ("blank": a new note or folder
   // in the folder `dir`); data-for says where an entry shows
-  const entry = (cmd, icon, label, on, key = "", cls = "") =>
-    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
+  const entry = (cmd, icon, label, on, key = "", cls = "", more = "") =>
+    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
     entry("open", "note", "Open", "ovnote ovdir") +
     entry("opentab", "plus", "Open in New Tab", "file ovnote") +
@@ -2288,6 +2307,14 @@
     `<div class="menu-rule" data-for="tab"></div>` +
     entry("tab:close", "x", "Close Tab", "tab", "Ctrl+W") +
     entry("tab:others", "x", "Close Other Tabs", "tab") +
+    // the history's button: what can be done where the folder stands (data-state), or what is so (disabled)
+    entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt"') +
+    `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt"></div>` +
+    entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none"') +
+    entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
+    entry("history:is", "check", "History Is On", "history", "", "", ' data-state="project" disabled') +
+    entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
+    entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
     entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
     `<div class="menu-rule" data-for="blank"></div>` +
@@ -2310,7 +2337,12 @@
     if (ctxFor) ctxFor.classList.remove("ctx-target");
     ctxFor = item; ctxDir = dir;
     ctxKind = ctx.dataset.kind = kind;
-    for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind);
+    for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState()));
+    if (kind === "history") { // (the two that name a folder)
+      const name = (folder.history || {}).name;
+      ctx.querySelector('[data-cmd="history:is"][data-state="inside"] .menu-label').textContent = `Part of the Project “${name}”`;
+      ctx.querySelector('[data-cmd="history:is"][data-state="foreign"] .menu-label').textContent = `Kept by the Repository “${name}”`;
+    }
     ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
     for (const el of ctxItems) if (el.dataset.cmd.startsWith("sort:")) { // the order in use is ticked
       const on = el.dataset.cmd.slice(5) === sortKey();
@@ -2322,10 +2354,11 @@
       el.disabled = off; el.classList.toggle("off", off);
     }
     ctxItems = ctxItems.filter((el) => !el.disabled);
-    ctx.style.setProperty("--origin", kind === "new" ? "top right" : "top left");
-    if (kind !== "new" && kind !== "blank") item.classList.add("ctx-target");
+    const hangs = kind === "new" || kind === "history"; // (from a button of the sidebar's head)
+    ctx.style.setProperty("--origin", hangs ? "top right" : "top left");
+    if (!hangs && kind !== "blank") item.classList.add("ctx-target");
     setCtxHl(-1);
-    if (kind === "new") x -= ctx.offsetWidth; // (it hangs from the button's right edge)
+    if (hangs) x -= ctx.offsetWidth; // (it hangs from the button's right edge)
     ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px";
     ctx.style.top = Math.max(8, Math.min(y, innerHeight - ctx.offsetHeight - 8)) + "px";
     ctx.dataset.open = "";
@@ -2335,7 +2368,7 @@
     if (!ctxOpen()) return false;
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus && ctxKind !== "new" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
+    if (refocus && ctxKind !== "new" && ctxKind !== "history" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -2351,6 +2384,8 @@
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
+      else if (cmd === "history:show") openHistory();
+      else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") MdOverview.go(item);
       else if (cmd === "opentab") post("note", { path, tab: true });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
@@ -2939,6 +2974,11 @@
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
       openCtx(b, r.right, r.bottom + 4, "new");
     },
+    historymenu: () => { // the clock: the folder's history, switched on or said to be
+      const r = sbHistoryBtn.getBoundingClientRect();
+      if (ctxOpen() && ctxKind === "history") { closeCtx(false); return; }
+      openCtx(sbHistoryBtn, r.right, r.bottom + 4, "history");
+    },
     folder: () => post("folder"),
     newtab: () => post("tab", { op: "new" }),
     prev: () => focusHit(hitIdx - 1),
@@ -3055,6 +3095,7 @@
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); actions.overview(); return; }
+    if (mod && e.altKey && !e.shiftKey && k === "h") { e.preventDefault(); openHistory(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "p") { e.preventDefault(); actions.panel(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
     if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); switchMode(MODES[e.code.slice(5) - 1]); return; }
@@ -3151,7 +3192,7 @@
   const hideTip = () => { clearTimeout(tipTimer); tipFor = null; delete tipEl.dataset.open; };
   document.addEventListener("mouseover", (e) => {
     const t = e.target.closest?.("[title], [data-tip]");
-    if (t && t.hasAttribute("title")) { const v = t.getAttribute("title"); t.removeAttribute("title"); if (v && !t.dataset.tip) t.dataset.tip = v; }
+    if (t && t.hasAttribute("title")) { const v = t.getAttribute("title"); t.removeAttribute("title"); if (v) t.dataset.tip = v; } // (a title set anew is what is so now: it takes the place of the one before)
     const el = t && t.dataset.tip && !t.closest("#fmtbar, #linkpop") ? t : null; // (the active mode's own have their own)
     if (el === tipFor) return;
     hideTip();
@@ -3172,7 +3213,7 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),

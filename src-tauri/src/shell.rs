@@ -19,9 +19,10 @@ use notify::{RecursiveMode, Watcher};
 use regex::Regex;
 use serde_json::{json, Map, Value};
 use tauri::{AppHandle, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
 use crate::ai::{self, Completer, Drawing, Illustrator};
+use crate::history::{self, Historian, Place, Stamp};
 use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
 use crate::theme::{self, home, Theme};
 use crate::{host, Event, Pick, ORIGIN, SHARED};
@@ -96,6 +97,8 @@ fn default_prefs() -> Map<String, Value> {
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
         "hinting": false,         // text drawn on whole pixels (sharper on a screen of ordinary resolution); at the next start
         "aiModel": "",            // the model asked for suggestions ("": AI_MODEL)
+        "historyQuiet": 30,       // a project's changes are kept as a commit after this many seconds without another
+        "deviceName": "",         // what this device is called in a commit ("": the computer's name)
     });
     match prefs {
         Value::Object(m) => m,
@@ -243,6 +246,21 @@ fn bump(map: &mut Map<String, Value>, key: &str, value: Value, limit: usize) {
     }
 }
 
+/// This computer's name, for the device a commit names.
+fn host_name() -> String {
+    #[cfg(unix)]
+    {
+        let mut buf = [0u8; 256];
+        if unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) } == 0 {
+            let name = String::from_utf8_lossy(&buf[..buf.iter().position(|b| *b == 0).unwrap_or(buf.len())]).trim().to_string();
+            if !name.is_empty() {
+                return name;
+            }
+        }
+    }
+    env("COMPUTERNAME").unwrap_or_else(|| "device".into())
+}
+
 fn state_file() -> PathBuf {
     let base = env("XDG_STATE_HOME").map(PathBuf::from);
     #[cfg(windows)]
@@ -339,6 +357,10 @@ pub struct App {
     idle_turn: u64,
     completer: Option<Completer>,
     illustrator: Illustrator,
+    historian: Historian,
+    unsnapped: HashMap<PathBuf, u64>, // projects touched since their last snapshot, and the turn that will make it
+    snap_turn: u64,
+    said_big: HashSet<String>, // files left out of a history for their size, said once
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
 }
@@ -347,6 +369,10 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     let state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
     let mut app = App {
         illustrator: Illustrator::new(tx.clone()),
+        historian: Historian::new(tx.clone()),
+        unsnapped: HashMap::new(),
+        snap_turn: 0,
+        said_big: HashSet::new(),
         handle,
         tx,
         state,
@@ -384,6 +410,58 @@ impl App {
         let file = state_file();
         let _ = fs::create_dir_all(dir_of(&file));
         let _ = fs::write(file, Value::Object(self.state.clone()).to_string());
+    }
+
+    // -- history ----------------------------------------------------------
+
+    /// Who this program's commits are made by: the device (state.json "device": an id made
+    /// once, and a name that is the computer's until another is set).
+    fn stamp(&mut self) -> Stamp {
+        let known = |d: &Value, k: &str| d.get(k).and_then(Value::as_str).filter(|v| !v.is_empty()).map(String::from);
+        let device = self.state.get("device").cloned().unwrap_or(Value::Null);
+        let (id, name) = match (known(&device, "id"), known(&device, "name")) {
+            (Some(id), Some(name)) => (id, name),
+            (id, name) => {
+                let (id, name) = (id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()), name.unwrap_or_else(host_name));
+                self.state.insert("device".into(), json!({ "id": id, "name": name }));
+                self.save_state();
+                (id, name)
+            }
+        };
+        let name = self.prefs()["deviceName"].as_str().map(str::trim).filter(|n| !n.is_empty()).map(String::from).unwrap_or(name);
+        Stamp { device: format!("{name} ({id})"), client: format!("desktop {}", env!("CARGO_PKG_VERSION")), author: None }
+    }
+
+    /// Something at this path changed, or may have: its project, if it is in one, gets a
+    /// snapshot once it has been quiet for a while.
+    fn touch(&mut self, path: &Path) {
+        if path.components().any(|c| c.as_os_str() == ".git") {
+            return; // (the history's own writing)
+        }
+        let Place::Project(root) = history::place_of(path) else { return };
+        self.snap_turn += 1;
+        self.unsnapped.insert(root.clone(), self.snap_turn);
+        let quiet = env("MDVIEW_HISTORY_QUIET_MS").and_then(|ms| ms.parse().ok()).unwrap_or_else(|| self.prefs()["historyQuiet"].as_u64().unwrap_or(30).max(1) * 1000);
+        self.after(quiet, Event::Snapshot { root, turn: self.snap_turn });
+    }
+
+    /// The snapshots still waiting are made now — all of them, or (keep) only those of projects
+    /// no window shows any more.
+    fn snapshot_waiting(&mut self, keep: bool) {
+        let shown: HashSet<PathBuf> = if keep {
+            self.wins.values().filter_map(|w| w.path.as_deref().or(w.folder.as_deref())).filter_map(|p| match history::place_of(p) {
+                Place::Project(root) => Some(root),
+                _ => None,
+            }).collect()
+        } else {
+            HashSet::new()
+        };
+        let due: Vec<PathBuf> = self.unsnapped.keys().filter(|root| !shown.contains(*root)).cloned().collect();
+        for root in due {
+            self.unsnapped.remove(&root);
+            let stamp = self.stamp();
+            self.historian.snapshot(&root, stamp);
+        }
     }
 
     fn sub(&mut self, key: &str) -> &mut Map<String, Value> {
@@ -470,6 +548,7 @@ impl App {
         f(&mut w, self);
         if w.gone {
             SHARED.pages.lock().unwrap().remove(label);
+            self.snapshot_waiting(true); // (a project no window shows any more is kept as it was left)
             self.rest();
         } else {
             self.wins.insert(label.to_string(), w);
@@ -501,7 +580,12 @@ impl App {
             }
             Event::Loaded { label, url } => self.with_win(&label, |w, app| w.on_loaded(app, &url)),
             Event::Link { label, href } => self.with_win(&label, |w, app| w.handle_link(app, &href, false)),
-            Event::Fs { label, paths } => self.with_win(&label, |w, app| w.on_fs(app, &paths)),
+            Event::Fs { label, paths } => {
+                for p in &paths {
+                    self.touch(p);
+                }
+                self.with_win(&label, |w, app| w.on_fs(app, &paths))
+            }
             Event::Reload { label, turn } => self.with_win(&label, |w, app| {
                 if turn == w.reload_turn {
                     w.reload_after_change(app);
@@ -521,6 +605,7 @@ impl App {
             Event::Closed { label } => {
                 if self.wins.remove(&label).is_some() {
                     SHARED.pages.lock().unwrap().remove(&label);
+                    self.snapshot_waiting(true);
                     self.rest();
                 }
             }
@@ -553,7 +638,45 @@ impl App {
             }
             Event::Idle { turn } => {
                 if turn == self.idle_turn && self.wins.is_empty() {
+                    self.snapshot_waiting(false);
+                    self.historian.wait();
                     self.handle.exit(0);
+                }
+            }
+            Event::Snapshot { root, turn } => {
+                if self.unsnapped.get(&root) == Some(&turn) {
+                    self.unsnapped.remove(&root);
+                    let stamp = self.stamp();
+                    self.historian.snapshot(&root, stamp);
+                }
+            }
+            Event::Snapshotted { root, kept, skipped, error, asked } => {
+                if asked {
+                    let said = error.as_ref().map(|e| format!("Couldn't take in: {e}"));
+                    self.each_win(|w, app| {
+                        if w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root)) {
+                            w.send_folder(app);
+                            if let Some(text) = &said {
+                                w.toast(text.clone());
+                            }
+                        }
+                    });
+                }
+                if kept {
+                    // (settings that show the folder's history are no longer right)
+                    for w in self.wins.values().filter(|w| w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root))) {
+                        w.js("MdView.historyKept", &[]);
+                    }
+                }
+                if let (Some(e), true) = (&error, *DEBUG) {
+                    eprintln!("[history] {}: {e}", root.display());
+                }
+                let new: Vec<String> = skipped.into_iter().filter(|f| self.said_big.insert(format!("{}/{f}", root.display()))).collect();
+                if !new.is_empty() {
+                    let text = format!("Too large for the history (over 50 MB): {}", new.join(", "));
+                    for w in self.wins.values().filter(|w| w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root))) {
+                        w.toast(text.clone());
+                    }
                 }
             }
         }
@@ -570,6 +693,7 @@ impl App {
         if stamp.is_none() || stamp == self.started {
             return;
         }
+        self.historian.wait(); // (a snapshot under way is finished first)
         #[cfg(unix)]
         {
             use std::os::unix::process::CommandExt;
@@ -843,6 +967,7 @@ impl Win {
 
     fn open_path(&mut self, app: &mut App, path: &Path, fragment: Option<String>, push: bool) {
         let path = resolve(path);
+        app.touch(&path); // (what changed in its project while the app was not looking is kept, too)
         let same = self.path.as_deref() == Some(path.as_path());
         if push && !same {
             if let Some(old) = self.path.clone() {
@@ -931,6 +1056,7 @@ impl Win {
 
     fn set_folder(&mut self, app: &mut App, folder: &Path) {
         let folder = resolve(folder);
+        app.touch(&folder);
         self.folder = Some(folder.clone());
         self.tree_json = None;
         self.title_cache.clear();
@@ -1196,8 +1322,12 @@ impl Win {
         let Some(tree) = self.tree.as_mut() else { return };
         let opened = app.state.get("opened").and_then(Value::as_object);
         tree.each_note(&mut |n| n.opened = opened.and_then(|o| o.get(&n.real)).and_then(Value::as_i64).unwrap_or(0));
+        // where the folder stands with a history: "none", a "project" itself, "inside" one above,
+        // or in a "foreign" repository (own: the folder is that repository's, and can be taken over)
+        let history = history::standing(&folder);
         let st = &app.state;
         let payload = json!({
+            "history": history,
             "root": s(&folder),
             "name": if name_of(&folder).is_empty() { s(&folder) } else { name_of(&folder) },
             "tree": tree,
@@ -1554,7 +1684,67 @@ impl Win {
 
     fn on_message(&mut self, app: &mut App, msg: &Value) {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
+        // (what writes into the folder: its project's snapshot follows — the watcher sees only
+        // the directories a window shows)
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "newfolder" | "rename" | "trash") {
+            if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
+                app.touch(&p);
+            }
+        }
         match text_of("type") {
+            // the history's window (active/history.js): a note's versions, one of them as text, one of
+            // them put back as the note
+            "history-log" => {
+                let Some(path) = msg["path"].as_str().map(PathBuf::from).or_else(|| self.path.clone()) else { return };
+                let standing = history::standing(&dir_of(&path));
+                let versions = history::log(&path).unwrap_or_default();
+                self.js("MdView.history", &[json!({ "path": s(&path), "versions": versions, "state": standing["state"], "own": standing["own"] })]);
+            }
+            "history-text" => {
+                let path = PathBuf::from(text_of("path"));
+                let text = history::text(&path, text_of("id"), msg["at"].as_str()).ok().map(|b| String::from_utf8_lossy(&b).into_owned());
+                self.js("MdView.historyText", &[json!({ "path": s(&path), "id": text_of("id"), "text": text })]);
+            }
+            "history-restore" => {
+                let path = PathBuf::from(text_of("path"));
+                // (only a note this window knows, written as any change from outside: the watcher shows it)
+                let known = self.path.as_deref() == Some(path.as_path()) || self.note_paths.contains(text_of("path"));
+                match history::text(&path, text_of("id"), msg["at"].as_str()).ok().filter(|_| known && is_md(&path)) {
+                    Some(bytes) => match fs::write(&path, bytes) {
+                        Ok(()) => {
+                            app.touch(&path);
+                            self.js("MdView.historyRestored", &[json!({ "path": s(&path), "id": text_of("id") })]);
+                        }
+                        Err(e) => self.toast(format!("Couldn't restore: {}", strerror(&e))),
+                    },
+                    None => self.toast("Couldn't restore this version"),
+                }
+            }
+            "history-enable" => {
+                // the folder (or the one named) becomes a project; its first snapshot follows
+                let Some(root) = msg["root"].as_str().map(PathBuf::from).or_else(|| self.here()) else { return };
+                // (a repository that is there already is someone's: taken over only when they say so)
+                if history::place_of(&root) == Place::Foreign(root.clone()) && !truthy(&msg["sure"]) {
+                    return self.ask_adopt(app, &root);
+                }
+                // (projects of their own below it: a part of this one from now on, or left as they are?)
+                let below = history::nested(&root);
+                if !below.is_empty() && msg["nested"].is_null() {
+                    return self.ask_nested(app, &root, &below);
+                }
+                match history::enable(&root) {
+                    Ok(()) => {
+                        if msg["nested"] == "merge" {
+                            let stamp = app.stamp();
+                            app.historian.merge(&root, below, stamp);
+                        }
+                        app.touch(&root);
+                        self.send_folder(app);
+                        self.settings_info(app);
+                    }
+                    Err(e) => self.toast(format!("No history here: {e}")),
+                }
+            }
             "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"])),
             "wikilink" => self.open_wikilink(app, text_of("target"), truthy(&msg["tab"])),
             "tab" => self.tab_op(app, msg),
@@ -1694,12 +1884,12 @@ impl Win {
                     let _ = window.set_zoom(self.zoom);
                 }
             }
-            "settings-info" => self.settings_info(),
+            "settings-info" => self.settings_info(app),
             "aikey" => {
                 if let Err(e) = ai::store_ai_key(text_of("key")) {
                     self.toast(format!("Couldn't save the key: {}", strerror(&e)));
                 }
-                self.settings_info();
+                self.settings_info(app);
             }
             "help" => {
                 let guide = SHARED.assets.join("docs").join("FEATURES.md");
@@ -1999,6 +2189,51 @@ impl Win {
 
     /// From a file's menu in the sidebar: open it in its default application, in one chosen
     /// from the system's list, or show it in the file manager.
+    /// Before a repository that exists becomes a project: what follows from it, to be agreed to.
+    fn ask_adopt(&self, app: &App, root: &Path) {
+        let Some(window) = &self.window else { return };
+        let onto = history::branch(root).map(|b| format!(" on the branch “{b}”")).unwrap_or_default();
+        let text = format!("“{}” is a Git repository already. As a project, Markdown Notes keeps every change in it as a commit of its own{onto}, a little while after it was made.", name_of(root));
+        let (tx, label, root) = (app.tx.clone(), self.label.clone(), s(root));
+        app.handle
+            .dialog()
+            .message(text)
+            .title("Use This Repository for History?")
+            .buttons(MessageDialogButtons::OkCancelCustom("Use Repository".into(), "Cancel".into()))
+            .parent(window)
+            .show(move |sure| {
+                if sure {
+                    let _ = tx.send(Event::Msg { label, json: json!({ "type": "history-enable", "root": root, "sure": true }).to_string() });
+                }
+            });
+    }
+
+    /// Before a folder with projects in it becomes one: are they taken in, or left separate?
+    fn ask_nested(&self, app: &App, root: &Path, below: &[PathBuf]) {
+        let Some(window) = &self.window else { return };
+        let names: Vec<String> = below.iter().map(|b| format!("“{}”", relative(b, root))).collect();
+        let (they, their) = if names.len() == 1 { ("is a project of its own", "its") } else { ("are projects of their own", "their") };
+        let text = format!("{} in this folder {they}. Taken in, {their} history becomes a part of this project's, and there is one project from now on. Left separate, each keeps a history of its own.", names.join(", "));
+        let (take, leave) = ("Take In", "Leave Separate");
+        let (tx, label, root, sure) = (app.tx.clone(), self.label.clone(), s(root), true);
+        app.handle
+            .dialog()
+            .message(text)
+            .title("Projects in This Folder")
+            .buttons(MessageDialogButtons::YesNoCancelCustom(take.into(), leave.into(), "Cancel".into()))
+            .parent(window)
+            .show_with_result(move |answer| {
+                let nested = match answer {
+                    MessageDialogResult::Yes => "merge",
+                    MessageDialogResult::No => "separate",
+                    MessageDialogResult::Custom(l) if l == take => "merge",
+                    MessageDialogResult::Custom(l) if l == leave => "separate",
+                    _ => return,
+                };
+                let _ = tx.send(Event::Msg { label, json: json!({ "type": "history-enable", "root": root, "sure": sure, "nested": nested }).to_string() });
+            });
+    }
+
     fn file_op(&self, op: &str, path: &str) {
         let p = Path::new(path);
         let inside = !path.is_empty() && self.folder.as_ref().is_some_and(|f| p.is_dir() && resolve(p).starts_with(f));
@@ -2017,11 +2252,23 @@ impl Win {
         }
     }
 
-    fn settings_info(&self) {
+    /// The folder this window is about: the one it browses, or the one its note is in.
+    fn here(&self) -> Option<PathBuf> {
+        self.folder.clone().or_else(|| self.path.as_deref().map(dir_of))
+    }
+
+    fn settings_info(&self, app: &mut App) {
+        // the history of the folder shown: where it stands, what is kept, what waits; the device
+        let mut history = self.here().map_or(json!({ "state": "none" }), |f| history::overview(&f));
+        if let Some(root) = history["root"].as_str().map(PathBuf::from) {
+            history["waiting"] = json!(app.unsnapped.contains_key(&root));
+        }
+        let device = app.stamp().device;
+        let device_id = device.rsplit_once(" (").map_or("", |(_, id)| id.trim_end_matches(')')).to_string();
         let config = s(&ai::config_dir());
         let home = s(&home());
         let shown = if !home.is_empty() && config.starts_with(&home) { format!("~{}", &config[home.len()..]) } else { config };
-        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown })]);
+        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown, "deviceName": host_name(), "deviceId": device_id, "history": history, "home": home })]);
     }
 
     fn go(&mut self, app: &mut App, back: bool) {

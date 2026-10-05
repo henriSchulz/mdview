@@ -327,7 +327,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
-- **Sidebar** (`Ctrl+Alt+S`): the folder's notes and folders. `+` makes a note or folder, a right
+- **Sidebar** (`Ctrl+Alt+S`): the folder's notes and folders. The clock is the folder's history (below). `+` makes a note or folder, a right
   click on a file has Open in New Tab, Open in Default App, Open With…, Show in Finder, Rename (`F2`), Move to Trash
   (`Del`); a right click on the empty room has New Note, New Folder and the order of the notes. Its
   edge can be pulled wider or away. `Aa` switches between file names and the notes' titles.
@@ -341,6 +341,38 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
+
+## History
+
+A folder can keep a history of its notes: every change, as a version that can be looked at and
+put back. It is switched on per folder, on purpose; opening a folder keeps nothing. Under it is
+an ordinary Git repository in the folder (`.git`), with a small file of the app's beside it
+(`.mdview/project.json`) — the two together make the folder a *project*. Nothing leaves the
+computer.
+
+- **Switching it on**: the clock at the head of the sidebar (dimmed while the app keeps no
+  history here) › Turn On History, or Settings › History › Turn On.
+- **What is kept, and when**: whatever changes in the folder — written here or by another
+  program — becomes a version once nothing more has changed for a while (30 seconds; settings),
+  and at once when the folder's last window closes. A version names the device it was made on.
+  A file over 50 MB is left out, and said so once. What `.gitignore` leaves out is left out.
+- **A note's history** (`Ctrl+Alt+H`, or the clock › Show History of This Note): its versions at
+  the left, newest first, and at the right what the chosen one changed — lines added and taken
+  out, the words that differ marked, the lines that stayed counted. The choice at the head
+  compares with the note as it is now instead. `↑` `↓` go through the versions. A note that was
+  renamed keeps its versions.
+- **Restore This Version** makes the note what it was then. That is a new version: nothing of the
+  history is lost by it.
+- **A folder inside a project** belongs to it: its notes are kept there, and nothing is switched
+  on again.
+- **A folder with projects in it**, switched on, asks once: take them in — there is one project
+  from then on, and their versions are its own — or leave them separate, each with its history.
+- **A Git repository that is not the app's** (source code, say) is never written to. In a folder
+  of it the clock says who keeps the history, and a note's history can be read. A repository that
+  is the folder itself can be taken over as a project (Use This Repository for History…): from
+  then on the app commits in it, on the branch that is checked out.
+- **Settings › History** shows where the folder stands: on or off, the repository's name and
+  place, its branch, how many versions, the last one, and what is not kept yet.
 
 ## Finding
 
@@ -385,6 +417,7 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Alt+G` | All Notes |
 | `Ctrl+Alt+P` | panel (active mode) |
 | `Ctrl+Alt+O` | open a folder |
+| `Ctrl+Alt+H` | history of the note |
 | `Ctrl+N` | new note |
 | `Ctrl+T` / `Ctrl+W` / `Ctrl+Shift+T` | new tab / close the tab / open the closed one again (folder windows) |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | next tab / the one before |
@@ -409,6 +442,7 @@ the right. A change takes effect at once.
 | Appearance | text size of a note, width of the text column, sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
+| History | the folder's history at a glance (and turning it on), how long a change waits to be kept, this device's name |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |

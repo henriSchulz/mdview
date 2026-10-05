@@ -480,10 +480,10 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
  * A window of its own over the note (prefs.js): the groups in a card at the left, the chosen
  * group's settings at the right in cards of rows. Opaque; sizes are layout, times, curves and
  * radii the central ones. */
-#settings-scrim { position: fixed; inset: 0; z-index: 54; background: rgb(0 0 0 / 0.18); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
-body[data-mode="dark"] #settings-scrim { background: rgb(0 0 0 / 0.4); }
-#settings-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
-#settings {
+#settings-scrim, #history-scrim { position: fixed; inset: 0; z-index: 54; background: rgb(0 0 0 / 0.18); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+body[data-mode="dark"] :is(#settings-scrim, #history-scrim) { background: rgb(0 0 0 / 0.4); }
+:is(#settings-scrim, #history-scrim)[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+#settings, #history {
   position: fixed; inset: 0; margin: auto; z-index: 55;
   display: grid; grid-template-columns: 232px minmax(0, 1fr);
   box-sizing: border-box; width: min(940px, calc(100vw - 48px)); height: min(660px, calc(100vh - 48px));
@@ -495,10 +495,10 @@ body[data-mode="dark"] #settings-scrim { background: rgb(0 0 0 / 0.4); }
   opacity: 0; visibility: hidden; transform: scale(0.97);
   transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), transform calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
 }
-#settings[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
-body[data-mode="dark"] #settings { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14), 0 24px 70px rgb(0 0 0 / 0.6); }
-@media (prefers-contrast: more) { #settings { box-shadow: 0 0 0 1.5px var(--fg); } }
-@media print { #settings, #settings-scrim { display: none !important; } }
+:is(#settings, #history)[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
+body[data-mode="dark"] :is(#settings, #history) { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14), 0 24px 70px rgb(0 0 0 / 0.6); }
+@media (prefers-contrast: more) { #settings, #history { box-shadow: 0 0 0 1.5px var(--fg); } }
+@media print { #settings, #settings-scrim, #history, #history-scrim { display: none !important; } }
 
 /* the groups: a card set in from the window's edge, as the app's own sidebar */
 .st-side { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 8px 8px; padding: 14px 8px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line); overflow-y: auto; overscroll-behavior: contain; }
@@ -539,8 +539,8 @@ body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, v
 .pf-name { font-weight: 500; }
 .pf-hint { color: var(--fg2); font-size: 12px; line-height: 1.4; }
 /* (a choice is the app's button and menu: .pop, viewer.css) */
-#settings .pop-wrap { flex: none; display: flex; justify-content: flex-end; min-width: 0; max-width: 50%; }
-#settings .pop { min-width: 190px; }
+#settings .pop-wrap, #history .pop-wrap { flex: none; display: flex; justify-content: flex-end; min-width: 0; max-width: 50%; }
+#settings .pop, #history .pop { min-width: 190px; }
 .pf-select { flex: none; width: auto; min-width: 190px; max-width: 46%; }
 .pf-text { flex: none; width: 220px; }
 .pf-value { flex: none; max-width: 60%; color: var(--fg2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
@@ -552,6 +552,38 @@ body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, v
 .pf-link.danger { color: var(--c-red); }
 .pf-link[hidden] { display: none; }
 /* the key: what is stored, the field for a new one, its actions */
+/* --- the history's window (history.js): the settings window's shell — the versions at the left,
+ * what one of them changed at the right */
+#history { grid-template-columns: 248px minmax(0, 1fr); width: min(1040px, calc(100vw - 48px)); height: min(720px, calc(100vh - 48px)); }
+.hi-note { margin-top: -10px; padding: 0 8px; color: var(--fg2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hi-list { align-content: start; }
+.st-side .hi-list:last-child { margin-top: 0; }
+.hi-row { height: 44px; }
+.hi-row-text { display: grid; gap: 1px; min-width: 0; }
+.hi-when { font-variant-numeric: tabular-nums; }
+.hi-by { color: var(--fg2); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#history .st-head h2 { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#history .pop { min-width: 0; }
+.hi-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.hi-tools [hidden] { display: none; }
+.hi-body { user-select: text; -webkit-user-select: text; }
+.hi-empty { margin: 80px 0 0; text-align: center; color: var(--fg2); }
+.hi-diff { padding: 6px 0; border-radius: calc(var(--radius-control) + 2px); background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); font: 400 12.5px/1.55 var(--mono); animation: fade-in var(--dur-fast) var(--ease-out); }
+body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
+.hi-line { display: flex; padding: 0 12px 0 0; }
+.hi-sign { flex: none; width: 26px; text-align: center; color: var(--fg2); user-select: none; -webkit-user-select: none; }
+.hi-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hi-line.add { background: color-mix(in srgb, var(--c-green) 11%, transparent); }
+.hi-line.del { background: color-mix(in srgb, var(--c-red) 9%, transparent); }
+.hi-line.add .hi-sign { color: var(--c-green); }
+.hi-line.del .hi-sign { color: var(--c-red); }
+.hi-text ins { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-green) 26%, transparent); }
+.hi-text del { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-red) 22%, transparent); }
+.hi-gap { margin: 4px 0; padding: 2px 26px; color: var(--fg3); font: 400 12px/1.5 var(--ui); user-select: none; -webkit-user-select: none; }
+@media (max-width: 720px) { #history { grid-template-columns: 190px minmax(0, 1fr); } }
+/* the folder's history: what is so, in as many words as it takes, and the button that turns it on */
+.pf-history { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: none; max-width: 62%; }
+.pf-history .pf-value { flex: 0 1 auto; max-width: none; white-space: normal; text-align: right; }
 .pf-key { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: none; max-width: 62%; }
 .pf-state { flex-basis: 100%; text-align: right; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pf-state.on { color: var(--c-green); }
