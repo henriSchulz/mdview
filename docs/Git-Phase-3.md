@@ -229,6 +229,12 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ## Was du dafür tun musst
 
+> [!info] Angelegt am 5. Oktober 2026
+> Firebase-Projekt `md-view` (Tarif Blaze), Backend `mdview` in `europe-west4`, verbunden mit
+> `henriSchulz/mdview`, Ordner `/web`, Branch `main`. Adresse:
+> `https://mdview--md-view.europe-west4.hosted.app`. Der erste Bau ist wie erwartet an den
+> fehlenden Geheimnissen gescheitert.
+
 Sobald das Gerüst der Web-App im Repository liegt:
 
 1. In der Firebase-Konsole das Projekt wählen oder anlegen (Bezahltarif) und unter **App
