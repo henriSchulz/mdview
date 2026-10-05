@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 35 Tests in `web/`, davon 18
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 37 Tests in `web/`, davon 20
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -247,7 +247,8 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 - **Nur ein Projekt wird beschrieben**, wie am Desktop: ein Repository mit
   `.mdview/project.json`. Eines ohne öffnet nur zum Lesen; die Uhr bietet „Use This Repository
   for History…" an, der Browser fragt nach, und die Markerdatei wird der erste Commit.
-- Nicht gebaut: Bilder einfügen oder ablegen (wird gesagt), Umbenennen von anderem als Notizen.
+- Nicht in diesem Schritt: Bilder einfügen oder ablegen, Umbenennen von anderem als Notizen
+  (beides kam danach, siehe „Nach den sechs Schritten").
 - Prüfung: `test/write.test.mjs` in Chromium: im aktiven Modus getippt wird zum Commit; ein
   Entwurf überlebt das Neuladen; abhaken, anlegen, umbenennen, löschen; ein Repository ohne
   Marker bleibt unberührt; die Route lehnt fremde Herkunft und Pfade nach draußen ab.
@@ -281,11 +282,23 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 - Prüfung: `test/write.test.mjs` – Verlauf mit Wiederherstellen, ein eingefügtes Bild bis zum
   Bild in der Notiz, die Einstellungen.
 
+### Nach den sechs Schritten
+
+- **Bilder ablegen:** Im Browser gibt es keine Adressen abgelegter Dateien, nur die Dateien
+  selbst. Die Seite reicht sie deshalb direkt weiter, wenn die Hülle das anbietet
+  (`MdHost.drop`, in `active/clip.js`; am Desktop bleibt es bei `dropfiles`). Die Bilder
+  darunter liegen danach unter ihrem eigenen Namen dort, wo auch eingefügte liegen, in einem
+  Commit sofort; ihr Markdown steht, wo sie fallen gelassen wurden. Anderes wird abgelehnt
+  („Only pictures can be dropped here"), wie am Desktop.
+- **Umbenennen von allem:** Ein PDF, ein Bild oder eine andere Datei bis 14 MB bekommt ihren
+  neuen Namen in einem Commit sofort: die Bytes unter dem neuen Pfad, der alte gelöscht. Hat
+  ein anderes Gerät die Datei inzwischen geändert, bleibt die alte daneben stehen.
+- Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
+  zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
+  Byte.
+
 ### Was Phase 3 nicht hat
 
-- **Dateien ablegen:** Was auf eine Notiz gezogen wird, kommt im Browser nicht bei der Hülle an;
-  dafür müsste die Seite die Dateien selbst weiterreichen.
-- **Umbenennen** von anderem als Notizen.
 - **Verlauf über eine Umbenennung hinweg:** Die GitHub-API folgt ihr nicht.
 - **Änderungsdatum:** Git kennt keines je Datei; die Sortierung danach greift nicht.
 - **Rücklinks aus PDFs**, und die Hilfe in der App (sie öffnet `docs/FEATURES.md` auf GitHub).

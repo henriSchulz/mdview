@@ -437,8 +437,10 @@ counts — and has no writing help by a model.
   nothing is written and the clock's Resolve Conflicts… asks, as here.
 - **A note's history** (`Ctrl+Alt+H`): the commits that changed it, what each changed, one put
   back. A note that was renamed has its versions from then on only.
-- **A picture pasted** is kept beside the note, in a commit at once.
-- **Not there**: files dropped onto a note, renaming anything but notes, the order by date
+- **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
+  in the active mode likewise, under their own names.
+- **Renaming** a note, or any other file up to 14 MB, from the sidebar.
+- **Not there**: the order by date
   modified (Git keeps no date for a file), links from a PDF back to notes, and everything a
   desktop has that a browser has not — Open With…, Show in Finder, the Omarchy theme.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from

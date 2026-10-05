@@ -177,6 +177,48 @@ test("a picture pasted is kept beside the note, and in it", async () => {
   await page.waitForFunction((n) => { const i = document.querySelector(`#content img[src$="${n}"]`); return i && i.complete && i.naturalWidth === 4; }, name, { timeout: 10000 }); // (and it shows)
 });
 
+test("a picture dropped on the note is kept under its own name, and put in where it fell", async () => {
+  await open("Beta.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  const before = gh.commits.length;
+  const fall = (files) => page.evaluate(async (files) => {
+    const dt = new DataTransfer();
+    for (const [name, type] of files) {
+      const c = document.createElement("canvas"); c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+      dt.items.add(new File([type ? await new Promise((r) => c.toBlob(r, type)) : "words"], name, { type: type || "text/plain" }));
+    }
+    const dom = MdActive.view.pm.dom, r = dom.querySelector("p").getBoundingClientRect();
+    dom.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, clientX: r.left + 4, clientY: r.top + 4, bubbles: true, cancelable: true }));
+  }, files);
+  await fall([["words.txt", ""]]); // (no picture: said, and nothing kept)
+  await page.waitForFunction(() => /Only pictures/.test(document.body.innerText), null, { timeout: 8000 });
+  await fall([["A drawing.png", "image/png"], ["words.txt", ""]]);
+  await until(() => gh.repo.files.has("A drawing.png"), "the picture in the repository");
+  assert.deepEqual([...gh.repo.files.get("A drawing.png").subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  assert.equal(gh.repo.files.has("words.txt"), false);
+  await until(() => /!\[\]\(A%20drawing\.png\)/.test(text("Beta.md") || ""), "its markup in the note, as a commit");
+  assert.ok(gh.commits.length >= before + 1);
+  // the same name once more: beside the first, not over it
+  await fall([["A drawing.png", "image/png"]]);
+  await until(() => gh.repo.files.has("A drawing-2.png"), "the second picture");
+  await until(() => /A%20drawing-2\.png/.test(text("Beta.md") || ""), "the second one's markup");
+});
+
+test("a file that is no note has another name: its bytes under the new, none under the old", async () => {
+  const pdf = Buffer.from("%PDF-1.4\n" + "\u00ff\u0000binary".repeat(40), "latin1");
+  gh.repo.files.set("docs/Paper.pdf", pdf);
+  await open("Beta.md");
+  await page.waitForFunction(() => [...document.querySelectorAll(".sb-row")].some((r) => /docs/.test(r.textContent)), null, { timeout: 8000 });
+  const before = gh.commits.length;
+  await post({ type: "rename", path: "/octo/notes/docs/Paper.pdf", name: "Thesis.pdf" });
+  await until(() => gh.repo.files.has("docs/Thesis.pdf") && !gh.repo.files.has("docs/Paper.pdf"), "the renaming");
+  assert.ok(gh.repo.files.get("docs/Thesis.pdf").equals(pdf)); // (byte for byte)
+  assert.deepEqual([gh.commits.length, gh.commits.at(-1).added, gh.commits.at(-1).deleted], [before + 1, ["docs/Thesis.pdf"], ["docs/Paper.pdf"]]);
+  await post({ type: "rename", path: "/octo/notes/docs/Thesis.pdf", name: "Beta.md" }); // (the kind stays: Beta.md.pdf)
+  await until(() => gh.repo.files.has("docs/Beta.md.pdf"), "a name with the kind kept");
+});
+
 test("the settings show what there is here, not the desktop's own", async () => {
   await open("Beta.md");
   await page.keyboard.press("Control+,");

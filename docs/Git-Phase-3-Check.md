@@ -38,6 +38,8 @@ Tests in `web/` (`npm run build && npm test`); der Plan dazu ist [[Git-Phase-3]]
 - [ ] Tippen und den Tab sofort schließen, wieder öffnen: Das Getippte ist da und wird ein Commit
 - [ ] Neue Notiz, umbenennen, löschen über die Seitenleiste: je ein Commit
 - [ ] Ein Bild aus der Zwischenablage einfügen: Es erscheint in der Notiz und liegt im Repository
+- [ ] Im aktiven Modus ein Bild aus dem Dateimanager auf die Notiz ziehen: Es steht dort, wo es fallen gelassen wurde, und liegt unter seinem Namen im Repository
+- [ ] Ein PDF in der Seitenleiste umbenennen: ein Commit, die Datei unter dem neuen Namen
 - [ ] Ein Repository ohne `.mdview/project.json` öffnen: nur lesen; Uhr › „Use This Repository for History…" fragt nach und schreibt dann die Markerdatei
 
 ## 4. Mit der Desktop-App zusammen

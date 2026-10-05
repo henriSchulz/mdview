@@ -2,7 +2,9 @@
 // hosts it. The page says things with MdHost.post(JSON) and is told things by MdView.…(…). The
 // desktop's host is the Rust shell (src-tauri/src/shell.rs); the web's will be host.ts, against
 // GitHub. This is the whole list, as of the checkout it stands in, and what the web host does
-// with each — so that nothing is missing without having been decided.
+// with each — so that nothing is missing without having been decided. One thing is no message:
+// files dropped on a note are handed over as they are, MdHost.drop(files, path), where a host
+// has that (the web's; the desktop's is told their addresses, dropfiles).
 //
 //   answer   the web host does what the shell does, against the repository
 //   write    as answer, but it changes the repository: refused while the web app only reads
@@ -40,10 +42,10 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   toggle: ["write", "a task ticked in the reading view"],
   newnote: ["write", "a note made"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
-  rename: ["write", "a note renamed"],
+  rename: ["write", "a note or another file renamed"],
   trash: ["write", "a note deleted"],
   pasteimage: ["write", "a picture from the clipboard, kept beside the note"],
-  dropfiles: ["write", "files dropped on a note"],
+  dropfiles: ["write", "files dropped on a note, by their addresses (a browser has the files themselves: MdHost.drop)"],
   "history-restore": ["write", "a version put back as the note"],
   "history-now": ["write", "Ctrl+S: kept now"],
   "sync-resolve": ["write", "the conflicts' window: joined as picked"],

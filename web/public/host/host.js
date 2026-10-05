@@ -38,8 +38,9 @@
   const drafts = new Map(Object.entries(load(KEY + ":drafts", {}))), gone = new Set(load(KEY + ":gone", [])), keptDirs = new Set();
   const blobs = new Map(); // pictures put in here, until they are in a commit: path → their bytes, base64
   const keepDrafts = () => { keep(KEY + ":drafts", Object.fromEntries(drafts)); keep(KEY + ":gone", [...gone]); };
-  const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r));
-  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => !gone.has(r) || drafts.has(r)); // the files as they are here
+  const away = new Map(); // files given another name here, until that is in a commit: the old path → the blob it was (their bytes wait in blobs, under the new)
+  const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
+  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r)); // the files as they are here
   let tip = { device: "", time: 0 }; // who made the commit the branch stands at
   const exists = (path) => path.startsWith(BASE + "/") && has(rel(path));
   const paths = () => every().map((f) => BASE + "/" + f);
@@ -214,6 +215,11 @@
   const quiet = () => Math.max(1, Number(prefs.historyQuiet) || 30) * 1000;
   function later() { clearTimeout(timer); timer = setTimeout(() => commit(), quiet()); }
   const bytesOf = (base64) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  function base64Of(bytes) {
+    let bin = "";
+    for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000));
+    return btoa(bin);
+  }
   async function blobId(content) { // (Git's own id of a file with this content: a text, or bytes)
     const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content, headBytes = new TextEncoder().encode(`blob ${bytes.length}\0`), all = new Uint8Array(headBytes.length + bytes.length);
     all.set(headBytes); all.set(bytes, headBytes.length);
@@ -237,6 +243,7 @@
       if (onScreen === BASE + "/" + r) render(onScreen, { keepScroll: true }); // (what they wrote is in it now)
     }
     for (const r of [...gone]) if (!files.has(r)) gone.delete(r); // (deleted there too)
+    for (const [r, sha] of [...away]) if ((files.get(r) || {}).sha !== sha) away.delete(r); // (deleted there, or another file by now: that one stays)
     keepDrafts();
     return found;
   }
@@ -250,7 +257,7 @@
         if (!project() && !drafts.has(MARKER)) return;
         conflicts = await settle();
         if (conflicts.length) { sendFolder(); toast(`${conflicts.length === 1 ? "A file was" : conflicts.length + " files were"} changed here and elsewhere. Resolve from the clock in the sidebar`); return; }
-        const sent = new Map(drafts), pictures = new Map(blobs), deleted = [...gone].filter((r) => files.has(r));
+        const sent = new Map(drafts), pictures = new Map(blobs), deleted = [...gone, ...away.keys()].filter((r) => files.has(r));
         const additions = [...[...sent].map(([path, d]) => ({ path, text: d.text })), ...[...pictures].map(([path, base64]) => ({ path, base64 }))];
         if (!additions.length && !deleted.length) { sendFolder(); return; }
         const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: additions.reduce((n, a) => n + (a.text || a.base64).length, 0) < 40000,
@@ -265,7 +272,7 @@
           if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) drafts.get(r).base = sha; // (written on meanwhile: the next commit's)
         }
         for (const [r, base64] of pictures) { const bytes = bytesOf(base64); files.set(r, { sha: await blobId(bytes), size: bytes.length }); blobs.delete(r); }
-        for (const r of deleted) { files.delete(r); gone.delete(r); }
+        for (const r of deleted) { files.delete(r); gone.delete(r); away.delete(r); }
         keepDrafts();
         sendFolder();
         tell("historyKept");
@@ -277,6 +284,38 @@
     return busy;
   }
   const mayWrite = () => { if (project()) return true; toast("Turn the history on first: the clock in the sidebar"); return false; };
+
+  /* A picture put in: where the settings say (beside the note, else a folder under it), under a
+   * name not taken; its bytes wait for the next commit. → its path */
+  const PICTURE_MOST = 10 * 1024 * 1024, MOVE_MOST = 14 * 1024 * 1024; // (a commit takes 20 MB, as base64)
+  async function putPicture(note, stem, ext, blob) {
+    const dir = C.dirOf(note), wanted = String(prefs.images || "beside").trim().replace(/^\/+|\/+$/g, "");
+    const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
+    let target = `${into}/${stem}${ext}`;
+    for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;
+    blobs.set(rel(target), base64Of(new Uint8Array(await blob.arrayBuffer())));
+    return target;
+  }
+  const markupOf = (note, target) => `![](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
+  /* Files dropped on the note (the page hands them over as they are: MdHost.drop): the pictures
+   * among them are kept as pasted ones are, under their own names, in a commit at once, and
+   * their Markdown put in where they were dropped. */
+  async function drop(dropped, path) {
+    if (!path || path !== onScreen || !mayWrite()) return;
+    const pictures = [...dropped].filter((f) => C.kindOf(f.name) === "image");
+    if (!pictures.length) return toast("Only pictures can be dropped here");
+    const kept = [];
+    for (const f of pictures) {
+      if (f.size > PICTURE_MOST) { toast(`“${f.name}” is too large to keep here (over 10 MB)`); continue; }
+      const name = C.cleanName(f.name), dot = name.lastIndexOf(".");
+      kept.push(await putPicture(path, name.slice(0, dot), name.slice(dot), f));
+    }
+    if (!kept.length) return;
+    await commit();
+    const there = kept.filter((t) => !blobs.has(rel(t)));
+    if (there.length < kept.length) toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
+    if (there.length) tell("insertDropped", { path, markups: there.map((t) => markupOf(path, t)) });
+  }
 
   // ------------------------------------------------------------ what the page says
   const noteDir = () => (onScreen ? C.dirOf(onScreen) : BASE);
@@ -434,17 +473,31 @@
     },
     async rename({ path, name }) {
       if (!exists(path) || !mayWrite()) return;
-      if (!C.isMd(path)) return toast("Only notes can be renamed here yet");
       const suffix = path.slice(path.lastIndexOf("."));
       let stem = C.cleanName(name);
       if (stem.toLowerCase().endsWith(suffix.toLowerCase())) stem = stem.slice(0, -suffix.length).trimEnd();
       const now = `${C.dirOf(path)}/${stem}${suffix}`;
       if (!stem || now === path) return;
       if (exists(now)) return toast(`“${C.nameOf(now)}” already exists`);
-      const text = await textOf(path), r = rel(path);
-      drafts.delete(r);
-      if (files.has(r)) gone.add(r);
-      write(rel(now), text);
+      const r = rel(path);
+      if (C.isMd(path)) {
+        const text = await textOf(path);
+        drafts.delete(r);
+        if (files.has(r)) gone.add(r);
+        write(rel(now), text);
+      } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
+        blobs.set(rel(now), blobs.get(r));
+        blobs.delete(r);
+      } else {
+        // anything else is its bytes under the new name and gone under the old, in a commit at once
+        const f = files.get(r);
+        if (f.size > MOVE_MOST) return toast(`“${C.nameOf(path)}” is too large to rename here (over 14 MB)`);
+        const res = await ask(fileUrl(path));
+        if (!res.ok) return toast("Couldn't rename: the file could not be read");
+        blobs.set(rel(now), base64Of(new Uint8Array(await res.arrayBuffer())));
+        away.set(r, f.sha);
+        commit();
+      }
       tabs.rename(path, now);
       if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
       if (here.last === path) here.last = now;
@@ -481,19 +534,11 @@
         }
       } catch { return toast("The browser did not hand out the clipboard"); }
       if (!found) return;
-      if (found.blob.size > 10 * 1024 * 1024) return toast("The picture is too large to keep here (over 10 MB)");
-      const bytes = new Uint8Array(await found.blob.arrayBuffer());
-      let bin = "";
-      for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000));
+      if (found.blob.size > PICTURE_MOST) return toast("The picture is too large to keep here (over 10 MB)");
       const ext = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg" }[found.type];
-      const dir = C.dirOf(path), wanted = String(prefs.images || "beside").trim().replace(/^\/+|\/+$/g, "");
-      const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
       const d = new Date(), two = (n) => String(n).padStart(2, "0");
       const stem = `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
-      let target = `${into}/${stem}${ext}`;
-      for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;
-      blobs.set(rel(target), btoa(bin));
-      const markup = `![](${target.slice(dir.length + 1).split("/").map(encodeURIComponent).join("/")})`;
+      const target = await putPicture(path, stem, ext, found.blob), markup = markupOf(path, target);
       if (append) { // (in the reading view: at the note's end)
         const old = await textOf(path), nl = old.includes("\r\n") ? "\r\n" : "\n", body = old.replace(/[\r\n]+$/, "");
         write(rel(path), (body ? body + nl + nl : "") + markup + nl);
@@ -502,7 +547,7 @@
       if (blobs.has(rel(target))) return toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
       if (append) render(path, { end: true }); else tell("insertImage", { path, markup });
     },
-    dropfiles() { toast("Files can't be added here yet"); },
+    dropfiles() { toast("Only pictures can be dropped here"); }, // (addresses of files on a disk: nothing a browser can read)
 
     // turning a repository into a project: the marker, as a commit (the clock's menu, when asked)
     "history-enable"() {
@@ -577,6 +622,7 @@
     // the page's messages come here from now on, those it said while this was loading first
     const waiting = window.MdHost.said || [];
     window.MdHost.post = hear;
+    window.MdHost.drop = (dropped, path) => { drop(dropped, path).catch((e) => console.error("mdview host: drop", e)); };
     try { await look(); } catch (e) {
       tell("render", { name: W.repo, path: BASE, base: fileUrl(BASE) + "/", text: "", links: {}, error: String(e.message || e), readonly: "not read", canBack: false });
       return;

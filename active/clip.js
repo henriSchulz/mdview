@@ -232,11 +232,14 @@
         if (view.dragging || !view.editable) return false;
         const dt = event.dataTransfer;
         const uris = (dt && dt.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => /^file:/.test(u.trim())).map((u) => u.trim());
-        if (!uris.length) return false;
+        // (in a browser there are no addresses, only the files themselves: a host that takes them says so with MdHost.drop)
+        const files = !uris.length && dt && dt.files && dt.files.length && window.MdHost && window.MdHost.drop ? [...dt.files] : [];
+        if (!uris.length && !files.length) return false;
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
         if (at) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))));
         view.focus();
-        if (A.view.payload && A.view.payload.path) post("dropfiles", { uris, path: A.view.payload.path });
+        if (!(A.view.payload && A.view.payload.path)) return true;
+        if (files.length) window.MdHost.drop(files, A.view.payload.path); else post("dropfiles", { uris, path: A.view.payload.path });
         return true;
       },
       handlePaste(view, event) {
