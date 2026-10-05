@@ -161,6 +161,25 @@ test("a note's history: its versions, what each changed, one put back", async ()
   await page.waitForFunction(() => !document.querySelector("#history").hasAttribute("data-open") && /^# Alpha\n\nfirst paragraph\n/.test(MdView.core.current.raw), null, { timeout: 8000 });
 });
 
+test("a note's history goes on behind the commit that gave it its name", async () => {
+  const count = () => page.evaluate(() => document.querySelectorAll("#history .hi-row").length);
+  await open("Alpha.md");
+  await page.keyboard.press("Control+Alt+h");
+  await page.waitForFunction(() => { const w = document.querySelector("#history"); return w && w.hasAttribute("data-open") && w.querySelectorAll(".hi-row").length >= 3; }, null, { timeout: 15000 });
+  const had = await count();
+  await page.keyboard.press("Escape");
+  await post({ type: "rename", path: "/octo/notes/Alpha.md", name: "Alpha, later" });
+  await until(() => text("Alpha, later.md") !== undefined && text("Alpha.md") === undefined, "the renaming");
+  await untilNote("Alpha, later.md");
+  await page.keyboard.press("Control+Alt+h");
+  await page.waitForFunction((n) => { const w = document.querySelector("#history"); return w && w.hasAttribute("data-open") && w.querySelectorAll(".hi-row").length >= n; }, had + 1, { timeout: 15000 }); // (the renaming, and all there was before it)
+  assert.equal(await count(), had + 1);
+  // the oldest: read under the name the note had then
+  await page.evaluate(() => { const r = [...document.querySelectorAll("#history .hi-row")]; r[r.length - 1].click(); });
+  await page.waitForFunction(() => /first paragraph/.test((document.querySelector("#history .hi-diff") || {}).textContent || ""), null, { timeout: 8000 });
+  await page.keyboard.press("Escape");
+});
+
 test("a picture pasted is kept beside the note, and in it", async () => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
   await open("Beta.md");

@@ -20,7 +20,14 @@ export function fakeGitHub() {
   // repository is looked at, how it stands is written down as a commit, if it is not one yet)
   const note = (message, by) => { const oid = gh.head(); if (!gh.past.some((c) => c.oid === oid)) gh.past.push({ oid, message, by: by || "Other", time: 1790000000 + gh.past.length * 60, files: new Map(gh.repo.files) }); return gh.past.find((c) => c.oid === oid); };
   gh.note = note;
-  const asCommit = (c) => ({ sha: c.oid, commit: { message: c.message, tree: { sha: stateSha("tree") }, author: { name: c.by, date: new Date(c.time * 1000).toISOString() } } });
+  const before = (c) => gh.past[gh.past.indexOf(c) - 1];
+  // (as GitHub tells a commit's files: one that is gone under one name and there, the same, under another was renamed)
+  const changed = (c) => {
+    const was = before(c) ? before(c).files : new Map(), same = (a, b) => a && b && blobSha(a) === blobSha(b);
+    const gone = [...was.keys()].filter((p) => !c.files.has(p));
+    return [...c.files].filter(([p, b]) => !same(was.get(p), b)).map(([p, b]) => { const old = !was.has(p) && gone.find((g) => same(was.get(g), b)); return old ? { filename: p, status: "renamed", previous_filename: old } : { filename: p, status: was.has(p) ? "modified" : "added" }; });
+  };
+  const asCommit = (c) => ({ sha: c.oid, parents: before(c) ? [{ sha: before(c).oid }] : [], commit: { message: c.message, tree: { sha: stateSha("tree") }, author: { name: c.by, date: new Date(c.time * 1000).toISOString() } } });
   gh.blobSha = blobSha;
   const server = createServer((req, res) => {
     let body = "";
@@ -55,7 +62,12 @@ export function fakeGitHub() {
       if (url.pathname === `${at}/commits`) { // (the commits in which a file is not what it was before)
         note("written elsewhere");
         const path = url.searchParams.get("path"), id = (c) => { const b = c.files.get(path); return b ? blobSha(b) : null; };
-        return json(gh.past.filter((c, i) => id(c) && id(c) !== (i ? id(gh.past[i - 1]) : null)).reverse().map(asCommit));
+        const from = url.searchParams.get("sha"), upTo = from ? gh.past.findIndex((c) => c.oid === from) + 1 : gh.past.length;
+        return json(gh.past.slice(0, upTo).filter((c, i) => id(c) && id(c) !== (i ? id(gh.past[i - 1]) : null)).reverse().map(asCommit));
+      }
+      if (url.pathname.startsWith(`${at}/commits/`)) {
+        const c = gh.past.find((c) => c.oid === url.pathname.slice(`${at}/commits/`.length));
+        return c ? json({ ...asCommit(c), files: changed(c) }) : json({ message: "Not Found" }, 404);
       }
       if (url.pathname === `${at}/git/trees/${stateSha("tree")}`) {
         for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf); // (a blob once in a commit stays to be had)

@@ -54,6 +54,7 @@ Tests in `web/` (`npm run build && npm test`); der Plan dazu ist [[Git-Phase-3]]
 ## 5. Verlauf und Einstellungen
 
 - [ ] <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd>: die Versionen der Notiz, die vom Desktop mit dessen Gerätenamen
+- [ ] Eine Notiz umbenennen, dann ihr Verlauf: Die Versionen von vor der Umbenennung sind dabei und zeigen ihren Text
 - [ ] Eine ältere Version wiederherstellen: Sie ist wieder die Notiz, als neuer Commit
 - [ ] <kbd>Ctrl</kbd>+<kbd>,</kbd>: keine Seite „Writing Help"; unter History das Repository, der Branch, der Stand; kein „Turn Off", kein „Unlink"
 

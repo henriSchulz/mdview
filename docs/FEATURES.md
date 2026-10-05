@@ -436,7 +436,8 @@ counts — and has no writing help by a model.
   in another place of the same note, it is joined with what was typed here; in the same place,
   nothing is written and the clock's Resolve Conflicts… asks, as here.
 - **A note's history** (`Ctrl+Alt+H`): the commits that changed it, what each changed, one put
-  back. A note that was renamed has its versions from then on only.
+  back. A note that was renamed has its versions from before as well, where GitHub knows the
+  renaming as one.
 - **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.

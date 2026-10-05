@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 39 Tests in `web/`, davon 21
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 40 Tests in `web/`, davon 22
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -301,14 +301,18 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 - **Löschen oder Umbenennen, während ein Commit unterwegs ist:** Beides wartet jetzt auf dessen
   Antwort. Vorher kam eine Notiz zurück, die gelöscht wurde, bevor ihr erster Commit bestätigt
   war.
+- **Verlauf über eine Umbenennung hinweg:** Die Commits eines Pfads enden dort, wo die Notiz
+  ihren Namen bekam. Dieser Commit wird angesehen: Nennt GitHub darin den alten Namen
+  (`previous_filename`), geht der Verlauf unter ihm weiter, bis zu fünf Umbenennungen zurück.
+  Jede Version kennt den Pfad, unter dem sie die Notiz hat. Gegen das echte GitHub steht das
+  aus: GitHub erkennt eine Umbenennung an der Ähnlichkeit, nicht immer.
 - Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
   zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
-  Byte. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
+  Byte; der Verlauf einer umbenannten Notiz bis zur ältesten Version. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
   PDFs. `test/core.test.mjs` – Rücklinks Verweis für Verweis.
 
 ### Was Phase 3 nicht hat
 
-- **Verlauf über eine Umbenennung hinweg:** Die GitHub-API folgt ihr nicht.
 - **Änderungsdatum:** Git kennt keines je Datei; die Sortierung danach greift nicht.
 - **Vergleich Desktop gegen Web** Notiz für Notiz, wie er für Schritt 3 gedacht war.
 - **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
@@ -347,7 +351,8 @@ Sobald das Gerüst der Web-App im Repository liegt:
   nur wenige MB groß sein darf. Ein Repository mit sehr vielen oder sehr großen Notizen lädt
   beim ersten Öffnen spürbar; danach liegt es im Browser.
 - **Umbenennungen im Verlauf.** Die GitHub-API liefert die Commits eines Pfads, folgt aber
-  keiner Umbenennung. Der Web-Verlauf endet dort, wo die Notiz ihren Namen bekam, anders als am
+  keiner Umbenennung. Die Web-App folgt ihr selbst, soweit GitHub sie im Commit als solche
+  nennt; wurde die Notiz im selben Commit stark geändert, endet der Verlauf dort, anders als am
   Desktop.
 - **Tab zu, bevor committet ist.** Der Entwurf liegt im Browser und wird beim nächsten Öffnen
   committet; bis dahin sieht ihn kein anderes Gerät.

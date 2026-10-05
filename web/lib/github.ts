@@ -159,12 +159,28 @@ export function raw(access: string, owner: string, repo: string, path: string, e
   return ask(access, `${repoPath(owner, repo)}/contents/${at}${ref ? `?ref=${part(ref)}` : ""}`, "application/vnd.github.raw+json", etag ? { "If-None-Match": etag } : {});
 }
 
-/** The versions of a file: the commits that changed it, newest first. (GitHub does not follow a
- * file through a renaming: they end where it got its name.) */
+/** The versions of a file: the commits that changed it, newest first. GitHub does not follow a
+ * file through a renaming — its commits end where it got its name. That commit is looked at: if
+ * it says what the file was called before, the versions go on under that name (each knows the
+ * path it has the file at), a few renamings back. */
 export async function versions(access: string, owner: string, repo: string, path: string): Promise<Version[]> {
-  const res = await ask(access, `${repoPath(owner, repo)}/commits?path=${part(path)}&per_page=100`);
-  if (!res.ok) return [];
-  return ((await res.json()) as CommitJson[]).map((c) => ({ id: c.sha, time: timeOf(c), device: deviceOf(c), subject: (c.commit.message || "").split("\n")[0], path }));
+  const out: Version[] = [];
+  let from = "";
+  for (let hop = 0; hop < 6 && out.length < 300; hop++) {
+    const res = await ask(access, `${repoPath(owner, repo)}/commits?path=${part(path)}&per_page=100${from ? `&sha=${from}` : ""}`);
+    if (!res.ok) break;
+    const some = (await res.json()) as CommitJson[], at = path;
+    out.push(...some.map((c) => ({ id: c.sha, time: timeOf(c), device: deviceOf(c), subject: (c.commit.message || "").split("\n")[0], path: at })));
+    if (!some.length || some.length === 100) break; // (nothing, or more than is shown anyway)
+    const first = await ask(access, `${repoPath(owner, repo)}/commits/${some[some.length - 1].sha}`);
+    if (!first.ok) break;
+    const made = (await first.json()) as { parents?: { sha: string }[]; files?: { filename: string; status: string; previous_filename?: string }[] };
+    const was = (made.files || []).find((f) => f.status === "renamed" && f.filename === at && f.previous_filename);
+    if (!was || !made.parents?.length) break;
+    path = was.previous_filename as string;
+    from = made.parents[0].sha;
+  }
+  return out;
 }
 
 /** The branch stands elsewhere than the commit was made for: someone wrote meanwhile. */
