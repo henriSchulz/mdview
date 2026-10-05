@@ -20,7 +20,7 @@ beside the notes. The command and the repository are still called `mdview`;
 - Colors follow the Omarchy theme; motion and sizes are the app's own (`motion.css`). The
   sidebar and bars are built as macOS builds them (a floating sidebar card, shortcuts
   as `⌃⇧V`), in sizes measured there; context menus and the `/`
-  menu are the Things rebuild's dark popover, the app's own icons SF Symbols where
+  menu are dark plates, the app's own icons SF Symbols where
   that font is installed.
 - Everything it does, with the Markdown it reads: `docs/FEATURES.md`. A Claude skill
   for writing notes it renders: `skill/mdview-notes` (linked by the installer).

@@ -4,7 +4,6 @@
 use std::fs;
 use std::path::PathBuf;
 
-use serde_json::Value;
 
 const THEME_KEYS: &[&str] = &[
     "background", "foreground", "accent", "muted", "selection", "red", "green", "yellow", "orange", "blue", "cyan",
@@ -12,10 +11,6 @@ const THEME_KEYS: &[&str] = &[
 ];
 const LIGHT_FALLBACK: &[(&str, &str)] =
     &[("background", "#ffffff"), ("foreground", "#1d1d1f"), ("accent", "#0071e3"), ("muted", "#8e8e93"), ("selection", "#b4d5fe")];
-// The context and "/" menus wear the Things rebuild's dark popover: its tokens, where its
-// launcher looks for them too. Without the file the values written in viewer.css hold.
-const THINGS_TOKENS: &str = "replica/design/tokens.json";
-
 pub struct Theme {
     pub mode: String,
     pub colors: Vec<(String, String)>,
@@ -73,44 +68,7 @@ pub fn load_theme() -> Theme {
     theme
 }
 
-pub fn things_tokens_path() -> Option<PathBuf> {
-    let dirs = [std::env::var_os("THINGS_DIR").map(PathBuf::from), Some(home().join(".local/share/things-clone")), Some(home().join("Projects/things-clone"))];
-    dirs.into_iter().flatten().map(|d| d.join(THINGS_TOKENS)).find(|p| p.exists())
-}
-
-/// Where the tokens would be watched for, also when they are not there yet.
-pub fn things_tokens_watch() -> PathBuf {
-    things_tokens_path().unwrap_or_else(|| home().join(".local/share/things-clone").join(THINGS_TOKENS))
-}
-
-/// What the menus need of the Things tokens, as --things-* (lengths are its points, as px).
-fn things_css() -> String {
-    fn text(v: &Value) -> Option<String> {
-        match v {
-            Value::String(s) => Some(s.clone()),
-            Value::Number(n) => Some(n.to_string()),
-            _ => None,
-        }
-    }
-    let build = || -> Option<String> {
-        let t: Value = serde_json::from_str(&fs::read_to_string(things_tokens_path()?).ok()?).ok()?;
-        let (color, body) = (&t["color"], &t["type"]["body"]);
-        let mut out = Vec::new();
-        for k in ["popover", "popover-text", "popover-muted", "popover-selection", "popover-button", "on-accent", "danger"] {
-            out.push(format!("--things-{k}:{}", text(&color[k])?));
-        }
-        out.push(format!("--things-radius-popover:{}px", text(&t["radius"]["popover"])?));
-        out.push(format!("--things-radius-sm:{}px", text(&t["radius"]["sm"])?));
-        out.push(format!("--things-shadow-pop:{}", text(&t["shadow"]["pop"])?));
-        out.push(format!("--things-popover-row:{}px", text(&t["layout"]["popover"]["row"])?));
-        out.push(format!("--things-type-body-size:{}px", text(&body["size"])?));
-        out.push(format!("--things-type-body-weight:{}", text(&body["weight"])?));
-        Some(format!(";{}", out.join(";")))
-    };
-    build().unwrap_or_default()
-}
-
 pub fn theme_css(theme: &Theme) -> String {
     let body: Vec<String> = theme.colors.iter().map(|(k, v)| format!("--c-{}:{v}", k.replace('_', "-"))).collect();
-    format!(":root{{{}{};color-scheme:{}}}", body.join(";"), things_css(), theme.mode)
+    format!(":root{{{};color-scheme:{}}}", body.join(";"), theme.mode)
 }

@@ -619,7 +619,7 @@ impl App {
             return;
         };
         let dir = theme::theme_dir();
-        for d in [dir.clone(), dir.join("theme"), dir_of(&theme::things_tokens_watch())] {
+        for d in [dir.clone(), dir.join("theme")] {
             let _ = watcher.watch(&d, RecursiveMode::NonRecursive);
         }
         self.watcher = Some(watcher);

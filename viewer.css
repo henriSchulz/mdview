@@ -487,29 +487,28 @@ body.swapping #content, body.swapping #editor {
   border-radius: var(--menu-radius);
   box-shadow: var(--shadow-menu);
 }
-/* The menus at a point — a file's, the text's, the "/" menu and their submenus — are the Things
- * rebuild's dark popover instead: an opaque plate, radius 10, its pop shadow, the row under the
- * pointer in its blue. The values are its tokens (--things-*, from mdview.py); the ones written
- * here hold without that file. On the plate the names the menu rules draw with mean its colours. */
+/* The menus at a point — a file's, the text's, the "/" menu and their submenus — are a dark
+ * plate instead: opaque, radius 10, a deeper shadow, the row under the pointer in blue. On the
+ * plate the names the menu rules draw with mean its colours. */
 #ctxmenu, .actmenu {
-  --fg: var(--things-popover-text, #fcfcfc);
-  --fg2: var(--things-popover-muted, #b3b7ba);
-  --fg3: color-mix(in srgb, var(--fg2) 60%, var(--things-popover, #3b3c40));   /* what cannot be chosen */
+  --fg: #fcfcfc;
+  --fg2: #b3b7ba;
+  --fg3: color-mix(in srgb, var(--fg2) 60%, #3b3c40);   /* what cannot be chosen */
   --line: color-mix(in srgb, var(--fg) 12%, transparent);
-  --accent: var(--things-popover-selection, #508dff);
-  --on-accent: var(--things-on-accent, #fff);
-  --menu-radius: var(--things-radius-popover, 10px);
+  --accent: #508dff;
+  --on-accent: #fff;
+  --menu-radius: 10px;
   --menu-pad: 6px;
-  --menu-row-radius: var(--things-radius-sm, 5px);
-  background: var(--things-popover, #3b3c40);
+  --menu-row-radius: 5px;
+  background: #3b3c40;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), var(--things-shadow-pop, 0 8px 28px rgb(0 0 0 / 0.3));
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 8px 28px rgb(0 0 0 / 0.3);
   color: var(--fg);
 }
-#ctxmenu .menu-item, .actmenu .menu-item { min-height: var(--things-popover-row, 26px); font-size: var(--things-type-body-size, 14px); font-weight: var(--things-type-body-weight, 500); }
+#ctxmenu .menu-item, .actmenu .menu-item { min-height: 26px; font-size: 14px; font-weight: 500; }
 #ctxmenu .menu-item.current, .actmenu .menu-item.current { color: var(--fg); font-weight: 700; }
-#ctxmenu .menu-item.danger:not(.hl), .actmenu .menu-item.danger:not(.hl) { color: color-mix(in srgb, var(--things-danger, #f64468) 80%, var(--fg)); }
+#ctxmenu .menu-item.danger:not(.hl), .actmenu .menu-item.danger:not(.hl) { color: color-mix(in srgb, #f64468 80%, var(--fg)); }
 #ctxmenu .menu-key, .actmenu .menu-key { color: var(--fg2); font-size: 12px; }
 #ctxmenu .menu-item.hl .menu-key, .actmenu .menu-item.hl .menu-key { color: var(--on-accent); }
 @media (prefers-contrast: more) { #ctxmenu, .actmenu { box-shadow: 0 0 0 1.5px var(--fg); } }
