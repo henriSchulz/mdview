@@ -170,7 +170,7 @@
         const linked = kind === "link" && h.linked;
         if (g.user && !g.repos && !asking) { asking = true; post("github-repos"); } // (read once signed in; again when the window opens)
         if (!g.user) asking = false;
-        act.hidden = !g.user && !linked;
+        act.hidden = (!g.user && !linked) || (!!linked && !!h.fixed); // (a host whose folder is the repository: nothing to unlink)
         if (linked) {
           const sync = h.sync || {};
           const how = sync.state === "conflict" ? T((sync.files || []).length === 1 ? "prefs.sync.conflict.one" : "prefs.sync.conflict", (sync.files || []).length)
@@ -282,6 +282,19 @@
     main.append(head, content);
     root.append(side, main);
     document.body.append(scrim, root);
+    // What a host does not have (told with the rest it knows: info.hide — a row by its key, a
+    // page as "page:<id>") is not shown: the web app has no model, and signs in before any page.
+    // Last, after every row's own showing and hiding; a card or section left empty goes too.
+    refresh.push(() => {
+      const hide = info.hide || [];
+      for (const b of side.querySelectorAll(".st-nav")) b.hidden = hide.includes("page:" + b.dataset.page);
+      for (const row of content.querySelectorAll(".pf-row")) if (hide.includes(row.dataset.key)) row.hidden = true;
+      for (const card of content.querySelectorAll(".st-card")) {
+        card.hidden = ![...card.children].some((r) => !r.hidden);
+        const title = card.previousElementSibling;
+        if (title && title.classList.contains("pf-section")) title.hidden = card.hidden;
+      }
+    });
 
     side.addEventListener("click", (e) => { const b = e.target.closest(".st-nav"); if (b) show(b.dataset.page); });
     x.addEventListener("click", () => close());

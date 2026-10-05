@@ -10,11 +10,17 @@ export function fakeGitHub() {
     lifetime: 28800, refreshes: 0, serial: 0, validAccess: "", validRefresh: "", challenge: "",
     repo: { owner: "octo", name: "notes", files: new Map(), private: true },
     blobs: new Map(),
+    past: [], // the repository as every commit seen had it: { oid, message, time, files }, oldest first
     commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by }
   };
   const blobSha = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
   const stateSha = (salt) => createHash("sha1").update(salt + [...gh.repo.files].map(([p, b]) => p + blobSha(b)).sort().join("\n")).digest("hex");
   gh.head = () => stateSha("commit");
+  // (the files are also changed behind the app's back, as another device would: whenever the
+  // repository is looked at, how it stands is written down as a commit, if it is not one yet)
+  const note = (message, by) => { const oid = gh.head(); if (!gh.past.some((c) => c.oid === oid)) gh.past.push({ oid, message, by: by || "Other", time: 1790000000 + gh.past.length * 60, files: new Map(gh.repo.files) }); return gh.past.find((c) => c.oid === oid); };
+  gh.note = note;
+  const asCommit = (c) => ({ sha: c.oid, commit: { message: c.message, tree: { sha: stateSha("tree") }, author: { name: c.by, date: new Date(c.time * 1000).toISOString() } } });
   gh.blobSha = blobSha;
   const server = createServer((req, res) => {
     let body = "";
@@ -45,7 +51,12 @@ export function fakeGitHub() {
       if (url.pathname === "/user/installations/7/repositories") return json({ repositories: [
         { full_name: "octo/Zeta", private: true, default_branch: "main" }, { full_name: "octo/alpha-notes", private: false, default_branch: "trunk" } ] });
       if (url.pathname === at) return json({ default_branch: "main", private: gh.repo.private });
-      if (url.pathname === `${at}/commits/main`) return files.size ? json({ sha: gh.head(), commit: { tree: { sha: stateSha("tree") } } }) : json({ message: "Git Repository is empty." }, 409);
+      if (url.pathname === `${at}/commits/main`) return files.size ? json(asCommit(note("written elsewhere"))) : json({ message: "Git Repository is empty." }, 409);
+      if (url.pathname === `${at}/commits`) { // (the commits in which a file is not what it was before)
+        note("written elsewhere");
+        const path = url.searchParams.get("path"), id = (c) => { const b = c.files.get(path); return b ? blobSha(b) : null; };
+        return json(gh.past.filter((c, i) => id(c) && id(c) !== (i ? id(gh.past[i - 1]) : null)).reverse().map(asCommit));
+      }
       if (url.pathname === `${at}/git/trees/${stateSha("tree")}`) {
         for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf); // (a blob once in a commit stays to be had)
         const tree = [...files].map(([path, buf]) => ({ path, type: "blob", sha: blobSha(buf), size: buf.length }));
@@ -59,6 +70,7 @@ export function fakeGitHub() {
         for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf);
         for (const a of input.fileChanges.additions || []) files.set(a.path, Buffer.from(a.contents, "base64"));
         for (const d of input.fileChanges.deletions || []) files.delete(d.path);
+        note(input.message.headline + "\n\n" + input.message.body, "Octo Cat");
         gh.commits.push({ headline: input.message.headline, body: input.message.body, added: (input.fileChanges.additions || []).map((a) => a.path), deleted: (input.fileChanges.deletions || []).map((d) => d.path), by: "octo" });
         return json({ data: { createCommitOnBranch: { commit: { oid: gh.head() } } } });
       }
@@ -72,7 +84,8 @@ export function fakeGitHub() {
         return json({ data: { repository } });
       }
       if (url.pathname.startsWith(`${at}/contents/`)) {
-        const buf = files.get(decodeURIComponent(url.pathname.slice(`${at}/contents/`.length)));
+        const ref = url.searchParams.get("ref"), then = ref ? (gh.past.find((c) => c.oid === ref) || { files: new Map() }).files : files;
+        const buf = then.get(decodeURIComponent(url.pathname.slice(`${at}/contents/`.length)));
         if (!buf) return json({ message: "Not Found" }, 404);
         const etag = `"${blobSha(buf)}"`;
         if (req.headers["if-none-match"] === etag) { res.writeHead(304, { ETag: etag }); return res.end(); }

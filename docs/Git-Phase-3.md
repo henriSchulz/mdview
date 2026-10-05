@@ -11,12 +11,12 @@ Umsetzungsplan für die dritte Phase. Nach [[Git-Phase-1]] (lokale Historie) und
 mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI-Funktionen.
 
 > [!important] Stand
-> Die App läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository
-> (öffentlich, MIT). Gebaut sind die Schritte 1 bis 5: die Liste der Naht, Gerüst und Anmeldung
-> (am 5. Oktober auch gegen das echte GitHub durchlaufen), das Lesen, das Schreiben von Text und
-> das Zusammenführen mit dem Konfliktfenster (`web/`, 32 Tests, davon 15 in einem echten Browser
-> gegen ein GitHub-Double). Lesen und Schreiben sind gegen das echte GitHub noch nicht
-> durchlaufen. Schritt 6 (Verlauf, Abschluss) ist Plan; Bilder einfügen fehlt.
+> Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
+> gebaut aus diesem Repository (öffentlich, MIT):
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 35 Tests in `web/`, davon 18
+> in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
+> Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
+> Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
 
 ## Was am Ende da ist
 
@@ -268,9 +268,32 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ### 6. Verlauf und Abschluss
 
-- Das Verlaufsfenster: Versionen einer Notiz über die Commits ihres Pfads, Text einer Version,
-  Wiederherstellen als Commit.
-- Veröffentlichen, Abschnitt in `docs/FEATURES.md`, eine Liste zum Durchklicken wie in Phase 2.
+- Das Verlaufsfenster der Desktop-App, unverändert: Die Versionen einer Notiz sind die Commits,
+  die ihren Pfad geändert haben (`…/history`), der Text einer Version kommt aus dem Commit
+  (`…/version`), Wiederherstellen schreibt ihn als Entwurf und committet sofort.
+- Ein Bild aus der Zwischenablage wird neben der Notiz abgelegt (oder wo die Einstellung es
+  will) und sofort committet, damit die Seite es aus dem Repository zeigen kann.
+- Im Konfliktfenster steht als Gegenseite das Gerät des letzten Commits auf dem Branch.
+- Die Einstellungen zeigen nicht, was es im Web nicht gibt: Eine Hülle nennt mit dem, was sie
+  weiß, die Zeilen und Seiten, die entfallen (`hide`), und dass sich ihr Verlauf nicht
+  ausschalten und nicht lösen lässt (`fixed`). Der Gerätename lässt sich wie am Desktop setzen.
+- Abschnitt „In the browser" in `docs/FEATURES.md`; [[Git-Phase-3-Check]] zum Durchklicken.
+- Prüfung: `test/write.test.mjs` – Verlauf mit Wiederherstellen, ein eingefügtes Bild bis zum
+  Bild in der Notiz, die Einstellungen.
+
+### Was Phase 3 nicht hat
+
+- **Dateien ablegen:** Was auf eine Notiz gezogen wird, kommt im Browser nicht bei der Hülle an;
+  dafür müsste die Seite die Dateien selbst weiterreichen.
+- **Umbenennen** von anderem als Notizen.
+- **Verlauf über eine Umbenennung hinweg:** Die GitHub-API folgt ihr nicht.
+- **Änderungsdatum:** Git kennt keines je Datei; die Sortierung danach greift nicht.
+- **Rücklinks aus PDFs**, und die Hilfe in der App (sie öffnet `docs/FEATURES.md` auf GitHub).
+- **Vergleich Desktop gegen Web** Notiz für Notiz, wie er für Schritt 3 gedacht war.
+- **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
+  sehr großen Repositories wäre das Paket aus einem Archiv der nächste Schritt.
+- **Serverseitiger Speicher:** Tabs und Einstellungen liegen je Browser; in Firestore lägen sie
+  je Konto.
 
 ## Was du dafür tun musst
 

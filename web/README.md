@@ -6,7 +6,7 @@ app; it keeps no notes of its own. The plan, and how far it is: `../docs/Git-Pha
 So far: signing in with GitHub, choosing a repository, reading its notes and writing them —
 the desktop app's page, with a host in the browser in the Rust shell's place. What is written
 is a draft in the browser at once and a commit a little later; what another device wrote
-meanwhile is joined in, or asked about. Not yet: pictures, and a note's history.
+meanwhile is joined in, or asked about. A note's history, and pictures pasted in.
 
 ## Running it
 

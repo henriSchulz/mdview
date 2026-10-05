@@ -36,9 +36,11 @@
   // what was written here and is no commit yet: path → { text, base } (base: the blob it was
   // written over; null: the file is new), the files deleted here, the folders made here
   const drafts = new Map(Object.entries(load(KEY + ":drafts", {}))), gone = new Set(load(KEY + ":gone", [])), keptDirs = new Set();
+  const blobs = new Map(); // pictures put in here, until they are in a commit: path → their bytes, base64
   const keepDrafts = () => { keep(KEY + ":drafts", Object.fromEntries(drafts)); keep(KEY + ":gone", [...gone]); };
-  const has = (r) => drafts.has(r) || (files.has(r) && !gone.has(r));
-  const every = () => [...new Set([...files.keys(), ...drafts.keys()])].filter((r) => !gone.has(r) || drafts.has(r)); // the files as they are here
+  const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r));
+  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => !gone.has(r) || drafts.has(r)); // the files as they are here
+  let tip = { device: "", time: 0 }; // who made the commit the branch stands at
   const exists = (path) => path.startsWith(BASE + "/") && has(rel(path));
   const paths = () => every().map((f) => BASE + "/" + f);
   const MARKER = ".mdview/project.json";
@@ -183,7 +185,7 @@
 
   // ------------------------------------------------------------ writing: drafts, and commits of them
   let lastSeq = null, timer = 0, busy = null, conflicts = []; // conflicts: what is to be said before a commit can be made (the window's files)
-  const device = (() => { // this browser, as a commit names it
+  const browserAs = (() => { // this browser, as a commit names it
     let d = load("mdview:device", null);
     if (!d || !d.id) {
       const ua = navigator.userAgent, browser = /Firefox\//.test(ua) ? "Firefox" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
@@ -193,6 +195,7 @@
     }
     return d;
   })();
+  const device = { get id() { return browserAs.id; }, get name() { return String(prefs.deviceName || "").trim() || browserAs.name; } }; // (the name: the settings', else the browser's own)
   /* Where the project stands, for the clock and the settings (as the shell's standing). */
   function standing() {
     if (!project()) return { state: "foreign", own: true, was: false, name: W.repo, root: BASE };
@@ -210,8 +213,9 @@
   }
   const quiet = () => Math.max(1, Number(prefs.historyQuiet) || 30) * 1000;
   function later() { clearTimeout(timer); timer = setTimeout(() => commit(), quiet()); }
-  async function blobId(text) { // (Git's own id of a file with this content)
-    const bytes = new TextEncoder().encode(text), headBytes = new TextEncoder().encode(`blob ${bytes.length}\0`), all = new Uint8Array(headBytes.length + bytes.length);
+  const bytesOf = (base64) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  async function blobId(content) { // (Git's own id of a file with this content: a text, or bytes)
+    const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content, headBytes = new TextEncoder().encode(`blob ${bytes.length}\0`), all = new Uint8Array(headBytes.length + bytes.length);
     all.set(headBytes); all.set(bytes, headBytes.length);
     return [...new Uint8Array(await crypto.subtle.digest("SHA-1", all))].map((x) => x.toString(16).padStart(2, "0")).join("");
   }
@@ -246,11 +250,11 @@
         if (!project() && !drafts.has(MARKER)) return;
         conflicts = await settle();
         if (conflicts.length) { sendFolder(); toast(`${conflicts.length === 1 ? "A file was" : conflicts.length + " files were"} changed here and elsewhere. Resolve from the clock in the sidebar`); return; }
-        const sent = new Map(drafts), deleted = [...gone].filter((r) => files.has(r));
-        const additions = [...sent].map(([path, d]) => ({ path, text: d.text }));
+        const sent = new Map(drafts), pictures = new Map(blobs), deleted = [...gone].filter((r) => files.has(r));
+        const additions = [...[...sent].map(([path, d]) => ({ path, text: d.text })), ...[...pictures].map(([path, base64]) => ({ path, base64 }))];
         if (!additions.length && !deleted.length) { sendFolder(); return; }
-        const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: additions.reduce((n, a) => n + a.text.length, 0) < 40000,
-          body: JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted }) });
+        const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: additions.reduce((n, a) => n + (a.text || a.base64).length, 0) < 40000,
+          body: JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted }) });
         if (res.status === 409) { await look(true); continue; } // (someone wrote meanwhile)
         if (!res.ok) { toast("Couldn't keep what was written. It stays in this browser, and is tried again"); later(); return; }
         head = (await res.json()).head;
@@ -260,6 +264,7 @@
           texts.set(sha, d.text);
           if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) drafts.get(r).base = sha; // (written on meanwhile: the next commit's)
         }
+        for (const [r, base64] of pictures) { const bytes = bytesOf(base64); files.set(r, { sha: await blobId(bytes), size: bytes.length }); blobs.delete(r); }
         for (const r of deleted) { files.delete(r); gone.delete(r); }
         keepDrafts();
         sendFolder();
@@ -357,7 +362,9 @@
     },
     "settings-info"() {
       const st = standing();
-      tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: device.name, deviceId: device.id, home: "",
+      // (hide: what the settings have for the desktop alone — the model, signing in, linking, what cannot be here)
+      tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: browserAs.name, deviceId: device.id, home: "",
+        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir"],
         history: { ...st, branch, changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
     },
     help() { window.open("https://github.com/henriSchulz/mdview/blob/main/docs/FEATURES.md", "_blank", "noopener"); },
@@ -369,8 +376,27 @@
     copy({ text }) { navigator.clipboard?.writeText(text || "").catch(() => {}); },
     print() { window.print(); },
     editcmd({ cmd }) { try { document.execCommand(String(cmd || "").toLowerCase()); } catch { /* (not this browser's) */ } },
-    // the history's window comes later: nothing to show yet
-    "history-log"({ path }) { tell("history", { path: path || onScreen, versions: [], state: project() ? "project" : "foreign" }); },
+    // the history's window: a note's versions are the commits that changed it
+    async "history-log"({ path }) {
+      const p = path || onScreen;
+      let versions = [];
+      try { const res = await ask(`${API}/history?path=${encodeURIComponent(rel(p))}`); if (res.ok) versions = (await res.json()).versions || []; } catch { /* (shown without versions) */ }
+      tell("history", { path: p, versions, state: project() ? "project" : "foreign", own: !project() });
+    },
+    async "history-text"({ path, id, at }) {
+      let text = null;
+      try { const res = await ask(`${API}/version?path=${encodeURIComponent(at || rel(path))}&id=${encodeURIComponent(id)}`); if (res.ok) text = (await res.json()).text; } catch { /* (told as not there) */ }
+      tell("historyText", { path, id, text });
+    },
+    async "history-restore"({ path, id, at }) {
+      if (!exists(path) || !C.isMd(path) || !mayWrite()) return;
+      const res = await ask(`${API}/version?path=${encodeURIComponent(at || rel(path))}&id=${encodeURIComponent(id)}`), text = res.ok ? (await res.json()).text : null;
+      if (typeof text !== "string") return toast("Couldn't restore this version");
+      write(rel(path), text);
+      tell("historyRestored", { path, id });
+      if (onScreen === path) render(path, { keepScroll: true });
+      commit();
+    },
 
     // writing
     save({ text, path, exact, seq }) {
@@ -443,7 +469,39 @@
       onScreen = null;
       if (next) openPath(next, null, false); else showNothing();
     },
-    pasteimage() { toast("Pictures can't be added here yet"); },
+    /* A picture on the clipboard: kept beside the note (or where the settings say), in a commit
+     * at once — the page shows it from the repository — and its Markdown put into the note. */
+    async pasteimage({ path, append }) {
+      if (!path || path !== onScreen || !mayWrite()) return;
+      let found = null;
+      try {
+        for (const item of await navigator.clipboard.read()) {
+          const type = item.types.find((t) => /^image\/(png|jpeg|webp|gif|avif|svg\+xml)$/.test(t));
+          if (type) { found = { type, blob: await item.getType(type) }; break; }
+        }
+      } catch { return toast("The browser did not hand out the clipboard"); }
+      if (!found) return;
+      if (found.blob.size > 10 * 1024 * 1024) return toast("The picture is too large to keep here (over 10 MB)");
+      const bytes = new Uint8Array(await found.blob.arrayBuffer());
+      let bin = "";
+      for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000));
+      const ext = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg" }[found.type];
+      const dir = C.dirOf(path), wanted = String(prefs.images || "beside").trim().replace(/^\/+|\/+$/g, "");
+      const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
+      const d = new Date(), two = (n) => String(n).padStart(2, "0");
+      const stem = `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+      let target = `${into}/${stem}${ext}`;
+      for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;
+      blobs.set(rel(target), btoa(bin));
+      const markup = `![](${target.slice(dir.length + 1).split("/").map(encodeURIComponent).join("/")})`;
+      if (append) { // (in the reading view: at the note's end)
+        const old = await textOf(path), nl = old.includes("\r\n") ? "\r\n" : "\n", body = old.replace(/[\r\n]+$/, "");
+        write(rel(path), (body ? body + nl + nl : "") + markup + nl);
+      }
+      await commit();
+      if (blobs.has(rel(target))) return toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
+      if (append) render(path, { end: true }); else tell("insertImage", { path, markup });
+    },
     dropfiles() { toast("Files can't be added here yet"); },
 
     // turning a repository into a project: the marker, as a commit (the clock's menu, when asked)
@@ -458,7 +516,7 @@
     // what both changed in the same place: shown, and joined as picked
     "sync-conflicts"() {
       const now = Math.floor(Date.now() / 1000);
-      tell("conflicts", { theirs: head, mine: { device: `${device.name} (${device.id})`, time: now }, their: { device: "another device", time: now }, files: conflicts });
+      tell("conflicts", { theirs: head, mine: { device: `${device.name} (${device.id})`, time: now }, their: { device: tip.device || "another device", time: tip.time || now }, files: conflicts });
     },
     "sync-resolve"({ theirs, picks }) {
       if (theirs !== head) { toast("It has changed again meanwhile: look once more"); return tell("conflictsFailed"); }
@@ -493,6 +551,7 @@
     if (!moved && !force) return false;
     head = now.empty ? "" : now.head;
     if (now.branch) branch = now.branch;
+    if (now.tip) tip = now.tip;
     files = new Map((now.tree || []).map((e) => [e.path, { sha: e.sha, size: e.size }]));
     everything = null;
     return true;

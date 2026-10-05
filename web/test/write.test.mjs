@@ -142,6 +142,66 @@ test("both changed the same line: nothing is written until it is said how", asyn
   assert.equal(gh.commits.length, before + 1);
 });
 
+test("a note's history: its versions, what each changed, one put back", async () => {
+  await open("Alpha.md");
+  await page.keyboard.press("Control+Alt+h");
+  await page.waitForFunction(() => { const w = document.querySelector("#history"); return w && w.hasAttribute("data-open") && w.querySelectorAll(".hi-row").length >= 3 && w.querySelector(".hi-diff"); }, null, { timeout: 15000 });
+  const rows = await page.evaluate(() => [...document.querySelectorAll("#history .hi-row")].map((r) => r.querySelector(".hi-by").textContent));
+  assert.ok(rows.length >= 3, String(rows.length));
+  assert.match(rows[0], /^Chrome on \w+/); // (the newest was made here: by this browser, without its id)
+  assert.ok(!/[0-9a-f-]{36}/.test(rows.join(" ")));
+  assert.equal(rows.at(-1).split(" · ")[0], "Other"); // (the first was there before: by who made it)
+  // the oldest version: what it was then; put back, it is the note again — as a new commit
+  const first = "# Alpha\n\nfirst paragraph\n\n- [ ] a task\n\nlast paragraph\n", before = gh.commits.length;
+  await page.evaluate(() => { const r = [...document.querySelectorAll("#history .hi-row")]; r[r.length - 1].click(); });
+  await page.waitForFunction(() => /first paragraph/.test((document.querySelector("#history .hi-diff") || {}).textContent || ""), null, { timeout: 8000 });
+  await page.click("#history .hi-tools .pf-link");
+  await until(() => text("Alpha.md") === first, "the restored version as a commit");
+  assert.equal(gh.commits.length, before + 1);
+  await page.waitForFunction(() => !document.querySelector("#history").hasAttribute("data-open") && /^# Alpha\n\nfirst paragraph\n/.test(MdView.core.current.raw), null, { timeout: 8000 });
+});
+
+test("a picture pasted is kept beside the note, and in it", async () => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+  await open("Beta.md");
+  await page.evaluate(async () => {
+    const c = document.createElement("canvas"); c.width = c.height = 4; c.getContext("2d").fillRect(0, 0, 4, 4);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": await new Promise((r) => c.toBlob(r, "image/png")) })]);
+  });
+  const before = gh.commits.length;
+  await post({ type: "pasteimage", path: "/octo/notes/Beta.md", append: true });
+  await until(() => /!\[\]\(pasted-\d{8}-\d{6}\.png\)\n$/.test(text("Beta.md") || ""), "the picture's markup in the note");
+  const name = /\((pasted-[^)]+)\)/.exec(text("Beta.md"))[1];
+  assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]); // (a PNG, byte for byte)
+  assert.deepEqual([gh.commits.length, gh.commits.at(-1).added.sort()], [before + 1, ["Beta.md", name].sort()]); // (one commit: the note and the picture)
+  await page.waitForFunction((n) => { const i = document.querySelector(`#content img[src$="${n}"]`); return i && i.complete && i.naturalWidth === 4; }, name, { timeout: 10000 }); // (and it shows)
+});
+
+test("the settings show what there is here, not the desktop's own", async () => {
+  await open("Beta.md");
+  await page.keyboard.press("Control+,");
+  await page.waitForFunction(() => { const s = document.querySelector("#settings"); return s && s.hasAttribute("data-open"); }, null, { timeout: 15000 });
+  await page.click('#settings .st-nav[data-page="history"]');
+  await page.waitForFunction(() => /^On/.test((document.querySelector('.pf-row[data-key="historyState"] .pf-value') || {}).textContent || ""), null, { timeout: 8000 });
+  const seen = await page.evaluate(() => {
+    const vis = (e) => !!e && e.offsetParent !== null;
+    const row = (k) => document.querySelector(`.st-page[data-page="history"] .pf-row[data-key="${k}"]`);
+    return {
+      nav: [...document.querySelectorAll("#settings .st-nav")].filter(vis).map((b) => b.dataset.page),
+      rows: ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId", "githubAccount", "githubGet"].filter((k) => vis(row(k))),
+      link: row("historyLink").querySelector(".pf-value").textContent,
+      buttons: [...document.querySelectorAll('.st-page[data-page="history"] .pf-link')].filter(vis).map((b) => b.textContent),
+      device: row("deviceName").querySelector("input").placeholder,
+    };
+  });
+  assert.ok(!seen.nav.includes("ai") && seen.nav.includes("history") && seen.nav.includes("editing"), String(seen.nav)); // (no model here)
+  assert.deepEqual(seen.rows, ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId"]); // (signing in is before any page)
+  assert.match(seen.link, /^octo\/notes · /);
+  assert.deepEqual(seen.buttons, []); // (nothing to switch off or unlink: the repository is the project)
+  assert.match(seen.device, /^Chrome on /);
+  await page.keyboard.press("Escape");
+});
+
 test("a repository that is no project is not written to until that is said", async () => {
   gh.repo.files.delete(MARKER);
   await open("Beta.md");

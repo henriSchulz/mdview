@@ -88,7 +88,14 @@ export async function repositories(access: string): Promise<Repo[]> {
 }
 
 export type Entry = { path: string; sha: string; size: number };
-export type State = { empty: true } | { empty: false; branch: string; head: string; private: boolean; tree: Entry[]; truncated: boolean };
+export type Tip = { device: string; time: number }; // who made the commit the branch stands at (the device it names, else its author), and when
+export type State = { empty: true } | { empty: false; branch: string; head: string; private: boolean; tree: Entry[]; truncated: boolean; tip: Tip };
+export type Version = { id: string; time: number; device: string; subject: string; path: string };
+
+type CommitJson = { sha: string; commit: { message: string; tree: { sha: string }; author: { name: string; date: string } | null } };
+/** The device a commit's message names (its "Device:" trailer), else its author. */
+const deviceOf = (c: CommitJson) => /^Device: (.+)$/m.exec(c.commit.message || "")?.[1].trim() || c.commit.author?.name || "";
+const timeOf = (c: CommitJson) => Math.floor(Date.parse(c.commit.author?.date || "") / 1000) || 0;
 
 const part = (s: string) => encodeURIComponent(s);
 const repoPath = (owner: string, repo: string) => `/repos/${part(owner)}/${part(repo)}`;
@@ -109,12 +116,12 @@ export async function state(access: string, owner: string, repo: string): Promis
   const tip = await ask(access, `${repoPath(owner, repo)}/commits/${part(info.default_branch)}`);
   if (tip.status === 409 || tip.status === 404) return { empty: true }; // (GitHub: "Git Repository is empty")
   if (!tip.ok) throw new Error(`GitHub: ${tip.status} for the branch`);
-  const commit = (await tip.json()) as { sha: string; commit: { tree: { sha: string } } };
+  const commit = (await tip.json()) as CommitJson;
   const listed = await ask(access, `${repoPath(owner, repo)}/git/trees/${commit.commit.tree.sha}?recursive=1`);
   if (!listed.ok) throw new Error(`GitHub: ${listed.status} for the tree`);
   const all = (await listed.json()) as { tree: { path: string; type: string; sha: string; size?: number }[]; truncated: boolean };
   const tree = all.tree.filter((e) => e.type === "blob").map((e) => ({ path: e.path, sha: e.sha, size: e.size || 0 }));
-  return { empty: false, branch: info.default_branch, head: commit.sha, private: !!info.private, tree, truncated: !!all.truncated };
+  return { empty: false, branch: info.default_branch, head: commit.sha, private: !!info.private, tree, truncated: !!all.truncated, tip: { device: deviceOf(commit), time: timeOf(commit) } };
 }
 
 const BATCH = 80; // blobs asked for in one question
@@ -147,9 +154,17 @@ export async function texts(access: string, owner: string, repo: string, shas: s
 
 /** A file of the repository as it is on its branch now, as bytes (pictures, PDFs, and a note too
  * large for texts). The answer is GitHub's own: its status, its ETag. */
-export function raw(access: string, owner: string, repo: string, path: string, etag?: string | null): Promise<Response> {
+export function raw(access: string, owner: string, repo: string, path: string, etag?: string | null, ref?: string): Promise<Response> {
   const at = path.split("/").map(part).join("/");
-  return ask(access, `${repoPath(owner, repo)}/contents/${at}`, "application/vnd.github.raw+json", etag ? { "If-None-Match": etag } : {});
+  return ask(access, `${repoPath(owner, repo)}/contents/${at}${ref ? `?ref=${part(ref)}` : ""}`, "application/vnd.github.raw+json", etag ? { "If-None-Match": etag } : {});
+}
+
+/** The versions of a file: the commits that changed it, newest first. (GitHub does not follow a
+ * file through a renaming: they end where it got its name.) */
+export async function versions(access: string, owner: string, repo: string, path: string): Promise<Version[]> {
+  const res = await ask(access, `${repoPath(owner, repo)}/commits?path=${part(path)}&per_page=100`);
+  if (!res.ok) return [];
+  return ((await res.json()) as CommitJson[]).map((c) => ({ id: c.sha, time: timeOf(c), device: deviceOf(c), subject: (c.commit.message || "").split("\n")[0], path }));
 }
 
 /** The branch stands elsewhere than the commit was made for: someone wrote meanwhile. */

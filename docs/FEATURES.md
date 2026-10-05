@@ -415,6 +415,35 @@ Without a link, and without GitHub, everything above works as it does.
 - **Nothing is ever overwritten**: the app does not force a push and does not rewrite versions;
   a file changed since it was last kept is never replaced by what comes from the other side.
 
+### In the browser
+
+The same notes, on any device with a browser: a web app that shows a repository on GitHub
+through the page this app is made of. It keeps no notes of its own — the repository is what
+counts — and has no writing help by a model.
+
+- **Signing in**: Sign in with GitHub, on the app's first page; without it there is nothing to
+  see. The sign-in lasts until Sign Out, or six months of not coming by.
+- **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
+  is chosen beforehand.
+- **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
+  and All Notes, as here. An address names the note it shows, to keep or send.
+- **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
+  and becomes a commit after the quiet while, with `Ctrl+S`, and when the tab is left. A commit
+  names the GitHub account and the browser it was made in.
+- **Only a project is written to**: a repository with this app's marker. Another opens to be
+  read; the clock › Use This Repository for History… makes it one, after a question.
+- **What another device wrote** appears within a minute, or when the tab is come back to. Written
+  in another place of the same note, it is joined with what was typed here; in the same place,
+  nothing is written and the clock's Resolve Conflicts… asks, as here.
+- **A note's history** (`Ctrl+Alt+H`): the commits that changed it, what each changed, one put
+  back. A note that was renamed has its versions from then on only.
+- **A picture pasted** is kept beside the note, in a commit at once.
+- **Not there**: files dropped onto a note, renaming anything but notes, the order by date
+  modified (Git keeps no date for a file), links from a PDF back to notes, and everything a
+  desktop has that a browser has not — Open With…, Show in Finder, the Omarchy theme.
+- **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
+  a repository is shown sandboxed.
+
 ## Finding
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
