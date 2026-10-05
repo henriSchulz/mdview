@@ -18,6 +18,12 @@
     ok("the note's history can still be read, and the history switched on again", ["history:show", "history:on"].every((c) => entries().some((e) => e.dataset.cmd === c)), entries().map((e) => e.dataset.cmd));
     btn.click(); await sleep(200);
     ok("switched on again, without a question", await pick("history:on") && (btn.title || btn.dataset.tip) === "History: on", [btn.title, btn.dataset.tip]);
+    // Ctrl+S keeps at once, however long the quiet while is (here: a minute)
+    post({ type: "save", text: MdView.core.current.raw + "\nkept at once\n" });
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", ctrlKey: true, bubbles: true, cancelable: true }));
+    await sleep(1200);
+    post({ type: "probe", name: "history-now", text: "{}" });
+    await sleep(600);
     post({ type: "save", text: MdView.core.current.raw + "\nlast words\n" });
     await sleep(150);
     o.pass = o.steps.every((s) => s.startsWith("ok"));

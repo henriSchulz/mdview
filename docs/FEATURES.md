@@ -354,7 +354,7 @@ computer.
   history here) › Turn On History, or Settings › History › Turn On.
 - **What is kept, and when**: whatever changes in the folder — written here or by another
   program — becomes a version once nothing more has changed for a while (30 seconds; settings),
-  and at once when the folder's last window closes. A version names the device it was made on.
+  at once when the folder's last window closes, and at once with `Ctrl+S`. A version names the device it was made on.
   A file over 50 MB is left out, and said so once. What `.gitignore` leaves out is left out.
 - **A note's history** (`Ctrl+Alt+H`, or the clock › Show History of This Note; what is typed and
   not saved yet is saved first): its versions at

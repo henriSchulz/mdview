@@ -12,12 +12,11 @@ im Hintergrund abgleichen, Konflikte lösen. GitHub ist danach die Quelle der Wa
 Verknüpfung läuft alles wie bisher.
 
 > [!important] Stand
-> Die Schritte 1 bis 3 sind gebaut: `src-tauri/src/sync.rs` holt, lädt hoch, gleicht ab und löst
-> Konflikte (10 Tests gegen ein nacktes Repository, 1 gegen das echte GitHub), dazu das
-> Konfliktfenster (`dev/rig.sh sync`, 25 Prüfungen). Verknüpfen lässt sich ein Projekt bisher
-> nur über die Nachricht `history-link`, und ohne Anmeldung nur mit einem Repository auf
-> demselben Rechner. Die GitHub App ist registriert und installiert, das Test-Repository ist
-> `md-view-test-notes`. Die Schritte 4 bis 6 sind Plan.
+> Die Schritte 1 bis 5 sind gebaut: holen, hochladen, abgleichen, Konflikte lösen
+> (`sync.rs`, `dev/rig.sh sync` mit 24 Prüfungen), Anmeldung und Verknüpfen (`github.rs`,
+> `dev/rig.sh github` mit 20 Prüfungen gegen ein GitHub-Double). Die Anmeldung ist am
+> 5. Oktober 2026 auch gegen das echte GitHub gelaufen (@henriSchulz). Noch nicht gegen das echte
+> GitHub geprüft: Verknüpfen und Abgleich mit `md-view-test-notes`. Schritt 6 ist Plan.
 
 ## Was am Ende da ist
 
@@ -134,6 +133,8 @@ dient ein nacktes Repository in einem Temp-Ordner.
   dem noch Änderungen auf ihren Schnappschuss warten, wird vom Zeitgeber übersprungen: In einen
   Ordner, in dem gerade geschrieben wird, kommt nichts herunter. Ein eigener Auslöser beim
   Fokus fehlt noch; der Zeitgeber deckt das binnen einer Minute.
+- <kbd>Ctrl</kbd>+<kbd>S</kbd> hält sofort fest und gleicht sofort ab (`history-now`), ohne die
+  Ruhezeit abzuwarten; in der Leseansicht ebenso.
 - Der Zustand geht mit `setFolder` und `settings-info` an die Seite (`history.linked`,
   `history.sync`); angezeigt wird er erst in Schritt 5.
 - Der Verlauf einer Notiz folgt jetzt jeder Linie, durch die ihre Geschichte läuft: Nach einem
@@ -168,20 +169,46 @@ dient ein nacktes Repository in einem Temp-Ordner.
 
 ### 4. Anmeldung
 
-- Device Flow über `ureq`: Code anzeigen, Browser öffnen, abfragen, Token ablegen, erneuern.
-- Einstellungen › History bekommt den Abschnitt „GitHub": angemeldet als …, abmelden.
-- Braucht die Client-ID deiner GitHub App. Hier wird auch geprüft, ob das Anlegen eines
-  Repositorys mit dem Nutzer-Token geht.
-- Prüfung: von Hand gegen GitHub; der Ablauf selbst gegen eine Attrappe im Test.
+- `github.rs`: der Device Flow (Code holen, so oft nachfragen, wie GitHub erlaubt, langsamer
+  auf Zuruf), das Erneuern, wer das Token ist. Im Programm steht nur die Client-ID.
+- Das Auffrischtoken liegt im System-Schlüsselbund, je Zustandsordner unter eigenem Namen: Eine
+  Testinstanz kann das echte Token nie erneuern und damit ungültig machen. Gibt es keinen
+  Schlüsselbund, gilt die Anmeldung bis zum Ende der App, und die Einstellungen sagen das.
+- Beim Start wird eine aufgehobene Anmeldung wieder aufgenommen und das Token erneuert, danach
+  jeweils zehn Minuten vor seinem Ablauf. Ohne Netz wird es nach einer Minute wieder versucht.
+  Lehnt GitHub das Auffrischtoken ab, ist man abgemeldet.
+- Einstellungen › History › GitHub: „Sign In…" zeigt den Code und „Copy Code and Open GitHub"
+  (kopiert den Code und öffnet die Seite); danach „Signed in as …" und „Sign Out".
+- Commits tragen ab der Anmeldung Name und `id+login@users.noreply.github.com`; die Trailer
+  `Device:` und `Client:` bleiben.
+- Prüfung: `cargo test` gegen ein GitHub-Double (Ablauf, Absage, Aufgeben, Erneuern);
+  `dev/rig.sh github` meldet über die Einstellungen an und ab und prüft den Autor des nächsten
+  Commits. Offen: einmal gegen das echte GitHub, und dabei, ob sich mit dem Nutzer-Token ein
+  Repository anlegen ließe.
 
 ### 5. Verknüpfen
 
-- Liste der freigegebenen Repositories; fehlt das gewünschte, ein Verweis auf die Freigabe bei
-  GitHub.
-- „Mit Repository verknüpfen" für ein Projekt, „Von GitHub holen" für einen neuen Ordner,
-  „Verknüpfung lösen" (das Repository bei GitHub bleibt, lokal bleibt die Historie).
-- Die Uhr und die Übersicht zeigen den Abgleich: abgeglichen, n Versionen voraus, ohne Netz,
-  Konflikt.
+- Die App liest, welche Repositories ihr auf dem Konto freigegeben sind (`/user/installations`
+  und deren Repositories), jedes Mal, wenn die Einstellungen geöffnet werden.
+- Einstellungen › History › This folder › GitHub: „Link…" öffnet die Auswahl, ein kleines
+  Fenster über den Einstellungen mit Suchfeld und Liste der freigegebenen Repositories. Nichts
+  ist vorausgewählt, auch nicht bei nur einem Repository; erst ein Klick wählt, erst „Link"
+  verknüpft. Danach stehen in den Einstellungen das Repository, der Stand des Abgleichs und
+  „Unlink". Ist nichts freigegeben, führt „Choose on GitHub" zur Freigabe.
+- Verknüpft wird im Thread des Historian und sofort abgeglichen. Enthält das Repository schon
+  etwas anderes (kein gemeinsamer Commit), wird die Verknüpfung gleich wieder gelöst und das
+  gesagt: ein leeres Repository verknüpfen, oder jenes in einen eigenen Ordner holen.
+- Einstellungen › History › GitHub › „Get a repository": „Get…" öffnet dieselbe Auswahl; nach
+  der Wahl den Zielordner wählen. Es wird in `Zielordner/Name` geholt, bekommt die Markerdatei, falls es
+  keine mitbringt, und öffnet sich als Fenster. Ein leeres Repository ergibt ein leeres,
+  verknüpftes Projekt.
+- „Unlink" entfernt nur die Verknüpfung: Das Repository bei GitHub und die lokale Historie
+  bleiben.
+- Der Tooltip der Uhr nennt den Stand („GitHub: the same on both", „not reached", „sign in to
+  go on", „conflicts to resolve").
+- Prüfung: `cargo test` (Liste der Repositories; in einen neuen Ordner holen, leer und mit
+  Projekt); `dev/rig.sh github` verknüpft und löst über die Einstellungen. Nicht geprüft: „Get…"
+  über die Oberfläche (der Ordnerdialog des Systems lässt sich im Rig nicht bedienen).
 
 ### 6. Abschluss
 

@@ -16,6 +16,7 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
 mod ai;
+mod github;
 mod history;
 mod host;
 mod scan;
@@ -58,6 +59,12 @@ pub enum Event {
     /// a project has been quiet since it was last touched: time for its snapshot
     Snapshot { root: PathBuf, turn: u64 },
     /// a linked project and its other side were reconciled: how they stand (sync::Standing::json)
+    /// a repository was fetched into a new folder (or not, and why), asked for from the window `label`
+    Fetched { label: String, done: Result<PathBuf, String> },
+    /// the signing in with GitHub: a code to confirm, signed in, or not
+    GitHub(github::News),
+    /// the signed-in user's token is about to end: renewed
+    GitHubRenew { turn: u64 },
     /// asked: the user's joining (the conflicts' window): if it did not go, that is said
     Reconciled { root: PathBuf, standing: Value, asked: bool },
     /// time to look whether the other side of a linked project has something new
@@ -71,6 +78,8 @@ pub enum Pick {
     File,
     Folder,
     Reference,
+    /// the folder a repository fetched from GitHub is put in
+    Parent,
 }
 
 #[cfg(not(windows))]

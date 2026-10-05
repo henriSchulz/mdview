@@ -491,6 +491,8 @@ enum Job {
     Snapshot { root: PathBuf, stamp: Stamp, access: Access },
     Sync { root: PathBuf, stamp: Stamp, access: Access },
     Resolve { root: PathBuf, expect: String, picks: serde_json::Map<String, Value>, stamp: Stamp, access: Access },
+    Link { root: PathBuf, url: String, stamp: Stamp, access: Access },
+    Fetch { label: String, url: String, into: PathBuf, branch: String, access: Access },
     Merge { root: PathBuf, children: Vec<PathBuf>, stamp: Stamp },
     Done(Sender<()>),
 }
@@ -528,6 +530,21 @@ impl Historian {
                         let standing = sync::resolve(&root, &expect, &picks, &access, &stamp).json();
                         let _ = tx.send(Event::Reconciled { root, standing, asked: true });
                     }
+                    Job::Link { root, url, stamp, access } => {
+                        // linked, and reconciled at once; a repository that holds another project is let go of again
+                        let standing = match sync::link(&root, &url) {
+                            Ok(()) => sync::reconcile(&root, &access, &stamp),
+                            Err(e) => sync::Standing::Refused(e),
+                        };
+                        if matches!(standing, sync::Standing::Refused(_)) {
+                            let _ = sync::unlink(&root);
+                        }
+                        let _ = tx.send(Event::Reconciled { root, standing: standing.json(), asked: true });
+                    }
+                    Job::Fetch { label, url, into, branch, access } => {
+                        let done = sync::fetch_new(&url, &into, &branch, &access).map(|()| into);
+                        let _ = tx.send(Event::Fetched { label, done });
+                    }
                     Job::Merge { root, children, stamp } => {
                         let failed: Vec<String> = children.iter().filter_map(|c| merge(&root, c, &stamp).err()).collect();
                         let skipped = snapshot(&root, &stamp).map(|d| d.skipped).unwrap_or_default();
@@ -555,6 +572,16 @@ impl Historian {
     /// A linked project is joined with its other side as the user picked (sync::resolve).
     pub fn resolve(&self, root: &Path, expect: String, picks: serde_json::Map<String, Value>, stamp: Stamp, access: Access) {
         let _ = self.jobs.send(Job::Resolve { root: root.to_path_buf(), expect, picks, stamp, access });
+    }
+
+    /// A project is linked to a repository elsewhere and reconciled with it.
+    pub fn link(&self, root: &Path, url: String, stamp: Stamp, access: Access) {
+        let _ = self.jobs.send(Job::Link { root: root.to_path_buf(), url, stamp, access });
+    }
+
+    /// A repository elsewhere is fetched into a new folder, as a project (for the window `label`).
+    pub fn fetch(&self, label: &str, url: String, into: PathBuf, branch: String, access: Access) {
+        let _ = self.jobs.send(Job::Fetch { label: label.to_string(), url, into, branch, access });
     }
 
     /// The projects below a project become parts of it; its snapshot follows.

@@ -2207,7 +2207,9 @@
     sbHistoryBtn.classList.toggle("quiet", hs !== "project" && hs !== "inside"); // (dimmed: this app keeps no history here)
     const odds = syncState() === "conflict"; // (changed here and on another device, the same place: to be said — the clock's menu)
     sbHistoryBtn.classList.toggle("warn", odds);
-    sbHistoryBtn.title = sbHistoryBtn.ariaLabel = HISTORY_SAYS[hs](f.history || {}) + (odds ? " — conflicts to resolve" : "");
+    // (a linked project: how it stands with its repository)
+    const sy = syncState(), with_ = (f.history || {}).linked ? " · GitHub: " + ({ even: "the same on both", offline: "not reached", signin: "sign in to go on", conflict: "conflicts to resolve", error: "not going" }[sy] || "linked") : "";
+    sbHistoryBtn.title = sbHistoryBtn.ariaLabel = HISTORY_SAYS[hs](f.history || {}) + (with_ || (odds ? " — conflicts to resolve" : ""));
     if (window.MdActive && MdActive.conflict) MdActive.conflict.standing((f.history || {}).sync);
     document.body.dataset.folder = "";
     if (first) openAncestors();
@@ -3121,7 +3123,9 @@
     if (mod && !e.shiftKey && !e.altKey) {
       const map = {
         f: openFind, e: actions.edit, o: () => post("open"), r: () => post("reload"),
-        s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } },
+        // (saved — and, in a folder with a history, kept as a version at once and sent to its
+        // repository, without waiting for the quiet while)
+        s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } post("history-now"); },
         n: () => { if (folder) openNewNote(); },
         ",": openSettings,
         p: printDoc, w: () => post("close"), q: () => post("close"), // (Ctrl+W in a window with tabs: the tab, see there)

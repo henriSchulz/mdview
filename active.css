@@ -603,6 +603,41 @@ body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, v
 .cf-lines mark { border-radius: 3px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; }
 .cf-lines i { color: var(--fg3); font: italic 400 12px/1.55 var(--ui); }
 .cf-whole { margin: 0; padding: 0 12px; }
+/* signing in with GitHub: what is so, the code to confirm, and what can be done */
+.pf-github { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: none; max-width: 66%; }
+.pf-github .pf-value { flex: 0 1 auto; max-width: none; white-space: normal; text-align: right; }
+.pf-github [hidden] { display: none; }
+/* --- the chooser for a repository (prefs.js): a small window over the settings, in their look —
+ * a field to search, the list, and what is done with the one picked */
+#repos-scrim { position: fixed; inset: 0; z-index: 56; background: rgb(0 0 0 / 0.12); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#repos-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+#repos {
+  position: fixed; inset: 0; margin: auto; z-index: 57;
+  display: flex; flex-direction: column; box-sizing: border-box; width: min(460px, calc(100vw - 64px)); height: min(520px, calc(100vh - 96px));
+  border-radius: calc(var(--radius-panel) + 2px); background: var(--bg); color: var(--fg);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 18px 50px rgb(0 0 0 / 0.3);
+  font: 400 13px/1.4 var(--ui); font-variation-settings: "opsz" 17; outline: none; user-select: none; -webkit-user-select: none; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: scale(0.97);
+  transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), transform calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+#repos[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth), visibility 0s; }
+body[data-mode="dark"] #repos { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14), 0 18px 50px rgb(0 0 0 / 0.6); }
+@media print { #repos, #repos-scrim { display: none !important; } }
+#repos .st-head { padding: 14px 16px 10px; }
+.rc-search { flex: none; margin: 0 16px 8px; width: auto; }
+.rc-list { flex: 1; min-height: 0; display: grid; align-content: start; gap: 1px; padding: 0 8px; overflow-y: auto; overscroll-behavior: contain; }
+.rc-row[aria-selected="true"] { background: var(--accent); color: #fff; }
+.rc-row[aria-selected="true"] .hi-by { color: rgb(255 255 255 / 0.8); }
+.rc-row[aria-selected="true"]:hover { background: var(--accent); }
+.rc-empty { flex: 1; margin: 40px 24px 0; text-align: center; color: var(--fg2); }
+.rc-empty[hidden] { display: none; }
+.rc-empty:not([hidden]) + .rc-foot { margin-top: 0; }
+.rc-list:has(+ .rc-empty:not([hidden])) { flex: none; }
+.rc-foot { flex: none; display: flex; justify-content: flex-end; gap: 6px; padding: 10px 12px 12px; box-shadow: 0 -0.5px 0 var(--line); }
+.rc-foot [hidden] { display: none; }
+.rc-foot .pf-link:first-child { margin-right: auto; }
+.rc-go { font-weight: 600; }
+.pf-code { padding: 2px 10px; border-radius: var(--radius-control); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong); font: 600 15px/1.6 var(--mono); letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
 /* the folder's history: what is so, in as many words as it takes, and the button that turns it on */
 .pf-history { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: none; max-width: 62%; }
 .pf-history .pf-value { flex: 0 1 auto; max-width: none; white-space: normal; text-align: right; }

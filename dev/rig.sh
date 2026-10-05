@@ -34,6 +34,7 @@
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
+#   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
@@ -47,7 +48,7 @@ wl() { HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)
 app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
-    XDG_STATE_HOME="$R/state" MDVIEW_DEBUG=1 "${envs[@]}" \
+    XDG_STATE_HOME="$R/state" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
     setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
 shot() { local id; id=$(hyprctl clients -j | jq -r '.[] | select(.class=="aquamarine") | .stableId' | head -1); grim -T "$id" "$1"; }
@@ -522,8 +523,10 @@ case "${1:-}" in
     ok "its notes are in the outer project, and nothing waits" '[[ -n $(git -C "$P" ls-files "notes/$note") && -z $(git -C "$P" status --porcelain) ]]' 'git -C "$P" status --porcelain'
     ok "its repository is put aside, not thrown away" '[[ $(ls "$P/.git/mdview-absorbed" | wc -l) == 1 ]]'
     # the history switched off and on again; and the program, ending by itself with a change not yet kept
-    rm -f "$R/out"/*.history-off.json
+    rm -f "$R/out"/*.history-off.json "$R/out"/*.history-now.json; before=$(git -C "$P" rev-list --count HEAD)
     app 60 MDVIEW_PROBE="$D/probe-history-off.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=60000 MDVIEW_RESIDENT_MS=300 -- "$P"
+    for _ in $(seq 150); do ls "$R/out"/*.history-now.json >/dev/null 2>&1 && break; sleep 0.1; done
+    ok "Ctrl+S keeps what was written at once, not after the quiet while" '[[ $(git -C "$P" rev-list --count HEAD) == $((before + 1)) && -z $(git -C "$P" status --porcelain) ]]' 'git -C "$P" log --oneline | head -3; git -C "$P" status --porcelain'
     for _ in $(seq 150); do ls "$R/out"/*.history-off.json >/dev/null 2>&1 && break; sleep 0.1; done
     off=$(ls "$R/out"/*.history-off.json 2>/dev/null | head -1); [[ -n $off ]] || { echo "no report of switching off"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
     jq -r '.steps[], (.error // empty)' "$off"; jq -e .pass "$off" >/dev/null || fail=1
@@ -568,6 +571,24 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out"/*.sync-conflict.json; jq -e .pass "$R/out"/*.sync-conflict.json >/dev/null || fail=1
     ok "the folder is what was picked, and as its last commit says" 'cmp -s <(jq -j .raw "$R/out"/*.sync-conflict.json) "$A/$note" && [[ $(head -1 "$A/$note") == "written there" && -z $(git -C "$A" status --porcelain) ]]' 'head -2 "$A/$note"; git -C "$A" status --porcelain'
     ok "joined in a commit of its own, and the other side has it" '[[ $(git -C "$A" rev-list --merges --count HEAD) == 2 && $(git -C "$HUB" rev-parse main) == $(git -C "$A" rev-parse HEAD) ]]' 'git -C "$A" log --oneline --graph | head -6'
+    exit $fail ;;
+  github)
+    rm -rf "$R/work"; mkdir -p "$R/work/notes"; cp "$D"/tests/fixtures/basics.md "$R/work/notes/"; W="$R/work/notes"; rm -f "$R/out"/*.github*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fi; }
+    HUB="$R/work/hub.git"; git init -q --bare -b main "$HUB"
+    port=$((20000 + RANDOM % 20000)); python3 "$D/fake-github.py" "$port" "$HUB" >"$R/fake-github.log" 2>&1 & hub=$!
+    app 60 MDVIEW_PROBE="$D/probe-github.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=600 MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" -- "$W"
+    for _ in $(seq 100); do ls "$R/out"/*.github-code.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.3; shot "$R/out/github-code.png"
+    for _ in $(seq 250); do ls "$R/out"/*.github-search.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.2; shot "$R/out/github-search.png"
+    for _ in $(seq 250); do ls "$R/out"/*.github-linked.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.3; shot "$R/out/github-linked.png"
+    sent=$(git -C "$HUB" log -1 --format="%an | %s" main 2>/dev/null)
+    for _ in $(seq 250); do ls "$R/out"/*.github.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
+    rep=$(ls "$R/out"/*.github.json 2>/dev/null | head -1); [[ -n $rep ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$rep"; jq -e .pass "$rep" >/dev/null || fail=1
+    ok "the commit made while signed in is by that user, and still names the device" '[[ $(git -C "$W" log -1 --format="%an <%ae>") == "Octo Cat <42+octo@users.noreply.github.com>" && -n $(git -C "$W" log -1 --format="%(trailers:key=Device,valueonly)") ]]' 'git -C "$W" log -2 --format="%an <%ae> | %s"' || fail=1
+    ok "linked, what was kept went to the repository" '[[ $sent == "Octo Cat | basics.md" && $(git -C "$HUB" rev-list --count main) == 2 ]]' 'echo "$sent"; git -C "$HUB" log --oneline main' || fail=1
+    ok "unlinked, the project has no other side, and its history is all there" '[[ -z $(git -C "$W" remote) && $(git -C "$W" rev-list --count HEAD) == 2 ]]' 'git -C "$W" remote -v' || fail=1
     exit $fail ;;
   regress)
     # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.

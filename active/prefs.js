@@ -54,10 +54,12 @@
       // the folder this window shows: where it stands, and what its repository holds (told by the application)
       ["prefs.history.here", [
         ["historyState", "historyState"], ["historyName", "about"], ["historyRoot", "about"], ["historyBranch", "about"],
-        ["historyCount", "about"], ["historyLast", "about"], ["historyChanged", "about"],
+        ["historyCount", "about"], ["historyLast", "about"], ["historyChanged", "about"], ["historyLink", "link"],
       ]],
       [null, [["historyQuiet", "select", [[10, "10 s"], [30, "30 s"], [60, "1 min"], [300, "5 min"]]]]],
       ["prefs.history.device", [["deviceName", "text"], ["deviceId", "about"]]],
+      // signing in, for a project linked to a repository there (the application does it and says how it stands)
+      ["prefs.history.github", [["githubAccount", "github"], ["githubGet", "get"]]],
     ]],
     ["editing", "pencil", [
       [null, [["bar", "switch"], ["slash", "switch"], ["syntax", "switch"], ["quotes", "switch"]]],
@@ -156,6 +158,59 @@
       box.append(state, field, save, remove);
       return box;
     }
+    if (kind === "link" || kind === "get") {
+      // link: the project's other side on GitHub — linked, how the two stand, and unlinking; not
+      // linked, a button that opens the chooser. get: a button for the chooser, and the one
+      // picked is fetched into a folder of its own. Nothing is ever chosen beforehand.
+      const box = el("div", { class: "pf-github" });
+      const state = el("span", { class: "pf-value" });
+      const act = el("button", { class: "pf-link", type: "button" });
+      refresh.push(() => {
+        const g = info.github || {}, h = info.history || {};
+        const linked = kind === "link" && h.linked;
+        if (g.user && !g.repos && !asking) { asking = true; post("github-repos"); } // (read once signed in; again when the window opens)
+        if (!g.user) asking = false;
+        act.hidden = !g.user && !linked;
+        if (linked) {
+          const sync = h.sync || {};
+          const how = sync.state === "conflict" ? T((sync.files || []).length === 1 ? "prefs.sync.conflict.one" : "prefs.sync.conflict", (sync.files || []).length)
+            : sync.state === "offline" ? T("prefs.sync.offline") : sync.state === "signin" ? T("prefs.sync.signin") : sync.state === "error" ? sync.why
+            : sync.state === "even" ? T("prefs.sync.even") : T("prefs.sync.new");
+          state.textContent = String(h.linked).replace(/^https?:\/\/[^/]+\//, "").replace(/\.git$/, "") + " · " + how;
+          act.textContent = T("prefs.github.unlink");
+          act.onclick = () => post("history-link", { url: "" });
+        } else {
+          state.textContent = !g.user ? T("prefs.github.first") : kind === "link" ? T("prefs.github.unlinked") : "";
+          act.textContent = T(kind === "link" ? "prefs.github.link" : "prefs.github.get");
+          act.onclick = () => chooser.open(kind, act);
+        }
+        state.hidden = !state.textContent;
+        chooser.sync();
+      });
+      box.append(state, act);
+      return box;
+    }
+    if (kind === "github") { // who is signed in; signing in shows a code to confirm in the browser
+      const box = el("div", { class: "pf-github" });
+      const state = el("span", { class: "pf-value" }), code = el("span", { class: "pf-code" });
+      const act = el("button", { class: "pf-link", type: "button" }), stop = el("button", { class: "pf-link", type: "button" }, T("prefs.github.cancel"));
+      stop.onclick = () => post("github-cancel");
+      refresh.push(() => {
+        const g = info.github || {};
+        const [says, does, msg] = g.user ? [T("prefs.github.in", g.user.name ? g.user.name + " (@" + g.user.login + ")" : "@" + g.user.login) + (g.said ? " — " + g.said : ""), "prefs.github.out", "github-signout"]
+          : g.code ? [T("prefs.github.enter", g.code.uri.replace(/^https?:\/\//, "")), "prefs.github.open", "github-open"]
+          : g.busy ? [T("prefs.github.asking"), null, null]
+          : [g.said ? T("prefs.github.failed", g.said) : T("prefs.github.none"), "prefs.github.signin", "github-signin"];
+        state.textContent = says;
+        code.textContent = g.code ? g.code.code : "";
+        code.hidden = !g.code;
+        act.hidden = !does;
+        if (does) { act.textContent = T(does); act.onclick = () => post(msg); }
+        stop.hidden = !g.busy || !!g.user;
+      });
+      box.append(state, code, act, stop);
+      return box;
+    }
     if (kind === "historyState") { // on or off, and the button that turns it on where that can be done
       const box = el("div", { class: "pf-history" });
       const state = el("span", { class: "pf-value" }), on = el("button", { class: "pf-link", type: "button" });
@@ -216,6 +271,8 @@
           row.append(text, control(key, kind, choices));
           if (when) refresh.push(() => { row.hidden = now().style !== when; });
           if (/^history[A-Z]/.test(key) && kind === "about") refresh.push(() => { row.hidden = info[key] == null; }); // (only what there is to say)
+          if (kind === "link") refresh.push(() => { const st = historyState(); row.hidden = st !== "project" && st !== "inside"; }); // (a project's to link)
+          if (kind === "get") refresh.push(() => { row.hidden = !(info.github || {}).user; });
           card.appendChild(row);
         }
         pg.appendChild(card);
@@ -276,6 +333,8 @@
     }
     refresh.forEach((f) => f());
     show(PAGES.some((p) => p[0] === at) ? at : page);
+    asking = false; // (the repositories are read anew: what the app is given may have changed)
+    if (info.github) info.github = { ...info.github, repos: null };
     post("settings-info");
     void root.offsetWidth;
     window.MdView.core.lockScroll(true);
@@ -285,6 +344,7 @@
   }
   function close() {
     if (!isOpen()) return false;
+    chooser.close();
     closeMenu(false);
     if (document.activeElement && root.contains(document.activeElement) && document.activeElement.blur) document.activeElement.blur(); // (a text field's change is taken)
     delete scrim.dataset.open; delete root.dataset.open;
@@ -295,6 +355,109 @@
     return true;
   }
   // what the application knows: { aiKey: { set, tail, env }, aiModel, version, configDir }
+  let asking = false; // the repositories the app was given have been asked for
+  const closeSettings = () => close();
+
+  /* --- The chooser: a small window over the settings with the repositories the app was given — a
+   * field to search them, the list, and a button that does it (link the project to the one
+   * picked, or get it into a folder). Nothing is picked beforehand, and nothing happens until
+   * the button is pressed. */
+  const chooser = (() => {
+    let scrim = null, box = null, field = null, list = null, go = null, title = null, empty = null, give = null;
+    let kind = "link", picked = "", back = null, shown = [];
+    const isOpen = () => !!box && box.hasAttribute("data-open");
+    const repos = () => (info.github || {}).repos || null;
+    function fill() {
+      const all = repos(), q = field.value.trim().toLowerCase();
+      shown = !all ? [] : !q ? all : [...all.filter((r) => r.name.toLowerCase().split("/").some((p) => p.startsWith(q)) || r.name.toLowerCase().startsWith(q)), ...all.filter((r) => { const n = r.name.toLowerCase(); return n.includes(q) && !n.startsWith(q) && !n.split("/").some((p) => p.startsWith(q)); })];
+      if (!shown.some((r) => r.url === picked)) picked = ""; // (what is searched away is not picked any more)
+      list.textContent = "";
+      for (const r of shown) {
+        const row = el("button", { class: "st-nav hi-row rc-row", type: "button", role: "option", "aria-selected": String(r.url === picked), "data-url": r.url });
+        const text = el("span", { class: "hi-row-text" });
+        text.append(el("span", { class: "hi-when" }, r.name), el("span", { class: "hi-by" }, T(r.private ? "prefs.github.private" : "prefs.github.public")));
+        row.appendChild(text);
+        list.appendChild(row);
+      }
+      empty.textContent = !all ? T("prefs.github.reading") : !all.length ? T("prefs.github.norepos") : shown.length ? "" : T("prefs.github.nofit");
+      empty.hidden = !empty.textContent;
+      give.hidden = !all || all.length > 0;
+      go.disabled = !picked;
+    }
+    function pick(url, into) {
+      picked = url;
+      for (const row of list.children) { const on = row.dataset.url === url; row.setAttribute("aria-selected", String(on)); if (on && into) row.scrollIntoView({ block: "nearest" }); }
+      go.disabled = !picked;
+    }
+    function build() {
+      scrim = el("div", { id: "repos-scrim" });
+      box = el("div", { id: "repos", role: "dialog", "aria-modal": "true", "aria-labelledby": "repos-title", tabindex: "-1" });
+      const head = el("header", { class: "st-head" });
+      const x = el("button", { class: "st-close", type: "button", "aria-label": T("prefs.close") });
+      x.innerHTML = UI.x;
+      title = el("h2", { id: "repos-title" });
+      head.append(x, title);
+      field = el("input", { type: "text", class: "lp-field rc-search", spellcheck: "false", autocomplete: "off", placeholder: T("prefs.github.search"), "aria-label": T("prefs.github.search") });
+      list = el("div", { class: "rc-list", role: "listbox", "aria-label": T("prefs.github.repo") });
+      empty = el("p", { class: "rc-empty" });
+      const foot = el("footer", { class: "rc-foot" });
+      give = el("button", { class: "pf-link", type: "button" }, T("prefs.github.give"));
+      const cancel = el("button", { class: "pf-link", type: "button" }, T("prefs.github.cancel"));
+      go = el("button", { class: "pf-link rc-go", type: "button" });
+      foot.append(give, cancel, go);
+      box.append(head, field, list, empty, foot);
+      document.body.append(scrim, box);
+      x.onclick = cancel.onclick = () => close();
+      give.onclick = () => post("github-give");
+      scrim.addEventListener("mousedown", (e) => { e.preventDefault(); close(); });
+      field.addEventListener("input", fill);
+      list.addEventListener("click", (e) => { const row = e.target.closest(".rc-row"); if (row) pick(row.dataset.url === picked ? "" : row.dataset.url); });
+      list.addEventListener("dblclick", (e) => { const row = e.target.closest(".rc-row"); if (row) { pick(row.dataset.url); done(); } });
+      go.onclick = done;
+      box.addEventListener("keydown", (e) => {
+        if (e.isComposing) return;
+        e.stopPropagation(); // (not the settings' keys, nor the page's)
+        const at = shown.findIndex((r) => r.url === picked);
+        if (e.key === "Escape") { e.preventDefault(); close(); }
+        else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const to = shown[Math.max(0, Math.min(shown.length - 1, at + (e.key === "ArrowDown" ? 1 : at < 0 ? 0 : -1)))]; if (to) pick(to.url, true); }
+        else if (e.key === "Enter" && picked && e.target !== cancel && e.target !== x && e.target !== give) { e.preventDefault(); done(); }
+        else if (e.key === "Tab") { // the focus stays in the window
+          const all = [field, ...box.querySelectorAll(".rc-foot button, .st-close")].filter((n) => !n.disabled && !n.hidden);
+          e.preventDefault();
+          all[(all.indexOf(document.activeElement) + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
+        }
+      });
+    }
+    function done() {
+      const r = (repos() || []).find((x) => x.url === picked);
+      if (!r) return;
+      const what = kind;
+      close();
+      if (what === "link") post("history-link", { url: r.url });
+      else { closeSettings(); post("github-get", { url: r.url, name: r.name.split("/").pop(), branch: r.branch }); }
+    }
+    function open(what, from) {
+      if (isOpen()) return;
+      if (!box) build();
+      kind = what; picked = ""; back = from;
+      title.textContent = T(what === "link" ? "prefs.github.linkTitle" : "prefs.github.getTitle");
+      go.textContent = T(what === "link" ? "prefs.github.linkDo" : "prefs.github.getDo");
+      field.value = "";
+      fill();
+      list.scrollTop = 0;
+      void box.offsetWidth;
+      scrim.dataset.open = box.dataset.open = "";
+      field.focus({ preventScroll: true });
+    }
+    function close() {
+      if (!isOpen()) return false;
+      delete scrim.dataset.open; delete box.dataset.open;
+      if (back && back.isConnected) back.focus({ preventScroll: true });
+      back = null;
+      return true;
+    }
+    return { open, close, sync: () => { if (isOpen()) fill(); }, get isOpen() { return isOpen(); } };
+  })();
   const historyState = () => { const h = info.history || {}; return h.state === "foreign" && h.own ? (h.was ? "paused" : "adopt") : h.state || "none"; };
   // the folder's history as the rows show it (a row with nothing to say is not shown)
   function historyRows(h) {

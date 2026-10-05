@@ -54,6 +54,30 @@ pub fn link(root: &Path, url: &str) -> Res<()> {
     made
 }
 
+/// A repository elsewhere is fetched into a folder that is not there yet (or is empty), on the
+/// branch named if the repository has it. An empty repository gives an empty folder linked to
+/// it. Either way the folder is a project afterwards.
+pub fn fetch_new(url: &str, into: &Path, branch: &str, access: &Access) -> Res<()> {
+    if into.read_dir().is_ok_and(|mut d| d.next().is_some()) {
+        return Err(format!("{} is there already, and not empty", into.display()));
+    }
+    let there = branches(url, access)?;
+    if there.is_empty() {
+        std::fs::create_dir_all(into).map_err(say)?;
+        let mut opts = git2::RepositoryInitOptions::new();
+        opts.initial_head(branch);
+        Repository::init_opts(into, &opts).map_err(say)?;
+        link(into, url)?;
+    } else {
+        let mut opts = FetchOptions::new();
+        opts.remote_callbacks(access.callbacks());
+        let mut builder = git2::build::RepoBuilder::new();
+        builder.fetch_options(opts).branch(if there.iter().any(|b| b == branch) { branch } else { &there[0] });
+        builder.clone(url, into).map_err(say)?;
+    }
+    history::enable(into) // (the marker, where the repository did not bring one)
+}
+
 /// The project has no other side any more. What was fetched from it stays, as does the history.
 pub fn unlink(root: &Path) -> Res<()> {
     let repo = Repository::open(root).map_err(say)?;
@@ -70,7 +94,6 @@ pub fn linked(root: &Path) -> Option<String> {
     url
 }
 
-#[allow(dead_code)] // (asked when a project is linked: the next steps)
 /// The branches the repository at an address has (none: it is empty). Says whether it can be reached.
 pub fn branches(url: &str, access: &Access) -> Res<Vec<String>> {
     let mut remote = git2::Remote::create_detached(url).map_err(say)?;
@@ -194,7 +217,7 @@ fn reconcile_in(root: &Path, access: &Access, stamp: &Stamp) -> Res<Standing> {
             return Ok(did);
         }
         if repo.merge_base(ours, theirs).is_err() {
-            return Ok(Standing::Refused("the repository holds another project (no version in common)".into()));
+            return Ok(Standing::Refused("the repository already holds something else (no version in common with this project). Link an empty repository, or get that one into a folder of its own".into()));
         }
         let (ahead, behind) = repo.graph_ahead_behind(ours, theirs).map_err(say)?;
         if behind == 0 {
@@ -654,6 +677,31 @@ mod tests {
         write(&e, "x.md", "x\n");
         history::enable(&e).unwrap();
         assert!(matches!(sync(&e, "e"), Standing::Refused(_)));
+    }
+
+    #[test]
+    fn a_repository_is_fetched_into_a_new_folder_as_a_project() {
+        let d = Dir::new();
+        let (hub, a) = pair(&d);
+        let none = Access::default();
+        let url = hub.to_str().unwrap();
+        // empty yet: an empty project, linked — what is written in it goes over
+        let first = d.0.join("first");
+        fetch_new(url, &first, "main", &none).unwrap();
+        assert_eq!(history::place_of(&first), history::Place::Project(first.clone()));
+        assert_eq!(linked(&first).as_deref(), Some(url));
+        // with a project in it: the same project here, even with it
+        assert_eq!(sync(&a, "a"), Standing::Pushed(1));
+        let b = d.0.join("deep/b");
+        fetch_new(url, &b, "no-such-branch", &none).unwrap(); // (the branch it has, where the one named is not there)
+        assert_eq!(fs::read(b.join(".mdview/project.json")).unwrap(), fs::read(a.join(".mdview/project.json")).unwrap());
+        assert_eq!(read(&b, "note.md"), "one\n");
+        assert_eq!(sync(&b, "b"), Standing::Even);
+        // never into a folder that has something
+        assert!(fetch_new(url, &a, "main", &none).is_err());
+        // and the empty project's first push is refused as another project's would be: it has no commit in common
+        write(&first, "mine.md", "mine\n");
+        assert!(matches!(sync(&first, "first"), Standing::Refused(_)));
     }
 
     /// a and b changed the same place of note.md (and a picture, and a deleted b / changed a file).

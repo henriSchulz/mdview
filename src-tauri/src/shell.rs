@@ -22,6 +22,7 @@ use tauri::{AppHandle, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
 use crate::ai::{self, Completer, Drawing, Illustrator};
+use crate::github::{self, News, Session};
 use crate::history::{self, Historian, Place, Stamp};
 use crate::sync::{self, Access};
 use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
@@ -340,6 +341,7 @@ pub struct Win {
     own_text: Option<String>,
     own_write: Option<Vec<u8>>, // bytes just written here: the reload for them is skipped
     closing: bool,
+    getting: Option<(String, String, String)>, // a repository to fetch (url, folder name, branch), while its place is being chosen
     mode_given: bool, // the page was told which mode the app was last used in
     save_seq: Value,
     zoom: f64,
@@ -363,7 +365,11 @@ pub struct App {
     unsnapped: HashMap<PathBuf, u64>, // projects touched since their last snapshot, and the turn that will make it
     snap_turn: u64,
     said_big: HashSet<String>, // files left out of a history for their size, said once
-    token: Option<String>,     // the signed-in user's, for a linked project's other side
+    session: Option<Session>,  // the user signed in with GitHub: the token for a linked project's other side, and who it is
+    signing: Option<(std::sync::Arc<std::sync::atomic::AtomicBool>, Option<(String, String)>)>, // a sign-in under way: to stop it, and the code to confirm (and where) once told
+    github_said: String,       // why the last sign-in did not go, for the settings
+    repos: Option<Vec<Value>>, // the repositories the app was given on the user's account, once read
+    renew_turn: u64,
     synced: HashMap<PathBuf, Value>, // linked projects: how they stood when last reconciled, and when
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
@@ -377,7 +383,11 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         unsnapped: HashMap::new(),
         snap_turn: 0,
         said_big: HashSet::new(),
-        token: None,
+        session: None,
+        signing: None,
+        github_said: String::new(),
+        repos: None,
+        renew_turn: 0,
         synced: HashMap::new(),
         handle,
         tx,
@@ -399,6 +409,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     }
     app.watch_theme();
     app.after(app.sync_ms(), Event::SyncTick);
+    github::resume(app.tx.clone(), app.keyring_place()); // (a sign-in kept from before)
     for event in rx {
         app.on_event(event);
     }
@@ -436,7 +447,7 @@ impl App {
             }
         };
         let name = self.prefs()["deviceName"].as_str().map(str::trim).filter(|n| !n.is_empty()).map(String::from).unwrap_or(name);
-        Stamp { device: format!("{name} ({id})"), client: format!("desktop {}", env!("CARGO_PKG_VERSION")), author: None }
+        Stamp { device: format!("{name} ({id})"), client: format!("desktop {}", env!("CARGO_PKG_VERSION")), author: self.session.as_ref().map(Session::author) }
     }
 
     /// Something at this path changed, or may have: its project, if it is in one, gets a
@@ -453,7 +464,60 @@ impl App {
     }
 
     fn access(&self) -> Access {
-        Access { token: self.token.clone() }
+        Access { token: self.session.as_ref().map(|s| s.access.clone()) }
+    }
+
+    /// The name the sign-in is kept under in the keyring: the folder this instance's state is in.
+    fn keyring_place(&self) -> String {
+        s(&dir_of(&state_file()))
+    }
+
+    /// For the page's settings: who is signed in, a code waiting to be confirmed, why it did not go.
+    fn github_shown(&self) -> Value {
+        json!({
+            "user": self.session.as_ref().map(github::shown),
+            "code": self.signing.as_ref().and_then(|(_, code)| code.as_ref()).map(|(code, uri)| json!({ "code": code, "uri": uri })),
+            "busy": self.signing.is_some(),
+            "repos": self.repos,
+            "said": self.github_said,
+        })
+    }
+
+    fn on_github(&mut self, news: News) {
+        match news {
+            News::Code { code, uri } => {
+                if let Some((_, shown)) = self.signing.as_mut() {
+                    *shown = Some((code, uri));
+                }
+            }
+            News::In(session, note) => {
+                // (renewed a while before it ends; a linked project's other side is looked at now)
+                let left = session.expires.saturating_sub(now()).saturating_sub(600).max(60);
+                self.renew_turn += 1;
+                self.after(left * 1000, Event::GitHubRenew { turn: self.renew_turn });
+                self.session = Some(session);
+                self.signing = None;
+                self.github_said = note.unwrap_or_default();
+                self.sync_shown();
+            }
+            News::Out(why) => {
+                if self.signing.take().is_none() {
+                    self.session = None; // (a sign-in kept from before that GitHub takes no more)
+                    self.repos = None;
+                }
+                self.github_said = why;
+            }
+            News::Repos(Ok(list)) => self.repos = Some(list),
+            News::Repos(Err(e)) => {
+                self.repos = Some(vec![]);
+                self.github_said = e;
+            }
+            News::Later => {
+                self.renew_turn += 1;
+                self.after(60_000, Event::GitHubRenew { turn: self.renew_turn });
+            }
+        }
+        self.each_win(|w, app| w.settings_info(app));
     }
 
     fn sync_ms(&self) -> u64 {
@@ -693,6 +757,20 @@ impl App {
                     self.historian.snapshot(&root, stamp, access);
                 }
             }
+            Event::GitHub(news) => self.on_github(news),
+            Event::Fetched { label, done } => match done {
+                Ok(folder) => self.open_folder(&folder),
+                Err(e) => {
+                    if let Some(w) = self.wins.get(&label) {
+                        w.toast(format!("Couldn't get the repository: {e}"));
+                    }
+                }
+            },
+            Event::GitHubRenew { turn } => {
+                if turn == self.renew_turn {
+                    github::resume(self.tx.clone(), self.keyring_place());
+                }
+            }
             Event::SyncTick => {
                 self.sync_shown();
                 self.after(self.sync_ms(), Event::SyncTick);
@@ -701,11 +779,17 @@ impl App {
                 standing["at"] = json!(now());
                 let here = |w: &Win| w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root));
                 if asked && standing["state"] == "error" {
-                    // (the joining did not go: said, and the state before stays — the conflicts are still there)
-                    for w in self.wins.values().filter(|w| here(w)) {
-                        w.toast(format!("Couldn't join: {}", standing["why"].as_str().unwrap_or("")));
-                        w.js("MdView.conflictsFailed", &[]);
-                    }
+                    // (what the user asked for did not go — linking, joining: said, and the state before stays)
+                    let text = format!("GitHub: {}", standing["why"].as_str().unwrap_or(""));
+                    self.each_win(|w, app| {
+                        if w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root)) {
+                            w.toast(text.clone());
+                            w.js("MdView.conflictsFailed", &[]);
+                            w.tree_json = None;
+                            w.send_folder(app);
+                            w.settings_info(app);
+                        }
+                    });
                     return;
                 }
                 let odds = standing["state"] == "conflict" && self.synced.get(&root).is_none_or(|was| was["state"] != "conflict");
@@ -934,6 +1018,7 @@ impl Win {
             own_text: None,
             own_write: None,
             closing: false,
+            getting: None,
             mode_given: false,
             save_seq: json!(0),
             zoom: 1.0,
@@ -1624,6 +1709,7 @@ impl Win {
         let here = self.folder.clone().or_else(|| self.path.as_deref().map(dir_of));
         dialog = match what {
             Pick::Folder => dialog.set_title("Open Folder"),
+            Pick::Parent => dialog.set_title("Folder to Put the Repository In"),
             Pick::File => dialog.set_title("Open Markdown").add_filter("Markdown", scan::MD_EXT),
             Pick::Reference => dialog.set_title("Reference picture").add_filter("Pictures", scan::IMAGE_EXT),
         };
@@ -1636,7 +1722,7 @@ impl Win {
             let _ = tx.send(Event::Picked { label, what, path });
         };
         match what {
-            Pick::Folder => dialog.pick_folder(done),
+            Pick::Folder | Pick::Parent => dialog.pick_folder(done),
             _ => dialog.pick_file(done),
         }
     }
@@ -1648,6 +1734,13 @@ impl Win {
     fn picked(&mut self, app: &mut App, what: Pick, path: Option<PathBuf>) {
         match (what, path) {
             (Pick::Folder, Some(folder)) => self.set_folder(app, &folder),
+            (Pick::Parent, Some(parent)) => {
+                if let Some((url, name, branch)) = self.getting.take() {
+                    let access = app.access();
+                    app.historian.fetch(&self.label, url, parent.join(name), branch, access);
+                    self.toast("Getting the repository…");
+                }
+            }
             (Pick::File, Some(file)) => self.open_path(app, &file, None, true),
             (Pick::File, None) if self.path.is_none() && self.folder.is_none() => self.close(app),
             (Pick::Reference, Some(p)) => self.js("MdView.graphicImage", &[json!(s(&p)), json!(format!("{}?{}", file_url(&p), now())), Value::Null]),
@@ -1819,6 +1912,54 @@ impl Win {
                     app.historian.resolve(&root, text_of("theirs").to_string(), picks.clone(), stamp, access);
                 }
             }
+            // signing in with GitHub (the settings): begun — the code comes with the settings' info —,
+            // the browser opened with the code on the clipboard, given up, signed out
+            "github-signin" => {
+                if app.signing.is_none() {
+                    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                    app.signing = Some((stop.clone(), None));
+                    app.github_said.clear();
+                    github::sign_in(app.tx.clone(), app.keyring_place(), stop);
+                    self.settings_info(app);
+                }
+            }
+            "github-open" => {
+                if let Some((code, uri)) = app.signing.as_ref().and_then(|(_, shown)| shown.clone()) {
+                    host::copy_text(&app.handle, code);
+                    if PROBE.is_none() {
+                        host::launch_uri(&uri); // (a test's click opens no browser)
+                    }
+                }
+            }
+            "github-cancel" => {
+                if let Some((stop, _)) = app.signing.take() {
+                    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                self.settings_info(app);
+            }
+            // the repositories the app was given (read anew), where they are chosen on GitHub, and
+            // one of them fetched into a folder of its own
+            "github-repos" => {
+                if let Some(session) = app.session.clone() {
+                    github::repos(app.tx.clone(), session);
+                }
+            }
+            "github-give" => host::launch_uri(github::GIVE),
+            "github-get" => {
+                if let (Some(url), Some(name)) = (msg["url"].as_str(), msg["name"].as_str().map(clean_name).filter(|n| !n.is_empty())) {
+                    self.getting = Some((url.to_string(), name, msg["branch"].as_str().unwrap_or("main").to_string()));
+                    self.pick(app, Pick::Parent);
+                }
+            }
+            "github-signout" => {
+                github::sign_out(&app.keyring_place());
+                app.session = None;
+                app.repos = None;
+                app.renew_turn += 1;
+                app.github_said.clear();
+                app.each_win(|w, app| w.settings_info(app));
+                self.settings_info(app);
+            }
             "history-link" => {
                 // the project is told where its other side is (url) or that it has none (no url);
                 // linked, the two are reconciled at once
@@ -1826,22 +1967,30 @@ impl Win {
                     Place::Project(r) => Some(r),
                     _ => None,
                 }) else { return };
-                let done = match msg["url"].as_str().filter(|u| !u.is_empty()) {
-                    Some(url) => sync::link(&root, url),
-                    None => sync::unlink(&root),
-                };
-                match done {
-                    Ok(()) => {
-                        app.synced.remove(&root);
-                        if sync::linked(&root).is_some() {
-                            let (stamp, access) = (app.stamp(), app.access());
-                            app.historian.sync(&root, stamp, access);
+                app.synced.remove(&root);
+                match msg["url"].as_str().filter(|u| !u.is_empty()) {
+                    Some(url) => {
+                        // (linked and reconciled on the history's thread; how it went comes back)
+                        let (stamp, access) = (app.stamp(), app.access());
+                        app.historian.link(&root, url.to_string(), stamp, access);
+                    }
+                    None => {
+                        if let Err(e) = sync::unlink(&root) {
+                            self.toast(format!("Couldn't unlink: {e}"));
                         }
                         self.tree_json = None;
                         self.send_folder(app);
                         self.settings_info(app);
                     }
-                    Err(e) => self.toast(format!("Couldn't link: {e}")),
+                }
+            }
+            "history-now" => {
+                // Ctrl+S: what waits in the project is kept now, and a linked one reconciled — not
+                // after the quiet while
+                if let Some(Place::Project(root)) = self.here().map(|h| history::place_of(&h)) {
+                    app.unsnapped.remove(&root);
+                    let (stamp, access) = (app.stamp(), app.access());
+                    app.historian.snapshot(&root, stamp, access);
                 }
             }
             "history-disable" => {
@@ -2413,7 +2562,7 @@ impl Win {
         let config = s(&ai::config_dir());
         let home = s(&home());
         let shown = if !home.is_empty() && config.starts_with(&home) { format!("~{}", &config[home.len()..]) } else { config };
-        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown, "deviceName": host_name(), "deviceId": device_id, "history": history, "home": home })]);
+        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown, "deviceName": host_name(), "deviceId": device_id, "history": history, "home": home, "github": app.github_shown() })]);
     }
 
     fn go(&mut self, app: &mut App, back: bool) {
