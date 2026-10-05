@@ -116,6 +116,20 @@ test("names, tasks, and what a commit is called", () => {
   assert.equal(C.subject(["a.md", "b/c.md", "d.md", "e.md"]), "4 files: a.md, c.md, d.md, …");
 });
 
+test("the links to a PDF in the notes, as the viewer's highlights", () => {
+  const notes = [
+    [B + "/a.md", "intro\n> [!quote] [[docs/Paper.pdf#page=3&selection=4,0,5,20&color=red|p. 3]]\n> what was marked\nsee [[paper.pdf#page=2]] here and [[paper.pdf]] and [[other.pdf#page=1]]\n"],
+    [B + "/b.md", "a [link](docs/My%20Paper.pdf#page=7) to another, and [one](<Paper.pdf#page=9>) to this\n"],
+    [B + "/c.md", "nothing of it"], [B + "/d.md", null],
+  ];
+  assert.deepEqual(C.pdfBacklinks(B + "/docs/Paper.pdf", notes), [
+    { path: B + "/a.md", name: "a.md", line: 1, frag: "page=3&selection=4,0,5,20&color=red", text: "what was marked" },
+    { path: B + "/a.md", name: "a.md", line: 3, frag: "page=2", text: "see here and and" },
+    { path: B + "/b.md", name: "b.md", line: 0, frag: "page=9", text: "a [link](docs/My%20Paper.pdf#page=7) to another, and [one](<Paper.pdf#page=9>) to this" },
+  ]);
+  assert.deepEqual(C.pdfBacklinks(B + "/docs/My Paper.pdf", notes).map((b) => [b.name, b.frag]), [["b.md", "page=7"]]);
+});
+
 test("the tree keeps a folder made here, and a renamed or deleted note leaves the tabs right", () => {
   const t = C.buildTree(B, ["a.md"], { keep: [B + "/New Folder", B + "/.hidden"] });
   assert.deepEqual(t.dirs.map((d) => d.name), ["New Folder"]);

@@ -25,7 +25,8 @@ Tests in `web/` (`npm run build && npm test`); der Plan dazu ist [[Git-Phase-3]]
 
 - [ ] Ein Repository mit Notizen öffnen: Seitenleiste, Tabs und Notiz sehen aus wie am Desktop
 - [ ] Wikilinks, gewöhnliche Links und Bilder in einer Notiz funktionieren
-- [ ] Ein PDF aus der Seitenleiste öffnet im Betrachter
+- [ ] Ein PDF aus der Seitenleiste öffnet im Betrachter; eine Notiz, die auf eine markierte Stelle darin verweist, steht in seiner Liste und als Markierung
+- [ ] „Help" öffnet den Leitfaden in einem eigenen Tab
 - [ ] <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd>: „Alle Notizen" zeigt Kacheln mit dem Anfang jeder Notiz
 - [ ] Die Seite neu laden: dieselben Tabs, dieselbe Notiz
 - [ ] Die Adresse einer Notiz in einem neuen Tab öffnen: Diese Notiz erscheint

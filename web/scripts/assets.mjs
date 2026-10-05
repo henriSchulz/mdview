@@ -19,4 +19,6 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 for (const f of files) cpSync(join(root, f), join(out, f));
 for (const d of folders) cpSync(join(root, d), join(out, d), { recursive: true });
-console.log(`assets: ${files.length} files and ${folders.join(", ")} copied to public/app`);
+mkdirSync(join(out, "docs"));
+cpSync(join(root, "docs", "FEATURES.md"), join(out, "docs", "FEATURES.md")); // (the guide: what Help shows)
+console.log(`assets: ${files.length} files, ${folders.join(", ")} and the guide copied to public/app`);

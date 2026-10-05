@@ -440,8 +440,8 @@ counts — and has no writing help by a model.
 - **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.
-- **Not there**: the order by date
-  modified (Git keeps no date for a file), links from a PDF back to notes, and everything a
+- **Help** opens this guide in a tab of its own.
+- **Not there**: the order by date modified (Git keeps no date for a file), and everything a
   desktop has that a browser has not — Open With…, Show in Finder, the Omarchy theme.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
   a repository is shown sandboxed.

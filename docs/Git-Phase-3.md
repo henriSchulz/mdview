@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 37 Tests in `web/`, davon 20
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 39 Tests in `web/`, davon 21
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -221,10 +221,9 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
   der Kennung dieses einen Dokuments; HTML in einer Notiz läuft nicht. Dateien unter `/file`
   werden abgeschottet ausgeliefert (CSP `sandbox`), Unbekanntes nur als Download.
 - Schreiben wird abgelehnt und gesagt („The notes are read only here for now").
-- Nicht gebaut: der Vergleich Desktop gegen Web Notiz für Notiz; Rücklinks in PDFs; das
-  Änderungsdatum (Git kennt keines je Datei, die Sortierung „Date Modified" greift im Web
-  nicht); die Hilfe öffnet `docs/FEATURES.md` auf GitHub; die Einstellungen zeigen noch Seiten,
-  die es im Web nicht gibt.
+- Nicht in diesem Schritt: der Vergleich Desktop gegen Web Notiz für Notiz; Rücklinks in PDFs;
+  das Änderungsdatum (Git kennt keines je Datei, die Sortierung „Date Modified" greift im Web
+  nicht); die Hilfe in der App; die Einstellungen ohne die Seiten, die es im Web nicht gibt.
 - Prüfung: `npm run build && npm test` in `web/`. `test/core.test.mjs` prüft die übertragene
   Logik; `test/read.test.mjs` öffnet ein Repository in Chromium: Notiz mit Bild, Formel und
   eingebetteter Notiz, Wikilinks und gewöhnliche Links, zurück und vor, Seitenleiste, Tabs (auch
@@ -293,15 +292,24 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 - **Umbenennen von allem:** Ein PDF, ein Bild oder eine andere Datei bis 14 MB bekommt ihren
   neuen Namen in einem Commit sofort: die Bytes unter dem neuen Pfad, der alte gelöscht. Hat
   ein anderes Gerät die Datei inzwischen geändert, bleibt die alte daneben stehen.
+- **Die Hilfe in der App:** „Help" öffnet den Leitfaden (`docs/FEATURES.md`, beim Bauen mit der
+  Seite nach `public/app/` kopiert) in einem eigenen Tab, nur zum Lesen. Er ist keine Datei des
+  Repositorys; die Adresse nennt ihn nicht.
+- **Rücklinks aus PDFs:** Ein PDF kommt mit den Verweisen der Notizen, die auf eine Stelle darin
+  zeigen (`core.js`, `pdfBacklinks`, aus `scan.rs` übertragen): die Markierungen im Betrachter
+  und seine Liste der Notizen. Dafür werden beim ersten PDF die Texte aller Notizen geholt.
+- **Löschen oder Umbenennen, während ein Commit unterwegs ist:** Beides wartet jetzt auf dessen
+  Antwort. Vorher kam eine Notiz zurück, die gelöscht wurde, bevor ihr erster Commit bestätigt
+  war.
 - Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
   zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
-  Byte.
+  Byte. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
+  PDFs. `test/core.test.mjs` – Rücklinks Verweis für Verweis.
 
 ### Was Phase 3 nicht hat
 
 - **Verlauf über eine Umbenennung hinweg:** Die GitHub-API folgt ihr nicht.
 - **Änderungsdatum:** Git kennt keines je Datei; die Sortierung danach greift nicht.
-- **Rücklinks aus PDFs**, und die Hilfe in der App (sie öffnet `docs/FEATURES.md` auf GitHub).
 - **Vergleich Desktop gegen Web** Notiz für Notiz, wie er für Schritt 3 gedacht war.
 - **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
   sehr großen Repositories wäre das Paket aus einem Archiv der nächste Schritt.

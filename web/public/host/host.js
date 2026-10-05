@@ -44,6 +44,9 @@
   let tip = { device: "", time: 0 }; // who made the commit the branch stands at
   const exists = (path) => path.startsWith(BASE + "/") && has(rel(path));
   const paths = () => every().map((f) => BASE + "/" + f);
+  // the guide: no file of the repository — the app's own, shown as a note that cannot be written
+  const GUIDE = "/~guide/FEATURES.md", known = (path) => path === GUIDE || exists(path);
+  let guide = null;
   const MARKER = ".mdview/project.json";
   const project = () => has(MARKER); // (as on the desktop: only a repository with the marker is written to)
   const NOT_YET = "turn the history on first: the clock in the sidebar";
@@ -64,6 +67,10 @@
   }
   /* A note's text. (One too large to come with the others is fetched as the file it is.) */
   async function textOf(path) {
+    if (path === GUIDE) {
+      if (guide == null) { const res = await fetch("/app/docs/FEATURES.md"); if (!res.ok) throw new Error("The guide could not be read"); guide = await res.text(); }
+      return guide;
+    }
     const draft = drafts.get(rel(path));
     if (draft) return draft.text;
     const f = !gone.has(rel(path)) && files.get(rel(path));
@@ -106,7 +113,7 @@
   }
   function address(path) { // (the address names the note, so that it can be kept and sent)
     const u = new URL(location.href);
-    if (path) u.searchParams.set("n", rel(path)); else u.searchParams.delete("n");
+    if (path && path !== GUIDE) u.searchParams.set("n", rel(path)); else u.searchParams.delete("n");
     history.replaceState(null, "", u);
     if (!path) document.title = W.repo; // (a note's name is the page's own to set)
   }
@@ -136,11 +143,15 @@
     const payload = { name: C.nameOf(path), path, base: fileUrl(C.dirOf(path)) + "/", fragment, canBack: t.back.length > 0, error: null, links: {}, vault: false };
     if (C.kindOf(path) === "pdf") {
       Object.assign(payload, { kind: "pdf", text: "", readonly: "a PDF", mtime: 0, backlinks: [] });
+      // what the notes link to in it: its highlights (every note's text is needed; where they cannot be had, it shows without)
+      await loadAll();
+      if (mine !== turn) return;
+      payload.backlinks = C.pdfBacklinks(path, every().filter((r) => C.isMd(r) && C.shown(r)).map((r) => [BASE + "/" + r, drafts.has(r) ? drafts.get(r).text : texts.get((files.get(r) || {}).sha)]));
     } else {
-      Object.assign(payload, { text: "", readonly: project() ? null : NOT_YET, keepScroll, toEnd: end, seq: lastSeq });
+      Object.assign(payload, { text: "", readonly: path === GUIDE ? "the guide" : project() ? null : NOT_YET, keepScroll, toEnd: end, seq: lastSeq });
       try {
         payload.text = await textOf(path);
-        if (payload.text.includes("[[")) Object.assign(payload, await buildLinks(payload.text, C.dirOf(path)));
+        if (path !== GUIDE && payload.text.includes("[[")) Object.assign(payload, await buildLinks(payload.text, C.dirOf(path)));
       } catch (e) { payload.error = String(e.message || e); }
       if (mine !== turn) return; // (another note was asked for meanwhile)
       if (!modeGiven) {
@@ -156,8 +167,7 @@
     tabs.open(path, push);
     onScreen = path;
     if (!same) {
-      here.opened[path] = Math.floor(Date.now() / 1000);
-      here.last = path;
+      if (path !== GUIDE) { here.opened[path] = Math.floor(Date.now() / 1000); here.last = path; }
       sendFolder();
     }
     sendTabs();
@@ -180,7 +190,7 @@
     if (!now) return;
     if (now.last) { location.href = "/"; return; } // (the last tab closed: back to the repositories)
     if (now.same) return sendTabs();
-    if (now.show && exists(now.show)) { onScreen = null; openPath(now.show, now.fragment, false); } else showNothing(); // (another tab: shown anew, also where it is the same note)
+    if (now.show && known(now.show)) { onScreen = null; openPath(now.show, now.fragment, false); } else showNothing(); // (another tab: shown anew, also where it is the same note)
   }
   const openFile = (path) => window.open(fileUrl(path), "_blank", "noopener"); // (a picture, a film, anything else: the browser's to show)
 
@@ -349,7 +359,7 @@
       else if (op === "new") apply(tabs.add(null));
       else if (op === "close") apply(tabs.close(which));
       else if (op === "others") apply(tabs.others(which));
-      else if (op === "reopen") apply(tabs.reopen(exists));
+      else if (op === "reopen") apply(tabs.reopen(known));
       else if (op === "move" && to != null && !Number.isNaN(Number(to))) apply(tabs.move(which, Math.trunc(Number(to))));
     },
     back() { const now = tabs.go(true); if (now) { onScreen = null; openPath(now.show, null, false); } },
@@ -406,8 +416,11 @@
         hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir"],
         history: { ...st, branch, changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
     },
-    help() { window.open("https://github.com/henriSchulz/mdview/blob/main/docs/FEATURES.md", "_blank", "noopener"); },
-    external() { if (onScreen) window.open(`https://github.com/${W.owner}/${W.repo}/blob/HEAD/${rel(onScreen).split("/").map(encodeURIComponent).join("/")}`, "_blank", "noopener"); },
+    help() { if (onScreen === GUIDE) return; const there = tabs.find(GUIDE); apply(there >= 0 ? tabs.selectAt(there) : tabs.add(GUIDE)); }, // (the guide, in a tab of its own)
+    external() {
+      if (onScreen === GUIDE) return void window.open("https://github.com/henriSchulz/mdview/blob/main/docs/FEATURES.md", "_blank", "noopener");
+      if (onScreen) window.open(`https://github.com/${W.owner}/${W.repo}/blob/HEAD/${rel(onScreen).split("/").map(encodeURIComponent).join("/")}`, "_blank", "noopener");
+    },
     open() { location.href = "/"; },
     folder() { location.href = "/"; },
     close() { location.href = "/"; },
@@ -449,7 +462,7 @@
     },
     "history-now"() { if (project()) commit(); },
     async toggle({ line, checked }) {
-      if (!onScreen || !mayWrite()) return render(onScreen, { keepScroll: true });
+      if (!onScreen || onScreen === GUIDE || !mayWrite()) return render(onScreen, { keepScroll: true });
       const now = C.toggleTask(await textOf(onScreen), Math.trunc(Number(line)), !!checked);
       if (now != null) write(rel(onScreen), now);
       render(onScreen, { keepScroll: true });
@@ -472,6 +485,7 @@
       sendFolder();
     },
     async rename({ path, name }) {
+      if (busy) await busy; // (as trash)
       if (!exists(path) || !mayWrite()) return;
       const suffix = path.slice(path.lastIndexOf("."));
       let stem = C.cleanName(name);
@@ -506,7 +520,8 @@
       sendFolder();
       sendTabs();
     },
-    trash({ path }) {
+    async trash({ path }) {
+      if (busy) await busy; // (a commit on its way knows the file as it was sent: what it has is known first)
       if (!exists(path) || !mayWrite()) return;
       const was = onScreen === path, notes = C.notesOf(C.buildTree(BASE, every(), { show: [] })), i = notes.findIndex((n) => n.path === path);
       const next = was && i >= 0 ? (notes[i + 1] || notes[i - 1] || {}).path : null;
@@ -525,7 +540,7 @@
     /* A picture on the clipboard: kept beside the note (or where the settings say), in a commit
      * at once — the page shows it from the repository — and its Markdown put into the note. */
     async pasteimage({ path, append }) {
-      if (!path || path !== onScreen || !mayWrite()) return;
+      if (!path || path !== onScreen || path === GUIDE || !mayWrite()) return;
       let found = null;
       try {
         for (const item of await navigator.clipboard.read()) {
@@ -609,10 +624,10 @@
     try { moved = await look(); } catch { return; } // (not reached: what is shown stays)
     if (!moved) return;
     if (drafts.size || gone.size) { conflicts = await settle(); later(); } // (what was written here, against what is there now)
-    tabs.forget(exists);
+    tabs.forget(known);
     if (here.sidebar.titles) await loadAll();
     sendFolder();
-    if (onScreen && !exists(onScreen)) return showNothing();
+    if (onScreen && !known(onScreen)) return showNothing();
     sendTabs();
     const is = files.get(rel(onScreen || ""));
     if (onScreen && was && is && is.sha !== was.sha && !drafts.has(rel(onScreen))) render(onScreen, { keepScroll: true });
@@ -628,7 +643,7 @@
       return;
     }
     const wanted = new URLSearchParams(location.search).get("n");
-    const good = (p) => p && exists(p) && ["md", "pdf"].includes(C.kindOf(p));
+    const good = (p) => p && known(p) && ["md", "pdf"].includes(C.kindOf(p));
     const kept = here.tabs && Array.isArray(here.tabs.paths) ? { paths: here.tabs.paths.filter((p, i) => good(p) || (!p && i === here.tabs.active)), active: 0 } : null;
     if (kept) kept.active = Math.max(0, kept.paths.indexOf(here.tabs.paths[here.tabs.active] || ""));
     tabs = C.tabs(kept && kept.paths.length ? kept : null);

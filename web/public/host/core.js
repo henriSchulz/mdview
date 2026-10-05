@@ -146,6 +146,31 @@
     return out;
   }
 
+  /* The links to a PDF in the notes ([path, text] each) — what the PDF viewer shows as
+   * highlights: a link to a selection is the annotation. (scan.rs: pdf_backlinks) */
+  const PDF_LINK = /!?\[\[([^\]\[|#]+\.pdf)(?:#([^\]\[|]*))?(?:\|[^\]\[]*)?\]\]|\]\(<?([^)\s#>]+\.pdf)(?:#([^)\s>]*))?>?\)/gi;
+  const unquote = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+  function pdfBacklinks(pdf, notes) {
+    const name = nameOf(pdf).toLowerCase(), quoted = encodeURIComponent(nameOf(pdf)).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16)).toLowerCase(), out = [];
+    for (const [path, text] of notes) {
+      if (out.length >= 2000) break;
+      if (typeof text !== "string" || text.length > 2000000) continue;
+      const lower = text.toLowerCase();
+      if (!lower.includes(name) && !lower.includes(quoted)) continue;
+      const lines = text.split("\n");
+      lines.forEach((line, n) => {
+        for (const m of line.matchAll(PDF_LINK)) {
+          const target = m[1] != null ? m[1] : unquote(m[3]), frag = m[1] != null ? m[2] || "" : unquote(m[4] || "");
+          if (nameOf(target.trim()).toLowerCase() !== name || !frag || out.length >= 2000) continue;
+          let shown = line.replace(/\s*!?\[\[[^\]]*\]\]/g, "").replace(/^\s*(?:>\s*)*(?:\[![^\]]*\]\s*)?/, "").trim();
+          if (!shown) shown = (lines[n + 1] || "").replace(/^\s*(?:>\s*)*/, "").trim(); // (the quote of a callout stands in the line below its link)
+          out.push({ path, name: nameOf(path), line: n, frag, text: [...shown].slice(0, 240).join("") });
+        }
+      });
+    }
+    return out;
+  }
+
   /* An address the page was about to go to, as the path of a file here (and the place in it), or
    * null where it is an address elsewhere. files: where the app serves a repository's files
    * ("https://…/file"). */
@@ -314,5 +339,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, linkPath, tabs };
+  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -133,10 +133,31 @@ test("the sidebar and the tabs", async () => {
 });
 
 test("a PDF opens in the viewer", async () => {
+  await page.evaluate(() => { const render = MdView.render; MdView.render = (p) => { window.__told = p; return render(p); }; });
   await page.click('.sb-row[data-real="/octo/notes/paper.pdf"]');
   await page.waitForFunction(() => MdView.core.current && MdView.core.current.name === "paper.pdf" && document.querySelectorAll("canvas").length > 0, null, { timeout: 20000 });
+  // the notes' links into it come with it: the viewer's highlights and its list of notes
+  assert.deepEqual(await page.evaluate(() => window.__told.backlinks), [{ path: "/octo/notes/Home.md", name: "Home.md", line: 19, frag: "page=1", text: "and." }]);
   await page.screenshot({ path: join(web, ".next", "read-pdf.png") });
   await page.keyboard.press("Alt+ArrowLeft");
+  await untilNote("Second note.md");
+});
+
+test("Help shows the guide in a tab of its own, not to be written", async () => {
+  const names = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab")].length);
+  const before = await names();
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "help" })));
+  await untilNote("FEATURES.md");
+  assert.deepEqual(await page.evaluate(() => [MdView.core.current.readonly, /In the browser/.test(MdView.core.current.raw), new URL(location.href).searchParams.get("n")]), ["the guide", true, null]);
+  assert.equal(await names(), before + 1);
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "help" }))); // (asked for again: the same tab)
+  await page.waitForTimeout(300);
+  assert.equal(await names(), before + 1);
+  await page.reload(); // (and it is still there after a reload)
+  await untilNote("FEATURES.md");
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "tab", op: "close" })));
+  await untilNote("Home.md"); // (the tab beside it)
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "note", path: "/octo/notes/Second note.md" })));
   await untilNote("Second note.md");
 });
 
