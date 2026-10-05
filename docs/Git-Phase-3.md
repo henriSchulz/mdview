@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 41 Tests in `web/`, davon 23
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 46 Tests in `web/`, davon 25
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -313,14 +313,30 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
   Bei sehr vielen Notizen dauert das erste Sortieren; bis dahin gilt der Name. Die Kacheln in
   „Alle Notizen" merken jetzt auch, wenn eine Notiz sich geändert hat (vorher blieb ihr Anfang
   stehen, bis neu geladen wurde).
+- **Die Naht wird geprüft** (`test/contract.test.mjs`): Was die Seite sagt und gesagt bekommt,
+  wird aus ihren eigenen Dateien gelesen und gegen `host/contract.ts` gestellt, und diese Liste
+  gegen das, was `host.js` tut. Das ist der Vergleich der beiden Hüllen, soweit er sich ohne die
+  laufende Desktop-App führen lässt. Er hat beim ersten Lauf gefunden, was im Browser nichts
+  tat:
+  - **Einfügen aus dem Menü** und **„Paste and Match Style"** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>):
+    Die Hülle liest die Zwischenablage und reicht sie der Seite (der Browser fragt dafür
+    gegebenenfalls nach).
+  - **„Copy Image"**: Das Bild liegt als PNG in der Zwischenablage.
+  - **Verlassen mit offenem Dialog:** Zurück zur Liste der Repositories fragt die Seite zuerst;
+    ein Dialog mit Änderungen stellt dieselbe Frage wie beim Schließen eines Fensters am
+    Desktop.
+- **Am Desktop nachgeprüft:** `dev/rig.sh dnd` und `npm test` in `dev/` laufen mit der
+  geänderten `active/clip.js` durch.
 - Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
   zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
-  Byte; der Verlauf einer umbenannten Notiz bis zur ältesten Version. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
+  Byte; der Verlauf einer umbenannten Notiz bis zur ältesten Version; Einfügen, Bild kopieren,
+  Verlassen. `test/read.test.mjs` – der Leitfaden als Tab, auch nach Neuladen; die Rücklinks eines
   PDFs; die Reihenfolge nach Änderungsdatum, auch nach Neuladen. `test/core.test.mjs` – Rücklinks Verweis für Verweis.
 
 ### Was Phase 3 nicht hat
 
-- **Vergleich Desktop gegen Web** Notiz für Notiz, wie er für Schritt 3 gedacht war.
+- **Vergleich Desktop gegen Web** am gezeigten Ergebnis, Notiz für Notiz. Geprüft wird die
+  Naht (siehe oben), nicht, ob beide Hüllen dieselbe Notiz gleich zeigen.
 - **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
   sehr großen Repositories wäre das Paket aus einem Archiv der nächste Schritt.
 - **Serverseitiger Speicher:** Tabs und Einstellungen liegen je Browser; in Firestore lägen sie
@@ -351,8 +367,9 @@ Sobald das Gerüst der Web-App im Repository liegt:
 - **Umfang der zweiten Hülle.** Jede Nachricht, die die Seite schickt, braucht im Web eine
   Antwort oder eine bewusste Lücke. Schritt 1 macht die Liste, damit nichts stillschweigend
   fehlt.
-- **Zwei Hüllen, eine Seite.** Was künftig in `shell.rs` dazukommt, muss auch in `host.ts`
-  dazukommen. Der Vergleich aus Schritt 3 bleibt als Prüfung stehen, damit das auffällt.
+- **Zwei Hüllen, eine Seite.** Was künftig in `shell.rs` dazukommt, muss auch in `host.js`
+  dazukommen. `test/contract.test.mjs` schlägt fehl, sobald die Seite etwas sagt, das die Liste
+  nicht kennt, oder die Liste etwas verspricht, das die Web-Hülle nicht tut.
 - **Große Repositories.** Der Stand kommt in Stücken, weil eine Antwort bei manchen Anbietern
   nur wenige MB groß sein darf. Ein Repository mit sehr vielen oder sehr großen Notizen lädt
   beim ersten Öffnen spürbar; danach liegt es im Browser.

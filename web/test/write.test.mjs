@@ -224,6 +224,34 @@ test("a picture dropped on the note is kept under its own name, and put in where
   await until(() => /A%20drawing-2\.png/.test(text("Beta.md") || ""), "the second one's markup");
 });
 
+test("the clipboard, where the page asks the host for it: pasted plain, pasted as it is, a picture copied", async () => {
+  await open("Beta.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.click("#active h1");
+  await page.keyboard.press("End");
+  await page.evaluate(() => navigator.clipboard.writeText(" plainly"));
+  await post({ type: "pastetext" });
+  await until(() => /^# Beta[^\n]* plainly\n/.test(text("Beta.md") || ""), "the plain text, pasted and kept");
+  await page.evaluate(() => navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([" bold"], { type: "text/plain" }), "text/html": new Blob([" <b>bold</b>"], { type: "text/html" }) })]));
+  await post({ type: "pasteclip" });
+  await until(() => /^# Beta[^\n]* plainly\*\*bold\*\*\n/.test(text("Beta.md") || ""), "what was copied elsewhere, as Markdown");
+  await post({ type: "copyimage", src: `${base}/file/octo/notes/A%20drawing.png` });
+  await until(() => page.evaluate(async () => (await navigator.clipboard.read()).some((i) => i.types.includes("image/png"))), "the picture on the clipboard");
+});
+
+test("leaving for the list of repositories: what is typed goes along first", async () => {
+  await open("Beta.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.click("#active h1");
+  await page.keyboard.press("End");
+  await page.keyboard.type(", and gone");
+  await post({ type: "close" });
+  await page.waitForURL(base + "/", { timeout: 8000 });
+  await until(() => /, and gone/.test(text("Beta.md") || ""), "what was typed, as a commit");
+});
+
 test("a file that is no note has another name: its bytes under the new, none under the old", async () => {
   const pdf = Buffer.from("%PDF-1.4\n" + "\u00ff\u0000binary".repeat(40), "latin1");
   gh.repo.files.set("docs/Paper.pdf", pdf);

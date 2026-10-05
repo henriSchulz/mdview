@@ -217,9 +217,18 @@
   /* What a change of the tabs asks for (core.js: tabs). */
   function apply(now) {
     if (!now) return;
-    if (now.last) { location.href = "/"; return; } // (the last tab closed: back to the repositories)
+    if (now.last) return leave(); // (the last tab closed: back to the repositories)
     if (now.same) return sendTabs();
     if (now.show && known(now.show)) { onScreen = null; openPath(now.show, now.fragment, false); } else showNothing(); // (another tab: shown anew, also where it is the same note)
+  }
+  /* Away from the repository, to the list of them. The page is asked first: what is typed is
+   * saved, and a dialog with changes in it asks what is to become of them (closehold), as when a
+   * window closes on the desktop. It says close once that is done. */
+  let leaving = false;
+  function leave() {
+    if (leaving || !(window.MdView && window.MdView.flush)) { location.href = "/"; return; }
+    leaving = true;
+    tell("flush", true);
   }
   const openFile = (path) => window.open(fileUrl(path), "_blank", "noopener"); // (a picture, a film, anything else: the browser's to show)
 
@@ -452,11 +461,38 @@
       if (onScreen === GUIDE) return void window.open("https://github.com/henriSchulz/mdview/blob/main/docs/FEATURES.md", "_blank", "noopener");
       if (onScreen) window.open(`https://github.com/${W.owner}/${W.repo}/blob/HEAD/${rel(onScreen).split("/").map(encodeURIComponent).join("/")}`, "_blank", "noopener");
     },
-    open() { location.href = "/"; },
-    folder() { location.href = "/"; },
-    close() { location.href = "/"; },
+    open() { leave(); },
+    folder() { leave(); },
+    close() { leave(); },
+    closehold() { leaving = false; }, // (the page has a question to ask first; it says close again once that is answered)
     // the browser's own
     copy({ text }) { navigator.clipboard?.writeText(text || "").catch(() => {}); },
+    /* The page cannot read the clipboard while a menu or a key of its own is the cause: the host
+     * does, and hands over what is there (the browser may ask the user first). */
+    async pastetext() {
+      try { tell("pasteText", { text: await navigator.clipboard.readText() }); } catch { toast("The browser did not hand out the clipboard"); }
+    },
+    async pasteclip() {
+      try {
+        const got = { text: "", html: null };
+        for (const item of await navigator.clipboard.read()) {
+          if (!got.text && item.types.includes("text/plain")) got.text = await (await item.getType("text/plain")).text();
+          if (got.html == null && item.types.includes("text/html")) got.html = await (await item.getType("text/html")).text();
+        }
+        tell("pasteClip", got);
+      } catch { toast("The browser did not hand out the clipboard"); }
+    },
+    async copyimage({ src }) { // (a clipboard takes a picture as PNG: it is drawn once and put there as that)
+      try {
+        if (!String(src || "").startsWith(FILES + "/")) return toast("Only pictures in files can be copied");
+        const res = await ask(src);
+        if (!res.ok) throw new Error("not read");
+        const bitmap = await createImageBitmap(await res.blob()), canvas = document.createElement("canvas");
+        canvas.width = bitmap.width; canvas.height = bitmap.height;
+        canvas.getContext("2d").drawImage(bitmap, 0, 0);
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": await new Promise((done) => canvas.toBlob(done, "image/png")) })]);
+      } catch { toast("Couldn't copy the picture"); }
+    },
     print() { window.print(); },
     editcmd({ cmd }) { try { document.execCommand(String(cmd || "").toLowerCase()); } catch { /* (not this browser's) */ } },
     // the history's window: a note's versions are the commits that changed it

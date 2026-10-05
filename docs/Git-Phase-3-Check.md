@@ -42,6 +42,8 @@ Tests in `web/` (`npm run build && npm test`); der Plan dazu ist [[Git-Phase-3]]
 - [ ] Ein Bild aus der Zwischenablage einfügen: Es erscheint in der Notiz und liegt im Repository
 - [ ] Im aktiven Modus ein Bild aus dem Dateimanager auf die Notiz ziehen: Es steht dort, wo es fallen gelassen wurde, und liegt unter seinem Namen im Repository
 - [ ] Ein PDF in der Seitenleiste umbenennen: ein Commit, die Datei unter dem neuen Namen
+- [ ] Rechtsklick › „Paste" und <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> im aktiven Modus: Der Browser fragt gegebenenfalls nach der Zwischenablage, dann steht der Text da
+- [ ] Rechtsklick auf ein Bild › „Copy Image": Es lässt sich anderswo einfügen
 - [ ] Ein Repository ohne `.mdview/project.json` öffnen: nur lesen; Uhr › „Use This Repository for History…" fragt nach und schreibt dann die Markerdatei
 
 ## 4. Mit der Desktop-App zusammen

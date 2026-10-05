@@ -50,5 +50,5 @@ PATH) opens a repository and reads it.
 | `app/api/r/`, `app/file/` | a repository's state, its notes' texts, when they were changed, commits and versions; its files (sandboxed) |
 | `public/host/core.js` | what the host works out: the tree, titles, where links lead, tabs |
 | `public/host/host.js` | the host: answers the page from the repository |
-| `host/contract.ts` | everything the page and its host say to each other, and what the web host does with each |
+| `host/contract.ts` | everything the page and its host say to each other, and what the web host does with each (held to it by `test/contract.test.mjs`) |
 | `apphosting.yaml` | how it runs on Firebase App Hosting |
