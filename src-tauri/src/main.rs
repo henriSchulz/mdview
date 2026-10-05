@@ -54,7 +54,6 @@ pub enum Event {
     Graphic { label: String, id: Value, svg: Option<String>, error: Option<String> },
     ThemeChanged,
     ApplyTheme { turn: u64 },
-    MotionChanged,
     Idle { turn: u64 },
     /// a project has been quiet since it was last touched: time for its snapshot
     Snapshot { root: PathBuf, turn: u64 },

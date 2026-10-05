@@ -1,6 +1,5 @@
-//! Colours follow the Omarchy theme, motion follows ~/.local/share/henri-ui, the sizes of
-//! sidebar and menus ~/.local/share/apple-ui. Where none of these exist (another desktop,
-//! another system) the light fallback and the values written in viewer.css hold.
+//! Colours follow the Omarchy theme. Where there is none (another desktop, another system)
+//! the light fallback holds. Motion and sizes are the app's own (motion.css, viewer.css).
 
 use std::fs;
 use std::path::PathBuf;
@@ -40,10 +39,6 @@ pub fn home() -> PathBuf {
 pub fn theme_dir() -> PathBuf {
     // (the override: for tests)
     std::env::var_os("MDVIEW_THEME_DIR").filter(|d| !d.is_empty()).map(PathBuf::from).unwrap_or_else(|| home().join(".local/state/omarchy/current"))
-}
-
-pub fn motion_files() -> [PathBuf; 2] {
-    [home().join(".local/share/henri-ui/motion.css"), home().join(".local/share/apple-ui/apple.css")]
 }
 
 fn rgb(hex: &str) -> Option<(u8, u8, u8)> {
@@ -118,15 +113,4 @@ fn things_css() -> String {
 pub fn theme_css(theme: &Theme) -> String {
     let body: Vec<String> = theme.colors.iter().map(|(k, v)| format!("--c-{}:{v}", k.replace('_', "-"))).collect();
     format!(":root{{{}{};color-scheme:{}}}", body.join(";"), things_css(), theme.mode)
-}
-
-pub fn read_motion() -> String {
-    let mut css = String::new();
-    for path in motion_files() {
-        if let Ok(text) = fs::read_to_string(path) {
-            css += &text.replace("</", "<\\/");
-            css.push('\n');
-        }
-    }
-    css
 }

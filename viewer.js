@@ -967,9 +967,6 @@
     setOnAccent();
     if (current && mode === "read" && content.querySelector(".mermaid-block")) draw(current, captureAnchor());
   }
-  function setMotion(css) {
-    document.getElementById("henri-ui").textContent = css;
-  }
 
   // ------------------------------------------------------------ chrome: toolbar, find, outline, toast
   const toolbar = document.createElement("nav");
@@ -3231,7 +3228,7 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, setMotion, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),

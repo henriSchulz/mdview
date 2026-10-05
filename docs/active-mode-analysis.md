@@ -13,7 +13,7 @@ with the app as it is. Written before any code.
 | Framework | None. Vanilla JS in one IIFE, no modules, no bundler, no build step. State lives in closure variables (`current`, `mode`, `edPath`, `savedText` …) |
 | Page ↔ Python | Python calls `MdView.<fn>(json…)`; the page posts JSON to `window.webkit.messageHandlers.mdview` |
 | Security | CSP `default-src 'none'`, scripts only with a per-load nonce. Document HTML is rendered unsanitised (`html: true`); the CSP is what keeps scripts in a note from running |
-| Look | Colours from the Omarchy theme (`--c-*`, live reload), motion from `~/.local/share/henri-ui/motion.css` (injected, live reload). `viewer.css` carries no motion numbers of its own |
+| Look | Colours from the Omarchy theme (`--c-*`, live reload), motion from `motion.css`. `viewer.css` carries no motion numbers of its own |
 | Tests, docs, settings dialog, i18n | None of them exist. UI strings are English, inline |
 
 ### Libraries in use
@@ -155,7 +155,7 @@ consistent with itself.
 | # | Spec says | App / standing rule | Resolution |
 |---|---|---|---|
 | 1 | UI language German | Every existing string is English; Henri's rule is English UI text | All new strings go into `strings.js` with an `en` and a `de` table. Default **en**, so the app does not mix languages; switching is one line. **Open for Henri** |
-| 2 | Own durations and curves (220 ms, `cubic-bezier(0.32, 0.72, 0, 1)`, 12 px radius …) | henri-ui is the single source for motion and radii; "no hand-picked values" | henri-ui tokens. They sit inside the spec's ranges (hover 90/160 ms, popover 240/270 ms). Springs settle visually in ~300 ms. Missing tokens (dialog zoom, island hover tint) are added centrally in henri-ui, not here |
+| 2 | Own durations and curves (220 ms, `cubic-bezier(0.32, 0.72, 0, 1)`, 12 px radius …) | `motion.css` is the single source for motion and radii; "no hand-picked values" | The tokens of `motion.css`. They sit inside the spec's ranges (hover 90/160 ms, popover 240/270 ms). Springs settle visually in ~300 ms. Missing tokens (dialog zoom, island hover tint) are added centrally in `motion.css`, not here |
 | 3 | macOS semantic colours, `prefers-color-scheme`, system accent | Colours come from the Omarchy theme, switched live | Theme colours. The spec's variable names map onto the existing `--fg`, `--fg2`, `--fg3`, `--line`, `--accent` |
 | 4 | Segmented control with three segments | One toggle button | The toggle becomes a three-segment control (Edit · Active · Read). This is the one visible change to the existing chrome; the modes themselves are untouched |
 | 5 | `Ctrl+E` may toggle Active ↔ View | `Ctrl+E` toggles Read ↔ Edit today | `Ctrl+E` keeps doing what it does. New: `Ctrl+Alt+1/2/3` (free in Hyprland here) |

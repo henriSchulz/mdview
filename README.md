@@ -17,9 +17,9 @@ beside the notes. The command and the repository are still called `mdview`;
   and tabs, as Craft has them: notes and PDFs open beside each other.
 - Stays resident for a while after the last window closes, so reopening is
   instant; a second start hands its files to the running instance.
-- Colors follow the Omarchy theme, motion follows `~/.local/share/henri-ui`. The
+- Colors follow the Omarchy theme; motion and sizes are the app's own (`motion.css`). The
   sidebar and bars are built as macOS builds them (a floating sidebar card, shortcuts
-  as `⌃⇧V`), with the sizes in `~/.local/share/apple-ui`; context menus and the `/`
+  as `⌃⇧V`), in sizes measured there; context menus and the `/`
   menu are the Things rebuild's dark popover, the app's own icons SF Symbols where
   that font is installed.
 - Everything it does, with the Markdown it reads: `docs/FEATURES.md`. A Claude skill

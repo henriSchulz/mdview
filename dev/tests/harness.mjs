@@ -21,7 +21,7 @@ export async function loadPage(extra = []) {
   virtualConsole.on("jsdomError", (e) => { if (!/Not implemented/.test(e.message)) errors.push(e); });
   virtualConsole.on("error", (e) => errors.push(e));
   const dom = new JSDOM(
-    `<!doctype html><html><head><base href="${base}"><style id="henri-ui"></style><style id="theme"></style></head>` +
+    `<!doctype html><html><head><base href="${base}"><style id="theme"></style></head>` +
     `<body data-mode="light"><main id="content"></main>${tags}</body></html>`,
     { url: base, runScripts: "dangerously", resources: "usable", pretendToBeVisual: true, virtualConsole });
   await new Promise((resolve) => dom.window.addEventListener("load", resolve));

@@ -499,4 +499,4 @@ user alone; the window only ever shows its last four signs. A key in the environ
 ## Look
 
 Colours follow the Omarchy theme, light or dark. Context menus and the `/` menu are dark plates;
-the app's own icons are SF Symbols where that font is installed. Motion follows henri-ui.
+the app's own icons are SF Symbols where that font is installed. Motion and sizes are the app's own (`motion.css`).

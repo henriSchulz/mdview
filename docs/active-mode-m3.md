@@ -6,7 +6,7 @@ pictures — stays rendered and opens in a dialog or popover.
 ## What is there
 
 - **Dialog** (`active/dialog.js`). It grows out of the island and shrinks
-  back into it (transform and opacity, henri-ui's `gentle` spring in, the
+  back into it (transform and opacity, the `gentle` spring of `motion.css` in, the
   usual faster exit out); an island taller than 60 % of the window gets a
   sheet from above instead. The page behind dims and blurs slightly, the
   dialog itself is a blurred translucent panel. `Ctrl+Enter` or a click

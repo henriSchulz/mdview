@@ -1,5 +1,5 @@
 /* mdview — all notes of the folder as tiles (overview.js). Sizes are layout; times, curves and
- * radii are the central ones (henri-ui's motion.css). */
+ * radii are the central ones (motion.css). */
 #overview {
   position: fixed;
   inset: 0;

@@ -19,14 +19,14 @@ der Leseansicht abhaken. Alles andere prüfen `cargo test`, `dev/rig.sh sync` un
 
 - [x] Settings › History › GitHub › Sign In… zeigt einen Code (am 5. Oktober 2026 gelaufen)
 - [x] Im Browser bestätigt: „Signed in as Henri Schulz (@henriSchulz)"
-- [ ] App beenden und neu starten: Es steht weiter „Signed in as …", ohne neuen Code
+- [x] App beenden und neu starten: Es steht weiter „Signed in as …", ohne neuen Code
 - [ ] Sign Out, dann wieder Sign In…: geht, mit neuem Code
 
 ## 2. Verknüpfen
 
-- [ ] Testordner öffnen, Verlauf einschalten, eine Notiz ändern
-- [ ] Settings › History › GitHub › Link…: Das Auswahlfenster zeigt `henriSchulz/md-view-test-notes`, nichts ist vorausgewählt
-- [ ] Tippen filtert die Liste; „Link" ist grau, bis ein Eintrag gewählt ist
+- [x] Testordner öffnen, Verlauf einschalten, eine Notiz ändern
+- [x] Settings › History › GitHub › Link…: Das Auswahlfenster zeigt `henriSchulz/md-view-test-notes`, nichts ist vorausgewählt
+- [x] Tippen filtert die Liste; „Link" ist grau, bis ein Eintrag gewählt ist
 - [ ] Gewählt und „Link": Nach ein paar Sekunden steht dort „henriSchulz/md-view-test-notes · the same on both"
 - [ ] Auf github.com liegen die Notizen im Repository, samt `.mdview/project.json`
 - [ ] Die Commits dort tragen deinen Namen, und in der Nachricht stehen `Device:` und `Client:`

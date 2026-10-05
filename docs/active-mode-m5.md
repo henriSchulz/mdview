@@ -76,7 +76,7 @@ kept across modes, one undo history, the checklist of §11.4.
 | Errors where they arise | formula and YAML errors in their dialog |
 | Scrollbars, overscroll | the app's own, unchanged |
 | Double click selects a word, triple click a paragraph | the browser's own behaviour, untouched |
-| Reduced motion | movement is dropped centrally (henri-ui `motion.css`), fades stay |
+| Reduced motion | movement is dropped centrally (`motion.css`), fades stay |
 | Dark and light | every colour is one of the theme's variables |
 | Spell checking, dictionary lookup | off: no spell checking for now (decided) |
 | IME, dead keys | not tested (no input method set up here) |

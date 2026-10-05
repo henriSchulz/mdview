@@ -1,0 +1,83 @@
+/* mdview — how the app moves, and the sizes its controls share: durations, curves, springs,
+ * corners. One place for them; the other stylesheets use these names and carry no numbers of
+ * their own for motion. Loaded before them. */
+:root {
+  /* How long things take */
+  --dur-instant: 90ms;  /* hover in, press */
+  --dur-fast: 160ms;  /* hover out, a colour changing, a small fade */
+  --dur-base: 240ms;  /* menus, popovers, switches */
+  --dur-slow: 270ms;  /* panels, sheets, a page changing */
+  --dur-slower: 520ms;  /* the whole window rebuilt */
+  --dur-overview: 250ms;  /* All Notes opening */
+  --dur-overview-exit: 165ms;  /* … and closing */
+  --loading-delay: 300ms;  /* waiting: nothing is shown before this */
+  --flash-duration: 70ms;  /* a menu entry blinks once before it acts */
+  --stagger-step: 15ms;  /* between list entries appearing one after the other */
+
+  /* The curves */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);  /* what appears, or answers the hand */
+  --ease-in-out: cubic-bezier(0.45, 0, 0.15, 1);  /* what moves from one place to another */
+  --ease-exit: cubic-bezier(0.4, 0, 0.7, 0.2);  /* what goes */
+
+  /* Springs: exact solutions of a spring of mass 1, sampled; each goes with its duration */
+  --spring-smooth: linear(0, 0.023, 0.079, 0.153, 0.236, 0.32, 0.403, 0.48, 0.551, 0.614, 0.671, 0.72, 0.763, 0.801, 0.833, 0.86, 0.883, 0.903, 0.919, 0.933, 0.944, 0.954, 0.962, 0.969, 0.974, 0.979, 0.983, 0.986, 0.988, 0.99, 0.992, 0.994, 0.995, 0.996, 0.997, 0.997, 0.998, 0.998, 0.998, 0.999, 1);  /* the default for movement */
+  --spring-smooth-dur: 510ms;
+  --spring-snappy: linear(0, 0.021, 0.075, 0.148, 0.233, 0.322, 0.41, 0.495, 0.573, 0.644, 0.707, 0.762, 0.81, 0.85, 0.884, 0.912, 0.934, 0.953, 0.967, 0.979, 0.987, 0.994, 0.998, 1.002, 1.004, 1.005, 1.006, 1.006, 1.006, 1.006, 1.005, 1.005, 1.004, 1.004, 1.003, 1.003, 1.002, 1.002, 1.002, 1.001, 1);  /* switches, a press let go, a drag's end */
+  --spring-snappy-dur: 560ms;
+  --spring-gentle: linear(0, 0.023, 0.079, 0.153, 0.236, 0.321, 0.403, 0.48, 0.551, 0.614, 0.671, 0.72, 0.764, 0.801, 0.833, 0.86, 0.883, 0.903, 0.919, 0.933, 0.944, 0.954, 0.962, 0.969, 0.974, 0.979, 0.983, 0.986, 0.988, 0.99, 0.992, 0.994, 0.995, 0.996, 0.997, 0.997, 0.998, 0.998, 0.998, 0.999, 1);  /* large surfaces */
+  --spring-gentle-dur: 526ms;
+
+  /* Corners */
+  --radius-panel: 14px;
+  --radius-popover: 10px;
+  --radius-control: 8px;
+  --radius-row: 6px;
+  --radius-chip: 5px;
+  --radius-pill: 999px;  /* capsules: toolbar clusters, segmented controls */
+
+  /* Pressed, lifted */
+  --press-scale: 0.97;
+  --lift-scale: 1.05;  /* an item held while it is dragged */
+
+  /* Sizes and states of controls */
+  --control-height: 28px;
+  --menu-item-height: 26px;
+  --focus-ring: 2px;
+  --hover-alpha: 8%;
+  --pressed-alpha: 14%;
+  --hairline: 1px solid color-mix(in srgb, var(--fg, currentColor) 10%, transparent);
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.2), 0 0 0 0.5px rgb(0 0 0 / 0.12);
+}
+
+/* Menus and popovers: [data-open] shows them; they stay in the page, so that closing can be
+ * animated too. Out is quicker than in. */
+.ui-menu {
+  transform-origin: var(--origin, top center);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  visibility: hidden;
+  transition:
+    opacity calc(var(--dur-base) * 0.7) var(--ease-exit),
+    transform calc(var(--dur-base) * 0.7) var(--ease-exit),
+    visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+.ui-menu[data-open] {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--spring-smooth-dur) var(--spring-smooth),
+    visibility 0s;
+}
+/* A popover (class="ui-menu ui-popover") starts a little smaller and settles more gently. */
+.ui-popover:not([data-open]) { transform: scale(0.95); }
+.ui-popover[data-open] { transition-duration: var(--dur-slow), var(--spring-gentle-dur), 0s; transition-timing-function: var(--ease-out), var(--spring-gentle), linear; }
+
+/* Where the system asks for less motion: nothing moves or grows, colours and fades stay. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-property: opacity, background-color, color, border-color !important;
+    animation: none !important;
+  }
+}

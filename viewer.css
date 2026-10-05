@@ -1,6 +1,6 @@
 /* mdview — reading and editing styles. Colors come from the Omarchy theme (--c-*),
- * durations, curves, radii and sizes from henri-ui/motion.css (loaded before
- * this file). No hand-picked motion values here. */
+ * durations, curves, radii and sizes from motion.css (loaded before this file).
+ * No hand-picked motion values here. */
 
 :root {
   --bg: var(--c-background);
@@ -16,19 +16,18 @@
   --surface: color-mix(in srgb, var(--bg) 97%, transparent);
   --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
   --measure: 46rem;
-  /* the app's own parts (sidebar, toolbar, menus) are laid out as macOS lays them out: sizes and
-   * radii from apple-ui/apple.css, loaded with the motion tokens (the values behind each var()
-   * hold without it). The colours stay the theme's, at the strengths of Apple's fills. */
+  /* the app's own parts (sidebar, toolbar, menus) are laid out as macOS lays them out, in sizes
+   * measured there. The colours stay the theme's, at the strengths of macOS's fills. */
   --ui: "SF Pro", "Inter", system-ui, sans-serif;
   --raised: color-mix(in srgb, #fff 62%, var(--bg));               /* a card on the page: sidebar, the chosen segment */
-  --glass: color-mix(in srgb, var(--bg) 72%, transparent);         /* menu material (--apple-st-menu) */
+  --glass: color-mix(in srgb, var(--bg) 72%, transparent);         /* menu material */
   --glass-filter: blur(30px) saturate(180%);
-  --menu-radius: var(--apple-st-menu-radius, 12px);
+  --menu-radius: 12px;
   --menu-pad: 5px;
   --menu-row-radius: calc(var(--menu-radius) - var(--menu-pad));   /* concentric */
-  --shadow-menu: 0 0 0 0.5px var(--line-strong), inset 0 0.5px 0 rgb(255 255 255 / 0.5), var(--apple-st-shadow-menu, 0 8px 24px rgb(0 0 0 / 0.2));
+  --shadow-menu: 0 0 0 0.5px var(--line-strong), inset 0 0.5px 0 rgb(255 255 255 / 0.5), 0 8px 24px rgb(0 0 0 / 0.2);
   --shadow-capsule: 0 0 0 0.5px var(--line), inset 0 0.5px 0 rgb(255 255 255 / 0.5), 0 2px 10px rgb(0 0 0 / 0.07);
-  --sb-selected: color-mix(in srgb, var(--fg) 7.8%, transparent);  /* secondarySystemFill (--apple-win-sidebar-selected) */
+  --sb-selected: color-mix(in srgb, var(--fg) 7.8%, transparent);  /* the fill of a selected sidebar row (macOS: secondarySystemFill) */
   --sb-hover: color-mix(in srgb, var(--fg) calc(var(--hover-alpha, 8%) / 2), transparent);
 }
 body[data-mode="dark"] {
@@ -609,7 +608,7 @@ body.swapping #content, body.swapping #editor {
   height: calc(var(--control-height, 28px) - 4px);
   border-radius: var(--radius-pill);
   background: var(--raised);
-  box-shadow: 0 0 0 0.5px var(--line), var(--apple-win-capsule-shadow, 0 1px 2px rgb(0 0 0 / 0.05)), 0 1px 3px rgb(0 0 0 / 0.1);
+  box-shadow: 0 0 0 0.5px var(--line), 0 1px 2px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.1);
   transform: translateX(calc(var(--i, 0) * 100%));
   transition: transform var(--spring-smooth-dur) var(--spring-smooth);
 }
@@ -710,13 +709,13 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
 
 /* ------------------------------------------------------------- sidebar (folder windows) */
 /* A card that floats in the window, as the sidebar of a macOS window does: set in from the
- * window's edge, round, a shade lighter than the page. Sizes are Finder's (apple-ui). --sb-w is
+ * window's edge, round, a shade lighter than the page. Sizes are Finder's. --sb-w is
  * the room it takes in the window, the inset included. */
 :root {
   --sb-w: 260px;
-  --sb-inset: var(--apple-win-sidebar-inset, 8px);
-  --sb-pad: var(--apple-win-sidebar-sel-inset, 10px);  /* card edge to a row's highlight */
-  --sb-row: var(--apple-win-sidebar-row, 32px);
+  --sb-inset: 8px;
+  --sb-pad: 10px;  /* card edge to a row's highlight */
+  --sb-row: 32px;
   --sb-step: 16px;                                     /* a level deeper */
 }
 #sidebar {
@@ -730,9 +729,9 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
   width: calc(var(--sb-w) - var(--sb-inset));
   box-sizing: border-box;
   overflow: hidden;
-  border-radius: var(--apple-win-sidebar-radius, var(--radius-panel));
+  border-radius: 18px;
   background: var(--raised);
-  box-shadow: 0 0 0 0.5px var(--line), var(--apple-win-sidebar-shadow, 0 0 8px rgb(0 0 0 / 0.05)), 0 2px 12px rgb(0 0 0 / 0.04);
+  box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04);
   font: 400 13px/1.3 var(--ui);
   user-select: none;
   -webkit-user-select: none;
@@ -877,7 +876,7 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
   height: var(--control-height, 28px);
   padding: 0 8px;
   border: 0;
-  border-radius: var(--apple-win-sidebar-selected-radius, var(--radius-control));
+  border-radius: 8px;
   background: transparent;
   color: var(--fg);
   font: 600 13px var(--ui);
@@ -943,7 +942,7 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
   height: var(--sb-row);
   padding: 0 8px 0 calc(var(--pad) + 16px);
   border: 0;
-  border-radius: var(--apple-win-sidebar-selected-radius, var(--radius-control));
+  border-radius: 8px;
   background: transparent;
   color: var(--fg);
   font: inherit;
@@ -996,7 +995,7 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
   height: calc(var(--sb-row) - 6px);
   margin: 0;
   padding: 0 6px;
-  border-radius: calc(var(--apple-win-sidebar-selected-radius, var(--radius-control)) - 3px);
+  border-radius: calc(8px - 3px);
 }
 .sb-item.ctx-target > .sb-in > .sb-row:not(.active) { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
 

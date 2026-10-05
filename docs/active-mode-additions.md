@@ -205,7 +205,7 @@ run; everything that does not depend on frames passed.
   Typing filters all of it into one flat list. The panel is at most 9.5 entries tall and keeps the height it
   opened with while it is filtered, so it does not jump under the eyes. Where the caret is decides what is
   offered: a task can be ticked, a table's cell gets its rows and columns. Motion and colours stay the
-  app's (henri-ui tokens); Craft's own menu fades in in about 100 ms (measured from its help video).
+  app's (the tokens of `motion.css`); Craft's own menu fades in in about 100 ms (measured from its help video).
   Tests: `tests/slash.test.mjs`, `rig.sh prefs`. For screenshots with no monitor attached, give the nested
   compositor an output of its own (`hyprctl output create headless` in the nested instance) and take the
   picture there with `grim -o`; without it the page gets no frames and every transition stays at its start.

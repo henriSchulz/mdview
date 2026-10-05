@@ -353,7 +353,6 @@ pub struct App {
     tx: Sender<Event>,
     state: Map<String, Value>,
     theme: Theme,
-    motion_css: String,
     sf_symbols: bool,
     wins: HashMap<String, Win>,
     seq: u64,
@@ -393,7 +392,6 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         tx,
         state,
         theme: theme::load_theme(),
-        motion_css: theme::read_motion(),
         sf_symbols: host::has_font(SF_SYMBOLS),
         wins: HashMap::new(),
         seq: 0,
@@ -611,21 +609,17 @@ impl App {
 
     fn watch_theme(&mut self) {
         let tx = self.tx.clone();
-        let motion: Vec<PathBuf> = theme::motion_files().to_vec();
         let Ok(mut watcher) = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
             let Ok(ev) = res else { return };
             if matches!(ev.kind, notify::EventKind::Access(_)) {
                 return;
             }
-            let is_motion = ev.paths.iter().any(|p| motion.contains(p));
-            let _ = tx.send(if is_motion { Event::MotionChanged } else { Event::ThemeChanged });
+            let _ = tx.send(Event::ThemeChanged);
         }) else {
             return;
         };
         let dir = theme::theme_dir();
-        let mut dirs = vec![dir.clone(), dir.join("theme"), dir_of(&theme::things_tokens_watch())];
-        dirs.extend(theme::motion_files().iter().map(|f| dir_of(f)));
-        for d in dirs {
+        for d in [dir.clone(), dir.join("theme"), dir_of(&theme::things_tokens_watch())] {
             let _ = watcher.watch(&d, RecursiveMode::NonRecursive);
         }
         self.watcher = Some(watcher);
@@ -735,12 +729,6 @@ impl App {
             Event::ApplyTheme { turn } => {
                 if turn == self.theme_turn {
                     self.apply_theme();
-                }
-            }
-            Event::MotionChanged => {
-                self.motion_css = theme::read_motion();
-                for w in self.wins.values() {
-                    w.js("MdView.setMotion", &[json!(self.motion_css)]);
                 }
             }
             Event::Idle { turn } => {
@@ -1093,13 +1081,12 @@ impl Win {
             "<!doctype html><html lang='en'><head><meta charset='utf-8'>\
              <meta http-equiv='Content-Security-Policy' content=\"{csp}\">\
              <base href='{base}/'>\
-             <style id='henri-ui'>{motion}</style>\
+             <link rel='stylesheet' href='{a}/motion.css'>\
              <style id='theme'>{theme}</style>\
              <link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>\
              <link rel='stylesheet' href='{a}/viewer.css'>\
              <link rel='stylesheet' href='{a}/overview.css'>\
              </head><body data-mode='{mode}'{sf}><main id='content'></main>{scripts}</body></html>",
-            motion = app.motion_css,
             theme = theme::theme_css(&app.theme),
             mode = app.theme.mode,
             sf = if app.sf_symbols { " data-sf" } else { "" },

@@ -2,7 +2,7 @@
  * inside it, and the small popover for inline things (a formula, a picture).
  *
  * The dialog grows out of the island and shrinks back into it (transform and
- * opacity only, henri-ui timing). Ctrl+Enter or a click beside it takes what
+ * opacity only, the app's timing: motion.css). Ctrl+Enter or a click beside it takes what
  * was entered, Esc drops it.
  *
  * The editor is the source editor's kind: a <textarea> with transparent
