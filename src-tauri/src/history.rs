@@ -68,7 +68,8 @@ pub fn standing(folder: &Path) -> Value {
     match place_of(folder) {
         Place::None => json!({ "state": "none" }),
         Place::Project(r) => json!({ "state": if r == folder { "project" } else { "inside" }, "name": named(&r), "root": r }),
-        Place::Foreign(r) => json!({ "state": "foreign", "own": r == folder, "name": named(&r), "root": r }),
+        // (was: the app's own, its history switched off — to be switched on again without a question)
+        Place::Foreign(r) => json!({ "state": "foreign", "own": r == folder, "was": r == folder && was_project(&r), "name": named(&r), "root": r }),
     }
 }
 
@@ -205,8 +206,35 @@ pub fn enable(root: &Path) -> Res<()> {
     }
     let marker = root.join(MARKER);
     fs::create_dir_all(marker.parent().unwrap()).map_err(say)?;
+    // (a project whose history was switched off is itself again: the marker its last commit has)
+    if let Some(was) = kept_marker(root) {
+        return fs::write(marker, was).map_err(say);
+    }
     let project = json!({ "id": uuid::Uuid::new_v4().to_string(), "created": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true), "version": 1 });
     fs::write(marker, format!("{project:#}\n")).map_err(say)
+}
+
+/// The marker as the repository's last commit has it: the folder was a project of the app's.
+fn kept_marker(root: &Path) -> Option<Vec<u8>> {
+    let repo = Repository::open(root).ok()?;
+    let entry = repo.head().ok()?.peel_to_tree().ok()?.get_path(Path::new(MARKER)).ok()?;
+    let bytes = repo.find_blob(entry.id()).ok()?.content().to_vec();
+    Some(bytes)
+}
+
+/// Was this repository a project of the app's (its history switched off since)? Then switching
+/// it on again takes nothing over from anyone.
+pub fn was_project(root: &Path) -> bool {
+    kept_marker(root).is_some()
+}
+
+/// The project's history is switched off: what waits is kept, then the marker goes. The
+/// repository stays, with every version — from now on it is not written to.
+pub fn disable(root: &Path, stamp: &Stamp) -> Res<()> {
+    snapshot(root, stamp)?;
+    fs::remove_file(root.join(MARKER)).map_err(say)?;
+    let _ = fs::remove_dir(root.join(".mdview")); // (if nothing else is in it)
+    Ok(())
 }
 
 /// What a snapshot did: the commit it made (none: nothing had changed, or the repository is in
@@ -830,6 +858,32 @@ mod tests {
         timed("where a file stands (place_of)", &mut || assert_eq!(place_of(&note), Place::Project(d.0.clone())));
         let id = log(&note).unwrap()[250]["id"].as_str().unwrap().to_string();
         timed("one version's text", &mut || assert!(text(&note, &id, None).is_ok()));
+    }
+
+    #[test]
+    fn a_history_switched_off_keeps_its_versions_and_comes_back_as_itself() {
+        let d = Dir::new();
+        let a = d.write("a.md", "one\n");
+        enable(&d.0).unwrap();
+        snapshot(&d.0, &stamp()).unwrap();
+        let marker = fs::read(d.0.join(MARKER)).unwrap();
+        fs::write(&a, "two\n").unwrap(); // (not kept yet: switching off keeps it first)
+        disable(&d.0, &stamp()).unwrap();
+        assert_eq!(place_of(&a), Place::Foreign(d.0.clone()));
+        assert!(!d.0.join(".mdview").exists() && d.0.join(".git").exists());
+        assert_eq!(log(&a).unwrap().len(), 2); // (the versions can still be read)
+        fs::write(&a, "three\n").unwrap();
+        assert!(snapshot(&d.0, &stamp()).is_err()); // (and nothing is written any more)
+        assert_eq!(commits(&d.0), 2);
+        assert!(was_project(&d.0));
+        enable(&d.0).unwrap();
+        assert_eq!(fs::read(d.0.join(MARKER)).unwrap(), marker); // (the same project, not a new one)
+        assert!(snapshot(&d.0, &stamp()).unwrap().commit.is_some());
+        assert_eq!(log(&a).unwrap().len(), 3);
+        // someone's repository never was one
+        let f = Dir::new();
+        Repository::init(&f.0).unwrap();
+        assert!(!was_project(&f.0));
     }
 
     #[test]

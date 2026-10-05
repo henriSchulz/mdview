@@ -159,12 +159,12 @@
     if (kind === "historyState") { // on or off, and the button that turns it on where that can be done
       const box = el("div", { class: "pf-history" });
       const state = el("span", { class: "pf-value" }), on = el("button", { class: "pf-link", type: "button" });
-      on.onclick = () => post("history-enable"); // (a repository that is there: the application asks first)
+      on.onclick = () => post(historyState() === "project" ? "history-disable" : "history-enable"); // (a repository that is there: the application asks first)
       refresh.push(() => {
         const st = historyState();
         state.textContent = T("prefs.history.is." + st);
-        on.hidden = st !== "none" && st !== "adopt";
-        on.textContent = T(st === "adopt" ? "prefs.history.adopt" : "prefs.history.on");
+        on.hidden = st === "inside" || st === "foreign"; // (not this folder's to switch)
+        on.textContent = T(st === "adopt" ? "prefs.history.adopt" : st === "project" ? "prefs.history.offDo" : "prefs.history.on");
       });
       box.append(state, on);
       return box;
@@ -295,7 +295,7 @@
     return true;
   }
   // what the application knows: { aiKey: { set, tail, env }, aiModel, version, configDir }
-  const historyState = () => { const h = info.history || {}; return h.state === "foreign" && h.own ? "adopt" : h.state || "none"; };
+  const historyState = () => { const h = info.history || {}; return h.state === "foreign" && h.own ? (h.was ? "paused" : "adopt") : h.state || "none"; };
   // the folder's history as the rows show it (a row with nothing to say is not shown)
   function historyRows(h) {
     const short = (p) => (info.home && p && p.startsWith(info.home) ? "~" + p.slice(info.home.length) : p);

@@ -20,6 +20,7 @@ mod history;
 mod host;
 mod scan;
 mod shell;
+mod sync;
 mod theme;
 
 use std::collections::HashMap;

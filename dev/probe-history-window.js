@@ -35,8 +35,25 @@
     rows[1].click(); await sleep(400);
     restore.click(); await sleep(1300);
     ok("restored: the window closes and the note is that version", !win.hasAttribute("data-open") && MdView.core.current.raw === now.replace(/\n\nsecond change\n$/, "\n"), MdView.core.current.raw.slice(-60));
-    o.restored = MdView.core.current.raw;
     await sleep(1800); // (quiet: the restored note is kept as a version of its own)
+    // typed in the active mode and not saved yet: the history saves it first, and a version put
+    // back stays (no save still to come writes over it)
+    const original = now.slice(0, now.length - "\nfirst change\n\nsecond change\n".length);
+    MdView.setMode("active");
+    for (let i = 0; i < 200 && !(document.body.dataset.view === "active" && MdActive.view && MdActive.view.pm); i++) await sleep(10);
+    const view = MdActive.view.pm;
+    for (const ch of "typed ") { const { from, to } = view.state.selection; if (!view.someProp("handleTextInput", (f) => f(view, from, to, ch))) view.dispatch(view.state.tr.insertText(ch, from, to)); }
+    ok("typing leaves the note unsaved for a moment", MdActive.view.dirty === true);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "h", code: "KeyH", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    for (let i = 0; i < 80 && !document.querySelector("#history[data-open] .hi-diff"); i++) await sleep(100);
+    ok("Ctrl+Alt+H opens the history, and what was typed is saved by then", win.hasAttribute("data-open") && !MdActive.view.dirty && MdView.core.current.raw.includes("typed "), [win.hasAttribute("data-open"), MdActive.view.dirty]);
+    await sleep(1300); // (quiet: what was typed is a version of its own)
+    const all = [...win.querySelectorAll(".hi-row")];
+    all[all.length - 1].click(); await sleep(500);
+    win.querySelector(".hi-tools .pf-link").click();
+    await sleep(1800); // (longer than a save would wait)
+    ok("the first version put back is the note, in the editor too, and stays", !win.hasAttribute("data-open") && MdView.core.current.raw === original && MdActive.view.serialize() === original && !MdActive.view.dirty, [MdView.core.current.raw.slice(0, 40), MdActive.view.dirty]);
+    o.restored = original;
   } catch (e) { o.error = String(e && e.stack || e); }
   o.pass = !o.error && o.steps.every((s) => s.startsWith("ok"));
   say(o);

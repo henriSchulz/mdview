@@ -566,7 +566,9 @@ impl App {
     fn rest(&mut self) {
         if self.wins.is_empty() {
             self.idle_turn += 1;
-            self.after(RESIDENT_MS, Event::Idle { turn: self.idle_turn });
+            // (the override: for tests)
+            let resident = env("MDVIEW_RESIDENT_MS").and_then(|ms| ms.parse().ok()).unwrap_or(RESIDENT_MS);
+            self.after(resident, Event::Idle { turn: self.idle_turn });
         }
     }
 
@@ -1720,11 +1722,27 @@ impl Win {
                     None => self.toast("Couldn't restore this version"),
                 }
             }
+            "history-disable" => {
+                // the folder's history is switched off: its versions stay, nothing more is kept
+                let Some(root) = self.here().filter(|h| history::place_of(h) == Place::Project(h.clone())) else { return };
+                app.unsnapped.remove(&root);
+                app.historian.wait(); // (a snapshot under way is finished first)
+                let stamp = app.stamp();
+                match history::disable(&root, &stamp) {
+                    Ok(()) => {
+                        self.tree_json = None;
+                        self.send_folder(app);
+                        self.settings_info(app);
+                        self.toast("History is off. Its versions are kept");
+                    }
+                    Err(e) => self.toast(format!("Couldn't switch the history off: {e}")),
+                }
+            }
             "history-enable" => {
                 // the folder (or the one named) becomes a project; its first snapshot follows
                 let Some(root) = msg["root"].as_str().map(PathBuf::from).or_else(|| self.here()) else { return };
                 // (a repository that is there already is someone's: taken over only when they say so)
-                if history::place_of(&root) == Place::Foreign(root.clone()) && !truthy(&msg["sure"]) {
+                if history::place_of(&root) == Place::Foreign(root.clone()) && !truthy(&msg["sure"]) && !history::was_project(&root) {
                     return self.ask_adopt(app, &root);
                 }
                 // (projects of their own below it: a part of this one from now on, or left as they are?)

@@ -2022,9 +2022,10 @@
   const sbTitlesBtn = sbHead.querySelector('[data-act="titles"]');
   const sbHistoryBtn = sbHead.querySelector('[data-act="historymenu"]');
   // where the folder stands with a history (the shell says: f.history) — as the menu's entries name it
-  const historyState = () => { const h = (folder && folder.history) || {}; return h.state === "foreign" && h.own ? "adopt" : h.state || "none"; };
+  const historyState = () => { const h = (folder && folder.history) || {}; return h.state === "foreign" && h.own ? (h.was ? "paused" : "adopt") : h.state || "none"; };
   const HISTORY_SAYS = {
     none: () => "History: off",
+    paused: () => "History: off (its versions are kept)",
     adopt: () => "History: off (a Git repository is here)",
     foreign: (h) => `History: kept by the repository “${h.name}”`,
     project: () => "History: on",
@@ -2308,13 +2309,14 @@
     entry("tab:close", "x", "Close Tab", "tab", "Ctrl+W") +
     entry("tab:others", "x", "Close Other Tabs", "tab") +
     // the history's button: what can be done where the folder stands (data-state), or what is so (disabled)
-    entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt"') +
-    `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt"></div>` +
-    entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none"') +
+    entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
+    `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt paused"></div>` +
+    entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none paused"') +
     entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
     entry("history:is", "check", "History Is On", "history", "", "", ' data-state="project" disabled') +
     entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
     entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
+    entry("history:off", "x", "Turn Off History", "history", "", "", ' data-state="project"') +
     entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
     entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
     `<div class="menu-rule" data-for="blank"></div>` +
@@ -2385,6 +2387,7 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
+      else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") MdOverview.go(item);
       else if (cmd === "opentab") post("note", { path, tab: true });

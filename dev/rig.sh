@@ -503,12 +503,12 @@ case "${1:-}" in
     # the history's window, on the note that now has three versions
     rm -f "$R/out"/*.history-window.json
     app 60 MDVIEW_PROBE="$D/probe-history-window.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=700 -- "$W"
-    for _ in $(seq 250); do ls "$R/out"/*.history-window.json >/dev/null 2>&1 && break; sleep 0.1; done
+    for _ in $(seq 400); do ls "$R/out"/*.history-window.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     win=$(ls "$R/out"/*.history-window.json 2>/dev/null | head -1); [[ -n $win ]] || { echo "no report of the window"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$win"; jq -e .pass "$win" >/dev/null || fail=1
     ok "the file on disk is the restored version" 'cmp -s <(jq -j .restored "$win") "$W/$note"'
-    ok "and kept as a fifth commit" '[[ $(git -C "$W" rev-list --count HEAD) == 5 ]]' 'git -C "$W" log --oneline'
+    ok "seven commits by now: the version restored, what was typed, the first version restored" '[[ $(git -C "$W" rev-list --count HEAD) == 7 ]]' 'git -C "$W" log --oneline'
     # a folder above that project becomes a project, and takes it in
     P="$R/work"; cp "$D/tests/fixtures/obsidian.md" "$P/top.md"; rm -f "$R/out"/*.history-nested.json
     app 60 MDVIEW_PROBE="$D/probe-history-nested.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=700 -- "$P"
@@ -517,9 +517,20 @@ case "${1:-}" in
     nest=$(ls "$R/out"/*.history-nested.json 2>/dev/null | head -1); [[ -n $nest ]] || { echo "no report of the taking in"; tail -5 "$R/app.log"; exit 1; }
     ok "the folder above was no project, and is one now" '[[ $(jq -r "[.before, .after] | join(\"|\")" "$nest") == "History: off|History: on" ]]' 'cat "$nest"'
     ok "the inner project's repository and marker are gone from its folder" '[[ ! -e $W/.git && ! -e $W/.mdview && -d $P/.git && -f $P/.mdview/project.json ]]'
-    ok "its commits are the outer project's: five, the folder as it was, and the one that joins them" '[[ $(git -C "$P" rev-list --count HEAD) == 7 && $(git -C "$P" rev-list --merges --count HEAD) == 1 ]]' 'git -C "$P" log --oneline --graph'
+    ok "its commits are the outer project's: seven, the folder as it was, and the one that joins them" '[[ $(git -C "$P" rev-list --count HEAD) == 9 && $(git -C "$P" rev-list --merges --count HEAD) == 1 ]]' 'git -C "$P" log --oneline --graph'
     ok "its notes are in the outer project, and nothing waits" '[[ -n $(git -C "$P" ls-files "notes/$note") && -z $(git -C "$P" status --porcelain) ]]' 'git -C "$P" status --porcelain'
     ok "its repository is put aside, not thrown away" '[[ $(ls "$P/.git/mdview-absorbed" | wc -l) == 1 ]]'
+    # the history switched off and on again; and the program, ending by itself with a change not yet kept
+    rm -f "$R/out"/*.history-off.json
+    app 60 MDVIEW_PROBE="$D/probe-history-off.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=60000 MDVIEW_RESIDENT_MS=300 -- "$P"
+    for _ in $(seq 150); do ls "$R/out"/*.history-off.json >/dev/null 2>&1 && break; sleep 0.1; done
+    off=$(ls "$R/out"/*.history-off.json 2>/dev/null | head -1); [[ -n $off ]] || { echo "no report of switching off"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$off"; jq -e .pass "$off" >/dev/null || fail=1
+    for _ in $(seq 50); do pgrep -f "^$APP" >/dev/null || break; sleep 0.1; done
+    ok "with no window left, the program ends by itself" '! pgrep -f "^$APP" >/dev/null'
+    ok "and what was written just before is kept: nothing waits" '[[ -z $(git -C "$P" status --porcelain) && $(git -C "$P" log -1 --format=%s) == top.md ]]' 'git -C "$P" status --porcelain; git -C "$P" log --oneline | head -3'
+    ok "the project is the one it was: the same marker as before it was switched off" '[[ $(git -C "$P" log --format=%H -- .mdview/project.json | wc -l) == 1 ]]' 'git -C "$P" log --oneline -- .mdview/project.json'
+    pkill -f "^$APP" 2>/dev/null
     exit $fail ;;
   regress)
     # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.

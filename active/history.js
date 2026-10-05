@@ -21,6 +21,8 @@
   const when = (t) => new Date(t * 1000).toLocaleString(lang(), { dateStyle: "medium", timeStyle: "short" });
   const device = (v) => v.device.replace(/ \([0-9a-f-]{36}\)$/, "");
   const current = () => window.MdView.core.current;
+  const unix = (text) => text.replace(/\r\n?/g, "\n"); // (a version and the note are compared as text, whatever their line ends)
+  const noteNow = () => { const c = current(); return unix(c.text ?? c.raw ?? ""); };
 
   // ------------------------------------------------------------ the differences
   const lines = (text) => { const l = text.split("\n"); if (l[l.length - 1] === "") l.pop(); return l; };
@@ -69,7 +71,7 @@
   }
 
   // ------------------------------------------------------------ versions
-  const textOf = (id) => (id === NOW ? current().raw : id === null ? "" : texts.get(id));
+  const textOf = (id) => (id === NOW ? noteNow() : id === null ? "" : texts.get(id));
   function ask(v) {
     if (!v || texts.has(v.id) || wanted.has(v.id)) return;
     wanted.add(v.id);
@@ -94,7 +96,7 @@
     const v = versions[i];
     title.textContent = when(v.time);
     restore.hidden = false;
-    restore.disabled = texts.has(v.id) && texts.get(v.id) === current().raw; // (the note is this version already)
+    restore.disabled = texts.has(v.id) && texts.get(v.id) === noteNow(); // (the note is this version already)
     show();
   }
   function got(data) {
@@ -120,8 +122,8 @@
     if (data.path !== path) return;
     wanted.delete(data.id);
     if (data.text == null) return;
-    texts.set(data.id, data.text);
-    if (isOpen() && versions[chosen]) { restore.disabled = texts.get(versions[chosen].id) === current().raw; show(); }
+    texts.set(data.id, unix(data.text));
+    if (isOpen() && versions[chosen]) { restore.disabled = texts.get(versions[chosen].id) === noteNow(); show(); }
   }
   function restored(data) {
     if (data.path !== path) return;
@@ -196,6 +198,9 @@
     const cur = current();
     if (A.dialog.open || isOpen() || (A.prefs && A.prefs.isOpen) || !cur || !cur.path || /\.pdf$/i.test(cur.path)) return false;
     if (!root) build();
+    // What is typed and not saved yet is saved first: the note the versions are compared with is
+    // the one on disk — and a version put back is not written over by a save still to come.
+    window.MdView.flush(false);
     focusBack = document.activeElement;
     path = cur.path; versions = []; chosen = -1; texts = new Map(); wanted = new Set();
     root._note.textContent = cur.name || "";

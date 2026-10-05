@@ -11,11 +11,11 @@ Phase 1 kommt ohne Netz und ohne Anmeldung aus: Ein Ordner wird zum Projekt, die
 Hintergrund Schnappschüsse, und pro Datei gibt es Verlauf, Differenz und Wiederherstellen.
 
 > [!success] Stand
-> Phase 1 ist gebaut, alle sechs Schritte: `src-tauri/src/history.rs` (12 Tests mit `cargo test`),
-> die Anbindung in `shell.rs`, die Uhr in der Seitenleiste, die Übersicht in den Einstellungen,
-> das Verlaufsfenster und die Verschachtelung (`dev/rig.sh history`, 29 Prüfungen). Nicht
-> geprüft sind die beiden Systemdialoge (Repository übernehmen, Projekte zusammenführen) und das
-> Wiederherstellen bei ungespeicherten Eingaben im aktiven Modus.
+> Phase 1 ist gebaut, alle sechs Schritte, dazu das Ausschalten: `src-tauri/src/history.rs`
+> (13 Tests mit `cargo test`), die Anbindung in `shell.rs`, die Uhr in der Seitenleiste, die
+> Übersicht in den Einstellungen, das Verlaufsfenster und die Verschachtelung
+> (`dev/rig.sh history`, 39 Prüfungen). Nicht geprüft sind nur die beiden Systemdialoge
+> (Repository übernehmen, Projekte zusammenführen). Weiter geht es in [[Git-Phase-2]].
 
 ## Was am Ende da ist
 
@@ -230,6 +230,19 @@ zusammen. Die beiden Systemdialoge (Übernehmen, Zusammenführen) sind nicht gep
 
   Die Schnappschüsse laufen im Thread des Historian, Übersicht und Versionsliste im Thread der
   Fensterlogik. Wiederholen: `cargo test --release measure -- --ignored --nocapture`.
+
+### Nachtrag: Ausschalten
+
+- „Turn Off History" im Menü der Uhr und in den Einstellungen. Was noch wartet, wird zuerst
+  festgehalten; dann geht nur die Markerdatei. Das Repository bleibt mit allen Versionen, der
+  Verlauf lässt sich weiter lesen, geschrieben wird nichts mehr.
+- Wieder einschalten stellt die Markerdatei aus dem letzten Commit her: Es ist dasselbe Projekt
+  mit derselben ID, und es kommt keine Rückfrage wie bei einem fremden Repository.
+- Das Verlaufsfenster speichert beim Öffnen, was getippt und noch nicht gespeichert ist. So wird
+  mit der Notiz auf der Platte verglichen, und eine wiederhergestellte Version wird nicht von
+  einem ausstehenden Speichern überschrieben.
+- Vor dem automatischen Beenden ohne Fenster ist geprüft, dass der letzte Commit geschrieben ist
+  (`MDVIEW_RESIDENT_MS` verkürzt die Wartezeit für den Test).
 
 ## Risiken
 

@@ -356,7 +356,8 @@ computer.
   program — becomes a version once nothing more has changed for a while (30 seconds; settings),
   and at once when the folder's last window closes. A version names the device it was made on.
   A file over 50 MB is left out, and said so once. What `.gitignore` leaves out is left out.
-- **A note's history** (`Ctrl+Alt+H`, or the clock › Show History of This Note): its versions at
+- **A note's history** (`Ctrl+Alt+H`, or the clock › Show History of This Note; what is typed and
+  not saved yet is saved first): its versions at
   the left, newest first, and at the right what the chosen one changed — lines added and taken
   out, the words that differ marked, the lines that stayed counted. The choice at the head
   compares with the note as it is now instead. `↑` `↓` go through the versions. A note that was
@@ -371,6 +372,10 @@ computer.
   of it the clock says who keeps the history, and a note's history can be read. A repository that
   is the folder itself can be taken over as a project (Use This Repository for History…): from
   then on the app commits in it, on the branch that is checked out.
+- **Switching it off**: the clock › Turn Off History, or Settings › History › Turn Off. What
+  waits is kept first; then nothing more is. The versions stay and can be read, and switching it
+  on again goes on where it stopped. (To be rid of the history altogether, delete the folder's
+  `.git`.)
 - **Settings › History** shows where the folder stands: on or off, the repository's name and
   place, its branch, how many versions, the last one, and what is not kept yet.
 
