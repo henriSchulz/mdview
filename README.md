@@ -57,3 +57,7 @@ start: a change to it needs no build, only a new window. A change to
 | `docs/` | `FEATURES.md` (what the app does), design notes and milestone reports |
 | `skill/` | the Claude skill `mdview-notes` |
 | `dev/` | build of the vendored editor libraries, tests, a rig that runs the app off-screen — see `dev/README.md` |
+
+## License
+
+MIT — see `LICENSE`. The libraries in `vendor/` keep their own licenses: `vendor/README.md`.

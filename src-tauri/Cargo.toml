@@ -3,6 +3,7 @@ name = "mdview"
 version = "0.1.0"
 description = "Markdown Notes — notes in plain Markdown: read, write, formulas, PDFs"
 edition = "2021"
+license = "MIT"
 publish = false
 
 [[bin]]
