@@ -12,9 +12,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use std::sync::mpsc::{channel, Sender};
 
-use git2::{ErrorCode, IndexAddOption, Oid, Repository, RepositoryInitOptions, RepositoryState, Signature, Sort};
+use git2::{ErrorCode, IndexAddOption, Oid, Repository, RepositoryInitOptions, RepositoryState, Signature};
 use serde_json::{json, Value};
 
+use crate::sync::{self, Access};
 use crate::Event;
 
 const MARKER: &str = ".mdview/project.json";
@@ -174,7 +175,7 @@ pub struct Stamp {
 }
 
 impl Stamp {
-    fn signature(&self, repo: &Repository) -> Res<Signature<'static>> {
+    pub(crate) fn signature(&self, repo: &Repository) -> Res<Signature<'static>> {
         if let Some((name, mail)) = &self.author {
             return Signature::now(name, mail).map_err(say);
         }
@@ -412,55 +413,56 @@ fn trailer(message: &str, key: &str) -> Option<String> {
 /// came to its name by being renamed, the versions go on under the name it had (path: the file's
 /// place in the repository as that version has it).
 pub fn log(path: &Path) -> Res<Vec<Value>> {
-    let (repo, mut rel) = within(path)?;
-    let Some(mut from) = repo.head().ok().and_then(|h| h.target()) else { return Ok(vec![]) }; // (no commit yet)
+    let (repo, rel) = within(path)?;
+    let Some(head) = repo.head().ok().and_then(|h| h.target()) else { return Ok(vec![]) }; // (no commit yet)
     let blob = |c: &git2::Commit, rel: &Path| -> Option<Oid> { c.tree().ok()?.get_path(rel).ok().map(|e| e.id()) };
+    // The commits the file's story runs through, newest first, each with the name the file has
+    // there. From a commit it goes on to the parents that have the file — to one alone where
+    // the file is the same there (nothing happened to it here), to every one where it differs
+    // from all (two devices' work joined). A parent without the file is not gone into, unless
+    // the file came from it under another name (renamed; its project taken into this one): the
+    // trees of a joined line may be of another folder, where the same path is another file.
+    let mut ahead: std::collections::BinaryHeap<(i64, Oid, PathBuf)> = std::collections::BinaryHeap::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut go = |ahead: &mut std::collections::BinaryHeap<(i64, Oid, PathBuf)>, c: &git2::Commit, rel: PathBuf| {
+        if seen.insert(c.id()) {
+            ahead.push((c.time().seconds(), c.id(), rel));
+        }
+    };
+    go(&mut ahead, &repo.find_commit(head).map_err(say)?, rel);
     let mut versions = vec![];
-    'line: loop {
-        let mut walk = repo.revwalk().map_err(say)?;
-        walk.push(from).map_err(say)?;
-        walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME).map_err(say)?;
-        // One line of commits at a time, each one's first parent after it: what was joined to the
-        // line (another device's work, a project taken in) is gone into only where the file came
-        // from there — its trees may be of another folder, where the same path is another file.
-        walk.simplify_first_parent().map_err(say)?;
-        for id in walk {
-            let commit = repo.find_commit(id.map_err(say)?).map_err(say)?;
-            let Some(here) = blob(&commit, &rel) else { continue };
-            // (as Git reads a merge: a version only where the file differs from every parent)
-            let same: Vec<git2::Commit> = commit.parents().filter(|p| blob(p, &rel) == Some(here)).collect();
-            if let Some(p) = same.first() {
-                if commit.parent_id(0).ok() != Some(p.id()) {
-                    from = p.id(); // (as it is in a line joined here: its versions are that line's)
-                    continue 'line;
-                }
-                continue;
+    while let Some((_, id, rel)) = ahead.pop() {
+        let commit = repo.find_commit(id).map_err(say)?;
+        let Some(here) = blob(&commit, &rel) else {
+            // (not at this name here: the line it is looked for in goes on)
+            if let Some(p) = commit.parents().next() {
+                go(&mut ahead, &p, rel);
             }
-            // not there before this commit: made here — or it came to this name here (renamed, or
-            // its project taken into this one), and then it goes on as what it was, where it was
-            let came = if commit.parents().all(|p| blob(&p, &rel).is_none()) {
-                commit.parents().find_map(|p| renamed_from(&repo, &p, &commit, &rel).map(|old| (p, old)))
-            } else {
-                None
-            };
-            let only_moved = came.as_ref().is_some_and(|(p, old)| blob(p, old) == Some(here));
-            if !only_moved {
-                let message = commit.message().unwrap_or("");
-                let device = trailer(message, "Device").unwrap_or_else(|| commit.author().name().unwrap_or("").to_string());
-                versions.push(json!({ "id": commit.id().to_string(), "time": commit.time().seconds(), "device": device, "subject": commit.summary().ok().flatten().unwrap_or(""), "path": rel }));
-                if versions.len() >= LOG_LIMIT {
-                    break 'line;
-                }
+            continue;
+        };
+        let with: Vec<git2::Commit> = commit.parents().filter(|p| blob(p, &rel).is_some()).collect();
+        if let Some(same) = with.iter().find(|p| blob(p, &rel) == Some(here)) {
+            go(&mut ahead, same, rel); // (as it is in a parent: its versions are that line's)
+            continue;
+        }
+        let came = if with.is_empty() { commit.parents().find_map(|p| renamed_from(&repo, &p, &commit, &rel).map(|old| (p, old))) } else { None };
+        let only_moved = came.as_ref().is_some_and(|(p, old)| blob(p, old) == Some(here));
+        if !only_moved {
+            let message = commit.message().unwrap_or("");
+            let device = trailer(message, "Device").unwrap_or_else(|| commit.author().name().unwrap_or("").to_string());
+            versions.push(json!({ "id": commit.id().to_string(), "time": commit.time().seconds(), "device": device, "subject": commit.summary().ok().flatten().unwrap_or(""), "path": rel }));
+            if versions.len() >= LOG_LIMIT {
+                break;
             }
-            if let Some((parent, old)) = came {
-                rel = old;
-                if commit.parent_count() > 1 {
-                    from = parent.id(); // (only the line it came from knows it under that name)
-                    continue 'line;
+        }
+        match came {
+            Some((p, old)) => go(&mut ahead, &p, old),
+            None => {
+                for p in &with {
+                    go(&mut ahead, p, rel.clone());
                 }
             }
         }
-        break;
     }
     Ok(versions)
 }
@@ -486,7 +488,9 @@ pub fn text(path: &Path, id: &str, at: Option<&str>) -> Res<Vec<u8>> {
 }
 
 enum Job {
-    Snapshot { root: PathBuf, stamp: Stamp },
+    Snapshot { root: PathBuf, stamp: Stamp, access: Access },
+    Sync { root: PathBuf, stamp: Stamp, access: Access },
+    Resolve { root: PathBuf, expect: String, picks: serde_json::Map<String, Value>, stamp: Stamp, access: Access },
     Merge { root: PathBuf, children: Vec<PathBuf>, stamp: Stamp },
     Done(Sender<()>),
 }
@@ -502,14 +506,27 @@ impl Historian {
         std::thread::spawn(move || {
             for job in asked {
                 match job {
-                    Job::Snapshot { root, stamp } => {
+                    Job::Snapshot { root, stamp, access } => {
                         let (kept, skipped, error) = match snapshot(&root, &stamp) {
                             Ok(done) => (done.commit.is_some(), done.skipped, None),
                             Err(e) => (false, vec![], Some(e)),
                         };
                         if kept || !skipped.is_empty() || error.is_some() {
-                            let _ = tx.send(Event::Snapshotted { root, kept, skipped, error, asked: false });
+                            let _ = tx.send(Event::Snapshotted { root: root.clone(), kept, skipped, error, asked: false });
                         }
+                        // (a project that is linked: what was kept goes over, what is there comes)
+                        if sync::linked(&root).is_some() {
+                            let standing = sync::reconcile(&root, &access, &stamp).json();
+                            let _ = tx.send(Event::Reconciled { root, standing, asked: false });
+                        }
+                    }
+                    Job::Sync { root, stamp, access } => {
+                        let standing = sync::reconcile(&root, &access, &stamp).json();
+                        let _ = tx.send(Event::Reconciled { root, standing, asked: false });
+                    }
+                    Job::Resolve { root, expect, picks, stamp, access } => {
+                        let standing = sync::resolve(&root, &expect, &picks, &access, &stamp).json();
+                        let _ = tx.send(Event::Reconciled { root, standing, asked: true });
                     }
                     Job::Merge { root, children, stamp } => {
                         let failed: Vec<String> = children.iter().filter_map(|c| merge(&root, c, &stamp).err()).collect();
@@ -526,8 +543,18 @@ impl Historian {
         Historian { jobs }
     }
 
-    pub fn snapshot(&self, root: &Path, stamp: Stamp) {
-        let _ = self.jobs.send(Job::Snapshot { root: root.to_path_buf(), stamp });
+    pub fn snapshot(&self, root: &Path, stamp: Stamp, access: Access) {
+        let _ = self.jobs.send(Job::Snapshot { root: root.to_path_buf(), stamp, access });
+    }
+
+    /// A linked project and its other side are reconciled (sync.rs), nothing kept first here.
+    pub fn sync(&self, root: &Path, stamp: Stamp, access: Access) {
+        let _ = self.jobs.send(Job::Sync { root: root.to_path_buf(), stamp, access });
+    }
+
+    /// A linked project is joined with its other side as the user picked (sync::resolve).
+    pub fn resolve(&self, root: &Path, expect: String, picks: serde_json::Map<String, Value>, stamp: Stamp, access: Access) {
+        let _ = self.jobs.send(Job::Resolve { root: root.to_path_buf(), expect, picks, stamp, access });
     }
 
     /// The projects below a project become parts of it; its snapshot follows.

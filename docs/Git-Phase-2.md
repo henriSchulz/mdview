@@ -12,10 +12,12 @@ im Hintergrund abgleichen, Konflikte lösen. GitHub ist danach die Quelle der Wa
 Verknüpfung läuft alles wie bisher.
 
 > [!important] Stand
-> Schritt 1 ist gebaut: `src-tauri/src/sync.rs` holt und lädt hoch (3 Tests gegen ein nacktes
-> Repository, 1 Test gegen das echte GitHub über HTTPS). An die Hülle angeschlossen ist es noch
-> nicht; die App verhält sich wie nach Phase 1. Die GitHub App ist registriert und auf dem Konto
-> installiert, das Test-Repository ist `md-view-test-notes`. Die Schritte 2 bis 6 sind Plan.
+> Die Schritte 1 bis 3 sind gebaut: `src-tauri/src/sync.rs` holt, lädt hoch, gleicht ab und löst
+> Konflikte (10 Tests gegen ein nacktes Repository, 1 gegen das echte GitHub), dazu das
+> Konfliktfenster (`dev/rig.sh sync`, 25 Prüfungen). Verknüpfen lässt sich ein Projekt bisher
+> nur über die Nachricht `history-link`, und ohne Anmeldung nur mit einem Repository auf
+> demselben Rechner. Die GitHub App ist registriert und installiert, das Test-Repository ist
+> `md-view-test-notes`. Die Schritte 4 bis 6 sind Plan.
 
 ## Was am Ende da ist
 
@@ -118,19 +120,51 @@ dient ein nacktes Repository in einem Temp-Ordner.
 
 ### 2. Der Abgleich
 
-- Neues Modul `src-tauri/src/sync.rs`: der Ablauf oben, im Thread des Historian.
-- Zustand je Projekt: abgeglichen, lokal voraus, wartet auf Netz, Konflikt, Fehler.
-- Auslöser in `shell.rs`: nach `Snapshotted`, beim Start, bei Fokus, per Zeitgeber.
-- Prüfung als `cargo test` mit zwei Arbeitskopien als „Geräten": nur hoch, nur herunter, beides
-  ohne Konflikt, hochladen abgelehnt und wiederholt, Abbruch mitten im Abgleich.
+- `sync::reconcile`: festhalten, holen, dann hochladen, vorspulen oder zusammenführen. Das
+  Ergebnis ist einer von acht Zuständen (gleich, hochgeladen, heruntergeladen, zusammengeführt,
+  Konflikt, nicht erreichbar, Anmeldung nötig, abgelehnt).
+- Zusammengeführt wird im Speicher. Der Ordner wird erst geändert, wenn feststeht, dass es
+  geht, und nur, solange er noch dem letzten Commit entspricht: Eine seither geänderte Datei
+  wird nie überschrieben; dann passiert nichts und es wird beim nächsten Mal wieder versucht.
+- Bei einem Konflikt wird nichts angefasst: keine Marker in den Notizen, nichts hochgeladen.
+  Lokal wird weiter festgehalten.
+- Ein Repository ohne gemeinsamen Commit gilt als anderes Projekt und wird abgelehnt.
+- Anbindung: Der Historian gleicht nach jedem Schnappschuss eines verknüpften Projekts ab, dazu
+  alle 60 s die Projekte, die ein Fenster zeigt (`MDVIEW_SYNC_MS` für Tests). Ein Projekt, in
+  dem noch Änderungen auf ihren Schnappschuss warten, wird vom Zeitgeber übersprungen: In einen
+  Ordner, in dem gerade geschrieben wird, kommt nichts herunter. Ein eigener Auslöser beim
+  Fokus fehlt noch; der Zeitgeber deckt das binnen einer Minute.
+- Der Zustand geht mit `setFolder` und `settings-info` an die Seite (`history.linked`,
+  `history.sync`); angezeigt wird er erst in Schritt 5.
+- Der Verlauf einer Notiz folgt jetzt jeder Linie, durch die ihre Geschichte läuft: Nach einem
+  Zusammenführen stehen die Versionen beider Geräte in der Liste.
+- Prüfung: `cargo test` mit zwei „Geräten" (ein Gerät hält fest, das andere bekommt es; beide
+  ändern Verschiedenes; beide ändern dieselbe Stelle; Gegenstelle weg; fremdes Projekt).
+  `dev/rig.sh sync` verknüpft in der App, spielt das zweite Gerät mit `git` und prüft Hochladen,
+  Herunterladen bis auf die Seite und das Zusammenführen.
 
 ### 3. Konflikte
 
-- `sync.rs` liefert je Konfliktdatei die drei Fassungen (Basis, meine, ihre) und nimmt die
-  Entscheidungen entgegen.
-- `active/conflict.js`: das Fenster, aus den Teilen des Verlaufsfensters.
-- Prüfung: `cargo test` für jede Art von Konflikt; `dev/rig.sh sync` löst einen Textkonflikt
-  über das Fenster.
+- `sync::conflicts` rechnet den Merge im Speicher und liefert je Datei, was zu entscheiden ist.
+  Eine Notiz kommt in Teilen: was beide gleich haben oder nur einer geändert hat, ist schon
+  zusammengeführt; jede Stelle, die beide geändert haben, trägt „meine", „ihre" und die
+  gemeinsame Fassung davor. Alles andere (kein Text, über 2 MB, auf einer Seite gelöscht) wird
+  als ganze Datei entschieden.
+- `sync::resolve` führt mit den Entscheidungen zusammen: für eine Notiz der fertige Text, für
+  eine Datei „meine", „ihre" oder „beide" (die andere dann daneben als `Name (Gerät).ext`).
+  Fehlt eine Entscheidung oder hat sich die Gegenstelle seither bewegt, passiert nichts.
+- Das Konfliktfenster (`active/conflict.js`) teilt sich den Rahmen mit dem Verlaufsfenster:
+  links die Dateien mit der Zahl offener Stellen, rechts je Stelle beide Fassungen mit Gerät
+  und Zeit, die abweichenden Wörter markiert, und die Wahl „Mine", „Theirs", „Both". „Join"
+  wird frei, sobald alles gewählt ist.
+- Ein Konflikt meldet sich mit einer Einblendung; die Uhr wird rot und ihr Tooltip sagt es,
+  ihr Menü hat „Resolve Conflicts…". Solange er offen ist, bleibt der Ordner, wie er hier
+  geschrieben wurde, und die Gegenstelle unberührt.
+- Nicht gebaut: das Zusammenführen auf Blockebene mit `active/markdown.js`. Gits zeilenweiser
+  Merge löst die Fälle im Test; ob sich mehr lohnt, zeigt der Gebrauch.
+- Prüfung: `cargo test` (Konflikt Stelle für Stelle, gelöst und hochgeladen, Bild auf beiden
+  Seiten, gelöscht gegen geändert, unvollständige und veraltete Entscheidungen);
+  `dev/rig.sh sync` erzeugt einen echten Konflikt und löst ihn über das Fenster.
 
 ### 4. Anmeldung
 

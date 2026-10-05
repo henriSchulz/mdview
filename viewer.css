@@ -771,6 +771,7 @@ body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; point
 /* the history's button where this app keeps none: dimmed, and still to be clicked */
 .sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .sb-head [data-act="historymenu"].quiet { opacity: 0.4; }
+.sb-head [data-act="historymenu"].warn { color: var(--c-red); } /* (conflicts to resolve: its menu and its tooltip say so) */
 body[data-folder] #toolbar [data-act="sidebar"] { display: grid; } /* (all notes: the house before the tabs) */
 
 /* ------------------------------------------------------------- tabs (folder windows) */

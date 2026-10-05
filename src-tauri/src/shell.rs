@@ -23,6 +23,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
 use crate::ai::{self, Completer, Drawing, Illustrator};
 use crate::history::{self, Historian, Place, Stamp};
+use crate::sync::{self, Access};
 use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
 use crate::theme::{self, home, Theme};
 use crate::{host, Event, Pick, ORIGIN, SHARED};
@@ -30,6 +31,7 @@ use crate::{host, Event, Pick, ORIGIN, SHARED};
 const OPENED_LIMIT: usize = 3000; // notes whose last opening is remembered
 const SF_SYMBOLS: &str = ".SF Symbols Fallback"; // the font the app's signs are set in, where it is installed (viewer.js)
 const RESIDENT_MS: u64 = 15 * 60 * 1000;
+const SYNC_MS: u64 = 60 * 1000; // how often a linked project's other side is looked at, while a window shows the project
 const EMBED_LIMIT: usize = 256 * 1024;
 const EDIT_LIMIT: usize = 2 * 1024 * 1024;
 const PREVIEW_BYTES: usize = 2400; // of a note's beginning, for its tile in the overview
@@ -361,6 +363,8 @@ pub struct App {
     unsnapped: HashMap<PathBuf, u64>, // projects touched since their last snapshot, and the turn that will make it
     snap_turn: u64,
     said_big: HashSet<String>, // files left out of a history for their size, said once
+    token: Option<String>,     // the signed-in user's, for a linked project's other side
+    synced: HashMap<PathBuf, Value>, // linked projects: how they stood when last reconciled, and when
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
 }
@@ -373,6 +377,8 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         unsnapped: HashMap::new(),
         snap_turn: 0,
         said_big: HashSet::new(),
+        token: None,
+        synced: HashMap::new(),
         handle,
         tx,
         state,
@@ -392,6 +398,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         host::hinting(&app.handle);
     }
     app.watch_theme();
+    app.after(app.sync_ms(), Event::SyncTick);
     for event in rx {
         app.on_event(event);
     }
@@ -445,22 +452,56 @@ impl App {
         self.after(quiet, Event::Snapshot { root, turn: self.snap_turn });
     }
 
+    fn access(&self) -> Access {
+        Access { token: self.token.clone() }
+    }
+
+    fn sync_ms(&self) -> u64 {
+        env("MDVIEW_SYNC_MS").and_then(|ms| ms.parse().ok()).unwrap_or(SYNC_MS) // (the override: for tests)
+    }
+
+    /// The projects the windows show.
+    fn shown_projects(&self) -> HashSet<PathBuf> {
+        self.wins.values().filter_map(|w| w.path.as_deref().or(w.folder.as_deref())).filter_map(|p| match history::place_of(p) {
+            Place::Project(root) => Some(root),
+            _ => None,
+        }).collect()
+    }
+
+    /// The linked projects on screen are reconciled with their other side — not one that has
+    /// changes waiting to be kept: its snapshot comes, and reconciles (and nothing is fetched
+    /// into a folder that is being written in).
+    fn sync_shown(&mut self) {
+        for root in self.shown_projects() {
+            if !self.unsnapped.contains_key(&root) && sync::linked(&root).is_some() {
+                let (stamp, access) = (self.stamp(), self.access());
+                self.historian.sync(&root, stamp, access);
+            }
+        }
+    }
+
+    /// Where a folder stands with a history, for the page: history::standing, and for a linked
+    /// project where its other side is and how the two stood when last reconciled.
+    fn standing(&self, folder: &Path) -> Value {
+        let mut all = history::standing(folder);
+        if let Some(root) = all["root"].as_str().map(PathBuf::from).filter(|_| all["state"] == "project" || all["state"] == "inside") {
+            if let Some(url) = sync::linked(&root) {
+                all["linked"] = json!(url);
+                all["sync"] = self.synced.get(&root).cloned().unwrap_or(Value::Null);
+            }
+        }
+        all
+    }
+
     /// The snapshots still waiting are made now — all of them, or (keep) only those of projects
     /// no window shows any more.
     fn snapshot_waiting(&mut self, keep: bool) {
-        let shown: HashSet<PathBuf> = if keep {
-            self.wins.values().filter_map(|w| w.path.as_deref().or(w.folder.as_deref())).filter_map(|p| match history::place_of(p) {
-                Place::Project(root) => Some(root),
-                _ => None,
-            }).collect()
-        } else {
-            HashSet::new()
-        };
+        let shown = if keep { self.shown_projects() } else { HashSet::new() };
         let due: Vec<PathBuf> = self.unsnapped.keys().filter(|root| !shown.contains(*root)).cloned().collect();
         for root in due {
             self.unsnapped.remove(&root);
-            let stamp = self.stamp();
-            self.historian.snapshot(&root, stamp);
+            let (stamp, access) = (self.stamp(), self.access());
+            self.historian.snapshot(&root, stamp, access);
         }
     }
 
@@ -648,8 +689,46 @@ impl App {
             Event::Snapshot { root, turn } => {
                 if self.unsnapped.get(&root) == Some(&turn) {
                     self.unsnapped.remove(&root);
-                    let stamp = self.stamp();
-                    self.historian.snapshot(&root, stamp);
+                    let (stamp, access) = (self.stamp(), self.access());
+                    self.historian.snapshot(&root, stamp, access);
+                }
+            }
+            Event::SyncTick => {
+                self.sync_shown();
+                self.after(self.sync_ms(), Event::SyncTick);
+            }
+            Event::Reconciled { root, mut standing, asked } => {
+                standing["at"] = json!(now());
+                let here = |w: &Win| w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root));
+                if asked && standing["state"] == "error" {
+                    // (the joining did not go: said, and the state before stays — the conflicts are still there)
+                    for w in self.wins.values().filter(|w| here(w)) {
+                        w.toast(format!("Couldn't join: {}", standing["why"].as_str().unwrap_or("")));
+                        w.js("MdView.conflictsFailed", &[]);
+                    }
+                    return;
+                }
+                let odds = standing["state"] == "conflict" && self.synced.get(&root).is_none_or(|was| was["state"] != "conflict");
+                if odds {
+                    let n = standing["files"].as_array().map_or(0, Vec::len);
+                    let text = format!("{} changed here and on another device. Resolve from the clock in the sidebar", if n == 1 { "A file was".to_string() } else { format!("{n} files were") });
+                    for w in self.wins.values().filter(|w| here(w)) {
+                        w.toast(text.clone());
+                    }
+                }
+                if *DEBUG {
+                    eprintln!("[sync] {}: {standing}", root.display());
+                }
+                let changed = self.synced.get(&root).map(|was| (&was["state"], &was["files"])) != Some((&standing["state"], &standing["files"])) || !standing["did"].is_null();
+                self.synced.insert(root.clone(), standing);
+                if changed {
+                    // (the clock and the settings say how the project stands)
+                    self.each_win(|w, app| {
+                        if w.path.as_deref().or(w.folder.as_deref()).is_some_and(|p| p.starts_with(&root)) {
+                            w.send_folder(app);
+                            w.js("MdView.historyKept", &[]);
+                        }
+                    });
                 }
             }
             Event::Snapshotted { root, kept, skipped, error, asked } => {
@@ -1326,7 +1405,7 @@ impl Win {
         tree.each_note(&mut |n| n.opened = opened.and_then(|o| o.get(&n.real)).and_then(Value::as_i64).unwrap_or(0));
         // where the folder stands with a history: "none", a "project" itself, "inside" one above,
         // or in a "foreign" repository (own: the folder is that repository's, and can be taken over)
-        let history = history::standing(&folder);
+        let history = app.standing(&folder);
         let st = &app.state;
         let payload = json!({
             "history": history,
@@ -1720,6 +1799,49 @@ impl Win {
                         Err(e) => self.toast(format!("Couldn't restore: {}", strerror(&e))),
                     },
                     None => self.toast("Couldn't restore this version"),
+                }
+            }
+            // the conflicts' window (active/conflict.js): what stands in the way of joining the
+            // project with its other side, and joining with what the user picked
+            "sync-conflicts" | "sync-resolve" => {
+                let Some(root) = self.here().and_then(|h| match history::place_of(&h) {
+                    Place::Project(r) => Some(r),
+                    _ => None,
+                }) else { return };
+                if text_of("type") == "sync-conflicts" {
+                    match sync::conflicts(&root) {
+                        Ok(all) => self.js("MdView.conflicts", &[all]),
+                        Err(e) => self.toast(format!("Couldn't read the conflicts: {e}")),
+                    }
+                } else if let Some(picks) = msg["picks"].as_object() {
+                    app.unsnapped.remove(&root); // (what waits is kept by the joining itself)
+                    let (stamp, access) = (app.stamp(), app.access());
+                    app.historian.resolve(&root, text_of("theirs").to_string(), picks.clone(), stamp, access);
+                }
+            }
+            "history-link" => {
+                // the project is told where its other side is (url) or that it has none (no url);
+                // linked, the two are reconciled at once
+                let Some(root) = self.here().and_then(|h| match history::place_of(&h) {
+                    Place::Project(r) => Some(r),
+                    _ => None,
+                }) else { return };
+                let done = match msg["url"].as_str().filter(|u| !u.is_empty()) {
+                    Some(url) => sync::link(&root, url),
+                    None => sync::unlink(&root),
+                };
+                match done {
+                    Ok(()) => {
+                        app.synced.remove(&root);
+                        if sync::linked(&root).is_some() {
+                            let (stamp, access) = (app.stamp(), app.access());
+                            app.historian.sync(&root, stamp, access);
+                        }
+                        self.tree_json = None;
+                        self.send_folder(app);
+                        self.settings_info(app);
+                    }
+                    Err(e) => self.toast(format!("Couldn't link: {e}")),
                 }
             }
             "history-disable" => {
@@ -2280,6 +2402,11 @@ impl Win {
         let mut history = self.here().map_or(json!({ "state": "none" }), |f| history::overview(&f));
         if let Some(root) = history["root"].as_str().map(PathBuf::from) {
             history["waiting"] = json!(app.unsnapped.contains_key(&root));
+            if let Some(here) = self.here() {
+                let linked = app.standing(&here);
+                history["linked"] = linked["linked"].clone();
+                history["sync"] = linked["sync"].clone();
+            }
         }
         let device = app.stamp().device;
         let device_id = device.rsplit_once(" (").map_or("", |(_, id)| id.trim_end_matches(')')).to_string();

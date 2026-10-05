@@ -57,6 +57,11 @@ pub enum Event {
     Idle { turn: u64 },
     /// a project has been quiet since it was last touched: time for its snapshot
     Snapshot { root: PathBuf, turn: u64 },
+    /// a linked project and its other side were reconciled: how they stand (sync::Standing::json)
+    /// asked: the user's joining (the conflicts' window): if it did not go, that is said
+    Reconciled { root: PathBuf, standing: Value, asked: bool },
+    /// time to look whether the other side of a linked project has something new
+    SyncTick,
     /// asked: the page's doing (projects taken in), so what went wrong is said, and the folder told anew
     Snapshotted { root: PathBuf, kept: bool, skipped: Vec<String>, error: Option<String>, asked: bool },
 }

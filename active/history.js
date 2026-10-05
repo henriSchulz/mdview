@@ -14,7 +14,7 @@
   const CONTEXT = 3; // unchanged lines shown around a change
   const NOW = "now"; // the note as it is, in the place of a version's id
 
-  let root = null, scrim = null, list = null, body = null, title = null, restore = null, mode = null, focusBack = null;
+  let win = null, root = null, list = null, body = null, title = null, restore = null, mode = null;
   let path = null, versions = [], chosen = -1, texts = new Map(), wanted = new Set(), standing = "none";
   const isOpen = () => !!root && root.hasAttribute("data-open");
   const lang = () => ((window.MdPrefs || {}).lang === "de" ? "de-DE" : "en-GB");
@@ -133,39 +133,50 @@
   }
 
   // ------------------------------------------------------------ the window
-  function build() {
-    scrim = el("div", { id: "history-scrim" });
-    root = el("div", { id: "history", role: "dialog", "aria-modal": "true", "aria-labelledby": "hi-title", tabindex: "-1" });
-    const side = el("nav", { class: "st-side", "aria-label": T("history.versions") });
-    const name = el("div", { class: "st-name" }, T("history.title"));
+  /* The window's frame, the settings window's kind: a list at the left under a name, at the right
+   * a head (close, a title, tools) over what the chosen row is about. Shared with the conflicts'
+   * window (conflict.js). choose(i): a row was clicked or reached with the arrows.
+   * -> { root, note, list, title, tools, body, isOpen(), show(), hide() } */
+  function frame(id, { name, listLabel, choose, chosen }) {
+    const scrim = el("div", { id: id + "-scrim" });
+    const root = el("div", { id, role: "dialog", "aria-modal": "true", "aria-labelledby": id + "-title", tabindex: "-1" });
+    const side = el("nav", { class: "st-side", "aria-label": listLabel });
     const note = el("div", { class: "hi-note" });
-    list = el("div", { class: "st-group hi-list" });
-    side.append(name, note, list);
+    const list = el("div", { class: "st-group hi-list" });
+    side.append(el("div", { class: "st-name" }, name), note, list);
     const main = el("div", { class: "st-main" });
     const head = el("header", { class: "st-head" });
     const x = el("button", { class: "st-close", type: "button", "aria-label": T("history.close") });
     x.innerHTML = UI.x;
-    title = el("h2", { id: "hi-title" });
-    mode = el("select", { class: "lp-field pf-select", "aria-label": T("history.compare") });
-    for (const [v, l] of [["change", "history.mode.change"], ["now", "history.mode.now"]]) mode.appendChild(el("option", { value: v }, T(l)));
-    mode.onchange = () => show();
-    const pick = window.MdView.core.popup(mode);
-    pick.sync();
-    mode.addEventListener("change", pick.sync);
-    restore = el("button", { class: "pf-link", type: "button" }, T("history.restore"));
-    restore.onclick = () => { const v = versions[chosen]; if (v) post("history-restore", { path, id: v.id, at: v.path }); };
+    const title = el("h2", { id: id + "-title" });
     const tools = el("div", { class: "hi-tools" });
-    tools.append(pick, restore);
     head.append(x, title, tools);
-    body = el("div", { class: "st-content hi-body" });
+    const body = el("div", { class: "st-content hi-body" });
     main.append(head, body);
     root.append(side, main);
     document.body.append(scrim, root);
-    root._note = note;
-
+    let focusBack = null;
+    const isOpen = () => root.hasAttribute("data-open");
+    function show() {
+      focusBack = document.activeElement;
+      void root.offsetWidth;
+      window.MdView.core.lockScroll(true);
+      scrim.dataset.open = root.dataset.open = "";
+      root.focus({ preventScroll: true });
+    }
+    function hide() {
+      if (!isOpen()) return false;
+      window.MdView.core.closePick();
+      delete scrim.dataset.open; delete root.dataset.open;
+      window.MdView.core.lockScroll(false);
+      const view = A.view && A.view.pm;
+      if (focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true }); else if (view) view.focus();
+      focusBack = null;
+      return true;
+    }
     list.addEventListener("click", (e) => { const row = e.target.closest(".hi-row"); if (row) choose([...list.children].indexOf(row)); });
-    x.addEventListener("click", () => close());
-    scrim.addEventListener("mousedown", (e) => { e.preventDefault(); close(); });
+    x.addEventListener("click", () => hide());
+    scrim.addEventListener("mousedown", (e) => { e.preventDefault(); hide(); });
     // the wheel belongs to the window while it is open: the note under it does not scroll
     const holdWheel = (e) => {
       if (e.ctrlKey) return;
@@ -181,10 +192,10 @@
       if (e.isComposing) return;
       e.stopPropagation(); // the page's shortcuts are not for here
       const inList = e.target === root || !!e.target.closest?.(".hi-row");
-      if (e.key === "Escape") { e.preventDefault(); close(); }
-      else if (inList && (e.key === "ArrowDown" || e.key === "ArrowUp")) { // the versions: up and down, what is shown follows
+      if (e.key === "Escape") { e.preventDefault(); hide(); }
+      else if (inList && (e.key === "ArrowDown" || e.key === "ArrowUp")) { // the rows: up and down, what is shown follows
         e.preventDefault();
-        const to = Math.max(0, Math.min(versions.length - 1, chosen + (e.key === "ArrowDown" ? 1 : -1)));
+        const to = Math.max(0, Math.min(list.children.length - 1, chosen() + (e.key === "ArrowDown" ? 1 : -1)));
         if (list.children[to]) { list.children[to].focus(); list.children[to].scrollIntoView({ block: "nearest" }); choose(to); }
       } else if (e.key === "Tab") { // the focus stays in the window
         const all = [...root.querySelectorAll("button")].filter((n) => !n.disabled && n.offsetParent && (!n.matches(".hi-row") || n.getAttribute("aria-current")));
@@ -193,36 +204,37 @@
         all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
       }
     });
+    return { root, note, list, title, tools, body, isOpen, show, hide };
+  }
+  function build() {
+    win = frame("history", { name: T("history.title"), listLabel: T("history.versions"), choose, chosen: () => chosen });
+    ({ root, list, body, title } = win);
+    mode = el("select", { class: "lp-field pf-select", "aria-label": T("history.compare") });
+    for (const [v, l] of [["change", "history.mode.change"], ["now", "history.mode.now"]]) mode.appendChild(el("option", { value: v }, T(l)));
+    mode.onchange = () => show();
+    const pick = window.MdView.core.popup(mode);
+    pick.sync();
+    mode.addEventListener("change", pick.sync);
+    restore = el("button", { class: "pf-link", type: "button" }, T("history.restore"));
+    restore.onclick = () => { const v = versions[chosen]; if (v) post("history-restore", { path, id: v.id, at: v.path }); };
+    win.tools.append(pick, restore);
   }
   function open() {
     const cur = current();
-    if (A.dialog.open || isOpen() || (A.prefs && A.prefs.isOpen) || !cur || !cur.path || /\.pdf$/i.test(cur.path)) return false;
+    if (A.dialog.open || isOpen() || (A.prefs && A.prefs.isOpen) || (A.conflict && A.conflict.isOpen) || !cur || !cur.path || /\.pdf$/i.test(cur.path)) return false;
     if (!root) build();
     // What is typed and not saved yet is saved first: the note the versions are compared with is
     // the one on disk — and a version put back is not written over by a save still to come.
     window.MdView.flush(false);
-    focusBack = document.activeElement;
     path = cur.path; versions = []; chosen = -1; texts = new Map(); wanted = new Set();
-    root._note.textContent = cur.name || "";
+    win.note.textContent = cur.name || "";
     list.textContent = ""; body.textContent = ""; title.textContent = T("history.title");
     mode.closest(".pop-wrap").hidden = restore.hidden = true;
     post("history-log", { path });
-    void root.offsetWidth;
-    window.MdView.core.lockScroll(true);
-    scrim.dataset.open = root.dataset.open = "";
-    root.focus({ preventScroll: true });
+    win.show();
     return true;
   }
-  function close() {
-    if (!isOpen()) return false;
-    window.MdView.core.closePick();
-    delete scrim.dataset.open; delete root.dataset.open;
-    window.MdView.core.lockScroll(false);
-    const view = A.view && A.view.pm;
-    if (focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true }); else if (view) view.focus();
-    focusBack = null;
-    return true;
-  }
+  const close = () => !!win && win.hide();
 
-  A.history = { open, close, got, gotText, restored, get isOpen() { return isOpen(); } };
+  A.history = { open, close, got, gotText, restored, frame, rows, lines, when, el, get isOpen() { return isOpen(); } };
 })();

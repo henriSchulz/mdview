@@ -33,6 +33,7 @@
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
 #   dev/rig.sh folder                the active mode in a folder window (sidebar, other notes, back)
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
+#   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
@@ -531,6 +532,42 @@ case "${1:-}" in
     ok "and what was written just before is kept: nothing waits" '[[ -z $(git -C "$P" status --porcelain) && $(git -C "$P" log -1 --format=%s) == top.md ]]' 'git -C "$P" status --porcelain; git -C "$P" log --oneline | head -3'
     ok "the project is the one it was: the same marker as before it was switched off" '[[ $(git -C "$P" log --format=%H -- .mdview/project.json | wc -l) == 1 ]]' 'git -C "$P" log --oneline -- .mdview/project.json'
     pkill -f "^$APP" 2>/dev/null
+    exit $fail ;;
+  sync)
+    rm -rf "$R/work"; mkdir -p "$R/work/a"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/a/"
+    A="$R/work/a"; B="$R/work/b"; HUB="$R/work/hub.git"; rm -f "$R/out"/*.sync*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    other() { git -C "$B" -c user.name=Other -c user.email=other@example.invalid "$@"; }
+    git init -q --bare -b main "$HUB"
+    printf 'window.__hub = %s;\n' "$(jq -Rn --arg u "$HUB" '$u')" > "$R/work/probe-sync.js"; cat "$D/probe-sync.js" >> "$R/work/probe-sync.js"
+    app 60 MDVIEW_PROBE="$R/work/probe-sync.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=600 MDVIEW_SYNC_MS=1200 -- "$A"
+    wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    wait_for sync-linked 120; note=$(jq -r .note "$R/out"/*.sync-linked.json)
+    ok "linked, the project is on the other side" '[[ $(git -C "$HUB" rev-parse main 2>/dev/null) == $(git -C "$A" rev-parse HEAD) ]]' 'git -C "$HUB" branch -a; git -C "$A" log --oneline'
+    git clone -q "$HUB" "$B"
+    ok "another device that fetches it has the project, marker and all" '[[ -f $B/.mdview/project.json && -f $B/$note ]]'
+    printf '\nfrom the other device\n' >> "$B/$note"; other commit -q -am "theirs"; other push -q
+    wait_for sync-pulled 120
+    ok "what the other device pushed is on the page here, without anything done" '[[ $(jq -r .pulled "$R/out"/*.sync-pulled.json) == true ]]'
+    ok "and in the folder, which is as the other side has it" 'grep -q "from the other device" "$A/$note" && [[ $(git -C "$A" rev-parse HEAD) == $(git -C "$HUB" rev-parse main) ]]' 'git -C "$A" log --oneline | head -3'
+    printf 'also theirs\n' >> "$B/obsidian.md"; [[ $note == obsidian.md ]] && printf 'also theirs\n' >> "$B/basics.md"; other commit -q -am "theirs, elsewhere"; other push -q
+    wait_for sync 150; pkill -f "^$APP" 2>/dev/null
+    ok "both changed at once: joined in one commit with two parents" '[[ $(git -C "$A" rev-list --merges --count HEAD) == 1 ]]' 'git -C "$A" log --oneline --graph | head -6'
+    ok "the folder has both: what was written here, and theirs" 'grep -q "written here" "$A/$note" && grep -rq "also theirs" "$A" && [[ -z $(git -C "$A" status --porcelain) ]]' 'git -C "$A" status --porcelain'
+    ok "and the other side has it all" '[[ $(git -C "$HUB" rev-parse main) == $(git -C "$A" rev-parse HEAD) ]]' 'git -C "$HUB" log --oneline main | head -4'
+    ok "the page shows the note as it is on disk" 'cmp -s <(jq -j .raw "$R/out"/*.sync.json) "$A/$note"'
+    ok "every commit made here names the device" '[[ $(git -C "$A" log --author="^(?!Other)" --perl-regexp --format="%(trailers:key=Device,valueonly)" | grep -c .) == $(git -C "$A" log --author="^(?!Other)" --perl-regexp --format=%h | wc -l) ]]' 'git -C "$A" log --format="%an | %s"'
+    # both change the same line: nothing is joined until it is said how, in the conflicts' window
+    other pull -q; sed -i '1s/written here/written there/' "$B/$note"; other commit -q -am "theirs, the same line"; other push -q
+    sed -i '1s/written here/written right here/' "$A/$note"   # (written here while the app was not running)
+    rm -f "$R/out"/*.sync-conflict*.json
+    app 60 MDVIEW_PROBE="$D/probe-sync-conflict.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=600 MDVIEW_SYNC_MS=1200 -- "$A"
+    wait_for sync-conflict-open 200; sleep 0.5; shot "$R/out/sync-conflict.png"
+    ok "while it is to be said, the other side has not been touched" '[[ $(git -C "$HUB" log -1 --format=%s main) == "theirs, the same line" ]]' 'git -C "$HUB" log --oneline main | head -3'
+    wait_for sync-conflict 250; pkill -f "^$APP" 2>/dev/null
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.sync-conflict.json; jq -e .pass "$R/out"/*.sync-conflict.json >/dev/null || fail=1
+    ok "the folder is what was picked, and as its last commit says" 'cmp -s <(jq -j .raw "$R/out"/*.sync-conflict.json) "$A/$note" && [[ $(head -1 "$A/$note") == "written there" && -z $(git -C "$A" status --porcelain) ]]' 'head -2 "$A/$note"; git -C "$A" status --porcelain'
+    ok "joined in a commit of its own, and the other side has it" '[[ $(git -C "$A" rev-list --merges --count HEAD) == 2 && $(git -C "$HUB" rev-parse main) == $(git -C "$A" rev-parse HEAD) ]]' 'git -C "$A" log --oneline --graph | head -6'
     exit $fail ;;
   regress)
     # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.
