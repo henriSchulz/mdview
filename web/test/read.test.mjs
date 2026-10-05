@@ -140,13 +140,6 @@ test("a PDF opens in the viewer", async () => {
   await untilNote("Second note.md");
 });
 
-test("the notes are read only, and say so", async () => {
-  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "save", text: "overwritten" })));
-  await page.waitForFunction(() => /read only/.test((document.querySelector("#toast") || {}).textContent || ""), null, { timeout: 5000 });
-  assert.equal(gh.repo.files.get("Second note.md").toString(), files["Second note.md"]);
-  assert.ok(!gh.seen.some(([p, f]) => typeof f === "object" && p !== "/login/oauth/access_token")); // (nothing was written to GitHub)
-});
-
 test("what another device sent appears without reloading", async () => {
   gh.repo.files.set("Second note.md", Buffer.from("# The second\n\nChanged on another device.\n"));
   gh.repo.files.set("New here.md", Buffer.from("# New\n"));

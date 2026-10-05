@@ -105,3 +105,51 @@ test("tabs: each with its own way back, as the desktop keeps them", () => {
   assert.equal(t.current.path, null);
   assert.deepEqual(C.tabs(null).kept(), { paths: [""], active: 0 });
 });
+
+test("names, tasks, and what a commit is called", () => {
+  assert.deepEqual([C.cleanName("  ..hidden/na\\me\t "), C.cleanName("A note"), C.cleanName("...")], ["hidden na me", "A note", ""]);
+  const text = "# T\n- [ ] one\n> 1. [x] two\nplain\n";
+  assert.equal(C.toggleTask(text, 1, true), "# T\n- [x] one\n> 1. [x] two\nplain\n");
+  assert.equal(C.toggleTask(text, 2, false), "# T\n- [ ] one\n> 1. [ ] two\nplain\n");
+  assert.deepEqual([C.toggleTask(text, 3, true), C.toggleTask(text, 99, true)], [null, null]);
+  assert.equal(C.subject(["sub/Note.md"]), "Note.md");
+  assert.equal(C.subject(["a.md", "b/c.md", "d.md", "e.md"]), "4 files: a.md, c.md, d.md, …");
+});
+
+test("the tree keeps a folder made here, and a renamed or deleted note leaves the tabs right", () => {
+  const t = C.buildTree(B, ["a.md"], { keep: [B + "/New Folder", B + "/.hidden"] });
+  assert.deepEqual(t.dirs.map((d) => d.name), ["New Folder"]);
+  const tabs = C.tabs({ paths: ["/a.md", "/b.md", "/a.md"], active: 1 });
+  tabs.open("/a.md", true);
+  tabs.rename("/a.md", "/A2.md");
+  assert.deepEqual([tabs.kept().paths, tabs.current.back], [["/A2.md", "/A2.md", "/A2.md"], ["/b.md"]]);
+  tabs.drop("/A2.md");
+  assert.deepEqual([tabs.kept().paths, tabs.current.path, tabs.current.back], [[""], null, ["/b.md"]]); // (only the tab on screen stays, empty)
+});
+
+test("three versions of a text are joined where the changes are apart", () => {
+  const base = "one\ntwo\nthree\nfour\nfive\n";
+  assert.deepEqual(C.merge3(base, "ONE\ntwo\nthree\nfour\nfive\n", "one\ntwo\nthree\nfour\nFIVE\nsix\n"), { text: "ONE\ntwo\nthree\nfour\nFIVE\nsix\n" });
+  assert.deepEqual(C.merge3(base, base, "x\n"), { text: "x\n" }); // (only they changed)
+  assert.deepEqual(C.merge3(base, "x\n", base), { text: "x\n" }); // (only I did)
+  assert.deepEqual(C.merge3(base, "one\n2\nthree\nfour\nfive\n", "one\n2\nthree\nfour\nfive\n"), { text: "one\n2\nthree\nfour\nfive\n" }); // (both the same)
+  assert.deepEqual(C.merge3(base, "zero\n" + base, base + "six\n"), { text: "zero\n" + base + "six\n" }); // (added at the two ends)
+  assert.deepEqual(C.merge3(base, "one\nthree\nfour\nfive\n", "one\ntwo\nthree\nfour\n"), { text: "one\nthree\nfour\n" }); // (lines taken out, apart)
+  assert.deepEqual(C.merge3("", "mine\n", ""), { text: "mine\n" });
+  assert.deepEqual(C.merge3("a\nx\nb", "a\nx\nb\nc", "A\nx\nb"), { text: "A\nx\nb\nc" }); // (no line end at the end)
+});
+
+test("where both changed the same place it is for the user to say, place by place", () => {
+  const base = "first\n\nmiddle\n\nlast\n";
+  const out = C.merge3(base, "first, mine\n\nmiddle as I have it\n\nlast\n", "first\n\nmiddle as they have it\n\nlast, theirs\n");
+  assert.deepEqual(out.parts, [{ same: "first, mine\n\n" }, { mine: "middle as I have it\n", base: "middle\n", theirs: "middle as they have it\n" }, { same: "\nlast, theirs\n" }]);
+  // what the window makes of the picks is the file: mine, theirs, both
+  const join = (pick) => out.parts.map((p) => (p.same != null ? p.same : pick === "both" ? p.mine + p.theirs : p[pick])).join("");
+  assert.equal(join("theirs"), "first, mine\n\nmiddle as they have it\n\nlast, theirs\n");
+  // changes that touch are one place
+  const touch = C.merge3("a\nb\nc\n", "A\nb\nc\n", "a\nB\nc\n");
+  assert.deepEqual(touch.parts, [{ mine: "A\nb\n", base: "a\nb\n", theirs: "a\nB\n" }, { same: "c\n" }]);
+  // one deleted what the other changed; both made a file of the same name
+  assert.deepEqual(C.merge3("x\ny\n", "y\n", "X\ny\n").parts[0], { mine: "", base: "x\n", theirs: "X\n" });
+  assert.deepEqual(C.merge3("", "mine\n", "theirs\n").parts, [{ mine: "mine\n", base: "", theirs: "theirs\n" }]);
+});

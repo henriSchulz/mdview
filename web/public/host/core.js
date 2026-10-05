@@ -41,7 +41,7 @@
    * base: the path the repository stands at ("/owner/repo"). show: which kinds beside notes
    * ("pdf", "image", "media", "other"). titles: path → a note's title, where they are wanted.
    * opened: path → when it was last opened. A folder with nothing to show is left out. */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {} } = {}) {
+  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, keep = [] } = {}) {
     const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [] });
     const top = node(base), dirs = new Map([[base, top]]);
     const dir = (path) => {
@@ -62,8 +62,10 @@
       }
       count++;
     }
-    const sortDirs = (n) => { n.dirs.sort((a, b) => naturalCmp(a.name, b.name)); n.dirs.forEach(sortDirs); };
-    sortDirs(top);
+    for (const k of keep) if (k.startsWith(base + "/") && shown(k.slice(base.length + 1) + "/x")) dir(k); // (folders made here, still empty)
+    const kept = new Set(keep);
+    const prune = (n) => { n.dirs = n.dirs.filter((d) => { prune(d); return d.dirs.length || d.notes.length || kept.has(d.path); }); n.dirs.sort((a, b) => naturalCmp(a.name, b.name)); };
+    prune(top);
     return top;
   }
   const notesOf = (node) => [...node.notes, ...node.dirs.flatMap(notesOf)];
@@ -219,10 +221,98 @@
         t.path = to;
         return { show: to, fragment: null };
       },
+      /* a note has another name: every tab and every way back knows it by the new one */
+      rename(old, now) { const swap = (p) => (p === old ? now : p); for (const t of list) { t.path = t.path && swap(t.path); t.back = t.back.map(swap); t.fwd = t.fwd.map(swap); } closed = closed.map(([p, i]) => [swap(p), i]); },
+      /* a note was deleted here: the tabs that showed it go — but for the one on screen, which is given another note */
+      drop(path) {
+        const shownId = cur().id;
+        for (const t of list) { t.back = t.back.filter((p) => p !== path); t.fwd = t.fwd.filter((p) => p !== path); }
+        list = list.filter((t) => t.id === shownId || t.path !== path);
+        closed = closed.filter(([p]) => p !== path);
+        at = Math.max(0, index(shownId));
+        if (cur().path === path) cur().path = null;
+      },
       /* a note is gone (deleted elsewhere): no tab shows it, no way leads back to it */
       forget(exists) { for (const t of list) { if (t.path && !exists(t.path)) t.path = null; t.back = t.back.filter(exists); t.fwd = t.fwd.filter(exists); } },
     };
   }
 
-  root.MdWebCore = { MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, linkPath, tabs };
+  /* A name typed for a note or folder, as a file's name: nothing that parts paths, not hidden. */
+  const cleanName = (name) => String(name || "").replace(/[/\\\x00-\x1f]/g, " ").trim().replace(/^[. ]+/, "");
+
+  /* A task's box ticked or cleared in a note's text, at a line (counted from 0). null: no task there. */
+  function toggleTask(text, line, checked) {
+    const lines = text.split("\n"), old = lines[line];
+    const m = old === undefined ? null : /^([\s>]*(?:[-*+]|\d+[.)])\s+\[)(.)(\])/.exec(old);
+    if (!m) return null;
+    lines[line] = m[1] + (checked ? "x" : " ") + old.slice(m[1].length + 1);
+    return lines.join("\n");
+  }
+
+  /* What a commit is called: the file that changed, or how many and the first of them (as the desktop names its own). */
+  function subject(changed) {
+    const names = changed.map(nameOf);
+    return names.length === 1 ? names[0] : `${names.length} files: ${names.slice(0, 3).join(", ")}${names.length > 3 ? ", …" : ""}`;
+  }
+
+  // ------------------------------------------------------------ three versions of a text, joined
+  const linesOf = (text) => (text === "" ? [] : text.split(/(?<=\n)/));
+  /* What turns a into b, as replacements of ranges of a's lines: [{ from, to, lines }] (to exclusive).
+   * null: too large to work out here. */
+  function changes(a, b) {
+    let start = 0, endA = a.length, endB = b.length;
+    while (start < endA && start < endB && a[start] === b[start]) start++;
+    while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA--; endB--; }
+    const n = endA - start, m = endB - start;
+    if (n * m > 6e6) return null;
+    // the longest run of lines both have, in order
+    const w = m + 1, len = new Uint32Array((n + 1) * w);
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) len[i * w + j] = a[start + i] === b[start + j] ? len[(i + 1) * w + j + 1] + 1 : Math.max(len[(i + 1) * w + j], len[i * w + j + 1]);
+    const out = [];
+    let i = 0, j = 0, open = null;
+    const close = () => { if (open) { out.push(open); open = null; } };
+    while (i < n || j < m) {
+      if (i < n && j < m && a[start + i] === b[start + j]) { close(); i++; j++; continue; }
+      if (!open) open = { from: start + i, to: start + i, lines: [] };
+      if (j < m && (i >= n || len[i * w + j + 1] >= len[(i + 1) * w + j])) open.lines.push(b[start + j++]); else { i++; open.to = start + i; }
+    }
+    close();
+    return out;
+  }
+  /* A text two sides changed from the same beginning, joined: { text } where no place was
+   * changed by both — else { parts }, cut as the conflicts' window wants them: { same } where it
+   * is settled, { mine, base, theirs } for every place both changed (or that touch). */
+  function merge3(base, mine, theirs) {
+    if (mine === theirs) return { text: mine };
+    if (mine === base) return { text: theirs };
+    if (theirs === base) return { text: mine };
+    const b = linesOf(base), mineC = changes(b, linesOf(mine)), theirC = changes(b, linesOf(theirs));
+    if (!mineC || !theirC) return { parts: [{ mine, base, theirs }] };
+    const parts = [];
+    let same = "", at = 0, i = 0, j = 0;
+    const text = (lines) => lines.join("");
+    while (i < mineC.length || j < theirC.length) {
+      // the next place anyone changed, with every change of either side that reaches or touches it
+      const first = Math.min(i < mineC.length ? mineC[i].from : Infinity, j < theirC.length ? theirC[j].from : Infinity);
+      let from = first, to = first, ms = [], ts = [], grew = true;
+      while (grew) {
+        grew = false;
+        while (i < mineC.length && mineC[i].from <= to) { ms.push(mineC[i]); to = Math.max(to, mineC[i].to); i++; grew = true; }
+        while (j < theirC.length && theirC[j].from <= to) { ts.push(theirC[j]); to = Math.max(to, theirC[j].to); j++; grew = true; }
+      }
+      same += text(b.slice(at, from));
+      // each side's version of that stretch of the base
+      const side = (cs) => { let out = "", p = from; for (const c of cs) { out += text(b.slice(p, c.from)) + text(c.lines); p = c.to; } return out + text(b.slice(p, to)); };
+      const m = side(ms), t = side(ts), was = text(b.slice(from, to));
+      if (!ts.length || m === t) same += m; else if (!ms.length) same += t;
+      else { if (same) parts.push({ same }); same = ""; parts.push({ mine: m, base: was, theirs: t }); }
+      at = to;
+    }
+    same += text(b.slice(at));
+    if (!parts.length) return { text: same };
+    if (same) parts.push({ same });
+    return { parts };
+  }
+
+  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

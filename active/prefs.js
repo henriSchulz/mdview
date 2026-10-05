@@ -218,7 +218,7 @@
       refresh.push(() => {
         const st = historyState();
         state.textContent = T("prefs.history.is." + st);
-        on.hidden = st === "inside" || st === "foreign"; // (not this folder's to switch)
+        on.hidden = st === "inside" || st === "foreign" || (st === "project" && !!(info.history || {}).fixed); // (not this folder's to switch)
         on.textContent = T(st === "adopt" ? "prefs.history.adopt" : st === "project" ? "prefs.history.offDo" : "prefs.history.on");
       });
       box.append(state, on);

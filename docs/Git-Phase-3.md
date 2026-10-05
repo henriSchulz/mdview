@@ -11,13 +11,12 @@ Umsetzungsplan für die dritte Phase. Nach [[Git-Phase-1]] (lokale Historie) und
 mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI-Funktionen.
 
 > [!important] Stand
-> Entschieden am 6. Oktober 2026: zuerst nur Lesen; ein Knopf „Mit GitHub anmelden"; die App
-> läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository, das
-> öffentlich bleibt (MIT). Gebaut sind die Schritte 1 bis 3: die Liste der Naht, Gerüst und
-> Anmeldung (am 5. Oktober auch gegen das echte GitHub durchlaufen), und das Lesen – die
-> unveränderte Desktop-Seite im Browser, mit einer Hülle, die ihr ein Repository liefert
-> (`web/`, 21 Tests, davon 8 in einem echten Browser gegen ein GitHub-Double). Das Lesen ist
-> gegen das echte GitHub noch nicht durchlaufen. Die Schritte 4 bis 6 sind Plan.
+> Die App läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository
+> (öffentlich, MIT). Gebaut sind die Schritte 1 bis 5: die Liste der Naht, Gerüst und Anmeldung
+> (am 5. Oktober auch gegen das echte GitHub durchlaufen), das Lesen, das Schreiben von Text und
+> das Zusammenführen mit dem Konfliktfenster (`web/`, 32 Tests, davon 15 in einem echten Browser
+> gegen ein GitHub-Double). Lesen und Schreiben sind gegen das echte GitHub noch nicht
+> durchlaufen. Schritt 6 (Verlauf, Abschluss) ist Plan; Bilder einfügen fehlt.
 
 ## Was am Ende da ist
 
@@ -234,16 +233,38 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ### 4. Schreiben
 
-- Entwürfe im Browser; Commit nach Ruhezeit, mit <kbd>Ctrl</kbd>+<kbd>S</kbd>, beim Verlassen.
-- Neue Notiz, Ordner, umbenennen, löschen, Bild einfügen und ablegen.
-- Prüfung: Tests gegen das Double für jeden Fall; die Tipp-Probes des Rigs (`edit`, `native`,
-  `m4`) laufen auch gegen die Web-Hülle.
+- Server: `web/app/api/r/…/commit` macht aus Änderungen einen Commit über GraphQL
+  `createCommitOnBranch`, mit dem Stand, auf dem er aufbaut. Steht der Branch woanders, kommt
+  409 zurück. Die Route nimmt nur Anfragen von der eigenen Adresse (`Origin`), nur Pfade
+  innerhalb des Repositorys und nichts unter `.git`.
+- Hülle: Was die Seite speichert, ist sofort ein Entwurf im Browser (`localStorage`, je
+  Repository) und überlebt Neuladen und Absturz. Ein Commit folgt nach der Ruhezeit
+  (`historyQuiet`, 30 s), mit <kbd>Ctrl</kbd>+<kbd>S</kbd> und wenn der Tab verlassen wird.
+- Der Commit heißt wie am Desktop nach den geänderten Dateien und trägt `Device:` (Browser und
+  System, mit einer ID je Browser) und `Client: web`. Autor ist das GitHub-Konto.
+- Neue Notiz, Ordner (er existiert im Repository, sobald eine Notiz darin liegt), umbenennen,
+  löschen, eine Aufgabe abhaken.
+- **Nur ein Projekt wird beschrieben**, wie am Desktop: ein Repository mit
+  `.mdview/project.json`. Eines ohne öffnet nur zum Lesen; die Uhr bietet „Use This Repository
+  for History…" an, der Browser fragt nach, und die Markerdatei wird der erste Commit.
+- Nicht gebaut: Bilder einfügen oder ablegen (wird gesagt), Umbenennen von anderem als Notizen.
+- Prüfung: `test/write.test.mjs` in Chromium: im aktiven Modus getippt wird zum Commit; ein
+  Entwurf überlebt das Neuladen; abhaken, anlegen, umbenennen, löschen; ein Repository ohne
+  Marker bleibt unberührt; die Route lehnt fremde Herkunft und Pfade nach draußen ab.
 
 ### 5. Änderungen von außen und Konflikte
 
-- Nachfragen nach dem Stand, Aktualisieren der offenen Notiz, Zusammenführen beim Commit.
-- Das Konfliktfenster, gespeist von der Web-Hülle.
-- Prüfung: zwei Browser gegen das Double; Desktop und Web gegen dasselbe Repository von Hand.
+- Vor jedem Commit und wenn der Stand sich bewegt hat, werden die Entwürfe gegen den Branch
+  gestellt: Ein Entwurf über einer Datei, die inzwischen eine andere ist, wird mit dem dort
+  Geschriebenen zusammengeführt (`core.js`, `merge3`: zeilenweise, drei Fassungen).
+- Haben beide dieselbe Stelle geändert (oder berühren sich die Änderungen), wird nichts
+  geschrieben. Die Uhr wird rot, und „Resolve Conflicts…" öffnet das Konfliktfenster der
+  Desktop-App, unverändert; die Hülle liefert ihm die Stellen in derselben Form wie `sync.rs`.
+- Im Web entsteht dabei kein Merge-Commit: Die eigene Änderung war vorher nie committet und
+  kommt hinter die fremde.
+- Prüfung: `test/core.test.mjs` (Zusammenführen und Konflikte Stelle für Stelle);
+  `test/write.test.mjs`: Ein „anderes Gerät" ändert eine andere Stelle – beides steht im Commit;
+  dieselbe Zeile – nichts wird geschrieben, bis im Fenster gewählt ist.
 
 ### 6. Verlauf und Abschluss
 

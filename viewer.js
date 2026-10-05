@@ -2348,7 +2348,8 @@
     if (ctxFor) ctxFor.classList.remove("ctx-target");
     ctxFor = item; ctxDir = dir;
     ctxKind = ctx.dataset.kind = kind;
-    for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState());
+    for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState())
+      || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed); // (a host whose folders always have their history: nothing to switch off)
     if (kind === "history") { // (the two that name a folder)
       const name = (folder.history || {}).name;
       ctx.querySelector('[data-cmd="history:is"][data-state="inside"] .menu-label').textContent = `Part of the Project “${name}”`;

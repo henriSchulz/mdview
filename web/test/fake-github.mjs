@@ -9,6 +9,8 @@ export function fakeGitHub() {
     seen: [], // what it was asked: [path, form or the Authorization header]
     lifetime: 28800, refreshes: 0, serial: 0, validAccess: "", validRefresh: "", challenge: "",
     repo: { owner: "octo", name: "notes", files: new Map(), private: true },
+    blobs: new Map(),
+    commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by }
   };
   const blobSha = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
   const stateSha = (salt) => createHash("sha1").update(salt + [...gh.repo.files].map(([p, b]) => p + blobSha(b)).sort().join("\n")).digest("hex");
@@ -45,14 +47,25 @@ export function fakeGitHub() {
       if (url.pathname === at) return json({ default_branch: "main", private: gh.repo.private });
       if (url.pathname === `${at}/commits/main`) return files.size ? json({ sha: gh.head(), commit: { tree: { sha: stateSha("tree") } } }) : json({ message: "Git Repository is empty." }, 409);
       if (url.pathname === `${at}/git/trees/${stateSha("tree")}`) {
+        for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf); // (a blob once in a commit stays to be had)
         const tree = [...files].map(([path, buf]) => ({ path, type: "blob", sha: blobSha(buf), size: buf.length }));
         const dirs = new Set(tree.flatMap((e) => e.path.split("/").slice(0, -1).map((_, i, a) => a.slice(0, i + 1).join("/"))));
         return json({ tree: [...tree, ...[...dirs].map((path) => ({ path, type: "tree", sha: "0".repeat(40) }))], truncated: false });
       }
+      if (url.pathname === "/graphql" && JSON.parse(body).query.includes("createCommitOnBranch")) {
+        const { input } = JSON.parse(body).variables;
+        if (input.branch.repositoryNameWithOwner !== `${owner}/${name}` || input.branch.branchName !== "main") return json({ errors: [{ type: "NOT_FOUND", message: "Could not resolve to a Repository" }] });
+        if (input.expectedHeadOid !== gh.head()) return json({ errors: [{ type: "STALE_DATA", message: `Expected branch to point to "${gh.head()}" but it did not. Pull and try again.` }] });
+        for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf);
+        for (const a of input.fileChanges.additions || []) files.set(a.path, Buffer.from(a.contents, "base64"));
+        for (const d of input.fileChanges.deletions || []) files.delete(d.path);
+        gh.commits.push({ headline: input.message.headline, body: input.message.body, added: (input.fileChanges.additions || []).map((a) => a.path), deleted: (input.fileChanges.deletions || []).map((d) => d.path), by: "octo" });
+        return json({ data: { createCommitOnBranch: { commit: { oid: gh.head() } } } });
+      }
       if (url.pathname === "/graphql") {
         const q = JSON.parse(body).query, repository = {};
         for (const m of q.matchAll(/(b\d+): object\(oid: "([0-9a-f]+)"\)/g)) {
-          const hit = [...files.values()].find((b) => blobSha(b) === m[2]);
+          const hit = [...files.values()].find((b) => blobSha(b) === m[2]) || gh.blobs.get(m[2]);
           const binary = hit && hit.includes(0);
           repository[m[1]] = hit ? { text: binary ? null : hit.toString("utf8"), isBinary: !!binary, isTruncated: false } : null;
         }

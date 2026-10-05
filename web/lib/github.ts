@@ -152,5 +152,35 @@ export function raw(access: string, owner: string, repo: string, path: string, e
   return ask(access, `${repoPath(owner, repo)}/contents/${at}`, "application/vnd.github.raw+json", etag ? { "If-None-Match": etag } : {});
 }
 
+/** The branch stands elsewhere than the commit was made for: someone wrote meanwhile. */
+export class Moved extends Error {}
+
+export type Change = { additions: { path: string; contents: string }[]; deletions: string[] }; // (contents: base64)
+
+/** One commit on a branch, with files added (or replaced) and deleted — only if the branch still
+ * stands at `expect`. The author is whom the token belongs to; GitHub signs it. → the new commit. */
+export async function commit(access: string, owner: string, repo: string, branch: string, expect: string, headline: string, body: string, change: Change): Promise<string> {
+  const input = {
+    branch: { repositoryNameWithOwner: `${owner}/${repo}`, branchName: branch },
+    expectedHeadOid: expect,
+    message: { headline, body },
+    fileChanges: { additions: change.additions, deletions: change.deletions.map((path) => ({ path })) },
+  };
+  const res = await fetch(`${API}/graphql`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", "User-Agent": "mdview-web" },
+    body: JSON.stringify({ query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }", variables: { input } }),
+    cache: "no-store",
+  });
+  if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+  if (!res.ok) throw new Error(`GitHub: ${res.status} for the commit`);
+  const said = (await res.json()) as { data?: { createCommitOnBranch?: { commit?: { oid?: string } } }; errors?: { type?: string; message?: string }[] };
+  const oid = said.data?.createCommitOnBranch?.commit?.oid;
+  if (oid) return oid;
+  const why = said.errors?.[0];
+  if (why?.type === "STALE_DATA" || /expected (branch|head)|did not match|but it did not/i.test(why?.message || "")) throw new Moved(why?.message || "the branch moved");
+  throw new Error(why?.message || "GitHub did not make the commit");
+}
+
 /** Where the user says which repositories the app is given. */
 export const GIVE = "https://github.com/settings/installations";
