@@ -1,0 +1,27 @@
+{
+  "name": "mdview-web",
+  "private": true,
+  "description": "Markdown Notes in the browser: the notes of a repository on GitHub, read through the same page as the desktop app.",
+  "type": "module",
+  "scripts": {
+    "assets": "node scripts/assets.mjs",
+    "predev": "node scripts/assets.mjs",
+    "dev": "next dev",
+    "prebuild": "node scripts/assets.mjs",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "jose": "^6.2.12",
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

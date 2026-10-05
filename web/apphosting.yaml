@@ -1,0 +1,15 @@
+# Firebase App Hosting: how the app runs. It sleeps when nobody uses it (the first request after a
+# pause takes a few seconds), and runs as one instance: the token that renews a sign-in changes
+# with every use, and must be renewed in one place.
+runConfig:
+  minInstances: 0
+  maxInstances: 1
+  memoryMiB: 512
+
+env:
+  # the GitHub App's secret (the client id is no secret and stands in lib/github.ts), and the key
+  # the session cookie is sealed with — both set with: firebase apphosting:secrets:set NAME
+  - variable: GITHUB_CLIENT_SECRET
+    secret: GITHUB_CLIENT_SECRET
+  - variable: SESSION_SECRET
+    secret: SESSION_SECRET

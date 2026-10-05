@@ -56,6 +56,7 @@ start: a change to it needs no build, only a new window. A change to
 | `active/`, `active.css` | the active mode: the rendered document, editable in place (in progress, see `docs/`) |
 | `docs/` | `FEATURES.md` (what the app does), design notes and milestone reports |
 | `skill/` | the Claude skill `mdview-notes` |
+| `web/` | the notes in the browser, from a repository on GitHub (Next.js; in progress, see `docs/Git-Phase-3.md`) |
 | `dev/` | build of the vendored editor libraries, tests, a rig that runs the app off-screen — see `dev/README.md` |
 
 ## License

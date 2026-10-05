@@ -11,10 +11,12 @@ Umsetzungsplan für die dritte Phase. Nach [[Git-Phase-1]] (lokale Historie) und
 mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI-Funktionen.
 
 > [!important] Stand
-> Das ist ein Plan, gebaut ist nichts. Am 6. Oktober 2026 entschieden: zuerst nur Lesen, und die
-> App soll auf GitHub Pages liegen, gebaut aus diesem Repository. Das ändert den Aufbau unten
-> („Auf GitHub Pages") und wirft zwei Fragen auf, die noch offen sind: wie Pages für dieses
-> private Repository möglich wird, und wie man sich ohne Server anmeldet.
+> Entschieden am 6. Oktober 2026: zuerst nur Lesen; es gibt einen Knopf „Mit GitHub anmelden";
+> die App läuft als Next.js-App bei **Firebase App Hosting**, gebaut aus diesem Repository, das
+> öffentlich bleibt (MIT). Gebaut sind Schritt 1 (die Liste der Naht) und Schritt 2 (Gerüst,
+> Anmeldung, Liste der Repositories; `web/`, 7 Tests gegen ein GitHub-Double). Gegen das echte
+> GitHub und bei Firebase ist noch nichts gelaufen: Dafür fehlen das Backend bei Firebase, die
+> Callback-URL und das Client-Secret (siehe „Was du dafür tun musst"). Schritt 3 bis 6 sind Plan.
 
 ## Was am Ende da ist
 
@@ -33,8 +35,8 @@ Die Oberfläche ist schon jetzt von der Hülle getrennt. Sie spricht über genau
 
 | Richtung | Wie | Umfang |
 |---|---|---|
-| Seite → Hülle | `MdHost.post(JSON)` | 60 Nachrichten |
-| Hülle → Seite | `MdView.…(…)` | 31 Aufrufe |
+| Seite → Hülle | `MdHost.post(JSON)` | 64 Nachrichten |
+| Hülle → Seite | `MdView.…(…)` | 29 Aufrufe |
 | Dateien neben einer Notiz | `<base href>` aus `render`, `MdHost.files` | zwei Adressen |
 | Skripte und Styles | aus dem `src` des eigenen Skripts (`ASSETS`) | nichts zu tun |
 
@@ -105,28 +107,31 @@ flowchart LR
 - **Die Seite selbst wird nicht kopiert.** `viewer.js`, `active/`, `vendor/` und die Styles
   kommen beim Bauen aus dem Checkout in die Web-App.
 
-## Auf GitHub Pages
+## Bei Firebase App Hosting
 
-GitHub Pages liefert nur fertige Dateien aus. Es gibt dort keinen Server, auf dem ein Geheimnis
-liegen oder ein Token getauscht werden könnte. Geprüft am 6. Oktober 2026:
+Der Weg dorthin: Zuerst war GitHub Pages gewählt. Dort gibt es keinen Anmelde-Knopf, weil Pages
+nur Dateien ausliefert und GitHubs Adressen für den Token-Tausch sich von einer Webseite nicht
+aufrufen lassen (geprüft am 6. Oktober 2026). Firebase App Hosting führt die Next.js-App samt
+Server-Teil aus; damit geht die Anmeldung so, wie sie oben gezeichnet ist.
 
-| Punkt | Befund |
+| Punkt | Befund aus der Firebase-Doku |
 |---|---|
-| Pages für dieses Repository | Abgelehnt: „Your current plan does not support GitHub Pages for this repository." Das Repository ist privat, und Pages aus einem privaten Repository gibt es erst ab GitHub Pro |
-| Anmeldung mit GitHub aus dem Browser | Geht nicht. Die Adressen für den Gerätecode und den Token-Tausch erlauben keine Aufrufe von einer Webseite (kein CORS); der Web-Ablauf braucht ohnehin das Client-Secret |
-| Lesen aus dem Browser | Geht. `api.github.com` erlaubt Aufrufe von jeder Webseite, mit einem Token |
-| Next.js ohne Server | Geht als statischer Export (`output: "export"`), unter `https://henrischulz.github.io/mdview/` |
+| Tarif | nur im Bezahltarif (Blaze) |
+| Next.js | ab 13.5 |
+| Woher gebaut wird | aus einem verbundenen GitHub-Repository; jeder Push auf den Live-Branch (`main`) veröffentlicht von selbst |
+| App in einem Unterordner | „App root directory", hier `/web` |
+| Einstellungen | `web/apphosting.yaml`: Größe und Zahl der Instanzen, Umgebungsvariablen |
+| Geheimnisse | `firebase apphosting:secrets:set NAME`; sie liegen in Googles Secret Manager, nicht im Repository |
+| Adresse | `<backend>--<projekt>.<region>.hosted.app`; eine eigene Domain lässt sich später verbinden |
 
-Daraus folgt für die Lese-Fassung:
+Daraus folgt:
 
-- **Kein Server-Teil.** Die Kästen „Anmeldung, Sitzung", `/api` und `/file` aus dem Bild oben
-  entfallen. Die Hülle im Browser spricht direkt mit `api.github.com`.
-- **Das Token liegt im Browser**, nicht in einem Cookie des Servers. Bilder und PDFs holt die
-  Hülle mit dem Token und reicht sie der Seite als lokale Adressen.
-- **Die Seite selbst ist öffentlich**, wie alles auf Pages. Sie enthält keine Notizen: Die holt
-  erst der Browser, mit dem Token, direkt bei GitHub.
-- **Bauen und Ausliefern** übernimmt ein Workflow in `.github/workflows/`, bei jedem Push auf
-  `main`.
+- **Der Aufbau oben gilt:** Anmeldung und Sitzung auf dem Server, das Token in einem
+  verschlüsselten Cookie, der Browser spricht nur mit der eigenen App.
+- **Die Anmeldung hält**, solange das Auffrischtoken gilt (sechs Monate ohne Gebrauch): Der
+  Server erneuert das Token selbst.
+- **Kosten:** Die App läuft nur, wenn jemand sie aufruft (`minInstances: 0`). Der erste Aufruf
+  nach einer Pause dauert dafür ein paar Sekunden.
 
 ## Schreiben
 
@@ -156,7 +161,7 @@ gezeigt, eine mit Entwurf beim nächsten Commit zusammengeführt.
 |---|---|
 | Wo die App liegt | Ordner `web/` in diesem Repository, mit eigenem `package.json`. Die Desktop-App braucht weiterhin kein Node |
 | Next.js | Version 16, App Router |
-| Anmeldung | Offen, siehe „Offene Entscheidungen". Mit einem Server: eigene, kleine Umsetzung aus zwei Routen und einem verschlüsselten Cookie, ohne Auth.js. Auf Pages: ein eingefügtes Token oder ein kleiner Dienst nur für die Anmeldung |
+| Anmeldung | Der Knopf „Mit GitHub anmelden": der Web-Ablauf derselben GitHub App mit PKCE, in zwei Routen der App (hin, zurück) und einem verschlüsselten Cookie. Kein Auth.js, kein Firebase Authentication |
 | Zugang | Ohne Anmeldung zeigt die App nur die Anmeldeseite |
 | Was ein Projekt ist | Wie am Desktop: ein Repository mit `.mdview/project.json`. Eines ohne wird nur gelesen; „Use This Repository" schreibt die Markerdatei als Commit |
 | Zustand des Nutzers | Tabs, zuletzt geöffnet, Einstellungen: im Browser, je Repository. Nichts davon auf dem Server |
@@ -169,19 +174,31 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ### 1. Die Naht festschreiben
 
-- Die 60 Nachrichten und 31 Aufrufe als TypeScript-Typen in `web/host/contract.ts`, jede
-  markiert: übernehmen, neu bauen, entfällt.
+- Die 64 Nachrichten und 29 Aufrufe stehen in `web/host/contract.ts`, jede mit dem, was die
+  Web-Hülle damit tut: beantworten (23 und 15), schreiben (11 und 9, in der Lese-Fassung
+  abgelehnt), im Browser erledigen (8 und 2), entfällt (22 und 3). Die Liste ist gegen
+  `shell.rs` abgeglichen: nichts fehlt, nichts ist erfunden.
 - Das HTML-Gerüst der Seite (heute in `shell.rs` zusammengesetzt: CSP, Styles, Skriptliste) so
   herausziehen, dass beide Hüllen dieselbe Liste benutzen.
 - Prüfung: Die Desktop-App läuft unverändert durch `dev/rig.sh`.
 
 ### 2. Gerüst und Anmeldung
 
-- `web/` mit Next.js; Bauschritt, der die Seite aus dem Checkout holt.
-- Anmeldung über den Web-Ablauf mit PKCE, Sitzung im Cookie, Erneuern des Tokens, Abmelden.
-- Die Seite nach der Anmeldung: die freigegebenen Repositories, mit Suche, nichts vorausgewählt.
-- Prüfung: Tests gegen ein GitHub-Double (das aus `dev/fake-github.py` wird dafür erweitert);
-  von Hand gegen GitHub. Braucht von dir die Callback-URL und das Client-Secret, siehe unten.
+- `web/`: Next.js 16 mit dem App Router. `scripts/assets.mjs` holt die Seite der Desktop-App
+  beim Bauen aus dem Checkout nach `public/app/`.
+- Anmeldung in vier Routen unter `app/auth/`: hin zu GitHub (mit `state` und PKCE), zurück
+  (Tausch des Codes mit dem Client-Secret), Erneuern, Abmelden. `proxy.ts` lässt ohne Sitzung
+  nur die Anmeldeseite durch.
+- Die Sitzung (`lib/session.ts`) liegt verschlüsselt in einem Cookie, das Skripte nicht lesen
+  können; auf dem Server wird nichts gespeichert. Das Token wird fünf Minuten vor Ablauf
+  erneuert, und zwar je Auffrischtoken nur einmal, auch wenn zwei Anfragen gleichzeitig kommen.
+  Die Anmeldung hält damit, bis man sich abmeldet oder sechs Monate nicht da war.
+- Nach der Anmeldung: die freigegebenen Repositories mit Suchfeld, nichts vorausgewählt.
+- `apphosting.yaml`: eine Instanz, die schläft, wenn niemand da ist; die beiden Geheimnisse.
+- Prüfung: `npm run build && npm test` in `web/` – 7 Tests spielen einen Browser gegen ein
+  GitHub-Double: ohne Anmeldung nichts, hin und zurück, falsche Antworten, Ziel nach der
+  Anmeldung (nie eine fremde Adresse), Erneuern auch bei zwei Anfragen zugleich, Abmelden, ein
+  gefälschtes Cookie. Gegen das echte GitHub steht es aus.
 
 ### 3. Lesen
 
@@ -212,14 +229,17 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
 
 ## Was du dafür tun musst
 
-Erst für Schritt 2, und erst, wenn feststeht, wo die App läuft:
+Sobald das Gerüst der Web-App im Repository liegt:
 
-1. In den Einstellungen der GitHub App die **Callback URL** der Web-App eintragen, etwa
-   `https://<deine-adresse>/auth/callback`. Für die Entwicklung zusätzlich
-   `http://localhost:3000/auth/callback`.
-2. Dort ein **Client-Secret** erzeugen. Es kommt als Umgebungsvariable auf den Server und in
-   eine Datei `web/.env.local`, die nicht ins Repository geht. Mir musst du es nicht geben, wenn
-   du es selbst dort einträgst.
+1. In der Firebase-Konsole das Projekt wählen oder anlegen (Bezahltarif) und unter **App
+   Hosting** ein Backend anlegen: mit GitHub verbinden, das Repository `henriSchulz/mdview`
+   wählen, „App root directory" `/web`, Live-Branch `main`. Firebase nennt danach die Adresse.
+2. In den Einstellungen der GitHub App die **Callback URL** `https://<adresse>/auth/callback`
+   eintragen (für die Entwicklung zusätzlich `http://localhost:3000/auth/callback`) und ein
+   **Client-Secret** erzeugen.
+3. Im Terminal, im Ordner `web/`: `npx firebase-tools login`, dann
+   `npx firebase-tools apphosting:secrets:set GITHUB_CLIENT_SECRET` (fragt nach dem Wert) und
+   ebenso `SESSION_SECRET` (eine lange Zufallsfolge). Das Secret brauche ich nicht.
 
 ## Risiken
 
@@ -242,30 +262,7 @@ Erst für Schritt 2, und erst, wenn feststeht, wo die App läuft:
 
 ## Offene Entscheidungen
 
-Entschieden ist: zuerst nur Lesen (Schritte 1 bis 3), und GitHub Pages aus diesem Repository.
-Offen sind die zwei Fragen, die daraus entstehen.
-
-### 1. Wie wird Pages möglich?
-
-| Weg | Was es heißt |
-|---|---|
-| Repository öffentlich machen | Kostet nichts. Der ganze Quelltext und seine Historie werden für alle lesbar; vorher gehört die Historie auf Geheimnisse durchsucht |
-| GitHub Pro | Rund 4 $ im Monat. Das Repository bleibt privat, Pages geht; die Seite selbst ist trotzdem öffentlich |
-| Eigenes öffentliches Repository nur für die gebaute App | Kostet nichts, der Quelltext bleibt privat. Ein Workflow hier baut und schiebt das Ergebnis dorthin. Die Adresse wäre dann `henrischulz.github.io/<name>/`, nicht aus diesem Repository |
-
-### 2. Wie meldet man sich an?
-
-| Weg | Was es heißt |
-|---|---|
-| Zugriffstoken einfügen | Du erzeugst bei GitHub ein Token nur zum Lesen deiner Notiz-Repositories und fügst es einmal in die Web-App ein; es bleibt im Browser. Kein weiterer Anbieter, passt zu „nur Lesen". Es ist kein „Mit GitHub anmelden"-Knopf |
-| Kleiner Dienst nur für die Anmeldung | Ein einzelner Funktionsaufruf bei einem anderen Anbieter (etwa Cloudflare Workers) tauscht den Code gegen das Token. Dann gibt es den Anmelde-Knopf, aber dein Client-Secret liegt dort |
-| Doch ein Server statt Pages | Wie im ursprünglichen Aufbau oben, bei Vercel oder auf eigenem Rechner |
-
-Für die Lese-Fassung passt das eingefügte Token am besten zu „vorerst auf GitHub". Spätestens
-mit dem Schreiben (Schritt 4) lohnt die Frage noch einmal: Ein Token mit Schreibrecht im Browser
-ist heikler als eines nur zum Lesen.
-
-### 3. Nur für dich oder für andere?
-
-Mit eingefügtem Token stellt sich die Frage nicht: Jeder bräuchte sein eigenes Token. Mit einem
-Anmelde-Dienst müsste die GitHub App auf „Any account" umgestellt werden.
+1. **Bleibt das Repository öffentlich?** Es wurde für GitHub Pages öffentlich gemacht. App
+   Hosting baut auch aus einem privaten Repository.
+2. **Nur für dich oder für andere?** Die GitHub App ist „Only on this account". Sollen andere
+   die Web-App benutzen, muss sie „Any account" werden.

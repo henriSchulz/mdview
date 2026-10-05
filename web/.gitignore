@@ -1,0 +1,7 @@
+node_modules/
+.next/
+next-env.d.ts
+.env.local
+# the page's own files, copied from the checkout when the app is built (scripts/assets.mjs)
+public/app/
+*.tsbuildinfo
