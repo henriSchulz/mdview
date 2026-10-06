@@ -132,6 +132,21 @@ test("the sidebar and the tabs", async () => {
   assert.deepEqual(await tabNames(), ["Second note", "Home"]);
 });
 
+test("a shared note's sign stands at the end of its row, and the row keeps its name", async () => {
+  gh.repo.files.set(".mdview/shares.json", Buffer.from(JSON.stringify({ version: 1, shares: { q: { path: "Second note.md", password: null } } })));
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await page.waitForFunction(() => !!document.querySelector('.sb-row[data-real="/octo/notes/Second note.md"] .sb-shared'), null, { timeout: 10000 });
+  // drawn anew (the sidebar shows titles, then names again): the sign is still the sign, the name the name
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "sidebar", titles: true })));
+  await page.waitForTimeout(700);
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "sidebar", titles: false })));
+  await page.waitForTimeout(700);
+  assert.deepEqual(await page.evaluate(() => { const r = document.querySelector('.sb-row[data-real="/octo/notes/Second note.md"]'); return [r.querySelector(".sb-label").textContent, r.querySelector(".sb-shared").textContent.trim(), !!r.querySelector(".sb-shared svg")]; }), ["Second note", "", true]);
+  gh.repo.files.delete(".mdview/shares.json");
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await page.waitForFunction(() => !document.querySelector(".sb-shared"), null, { timeout: 10000 });
+});
+
 test("a file's menu offers what a browser can do, and calls it what it is here", async () => {
   await page.click('.sb-row[data-real="/octo/notes/Second note.md"]', { button: "right" });
   await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });

@@ -334,10 +334,11 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
   rectangle pulled from the empty space selects those it reaches. A block dragged to the
   window's upper or lower edge scrolls the page along.
-- **Tab beyond lists**: Markdown stands a block further in as part of a list's item. So `Tab` puts
-  a paragraph, a code block or a table right below a list into that list's last item, and the
-  first item of a list under the list right above it; `Shift+Tab` takes a block that is part of
-  an item out again. Where nothing stands above to go under, `Tab` does nothing.
+- **Tab stands any block further in**, `Shift+Tab` takes it out again. Right below a list — also
+  across an empty line — a paragraph, a code block or a table goes into that list's last item,
+  and the first item of a list under the list above it. Where no list is above, the block goes
+  into a quote that is nothing but standing further in: written `> [!indent]`, drawn without a
+  bar or a tint. The next block indented joins it; `Tab` again in it goes one further in.
 - **Tables** are edited in their cells; handles over a column and beside a row open a menu and can
   be dragged to move it.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket

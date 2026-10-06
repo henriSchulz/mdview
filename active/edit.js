@@ -263,14 +263,22 @@
    * item's first) out again, to below the item, with what follows it there.
    * Both give the transaction and where the blocks are then: { tr, at }, or null where there is
    * nothing to stand under. */
+  // The list above a place among siblings — also across empty lines between them (a list ended
+  // with an empty line, and written on below it: the interruption is no reason to stay out).
+  // → { list, gap: where the empty lines begin }, or null
+  function listAbove(parent, index, pos) {
+    let gap = pos;
+    while (index > 0 && parent.child(index - 1).type === N.paragraph && parent.child(index - 1).content.size === 0) gap -= parent.child(--index).nodeSize;
+    const list = index > 0 ? parent.child(index - 1) : null;
+    return list && isList(list) && list.lastChild ? { list, gap } : null;
+  }
   function indentBlocks(state, from, to) {
-    const $from = state.doc.resolve(from), parent = $from.parent, index = $from.index();
-    const prev = index > 0 ? parent.child(index - 1) : null;
-    if (!prev || !isList(prev) || !prev.lastChild) return null;
-    const content = state.doc.slice(from, to).content;
-    if (!prev.lastChild.type.validContent(prev.lastChild.content.append(content))) return null;
-    const at = from - 2; // (in the list above, at the end of its last item)
-    return { tr: state.tr.delete(from, to).insert(at, content).setMeta("step", true), at };
+    const $from = state.doc.resolve(from), above = listAbove($from.parent, $from.index(), from);
+    if (!above) return null;
+    const content = state.doc.slice(from, to).content, into = above.list.lastChild;
+    if (!into.type.validContent(into.content.append(content))) return null;
+    const at = above.gap - 2; // (in the list above, at the end of its last item)
+    return { tr: state.tr.delete(above.gap, to).insert(at, content).setMeta("step", true), at };
   }
   // the first item of a list right below another list: under that list's last item, as a list of its own there
   function sinkFirstItem(state, dispatch) {
@@ -278,14 +286,16 @@
     if (!item) return false;
     const $item = state.doc.resolve(item.pos), list = $item.parent, listPos = $item.before();
     if ($item.index() !== 0) return false;
-    const $list = state.doc.resolve(listPos), above = $list.index() > 0 ? $list.parent.child($list.index() - 1) : null;
-    if (!above || !isList(above) || !above.lastChild) return false;
-    const nested = Fragment.from(list.type.create(list.attrs, item.node)), into = above.lastChild;
+    const $list = state.doc.resolve(listPos), above = listAbove($list.parent, $list.index(), listPos);
+    if (!above) return false;
+    const nested = Fragment.from(list.type.create(list.attrs, item.node)), into = above.list.lastChild;
     if (!into.type.validContent(into.content.append(nested))) return false;
     if (dispatch) {
       const alone = list.childCount === 1, from = alone ? listPos : item.pos, to = alone ? listPos + list.nodeSize : item.pos + item.node.nodeSize;
-      const at = listPos - 2, inItem = state.selection.from - item.pos;
-      const tr = state.tr.delete(from, to).insert(at, nested);
+      const at = above.gap - 2, inItem = state.selection.from - item.pos;
+      const tr = state.tr.delete(from, to);
+      if (above.gap < listPos) tr.delete(above.gap, listPos); // (the empty lines between the two lists go: they are one now)
+      tr.insert(at, nested);
       dispatch(tr.setSelection(Selection.near(tr.doc.resolve(at + 1 + inItem), 1)).scrollIntoView().setMeta("step", true));
     }
     return true;
@@ -303,6 +313,29 @@
     tr.insert(after + 1, content);
     return { tr: tr.setMeta("step", true), at: after + 1 };
   }
+  /* Further in where no list stands above: Markdown has no way to say that of a paragraph, a
+   * table or a heading — but a quote, and the app's quotes can look like anything. So what is
+   * indented without a list goes into a quote that is nothing but standing further in
+   * ([!indent]; viewer.js) — the one right above it, if there is one, else one of its own.
+   * Shift+Tab takes it out again. */
+  const isIndent = (n) => !!n && n.type === N.blockquote && n.attrs.deco === "indent";
+  function indentPlain(state, from, to) {
+    const $from = state.doc.resolve(from), parent = $from.parent, index = $from.index();
+    const prev = index > 0 ? parent.child(index - 1) : null, content = state.doc.slice(from, to).content;
+    if (isIndent(prev)) return { tr: state.tr.delete(from, to).insert(from - 1, content).setMeta("step", true), at: from - 1 };
+    const quote = N.blockquote.createAndFill({ deco: "indent" }, content);
+    if (!quote || !parent.canReplaceWith(index, $from.doc.resolve(to).index(), N.blockquote)) return null;
+    return { tr: state.tr.replaceWith(from, to, quote).setMeta("step", true), at: from + 1 };
+  }
+  // the blocks from..to, children of a quote that only indents: out of it (the quote splits around them, and goes when nothing is left in it)
+  function outdentPlain(state, from, to) {
+    const $from = state.doc.resolve(from), $to = state.doc.resolve(to);
+    if (!isIndent($from.parent) || $from.parent !== $to.parent) return null;
+    const range = new PM.model.NodeRange($from, $to, $from.depth), target = PM.transform.liftTarget(range);
+    if (target == null) return null;
+    const tr = state.tr.lift(range, target).setMeta("step", true);
+    return { tr, at: tr.mapping.map(from, 1) };
+  }
   const withCaret = (state, dispatch, made, was) => {
     if (!made) return false;
     if (dispatch) dispatch(made.tr.setSelection(Selection.near(made.tr.doc.resolve(Math.min(made.at + (state.selection.from - was), made.tr.doc.content.size)), 1)).scrollIntoView());
@@ -316,12 +349,37 @@
       if (made && dispatch) dispatch(made.tr.setSelection(NodeSelection.create(made.tr.doc, made.at)).scrollIntoView());
       return !!made;
     }
-    if (itemAt($from)) return sinkFirstItem(state, dispatch);
+    const item = itemAt($from);
+    if (item) {
+      if (sinkFirstItem(state, dispatch)) return true;
+      // the first item of a list with no list above it: the list as a whole stands further in
+      const from = state.doc.resolve(item.pos).before(), to = from + state.doc.nodeAt(from).nodeSize;
+      return withCaret(state, dispatch, indentPlain(state, from, to), from);
+    }
     if ($from.depth < 1) return false;
-    const d = A.columns.around($from) ? $from.sharedDepth(A.columns.around($from).colPos + 1) + 1 : 1; // (in a column: one of its own blocks)
+    const d = blockDepth($from);
     if ($from.depth < d) return false;
-    const from = $from.before(d);
-    return withCaret(state, dispatch, indentBlocks(state, from, $from.after(d)), from);
+    const from = $from.before(d), to = $from.after(d);
+    return withCaret(state, dispatch, indentBlocks(state, from, to) || indentPlain(state, from, to), from);
+  };
+  // the depth of the block the caret is in, as a whole: a child of the document, of a column, or of a quote that only indents
+  function blockDepth($from) {
+    let d = A.columns.around($from) ? $from.sharedDepth(A.columns.around($from).colPos + 1) + 1 : 1;
+    for (let k = $from.depth; k > d; k--) if (isIndent($from.node(k - 1))) { d = k; break; }
+    return d;
+  }
+  // Shift+Tab in what a quote that only indents holds: out of it — the block, or the list whose item the caret is in (not one of a list below that)
+  const untabPlain = (state, dispatch) => {
+    const { $from } = state.selection;
+    for (let k = $from.depth; k > 0; k--) {
+      if (!isIndent($from.node(k - 1))) continue;
+      const block = $from.node(k);
+      // (in a list: only from one of its own items, in that item's first paragraph — further down, Shift+Tab is the lists')
+      if (isList(block) && !($from.depth === k + 2 && $from.node(k + 1).type === N.list_item && $from.index(k + 1) === 0)) return false;
+      const from = $from.before(k);
+      return withCaret(state, dispatch, outdentPlain(state, from, $from.after(k)), from);
+    }
+    return false;
   };
   // Shift+Tab in a block that is part of an item but not its first: out of the item
   const untabBlock = (state, dispatch) => {
@@ -358,7 +416,7 @@
     "Mod-[": L.liftListItem(N.list_item),
     // (A.tableui and A.islands are loaded by the time a key is pressed)
     Tab: C.chainCommands((s, d, v) => A.tableui.tab(1)(s, d, v), inList(L.sinkListItem(N.list_item)), tabBlock, swallow),
-    "Shift-Tab": C.chainCommands((s, d, v) => A.tableui.tab(-1)(s, d, v), untabBlock, inList(L.liftListItem(N.list_item)), swallow),
+    "Shift-Tab": C.chainCommands((s, d, v) => A.tableui.tab(-1)(s, d, v), untabBlock, untabPlain, inList(L.liftListItem(N.list_item)), swallow),
     "Mod-Enter": toggleTask,
     "Shift-Enter": C.chainCommands((s) => A.tableui.noBreak(s), hardBreak),
     Enter: C.chainCommands(openSelected, (s, d, v) => A.tableui.enter(s, d, v), (s, d, v) => A.islands.onEnter(s, d, v), (s, d) => A.tableui.make(s, d), ruleOnEnter, enterInList, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
@@ -801,6 +859,6 @@
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
-    itemAt, ancestor, indentBlocks, outdentBlocks,
+    itemAt, ancestor, indentBlocks, outdentBlocks, indentPlain, outdentPlain,
   };
 })();

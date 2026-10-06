@@ -147,6 +147,8 @@ blockquote > :last-child { margin-bottom: 0; }
 blockquote.deco { --cc: var(--accent); --ct: var(--fg2); color: var(--fg); }
 blockquote.deco-block { padding: 10px 14px; border-left: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--ct) 10%, transparent); }
 blockquote.deco-focus { border-left: 3px solid var(--cc); }
+/* [!indent]: what is in it stands further in, and nothing else */
+blockquote.deco-indent { margin-inline: 0; padding: 0 0 0 2em; border: 0; border-radius: 0; background: none; color: inherit; font-style: inherit; }
 blockquote.deco-red { --cc: var(--c-red); --ct: var(--c-red); }
 blockquote.deco-orange { --cc: var(--c-orange); --ct: var(--c-orange); }
 blockquote.deco-yellow { --cc: var(--c-yellow); --ct: var(--c-yellow); }

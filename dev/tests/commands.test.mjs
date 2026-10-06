@@ -183,10 +183,43 @@ test("Tab and Shift+Tab on what is no item of a list", () => {
   e.apply(e.state.tr.setSelection(PM.state.NodeSelection.create(e.state.doc, e.state.doc.firstChild.nodeSize)));
   assert.ok(e.press("Tab"));
   is(e, "- one\n  ```\n  code\n  ```\n");
-  // nothing above to stand under: nothing happens
-  e = doc("first\n\nsecond\n").caretAfter("second");
+  // no list above to stand under: further in all the same — a quote that is nothing but that
+  e = doc("first\n\nsecond\n\nthird\n").caretAfter("second");
+  assert.ok(e.press("Tab"));
+  is(e, "first\n\n> [!indent]\n> second\n\nthird\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "second");
+  assert.equal(e.state.selection.$from.parentOffset, 6);
+  // the next block goes into the same one; Tab again in it: one further in
+  e.caretAfter("third");
   e.press("Tab");
-  is(e, "first\n\nsecond\n");
+  is(e, "first\n\n> [!indent]\n> second\n>\n> third\n");
+  e.press("Tab");
+  is(e, "first\n\n> [!indent]\n> second\n>\n> > [!indent]\n> > third\n");
+  // … and out again, step by step; the quote goes with the last block that leaves it
+  e.press("Shift-Tab");
+  is(e, "first\n\n> [!indent]\n> second\n>\n> third\n");
+  e.press("Shift-Tab");
+  is(e, "first\n\n> [!indent]\n> second\n\nthird\n");
+  e.caretAfter("second");
+  e.press("Shift-Tab");
+  is(e, "first\n\nsecond\n\nthird\n");
+  assert.ok(e.press("Shift-Tab")); // (nothing left to come out of: nothing changes)
+  is(e, "first\n\nsecond\n\nthird\n");
+  // a heading, and a list with nothing above it — its first item
+  e = doc("# Title\n\n- one\n- two\n").caretAfter("one");
+  e.press("Tab");
+  is(e, "# Title\n\n> [!indent]\n> - one\n> - two\n");
+  e.caretAfter("two");
+  e.press("Tab");                       // (the second item: under the first, as ever)
+  is(e, "# Title\n\n> [!indent]\n> - one\n>   - two\n");
+  e.caretAfter("one");
+  e.press("Shift-Tab");                 // (the list out of the quote, as it went in)
+  is(e, "# Title\n\n- one\n  - two\n");
+  // written by hand, it is read as what it is
+  e = doc("> [!indent]\n> stands further in\n").caretAfter("further");
+  assert.equal(e.state.doc.firstChild.attrs.deco, "indent");
+  e.press("Shift-Tab");
+  is(e, "stands further in\n");
   // out of the middle of a list: the items below are a list of their own, below what came out
   e = doc("- one\n\n  more of one\n- two\n").caretAfter("more");
   assert.ok(e.press("Shift-Tab"));
@@ -204,6 +237,27 @@ test("Tab and Shift+Tab on what is no item of a list", () => {
   assert.ok(e.press("Tab"));
   is(e, "- one\n  1. two\n\n1. three\n");
   assert.equal(e.state.selection.$from.parent.textContent, "two");
+});
+
+test("Tab across an empty line: a list that was ended and written on below", () => {
+  // as it is typed: a list, Enter twice (the list ends, an empty line), then a new list below it
+  let e = doc("- one\n- two\n").caretAfter("two");
+  e.press("Enter"); e.press("Enter"); // (out of the list: an empty line below it; the new list is put in as typing "- " makes it)
+  const N = A.schema.nodes, end = e.state.doc.content.size;
+  e.apply(e.state.tr.insert(end, N.bullet_list.create(null, N.list_item.create(null, N.paragraph.create(null, A.schema.text("three"))))));
+  e.caretAfter("three");
+  const kinds = []; e.state.doc.forEach((n) => kinds.push(n.type.name + ":" + n.content.size));
+  assert.match(kinds.join(" "), /^bullet_list:\d+ paragraph:0 bullet_list:\d+$/); // (a list, an empty line, a list)
+  assert.ok(e.press("Tab"));
+  is(e, "- one\n- two\n  - three\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "three");
+  // a paragraph below a list and an empty line: into the list's last item as well
+  e = doc("- one\n").caretAfter("one");
+  e.press("Enter"); e.press("Enter");
+  e.apply(e.state.tr.insert(e.state.doc.content.size, N.paragraph.create(null, A.schema.text("below"))));
+  e.caretAfter("below");
+  assert.ok(e.press("Tab"));
+  is(e, "- one\n\n  below\n");
 });
 
 test("tasks", () => {

@@ -237,6 +237,24 @@ test("a note dragged into a folder, and a folder into another: the same files un
   assert.ok(gh.commits.length >= before + 2);
 });
 
+test("Tab stands any block further in: where no list is above, as a quote that only indents", async () => {
+  put("Indent.md", "# Indent\n\nfirst\n\nsecond\n");
+  await open("Indent.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text === "second") at = pos + 3; }); v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
+  await page.keyboard.press("Tab");
+  assert.equal(await page.evaluate(() => MdActive.view.serialize()), "# Indent\n\nfirst\n\n> [!indent]\n> second\n");
+  // it looks like nothing but standing further in: no bar, no tint — in the active mode and when read
+  const look = (root) => page.evaluate((root) => { const q = document.querySelector(root + " blockquote.deco-indent"), p = q.querySelector("p"), first = document.querySelector(root + " p"), s = getComputedStyle(q); return [Math.round(p.getBoundingClientRect().left - first.getBoundingClientRect().left) > 16, s.borderLeftWidth, s.backgroundColor]; }, root);
+  assert.deepEqual(await look(".pm"), [true, "0px", "rgba(0, 0, 0, 0)"]);
+  await until(() => /> \[!indent\]\n> second/.test(text("Indent.md") || ""), "written");
+  await page.evaluate(() => MdView.setMode("read"));
+  await page.waitForFunction(() => (document.body.dataset.view || "read") === "read" && document.querySelector("#content blockquote.deco-indent"), null, { timeout: 8000 });
+  assert.deepEqual(await look("#content"), [true, "0px", "rgba(0, 0, 0, 0)"]);
+  assert.ok(!/indent/.test(await page.evaluate(() => document.querySelector("#content").innerText))); // (the word that says so is not shown)
+});
+
 test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
   put("Lost.md", "# Lost\n\na line\n");
   await open("Lost.md");

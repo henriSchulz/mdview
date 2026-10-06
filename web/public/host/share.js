@@ -15,9 +15,12 @@
   const NOT_SHARED = "This was not shared with the note";
   let prefs = { ...window.MdPrefs }, note = null; // note: { path, text, links, vault }
 
+  // (the note is there, or it is said why not: the window's ring has done its part)
+  const shown = () => { const boot = document.getElementById("boot"); if (boot) { boot.dataset.done = ""; setTimeout(() => boot.remove(), 600); } };
   function render(more = {}) {
     tell("render", { name: C.nameOf(note.path), path: note.path, base: fileUrl(C.dirOf(note.path)) + "/", text: note.text, links: note.links, vault: note.vault,
       readonly: "a shared note", canBack: false, error: null, fragment: location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : null, startMode: "read", ...more });
+    requestAnimationFrame(shown);
   }
   /* The note as it is now: asked for again when the tab is come back to, shown anew if it changed. */
   async function look() {
@@ -80,6 +83,7 @@
     const waiting = window.MdHost.said || [];
     window.MdHost.post = hear;
     try { if (!(await look()) && !note) return; } catch (e) {
+      shown();
       return void tell("render", { name: "Shared note", path: BASE, base: FILES + "/", text: "", links: {}, error: String(e.message || e), readonly: "a shared note", canBack: false });
     }
     render();

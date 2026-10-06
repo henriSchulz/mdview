@@ -35,6 +35,17 @@ export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\
 const LACKS = ["default", "openwith", "reveal"];
 const LABELS = { trash: "Delete" };
 
+// While a shared note is on its way — the page's scripts, then the note itself — the whole window
+// says so: a ring that turns, in the middle of it. Not at once (what comes within a moment needs no
+// waiting shown: motion.css, --loading-delay), and it fades when the note is there (share.js).
+const BOOT = `<div id='boot' role='status' aria-label='Loading'><span class='boot-ring'></span></div>`;
+const BOOT_CSS =
+  `#boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--c-background);transition:opacity var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base)}` +
+  `#boot[data-done]{opacity:0;visibility:hidden;pointer-events:none}` +
+  `.boot-ring{width:28px;height:28px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--c-foreground) 14%,transparent);border-top-color:var(--c-accent);opacity:0;animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards,boot-turn .9s linear infinite}` +
+  `@keyframes boot-in{to{opacity:1}}@keyframes boot-turn{to{transform:rotate(360deg)}}` +
+  `@media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--c-foreground) 14%,transparent);box-shadow:0 0 0 0 transparent}}`;
+
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
  * reading: the note is only read here (no modes to switch between). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
@@ -59,6 +70,6 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `<base href='${attr(here + o.base)}'>` +
     `<link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
     `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'><link rel='stylesheet' href='${here}${a}/viewer.css'><link rel='stylesheet' href='${here}${a}/overview.css'>` +
-    `</head><body data-mode='light'><main id='content'></main>${scripts}</body></html>`;
+    `${o.reading ? `<style>${BOOT_CSS}</style>` : ""}</head><body data-mode='light'>${o.reading ? BOOT : ""}<main id='content'></main>${scripts}</body></html>`;
   return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": o.referrer || "same-origin", "X-Robots-Tag": "noindex" } });
 }

@@ -356,8 +356,9 @@
       if (!m) continue;
       const type = m[1].toLowerCase();
       // a decoration: a quote with a look of its own and no title — [!block], [!focus|red], or both
-      // at once, [!block-focus]. It stays a quote.
-      if (/^(block|focus|block-focus|focus-block)$/.test(type) && !m[3] && !m[4]) {
+      // at once, [!block-focus] — and [!indent]: nothing but standing further in (what Tab makes of
+      // a block that has no list to go under). It stays a quote.
+      if (/^(block|focus|block-focus|focus-block|indent)$/.test(type) && !m[3] && !m[4]) {
         const color = DECO_COLORS.includes((m[2] || "").trim().toLowerCase()) ? m[2].trim().toLowerCase() : null;
         const deco = type.includes("-") ? "block-focus" : type;
         open.attrJoin("class", "deco " + deco.split("-").map((d) => "deco-" + d).join(" ") + (color ? ` deco-${color}` : ""));
@@ -2209,7 +2210,7 @@
       const at = prev ? prev.nextSibling : box.firstChild;
       if (at !== el) box.insertBefore(el, at);
       prev = el;
-      const row = el.firstChild.firstChild, label = row.lastChild;
+      const row = el.firstChild.firstChild, label = row.querySelector(".sb-label"); // (not the row's last child: a shared note has its sign there)
       if (label.textContent !== e.label) label.textContent = e.label;
       row.title = e.note ? e.note.path.slice(folder.root.length + 1) : "";
       if (e.dir) {

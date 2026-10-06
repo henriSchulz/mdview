@@ -346,7 +346,8 @@
         return true;
       }
       // blocks: under the list above them, or out of the item they are part of (edit.js)
-      const made = e.shiftKey ? A.edit.outdentBlocks(v.state, r.from) : A.edit.indentBlocks(v.state, r.from, r.to);
+      // (… and where no list is: into, or out of, a quote that only indents)
+      const made = e.shiftKey ? A.edit.outdentBlocks(v.state, r.from) || A.edit.outdentPlain(v.state, r.from, r.to) : A.edit.indentBlocks(v.state, r.from, r.to) || A.edit.indentPlain(v.state, r.from, r.to);
       if (!made) return true;
       const size = r.to - r.from;
       let last = made.at;

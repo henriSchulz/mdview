@@ -112,11 +112,14 @@ test("Tab and Shift+Tab on selected blocks: further in together, and out again",
   // … and out again with Shift+Tab
   v.key("Tab", { shiftKey: true });
   assert.equal(v.md(), "- one\n\nbelow\n\n```\ncode\n```\n\nafter\n");
-  // nothing above to stand under: nothing changes, the key is not the text's
-  v = open("first\n\nsecond\n", "second");
-  v.key("Escape");
+  // no list above: further in all the same, together, in a quote that only indents — and out again
+  v = open("first\n\nsecond\n\nthird\n", "second");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
   assert.ok(v.key("Tab"));
-  assert.equal(v.md(), "first\n\nsecond\n");
+  assert.equal(v.md(), "first\n\n> [!indent]\n> second\n>\n> third\n");
+  assert.equal(v.blocks().b - v.blocks().a, 1);
+  v.key("Tab", { shiftKey: true });
+  assert.equal(v.md(), "first\n\nsecond\n\nthird\n");
 });
 
 test("the / menu for selected blocks: for all of them at once", () => {

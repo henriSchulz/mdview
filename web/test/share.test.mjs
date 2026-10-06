@@ -169,8 +169,12 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   const page = await (await browser.newContext({ viewport: { width: 1100, height: 800 } })).newPage(), problems = [];
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
+  // while it is on its way the whole window says so; once the note is there, that is gone
+  const res = await (await get(`/s/octo/notes/${OPEN}`)).text();
+  assert.match(res, /<div id='boot' role='status'/);
   await page.goto(`${base}/s/octo/notes/${OPEN}`);
   await page.waitForFunction(() => window.MdView && MdView.core.current && MdView.core.current.name === "Shown.md" && document.querySelector("#content").innerText.length > 0, null, { timeout: 15000 });
+  await page.waitForFunction(() => !document.getElementById("boot"), null, { timeout: 8000 });
   await page.waitForFunction(() => { const i = document.querySelector('#content img[src$="pic.png"]'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 10000 });
   await page.waitForFunction(() => /Embedded text/.test(document.querySelector("#content").innerText), null, { timeout: 10000 });
   await page.waitForFunction(() => { const i = document.querySelector('#content img[src$="inner.png"]'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 10000 }); // (the embedded note's own picture)
