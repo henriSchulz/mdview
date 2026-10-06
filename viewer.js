@@ -2311,7 +2311,11 @@
    * (overview.js uses the same three). The application moves it ("move"). */
   const moving = {
     path: null,
-    start(e, path) { moving.path = path; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path); },
+    // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it)
+    start(e, path, el) {
+      moving.path = path; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
+      if (el) { const r = el.getBoundingClientRect(); e.dataTransfer.setDragImage(el, Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))); }
+    },
     // (not where it is already, not into itself)
     can: (dir) => !!moving.path && !!dir && dir !== moving.path && !dir.startsWith(moving.path + "/") && moving.path.replace(/\/[^/]*$/, "") !== dir,
     end(dir) { const path = moving.path; moving.path = null; if (path && dir) post("move", { path, dir }); },
@@ -2322,7 +2326,7 @@
   sbList.addEventListener("dragstart", (e) => {
     const item = e.target.closest?.(".sb-item");
     if (!item || e.target.closest(".sb-rename")) { e.preventDefault(); return; }
-    moving.start(e, item.dataset.key);
+    moving.start(e, item.dataset.key, item.firstChild.firstChild);
   });
   sbList.addEventListener("dragover", (e) => {
     const [el, dir] = sbDropDir(e);

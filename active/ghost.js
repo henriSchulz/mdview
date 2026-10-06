@@ -94,9 +94,20 @@
     let text = s.text;
     if (part === "word") { const m = /^\s*\S+/.exec(text); text = m ? m[0] : text; }
     const rest = s.text.slice(text.length);
-    const tr = v.state.tr.insertText(text, s.pos).setMeta("step", true);
-    tr.setMeta(key, rest ? { text: rest, pos: s.pos + text.length } : { text: "", pos: 0 });
-    v.dispatch(tr);
+    // What is taken is written as if it had been typed, as far as a formula goes: a dollar that
+    // closes one makes it a formula — the rules that do so when it is typed are asked after every
+    // dollar. (Written in one go, "$x^2$" stayed text with dollars around it.)
+    let at = s.pos;
+    for (const piece of text.split(/(?<=\$)/)) {
+      v.dispatch(v.state.tr.insertText(piece, at).setMeta("step", true).setMeta(key, { text: "", pos: 0 }));
+      at += piece.length;
+      if (piece.endsWith("$") && v.someProp) {
+        const size = v.state.doc.content.size;
+        v.someProp("handleTextInput", (f) => f(v, at, at, ""));
+        at += v.state.doc.content.size - size; // (a formula made of it is one position, not its letters)
+      }
+    }
+    if (rest) v.dispatch(v.state.tr.setMeta(key, { text: rest, pos: at }).setMeta("addToHistory", false));
     return true;
   }
   const plugin = new Plugin({

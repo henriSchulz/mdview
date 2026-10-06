@@ -13,6 +13,7 @@
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
 #   dev/rig.sh graphic [real]        a figure drawn by Claude: dialog, draw, change, reference, insert
+#   dev/rig.sh ghostmath             a continuation that closes a formula: taken, it is one
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
@@ -167,6 +168,14 @@ case "${1:-}" in
     f=$(ls "$R/work"/*.svg 2>/dev/null | head -1)
     [[ -n $f ]] && ! grep -qi '<script\|onclick' "$f" && echo "ok   the figure is a file beside the note ($(basename "$f"), $(wc -c < "$f") bytes), with nothing in it that could run" || echo "FAIL no clean .svg beside the note: $f"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.graphic.json"; } | grep -qv '^ok' ;;
+  ghostmath)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
+    app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"
+    for _ in $(seq 400); do [[ -f $R/out/$name.ghostmath.json ]] && break; sleep 0.1; done; pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
+    [[ -f $R/out/$name.ghostmath.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.ghostmath.json"
+    ! jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghostmath.json" | grep -qv '^ok' ;;
   ghost)
     # the continuation offered while typing; `dev/rig.sh ghost real` asks the real model (the key in ~/.config/mdview/.env)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{shown,ghost}.json

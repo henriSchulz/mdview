@@ -263,11 +263,11 @@
   let into = null;
   const setInto = (t) => { if (into === t) return; if (into) into.classList.remove("drop-into"); into = t; if (t) t.classList.add("drop-into"); };
   const folderAt = (e) => { const t = e.target.closest?.(".ov-item[data-dir]"); return t && core.moving.can(t.dataset.path) ? t : null; };
-  body.addEventListener("dragstart", (e) => { const t = e.target.closest?.(".ov-item"); if (!t || e.target.closest(".ov-rename")) { e.preventDefault(); return; } core.moving.start(e, t.dataset.path); });
+  body.addEventListener("dragstart", (e) => { const t = e.target.closest?.(".ov-item"); if (!t || e.target.closest(".ov-rename")) { e.preventDefault(); return; } t.classList.add("dragged"); core.moving.start(e, t.dataset.path, t); });
   body.addEventListener("dragover", (e) => { const t = folderAt(e); setInto(t); if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } });
   body.addEventListener("dragleave", (e) => { if (!body.contains(e.relatedTarget)) setInto(null); });
   body.addEventListener("drop", (e) => { const t = folderAt(e); setInto(null); if (t) { e.preventDefault(); core.moving.end(t.dataset.path); } });
-  document.addEventListener("dragend", () => setInto(null));
+  document.addEventListener("dragend", () => { setInto(null); for (const t of body.querySelectorAll(".ov-item.dragged")) t.classList.remove("dragged"); });
   // the file menu the sidebar has, for a note or a folder here
   el.addEventListener("contextmenu", (e) => {
     e.preventDefault();

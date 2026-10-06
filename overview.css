@@ -178,3 +178,5 @@ body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12
 
 /* a tile dragged over a folder's: it would go into it */
 .ov-item.drop-into { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--cc, var(--paper, transparent))); }
+/* (the tile that is dragged stands where it stood: pressed and lifted, it would be held beside the pointer) */
+#overview[data-open] .ov-tile.dragged, #overview[data-open] .ov-tile.dragged:hover, #overview[data-open] .ov-tile.dragged:active { transform: none; transition: none; }
