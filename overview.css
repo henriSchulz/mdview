@@ -114,6 +114,13 @@ body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-
 .ov-sep { display: inline-grid; place-items: center; align-self: center; width: 22px; color: var(--fg3); }
 .ov-sep svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .ov-space { flex: 1; }
+/* the + beside the choices: a new note or folder, in the folder shown */
+.ov-add { align-self: center; display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); cursor: default; outline: var(--focus-ring) solid transparent; outline-offset: 2px; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.ov-add:hover, .ov-add.ctx-target { background: color-mix(in srgb, var(--fg) 12%, transparent); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+.ov-add:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.ov-add:focus-visible { outline-color: var(--accent); }
+.ov-add svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ov-add .sf { font-size: 14px; }
 /* two choices, each a capsule whose thumb glides to the chosen one (as the toolbar's mode switch) */
 .ov-seg { position: relative; align-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); user-select: none; -webkit-user-select: none; }
 .ov-opt { position: relative; display: grid; place-items: center; min-width: var(--control-height, 28px); height: calc(var(--control-height, 28px) - 4px); padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--fg2); font: 500 12px/1 var(--ui); white-space: nowrap; cursor: default; transition: color var(--dur-fast) var(--ease-out); }

@@ -29,6 +29,7 @@
     opts.map(([v, text, icon]) => `<button class="ov-opt" role="radio" data-v="${v}" aria-checked="false"${icon ? ` title="${text}" aria-label="${text}"` : ""}>${icon ? ICON[icon] : text}</button>`).join("") + `</div>`;
   el.innerHTML = `<header class="ov-head"><h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
     seg("scope", "Show", [["all", "All Notes"], ["folders", "Folders"]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    `<button class="ov-add" type="button" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
   const body = el.querySelector(".ov-body");
@@ -251,8 +252,10 @@
   body.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".ov-item")) e.preventDefault(); });
   body.addEventListener("auxclick", (e) => { const t = e.target.closest(".ov-item"); if (t && e.button === 1 && !e.target.closest(".ov-rename")) { e.preventDefault(); go(t, true); } });
   el.querySelector(".ov-head").addEventListener("click", (e) => {
-    const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb");
-    if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
+    const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb"), add = e.target.closest(".ov-add");
+    // the + : a new note or folder, in the folder shown (the menu the empty room has)
+    if (add && core.folder) { const r = add.getBoundingClientRect(); core.fileMenu(add, r.right, r.bottom + 4, "blank", scope === "folders" ? place(core.folder.tree).path : core.folder.root); }
+    else if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
     else if (crumb) up(Number(crumb.dataset.up));
   });
   // the file menu the sidebar has, for a note or a folder here
