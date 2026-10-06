@@ -13,7 +13,7 @@ mit GitHub als einziger Quelle. Sie hat keinen eigenen Datenbestand und keine KI
 > [!important] Stand
 > Alle sechs Schritte sind gebaut. Die App läuft als Next.js-App bei **Firebase App Hosting**,
 > gebaut aus diesem Repository (öffentlich, MIT):
-> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 54 Tests in `web/`, davon 27
+> <https://mdview--md-view.europe-west4.hosted.app>. Geprüft mit 59 Tests in `web/`, davon 31
 > in einem echten Browser gegen ein GitHub-Double. Gegen das echte GitHub ist bisher nur die
 > Anmeldung durchlaufen (5. Oktober 2026); Lesen, Schreiben und das Zusammenspiel mit der
 > Desktop-App stehen aus: [[Git-Phase-3-Check]] ist die Liste zum Durchklicken.
@@ -330,6 +330,17 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
     Desktop.
 - **Am Desktop nachgeprüft:** `dev/rig.sh dnd` und `npm test` in `dev/` laufen mit der
   geänderten `active/clip.js` durch.
+- **Keine Konflikte der Notiz mit sich selbst** (6. Oktober 2026, aus der Bugliste). Zwei
+  Ursachen: Erstens waren die Entwürfe ein Haufen je Browser; ein zweiter Tab auf demselben
+  Repository nahm die halb getippten Texte des ersten für seine eigenen und committete sie
+  ebenfalls. Entwürfe gehören jetzt einem Tab (er hält dafür eine Sperre, `navigator.locks`);
+  was ein geschlossener Tab hinterlässt, übernimmt der nächste. Zweitens: Kam die Antwort auf
+  einen Commit nie an (Tab zu, Leitung weg) und wurde weitergeschrieben, stand der Entwurf
+  gegen seinen eigenen Commit. Ein Entwurf merkt sich jetzt, als was er gesendet wurde, und
+  setzt dort fort.
+- **Der Modus bleibt über einen leeren Tab hinweg** (`viewer.js`, auch am Desktop): Nach
+  „All Notes" oder einem leeren Tab kam die nächste Notiz im Lesemodus, und Getipptes ging ins
+  Leere.
 - Prüfung: `test/write.test.mjs` – ein abgelegtes Bild bis zum Markdown in der Notiz, ein
   zweites mit demselben Namen daneben, eine Textdatei abgelehnt; ein PDF umbenannt, Byte für
   Byte; der Verlauf einer umbenannten Notiz bis zur ältesten Version; Einfügen, Bild kopieren,

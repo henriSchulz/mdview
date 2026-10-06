@@ -609,7 +609,7 @@
   loader.setAttribute("aria-hidden", "true");
   document.body.appendChild(loader);
   let goingAt = 0, goingTimer = 0, pendingRender = null, renderFrame = 0;
-  let modeBeforePdf = null; // the mode a note was in when a PDF took its place
+  let modeBeforePdf = null; // the mode a note was in when a PDF took its place, or nothing did (an empty tab, All Notes)
   /* Where each note was left: opened again — after a PDF, another note, in a new window — it stands
    * at that place. Kept as the note is scrolled (the page's own storage, by the file's path). */
   const places = new Map();
@@ -673,8 +673,9 @@
     current = p;
     if (!p.error) trailPush(p.path, p.text);
     // the mode the app was last used in (once, for the window's first note)
-    // back from a PDF: the mode the note before it was in (a PDF has no modes; it only looked like a change to reading)
-    if (prev && prev.kind === "pdf") {
+    // back from a PDF, or from a tab with no note in it: the mode the note before it was in (neither
+    // has modes; it only looked like a change to reading)
+    if (!prev || prev.kind === "pdf") {
       const back = modeBeforePdf;
       modeBeforePdf = null;
       if (back && !p.error && !(back === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") setMode(back); }, 0);
@@ -705,6 +706,7 @@
 
   // A folder window with nothing to show (no notes yet).
   function clear() {
+    if (mode !== "read") modeBeforePdf = mode; // (the note that comes next is in this mode again)
     if (mode === "edit") { flushSave(); leaveEditNow(); }
     if (mode === "active") leaveActiveNow();
     if (window.MdPdf) MdPdf.leave();

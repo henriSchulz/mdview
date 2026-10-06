@@ -35,9 +35,51 @@
   const texts = new Map(); // a blob's id → its text (null: not text)
   // what was written here and is no commit yet: path → { text, base } (base: the blob it was
   // written over; null: the file is new), the files deleted here, the folders made here
-  const drafts = new Map(Object.entries(load(KEY + ":drafts", {}))), gone = new Set(load(KEY + ":gone", [])), keptDirs = new Set();
+  const drafts = new Map(), gone = new Set(), keptDirs = new Set(); // (filled when the tab knows which are its own: claimTab)
   const blobs = new Map(); // pictures put in here, until they are in a commit: path → their bytes, base64
-  const keepDrafts = () => { keep(KEY + ":drafts", Object.fromEntries(drafts)); keep(KEY + ":gone", [...gone]); };
+  /* The drafts are a tab's own. Two tabs on the same repository each write what was typed in
+   * them; were the drafts one heap, the second tab would take the first's half-typed text for
+   * its own, commit it too, and meet itself as a conflict. A tab has a name that stays with it
+   * across a reload (sessionStorage) and holds a lock under it while it lives; what a tab that
+   * is gone left behind — closed before its commit — is taken over by the next one opened. */
+  let TAB = null;
+  const mineKey = (what) => `${KEY}:${what}:${TAB}`;
+  const forget = (key) => { try { localStorage.removeItem(key); } catch { /* (not allowed: stays) */ } };
+  function keepDrafts() {
+    if (!TAB) return;
+    if (drafts.size) keep(mineKey("drafts"), Object.fromEntries(drafts)); else forget(mineKey("drafts"));
+    if (gone.size) keep(mineKey("gone"), [...gone]); else forget(mineKey("gone"));
+  }
+  function adopt(draftsKey, goneKey) {
+    for (const [r, d] of Object.entries(load(draftsKey, {}))) if (d && typeof d.text === "string" && (!drafts.has(r) || (d.at || 0) > (drafts.get(r).at || 0))) drafts.set(r, d);
+    for (const r of load(goneKey, [])) gone.add(r);
+  }
+  async function claimTab() {
+    const locks = navigator.locks, name = (id) => "mdview:tab:" + id;
+    // (held for as long as the page lives: the promise never settles)
+    const hold = (id) => new Promise((got) => { locks.request(name(id), { ifAvailable: true }, (lock) => { got(!!lock); return lock ? new Promise(() => {}) : undefined; }).catch(() => got(false)); });
+    let id = null;
+    try { id = sessionStorage.getItem("mdview:tab"); } catch { /* (not allowed) */ }
+    if (!locks) TAB = id || crypto.randomUUID(); // (a browser without locks: one heap, as it was)
+    else {
+      if (!id || !(await hold(id))) { id = crypto.randomUUID(); await hold(id); } // (taken: this tab was made as a copy of another)
+      TAB = id;
+    }
+    try { sessionStorage.setItem("mdview:tab", TAB); } catch { /* (not allowed) */ }
+    adopt(mineKey("drafts"), mineKey("gone"));
+    adopt(KEY + ":drafts", KEY + ":gone"); // (from before drafts were a tab's own)
+    forget(KEY + ":drafts"); forget(KEY + ":gone");
+    const prefix = KEY + ":drafts:", others = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith(prefix) || k.startsWith(KEY + ":gone:"))) others.push(k.slice(k.lastIndexOf(":") + 1)); } } catch { /* (not allowed) */ }
+    for (const other of new Set(others)) {
+      if (other === TAB) continue;
+      const take = () => { adopt(`${KEY}:drafts:${other}`, `${KEY}:gone:${other}`); forget(`${KEY}:drafts:${other}`); forget(`${KEY}:gone:${other}`); };
+      // (its lock is free: the tab is gone. Taken over while the lock is held, so that two tabs opened at once do not both take it)
+      if (locks) await locks.request(name(other), { ifAvailable: true }, (lock) => { if (lock) take(); }).catch(() => {});
+      else take();
+    }
+    keepDrafts();
+  }
   const away = new Map(); // files given another name here, until that is in a commit: the old path → the blob it was (their bytes wait in blobs, under the new)
   const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
   const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r)); // the files as they are here
@@ -260,7 +302,7 @@
   function write(r, text) {
     const f = files.get(r);
     if (f && !gone.has(r) && committed(r) === text) drafts.delete(r); // (as the branch has it: nothing to keep)
-    else drafts.set(r, { text, at: Date.now(), base: drafts.has(r) ? drafts.get(r).base : f && !gone.has(r) ? f.sha : null });
+    else drafts.set(r, { text, at: Date.now(), base: drafts.has(r) ? drafts.get(r).base : f && !gone.has(r) ? f.sha : null, sent: drafts.has(r) ? drafts.get(r).sent : undefined });
     if (drafts.has(r)) gone.delete(r);
     keepDrafts();
     later();
@@ -286,13 +328,20 @@
       const now = files.get(r);
       if ((now ? now.sha : null) === d.base) continue;
       if (!now) { found.push({ path: r, kind: "file", mine: true, theirs: false }); continue; } // (deleted there, written here)
+      // What is there is what this draft was sent as — a commit whose answer never came (the tab
+      // closed over it, the line broke), and that was written on since. The draft goes on from it:
+      // nothing to join, and above all no conflict of the note with its own earlier state.
+      if ((d.sent || []).includes(now.sha)) {
+        if ((await blobId(d.text)) === now.sha) drafts.delete(r); else { d.base = now.sha; d.sent = undefined; }
+        continue;
+      }
       await fetchTexts([now.sha, d.base].filter(Boolean));
       const theirs = texts.get(now.sha), was = d.base ? texts.get(d.base) : "";
       if (theirs === d.text) { drafts.delete(r); continue; } // (the same was written there — or this draft is a commit already, made as the tab closed)
       if (theirs == null || was == null) { found.push({ path: r, kind: "file", mine: true, theirs: true }); continue; }
       const joined = C.merge3(was, d.text, theirs);
       if (joined.parts) { found.push({ path: r, kind: "text", mine: true, theirs: true, parts: joined.parts }); continue; }
-      if (joined.text === theirs) drafts.delete(r); else drafts.set(r, { text: joined.text, base: now.sha });
+      if (joined.text === theirs) drafts.delete(r); else drafts.set(r, { text: joined.text, at: d.at, base: now.sha });
       if (onScreen === BASE + "/" + r) render(onScreen, { keepScroll: true }); // (what they wrote is in it now)
     }
     for (const r of [...gone]) if (!files.has(r)) gone.delete(r); // (deleted there too)
@@ -313,6 +362,9 @@
         const sent = new Map(drafts), pictures = new Map(blobs), deleted = [...gone, ...away.keys()].filter((r) => files.has(r));
         const additions = [...[...sent].map(([path, d]) => ({ path, text: d.text })), ...[...pictures].map(([path, base64]) => ({ path, base64 }))];
         if (!additions.length && !deleted.length) { sendFolder(); return; }
+        // (what each draft is sent as is written down first: should the answer never come, the draft knows its own commit again)
+        for (const [, d] of sent) { const sha = await blobId(d.text); if (!(d.sent || []).includes(sha)) d.sent = [...(d.sent || []).slice(-5), sha]; }
+        keepDrafts();
         const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: additions.reduce((n, a) => n + (a.text || a.base64).length, 0) < 40000,
           body: JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted }) });
         if (res.status === 409) { await look(true); continue; } // (someone wrote meanwhile)
@@ -323,7 +375,7 @@
           files.set(r, { sha, size: d.text.length });
           texts.set(sha, d.text);
           dates[sha] = Math.floor(Date.now() / 1000); // (the commit is of now)
-          if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) drafts.get(r).base = sha; // (written on meanwhile: the next commit's)
+          if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) { drafts.get(r).base = sha; drafts.get(r).sent = undefined; } // (written on meanwhile: the next commit's)
         }
         for (const [r, base64] of pictures) { const bytes = bytesOf(base64); files.set(r, { sha: await blobId(bytes), size: bytes.length }); blobs.delete(r); }
         for (const r of deleted) { files.delete(r); gone.delete(r); away.delete(r); }
@@ -772,6 +824,7 @@
   }
 
   async function start() {
+    await claimTab();
     // the page's messages come here from now on, those it said while this was loading first
     const waiting = window.MdHost.said || [];
     window.MdHost.post = hear;

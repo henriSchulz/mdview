@@ -127,7 +127,7 @@ test("both changed the same line: nothing is written until it is said how", asyn
   assert.match((await clock())[1], /conflicts to resolve/);
   assert.equal(gh.commits.length, before);
   assert.match(text("Beta.md"), /as they have it/); // (theirs is untouched)
-  assert.match(await page.evaluate(() => localStorage.getItem("mdview:octo/notes:drafts")), /as I have it/); // (and mine is kept, in this browser)
+  assert.match(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("mdview:octo/notes:drafts:")).map((k) => localStorage.getItem(k)).join("")), /as I have it/); // (and mine is kept, in this browser)
   await page.click('[data-act="historymenu"]');
   await page.click('#ctxmenu [data-cmd="history:conflicts"]');
   await page.waitForFunction(() => { const w = document.querySelector("#conflict"); return w && w.hasAttribute("data-open") && w.querySelector(".cf-place"); }, null, { timeout: 10000 });
@@ -140,6 +140,86 @@ test("both changed the same line: nothing is written until it is said how", asyn
   await until(() => /as I have it\n# Beta, as they have it/.test(text("Beta.md") || ""), "the joined commit");
   await page.waitForFunction(() => !document.querySelector("#conflict").hasAttribute("data-open") && !document.querySelector('[data-act="historymenu"]').classList.contains("warn"), null, { timeout: 8000 });
   assert.equal(gh.commits.length, before + 1);
+});
+
+test("a note is in the mode it was in after a tab with no note in it", async () => {
+  await open("Beta.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  const tabs = () => page.evaluate(() => document.querySelectorAll("#tabs .tab:not(.leaving)").length), had = await tabs();
+  await page.keyboard.press("Control+t"); // (an empty tab: All Notes)
+  await page.waitForFunction((n) => document.querySelectorAll("#tabs .tab:not(.leaving)").length === n + 1 && !MdView.core.current, had, { timeout: 8000 });
+  await post({ type: "tab", op: "close" });
+  await untilNote("Beta.md");
+  await page.waitForFunction(() => document.body.dataset.view === "active" && MdActive.view.pm.editable, null, { timeout: 8000 }); // (not the reading view: what is typed next is typed into the note)
+  assert.equal(await tabs(), had);
+});
+
+test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
+  put("Lost.md", "# Lost\n\na line\n");
+  await open("Lost.md");
+  const before = gh.commits.length;
+  // the commit arrives at GitHub, its answer does not arrive here
+  await page.route("**/api/r/octo/notes/commit", async (route) => { await route.fetch().catch(() => {}); await route.abort(); }, { times: 1 });
+  await post({ type: "save", text: "# Lost\n\na line, written on\n" });
+  await until(() => text("Lost.md") === "# Lost\n\na line, written on\n", "the commit, at GitHub");
+  assert.equal(gh.commits.length, before + 1);
+  await page.waitForTimeout(300);
+  // written on in the same line — as one does — and kept: on top of the commit, not against it
+  await post({ type: "save", text: "# Lost\n\na line, written on and on\n" });
+  await post({ type: "history-now" });
+  await until(() => text("Lost.md") === "# Lost\n\na line, written on and on\n", "the second commit, on the first");
+  assert.equal(gh.commits.length, before + 2);
+  assert.equal(await page.evaluate(() => document.querySelector('[data-act="historymenu"]').classList.contains("warn")), false);
+  // the same over a reload: the draft knows the commit it was sent as
+  await page.route("**/api/r/octo/notes/commit", async (route) => { await route.fetch().catch(() => {}); await route.abort(); }, { times: 1 });
+  await post({ type: "save", text: "# Lost\n\na line, a third time\n" });
+  await until(() => text("Lost.md") === "# Lost\n\na line, a third time\n", "the third commit, at GitHub");
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30 })));
+  await page.reload();
+  await untilNote("Lost.md");
+  await post({ type: "save", text: "# Lost\n\na line, a third time and a fourth\n" });
+  await post({ type: "history-now" });
+  await until(() => text("Lost.md") === "# Lost\n\na line, a third time and a fourth\n", "the fourth, after the reload");
+  assert.equal(await page.evaluate(() => document.querySelector('[data-act="historymenu"]').classList.contains("warn")), false);
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })));
+});
+
+test("two tabs on one repository: each keeps what was typed in it, and what a closed one left is taken over", async () => {
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30 })));
+  put("Twice.md", "# Twice\n\nline one\n\nline two\n");
+  await open("Twice.md");
+  const before = gh.commits.length, drafts = (p) => p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("mdview:octo/notes:drafts")).length);
+  await post({ type: "save", text: "# Twice\n\nline one, typed in the first tab\n\nline two\n" }); // (a draft: no commit for half a minute)
+  const second = await context.newPage(), said = [];
+  second.on("console", (m) => { if (m.type() === "error") said.push(m.text()); });
+  await second.goto(`${base}/r/octo/notes?n=Twice.md`);
+  await second.waitForFunction(() => window.MdView && MdView.core.current && MdView.core.current.name === "Twice.md", null, { timeout: 15000 });
+  // the second tab shows the note as the branch has it, and has no draft of its own
+  assert.equal(await second.evaluate(() => MdView.core.current.raw), "# Twice\n\nline one\n\nline two\n");
+  await second.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" })));
+  await page.waitForTimeout(600);
+  assert.equal(gh.commits.length, before); // (nothing of the first tab's was committed by the second)
+  await second.evaluate(() => MdHost.post(JSON.stringify({ type: "save", text: "# Twice\n\nline one\n\nline two, typed in the second tab\n" })));
+  await post({ type: "history-now" });
+  await until(() => /typed in the first tab/.test(text("Twice.md") || ""), "the first tab's commit");
+  await second.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" })));
+  await until(() => /typed in the first tab\n\nline two, typed in the second tab/.test(text("Twice.md") || ""), "the second tab's, joined with it");
+  assert.equal(await second.evaluate(() => document.querySelector('[data-act="historymenu"]').classList.contains("warn")), false);
+  // a tab closed over a draft that could not be sent: the next tab opened takes it over
+  await second.route("**/api/r/octo/notes/commit", (route) => route.abort());
+  await second.evaluate(() => MdHost.post(JSON.stringify({ type: "save", text: "# Twice\n\nline one, typed in the first tab\n\nline two, typed in the second tab\n\nleft behind\n" })));
+  await second.waitForTimeout(200);
+  await second.close();
+  assert.ok(!/left behind/.test(text("Twice.md")));
+  assert.equal(await drafts(page), 1); // (still the closed tab's)
+  const third = await context.newPage();
+  await third.goto(`${base}/r/octo/notes?n=Twice.md`);
+  await third.waitForFunction(() => window.MdView && MdView.core.current && /left behind/.test(MdView.core.current.raw || ""), null, { timeout: 15000 });
+  await third.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" })));
+  await until(() => /left behind/.test(text("Twice.md") || ""), "what the closed tab left, as a commit");
+  await third.close();
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })));
 });
 
 test("a note's history: its versions, what each changed, one put back", async () => {
@@ -325,5 +405,6 @@ test("only the app's own pages can have a commit made, and only inside the repos
 });
 
 test("nothing was refused or thrown along the way", () => {
-  assert.deepEqual(problems.filter((p) => !/Failed to load resource/i.test(p)), []);
+  // (but the answers that were cut off on purpose above: a commit that could not be sent is said, and tried again)
+  assert.deepEqual(problems.filter((p) => !/Failed to load resource|mdview host: commit TypeError: Failed to fetch/i.test(p)), []);
 });
