@@ -87,9 +87,9 @@ const SAMPLES = { "Formulas.md": FORMULAS, "Callouts.md": CALLOUTS, "Code.md": C
 export function demo(view: string, here: string) {
   const link = `${here}/welcome/note`;
   if (view === "try") return { id: "try", notes: { "Try it.md": TRY, "Welcome.md": WELCOME, ...SAMPLES }, first: "Try it.md", mode: "active", link };
-  if (view === "share") return { id: "share", notes: { "Welcome.md": WELCOME, ...SAMPLES }, first: "Welcome.md", mode: "read", link };
+  if (view === "share") return { id: "share", notes: { "Welcome.md": WELCOME, ...SAMPLES }, first: "Welcome.md", mode: "read", link, side: false };
   if (view === "note") return { id: "note", notes: { "Welcome.md": WELCOME }, first: "Welcome.md", mode: "read", link, shared: true, bare: true };
-  return { id: "write", notes: { "Welcome.md": OPENING, ...SAMPLES }, first: "Welcome.md", mode: "read", link };
+  return { id: "write", notes: { "Welcome.md": OPENING, ...SAMPLES }, first: "Welcome.md", mode: "read", link, side: false };
 }
 
 const GITHUB = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.4c-2.23.48-2.7-.95-2.7-.95-.36-.93-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.88.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>`;
@@ -108,20 +108,40 @@ export function welcomeDocument(here: string, why: string | null): Response {
 </head><body>
 <main id='top'>
 
-<section id='write' data-sc-act='pin' data-sc-span='3.6' aria-label='A note being written'>
+<section id='write' data-sc-act='pin' data-sc-span='4.6' aria-labelledby='hero-h'>
   <div data-sc-stage class='stage write'>
+    <div class='glow' aria-hidden='true'></div>
+    <header class='hero'>
+      <div class='hero__top'><span class='hero__mark'>Markdown Notes</span><a class='hero__in' href='${here}/auth/login'>Sign in</a></div>
+      <h1 id='hero-h' class='hero__h'>Notes that stay <em>yours</em>.</h1>
+      <p class='hero__p'>A fast, beautiful editor for Markdown files in your own Git repository. On the desktop, in the browser, and under a link.</p>
+      <div class='hero__go'>
+        <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
+        <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>
+      </div>
+      <p class='hero__cue'><span>Scroll. The page writes the note for you.</span><svg viewBox='0 0 16 16' aria-hidden='true'><path d='M8 2.5v10m0 0L4 8.6m4 3.9 4-3.9' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg></p>
+      <div class='chips' aria-hidden='true'>
+        <code class='chip' style='--x:-41;--y:-6;--z:1.5'># heading</code><code class='chip' style='--x:38;--y:-13;--z:.8'>**bold**</code>
+        <code class='chip' style='--x:-33;--y:22;--z:.6'>- [x] task</code><code class='chip' style='--x:42;--y:16;--z:1.3'>$$ e^{i\\pi} $$</code>
+        <code class='chip' style='--x:-45;--y:-27;--z:.9'>[[link]]</code><code class='chip' style='--x:31;--y:-31;--z:1.1'>| table |</code>
+        <code class='chip' style='--x:47;--y:-1;--z:.5'>/raw</code><code class='chip' style='--x:-24;--y:-36;--z:.7'>&gt; [!tip]</code>
+      </div>
+    </header>
+    <div class='side'>
+      <div class='cap'><h2>Your scroll wheel is the keyboard.</h2><p>Keep going and the note gets written. Scroll back up and it is unwritten again.</p></div>
     <div class='src' aria-hidden='true'>
       <div class='src__bar'><span class='src__name'>Welcome.md</span><span class='src__kind'>Markdown</span></div>
       <div class='src__body'><pre class='src__text'><span class='src__typed'></span><span class='src__caret'></span></pre></div>
     </div>
-    <div class='win'>${frame("write", "The app, showing the note as it is written")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
+    </div>
+    <div class='win write__win'>${frame("write", "The app, showing the note as it is written")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
     <noscript><p class='nojs'>This page shows the app at work and needs JavaScript. <a href='${here}/signin'>Sign in with GitHub</a> or <a href='${REPOSITORY}#install'>get the desktop app</a>.</p></noscript>
   </div>
 </section>
 
 <section id='files' class='sc-section facts' aria-labelledby='files-h'>
   <div class='sc-wrap facts__in' data-sc-in data-sc-stagger='60'>
-    <h1 id='files-h' class='facts__h'>A folder of Markdown files. Nothing else.</h1>
+    <h2 id='files-h' class='facts__h'>A folder of Markdown files. Nothing else.</h2>
     <p class='facts__p'>The app keeps no notes of its own. It reads and writes <code>.md</code> files in a repository on your GitHub account, so whatever else you use can open them too.</p>
     <dl class='facts__list'>
       <div><dt>Where they are</dt><dd>In a Git repository you choose. The app reaches only the repositories you give it.</dd></div>
@@ -134,6 +154,8 @@ export function welcomeDocument(here: string, why: string | null): Response {
 
 <section id='share' data-sc-act='pin' data-sc-span='2.8' aria-label='A note shared under a link'>
   <div data-sc-stage class='stage share'>
+    <div class='glow glow--b' aria-hidden='true'></div>
+    <div class='cap share__cap'><h2>One link. Anyone can read it.</h2><p>Share a single note, read only, with a password if you like. Put <code>/raw</code> behind the link and you get the Markdown itself.</p></div>
     <div class='win share__win'>${frame("share", "The app, sharing the note under a link")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div>
       <div class='raw' aria-label='The shared note as plain Markdown'>
         <div class='raw__bar'><code class='raw__cmd'>curl <a href='${here}${w}/note/raw'>${attr(here.replace(/^https?:\/\//, ""))}${w}/note/raw</a></code></div>
@@ -160,6 +182,8 @@ export function welcomeDocument(here: string, why: string | null): Response {
   <div data-sc-stage class='stage try'>
     <div class='win try__win'>${frame("try", "The app, with a note to write in")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
     <div class='go'>
+      <h2 class='go__h'>Your turn.</h2>
+      <p class='go__p'>That is the real editor. Type in it, then take your own notes with you.</p>
       ${why ? `<p class='go__why' role='status'>${attr(why)}</p>` : ""}
       <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
       <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>

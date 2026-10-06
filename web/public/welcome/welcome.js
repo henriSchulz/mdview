@@ -45,8 +45,29 @@
       for (const el of [c, c && c.parentElement, d.scrollingElement]) if (el && el.scrollHeight > el.clientHeight + 1) el.scrollTop = el.scrollHeight;
     } catch { /* (not there yet) */ }
   }
+  /* The first act opens as the page's hero — the claim, and the app waiting under it, leaning back — and
+   * becomes the note being written: hero goes from 1 to 0 over the act's first fifth. */
+  const stage = $(".write"), hero = $(".hero"), win = $(".write__win");
+  let dx = 0, dy = 0;
+  function measure() { // (where the window waits in the hero: in the middle, most of it under the fold)
+    stage.style.setProperty("--dx", "0px"); stage.style.setProperty("--dy", "0px");
+    const was = stage.style.getPropertyValue("--hero");
+    stage.style.setProperty("--hero", "0");
+    const s = stage.getBoundingClientRect(), w = win.getBoundingClientRect();
+    dx = s.left + s.width / 2 - (w.left + w.width / 2);
+    dy = s.top + window.innerHeight * (window.innerWidth <= 860 ? 0.66 : 0.6) - w.top;
+    stage.style.setProperty("--hero", was || "1");
+    stage.style.setProperty("--dx", dx.toFixed(1) + "px"); stage.style.setProperty("--dy", dy.toFixed(1) + "px");
+  }
+  const ease = (t) => t * t * (3 - 2 * t);
   function write(p) {
-    const n = W.opening.length + Math.round(clamp((p - 0.02) / 0.8) * (W.text.length - W.opening.length)), now = W.text.slice(0, n);
+    const h = 1 - ease(clamp(p / 0.2));
+    stage.style.setProperty("--hero", h.toFixed(4));
+    stage.style.setProperty("--hero-ink", clamp((h - 0.74) / 0.26).toFixed(4)); // (the claim is gone before the window comes up through it)
+    stage.style.setProperty("--side", clamp((0.45 - h) / 0.45).toFixed(4));
+    if (h > 0.8) hero.dataset.on = ""; else delete hero.dataset.on;
+    hero.inert = h <= 0.8;
+    const n = W.opening.length + Math.round(clamp((p - 0.24) / 0.6) * (W.text.length - W.opening.length)), now = W.text.slice(0, n);
     if (n !== count) {
       count = n;
       typed.textContent = now;
@@ -99,6 +120,17 @@
   }
   const ask = () => { if (!due) { due = true; requestAnimationFrame(update); } };
   window.addEventListener("scroll", ask, { passive: true });
-  window.addEventListener("resize", ask);
+  window.addEventListener("resize", () => { measure(); ask(); });
+  // (the light and the pieces of Markdown lean a little towards the pointer)
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let mx = 0, my = 0, tx = 0, ty = 0, going = false;
+    const lean = () => {
+      mx += (tx - mx) * 0.08; my += (ty - my) * 0.08;
+      stage.style.setProperty("--mx", mx.toFixed(4)); stage.style.setProperty("--my", my.toFixed(4));
+      if (Math.abs(tx - mx) + Math.abs(ty - my) > 0.002) requestAnimationFrame(lean); else going = false;
+    };
+    window.addEventListener("pointermove", (e) => { tx = e.clientX / window.innerWidth - 0.5; ty = e.clientY / window.innerHeight - 0.5; if (!going) { going = true; requestAnimationFrame(lean); } }, { passive: true });
+  }
+  measure();
   update();
 })();

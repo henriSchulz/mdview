@@ -44,8 +44,47 @@ code, pre { font-family: var(--sc-font-mono); }
 @keyframes w-turn { to { transform: rotate(360deg); } }
 .nojs { grid-column: 1 / -1; align-self: center; justify-self: center; max-width: 44ch; }
 
-/* ------------------------------------------------------------ write: the source, and the app showing it */
-.write { grid-template-columns: minmax(260px, 0.52fr) 1fr; }
+/* ------------------------------------------------------------ light behind the windows */
+.glow { position: absolute; inset: -10% -5%; z-index: 0; pointer-events: none; opacity: calc(0.55 + 0.45 * var(--hero, 1));
+  background:
+    radial-gradient(38% 46% at 24% 78%, color-mix(in srgb, var(--sc-accent) 30%, transparent), transparent 70%),
+    radial-gradient(34% 42% at 78% 70%, color-mix(in srgb, #a05bff 24%, transparent), transparent 70%),
+    radial-gradient(30% 36% at 55% 96%, color-mix(in srgb, #ff7a59 20%, transparent), transparent 70%);
+  filter: blur(30px); transform: translate3d(calc(var(--mx, 0) * -14px), calc(var(--my, 0) * -10px), 0); }
+.glow--b { opacity: 0.7; inset: 0; }
+.stage > :not(.glow) { z-index: 1; }
+
+/* ------------------------------------------------------------ write: the hero first, then the source and the app showing it.
+   --hero goes from 1 (the page as it opens) to 0 (the note being written), with the scroll (welcome.js). */
+.write { grid-template-columns: minmax(280px, 0.56fr) 1fr; perspective: 1600px; overflow: hidden; }
+.hero { position: absolute; inset: 0; z-index: 3 !important; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 var(--sc-gutter);
+  opacity: var(--hero-ink, 1); transform: translate3d(0, calc((1 - var(--hero, 1)) * -70px), 0); pointer-events: none; }
+.hero[data-on] a { pointer-events: auto; }
+.hero__top { align-self: stretch; display: flex; justify-content: space-between; align-items: center; height: 56px; font-size: 14px; }
+.hero__mark { font-weight: 700; letter-spacing: -0.01em; }
+.hero__in { font-weight: 600; padding: 6px 12px; border-radius: var(--radius-pill); background: var(--w-fill); color: var(--sc-ink); transition: background var(--dur-fast) var(--ease-out); }
+.hero__in:hover { text-decoration: none; background: color-mix(in srgb, var(--sc-ink) 11%, transparent); }
+.hero__h { margin: clamp(1.2rem, 5.5vh, 4rem) 0 0; font-size: clamp(2.7rem, 1.4rem + 6.2vw, 6.4rem); line-height: 0.98; letter-spacing: -0.045em; font-weight: 760; text-wrap: balance; }
+.hero__h em { font-style: normal; color: var(--sc-accent); }
+.hero__p { margin: clamp(0.9rem, 2.2vh, 1.5rem) 0 0; max-width: 46ch; font-size: clamp(1.02rem, 0.95rem + 0.45vw, 1.3rem); line-height: 1.45; color: var(--sc-ink-soft); text-wrap: balance; }
+.hero__go { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: clamp(1.1rem, 2.6vh, 1.8rem); }
+.hero__go .btn { min-height: 44px; padding: 0 20px; font-size: 15px; border-radius: var(--radius-pill); }
+.hero__cue { display: inline-flex; align-items: center; gap: 8px; margin: clamp(0.9rem, 2.2vh, 1.5rem) 0 0; font-size: 13px; font-weight: 600; color: var(--sc-ink-soft); }
+.hero__cue svg { width: 15px; height: 15px; color: var(--sc-accent); animation: w-nod 1.6s var(--ease-in-out) infinite; }
+@keyframes w-nod { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
+/* pieces of Markdown in the air: they fall into the note as the page starts to scroll */
+.chips { position: absolute; left: 50%; top: 42%; width: 0; height: 0; }
+.chip { position: absolute; left: 0; top: 0; white-space: nowrap; padding: 6px 11px; border-radius: var(--radius-control); font-size: clamp(11px, 0.6vw + 7px, 14px); color: var(--sc-ink);
+  background: color-mix(in srgb, var(--sc-surface) 88%, transparent); box-shadow: 0 0 0 1px var(--w-hair), var(--sc-e2);
+  --fall: calc(1 - var(--hero, 1));
+  transform: translate3d(calc(-50% + var(--x) * 1vw * (1 - var(--fall) * 0.9) + var(--mx, 0) * var(--z) * 22px), calc(-50% + var(--y) * 1vh * (1 - var(--fall)) + var(--fall) * 46vh + var(--my, 0) * var(--z) * 16px), 0) scale(calc(1 - var(--fall) * 0.55)) rotate(calc((var(--x) * 0.12deg) * (1 - var(--fall))));
+  opacity: calc(1 - var(--fall) * 1.5); }
+.side { display: grid; grid-template-rows: auto 1fr; gap: var(--w-pad); min-width: 0; min-height: 0; opacity: var(--side, 0); transform: translate3d(calc((1 - var(--side, 0)) * -36px), 0, 0); }
+.cap h2 { margin: 0; font-size: clamp(1.5rem, 1.1rem + 1.7vw, 2.5rem); line-height: 1.06; letter-spacing: -0.03em; font-weight: 720; text-wrap: balance; }
+.cap p { margin: 0.7rem 0 0; max-width: 40ch; color: var(--sc-ink-soft); font-size: clamp(0.98rem, 0.94rem + 0.2vw, 1.1rem); text-wrap: pretty; }
+.cap p code { font-size: 0.92em; color: var(--sc-ink); }
+.write .cap { padding: clamp(4px, 1.4vh, 18px) 4px 0; }
+.write__win { transform-origin: 50% 0; transform: translate3d(calc(var(--dx, 0px) * var(--hero, 1)), calc(var(--dy, 0px) * var(--hero, 1)), 0) rotateX(calc(var(--hero, 1) * 12deg)) scale(calc(1 - var(--hero, 1) * 0.1)); will-change: transform; }
 .src { display: grid; grid-template-rows: auto 1fr; min-height: 0; min-width: 0; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--sc-surface) 62%, var(--sc-canvas)); box-shadow: 0 0 0 1px var(--w-hair); overflow: hidden; }
 .src__bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; height: 38px; padding: 0 14px; border-bottom: 1px solid var(--w-hair); font-size: 12.5px; }
 .src__name { font-weight: 600; }
@@ -68,7 +107,8 @@ code, pre { font-family: var(--sc-font-mono); }
 .facts__list dd { margin: 0; color: var(--sc-ink-soft); max-width: 56ch; }
 
 /* ------------------------------------------------------------ share: the note under a link, and as it is written */
-.share { grid-template-columns: 1fr; }
+.share { grid-template-columns: minmax(16rem, 0.5fr) 1fr; align-items: stretch; overflow: hidden; }
+.share__cap { align-self: center; padding-left: clamp(4px, 1.5vw, 24px); }
 .raw { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; background: var(--sc-surface); clip-path: inset(0 calc((1 - var(--wipe, 0)) * 100%) 0 0); will-change: clip-path; }
 .raw::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(var(--wipe, 0) * 100% - 1px); width: 1px; background: var(--w-hair); }
 .raw__bar { display: flex; align-items: center; min-height: 44px; padding: 8px 18px; border-bottom: 1px solid var(--w-hair); font-size: 13px; overflow-wrap: anywhere; }
@@ -90,6 +130,8 @@ code, pre { font-family: var(--sc-font-mono); }
 
 /* ------------------------------------------------------------ try: a note to write in, and the two ways on */
 .try { grid-template-columns: 1fr minmax(15rem, 20rem); align-items: stretch; }
+.go__h { margin: 0; font-size: clamp(1.8rem, 1.3rem + 2vw, 3rem); line-height: 1; letter-spacing: -0.035em; font-weight: 740; }
+.go__p { margin: 0 0 8px; color: var(--sc-ink-soft); max-width: 30ch; }
 .go { display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 0; }
 .go__why { margin: 0 0 6px; color: var(--sc-ink-soft); }
 .go__small { margin: 10px 0 0; font-size: 12.5px; color: var(--sc-ink-soft); max-width: 34ch; }
@@ -120,7 +162,14 @@ code, pre { font-family: var(--sc-font-mono); }
 
 /* ------------------------------------------------------------ narrow */
 @media (max-width: 860px) {
-  .write { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.42fr) 1fr; }
+  .write { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.5fr) 1fr; }
+  .write .cap p { display: none; }
+  .share { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .share__cap { padding: 6px 4px 0; }
+  .hero__top { height: 48px; }
+  .chip:nth-child(n+7), .chip:nth-child(-n+2) { display: none; }
+  .go__h, .go__p { flex-basis: 100%; }
+  .go__p { display: none; }
   .src__text { font-size: 12px; padding: 12px 12px 30px; }
   .facts__list > div { grid-template-columns: 1fr; gap: 0.15rem; }
   .try { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
@@ -137,6 +186,11 @@ code, pre { font-family: var(--sc-font-mono); }
 /* ------------------------------------------------------------ less motion: nothing glides, the fades stay */
 @media (prefers-reduced-motion: reduce) {
   .src__text { transition: none; }
+  .hero__cue svg { animation: none; }
+  .hero, .side { transform: none; }
+  .write__win { transform: none; opacity: calc(1 - var(--hero, 1) * 0.92); }
+  .chip { transform: translate3d(calc(-50% + var(--x) * 1vw), calc(-50% + var(--y) * 1vh), 0); opacity: var(--hero, 1); }
+  .glow { transform: none; }
   .src__caret { animation: none; }
   .ring { animation: w-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards; }
   .btn:active { transform: none; }

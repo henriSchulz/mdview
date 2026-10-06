@@ -14,7 +14,7 @@
   const paths = () => [...notes.keys()], exists = (p) => notes.has(p);
   let prefs = { ...window.MdPrefs }, onScreen = null, shared = !!W.shared, mode = W.mode || "read";
   const tabs = C.tabs({ paths: [BASE + "/" + W.first], active: 0 });
-  const sidebar = { visible: !W.bare && window.innerWidth >= 720, width: 0, titles: false };
+  const sidebar = { visible: !W.bare && W.side !== false && window.innerWidth >= 720, width: 0, titles: false };
 
   function sendFolder() {
     tell("setFolder", { root: BASE, name: "notes", tree: C.buildTree(BASE, paths().map((p) => p.slice(BASE.length + 1)), {}), titles: sidebar.titles, visible: sidebar.visible, width: sidebar.width,
