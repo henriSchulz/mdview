@@ -259,6 +259,18 @@ a picture stays part of the line.
 `Ctrl+V` with a picture on the clipboard saves it beside the note (or in `./assets`, a setting) and
 embeds it; picture files dropped on the note do the same.
 
+**Any file** can be dropped on a note in the active mode. It is kept where pictures go, and stands
+in the note as a *file block*: a card that names it, and a click opens it or hands it out. In
+Markdown a file block is a paragraph that is nothing but a link to the file:
+
+```markdown
+[report.zip](report.zip)
+```
+
+A file that can be shown in the note itself — a picture, a PDF, sound, film — is embedded on
+request: right click on its block › Embed in the Note. The other way round, a picture's or an
+embed's menu has Show as File.
+
 ### Links between notes
 
 ```markdown

@@ -335,6 +335,20 @@ th:first-child, td:first-child { padding-left: 10px; }
   list-style: none;
 }
 summary.callout-title { cursor: default; }
+/* a file block: a paragraph that is only a link to a file beside the note, drawn as a card that names it */
+p.file-block { margin-block: 0.7em; }
+p.file-block > a {
+  display: inline-flex; align-items: center; gap: 9px; max-width: 100%; box-sizing: border-box; min-height: 40px; padding: 7px 14px 7px 11px;
+  border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--fg); font-weight: 500; text-decoration: none; overflow-wrap: anywhere;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+p.file-block > a::before {
+  content: ""; flex: none; width: 20px; height: 20px; background: var(--accent);
+  -webkit-mask: var(--file-icon) center / contain no-repeat; mask: var(--file-icon) center / contain no-repeat;
+}
+p.file-block > a:hover { background: color-mix(in srgb, var(--fg) 8%, transparent); transition-duration: var(--dur-instant); }
+:root { --file-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8Z'/%3E%3Cpath d='M14 3v5h5M12 11.5v5.5M9.5 14.8l2.5 2.4 2.5-2.4'/%3E%3C/svg%3E"); }
 summary::-webkit-details-marker { display: none; }
 .callout-icon { display: inline-flex; flex: none; }
 .callout-icon svg, .callout-fold svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

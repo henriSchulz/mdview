@@ -150,6 +150,9 @@
       null,
     ];
     if (link) items.push(item("menu.openLink", () => follow(link.mark.attrs.href)));
+    // a file block of a file that can be shown in the note itself
+    const file = fileBlockAt(state.selection.$from.parent);
+    if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item("menu.embedFile", () => embedFile(view)));
     items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
     items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
       item("menu.bold", () => toggle(view, "strong"), { key: "Ctrl+B", checked: markActive(state, M.strong) }),
@@ -197,6 +200,7 @@
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target }), { key: "Ctrl+Click" })] : [])] : []),
+      ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),
       null,
       item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
       item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
@@ -205,9 +209,57 @@
     ];
   }
 
+  /* File blocks (viewer.js: a paragraph that is only a link to a file beside the note): marked here
+   * too, so they look the same while they are edited. */
+  const fileBlockAt = (node) => {
+    if (node.type !== N.paragraph || node.childCount !== 1 || !node.firstChild.isText) return null;
+    const link = node.firstChild.marks.find((m) => m.type === M.link);
+    return link && window.MdView.core.fileHref(link.attrs.href) ? link.attrs.href : null;
+  };
+  let marked = { doc: null, set: null };
+  function fileBlocks(state) {
+    if (marked.doc === state.doc) return marked.set;
+    const out = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type === N.paragraph) { if (fileBlockAt(node)) out.push(PM.view.Decoration.node(pos, pos + node.nodeSize, { class: "file-block" })); return false; }
+      return !node.isAtom;
+    });
+    marked = { doc: state.doc, set: out.length ? PM.view.DecorationSet.create(state.doc, out) : null };
+    return marked.set;
+  }
+  // what a file can be shown as in the note itself: a picture, a PDF's page, a player
+  const EMBEDS = /\.(png|jpe?g|gif|webp|svg|avif|bmp|pdf|mp3|wav|ogg|m4a|flac|opus|mp4|webm|mov|ogv|mkv)$/i, PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
+  const unquoted = (href) => { try { return decodeURIComponent(href); } catch { return href; } };
+  // a file block → the file shown in the note
+  function embedFile(view) {
+    const { $from } = view.state.selection, href = fileBlockAt($from.parent);
+    if (!href || $from.depth < 1) return;
+    const made = A.clip.blocksOf(view.state, PICTURE.test(href) ? `![](${href})` : `![[${unquoted(href)}]]`);
+    if (!made.length) return;
+    view.dispatch(view.state.tr.replaceWith($from.before(), $from.after(), made).setMeta("step", true).scrollIntoView());
+    view.focus();
+  }
+  // a picture, or a file shown in the note → a file block that names it
+  const embedded = (node) => {
+    if (node.type === N.image) return fileHrefOf(node.attrs.src);
+    const m = node.type === N.island ? /^!\[\[([^\]|#\n]+)(?:[#|][^\]\n]*)?\]\]\s*$/.exec(String(node.attrs.raw || "")) : null;
+    return m && EMBEDS.test(m[1]) ? m[1].split("/").map(encodeURIComponent).join("/") : null;
+  };
+  const fileHrefOf = (src) => (src && window.MdView.core.fileHref(src) ? src : null);
+  function asFile(view, pos, node) {
+    const href = embedded(node);
+    if (!href) return;
+    const name = unquoted(href).split("/").pop(), text = view.state.schema.text(name, [M.link.create({ href })]);
+    const tr = view.state.tr;
+    if (node.isInline) tr.replaceWith(pos, pos + node.nodeSize, text); else tr.replaceWith(pos, pos + node.nodeSize, N.paragraph.create(null, text));
+    view.dispatch(tr.setMeta("step", true).scrollIntoView());
+    view.focus();
+  }
+
   const plugin = new Plugin({
     key: new PluginKey("context"),
     props: {
+      decorations: fileBlocks,
       // the menu key, Shift+F10: the menu at the caret
       handleKeyDown(view, e) {
         if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) || !view.editable) return false;

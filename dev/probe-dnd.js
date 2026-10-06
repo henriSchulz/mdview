@@ -88,8 +88,9 @@
     ok("a picture already beside the note is linked, not copied again", md().includes("![](drop.png)") && !md().includes("drop-2"), md().slice(-60));
     key("z", { ctrlKey: true });
     atLast(files([pic.replace(/drop\.png$/, "notes.txt")]));
-    await sleep(400);
-    ok("anything but a picture: nothing is inserted, it is said", md() === original && /Only pictures/.test(document.getElementById("toast")?.textContent || ""), [md() === original, document.getElementById("toast")?.textContent]);
+    for (let i = 0; i < 40 && md() === original; i++) await sleep(50);
+    await sleep(200);
+    ok("any other file: copied beside the note, and a block that names it", md().includes("[notes.txt](notes.txt)") && !!document.querySelector(".pm p.file-block > a"), [md().slice(-80), !!document.querySelector(".pm p.file-block")]);
     await sleep(1100);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }

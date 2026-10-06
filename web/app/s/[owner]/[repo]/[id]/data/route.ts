@@ -13,5 +13,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ owner: str
   const s = g.shared;
   // (a link to a file that does not go with the note is told as leading nowhere to be fetched)
   const links = Object.fromEntries(Object.entries(s.links).map(([k, l]) => [k, l && { ...l, shared: s.files.has(l.path.split("/").slice(3).join("/")) }]));
-  return NextResponse.json({ path: `/${owner}/${repo}/${s.path}`, text: s.text, links, vault: s.vault }, { headers: { "Cache-Control": "no-store" } });
+  // (files: what goes with the note — a file block's file is opened from there)
+  return NextResponse.json({ path: `/${owner}/${repo}/${s.path}`, text: s.text, links, vault: s.vault, files: [...s.files] }, { headers: { "Cache-Control": "no-store" } });
 }

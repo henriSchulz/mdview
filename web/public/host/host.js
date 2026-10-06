@@ -403,24 +403,44 @@
     return target;
   }
   const markupOf = (note, target) => `![](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
-  /* Files dropped on the note (the page hands them over as they are: MdHost.drop): the pictures
-   * among them are kept as pasted ones are, under their own names, in a commit at once, and
-   * their Markdown put in where they were dropped. */
-  async function drop(dropped, path) {
-    if (!path || path !== onScreen || !mayWrite()) return;
-    const pictures = [...dropped].filter((f) => C.kindOf(f.name) === "image");
-    if (!pictures.length) return toast("Only pictures can be dropped here");
+  /* Files handed over by the page as they are (MdHost.drop): dropped on the note, or on the
+   * clipboard when something was pasted — in a browser a pasted picture is in the paste event,
+   * and nowhere else without asking the user for the clipboard. Each is kept where pasted
+   * pictures go, under its own name (a pasted picture: under the time), in a commit at once.
+   * A picture is put in as a picture, any other file as a block that names it — where they
+   * were dropped or pasted; in the reading view (append) at the note's end. */
+  const fileLink = (note, target) => `[${C.nameOf(target).replace(/([\\\[\]])/g, "\\$1")}](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
+  const TYPE_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
+  async function drop(dropped, path, { pasted = false, append = false } = {}) {
+    if (!path || path !== onScreen || path === GUIDE || !mayWrite()) return;
+    const all = [...dropped].filter((f) => f && typeof f.size === "number");
+    if (!all.length) return;
     const kept = [];
-    for (const f of pictures) {
+    let room = MOVE_MOST; // (what one commit takes)
+    const d = new Date(), two = (n) => String(n).padStart(2, "0"), stamp = `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+    for (const f of all) {
       if (f.size > PICTURE_MOST) { toast(`“${f.name}” is too large to keep here (over 10 MB)`); continue; }
-      const name = C.cleanName(f.name), dot = name.lastIndexOf(".");
+      if (f.size > room) { toast(`“${f.name}” is kept with the next ones: too much at once`); continue; }
+      room -= f.size;
+      let name = C.cleanName(f.name) || "file";
+      if (pasted && TYPE_EXT[f.type]) name = stamp + TYPE_EXT[f.type]; // (a pasted picture is called "image.png" by every browser)
+      const dot = name.lastIndexOf(".") > 0 ? name.lastIndexOf(".") : name.length;
       kept.push(await putPicture(path, name.slice(0, dot), name.slice(dot), f));
     }
     if (!kept.length) return;
+    const markups = () => kept.filter((t) => !blobs.has(rel(t)) || append).map((t) => (C.kindOf(t) === "image" ? markupOf(path, t) : fileLink(path, t)));
+    const joined = (m) => m.join(m.every((x) => x.startsWith("!")) ? " " : "\n\n");
+    if (append) { // (in the reading view: at the note's end, in the same commit)
+      const old = await textOf(path), nl = old.includes("\r\n") ? "\r\n" : "\n", body = old.replace(/[\r\n]+$/, "");
+      write(rel(path), (body ? body + nl + nl : "") + joined(markups()).replace(/\n/g, nl) + nl);
+    }
     await commit();
     const there = kept.filter((t) => !blobs.has(rel(t)));
-    if (there.length < kept.length) toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
-    if (there.length) tell("insertDropped", { path, markups: there.map((t) => markupOf(path, t)) });
+    if (there.length < kept.length) toast(kept.length === 1 ? "Couldn't keep the file" : "Couldn't keep the files"); // (the commit did not go: it is tried again with the next)
+    if (append) return render(path, { end: true });
+    if (!there.length) return;
+    if (pasted) tell("insertImage", { path, markup: joined(markups()) }); // (at the caret, in the active mode and in the source alike)
+    else tell("insertDropped", { path, markups: markups() });
   }
 
   // ------------------------------------------------------------ sharing a note
@@ -777,7 +797,7 @@
       if (blobs.has(rel(target))) return toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
       if (append) render(path, { end: true }); else tell("insertImage", { path, markup });
     },
-    dropfiles() { toast("Only pictures can be dropped here"); }, // (addresses of files on a disk: nothing a browser can read)
+    dropfiles() { toast("These files can't be read from here"); }, // (addresses of files on a disk: nothing a browser can read)
 
     // turning a repository into a project: the marker, as a commit (the clock's menu, when asked)
     "history-enable"() {
@@ -854,7 +874,7 @@
     // the page's messages come here from now on, those it said while this was loading first
     const waiting = window.MdHost.said || [];
     window.MdHost.post = hear;
-    window.MdHost.drop = (dropped, path) => { drop(dropped, path).catch((e) => console.error("mdview host: drop", e)); };
+    window.MdHost.drop = (dropped, path, how) => { drop(dropped, path, how).catch((e) => console.error("mdview host: drop", e)); };
     try { await look(); } catch (e) {
       tell("render", { name: W.repo, path: BASE, base: fileUrl(BASE) + "/", text: "", links: {}, error: String(e.message || e), readonly: "not read", canBack: false });
       return;

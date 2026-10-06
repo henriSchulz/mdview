@@ -25,12 +25,13 @@ before(async () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   gh.appKey = publicKey;
   const put = (p, t) => gh.repo.files.set(p, Buffer.from(t));
-  put("docs/Shown.md", "# Shown\n\nA picture: ![one](img/pic.png)\n\n![[Inside]]\n\nSee [[Secret]] and [the other](../Private.md), and [[paper.pdf#page=1|a paper]].\n\n<script>window.__ran = 1</script>\n");
+  put("docs/Shown.md", "# Shown\n\nA picture: ![one](img/pic.png)\n\n![[Inside]]\n\nSee [[Secret]] and [the other](../Private.md), and [[paper.pdf#page=1|a paper]].\n\n[handout.zip](img/handout.zip)\n\n<script>window.__ran = 1</script>\n");
   put("docs/Inside.md", "Embedded text, with ![its own](img/inner.png).\n");
   put("docs/Secret.md", "# Secret\n\nnot for anyone\n");
   put("Private.md", "# Private\n\nbehind a password\n");
   for (const p of ["docs/img/pic.png", "docs/img/inner.png", "docs/img/unused.png"]) gh.repo.files.set(p, readFileSync(join(fixtures, "bild.png")));
   gh.repo.files.set("paper.pdf", readFileSync(join(fixtures, "paper.pdf")));
+  put("docs/img/handout.zip", "PK zip");
   put(".mdview/project.json", '{"id":"x","version":1}\n');
   shares(both());
   const at = await gh.listen(), port = await freePort();
@@ -62,7 +63,7 @@ test("a link shows its note to anyone, and the app asked GitHub only to read tha
 
 test("with the note go the files it shows, and no other file of the repository", async () => {
   const file = (p) => get(`/s/octo/notes/${OPEN}/file/${p}`).then((r) => r.status);
-  assert.deepEqual(await Promise.all(["docs/img/pic.png", "docs/img/inner.png", "docs/Inside.md", "docs/Shown.md"].map(file)), [200, 200, 200, 200]);
+  assert.deepEqual(await Promise.all(["docs/img/pic.png", "docs/img/inner.png", "docs/Inside.md", "docs/Shown.md", "docs/img/handout.zip"].map(file)), [200, 200, 200, 200, 200]); // (a file block's file is handed out with the note)
   for (const p of ["docs/Secret.md", "Private.md", "docs/img/unused.png", "paper.pdf", ".mdview/shares.json", ".mdview/project.json", "docs/img/../Secret.md", "docs/img/%2e%2e/Secret.md", "nothing.md"]) assert.equal(await file(p), 404, p);
   const pic = await get(`/s/octo/notes/${OPEN}/file/docs/img/pic.png`);
   assert.match(pic.headers.get("content-security-policy"), /^sandbox/);

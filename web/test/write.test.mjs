@@ -372,18 +372,74 @@ test("a picture dropped on the note is kept under its own name, and put in where
     const dom = MdActive.view.pm.dom, r = dom.querySelector("p").getBoundingClientRect();
     dom.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, clientX: r.left + 4, clientY: r.top + 4, bubbles: true, cancelable: true }));
   }, files);
-  await fall([["words.txt", ""]]); // (no picture: said, and nothing kept)
-  await page.waitForFunction(() => /Only pictures/.test(document.body.innerText), null, { timeout: 8000 });
   await fall([["A drawing.png", "image/png"], ["words.txt", ""]]);
   await until(() => gh.repo.files.has("A drawing.png"), "the picture in the repository");
   assert.deepEqual([...gh.repo.files.get("A drawing.png").subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
-  assert.equal(gh.repo.files.has("words.txt"), false);
+  // any other file is kept too, and stands in the note as a block that names it
+  assert.equal(text("words.txt"), "words");
+  await until(() => /\[words\.txt\]\(words\.txt\)/.test(text("Beta.md") || ""), "the file's block in the note");
+  assert.equal(await page.evaluate(() => !!document.querySelector(".pm p.file-block > a")), true);
   await until(() => /!\[\]\(A%20drawing\.png\)/.test(text("Beta.md") || ""), "its markup in the note, as a commit");
   assert.ok(gh.commits.length >= before + 1);
   // the same name once more: beside the first, not over it
   await fall([["A drawing.png", "image/png"]]);
   await until(() => gh.repo.files.has("A drawing-2.png"), "the second picture");
   await until(() => /A%20drawing-2\.png/.test(text("Beta.md") || ""), "the second one's markup");
+});
+
+test("a picture pasted comes from the paste itself: no asking the browser for the clipboard", async () => {
+  put("Pasted.md", "# Pasted\n\ntext\n");
+  await open("Pasted.md");
+  await context.clearPermissions(); // (whatever was granted before: none of it is needed)
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  const paste = (into, files) => page.evaluate(async ([into, files]) => {
+    const dt = new DataTransfer();
+    for (const [name, type] of files) {
+      const c = document.createElement("canvas"); c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+      dt.items.add(new File([await new Promise((r) => c.toBlob(r, type))], name, { type }));
+    }
+    (into ? document.querySelector(into) : document.body).dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  }, [into, files]);
+  await page.click(".pm p");
+  await paste(".pm", [["image.png", "image/png"]]);
+  await until(() => /!\[\]\(pasted-\d{8}-\d{6}\.png\)/.test(text("Pasted.md") || ""), "the picture's markup in the note");
+  const name = /\((pasted-[^)]+)\)/.exec(text("Pasted.md"))[1];
+  assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  await page.waitForFunction((n) => { const i = document.querySelector(`.pm img[src$="${n}"]`); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 10000 });
+  // in the reading view: at the note's end
+  await page.evaluate(() => MdView.setMode("read"));
+  await page.waitForFunction(() => (document.body.dataset.view || "read") === "read", null, { timeout: 8000 });
+  await page.waitForTimeout(1100); // (another second: another name)
+  await paste(null, [["image.png", "image/jpeg"]]);
+  await until(() => /\.jpg\)\n$/.test(text("Pasted.md") || ""), "the second picture, at the end");
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+});
+
+test("a file block: a click hands the file out, and a file that can be shown is embedded on request", async () => {
+  put("Files.md", "# Files\n\n[paper.pdf](paper.pdf)\n\n[data.zip](data.zip)\n\nA [link in a line](data.zip) is a link.\n");
+  gh.repo.files.set("paper.pdf", Buffer.from("%PDF-1.4 not really"));
+  gh.repo.files.set("data.zip", Buffer.from("PK\u0003\u0004zip"));
+  await open("Files.md");
+  assert.equal(await page.evaluate(() => document.querySelectorAll("#content p.file-block > a").length), 2); // (the link in a line is none)
+  // a click: the file itself, as the app serves a repository's files (what it does not know: as a download)
+  const popup = page.waitForEvent("popup");
+  await page.click('#content p.file-block > a[href="data.zip"]');
+  const opened = await popup;
+  await opened.close(); // (a download leaves the new tab empty: what it would have got is asked for below)
+  const served = await fetch(`${base}/file/octo/notes/data.zip`, { headers: { cookie } });
+  assert.deepEqual([served.status, served.headers.get("content-disposition")], [200, "attachment"]);
+  // in the active mode: the same card; its menu embeds what can be shown in the note
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable && document.querySelectorAll(".pm p.file-block").length === 2, null, { timeout: 15000 });
+  const menuAt = async (sel) => { await page.click(sel, { button: "right" }); await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 }); return page.evaluate(() => [...document.querySelectorAll("#actmenu .menu-item .menu-label")].map((e) => e.textContent)); };
+  assert.ok(!(await menuAt('.pm p.file-block > a[href="data.zip"]')).includes("Embed in the Note")); // (a zip has nothing to show)
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  assert.ok((await menuAt('.pm p.file-block > a[href="paper.pdf"]')).includes("Embed in the Note"));
+  await page.evaluate(() => [...document.querySelectorAll("#actmenu .menu-item")].find((e) => e.textContent.startsWith("Embed in the Note")).click());
+  await page.waitForFunction(() => /!\[\[paper\.pdf\]\]/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+  assert.match(await page.evaluate(() => MdActive.view.serialize()), /# Files\n\n!\[\[paper\.pdf\]\]\n\n\[data\.zip\]\(data\.zip\)\n/);
 });
 
 test("the clipboard, where the page asks the host for it: pasted plain, pasted as it is, a picture copied", async () => {

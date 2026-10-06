@@ -46,7 +46,8 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 | Mit geteilt | Nicht geteilt |
 |---|---|
 | die Notiz selbst | jede andere Notiz, auch wenn die geteilte auf sie verlinkt |
-| ihre Bilder (`![](…)`, `<img>`) | Dateien, auf die sie nur verlinkt (auch PDFs) |
+| ihre Bilder (`![](…)`, `<img>`) | Dateien, auf die sie nur im Fließtext verlinkt (auch PDFs) |
+| ihre Datei-Blöcke (ein Absatz, der nur ein Link auf eine Datei ist) | |
 | was sie einbettet (`![[…]]`): Notizen, PDFs, Bilder – und deren Bilder und Einbettungen | die Seitenleiste, die Suche, der Verlauf |
 
 Links auf andere Notizen sind in der geteilten Notiz zu sehen, führen aber nirgendhin („This was

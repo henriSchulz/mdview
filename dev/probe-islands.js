@@ -161,19 +161,12 @@
     ok("the properties are written and shown", md().startsWith("---\ntitle: Changed\ntags: [a, b]\n---\n\n# Islands") && view.dom.querySelector(".props")?.textContent.includes("Changed"), md().slice(0, 60));
     key(view.dom, "z", { ctrlKey: true });
 
-    // --- anything else: its Markdown
-    click(island("blockquote"));
-    await sleep(400);
-    ok("a click on a folded callout opens nothing (its title folds it; its dialog is in its menu)", !isOpen() && getComputedStyle(view.nodeDOM(island("blockquote")), "::after").content === "none", [isOpen(), getComputedStyle(view.nodeDOM(island("blockquote")), "::after").content]);
-    MdActive.context.nodeItems(view, island("blockquote"), view.state.doc.nodeAt(island("blockquote"))).find((x) => x && x.label === "Edit…").run();
-    await sleep(400);
-    ok("Edit… in its menu: a folded callout opens as Markdown with a preview", isOpen() && ed().value === "> [!note]- Callout\n> body" && !!dlg.querySelector(".dlg-preview .callout"));
-    setEditor("> [!tip]- Better\n> body");
-    await sleep(400);
-    ok("the preview follows", dlg.querySelector(".dlg-preview .callout-title-text")?.textContent === "Better");
-    await done();
-    ok("the callout is written", md().includes("> [!tip]- Better\n> body") && view.dom.querySelector(".callout-tip"), md().slice(180, 260));
-    key(view.dom, "z", { ctrlKey: true });
+    // --- a callout that folds: a block like the others; its title's bar folds and unfolds it
+    const fold = view.dom.querySelector("details.callout");
+    ok("a callout that folds is drawn as the reading view draws it, folded at first", !!fold && !fold.open && !isOpen(), [!!fold, fold && fold.open]);
+    fold.querySelector(".callout-fold").click();
+    await sleep(300);
+    ok("a click on its title's bar unfolds it, and writes nothing", view.dom.querySelector("details.callout").open && md() === original);
     ok("everything undone: the file is the original", md() === original, md());
 
     // --- made by typing

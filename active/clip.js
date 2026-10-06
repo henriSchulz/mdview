@@ -11,7 +11,7 @@
 "use strict";
 (() => {
   const A = window.MdActive;
-  const { Plugin, PluginKey, TextSelection } = PM.state;
+  const { Plugin, PluginKey, TextSelection, Selection } = PM.state;
   const { Slice, Fragment, DOMSerializer } = PM.model;
   const N = A.schema.nodes, M = A.schema.marks;
   const { isExternal, hydrate } = window.MdView.core;
@@ -227,7 +227,8 @@
         }
         return false;
       },
-      // picture files dropped from elsewhere: the application saves them (or finds them) and answers (insertDropped)
+      // files dropped from elsewhere: the application keeps them beside the note (or finds them there) and answers
+      // (insertDropped) — a picture as a picture, any other file as a block that names it
       handleDrop(view, event) {
         if (view.dragging || !view.editable) return false;
         const dt = event.dataTransfer;
@@ -245,6 +246,11 @@
       handlePaste(view, event) {
         const cd = event.clipboardData;
         if (!cd || !view.editable) return false;
+        // files on the clipboard — a picture copied, a screenshot — and no text beside them: a host
+        // that takes files gets them as they are (in a browser they are in this event, and nowhere
+        // else without asking the user for the clipboard)
+        const files = window.MdHost && window.MdHost.drop && !cd.getData("text/plain").trim() ? [...(cd.files || [])] : [];
+        if (files.length && A.view.payload && A.view.payload.path) { window.MdHost.drop(files, A.view.payload.path, { pasted: true }); return true; }
         return pasteData(view, cd.getData("text/plain"), cd.getData("text/html"));
       },
     },
@@ -253,7 +259,14 @@
   // what the application made of dropped files: their Markdown, where they were dropped
   function insertDropped(view, markups) {
     if (!view.editable || !markups.length) return;
-    insertMarkdown(view, markups.join(" "));
+    // (pictures stand in a row, in the text; a file is a block of its own — below the block it was
+    // dropped in, not in its text, where it would be a link in a line)
+    if (markups.every((m) => m.startsWith("!"))) return insertMarkdown(view, markups.join(" "));
+    const state = view.state, { $from } = state.selection, nodes = blocksOf(state, markups.join("\n\n"));
+    if (!nodes.length) return;
+    if ($from.depth < 1 || !$from.parent.inlineContent || !$from.parent.content.size) return insertMarkdown(view, markups.join("\n\n")); // (an empty line: in its place)
+    const at = $from.after(), tr = state.tr.insert(at, nodes);
+    view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(at + nodes.reduce((n, x) => n + x.nodeSize, 0), tr.doc.content.size)), -1)).setMeta("step", true).scrollIntoView());
   }
   A.clip = { insertDropped, plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf, pasteFrom };
 })();

@@ -294,9 +294,9 @@ case "${1:-}" in
     [[ -f $R/out/$name.dnd.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.dnd.json"
     files=$(cd "$R/work" && find . -type f | sort | tr '\n' ' ')
-    [[ $files == "./assets/drop.png ./drop.png ./m5.md " ]] && echo "ok   the pictures were copied where they belong" || echo "FAIL files beside the note: $files"
+    [[ $files == "./assets/drop.png ./drop.png ./m5.md ./notes.txt " ]] && echo "ok   the pictures were copied where they belong" || echo "FAIL files beside the note: $files"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
-    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./assets/drop.png ./drop.png ./m5.md " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./assets/drop.png ./drop.png ./m5.md ./notes.txt " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
     # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)

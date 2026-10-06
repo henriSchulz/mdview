@@ -1055,3 +1055,6 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
 .share-foot > .pf-link { margin-left: -8px; }
 @media (prefers-reduced-motion: reduce) { .share-box, .share-scrim[data-open] .share-box { transform: none; transition: none; } .share-fold, .share-fold[data-open], .share-chev { transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; } }
 @media (prefers-contrast: more) { .share-box, .share-card { box-shadow: 0 0 0 1.5px var(--fg); } }
+
+/* a file block while it is edited: the reading view's card (viewer.css), its name typed in as any link's text */
+.pm p.file-block > a { cursor: text; }

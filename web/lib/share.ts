@@ -89,9 +89,11 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
       }
       links[target] = info;
     }
-    // pictures the Markdown way, and in HTML: addresses beside the note
-    for (const m of body.matchAll(/!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)|<(?:img|source|video|audio)\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)) {
-      const href = (m[1] || m[2] || "").split(/[#?]/)[0];
+    // pictures the Markdown way, and in HTML: addresses beside the note — and a file block: a
+    // line that is nothing but a link to a file (the note hands that file out, so it goes with it)
+    for (const m of body.matchAll(/!\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)|<(?:img|source|video|audio)\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']|^[ \t]*\[(?:[^\]\\\n]|\\.)*\]\(<?([^)\s>]+\.[A-Za-z0-9]{1,8})>?\)[ \t]*$/gim)) {
+      const href = (m[1] || m[2] || m[3] || "").split(/[#?]/)[0];
+      if (m[3] && /\.(md|markdown|mdown)$/i.test(href)) continue; // (a link to a note is a link, not a file handed out)
       if (!href || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(href) || href.startsWith("/")) continue;
       let name = href;
       try { name = decodeURIComponent(href); } catch { /* (as it stands) */ }

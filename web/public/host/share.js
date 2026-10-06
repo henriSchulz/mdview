@@ -34,6 +34,8 @@
       const to = C.linkPath(href, FILES);
       if (!to) { if (/^(https?:|mailto:)/i.test(href) && !href.startsWith(location.origin + "/")) window.open(href, "_blank", "noopener,noreferrer"); return; }
       if (to.path === note.path) { if (to.fragment) tell("scrollToFragment", to.fragment, true); return; }
+      // (a file that goes with the note — a file block's — is opened, or handed out)
+      if ((note.files || []).includes(to.path.slice(BASE.length + 1)) && !C.isMd(to.path)) return void window.open(fileUrl(to.path), "_blank", "noopener,noreferrer");
       toast(NOT_SHARED);
     },
     wikilink({ target }) {

@@ -110,6 +110,8 @@
       ],
     }));
   }
+  // an address that names a file beside the note (not a note, not a place in this one, not elsewhere)
+  const fileHref = (href) => !!href && !/^[a-z][a-z0-9+.-]*:|^#|^\/\//i.test(href) && /\.[A-Za-z0-9]{1,8}(?:[?#].*)?$/.test(href) && !/\.(md|markdown|mdown)(?:[?#].*)?$/i.test(href);
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const DECO_COLORS = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]; // (the theme's --c-…)
   const CALLOUT_ALIAS = {
@@ -412,6 +414,19 @@
   md.renderer.rules.callout_body_close = () => "</div>";
 
   // --- task lists (clickable, written back to the file)
+  /* A file block: a paragraph that is nothing but a link to a file beside the note — not a note,
+   * not an address elsewhere. It is drawn as a card that names the file; a click opens it, or
+   * hands it out. (The active mode marks the same paragraphs: context.js.) */
+  md.core.ruler.after("inline", "file_blocks", (state) => {
+    const toks = state.tokens;
+    for (let i = 0; i + 2 < toks.length; i++) {
+      if (toks[i].type !== "paragraph_open" || toks[i + 1].type !== "inline" || toks[i].hidden) continue; // (a tight list's item has no paragraph of its own to draw)
+      const kids = (toks[i + 1].children || []).filter((k) => !(k.type === "text" && !k.content));
+      if (kids.length !== 3 || kids[0].type !== "link_open" || kids[1].type !== "text" || kids[2].type !== "link_close") continue;
+      if (!fileHref(kids[0].attrGet("href"))) continue;
+      toks[i].attrJoin("class", "file-block");
+    }
+  });
   md.core.ruler.after("inline", "tasks", (state) => {
     const toks = state.tokens, env = state.env;
     for (let i = 2; i < toks.length; i++) {
@@ -2014,7 +2029,18 @@
   edInput.addEventListener("paste", (e) => {
     if (!e.clipboardData || e.clipboardData.getData("text/plain")) return;
     e.preventDefault();
-    post("pasteimage", { path: edPath });
+    // (a host that takes files gets what the event carries; another is asked to look at the clipboard)
+    const files = window.MdHost && window.MdHost.drop ? [...(e.clipboardData.files || [])] : [];
+    if (files.length) window.MdHost.drop(files, edPath, { pasted: true }); else post("pasteimage", { path: edPath });
+  });
+  // reading: a picture pasted goes to the end of the note (where the host takes files: from the event itself)
+  document.addEventListener("paste", (e) => {
+    if (!(window.MdHost && window.MdHost.drop) || mode !== "read" || !current || current.error || current.readonly || current.kind === "pdf") return;
+    if (e.target.closest?.("input, textarea, [contenteditable]") || !e.clipboardData || e.clipboardData.getData("text/plain").trim()) return;
+    const files = [...(e.clipboardData.files || [])];
+    if (!files.length) return;
+    e.preventDefault();
+    window.MdHost.drop(files, current.path, { pasted: true, append: true });
   });
   function insertImage(r) {
     if (mode === "active" && current && current.path === r.path) { window.MdActive?.clip.insertMarkdown(MdActive.view.pm, r.markup); return; }
@@ -3212,7 +3238,7 @@
     if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); switchMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {
       // reading: an image on the clipboard goes to the end of the note
-      if (!typing && mode === "read" && current && !current.error) post("pasteimage", { path: current.path, append: true });
+      if (!typing && mode === "read" && current && !current.error && !(window.MdHost && window.MdHost.drop)) post("pasteimage", { path: current.path, append: true }); // (a host that takes files: the paste event, above)
       return;
     }
     if (mod && !e.shiftKey && !e.altKey) {
@@ -3329,7 +3355,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

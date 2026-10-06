@@ -2482,9 +2482,10 @@ impl Win {
         self.render(app, false, None, true);
     }
 
-    /// Pictures dropped on the document: one inside the note's folder is linked where it is,
-    /// any other is copied where pasted pictures go. The page inserts the Markdown where they
-    /// were dropped (insertDropped).
+    /// Files dropped on the document: one inside the note's folder is linked where it is, any
+    /// other is copied where pasted pictures go. A picture is put in as a picture, any other
+    /// file as a block that names it; the page inserts the Markdown where they were dropped
+    /// (insertDropped).
     fn drop_files(&mut self, app: &mut App, uris: &Value, path: Option<&str>) {
         let Some(note) = self.path.clone().filter(|p| path == Some(s(p).as_str())) else { return };
         let vault = self.vault();
@@ -2492,12 +2493,15 @@ impl Win {
         let (mut markups, mut skipped) = (Vec::new(), 0);
         for uri in uris.as_array().map(Vec::as_slice).unwrap_or_default() {
             let src = uri.as_str().and_then(url_file).map(|(p, _)| p).unwrap_or_default();
-            if name_of(&src).is_empty() || !scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str()) || !src.is_file() {
-                skipped += 1;
+            if name_of(&src).is_empty() || !src.is_file() {
+                skipped += 1; // (a folder, or nothing that is there)
                 continue;
             }
+            let picture = scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str());
+            // (a picture as a picture; any other file as a link alone in its paragraph: a file block)
+            let markup = |target: &Path| if picture { self.image_markup(target, &note, vault.is_some()) } else { format!("[{}]({})", name_of(target).replace('[', "\\[").replace(']', "\\]"), quote(&relative(target, &dir_of(&note)))) };
             if resolve(&src).starts_with(&beside) {
-                markups.push(self.image_markup(&resolve(&src), &note, vault.is_some()));
+                markups.push(markup(&resolve(&src)));
                 continue;
             }
             let copied = fs::read(&src).and_then(|data| {
@@ -2506,12 +2510,12 @@ impl Win {
                 write_new(&self.attachment_dir(app, &note, vault.as_deref()), |n| if n == 1 { name_of(&src) } else { format!("{stem}-{n}{dot}") }, &data, 100)
             });
             match copied {
-                Ok(target) => markups.push(self.image_markup(&target, &note, vault.is_some())),
-                Err(e) => self.toast(format!("Couldn't copy picture: {}", strerror(&e))),
+                Ok(target) => markups.push(markup(&target)),
+                Err(e) => self.toast(format!("Couldn't copy the file: {}", strerror(&e))),
             }
         }
         if skipped > 0 && markups.is_empty() {
-            self.toast("Only pictures can be dropped here");
+            self.toast("Only files can be dropped here");
         }
         if !markups.is_empty() {
             self.js("MdView.insertDropped", &[json!({ "path": s(&note), "markups": markups })]);
