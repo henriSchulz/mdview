@@ -242,6 +242,15 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   const marked = () => page.evaluate(() => [[...document.querySelectorAll(".sb-row[data-real]")].filter((r) => r.querySelector(".sb-shared")).map((r) => r.dataset.real), document.querySelector('#toolbar [data-act="share"]').classList.contains("active")]);
   assert.deepEqual(await marked(), [["/octo/notes/docs/Shown.md"], true]);
 
+  await page.screenshot({ path: join(web, ".next", "share-sidebar.png"), clip: { x: 0, y: 0, width: 280, height: 260 } });
+  // the note behind the window takes the focus (it is drawn anew when a commit arrives): what is typed does not go there
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  const noteWas = await page.evaluate(() => MdActive.view.serialize());
+  await page.evaluate(() => MdActive.view.pm.focus());
+  await page.keyboard.type("typed behind");
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => [MdActive.view.serialize(), document.querySelector("#share").contains(document.activeElement)]), [noteWas, true]);
   // a password: of it only what it hashes to is in the repository
   assert.equal(await page.evaluate(() => document.querySelector(".share-fold-in").inert), true); // (not to be typed in until unfolded)
   await page.click("#share .share-more");

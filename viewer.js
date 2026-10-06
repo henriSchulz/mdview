@@ -2369,6 +2369,10 @@
     entry("rename", "rename", "Rename", "file ovnote", "F2") +
     entry("trash", "trash", "Move to Trash", "file ovnote", "Del", " danger");
   document.body.appendChild(ctx);
+  // A host says what it cannot do (MdHost.lacks: commands of this menu) and what it calls what it
+  // does otherwise (MdHost.labels: a file deleted in a repository goes to no Trash).
+  const HOST_LACKS = new Set((window.MdHost && window.MdHost.lacks) || []);
+  for (const [cmd, label] of Object.entries((window.MdHost && window.MdHost.labels) || {})) for (const el of ctx.querySelectorAll(`[data-cmd="${cmd}"] .menu-label`)) el.textContent = label;
   let ctxItems = [];
   let ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
   const ctxOpen = () => ctx.hasAttribute("data-open");
@@ -2378,7 +2382,16 @@
     ctxFor = item; ctxDir = dir;
     ctxKind = ctx.dataset.kind = kind;
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState())
-      || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed); // (a host whose folders always have their history: nothing to switch off)
+      || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed) // (a host whose folders always have their history: nothing to switch off)
+      || HOST_LACKS.has(el.dataset.cmd); // (what a host has no way to do — a browser shows nothing in a Finder — is not offered)
+    // (a rule with nothing above it, nothing below it, or another rule above it divides nothing)
+    let above = false, rule = null;
+    for (const el of ctx.children) {
+      if (el.hidden) continue;
+      if (el.classList.contains("menu-rule")) { el.hidden = !above || !!rule; if (!el.hidden) rule = el; }
+      else { above = true; rule = null; }
+    }
+    if (rule) rule.hidden = true;
     if (kind === "history") { // (the two that name a folder)
       const name = (folder.history || {}).name;
       ctx.querySelector('[data-cmd="history:is"][data-state="inside"] .menu-label').textContent = `Part of the Project “${name}”`;

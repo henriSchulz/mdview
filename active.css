@@ -285,7 +285,10 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
   white-space: pre;
   letter-spacing: inherit;
 }
-.ce-back { position: relative; min-width: 100%; pointer-events: none; }
+/* (the coloured text stands over the field that is typed in: what is selected there is painted
+   behind the letters, not over them — over them it washed them out) */
+.ce-back { position: relative; z-index: 1; min-width: 100%; pointer-events: none; }
+.ce-in::selection { color: transparent; -webkit-text-fill-color: transparent; }
 .ce-back code { font: inherit; padding: 0; background: none; }
 .ce-marks { position: absolute; inset: 0; color: transparent; pointer-events: none; }
 .ce-err { text-decoration: underline wavy var(--c-red); text-decoration-skip-ink: none; }

@@ -30,6 +30,11 @@ const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
 export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").split(LS).join("\\u2028").split(PS).join("\\u2029"); // (never closes the script it stands in)
 
 
+// What the page offers and a browser cannot do (commands of its menus), and what is called
+// otherwise here: a file deleted in a repository goes to no Trash, its versions stay.
+const LACKS = ["default", "openwith", "reveal"];
+const LABELS = { trash: "Delete" };
+
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
  * reading: the note is only read here (no modes to switch between). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
@@ -44,7 +49,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   // yet is kept for it), the settings, and the theme the system has
   const before =
     `window.MdWeb=${inline(web)};` +
-    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""}};` +
+    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}};` +
     `window.MdPrefs=Object.assign(${inline({ ...PREFS, ...(o.prefs || {}) })},(function(){try{return JSON.parse(localStorage.getItem("mdview:prefs"))||{}}catch(e){return {}}})());` +
     `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();`;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");

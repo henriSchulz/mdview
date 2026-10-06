@@ -132,6 +132,14 @@ test("the sidebar and the tabs", async () => {
   assert.deepEqual(await tabNames(), ["Second note", "Home"]);
 });
 
+test("a file's menu offers what a browser can do, and calls it what it is here", async () => {
+  await page.click('.sb-row[data-real="/octo/notes/Second note.md"]', { button: "right" });
+  await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  const shown = await page.evaluate(() => [...document.querySelector("#ctxmenu").children].filter((e) => !e.hidden).map((e) => (e.classList.contains("menu-rule") ? "—" : e.querySelector(".menu-label").textContent)));
+  assert.deepEqual(shown, ["Open in New Tab", "—", "Share…", "Rename", "Delete"]); // (no Open With…, no Show in Finder; and no rule that divides nothing)
+  await page.keyboard.press("Escape");
+});
+
 test("a PDF opens in the viewer", async () => {
   await page.evaluate(() => { const render = MdView.render; MdView.render = (p) => { window.__told = p; return render(p); }; });
   await page.click('.sb-row[data-real="/octo/notes/paper.pdf"]');

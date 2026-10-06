@@ -68,7 +68,21 @@
     back.onclick = close;
     pass.addEventListener("input", draw);
     root.addEventListener("mousedown", (e) => { if (e.target === root) close(); });
-    document.addEventListener("keydown", (e) => { if (isOpen() && e.key === "Escape" && !root.contains(e.target)) { e.preventDefault(); e.stopPropagation(); close(); } }, true); // (wherever the focus got to)
+    // The window is the only thing typed into while it is open. The note behind it takes the
+    // focus back whenever it is drawn anew (a commit arrived, another device wrote): the focus is
+    // brought back here, to where it was, and a key that still went elsewhere does nothing there.
+    let last = null;
+    document.addEventListener("focusin", (e) => {
+      if (!isOpen()) return;
+      if (root.contains(e.target)) { last = e.target; return; }
+      const to = last && last.isConnected && !last.disabled && last.offsetParent && !last.closest("[inert]") ? last : box;
+      to.focus({ preventScroll: true });
+    }, true);
+    document.addEventListener("keydown", (e) => {
+      if (!isOpen() || root.contains(e.target)) return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.key === "Escape") close(); else (last && last.isConnected && last.offsetParent && !last.closest("[inert]") ? last : box).focus({ preventScroll: true });
+    }, true);
     root.addEventListener("keydown", (e) => {
       e.stopPropagation();
       if (e.key === "Escape") { e.preventDefault(); close(); }

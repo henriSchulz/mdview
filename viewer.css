@@ -456,7 +456,7 @@ body.swapping #content, body.swapping #editor {
 }
 #ed-input::selection { color: transparent; -webkit-text-fill-color: transparent; }
 #ed-input::placeholder { color: var(--fg3); -webkit-text-fill-color: var(--fg3); }
-#ed-back { position: relative; pointer-events: none; }
+#ed-back { position: relative; z-index: 1; pointer-events: none; } /* (over the field that is typed in: a selection is painted behind the letters, not over them) */
 .ln { min-height: 24px; transition: background-color var(--dur-slow) var(--ease-out); }
 .ln.flash { transition-duration: var(--dur-instant); }
 .ln.code, .ln.meta { margin: 0 -12px; padding: 0 12px; }
