@@ -21,8 +21,9 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 - **Share…** im Menü einer Notiz (Rechtsklick in der Seitenleiste) und unter der Uhr („Share
   This Note…"): ein kleines Fenster mit dem Link, einem Feld für ein Passwort und „Stop
   Sharing". In der Web-App und in der Desktop-App dasselbe Fenster.
-- Der Link hat die Form `https://<web-app>/s/<konto>/<repository>/<id>`. Die ID sind 128
-  zufällige Bit: Wer den Link nicht hat, findet die Notiz nicht.
+- Der Link ist kurz: `https://<web-app>/s/<id>`, die ID zehn Buchstaben und Ziffern aus dem
+  Zufall (59 Bit). Wer den Link nicht hat, findet die Notiz nicht. Zu welchem Repository eine
+  ID gehört, schlägt der Server nach.
 - Mit Passwort fragt die Seite zuerst danach. Nach fünf falschen Versuchen wird für diesen Link
   eine Weile keines mehr angesehen.
 - Der Link zeigt immer den **aktuellen Stand** der Notiz (mit bis zu einer halben Minute
@@ -49,14 +50,19 @@ heraus; alles andere ist 404, auch `.mdview/shares.json`.
 ```mermaid
 flowchart LR
   D[Desktop-App oder Web-App: Share…] -- "Commit: .mdview/shares.json" --> G[(Repository bei GitHub)]
-  B[Besucher mit Link] --> S[/s/konto/repo/id/]
-  S -- "liest als GitHub App, nur dieses Repository, nur lesend" --> G
+  B[Besucher mit Link] --> S[/s/id/]
+  S -- "liest als GitHub App, nur lesend" --> G
 ```
 
 - **Kein Datenbestand auf dem Server.** Was geteilt ist, steht im Repository selbst, in
   `.mdview/shares.json`: je Freigabe die ID, der Pfad der Notiz, und von einem Passwort nur sein
   PBKDF2-SHA256 (600 000 Runden, mit Salz). Teilen, Passwort ändern und Aufheben sind Commits
   wie jede andere Änderung.
+- **Die ID allein nennt die Notiz.** Der Server liest dafür die Freigabelisten aller
+  Repositories, auf denen die App installiert ist, und merkt sich, welche ID wohin gehört
+  (im Speicher, nicht auf Platte). Eine unbekannte ID lässt ihn neu nachsehen, höchstens alle
+  fünf Sekunden. Daten und Dateien der Notiz liegen unter der langen Adresse
+  `/s/<konto>/<repository>/<id>/…`, die ebenfalls als Link gilt.
 - **Der Server liest als GitHub App**, nicht als Nutzer: Mit dem privaten Schlüssel der App holt
   er sich für genau das eine Repository ein Token, das nur lesen darf (`web/lib/app.ts`).
 - **Die geteilte Notiz läuft in derselben Seite** wie die App, mit einer eigenen, kleinen Hülle
@@ -85,6 +91,8 @@ flowchart LR
   einem öffentlichen Repository also jeder. Ein kurzes Passwort lässt sich dann durchprobieren.
 - **Aufheben wirkt mit bis zu einer halben Minute Verzug** (so lange merkt sich der Server, was
   er gelesen hat). Was ein Besucher schon geladen hat, hat er.
+- **Bei sehr vielen Repositories** dauert das erste Öffnen eines Links nach einem Neustart des
+  Servers: Er liest dann jede Freigabeliste einmal.
 - **Kein Ablaufdatum, keine Liste aller Freigaben** im Fenster. Die Datei lässt sich lesen.
 - **Ordner und ganze Repositories** lassen sich nicht teilen. So entschieden.
 

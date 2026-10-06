@@ -1,7 +1,7 @@
 // What a shared note's page shows: its text, and where its links and embeds lead — only those
 // that go with it have an address.
 import { NextResponse } from "next/server";
-import { gate } from "../gate";
+import { gate } from "@/lib/sharegate";
 
 export const dynamic = "force-dynamic";
 

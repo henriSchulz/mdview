@@ -1,8 +1,8 @@
 // Who may see a shared note: anyone with its link — and, where a password was set, only a
 // browser that gave it (it carries a cookie for this link and this password then).
 import { cookies } from "next/headers";
-import { sharing } from "@/lib/app";
-import { cookieName, pass, shared, type Shared } from "@/lib/share";
+import { sharing } from "./app";
+import { cookieName, pass, shared, type Shared } from "./share";
 
 export type Gate = { shared: Shared; open: true } | { shared: Shared; open: false } | { shared: null; open: false; why: "off" | "gone" | "unreachable" };
 

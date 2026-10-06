@@ -35,7 +35,7 @@ before(async () => {
   shares(both());
   const at = await gh.listen(), port = await freePort();
   base = `http://127.0.0.1:${port}`;
-  app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, stdio: "pipe", env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-test-that-is-long-enough", APP_ORIGIN: base, SHARE_KEEP_MS: "0",
+  app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, stdio: "pipe", env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-test-that-is-long-enough", APP_ORIGIN: base, SHARE_KEEP_MS: "0", SHARE_LOOK_MS: "0",
     GITHUB_APP_PRIVATE_KEY: privateKey.export({ type: "pkcs1", format: "pem" }).replace(/\n/g, "\\n") } }); // (as GitHub hands the key out, kept on one line as a secret is)
   for (let i = 0; i < 150; i++) {
     try { if ((await fetch(base + "/signin")).ok) break; } catch { /* not up yet */ }
@@ -105,7 +105,7 @@ test("a password: asked for first, wrong ones refused, the right one opens — f
   const yes = await give("sesame");
   assert.equal(yes.status, 303);
   const cookie = yes.headers.getSetCookie()[0];
-  assert.match(cookie, new RegExp(`^mdshare-${LOCKED.slice(0, 16)}=[\\w-]+; Path=${at}; Max-Age=\\d+; HttpOnly; SameSite=Lax`));
+  assert.match(cookie, new RegExp(`^mdshare-${LOCKED.slice(0, 16)}=[\\w-]+; Path=/s; Max-Age=\\d+; HttpOnly; SameSite=Lax`));
   const carried = { cookie: cookie.split(";")[0] };
   assert.match((await (await get(at + "/data", carried)).json()).text, /behind a password/);
   assert.equal((await get(at + "/file/Private.md", carried)).status, 200);
@@ -117,6 +117,24 @@ test("a password: asked for first, wrong ones refused, the right one opens — f
   // a password that cannot be read keeps the note closed, not open
   shares({ ...both(), [LOCKED]: { path: "Private.md", password: { hash: "x" } } });
   assert.equal((await get(at)).status, 404);
+});
+
+test("the link that is handed out is short: the id alone, the repository looked up", async () => {
+  shares(both());
+  const res = await get(`/s/${OPEN}`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /\/host\/share\.js/);
+  assert.match(html, new RegExp(`"owner":"octo","repo":"notes","share":"${OPEN}"`));
+  assert.equal((await get(`/s/${GONE}`)).status, 404); // (an id no repository knows)
+  assert.equal((await get("/s/short")).status, 404);
+  // with a password: asked for at the short address, and good for the note's data and files then
+  assert.match(await (await get(`/s/${LOCKED}`)).text(), new RegExp(`action='/s/${LOCKED}'`));
+  const yes = await fetch(`${base}/s/${LOCKED}`, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ password: "sesame" }) });
+  assert.deepEqual([yes.status, yes.headers.get("location")], [303, `${base}/s/${LOCKED}`]);
+  const carried = { cookie: yes.headers.getSetCookie()[0].split(";")[0] };
+  assert.match(await (await get(`/s/${LOCKED}`, carried)).text(), /\/host\/share\.js/);
+  assert.equal((await get(`/s/octo/notes/${LOCKED}/data`, carried)).status, 200);
 });
 
 test("guessing is slowed: after a few wrong passwords none is looked at for a while", async () => {
@@ -194,12 +212,14 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   await page.click("#share .btn.primary");
   await until(() => Object.keys(listed()).length === 1, "the share, as a commit");
   const [id, entry] = Object.entries(listed())[0];
-  assert.match(id, /^[A-Za-z0-9_-]{22}$/);
+  assert.match(id, /^[A-Za-z0-9]{10}$/);
   assert.deepEqual([entry.path, entry.password, gh.commits.length, gh.commits.at(-1).added], ["docs/Shown.md", null, before + 1, [".mdview/shares.json"]]);
-  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .mono").value.includes("/s/octo/notes/"); }, null, { timeout: 8000 });
+  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .mono").value.includes("/s/"); }, null, { timeout: 8000 });
   const link = await page.inputValue("#share .mono");
-  assert.equal(link, `${base}/s/octo/notes/${id}`);
-  assert.match((await (await fetch(link + "/data")).json()).text, /^# Shown/); // (read by someone who is not signed in)
+  assert.equal(link, `${base}/s/${id}`); // (short: the id alone)
+  assert.match(await (await fetch(link)).text(), /\/host\/share\.js/); // (read by someone who is not signed in)
+  const long = `${base}/s/octo/notes/${id}`; // (where the note's data and files stand)
+  assert.match((await (await fetch(long + "/data")).json()).text, /^# Shown/);
   await page.click("#share .share-row .btn");
   await until(async () => (await page.evaluate(() => navigator.clipboard.readText())) === link, "the link on the clipboard");
 
@@ -209,13 +229,13 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   await until(() => !!listed()[id].password, "the password, as a commit");
   assert.deepEqual([Object.keys(listed()[id].password).sort(), listed()[id].password.iterations], [["hash", "iterations", "salt"], 600000]);
   assert.ok(!/sesame/.test(gh.repo.files.get(".mdview/shares.json").toString()));
-  assert.equal((await fetch(link + "/data")).status, 401);
+  assert.equal((await fetch(long + "/data")).status, 401);
   const given = await fetch(link, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ password: "sesame" }) });
   assert.equal(given.status, 303);
   await page.waitForFunction(() => /and the password/.test(document.querySelector(".share-text").textContent), null, { timeout: 8000 });
   await page.click("#share .share-foot .pf-link:not(.danger)"); // Remove Password
   await until(() => listed()[id].password === null, "the password taken away");
-  assert.equal((await fetch(link + "/data")).status, 200);
+  assert.equal((await fetch(long + "/data")).status, 200);
 
   // the note renamed: its link goes on showing it
   await page.keyboard.press("Escape");
@@ -223,7 +243,7 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   await page.waitForFunction(() => MdView.core.current.name === "Shown, later.md", null, { timeout: 8000 });
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" }))); // (Ctrl+S: kept now, not after the quiet while)
   await until(() => listed()[id].path === "docs/Shown, later.md" && gh.repo.files.has("docs/Shown, later.md"), "the share following the note");
-  assert.equal((await (await fetch(link + "/data")).json()).path, "/octo/notes/docs/Shown, later.md");
+  assert.equal((await (await fetch(long + "/data")).json()).path, "/octo/notes/docs/Shown, later.md");
 
   // stopped: the link shows nothing
   await page.waitForFunction(() => MdView.core.current.name === "Shown, later.md", null, { timeout: 8000 });

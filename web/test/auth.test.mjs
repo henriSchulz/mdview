@@ -176,5 +176,6 @@ test("without the app's own key nothing is shared from here: a link shows nothin
   assert.equal(res.status, 404); // (not the sign-in page: the address is open, and empty)
   assert.match(res.text, /not shared from this address/);
   assert.equal((await browser().go("/s/octo/notes/aaaaaaaaaaaaaaaaaaaaaa/data")).status, 404);
+  assert.equal((await browser().go("/s/aaaaaaaaaa")).status, 404);
   assert.equal(gh.seen.length, asked);
 });

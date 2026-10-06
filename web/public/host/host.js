@@ -377,10 +377,16 @@
     const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
     return { salt: b64(salt), hash: b64(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256)), iterations };
   }
+  /* A link's id: ten letters and digits, of random bits (59 of them) — short to pass on, and not to be guessed. */
+  function newShareId() {
+    const A = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", out = [];
+    while (out.length < 10) for (const b of crypto.getRandomValues(new Uint8Array(16))) if (b < 248 && out.length < 10) out.push(A[b % 62]); // (248 = 4 × 62: every letter as likely as any other)
+    return out.join("");
+  }
   async function tellShare(path) {
     const why = !W.sharing ? "Notes are not shared from this address yet: the server has no key for it." : !project() ? "Turn the history on first: the clock in the sidebar." : null;
     const found = why ? null : C.shareOf(await shares(), rel(path));
-    tell("share", { path, can: !why, why, link: found ? `${location.origin}/s/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}/${found[0]}` : null, password: !!(found && found[1].password), pending: drafts.has(C.SHARES) });
+    tell("share", { path, can: !why, why, link: found ? `${location.origin}/s/${found[0]}` : null, password: !!(found && found[1].password), pending: drafts.has(C.SHARES) });
   }
   /* The list changed and kept, at once; the page is told how it stands, and again once GitHub has it. */
   async function keepShares(all, path) {
@@ -554,7 +560,7 @@
     async "share-set"({ path, password }) {
       if (!exists(path) || !C.isMd(path) || !W.sharing || !mayWrite()) return tellShare(path);
       const all = await shares(), found = C.shareOf(all, rel(path));
-      const id = found ? found[0] : base64Of(crypto.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const id = found ? found[0] : newShareId();
       const entry = found ? found[1] : { path: rel(path), created: new Date().toISOString().replace(/\.\d+Z$/, "Z"), password: null };
       if (password !== undefined) entry.password = typeof password === "string" && password ? await hashed(password) : null;
       all.shares[id] = entry;

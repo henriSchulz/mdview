@@ -12,8 +12,8 @@
 // and nothing it merely links to.
 import "../public/host/core.js"; // (the host's own working out, the same the browser runs: sets globalThis.MdWebCore)
 import { createHmac, pbkdf2, timingSafeEqual } from "node:crypto";
-import { repoToken } from "./app";
-import { state, texts } from "./github";
+import { appRepos, repoToken } from "./app";
+import { raw, state, texts } from "./github";
 
 type Core = {
   isMd(p: string): boolean; kindOf(p: string): string; dirOf(p: string): string; nameOf(p: string): string;
@@ -23,7 +23,7 @@ type Core = {
 const C = (globalThis as unknown as { MdWebCore: Core }).MdWebCore;
 
 export const SHARES = ".mdview/shares.json";
-export const ID = /^[A-Za-z0-9_-]{16,64}$/;
+export const ID = /^[A-Za-z0-9_-]{8,64}$/; // (ten letters and digits, as they are made now; longer ones from before)
 const EMBED_LIMIT = 256 * 1024, FILES_MOST = 400, KEEP = Number(process.env.SHARE_KEEP_MS ?? 30 * 1000); // (KEEP: the tests want none)
 
 export type Password = { salt: string; hash: string; iterations: number };
@@ -100,6 +100,40 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
     }
   }
   return { token, head: now.head, path: entry.path, password, text, links, vault, files };
+}
+
+// ------------------------------------------------------------ which repository an id belongs to
+
+// The link names only the id. Where it belongs is found by reading the list of shares of every
+// repository the app is installed on, and remembered; an id not known is looked for anew — but
+// not more often than every few seconds, however many ids are tried.
+const where = new Map<string, { owner: string; repo: string }>();
+let looking: Promise<void> | null = null, looked = 0;
+const AGAIN = Number(process.env.SHARE_LOOK_MS ?? 5000);
+
+async function lookAbout(): Promise<void> {
+  const repos = (await appRepos()).slice(0, 500), found = new Map<string, { owner: string; repo: string }>();
+  for (let i = 0; i < repos.length; i += 8) {
+    await Promise.all(repos.slice(i, i + 8).map(async ({ owner, repo, token }) => {
+      try {
+        const res = await raw(token, owner, repo, SHARES);
+        if (!res.ok) return;
+        for (const id of Object.keys(JSON.parse(await res.text()).shares || {})) if (ID.test(id) && !found.has(id)) found.set(id, { owner, repo });
+      } catch { /* (not to be read: none there) */ }
+    }));
+  }
+  where.clear();
+  for (const [id, at] of found) where.set(id, at);
+  looked = Date.now();
+}
+
+/** The repository a shared note's id belongs to, or null. */
+export async function whereIs(id: string): Promise<{ owner: string; repo: string } | null> {
+  if (!where.has(id) && (looking || Date.now() - looked >= AGAIN)) {
+    looking = looking || lookAbout().finally(() => { looking = null; });
+    await looking;
+  }
+  return where.get(id) || null;
 }
 
 // ------------------------------------------------------------ a password

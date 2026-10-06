@@ -16,13 +16,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
+use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::history::{self, Place};
-use crate::scan::quote;
 use crate::sync;
 
 pub const FILE: &str = ".mdview/shares.json";
@@ -55,6 +54,19 @@ fn find(shares: &BTreeMap<String, Value>, rel: &str) -> Option<String> {
     shares.iter().find(|(_, e)| e["path"] == rel).map(|(id, _)| id.clone())
 }
 
+/// A link's id: ten letters and digits, of random bits (59 of them) — short to pass on, and not
+/// to be guessed.
+fn new_id() -> String {
+    const LETTERS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    let mut out = String::new();
+    while out.len() < 10 {
+        // (248 = 4 × 62: every letter as likely as any other)
+        out.extend(uuid::Uuid::new_v4().as_bytes().iter().filter(|b| **b < 248).map(|b| LETTERS[(*b % 62) as usize] as char));
+    }
+    out.truncate(10);
+    out
+}
+
 fn hashed(password: &str) -> Value {
     let salt = *uuid::Uuid::new_v4().as_bytes();
     let mut hash = [0u8; 32];
@@ -85,11 +97,11 @@ pub fn info(path: &Path) -> Value {
     let told = |can: bool, why: Option<&str>, link: Option<String>, password: bool, pending: bool| json!({ "path": path.to_string_lossy(), "can": can, "why": why, "link": link, "password": password, "pending": pending });
     let Some((root, rel)) = place(path) else { return told(false, Some("Turn the history on first: the clock in the sidebar."), None, false, false) };
     let at = sync::linked(&root).and_then(|url| GITHUB_RE.captures(&url).map(|m| (m[1].to_string(), m[2].to_string())));
-    let Some((owner, repo)) = at else { return told(false, Some("Link this project to a repository on GitHub first: Settings › History."), None, false, false) };
+    let Some(_) = at else { return told(false, Some("Link this project to a repository on GitHub first: Settings › History."), None, false, false) };
     let shares = read(&root);
     let Some(id) = find(&shares, &rel) else { return told(true, None, None, false, false) };
     let web = std::env::var("MDVIEW_WEB").ok().filter(|w| !w.is_empty()).unwrap_or_else(|| WEB.to_string());
-    told(true, None, Some(format!("{}/s/{}/{}/{id}", web.trim_end_matches('/'), quote(&owner), quote(&repo))), !shares[&id]["password"].is_null(), !arrived(&root))
+    told(true, None, Some(format!("{}/s/{id}", web.trim_end_matches('/'))), !shares[&id]["password"].is_null(), !arrived(&root))
 }
 
 /// The note shared (if it was not), and its password set (Some(Some)), taken away (Some(None))
@@ -97,7 +109,7 @@ pub fn info(path: &Path) -> Value {
 pub fn set(path: &Path, password: Option<Option<&str>>) -> Result<PathBuf, String> {
     let (root, rel) = place(path).ok_or("not in a project")?;
     let mut shares = read(&root);
-    let id = find(&shares, &rel).unwrap_or_else(|| URL_SAFE_NO_PAD.encode(uuid::Uuid::new_v4().as_bytes()));
+    let id = find(&shares, &rel).unwrap_or_else(new_id);
     let entry = shares.entry(id).or_insert_with(|| json!({ "path": rel, "created": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(), "password": null }));
     if let Some(p) = password {
         entry["password"] = p.filter(|p| !p.is_empty()).map_or(Value::Null, hashed);
@@ -152,9 +164,9 @@ mod tests {
         set(&note, Some(None)).unwrap();
         let shares = read(&d);
         let id = find(&shares, "docs/Note.md").unwrap();
-        assert_eq!(id.len(), 22);
+        assert!(id.len() == 10 && id.chars().all(|c| c.is_ascii_alphanumeric()));
         let told = info(&note);
-        assert_eq!(told["link"], json!(format!("{WEB}/s/octo/my%20notes/{id}")));
+        assert_eq!(told["link"], json!(format!("{WEB}/s/{id}")));
         assert_eq!((&told["password"], &told["pending"]), (&json!(false), &json!(true))); // (not at GitHub yet)
         // a password: what the web app works out again from the same password
         set(&note, Some(Some("sesame"))).unwrap();

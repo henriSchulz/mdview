@@ -3,7 +3,7 @@
 // as every file of a repository is (app/file).
 import { raw } from "@/lib/github";
 import { TYPES } from "@/lib/types";
-import { gate } from "../../gate";
+import { gate } from "@/lib/sharegate";
 
 export const dynamic = "force-dynamic";
 const said = (status: number, text: string) => new Response(text, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });

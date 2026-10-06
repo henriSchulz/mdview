@@ -108,6 +108,9 @@
     draw();
     root.dataset.open = "";
     post("share-info", { path });
+    // (an application that does not answer — one started before it learned to share: said, not left empty)
+    const asked = path;
+    setTimeout(() => { if (isOpen() && path === asked && !state) { state = { path, can: false, why: T("share.silent") }; waiting = false; draw(); } }, 2500);
     (document.activeElement || document.body).blur?.();
     setTimeout(() => { if (isOpen()) (state && state.link ? link : state && state.can ? pass : back).focus(); }, 60);
     return true;
