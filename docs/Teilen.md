@@ -12,9 +12,9 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 
 > [!important] Stand
 > Gebaut und geprüft (8 Tests in `web/test/share.test.mjs` und `auth.test.mjs`, einer in
-> `src-tauri/src/share.rs`, `dev/rig.sh share` am Desktop). **Auf dem Server ist es noch aus:**
-> Ihm fehlt der Schlüssel der GitHub App – siehe „Was du dafür tun musst". Bis dahin sagt der
-> Dialog im Web, dass von dieser Adresse nichts geteilt wird, und ein Link zeigt nichts.
+> `src-tauri/src/share.rs`, `dev/rig.sh share` am Desktop). Der Schlüssel der GitHub App liegt
+> seit dem 6. Oktober 2026 als Secret `GITHUB_APP_PRIVATE_KEY` bei Firebase und ist in
+> `web/apphosting.yaml` eingeschaltet. Gegen das echte GitHub steht das Durchklicken aus.
 
 ## Was es tut
 
@@ -88,18 +88,13 @@ flowchart LR
 - **Kein Ablaufdatum, keine Liste aller Freigaben** im Fenster. Die Datei lässt sich lesen.
 - **Ordner und ganze Repositories** lassen sich nicht teilen. So entschieden.
 
-## Was du dafür tun musst
+## Der Schlüssel
 
-1. In den Einstellungen der GitHub App (github.com › Settings › Developer settings › GitHub Apps
-   › mdview) unter **Private keys** „Generate a private key" drücken. GitHub lädt eine
-   `.pem`-Datei herunter.
-2. Im Terminal, im Ordner `web/`:
-   `npx firebase-tools apphosting:secrets:set GITHUB_APP_PRIVATE_KEY --data-file <pfad zur .pem>`.
-   Die Frage, ob das Backend das Secret lesen darf, mit Ja beantworten.
-3. In `web/apphosting.yaml` die beiden auskommentierten Zeilen für `GITHUB_APP_PRIVATE_KEY`
-   einschalten und pushen. (Vorher nicht: Ein Bau, der ein Secret nennt, das es nicht gibt,
-   scheitert.) Sag mir Bescheid, dann mache ich das.
-4. Die `.pem`-Datei danach löschen.
+Angelegt am 6. Oktober 2026: in den Einstellungen der GitHub App unter **Private keys** erzeugt,
+mit `npx firebase-tools apphosting:secrets:set GITHUB_APP_PRIVATE_KEY --data-file <.pem>` bei
+Firebase hinterlegt, dem Backend `mdview` freigegeben. Geht er verloren oder soll er gewechselt
+werden: an derselben Stelle einen neuen erzeugen, denselben Befehl noch einmal, den alten bei
+GitHub löschen.
 
 ## Durchklicken
 
