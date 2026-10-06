@@ -19,6 +19,7 @@
     o.open = state();
     q("#share .btn.primary").click(); await settled();
     o.shared = state();
+    o.marked = [[...document.querySelectorAll(".sb-row[data-real]")].filter((r) => r.querySelector(".sb-shared")).map((r) => r.querySelector(".sb-label").textContent.trim()), q('#toolbar [data-act="share"]').classList.contains("active")];
     say("share-shared", o); await sleep(1500);        // (the rig looks at the file and the commit)
     const pass = q('#share input[type="password"]');
     pass.value = "sesame"; pass.dispatchEvent(new Event("input", { bubbles: true }));
@@ -27,6 +28,7 @@
     say("share-locked", o); await sleep(1500);
     q("#share .pf-link.danger").click(); await settled();
     o.stopped = state();
+    o.unmarked = [document.querySelectorAll(".sb-shared").length, q('#toolbar [data-act="share"]').classList.contains("active")];
     say("share", o);
     post({ type: "close" });
   } catch (e) { o.error = String(e && e.stack || e); say("share", o); }

@@ -462,6 +462,8 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
   nowhere.
 - **The link shows the note as it is now**, a commit after it was changed. A renamed note keeps
   its link.
+- **A shared note is marked**: a small sign at the end of its row in the sidebar, and the share
+  button tinted while it is shown.
 - **Stop Sharing** ends the link, within half a minute. So does deleting the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.

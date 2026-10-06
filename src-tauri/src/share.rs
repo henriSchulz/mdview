@@ -91,6 +91,14 @@ fn arrived(root: &Path) -> bool {
     }
 }
 
+/// The notes of a folder that are shared, by their paths — for the sidebar, which marks them.
+pub fn listed(folder: &Path) -> Vec<String> {
+    let (Place::Project(root), true) = (history::place_of(folder), folder.is_dir()) else { return vec![] };
+    let mut all: Vec<String> = read(&root).values().filter_map(|e| e["path"].as_str()).map(|rel| root.join(rel)).filter(|p| p.starts_with(folder) && p.is_file()).map(|p| fs::canonicalize(&p).unwrap_or(p).to_string_lossy().into_owned()).collect();
+    all.sort();
+    all
+}
+
 /// How a note's sharing stands, for the page (active/share.js): { path, can, why, link,
 /// password, pending }.
 pub fn info(path: &Path) -> Value {

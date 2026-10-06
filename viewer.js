@@ -2196,10 +2196,24 @@
       const wait = titlesAt + motionMs("--dur-fast", 160) * 0.7 - performance.now();
       titlesAt = 0;
       clearTimeout(titlesTimer);
-      titlesTimer = setTimeout(() => { applyFolder(f, false); sbList.classList.remove("swap"); }, Math.max(0, wait));
+      titlesTimer = setTimeout(() => { applyFolder(f, false); markShared(); sbList.classList.remove("swap"); }, Math.max(0, wait));
       return;
     }
     applyFolder(f, true);
+    markShared();
+  }
+  /* The notes that are shared under a link (the folder says which: shared) are marked: a small
+   * sign at the end of their row, and the share button tinted while one of them is shown. */
+  function markShared() {
+    const shared = new Set((folder && folder.shared) || []);
+    for (const row of sbList.querySelectorAll(".sb-row[data-real]")) {
+      const is = shared.has(row.dataset.real), has = row.querySelector(".sb-shared");
+      if (is && !has) { const s = document.createElement("span"); s.className = "sb-shared"; s.title = "Shared under a link"; s.innerHTML = ICON.share; row.appendChild(s); }
+      else if (!is && has) has.remove();
+    }
+    const btn = toolbar.querySelector('[data-act="share"]'), on = !!(current && shared.has(current.path));
+    btn.classList.toggle("active", on);
+    btn.title = on ? "Shared under a link…" : "Share…";
   }
   function applyFolder(f, animate) {
     if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
@@ -2240,6 +2254,7 @@
     walk(folder.tree);
   }
   function markActiveNote(reveal) {
+    markShared(); // (the share button says whether the note now shown is shared)
     if (!folder) return;
     if (reveal && current) {
       const before = sbOpen.size;

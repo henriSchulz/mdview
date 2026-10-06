@@ -221,6 +221,9 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   assert.match((await (await fetch(long + "/data")).json()).text, /^# Shown/);
   await page.click("#share .share-row .btn");
   await until(async () => (await page.evaluate(() => navigator.clipboard.readText())) === link, "the link on the clipboard");
+  // what is shared is marked: its row in the sidebar, and the button while it is shown
+  const marked = () => page.evaluate(() => [[...document.querySelectorAll(".sb-row[data-real]")].filter((r) => r.querySelector(".sb-shared")).map((r) => r.dataset.real), document.querySelector('#toolbar [data-act="share"]').classList.contains("active")]);
+  assert.deepEqual(await marked(), [["/octo/notes/docs/Shown.md"], true]);
 
   // a password: of it only what it hashes to is in the repository
   await page.fill('#share input[type="password"]', "sesame");
@@ -252,6 +255,7 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   await page.screenshot({ path: join(web, ".next", "share-window.png") });
   await page.click("#share .pf-link.danger");
   await until(() => Object.keys(listed()).length === 0, "the share taken out");
+  assert.deepEqual(await marked(), [[], false]);
   assert.equal((await fetch(link)).status, 404);
   assert.deepEqual(problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p)), []);
 });

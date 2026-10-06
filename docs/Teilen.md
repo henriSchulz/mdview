@@ -14,13 +14,17 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 > Gebaut und geprüft (8 Tests in `web/test/share.test.mjs` und `auth.test.mjs`, einer in
 > `src-tauri/src/share.rs`, `dev/rig.sh share` am Desktop). Der Schlüssel der GitHub App liegt
 > seit dem 6. Oktober 2026 als Secret `GITHUB_APP_PRIVATE_KEY` bei Firebase und ist in
-> `web/apphosting.yaml` eingeschaltet. Gegen das echte GitHub steht das Durchklicken aus.
+> `web/apphosting.yaml` eingeschaltet. Gegen das echte GitHub ist ein Link geprüft (6. Oktober
+> 2026, `CPUs` aus `md-view-test-notes`): Er zeigt die Notiz ohne Anmeldung, andere Dateien des
+> Repositorys kommen nicht. Passwort, Aufheben und der Weg vom Desktop stehen aus.
 
 ## Was es tut
 
 - **Der Teilen-Knopf** oben rechts, zwischen Lupe und Modus-Schalter, und **Share…** im Menü
   einer Notiz (Rechtsklick in der Seitenleiste): ein kleines Fenster mit dem Link, einem Feld
   für ein Passwort und „Stop Sharing". In der Web-App und in der Desktop-App dasselbe Fenster.
+- **Was geteilt ist, sieht man:** Die Notiz trägt in der Seitenleiste ein kleines Zeichen am
+  Ende ihrer Zeile, und der Teilen-Knopf ist gefärbt, solange sie gezeigt wird.
 - Der Link ist kurz: `https://<web-app>/s/<id>`, die ID zehn Buchstaben und Ziffern aus dem
   Zufall (59 Bit). Wer den Link nicht hat, findet die Notiz nicht. Zu welchem Repository eine
   ID gehört, schlägt der Server nach.

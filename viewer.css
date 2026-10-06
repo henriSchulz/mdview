@@ -961,6 +961,11 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
 .sb-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
 .sb-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .is-dir > .sb-in > .sb-row .sb-icon, .sb-row.active .sb-icon { color: var(--accent); }
+/* a note shared under a link: a small sign at the end of its row */
+.sb-shared { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-left: auto; color: var(--fg3); animation: sb-shared-in var(--dur-fast) var(--ease-out); }
+.sb-shared svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-shared .sf { font-size: 11px; }
+@keyframes sb-shared-in { from { opacity: 0; } }
 
 .sb-field {
   display: block;

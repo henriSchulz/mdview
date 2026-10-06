@@ -118,6 +118,11 @@
 
   // ------------------------------------------------------------ the sidebar and the tabs
   let tabs = null, onScreen = null, toldFolder = "", toldTabs = "", modeGiven = false;
+  /* The notes shared under a link, as far as the list of them is read (it is, with the repository). */
+  function sharedNow() {
+    const text = drafts.has(C.SHARES) ? drafts.get(C.SHARES).text : texts.get((files.get(C.SHARES) || {}).sha);
+    return gone.has(C.SHARES) || text == null ? [] : Object.values(C.sharesOf(text).shares).map((e) => BASE + "/" + e.path).filter(exists).sort();
+  }
   function sendFolder() {
     const show = [prefs.sidebarPdf !== false && "pdf", prefs.sidebarImages && "image", prefs.sidebarMedia && "media", prefs.sidebarOther && "other"].filter(Boolean);
     let titles = null;
@@ -129,7 +134,7 @@
     if (changed) askDates();
     const payload = {
       root: BASE, name: W.repo, tree: C.buildTree(BASE, every(), { show, titles, changed, opened: here.opened, keep: [...keptDirs] }),
-      titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(),
+      titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(),
     };
     const blob = JSON.stringify(payload);
     if (blob !== toldFolder) { toldFolder = blob; tell("setFolder", payload); }
@@ -391,6 +396,7 @@
   /* The list changed and kept, at once; the page is told how it stands, and again once GitHub has it. */
   async function keepShares(all, path) {
     write(C.SHARES, C.sharesText(all));
+    sendFolder();
     await tellShare(path);
     await commit();
     await tellShare(path);
@@ -740,6 +746,7 @@
     if (now.tip) tip = now.tip;
     files = new Map((now.tree || []).map((e) => [e.path, { sha: e.sha, size: e.size }]));
     everything = null;
+    if (files.has(C.SHARES)) await fetchTexts([files.get(C.SHARES).sha]).catch(() => {}); // (what is shared: the sidebar marks it)
     return true;
   }
   /* Looked at again every minute, and when the tab is come back to: what another device sent is shown. */

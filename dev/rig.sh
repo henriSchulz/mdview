@@ -552,12 +552,14 @@ case "${1:-}" in
     ok "shared: the file names the note, without a password" '[[ $(sh ".shares[\"$id\"] | [.path, .password] | @json") == "[\"Note.md\",null]" && ${#id} == 10 ]]' 'cat "$A/.mdview/shares.json"'
     ok "the window shows the link, at the web app" '[[ $(jq -r .shared.link "$R/out"/*.share-shared.json) == "https://notes.example/s/$id" ]]' 'jq -c .shared "$R/out"/*.share-shared.json'
     ok "… and says that it is not at GitHub yet" 'jq -r .shared.text "$R/out"/*.share-shared.json | grep -q "once this is sent to GitHub"'
+    ok "the note is marked in the sidebar, and the button while it is shown" '[[ $(jq -c .marked "$R/out"/*.share-shared.json) == "[[\"Note\"],true]" ]]' 'jq -c .marked "$R/out"/*.share-shared.json'
     ok "kept as a commit at once" 'git -C "$A" log --format=%s -1 -- .mdview/shares.json | grep -q "shares.json"' 'git -C "$A" log --oneline | head -3; git -C "$A" status --porcelain'
     wait_for share-locked 200
     ok "a password: of it only what it hashes to is in the file" '[[ $(sh ".shares[\"$id\"].password | keys | @json") == "[\"hash\",\"iterations\",\"salt\"]" ]] && ! grep -q sesame "$A/.mdview/shares.json"' 'cat "$A/.mdview/shares.json"'
     ok "the window says so" 'jq -r .locked.text "$R/out"/*.share-locked.json | grep -q "and the password"' 'jq -c .locked "$R/out"/*.share-locked.json'
     wait_for share 200; sleep 1; pkill -f "^$APP" 2>/dev/null
     ok "shared no more: nothing in the file, the window offers to share again" '[[ $(sh ".shares | length") == 0 && $(jq -c "[.stopped.link, .stopped.go]" "$R/out"/Note.md.share.json) == "[null,true]" ]]' 'cat "$A/.mdview/shares.json"; jq -c .stopped "$R/out"/Note.md.share.json'
+    ok "… and nothing is marked any more" '[[ $(jq -c .unmarked "$R/out"/Note.md.share.json) == "[0,false]" ]]' 'jq -c .unmarked "$R/out"/Note.md.share.json'
     ok "nothing went wrong in the page" '[[ $(jq -r ".error // empty" "$R/out"/Note.md.share.json) == "" ]]' 'jq -r .error "$R/out"/Note.md.share.json'
     exit $fail;;
   sync)

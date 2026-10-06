@@ -1500,6 +1500,7 @@ impl Win {
         let st = &app.state;
         let payload = json!({
             "history": history,
+            "shared": share::listed(&folder),
             "root": s(&folder),
             "name": if name_of(&folder).is_empty() { s(&folder) } else { name_of(&folder) },
             "tree": tree,
@@ -2018,6 +2019,7 @@ impl Win {
                 }
                 self.js("MdView.share", &[share::info(&path)]);
                 self.share_asked = Some(path);
+                self.send_folder(app); // (the sidebar marks what is shared)
             }
             "history-now" => {
                 // Ctrl+S: what waits in the project is kept now, and a linked one reconciled — not
