@@ -3,7 +3,7 @@
 // /s/<id> (app/s/[owner]/route.ts finds the repository the id belongs to); the note's data and
 // files stand under the long address, /s/<owner>/<repo>/<id>/…, which is a link too.
 import { randomBytes } from "node:crypto";
-import { attr, css, DARK, LIGHT, pageDocument } from "./page";
+import { attr, css, DARK, LIGHT, pageDocument, icons } from "./page";
 import { origin } from "./session";
 import { cookieName, matches, mayTry, pass, tried } from "./share";
 import { address, gate } from "./sharegate";
@@ -33,8 +33,8 @@ function card(here: string, title: string, body: string, status: number, more: R
     `:focus-visible{outline:var(--focus-ring) solid var(--c-accent);outline-offset:2px}.why{color:var(--fg)}`;
   const page =
     `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><meta name='robots' content='noindex'>` +
-    `<title>${attr(title)}</title><link rel='stylesheet' href='${here}/app/motion.css'><style nonce='${nonce}'>${style}</style></head><body><main><div class='card'>${body}</div></main></body></html>`;
-  return new Response(page, { status, headers: { ...HEAD, "Content-Security-Policy": `default-src 'none'; style-src 'self' 'nonce-${nonce}'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`, ...more } });
+    `<title>${attr(title)}</title>${icons(here)}<link rel='stylesheet' href='${here}/app/motion.css'><style nonce='${nonce}'>${style}</style></head><body><main><div class='card'>${body}</div></main></body></html>`;
+  return new Response(page, { status, headers: { ...HEAD, "Content-Security-Policy": `default-src 'none'; style-src 'self' 'nonce-${nonce}'; img-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`, ...more } });
 }
 
 const NOTHING: Record<string, [number, string]> = {

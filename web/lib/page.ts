@@ -25,6 +25,10 @@ export const LIGHT = { background: "#f5f5f7", foreground: "#1d1d1f", accent: "#0
 export const DARK = { background: "#1e1e20", foreground: "#f5f5f7", accent: "#0a84ff", muted: "#6e6e73", selection: "#3a5f8f", red: "#ff453a", green: "#32d74b", yellow: "#ffd60a", orange: "#ff9f0a", blue: "#0a84ff", cyan: "#64d2ff", magenta: "#bf5af2", brown: "#ac8e68", bright_red: "#ff6961", bright_green: "#4cd964", bright_yellow: "#ffe066", bright_blue: "#409cff", bright_magenta: "#da8fff", bright_cyan: "#70d7ff" };
 export const css = (colors: Record<string, string>, mode: string) => `:root{${Object.entries(colors).map(([k, v]) => `--c-${k.replace(/_/g, "-")}:${v}`).join(";")};color-scheme:${mode}}`;
 
+/** The app's icon, for a document's head: the desktop app's own (packaging/mdview.svg), as public/welcome has it. */
+export const icons = (here: string) =>
+  `<link rel='icon' type='image/svg+xml' href='${here}/welcome/icon.svg'><link rel='icon' sizes='48x48' href='${here}/favicon.ico'><link rel='apple-touch-icon' href='${here}/welcome/icon-180.png'><link rel='manifest' href='${here}/welcome/app.webmanifest'>`;
+
 export const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/'/g, "&#x27;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
 export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").split(LS).join("\\u2028").split(PS).join("\\u2029"); // (never closes the script it stands in)
@@ -55,7 +59,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   const nonce = randomBytes(16).toString("base64"), a = "/app", here = o.here;
   // Scripts only with this document's nonce — so nothing a note brings (HTML in Markdown, a file
   // of the repository) can run as one. Everything else from here or as data.
-  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' 'self' https:; img-src 'self' data: blob: https: http:; font-src 'self' data:; media-src 'self' blob: https: http:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; form-action 'none'; frame-ancestors ${o.framed ? "'self'" : "'none'"}`;
+  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' 'self' https:; img-src 'self' data: blob: https: http:; font-src 'self' data:; media-src 'self' blob: https: http:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; manifest-src 'self'; form-action 'none'; frame-ancestors ${o.framed ? "'self'" : "'none'"}`;
   const web = { ...o.web, themes: { light: css(LIGHT, "light"), dark: css(DARK, "dark") } };
   // before the page's scripts: where it reaches its host (what it says while the host is not there
   // yet is kept for it), the settings, and the theme the system has
@@ -67,7 +71,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
   const page =
     `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>` +
-    `<meta name='robots' content='noindex'><title>${attr(o.title)}</title>` +
+    `<meta name='robots' content='noindex'><title>${attr(o.title)}</title>${icons(here)}` +
     `<base href='${attr(here + o.base)}'>` +
     `<link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
     `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'><link rel='stylesheet' href='${here}${a}/viewer.css'><link rel='stylesheet' href='${here}${a}/overview.css'>` +

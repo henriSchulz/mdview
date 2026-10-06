@@ -71,3 +71,4 @@ button { font: inherit; }
 .shares .share-what small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shares .row.share .link { flex: none; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
 .shares footer .link:disabled { opacity: 0.4; pointer-events: none; }
+.appicon { width: 64px; height: 64px; display: block; margin-bottom: -4px; }

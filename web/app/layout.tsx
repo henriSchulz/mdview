@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "Markdown Notes",
   description: "Notes in plain Markdown, from a repository on GitHub.",
   robots: { index: false, follow: false },
+  icons: { icon: [{ url: "/welcome/icon.svg", type: "image/svg+xml" }, { url: "/favicon.ico", sizes: "48x48" }], apple: "/welcome/icon-180.png" },
+  manifest: "/welcome/app.webmanifest",
 };
 
 export const viewport: Viewport = { colorScheme: "light dark" };

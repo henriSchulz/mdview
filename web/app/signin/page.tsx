@@ -14,6 +14,8 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
   return (
     <main className="center">
       <div className="card signin">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="appicon" src="/welcome/icon.svg" alt="" width={64} height={64} />
         <h1>Markdown Notes</h1>
         <p className="muted">Your notes are read from a repository on GitHub. Sign in to choose one; only the repositories the app was given there are reached.</p>
         {why && WHY[why] ? <p className="why" role="status">{WHY[why]}</p> : null}

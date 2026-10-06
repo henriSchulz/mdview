@@ -61,7 +61,8 @@ code, pre { font-family: var(--sc-font-mono); }
   opacity: var(--hero-ink, 1); transform: translate3d(0, calc((1 - var(--hero, 1)) * -70px), 0); pointer-events: none; }
 .hero[data-on] a { pointer-events: auto; }
 .hero__top { align-self: stretch; display: flex; justify-content: space-between; align-items: center; height: 56px; font-size: 14px; }
-.hero__mark { font-weight: 700; letter-spacing: -0.01em; }
+.hero__mark { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: -0.01em; }
+.hero__mark img { width: 28px; height: 28px; }
 .hero__in { font-weight: 600; padding: 6px 12px; border-radius: var(--radius-pill); background: var(--w-fill); color: var(--sc-ink); transition: background var(--dur-fast) var(--ease-out); }
 .hero__in:hover { text-decoration: none; background: color-mix(in srgb, var(--sc-ink) 11%, transparent); }
 .hero__h { margin: clamp(1.2rem, 5.5vh, 4rem) 0 0; font-size: clamp(2.7rem, 1.4rem + 6.2vw, 6.4rem); line-height: 0.98; letter-spacing: -0.045em; font-weight: 760; text-wrap: balance; }
@@ -154,7 +155,8 @@ code, pre { font-family: var(--sc-font-mono); }
 }
 .status a { color: var(--sc-ink-soft); padding: 5px 8px; border-radius: var(--radius-chip); transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .status a:hover { text-decoration: none; background: var(--w-fill); color: var(--sc-ink); transition-duration: var(--dur-instant); }
-.status .status__mark { color: var(--sc-ink); font-weight: 650; }
+.status .status__mark { display: inline-flex; align-items: center; gap: 6px; color: var(--sc-ink); font-weight: 650; }
+.status__mark img { width: 16px; height: 16px; }
 .status__acts { display: flex; gap: 0; list-style: none; margin: 0; padding: 0 0 0 6px; border-left: 1px solid var(--w-hair); }
 .status__acts a[aria-current] { color: var(--sc-ink); background: var(--w-fill); }
 .status__line { margin-left: auto; padding: 0 8px; color: var(--sc-ink-soft); font-variant-numeric: tabular-nums; white-space: pre; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

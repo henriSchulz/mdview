@@ -3,7 +3,7 @@
 // notes, and the page's document. How it moves is public/welcome/welcome.js, how it looks
 // public/welcome/welcome.css; the engine under it (scrollcraft.js, scrollcraft.css) is not ours.
 import { randomBytes } from "node:crypto";
-import { attr, inline } from "@/lib/page";
+import { attr, icons, inline } from "@/lib/page";
 
 export const REPOSITORY = "https://github.com/henriSchulz/mdview";
 
@@ -67,7 +67,7 @@ fn main() {
 \`\`\`
 
 \`\`\`sh
-curl https://md.henrischulz.com/k/raw
+curl HERE/k/raw
 \`\`\`
 `;
 const TRY = `# Your turn
@@ -81,10 +81,11 @@ This is the editor itself, running in your browser. Click into the text and type
 Nothing you write here is kept: these notes live in this tab only.
 `;
 
-const SAMPLES = { "Formulas.md": FORMULAS, "Callouts.md": CALLOUTS, "Code.md": CODE };
+const samples = (here: string) => ({ "Formulas.md": FORMULAS, "Callouts.md": CALLOUTS, "Code.md": CODE.replace("HERE", here) });
 /** The notes of one of the page's windows. write: the note being written. share: the same note, done,
  * and shared. try: a note to write in. note: the shared note as whoever has its link sees it. */
 export function demo(view: string, here: string) {
+  const SAMPLES = samples(here);
   const link = `${here}/welcome/note`;
   if (view === "try") return { id: "try", notes: { "Try it.md": TRY, "Welcome.md": WELCOME, ...SAMPLES }, first: "Try it.md", mode: "active", link };
   if (view === "share") return { id: "share", notes: { "Welcome.md": WELCOME, ...SAMPLES }, first: "Welcome.md", mode: "read", link, side: false };
@@ -98,12 +99,13 @@ const DOWN = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75v8.5m0
 /** The page. */
 export function welcomeDocument(here: string, why: string | null): Response {
   const nonce = randomBytes(16).toString("base64"), w = "/welcome";
-  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'`;
+  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'`;
   const frame = (view: string, title: string) => `<iframe class='win__app' data-view='${view}' data-src='${w}/app?view=${view}' title='${attr(title)}' loading='lazy' tabindex='-1'></iframe>`;
   const page = `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
 <title>Markdown Notes · notes that stay yours</title>
 <meta name='description' content='Notes as Markdown files in a Git repository you own. An app for the desktop and the browser, with formulas, tables, files, and a link to share a note.'>
-<link rel='icon' href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230071e3'/><path d='M8 22V10l5 6 5-6v12M22 10v12m0 0-3-3m3 3 3-3' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-scheme: light)'><meta name='theme-color' content='#131315' media='(prefers-color-scheme: dark)'>
+<link rel='canonical' href='${here}/'><meta property='og:type' content='website'><meta property='og:title' content='Markdown Notes'><meta property='og:description' content='Notes as Markdown files in a Git repository you own.'><meta property='og:url' content='${here}/'><meta property='og:image' content='${here}/welcome/icon-512.png'>
 <link rel='stylesheet' href='/app/motion.css'><link rel='stylesheet' href='${w}/scrollcraft.css'><link rel='stylesheet' href='${w}/welcome.css'>
 </head><body>
 <main id='top'>
@@ -112,7 +114,7 @@ export function welcomeDocument(here: string, why: string | null): Response {
   <div data-sc-stage class='stage write'>
     <div class='glow' aria-hidden='true'></div>
     <header class='hero'>
-      <div class='hero__top'><span class='hero__mark'>Markdown Notes</span><a class='hero__in' href='${here}/auth/login'>Sign in</a></div>
+      <div class='hero__top'><span class='hero__mark'><img src='/welcome/icon.svg' alt='' width='28' height='28'>Markdown Notes</span><a class='hero__in' href='${here}/auth/login'>Sign in</a></div>
       <h1 id='hero-h' class='hero__h'>Notes that stay <em>yours</em>.</h1>
       <p class='hero__p'>A fast, beautiful editor for Markdown files in your own Git repository. On the desktop, in the browser, and under a link.</p>
       <div class='hero__go'>
@@ -195,7 +197,7 @@ export function welcomeDocument(here: string, why: string | null): Response {
 </main>
 
 <nav class='status' aria-label='This page'>
-  <a class='status__mark' href='#top'>Markdown Notes</a>
+  <a class='status__mark' href='#top'><img src='/welcome/icon.svg' alt='' width='16' height='16'>Markdown Notes</a>
   <ol class='status__acts'>
     <li><a href='#write' data-act='write'>Write</a></li>
     <li><a href='#files' data-act='files'>Files</a></li>
