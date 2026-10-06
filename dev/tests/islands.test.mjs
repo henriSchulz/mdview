@@ -81,3 +81,19 @@ test("properties from the form: only the lines of what changed are written anew"
   assert.equal(I.applyForm(yaml, data, {}, [], [["author", "Henri"]]), yaml + "\nauthor: Henri", "a property added at the end");
   assert.deepEqual(JSON.stringify(w.jsyaml.load(I.applyForm(yaml, data, { title: "x # y" }, [], [])).title), JSON.stringify("x # y"), "a # stays text");
 });
+
+test("code that is put away: \"hide\" after the language, a card in the note, switched from the menu", () => {
+  const hidden = w.MdView.core.codeHidden;
+  assert.deepEqual([hidden("verilog hide The ALU"), hidden("js hide"), hidden('py hide "Quoted"'), hidden("js"), hidden("hide"), hidden("js title=\"a.js\""), hidden("js hidden")].map((h) => h && h.title), ["The ALU", "", "Quoted", null, null, null, null]);
+  const render = (src) => w.MdView.core.md.render(src, { links: {}, outline: [], depth: 0 });
+  const card = render("```verilog hide The ALU\nmodule alu;\nendmodule\n```\n");
+  assert.match(card, /class="code-block code-hidden"/);
+  assert.match(card, /<span class="code-card-title">The ALU<\/span><span class="code-lang">verilog<\/span><span class="code-card-count">2 lines<\/span>/);
+  assert.match(card, /<pre hidden><code class="hljs language-verilog"><span class="hljs-keyword">module<\/span>/); // (the code is there, coloured, for the window that shows it)
+  assert.match(render("```js hide\n\nconst a = 1;\n```\n"), /code-card-peek">const a = 1;<\/span>/); // (no title: the code's first line)
+  assert.ok(!/code-hidden/.test(render("```js\nconst a = 1;\n```\n")));
+  // the fence's head, taken apart and put together with "hide" in it
+  const c = I.parseCode("```js hide A title\nlet a;\n```");
+  assert.deepEqual([c.lang, c.rest], ["js", " hide A title"]);
+  assert.equal(I.buildCode(c), "```js hide A title\nlet a;\n```");
+});

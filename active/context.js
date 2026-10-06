@@ -201,6 +201,7 @@
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target }), { key: "Ctrl+Click" })] : [])] : []),
       ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),
+      ...(node.type === N.island && node.attrs.kind === "code" && !A.islands.parseCode(String(node.attrs.raw || "")).indented ? [item("menu.hideCode", () => A.islands.toggleHidden(view, pos), { checked: A.islands.codeIsHidden(node) })] : []),
       null,
       item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
       item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),

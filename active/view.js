@@ -117,7 +117,7 @@
       dom.setAttribute("aria-label", label);
     }
     // what is to be clicked inside stays the page's business (copy button, fold marker, player)
-    return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button, summary, input, audio, video, a") };
+    return { dom, ignoreMutation: () => true, stopEvent: (e) => !!e.target.closest?.("button:not(.code-card), summary, input, audio, video, a") }; // (the card of code that is put away is the block itself: selected, opened and asked for its menu like any other)
   };
   /* A quote as its node says (schema.js). A callout's title is typed in where it stands: a click
    * puts the caret into it and shows its Markdown, all of it selected; Enter or leaving it writes

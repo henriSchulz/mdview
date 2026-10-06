@@ -442,6 +442,34 @@ test("a file block: a click hands the file out, and a file that can be shown is 
   assert.match(await page.evaluate(() => MdActive.view.serialize()), /# Files\n\n!\[\[paper\.pdf\]\]\n\n\[data\.zip\]\(data\.zip\)\n/);
 });
 
+test("code put away behind a card: a click shows it in a window, the menu puts it away and brings it back", async () => {
+  put("Hidden.md", "# Hidden\n\n```js hide The helper\nconst answer = 42;\nexport default answer;\n```\n\n```js\nlet shown = true;\n```\n");
+  await open("Hidden.md");
+  assert.deepEqual(await page.evaluate(() => [document.querySelectorAll("#content .code-card").length, document.querySelector("#content .code-card-title").textContent, document.querySelector("#content .code-hidden pre").hidden]), [1, "The helper", true]);
+  await page.click("#content .code-card");
+  await page.waitForFunction(() => document.querySelector("#codeview").hasAttribute("data-open"), null, { timeout: 8000 });
+  assert.deepEqual(await page.evaluate(() => [document.querySelector("#codeview-title").textContent, document.querySelector("#codeview .code-lang").textContent, document.querySelector("#codeview pre code").textContent, !!document.querySelector("#codeview pre code .hljs-keyword")]), ["The helper", "js", "const answer = 42;\nexport default answer;\n", true]);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: join(web, ".next", "codeview.png") });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("#codeview").hasAttribute("data-open"), null, { timeout: 8000 });
+  await page.screenshot({ path: join(web, ".next", "codecard.png"), clip: { x: 300, y: 60, width: 760, height: 260 } });
+  // in the active mode: the menu of a code block puts it away, and brings it back
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable && document.querySelectorAll(".pm .code-block").length === 2, null, { timeout: 15000 });
+  const toggle = async (sel) => {
+    await page.click(sel, { button: "right" });
+    await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+    await page.evaluate(() => [...document.querySelectorAll("#actmenu .menu-item")].find((e) => e.textContent.startsWith("Hide the Code")).click());
+    await page.waitForFunction(() => !document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 }); // (it blinks, acts, and is gone)
+  };
+  await toggle(".pm .code-block:not(.code-hidden)");
+  await page.waitForFunction(() => /```js hide\nlet shown = true;/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+  assert.equal(await page.evaluate(() => document.querySelectorAll(".pm .code-hidden").length), 2);
+  await toggle(".pm .code-hidden");
+  await page.waitForFunction(() => /```js The helper\nconst answer/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+});
+
 test("the clipboard, where the page asks the host for it: pasted plain, pasted as it is, a picture copied", async () => {
   await open("Beta.md");
   await page.evaluate(() => MdView.setMode("active"));

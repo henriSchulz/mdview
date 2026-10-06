@@ -91,7 +91,7 @@
 
     // --- on an island, in a cell
     await context(view().dom.querySelector(".isl[data-kind='code']"));
-    ok("a right click on a code block: Edit, Cut, Copy as Markdown, Delete", labels(menu).join("|") === "Edit…|Cut|Copy as Markdown|Delete", labels(menu));
+    ok("a right click on a code block: Edit, Hide the Code, Cut, Copy as Markdown, Delete", labels(menu).join("|") === "Edit…|Hide the Code|Cut|Copy as Markdown|Delete", labels(menu));
     await choose(menu, "Delete");
     ok("Delete removes it", !md().includes("```js"));
     undo();

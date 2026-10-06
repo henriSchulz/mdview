@@ -144,6 +144,18 @@ def greet(name):
 ```
 
 A fence with a language name is highlighted; hovering shows the language and a Copy button.
+`hide` after the language puts the code away behind a card — with a title, if one follows, else
+the code's first line — and a click shows it in a window of its own:
+
+````markdown
+```verilog hide The ALU
+module alu(…);
+```
+````
+
+In the active mode the code block's menu has Hide the Code, and its dialog a Hide button. Other
+Markdown programs show such a block as any other.
+
 Hardware descriptions are among the languages: `verilog` (also `systemverilog`, `sv`, `svh`),
 `vhdl`, `tcl` — and `filelist` (also `f`), the list of sources and options a simulator is handed.
 

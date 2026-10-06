@@ -493,6 +493,11 @@
     return new XMLSerializer().serializeToString(root);
   }
 
+  // a fence's head line that puts its code away: "<language> hide <title>" → { title }, else null
+  function codeHidden(info) {
+    const m = /^\S+[ \t]+hide(?:[ \t]+(.*))?$/i.exec(String(info || "").trim());
+    return m ? { title: (m[1] || "").trim().replace(/^(["'])(.*)\1$/, "$2") } : null;
+  }
   // --- code fences: highlight, copy button, mermaid, math, svg
   md.renderer.rules.fence = (toks, idx) => {
     const t = toks[idx];
@@ -512,6 +517,17 @@
         : esc(t.content);
     } catch (e) {
       code = esc(t.content);
+    }
+    // "hide" after the language: the code is put away behind a card — its title (what follows
+    // "hide"), or the code's first line — and a click shows it in a window of its own
+    const hidden = codeHidden(t.info);
+    if (hidden) {
+      const lines = t.content.replace(/\n+$/, "").split("\n"), first = lines.find((l) => l.trim()) || "";
+      return `<div class="code-block code-hidden"${lineAttr(t)}><button class="code-card" type="button" aria-haspopup="dialog">` +
+        `<span class="code-card-icon">${ICON.source}</span>` +
+        (hidden.title ? `<span class="code-card-title">${esc(hidden.title)}</span>` : `<span class="code-card-title code-card-peek">${esc(first.trim())}</span>`) +
+        (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") + `<span class="code-card-count">${lines.length === 1 ? "1 line" : lines.length + " lines"}</span></button>` +
+        `<pre hidden><code class="hljs${lang ? " language-" + esc(lang) : ""}">${code}</code></pre></div>`;
     }
     return `<div class="code-block"${lineAttr(t)}><div class="code-tools">` +
       (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") +
@@ -1787,6 +1803,48 @@
     big.style.width = w + "px"; big.style.height = h + "px"; big.style.left = left + "px"; big.style.top = top + "px";
     return `translate(${r.left - left}px, ${r.top - top}px) scale(${r.width / w}, ${r.height / h})`;
   }
+  /* Code that is put away (a fence with "hide"), shown: a window over the page with the code, its
+   * language, Copy and a way out — Esc, a click beside it, the cross. */
+  const codeBox = document.createElement("div");
+  codeBox.id = "codeview";
+  codeBox.innerHTML = `<div class="codeview-box surface" role="dialog" aria-modal="true" aria-labelledby="codeview-title" tabindex="-1">` +
+    `<header class="codeview-head"><b id="codeview-title"></b><span class="code-lang"></span><span class="codeview-space"></span>` +
+    `<button class="btn code-copy" type="button">Copy</button><button class="tb" type="button" data-codeview-close aria-label="Close" title="Close (Esc)">${ICON.x}</button></header>` +
+    `<div class="code-block"><pre><code></code></pre></div></div>`;
+  document.body.appendChild(codeBox);
+  let codeFrom = null;
+  const codeOpen = () => codeBox.hasAttribute("data-open");
+  function openCode(block) {
+    const code = block && block.querySelector("pre code");
+    if (!code || codeOpen()) return false;
+    codeFrom = document.activeElement;
+    const title = block.querySelector(".code-card-title"), lang = block.querySelector(".code-lang");
+    codeBox.querySelector("#codeview-title").textContent = title && !title.classList.contains("code-card-peek") ? title.textContent : "Code";
+    codeBox.querySelector(".code-lang").textContent = lang ? lang.textContent : "";
+    const shown = codeBox.querySelector("pre code");
+    shown.className = code.className;
+    shown.innerHTML = code.innerHTML;
+    codeBox.dataset.open = "";
+    codeBox.querySelector("pre").scrollTop = 0;
+    codeBox.firstChild.focus({ preventScroll: true });
+    return true;
+  }
+  function closeCode() {
+    if (!codeOpen()) return false;
+    delete codeBox.dataset.open;
+    if (codeFrom && codeFrom.isConnected) codeFrom.focus({ preventScroll: true });
+    codeFrom = null;
+    return true;
+  }
+  document.addEventListener("keydown", (e) => {
+    if (!codeOpen()) return;
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeCode(); }
+    else if (e.key === "Tab") { // the focus stays in the window
+      const all = [...codeBox.querySelectorAll("button")], i = all.indexOf(document.activeElement);
+      e.preventDefault(); e.stopPropagation();
+      all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length].focus();
+    } else if (!codeBox.contains(e.target) && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); } // (nothing is typed into the note behind it)
+  }, true);
   function zoomImage(img) {
     if (!img || !img.complete || !img.naturalWidth || zoomOpen()) return false;
     const big = zoomBox.firstChild;
@@ -3157,6 +3215,10 @@
       post("toggle", { line: Number(box.dataset.line), checked: box.checked });
       return;
     }
+    // code put away behind its card: shown in a window of its own (while it is edited, its dialog is that window)
+    const card = e.target.closest(".code-card");
+    if (card && !card.closest(".pm")) { openCode(card.closest(".code-block")); return; }
+    if (e.target.closest("[data-codeview-close]") || e.target === codeBox) { closeCode(); return; }
     const copy = e.target.closest(".code-copy");
     if (copy) {
       post("copy", { text: copy.closest(".code-block").querySelector("code").textContent });
@@ -3355,7 +3417,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, codeHidden, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

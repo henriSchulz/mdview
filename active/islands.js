@@ -144,11 +144,21 @@
         lang.value = c.lang;
         window.MdView.core.combo(lang, LANGS); // (the languages, offered in the app's own menu while it is typed in)
         tools.append(lang);
-        if (c.rest.trim()) {
-          rest = el("input", { class: "lp-field dlg-rest", type: "text", "aria-label": T("dialog.info"), spellcheck: "false", autocomplete: "off" });
-          rest.value = c.rest.trim();
-          tools.append(rest);
-        }
+        // what follows the language in the fence's head; "hide" there puts the code away behind a
+        // card in the note (its title: what follows "hide") — switched on and off by the button
+        rest = el("input", { class: "lp-field dlg-rest", type: "text", "aria-label": T("dialog.info"), spellcheck: "false", autocomplete: "off" });
+        rest.value = c.rest.trim();
+        const hide = el("button", { class: "btn", type: "button", "aria-pressed": "false" }, T("dialog.hide"));
+        const hiddenNow = () => /^hide(?:\s|$)/i.test(rest.value.trim());
+        const showRest = () => { hide.setAttribute("aria-pressed", String(hiddenNow())); rest.hidden = !rest.value.trim(); rest.placeholder = hiddenNow() ? T("dialog.hideTitle") : ""; };
+        hide.onclick = () => {
+          rest.value = hiddenNow() ? rest.value.trim().replace(/^hide\s*/i, "") : ("hide " + rest.value.trim()).trim() + " ";
+          showRest();
+          if (hiddenNow()) { rest.hidden = false; rest.focus(); rest.setSelectionRange(rest.value.length, rest.value.length); }
+        };
+        rest.addEventListener("input", () => hide.setAttribute("aria-pressed", String(hiddenNow())));
+        showRest();
+        tools.append(rest, hide);
         ed = A.dialog.editor({ value: c.code, language: hl(c.lang), label: T("dialog.code") });
         body.append(ed.el);
         const update = infoBar(info, ed);
@@ -185,7 +195,8 @@
         return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
           focus: () => (fresh || c.code ? ed.focus() : lang.focus()),
           result() {
-            const next = { ...c, lang: lang.value.trim(), rest: rest ? (rest.value.trim() ? " " + rest.value.trim() : "") : c.rest, code: ed.value };
+            // (left as it was written where it was not touched: spaces at the line's end and all)
+            const next = { ...c, lang: lang.value.trim(), rest: rest.value.trim() === c.rest.trim() ? c.rest : rest.value.trim() ? " " + rest.value.trim() : "", code: ed.value };
             const raw = buildCode(next);
             return raw === node.attrs.raw && !fresh ? undefined : raw;
           },
@@ -763,5 +774,16 @@
 
   // a formula in the line, made new at this position: its dialog opens empty
   const newMath = (view, pos) => mathDialog(view, pos, null, true, { from: pos, tex: "", create: true });
-  A.islands = { picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  // a code block's code put away behind its card, or shown again (the menu's entry)
+  const codeIsHidden = (node) => node.type === N.island && node.attrs.kind === "code" && !!window.MdView.core.codeHidden((parseCode(String(node.attrs.raw || "")).lang || "") + (parseCode(String(node.attrs.raw || "")).rest || ""));
+  function toggleHidden(view, pos) {
+    const node = view.state.doc.nodeAt(pos);
+    if (!node || node.type !== N.island || node.attrs.kind !== "code") return;
+    const c = parseCode(node.attrs.raw), was = c.rest.trim();
+    if (c.indented) return;
+    const lang = c.lang || "text"; // (a fence without a language has no place for "hide" after it)
+    const rest = /^hide(?:\s|$)/i.test(was) ? was.replace(/^hide\s*/i, "") : ("hide " + was).trim();
+    replace(view, pos, buildCode({ ...c, lang, rest: rest ? " " + rest : "" }));
+  }
+  A.islands = { codeIsHidden, toggleHidden, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();
