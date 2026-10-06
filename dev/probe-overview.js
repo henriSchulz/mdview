@@ -34,7 +34,7 @@
     o.focusName = document.activeElement.querySelector(".ov-name")?.textContent;
     ok("tasks keep their boxes, links lead nowhere", !!ov.querySelector(".ov-prev input[type=checkbox]") && !ov.querySelector(".ov-prev a[href]"));
     const noteOnly = () => [...document.querySelectorAll('#toolbar :is([data-act="outline"], [data-act="find"], [data-act="share"], [data-act="panel"], .seg)')].map((b) => getComputedStyle(b).pointerEvents);
-    ok("over the tiles the note's buttons take no click, the tiles' and the sidebar's do", noteOnly().length === 5 && noteOnly().every((v) => v === "none") && getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(document.querySelector('#toolbar [data-act="sidebar"]')).pointerEvents !== "none", noteOnly().join());
+    ok("over the tiles the note's buttons take no click, the tiles' and the sidebar's do", noteOnly().length === 5 && noteOnly().every((v) => v === "none") && getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(document.querySelector('#tabs [data-act="sidebar"]')).pointerEvents !== "none", noteOnly().join());
     out("shot", {});
     await sleep(1400); // screenshot
     key("Escape");

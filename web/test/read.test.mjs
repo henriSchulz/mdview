@@ -147,6 +147,21 @@ test("a shared note's sign stands at the end of its row, and the row keeps its n
   await page.waitForFunction(() => !document.querySelector(".sb-shared"), null, { timeout: 10000 });
 });
 
+test("the sidebar's button stands at the left, where the sidebar is", async () => {
+  const at = () => page.evaluate(() => { const b = document.querySelector('#tabs [data-act="sidebar"]'), old = document.querySelector('#toolbar [data-act="sidebar"]'), r = b.getBoundingClientRect(), sb = document.querySelector("#sidebar").getBoundingClientRect(); return { left: Math.round(r.left), shown: b.offsetParent !== null, old: !!old && old.offsetParent !== null, open: document.body.dataset.sidebar === "open", edge: Math.round(sb.right) }; });
+  const open = await at();
+  assert.deepEqual([open.shown, open.old, open.open], [true, false, true]);
+  assert.ok(open.left >= open.edge && open.left < open.edge + 40, JSON.stringify(open)); // (right beside the sidebar's edge)
+  await page.click('#tabs [data-act="sidebar"]');
+  await page.waitForFunction(() => document.body.dataset.sidebar !== "open", null, { timeout: 8000 });
+  await page.waitForTimeout(700);
+  const closed = await at();
+  assert.ok(closed.shown && closed.left < 40, JSON.stringify(closed)); // (the sidebar closed: at the window's left edge)
+  await page.click('#tabs [data-act="sidebar"]');
+  await page.waitForFunction(() => document.body.dataset.sidebar === "open", null, { timeout: 8000 });
+  await page.waitForTimeout(700);
+});
+
 test("a file's menu offers what a browser can do, and calls it what it is here", async () => {
   await page.click('.sb-row[data-real="/octo/notes/Second note.md"]', { button: "right" });
   await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });

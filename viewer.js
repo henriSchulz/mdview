@@ -2981,7 +2981,10 @@
   const tabbar = document.createElement("nav");
   tabbar.id = "tabs";
   tabbar.setAttribute("aria-label", "Tabs");
+  // (the sidebar's button stands at the left, where the sidebar is: first in the strip — beside the
+  // sidebar's edge while that is open, at the window's while it is closed)
   tabbar.innerHTML = `<div class="tab-row">` +
+    `<button class="tab-home tab-side" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
     `<button class="tab-home" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.home}</button>` +
     `<div class="tab-list" role="tablist"></div>` +
     `<button class="tab-new" data-act="newtab" title="New tab (Ctrl+T)" aria-label="New tab">${ICON.plus}</button></div>`;

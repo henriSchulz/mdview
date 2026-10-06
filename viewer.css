@@ -828,7 +828,9 @@ body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; point
 .sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .sb-head [data-act="historymenu"].quiet { opacity: 0.4; }
 .sb-head [data-act="historymenu"].warn { color: var(--c-red); } /* (conflicts to resolve: its menu and its tooltip say so) */
-body[data-folder] #toolbar [data-act="sidebar"] { display: grid; } /* (all notes: the house before the tabs) */
+/* (the sidebar's button: at the left, first in the strip of tabs — not among these; all notes: the house beside it) */
+.tab-side { width: 38px; color: var(--fg2); }
+body[data-sidebar="open"] .tab-side { color: var(--fg); }
 
 /* ------------------------------------------------------------- tabs (folder windows) */
 /* A strip above the note, as Craft has it: the house (all notes), the tabs — each a rounded field,
