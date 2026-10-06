@@ -27,7 +27,7 @@ use crate::sync;
 pub const FILE: &str = ".mdview/shares.json";
 const ITERATIONS: u32 = 600_000;
 /// Where the web app is (another: MDVIEW_WEB).
-const WEB: &str = "https://mdview--md-view.europe-west4.hosted.app";
+const WEB: &str = "https://md.henrischulz.com";
 static GITHUB_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$").unwrap());
 
 /// The project a note is in, and the note's path in it (as the repository names it).
