@@ -475,7 +475,7 @@
   async function tellShare(path) {
     const why = !W.sharing ? "Notes are not shared from this address yet: the server has no key for it." : !project() ? "Turn the history on first: the clock in the sidebar." : null;
     const found = why ? null : C.shareOf(await shares(), rel(path));
-    tell("share", { path, can: !why, why, link: found ? `${location.origin}/s/${found[0]}` : null, password: !!(found && found[1].password), pending: drafts.has(C.SHARES) });
+    tell("share", { path, can: !why, why, link: found ? `${location.origin}/${found[0]}` : null, password: !!(found && found[1].password), pending: drafts.has(C.SHARES) });
   }
   /* The list changed and kept, at once; the page is told how it stands, and again once GitHub has it. */
   async function keepShares(all, path) {

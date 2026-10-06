@@ -158,6 +158,7 @@ export async function whereIs(id: string): Promise<{ owner: string; repo: string
   return at;
 }
 
+const OWN = new Set(["shares", "signin", "auth", "api", "file", "r", "s", "share", "app", "host", "raw", "favicon", "robots"]);
 const LETTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 /** An id no shared note has, as short as there is room for: one letter or digit while fewer than
@@ -170,7 +171,7 @@ export async function freeId(): Promise<string> {
   for (;; length++) {
     for (let tries = 0; tries < 40; tries++) {
       const id = Array.from(randomBytes(length), (b) => LETTERS[b % 62]).join("");
-      if (await reserve(id)) return id;
+      if (!OWN.has(id.toLowerCase()) && (await reserve(id))) return id; // (not a name the app has at its top: the link is /<id>)
     }
   }
 }

@@ -4,10 +4,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const OPEN = ["/signin", "/auth/login", "/auth/callback"];
+const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "app", "host"]; // the app's own names at the top: never a shared note's id
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (OPEN.includes(pathname) || request.cookies.has("mdview")) return NextResponse.next();
+  // a shared note, /<id> and /<id>/raw: for whoever has the link — it guards itself (app/[id])
+  if (/^\/[A-Za-z0-9_-]{1,64}(\/raw)?$/.test(pathname) && !OWN.includes(pathname.split("/")[1])) return NextResponse.next();
   const to = request.nextUrl.clone();
   to.pathname = "/signin";
   to.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;

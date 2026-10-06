@@ -77,6 +77,6 @@ export async function givePassword(request: Request, owner: string, repo: string
   tried(key, right);
   if (!right) return ask(here, self, "That is not the password.");
   // (for every address of the app's shared notes: the short link and the long one are the same note)
-  const cookie = `${cookieName(id)}=${pass(owner, repo, id, g.shared.password)}; Path=/s; Max-Age=${7 * 24 * 3600}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  const cookie = `${cookieName(id)}=${pass(owner, repo, id, g.shared.password)}; Path=/; Max-Age=${7 * 24 * 3600}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
   return new Response(null, { status: 303, headers: { Location: here + self, "Set-Cookie": cookie, "Cache-Control": "no-store" } });
 }

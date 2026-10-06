@@ -503,6 +503,8 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 
 - **Share…** (the button at the top, beside the magnifier; or a note's menu in the sidebar): a small window with
   the link to copy. Anyone who has the link can read the note — and only read it.
+- **The link** is the web app's address and a short id behind it; `/raw` after that gives the
+  note as it is written, its Markdown as text.
 - **A password** can be set there, changed, and taken away. With one, the link asks for it
   first. Of the password only a hash is kept.
 - **What goes with the note**: its pictures, and what it embeds (`![[…]]`) — notes, PDFs,

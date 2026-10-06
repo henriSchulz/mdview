@@ -177,6 +177,8 @@ test("without the app's own key nothing is shared from here: a link shows nothin
   assert.match(res.text, /not shared from this address/);
   assert.equal((await browser().go("/s/octo/notes/aaaaaaaaaaaaaaaaaaaaaa/data")).status, 404);
   assert.equal((await browser().go("/s/aaaaaaaaaa")).status, 404);
+  assert.equal((await browser().go("/aaaaaaaaaa")).status, 404);
+  assert.equal((await browser().go("/aaaaaaaaaa/raw")).status, 404);
   assert.equal((await browser().go("/share/free")).status, 404);
   assert.equal(gh.seen.length, asked);
 });

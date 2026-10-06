@@ -25,7 +25,10 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
   Sharing"; das Passwort ist eine Zeile darin, die man aufklappt. In der Web-App und in der Desktop-App dasselbe Fenster.
 - **Was geteilt ist, sieht man:** Die Notiz trägt in der Seitenleiste ein kleines Zeichen am
   Ende ihrer Zeile, und der Teilen-Knopf ist gefärbt, solange sie gezeigt wird.
-- Der Link ist sehr kurz: `https://<web-app>/s/<id>`. Die ID ist **ein** Buchstabe oder eine
+- Der Link ist sehr kurz: `https://<web-app>/<id>` – die ID direkt hinter der Adresse.
+  `https://<web-app>/<id>/raw` liefert die Notiz, wie sie geschrieben ist: ihr Markdown als Text
+  (mit Passwort: `curl -u :passwort …/raw`, oder im Browser, der es auf der Seite der Notiz
+  schon angegeben hat). Der ältere Weg `/s/<id>` zeigt dieselbe Notiz. Die ID ist **ein** Buchstabe oder eine
   Ziffer, solange weniger als 30 Notizen geteilt sind, danach zwei (und eine Stelle mehr, sobald
   die Hälfte vergeben ist). Der Server vergibt sie (`/share/free`), weil eine ID über alle
   Repositories hinweg nur einmal vorkommen darf.
@@ -62,7 +65,7 @@ heraus; alles andere ist 404, auch `.mdview/shares.json`.
 ```mermaid
 flowchart LR
   D[Desktop-App oder Web-App: Share…] -- "Commit: .mdview/shares.json" --> G[(Repository bei GitHub)]
-  B[Besucher mit Link] --> S[/s/id/]
+  B[Besucher mit Link] --> S[/id/]
   S -- "liest als GitHub App, nur lesend" --> G
 ```
 
@@ -115,7 +118,7 @@ sondern nur:
 
 Wozu:
 
-- **Nachschlagen:** `/s/<id>` findet sein Repository mit einer Abfrage, auch bei vielen Nutzern.
+- **Nachschlagen:** `/<id>` findet sein Repository mit einer Abfrage, auch bei vielen Nutzern.
 - **Freie IDs:** Eine ID wird beim Vergeben reserviert; zwei Nutzer bekommen nie dieselbe.
 - **Übersicht:** Unter `/shares` (in der Web-App: „Shared Notes" bei den Repositories) sieht ein
   angemeldeter Nutzer, was in seinen Repositories geteilt ist, mit Link, Passwort ja/nein, Zahl

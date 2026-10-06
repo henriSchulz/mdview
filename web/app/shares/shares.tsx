@@ -13,7 +13,7 @@ const ago = (iso: string) => {
 
 export function Shares({ rows, failed, repos }: { rows: Row[]; failed: boolean; repos: string[] }) {
   const [copied, setCopied] = useState(""), [busy, setBusy] = useState(false);
-  const link = (id: string) => `${location.origin}/s/${id}`;
+  const link = (id: string) => `${location.origin}/${id}`;
   const copy = (id: string) => { navigator.clipboard?.writeText(link(id)).then(() => { setCopied(id); setTimeout(() => setCopied((c) => (c === id ? "" : c)), 1400); }, () => {}); };
   // (the repositories' own lists are the truth: read again, each of them, then shown anew)
   const refresh = async () => {
@@ -35,7 +35,7 @@ export function Shares({ rows, failed, repos }: { rows: Row[]; failed: boolean; 
                 <a href={`/r/${r.repo}?n=${encodeURIComponent(r.path)}`}>{r.path.replace(/\.(md|markdown)$/i, "")}</a>
                 <small>{r.repo} · {r.password ? "with a password" : "for anyone with the link"} · {r.opens === 1 ? "1 opening" : `${r.opens} openings`} · {ago(r.seen)}{r.created ? ` · shared ${day(r.created)}` : ""}</small>
               </span>
-              <a className="link" href={`/s/${r.id}`} target="_blank" rel="noreferrer">/s/{r.id}</a>
+              <a className="link" href={`/${r.id}`} target="_blank" rel="noreferrer">/{r.id}</a>
               <button className="link" type="button" onClick={() => copy(r.id)}>{copied === r.id ? "Copied" : "Copy Link"}</button>
             </div>
           ))}

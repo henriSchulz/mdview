@@ -136,7 +136,7 @@ pub fn info(path: &Path) -> Value {
     let Some(_) = at else { return told(false, Some("Link this project to a repository on GitHub first: Settings › History."), None, false, false) };
     let shares = read(&root);
     let Some(id) = find(&shares, &rel) else { return told(true, None, None, false, false) };
-    told(true, None, Some(format!("{}/s/{id}", web())), !shares[&id]["password"].is_null(), !arrived(&root))
+    told(true, None, Some(format!("{}/{id}", web())), !shares[&id]["password"].is_null(), !arrived(&root))
 }
 
 /// The note shared (if it was not: under the id given, where it is free here), and its password
@@ -227,7 +227,7 @@ mod tests {
         let id = find(&shares, "docs/Note.md").unwrap();
         assert!(id.len() == 10 && id.chars().all(|c| c.is_ascii_alphanumeric()));
         let told = info(&note);
-        assert_eq!(told["link"], json!(format!("{WEB}/s/{id}")));
+        assert_eq!(told["link"], json!(format!("{WEB}/{id}")));
         assert_eq!((&told["password"], &told["pending"]), (&json!(false), &json!(true))); // (not at GitHub yet)
         // a password: what the web app works out again from the same password
         set(&note, Some(Some("sesame")), None).unwrap();

@@ -106,7 +106,7 @@ test("a password: asked for first, wrong ones refused, the right one opens — f
   const yes = await give("sesame");
   assert.equal(yes.status, 303);
   const cookie = yes.headers.getSetCookie()[0];
-  assert.match(cookie, new RegExp(`^mdshare-${LOCKED.slice(0, 16)}=[\\w-]+; Path=/s; Max-Age=\\d+; HttpOnly; SameSite=Lax`));
+  assert.match(cookie, new RegExp(`^mdshare-${LOCKED.slice(0, 16)}=[\\w-]+; Path=/; Max-Age=\\d+; HttpOnly; SameSite=Lax`));
   const carried = { cookie: cookie.split(";")[0] };
   assert.match((await (await get(at + "/data", carried)).json()).text, /behind a password/);
   assert.equal((await get(at + "/file/Private.md", carried)).status, 200);
@@ -153,6 +153,33 @@ test("an id for a new link is as short as there is room for, and not handed out 
   assert.deepEqual(await (await fetch(`${base}/share/sync/octo/notes`, { method: "POST" })).json(), { shared: 31 });
   const longer = [await free(), await free()];
   assert.ok(longer.every((id) => /^[A-Za-z0-9]{2}$/.test(id) && !some.includes(id)), String(longer));
+});
+
+test("the link is the id right behind the address, and /raw under it is the note as it is written", async () => {
+  shares(both());
+  await fetch(`${base}/share/sync/octo/notes`, { method: "POST" });
+  const res = await get(`/${OPEN}`);
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), new RegExp(`"owner":"octo","repo":"notes","share":"${OPEN}"`));
+  // the Markdown itself
+  const raw = await get(`/${OPEN}/raw`);
+  assert.deepEqual([raw.status, raw.headers.get("content-type")], [200, "text/markdown; charset=utf-8"]);
+  assert.equal(await raw.text(), gh.repo.files.get("docs/Shown.md").toString());
+  // nothing of that for an id that is none, and the app's own names stay the app's
+  assert.deepEqual([(await get(`/${GONE}`)).status, (await get(`/${GONE}/raw`)).status, (await get("/nothing-like-an-id!")).status], [404, 404, 307]); // (what cannot be an id is the app's: to signing in)
+  assert.deepEqual([(await get("/shares")).status, (await get("/")).status, (await get("/signin")).status], [307, 307, 200]);
+  // with a password: asked for on the page; raw takes it as a program gives one, or from a browser that gave it
+  assert.match(await (await get(`/${LOCKED}`)).text(), new RegExp(`action='/${LOCKED}'`));
+  const closed = await get(`/${LOCKED}/raw`);
+  assert.deepEqual([closed.status, closed.headers.get("www-authenticate")], [401, 'Basic realm="shared note", charset="UTF-8"']);
+  assert.ok(!/behind a password/.test(await closed.text()));
+  const basic = (password) => ({ authorization: "Basic " + Buffer.from(":" + password).toString("base64") });
+  assert.equal((await get(`/${LOCKED}/raw`, basic("wrong"))).status, 401);
+  const open = await get(`/${LOCKED}/raw`, basic("sesame"));
+  assert.deepEqual([open.status, await open.text()], [200, "# Private\n\nbehind a password\n"]);
+  const yes = await fetch(`${base}/${LOCKED}`, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ password: "sesame" }) });
+  assert.deepEqual([yes.status, yes.headers.get("location")], [303, `${base}/${LOCKED}`]);
+  assert.equal((await get(`/${LOCKED}/raw`, { cookie: yes.headers.getSetCookie()[0].split(";")[0] })).status, 200);
 });
 
 test("guessing is slowed: after a few wrong passwords none is looked at for a while", async () => {
@@ -243,9 +270,9 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   const [id, entry] = Object.entries(listed())[0];
   assert.match(id, /^[A-Za-z0-9]$/); // (one letter or digit: few notes are shared)
   assert.deepEqual([entry.path, entry.password, gh.commits.length, gh.commits.at(-1).added], ["docs/Shown.md", null, before + 1, [".mdview/shares.json"]]);
-  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.includes("/s/"); }, null, { timeout: 8000 });
+  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.startsWith(location.origin + "/"); }, null, { timeout: 8000 });
   const link = await page.inputValue("#share .share-link");
-  assert.equal(link, `${base}/s/${id}`); // (short: the id alone)
+  assert.equal(link, `${base}/${id}`); // (short: the id alone, right behind the address)
   assert.match(await (await fetch(link)).text(), /\/host\/share\.js/); // (read by someone who is not signed in)
   const long = `${base}/s/octo/notes/${id}`; // (where the note's data and files stand)
   assert.match((await (await fetch(long + "/data")).json()).text, /^# Shown/);
@@ -296,7 +323,7 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   // stopped: the link shows nothing
   await page.waitForFunction(() => MdView.core.current.name === "Shown, later.md", null, { timeout: 8000 });
   await page.click('#toolbar [data-act="share"]');
-  await page.waitForFunction(() => { const r = document.querySelector("#share"); return r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.includes("/s/"); }, null, { timeout: 8000 });
+  await page.waitForFunction(() => { const r = document.querySelector("#share"); return r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.startsWith(location.origin + "/"); }, null, { timeout: 8000 });
   await page.waitForTimeout(700); // (settled, for the picture)
   await page.screenshot({ path: join(web, ".next", "share-window.png") });
   await page.click("#share .share-foot .pf-link.danger");
@@ -320,9 +347,9 @@ test("what is shared is written down: an overview for the one who shares, with h
   const cookie = back.headers.getSetCookie().find((c) => c.startsWith("mdview=")).split(";")[0];
   gh.listed = [{ full_name: "octo/notes", private: true, default_branch: "main" }]; // (the repositories the signed-in user reaches)
   const page = async () => (await (await get("/shares", { cookie })).text()).replace(/<!-- -->/g, "");
-  const before = await page(), opens = (html, id) => Number((new RegExp(`(\\d+) openings?[^<]*</small></span><a[^>]*href="/s/${id}"`).exec(html) || [])[1]);
+  const before = await page(), opens = (html, id) => Number((new RegExp(`(\\d+) openings?[^<]*</small></span><a[^>]*href="/${id}"`).exec(html) || [])[1]);
   assert.match(before, /Shared Notes/);
-  assert.match(before, new RegExp(`href="/s/${OPEN}"`));
+  assert.match(before, new RegExp(`href="/${OPEN}"`));
   assert.match(before, /for anyone with the link/);
   assert.match(before, /with a password/);
   const had = opens(before, OPEN);
@@ -339,6 +366,6 @@ test("what is shared is written down: an overview for the one who shares, with h
   delete all[OPEN];
   shares(all);
   await fetch(`${base}/api/r/octo/notes/shares`, { method: "POST", headers: { cookie, origin: base } });
-  assert.ok(!new RegExp(`href="/s/${OPEN}"`).test(await page()));
+  assert.ok(!new RegExp(`href="/${OPEN}"`).test(await page()));
   assert.equal((await fetch(`${base}/api/r/octo/notes/shares`, { method: "POST", headers: { cookie, origin: "https://elsewhere.example" } })).status, 403);
 });
