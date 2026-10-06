@@ -99,8 +99,11 @@ test("tabs: each with its own way back, as the desktop keeps them", () => {
   assert.deepEqual(t.move(t.list[2].id, 0), { same: true });
   assert.deepEqual([t.kept().paths, t.current.path], [["/c.md", "/a.md", ""], "/a.md"]);
   assert.deepEqual(t.others(t.list[0].id), { show: "/c.md", fragment: null });
-  assert.deepEqual(t.close(t.current.id), { last: true });
+  // the last tab closed: its note goes, an empty tab stays — closed once more, that is the end
+  assert.deepEqual(t.close(t.current.id), { show: null, fragment: null });
+  assert.deepEqual([t.kept().paths, t.current.path], [[""], null]);
   assert.equal(t.closed, true);
+  assert.deepEqual(t.close(t.current.id), { last: true });
   t.forget((p) => p !== "/c.md");
   assert.equal(t.current.path, null);
   assert.deepEqual(C.tabs(null).kept(), { paths: [""], active: 0 });

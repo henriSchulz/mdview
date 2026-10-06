@@ -224,7 +224,14 @@
       close(id) {
         const i = index(id);
         if (i < 0) return null;
-        if (list.length === 1) return { last: true };
+        if (list.length === 1) { // the last one: its note goes, an empty tab stays (All Notes) — closed once more, that is the end of it
+          if (!list[0].path) return { last: true };
+          closed.push([list[0].path, 0]);
+          closed = closed.slice(-20);
+          list = [make(null)];
+          at = 0;
+          return show(0);
+        }
         const [gone] = list.splice(i, 1);
         if (gone.path) { closed.push([gone.path, i]); closed = closed.slice(-20); }
         if (i === at) return show(Math.min(i, list.length - 1));

@@ -264,7 +264,7 @@
   /* What a change of the tabs asks for (core.js: tabs). */
   function apply(now) {
     if (!now) return;
-    if (now.last) return leave(); // (the last tab closed: back to the repositories)
+    if (now.last) return leave(); // (the last tab closed, and it was empty already: back to the repositories)
     if (now.same) return sendTabs();
     if (now.show && known(now.show)) { onScreen = null; openPath(now.show, now.fragment, false); } else showNothing(); // (another tab: shown anew, also where it is the same note)
   }

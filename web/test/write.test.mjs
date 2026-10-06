@@ -255,6 +255,19 @@ test("Tab stands any block further in: where no list is above, as a quote that o
   assert.ok(!/indent/.test(await page.evaluate(() => document.querySelector("#content").innerText))); // (the word that says so is not shown)
 });
 
+test("the last tab closed: not out of the repository, but an empty tab with All Notes", async () => {
+  await open("Beta.md");
+  // (whatever tabs the tests before left: all but one closed first)
+  for (let i = 0; i < 12 && (await page.evaluate(() => document.querySelectorAll("#tabs .tab:not(.leaving)").length)) > 1; i++) { await post({ type: "tab", op: "close" }); await page.waitForTimeout(350); }
+  await page.waitForFunction(() => document.querySelectorAll("#tabs .tab:not(.leaving)").length === 1, null, { timeout: 8000 });
+  if (!(await page.evaluate(() => !!MdView.core.current))) { await post({ type: "note", path: "/octo/notes/Beta.md" }); await untilNote("Beta.md"); }
+  await post({ type: "tab", op: "close" });
+  await page.waitForFunction(() => !MdView.core.current && document.querySelectorAll("#tabs .tab:not(.leaving)").length === 1, null, { timeout: 8000 });
+  assert.ok(page.url().startsWith(`${base}/r/octo/notes`)); // (still in the repository)
+  await post({ type: "tab", op: "reopen" }); // (and the note comes back with Reopen Closed Tab)
+  await untilNote("Beta.md");
+});
+
 test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
   put("Lost.md", "# Lost\n\na line\n");
   await open("Lost.md");

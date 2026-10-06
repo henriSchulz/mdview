@@ -1379,7 +1379,15 @@ impl Win {
     fn close_tab(&mut self, app: &mut App, id: u64) {
         let Some(i) = self.tab_index(id) else { return };
         if self.tabs.len() == 1 {
-            return self.close(app); // the last one: the window goes with it
+            // the last one: its note goes, the window stays — with an empty tab, which shows All
+            // Notes. (Closed once more, empty as it is, the window goes with it.)
+            self.stash_tab();
+            let Some(path) = self.tabs[0].path.clone().filter(|_| self.folder.is_some()) else { return self.close(app) };
+            self.closed_tabs.push((path, 0));
+            let over = self.closed_tabs.len().saturating_sub(20);
+            self.closed_tabs.drain(..over);
+            self.tabs[0] = self.make_tab(None);
+            return self.show_tab(app, 0, None);
         }
         self.stash_tab();
         let gone = self.tabs.remove(i);

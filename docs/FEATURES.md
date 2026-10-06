@@ -360,7 +360,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   plain click opens it in the tab shown, or goes to the tab the note already has. `+` (`Ctrl+T`)
   makes an empty tab, which shows All Notes to choose from; the house before the tabs shows All
   Notes over the note. The ✕ in the icon's place under the pointer, the middle button or `Ctrl+W`
-  closes a tab (the last one: the window), `Ctrl+Shift+T` opens the one closed last again.
+  closes a tab (the last one leaves an empty tab with All Notes; closed once more, the window
+  goes), `Ctrl+Shift+T` opens the one closed last again.
   `Ctrl+Tab` and `Ctrl+Shift+Tab` go to the next and the one before, `Ctrl+1` … `8` to a tab by
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
