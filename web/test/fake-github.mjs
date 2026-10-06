@@ -72,6 +72,7 @@ export function fakeGitHub() {
       if (url.pathname === "/installation/repositories") return json({ repositories: [{ name: name, owner: { login: owner } }, { name: "Zeta", owner: { login: owner } }] }); // (as the app itself: where it is installed)
       if (url.pathname === "/user") return json({ login: "octo", name: "Octo Cat", id: 42 });
       if (url.pathname === "/user/installations") return json({ installations: [{ id: 7 }] });
+      if (url.pathname === "/user/installations/7/repositories" && gh.listed) return json({ repositories: gh.listed });
       if (url.pathname === "/user/installations/7/repositories") return json({ repositories: [
         { full_name: "octo/Zeta", private: true, default_branch: "main" }, { full_name: "octo/alpha-notes", private: false, default_branch: "trunk" } ] });
       if (url.pathname === at) return json({ default_branch: "main", private: gh.repo.private });

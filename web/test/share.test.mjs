@@ -147,8 +147,10 @@ test("an id for a new link is as short as there is room for, and not handed out 
   assert.equal(new Set(some).size, 20);
   // thirty notes shared and more: two
   const many = both();
-  for (let i = 0; i < 12; i++) many["id" + i] = { path: "docs/Shown.md", password: null };
+  for (let i = 0; i < 29; i++) many["id" + i] = { path: "docs/Shown.md", password: null };
   shares(many);
+  // (the server counts what it has written down: told that the list changed — as the desktop app tells it — it reads the list itself)
+  assert.deepEqual(await (await fetch(`${base}/share/sync/octo/notes`, { method: "POST" })).json(), { shared: 31 });
   const longer = [await free(), await free()];
   assert.ok(longer.every((id) => /^[A-Za-z0-9]{2}$/.test(id) && !some.includes(id)), String(longer));
 });
@@ -209,6 +211,7 @@ test("in a browser: the note with its picture and what it embeds, read only, and
 
 test("shared from the app: the window makes the link, sets and takes away a password, and ends it — each a commit", async () => {
   gh.repo.files.delete(".mdview/shares.json");
+  await fetch(`${base}/share/sync/octo/notes`, { method: "POST" }); // (nothing is shared any more, and the server knows)
   // signed in, as the one whose repository it is
   const sent = await fetch(base + "/auth/login", { redirect: "manual" });
   const to = new URL(sent.headers.get("location")), pending = sent.headers.getSetCookie()[0].split(";")[0];
@@ -301,4 +304,41 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   assert.deepEqual(await marked(), [[], false]);
   assert.equal((await fetch(link)).status, 404);
   assert.deepEqual(problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p)), []);
+});
+
+test("what is shared is written down: an overview for the one who shares, with how often each link was opened", async () => {
+  gh.repo.files.set("docs/Shown.md", Buffer.from("# Shown\n")); // (the test before gave it another name)
+  shares(both());
+  assert.deepEqual(await (await fetch(`${base}/share/sync/octo/notes`, { method: "POST" })).json(), { shared: 2 }); // (what the list names no more is forgotten)
+  assert.equal((await fetch(`${base}/share/sync/octo/elsewhere`, { method: "POST" })).status, 404);
+  // not for anyone: the overview is behind signing in
+  assert.equal((await get("/shares")).status, 307);
+  const sent = await fetch(base + "/auth/login", { redirect: "manual" });
+  const to = new URL(sent.headers.get("location")), pending = sent.headers.getSetCookie()[0].split(";")[0];
+  gh.challenge = to.searchParams.get("code_challenge");
+  const back = await fetch(`${base}/auth/callback?code=the-code&state=${to.searchParams.get("state")}`, { redirect: "manual", headers: { cookie: pending } });
+  const cookie = back.headers.getSetCookie().find((c) => c.startsWith("mdview=")).split(";")[0];
+  gh.listed = [{ full_name: "octo/notes", private: true, default_branch: "main" }]; // (the repositories the signed-in user reaches)
+  const page = async () => (await (await get("/shares", { cookie })).text()).replace(/<!-- -->/g, "");
+  const before = await page(), opens = (html, id) => Number((new RegExp(`(\\d+) openings?[^<]*</small></span><a[^>]*href="/s/${id}"`).exec(html) || [])[1]);
+  assert.match(before, /Shared Notes/);
+  assert.match(before, new RegExp(`href="/s/${OPEN}"`));
+  assert.match(before, /for anyone with the link/);
+  assert.match(before, /with a password/);
+  const had = opens(before, OPEN);
+  assert.ok(Number.isInteger(had), "the count of openings is shown");
+  // opened by a visitor: counted — a link that only asks for its password is not
+  assert.equal((await get(`/s/${OPEN}`)).status, 200);
+  assert.equal((await get(`/s/${LOCKED}`)).status, 200);
+  const after = await page();
+  assert.equal(opens(after, OPEN), had + 1);
+  assert.equal(opens(after, LOCKED), opens(before, LOCKED));
+  assert.match(after, /opened just now/);
+  // shared no more: gone from the overview, once the server knows
+  const all = both();
+  delete all[OPEN];
+  shares(all);
+  await fetch(`${base}/api/r/octo/notes/shares`, { method: "POST", headers: { cookie, origin: base } });
+  assert.ok(!new RegExp(`href="/s/${OPEN}"`).test(await page()));
+  assert.equal((await fetch(`${base}/api/r/octo/notes/shares`, { method: "POST", headers: { cookie, origin: "https://elsewhere.example" } })).status, 403);
 });

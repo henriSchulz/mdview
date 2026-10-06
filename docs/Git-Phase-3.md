@@ -353,8 +353,9 @@ Jeder Schritt ist für sich lauffähig. Bis Schritt 3 wird nichts geschrieben.
   Naht (siehe oben), nicht, ob beide Hüllen dieselbe Notiz gleich zeigen.
 - **Der Stand in Stücken:** Der Baum kommt in einer Anfrage, die Texte in Paketen zu 200. Bei
   sehr großen Repositories wäre das Paket aus einem Archiv der nächste Schritt.
-- **Serverseitiger Speicher:** Tabs und Einstellungen liegen je Browser; in Firestore lägen sie
-  je Konto.
+- **Tabs und Einstellungen je Konto:** Sie liegen je Browser. Eine Datenbank gibt es seit dem
+  6. Oktober 2026 (Firestore, für geteilte Notizen: [[Teilen]]); Tabs und Einstellungen liegen
+  dort nicht.
 
 ## Was du dafür tun musst
 

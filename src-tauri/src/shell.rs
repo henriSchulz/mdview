@@ -372,6 +372,7 @@ pub struct App {
     repos: Option<Vec<Value>>, // the repositories the app was given on the user's account, once read
     renew_turn: u64,
     synced: HashMap<PathBuf, Value>, // linked projects: how they stood when last reconciled, and when
+    share_dirty: HashSet<PathBuf>, // projects whose list of shares changed here: the web app is told once that has arrived at GitHub
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
 }
@@ -390,6 +391,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         repos: None,
         renew_turn: 0,
         synced: HashMap::new(),
+        share_dirty: HashSet::new(),
         handle,
         tx,
         state,
@@ -810,6 +812,12 @@ impl App {
                             w.js("MdView.historyKept", &[]);
                         }
                     });
+                }
+                // (the list of shares changed here and is at GitHub now: the web app is told, so that
+                // a link finds its repository and its overview of what is shared is right)
+                if self.share_dirty.contains(&root) && share::arrived(&root) {
+                    self.share_dirty.remove(&root);
+                    share::tell(&root);
                 }
                 // (a share's window says whether its link shows yet what was set)
                 for w in self.wins.values() {
@@ -1649,7 +1657,10 @@ impl Win {
             return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
         let new_real = fs::canonicalize(&new).unwrap_or_else(|_| new.clone());
-        let _ = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) }; // (a link to a note goes on showing it)
+        // (a link to a note goes on showing it)
+        if let Ok(Some(root)) = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) } {
+            app.share_dirty.insert(root);
+        }
         // (a folder: everything in it is under the new path with it)
         let swap = |p: &mut PathBuf| {
             if *p == old_real {
@@ -1709,7 +1720,9 @@ impl Win {
         if let Err(e) = trash::delete(path) {
             return self.toast(format!("Couldn't move to Trash: {e}"));
         }
-        let _ = share::moved(&real, None); // (a link to it shows nothing any more)
+        if let Ok(Some(root)) = share::moved(&real, None) {
+            app.share_dirty.insert(root); // (a link to it shows nothing any more)
+        }
         self.back.retain(|p| *p != real);
         self.fwd.retain(|p| *p != real);
         if !self.tabs.is_empty() {
@@ -2060,7 +2073,10 @@ impl Win {
                     share::set(&path, password, id).map(Some)
                 };
                 match done {
-                    Ok(Some(root)) => app.keep_now(&root),
+                    Ok(Some(root)) => {
+                        app.share_dirty.insert(root.clone());
+                        app.keep_now(&root);
+                    }
                     Ok(None) => {}
                     Err(e) => self.toast(format!("Couldn't share: {e}")),
                 }

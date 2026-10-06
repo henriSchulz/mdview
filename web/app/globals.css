@@ -61,3 +61,13 @@ button { font: inherit; }
 .repos .row small { color: var(--fg2); font-size: 12px; }
 .repos .empty { flex: 1; margin: 40px 24px 0; text-align: center; color: var(--fg2); }
 .repos footer { display: flex; justify-content: space-between; gap: 6px; padding: 8px 12px 10px; box-shadow: 0 -0.5px 0 var(--line); }
+
+/* what is shared: a row a note — what and where at the left, its link and Copy at the right */
+.shares { width: min(760px, 100%); }
+.card.shares { width: min(760px, 100%); }
+.shares .row.share { display: flex; align-items: center; gap: 8px; }
+.shares .share-what { display: grid; gap: 1px; flex: 1; min-width: 0; }
+.shares .share-what a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.shares .share-what small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shares .row.share .link { flex: none; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
+.shares footer .link:disabled { opacity: 0.4; pointer-events: none; }

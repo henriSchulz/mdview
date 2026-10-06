@@ -67,6 +67,17 @@ pub fn free_id() -> Option<String> {
     said["id"].as_str().filter(|id| !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric())).map(String::from)
 }
 
+/// The web app is told that this project's list of shares has changed (it reads the list itself,
+/// from the repository: nothing is handed over but the repository's name). Not waited for.
+pub fn tell(root: &Path) {
+    let Some((owner, repo)) = sync::linked(root).and_then(|url| GITHUB_RE.captures(&url).map(|m| (m[1].to_string(), m[2].to_string()))) else { return };
+    let url = format!("{}/share/sync/{}/{}", web(), crate::scan::quote(&owner), crate::scan::quote(&repo));
+    std::thread::spawn(move || {
+        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(15)).build();
+        let _ = agent.post(&url).call();
+    });
+}
+
 /// Whether the note is shared.
 pub fn is_shared(path: &Path) -> bool {
     place(path).is_some_and(|(root, rel)| find(&read(&root), &rel).is_some())
@@ -93,7 +104,7 @@ fn hashed(password: &str) -> Value {
 
 /// Whether the file is at the project's other side as it is here (else a link does not show
 /// yet what was set here).
-fn arrived(root: &Path) -> bool {
+pub fn arrived(root: &Path) -> bool {
     let there = || -> Option<Vec<u8>> {
         let repo = git2::Repository::open(root).ok()?;
         let branch = repo.head().ok()?.shorthand().ok().map(String::from)?;

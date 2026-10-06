@@ -16,6 +16,7 @@ import "../public/host/core.js"; // (the host's own working out, the same the br
 import { createHmac, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 import { appRepos, repoToken } from "./app";
 import { raw, state, texts } from "./github";
+import { countShares, dropShare, getShare, putShare, repoKey, reserve, sharesOf } from "./store";
 
 type Core = {
   isMd(p: string): boolean; kindOf(p: string): string; dirOf(p: string): string; nameOf(p: string): string;
@@ -60,7 +61,11 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
   if (!list) return null;
   let entry: { path?: unknown; password?: unknown } | undefined;
   try { entry = (JSON.parse((await texts(token, owner, repo, [list]))[list] || "{}").shares || {})[id]; } catch { return null; }
-  if (!entry || typeof entry.path !== "string" || !sha.has(entry.path) || !C.isMd(entry.path)) return null;
+  if (!entry || typeof entry.path !== "string" || !sha.has(entry.path) || !C.isMd(entry.path)) {
+    void dropShare(id).catch(() => {}); // (the repository names it no more: neither does the server)
+    where.delete(id);
+    return null;
+  }
   const p = entry.password as Partial<Password> | null | undefined;
   const password = p && typeof p.salt === "string" && typeof p.hash === "string" && Number.isInteger(p.iterations) ? { salt: p.salt, hash: p.hash, iterations: p.iterations as number } : null;
   if (entry.password && !password) return null; // (a password that cannot be read: closed, not open)
@@ -103,59 +108,69 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
       if (to.startsWith(base + "/") && sha.has(rel(to)) && files.size < FILES_MOST) files.add(rel(to));
     }
   }
+  void noted(owner, repo, id, entry).catch(() => {}); // (as it stands now: where it is, whether it has a password)
   return { token, head: now.head, path: entry.path, password, text, links, vault, files };
 }
 
 // ------------------------------------------------------------ which repository an id belongs to
 
-// The link names only the id. Where it belongs is found by reading the list of shares of every
-// repository the app is installed on, and remembered; an id not known is looked for anew — but
-// not more often than every few seconds, however many ids are tried.
-const where = new Map<string, { owner: string; repo: string }>();
+// The link names only the id. Where it belongs is written down (lib/store.ts) whenever a note is
+// shared, a link is opened or a repository's list is looked at. An id that is not written down
+// is looked for the long way — the list of shares of every repository the app is installed on —
+// but not more often than every few seconds, however many ids are tried.
+const where = new Map<string, { owner: string; repo: string; at: number }>(); // (what was asked a moment ago is not asked again)
 let looking: Promise<void> | null = null, looked = 0;
-const AGAIN = Number(process.env.SHARE_LOOK_MS ?? 5000);
+const AGAIN = Number(process.env.SHARE_LOOK_MS ?? 5000), REMEMBER = Number(process.env.SHARE_KEEP_MS ?? 60 * 1000);
+type Listed = { path?: unknown; password?: unknown; created?: unknown };
+const entries = (text: string): [string, Listed][] => { try { return Object.entries((JSON.parse(text).shares || {}) as Record<string, Listed>).filter(([id, e]) => ID.test(id) && e && typeof e.path === "string"); } catch { return []; } };
+const noted = (owner: string, repo: string, id: string, e: Listed) => putShare(id, { owner, name: repo, path: e.path as string, password: !!e.password, created: typeof e.created === "string" ? e.created : "" });
 
+/** A repository's list of shares, written down as it stands: what it names is known, what it
+ * names no more is forgotten. token: one that reads the repository. */
+export async function syncRepo(owner: string, repo: string, token: string): Promise<number> {
+  const res = await raw(token, owner, repo, SHARES);
+  if (!res.ok && res.status !== 404) throw new Error(`GitHub: ${res.status} for the shares`);
+  const listed = res.ok ? entries(await res.text()) : [], ids = new Set(listed.map(([id]) => id));
+  for (const [id, e] of listed) await noted(owner, repo, id, e);
+  for (const [id] of await sharesOf([repoKey(owner, repo)])) if (!ids.has(id)) { await dropShare(id); where.delete(id); }
+  return listed.length;
+}
 async function lookAbout(): Promise<void> {
-  const repos = (await appRepos()).slice(0, 500), found = new Map<string, { owner: string; repo: string }>();
-  for (let i = 0; i < repos.length; i += 8) {
-    await Promise.all(repos.slice(i, i + 8).map(async ({ owner, repo, token }) => {
-      try {
-        const res = await raw(token, owner, repo, SHARES);
-        if (!res.ok) return;
-        for (const id of Object.keys(JSON.parse(await res.text()).shares || {})) if (ID.test(id) && !found.has(id)) found.set(id, { owner, repo });
-      } catch { /* (not to be read: none there) */ }
-    }));
-  }
-  where.clear();
-  for (const [id, at] of found) where.set(id, at);
+  const repos = (await appRepos()).slice(0, 500);
+  for (let i = 0; i < repos.length; i += 8) await Promise.all(repos.slice(i, i + 8).map(({ owner, repo, token }) => syncRepo(owner, repo, token).catch(() => 0)));
   looked = Date.now();
 }
 
 /** The repository a shared note's id belongs to, or null. */
 export async function whereIs(id: string): Promise<{ owner: string; repo: string } | null> {
-  if (!where.has(id) && (looking || Date.now() - looked >= AGAIN)) {
+  const had = where.get(id);
+  if (had && Date.now() - had.at < REMEMBER) return had;
+  let s = await getShare(id);
+  if ((!s || s.state !== "shared") && (looking || Date.now() - looked >= AGAIN)) {
     looking = looking || lookAbout().finally(() => { looking = null; });
     await looking;
+    s = await getShare(id);
   }
-  return where.get(id) || null;
+  if (!s || s.state !== "shared") return null;
+  const at = { owner: s.owner, repo: s.name, at: Date.now() };
+  where.set(id, at);
+  if (where.size > 2000) where.clear();
+  return at;
 }
 
 const LETTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const promised = new Map<string, number>(); // ids handed out a moment ago, and not in a repository yet: not handed out twice
 
 /** An id no shared note has, as short as there is room for: one letter or digit while fewer than
- * 30 notes are shared, then two — and a length more whenever half of those are taken. */
+ * 30 notes are shared, then two — and a length more whenever half of those are taken. It is kept
+ * for the one who asked (lib/store.ts: reserve), so that no two get the same. */
 export async function freeId(): Promise<string> {
-  if (looking || Date.now() - looked >= AGAIN) { looking = looking || lookAbout().finally(() => { looking = null; }); await looking; }
-  const now = Date.now();
-  for (const [id, at] of promised) if (now - at > 10 * 60 * 1000 || where.has(id)) promised.delete(id);
-  const taken = (id: string) => where.has(id) || promised.has(id), used = where.size + promised.size;
+  const used = await countShares();
   let length = 1;
   while (used >= (length === 1 ? 30 : 62 ** length / 2)) length++;
   for (;; length++) {
-    for (let tries = 0; tries < 200; tries++) {
+    for (let tries = 0; tries < 40; tries++) {
       const id = Array.from(randomBytes(length), (b) => LETTERS[b % 62]).join("");
-      if (!taken(id)) { promised.set(id, now); return id; }
+      if (await reserve(id)) return id;
     }
   }
 }

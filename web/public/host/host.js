@@ -370,6 +370,8 @@
         if (res.status === 409) { await look(true); continue; } // (someone wrote meanwhile)
         if (!res.ok) { toast("Couldn't keep what was written. It stays in this browser, and is tried again"); later(); return; }
         head = (await res.json()).head;
+        // (what is shared changed: the server is told, so that a link finds its repository and the overview is right)
+        if (sent.has(C.SHARES)) ask(API + "/shares", { method: "POST" }).catch(() => {});
         for (const [r, d] of sent) {
           const sha = await blobId(d.text);
           files.set(r, { sha, size: d.text.length });

@@ -32,7 +32,10 @@ export function Repos({ repos, failed, who, give }: { repos: Repo[]; failed: boo
         <p className="empty" role="status">{failed ? "GitHub could not be reached. Reload to try again." : repos.length ? "No repository fits" : "The app was given no repository"}</p>
       )}
       <footer>
-        <a className="link" href={give} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center" }}>Choose on GitHub</a>
+        <span style={{ display: "inline-flex", gap: 6 }}>
+          <a className="link" href={give} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center" }}>Choose on GitHub</a>
+          <a className="link" href="/shares" style={{ display: "inline-flex", alignItems: "center" }}>Shared Notes</a>
+        </span>
         <form action="/auth/logout" method="post"><button className="link" type="submit">Sign Out</button></form>
       </footer>
     </div>

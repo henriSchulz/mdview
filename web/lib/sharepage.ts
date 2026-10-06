@@ -7,6 +7,7 @@ import { attr, css, DARK, LIGHT, pageDocument } from "./page";
 import { origin } from "./session";
 import { cookieName, matches, mayTry, pass, tried } from "./share";
 import { address, gate } from "./sharegate";
+import { opened } from "./store";
 
 const HEAD = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex" };
 
@@ -54,6 +55,7 @@ export async function showShared(request: Request, owner: string, repo: string, 
   const g = await gate(owner, repo, id);
   if (!g.shared) return nothing(here, g.why);
   if (!g.open) return ask(here, self);
+  void opened(id).catch(() => {}); // (counted, and when: the one who shares it can see that it is read)
   const dir = g.shared.path.includes("/") ? g.shared.path.slice(0, g.shared.path.lastIndexOf("/") + 1) : "";
   return pageDocument({
     here, title: g.shared.path.split("/").pop()!.replace(/\.(md|markdown)$/i, ""), files: at + "/file", hosts: ["/host/core.js", "/host/share.js"], referrer: "no-referrer", reading: true,

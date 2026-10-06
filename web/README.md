@@ -61,4 +61,7 @@ PATH) opens a repository and reads it.
 | `lib/app.ts`, `lib/share.ts` | the app as itself: a token that reads one repository; a shared note, its files, its password |
 | `app/s/[owner]/[repo]/[id]/` | a shared note, for whoever has its link: the page, its data, its files |
 | `public/host/share.js` | the host of a shared note: one note, to be read |
+| `lib/store.ts`, `lib/firestore.ts` | what the server keeps about shared notes (which link belongs where, how often it is opened): Firestore on Firebase, a Map in memory elsewhere |
+| `app/shares/` | Shared Notes: what is shared in the user's repositories |
+| `firestore.rules`, `firebase.json` | the database is the server's alone: `npx firebase-tools deploy --only firestore:rules` |
 | `apphosting.yaml` | how it runs on Firebase App Hosting |

@@ -508,6 +508,9 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
   its link.
 - **A shared note is marked**: a small sign at the end of its row in the sidebar, and the share
   button tinted while it is shown.
+- **Shared Notes** (in the browser, beside the repositories): everything that is shared in your
+  repositories, each with its link, whether it has a password, and how often and when it was
+  last opened.
 - **Stop Sharing** ends the link, within half a minute. So does deleting the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.

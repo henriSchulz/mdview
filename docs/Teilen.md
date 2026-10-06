@@ -66,14 +66,14 @@ flowchart LR
   S -- "liest als GitHub App, nur lesend" --> G
 ```
 
-- **Kein Datenbestand auf dem Server.** Was geteilt ist, steht im Repository selbst, in
+- **Die Notizen bleiben im Repository.** Was geteilt ist, steht im Repository selbst, in
   `.mdview/shares.json`: je Freigabe die ID, der Pfad der Notiz, und von einem Passwort nur sein
   PBKDF2-SHA256 (600 000 Runden, mit Salz). Teilen, Passwort ändern und Aufheben sind Commits
   wie jede andere Änderung.
-- **Die ID allein nennt die Notiz.** Der Server liest dafür die Freigabelisten aller
-  Repositories, auf denen die App installiert ist, und merkt sich, welche ID wohin gehört
-  (im Speicher, nicht auf Platte). Eine unbekannte ID lässt ihn neu nachsehen, höchstens alle
-  fünf Sekunden. Daten und Dateien der Notiz liegen unter der langen Adresse
+- **Die ID allein nennt die Notiz.** Wohin eine ID gehört, steht in einer Datenbank des
+  Servers (Firestore, siehe „Die Datenbank"). Fehlt der Eintrag, liest der Server einmal die
+  Freigabelisten aller Repositories, auf denen die App installiert ist, und trägt sie nach.
+  Daten und Dateien der Notiz liegen unter der langen Adresse
   `/s/<konto>/<repository>/<id>/…`, die ebenfalls als Link gilt.
 - **Der Server liest als GitHub App**, nicht als Nutzer: Mit dem privaten Schlüssel der App holt
   er sich für genau das eine Repository ein Token, das nur lesen darf (`web/lib/app.ts`).
@@ -95,7 +95,40 @@ flowchart LR
 | `src-tauri/src/share.rs` | Desktop: die Datei lesen und schreiben, der Link |
 | `web/public/host/host.js` | Web: dasselbe, als Commit |
 | `web/lib/app.ts`, `web/lib/share.ts` | Server: Token als App; Freigabe lesen, Passwort prüfen |
+| `web/lib/store.ts`, `web/lib/firestore.ts` | Server: was über Freigaben festgehalten wird, und Firestore dahinter |
+| `web/app/shares/` | die Übersicht „Shared Notes" |
 | `web/app/s/[owner]/[repo]/[id]/` | die Seite hinter dem Link, ihre Daten, ihre Dateien |
+
+## Die Datenbank
+
+Seit dem 6. Oktober 2026 hat der Server einen Datenbestand: Firestore im Projekt `md-view`
+(`europe-west4`), Sammlung `shares`, ein Dokument je Link. Darin steht **nicht** die Notiz,
+sondern nur:
+
+| Feld | Bedeutung |
+|---|---|
+| `owner`, `name`, `repo` | das Repository, zu dem der Link gehört |
+| `path` | der Pfad der Notiz darin |
+| `password` | ob ein Passwort gesetzt ist (nicht das Passwort, auch nicht sein Hash) |
+| `created`, `seen`, `opens` | wann geteilt, wann zuletzt geöffnet, wie oft geöffnet |
+| `state` | `shared`, oder `reserved` für eine vergebene, noch nicht benutzte ID |
+
+Wozu:
+
+- **Nachschlagen:** `/s/<id>` findet sein Repository mit einer Abfrage, auch bei vielen Nutzern.
+- **Freie IDs:** Eine ID wird beim Vergeben reserviert; zwei Nutzer bekommen nie dieselbe.
+- **Übersicht:** Unter `/shares` (in der Web-App: „Shared Notes" bei den Repositories) sieht ein
+  angemeldeter Nutzer, was in seinen Repositories geteilt ist, mit Link, Passwort ja/nein, Zahl
+  der Aufrufe und letztem Aufruf. „Read Again from the Repositories" gleicht mit den Listen ab.
+
+Aktuell bleibt die Datenbank so: Die Web-App meldet jede Änderung nach dem Commit, die
+Desktop-App, sobald der Abgleich mit GitHub durch ist (`POST /share/sync/<konto>/<repository>`:
+der Server liest die Liste dann selbst, es lässt sich ihm nichts einreden). Jeder Aufruf eines
+Links trägt außerdem nach, wie die Freigabe gerade steht.
+
+Die Wahrheit bleibt die Datei im Repository: Ein Eintrag in der Datenbank ohne Eintrag dort
+öffnet nichts und wird beim nächsten Aufruf gelöscht. Vom Browser aus ist die Datenbank nicht
+erreichbar (`web/firestore.rules` verbietet alles); nur der Server liest und schreibt.
 
 ## Grenzen
 
@@ -105,9 +138,9 @@ flowchart LR
   einem öffentlichen Repository also jeder. Ein kurzes Passwort lässt sich dann durchprobieren.
 - **Aufheben wirkt mit bis zu einer halben Minute Verzug** (so lange merkt sich der Server, was
   er gelesen hat). Was ein Besucher schon geladen hat, hat er.
-- **Bei sehr vielen Repositories** dauert das erste Öffnen eines Links nach einem Neustart des
-  Servers: Er liest dann jede Freigabeliste einmal.
-- **Kein Ablaufdatum, keine Liste aller Freigaben** im Fenster. Die Datei lässt sich lesen.
+- **Gezählt werden Aufrufe der Seite**, nicht Personen: Neuladen zählt mit, und wer nur die
+  Passwortfrage sieht, zählt nicht.
+- **Kein Ablaufdatum.**
 - **Ordner und ganze Repositories** lassen sich nicht teilen. So entschieden.
 
 ## Der Schlüssel
