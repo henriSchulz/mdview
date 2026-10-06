@@ -1609,6 +1609,28 @@ impl Win {
         if stem.is_empty() || new == old {
             return;
         }
+        self.relocate(app, &folder, &old, &new, "rename");
+    }
+
+    /// A note, another file or a folder dragged into another folder of the window's (or to its
+    /// top): the same thing in another place.
+    fn move_to(&mut self, app: &mut App, path: &str, dir: &str) {
+        let Some(folder) = self.folder.clone() else { return };
+        let (old, into) = (PathBuf::from(path), PathBuf::from(dir));
+        let known = self.note_paths.contains(path) || (old.is_dir() && old.starts_with(&folder) && old != folder);
+        if !known || !into.is_dir() || !into.starts_with(&folder) || old.parent() == Some(into.as_path()) || into.starts_with(&old) {
+            return; // (not this window's, where it is already, or into itself)
+        }
+        let Some(name) = old.file_name() else { return };
+        let new = into.join(name);
+        self.relocate(app, &folder, &old, &new, "move");
+    }
+
+    /// A file or a folder under another path, and everything that knew it by the old one told:
+    /// the ways back, the tabs, the note on screen, what was shared of it, the page.
+    fn relocate(&mut self, app: &mut App, folder: &Path, old: &Path, new: &Path, how: &str) {
+        let (old, new) = (old.to_path_buf(), new.to_path_buf());
+        let is_dir = old.is_dir();
         let old_real = fs::canonicalize(&old).unwrap_or_else(|_| old.clone());
         // (a name that differs only in case is the same file where the file system says so)
         let taken = fs::symlink_metadata(&new).is_ok() && fs::canonicalize(&new).ok().as_ref() != Some(&old_real);
@@ -1616,13 +1638,18 @@ impl Win {
             return self.toast(format!("“{}” already exists", name_of(&new)));
         }
         if let Err(e) = fs::rename(&old, &new) {
-            return self.toast(format!("Couldn't rename: {}", strerror(&e)));
+            return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
         let new_real = fs::canonicalize(&new).unwrap_or_else(|_| new.clone());
-        let _ = share::moved(&old_real, Some(&new_real)); // (a link to the note goes on showing it)
+        let _ = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) }; // (a link to a note goes on showing it)
+        // (a folder: everything in it is under the new path with it)
         let swap = |p: &mut PathBuf| {
             if *p == old_real {
                 *p = new_real.clone();
+            } else if is_dir {
+                if let Ok(rest) = p.strip_prefix(&old_real) {
+                    *p = new_real.join(rest);
+                }
             }
         };
         self.back.iter_mut().for_each(swap);
@@ -1638,10 +1665,20 @@ impl Win {
             self.path = Some(new_real.clone());
             self.set_title(name_of(&new_real));
             self.watch();
-            app.sub("last_notes").insert(s(&folder), json!(s(&new_real)));
+            app.sub("last_notes").insert(s(folder), json!(s(&new_real)));
             app.save_state();
         }
-        self.js("MdView.noteRenamed", &[json!({ "old": s(&old), "path": s(&new), "oldReal": s(&old_real), "real": s(&new_real), "name": name_of(&new_real) })]);
+        if !is_dir {
+            self.js("MdView.noteRenamed", &[json!({ "old": s(&old), "path": s(&new), "oldReal": s(&old_real), "real": s(&new_real), "name": name_of(&new_real) })]);
+        } else if let Some(rest) = self.path.as_ref().and_then(|p| p.strip_prefix(&old_real).ok().map(Path::to_path_buf)) {
+            // the note on screen is in the folder: it stays as it is, under its new path
+            let (was, now) = (old_real.join(&rest), new_real.join(&rest));
+            self.path = Some(now.clone());
+            self.watch();
+            app.sub("last_notes").insert(s(folder), json!(s(&now)));
+            app.save_state();
+            self.js("MdView.noteRenamed", &[json!({ "old": s(&was), "path": s(&now), "oldReal": s(&was), "real": s(&now), "name": name_of(&now) })]);
+        }
         self.rescan(app);
         self.send_tabs(app);
     }
@@ -1869,7 +1906,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "newfolder" | "rename" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "newfolder" | "rename" | "move" | "trash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2193,6 +2230,7 @@ impl Win {
             "newnote" => self.new_note(app, text_of("name"), msg["dir"].as_str()),
             "newfolder" => self.new_folder(app, text_of("name"), msg["dir"].as_str()),
             "rename" => self.rename_note(app, text_of("path"), text_of("name")),
+            "move" => self.move_to(app, text_of("path"), text_of("dir")),
             "trash" => self.trash_note(app, text_of("path")),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),

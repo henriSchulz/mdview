@@ -1003,6 +1003,9 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
   border-radius: calc(8px - 3px);
 }
 .sb-item.ctx-target > .sb-in > .sb-row:not(.active) { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
+/* what is dragged would go into this folder — or, the list itself marked, to the top */
+.sb-item.drop-into > .sb-in > .sb-row { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sb-list.drop-into, #sb-list.drop-into { box-shadow: inset 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 60%, transparent); border-radius: var(--radius-control); }
 
 /* a menu at a point (a file's, a folder's, the + button's) */
 #ctxmenu { position: fixed; z-index: 35; min-width: 200px; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }

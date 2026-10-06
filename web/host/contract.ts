@@ -43,6 +43,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   newnote: ["write", "a note made"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
   rename: ["write", "a note or another file renamed"],
+  move: ["write", "a note, another file or a folder put into another folder"],
   trash: ["write", "a note deleted"],
   pasteimage: ["write", "a picture from the clipboard, kept beside the note"],
   dropfiles: ["write", "files dropped on a note, by their addresses (a browser has the files themselves: MdHost.drop)"],

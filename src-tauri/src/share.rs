@@ -165,6 +165,31 @@ pub fn moved(old: &Path, new: Option<&Path>) -> Result<Option<PathBuf>, String> 
     Ok(Some(root))
 }
 
+/// A folder has another path: what was shared of the notes in it follows. → the project, if the
+/// file changed. (Both paths as they are now: the folder is moved already.)
+pub fn moved_dir(old: &Path, new: &Path) -> Result<Option<PathBuf>, String> {
+    let (Place::Project(root), Place::Project(to)) = (history::place_of(old.parent().unwrap_or(old)), history::place_of(new)) else { return Ok(None) };
+    if !root.join(FILE).is_file() {
+        return Ok(None);
+    }
+    let rel = |p: &Path| p.strip_prefix(&root).ok().map(|r| r.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect::<Vec<_>>().join("/"));
+    let (Some(was), Some(now)) = (rel(old), rel(new).filter(|_| to == root)) else { return Ok(None) };
+    let mut shares = read(&root);
+    let mut changed = false;
+    for entry in shares.values_mut() {
+        let path = entry["path"].as_str().unwrap_or_default().to_string();
+        if let Some(rest) = path.strip_prefix(&format!("{was}/")) {
+            entry["path"] = json!(format!("{now}/{rest}"));
+            changed = true;
+        }
+    }
+    if !changed {
+        return Ok(None);
+    }
+    write(&root, &shares)?;
+    Ok(Some(root))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

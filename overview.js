@@ -83,6 +83,7 @@
     t.tabIndex = 0;
     t.setAttribute("role", "link");
     t.dataset.path = n.path;
+    t.draggable = true; // (onto a folder's tile: moved into it)
     if (dir) t.dataset.dir = n.name;
     t.style.setProperty("--i", Math.min(i, 10)); // (the first ones come one after the other, the rest together)
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? plural(count(n), "note") : "";
@@ -258,6 +259,15 @@
     else if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
     else if (crumb) up(Number(crumb.dataset.up));
   });
+  // a tile dragged onto a folder's tile: moved into that folder (the sidebar's rows do the same: core.moving)
+  let into = null;
+  const setInto = (t) => { if (into === t) return; if (into) into.classList.remove("drop-into"); into = t; if (t) t.classList.add("drop-into"); };
+  const folderAt = (e) => { const t = e.target.closest?.(".ov-item[data-dir]"); return t && core.moving.can(t.dataset.path) ? t : null; };
+  body.addEventListener("dragstart", (e) => { const t = e.target.closest?.(".ov-item"); if (!t || e.target.closest(".ov-rename")) { e.preventDefault(); return; } core.moving.start(e, t.dataset.path); });
+  body.addEventListener("dragover", (e) => { const t = folderAt(e); setInto(t); if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } });
+  body.addEventListener("dragleave", (e) => { if (!body.contains(e.relatedTarget)) setInto(null); });
+  body.addEventListener("drop", (e) => { const t = folderAt(e); setInto(null); if (t) { e.preventDefault(); core.moving.end(t.dataset.path); } });
+  document.addEventListener("dragend", () => setInto(null));
   // the file menu the sidebar has, for a note or a folder here
   el.addEventListener("contextmenu", (e) => {
     e.preventDefault();

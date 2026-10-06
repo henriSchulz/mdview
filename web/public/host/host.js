@@ -467,6 +467,36 @@
     write(C.SHARES, C.sharesText(all));
   }
 
+  /* A file under another path: a note as a draft there and gone here; anything else as its bytes
+   * there, in a commit at once. Tabs, what was opened when, a share's link and the page follow. */
+  async function relocate(path, now, how) {
+    const r = rel(path);
+    if (C.isMd(path)) {
+      const text = await textOf(path);
+      drafts.delete(r);
+      if (files.has(r)) gone.add(r);
+      write(rel(now), text);
+      await sharesFollow(r, rel(now)); // (its link goes on showing it)
+    } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
+      blobs.set(rel(now), blobs.get(r));
+      blobs.delete(r);
+    } else {
+      const f = files.get(r);
+      if (f.size > MOVE_MOST) { toast(`“${C.nameOf(path)}” is too large to ${how} here (over 14 MB)`); return false; }
+      const res = await ask(fileUrl(path));
+      if (!res.ok) { toast(`Couldn't ${how}: the file could not be read`); return false; }
+      blobs.set(rel(now), base64Of(new Uint8Array(await res.arrayBuffer())));
+      away.set(r, f.sha);
+      commit();
+    }
+    tabs.rename(path, now);
+    if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
+    if (here.last === path) here.last = now;
+    if (onScreen === path) { onScreen = now; address(now); }
+    tell("noteRenamed", { old: path, path: now, oldReal: path, real: now, name: C.nameOf(now) });
+    return true;
+  }
+
   // ------------------------------------------------------------ what the page says
   const noteDir = () => (onScreen ? C.dirOf(onScreen) : BASE);
   const on = {
@@ -680,33 +710,29 @@
       const now = `${C.dirOf(path)}/${stem}${suffix}`;
       if (!stem || now === path) return;
       if (exists(now)) return toast(`“${C.nameOf(now)}” already exists`);
-      const r = rel(path);
-      if (C.isMd(path)) {
-        const text = await textOf(path);
-        drafts.delete(r);
-        if (files.has(r)) gone.add(r);
-        write(rel(now), text);
-        await sharesFollow(r, rel(now)); // (its link goes on showing it)
-      } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
-        blobs.set(rel(now), blobs.get(r));
-        blobs.delete(r);
-      } else {
-        // anything else is its bytes under the new name and gone under the old, in a commit at once
-        const f = files.get(r);
-        if (f.size > MOVE_MOST) return toast(`“${C.nameOf(path)}” is too large to rename here (over 14 MB)`);
-        const res = await ask(fileUrl(path));
-        if (!res.ok) return toast("Couldn't rename: the file could not be read");
-        blobs.set(rel(now), base64Of(new Uint8Array(await res.arrayBuffer())));
-        away.set(r, f.sha);
-        commit();
-      }
-      tabs.rename(path, now);
-      if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
-      if (here.last === path) here.last = now;
-      if (onScreen === path) { onScreen = now; address(now); }
-      tell("noteRenamed", { old: path, path: now, oldReal: path, real: now, name: C.nameOf(now) });
+      if (!(await relocate(path, now, "rename"))) return;
       sendFolder();
       sendTabs();
+    },
+    /* A note, another file or a folder dragged into another folder (or to the top): the same file
+     * under another path — as a renaming is, for a folder each file in it. */
+    async move({ path, dir }) {
+      if (busy) await busy;
+      if (!mayWrite() || !path || !path.startsWith(BASE + "/") || !(dir === BASE || (dir || "").startsWith(BASE + "/"))) return;
+      const name = C.nameOf(path), to = `${dir}/${name}`;
+      if (C.dirOf(path) === dir || dir === path || dir.startsWith(path + "/")) return; // (where it is already, or into itself)
+      const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
+      if (!exists(path) && !folder) return;
+      if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${name}” already exists there`);
+      if (folder) {
+        const large = inside.find((p) => !C.isMd(p) && !blobs.has(rel(p)) && (files.get(rel(p)) || {}).size > MOVE_MOST);
+        if (large) return toast(`“${C.nameOf(large)}” is too large to move here (over 14 MB)`);
+        for (const p of inside) if (!(await relocate(p, to + p.slice(path.length), "move"))) break;
+        for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
+      } else if (!(await relocate(path, to, "move"))) return;
+      sendFolder();
+      sendTabs();
+      commit();
     },
     async trash({ path }) {
       if (busy) await busy; // (a commit on its way knows the file as it was sent: what it has is known first)

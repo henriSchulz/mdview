@@ -351,6 +351,11 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   switches at the head: *All Notes* (grouped by folder) or *Folders* (one folder at a time, click
   into its folders, `Backspace` goes up), and tiles or list. It opens in the folder of the note on
   screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
+  The `+` at the head makes a new note or folder in the folder shown. A tile under the pointer
+  lifts a little.
+- **Moving**: a note, another file or a folder is dragged into another folder — its row in the
+  sidebar onto a folder's row (onto the list's empty room: to the top), its tile in All Notes
+  onto a folder's tile. Tabs, the note on screen and a share's link follow.
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.

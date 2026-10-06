@@ -35,6 +35,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh move                   a note dragged into a folder, a folder into another
 #   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
 #   dev/rig.sh regress FILE…         reading view and source editor: same as on the branch BASE (default main)?
@@ -537,6 +538,22 @@ case "${1:-}" in
     ok "the project is the one it was: the same marker as before it was switched off" '[[ $(git -C "$P" log --format=%H -- .mdview/project.json | wc -l) == 1 ]]' 'git -C "$P" log --oneline -- .mdview/project.json'
     pkill -f "^$APP" 2>/dev/null
     exit $fail ;;
+  move)
+    rm -rf "$R/work"; mkdir -p "$R/work/a/box" "$R/work/a/shelf"; A="$R/work/a"; rm -f "$R/out"/*.move.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    printf '# Loose\n\nto be moved\n' > "$A/Loose.md"; echo '# Inside' > "$A/box/Inside.md"; echo '# Other' > "$A/shelf/Other.md"
+    jq -n --arg f "$A" --arg n "$A/Loose.md" '{folder: $f, last_notes: {($f): $n}}' > "$R/state/mdview/state.json" 2>/dev/null || true
+    app 60 MDVIEW_PROBE="$D/probe-move.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    for _ in $(seq 300); do ls "$R/out"/*.move.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    J=$(ls "$R/out"/*.move.json 2>/dev/null | head -1); [[ -n $J ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ok "nothing went wrong in the page" '[[ $(jq -r ".error // empty" "$J") == "" ]]' 'jq -r .error "$J"'
+    ok "dragged over a folder, the folder is marked" '[[ $(jq -r .marked "$J") == true ]]'
+    ok "the note is in the folder, and the page shows it under its new path" '[[ $(jq -r .after "$J") == "box/Loose.md" ]]' 'jq -c . "$J"'
+    ok "the folder is in the other, with what was in it" '[[ -f $A/shelf/box/Loose.md && -f $A/shelf/box/Inside.md && ! -e $A/box && ! -e $A/Loose.md ]]' 'find "$A" -type f | sort'
+    ok "… and the note on screen went with it" '[[ $(jq -r .then "$J") == "shelf/box/Loose.md" ]]' 'jq -c . "$J"'
+    ok "a folder does not go into itself" '[[ -d $A/shelf && ! -e $A/shelf/box/shelf ]]'
+    ok "the note is as it was" '[[ $(cat "$A/shelf/box/Loose.md") == "# Loose"$'"'"'\n\n'"'"'"to be moved" ]]' 'cat "$A/shelf/box/Loose.md"'
+    exit $fail;;
   share)
     rm -rf "$R/work"; mkdir -p "$R/work/a/.mdview"; cp "$D"/tests/fixtures/basics.md "$R/work/a/Note.md"; A="$R/work/a"; rm -f "$R/out"/*.share*.json; fail=0
     ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }

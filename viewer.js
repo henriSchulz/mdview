@@ -8,7 +8,7 @@
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
-  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "trash", "tab"]);
+  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "move", "trash", "tab"]);
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
@@ -2106,6 +2106,7 @@
     item.innerHTML = `<div class="sb-in"><button class="sb-row" type="button" style="--depth:${depth}">` +
       (e.dir ? `<span class="sb-chev">${ICON.chevron}</span>` : "") + `<span class="sb-icon">${e.dir ? ICON.folder : rowIcon(e.key)}</span><span class="sb-label"></span></button>` +
       (e.dir ? `<div class="sb-kids sb-fold"><div class="sb-in"></div></div>` : "") + `</div>`;
+    item.firstChild.firstChild.draggable = true; // (into another folder: moving, below)
     if (e.note) item.firstChild.firstChild.dataset.real = e.note.real;
     return item;
   }
@@ -2221,6 +2222,41 @@
     applyFolder(f, true);
     markShared();
   }
+  /* A note, another file or a folder dragged into another folder — a row of the sidebar onto a
+   * folder's row (or the list's empty room: the top), a tile of All Notes onto a folder's tile
+   * (overview.js uses the same three). The application moves it ("move"). */
+  const moving = {
+    path: null,
+    start(e, path) { moving.path = path; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path); },
+    // (not where it is already, not into itself)
+    can: (dir) => !!moving.path && !!dir && dir !== moving.path && !dir.startsWith(moving.path + "/") && moving.path.replace(/\/[^/]*$/, "") !== dir,
+    end(dir) { const path = moving.path; moving.path = null; if (path && dir) post("move", { path, dir }); },
+  };
+  let dropInto = null;
+  const setDropInto = (el) => { if (dropInto === el) return; if (dropInto) dropInto.classList.remove("drop-into"); dropInto = el; if (el) el.classList.add("drop-into"); };
+  const sbDropDir = (e) => { const dir = e.target.closest?.(".sb-item.is-dir"); return dir ? [dir, dir.dataset.key] : [sbList, folder && folder.root]; };
+  sbList.addEventListener("dragstart", (e) => {
+    const item = e.target.closest?.(".sb-item");
+    if (!item || e.target.closest(".sb-rename")) { e.preventDefault(); return; }
+    moving.start(e, item.dataset.key);
+  });
+  sbList.addEventListener("dragover", (e) => {
+    const [el, dir] = sbDropDir(e);
+    if (!moving.can(dir)) { setDropInto(null); return; }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropInto(el);
+  });
+  sbList.addEventListener("dragleave", (e) => { if (!sbList.contains(e.relatedTarget)) setDropInto(null); });
+  sbList.addEventListener("drop", (e) => {
+    const [, dir] = sbDropDir(e), ok = moving.can(dir);
+    setDropInto(null);
+    if (!ok) return;
+    e.preventDefault();
+    moving.end(dir);
+  });
+  document.addEventListener("dragend", () => { moving.path = null; setDropInto(null); });
+
   /* The notes that are shared under a link (the folder says which: shared) are marked: a small
    * sign at the end of their row, and the share button tinted while one of them is shown. */
   function markShared() {
@@ -3293,7 +3329,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

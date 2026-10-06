@@ -209,6 +209,34 @@ test("blocks selected as wholes: Tab stands them under the list above, / and a r
   await page.waitForFunction(() => /below\n\nbelow/.test(MdActive.view.serialize()), null, { timeout: 8000 });
 });
 
+test("a note dragged into a folder, and a folder into another: the same files under other paths", async () => {
+  put("Loose.md", "# Loose\n\nto be moved\n");
+  put("box/Inside.md", "# Inside\n");
+  put("shelf/Other.md", "# Other\n");
+  await open("Loose.md");
+  await page.waitForFunction(() => document.querySelector('.sb-item.is-dir[data-key="/octo/notes/box"]') && document.querySelector('.sb-row[data-real="/octo/notes/Loose.md"]'), null, { timeout: 8000 });
+  const before = gh.commits.length;
+  // with the pointer: its row onto the folder's
+  await page.dragAndDrop('.sb-row[data-real="/octo/notes/Loose.md"]', '.sb-item.is-dir[data-key="/octo/notes/box"] > .sb-in > .sb-row');
+  await until(() => text("box/Loose.md") !== undefined && text("Loose.md") === undefined, "the note, in the folder");
+  assert.equal(text("box/Loose.md"), "# Loose\n\nto be moved\n");
+  assert.deepEqual([gh.commits.at(-1).added, gh.commits.at(-1).deleted], [["box/Loose.md"], ["Loose.md"]]);
+  assert.deepEqual(await page.evaluate(() => [MdView.core.current.path, new URL(location.href).searchParams.get("n")]), ["/octo/notes/box/Loose.md", "box/Loose.md"]); // (the note on screen stays, under its new path)
+  // a folder into another, with what is in it; and not into itself
+  await post({ type: "move", path: "/octo/notes/box", dir: "/octo/notes/box" });
+  await post({ type: "move", path: "/octo/notes/box", dir: "/octo/notes/shelf" });
+  await until(() => text("shelf/box/Loose.md") !== undefined && text("shelf/box/Inside.md") !== undefined && text("box/Inside.md") === undefined, "the folder, in the other");
+  assert.equal(await page.evaluate(() => MdView.core.current.path), "/octo/notes/shelf/box/Loose.md");
+  // back to the top; where a file of that name is already, nothing moves
+  put("Other.md", "# another Other\n");
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await page.waitForFunction(() => document.querySelector('.sb-row[data-real="/octo/notes/Other.md"]'), null, { timeout: 8000 });
+  await post({ type: "move", path: "/octo/notes/shelf/Other.md", dir: "/octo/notes" });
+  await page.waitForFunction(() => /already exists there/.test(document.body.innerText), null, { timeout: 8000 });
+  assert.equal(text("Other.md"), "# another Other\n");
+  assert.ok(gh.commits.length >= before + 2);
+});
+
 test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
   put("Lost.md", "# Lost\n\na line\n");
   await open("Lost.md");
