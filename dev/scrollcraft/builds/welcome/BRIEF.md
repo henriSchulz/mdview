@@ -40,3 +40,10 @@ It is the first act, so nothing quieter stands before it; the page opens on the 
 **Signature move**: the scroll position is the note's length. One character per few pixels, both ways, into the app's own renderer.
 
 **Authored silence**: none.
+
+## Changed after Henri saw it (2026-10-06)
+
+- "Zu doll die App": the page opens as a landing page now. A claim, the two ways in, a cue, pieces of Markdown in the air, and the app leaning back under the fold. This leaves the live-surface grammar's bans on purpose.
+- The copy speaks of the app, not of the scrolling.
+- The share act and the rail of five places are gone. In their place: a tour of what a note can hold (pin, 4.4; sharing is its last, quiet stop), and a section on open source (flow).
+- Acts now: Write (pin 4.6), Files (flow), Blocks (pin 4.4), Open source (flow), Try (pin 1.3).

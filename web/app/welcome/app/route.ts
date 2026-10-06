@@ -10,6 +10,6 @@ export async function GET(request: Request) {
   const here = origin(request), view = new URL(request.url).searchParams.get("view") || "write";
   return pageDocument({
     here, title: "Markdown Notes", files: "/welcome/file", base: "/welcome/file/", hosts: ["/host/core.js", "/host/demo.js"], framed: true,
-    web: demo(["write", "share", "try"].includes(view) ? view : "write", here),
+    web: demo(["write", "tour", "try"].includes(view) ? view : "write", here),
   });
 }

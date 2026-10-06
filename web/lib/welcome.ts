@@ -54,7 +54,10 @@ const CALLOUTS = `# Callouts
 > [!warning] A warning
 > Something to look out for.
 
-> [!success]- Folded until it is opened
+> [!success] Done
+> Callouts come in many kinds, and each can fold.
+
+> [!tip]- Folded until it is opened
 > A callout with a \`-\` behind its kind starts closed.
 `;
 const CODE = `# Code
@@ -66,9 +69,55 @@ fn main() {
 }
 \`\`\`
 
-\`\`\`sh
-curl HERE/k/raw
+\`\`\`python
+def title(note: str) -> str:
+    return note.splitlines()[0].lstrip("# ")
 \`\`\`
+`;
+const TASKS = `# Tasks and tables
+
+- [x] Write the outline
+- [x] Collect the figures
+- [ ] Send it round
+    - [ ] to the team
+    - [ ] to the client
+
+| Milestone | Owner | Due    |
+| --------- | ----- | ------ |
+| Draft     | Ada   | Monday |
+| Review    | Linus | Friday |
+| Release   | Grace | ==next week== |
+`;
+const DIAGRAMS = `# Diagrams
+
+\`\`\`mermaid
+flowchart LR
+  A[A note] --> B{Saved}
+  B --> C[A commit in your repository]
+  C --> D[Desktop]
+  C --> E[Browser]
+  C --> F[A link]
+\`\`\`
+`;
+const COLUMNS = `# Columns
+
+<!-- columns 1:1 -->
+
+### This week
+
+- [x] Read the paper
+- [ ] Write the summary
+
+<!-- column -->
+
+### Remember
+
+> [!note] Thursday
+> The seminar moved to room 204.
+
+<!-- /columns -->
+
+Wikilinks lead from one note to another: [[Formulas]], [[Callouts]], [[Diagrams]].
 `;
 const TRY = `# Try it
 
@@ -81,14 +130,13 @@ This is the editor itself, running in your browser. Click into the text and type
 Nothing you write here is kept: these notes live in this tab only.
 `;
 
-const samples = (here: string) => ({ "Formulas.md": FORMULAS, "Callouts.md": CALLOUTS, "Code.md": CODE.replace("HERE", here) });
+const SAMPLES = { "Formulas.md": FORMULAS, "Callouts.md": CALLOUTS, "Code.md": CODE, "Tasks and tables.md": TASKS, "Diagrams.md": DIAGRAMS, "Columns.md": COLUMNS };
 /** The notes of one of the page's windows. write: the note being written. share: the same note, done,
- * and shared. try: a note to write in. note: the shared note as whoever has its link sees it. */
+ * … tour: the notes that show what a note can hold. try: a note to write in. note: the shared note as whoever has its link sees it. */
 export function demo(view: string, here: string) {
-  const SAMPLES = samples(here);
   const link = `${here}/welcome/note`;
   if (view === "try") return { id: "try", notes: { "Try it.md": TRY, "Welcome.md": WELCOME, ...SAMPLES }, first: "Try it.md", mode: "active", link };
-  if (view === "share") return { id: "share", notes: { "Welcome.md": WELCOME, ...SAMPLES }, first: "Welcome.md", mode: "read", link, side: false };
+  if (view === "tour") return { id: "tour", notes: { ...SAMPLES, "Welcome.md": WELCOME }, first: "Formulas.md", mode: "read", link, side: false };
   if (view === "note") return { id: "note", notes: { "Welcome.md": WELCOME }, first: "Welcome.md", mode: "read", link, shared: true, bare: true };
   return { id: "write", notes: { "Welcome.md": OPENING, ...SAMPLES }, first: "Welcome.md", mode: "read", link, side: false };
 }
@@ -147,36 +195,36 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
     <p class='facts__p'>The app keeps no notes of its own. It reads and writes <code>.md</code> files in a repository on your GitHub account, so whatever else you use can open them too.</p>
     <dl class='facts__list'>
       <div><dt>Where they are</dt><dd>In a Git repository you choose. The app reaches only the repositories you give it.</dd></div>
-      <div><dt>What they are</dt><dd>Markdown, with formulas, tables, callouts, diagrams, and files laid into a note.</dd></div>
+      <div><dt>What they are</dt><dd>Markdown that every other tool can open, on the desktop, in the browser, or in a terminal.</dd></div>
       <div><dt>What is kept</dt><dd>Every version, as a commit. Any of them can be looked at and put back.</dd></div>
       <div><dt>What is not here</dt><dd>No writing by a model in the browser, and no account besides GitHub.</dd></div>
     </dl>
   </div>
 </section>
 
-<section id='share' data-sc-act='pin' data-sc-span='2.8' aria-label='A note shared under a link'>
-  <div data-sc-stage class='stage share'>
+<section id='blocks' data-sc-act='pin' data-sc-span='4.4' aria-labelledby='blocks-h'>
+  <div data-sc-stage class='stage tour'>
     <div class='glow glow--b' aria-hidden='true'></div>
-    <div class='cap share__cap'><h2>One link. Anyone can read it.</h2><p>Share a single note, read only, with a password if you like. Put <code>/raw</code> behind the link and you get the Markdown itself.</p></div>
-    <div class='win share__win'>${frame("share", "The app, sharing the note under a link")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div>
-      <div class='raw' aria-label='The shared note as plain Markdown'>
-        <div class='raw__bar'><code class='raw__cmd'>curl <a href='${here}${w}/note/raw'>${attr(here.replace(/^https?:\/\//, ""))}${w}/note/raw</a></code></div>
-        <pre class='raw__text'></pre>
-      </div>
+    <div class='cap tour__cap'>
+      <h2 id='blocks-h'>Everything a note can hold.</h2>
+      <ol class='tour__names'><li data-note='Formulas.md'>Formulas</li><li data-note='Callouts.md'>Callouts</li><li data-note='Code.md'>Code</li><li data-note='Tasks and tables.md'>Tasks and tables</li><li data-note='Diagrams.md'>Diagrams</li><li data-note='Columns.md'>Columns and links</li><li data-note='Welcome.md'>Sharing</li></ol>
+      <div class='tour__texts'><p>LaTeX in a line or set apart, rendered with KaTeX as you type.</p><p>Notes, tips and warnings in boxes of their own. Each can fold.</p><p>Fenced code, highlighted, with a button to copy it.</p><p>Tick a task where you read it. Tables are edited as tables.</p><p>Mermaid diagrams drawn from the text in the note.</p><p>Blocks side by side, and wikilinks from one note to the next.</p><p>One note under a short link, read only, with a password if you like.</p></div>
     </div>
+    <div class='win tour__win'>${frame("tour", "The app, showing what a note can hold")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
   </div>
 </section>
 
-<section id='places' data-sc-act='pan' data-sc-span='4.2' aria-labelledby='places-h'>
-  <div data-sc-stage class='stage places'>
-    <div class='rail' data-sc-pan='0.04'>
-      <div class='place place--lead'><h2 id='places-h'>The same notes, in five places.</h2><p>None of them is a copy.</p></div>
-      <article class='place'><h3>Desktop</h3><p>An app for Linux, opened on a folder. It works on any Markdown file, with nothing to set up.</p><pre><code>mdview ~/notes</code></pre></article>
-      <article class='place'><h3>Browser</h3><p>Sign in with GitHub and choose a repository. The page is the same one the desktop app is made of.</p><pre><code>${attr(here.replace(/^https?:\/\//, ""))}</code></pre></article>
-      <article class='place'><h3>Repository</h3><p>What you write becomes a commit in your own repository. Clone it and the notes are files again.</p><pre><code>git clone github.com/you/notes</code></pre></article>
-      <article class='place'><h3>Link</h3><p>One note, read only, for whoever has the link. With a password if you set one.</p><pre><code>${attr(here.replace(/^https?:\/\//, ""))}/k</code></pre></article>
-      <article class='place'><h3>Terminal</h3><p>The same link with <code>/raw</code> behind it gives the Markdown as it was written.</p><pre><code>curl ${attr(here.replace(/^https?:\/\//, ""))}/k/raw</code></pre></article>
-    </div>
+<section id='open' class='sc-section facts open' aria-labelledby='open-h'>
+  <div class='sc-wrap facts__in' data-sc-in data-sc-stagger='60'>
+    <h2 id='open-h' class='facts__h'>Open source, all of it.</h2>
+    <p class='facts__p'>The desktop app, this web app and the server behind it are in one public repository under the MIT licence. Read it, build it, change it, run your own.</p>
+    <dl class='facts__list'>
+      <div><dt>Licence</dt><dd>MIT. Use it for anything.</dd></div>
+      <div><dt>Made of</dt><dd>A Rust shell built with Tauri around one web page. The browser shows that same page.</dd></div>
+      <div><dt>No lock-in</dt><dd>Your notes are files in your repository. Without the app they are still Markdown.</dd></div>
+      <div><dt>Yours to host</dt><dd>The web app is an ordinary Next.js server. Run it yourself, with a GitHub App of your own.</dd></div>
+    </dl>
+    <p class='open__go'><a class='btn' href='${REPOSITORY}'>${GITHUB}<span>View the source on GitHub</span></a></p>
   </div>
 </section>
 
@@ -201,15 +249,15 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
   <ol class='status__acts'>
     <li><a href='#write' data-act='write'>Write</a></li>
     <li><a href='#files' data-act='files'>Files</a></li>
-    <li><a href='#share' data-act='share'>Share</a></li>
-    <li><a href='#places' data-act='places'>Places</a></li>
+    <li><a href='#blocks' data-act='blocks'>Blocks</a></li>
+    <li><a href='#open' data-act='open'>Open source</a></li>
     <li><a href='#try' data-act='try'>Try</a></li>
   </ol>
   <span class='status__line' aria-hidden='true'></span>
   <a class='status__in' href='${here}/auth/login'>Sign in with GitHub</a>
 </nav>
 
-<script nonce='${nonce}'>window.MdWelcome=${inline({ opening: OPENING, text: WELCOME, raw: `${w}/note/raw` })};</script>
+<script nonce='${nonce}'>window.MdWelcome=${inline({ opening: OPENING, text: WELCOME })};</script>
 <script nonce='${nonce}' src='${w}/scrollcraft.js'></script>
 <script nonce='${nonce}' src='${w}/welcome.js'></script>
 </body></html>`;
