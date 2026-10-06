@@ -113,6 +113,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   historyText: ["answer", "a note as a version has it"],
   flush: ["write", "what is typed is to be saved now"],
   saveFailed: ["write", "a save did not go"],
+  busy: ["write", "the window is busy with something that must not be done twice (a file on its way into the repository), or no more"],
   noteRenamed: ["write", "a note has another name"],
   insertImage: ["write", "a picture was kept: its markup, to be put in"],
   insertDropped: ["write", "dropped files were kept"],

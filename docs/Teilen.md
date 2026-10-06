@@ -84,8 +84,8 @@ flowchart LR
   nur für diesen Link und dieses Passwort gilt. Ein geändertes Passwort macht es ungültig.
 - **Beim Laden** zeigt das ganze Fenster einen Ring (nach 300 ms, damit nichts aufblitzt, wenn
   es schnell geht); er blendet aus, sobald die Notiz da ist.
-- **Nur lesen:** Die Knöpfe für Quelltext, aktiven Modus und „Insert and Format" gibt es dort
-  nicht, und die Tasten dafür tun nichts (`MdHost.reading`). Gliederung und Suche bleiben.
+- **Nur lesen:** Die Knöpfe für Quelltext, aktiven Modus, „Insert and Format" und die
+  Einstellungen gibt es dort nicht, und die Tasten dafür tun nichts (`MdHost.reading`). Gliederung und Suche bleiben.
 - **Der Link verrät sich nicht weiter:** `Referrer-Policy: no-referrer`, und Suchmaschinen wird
   gesagt, die Seite nicht aufzunehmen.
 

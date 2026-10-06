@@ -415,6 +415,11 @@
     if (!path || path !== onScreen || path === GUIDE || !mayWrite()) return;
     const all = [...dropped].filter((f) => f && typeof f.size === "number");
     if (!all.length) return;
+    // (said at once, and nothing more is taken until it is over: a commit takes a moment, and what is pasted again meanwhile would be kept again)
+    tell("busy", all.length === 1 ? (C.kindOf(all[0].name) === "image" || /^image\//.test(all[0].type) ? "Adding the picture…" : "Adding the file…") : `Adding ${all.length} files…`);
+    try { await dropNow(all, path, pasted, append); } finally { tell("busy", null); }
+  }
+  async function dropNow(all, path, pasted, append) {
     const kept = [];
     let room = MOVE_MOST; // (what one commit takes)
     const d = new Date(), two = (n) => String(n).padStart(2, "0"), stamp = `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
@@ -784,18 +789,7 @@
         }
       } catch { return toast("The browser did not hand out the clipboard"); }
       if (!found) return;
-      if (found.blob.size > PICTURE_MOST) return toast("The picture is too large to keep here (over 10 MB)");
-      const ext = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg" }[found.type];
-      const d = new Date(), two = (n) => String(n).padStart(2, "0");
-      const stem = `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
-      const target = await putPicture(path, stem, ext, found.blob), markup = markupOf(path, target);
-      if (append) { // (in the reading view: at the note's end)
-        const old = await textOf(path), nl = old.includes("\r\n") ? "\r\n" : "\n", body = old.replace(/[\r\n]+$/, "");
-        write(rel(path), (body ? body + nl + nl : "") + markup + nl);
-      }
-      await commit();
-      if (blobs.has(rel(target))) return toast("Couldn't keep the picture"); // (the commit did not go: it is tried again with the next)
-      if (append) render(path, { end: true }); else tell("insertImage", { path, markup });
+      return drop([new File([found.blob], "image", { type: found.type })], path, { pasted: true, append }); // (as one that came with the paste itself)
     },
     dropfiles() { toast("These files can't be read from here"); }, // (addresses of files on a disk: nothing a browser can read)
 

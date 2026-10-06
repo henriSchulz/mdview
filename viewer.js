@@ -1846,6 +1846,24 @@
       all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length].focus();
     } else if (!codeBox.contains(e.target) && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopPropagation(); } // (nothing is typed into the note behind it)
   }, true);
+  /* Something that takes a moment and must not be done twice — a pasted or dropped file on its
+   * way into a repository: the window says so at once, and takes nothing typed, pasted or
+   * clicked until it is over. The application says when (MdView.busy: a text, then null). */
+  const busyBox = document.createElement("div");
+  busyBox.id = "busy";
+  busyBox.setAttribute("role", "status");
+  busyBox.innerHTML = `<div class="busy-card surface"><span class="busy-ring" aria-hidden="true"></span><span class="busy-text"></span></div>`;
+  document.body.appendChild(busyBox);
+  let busyTimer = 0;
+  const isBusy = () => busyBox.hasAttribute("data-open");
+  function busy(text) {
+    clearTimeout(busyTimer);
+    if (!text) { delete busyBox.dataset.open; return; }
+    busyBox.querySelector(".busy-text").textContent = text;
+    busyBox.dataset.open = "";
+    busyTimer = setTimeout(() => { delete busyBox.dataset.open; }, 90000); // (whatever became of it: the window is not held for good)
+  }
+  for (const type of ["keydown", "keypress", "paste", "drop", "beforeinput"]) document.addEventListener(type, (e) => { if (isBusy()) { e.preventDefault(); e.stopPropagation(); } }, true);
   function zoomImage(img) {
     if (!img || !img.complete || !img.naturalWidth || zoomOpen()) return false;
     const big = zoomBox.firstChild;
@@ -1892,6 +1910,7 @@
   gear.innerHTML = ICON.gear;
   gear.addEventListener("mousedown", (e) => e.preventDefault());
   gear.addEventListener("click", () => openSettings());
+  if (READING) gear.style.display = "none"; // (a note that is only read: there is nothing of the reader's to set)
   document.body.appendChild(gear);
   // the history of the note shown (active/history.js): its versions, what each changed, one put back
   function openHistory() {
@@ -1906,6 +1925,7 @@
     loadActive().then(() => { MdActive.conflict.open(); }, () => toast(T("active.loadFailed")));
   }
   function openSettings() {
+    if (window.MdHost && window.MdHost.reading) return; // (a note that is only read: no settings, by the gear or by Ctrl+,)
     loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
   }
   let activeLoad = null, preloadTimer = 0;
@@ -3419,7 +3439,7 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, codeHidden, fileMenu: (...a) => openCtx(...a),

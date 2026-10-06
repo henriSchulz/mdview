@@ -248,6 +248,13 @@ code, pre { font-family: var(--mono); }
 .code-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-card-peek { font: 400 13px var(--mono); color: var(--fg2); }
 .code-card-count { flex: none; color: var(--fg3); font: 400 12px var(--ui); font-variant-numeric: tabular-nums; }
+/* the window is busy with something that must not be done twice (viewer.js: busy) */
+#busy { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 45%, transparent); opacity: 0; visibility: hidden; cursor: progress; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+#busy[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-instant) var(--ease-out), visibility 0s; }
+.busy-card { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); color: var(--fg); font: 500 13px var(--ui); }
+.busy-ring { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 16%, transparent); border-top-color: var(--accent); animation: busy-turn 0.9s linear infinite; }
+@keyframes busy-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .busy-ring { animation: none; border-color: var(--accent); } }
 /* … and the window it is shown in */
 #codeview { position: fixed; inset: 0; z-index: 68; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
 #codeview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }

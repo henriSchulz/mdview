@@ -397,9 +397,13 @@ Sobald das Gerüst der Web-App im Repository liegt:
   Zwei Tabs, die gleichzeitig erneuern, würden sich gegenseitig abmelden; das Erneuern läuft
   deshalb über eine einzige Stelle im Server.
 
-## Offene Entscheidungen
+## Entschieden am 6. Oktober 2026
 
-1. **Bleibt das Repository öffentlich?** Es wurde für GitHub Pages öffentlich gemacht. App
-   Hosting baut auch aus einem privaten Repository.
-2. **Nur für dich oder für andere?** Die GitHub App ist „Only on this account". Sollen andere
-   die Web-App benutzen, muss sie „Any account" werden.
+1. **Das Repository bleibt öffentlich.**
+2. **Die Web-App ist für alle**, nicht nur für ein Konto. Dafür muss die GitHub App auf „Any
+   account" stehen (github.com › Settings › Developer settings › GitHub Apps › mdview ›
+   Advanced › „Make public"). Am Code ändert das nichts: Jede Anmeldung sieht nur die
+   Repositories, die das eigene Konto der App freigegeben hat. Für geteilte Links liest der
+   Server die Freigabelisten aller Repositories, auf denen die App installiert ist; bei vielen
+   Nutzern wird das erste Öffnen eines Links nach einem Neustart langsamer – dann braucht das
+   Nachschlagen einen Speicher.

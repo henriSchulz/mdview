@@ -433,7 +433,16 @@ test("a picture pasted comes from the paste itself: no asking the browser for th
     (into ? document.querySelector(into) : document.body).dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
   }, [into, files]);
   await page.click(".pm p");
+  // said at once, and until it is in the note: the window is busy, and takes no second paste meanwhile
+  await page.route("**/api/r/octo/notes/commit", async (route) => { await new Promise((r) => setTimeout(r, 900)); await route.continue(); }, { times: 1 });
+  const commitsBefore = gh.commits.length;
   await paste(".pm", [["image.png", "image/png"]]);
+  await page.waitForFunction(() => document.querySelector("#busy").hasAttribute("data-open") && /Adding the picture/.test(document.querySelector("#busy").textContent), null, { timeout: 3000 });
+  await paste(".pm", [["image.png", "image/png"]]); // (pasted again, impatiently: not taken)
+  await page.keyboard.type("x");                     // (nor is anything typed)
+  await page.waitForFunction(() => !document.querySelector("#busy").hasAttribute("data-open"), null, { timeout: 10000 });
+  assert.equal(gh.commits.length, commitsBefore + 1);
+  assert.equal([...gh.repo.files.keys()].filter((k) => /^pasted-.*\.png$/.test(k) && gh.repo.files.get(k).length < 200).length >= 1, true);
   await until(() => /!\[\]\(pasted-\d{8}-\d{6}\.png\)/.test(text("Pasted.md") || ""), "the picture's markup in the note");
   const name = /\((pasted-[^)]+)\)/.exec(text("Pasted.md"))[1];
   assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);

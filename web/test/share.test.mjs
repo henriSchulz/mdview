@@ -184,6 +184,11 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   // nothing but reading: no modes to switch between, by button or by key
   const vis = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); return !!e && e.offsetParent !== null; }, sel);
   assert.deepEqual([await vis("#toolbar .seg"), await vis('#toolbar [data-act="panel"]'), await vis('#toolbar [data-act="share"]'), await vis('#toolbar [data-act="find"]')], [false, false, false, true]);
+  // … and no settings, by the gear or by the key
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Settings" && b.offsetParent !== null)), false);
+  await page.keyboard.press("Control+,");
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => !!document.querySelector("#settings[data-open]")), false);
   await page.keyboard.press("Control+e");
   await page.keyboard.press("Control+Alt+2");
   await page.evaluate(() => MdView.setMode("active"));
