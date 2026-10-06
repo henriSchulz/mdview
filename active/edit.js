@@ -5,6 +5,7 @@
   const A = window.MdActive;
   const { md, slugify, isExternal } = window.MdView.core;
   const { Plugin, PluginKey, TextSelection, NodeSelection, AllSelection, Selection } = PM.state;
+  const { Fragment } = PM.model;
   const { Decoration, DecorationSet } = PM.view;
   const { keymap } = PM.keymap;
   const C = PM.commands, L = PM.schemaList, IR = PM.inputrules, H = PM.history;
@@ -255,6 +256,85 @@
   const inList = (command) => (state, dispatch) => (itemAt(state.selection.$from) ? command(state, dispatch) : false);
   const swallow = () => true;
 
+  /* Tab and Shift+Tab beyond the items of one list. Markdown has one way to stand further in:
+   * as part of a list's item. So a block right below a list goes into that list's last item
+   * with Tab — a paragraph, a code block, a table, and the first item of a list that another
+   * list stands right above — and Shift+Tab takes a block that is part of an item (not the
+   * item's first) out again, to below the item, with what follows it there.
+   * Both give the transaction and where the blocks are then: { tr, at }, or null where there is
+   * nothing to stand under. */
+  function indentBlocks(state, from, to) {
+    const $from = state.doc.resolve(from), parent = $from.parent, index = $from.index();
+    const prev = index > 0 ? parent.child(index - 1) : null;
+    if (!prev || !isList(prev) || !prev.lastChild) return null;
+    const content = state.doc.slice(from, to).content;
+    if (!prev.lastChild.type.validContent(prev.lastChild.content.append(content))) return null;
+    const at = from - 2; // (in the list above, at the end of its last item)
+    return { tr: state.tr.delete(from, to).insert(at, content).setMeta("step", true), at };
+  }
+  // the first item of a list right below another list: under that list's last item, as a list of its own there
+  function sinkFirstItem(state, dispatch) {
+    const item = itemAt(state.selection.$from);
+    if (!item) return false;
+    const $item = state.doc.resolve(item.pos), list = $item.parent, listPos = $item.before();
+    if ($item.index() !== 0) return false;
+    const $list = state.doc.resolve(listPos), above = $list.index() > 0 ? $list.parent.child($list.index() - 1) : null;
+    if (!above || !isList(above) || !above.lastChild) return false;
+    const nested = Fragment.from(list.type.create(list.attrs, item.node)), into = above.lastChild;
+    if (!into.type.validContent(into.content.append(nested))) return false;
+    if (dispatch) {
+      const alone = list.childCount === 1, from = alone ? listPos : item.pos, to = alone ? listPos + list.nodeSize : item.pos + item.node.nodeSize;
+      const at = listPos - 2, inItem = state.selection.from - item.pos;
+      const tr = state.tr.delete(from, to).insert(at, nested);
+      dispatch(tr.setSelection(Selection.near(tr.doc.resolve(at + 1 + inItem), 1)).scrollIntoView().setMeta("step", true));
+    }
+    return true;
+  }
+  function outdentBlocks(state, from) {
+    const $from = state.doc.resolve(from), item = $from.parent;
+    if (item.type !== N.list_item || $from.index() === 0) return null;
+    const itemDepth = $from.depth, listDepth = itemDepth - 1, end = $from.end(itemDepth);
+    const content = state.doc.slice(from, end).content, last = $from.index(listDepth) === $from.node(listDepth).childCount - 1;
+    const $list = state.doc.resolve($from.before(listDepth));
+    if (!$list.parent.canReplace($list.index() + 1, $list.index() + 1, content)) return null;
+    const tr = state.tr.delete(from, end);
+    const after = tr.mapping.map($from.after(itemDepth)); // (behind the item)
+    if (!last) tr.split(after, 1); // (the items below it are a list of their own, below what comes out)
+    tr.insert(after + 1, content);
+    return { tr: tr.setMeta("step", true), at: after + 1 };
+  }
+  const withCaret = (state, dispatch, made, was) => {
+    if (!made) return false;
+    if (dispatch) dispatch(made.tr.setSelection(Selection.near(made.tr.doc.resolve(Math.min(made.at + (state.selection.from - was), made.tr.doc.content.size)), 1)).scrollIntoView());
+    return true;
+  };
+  // Tab in a block that is no item (or is the first item of its list): under the list above it
+  const tabBlock = (state, dispatch) => {
+    const { $from } = state.selection, sel = state.selection;
+    if (sel instanceof NodeSelection && sel.node.isBlock && sel.node.type !== N.list_item) { // a block selected as one (a code block, a formula, a rule)
+      const made = indentBlocks(state, sel.from, sel.to);
+      if (made && dispatch) dispatch(made.tr.setSelection(NodeSelection.create(made.tr.doc, made.at)).scrollIntoView());
+      return !!made;
+    }
+    if (itemAt($from)) return sinkFirstItem(state, dispatch);
+    if ($from.depth < 1) return false;
+    const d = A.columns.around($from) ? $from.sharedDepth(A.columns.around($from).colPos + 1) + 1 : 1; // (in a column: one of its own blocks)
+    if ($from.depth < d) return false;
+    const from = $from.before(d);
+    return withCaret(state, dispatch, indentBlocks(state, from, $from.after(d)), from);
+  };
+  // Shift+Tab in a block that is part of an item but not its first: out of the item
+  const untabBlock = (state, dispatch) => {
+    const { $from } = state.selection;
+    for (let d = $from.depth; d > 1; d--) {
+      if ($from.node(d - 1).type !== N.list_item) continue;
+      if ($from.index(d - 1) === 0 || isList($from.node(d))) return false;
+      const from = $from.before(d);
+      return withCaret(state, dispatch, outdentBlocks(state, from), from);
+    }
+    return false;
+  };
+
   // after undo and redo the caret comes into view gently (view.js)
   const gently = (command) => (state, dispatch, view) => { if (dispatch) A.view.gentle = true; const ok = command(state, dispatch, view); if (!ok) A.view.gentle = false; return ok; };
   // nothing left to undo here: what was done before this mode took the document over (viewer.js)
@@ -277,8 +357,8 @@
     "Mod-]": L.sinkListItem(N.list_item),
     "Mod-[": L.liftListItem(N.list_item),
     // (A.tableui and A.islands are loaded by the time a key is pressed)
-    Tab: C.chainCommands((s, d, v) => A.tableui.tab(1)(s, d, v), inList(L.sinkListItem(N.list_item)), swallow),
-    "Shift-Tab": C.chainCommands((s, d, v) => A.tableui.tab(-1)(s, d, v), inList(L.liftListItem(N.list_item)), swallow),
+    Tab: C.chainCommands((s, d, v) => A.tableui.tab(1)(s, d, v), inList(L.sinkListItem(N.list_item)), tabBlock, swallow),
+    "Shift-Tab": C.chainCommands((s, d, v) => A.tableui.tab(-1)(s, d, v), untabBlock, inList(L.liftListItem(N.list_item)), swallow),
     "Mod-Enter": toggleTask,
     "Shift-Enter": C.chainCommands((s) => A.tableui.noBreak(s), hardBreak),
     Enter: C.chainCommands(openSelected, (s, d, v) => A.tableui.enter(s, d, v), (s, d, v) => A.islands.onEnter(s, d, v), (s, d) => A.tableui.make(s, d), ruleOnEnter, enterInList, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
@@ -721,6 +801,6 @@
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },
-    itemAt, ancestor,
+    itemAt, ancestor, indentBlocks, outdentBlocks,
   };
 })();

@@ -167,6 +167,45 @@ test("lists", () => {
   is(e, "- item\n\n  ```js\n  let a = 1;\n  ```\n- next!\n");
 });
 
+test("Tab and Shift+Tab on what is no item of a list", () => {
+  let e;
+  // a paragraph right below a list: into the list's last item, the caret where it was
+  e = doc("- one\n- two\n\nbelow it\n\nafter\n").caretAfter("below");
+  assert.ok(e.press("Tab"));
+  is(e, "- one\n- two\n\n  below it\n\nafter\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "below it");
+  assert.equal(e.state.selection.$from.parentOffset, 5);
+  // … and out again: below the list
+  assert.ok(e.press("Shift-Tab"));
+  is(e, "- one\n- two\n\nbelow it\n\nafter\n");
+  // a code block goes in as well
+  e = doc("- one\n\n```\ncode\n```\n").caretAfter("one");
+  e.apply(e.state.tr.setSelection(PM.state.NodeSelection.create(e.state.doc, e.state.doc.firstChild.nodeSize)));
+  assert.ok(e.press("Tab"));
+  is(e, "- one\n  ```\n  code\n  ```\n");
+  // nothing above to stand under: nothing happens
+  e = doc("first\n\nsecond\n").caretAfter("second");
+  e.press("Tab");
+  is(e, "first\n\nsecond\n");
+  // out of the middle of a list: the items below are a list of their own, below what came out
+  e = doc("- one\n\n  more of one\n- two\n").caretAfter("more");
+  assert.ok(e.press("Shift-Tab"));
+  is(e, "- one\n\nmore of one\n\n- two\n");
+  // what follows it in the item comes along, in its order
+  e = doc("- one\n\n  a\n\n  b\n").caretAfter("a");
+  e.press("Shift-Tab");
+  is(e, "- one\n\na\n\nb\n");
+  // the first paragraph of an item is the item: Shift+Tab lifts the item, as before
+  e = doc("- one\n  - two\n").caretAfter("two");
+  e.press("Shift-Tab");
+  is(e, "- one\n- two\n");
+  // the first item of a list right below another list (interrupted by another marker): under that list's last item
+  e = doc("- one\n\n1. two\n2. three\n").caretAfter("two");
+  assert.ok(e.press("Tab"));
+  is(e, "- one\n  1. two\n\n1. three\n");
+  assert.equal(e.state.selection.$from.parent.textContent, "two");
+});
+
 test("tasks", () => {
   let e = doc("- [ ] open\n- [x] done\n").caretAfter("open");
   e.press("Mod-Enter");

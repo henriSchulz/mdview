@@ -236,6 +236,12 @@
           }
           if (node && (node.type === N.hidden || (node.type === N.island && node.attrs.virtual))) return true;
           let items;
+          // on blocks that are selected as wholes: what can be done with them, together
+          const blocks = A.blocks.selection(view.state), picked = A.blocks.picked(view.state);
+          if (blocks && (picked.length ? picked.some((x) => at.pos >= x.pos && at.pos <= x.pos + x.node.nodeSize) : at.pos >= blocks.from && at.pos <= blocks.to)) {
+            A.menu.open({ x: e.clientX, y: e.clientY, items: A.blocks.menuItems(view), closed: () => view.focus() });
+            return true;
+          }
           if (node) {
             if (NodeSelection.isSelectable(node)) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
             items = nodeItems(view, pos, node);

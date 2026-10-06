@@ -96,3 +96,55 @@ test("Alt+Shift+arrows: to the top, to the end", () => {
   v.key("ArrowUp", { altKey: true });
   assert.equal(v.md(), "one\n\ntwo\n\nthree\n\nfour\n");
 });
+
+test("Tab and Shift+Tab on selected blocks: further in together, and out again", () => {
+  // two items of a list: both under the one above
+  let v = open("- one\n- two\n- three\n", "two");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
+  assert.ok(v.key("Tab"));
+  assert.equal(v.md(), "- one\n  - two\n  - three\n");
+  // a paragraph and a code block right below a list: into its last item; they stay selected
+  v = open("- one\n\nbelow\n\n```\ncode\n```\n\nafter\n", "below");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
+  v.key("Tab");
+  assert.equal(v.md(), "- one\n\n  below\n\n  ```\n  code\n  ```\n\nafter\n");
+  assert.equal(v.blocks().b - v.blocks().a, 1);
+  // … and out again with Shift+Tab
+  v.key("Tab", { shiftKey: true });
+  assert.equal(v.md(), "- one\n\nbelow\n\n```\ncode\n```\n\nafter\n");
+  // nothing above to stand under: nothing changes, the key is not the text's
+  v = open("first\n\nsecond\n", "second");
+  v.key("Escape");
+  assert.ok(v.key("Tab"));
+  assert.equal(v.md(), "first\n\nsecond\n");
+});
+
+test("the / menu for selected blocks: for all of them at once", () => {
+  const pick = (v, group, key, n) => {
+    const was = A.menu.open;
+    let items = null;
+    A.menu.open = (o) => { items = o.items; };
+    v.coordsAtPos = () => ({ left: 0, top: 0, bottom: 0 });
+    try { assert.ok(v.key("/")); } finally { A.menu.open = was; }
+    const T = w.MdStrings.t;
+    const entry = items.find((g) => g.label === T(group)).items.find((e) => e.label === T(key, n));
+    entry.run();
+    return items;
+  };
+  // blocks that stand together: one list of them
+  let v = open("one\n\ntwo\n\nthree\n\nfour\n", "two");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
+  const items = pick(v, "slash.list", "menu.bullet");
+  assert.deepEqual([...items].map((g) => g.label), ["slash.style", "slash.list", "slash.deco", "slash.color", "slash.callout"].map((k) => w.MdStrings.t(k))); // (what is put in — a table, a rule — is not for blocks that are there)
+  assert.equal(v.md(), "one\n\n- two\n- three\n\nfour\n");
+  // … one callout around them
+  v = open("one\n\ntwo\n\nthree\n", "one");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
+  pick(v, "slash.callout", "callout.note");
+  assert.equal(v.md(), "> [!note]\n> one\n>\n> two\n\nthree\n");
+  // … each a heading
+  v = open("one\n\ntwo\n\nthree\n", "two");
+  v.key("Escape"); v.key("ArrowDown", { shiftKey: true });
+  pick(v, "slash.style", "menu.heading", 2);
+  assert.equal(v.md(), "one\n\n## two\n\n## three\n");
+});

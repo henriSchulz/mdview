@@ -174,6 +174,41 @@ test("a callout that folds: folded at first in the active mode too, unfolded by 
   assert.match(text("Fold.md"), /\[!note\]- Folded at first/);
 });
 
+test("blocks selected as wholes: Tab stands them under the list above, / and a right click have their menus", async () => {
+  put("Blocks.md", "- one\n\nbelow\n\nthird\n");
+  await open("Blocks.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  const md = () => page.evaluate(() => MdActive.view.serialize());
+  const menu = () => page.evaluate(() => (document.querySelector("#actmenu").hasAttribute("data-open") ? [...document.querySelectorAll("#actmenu .menu-item .menu-label")].map((e) => e.textContent) : null));
+  const caretInBelow = () => page.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text === "below") at = pos + 2; }); v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
+  await caretInBelow();
+  await page.keyboard.press("Escape"); // (the paragraph, as a block)
+  await page.waitForFunction(() => !!MdActive.blocks.selection(MdActive.view.pm.state), null, { timeout: 8000 });
+  await page.keyboard.press("Tab");
+  assert.equal(await md(), "- one\n\n  below\n\nthird\n");
+  await page.keyboard.press("Shift+Tab");
+  assert.equal(await md(), "- one\n\nbelow\n\nthird\n");
+  // "/": the menu for the block, not a slash in the text
+  await caretInBelow();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !!MdActive.blocks.selection(MdActive.view.pm.state), null, { timeout: 8000 });
+  await page.keyboard.type("/");
+  await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  assert.deepEqual(await menu(), ["Text Style", "List", "Decorations", "Color", "Callout"]);
+  assert.equal(await md(), "- one\n\nbelow\n\nthird\n");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  // a right click on it: the clipboard, once more, away
+  if (!(await page.evaluate(() => !!MdActive.blocks.selection(MdActive.view.pm.state)))) { await caretInBelow(); await page.keyboard.press("Escape"); }
+  await page.click(".pm > p", { button: "right" });
+  await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  const shown = await menu();
+  assert.deepEqual([shown.slice(0, 4), shown.at(-1)], [["Cut", "Copy", "Paste", "Duplicate"], "Delete"]);
+  await page.evaluate(() => [...document.querySelectorAll("#actmenu .menu-item")].find((e) => e.textContent.startsWith("Duplicate")).click());
+  await page.waitForFunction(() => /below\n\nbelow/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+});
+
 test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
   put("Lost.md", "# Lost\n\na line\n");
   await open("Lost.md");

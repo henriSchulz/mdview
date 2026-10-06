@@ -305,10 +305,17 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   paragraph, insert, settings.
 - **Blocks as wholes**: a handle beside each block selects and drags it; `Esc` takes the block the
   caret is in. On selected blocks: arrows move among them, `Alt+↑/↓` moves them, `Ctrl+D` duplicates,
-  `Space` adds an empty block below, `Backspace` deletes. `Ctrl+click` picks blocks one by one; a
-  rectangle pulled from the empty space selects those it reaches.
+  `Space` adds an empty block below, `Backspace` deletes, `Tab` and `Shift+Tab` stand them
+  further in and out, `/` opens the menu of styles, lists, decorations, colours and callouts for
+  all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
+  rectangle pulled from the empty space selects those it reaches. A block dragged to the
+  window's upper or lower edge scrolls the page along.
+- **Tab beyond lists**: Markdown stands a block further in as part of a list's item. So `Tab` puts
+  a paragraph, a code block or a table right below a list into that list's last item, and the
+  first item of a list under the list right above it; `Shift+Tab` takes a block that is part of
+  an item out again. Where nothing stands above to go under, `Tab` does nothing.
 - **Tables** are edited in their cells; handles over a column and beside a row open a menu and can
-  be dragged to move it. Dragged to the window's upper or lower edge, the page scrolls along.
+  be dragged to move it.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket
   matching, `Ctrl+F`, LaTeX completion) and a live preview for formulas, Mermaid and SVG.
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work

@@ -336,11 +336,89 @@
       return done(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(r.from, tr.doc.content.size)), -1)).scrollIntoView());
     }
     if (mod && /^[cxv]$/i.test(e.key)) return false; // the clipboard's events do it
+    if (e.key === "Tab" && !mod && !e.altKey) { // further in, or out again — together
+      e.preventDefault();
+      if (!v.editable || (sel.more && sel.more.length)) return true;
+      if (r.parent.type.name.endsWith("_list")) { // items of a list: as Tab in them does, for all of them
+        const doc = v.state.doc, among = v.state.apply(v.state.tr.setSelection(TextSelection.between(doc.resolve(r.from + 1), doc.resolve(r.to - 1))));
+        const L = PM.schemaList, item = A.schema.nodes.list_item;
+        (e.shiftKey ? L.liftListItem(item) : L.sinkListItem(item))(among, (tr) => v.dispatch(tr.setMeta(selKey, null).setMeta("step", true).scrollIntoView()));
+        return true;
+      }
+      // blocks: under the list above them, or out of the item they are part of (edit.js)
+      const made = e.shiftKey ? A.edit.outdentBlocks(v.state, r.from) : A.edit.indentBlocks(v.state, r.from, r.to);
+      if (!made) return true;
+      const size = r.to - r.from;
+      let last = made.at;
+      const $at = made.tr.doc.resolve(made.at);
+      for (let i = $at.index(), p = made.at; i < $at.parent.childCount && p < made.at + size; p += $at.parent.child(i).nodeSize, i++) last = p;
+      made.tr.setMeta(selKey, e.shiftKey ? null : { anchor: made.at, head: last });
+      v.dispatch((e.shiftKey ? made.tr.setSelection(Selection.near(made.tr.doc.resolve(made.at + 1), 1)) : made.tr.setSelection(pmSel(made.tr.doc, last))).scrollIntoView());
+      return true;
+    }
+    if (e.key === "/" && !mod && !e.altKey) { e.preventDefault(); slashMenu(v); return true; } // the "/" menu, for the blocks selected
     if (mod || e.altKey || /^(Shift|Control|Alt|Meta|CapsLock|Tab)$/.test(e.key) || e.key.length > 1) return mod || e.altKey ? false : (e.preventDefault(), true);
     // a character typed: back to the text, at the end of the block; it is typed there
     const node = v.state.doc.nodeAt(sel.head);
     v.dispatch(v.state.tr.setMeta(selKey, null).setSelection(Selection.near(v.state.doc.resolve(sel.head + (node ? node.nodeSize : 0)), -1)));
     return false;
+  }
+  /* The "/" menu for the blocks that are selected: a text style, a list, a decoration, a colour,
+   * a callout — for all of them at once. Blocks that stand together get it together (one list,
+   * one quote around them); blocks picked one by one each get it. What the first of them has
+   * says whether an entry is ticked, and so whether choosing it puts it on or takes it off. */
+  const SLASH_GROUPS = ["slash.style", "slash.list", "slash.deco", "slash.color", "slash.callout"];
+  function slashItems(v) {
+    const sel = selOf(v.state), r = rangeOf(v.state, sel);
+    if (!r || !v.editable || !A.slash) return null;
+    const runs = sel.more && sel.more.length ? pickedOf(v.state, sel).map((x) => ({ from: x.pos, to: x.pos + x.node.nodeSize })) : [{ from: r.from, to: r.to }];
+    const within = (state, run) => state.tr.setMeta(selKey, null).setSelection(TextSelection.between(state.doc.resolve(run.from + 1), state.doc.resolve(run.to - 1)));
+    const groupsOf = (view) => A.slash.entries(view).filter((g) => g && SLASH_GROUPS.includes(g.key));
+    const find = (view, group, e) => { const g = groupsOf(view).find((x) => x.key === group); return g && g.items.find((x) => x && x.key === e.key && x.n === e.n); };
+    const choose = (group, e) => () => {
+      const want = !e.checked;
+      for (const run of runs.slice().reverse()) { // (from the last: what is changed below moves nothing above)
+        v.dispatch(within(v.state, run));
+        const now = find(v, group, e);
+        if (!now || now.disabled || (e.checked !== undefined && !!now.checked === want)) continue;
+        now.act(v);
+      }
+      v.focus();
+    };
+    // (what the menu shows is worked out with the caret in the first of them, on a state of its own: the selection stays until something is chosen)
+    const first = { state: v.state.apply(within(v.state, runs[0])), editable: true };
+    const label = (e) => e.label || window.MdStrings.t(e.key, e.n);
+    return groupsOf(first).map((g) => ({ label: label(g), icon: g.icon, items: g.items.filter((e) => e && e.key !== "callout.title").map((e) => ({ label: label(e), icon: e.icon, run: choose(g.key, e), disabled: e.disabled, checked: e.checked })) }));
+  }
+  function slashMenu(v) {
+    const items = slashItems(v);
+    if (!items) return;
+    const r = rangeOf(v.state), c = v.coordsAtPos(Math.min(r.from + 1, v.state.doc.content.size));
+    A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items });
+  }
+  /* The menu of a right click on blocks that are selected: the clipboard, once more, away — and
+   * what the "/" menu has for them. (The keys do the same: they are named beside the entries.) */
+  function menuItems(v) {
+    const T = window.MdStrings.t, key = (k, mods) => () => { v.focus(); keydown(v, { key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, preventDefault() {}, ...mods }); };
+    const clip = (what) => () => {
+      v.focus();
+      if (document.execCommand(what)) return; // (the clipboard's own event takes the blocks: toClipboard)
+      const r = rangeOf(v.state);
+      if (!r) return;
+      window.MdView.core.copy(A.clip.markdownOf(v.state, v.state.doc.slice(r.from, r.to)));
+      if (what === "cut") key("Delete")();
+    };
+    const post = (type) => window.MdHost?.post(JSON.stringify({ type }));
+    return [
+      { label: T("menu.cut"), run: clip("cut"), key: "Ctrl+X" },
+      { label: T("menu.copy"), run: clip("copy"), key: "Ctrl+C" },
+      { label: T("menu.paste"), run: () => { v.focus(); post("pasteclip"); }, key: "Ctrl+V" },
+      { label: T("slash.duplicate"), run: key("d", { ctrlKey: true }), key: "Ctrl+D" },
+      null,
+      ...(slashItems(v) || []),
+      null,
+      { label: T("menu.delete"), run: key("Delete"), danger: true, key: "⌫" },
+    ];
   }
   function toClipboard(v, e, cut) {
     const r = rangeOf(v.state), P = pickedOf(v.state);
@@ -1001,5 +1079,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { menuItems, over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();
