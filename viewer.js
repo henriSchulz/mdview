@@ -1214,6 +1214,10 @@
   const edInput = edWrap.firstChild;
   const edBack = edWrap.lastChild;
   const modeSeg = toolbar.querySelector(".seg");
+  // A host where a note is only read (a shared one, in the browser: MdHost.reading) has no modes
+  // to switch between, and nothing to insert or format.
+  const READING = !!(window.MdHost && window.MdHost.reading);
+  if (READING) { modeSeg.hidden = true; toolbar.querySelector('[data-act="panel"]').hidden = true; }
   const MODES = ["edit", "active", "read"]; // as in the toolbar
   function showMode() {
     modeSeg.style.setProperty("--i", MODES.indexOf(mode));
@@ -1566,6 +1570,7 @@
   // the other (they share the page scroll) and stay on the same source line.
   function setMode(next, caret) {
     if (next === mode || !current) return;
+    if (READING && next !== "read") return; // (a host that only shows a note: there is nothing but reading it)
     if (current.kind === "pdf") { toast("A PDF is read here, not edited"); return; }
     if (next === "active") {
       if (current.error) return;

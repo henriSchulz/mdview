@@ -569,6 +569,7 @@ body.swapping #content, body.swapping #editor {
 #toolbar .tb:focus-visible, #toolbar .seg-btn:focus-visible { outline-offset: -2px; }
 
 /* mode switch: source · active · read. The thumb glides to the chosen one. */
+#toolbar [hidden] { display: none; } /* (a host where a note is only read has no modes: viewer.js, READING) */
 .seg {
   position: relative;
   display: flex;

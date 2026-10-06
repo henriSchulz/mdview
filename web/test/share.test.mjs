@@ -143,6 +143,14 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   const seen = await page.evaluate(() => ({ readonly: MdView.core.current.readonly, ran: window.__ran, title: document.title, sidebar: document.body.dataset.sidebar || "", stored: Object.keys(localStorage).filter((k) => /drafts|tabs/.test(k)) }));
   assert.deepEqual([seen.readonly, seen.ran, seen.stored], ["a shared note", undefined, []]);
   assert.notEqual(seen.sidebar, "open"); // (no repository to look about in)
+  // nothing but reading: no modes to switch between, by button or by key
+  const vis = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); return !!e && e.offsetParent !== null; }, sel);
+  assert.deepEqual([await vis("#toolbar .seg"), await vis('#toolbar [data-act="panel"]'), await vis('#toolbar [data-act="find"]')], [false, false, true]);
+  await page.keyboard.press("Control+e");
+  await page.keyboard.press("Control+Alt+2");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => document.body.dataset.view || "read"), "read");
   // a link to a note that was not shared: said, and nothing fetched
   const asked = [];
   page.on("request", (r) => asked.push(new URL(r.url()).pathname));

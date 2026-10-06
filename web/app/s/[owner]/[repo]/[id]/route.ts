@@ -54,7 +54,7 @@ export async function GET(request: Request, { params }: Params) {
   if (!g.open) return ask(here, at);
   const dir = g.shared.path.includes("/") ? g.shared.path.slice(0, g.shared.path.lastIndexOf("/") + 1) : "";
   return pageDocument({
-    here, title: g.shared.path.split("/").pop()!.replace(/\.(md|markdown)$/i, ""), files: at + "/file", hosts: ["/host/core.js", "/host/share.js"], referrer: "no-referrer",
+    here, title: g.shared.path.split("/").pop()!.replace(/\.(md|markdown)$/i, ""), files: at + "/file", hosts: ["/host/core.js", "/host/share.js"], referrer: "no-referrer", reading: true,
     base: `${at}/file/${dir.split("/").map(encodeURIComponent).join("/")}`, prefs: { startMode: "read" },
     web: { owner, repo, share: id },
   });

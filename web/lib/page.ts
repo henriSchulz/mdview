@@ -32,9 +32,9 @@ export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\
 
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
- * hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
+ * reading: the note is only read here (no modes to switch between). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
  * of this address when a link is followed. */
-export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string }): Response {
+export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string; reading?: boolean }): Response {
   const nonce = randomBytes(16).toString("base64"), a = "/app", here = o.here;
   // Scripts only with this document's nonce — so nothing a note brings (HTML in Markdown, a file
   // of the repository) can run as one. Everything else from here or as data.
@@ -44,7 +44,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   // yet is kept for it), the settings, and the theme the system has
   const before =
     `window.MdWeb=${inline(web)};` +
-    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}};` +
+    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""}};` +
     `window.MdPrefs=Object.assign(${inline({ ...PREFS, ...(o.prefs || {}) })},(function(){try{return JSON.parse(localStorage.getItem("mdview:prefs"))||{}}catch(e){return {}}})());` +
     `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();`;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
