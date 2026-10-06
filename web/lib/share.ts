@@ -158,7 +158,7 @@ export async function whereIs(id: string): Promise<{ owner: string; repo: string
   return at;
 }
 
-const OWN = new Set(["shares", "signin", "auth", "api", "file", "r", "s", "share", "app", "host", "raw", "favicon", "robots"]);
+const OWN = new Set(["shares", "signin", "auth", "api", "file", "r", "s", "share", "app", "host", "welcome", "raw", "favicon", "robots"]);
 const LETTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 /** An id no shared note has, as short as there is room for: one letter or digit while fewer than

@@ -25,7 +25,7 @@ function browser() {
         if (gone) jar.delete(name); else jar.set(name, value);
       }
       const location = res.headers.get("location"); // (the app may name a place of its own without its address)
-      return { status: res.status, to: location && new URL(location, base).href, text: await res.text(), cookies: res.headers.getSetCookie() };
+      return { status: res.status, to: location && new URL(location, base).href, text: await res.text(), cookies: res.headers.getSetCookie(), headers: res.headers };
     },
   };
 }
@@ -54,7 +54,10 @@ async function signIn(b, next) {
 
 test("nothing of the app without signing in", async () => {
   const b = browser();
-  assert.deepEqual([(await b.go("/")).status, (await b.go("/")).to], [307, base + "/signin"]);
+  const first = await b.go("/"); // (the address itself: the welcome page, with sample notes and nobody's own)
+  assert.deepEqual([first.status, first.to], [200, null]);
+  assert.match(first.text, /Sign in with GitHub/);
+  assert.doesNotMatch(first.text, /octo/);
   assert.equal((await b.go("/r/octo/Zeta")).to, base + "/signin?next=%2Fr%2Focto%2FZeta");
   assert.equal((await b.go("/auth/renew")).to, base + "/signin?next=%2Fauth%2Frenew");
   const page = await b.go("/signin");
@@ -161,7 +164,7 @@ test("a sign-in GitHub takes no more ends at the sign-in page; signing out forge
   const out = await c.go("/auth/logout", { method: "POST" });
   assert.deepEqual([out.status, out.to], [303, base + "/signin"]);
   assert.ok(!c.jar.has("mdview"));
-  assert.equal((await c.go("/")).to, base + "/signin");
+  assert.deepEqual([(await c.go("/")).status, (await c.go("/r/octo/Zeta")).to], [200, base + "/signin?next=%2Fr%2Focto%2FZeta"]); // (the welcome page again, and nothing of the notes)
 });
 
 test("a cookie that is not the app's own is no session", async () => {
@@ -181,4 +184,30 @@ test("without the app's own key nothing is shared from here: a link shows nothin
   assert.equal((await browser().go("/aaaaaaaaaa/raw")).status, 404);
   assert.equal((await browser().go("/share/free")).status, 404);
   assert.equal(gh.seen.length, asked);
+});
+
+test("the welcome page: the app with sample notes, for whoever is not signed in", async () => {
+  const b = browser();
+  const page = await b.go("/welcome");
+  assert.equal(page.status, 200);
+  assert.match(page.text, /data-src='\/welcome\/app\?view=write'/);
+  assert.match(page.text, /href='[^']*\/auth\/login'/);
+  // its windows: the app's page with the sample notes' host, framed by this server's pages only
+  const win = await fetch(base + "/welcome/app?view=try");
+  assert.equal(win.status, 200);
+  assert.match(win.headers.get("content-security-policy"), /frame-ancestors 'self'/);
+  const text = await win.text();
+  assert.match(text, /\/host\/demo\.js/);
+  assert.match(text, /Try it\.md/);
+  // the note as a shared one is seen, and as its Markdown
+  const note = await fetch(base + "/welcome/note");
+  assert.equal(note.status, 200);
+  assert.match(note.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+  const raw = await fetch(base + "/welcome/note/raw");
+  assert.deepEqual([raw.status, raw.headers.get("content-type")], [200, "text/markdown; charset=utf-8"]);
+  assert.match(await raw.text(), /^# Notes that stay yours/);
+  // a repository's page is framed by nobody
+  const signed = browser();
+  await signIn(signed);
+  assert.match((await signed.go("/r/octo/Zeta")).headers.get("content-security-policy"), /frame-ancestors 'none'/);
 });

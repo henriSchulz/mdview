@@ -49,12 +49,13 @@ const BOOT_CSS =
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
  * reading: the note is only read here (no modes to switch between). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
- * of this address when a link is followed. */
-export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string; reading?: boolean }): Response {
+ * of this address when a link is followed. framed: this server's own pages may show it in a frame
+ * (the welcome page's sample notes); nothing else ever may. */
+export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string; reading?: boolean; framed?: boolean }): Response {
   const nonce = randomBytes(16).toString("base64"), a = "/app", here = o.here;
   // Scripts only with this document's nonce — so nothing a note brings (HTML in Markdown, a file
   // of the repository) can run as one. Everything else from here or as data.
-  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' 'self' https:; img-src 'self' data: blob: https: http:; font-src 'self' data:; media-src 'self' blob: https: http:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; form-action 'none'; frame-ancestors 'none'`;
+  const csp = `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline' 'self' https:; img-src 'self' data: blob: https: http:; font-src 'self' data:; media-src 'self' blob: https: http:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; form-action 'none'; frame-ancestors ${o.framed ? "'self'" : "'none'"}`;
   const web = { ...o.web, themes: { light: css(LIGHT, "light"), dark: css(DARK, "dark") } };
   // before the page's scripts: where it reaches its host (what it says while the host is not there
   // yet is kept for it), the settings, and the theme the system has

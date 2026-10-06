@@ -471,6 +471,9 @@ counts — and has no writing help by a model.
 
 - **Signing in**: Sign in with GitHub, on the app's first page; without it there is nothing to
   see. The sign-in lasts until Sign Out, or six months of not coming by.
+- **Before signing in**, the address shows a welcome page: the app itself with a handful of sample
+  notes that live in the tab and nowhere else. Scrolling writes one of them, shares it, and leaves
+  an editor to try; nothing typed there is kept.
 - **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
   is chosen beforehand.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding

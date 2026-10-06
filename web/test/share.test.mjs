@@ -167,7 +167,7 @@ test("the link is the id right behind the address, and /raw under it is the note
   assert.equal(await raw.text(), gh.repo.files.get("docs/Shown.md").toString());
   // nothing of that for an id that is none, and the app's own names stay the app's
   assert.deepEqual([(await get(`/${GONE}`)).status, (await get(`/${GONE}/raw`)).status, (await get("/nothing-like-an-id!")).status], [404, 404, 307]); // (what cannot be an id is the app's: to signing in)
-  assert.deepEqual([(await get("/shares")).status, (await get("/")).status, (await get("/signin")).status], [307, 307, 200]);
+  assert.deepEqual([(await get("/shares")).status, (await get("/")).status, (await get("/signin")).status], [307, 200, 200]); // (the address itself: the welcome page)
   // with a password: asked for on the page; raw takes it as a program gives one, or from a browser that gave it
   assert.match(await (await get(`/${LOCKED}`)).text(), new RegExp(`action='/${LOCKED}'`));
   const closed = await get(`/${LOCKED}/raw`);
