@@ -480,6 +480,35 @@ test("a file block: a click hands the file out, and a file that can be shown is 
   await page.evaluate(() => [...document.querySelectorAll("#actmenu .menu-item")].find((e) => e.textContent.startsWith("Embed in the Note")).click());
   await page.waitForFunction(() => /!\[\[paper\.pdf\]\]/.test(MdActive.view.serialize()), null, { timeout: 8000 });
   assert.match(await page.evaluate(() => MdActive.view.serialize()), /# Files\n\n!\[\[paper\.pdf\]\]\n\n\[data\.zip\]\(data\.zip\)\n/);
+  // three sizes, chosen in the block's menu and written where a link has its title
+  const size = async (label) => {
+    await page.click('.pm p.file-block > a[href="data.zip"]', { button: "right" });
+    await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+    await page.hover('#actmenu .menu-item:has-text("Size")'); // (the pointer resting on it opens what it holds)
+    await page.waitForFunction(() => document.querySelector("#actsub").hasAttribute("data-open"), null, { timeout: 8000 });
+    await page.click(`#actsub .menu-item:has-text("${label}")`);
+    await page.waitForFunction(() => !document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+  };
+  const box = () => page.evaluate(() => { const p = document.querySelector(".pm p.file-block:has(a[href='data.zip'])"), a = p.querySelector("a"); return [p.className.replace(/\s+/g, " ").trim().split(" ").filter((c) => c.startsWith("file-")).sort().join(" "), p.dataset.ext, Math.round(a.getBoundingClientRect().height), a.hasAttribute("title")]; });
+  const medium = await box();
+  assert.deepEqual([medium[0], medium[1], medium[3]], ["file-block", "ZIP", false]);
+  await size("Large");
+  await page.waitForFunction(() => /\[data\\?\.zip\]\(data\.zip "large"\)/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+  const large = await box();
+  assert.deepEqual([large[0], large[3], large[2] > medium[2] + 10], ["file-block file-large", false, true]);
+  await size("Small");
+  await page.waitForFunction(() => /\[data\\?\.zip\]\(data\.zip "small"\)/.test(MdActive.view.serialize()), null, { timeout: 8000 });
+  assert.ok((await box())[2] < medium[2]);
+  // read, it is drawn the same
+  await until(() => /data\.zip "small"/.test(text("Files.md") || ""), "written");
+  await page.evaluate(() => MdView.setMode("read"));
+  await page.waitForFunction(() => (document.body.dataset.view || "read") === "read" && document.querySelector("#content p.file-block.file-small"), null, { timeout: 8000 });
+  assert.deepEqual(await page.evaluate(() => { const p = document.querySelector("#content p.file-block.file-small"); return [p.dataset.ext, p.querySelector("a").hasAttribute("title")]; }), ["ZIP", false]);
+  // (a picture of the three, for looking at)
+  put("Sizes.md", "# Sizes\n\n[small.zip](data.zip \"small\")\n\n[medium.zip](data.zip)\n\n[A larger file, with a name.pdf](paper.pdf \"large\")\n");
+  await open("Sizes.md");
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(web, ".next", "file-sizes.png"), clip: { x: 300, y: 60, width: 800, height: 330 } });
 });
 
 test("code put away behind a card: a click shows it in a window, the menu puts it away and brings it back", async () => {

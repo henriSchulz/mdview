@@ -152,6 +152,10 @@
     if (link) items.push(item("menu.openLink", () => follow(link.mark.attrs.href)));
     // a file block of a file that can be shown in the note itself
     const file = fileBlockAt(state.selection.$from.parent);
+    if (file) {
+      const size = fileSizeOf(state.selection.$from.parent);
+      items.push({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => setFileSize(view, v), { checked: size === v })) });
+    }
     if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item("menu.embedFile", () => embedFile(view)));
     items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
     items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
@@ -217,12 +221,25 @@
     const link = node.firstChild.marks.find((m) => m.type === M.link);
     return link && window.MdView.core.fileHref(link.attrs.href) ? link.attrs.href : null;
   };
+  // how large a file block is drawn: "small", "large", or "" (medium) — it stands where the link has its title
+  const fileSizeOf = (node) => window.MdView.core.fileSize((node.firstChild.marks.find((m) => m.type === M.link) || { attrs: {} }).attrs.title);
+  function setFileSize(view, size) {
+    const { $from } = view.state.selection, node = $from.parent;
+    if (!fileBlockAt(node)) return;
+    const from = $from.start(), to = $from.end(), link = node.firstChild.marks.find((m) => m.type === M.link);
+    view.dispatch(view.state.tr.removeMark(from, to, M.link).addMark(from, to, M.link.create({ ...link.attrs, title: size || null })).setMeta("step", true));
+    view.focus();
+  }
   let marked = { doc: null, set: null };
   function fileBlocks(state) {
     if (marked.doc === state.doc) return marked.set;
     const out = [];
     state.doc.descendants((node, pos) => {
-      if (node.type === N.paragraph) { if (fileBlockAt(node)) out.push(PM.view.Decoration.node(pos, pos + node.nodeSize, { class: "file-block" })); return false; }
+      if (node.type === N.paragraph) {
+        const href = fileBlockAt(node);
+        if (href) { const size = fileSizeOf(node); out.push(PM.view.Decoration.node(pos, pos + node.nodeSize, { class: "file-block" + (size ? " file-" + size : ""), "data-ext": window.MdView.core.fileExt(href) })); }
+        return false;
+      }
       return !node.isAtom;
     });
     marked = { doc: state.doc, set: out.length ? PM.view.DecorationSet.create(state.doc, out) : null };

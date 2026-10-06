@@ -279,6 +279,10 @@ Markdown a file block is a paragraph that is nothing but a link to the file:
 [report.zip](report.zip)
 ```
 
+A file block comes in three sizes — a small chip, the card, a large card as wide as the text
+that also says what kind of file it is — chosen in its menu (right click › Size). The size
+stands where a link has its title: `[report.zip](report.zip "large")`, or `"small"`.
+
 A file that can be shown in the note itself — a picture, a PDF, sound, film — is embedded on
 request: right click on its block › Embed in the Note. The other way round, a picture's or an
 embed's menu has Show as File.

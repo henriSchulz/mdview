@@ -112,6 +112,8 @@
   }
   // an address that names a file beside the note (not a note, not a place in this one, not elsewhere)
   const fileHref = (href) => !!href && !/^[a-z][a-z0-9+.-]*:|^#|^\/\//i.test(href) && /\.[A-Za-z0-9]{1,8}(?:[?#].*)?$/.test(href) && !/\.(md|markdown|mdown)(?:[?#].*)?$/i.test(href);
+  const fileSize = (title) => (/^(small|large)$/i.test(String(title || "").trim()) ? String(title).trim().toLowerCase() : "");
+  const fileExt = (href) => (/\.([A-Za-z0-9]{1,8})(?:[?#].*)?$/.exec(String(href || "")) || [, ""])[1].toUpperCase();
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const DECO_COLORS = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]; // (the theme's --c-…)
   const CALLOUT_ALIAS = {
@@ -423,9 +425,15 @@
     for (let i = 0; i + 2 < toks.length; i++) {
       if (toks[i].type !== "paragraph_open" || toks[i + 1].type !== "inline" || toks[i].hidden) continue; // (a tight list's item has no paragraph of its own to draw)
       const kids = (toks[i + 1].children || []).filter((k) => !(k.type === "text" && !k.content));
-      if (kids.length !== 3 || kids[0].type !== "link_open" || kids[1].type !== "text" || kids[2].type !== "link_close") continue;
-      if (!fileHref(kids[0].attrGet("href"))) continue;
-      toks[i].attrJoin("class", "file-block");
+      // (the link, and in it nothing but its text — which may be in pieces: an escaped character is one of its own)
+      if (kids.length < 3 || kids[0].type !== "link_open" || kids[kids.length - 1].type !== "link_close" || !kids.slice(1, -1).every((k) => k.type === "text" || k.type === "text_special")) continue;
+      const href = kids[0].attrGet("href");
+      if (!fileHref(href)) continue;
+      // how large it is drawn stands where a link has its title: "small", "large" (none: medium)
+      const size = fileSize(kids[0].attrGet("title"));
+      toks[i].attrJoin("class", "file-block" + (size ? " file-" + size : ""));
+      toks[i].attrSet("data-ext", fileExt(href));
+      if (size) kids[0].attrs = kids[0].attrs.filter(([k]) => k !== "title"); // (not a title to show)
     }
   });
   md.core.ruler.after("inline", "tasks", (state) => {
@@ -3442,7 +3450,7 @@
   window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, codeHidden, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };

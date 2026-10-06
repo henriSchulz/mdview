@@ -205,7 +205,8 @@
       // markup: "autolink" (<url>), "linkify" (a bare url), else ""; ref: label of the definition it uses, if it does
       attrs: { href: { default: "" }, title: { default: null }, cls: { default: null }, markup: { default: "" }, ref: { default: null } },
       parseDOM: [{ tag: "a[href]", getAttrs: (dom) => ({ href: dom.getAttribute("href"), title: dom.getAttribute("title"), cls: isExternal(dom.getAttribute("href")) ? "external" : null }) }],
-      toDOM: (m) => ["a", { href: m.attrs.href, ...(m.attrs.title == null ? {} : { title: m.attrs.title }), ...(m.attrs.cls ? { class: m.attrs.cls } : {}) }, 0],
+      // (a file block's size stands where the title does — "small", "large": nothing to show as a title)
+      toDOM: (m) => ["a", { href: m.attrs.href, ...(m.attrs.title == null || /^(small|large)$/i.test(m.attrs.title) ? {} : { title: m.attrs.title }), ...(m.attrs.cls ? { class: m.attrs.cls } : {}) }, 0],
     },
     code: { code: true, parseDOM: [{ tag: "code" }], toDOM: () => ["code", 0] },
     strong: simple("strong", { attrs: { markup: { default: null } } }),
