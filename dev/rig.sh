@@ -548,7 +548,7 @@ case "${1:-}" in
     sh() { jq -r "$1" "$A/.mdview/shares.json"; }
     wait_for share-shared 200; id=$(sh '.shares | keys[0]')
     ok "a button for it at the top, between the magnifier and the modes" '[[ $(jq -c .button "$R/out"/*.share-shared.json) == "[true,\"find\",\"seg\"]" ]]' 'jq -c .button "$R/out"/*.share-shared.json'
-    ok "not shared yet: the window offers to" '[[ $(jq -c ".open | [.title, .link, .go, .stop]" "$R/out"/*.share-shared.json) == "[\"Share “Note”\",null,true,false]" ]]' 'jq -c .open "$R/out"/*.share-shared.json'
+    ok "not shared yet: the window offers to" '[[ $(jq -c ".open | [.title, .link, .go, .stop, .folded]" "$R/out"/*.share-shared.json) == "[\"Share “Note”\",null,true,false,true]" ]]' 'jq -c .open "$R/out"/*.share-shared.json'
     ok "shared: the file names the note, without a password" '[[ $(sh ".shares[\"$id\"] | [.path, .password] | @json") == "[\"Note.md\",null]" && ${#id} == 10 ]]' 'cat "$A/.mdview/shares.json"'
     ok "the window shows the link, at the web app" '[[ $(jq -r .shared.link "$R/out"/*.share-shared.json) == "https://notes.example/s/$id" ]]' 'jq -c .shared "$R/out"/*.share-shared.json'
     ok "… and says that it is not at GitHub yet" 'jq -r .shared.text "$R/out"/*.share-shared.json | grep -q "once this is sent to GitHub"'

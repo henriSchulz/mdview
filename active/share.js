@@ -13,37 +13,55 @@
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const el = (tag, attrs = {}, text) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
 
-  let root = null, box = null, title = null, text = null, linkRow = null, link = null, copy = null, passRow = null, pass = null, set = null, drop = null, stop = null, go = null, back = null;
-  let path = null, state = null, waiting = false; // state: what the application said last
+  const ICON = window.MdView.core.UI; // (the symbols as the app draws them)
+  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, back = null;
+  let path = null, state = null, waiting = false, opened = false; // state: what the application said last; opened: the password's part is unfolded
   const isOpen = () => !!root && root.hasAttribute("data-open");
 
   function build() {
     root = el("div", { id: "share", class: "share-scrim" });
     box = el("div", { class: "share-box surface", role: "dialog", "aria-modal": "true", "aria-labelledby": "share-title", tabindex: "-1" });
+    // the head: what this is about, and how it stands
+    const head = el("div", { class: "share-head" }), sign = el("span", { class: "share-sign", "aria-hidden": "true" }), words = el("div", { class: "share-words" });
+    sign.innerHTML = ICON.share;
     title = el("b", { id: "share-title" });
     text = el("p", { class: "share-text" });
-    linkRow = el("div", { class: "share-row" });
-    link = el("input", { class: "lp-field mono", type: "text", readonly: "", "aria-label": T("share.link") });
-    copy = el("button", { class: "btn", type: "button" }, T("share.copy"));
+    words.append(title, text);
+    head.append(sign, words);
+    // the card: the link, and — folded away until asked for — the password
+    card = el("div", { class: "share-card" });
+    linkRow = el("div", { class: "share-row share-link-row" });
+    link = el("input", { class: "share-link mono", type: "text", readonly: "", "aria-label": T("share.link") });
+    copy = el("button", { class: "pf-link share-copy", type: "button" }, T("share.copy"));
     linkRow.append(link, copy);
-    passRow = el("div", { class: "share-row" });
+    more = el("button", { class: "share-row share-more", type: "button", "aria-expanded": "false", "aria-controls": "share-fold" });
+    const chev = el("span", { class: "share-chev", "aria-hidden": "true" });
+    chev.innerHTML = ICON.chevron;
+    moreValue = el("span", { class: "share-value" });
+    more.append(chev, el("span", { class: "share-name" }, T("share.password")), moreValue);
+    fold = el("div", { id: "share-fold", class: "share-fold" });
+    const inner = el("div", { class: "share-fold-in" }), line = el("div", { class: "share-pass" });
     pass = el("input", { class: "lp-field", type: "password", autocomplete: "new-password", "aria-label": T("share.password") });
-    set = el("button", { class: "btn", type: "button" });
-    passRow.append(pass, set);
-    drop = el("button", { class: "pf-link", type: "button" }, T("share.password.remove"));
+    set = el("button", { class: "btn share-set", type: "button" });
+    drop = el("button", { class: "pf-link danger share-drop", type: "button" }, T("share.password.remove"));
+    line.append(pass, set);
+    inner.append(line, el("p", { class: "share-hint" }, T("share.password.hint")), drop);
+    fold.appendChild(inner);
+    card.append(linkRow, more, fold);
     const foot = el("div", { class: "share-foot" });
     stop = el("button", { class: "pf-link danger", type: "button" }, T("share.stop"));
     go = el("button", { class: "btn primary", type: "button" }, T("share.start"));
     back = el("button", { class: "btn", type: "button" });
-    foot.append(stop, drop, el("span"), back, go);
-    box.append(title, text, linkRow, passRow, foot);
+    foot.append(stop, el("span"), back, go);
+    box.append(head, card, foot);
     root.appendChild(box);
     document.body.appendChild(root);
 
     const ask = (type, data = {}) => { waiting = true; draw(); post(type, { path, ...data }); };
     link.addEventListener("focus", () => link.select());
     copy.onclick = () => { post("copy", { text: link.value }); copy.textContent = T("share.copied"); copy.classList.add("done"); setTimeout(() => { copy.textContent = T("share.copy"); copy.classList.remove("done"); }, 1400); };
-    go.onclick = () => ask("share-set", { password: pass.value || null });
+    more.onclick = () => { opened = !opened; draw(); if (opened) setTimeout(() => { if (isOpen() && opened) pass.focus(); }, 60); };
+    go.onclick = () => ask("share-set", { password: (opened && pass.value) || null });
     set.onclick = () => { if (pass.value) ask("share-set", { password: pass.value }); else pass.focus(); };
     drop.onclick = () => ask("share-set", { password: null });
     stop.onclick = () => ask("share-stop");
@@ -56,7 +74,7 @@
       if (e.key === "Escape") { e.preventDefault(); close(); }
       else if (e.key === "Enter" && e.target === pass) { e.preventDefault(); (state && state.link ? set : go).click(); }
       else if (e.key === "Tab") { // the focus stays in the window
-        const all = [...box.querySelectorAll("input, button")].filter((n) => !n.disabled && n.offsetParent);
+        const all = [...box.querySelectorAll("input, button")].filter((n) => !n.disabled && n.offsetParent && !n.closest("[inert]"));
         const i = all.indexOf(document.activeElement);
         e.preventDefault();
         all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
@@ -71,12 +89,18 @@
     title.textContent = T("share.title", (path || "").split("/").pop().replace(/\.(md|markdown)$/i, ""));
     text.textContent = !s ? "" : !can ? s.why || T("share.cannot") : !shared ? T("share.intro")
       : (s.password ? T("share.on.password") : T("share.on")) + (s.pending ? " " + T("share.pending") : "");
+    box.toggleAttribute("data-shared", shared);
+    card.hidden = !can;
     linkRow.hidden = !shared;
-    passRow.hidden = !can;
     if (shared && link.value !== s.link) link.value = s.link;
-    pass.placeholder = T(!shared ? "share.password.optional" : s.password ? "share.password.new" : "share.password");
+    // the password: a row that says how it is, and unfolds to set it
+    moreValue.textContent = T(s && s.password ? "share.password.is" : !shared && opened && pass.value ? "share.password.will" : "share.password.none");
+    more.setAttribute("aria-expanded", String(opened));
+    fold.toggleAttribute("data-open", opened);
+    fold.querySelector(".share-fold-in").inert = !opened;
+    pass.placeholder = T(s && s.password ? "share.password.new" : "share.password");
     set.textContent = T(s && s.password ? "share.password.change" : "share.password.set");
-    set.hidden = !shared;
+    set.hidden = !shared; // (not shared yet: the password goes with Share)
     set.disabled = waiting || !pass.value;
     drop.hidden = !(shared && s.password);
     stop.hidden = !shared;
@@ -86,7 +110,7 @@
     box.toggleAttribute("aria-busy", waiting);
     // (a button that went while it had the focus: the keys stay the window's)
     const at = document.activeElement;
-    if (isOpen() && (!box.contains(at) || at.hidden || at.disabled)) box.focus();
+    if (isOpen() && (!box.contains(at) || at.hidden || at.disabled || at.closest("[inert]"))) box.focus();
   }
 
   // how it stands, as the application says it: { path, can, why, link, password, pending }
@@ -94,16 +118,16 @@
     if (!data || data.path !== path) return;
     const was = state;
     state = data; waiting = false;
-    if (was && (!!was.password !== !!data.password || !!was.link !== !!data.link)) pass.value = "";
+    if (was && (!!was.password !== !!data.password || !!was.link !== !!data.link)) { pass.value = ""; if (!!was.password !== !!data.password || !data.link) opened = false; } // (set, taken away, or shared no more: folded again)
     draw();
-    if (isOpen() && !(was && was.link) && data.link) { link.focus(); link.select(); }
+    if (isOpen() && was && !was.link && data.link) copy.focus(); // (just shared: the next thing is to copy it)
   }
   function open(of) {
     const cur = window.MdView.core.current, p = of || (cur && cur.path);
     if (A.dialog.open || isOpen() || (A.prefs && A.prefs.isOpen) || (A.history && A.history.isOpen) || (A.conflict && A.conflict.isOpen) || !p || !/\.(md|markdown)$/i.test(p)) return false;
     if (!root) build();
     window.MdView.flush(false); // (what is typed and not saved yet is the note that is shared)
-    path = p; state = null; waiting = true;
+    path = p; state = null; waiting = true; opened = false;
     pass.value = ""; link.value = "";
     draw();
     root.dataset.open = "";
@@ -112,7 +136,7 @@
     const asked = path;
     setTimeout(() => { if (isOpen() && path === asked && !state) { state = { path, can: false, why: T("share.silent") }; waiting = false; draw(); } }, 2500);
     (document.activeElement || document.body).blur?.();
-    setTimeout(() => { if (isOpen()) (state && state.link ? link : state && state.can ? pass : back).focus(); }, 60);
+    setTimeout(() => { if (isOpen()) (state && state.link ? copy : state && state.can ? go : back).focus(); }, 60);
     return true;
   }
   function close() {

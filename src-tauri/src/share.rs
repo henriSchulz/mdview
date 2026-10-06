@@ -54,8 +54,25 @@ fn find(shares: &BTreeMap<String, Value>, rel: &str) -> Option<String> {
     shares.iter().find(|(_, e)| e["path"] == rel).map(|(id, _)| id.clone())
 }
 
-/// A link's id: ten letters and digits, of random bits (59 of them) — short to pass on, and not
-/// to be guessed.
+fn web() -> String {
+    std::env::var("MDVIEW_WEB").ok().filter(|w| !w.is_empty()).unwrap_or_else(|| WEB.to_string()).trim_end_matches('/').to_string()
+}
+
+/// A link's id that is free, as the web app says it: as short as there is room for (a letter or
+/// digit, then two), and one id is one note across every repository — so it is asked for there
+/// (web/lib/share.ts, freeId). None: the web app was not reached.
+pub fn free_id() -> Option<String> {
+    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(5)).build();
+    let said: Value = serde_json::from_str(&agent.get(&format!("{}/share/free", web())).call().ok()?.into_string().ok()?).ok()?;
+    said["id"].as_str().filter(|id| !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric())).map(String::from)
+}
+
+/// Whether the note is shared.
+pub fn is_shared(path: &Path) -> bool {
+    place(path).is_some_and(|(root, rel)| find(&read(&root), &rel).is_some())
+}
+
+/// An id where the web app could not be asked for one: ten letters and digits, at random.
 fn new_id() -> String {
     const LETTERS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     let mut out = String::new();
@@ -108,16 +125,16 @@ pub fn info(path: &Path) -> Value {
     let Some(_) = at else { return told(false, Some("Link this project to a repository on GitHub first: Settings › History."), None, false, false) };
     let shares = read(&root);
     let Some(id) = find(&shares, &rel) else { return told(true, None, None, false, false) };
-    let web = std::env::var("MDVIEW_WEB").ok().filter(|w| !w.is_empty()).unwrap_or_else(|| WEB.to_string());
-    told(true, None, Some(format!("{}/s/{id}", web.trim_end_matches('/'))), !shares[&id]["password"].is_null(), !arrived(&root))
+    told(true, None, Some(format!("{}/s/{id}", web())), !shares[&id]["password"].is_null(), !arrived(&root))
 }
 
-/// The note shared (if it was not), and its password set (Some(Some)), taken away (Some(None))
-/// or left as it is (None). → the project, for its snapshot.
-pub fn set(path: &Path, password: Option<Option<&str>>) -> Result<PathBuf, String> {
+/// The note shared (if it was not: under the id given, where it is free here), and its password
+/// set (Some(Some)), taken away (Some(None)) or left as it is (None). → the project, for its
+/// snapshot.
+pub fn set(path: &Path, password: Option<Option<&str>>, id: Option<String>) -> Result<PathBuf, String> {
     let (root, rel) = place(path).ok_or("not in a project")?;
     let mut shares = read(&root);
-    let id = find(&shares, &rel).unwrap_or_else(new_id);
+    let id = find(&shares, &rel).unwrap_or_else(|| id.filter(|id| !shares.contains_key(id)).unwrap_or_else(new_id));
     let entry = shares.entry(id).or_insert_with(|| json!({ "path": rel, "created": chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(), "password": null }));
     if let Some(p) = password {
         entry["password"] = p.filter(|p| !p.is_empty()).map_or(Value::Null, hashed);
@@ -169,7 +186,7 @@ mod tests {
         assert_eq!(info(&note)["can"], false); // (not linked to GitHub)
         sync::link(&d, "https://github.com/octo/my notes.git").unwrap();
         assert_eq!(info(&note), json!({ "path": note.to_string_lossy(), "can": true, "why": null, "link": null, "password": false, "pending": false }));
-        set(&note, Some(None)).unwrap();
+        set(&note, Some(None), None).unwrap();
         let shares = read(&d);
         let id = find(&shares, "docs/Note.md").unwrap();
         assert!(id.len() == 10 && id.chars().all(|c| c.is_ascii_alphanumeric()));
@@ -177,13 +194,13 @@ mod tests {
         assert_eq!(told["link"], json!(format!("{WEB}/s/{id}")));
         assert_eq!((&told["password"], &told["pending"]), (&json!(false), &json!(true))); // (not at GitHub yet)
         // a password: what the web app works out again from the same password
-        set(&note, Some(Some("sesame"))).unwrap();
+        set(&note, Some(Some("sesame")), None).unwrap();
         let p = read(&d)[&id]["password"].clone();
         let (salt, mut again) = (STANDARD.decode(p["salt"].as_str().unwrap()).unwrap(), [0u8; 32]);
         pbkdf2::pbkdf2_hmac::<sha2::Sha256>(b"sesame", &salt, p["iterations"].as_u64().unwrap() as u32, &mut again);
         assert_eq!(STANDARD.encode(again), p["hash"]);
         assert_eq!(info(&note)["password"], true);
-        set(&note, None).unwrap(); // (asked for again: the same link, the password left)
+        set(&note, None, Some("x".into())).unwrap(); // (asked for again: the same link, the password left)
         assert_eq!((find(&read(&d), "docs/Note.md").unwrap(), read(&d)[&id]["password"].is_null()), (id.clone(), false));
         // the file as the web app writes it
         let text = fs::read_to_string(d.join(FILE)).unwrap();
@@ -195,6 +212,12 @@ mod tests {
         assert_eq!(stop(&d.join("Other.md")).unwrap(), Some(d.clone()));
         assert!(read(&d).is_empty());
         assert_eq!(stop(&d.join("Other.md")).unwrap(), None);
+        // an id the web app said is taken as it is; one that is taken here already is not
+        set(&d.join("Other.md"), None, Some("a".into())).unwrap();
+        assert_eq!(find(&read(&d), "Other.md").unwrap(), "a");
+        fs::write(d.join("docs/Second.md"), "# Second\n").unwrap();
+        set(&d.join("docs/Second.md"), None, Some("a".into())).unwrap();
+        assert_eq!(find(&read(&d), "docs/Second.md").unwrap().len(), 10);
         let _ = fs::remove_dir_all(d);
     }
 }

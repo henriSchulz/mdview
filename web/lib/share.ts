@@ -4,14 +4,16 @@
 // What is shared stands in the repository itself, in .mdview/shares.json:
 //   { "version": 1, "shares": { "<id>": { "path": "docs/Note.md", "created": "…",
 //       "password": null | { "salt": "<base64>", "hash": "<base64>", "iterations": 600000 } } } }
-// The id is 128 random bits: the link is the secret. A password is kept as PBKDF2-SHA256 of it
+// The id is short — a letter or digit, then two (freeId) — so that the link is easy to pass on:
+// it can be guessed, and what must not be read by whoever tries has a password. A password is
+// kept as PBKDF2-SHA256 of it
 // (what a browser and the desktop app can both work out). Taking an entry out ends the link.
 // The server keeps nothing: it reads the file, as the app (lib/app.ts), whenever the link is used.
 //
 // With the note go the files it shows — its pictures, the notes and PDFs it embeds, and theirs —
 // and nothing it merely links to.
 import "../public/host/core.js"; // (the host's own working out, the same the browser runs: sets globalThis.MdWebCore)
-import { createHmac, pbkdf2, timingSafeEqual } from "node:crypto";
+import { createHmac, pbkdf2, randomBytes, timingSafeEqual } from "node:crypto";
 import { appRepos, repoToken } from "./app";
 import { raw, state, texts } from "./github";
 
@@ -23,7 +25,7 @@ type Core = {
 const C = (globalThis as unknown as { MdWebCore: Core }).MdWebCore;
 
 export const SHARES = ".mdview/shares.json";
-export const ID = /^[A-Za-z0-9_-]{8,64}$/; // (ten letters and digits, as they are made now; longer ones from before)
+export const ID = /^[A-Za-z0-9_-]{1,64}$/; // (as short as there is room for, see freeId; longer ones from before)
 const EMBED_LIMIT = 256 * 1024, FILES_MOST = 400, KEEP = Number(process.env.SHARE_KEEP_MS ?? 30 * 1000); // (KEEP: the tests want none)
 
 export type Password = { salt: string; hash: string; iterations: number };
@@ -134,6 +136,26 @@ export async function whereIs(id: string): Promise<{ owner: string; repo: string
     await looking;
   }
   return where.get(id) || null;
+}
+
+const LETTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const promised = new Map<string, number>(); // ids handed out a moment ago, and not in a repository yet: not handed out twice
+
+/** An id no shared note has, as short as there is room for: one letter or digit while fewer than
+ * 30 notes are shared, then two — and a length more whenever half of those are taken. */
+export async function freeId(): Promise<string> {
+  if (looking || Date.now() - looked >= AGAIN) { looking = looking || lookAbout().finally(() => { looking = null; }); await looking; }
+  const now = Date.now();
+  for (const [id, at] of promised) if (now - at > 10 * 60 * 1000 || where.has(id)) promised.delete(id);
+  const taken = (id: string) => where.has(id) || promised.has(id), used = where.size + promised.size;
+  let length = 1;
+  while (used >= (length === 1 ? 30 : 62 ** length / 2)) length++;
+  for (;; length++) {
+    for (let tries = 0; tries < 200; tries++) {
+      const id = Array.from(randomBytes(length), (b) => LETTERS[b % 62]).join("");
+      if (!taken(id)) { promised.set(id, now); return id; }
+    }
+  }
 }
 
 // ------------------------------------------------------------ a password

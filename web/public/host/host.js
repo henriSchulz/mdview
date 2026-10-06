@@ -382,8 +382,13 @@
     const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
     return { salt: b64(salt), hash: b64(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256)), iterations };
   }
-  /* A link's id: ten letters and digits, of random bits (59 of them) — short to pass on, and not to be guessed. */
-  function newShareId() {
+  /* A link's id: the server says one that is free, as short as there is room for (a letter or
+   * digit, then two: lib/share.ts, freeId). Where it cannot be asked: ten of them, at random. */
+  async function newShareId() {
+    try {
+      const res = await fetch("/share/free"), id = res.ok ? (await res.json()).id : null;
+      if (typeof id === "string" && /^[A-Za-z0-9]{1,64}$/.test(id)) return id;
+    } catch { /* (not reached) */ }
     const A = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", out = [];
     while (out.length < 10) for (const b of crypto.getRandomValues(new Uint8Array(16))) if (b < 248 && out.length < 10) out.push(A[b % 62]); // (248 = 4 × 62: every letter as likely as any other)
     return out.join("");
@@ -566,7 +571,7 @@
     async "share-set"({ path, password }) {
       if (!exists(path) || !C.isMd(path) || !W.sharing || !mayWrite()) return tellShare(path);
       const all = await shares(), found = C.shareOf(all, rel(path));
-      const id = found ? found[0] : newShareId();
+      const id = found ? found[0] : await newShareId();
       const entry = found ? found[1] : { path: rel(path), created: new Date().toISOString().replace(/\.\d+Z$/, "Z"), password: null };
       if (password !== undefined) entry.password = typeof password === "string" && password ? await hashed(password) : null;
       all.shares[id] = entry;

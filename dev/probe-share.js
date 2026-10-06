@@ -11,7 +11,7 @@
     await sleep(1200);
     const q = (s) => document.querySelector(s), shown = (s) => { const e = q(s); return !!e && !e.hidden && e.offsetParent !== null; };
     const settled = async () => { for (let i = 0; i < 80 && (!q("#share") || q(".share-box").hasAttribute("aria-busy")); i++) await sleep(100); await sleep(300); };
-    const state = () => ({ title: q("#share-title").textContent, text: q(".share-text").textContent, link: shown("#share .mono") ? q("#share .mono").value : null, go: shown("#share .btn.primary"), stop: shown("#share .pf-link.danger") });
+    const state = () => ({ title: q("#share-title").textContent, text: q(".share-text").textContent, link: shown("#share .share-link") ? q("#share .share-link").value : null, go: shown("#share .btn.primary"), stop: shown("#share .share-foot .pf-link.danger"), folded: q("#share .share-more").getAttribute("aria-expanded") === "false" });
     const btn = q('#toolbar [data-act="share"]'), before = btn.previousElementSibling, after = btn.nextElementSibling;
     o.button = [shown('#toolbar [data-act="share"]'), before.dataset.act, after.className]; // (between the magnifier and the modes)
     btn.click();
@@ -21,12 +21,13 @@
     o.shared = state();
     o.marked = [[...document.querySelectorAll(".sb-row[data-real]")].filter((r) => r.querySelector(".sb-shared")).map((r) => r.querySelector(".sb-label").textContent.trim()), q('#toolbar [data-act="share"]').classList.contains("active")];
     say("share-shared", o); await sleep(1500);        // (the rig looks at the file and the commit)
+    q("#share .share-more").click(); await sleep(700);   // the password: unfolded first
     const pass = q('#share input[type="password"]');
     pass.value = "sesame"; pass.dispatchEvent(new Event("input", { bubbles: true }));
-    q("#share .share-row:not([hidden]) + .share-row .btn").click(); await settled();
+    q("#share .share-set").click(); await settled();
     o.locked = state();
     say("share-locked", o); await sleep(1500);
-    q("#share .pf-link.danger").click(); await settled();
+    q("#share .share-foot .pf-link.danger").click(); await settled();
     o.stopped = state();
     o.unmarked = [document.querySelectorAll(".sb-shared").length, q('#toolbar [data-act="share"]').classList.contains("active")];
     say("share", o);

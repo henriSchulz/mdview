@@ -2010,7 +2010,9 @@ impl Win {
                 } else {
                     // (password: a text sets it, null takes it away, none said leaves it)
                     let password = msg.get("password").map(|p| p.as_str().filter(|p| !p.is_empty()));
-                    share::set(&path, password).map(Some)
+                    // (a note shared for the first time: the web app says a short id that is free)
+                    let id = if share::is_shared(&path) { None } else { share::free_id() };
+                    share::set(&path, password, id).map(Some)
                 };
                 match done {
                     Ok(Some(root)) => app.keep_now(&root),

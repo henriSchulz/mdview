@@ -21,18 +21,25 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 ## Was es tut
 
 - **Der Teilen-Knopf** oben rechts, zwischen Lupe und Modus-Schalter, und **Share…** im Menü
-  einer Notiz (Rechtsklick in der Seitenleiste): ein kleines Fenster mit dem Link, einem Feld
-  für ein Passwort und „Stop Sharing". In der Web-App und in der Desktop-App dasselbe Fenster.
+  einer Notiz (Rechtsklick in der Seitenleiste): ein kleines Fenster mit dem Link und „Stop
+  Sharing"; das Passwort ist eine Zeile darin, die man aufklappt. In der Web-App und in der Desktop-App dasselbe Fenster.
 - **Was geteilt ist, sieht man:** Die Notiz trägt in der Seitenleiste ein kleines Zeichen am
   Ende ihrer Zeile, und der Teilen-Knopf ist gefärbt, solange sie gezeigt wird.
-- Der Link ist kurz: `https://<web-app>/s/<id>`, die ID zehn Buchstaben und Ziffern aus dem
-  Zufall (59 Bit). Wer den Link nicht hat, findet die Notiz nicht. Zu welchem Repository eine
-  ID gehört, schlägt der Server nach.
+- Der Link ist sehr kurz: `https://<web-app>/s/<id>`. Die ID ist **ein** Buchstabe oder eine
+  Ziffer, solange weniger als 30 Notizen geteilt sind, danach zwei (und eine Stelle mehr, sobald
+  die Hälfte vergeben ist). Der Server vergibt sie (`/share/free`), weil eine ID über alle
+  Repositories hinweg nur einmal vorkommen darf.
 - Mit Passwort fragt die Seite zuerst danach. Nach fünf falschen Versuchen wird für diesen Link
   eine Weile keines mehr angesehen.
 - Der Link zeigt immer den **aktuellen Stand** der Notiz (mit bis zu einer halben Minute
   Verzug). Wird sie umbenannt, zeigt er sie weiter; wird sie gelöscht oder die Freigabe
   aufgehoben, zeigt er nichts mehr.
+
+> [!warning] Ein so kurzer Link lässt sich erraten
+> Wer die Adresse der Web-App kennt, kann `/s/a`, `/s/b`, … durchprobieren und findet jede
+> geteilte Notiz, die kein Passwort hat. „Für alle mit dem Link" heißt damit praktisch „für
+> alle". Was nicht jeder lesen soll, braucht ein Passwort. So entschieden am 6. Oktober 2026;
+> vorher waren die IDs zufällig und lang.
 
 ## Was mit einer Notiz mitgeht
 

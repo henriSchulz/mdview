@@ -1002,24 +1002,53 @@ body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(-
 .rp-kind[aria-pressed="true"] { background: color-mix(in srgb, var(--cc) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 60%, transparent); }
 .rp-kind svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-/* --- sharing a note (share.js): a small window over the page, as the question a dialog asks */
+/* --- sharing a note (share.js): a small window over the page — a head that says how it stands,
+   a card with the link and, folded away, the password, and what can be done at the foot */
 .share-scrim { position: fixed; inset: 0; z-index: 52; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
 .share-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
-.share-box { display: grid; gap: 10px; width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); color: var(--fg); transform: scale(0.96); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+.share-box { display: grid; gap: 14px; width: min(460px, calc(100vw - 32px)); box-sizing: border-box; padding: 18px 18px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); color: var(--fg); transform: scale(0.96); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
 .share-scrim[data-open] .share-box { transform: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
 .share-box:focus { outline: none; }
-.share-box b { font-weight: 600; }
+.share-box [hidden] { display: none; }
+.share-head { display: flex; gap: 12px; align-items: flex-start; }
+.share-sign { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+.share-box[data-shared] .share-sign { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.share-sign svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.share-sign .sf { font-size: 17px; }
+.share-words { display: grid; gap: 2px; flex: 1; min-width: 0; padding-top: 1px; }
+.share-words b { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-text { margin: 0; min-height: 2.9em; color: var(--fg2); }
-.share-row { display: flex; gap: 8px; align-items: center; }
-.share-row[hidden], .share-box [hidden] { display: none; }
-.share-row .lp-field { flex: 1; min-width: 0; }
+.share-card { border-radius: calc(var(--radius-control) + 2px); background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
+.share-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 6px 6px 6px 12px; box-sizing: border-box; }
+.share-row:not([hidden]) ~ .share-row::before { content: ""; position: absolute; top: 0; left: 12px; right: 0; height: 1px; background: var(--line); }
+.share-link { flex: 1; min-width: 0; height: var(--control-height, 28px); padding: 0; border: 0; outline: none; background: transparent; color: var(--fg); font: 400 12px var(--mono); text-overflow: ellipsis; }
+.share-copy.done { color: var(--c-green); }
+.share-more { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: default; padding-right: 12px; transition: background-color var(--dur-fast) var(--ease-out); }
+.share-more:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.share-more:active { background: var(--fill-pressed); }
+.share-more:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: -2px; border-radius: calc(var(--radius-control) + 2px); }
+.share-chev { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-left: -3px; color: var(--fg3); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.share-chev svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.share-chev .sf { font-size: 9px; }
+.share-more[aria-expanded="true"] .share-chev { transform: rotate(90deg); }
+.share-name { flex: 1; font-weight: 500; }
+.share-value { color: var(--fg2); }
+/* (folded as the sidebar's folders are: the rows of a grid, the content clipped) */
+.share-fold { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows calc(var(--spring-smooth-dur) * 0.7) var(--spring-smooth), opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--spring-smooth-dur) * 0.7); }
+.share-fold[data-open] { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+.share-fold-in { min-height: 0; overflow: hidden; display: grid; gap: 6px; justify-items: start; padding: 0 12px 0 31px; }
+.share-fold[data-open] .share-fold-in { padding-bottom: 10px; }
+.share-pass { display: flex; gap: 8px; width: 100%; padding-top: 2px; }
+.share-pass .lp-field { flex: 1; min-width: 0; }
+.share-hint { margin: 0; color: var(--fg2); font-size: 12px; }
+.share-drop { margin-left: -8px; }
 .share-box .btn { flex: none; height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 .share-box .btn:disabled { opacity: 0.4; pointer-events: none; }
-.share-box .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+.share-box .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; min-width: 72px; }
 .share-box .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
-.share-foot { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.share-foot { display: flex; gap: 8px; align-items: center; }
 .share-foot span { flex: 1; }
-.share-foot .pf-link { margin-left: -8px; }
-.share-foot .pf-link + .pf-link { margin-left: 0; }
-@media (prefers-reduced-motion: reduce) { .share-box, .share-scrim[data-open] .share-box { transform: none; transition: none; } }
-@media (prefers-contrast: more) { .share-box { box-shadow: 0 0 0 1.5px var(--fg); } }
+.share-foot > .pf-link { margin-left: -8px; }
+@media (prefers-reduced-motion: reduce) { .share-box, .share-scrim[data-open] .share-box { transform: none; transition: none; } .share-fold, .share-fold[data-open], .share-chev { transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; } }
+@media (prefers-contrast: more) { .share-box, .share-card { box-shadow: 0 0 0 1.5px var(--fg); } }

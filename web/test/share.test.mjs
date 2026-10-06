@@ -137,6 +137,21 @@ test("the link that is handed out is short: the id alone, the repository looked 
   assert.equal((await get(`/s/octo/notes/${LOCKED}/data`, carried)).status, 200);
 });
 
+test("an id for a new link is as short as there is room for, and not handed out twice", async () => {
+  shares(both());
+  const free = async () => (await (await get("/share/free")).json()).id; // (asked without signing in: the desktop app does)
+  const some = [];
+  for (let i = 0; i < 20; i++) some.push(await free());
+  assert.ok(some.every((id) => /^[A-Za-z0-9]$/.test(id)), String(some)); // (one letter or digit while few notes are shared)
+  assert.equal(new Set(some).size, 20);
+  // thirty notes shared and more: two
+  const many = both();
+  for (let i = 0; i < 12; i++) many["id" + i] = { path: "docs/Shown.md", password: null };
+  shares(many);
+  const longer = [await free(), await free()];
+  assert.ok(longer.every((id) => /^[A-Za-z0-9]{2}$/.test(id) && !some.includes(id)), String(longer));
+});
+
 test("guessing is slowed: after a few wrong passwords none is looked at for a while", async () => {
   shares({ ...both(), [LOCKED]: { path: "Private.md", password: hashed("sesame") } });
   const at = `/s/octo/notes/${LOCKED}`;
@@ -206,26 +221,31 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   await page.click('#toolbar [data-act="share"]');
   await page.waitForFunction(() => { const r = document.querySelector("#share"); return r && r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy"); }, null, { timeout: 15000 });
   assert.equal(await page.textContent("#share-title"), "Share “Shown”");
-  assert.deepEqual([await shown("#share .btn.primary"), await shown("#share .share-row .mono")], [true, false]);
+  assert.deepEqual([await shown("#share .btn.primary"), await shown("#share .share-link"), await shown("#share .share-more"), await page.getAttribute("#share .share-more", "aria-expanded")], [true, false, true, "false"]); // (the password: folded away)
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: join(web, ".next", "share-window-new.png") });
   const before = gh.commits.length;
   await page.click("#share .btn.primary");
   await until(() => Object.keys(listed()).length === 1, "the share, as a commit");
   const [id, entry] = Object.entries(listed())[0];
-  assert.match(id, /^[A-Za-z0-9]{10}$/);
+  assert.match(id, /^[A-Za-z0-9]$/); // (one letter or digit: few notes are shared)
   assert.deepEqual([entry.path, entry.password, gh.commits.length, gh.commits.at(-1).added], ["docs/Shown.md", null, before + 1, [".mdview/shares.json"]]);
-  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .mono").value.includes("/s/"); }, null, { timeout: 8000 });
-  const link = await page.inputValue("#share .mono");
+  await page.waitForFunction(() => { const b = document.querySelector(".share-box"); return !b.hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.includes("/s/"); }, null, { timeout: 8000 });
+  const link = await page.inputValue("#share .share-link");
   assert.equal(link, `${base}/s/${id}`); // (short: the id alone)
   assert.match(await (await fetch(link)).text(), /\/host\/share\.js/); // (read by someone who is not signed in)
   const long = `${base}/s/octo/notes/${id}`; // (where the note's data and files stand)
   assert.match((await (await fetch(long + "/data")).json()).text, /^# Shown/);
-  await page.click("#share .share-row .btn");
+  await page.click("#share .share-copy");
   await until(async () => (await page.evaluate(() => navigator.clipboard.readText())) === link, "the link on the clipboard");
   // what is shared is marked: its row in the sidebar, and the button while it is shown
   const marked = () => page.evaluate(() => [[...document.querySelectorAll(".sb-row[data-real]")].filter((r) => r.querySelector(".sb-shared")).map((r) => r.dataset.real), document.querySelector('#toolbar [data-act="share"]').classList.contains("active")]);
   assert.deepEqual(await marked(), [["/octo/notes/docs/Shown.md"], true]);
 
   // a password: of it only what it hashes to is in the repository
+  assert.equal(await page.evaluate(() => document.querySelector(".share-fold-in").inert), true); // (not to be typed in until unfolded)
+  await page.click("#share .share-more");
+  await page.waitForFunction(() => document.activeElement === document.querySelector('#share input[type="password"]'), null, { timeout: 8000 });
   await page.fill('#share input[type="password"]', "sesame");
   await page.keyboard.press("Enter");
   await until(() => !!listed()[id].password, "the password, as a commit");
@@ -235,7 +255,11 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   const given = await fetch(link, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ password: "sesame" }) });
   assert.equal(given.status, 303);
   await page.waitForFunction(() => /and the password/.test(document.querySelector(".share-text").textContent), null, { timeout: 8000 });
-  await page.click("#share .share-foot .pf-link:not(.danger)"); // Remove Password
+  assert.deepEqual([await page.textContent("#share .share-value"), await page.getAttribute("#share .share-more", "aria-expanded")], ["Set", "false"]); // (set: folded again, and said in its row)
+  await page.click("#share .share-more");
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: join(web, ".next", "share-window-open.png") });
+  await page.click("#share .share-drop"); // Remove Password
   await until(() => listed()[id].password === null, "the password taken away");
   assert.equal((await fetch(long + "/data")).status, 200);
 
@@ -250,10 +274,10 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   // stopped: the link shows nothing
   await page.waitForFunction(() => MdView.core.current.name === "Shown, later.md", null, { timeout: 8000 });
   await page.click('#toolbar [data-act="share"]');
-  await page.waitForFunction(() => { const r = document.querySelector("#share"); return r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy") && document.querySelector("#share .mono").value.includes("/s/"); }, null, { timeout: 8000 });
+  await page.waitForFunction(() => { const r = document.querySelector("#share"); return r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy") && document.querySelector("#share .share-link").value.includes("/s/"); }, null, { timeout: 8000 });
   await page.waitForTimeout(700); // (settled, for the picture)
   await page.screenshot({ path: join(web, ".next", "share-window.png") });
-  await page.click("#share .pf-link.danger");
+  await page.click("#share .share-foot .pf-link.danger");
   await until(() => Object.keys(listed()).length === 0, "the share taken out");
   assert.deepEqual(await marked(), [[], false]);
   assert.equal((await fetch(link)).status, 404);
