@@ -83,11 +83,24 @@
   }
 
   // ------------------------------------------------------------ blocks: one kind of note after the other
-  const names = [...document.querySelectorAll(".tour__names li")], texts = [...document.querySelectorAll(".tour__texts p")];
+  const scene = $(".tour"), tourWin = $(".tour__win"), names = [...document.querySelectorAll(".tour__names li[data-note]")], texts = [...document.querySelectorAll(".tour__texts p")];
+  const glyphs = [...document.querySelectorAll(".tour__glyphs span")], srcs = [...document.querySelectorAll(".tour__srcs pre")];
+  const only = (list, i, attr) => list.forEach((el, k) => { if (k === i) el.setAttribute(attr, attr === "aria-current" ? "true" : ""); else el.removeAttribute(attr); });
+  let step = -1;
   function tour(p) {
     const i = Math.min(names.length - 1, Math.floor(clamp(p) * names.length)), note = names[i].dataset.note, d = demo("tour");
-    names.forEach((li, k) => { if (k === i) li.setAttribute("aria-current", "true"); else li.removeAttribute("aria-current"); });
-    texts.forEach((t, k) => { if (k === i) t.dataset.on = ""; else delete t.dataset.on; });
+    scene.style.setProperty("--tp", clamp(p).toFixed(4));
+    if (i !== step) {
+      const first = step < 0;
+      step = i;
+      only(names, i, "aria-current"); only(texts, i, "data-on"); only(glyphs, i, "data-on"); only(srcs, i, "data-on");
+      scene.style.setProperty("--hue", glyphs[i].dataset.hue);
+      scene.style.setProperty("--mark", names[i].offsetTop + "px");
+      if (!first) { // (the window answers the change: pushed in, and out again on its spring)
+        tourWin.style.transitionDuration = "0s"; scene.style.setProperty("--push", "0.965");
+        requestAnimationFrame(() => requestAnimationFrame(() => { tourWin.style.transitionDuration = ""; scene.style.setProperty("--push", "1"); }));
+      }
+    }
     if (d && told.tour !== i) { told.tour = i; d.open(note); d.shared(note === NOTE); }
     return note === NOTE ? `${NOTE}   shared, read only   ${location.host}/k` : `${note}   ${i + 1} of ${names.length}`;
   }
@@ -113,7 +126,7 @@
     let mx = 0, my = 0, tx = 0, ty = 0, going = false;
     const lean = () => {
       mx += (tx - mx) * 0.08; my += (ty - my) * 0.08;
-      stage.style.setProperty("--mx", mx.toFixed(4)); stage.style.setProperty("--my", my.toFixed(4));
+      for (const el of [stage, scene]) { el.style.setProperty("--mx", mx.toFixed(4)); el.style.setProperty("--my", my.toFixed(4)); }
       if (Math.abs(tx - mx) + Math.abs(ty - my) > 0.002) requestAnimationFrame(lean); else going = false;
     };
     window.addEventListener("pointermove", (e) => { tx = e.clientX / window.innerWidth - 0.5; ty = e.clientY / window.innerHeight - 0.5; if (!going) { going = true; requestAnimationFrame(lean); } }, { passive: true });

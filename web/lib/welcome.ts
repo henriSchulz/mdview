@@ -207,10 +207,14 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
     <div class='glow glow--b' aria-hidden='true'></div>
     <div class='cap tour__cap'>
       <h2 id='blocks-h'>Everything a note can hold.</h2>
-      <ol class='tour__names'><li data-note='Formulas.md'>Formulas</li><li data-note='Callouts.md'>Callouts</li><li data-note='Code.md'>Code</li><li data-note='Tasks and tables.md'>Tasks and tables</li><li data-note='Diagrams.md'>Diagrams</li><li data-note='Columns.md'>Columns and links</li><li data-note='Welcome.md'>Sharing</li></ol>
+      <ol class='tour__names'><li class='tour__mark' aria-hidden='true'></li><li data-note='Formulas.md'>Formulas</li><li data-note='Callouts.md'>Callouts</li><li data-note='Code.md'>Code</li><li data-note='Tasks and tables.md'>Tasks and tables</li><li data-note='Diagrams.md'>Diagrams</li><li data-note='Columns.md'>Columns and links</li><li data-note='Welcome.md'>Sharing</li></ol>
       <div class='tour__texts'><p>LaTeX in a line or set apart, rendered with KaTeX as you type.</p><p>Notes, tips and warnings in boxes of their own. Each can fold.</p><p>Fenced code, highlighted, with a button to copy it.</p><p>Tick a task where you read it. Tables are edited as tables.</p><p>Mermaid diagrams drawn from the text in the note.</p><p>Blocks side by side, and wikilinks from one note to the next.</p><p>One note under a short link, read only, with a password if you like.</p></div>
     </div>
-    <div class='win tour__win'>${frame("tour", "The app, showing what a note can hold")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
+    <div class='tour__scene'>
+      <div class='tour__glyphs' aria-hidden='true'><span data-hue='#0071e3'>∑</span><span data-hue='#ff9f0a'>!</span><span data-hue='#a05bff'>{ }</span><span data-hue='#30b45a'>✓</span><span data-hue='#18a6c9'>◇</span><span data-hue='#ff5a8a'>▥</span><span data-hue='#0071e3'>↗</span></div>
+      <div class='win tour__win'>${frame("tour", "The app, showing what a note can hold")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
+      <div class='tour__src' aria-hidden='true'><div class='tour__srcbar'>Markdown</div><div class='tour__srcs'><pre><code>$$\n\\int e^{-x^2}\\,dx = \\sqrt{\\pi}\n$$</code></pre><pre><code>&gt; [!warning] A warning\n&gt; Something to look out for.</code></pre><pre><code>&#96;&#96;&#96;rust\nfn main() { … }\n&#96;&#96;&#96;</code></pre><pre><code>- [x] Write the outline\n- [ ] Send it round\n\n| Milestone | Owner |</code></pre><pre><code>&#96;&#96;&#96;mermaid\nflowchart LR\n  A[A note] --&gt; B{Saved}\n&#96;&#96;&#96;</code></pre><pre><code>&lt;!-- columns 1:1 --&gt;\n…\n&lt;!-- column --&gt;\n[[Formulas]]</code></pre><pre><code>md.henrischulz.com/k\nmd.henrischulz.com/k/raw</code></pre></div></div>
+    </div>
   </div>
 </section>
 
