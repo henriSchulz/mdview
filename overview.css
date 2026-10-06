@@ -98,9 +98,9 @@ body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(
 
 /* over the tiles there is no note to outline, search, switch the mode of or format: those stand
  * dimmed and take no click (the sidebar's and the tiles' own buttons stay) */
-#toolbar [data-act="outline"], #toolbar [data-act="find"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+#toolbar [data-act="outline"], #toolbar [data-act="find"], #toolbar [data-act="share"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 #toolbar .seg { transition: opacity var(--dur-fast) var(--ease-out); }
-body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-act="panel"], .seg) { opacity: 0.4; pointer-events: none; }
+body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-act="share"], [data-act="panel"], .seg) { opacity: 0.4; pointer-events: none; }
 
 /* ------------------------------------------------------------- the head's choices, folders, the list */
 .ov-title { display: flex; align-items: baseline; flex-wrap: wrap; min-width: 0; }

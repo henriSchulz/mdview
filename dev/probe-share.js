@@ -12,9 +12,9 @@
     const q = (s) => document.querySelector(s), shown = (s) => { const e = q(s); return !!e && !e.hidden && e.offsetParent !== null; };
     const settled = async () => { for (let i = 0; i < 80 && (!q("#share") || q(".share-box").hasAttribute("aria-busy")); i++) await sleep(100); await sleep(300); };
     const state = () => ({ title: q("#share-title").textContent, text: q(".share-text").textContent, link: shown("#share .mono") ? q("#share .mono").value : null, go: shown("#share .btn.primary"), stop: shown("#share .pf-link.danger") });
-    q('[data-act="historymenu"]').click(); await sleep(300);
-    o.offered = [...document.querySelectorAll("#ctxmenu .menu-item:not([hidden])")].map((e) => e.textContent);
-    document.querySelector('#ctxmenu .menu-item:not([hidden])[data-cmd="history:share"]').click();
+    const btn = q('#toolbar [data-act="share"]'), before = btn.previousElementSibling, after = btn.nextElementSibling;
+    o.button = [shown('#toolbar [data-act="share"]'), before.dataset.act, after.className]; // (between the magnifier and the modes)
+    btn.click();
     await sleep(800); await settled();
     o.open = state();
     q("#share .btn.primary").click(); await settled();

@@ -33,8 +33,8 @@
     ok("↓ goes a row down (into the next folder's grid)", document.activeElement !== tiles[1] && document.activeElement.classList.contains("ov-tile"), document.activeElement.dataset && document.activeElement.dataset.path);
     o.focusName = document.activeElement.querySelector(".ov-name")?.textContent;
     ok("tasks keep their boxes, links lead nowhere", !!ov.querySelector(".ov-prev input[type=checkbox]") && !ov.querySelector(".ov-prev a[href]"));
-    const noteOnly = () => [...document.querySelectorAll('#toolbar :is([data-act="outline"], [data-act="find"], [data-act="panel"], .seg)')].map((b) => getComputedStyle(b).pointerEvents);
-    ok("over the tiles the note's buttons take no click, the tiles' and the sidebar's do", noteOnly().length === 4 && noteOnly().every((v) => v === "none") && getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(document.querySelector('#toolbar [data-act="sidebar"]')).pointerEvents !== "none", noteOnly().join());
+    const noteOnly = () => [...document.querySelectorAll('#toolbar :is([data-act="outline"], [data-act="find"], [data-act="share"], [data-act="panel"], .seg)')].map((b) => getComputedStyle(b).pointerEvents);
+    ok("over the tiles the note's buttons take no click, the tiles' and the sidebar's do", noteOnly().length === 5 && noteOnly().every((v) => v === "none") && getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(document.querySelector('#toolbar [data-act="sidebar"]')).pointerEvents !== "none", noteOnly().join());
     out("shot", {});
     await sleep(1400); // screenshot
     key("Escape");
@@ -66,7 +66,7 @@
     const sorted = (sel) => names(sel).sort().join("|"); // (their order is the sidebar's: the one opened last first)
     const note = [...ov.querySelectorAll(".ov-tile")].find((t) => t.querySelector(".ov-name").textContent === "Commute thoughts");
     note.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Rename|Move to Trash", shown());
+    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Share…|Rename|Move to Trash", shown());
     out("shot-menu", {}); await sleep(1300);
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "rename").click(); await sleep(500);
     const field = ov.querySelector(".ov-rename");

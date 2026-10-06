@@ -163,7 +163,7 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   assert.notEqual(seen.sidebar, "open"); // (no repository to look about in)
   // nothing but reading: no modes to switch between, by button or by key
   const vis = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); return !!e && e.offsetParent !== null; }, sel);
-  assert.deepEqual([await vis("#toolbar .seg"), await vis('#toolbar [data-act="panel"]'), await vis('#toolbar [data-act="find"]')], [false, false, true]);
+  assert.deepEqual([await vis("#toolbar .seg"), await vis('#toolbar [data-act="panel"]'), await vis('#toolbar [data-act="share"]'), await vis('#toolbar [data-act="find"]')], [false, false, false, true]);
   await page.keyboard.press("Control+e");
   await page.keyboard.press("Control+Alt+2");
   await page.evaluate(() => MdView.setMode("active"));
@@ -202,9 +202,8 @@ test("shared from the app: the window makes the link, sets and takes away a pass
   const until = async (f, what, ms = 8000) => { for (let t = 0; t < ms; t += 50) { if (await f()) return; await new Promise((r) => setTimeout(r, 50)); } assert.fail(`not within ${ms} ms: ${what}`); };
   const shown = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); return !!e && !e.hidden && e.offsetParent !== null; }, sel);
 
-  // the clock's menu: Share This Note… — not shared yet
-  await page.click('[data-act="historymenu"]');
-  await page.click('#ctxmenu .menu-item:not([hidden])[data-cmd="history:share"]');
+  // the button at the top, between the magnifier and the modes — not shared yet
+  await page.click('#toolbar [data-act="share"]');
   await page.waitForFunction(() => { const r = document.querySelector("#share"); return r && r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy"); }, null, { timeout: 15000 });
   assert.equal(await page.textContent("#share-title"), "Share “Shown”");
   assert.deepEqual([await shown("#share .btn.primary"), await shown("#share .share-row .mono")], [true, false]);
@@ -247,8 +246,7 @@ test("shared from the app: the window makes the link, sets and takes away a pass
 
   // stopped: the link shows nothing
   await page.waitForFunction(() => MdView.core.current.name === "Shown, later.md", null, { timeout: 8000 });
-  await page.click('[data-act="historymenu"]');
-  await page.click('#ctxmenu .menu-item:not([hidden])[data-cmd="history:share"]');
+  await page.click('#toolbar [data-act="share"]');
   await page.waitForFunction(() => { const r = document.querySelector("#share"); return r.hasAttribute("data-open") && !r.querySelector(".share-box").hasAttribute("aria-busy") && document.querySelector("#share .mono").value.includes("/s/"); }, null, { timeout: 8000 });
   await page.waitForTimeout(700); // (settled, for the picture)
   await page.screenshot({ path: join(web, ".next", "share-window.png") });

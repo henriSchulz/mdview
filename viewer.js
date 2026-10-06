@@ -977,6 +977,7 @@
     `<button class="tb" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.apps}</button>` +
     `<button class="tb" data-act="outline" title="Outline (Ctrl+Shift+O)" aria-label="Outline">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="Find (Ctrl+F)" aria-label="Find">${ICON.search}</button>` +
+    `<button class="tb" data-act="share" title="Share…" aria-label="Share">${ICON.share}</button>` +
     `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
     [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
@@ -1217,7 +1218,7 @@
   // A host where a note is only read (a shared one, in the browser: MdHost.reading) has no modes
   // to switch between, and nothing to insert or format.
   const READING = !!(window.MdHost && window.MdHost.reading);
-  if (READING) { modeSeg.hidden = true; toolbar.querySelector('[data-act="panel"]').hidden = true; }
+  if (READING) { modeSeg.hidden = true; for (const act of ["panel", "share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
   const MODES = ["edit", "active", "read"]; // as in the toolbar
   function showMode() {
     modeSeg.style.setProperty("--i", MODES.indexOf(mode));
@@ -2329,7 +2330,6 @@
     entry("history:conflicts", "info", "Resolve Conflicts…", "history", "", "", ' data-sync="conflict"') +
     `<div class="menu-rule" data-for="history" data-sync="conflict"></div>` +
     entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
-    entry("history:share", "share", "Share This Note…", "history", "", "", ' data-state="project"') +
     `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt paused"></div>` +
     entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none paused"') +
     entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
@@ -2409,7 +2409,6 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
-      else if (cmd === "history:share") openShare();
       else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast("Only notes can be shared"); }
       else if (cmd === "history:conflicts") openConflicts();
       else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
@@ -2988,6 +2987,7 @@
   const actions = {
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
+    share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast("Only notes can be shared"); },
     edit: () => switchMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },

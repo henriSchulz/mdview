@@ -453,7 +453,7 @@ counts — and has no writing help by a model.
 A note can be read by people who have neither the app nor the folder: under a link, in a
 browser. Only a project linked to GitHub can share; the web app shows the note.
 
-- **Share…** (a note's menu in the sidebar, or the clock › Share This Note…): a small window with
+- **Share…** (the button at the top, beside the magnifier; or a note's menu in the sidebar): a small window with
   the link to copy. Anyone who has the link can read the note — and only read it.
 - **A password** can be set there, changed, and taken away. With one, the link asks for it
   first. Of the password only a hash is kept.

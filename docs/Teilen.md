@@ -18,9 +18,9 @@ auf: Die Web-App zeigt die Notiz, die Desktop-App und die Web-App legen die Frei
 
 ## Was es tut
 
-- **Share…** im Menü einer Notiz (Rechtsklick in der Seitenleiste) und unter der Uhr („Share
-  This Note…"): ein kleines Fenster mit dem Link, einem Feld für ein Passwort und „Stop
-  Sharing". In der Web-App und in der Desktop-App dasselbe Fenster.
+- **Der Teilen-Knopf** oben rechts, zwischen Lupe und Modus-Schalter, und **Share…** im Menü
+  einer Notiz (Rechtsklick in der Seitenleiste): ein kleines Fenster mit dem Link, einem Feld
+  für ein Passwort und „Stop Sharing". In der Web-App und in der Desktop-App dasselbe Fenster.
 - Der Link ist kurz: `https://<web-app>/s/<id>`, die ID zehn Buchstaben und Ziffern aus dem
   Zufall (59 Bit). Wer den Link nicht hat, findet die Notiz nicht. Zu welchem Repository eine
   ID gehört, schlägt der Server nach.
@@ -106,7 +106,7 @@ GitHub löschen.
 
 ## Durchklicken
 
-- [ ] Web: Uhr › „Share This Note…" › „Share": Der Link steht da; in einem privaten Fenster geöffnet zeigt er die Notiz, ohne Anmeldung
+- [ ] Web: der Teilen-Knopf oben (zwischen Lupe und Modus) › „Share": Der Link steht da; in einem privaten Fenster geöffnet zeigt er die Notiz, ohne Anmeldung
 - [ ] Ein Bild und eine eingebettete Notiz erscheinen; ein Link auf eine andere Notiz sagt „This was not shared with the note"
 - [ ] Passwort setzen: Das private Fenster fragt danach; falsch wird abgelehnt, richtig öffnet
 - [ ] Die Notiz ändern: Der Link zeigt nach einer halben Minute und Neuladen den neuen Stand
