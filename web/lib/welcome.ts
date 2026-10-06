@@ -10,11 +10,11 @@ export const REPOSITORY = "https://github.com/henriSchulz/mdview";
 /** The note that is written while the page is scrolled, as far as it stands when the page opens … */
 export const OPENING = `# Notes that stay yours
 
-Scroll, and this note writes itself.
+Write in Markdown. Read it the way it is meant.
 `;
 /** … and all of it. */
 export const WELCOME = `${OPENING}
-Every note is a **Markdown file** in a Git repository *you* own. Scroll back up and it is unwritten again.
+Every note is a **Markdown file** in a Git repository *you* own.
 
 - [x] Plain text that every other tool can open
 - [x] Formulas, tables, callouts and files in the note
@@ -70,7 +70,7 @@ fn main() {
 curl HERE/k/raw
 \`\`\`
 `;
-const TRY = `# Your turn
+const TRY = `# Try it
 
 This is the editor itself, running in your browser. Click into the text and type.
 
@@ -121,7 +121,7 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
         <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
         <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>
       </div>
-      <p class='hero__cue'><span>Scroll. The page writes the note for you.</span><svg viewBox='0 0 16 16' aria-hidden='true'><path d='M8 2.5v10m0 0L4 8.6m4 3.9 4-3.9' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg></p>
+      <p class='hero__cue'><span>See what it does</span><svg viewBox='0 0 16 16' aria-hidden='true'><path d='M8 2.5v10m0 0L4 8.6m4 3.9 4-3.9' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg></p>
       <div class='chips' aria-hidden='true'>
         <code class='chip' style='--x:-41;--y:-6;--z:1.5'># heading</code><code class='chip' style='--x:38;--y:-13;--z:.8'>**bold**</code>
         <code class='chip' style='--x:-33;--y:22;--z:.6'>- [x] task</code><code class='chip' style='--x:42;--y:16;--z:1.3'>$$ e^{i\\pi} $$</code>
@@ -130,7 +130,7 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
       </div>
     </header>
     <div class='side'>
-      <div class='cap'><h2>Your scroll wheel is the keyboard.</h2><p>Keep going and the note gets written. Scroll back up and it is unwritten again.</p></div>
+      <div class='cap'><h2>Write Markdown. See it rendered.</h2><p>Tasks, formulas, tables and callouts take shape as you type. Read the note, write in the rendered page, or edit the source.</p></div>
     <div class='src' aria-hidden='true'>
       <div class='src__bar'><span class='src__name'>Welcome.md</span><span class='src__kind'>Markdown</span></div>
       <div class='src__body'><pre class='src__text'><span class='src__typed'></span><span class='src__caret'></span></pre></div>
@@ -184,8 +184,8 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
   <div data-sc-stage class='stage try'>
     <div class='win try__win'>${frame("try", "The app, with a note to write in")}<div class='win__wait' role='status' aria-label='Loading'><span class='ring'></span></div></div>
     <div class='go'>
-      <h2 class='go__h'>Your turn.</h2>
-      <p class='go__p'>That is the real editor. Type in it, then take your own notes with you.</p>
+      <h2 class='go__h'>Try the editor.</h2>
+      <p class='go__p'>This is the app, running in your browser. Type in it, then open your own notes.</p>
       ${why ? `<p class='go__why' role='status'>${attr(why)}</p>` : ""}
       <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
       <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>
