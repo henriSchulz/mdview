@@ -93,6 +93,23 @@
   };
   const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
     : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
+  // Code in languages the bundle has under another name, or not at all. SystemVerilog is what
+  // highlight.js calls verilog (its grammar has SystemVerilog's words). A filelist — the .f file
+  // a simulator or a synthesis tool is handed: one source or option a line — is its own.
+  if (window.hljs) {
+    hljs.registerAliases(["systemverilog", "sysverilog", "svh", "vh"], { languageName: "verilog" });
+    hljs.registerLanguage("filelist", (h) => ({
+      name: "Filelist",
+      aliases: ["f", "flist", "vf", "vc"],
+      contains: [
+        h.COMMENT("//", "$"), h.COMMENT("#", "$"), h.C_BLOCK_COMMENT_MODE, h.QUOTE_STRING_MODE,
+        { className: "variable", begin: /\$\{[^}\n]+\}|\$\([^)\n]+\)|\$[A-Za-z_]\w*/ }, // $VAR, ${VAR}, $(VAR)
+        { className: "keyword", begin: /^[ \t]*\+[A-Za-z_][\w-]*\+?/, relevance: 10 },        // +incdir+, +define+, +libext+
+        { className: "built_in", begin: /^[ \t]*-{1,2}[A-Za-z][\w-]*/ },                       // -f, -F, -v, -y, -sv, --top
+        { className: "number", begin: /=[^\s+]+/ },                                            // what a define is set to
+      ],
+    }));
+  }
   const PDF_COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" }; // (as in pdfview.js)
   const DECO_COLORS = ["red", "orange", "yellow", "green", "cyan", "blue", "magenta"]; // (the theme's --c-…)
   const CALLOUT_ALIAS = {
@@ -353,7 +370,7 @@
       }
       const kind = calloutKind(type);
       const fold = m[3];
-      open.meta = { callout: { type: m[1], title: m[4] || "", fold: !!fold, meta: m[2] || "" } }; // (as written: what the active mode writes back)
+      open.meta = { callout: { type: m[1], title: m[4] || "", fold: fold || "", meta: m[2] || "" } }; // (as written: what the active mode writes back; fold: "-" folded, "+" open, "" none)
       let depth = 0, j = i;
       for (; j < toks.length; j++) {
         if (toks[j].type === "blockquote_open") depth++;

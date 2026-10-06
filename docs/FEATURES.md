@@ -132,6 +132,10 @@ Kinds: `note` `info` `todo` `abstract` `tip` `success` `question` `warning` `fai
 `example` `quote` `important`. Also read: `summary` `tldr` `hint` `check` `done` `help` `faq`
 `attention` `caution` `fail` `missing` `error` `cite`. An unknown kind is drawn as a note.
 
+In the active mode a callout that folds is edited like any other: a click on its title's bar
+folds and unfolds it, the caret come into a folded one unfolds it. `/` › Callout › Collapsible
+makes a callout fold (and Open at First says how it starts).
+
 ### Code
 
 ```python
@@ -140,6 +144,8 @@ def greet(name):
 ```
 
 A fence with a language name is highlighted; hovering shows the language and a Copy button.
+Hardware descriptions are among the languages: `verilog` (also `systemverilog`, `sv`, `svh`),
+`vhdl`, `tcl` — and `filelist` (also `f`), the list of sources and options a simulator is handed.
 
 ### Tables
 
@@ -302,7 +308,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   `Space` adds an empty block below, `Backspace` deletes. `Ctrl+click` picks blocks one by one; a
   rectangle pulled from the empty space selects those it reaches.
 - **Tables** are edited in their cells; handles over a column and beside a row open a menu and can
-  be dragged to move it.
+  be dragged to move it. Dragged to the window's upper or lower edge, the page scrolls along.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket
   matching, `Ctrl+F`, LaTeX completion) and a live preview for formulas, Mermaid and SVG.
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work

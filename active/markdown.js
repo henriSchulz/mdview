@@ -285,7 +285,7 @@
       case "blockquote": {
         const lines = children(node, cx, false).map((l) => (l ? "> " + l : ">"));
         // a decoration says what it is in a line of its own before the text
-        if (node.attrs.callout) return ["> [!" + node.attrs.callout + "]" + (node.attrs.title ? " " + node.attrs.title : "")].concat(lines);
+        if (node.attrs.callout) return ["> [!" + node.attrs.callout + "]" + (node.attrs.fold || "") + (node.attrs.title ? " " + node.attrs.title : "")].concat(lines);
         return node.attrs.deco ? ["> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]"].concat(lines) : lines;
       }
       case "columns": {
@@ -520,7 +520,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    table_cell: ["header", "align"], table: ["wide"], blockquote: ["deco", "color", "callout", "title"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], table: ["wide"], blockquote: ["deco", "color", "callout", "title", "fold"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {

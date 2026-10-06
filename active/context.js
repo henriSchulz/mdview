@@ -23,7 +23,7 @@
     let kind = $from.parent.type === N.heading ? "h" + $from.parent.attrs.level : "text";
     if (item && list) kind = item.node.attrs.task != null ? "task" : list.node.type === N.ordered_list ? "ordered" : "bullet";
     return { kind, quote, deco: q ? (q.node.attrs.callout ? "callout" : q.node.attrs.deco || "quote") : null, color: q ? q.node.attrs.color : null,
-      callout: q && q.node.attrs.callout ? q.node.attrs.callout.toLowerCase() : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
+      callout: q && q.node.attrs.callout ? q.node.attrs.callout.toLowerCase() : null, fold: q && q.node.attrs.callout ? q.node.attrs.fold : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
   }
   const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? C.lift(state, dispatch) : C.wrapIn(N.blockquote)(state, dispatch));
   /* A decoration around the block: a quote (deco null), a tinted block, a focus bar — in a colour.
@@ -31,7 +31,7 @@
   const setDeco = (deco, color = null) => (state, dispatch) => {
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
     if (!q) return C.wrapIn(N.blockquote, { deco, color: deco ? color : null })(state, dispatch);
-    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco, color: deco ? color : null, callout: null, title: null }));
+    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco, color: deco ? color : null, callout: null, title: null, fold: null }));
     return true;
   };
   // a callout around the block (an info, a warning …); a quote or a callout that is there becomes it, its title stays
@@ -39,6 +39,13 @@
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
     if (!q) return C.wrapIn(N.blockquote, { callout: type })(state, dispatch);
     if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco: null, color: null, callout: type }));
+    return true;
+  };
+  // the callout around the block folds ("-": folded at first, "+": open) or does not (null)
+  const setFold = (fold) => (state, dispatch) => {
+    const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote && !!n.attrs.callout);
+    if (!q) return false;
+    if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, fold }));
     return true;
   };
   // out of a list first, then the command (a heading does not sit in a list item by choice)
@@ -244,5 +251,5 @@
     },
   });
 
-  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, setFold, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
 })();

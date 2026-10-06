@@ -125,7 +125,7 @@
   function quoteView(node, view, getPos) {
     const made = PM.model.DOMSerializer.renderSpec(document, node.type.spec.toDOM(node));
     const dom = made.dom, contentDOM = made.contentDOM || made.dom;
-    const SAME = ["deco", "color", "callout", "title"];
+    const SAME = ["deco", "color", "callout", "title", "fold"];
     const nv = {
       dom, contentDOM,
       update(n) { // (another look: built anew)
@@ -176,8 +176,21 @@
       view.focus();
     });
     nv.stopEvent = (e) => bar.contains(e.target);
-    nv.ignoreMutation = (m) => bar.contains(m.target);
+    nv.ignoreMutation = (m) => bar.contains(m.target) || (m.type === "attributes" && m.target === dom); // (folded or not is how it is looked at, not what it is)
     nv.destroy = () => { editing = false; };
+    if (node.attrs.fold) {
+      // One that folds: a click on its title's bar folds and unfolds it (not one on the title's
+      // text, which is typed in). The caret come into a folded one unfolds it — what is typed
+      // is seen.
+      bar.addEventListener("click", (e) => { e.preventDefault(); if (!text.contains(e.target)) dom.open = !dom.open; });
+      const seen = () => {
+        if (dom.open || !dom.isConnected) return;
+        const pos = getPos(), sel = view.state.selection;
+        if (pos != null && sel.from > pos && sel.to < pos + node.nodeSize && view.hasFocus()) dom.open = true;
+      };
+      document.addEventListener("selectionchange", seen);
+      nv.destroy = () => { editing = false; document.removeEventListener("selectionchange", seen); };
+    }
     return nv;
   }
   const nodeViews = {

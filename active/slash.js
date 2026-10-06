@@ -169,7 +169,10 @@
       ] },
       { key: "slash.callout", icon: CALLOUT.icon.info, items: CALLOUTS.map((c) =>
         leaf("callout." + c, "callout box kasten hinweis " + c, CALLOUT.icon[CALLOUT.kind(c)], callout(c), { checked: k.callout === c }))
-        .concat(k.callout ? [null, leaf("callout.title", "title titel rename umbenennen", I.title, editTitle)] : []) },
+        .concat(k.callout ? [null, leaf("callout.title", "title titel rename umbenennen", I.title, editTitle),
+          // one that folds: its title's bar folds it away — folded at first, or open
+          leaf("callout.fold", "fold collapse collapsible toggle einklappen ausklappen klappen", I.right, (v) => A.context.run(v, A.context.setFold(k.fold ? null : "-")), { checked: !!k.fold }),
+          ...(k.fold ? [leaf("callout.foldOpen", "fold open expanded offen aufgeklappt", I.right, (v) => A.context.run(v, A.context.setFold(k.fold === "+" ? "-" : "+")), { checked: k.fold === "+" })] : [])] : []) },
       // a row of columns: made of the caret's block — or, in one, what can be done with its columns
       { key: "slash.columns", icon: I.columns, items: cols ? [
         leaf("columns.addLeft", "column add left spalte links", I.left, colDo(A.columns.add(-1))),

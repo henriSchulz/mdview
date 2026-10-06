@@ -58,8 +58,12 @@ body[data-tabs] #overview { padding-top: calc(var(--tabs-h) + 28px); } /* (under
     transform var(--spring-smooth-dur) var(--spring-smooth) calc(var(--i, 0) * var(--stagger-step)),
     box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
 }
+/* Under the pointer a tile lifts a little off the page: two pixels up, its shadow deeper. (Asked
+   for here; elsewhere in the app nothing moves on hover. No delay: that is the entrance's.) */
+#overview[data-open] .ov-tile:hover { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 28px rgb(0 0 0 / 0.14); transition-duration: var(--dur-base), var(--spring-smooth-dur), var(--dur-instant), var(--dur-instant); transition-delay: 0s; }
+body[data-mode="dark"] #overview[data-open] .ov-tile:hover { --edge: rgb(255 255 255 / 0.22); box-shadow: 0 0 0 0.5px var(--edge), 0 12px 28px rgb(0 0 0 / 0.45); }
 #overview[data-open] .ov-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
-#overview[data-open] .ov-tile:hover { box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); transition-duration: var(--dur-base), var(--spring-smooth-dur), var(--dur-instant), var(--dur-instant); }
+@media (prefers-reduced-motion: reduce) { #overview[data-open] .ov-tile:hover { transform: none; } }
 /* (the ring is the keyboard's place, once the arrow keys are used: the note on screen wears none) */
 #overview[data-keys] .ov-tile:focus-visible { outline-color: var(--accent); }
 .ov-sheet {

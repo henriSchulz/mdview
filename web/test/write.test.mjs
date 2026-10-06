@@ -155,6 +155,25 @@ test("a note is in the mode it was in after a tab with no note in it", async () 
   assert.equal(await tabs(), had);
 });
 
+test("a callout that folds: folded at first in the active mode too, unfolded by its title's bar, and typed in", async () => {
+  put("Fold.md", "# Fold\n\n> [!note]- Folded at first\n> inside it\n\nafter\n\n```systemverilog\nmodule top; endmodule\n```\n");
+  await open("Fold.md");
+  // read: the reader's own <details>; SystemVerilog is coloured
+  assert.deepEqual(await page.evaluate(() => [document.querySelector("#content details.callout").open, !!document.querySelector("#content code.language-systemverilog .hljs-keyword")]), [false, true]);
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable && document.querySelector("#active details.callout"), null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => document.querySelector("#active details.callout").open), false);
+  await page.click("#active details.callout .callout-fold");
+  await page.waitForFunction(() => document.querySelector("#active details.callout").open, null, { timeout: 8000 });
+  await page.click("#active details.callout .callout-content p");
+  await page.keyboard.press("End");
+  await page.keyboard.type(", typed");
+  await until(() => /> \[!note\]- Folded at first\n> inside it, typed\n/.test(text("Fold.md") || ""), "typed inside, written as a callout that folds");
+  await page.click("#active details.callout .callout-fold"); // (folded again: how it is looked at, nothing written)
+  await page.waitForFunction(() => !document.querySelector("#active details.callout").open, null, { timeout: 8000 });
+  assert.match(text("Fold.md"), /\[!note\]- Folded at first/);
+});
+
 test("a commit whose answer never came, and the note written on: no conflict of the note with itself", async () => {
   put("Lost.md", "# Lost\n\na line\n");
   await open("Lost.md");

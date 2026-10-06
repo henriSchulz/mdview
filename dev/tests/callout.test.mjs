@@ -1,5 +1,5 @@
 // Callouts: a plain one (a kind, maybe a title, something in it) is edited in
-// place; the / menu makes them. Folded ones and those of PDFs stay islands.
+// place, one that folds too; the / menu makes them. Those of PDFs stay islands.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadPage, ACTIVE } from "./harness.mjs";
@@ -29,7 +29,7 @@ const kinds = (v) => { const out = []; v.state.doc.forEach((n) => out.push(n.typ
 test("a plain callout is a block of the document, others are islands", () => {
   assert.equal(kinds(open("> [!info]\n> text\n", "text")), "blockquote:info");
   assert.equal(kinds(open("> [!WARNING] Mind **this**\n> text\n", "text")), "blockquote:WARNING");
-  assert.equal(kinds(open("> [!note]- Folded\n> text\n", "text")), "island");
+  assert.equal(kinds(open("> [!note]- Folded\n> text\n", "text")), "blockquote:note");
   assert.equal(kinds(open("> [!pdf|yellow] x\n> text\n", "text")), "island");
   assert.equal(kinds(open("before\n\n> [!tip] Only a title\n", "before")), "paragraph island");
 });
@@ -75,4 +75,28 @@ test("the / menu: a callout around the block, another kind, and away again", () 
   assert.equal(v.md(), "> [!tip]\n> text\n");
   v.pick("slash.deco", "menu.quote");
   assert.equal(v.md(), "> text\n");
+});
+
+test("a callout that folds is edited in place too, and written as it was; the / menu makes one fold", () => {
+  for (const src of ["> [!note]- Folded at first\n> text\n", "> [!tip]+ Open\n> text\n> more\n", "> [!warning]-\n> text\n"]) {
+    const v = open(src, "text");
+    assert.equal(kinds(v), "blockquote:" + /\[!(\w+)\]/.exec(src)[1]);
+    assert.equal(v.state.doc.firstChild.attrs.fold, /\]([-+])/.exec(src)[1]);
+    assert.equal(v.md(), src);
+  }
+  const v = open("> [!info] A title\n> text\n", "text");
+  const names = () => A.slash.entries(v).find((e) => e && e.key === "slash.callout").items.filter(Boolean).map((e) => e.key);
+  assert.ok(names().includes("callout.fold") && !names().includes("callout.foldOpen"));
+  v.pick("slash.callout", "callout.fold");
+  assert.equal(v.md(), "> [!info]- A title\n> text\n");
+  assert.ok(names().includes("callout.foldOpen"));
+  v.pick("slash.callout", "callout.foldOpen");
+  assert.equal(v.md(), "> [!info]+ A title\n> text\n");
+  v.pick("slash.callout", "callout.fold"); // (chosen again: it folds no more)
+  assert.equal(v.md(), "> [!info] A title\n> text\n");
+  // as the reading view draws it: <details> with its <summary>, open or not
+  const dom = (src) => DOMSerializer.fromSchema(A.schema.schema || open(src, "text").state.schema).serializeFragment(open(src, "text").state.doc.content, { document: w.document }).firstChild;
+  const folded = dom("> [!note]- T\n> text\n"), opened = dom("> [!note]+ T\n> text\n");
+  assert.deepEqual([folded.tagName, folded.hasAttribute("open"), folded.firstChild.tagName, !!folded.querySelector(".callout-fold")], ["DETAILS", false, "SUMMARY", true]);
+  assert.equal(opened.hasAttribute("open"), true);
 });

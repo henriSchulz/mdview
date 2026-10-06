@@ -803,9 +803,22 @@
     e.stopPropagation();
     e.preventDefault(); // (a drop is possible everywhere while one of the editor's blocks is dragged)
     e.dataTransfer.dropEffect = "move";
+    drag.cy = e.clientY;
+    if (!drag.frame) drag.frame = requestAnimationFrame(dragScroll);
     const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && (a.side || 0) === (b.side || 0));
     if (!same(t, drag.target)) { drag.target = t; showLine(t); }
   }, true);
+  /* Dragged to the window's upper or lower edge, the page scrolls along — the faster the nearer
+   * the edge — so a block can go further than what is on screen. (As the rectangle does, above.) */
+  function dragScroll() {
+    if (!drag) return;
+    drag.frame = 0;
+    const edge = 64, y = drag.cy, speed = y < edge ? -Math.ceil((edge - y) / 3) : y > innerHeight - edge ? Math.ceil((y - (innerHeight - edge)) / 3) : 0;
+    if (!speed) return;
+    const before = scrollY;
+    window.scrollBy({ top: speed, behavior: "instant" });
+    if (scrollY !== before) drag.frame = requestAnimationFrame(dragScroll);
+  }
   document.addEventListener("drop", (e) => {
     if (!drag || !view) return;
     e.stopPropagation();
