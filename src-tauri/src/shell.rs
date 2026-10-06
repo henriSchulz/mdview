@@ -857,6 +857,9 @@ impl App {
             return;
         }
         let Ok(exe) = std::env::current_exe() else { return };
+        // (a program built anew is another file in the old one's place: Linux then names the
+        // running one "… (deleted)" — the new one is at the name without that)
+        let exe = exe.to_str().and_then(|e| e.strip_suffix(" (deleted)")).map(PathBuf::from).unwrap_or(exe);
         let stamp = fs::metadata(&exe).ok().and_then(|m| m.modified().ok());
         if stamp.is_none() || stamp == self.started {
             return;
