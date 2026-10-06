@@ -202,7 +202,7 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
   </div>
 </section>
 
-<section id='blocks' data-sc-act='pin' data-sc-span='4.4' aria-labelledby='blocks-h'>
+<section id='blocks' data-sc-act='pin' data-sc-span='8' aria-labelledby='blocks-h'>
   <div data-sc-stage class='stage tour'>
     <div class='glow glow--b' aria-hidden='true'></div>
     <div class='cap tour__cap'>
