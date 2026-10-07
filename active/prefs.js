@@ -6,7 +6,7 @@
   const A = window.MdActive, T = window.MdStrings.t;
   const DEFAULTS = {
     lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0,
-    images: "beside", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
+    images: "assets", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
@@ -64,7 +64,7 @@
     ["editing", "pencil", [
       [null, [["bar", "switch"], ["slash", "switch"], ["syntax", "switch"], ["quotes", "switch"]]],
       ["prefs.paragraphs", [["wrap", "select", [[0, "prefs.wrap.off"], [72, "72"], [80, "80"], [100, "100"], [120, "120"]]]]],
-      ["prefs.pictures", [["images", "select", [["beside", "prefs.images.beside"], ["assets", "prefs.images.assets"]]]]],
+      ["prefs.pictures", [["images", "select", [["assets", "prefs.images.assets"], ["beside", "prefs.images.beside"]]]]],
     ]],
     ["newMarkdown", "source", [
       [null, [

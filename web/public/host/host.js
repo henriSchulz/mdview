@@ -397,7 +397,7 @@
    * name not taken; its bytes wait for the next commit. → its path */
   const PICTURE_MOST = 10 * 1024 * 1024, MOVE_MOST = 14 * 1024 * 1024; // (a commit takes 20 MB, as base64)
   async function putPicture(note, stem, ext, blob) {
-    const dir = C.dirOf(note), wanted = String(prefs.images || "beside").trim().replace(/^\/+|\/+$/g, "");
+    const dir = C.dirOf(note), wanted = String(prefs.images || "assets").trim().replace(/^\/+|\/+$/g, "");
     const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
     let target = `${into}/${stem}${ext}`;
     for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;

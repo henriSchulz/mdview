@@ -51,7 +51,7 @@ wl() { HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)
 app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
-    XDG_STATE_HOME="$R/state" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
+    XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
     setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
 shot() { local id; id=$(hyprctl clients -j | jq -r '.[] | select(.class=="aquamarine") | .stableId' | head -1); grim -T "$id" "$1"; }
@@ -303,9 +303,9 @@ case "${1:-}" in
     [[ -f $R/out/$name.dnd.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.dnd.json"
     files=$(cd "$R/work" && find . -type f | sort | tr '\n' ' ')
-    [[ $files == "./assets/drop.png ./drop.png ./m5.md ./notes.txt " ]] && echo "ok   the pictures were copied where they belong" || echo "FAIL files beside the note: $files"
+    [[ $files == "./m5.md ./notes.txt " ]] && echo "ok   what the note still names is beside it; the pictures that were dropped and taken back are gone with them" || echo "FAIL files beside the note: $files"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
-    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./assets/drop.png ./drop.png ./m5.md ./notes.txt " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./m5.md ./notes.txt " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
     # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)
@@ -376,8 +376,8 @@ case "${1:-}" in
     WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
     [[ -f $R/out/$name.clip.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.clip.json"
-    img=$(ls "$R/work"/pasted-*.png 2>/dev/null | head -1)
-    [[ -n $img ]] && cmp -s "$img" "$R/out/clip.png" && echo "ok   the picture is a file beside the note" || echo "FAIL no picture file beside the note"
+    img=$(ls "$R/work"/assets/pasted-*.png 2>/dev/null | head -1)
+    [[ -n $img ]] && cmp -s "$img" "$R/out/clip.png" && echo "ok   the picture is a file in ./assets beside the note" || echo "FAIL no picture file in ./assets beside the note"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.clip.json"; [[ -n $img ]] || echo FAIL; } | grep -qv '^ok' ;;
   link)
     name=editing.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{info,form,link}.json

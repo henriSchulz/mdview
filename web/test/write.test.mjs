@@ -37,7 +37,7 @@ before(async () => {
   browser = await chromium.launch({ executablePath: browserPath, headless: true });
   context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: "mdview", value: cookie.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
-  await context.addInitScript(() => { if (!localStorage.getItem("mdview:prefs")) localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })); }); // (a commit a second after the last change)
+  await context.addInitScript(() => { if (!localStorage.getItem("mdview:prefs")) localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1, images: "beside" })); }); // (a commit a second after the last change)
   page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
@@ -75,7 +75,7 @@ test("typed in the active mode: a draft at once, a commit a little later, by thi
 });
 
 test("what is written and no commit yet survives the tab", async () => {
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30, images: "beside" })));
   await open("Beta.md");
   const before = gh.commits.length;
   await post({ type: "save", text: "# Beta\n\ntext, not kept yet\n" });
@@ -86,7 +86,7 @@ test("what is written and no commit yet survives the tab", async () => {
   await page.keyboard.press("Control+s"); // (and Ctrl+S keeps it now, whatever the quiet while)
   await until(() => /not kept yet/.test(text("Beta.md")), "the commit after Ctrl+S");
   assert.ok(gh.commits.length <= before + 1);
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1, images: "beside" })));
 });
 
 test("a task ticked, a note made, renamed and deleted", async () => {
@@ -289,18 +289,18 @@ test("a commit whose answer never came, and the note written on: no conflict of 
   await page.route("**/api/r/octo/notes/commit", async (route) => { await route.fetch().catch(() => {}); await route.abort(); }, { times: 1 });
   await post({ type: "save", text: "# Lost\n\na line, a third time\n" });
   await until(() => text("Lost.md") === "# Lost\n\na line, a third time\n", "the third commit, at GitHub");
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30, images: "beside" })));
   await page.reload();
   await untilNote("Lost.md");
   await post({ type: "save", text: "# Lost\n\na line, a third time and a fourth\n" });
   await post({ type: "history-now" });
   await until(() => text("Lost.md") === "# Lost\n\na line, a third time and a fourth\n", "the fourth, after the reload");
   assert.equal(await page.evaluate(() => document.querySelector('[data-act="historymenu"]').classList.contains("warn")), false);
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1, images: "beside" })));
 });
 
 test("two tabs on one repository: each keeps what was typed in it, and what a closed one left is taken over", async () => {
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 30, images: "beside" })));
   put("Twice.md", "# Twice\n\nline one\n\nline two\n");
   await open("Twice.md");
   const before = gh.commits.length, drafts = (p) => p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("mdview:octo/notes:drafts")).length);
@@ -333,7 +333,7 @@ test("two tabs on one repository: each keeps what was typed in it, and what a cl
   await third.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" })));
   await until(() => /left behind/.test(text("Twice.md") || ""), "what the closed tab left, as a commit");
   await third.close();
-  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1 })));
+  await page.evaluate(() => localStorage.setItem("mdview:prefs", JSON.stringify({ historyQuiet: 1, images: "beside" })));
 });
 
 test("a note's history: its versions, what each changed, one put back", async () => {
@@ -490,6 +490,26 @@ test("a picture put in while writing goes again with what shows it, and comes ba
   assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
   assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], "Gone.md");
   await page.waitForFunction((n) => { const i = [...document.querySelectorAll(".pm img")].find((i) => i.src.includes(n)); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 10000 });
+});
+
+test("where nothing else is set, what is pasted goes into a folder of its own beside the note: assets", async () => {
+  put("Kept.md", "# Kept\n\ntext\n");
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem("mdview:prefs") || "{}"); delete p.images; localStorage.setItem("mdview:prefs", JSON.stringify(p)); }); // (as a browser that never chose)
+  await open("Kept.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
+  await page.evaluate(async () => {
+    const dt = new DataTransfer(), c = document.createElement("canvas");
+    c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+    dt.items.add(new File([await new Promise((r) => c.toBlob(r, "image/png"))], "image.png", { type: "image/png" }));
+    document.querySelector(".pm").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await until(() => /!\[\]\(assets\/pasted-\d{8}-\d{6}\.png\)/.test(text("Kept.md") || ""), "the picture's markup names the folder");
+  const name = /\((assets\/pasted-[^)]+)\)/.exec(text("Kept.md"))[1];
+  assert.ok(gh.repo.files.has(name));
+  await page.waitForFunction((n) => { const i = [...document.querySelectorAll(".pm img")].find((i) => i.src.includes(n.split("/").pop())); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 10000 });
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem("mdview:prefs") || "{}"); p.images = "beside"; localStorage.setItem("mdview:prefs", JSON.stringify(p)); });
 });
 
 test("a file block: a click hands the file out, and a file that can be shown is embedded on request", async () => {

@@ -79,7 +79,7 @@ fn default_prefs() -> Map<String, Value> {
         "syntax": false,        // the Markdown of the formatting at the caret shows
         "quotes": false,        // typed quotes become typographic ones
         "wrap": 0,              // paragraphs written anew are wrapped at this many characters (0: not)
-        "images": "beside",     // pasted and dropped pictures: "beside" the note | "assets" | a folder relative to the note
+        "images": "assets",     // pasted and dropped pictures and files: in "assets" beside the note | "beside" the note itself | a folder relative to the note
         "style": "auto",        // new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
         "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
         "dialogWidth": 0, "dialogHeight": 0,  // a dialog's size, once one was pulled to another (0: its own)
@@ -2460,7 +2460,7 @@ impl Win {
         let beside = dir_of(note);
         let Some(vault) = vault else {
             let prefs = app.prefs();
-            let wanted = prefs["images"].as_str().unwrap_or("beside").trim();
+            let wanted = prefs["images"].as_str().unwrap_or("assets").trim();
             if matches!(wanted, "" | "beside" | ".") {
                 return beside;
             }

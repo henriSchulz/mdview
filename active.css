@@ -848,9 +848,10 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
 /* (… and it reaches back into what stands before the block — the cells of a table lit up — and
  * fills the room between the blocks, which is painted by what holds them: the note itself, a
- * callout. Neither shows: asked by :has(), so only the neighbours and the holder are styled anew.) */
-.pm :has(+ :is(.blk-sel, .ProseMirror-selectednode))::selection, .pm :has(+ :is(.blk-sel, .ProseMirror-selectednode)) *::selection,
-.pm:has(> :is(.blk-sel, .ProseMirror-selectednode))::selection, .pm :has(> :is(.blk-sel, .ProseMirror-selectednode))::selection { background: transparent; }
+ * callout. Neither shows. Which they are is marked by the editor (blocks.js: sel-before,
+ * sel-holder, and the note's own has-blocksel / has-nodesel) — asked for with :has(), every change
+ * to a long note had the browser look at all of it again.) */
+.pm .sel-before::selection, .pm .sel-before *::selection, .pm .sel-holder::selection, .pm.has-blocksel::selection, .pm.has-nodesel::selection { background: transparent; }
 .pm .blk-sel { caret-color: transparent; }
 /* (a block that is selected is a thing, not text: the pointer over it is the arrow — a click, or Enter, goes into it) */
 .pm .blk-sel, .pm .blk-sel * { cursor: default; }

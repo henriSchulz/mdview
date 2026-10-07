@@ -779,7 +779,23 @@
     props: {
       decorations(state) {
         const P = pickedOf(state);
-        if (!P.length) return null;
+        /* The browser's own highlight follows the selection out of the block: into what stands
+         * before it, and over the room between blocks (painted by what holds them). Both are
+         * marked, so that the highlight can be taken from them (active.css) — for blocks selected
+         * as wholes, and for a thing selected by a click. */
+        const around = (list) => {
+          const out = [], seen = new Set();
+          for (const pos of list) {
+            const $p = state.doc.resolve(pos), before = $p.nodeBefore;
+            if (before && !before.isText && !seen.has("b" + (pos - before.nodeSize))) { seen.add("b" + (pos - before.nodeSize)); out.push(Decoration.node(pos - before.nodeSize, pos, { class: "sel-before" })); }
+            if ($p.depth > 0 && !seen.has("h" + $p.before())) { seen.add("h" + $p.before()); out.push(Decoration.node($p.before(), $p.after(), { class: "sel-holder" })); }
+          }
+          return out;
+        };
+        if (!P.length) {
+          const s = state.selection;
+          return s instanceof NodeSelection && s.node.isBlock ? DecorationSet.create(state.doc, around([s.from])) : null;
+        }
         // Blocks that follow each other are one box (active.css): each reaches up over the gap to the
         // one before it. How far is measured — the gap is the blocks' margins, and those differ (a
         // formula, a table, a heading) — and handed over as --up: the gap less the 4 px each of the
@@ -791,9 +807,9 @@
           const before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
           const up = before && here ? Math.max(0, Math.round((here.top - before.bottom - 8) * 10) / 10) : null;
           return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null ? { class: "blk-sel" } : { class: "blk-sel", style: `--up: ${up}px` });
-        }));
+        }).concat(around(P.map((x) => x.pos))));
       },
-      attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : null),
+      attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : state.selection instanceof NodeSelection ? { class: "has-nodesel" } : null),
       handleKeyDown: keydown,
       handleDOMEvents: {
         // Ctrl+click on a block: it joins the selected blocks, or leaves them (a link keeps its own Ctrl+click)

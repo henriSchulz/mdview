@@ -13,7 +13,7 @@ const SCRIPTS = [
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.
 export const PREFS = {
-  lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0, images: "beside", style: "auto",
+  lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0, images: "assets", style: "auto",
   bullet: "-", emphasis: "*", strongMark: "**", ordered: ".", dialogWidth: 0, dialogHeight: 0,
   latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
   pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",

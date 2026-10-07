@@ -69,6 +69,7 @@
     const files = (uris) => { const d = new DataTransfer(); d.setData("text/uri-list", uris.join("\r\n")); return d; };
     // (where the last paragraph is now: the page may have moved since)
     const atLast = (dt) => { const last = para("Last paragraph"); last.scrollIntoView({ block: "center" }); const r = last.getBoundingClientRect(); drop(view.dom, r.right - 2, r.top + r.height / 2, dt); };
+    post("prefs", { prefs: { images: "beside" } }); await sleep(150); // (first beside the note; what the settings have by themselves — ./assets — comes next)
     atLast(files([pic]));
     for (let i = 0; i < 40 && !md().includes("drop.png"); i++) await sleep(50);
     ok("a picture file dropped: copied beside the note, embedded where it was dropped", md().includes("Last paragraph.![](drop.png)") || md().includes("Last paragraph![](drop.png)."), md().slice(-60));

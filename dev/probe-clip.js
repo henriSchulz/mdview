@@ -37,7 +37,7 @@
     await sleep(1800);
     caret(after("Typed here."));
     paste({});
-    ok("a pasted picture is embedded by its file name", await until(() => /Typed here\.!\[\]\(pasted-\d{8}-\d{6}\.png\)/.test(md())), md().slice(150, 260));
+    ok("a pasted picture is kept in ./assets and embedded by its file name", await until(() => /Typed here\.!\[\]\(assets\/pasted-\d{8}-\d{6}\.png\)/.test(md())), md().slice(150, 260));
     ok("… and shows", await until(() => { const im = view.dom.querySelector('img[src*="pasted-"]'); return !!im && im.complete && im.naturalWidth === 40; }), view.dom.querySelector('img[src*="pasted-"]')?.outerHTML);
     ok("nothing is embedded as data", !/data:image|base64/.test(md()));
 
