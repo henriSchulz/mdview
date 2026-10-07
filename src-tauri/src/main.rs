@@ -16,6 +16,7 @@
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
 mod ai;
+mod attach;
 mod github;
 mod history;
 mod host;

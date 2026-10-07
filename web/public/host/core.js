@@ -176,6 +176,20 @@
    * { path, created, password } } } — read forgivingly, written with the ids in order (two
    * devices that each share a note then change different lines of it). */
   const SHARES = ".mdview/shares.json";
+  /* Files the app itself put beside a note — a picture pasted, a file dropped in — are written
+   * down (.mdview/attachments.json: the file's path → the note it was put into), so that they can
+   * go again with what shows them. A file that was there before, and only linked, is not in it. */
+  const ATTACH = ".mdview/attachments.json";
+  function attachOf(text) {
+    try { const all = JSON.parse(text || "{}"); return all && typeof all === "object" && !Array.isArray(all) ? Object.fromEntries(Object.entries(all).filter(([k, v]) => typeof k === "string" && typeof v === "string")) : {}; } catch { return {}; }
+  }
+  const attachText = (all) => JSON.stringify(Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, 2) + "\n";
+  // does a note's text name the file? (as it is, or as an address writes it: %20 for a space)
+  function mentions(text, name) {
+    if (!name || typeof text !== "string") return false;
+    if (text.includes(name) || text.includes(encodeURIComponent(name)) || text.includes(encodeURI(name))) return true;
+    try { return decodeURIComponent(text).includes(name); } catch { return false; }
+  }
   function sharesOf(text) {
     let all = null;
     try { all = JSON.parse(text || "{}"); } catch { /* (not to be read: as if empty) */ }
@@ -360,5 +374,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { ATTACH, attachOf, attachText, mentions, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -170,3 +170,16 @@ test("where both changed the same place it is for the user to say, place by plac
   assert.deepEqual(C.merge3("x\ny\n", "y\n", "X\ny\n").parts[0], { mine: "", base: "x\n", theirs: "X\n" });
   assert.deepEqual(C.merge3("", "mine\n", "theirs\n").parts, [{ mine: "mine\n", base: "", theirs: "theirs\n" }]);
 });
+
+test("what the app put beside a note: written down, and found by its name in a note's text", () => {
+  assert.deepEqual(C.attachOf(""), {});
+  assert.deepEqual(C.attachOf("not json"), {});
+  assert.deepEqual(C.attachOf('{"a/p.png":"a/n.md","x":3}'), { "a/p.png": "a/n.md" });
+  assert.equal(C.attachText({ "b.png": "n.md", "a.png": "n.md" }), '{\n  "a.png": "n.md",\n  "b.png": "n.md"\n}\n');
+  assert.ok(C.mentions("![](pasted-1.png)", "pasted-1.png"));
+  assert.ok(C.mentions("![](my%20file.png)", "my file.png"));
+  assert.ok(C.mentions("![[my file.png]]", "my file.png"));
+  assert.ok(C.mentions("100% ![](a%20b.png)", "a b.png")); // (a text that is no address as a whole)
+  assert.ok(!C.mentions("![](other.png)", "pasted-1.png"));
+  assert.ok(!C.mentions("text", ""));
+});

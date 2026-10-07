@@ -117,6 +117,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   noteRenamed: ["write", "a note has another name"],
   insertImage: ["write", "a picture was kept: its markup, to be put in"],
   insertDropped: ["write", "dropped files were kept"],
+  filesBack: ["write", "files that went with what showed them are back (the removal undone): their pictures are loaded anew"],
   historyRestored: ["write", "a version was put back"],
   historyKept: ["write", "a version was kept: what the settings show is no longer so"],
   conflicts: ["write", "what is to be said before a commit can be made"],

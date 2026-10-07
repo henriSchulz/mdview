@@ -99,6 +99,7 @@ fn default_prefs() -> Map<String, Value> {
         "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
         "measure": "normal",      // the text column's width: "narrow" | "normal" | "wide" | "full"
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
+        "props": true,            // a note's properties show at its head (false: put away, from the menu of a right click)
         "hinting": false,         // text drawn on whole pixels (sharper on a screen of ordinary resolution); at the next start
         "aiModel": "",            // the model asked for suggestions ("": AI_MODEL)
         "historyQuiet": 30,       // a project's changes are kept as a commit after this many seconds without another
@@ -263,6 +264,12 @@ fn host_name() -> String {
         }
     }
     env("COMPUTERNAME").unwrap_or_else(|| "device".into())
+}
+
+/// What the application itself put beside notes, and what of it went (attach.rs).
+fn attachments() -> crate::attach::Store {
+    let cache = env("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".cache")).join("mdview");
+    crate::attach::Store::new(&dir_of(&state_file()), &cache)
 }
 
 fn state_file() -> PathBuf {
@@ -2181,6 +2188,9 @@ impl Win {
                         self.save_seq = msg["seq"].clone();
                     }
                     self.save_text(msg["text"].as_str(), truthy(&msg["exact"]));
+                    if truthy(&msg["exact"]) {
+                        self.tidy_attachments(msg["text"].as_str()); // (the active mode: what it no longer shows goes)
+                    }
                 }
             }
             "pasteimage" => self.paste_image(app, msg["path"].as_str(), truthy(&msg["append"])),
@@ -2431,6 +2441,19 @@ impl Win {
 
     // -- pasted images ----------------------------------------------------
 
+    /// After a save from the active mode: a picture or file the application put beside the
+    /// note, which the note no longer names (nor any other note), goes to the trash; one that
+    /// is named again is put back, and the page shows it again (attach.rs).
+    fn tidy_attachments(&mut self, text: Option<&str>) {
+        let (Some(note), Some(text)) = (self.path.clone().filter(|p| !is_pdf(p)), text) else { return };
+        let root = self.vault().or_else(|| self.folder.clone().filter(|f| note.starts_with(f))).unwrap_or_else(|| dir_of(&note));
+        let done = attachments().tidy(&note, text, &root, now(), |p| trash::delete(p).is_ok());
+        if !done.restored.is_empty() {
+            let names: Vec<String> = done.restored.iter().map(|p| name_of(p)).collect();
+            self.js("MdView.filesBack", &[json!(names)]);
+        }
+    }
+
     /// Where a pasted image goes: next to the note (or where the settings say, relative to
     /// it), or wherever the Obsidian vault keeps its attachments (default: the vault root).
     fn attachment_dir(&self, app: &App, note: &Path, vault: Option<&Path>) -> PathBuf {
@@ -2485,6 +2508,7 @@ impl Win {
         };
         let markup = self.image_markup(&target, &note, vault.is_some());
         if !append {
+            attachments().own(&target, &note);
             return self.js("MdView.insertImage", &[json!({ "path": s(&note), "markup": markup })]);
         }
         let nl: &[u8] = if old.windows(2).any(|w| w == b"\r\n") { b"\r\n" } else { b"\n" };
@@ -2534,7 +2558,10 @@ impl Win {
                 write_new(&self.attachment_dir(app, &note, vault.as_deref()), |n| if n == 1 { name_of(&src) } else { format!("{stem}-{n}{dot}") }, &data, 100)
             });
             match copied {
-                Ok(target) => markups.push(markup(&target)),
+                Ok(target) => {
+                    attachments().own(&target, &note);
+                    markups.push(markup(&target));
+                }
                 Err(e) => self.toast(format!("Couldn't copy the file: {}", strerror(&e))),
             }
         }
@@ -2574,6 +2601,7 @@ impl Win {
         let folder = self.attachment_dir(app, &note, vault.as_deref());
         match write_new(&folder, |n| if n == 1 { format!("{stem}.svg") } else { format!("{stem}-{n}.svg") }, format!("{svg}\n").as_bytes(), 200) {
             Ok(target) => {
+                attachments().own(&target, &note);
                 let markup = self.image_markup(&target, &note, vault.is_some());
                 self.js("MdView.insertImage", &[json!({ "path": s(&note), "markup": markup })]);
             }

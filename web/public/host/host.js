@@ -404,6 +404,60 @@
     blobs.set(rel(target), base64Of(new Uint8Array(await blob.arrayBuffer())));
     return target;
   }
+  /* What the app put beside a note goes again with what shows it (core.js, ATTACH). After a save
+   * from the active mode: a file of that note which the note no longer names — nor any other
+   * note — is deleted, in the next commit (its versions stay in the repository). Its bytes are
+   * kept here meanwhile: named again (the removal undone, the block pasted into another note),
+   * the file is put back and its picture shown again. */
+  const removed = new Map(); // path → its bytes, base64
+  const owned = async () => C.attachOf(has(C.ATTACH) ? await textOf(BASE + "/" + C.ATTACH) : "");
+  async function namedElsewhere(name, note) {
+    const notes = every().filter((r) => C.isMd(r) && r !== note);
+    await fetchTexts(notes.filter((r) => !drafts.has(r) && files.has(r)).map((r) => files.get(r).sha)).catch(() => {});
+    for (const r of notes) {
+      const text = drafts.has(r) ? drafts.get(r).text : files.has(r) ? texts.get(files.get(r).sha) : null;
+      if (text === undefined) return r; // (not known: the file stays)
+      if (C.mentions(text, name)) return r;
+    }
+    return null;
+  }
+  async function tidyFiles(note, text) {
+    if (!has(C.ATTACH) && !removed.size) return;
+    const all = await owned(), back = [];
+    let changed = false;
+    for (const [r] of [...removed]) {
+      if (!C.mentions(text, C.nameOf(r))) continue;
+      if (files.has(r) && gone.has(r)) gone.delete(r); // (its deletion was no commit yet: it never went)
+      else if (!has(r)) blobs.set(r, removed.get(r));
+      removed.delete(r);
+      all[r] = note;
+      changed = true;
+      back.push(C.nameOf(r));
+    }
+    for (const [r, of] of Object.entries(all)) {
+      if (of !== note || C.mentions(text, C.nameOf(r))) continue;
+      if (!has(r)) { delete all[r]; changed = true; continue; } // (taken away by other means)
+      const other = await namedElsewhere(C.nameOf(r), note);
+      if (other) { all[r] = other; changed = true; continue; } // (it is that note's now)
+      let bytes = blobs.get(r);
+      if (!bytes) { // (aside first: without its bytes the file stays)
+        const res = await ask(fileUrl(BASE + "/" + r)).catch(() => null);
+        if (!res || !res.ok) continue;
+        bytes = base64Of(new Uint8Array(await res.arrayBuffer()));
+      }
+      removed.set(r, bytes);
+      blobs.delete(r);
+      if (files.has(r)) gone.add(r);
+      delete all[r];
+      changed = true;
+    }
+    if (!changed) return;
+    write(C.ATTACH, C.attachText(all));
+    sendFolder();
+    if (back.length) { await commit(); tell("filesBack", back); }
+  }
+  let tidying = Promise.resolve();
+  const tidyLater = (note, text) => { tidying = tidying.then(() => tidyFiles(note, text)).catch((e) => console.error("mdview host: attachments", e)); };
   const markupOf = (note, target) => `![](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
   /* Files handed over by the page as they are (MdHost.drop): dropped on the note, or on the
    * clipboard when something was pasted — in a browser a pasted picture is in the paste event,
@@ -440,6 +494,11 @@
     if (append) { // (in the reading view: at the note's end, in the same commit)
       const old = await textOf(path), nl = old.includes("\r\n") ? "\r\n" : "\n", body = old.replace(/[\r\n]+$/, "");
       write(rel(path), (body ? body + nl + nl : "") + joined(markups()).replace(/\n/g, nl) + nl);
+    }
+    if (!append) { // (put in while writing: the note's own from now on)
+      const all = await owned();
+      for (const t of kept) all[rel(t)] = rel(path);
+      write(C.ATTACH, C.attachText(all));
     }
     await commit();
     const there = kept.filter((t) => !blobs.has(rel(t)));
@@ -703,6 +762,7 @@
       const r = rel(p), was = drafts.has(r) ? drafts.get(r).text : committed(r);
       // (line ends are kept as the file has them, unless the page says the text is byte for byte)
       write(r, !exact && typeof was === "string" && was.includes("\r\n") ? text.replace(/\r?\n/g, "\r\n") : text);
+      if (exact) tidyLater(r, text); // (the active mode: what it no longer shows goes)
     },
     "history-now"() { if (project()) commit(); },
     async toggle({ line, checked }) {
