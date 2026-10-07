@@ -92,6 +92,15 @@ test("the button sends the user to GitHub, and what comes back signs them in", a
   assert.ok(home.text.indexOf("octo/alpha-notes") > 0 && home.text.indexOf("octo/alpha-notes") < home.text.indexOf("octo/Zeta"));
   assert.match(home.text, /Octo Cat \(@octo\)/);
   assert.match(home.text, /href="\/r\/octo\/Zeta"/);
+  // … the one with the app's folder in it as a notebook (what it is about, when it was written to), the other behind a line of its own, with what opening it means
+  assert.match(home.text, /class="book" href="\/r\/octo\/alpha-notes"[\s\S]*?Lecture notes[\s\S]*?Public · Written to 3 days ago/);
+  assert.match(home.text, /<details class="others"[^>]*>[\s\S]*?Open another repository[\s\S]*?nothing is written to it until you turn its history on[\s\S]*?class="other" href="\/r\/octo\/Zeta"/);
+  assert.ok(!/class="book" href="\/r\/octo\/Zeta"/.test(home.text));
+  // (where GitHub does not say which are notebooks, all of them can still be opened)
+  gh.projectsFail = true;
+  const untold = await b.go("/");
+  gh.projectsFail = false;
+  assert.match(untold.text, /could not be told[\s\S]*?<details class="others" open=""[\s\S]*?href="\/r\/octo\/alpha-notes"[\s\S]*?href="\/r\/octo\/Zeta"/);
   assert.ok(!home.text.includes("ghu_") && !home.text.includes("ghr_")); // (no token in the page)
   assert.equal((await b.go("/r/octo/Zeta")).status, 200);
 });

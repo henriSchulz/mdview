@@ -11,6 +11,7 @@ export function fakeGitHub() {
     repo: { owner: "octo", name: "notes", files: new Map(), private: true },
     blobs: new Map(),
     past: [], // the repository as every commit seen had it: { oid, message, time, files }, oldest first
+    projects: ["octo/alpha-notes"], projectsFail: false, // (which of the listed repositories hold the app's folder; whether that can be told at all)
     appKey: null, installed: true, appToken: "", appTokens: new Set(), appAsked: [], // the app as itself: its public key, whether it is installed on the repository, the token it was given, what it asked for
     commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by }
   };
@@ -74,7 +75,8 @@ export function fakeGitHub() {
       if (url.pathname === "/user/installations") return json({ installations: [{ id: 7 }] });
       if (url.pathname === "/user/installations/7/repositories" && gh.listed) return json({ repositories: gh.listed });
       if (url.pathname === "/user/installations/7/repositories") return json({ repositories: [
-        { full_name: "octo/Zeta", private: true, default_branch: "main" }, { full_name: "octo/alpha-notes", private: false, default_branch: "trunk" } ] });
+        { full_name: "octo/Zeta", private: true, default_branch: "main", description: null, pushed_at: "2020-01-01T00:00:00Z" },
+        { full_name: "octo/alpha-notes", private: false, default_branch: "trunk", description: "Lecture notes", pushed_at: new Date(Date.now() - 3 * 86400000).toISOString() } ] });
       if (url.pathname === at) return json({ default_branch: "main", private: gh.repo.private });
       if (url.pathname === `${at}/commits/main`) return files.size ? json(asCommit(note("written elsewhere"))) : json({ message: "Git Repository is empty." }, 409);
       if (url.pathname === `${at}/commits`) { // (the commits in which a file is not what it was before)
@@ -115,6 +117,14 @@ export function fakeGitHub() {
           object[m[1]] = { nodes: upTo >= 0 && id(gh.past[i], path) ? [{ committedDate: new Date(gh.past[i].time * 1000).toISOString() }] : [] };
         }
         return json({ data: { repository: { object: upTo >= 0 ? object : null } } });
+      }
+      if (url.pathname === "/graphql" && JSON.parse(body).query.includes(".mdview/project.json")) { // (which repositories are projects: those with the marker)
+        const data = {};
+        for (const m of JSON.parse(body).query.matchAll(/(r\d+): repository\(owner: "([^"]*)", name: "([^"]*)"\)/g)) {
+          const full = `${m[2]}/${m[3]}`;
+          data[m[1]] = { object: gh.projects.includes(full) || (full === `${owner}/${name}` && files.has(".mdview/project.json")) ? { __typename: "Blob" } : null };
+        }
+        return gh.projectsFail ? json({ message: "no" }, 502) : json({ data });
       }
       if (url.pathname === "/graphql") {
         const q = JSON.parse(body).query, repository = {};

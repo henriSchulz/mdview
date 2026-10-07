@@ -10,7 +10,7 @@ const API = process.env.GITHUB_API || "https://api.github.com";
 
 export type Tokens = { access: string; expires: number; refresh: string; refreshExpires: number };
 export type User = { login: string; name: string; id: number };
-export type Repo = { name: string; private: boolean; branch: string };
+export type Repo = { name: string; private: boolean; branch: string; about?: string; pushed?: string };
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -78,13 +78,36 @@ export async function repositories(access: string): Promise<Repo[]> {
   const all: Repo[] = [];
   for (const { id } of installed.installations || []) {
     for (let page = 1; page <= PAGES; page++) {
-      const got = await get<{ repositories: { full_name: string; private: boolean; default_branch: string }[] }>(access, `/user/installations/${id}/repositories?per_page=${PAGE}&page=${page}`);
+      const got = await get<{ repositories: { full_name: string; private: boolean; default_branch: string; description?: string | null; pushed_at?: string | null }[] }>(access, `/user/installations/${id}/repositories?per_page=${PAGE}&page=${page}`);
       const repos = got.repositories || [];
-      for (const r of repos) all.push({ name: r.full_name, private: !!r.private, branch: r.default_branch || "main" });
+      for (const r of repos) all.push({ name: r.full_name, private: !!r.private, branch: r.default_branch || "main", about: r.description || "", pushed: r.pushed_at || "" });
       if (repos.length < PAGE) break;
     }
   }
   return all.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+/** Which of these repositories are projects: those with the app's folder in them, .mdview with
+ * its marker (as the desktop app makes it when a folder's history is turned on). Many in one
+ * question (GraphQL). null: GitHub did not say — nothing is known of any of them. */
+export async function projects(access: string, repos: Repo[]): Promise<Set<string> | null> {
+  const found = new Set<string>();
+  for (let i = 0; i < repos.length; i += 50) {
+    const some = repos.slice(i, i + 50);
+    const fields = some.map((r, n) => { const [owner, ...rest] = r.name.split("/"); return `r${n}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(rest.join("/"))}) { object(expression: "HEAD:.mdview/project.json") { __typename } }`; }).join(" ");
+    const res = await fetch(`${API}/graphql`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", "User-Agent": "mdview-web" },
+      body: JSON.stringify({ query: `query { ${fields} }` }),
+      cache: "no-store",
+    }).catch(() => null);
+    if (res && res.status === 401) throw new Refused("GitHub does not take the token any more");
+    if (!res || !res.ok) return null;
+    const said = (await res.json().catch(() => null)) as { data?: Record<string, { object: unknown } | null> } | null;
+    if (!said || !said.data) return null;
+    some.forEach((r, n) => { if (said.data![`r${n}`]?.object) found.add(r.name); });
+  }
+  return found;
 }
 
 export type Entry = { path: string; sha: string; size: number };
