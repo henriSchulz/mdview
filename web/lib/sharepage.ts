@@ -47,7 +47,21 @@ const ask = (here: string, to: string, why = "") =>
     `<form method='post' action='${attr(to)}'${why ? " class='shake'" : ""}><input type='password' name='password' aria-label='Password' placeholder='Password' autocomplete='off' autofocus required${why ? " class='wrong'" : ""}><button type='submit'>Open</button></form>`, why ? 401 : 200);
 
 
-export const nothing = (here: string, why: string) => { const [status, text] = NOTHING[why] || NOTHING.gone; return card(here, "Nothing here", `<h1>Nothing here</h1><p>${text}</p>`, status); };
+/** Nothing at this address: a shrug, and the number. (The same page the app has for an address of
+ * its own that is none: app/not-found.tsx.) */
+export function shrug(here: string): Response {
+  const nonce = randomBytes(16).toString("base64");
+  const style =
+    `${css(LIGHT, "light")}@media (prefers-color-scheme: dark){${css(DARK, "dark")}}` +
+    `:root{color-scheme:light dark}html,body{height:100%}body{margin:0;background:var(--c-background);color:var(--c-foreground);font:400 14px/1.45 "SF Pro","Inter",system-ui,sans-serif;-webkit-font-smoothing:antialiased}` +
+    `main{min-height:100%;display:grid;place-content:center;justify-items:center;gap:6px;padding:24px;box-sizing:border-box}` +
+    `.shrug{margin:0;font-size:clamp(40px,9vw,64px);line-height:1.1;white-space:nowrap}h1{margin:0;font-weight:400;font-size:clamp(18px,3vw,24px)}`;
+  const page =
+    `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><meta name='robots' content='noindex'>` +
+    `<title>404</title>${icons(here)}<style nonce='${nonce}'>${style}</style></head><body><main><p class='shrug' aria-hidden='true'>¯\\_(ツ)_/¯</p><h1>404</h1></main></body></html>`;
+  return new Response(page, { status: 404, headers: { ...HEAD, "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; img-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'` } });
+}
+export const nothing = (here: string, why: string) => { const [status, text] = NOTHING[why] || NOTHING.gone; return status === 404 && why !== "off" ? shrug(here) : card(here, "Nothing here", `<h1>Nothing here</h1><p>${text}</p>`, status); };
 
 /** The note, or the question for its password. self: the address the browser is at. */
 export async function showShared(request: Request, owner: string, repo: string, id: string, self: string): Promise<Response> {

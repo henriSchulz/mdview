@@ -72,3 +72,8 @@ button { font: inherit; }
 .shares .row.share .link { flex: none; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
 .shares footer .link:disabled { opacity: 0.4; pointer-events: none; }
 .appicon { width: 64px; height: 64px; display: block; margin-bottom: -4px; }
+
+/* nothing at this address (not-found.tsx): a shrug, and the number */
+.shrug-page { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 24px; box-sizing: border-box; }
+.shrug-page .shrug { margin: 0; font-size: clamp(40px, 9vw, 64px); line-height: 1.1; white-space: nowrap; }
+.shrug-page h1 { margin: 0; font-weight: 400; font-size: clamp(18px, 3vw, 24px); }

@@ -74,6 +74,19 @@ test("with the note go the files it shows, and no other file of the repository",
 
 test("a link that is not one, or not any more, shows nothing", async () => {
   for (const id of [GONE, "short", `${OPEN}!`]) assert.equal((await get(`/s/octo/notes/${id}`)).status, 404, id);
+  // … with a shrug, and the number — and nothing else
+  const page = await (await get(`/s/octo/notes/${GONE}`)).text();
+  assert.match(page, /<p class='shrug' aria-hidden='true'>¯\\_\(ツ\)_\/¯<\/p><h1>404<\/h1>/);
+  if (process.env.SHOT_DIR) {
+    const b = await chromium.launch({ executablePath: browserPath, headless: true });
+    for (const scheme of ["light", "dark"]) {
+      const c = await b.newContext({ viewport: { width: 1000, height: 560 }, colorScheme: scheme }), p = await c.newPage();
+      await p.goto(`${base}/s/octo/notes/${GONE}`);
+      await p.screenshot({ path: `${process.env.SHOT_DIR}/404-${scheme}.png` });
+      await c.close();
+    }
+    await b.close();
+  }
   assert.equal((await get(`/s/octo/other/${OPEN}`)).status, 404);
   assert.equal((await get(`/s/octo/notes/${GONE}/data`)).status, 404);
   const all = both();
