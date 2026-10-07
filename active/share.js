@@ -14,7 +14,7 @@
   const el = (tag, attrs = {}, text) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
 
   const ICON = window.MdView.core.UI; // (the symbols as the app draws them)
-  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, back = null;
+  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, rawRow = null, raw = null, copyRaw = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, back = null;
   let path = null, state = null, waiting = false, opened = false; // state: what the application said last; opened: the password's part is unfolded
   const isOpen = () => !!root && root.hasAttribute("data-open");
 
@@ -34,6 +34,11 @@
     link = el("input", { class: "share-link mono", type: "text", readonly: "", "aria-label": T("share.link") });
     copy = el("button", { class: "pf-link share-copy", type: "button" }, T("share.copy"));
     linkRow.append(link, copy);
+    // … and the note as it is written, its Markdown as text: the same address with /raw behind it
+    rawRow = el("div", { class: "share-row share-link-row" });
+    raw = el("input", { class: "share-link mono", type: "text", readonly: "", "aria-label": T("share.raw") });
+    copyRaw = el("button", { class: "pf-link share-copy", type: "button" }, T("share.copyRaw"));
+    rawRow.append(raw, copyRaw);
     more = el("button", { class: "share-row share-more", type: "button", "aria-expanded": "false", "aria-controls": "share-fold" });
     const chev = el("span", { class: "share-chev", "aria-hidden": "true" });
     chev.innerHTML = ICON.chevron;
@@ -47,7 +52,7 @@
     line.append(pass, set);
     inner.append(line, el("p", { class: "share-hint" }, T("share.password.hint")), drop);
     fold.appendChild(inner);
-    card.append(linkRow, more, fold);
+    card.append(linkRow, rawRow, more, fold);
     const foot = el("div", { class: "share-foot" });
     stop = el("button", { class: "pf-link danger", type: "button" }, T("share.stop"));
     go = el("button", { class: "btn primary", type: "button" }, T("share.start"));
@@ -58,8 +63,10 @@
     document.body.appendChild(root);
 
     const ask = (type, data = {}) => { waiting = true; draw(); post(type, { path, ...data }); };
-    link.addEventListener("focus", () => link.select());
-    copy.onclick = () => { post("copy", { text: link.value }); copy.textContent = T("share.copied"); copy.classList.add("done"); setTimeout(() => { copy.textContent = T("share.copy"); copy.classList.remove("done"); }, 1400); };
+    for (const [field, button, name] of [[link, copy, "share.copy"], [raw, copyRaw, "share.copyRaw"]]) {
+      field.addEventListener("focus", () => field.select());
+      button.onclick = () => { post("copy", { text: field.value }); button.textContent = T("share.copied"); button.classList.add("done"); setTimeout(() => { button.textContent = T(name); button.classList.remove("done"); }, 1400); };
+    }
     more.onclick = () => { opened = !opened; draw(); if (opened) setTimeout(() => { if (isOpen() && opened) pass.focus(); }, 60); };
     go.onclick = () => ask("share-set", { password: (opened && pass.value) || null });
     set.onclick = () => { if (pass.value) ask("share-set", { password: pass.value }); else pass.focus(); };
@@ -106,7 +113,8 @@
     box.toggleAttribute("data-shared", shared);
     card.hidden = !can;
     linkRow.hidden = !shared;
-    if (shared && link.value !== s.link) link.value = s.link;
+    rawRow.hidden = !shared;
+    if (shared && link.value !== s.link) { link.value = s.link; raw.value = s.link.replace(/\/+$/, "") + "/raw"; }
     // the password: a row that says how it is, and unfolds to set it
     moreValue.textContent = T(s && s.password ? "share.password.is" : !shared && opened && pass.value ? "share.password.will" : "share.password.none");
     more.setAttribute("aria-expanded", String(opened));
@@ -142,7 +150,7 @@
     if (!root) build();
     window.MdView.flush(false); // (what is typed and not saved yet is the note that is shared)
     path = p; state = null; waiting = true; opened = false;
-    pass.value = ""; link.value = "";
+    pass.value = ""; link.value = ""; raw.value = "";
     draw();
     root.dataset.open = "";
     post("share-info", { path });

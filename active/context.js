@@ -25,19 +25,41 @@
     return { kind, quote, deco: q ? (q.node.attrs.callout ? "callout" : q.node.attrs.deco || "quote") : null, color: q ? q.node.attrs.color : null,
       callout: q && q.node.attrs.callout ? q.node.attrs.callout.toLowerCase() : null, fold: q && q.node.attrs.callout ? q.node.attrs.fold : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
   }
-  const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? C.lift(state, dispatch) : C.wrapIn(N.blockquote)(state, dispatch));
+  /* A quote around what the caret is in. In a list that is the list as a whole (a quote around one
+   * item's text alone would stand inside the item); else the blocks the selection reaches. */
+  const wrapQuote = (attrs) => (state, dispatch) => {
+    const list = A.edit.ancestor(state.selection.$from, (n) => /_list$/.test(n.type.name));
+    if (!list) return C.wrapIn(N.blockquote, attrs)(state, dispatch);
+    const range = state.doc.resolve(list.pos).blockRange(state.doc.resolve(list.pos + list.node.nodeSize));
+    if (!range || !PM.transform.findWrapping(range, N.blockquote, attrs)) return false;
+    if (dispatch) dispatch(state.tr.wrap(range, [{ type: N.blockquote, attrs }]));
+    return true;
+  };
+  // the quote around the caret goes — it alone: all that is in it stays as it is
+  const unwrapQuote = (state, dispatch) => {
+    const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
+    if (!q) return false;
+    const $q = state.doc.resolve(q.pos);
+    if (!$q.parent.canReplace($q.index(), $q.index() + 1, q.node.content)) return C.lift(state, dispatch);
+    if (dispatch) { // (the caret stays in the text it is in: one step further out)
+      const { anchor, head } = state.selection, tr = state.tr.replaceWith(q.pos, q.pos + q.node.nodeSize, q.node.content);
+      dispatch(tr.setSelection(PM.state.TextSelection.between(tr.doc.resolve(anchor - 1), tr.doc.resolve(head - 1))));
+    }
+    return true;
+  };
+  const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? unwrapQuote(state, dispatch) : wrapQuote(null)(state, dispatch));
   /* A decoration around the block: a quote (deco null), a tinted block, a focus bar — in a colour.
    * In a quote already, that quote becomes it. */
   const setDeco = (deco, color = null) => (state, dispatch) => {
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
-    if (!q) return C.wrapIn(N.blockquote, { deco, color: deco ? color : null })(state, dispatch);
+    if (!q) return wrapQuote({ deco, color: deco ? color : null })(state, dispatch);
     if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco, color: deco ? color : null, callout: null, title: null, fold: null }));
     return true;
   };
   // a callout around the block (an info, a warning …); a quote or a callout that is there becomes it, its title stays
   const setCallout = (type) => (state, dispatch) => {
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
-    if (!q) return C.wrapIn(N.blockquote, { callout: type })(state, dispatch);
+    if (!q) return wrapQuote({ callout: type })(state, dispatch);
     if (dispatch) dispatch(state.tr.setNodeMarkup(q.pos, null, { ...q.node.attrs, deco: null, color: null, callout: type }));
     return true;
   };
@@ -107,6 +129,12 @@
   const INSERT = {
     graphic(view) { setTimeout(() => A.graphic.open(view), 0); }, // a figure drawn by Claude (graphic.js)
     code(view, at) { const pos = putBlock(view, island("```\n```", "code"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
+    // a page of the note's own: its line here, and the page opened to be named and written
+    page(view, at) {
+      const id = window.MdView.core.pages.fresh();
+      putBlock(view, island(`<!-- page: ${T("page.untitled")} #${id} -->`, "html"), false, at);
+      setTimeout(() => window.MdView.core.pages.open(id), 0);
+    },
     math(view, at) { const pos = putBlock(view, island("$$\n\n$$", "math"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
     table(view, at) {
       const row = (header) => N.table_row.create(null, [0, 1].map(() => N.table_cell.create({ header })));
@@ -199,8 +227,24 @@
     const editable = !(node.type === N.island && node.attrs.virtual);
     // a picture, an embedded picture or PDF page: how large it shows, and — a PDF — which part of the page
     const pic = editable ? A.islands.picture(view, pos, node) : null;
+    // a page of the note, its line: opened, and how the line looks — a row, a card, a tile, a pill, a banner, in a colour
+    const P = window.MdView.core.pages;
+    if (node.type === N.island && node.attrs.kind === "html" && P.isRow(raw)) {
+      const look = P.lookOf(raw), set = (to) => () => { A.islands.replace(view, pos, P.withLook(raw, to)); view.focus(); }, whole = P.markdownOf(raw);
+      return [
+        item("menu.pageOpen", () => A.islands.open(view, pos), { key: "↩" }),
+        null,
+        { label: T("menu.pageStyle"), items: P.STYLES.map((s) => item("page.style." + s, set({ style: s }), { checked: look.style === s })) },
+        { label: T("slash.color"), items: [item("slash.colorDefault", set({ color: "" }), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, set({ color: c }), { checked: look.color === c }))] },
+        null,
+        item("menu.cut", () => { copy(whole); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
+        item("menu.copyMarkdown", () => { copy(whole); view.focus(); }, { key: "Ctrl+C" }),
+        null,
+        item("menu.delete", () => { view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { danger: true, key: "⌫" }),
+      ];
+    }
     return [
-      item("menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
+      item(node.type === N.island && node.attrs.kind === "frontmatter" ? "menu.propsEdit" : "menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target }), { key: "Ctrl+Click" })] : [])] : []),

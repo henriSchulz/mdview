@@ -142,6 +142,8 @@ blockquote {
   color: var(--fg2);
 }
 blockquote > :last-child { margin-bottom: 0; }
+/* (a heading first in a quote or block: the box's own padding is the room above it) */
+blockquote > :first-child { margin-top: 0; }
 /* decorations: a quote as a tinted block ([!block]), with a bar in a colour of its own ([!focus]),
  * or both ([!block-focus]). --cc: the bar's colour, --ct: the tint's; a colour chosen sets both. */
 blockquote.deco { --cc: var(--accent); --ct: var(--fg2); color: var(--fg); }
@@ -175,7 +177,7 @@ input.task {
   -webkit-appearance: none;
   position: absolute;
   left: -1.55em;
-  top: 0.28em;
+  top: 0.34em; /* (the box's middle on the middle of the letters, not of the line) */
   width: 1.05em;
   height: 1.05em;
   margin: 0;
@@ -410,7 +412,50 @@ details[open] > summary .callout-fold { transform: rotate(90deg); }
 .callout-quote { --cc: var(--fg2); }
 
 /* ------------------------------------------------------------- properties + transclusion */
+/* ------------------------------------------------------------- pages in a note
+ * A page's line on the page it lies on: a sign and its name, a row to click. */
+.page-row { --pc: var(--accent); display: flex; align-items: center; gap: 8px; min-height: 30px; margin: 0 -8px 0.5em; padding: 3px 8px; border-radius: var(--radius-control); color: var(--fg); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out); }
+.page-row:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.page-row:active { background: var(--fill-pressed); }
+.page-row:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: -2px; }
+.page-row-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
+.page-row[data-color] .page-row-icon { color: var(--pc); }
+.page-row-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.page-row-icon .sf { font-size: 15px; }
+.page-row-name { font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--fg) 28%, transparent); text-underline-offset: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-row-go { display: none; place-items: center; flex: none; width: 14px; height: 14px; margin-left: auto; color: var(--fg3); }
+.page-row-go svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.page-row-go .sf { font-size: 9px; }
+/* A card: a cell of a grouped list, as the system has them — on a raised ground (white over the
+ * window's colour) with a hairline; the page's colour only in its sign. */
+.page-row[data-style="card"] { --page-ground: color-mix(in srgb, #fff 70%, var(--bg)); --page-edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05); }
+body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(in srgb, var(--fg) 7%, var(--bg)); --page-edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent); }
+.page-row[data-style="card"] { gap: 10px; min-height: 44px; box-sizing: border-box; margin: 0 0 0.6em; padding: 8px 12px 8px 10px; border-radius: var(--radius-popover, 10px); background: var(--page-ground); box-shadow: var(--page-edge); }
+.page-row[data-style="card"]:hover { background: color-mix(in srgb, var(--fg) 4%, var(--page-ground)); }
+.page-row[data-style="card"]:active { background: color-mix(in srgb, var(--fg) 8%, var(--page-ground)); }
+.page-row[data-style="card"] .page-row-name { text-decoration: none; }
+.page-row[data-style="card"] .page-row-go { display: grid; }
+/* (its sign: a white glyph on a rounded square in the colour) */
+.page-row[data-style="card"] .page-row-icon { width: 26px; height: 26px; border-radius: 7px; background: var(--pc); color: #fff; }
+.page-row[data-style="card"] .page-row-icon svg { width: 15px; height: 15px; stroke-width: 1.9; }
+.page-row[data-style="card"] .page-row-icon .sf { font-size: 13px; }
+/* A page that is open: the way to it, and its name (typed there in the active mode). */
+#pagebar { display: grid; gap: 6px; margin: 0 0 1.4em; }
+.pb-way { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: -6px; color: var(--fg2); font: 400 13px/1.45 var(--ui); }
+.pb-crumb { height: 24px; padding: 0 6px; border: 0; border-radius: var(--radius-chip); background: transparent; color: inherit; font: inherit; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.pb-crumb:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.pb-crumb:active { background: var(--fill-pressed); }
+.pb-sep { display: grid; place-items: center; width: 12px; height: 12px; color: var(--fg3); }
+.pb-sep svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pb-sep .sf { font-size: 8px; }
+.pb-title { width: 100%; box-sizing: border-box; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--fg); font-family: inherit; font-weight: 700; font-size: 2em; line-height: 1.25; letter-spacing: -0.022em; text-overflow: ellipsis; }
+.pb-title::placeholder { color: var(--fg3); }
+.pb-title[readonly] { cursor: default; }
+@media print { .pb-way { display: none; } }
+
 details.props { margin-bottom: 2em; font-size: 0.88em; }
+/* (put away, from the menu of a right click beside the text: they are still the note's, only not shown) */
+:root[data-props-off] details.props, :root[data-props-off] .pm .isl[data-kind="frontmatter"] { display: none; }
 details.props > summary {
   display: inline-flex;
   align-items: center;
@@ -886,7 +931,11 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
 :is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
 .tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: color-mix(in srgb, var(--fg) 12%, transparent); color: var(--fg); }
 .tab-home { color: var(--fg); }
-.tab-home[aria-pressed="true"] { color: var(--accent); }
+.tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent); background: color-mix(in srgb, var(--fg) 12%, transparent); }
+/* All notes shown over a note: the house is where one is, and the note's tab is the way back — it
+ * looks like a tab to go to. (An empty tab has nothing but all notes: it stays the one shown.) */
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):not(:hover) { background: color-mix(in srgb, var(--fg) 4.5%, transparent); color: var(--fg2); }
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { background: var(--fill-hover); }
 .tab:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); }
 :is(.tab, .tab-home, .tab-new) svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tab-icon { flex: none; display: grid; place-items: center; width: 16px; height: 16px; transition: opacity var(--dur-fast) var(--ease-out); }

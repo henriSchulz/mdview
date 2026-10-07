@@ -193,6 +193,7 @@
       leaf("menu.image", "image picture bild", I.image, (v) => A.context.INSERT.image(v)),
       leaf("menu.graphic", "graphic figure diagram svg ai claude circuit schematic logic rtl grafik schaltung schaltplan zeichnung ki", I.graphic, (v) => A.context.INSERT.graphic(v)),
       leaf("menu.footnote", "footnote note fußnote", I.footnote, (v) => A.context.INSERT.footnote(v)),
+      leaf("menu.page", "page subpage seite unterseite", window.MdView.core.ICON.note, (v) => A.context.INSERT.page(v)),
       null,
       { key: "slash.actions", icon: I.actions, items: [
         leaf("slash.duplicate", "duplicate copy duplizieren verdoppeln", I.duplicate, BLOCK.duplicate),

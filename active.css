@@ -53,16 +53,17 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm .ProseMirror-selectednode { outline: none; }
 /* What is selected as a thing — a picture, an embed, a formula, a rule — wears the same box a
  * selected block wears (the blue tint, not a ring of its own): one look for "this is selected". */
-.pm.ProseMirror-focused .isl.ProseMirror-selectednode,
-.pm.ProseMirror-focused hr.ProseMirror-selectednode,
-.pm.ProseMirror-focused .ia.ProseMirror-selectednode,
-.pm.ProseMirror-focused .im.ProseMirror-selectednode > img {
+/* (not at the place between two blocks, has-gap: the block it came from is no longer what is selected) */
+.pm.ProseMirror-focused:not(.has-gap) .isl.ProseMirror-selectednode,
+.pm.ProseMirror-focused:not(.has-gap) hr.ProseMirror-selectednode,
+.pm.ProseMirror-focused:not(.has-gap) .ia.ProseMirror-selectednode,
+.pm.ProseMirror-focused:not(.has-gap) .im.ProseMirror-selectednode > img {
   background-color: var(--blk-sel);
   box-shadow: 0 0 0 4px var(--blk-sel);
   border-radius: var(--radius-row);
 }
-.pm.ProseMirror-focused .isl.ProseMirror-selectednode { box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); }
-.pm.ProseMirror-focused hr.ProseMirror-selectednode { box-shadow: 0 0 0 8px var(--blk-sel); background-color: var(--line-strong); }
+.pm.ProseMirror-focused:not(.has-gap) .isl.ProseMirror-selectednode { box-shadow: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); }
+.pm.ProseMirror-focused:not(.has-gap) hr.ProseMirror-selectednode { box-shadow: 0 0 0 8px var(--blk-sel); background-color: var(--line-strong); }
 /* the caret between two islands, where there is no text to put it in */
 .ProseMirror-gapcursor { display: none; position: absolute; pointer-events: none; }
 .ProseMirror-gapcursor::after {
@@ -121,12 +122,21 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm[contenteditable="true"] .isl.isl-pic:hover, .pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child):hover, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed)):hover { background-color: transparent; }
 .pm[contenteditable="true"] .isl.isl-pic::after, .pm[contenteditable="true"] .isl:has(> p > :is(.pdf-embed, img.embed):only-child)::after, .pm[contenteditable="true"] .isl:has(> :is(.pdf-embed, img.embed))::after { content: none; }
 .pm[contenteditable="true"] .isl.isl-pic, .pm[contenteditable="true"] .isl:has(:is(.pdf-embed, img.embed)) { cursor: default; }
-/* The block is as wide as its picture, so what marks it selected lies around the picture and not
- * across the column; it stands where the reading view puts the picture — in the middle for an
- * embedded PDF page and a drawing, at the left otherwise. (One that fills the column stays as wide,
- * and an embedded page too: it is as wide as the column lets it be.) */
-.pm .isl.isl-pic:has(> p > img:not(.full)) { width: fit-content; max-width: 100%; }
-.pm .isl.isl-pic:has(> p > img[src$=".svg" i]:not(.full)) { margin-left: auto; margin-right: auto; }
+/* The block of a picture is as wide as the column, like every other block: what marks it selected
+ * lies across the column, and the picture stands in it where the reading view puts it (a drawing
+ * and an embedded PDF page in the middle). */
+/* A page's line: a row to click (it opens the page), not a block to edit — no tint of an island, no pencil. */
+.pm[contenteditable="true"] .isl.isl:has(> .page-row):hover { background-color: transparent; }
+.pm[contenteditable="true"] .isl.isl:has(> .page-row)::after { content: none; display: none; }
+.pm .isl > .page-row { margin-bottom: 0; }
+.pm .isl:has(> .page-row) { margin-bottom: 0.5em; }
+.pm .isl:has(> .page-row[data-style="card"]) { margin-bottom: 0.6em; }
+/* The properties stand at the note's head: no block — no tint under the pointer, no pencil, no
+ * handle, not selected as one. They are edited from the menu of a right click on them. */
+.pm[contenteditable="true"] .isl[data-kind="frontmatter"]:hover { background-color: transparent; }
+.pm[contenteditable="true"] .isl.isl[data-kind="frontmatter"]::after { content: none; display: none; }
+.pm[contenteditable="true"] .isl[data-kind="frontmatter"] { cursor: default; }
+.pm.ProseMirror-focused .isl[data-kind="frontmatter"].ProseMirror-selectednode { background-color: transparent; box-shadow: none; }
 /* (a callout that folds: likewise — a click on its title folds it, its dialog is in its menu) */
 .pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]:hover { background-color: transparent; }
 .pm[contenteditable="true"] .isl.isl[data-kind="blockquote"]::after { content: none; }
@@ -334,6 +344,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm > :nth-child(1 of :not(.hid, .none)) { margin-top: 0; }
 .pm > .isl:nth-child(1 of :not(.hid, .none)) > :first-child { margin-top: 0; }
 .pm blockquote > .isl:last-child > :last-child { margin-bottom: 0; }
+.pm blockquote > .isl:first-child > :first-child { margin-top: 0; }
 
 /* a tight list has no <p> in the reading view */
 .pm [data-tight] > li > p, .pm [data-tight] > li > .li-body > p { margin: 0; }
@@ -381,6 +392,19 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .pm .callout-title-text:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc) 14%, transparent); background: color-mix(in srgb, var(--cc) 14%, transparent); }
 /* the "/" menu: a few entries tall, the rest scrolls (half an entry shows that there is more) */
 .actmenu.steady { max-height: min(calc(var(--menu-item-height, 26px) * 9.5 + var(--menu-pad)), calc(100vh - 16px)); }
+/* a menu that is searched (the "/" menu for blocks that are selected): wider, taller, and what is
+ * typed stands in a line at its top, which stays there while the entries scroll */
+.actmenu.searched { min-width: 320px; scrollbar-width: none; }
+.actmenu.searched::-webkit-scrollbar { display: none; }
+.actmenu.searched.steady { max-height: min(calc(var(--menu-item-height, 26px) * 14.5 + 36px + var(--menu-pad)), calc(100vh - 16px)); }
+/* (the plate's own colour under it: the entries scroll away behind the line, and it is part of the menu) */
+.menu-search { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; box-sizing: border-box; height: 36px; margin: calc(-1 * var(--menu-pad)) calc(-1 * var(--menu-pad)) var(--menu-pad); padding: 0 16px; border-bottom: 1px solid var(--line); background: inherit; font: 500 14px/1.45 var(--ui); color: var(--fg); }
+.menu-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--fg3, var(--fg2)); stroke-width: 2; stroke-linecap: round; }
+.menu-search-q { display: flex; align-items: center; white-space: pre; overflow: hidden; }
+.menu-search-q:empty::before { content: attr(data-ph); color: var(--fg3, var(--fg2)); }
+.menu-search-q::after { content: ""; flex: none; width: 1.5px; height: 1.15em; margin: 0 1px; background: var(--accent); animation: menu-caret 1.1s steps(1) infinite; }
+.menu-search-q:empty::after { order: -1; }
+@keyframes menu-caret { 50% { opacity: 0; } }
 .actmenu .menu-item:disabled { color: var(--fg3); }
 .actmenu .menu-item:disabled .menu-key { opacity: 0.6; }
 /* the tick of what is on stands in a column of its own, left of the names (as in a macOS menu);
@@ -810,7 +834,7 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm .blk-sel + h1.blk-sel { --up: calc(1.2em - 8px); }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
 .pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
-.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px -50px; z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (-50px: its handle stands 46 out) */
+.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.6em - var(--blk-out) - 4px); z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (as far out as the box of a block beside the list: the list's indent, 1.6em, and what a block's box reaches out — its handle stands 46 out, inside it) */
 /* (a rule is one pixel high: a shadow shifted up cannot fill the gap above it, and a tint as its
  * background would be the line gone. Its tint is a layer of its own that reaches up to the block
  * before it, and the line is drawn over it — the same however the rule came to be selected.) */
@@ -822,14 +846,26 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm hr.blk-sel:has(+ .blk-sel)::before { bottom: -4px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 /* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
 .pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
+/* (… and it reaches back into what stands before the block — the cells of a table lit up — and
+ * fills the room between the blocks, which is painted by what holds them: the note itself, a
+ * callout. Neither shows: asked by :has(), so only the neighbours and the holder are styled anew.) */
+.pm :has(+ :is(.blk-sel, .ProseMirror-selectednode))::selection, .pm :has(+ :is(.blk-sel, .ProseMirror-selectednode)) *::selection,
+.pm:has(> :is(.blk-sel, .ProseMirror-selectednode))::selection, .pm :has(> :is(.blk-sel, .ProseMirror-selectednode))::selection { background: transparent; }
 .pm .blk-sel { caret-color: transparent; }
+/* (a block that is selected is a thing, not text: the pointer over it is the arrow — a click, or Enter, goes into it) */
+.pm .blk-sel, .pm .blk-sel * { cursor: default; }
 .pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: var(--blk-box); }
 .pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
 
+/* … or the page of the note it would go into: its line is marked */
+.pm .page-row.drop-into { box-shadow: 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* where a block dragged by its handle will go */
 .blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 .blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
 @media print { .blk-line { display: none !important; } }
+/* the place between two blocks (blocks.js): the line shows it — the editor's own caret, which has to be somewhere, does not */
+.pm.has-gap { caret-color: transparent; }
+.pm.has-gap .ProseMirror-gapcursor { display: none; }
 /* columns: the gap between two can be pulled (columns.js). The grip stands in the gap, as tall as the row. */
 .col-grip { position: absolute; top: 0; left: 0; z-index: 23; width: 12px; cursor: col-resize; /* (as wide as the gap: columns.js sets it) */ opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 .col-grip::after { content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; border-radius: 1px; background: var(--accent); opacity: 0.45; transition: opacity var(--dur-fast) var(--ease-out); }

@@ -203,6 +203,36 @@ The ratio is optional (`<!-- columns -->` makes them alike). Only among the note
 in a list or a quote, not inside each other. In a narrow window, and in any other Markdown program,
 the blocks simply stand one under the other.
 
+### Pages in a note
+
+A note can hold pages of its own. On the page it lies on, a page is a line with its name; a click
+opens it, and it is shown alone — with the way back above it.
+
+<!-- page: An example page -->
+
+This text is on a page of its own. Pages can lie in pages:
+
+<!-- page: One further in -->
+
+… as deep as it is useful.
+
+<!-- /page -->
+
+<!-- /page -->
+
+```markdown
+<!-- page: An example page -->
+
+This text is on a page of its own.
+
+<!-- /page -->
+```
+
+The note stays one Markdown file: in the source editor, and in any other Markdown program, a page's
+text simply stands where it is written. In the active mode a page is made from the `/` menu
+(Page); its name is typed above its text, and its line can be moved, copied and deleted like any
+block — the page goes with it.
+
 ### Formulas (KaTeX)
 
 In the line: $e^{i\pi} + 1 = 0$. As a block:
@@ -327,7 +357,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   holding Backspace goes up through a list line by line.
 - **`/` menu** at the start of an empty line, or in a line with text: text styles, lists, formats,
   decorations, colours, callouts, columns, code block, formula, table, divider, picture, footnote,
-  graphic, and actions on the block (duplicate, move, select, copy, delete). Typing filters it.
+  graphic, a page of the note's own, and actions on the block (duplicate, move, select, copy, delete). Typing filters it.
 - **Formatting bar** over a selection: bold, italic, strikethrough, code, link, formula, paragraph style.
 - **Context menu** (right click): cut, copy, paste, paste and match style, add link, format,
   paragraph, insert, settings.

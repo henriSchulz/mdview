@@ -97,3 +97,16 @@ test("code that is put away: \"hide\" after the language, a card in the note, sw
   assert.deepEqual([c.lang, c.rest], ["js", " hide A title"]);
   assert.equal(I.buildCode(c), "```js hide A title\nlet a;\n```");
 });
+
+test("a property that is true or false is switched in the properties as they are written", () => {
+  const P = w.MdView.core.toggleProp;
+  const note = "---\ntitle: A note\ndone: false # not yet\n\"with space\": True\ncount: 3\n---\n\n# Text\n\ndone: false\n";
+  assert.equal(P(note, "done", true), note.replace("done: false # not yet", "done: true # not yet")); // (its remark stays, and the same words in the text are left)
+  assert.equal(P(note, "with space", false), note.replace("\"with space\": True", "\"with space\": false"));
+  assert.equal(P(note, "count", true), null); // (no true or false there)
+  assert.equal(P(note, "missing", true), null);
+  assert.equal(P("# no properties\n\ndone: false\n", "done", true), null);
+  assert.equal(P("---\r\ndone: true\r\n---\r\ntext\r\n", "done", false), "---\r\ndone: false\r\n---\r\ntext\r\n"); // (line ends as they are)
+  // the box says which property it is, and can be clicked
+  assert.match(w.MdView.core.renderProps({ done: true }, {}), /<input type="checkbox" class="task" data-prop="done" checked>/);
+});

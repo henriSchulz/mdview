@@ -36,7 +36,7 @@
     if (!el || el === v.dom || !v.dom.contains(el)) return null;
     const holder = el.parentElement.matches(".li-body") ? el.parentElement.parentElement : el.parentElement;
     if (holder.matches("li") && !el.previousElementSibling) el = holder; // the item itself
-    if (el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes" || !el.pmViewDesc || !el.pmViewDesc.node) return null;
+    if (el.classList.contains("hid") || el.classList.contains("none") || el.dataset.kind === "footnotes" || el.dataset.kind === "frontmatter" || !el.pmViewDesc || !el.pmViewDesc.node) return null;
     return el;
   };
   /* Where the handle stands: close to the left of the block, inside the highlight a selected block
@@ -96,10 +96,11 @@
    *   Backspace / Delete, Ctrl+C / X   delete, copy, cut
    * The state: positions before the block the selection started on and the one it reaches to
    * (siblings: both in the document, or both in the same list, item or quote). */
+  const isList = (node) => !!node && /_list$/.test(node.type.name);
   const selKey = new PluginKey("blocksel");
   const selOf = (state) => selKey.getState(state);
   // (a comment shows nothing: it is no block to select or to take by a handle)
-  const usable = (node) => !!node && node.type.name !== "hidden" && !(node.type.name === "island" && (node.attrs.virtual || (node.attrs.kind === "html" && !String(node.attrs.raw || "").replace(/<!--[\s\S]*?-->/g, "").trim())));
+  const usable = (node) => !!node && node.type.name !== "hidden" && !(node.type.name === "island" && (node.attrs.virtual || node.attrs.kind === "frontmatter" || (node.attrs.kind === "html" && !String(node.attrs.raw || "").replace(/<!--[\s\S]*?-->/g, "").trim() && !window.MdView.core.pages.isRow(node.attrs.raw))));
   // the range of a selection: { parent, start (position of the parent's content), a, b (indexes), from, to }
   function rangeOf(state, sel = selOf(state)) {
     if (!sel) return null;
@@ -165,17 +166,33 @@
     const row = $.every((x, i) => x.depth === $[0].depth && x.start() === $[0].start() && (!i || x.index() === $[i - 1].index() + 1));
     return row ? { anchor: head === list[0] ? list[list.length - 1] : list[0], head: head === list[0] ? list[0] : list[list.length - 1] } : { anchor: head, head, more: list.filter((p) => p !== head) };
   }
+  /* Blocks picked one by one, as what can stand anywhere: items of a list among other blocks
+   * keep the list they come from around them (those that follow each other: one list). Items
+   * alone stay items — where they go decides what is around them. [{ pos, node }] -> Fragment */
+  function together(state, P) {
+    if (P.every((x) => x.node.type.name === "list_item") || !P.some((x) => x.node.type.name === "list_item")) return Fragment.from(P.map((x) => x.node));
+    const out = [];
+    let run = null; // { list, items }
+    const flush = () => { if (run) out.push(run.list.type.create("bid" in run.list.attrs ? { ...run.list.attrs, bid: null } : run.list.attrs, run.items)); run = null; };
+    for (const x of P) {
+      if (x.node.type.name !== "list_item") { flush(); out.push(x.node); continue; }
+      const list = state.doc.resolve(x.pos).parent;
+      if (run && run.list.type !== list.type) flush();
+      if (!run) run = { list, items: [] };
+      run.items.push(x.node);
+    }
+    flush();
+    return Fragment.from(out);
+  }
   // Ctrl+click on a block: it joins what is selected, or leaves it
   function toggle(v, pos) {
     const doc = v.state.doc, node = doc.nodeAt(pos);
     if (!node || !usable(node)) return false;
-    const item = (n) => n.type.name === "list_item";
     let list = pickedOf(v.state);
     if (list.some((x) => x.pos === pos)) list = list.filter((x) => x.pos !== pos);
     else {
-      // not a block and one inside it, and not list items among other blocks: what is clicked then begins anew
+      // not a block and one inside it (items of a list and other blocks go together)
       list = list.filter((x) => !(x.pos < pos && pos < x.pos + x.node.nodeSize) && !(pos < x.pos && x.pos < pos + node.nodeSize));
-      if (list.some((x) => item(x.node) !== item(node))) list = [];
       list.push({ pos, node });
     }
     const sel = selFor(doc, list.map((x) => x.pos), pos);
@@ -215,21 +232,99 @@
     const cur = selOf(v.state);
     const $p = v.state.doc.resolve(pos);
     const same = cur && extend && v.state.doc.resolve(cur.anchor).start() === $p.start();
+    if (cur && extend && !same) { // (elsewhere — in a list, outside it: all the arrows would go through on the way there)
+      const from = cur.from != null && v.state.doc.nodeAt(cur.from) ? cur.from : cur.more && cur.more.length ? cur.head : cur.anchor, next = stretch(v.state, from, pos);
+      if (next) { v.dispatch(v.state.tr.setMeta(selKey, next).setSelection(pmSel(v.state.doc, pos))); v.focus(); return; }
+    }
     v.dispatch(setSel(v.state, same ? cur.anchor : pos, pos));
     v.focus();
   }
   // the next block that can be selected, from index i in direction dir (or -1)
   const nextUsable = (r, i, dir) => { for (let k = i + dir; k >= 0 && k < r.parent.childCount; k += dir) if (usable(r.parent.child(k))) return k; return -1; };
+  /* From block to block with the arrows, through all of the note: the blocks beside one another
+   * first; then
+   *   a list      is gone through item by item, those under an item after it (never the list as
+   *               one block: that is what its handle selects)
+   *   at an end   of a list, an item, a quote: on to what stands before / after it outside
+   * A quote or callout is one block from outside (Esc in it selects what is in it).
+   * seek: from index `from` in $p's parent in direction dir -> the position of the next block, or null. */
+  function into(doc, pos, dir) { // a list: its first item — or, from below, the last there is in it
+    let node = doc.nodeAt(pos);
+    while (node && isList(node)) {
+      const r = { parent: node, start: pos + 1 }, k = dir > 0 ? nextUsable(r, -1, 1) : nextUsable(r, node.childCount, -1);
+      if (k < 0) break;
+      pos = posOfChild(r, k); node = node.child(k);
+      const under = node.lastChild;
+      if (dir > 0 || node.childCount < 2 || !isList(under)) break;
+      pos = pos + node.nodeSize - 1 - under.nodeSize; node = under; // (an item that ends in a list: on into that)
+    }
+    return pos;
+  }
+  function seek(doc, $p, from, dir) {
+    for (let index = from; ; index = $p.index()) {
+      const r = { parent: $p.parent, start: $p.start() }, k = nextUsable(r, index, dir);
+      if (k >= 0) {
+        if (dir < 0 && k === 0 && r.parent.type.name === "list_item") return $p.before(); // (an item's first block stands for the item)
+        const at = posOfChild(r, k), kid = r.parent.child(k);
+        if (isList(kid)) return into(doc, at, dir);
+        // upwards onto an item that ends in a list: the last item there is in that
+        if (dir < 0 && kid.type.name === "list_item" && kid.childCount > 1 && isList(kid.lastChild)) return into(doc, at + kid.nodeSize - 1 - kid.lastChild.nodeSize, -1);
+        return at;
+      }
+      if (!$p.depth || ["column", "table_cell"].includes($p.parent.type.name)) return null; // (a column, a cell: not left by the arrows)
+      $p = doc.resolve($p.before());
+    }
+  }
+  function neighbour(state, pos, dir) {
+    const doc = state.doc, $p = doc.resolve(pos), node = $p.nodeAfter;
+    if (dir > 0 && node && node.type.name === "list_item") { // the items under it come after it
+      for (let i = 1, at = pos + 1 + node.firstChild.nodeSize; i < node.childCount; at += node.child(i).nodeSize, i++) {
+        if (!isList(node.child(i))) continue;
+        const first = into(doc, at, 1);
+        if (first !== at) return first;
+      }
+    }
+    return seek(doc, $p, $p.index(), dir);
+  }
+  /* All blocks from one to another, in the order the arrows go through them — as a selection:
+   * blocks beside one another are a range, others are picked one by one (`more`). A block that
+   * holds one of the two is taken as a whole, and what stands in a block that is taken is not
+   * taken once more. from: where it began, cur: where it reaches (it goes on from there). */
+  function stretch(state, from, to) {
+    const doc = state.doc, lo = Math.min(from, to), hi = Math.max(from, to), size = (p) => doc.nodeAt(p).nodeSize, list = [];
+    for (let p = lo, n = 0; p != null && n < 5000; p = neighbour(state, p, 1), n++) {
+      if (p > hi) break;
+      list.push(p);
+      if (p === hi || p + size(p) > hi) break; // (there, or in the block that holds it)
+    }
+    if (!list.some((p) => p <= hi && hi < p + size(p))) list.push(hi);
+    const kept = list.filter((p) => !list.some((q) => q < p && p < q + size(q)));
+    const sel = selFor(doc, kept, kept.includes(to) ? to : kept[to >= from ? kept.length - 1 : 0]);
+    return sel && { ...sel, from, cur: to };
+  }
+  // what is selected as a thing by a click (a picture, a formula, code, a rule) -> the block that is, or -1
+  function thingAt(state) {
+    const s = state.selection;
+    if (!(s instanceof NodeSelection)) return -1;
+    if (s.node.isBlock) return s.node.isAtom && usable(s.node) ? s.from : -1;
+    return closed(s.$from.parent) && s.$from.depth > 0 ? s.$from.before() : -1;
+  }
   function keydown(v, e) {
-    const sel = selOf(v.state), r = rangeOf(v.state, sel);
-    if (!r) return false;
+    let sel = selOf(v.state), r = rangeOf(v.state, sel);
     const mod = e.ctrlKey || e.metaKey, up = e.key === "ArrowUp", down = e.key === "ArrowDown";
+    // a picture, a formula, code clicked on, and then an arrow: on from it as from a selected block
+    if (!r && (up || down) && !mod && !e.altKey && !gapOf(v.state)) {
+      const at = thingAt(v.state);
+      if (at < 0) return false;
+      v.dispatch(setSel(v.state, at, at));
+      sel = selOf(v.state); r = rangeOf(v.state, sel);
+    }
+    if (!r) return false;
     const done = (tr) => { e.preventDefault(); v.dispatch(tr); return true; };
     if (sel.more && sel.more.length) { // blocks picked one by one, not standing together
       const P = pickedOf(v.state, sel);
       if ((up || down) && e.altKey && !mod) { // moved: first they come together, where the first of them stands
-        let all = Fragment.empty;
-        for (const x of P) all = all.addToEnd(x.node);
+        const all = together(v.state, P);
         const tr = v.state.tr;
         for (const x of P.slice().reverse()) tr.delete(x.pos, x.pos + x.node.nodeSize);
         const at = tr.mapping.map(P[0].pos, -1), $at = tr.doc.resolve(at);
@@ -285,6 +380,27 @@
     if (up || down) {
       const dir = up ? -1 : 1;
       let k = mod ? (up ? nextUsable(r, -1, 1) : nextUsable(r, r.parent.childCount, -1)) : nextUsable(r, r.head, dir);
+      if (!mod && e.shiftKey) { // more blocks, on the same way: all from the one it began on to the one it reaches
+        const from = sel.from != null && v.state.doc.nodeAt(sel.from) ? sel.from : sel.more && sel.more.length ? sel.head : sel.anchor, cur = sel.cur != null && v.state.doc.nodeAt(sel.cur) ? sel.cur : sel.head;
+        // (downwards past an item that is taken: what stands under it is taken with it — on to the next beside it)
+        const $c = v.state.doc.resolve(cur), to = down && cur >= from ? seek(v.state.doc, $c, $c.index(), 1) : neighbour(v.state, cur, dir);
+        e.preventDefault();
+        if (to == null) return true;
+        const next = stretch(v.state, from, to);
+        if (next) v.dispatch(v.state.tr.setMeta(selKey, next).setSelection(pmSel(v.state.doc, to)).scrollIntoView());
+        return true;
+      }
+      if (!mod && !e.shiftKey) { // one block on: through lists, and out of what the block stands in
+        const to = neighbour(v.state, sel.head, dir);
+        // beside a block one cannot type next to (a picture, code, a formula, a table …): first the
+        // place between the two, where a new block can be made — the next block only after that
+        if (v.editable && sel.anchor === sel.head && !(sel.more && sel.more.length)) {
+          const cur = r.parent.child(r.head), other = to != null ? v.state.doc.nodeAt(to) : null;
+          const at = up ? sel.head : sel.head + cur.nodeSize, index = up ? r.head : r.head + 1;
+          if ((closed(cur) || (other && closed(other))) && r.parent.canReplaceWith(index, index, freshAt(v.state.doc.resolve(at)).type)) return done(toGap(v.state, at, sel.head));
+        }
+        if (to != null) return done(setSel(v.state, to, to));
+      }
       if (k < 0) { // at the edge: without Shift the selection comes down to the block it stands on
         if (!e.shiftKey && sel.anchor !== sel.head) return done(setSel(v.state, sel.head, sel.head));
         e.preventDefault();
@@ -368,14 +484,77 @@
    * a callout — for all of them at once. Blocks that stand together get it together (one list,
    * one quote around them); blocks picked one by one each get it. What the first of them has
    * says whether an entry is ticked, and so whether choosing it puts it on or takes it off. */
+  const PLAIN = ["menu.text", "slash.colorDefault"]; // (what a block is without anything chosen: no tick on its group for that)
+  const WRAPS = ["slash.deco", "slash.color", "slash.callout"]; // (what puts a quote around the blocks)
   const SLASH_GROUPS = ["slash.style", "slash.list", "slash.deco", "slash.color", "slash.callout"];
-  function slashItems(v) {
+  /* full: all the "/" menu has — the formats, columns, what can be put in (below the last of
+   * them) and what can be done with the blocks; q: only what is found for it, in one list. */
+  function slashItems(v, full = false, q = "") {
     const sel = selOf(v.state), r = rangeOf(v.state, sel);
     if (!r || !v.editable || !A.slash) return null;
-    const runs = sel.more && sel.more.length ? pickedOf(v.state, sel).map((x) => ({ from: x.pos, to: x.pos + x.node.nodeSize })) : [{ from: r.from, to: r.to }];
+    const T = window.MdStrings.t, single = !(sel.more && sel.more.length);
+    const runs = single ? [{ from: r.from, to: r.to }] : pickedOf(v.state, sel).map((x) => ({ from: x.pos, to: x.pos + x.node.nodeSize }));
     const within = (state, run) => state.tr.setMeta(selKey, null).setSelection(TextSelection.between(state.doc.resolve(run.from + 1), state.doc.resolve(run.to - 1)));
-    const groupsOf = (view) => A.slash.entries(view).filter((g) => g && SLASH_GROUPS.includes(g.key));
-    const find = (view, group, e) => { const g = groupsOf(view).find((x) => x.key === group); return g && g.items.find((x) => x && x.key === e.key && x.n === e.n); };
+    const flat = (view) => A.slash.entries(view).flatMap((g) => (!g ? [] : g.items ? g.items.filter(Boolean).map((x) => ({ ...x, group: g.key })) : [g]));
+    const find = (view, group, e) => flat(view).find((x) => x.group === group && x.key === e.key && x.n === e.n && x.label === e.label);
+    /* A quote, a block, a callout — what is around blocks — is told and changed by the blocks that
+     * are selected themselves, not by where a caret in them would stand:
+     *   a quote selected      it is the one meant: its kind has the tick; chosen again, the quote
+     *                         alone goes and what is in it stays as it is; another kind changes it
+     *   anything else         gets one around it, as the blocks stand — in a quote too (that one
+     *                         stays as it is); a list in it stays a list (items of a list: they
+     *                         are a list of their own in it, what was before and after them a list each)
+     * What an entry does is asked on a document of its own: a line of plain text, or that line in
+     * the quote that is selected. */
+    const quoteAt = (state, run) => { const n = state.doc.nodeAt(run.from); return n && n.type.name === "blockquote" && run.from + n.nodeSize === run.to ? n : null; };
+    const plainFor = (q) => {
+      const S = A.schema, p = S.nodes.paragraph.create(null, S.text("x"));
+      const plain = { state: PM.state.EditorState.create({ doc: S.node("doc", null, [q ? q.type.create(q.attrs, p) : p]) }), editable: true, focus() {}, hasFocus: () => true, made: undefined };
+      plain.dispatch = (tr) => { plain.made = tr.doc.firstChild; };
+      return plain;
+    };
+    // -> the quote's attributes after the entry, null: no quote (any more), undefined: the entry does nothing here
+    const asked = (q, group, e) => {
+      const plain = plainFor(q), now = find(plain, group, e);
+      if (!now || now.disabled) return undefined;
+      now.act(plain);
+      return plain.made === undefined ? undefined : plain.made.type.name === "blockquote" ? plain.made.attrs : null;
+    };
+    const wrap = (run, attrs) => {
+      const doc = v.state.doc, $from = doc.resolve(run.from), list = $from.parent, Q = A.schema.nodes.blockquote, tr = v.state.tr.setMeta(selKey, null).setMeta("step", true);
+      if (list.type.name.endsWith("_list")) {
+        const at = $from.before(), a = $from.index(), b = doc.resolve(run.to).index(), kids = [];
+        list.forEach((n) => kids.push(n));
+        const part = (items, first) => list.type.create(first || !("bid" in list.attrs) ? list.attrs : { ...list.attrs, bid: null }, items);
+        const parts = [...(a > 0 ? [part(kids.slice(0, a), true)] : []), Q.create(attrs, part(kids.slice(a, b), a === 0)), ...(b < kids.length ? [part(kids.slice(b), false)] : [])];
+        const $at = doc.resolve(at);
+        if (!$at.parent.canReplace($at.index(), $at.index() + 1, Fragment.from(parts))) return false;
+        tr.replaceWith(at, at + list.nodeSize, parts);
+        v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(at + (a > 0 ? parts[0].nodeSize : 0) + 1), 1)));
+        return true;
+      }
+      const range = $from.blockRange(doc.resolve(run.to));
+      if (!range || !PM.transform.findWrapping(range, Q, attrs)) return false;
+      tr.wrap(range, [{ type: Q, attrs }]);
+      v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(run.from + 1), 1)));
+      return true;
+    };
+    const around = (group, e) => () => {
+      const want = !e.checked;
+      for (const run of runs.slice().reverse()) {
+        const q = quoteAt(v.state, run), here = find(plainFor(q), group, e);
+        if (!here || here.disabled || (e.checked !== undefined && !!here.checked === want)) continue;
+        const attrs = asked(q, group, e);
+        if (attrs === undefined) continue;
+        if (!q) { if (attrs) wrap(run, attrs); continue; }
+        const tr = v.state.tr.setMeta(selKey, null).setMeta("step", true), $q = v.state.doc.resolve(run.from);
+        if (attrs) tr.setNodeMarkup(run.from, null, attrs);
+        else if ($q.parent.canReplace($q.index(), $q.index() + 1, q.content)) tr.replaceWith(run.from, run.to, q.content); // (the quote alone goes: what is in it stays as it is)
+        else continue;
+        v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(run.from + 1), 1)));
+      }
+      v.focus();
+    };
     const choose = (group, e) => () => {
       const want = !e.checked;
       for (const run of runs.slice().reverse()) { // (from the last: what is changed below moves nothing above)
@@ -386,16 +565,61 @@
       }
       v.focus();
     };
+    // put in: once, below the last of them
+    const insert = (e) => () => {
+      const last = runs[runs.length - 1];
+      v.dispatch(v.state.tr.setMeta(selKey, null).setSelection(Selection.near(v.state.doc.resolve(last.to - 1), -1)));
+      const now = find(v, undefined, e);
+      if (now && !now.disabled) now.act(v);
+      v.focus();
+    };
     // (what the menu shows is worked out with the caret in the first of them, on a state of its own: the selection stays until something is chosen)
     const first = { state: v.state.apply(within(v.state, runs[0])), editable: true };
-    const label = (e) => e.label || window.MdStrings.t(e.key, e.n);
-    return groupsOf(first).map((g) => ({ label: label(g), icon: g.icon, items: g.items.filter((e) => e && e.key !== "callout.title").map((e) => ({ label: label(e), icon: e.icon, run: choose(g.key, e), disabled: e.disabled, checked: e.checked })) }));
+    const label = (e) => e.label || T(e.key, e.n);
+    // (… but what is around them: with the quote that is selected, or none)
+    const own = A.slash.entries(plainFor(quoteAt(v.state, runs[0])));
+    const all = (A.slash.entries(first).some((g) => g && g.key === "slash.style") ? A.slash.entries(first) : own).map((g) => (g && WRAPS.includes(g.key) ? own.find((x) => x && x.key === g.key) || g : g)), text = A.slash.entries(first).some((g) => g && g.key === "slash.style"); // (in a table the "/" menu is the table's own: of it only what goes around blocks is for them)
+    const leaf = (group) => (e) => e && { label: label(e), icon: e.icon, words: e.words || "", run: group === undefined && e.key.startsWith("menu.") ? insert(e) : WRAPS.includes(group) ? around(group, e) : choose(group, e), disabled: e.disabled, checked: e.checked, danger: e.danger };
+    const shown = (g) => g && g.key !== "slash.actions" && (full || SLASH_GROUPS.includes(g.key));
+    const list = all.filter((g) => !g || (shown(g) && (text || WRAPS.includes(g.key)))).map((g) => g && (g.items ? { label: label(g), icon: g.icon, items: g.items.filter((e) => !e || e.key !== "callout.title").map(leaf(g.key)), ...(full ? { checked: g.items.some((e) => e && e.checked && !PLAIN.includes(e.key)) } : null) } : leaf(undefined)(g)));
+    if (full) {
+      const key = (k, mods) => () => { v.focus(); keydown(v, { key: k, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, preventDefault() {}, ...mods }); };
+      // they change places with the block above / below, and stay selected
+      const other = (dir) => (single ? nextUsable(r, dir < 0 ? r.a : r.b, dir) : -1);
+      const move = (dir) => () => {
+        const o = other(dir);
+        if (o !== (dir < 0 ? r.a - 1 : r.b + 1)) return;
+        const blocks = v.state.doc.slice(r.from, r.to).content, to = dir < 0 ? r.from - r.parent.child(o).nodeSize : r.from + r.parent.child(o).nodeSize;
+        const tr = v.state.tr.delete(r.from, r.to).insert(to, blocks).setMeta("step", true);
+        let last = to;
+        for (let i = 0, p = to; i < blocks.childCount; p += blocks.child(i).nodeSize, i++) last = p;
+        v.dispatch(tr.setMeta(selKey, { anchor: to, head: last }).setSelection(pmSel(tr.doc, last)).scrollIntoView());
+        v.focus();
+      };
+      const icons = Object.fromEntries((all.find((g) => g && g.key === "slash.actions")?.items || []).filter(Boolean).map((e) => [e.key, e.icon]));
+      const act = (k, words, run, more) => ({ label: T(k), icon: icons[k], words, run, ...more });
+      list.push(null, { label: T("slash.actions"), icon: all.find((g) => g && g.key === "slash.actions")?.icon, items: [
+        act("slash.duplicate", "duplicate copy duplizieren verdoppeln", key("d", { ctrlKey: true })),
+        act("slash.moveUp", "move up nach oben bewegen", move(-1), { disabled: other(-1) !== r.a - 1 || r.a === 0 }),
+        act("slash.moveDown", "move down nach unten bewegen", move(1), { disabled: other(1) !== r.b + 1 }),
+        act("menu.copyMarkdown", "copy markdown kopieren", () => { window.MdView.core.copy(A.clip.markdownOf(v.state, v.state.doc.slice(r.from, r.to))); v.focus(); }),
+        null,
+        act("slash.delete", "delete remove block löschen", key("Delete"), { danger: true }),
+      ] });
+    }
+    // (no rule first, last, or after another)
+    const tidy = list.filter((x, i) => x || (i > 0 && list[i - 1] && list.slice(i + 1).some(Boolean)));
+    if (!q) return tidy;
+    // found: one list of what the groups hold — what is called so before what is only found by another word for it
+    const every = tidy.flatMap((x) => (!x ? [] : x.items ? x.items.filter(Boolean).map((e) => ({ ...e, icon: e.icon || x.icon })) : [x]));
+    const byName = (e) => e.label.toLowerCase().split(/\s+/).some((w) => w.startsWith(q));
+    const found = every.filter((e) => !e.disabled && (byName(e) || e.words.split(/\s+/).some((w) => w.startsWith(q))));
+    return found.filter(byName).concat(found.filter((e) => !byName(e))); // (what is on keeps its tick: chosen again, it goes)
   }
   function slashMenu(v) {
-    const items = slashItems(v);
-    if (!items) return;
+    if (!slashItems(v, true)) return;
     const r = rangeOf(v.state), c = v.coordsAtPos(Math.min(r.from + 1, v.state.doc.content.size));
-    A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items });
+    A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, steady: true, find: (q) => slashItems(v, true, q) || [] });
   }
   /* The menu of a right click on blocks that are selected: the clipboard, once more, away — and
    * what the "/" menu has for them. (The keys do the same: they are named beside the entries.) */
@@ -425,9 +649,7 @@
     const r = rangeOf(v.state), P = pickedOf(v.state);
     if (!r || !e.clipboardData) return false;
     const apart = P.length && (selOf(v.state).more || []).length; // picked one by one: each of them, one after the other
-    let all = Fragment.empty;
-    if (apart) for (const x of P) all = all.addToEnd(x.node);
-    const slice = apart ? new Slice(all, 0, 0) : v.state.doc.slice(r.from, r.to);
+    const slice = apart ? new Slice(together(v.state, P), 0, 0) : v.state.doc.slice(r.from, r.to);
     e.preventDefault();
     e.clipboardData.setData("text/plain", A.clip.markdownOf(v.state, slice));
     const box = document.createElement("div");
@@ -442,6 +664,91 @@
     }
     return true;
   }
+  /* ---------------------------------------------------------------- the place between two blocks
+   * Next to a picture, a code block, a formula, a table, a rule, a quote or a row of columns there
+   * is no line to put the caret in. With such a block selected, the arrow first stops between it
+   * and its neighbour (or behind it, at the end): a short line shows the place. There
+   *   a character, Enter, Space, a paste   make a new block, the caret (and what was typed) in it
+   *   ↑ ↓                                  select the block above / below
+   *   Esc                                  selects the block it came from
+   * The state: { pos (between the blocks), back (the block it came from) }. */
+  const gapKey = new PluginKey("blockgap");
+  const gapOf = (state) => gapKey.getState(state);
+  // a block without a line of its own to type in beside it
+  const closed = (node) => node.isAtom || ["table", "columns", "blockquote"].includes(node.type.name)
+    || (node.isTextblock && node.childCount > 0 && !node.textContent.trim() && !node.type.spec.code); // (a paragraph that is a picture, a file, a formula)
+  // what is made between two blocks: an item in a list, else a paragraph
+  const freshAt = ($pos) => {
+    const S = A.schema.nodes, like = $pos.nodeBefore || $pos.nodeAfter;
+    return $pos.parent.type.name.endsWith("_list") && like ? S.list_item.create({ markup: like.attrs.markup, task: like.attrs.task == null ? null : " " }, S.paragraph.create()) : S.paragraph.create();
+  };
+  // (the editor's own selection stays on the block it came from, unseen: nothing else in the page follows a caret meanwhile)
+  const toGap = (state, pos, back) => state.tr.setMeta(selKey, null).setMeta(gapKey, { pos, back });
+  // a new block there, the caret in it
+  function fillGap(v, g) {
+    const $p = v.state.doc.resolve(g.pos), fresh = freshAt($p);
+    if (!$p.parent.canReplaceWith($p.index(), $p.index(), fresh.type)) return false;
+    const tr = v.state.tr.insert(g.pos, fresh).setMeta(gapKey, null).setMeta("step", true);
+    v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(g.pos + 1), 1)).scrollIntoView());
+    return true;
+  }
+  function gapKeydown(v, e) {
+    const g = gapOf(v.state);
+    if (!g) return false;
+    const mod = e.ctrlKey || e.metaKey, done = (tr) => { e.preventDefault(); v.dispatch(tr); return true; };
+    if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return false;
+    const $p = v.state.doc.resolve(g.pos), r = { parent: $p.parent, start: $p.start() };
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !mod && !e.altKey && !e.shiftKey) {
+      const at = e.key === "ArrowUp" ? seek(v.state.doc, $p, $p.index(), -1) : seek(v.state.doc, $p, $p.index() - 1, 1);
+      if (at == null) { e.preventDefault(); return true; }
+      return done(setSel(v.state, at, at).setMeta(gapKey, null));
+    }
+    if (e.key === "Escape") {
+      const back = v.state.doc.nodeAt(g.back);
+      return done(back && usable(back) ? setSel(v.state, g.back, g.back).setMeta(gapKey, null) : v.state.tr.setMeta(gapKey, null));
+    }
+    if (mod && e.key.toLowerCase() === "v") return false; // (the paste itself makes the block: below)
+    if (mod || e.altKey) { v.dispatch(v.state.tr.setMeta(gapKey, null)); return false; }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fillGap(v, g); return true; }
+    if (e.key.length === 1 || e.key === "Dead" || e.key === "Process") return fillGap(v, g) ? false : (e.preventDefault(), true); // a character: typed into the new block
+    e.preventDefault();
+    return true;
+  }
+  const gapPlugin = new Plugin({
+    key: gapKey,
+    state: {
+      init: () => null,
+      apply(tr, value) {
+        const meta = tr.getMeta(gapKey);
+        if (meta !== undefined) return meta;
+        if (!value) return null;
+        return tr.docChanged || (tr.selectionSet && !tr.getMeta("appendedTransaction")) ? null : value; // anything else done: the place is let go
+      },
+    },
+    view: () => ({
+      update(v, prev) {
+        const g = gapOf(v.state);
+        if (!g) { if (gapOf(prev)) showLine(null); return; }
+        // the middle between the two blocks (at an end: a little off the one block there is)
+        const rect = (pos) => { const d = pos != null ? v.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; };
+        const $p = v.state.doc.resolve(g.pos), a = rect($p.nodeBefore ? g.pos - $p.nodeBefore.nodeSize : null), b = rect($p.nodeAfter ? g.pos : null);
+        if (!a && !b) return showLine(null);
+        const y = a && b ? (a.bottom + b.top) / 2 : a ? a.bottom + 10 : b.top - 10;
+        showLine({ x: (b || a).left, y, w: 28 });
+        if (y < 60 || y > innerHeight - 40) window.scrollBy({ top: y - innerHeight / 2 });
+      },
+      destroy() { showLine(null); },
+    }),
+    props: {
+      attributes: (state) => (gapOf(state) ? { class: "has-gap" } : null),
+      handleKeyDown: gapKeydown,
+      handleDOMEvents: {
+        paste(v) { const g = gapOf(v.state); if (g) fillGap(v, g); return false; }, // (… and what is pasted goes into the new block)
+        blur(v) { if (gapOf(v.state)) v.dispatch(v.state.tr.setMeta(gapKey, null)); return false; },
+      },
+    },
+  });
+
   let drawnDoc = null; // the document the page shows (see decorations)
   const selPlugin = new Plugin({
     view(v) {
@@ -577,7 +884,24 @@
     // from the block the pull began at to the one it has reached (pulled upwards: the other way round)
     const anchor = got && (y >= r.y ? got[0] : got[1]), head = got && (y >= r.y ? got[1] : got[0]);
     if (!got) { if (cur) view.dispatch(view.state.tr.setMeta(selKey, null)); return; }
-    const inner = got[0] === got[1] ? reachedIn(got[0], r.x, r.y, x, y) || reachedItems(got[0], r.y, y) : null;
+    let inner = got[0] === got[1] ? reachedIn(got[0], r.x, r.y, x, y) || reachedItems(got[0], r.y, y) : null;
+    // several blocks, a list the first or the last of them: of that list the items it reaches, not all of it
+    if (!inner && got[0] !== got[1]) {
+      const doc = view.state.doc, T = Math.min(r.y, y) - scrollY, B = Math.max(r.y, y) - scrollY, all = [];
+      const itemsOf = (pos) => {
+        const el = view.nodeDOM(pos);
+        if (!el || !el.matches || !el.matches("ul, ol")) return null;
+        const items = [...el.children].filter((li) => li.matches("li") && li.pmViewDesc && li.pmViewDesc.dom === li && usable(li.pmViewDesc.node));
+        const hit = items.filter((li) => { const b = li.getBoundingClientRect(); return b.height && b.bottom >= T && b.top <= B; });
+        return hit.length && hit.length < items.length ? hit.map((li) => li.pmViewDesc.posBefore) : null;
+      };
+      for (let p = got[0]; p <= got[1]; p += doc.nodeAt(p).nodeSize) {
+        if (!usable(doc.nodeAt(p))) continue;
+        const items = p === got[0] || p === got[1] ? itemsOf(p) : null;
+        if (items) all.push(...items); else all.push(p);
+      }
+      if (all.length && (all[0] !== got[0] || all[all.length - 1] !== got[1] || all.some((p) => doc.resolve(p).depth > 0))) inner = all;
+    }
     const next = inner ? selFor(view.state.doc, inner, y >= r.y ? inner[inner.length - 1] : inner[0]) : { anchor, head };
     if (cur && cur.anchor === next.anchor && cur.head === next.head && String(cur.more || "") === String(next.more || "")) return;
     const tr = view.state.tr.setMeta(selKey, next);
@@ -645,6 +969,15 @@
     view.dispatch(view.state.tr.setMeta(selKey, null).setSelection(Selection.near(view.state.doc.resolve(sel.head + (node ? node.nodeSize : 0)), -1)));
   });
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
+  // a right click on the handle: the block's menu (the one a right click on selected blocks has) — the block is selected for it
+  handle.addEventListener("contextmenu", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!view || !view.editable || !over || !over.isConnected || !over.pmViewDesc) return;
+    const pos = over.pmViewDesc.posBefore;
+    if (!handle.hasAttribute("data-group") && !pickedOf(view.state).some((x) => x.pos === pos)) selectBlock(view, pos, false);
+    const items = menuItems(view);
+    if (items) A.menu.open({ x: e.clientX, y: e.clientY, items, closed: () => view.focus() });
+  });
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
@@ -658,7 +991,6 @@
   const line = document.createElement("div");
   line.className = "blk-line";
   document.body.appendChild(line);
-  const isList = (node) => !!node && /_list$/.test(node.type.name);
   handle.addEventListener("dragstart", (e) => {
     if (!view || !over || !over.isConnected) { e.preventDefault(); return; }
     const desc = over.pmViewDesc, pos = desc && desc.posBefore;
@@ -673,8 +1005,7 @@
       if (last && last.to === x.pos) last.to = x.pos + x.node.nodeSize; else ranges.push({ from: x.pos, to: x.pos + x.node.nodeSize });
     }
     const from = ranges[0].from, to = ranges[0].to;
-    let all = Fragment.empty;
-    for (const x of many ? P : [{ pos, node }]) all = all.addToEnd(x.node);
+    const all = together(view.state, many ? P : [{ pos, node }]);
     let slice = ranges.length === 1 ? view.state.doc.slice(from, to) : new Slice(all, 0, 0);
     // whole columns of one row, two or more of them and nothing else: they go as columns, a row of their own
     if (many && P.length > 1) {
@@ -748,6 +1079,12 @@
   const liOf = (v, el) => { while (el && el !== v.dom && !(descOf(el) && descOf(el).node.type.name === "list_item")) el = el.parentElement; return el && el !== v.dom ? el : null; };
   function targetAt(e) {
     const v = view, doc = v.state.doc, pm = v.dom.getBoundingClientRect();
+    // over the line of a page of the note: into that page (at its end) — not a page into itself
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".page-row"), isl = row && row.closest(".isl");
+    if (row && isl && v.dom.contains(isl) && isl.pmViewDesc && drag) {
+      const pos = isl.pmViewDesc.posBefore;
+      if (!drag.ranges.some((x) => pos >= x.from && pos < x.to)) return { into: row.dataset.page, el: row, pos };
+    }
     // (beside the text, the pointer counts as being over it: a little way in, where nested blocks begin too)
     const x = e.clientX < pm.left + 60 ? pm.left + 60 : Math.min(e.clientX, pm.right - 12), y = Math.max(pm.top + 1, Math.min(e.clientY, pm.bottom - 1));
     let el = blockOf(v, document.elementFromPoint(x, y), y);
@@ -868,7 +1205,10 @@
     }
     return null;
   }
+  let intoEl = null; // the page's line the blocks would go into
   function showLine(t) {
+    if (intoEl && (!t || t.el !== intoEl)) { intoEl.classList.remove("drop-into"); intoEl = null; }
+    if (t && t.into) { delete line.dataset.on; intoEl = t.el; intoEl.classList.add("drop-into"); return; }
     if (!t) { delete line.dataset.on; return; }
     line.style.left = t.x + scrollX + "px";
     line.style.width = t.w + "px";
@@ -884,7 +1224,7 @@
     e.dataTransfer.dropEffect = "move";
     drag.cy = e.clientY;
     if (!drag.frame) drag.frame = requestAnimationFrame(dragScroll);
-    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && (a.side || 0) === (b.side || 0));
+    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && (a.side || 0) === (b.side || 0) && (a.into || "") === (b.into || ""));
     if (!same(t, drag.target)) { drag.target = t; showLine(t); }
   }, true);
   /* Dragged to the window's upper or lower edge, the page scrolls along — the faster the nearer
@@ -898,6 +1238,14 @@
     window.scrollBy({ top: speed, behavior: "instant" });
     if (scrollY !== before) drag.frame = requestAnimationFrame(dragScroll);
   }
+  /* Blocks taken out of where they stand (dragged elsewhere). A list left without items goes with
+   * them — a quote or callout does not: it is a thing of its own (a kind, a title), and stays with
+   * an empty line in it. (Moved within that same quote, it is not left at all.) */
+  function takeOut(tr, x, to) {
+    const $f = tr.doc.resolve(x.from), q = $f.parent;
+    if (q.type.name === "blockquote" && x.from === $f.start() && x.to === $f.end() && !(to >= x.from && to <= x.to)) tr.replaceWith(x.from, x.to, A.schema.nodes.paragraph.create());
+    else tr.deleteRange(x.from, x.to);
+  }
   document.addEventListener("drop", (e) => {
     if (!drag || !view) return;
     e.stopPropagation();
@@ -907,9 +1255,20 @@
     showLine(null);
     if (!t) return;
     const listed = () => PM.model.Fragment.from(d.list ? d.list.type.create(d.list.attrs, d.slice.content) : A.schema.nodes.bullet_list.create(null, d.slice.content));
+    if (t.into) { // into a page of the note: gone from here, at the end of what the page says
+      const markdown = A.clip.markdownOf(view.state, d.items ? new Slice(listed(), 0, 0) : d.slice);
+      const tr = view.state.tr;
+      for (const x of d.ranges.slice().reverse()) takeOut(tr, x, -1);
+      if (!tr.doc.content.size) tr.insert(0, A.schema.nodes.paragraph.create());
+      tr.setMeta(selKey, null).setMeta("uiEvent", "drop").setMeta("step", true);
+      view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(tr.mapping.map(d.from), tr.doc.content.size)), 1)));
+      if (!window.MdView.core.pages.append(t.into, markdown)) PM.history.undo(view.state, view.dispatch); // (the page is not there: the blocks are back)
+      view.focus();
+      return;
+    }
     if (t.side) { // beside a block or a column: as a column of its own
       const tr = view.state.tr;
-      for (const x of d.ranges.slice().reverse()) tr.deleteRange(x.from, x.to);
+      for (const x of d.ranges.slice().reverse()) takeOut(tr, x, t.pos);
       const began = A.columns.beside(tr, tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1), t.side, d.items ? listed() : d.slice.content);
       if (began < 0) return;
       const n = tr.steps.length;
@@ -921,7 +1280,7 @@
     }
     const content = t.wrap ? listed() : d.slice.content;
     const tr = view.state.tr;
-    for (const x of d.ranges.slice().reverse()) tr.deleteRange(x.from, x.to); // (a list left without items goes with them)
+    for (const x of d.ranges.slice().reverse()) takeOut(tr, x, t.pos); // (a list left without items goes with them)
     const at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
     tr.insert(at, content);
     // what was moved stays selected as blocks: the keyboard can go on with it
@@ -1080,5 +1439,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { menuItems, over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

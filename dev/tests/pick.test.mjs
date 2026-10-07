@@ -79,15 +79,17 @@ test("copied and cut: each of them, one after the other", () => {
   assert.equal(v.md(), "two\n\nfour\n\nfive\n");
 });
 
-test("not a block and one inside it; not list items among other blocks", () => {
+test("not a block and one inside it; list items and other blocks go together", () => {
   const v = open("para\n\n- a\n- b\n\n<!-- columns -->\n\nleft\n\n<!-- column -->\n\nright\n\n<!-- /columns -->\n");
   v.click("left"); v.click("right");
   assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns"); // all a row holds: the row
-  A.blocks.toggle(v, v.item("a")); // a list item: what was picked is let go
-  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "list_item");
+  A.blocks.toggle(v, v.item("a")); // a list item joins them, as any block does
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "list_item,columns");
   A.blocks.toggle(v, v.item("b"));
-  assert.equal(A.blocks.picked(v.state).length, 2);
-  v.click("para"); // … and a paragraph begins anew as well
+  assert.equal(A.blocks.picked(v.state).length, 3);
+  A.blocks.toggle(v, v.item("a")); A.blocks.toggle(v, v.item("b")); // (… and leaves them again)
+  A.blocks.toggle(v, 0 + v.state.doc.child(0).nodeSize + v.state.doc.child(1).nodeSize);
+  v.click("para");
   assert.equal(v.picked(), "para");
   A.blocks.toggle(v, 0 + v.state.doc.child(0).nodeSize + v.state.doc.child(1).nodeSize); // the row of columns
   v.click("left"); // a block of it: the row itself is let go

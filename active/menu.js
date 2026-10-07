@@ -23,6 +23,16 @@
   const root = panel("actmenu"), sub = panel("actsub");
   let after = null, subOf = -1, subTimer = 0, keys = root; // keys: the panel the arrow keys move in
   let passive = false; // the document still gets the typing (a menu that filters by it, like the "/" menu)
+  /* A menu that is searched: what is typed while it is open is the menu's own — shown in a line at
+   * its top, and the entries are what is found for it. { find(q) -> items, q, head } */
+  let search = null;
+  function searchHead() {
+    const head = document.createElement("div");
+    head.className = "menu-search";
+    head.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><span class="menu-search-q"></span>';
+    head.lastChild.dataset.ph = window.MdStrings.t("menu.search");
+    return head;
+  }
   const isOpen = (p = root) => p.el.hasAttribute("data-open");
   const usable = (p, i) => p.entries[i] && !p.entries[i].item.disabled;
   function setHl(p, i) {
@@ -40,6 +50,7 @@
   function fill(p, items) {
     p.el.textContent = "";
     p.entries = [];
+    if (p === root && search) p.el.appendChild(search.head);
     const icons = items.some((item) => item && item.icon);
     if (!items.length) { const none = document.createElement("div"); none.className = "menu-empty"; none.textContent = window.MdStrings.t("menu.none"); p.el.appendChild(none); }
     for (const item of items) {
@@ -77,10 +88,14 @@
    * or null for a rule; icon: a sign before the name. closed: called when the menu goes without a choice.
    * typing: the document keeps the typing, the menu only the keys it is moved by.
    * steady: no taller than a few entries, and as tall as it opens whatever it is filled with later
-   * (a menu filtered while one types does not jump under the eyes). */
-  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null, steady = false }) {
+   * (a menu filtered while one types does not jump under the eyes).
+   * find: the menu is searched — find(q) gives the entries for what was typed ("" at first). */
+  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null, steady = false, find = null }) {
     closeSub();
+    search = find ? { find, q: "", head: searchHead() } : null;
+    if (find) items = find("");
     root.el.classList.toggle("steady", steady);
+    root.el.classList.toggle("searched", !!find);
     root.el.style.height = "";
     fill(root, items);
     after = closed;
@@ -159,6 +174,16 @@
     if (passive && !side && !/^(Escape|ArrowDown|ArrowUp|Enter|Tab)$/.test(e.key)) return;
     e.stopPropagation();
     e.preventDefault();
+    // a menu that is searched: a character is one more of what is looked for
+    if (search && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "Backspace" || (e.key.length === 1 && (e.key !== " " || search.q)))) {
+      const q = e.key === "Backspace" ? search.q.slice(0, -1) : search.q + e.key;
+      if (q === search.q) return;
+      search.q = q;
+      search.head.lastChild.textContent = q;
+      refill(search.find(q.trim().toLowerCase()));
+      if (q.trim()) step(root, 1, -1);
+      return;
+    }
     if (e.key === "Escape") { if (p === sub) { closeSub(); setHl(root, root.hl); } else close(); }
     else if (e.key === "ArrowDown") step(p, 1);
     else if (e.key === "ArrowUp") step(p, -1, p.hl < 0 ? 0 : p.hl);

@@ -59,6 +59,10 @@ test("Enter and Backspace", () => {
   e.press("Enter");
   is(e, "# Head\n\ning\n");
 
+  e = doc("before\n\n## Title\n").caretBefore("Title"); // (room made above it: it stays a heading)
+  e.press("Enter"); e.press("Enter"); e.type("X");
+  assert.match(e.md(), /^before\n\n[\s\S]*## XTitle\n$/);
+
   e = doc("## Title\n\nafter\n").caretBefore("Title");
   e.press("Backspace");
   is(e, "Title\n\nafter\n");

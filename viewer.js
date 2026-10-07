@@ -628,6 +628,245 @@
   }
   const stripComments = (text) => text.replace(/%%[\s\S]*?%%/g, (m) => m.replace(/[^\n]/g, ""));
 
+  /* ------------------------------------------------------------ pages in a note
+   * A note can hold pages of its own. In the file — one Markdown file, as ever — a page is what
+   * stands between two comment lines:
+   *
+   *     <!-- page: Meeting notes -->
+   *     …
+   *     <!-- /page -->
+   *
+   * (any other program shows that text where it stands). Here the page is a line with its name on
+   * the page it lies on; opened, it is shown alone, and edited as a note of its own — the text
+   * around it in the file is not touched by that. Pages can lie in pages.
+   *
+   * So what is shown and edited is a view of the file: a page's own text, each page in it one
+   * line, <!-- page: Name #p3 --> (the id says which). Saved, the view is put back into the file.
+   * A note without pages is its own view: nothing here changes anything for it.
+   *
+   * The tree: { id, title, open, close (the comment lines as written), lead, trail (the empty
+   * lines after the first and before the second), items: [a line | a page] }; the note itself is
+   * the root (id null). Lines keep their own ends (a "\r" before the "\n" stays on the line). */
+  /* How a page's line looks on the page it lies on — a word after "page": a plain row (nothing),
+   * or a card (a cell of a list) — and, after that, one of the theme's colours:
+   *   <!-- page card: Name -->   <!-- page card blue: Name -->   <!-- page green: Name -->   */
+  const PAGE_STYLES = ["row", "card"];
+  const PAGE_OPEN = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*-->\s*$/, PAGE_CLOSE = /^ {0,3}<!--\s*\/page\s*-->\s*$/, PAGE_ROW = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*#([a-z]\d+)\s*-->\s*$/;
+  const pageLook = (words) => { const [a, b] = String(words || "").split(/\s+/), style = PAGE_STYLES.includes(a) ? a : "row", color = [a, b].find((x) => DECO_COLORS.includes(x)) || ""; return { style, color }; };
+  const pageWords = (look) => [look.style === "row" ? "" : look.style, look.color].filter(Boolean).join(" ");
+  const pageMark = (look, title, id = "") => `<!-- page${pageWords(look) ? " " + pageWords(look) : ""}: ${title}${id ? " #" + id : ""} -->`;
+  const pageRow = (page, eol = "") => pageMark(pageLook(page.look), page.title, page.id) + eol;
+  let pageFresh = 0; // (pages made here, until the file is read anew: x1, x2 …)
+  function parsePages(raw) {
+    const root = { id: null, title: "", items: [], byId: new Map() };
+    const lines = raw.split("\n"), stack = [root];
+    let fence = null, n = 0;
+    for (const line of lines) {
+      const text = line.replace(/\r$/, ""), top = stack[stack.length - 1];
+      const f = /^ {0,3}(`{3,}|~{3,})/.exec(text);
+      if (f && !fence) fence = f[1]; else if (f && fence && f[1][0] === fence[0] && f[1].length >= fence.length && !text.slice(f[0].length).trim()) fence = null;
+      const open = !fence && !PAGE_ROW.test(text) ? PAGE_OPEN.exec(text) : null;
+      if (open) { stack.push({ id: "p" + ++n, title: open[2], look: open[1] || "", open: line, close: null, lead: [], trail: [], items: [], lines: [line] }); continue; }
+      if (!fence && PAGE_CLOSE.test(text) && stack.length > 1) {
+        const page = stack.pop();
+        page.close = line;
+        while (page.items.length && typeof page.items[0] === "string" && !page.items[0].trim()) page.lead.push(page.items.shift());
+        while (page.items.length && typeof page.items[page.items.length - 1] === "string" && !page.items[page.items.length - 1].trim()) page.trail.unshift(page.items.pop());
+        delete page.lines;
+        stack[stack.length - 1].items.push(page);
+        continue;
+      }
+      top.items.push(line);
+    }
+    // a page that is never closed is no page: its lines are the text they are
+    while (stack.length > 1) { const open = stack.pop(), flat = (x) => (typeof x === "string" ? [x] : [x.open, ...x.lead, ...x.items.flatMap(flat), ...x.trail, x.close]); stack[stack.length - 1].items.push(open.open, ...open.items.flatMap(flat)); }
+    const index = (page) => { for (const x of page.items) if (typeof x !== "string") { root.byId.set(x.id, x); x.parent = page; index(x); } };
+    index(root);
+    return root;
+  }
+  const pageLines = (page) => (page.id == null ? [] : [page.open]).concat(page.id == null ? [] : page.lead, page.items.flatMap((x) => (typeof x === "string" ? [x] : pageLines(x))), page.id == null ? [] : page.trail, page.id == null ? [] : [page.close]);
+  const pagesText = (root) => pageLines(root).join("\n");
+  const eolOf = (page) => { let p = page; while (p && p.id != null) { if (p.open) return /\r$/.test(p.open) ? "\r" : ""; p = p.parent; } const l = (page.items || []).find((x) => typeof x === "string"); return l && /\r$/.test(l) ? "\r" : ""; };
+  // the view of a page: its own text, the pages in it a line each
+  function pageView(page) {
+    const eol = eolOf(page), lines = page.items.map((x) => (typeof x === "string" ? x : pageRow(x, eol)));
+    return page.id == null ? lines.join("\n") : lines.length ? lines.join("\n") + "\n" : "";
+  }
+  // … and the view, as it was edited, put back: the page's lines are these now
+  function pagePut(root, page, view) {
+    const lines = view.split("\n"), eol = eolOf(page), seen = new Set();
+    if (page.id != null && lines[lines.length - 1] === "") lines.pop();
+    const clone = (x) => { const c = { ...x, id: "x" + ++pageFresh, items: x.items.map((y) => (typeof y === "string" ? y : clone(y))) }; return c; };
+    page.items = lines.map((line) => {
+      const m = PAGE_ROW.exec(line.replace(/\r$/, ""));
+      if (!m) return line;
+      let sub = root.byId.get(m[3]);
+      const words = pageWords(pageLook(m[1]));
+      if (!sub) sub = { id: m[3], title: m[2], look: words, open: null, close: `<!-- /page -->${eol}`, lead: [eol], trail: [eol], items: [] }; // (a page made here: nothing in it yet)
+      else if (seen.has(sub.id)) sub = clone(sub); // (its line once more — copied, duplicated: a page of its own with the same in it)
+      seen.add(sub.id);
+      // (another name, another look: its first line says so — else that line stays as it was written)
+      if (sub.title !== m[2] || pageWords(pageLook(sub.look)) !== words || !sub.open) { sub.title = m[2]; sub.look = words; sub.open = pageMark(pageLook(words), m[2]) + (/\r$/.test(sub.close || "") ? "\r" : eol); }
+      return sub;
+    });
+    root.byId = new Map();
+    const index = (pg) => { for (const x of pg.items) if (typeof x !== "string") { root.byId.set(x.id, x); x.parent = pg; index(x); } };
+    index(root);
+    return pagesText(root);
+  }
+  // the line of the file a line of the view is (0-based both)
+  function pageFileLine(root, page, viewLine) {
+    let at = 0, found = -1;
+    const walk = (pg) => {
+      if (pg.id != null) at += 1 + pg.lead.length;
+      pg.items.forEach((x, i) => {
+        if (pg === page && i === viewLine) found = at;
+        if (typeof x === "string") at++; else walk(x);
+      });
+      if (pg.id != null) at += pg.trail.length + 1;
+    };
+    walk(root);
+    return found;
+  }
+
+  /* Which page of the note is shown: its ids from the note's own text down (a file read anew
+   * numbers its pages anew: the place among the pages is remembered too). The tree is that of
+   * the note's text as it is (kept while that text is the same). */
+  let pageTree = { raw: null, path: null, root: null }, pageAt = { path: null, ids: [], idx: [] }, pagesShown = null;
+  function pageNow(p) {
+    if (pageTree.raw !== p.raw || pageTree.path !== p.path) pageTree = { raw: p.raw, path: p.path, root: parsePages(p.raw || "") };
+    const root = pageTree.root;
+    if (pageAt.path !== p.path) pageAt = { path: p.path, ids: [], idx: [] };
+    let page = root;
+    const ids = [], idx = [];
+    for (let i = 0; i < pageAt.ids.length; i++) {
+      const subs = page.items.filter((x) => typeof x !== "string");
+      const sub = subs.find((x) => x.id === pageAt.ids[i]) || subs[pageAt.idx[i]];
+      if (!sub) break;
+      ids.push(sub.id); idx.push(subs.indexOf(sub));
+      page = sub;
+    }
+    pageAt = { path: p.path, ids, idx };
+    return { root, page };
+  }
+  // what the reading view and the active mode show of a note: the note itself, or — a note with pages — the view of the page it is at
+  function viewOf(p) {
+    if (!p || p.kind === "pdf" || p.error || typeof p.raw !== "string") return p;
+    const { root, page } = pageNow(p);
+    if (!root.byId.size) return p;
+    if (p._view && p._view.of === p.raw && p._view.vp.page === page) return p._view.vp;
+    const vp = Object.create(p);
+    vp.raw = pageView(page);
+    vp.text = vp.raw.replace(/\r\n?/g, "\n");
+    vp.pageOf = p; vp.page = page; vp.root = root;
+    p._view = { of: p.raw, vp };
+    return vp;
+  }
+  // a view that was edited, put back into its note: the note's text is the file as it is to be
+  function viewPut(vp) {
+    const p = vp.pageOf;
+    if (!p) { // the note is its own view — until a page is made in it: then its text is the file, and what was edited a view of it
+      if (!vp.raw.split("\n").some((l) => PAGE_ROW.test(l.replace(/\r$/, "")))) return vp;
+      const root = parsePages("");
+      vp.raw = pagePut(root, root, vp.raw);
+      vp.text = vp.raw.replace(/\r\n?/g, "\n");
+      pageTree = { raw: vp.raw, path: vp.path, root };
+      return vp;
+    }
+    p.raw = pagePut(vp.root, vp.page, vp.raw);
+    p.text = p.raw.replace(/\r\n?/g, "\n");
+    pageTree = { raw: p.raw, path: p.path, root: vp.root };
+    p._view = { of: p.raw, vp };
+    return p;
+  }
+  // to another page of the note: down into one that lies on this page, or up along the way here
+  function pageGo(ids, then = null) {
+    if (!current || current.kind === "pdf" || mode === "edit") return;
+    if (mode === "active") { leaving = true; flushSave(); leaving = false; } // (what is typed is the file's first)
+    pageAt = { path: current.path, ids, idx: ids.map((_id, i) => (i < pageAt.idx.length ? pageAt.idx[i] : -1)) };
+    current.arriving = false;
+    if (mode === "active") { drawn = null; showActive(current, null); } else draw(current, null);
+    window.scrollTo(0, 0);
+    if (then) then();
+  }
+  /* Blocks put into a page (dragged onto its line): their Markdown stands at the page's end. A
+   * page among them goes along as the page it is. (What is typed is the file's first, and with it
+   * the blocks are gone from where they stood.) */
+  function pageAppend(id, markdown) {
+    if (mode !== "active" || !current || !window.MdActive || !MdActive.view.payload) return false;
+    const before = MdActive.view.payload.root || pageTree.root;
+    const lines = String(markdown || "").replace(/\n+$/, "").split("\n").map((l) => { const m = PAGE_ROW.exec(l); return (m && before && before.byId.get(m[3])) || l; });
+    MdActive.view.touch();
+    leaving = true; flushSave(); leaving = false;
+    const p = current, root = pageTree.path === p.path ? pageTree.root : null, page = root && root.byId.get(id);
+    if (!page) return false;
+    const eol = eolOf(page);
+    if (page.items.length) page.items.push(eol);
+    for (const l of lines) page.items.push(typeof l === "string" ? l + eol : l);
+    root.byId = new Map();
+    const index = (pg) => { for (const x of pg.items) if (typeof x !== "string") { root.byId.set(x.id, x); x.parent = pg; index(x); } };
+    index(root);
+    p.raw = pagesText(root);
+    p.text = p.raw.replace(/\r\n?/g, "\n");
+    pageTree = { raw: p.raw, path: p.path, root };
+    if (p._view) p._view.of = p.raw;
+    trailPush(p.path, p.text);
+    post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
+    return true;
+  }
+  const pageOpen = (id) => { const v = viewOf(current); if (v && v.root && v.root.byId.has(id)) pageGo([...pageAt.ids, id]); else if (mode === "active" && current) pageGo([...pageAt.ids, id], () => document.querySelector("#pagebar .pb-title")?.select()); };
+  /* Over a page that is open: the way to it — the note, the pages down to the one it lies on — and
+   * its name, which is typed there (in the active mode). */
+  const pagebar = document.createElement("nav");
+  pagebar.id = "pagebar";
+  pagebar.setAttribute("aria-label", "Pages");
+  function pageBar(v, host) {
+    if (!v || !v.pageOf || v.page.id == null) { pagebar.remove(); return; }
+    const way = [];
+    for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
+    const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
+    pagebar.innerHTML = `<div class="pb-way">` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
+      `<input class="pb-title" type="text" aria-label="Page name" spellcheck="false" autocomplete="off">`;
+    const title = pagebar.querySelector(".pb-title");
+    title.value = v.page.title;
+    title.placeholder = "Untitled";
+    title.readOnly = !(mode === "active" && !v.readonly);
+    if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
+  }
+  pagebar.addEventListener("click", (e) => { const c = e.target.closest(".pb-crumb"); if (c) pageGo(pageAt.ids.slice(0, Number(c.dataset.depth))); });
+  pagebar.addEventListener("keydown", (e) => {
+    if (!e.target.matches(".pb-title")) return;
+    e.stopPropagation();
+    if (e.key === "Enter" || e.key === "Escape" || e.key === "ArrowDown") { e.preventDefault(); e.target.blur(); if (mode === "active") window.MdActive.view.focus(); }
+  });
+  pagebar.addEventListener("change", (e) => {
+    const vp = mode === "active" && window.MdActive ? MdActive.view.payload : null, to = e.target.value.trim();
+    if (!e.target.matches(".pb-title") || !vp || !vp.pageOf || vp.page.id == null || vp.readonly || to === vp.page.title) return;
+    vp.page.title = to;
+    vp.page.open = pageMark(pageLook(vp.page.look), to) + (/\r$/.test(vp.page.close || "") ? "\r" : "");
+    MdActive.view.touch(); // (the name is in the file with the next save)
+    activeChanged();
+  });
+
+  /* A property that is true or false, switched: its line in the properties at the head of the
+   * text (a note, or the properties alone) says the other — everything else stays as written.
+   * -> the text, or null where there is no such line (a value written another way: left alone). */
+  function toggleProp(text, key, on) {
+    const m = /^(\uFEFF?---[ \t]*\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$))/.exec(text || "");
+    if (!m) return null;
+    const k = String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const line = new RegExp(`^((?:${k}|"${k}"|'${k}')[ \\t]*:[ \\t]*)(?:true|false)([ \\t]*(?:#.*)?)$`, "im");
+    if (!line.test(m[2])) return null;
+    return m[1] + m[2].replace(line, (_all, head, tail) => head + (on ? "true" : "false") + tail) + m[3] + text.slice(m[0].length);
+  }
+  // a page's line on the page it lies on: its name, to be opened (reading view and active mode alike)
+  const htmlBlockRule = md.renderer.rules.html_block;
+  md.renderer.rules.html_block = (t, i, o, env, self) => {
+    const m = PAGE_ROW.exec(t[i].content.trim());
+    if (!m) return htmlBlockRule ? htmlBlockRule(t, i, o, env, self) : t[i].content;
+    const page = pagesShown && pagesShown.byId.get(m[3]), look = pageLook(m[1]), name = esc((page ? page.title : m[2]) || "Untitled");
+    return `<div class="page-row" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-page="${esc(m[3])}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
+  };
   function renderProps(props, env) {
     const keys = Object.keys(props);
     if (!keys.length) return "";
@@ -637,7 +876,7 @@
     const value = (k, v) => {
       if (v == null || v === "") return '<span class="prop-empty">Empty</span>';
       if (Array.isArray(v)) return v.map((x) => chip(k, Array.isArray(x) ? `[[${x.flat().join("")}]]` : x)).join("");
-      if (typeof v === "boolean") return `<input type="checkbox" class="task" disabled${v ? " checked" : ""}>`;
+      if (typeof v === "boolean") return `<input type="checkbox" class="task" data-prop="${esc(k)}"${v ? " checked" : ""}>`; // (a click writes it: toggleProp)
       if (v instanceof Date) {
         const dateOnly = v.getUTCHours() === 0 && v.getUTCMinutes() === 0;
         return esc(dateOnly
@@ -747,10 +986,11 @@
     }
     if (mode === "active") {
       if (!p.error) {
-        if (prev && prev.path === p.path && !MdActive.view.shows(p)) MdActive.dialog.closeFields(); // a popover's place is gone; a dialog finds its block again (islands.js)
+        if (prev && prev.path === p.path && !MdActive.view.shows(viewOf(p))) MdActive.dialog.closeFields(); // a popover's place is gone; a dialog finds its block again (islands.js)
         if (prev && prev.path === p.path && MdActive.view.dirty) { // edits here that are not saved yet win, as in the source editor
           if (p.text !== prev.text) toast(T("active.keptEdits"));
-          p.raw = MdActive.view.serialize();
+          const shown = MdActive.view.payload, text = MdActive.view.serialize();
+          if (shown && shown.pageOf) { p.raw = pagePut(shown.root, shown.page, text); pageTree = { raw: p.raw, path: p.path, root: shown.root }; } else p.raw = text;
           p.text = p.raw.replace(/\r\n?/g, "\n");
         }
         showActive(p, p.keepScroll ? captureAnchor() : null);
@@ -797,13 +1037,16 @@
       reveal();
       return;
     }
-    const fm = stripFrontmatter(p.text);
+    const v = viewOf(p); // (a note with pages: the page it is at)
+    pagesShown = v.root || null;
+    const fm = stripFrontmatter(v.text);
     md.set({ breaks: !!p.vault });
     const env = { lineOffset: fm.offset, links: p.links || {}, outline: [], depth: 0 };
     let html = md.render(stripComments(fm.body), env);
     if (fm.props) html = renderProps(fm.props, { links: env.links, depth: 1 }) + html;
     if (!html.trim()) html = `<div class="empty-state"><p>This file is empty.</p></div>`;
     content.innerHTML = html;
+    pageBar(v, content);
     outline = env.outline;
     reveal();
     if (quiet) { renderMermaid(gen, null); return; }
@@ -1520,9 +1763,10 @@
     saveTimer = 0;
     if (mode === "active" && leaving) window.MdActive?.dialog?.finish(); // a dialog still open: its content counts
     if (window.MdActive?.view?.dirty) { // edits made in the active mode: the file as it is to be, byte for byte
-      const p = MdActive.view.payload;
-      p.raw = MdActive.view.take();
-      p.text = p.raw.replace(/\r\n?/g, "\n");
+      const shown = MdActive.view.payload;
+      shown.raw = MdActive.view.take();
+      shown.text = shown.raw.replace(/\r\n?/g, "\n");
+      const p = viewPut(shown); // (a page of a note: put back into the note's text)
       p.error = null;
       trailPush(p.path, p.text);
       post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
@@ -1964,8 +2208,11 @@
   }
   function showActive(p, anchor) {
     const gen = ++generation;
-    const fresh = MdActive.view.payload !== p && !(MdActive.view.payload && MdActive.view.payload.path === p.path && MdActive.view.edited);
-    const store = MdActive.view.show(p);
+    const v = viewOf(p); // (a note with pages: the page it is at)
+    pagesShown = v.root || null;
+    const fresh = MdActive.view.payload !== v && !(MdActive.view.payload && MdActive.view.payload.path === p.path && MdActive.view.edited);
+    const store = MdActive.view.show(v);
+    pageBar(v, MdActive.view.dom.parentNode);
     // a document built anew starts its own undo history here; older steps are the trail's
     if (MdActive.view.built !== activeBuilt) { activeBuilt = MdActive.view.built; trailPush(p.path, p.text); trailFloor = trail.at; }
     outline = store.env.outline;
@@ -2804,6 +3051,11 @@
     if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
     rows.push(null);
     rows.push(["Select All", "Ctrl+A", true, edit("SelectAll")]);
+    // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
+    if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {
+      const shown = window.MdPrefs?.props !== false;
+      rows.push(null, [window.MdStrings.t(shown ? "menu.propsHide" : "menu.propsShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), props: !shown }; post("prefs", { prefs: { props: !shown } }); prefsChanged(); }]);
+    }
     tDo = {};
     tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}><span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
     rows.forEach((r, i) => { if (r) tDo[i] = r[3]; });
@@ -3082,6 +3334,8 @@
   }
   function selectTab(id) {
     const t = tabs.find((x) => x.id === id);
+    // the tab of the note that lies under all notes: back to the note
+    if (t && id === tabActive && t.path && window.MdOverview && MdOverview.isOpen) { MdOverview.close(); return; }
     if (!t || id === tabActive) return;
     tabActive = id; // marked at once; the application answers with the tabs as they then are
     markTabs();
@@ -3194,7 +3448,7 @@
     edit: () => switchMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
-    overview: () => { if (folder && window.MdOverview) MdOverview.toggle(); },
+    overview: () => { if (folder && window.MdOverview) MdOverview.open(); }, // (the house: always to all notes — back to the note by its tab, or Esc)
     // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
     // active mode: in the others its button is dimmed and does nothing
     panel: () => { if (mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
@@ -3244,11 +3498,23 @@
   // --- content clicks: links, tasks, copy
   document.addEventListener("click", (e) => {
     if (e.defaultPrevented) return;
+    const row = e.target.closest(".page-row");
+    if (row && !row.closest(".pm") && !row.closest(".transclusion")) { pageOpen(row.dataset.page); return; } // (in the active mode: its block's own click, islands.js)
     const box = e.target.closest("input.task");
+    if (box && box.dataset.prop != null) { // a property, true or false: written into the note at once
+      if (box.closest(".pm")) { if (!(window.MdActive && MdActive.islands.propClicked(box))) e.preventDefault(); return; } // (in the active mode: written into its properties)
+      const text = current && !current.readonly && !current.error && current.kind !== "pdf" && mode === "read" ? toggleProp(current.raw != null ? current.raw : current.text, box.dataset.prop, box.checked) : null;
+      if (text == null) { e.preventDefault(); return; }
+      current.raw = text;
+      current.text = text.replace(/\r\n?/g, "\n");
+      post("save", { text, path: current.path, exact: true, seq: ++saveSeq });
+      return;
+    }
     if (box) {
       if (box.disabled || box.dataset.line == null) { e.preventDefault(); return; }
       box.closest("li")?.classList.toggle("is-checked", box.checked);
-      post("toggle", { line: Number(box.dataset.line), checked: box.checked });
+      const shown = viewOf(current), line = Number(box.dataset.line);
+      post("toggle", { line: shown && shown.pageOf ? pageFileLine(shown.root, shown.page, line) : line, checked: box.checked }); // (a page's line: the file's)
       return;
     }
     // code put away behind its card: shown in a window of its own (while it is edited, its dialog is that window)
@@ -3329,7 +3595,7 @@
     if (mod && e.shiftKey && k === "o") { e.preventDefault(); actions.outline(); return; }
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
-    if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); actions.overview(); return; }
+    if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); if (folder && window.MdOverview) MdOverview.toggle(); return; } // (the key goes there and back)
     if (mod && e.altKey && !e.shiftKey && k === "h") { e.preventDefault(); openHistory(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "p") { e.preventDefault(); actions.panel(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
@@ -3404,6 +3670,7 @@
       scrollTo({ top: share * document.documentElement.scrollHeight, behavior: "instant" });
       window.dispatchEvent(new Event("resize"));
     }
+    document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer.css)
     const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
     if (sort !== sortedBy) { sortedBy = sort; resort(); }
     if (measure !== measured) {
@@ -3415,6 +3682,16 @@
   // pictures dropped on the document, saved or found by the application
   function insertDropped(r) {
     if (mode === "active" && current && current.path === r.path) MdActive.clip.insertDropped(MdActive.view.pm, r.markups);
+  }
+  // files the application put back beside the note (a removal undone): their pictures are loaded anew
+  function filesBack(names) {
+    for (const img of document.querySelectorAll("#active img, #content img")) {
+      let src = img.getAttribute("src") || "";
+      try { src = decodeURIComponent(src); } catch (e) { /* (as it is) */ }
+      if (!names.some((n) => src.split(/[?#]/)[0].endsWith(n))) continue;
+      const u = img.src.split("#")[0].split("?")[0];
+      img.src = u + "?" + Date.now();
+    }
   }
   function pasteText(r) {
     if (mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
@@ -3450,9 +3727,14 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { filesBack, pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
+    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
+      // a page's line: how it looks — and the line that says it looks another way
+      lookOf: (raw) => pageLook((PAGE_ROW.exec(String(raw || "").trim()) || [])[1]),
+      withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
+      // … and the page as it stands in the file, for the clipboard
+      markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },

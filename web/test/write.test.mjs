@@ -195,7 +195,8 @@ test("blocks selected as wholes: Tab stands them under the list above, / and a r
   await page.waitForFunction(() => !!MdActive.blocks.selection(MdActive.view.pm.state), null, { timeout: 8000 });
   await page.keyboard.type("/");
   await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
-  assert.deepEqual(await menu(), ["Text Style", "List", "Decorations", "Color", "Callout"]);
+  assert.deepEqual(await menu(), ["Text Style", "List", "Format", "Decorations", "Color", "Callout", "Columns", "Code Block", "Formula", "Table", "Divider", "Picture", "Graphic by Claude…", "Footnote", "Page", "Actions"]); // (all the "/" menu has)
+  assert.ok(await page.evaluate(() => !!document.querySelector("#actmenu .menu-search"))); // (… and it is searched by typing)
   assert.equal(await md(), "- one\n\nbelow\n\nthird\n");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
@@ -454,6 +455,41 @@ test("a picture pasted comes from the paste itself: no asking the browser for th
   await paste(null, [["image.png", "image/jpeg"]]);
   await until(() => /\.jpg\)\n$/.test(text("Pasted.md") || ""), "the second picture, at the end");
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+});
+
+test("a picture put in while writing goes again with what shows it, and comes back when that is undone; one that was there stays", async () => {
+  put("Gone.md", "# Gone\n\n![](there.png)\n\ntext\n");
+  put("there.png", "not put in by the app");
+  await open("Gone.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
+  await page.evaluate(async () => {
+    const dt = new DataTransfer(), c = document.createElement("canvas");
+    c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+    dt.items.add(new File([await new Promise((r) => c.toBlob(r, "image/png"))], "image.png", { type: "image/png" }));
+    document.querySelector(".pm").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await until(() => /\(pasted-\d{8}-\d{6}\.png\)/.test(text("Gone.md") || ""), "the picture's markup in the note");
+  const name = /\((pasted-[^)]+)\)/.exec(text("Gone.md"))[1];
+  assert.ok(gh.repo.files.has(name));
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], "Gone.md"); // (written down as the note's own)
+  // taken out of the note: it goes from the repository too (a picture that was there before is not in the list, and never goes)
+  await page.evaluate((what) => {
+    const v = MdActive.view.pm, tr = v.state.tr, at = [];
+    v.state.doc.descendants((n, p) => { if (n.type.name === "image" && n.attrs.src.includes(what)) at.push([p, p + n.nodeSize]); });
+    for (const [a, b] of at.reverse()) tr.delete(a, b);
+    v.dispatch(tr);
+  }, name);
+  await until(() => !(text("Gone.md") || name).includes(name) && !gh.repo.files.has(name), "the pasted picture is gone from the repository");
+  assert.ok(gh.repo.files.has("there.png"));
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], undefined);
+  // undone: back in the note, in the repository, and on the page
+  await page.evaluate(() => PM.history.undo(MdActive.view.pm.state, MdActive.view.pm.dispatch));
+  await until(() => (text("Gone.md") || "").includes(name) && gh.repo.files.has(name), "the picture is back in the repository");
+  assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], "Gone.md");
+  await page.waitForFunction((n) => { const i = [...document.querySelectorAll(".pm img")].find((i) => i.src.includes(n)); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 10000 });
 });
 
 test("a file block: a click hands the file out, and a file that can be shown is embedded on request", async () => {

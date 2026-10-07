@@ -134,7 +134,7 @@
 
   function codeDialog(view, pos, node, fresh) {
     const c = parseCode(node.attrs.raw);
-    let ed, lang, rest;
+    let ed, lang, rest, restNow;
     A.dialog.show({
       title: T("dialog.code"),
       anchor: () => view.nodeDOM(pos),
@@ -147,16 +147,17 @@
         // what follows the language in the fence's head; "hide" there puts the code away behind a
         // card in the note (its title: what follows "hide") — switched on and off by the button
         rest = el("input", { class: "lp-field dlg-rest", type: "text", "aria-label": T("dialog.info"), spellcheck: "false", autocomplete: "off" });
-        rest.value = c.rest.trim();
+        // (the field holds the title alone: the word "hide" is the button's, never typed or shown)
+        let hidden = /^hide(?:\s|$)/i.test(c.rest.trim());
+        rest.value = hidden ? c.rest.trim().replace(/^hide\s*/i, "") : c.rest.trim();
         const hide = el("button", { class: "btn", type: "button", "aria-pressed": "false" }, T("dialog.hide"));
-        const hiddenNow = () => /^hide(?:\s|$)/i.test(rest.value.trim());
-        const showRest = () => { hide.setAttribute("aria-pressed", String(hiddenNow())); rest.hidden = !rest.value.trim(); rest.placeholder = hiddenNow() ? T("dialog.hideTitle") : ""; };
+        restNow = () => (hidden ? ("hide " + rest.value.trim()).trim() : rest.value.trim());
+        const showRest = () => { hide.setAttribute("aria-pressed", String(hidden)); rest.hidden = !hidden && !rest.value.trim(); rest.placeholder = hidden ? T("dialog.hideTitle") : ""; };
         hide.onclick = () => {
-          rest.value = hiddenNow() ? rest.value.trim().replace(/^hide\s*/i, "") : ("hide " + rest.value.trim()).trim() + " ";
+          hidden = !hidden;
           showRest();
-          if (hiddenNow()) { rest.hidden = false; rest.focus(); rest.setSelectionRange(rest.value.length, rest.value.length); }
+          if (hidden) { rest.focus(); rest.setSelectionRange(rest.value.length, rest.value.length); }
         };
-        rest.addEventListener("input", () => hide.setAttribute("aria-pressed", String(hiddenNow())));
         showRest();
         tools.append(rest, hide);
         ed = A.dialog.editor({ value: c.code, language: hl(c.lang), label: T("dialog.code") });
@@ -196,7 +197,9 @@
           focus: () => (fresh || c.code ? ed.focus() : lang.focus()),
           result() {
             // (left as it was written where it was not touched: spaces at the line's end and all)
-            const next = { ...c, lang: lang.value.trim(), rest: rest.value.trim() === c.rest.trim() ? c.rest : rest.value.trim() ? " " + rest.value.trim() : "", code: ed.value };
+            const r = restNow(), hid = /^hide(?:\s|$)/i.test(r);
+            // (a fence without a language has no place for "hide" after it)
+            const next = { ...c, lang: lang.value.trim() || (hid ? "text" : ""), rest: r === c.rest.trim() ? c.rest : r ? " " + r : "", code: ed.value };
             const raw = buildCode(next);
             return raw === node.attrs.raw && !fresh ? undefined : raw;
           },
@@ -746,6 +749,8 @@
     if (node.type === N.image) { imagePopover(view, pos, node); return true; }
     if (node.type === N.iatom) { if (node.attrs.kind === "footnote") return A.notes.edit(view, A.notes.labelOf(node)); atomPopover(view, pos, node); return true; }
     if (node.type !== N.island || node.attrs.virtual) return false;
+    // a page of the note, its line: opened (viewer.js) — its name is typed on the page itself
+    if (node.attrs.kind === "html" && window.MdView.core.pages.isRow(node.attrs.raw)) { window.MdView.core.pages.open(window.MdView.core.pages.idOf(node.attrs.raw)); return true; }
     target = { pos, node };
     // the block is selected while its dialog is up: closing it hands the focus back to the block
     if (!(view.state.selection instanceof NodeSelection && view.state.selection.from === pos)) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
@@ -785,5 +790,15 @@
     const rest = /^hide(?:\s|$)/i.test(was) ? was.replace(/^hide\s*/i, "") : ("hide " + was).trim();
     replace(view, pos, buildCode({ ...c, lang, rest: rest ? " " + rest : "" }));
   }
-  A.islands = { codeIsHidden, toggleHidden, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  /* A property that is true or false, its box clicked (the page's click, viewer.js: the island
+   * keeps the editor's own events out): the properties as they are written say the other now. */
+  function propClicked(box) {
+    const view = A.view && A.view.pm, isl = box.closest(".isl");
+    const pos = view && view.editable && isl && view.dom.contains(isl) && isl.pmViewDesc ? isl.pmViewDesc.posBefore : -1, node = pos < 0 ? null : view.state.doc.nodeAt(pos);
+    const raw = node && node.type === N.island && node.attrs.kind === "frontmatter" ? window.MdView.core.toggleProp(String(node.attrs.raw || ""), box.dataset.prop, box.checked) : null;
+    if (raw == null) return false;
+    replace(view, pos, raw);
+    return true;
+  }
+  A.islands = { propClicked, codeIsHidden, toggleHidden, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

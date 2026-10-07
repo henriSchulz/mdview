@@ -69,8 +69,12 @@
     if (!itemAt($from)) {
       if ($from.parent.type !== N.paragraph) return false;
       return L.wrapInList(N.bullet_list)(state, dispatch && ((tr) => {
-        const item = itemAt(tr.selection.$from);
-        if (item) tr.setNodeMarkup(item.pos, null, { ...item.node.attrs, task: " " });
+        // (every paragraph the selection reached is an item now: each of them a task)
+        const list = ancestor(tr.selection.$from, isList);
+        if (list) list.node.forEach((item, offset) => {
+          const pos = list.pos + 1 + offset;
+          if (pos < tr.selection.to && pos + item.nodeSize > tr.selection.from && item.firstChild.type === N.paragraph) tr.setNodeMarkup(pos, null, { ...item.attrs, task: " " });
+        });
         dispatch(tr);
       }));
     }
@@ -133,6 +137,13 @@
     dispatch(tr);
   }));
   const splitBlock = trimSplit(splitBlockAs);
+  // Enter before a heading's text: room is made above it — an empty line, and the heading stays one
+  function enterBeforeHeading(state, dispatch) {
+    const { $from, empty } = state.selection;
+    if (!empty || $from.parent.type !== N.heading || $from.parentOffset !== 0 || !$from.parent.content.size) return false;
+    if (dispatch) dispatch(state.tr.insert($from.before(), N.paragraph.create()).scrollIntoView());
+    return true;
+  }
   // "---" (or *** or ___) and Enter: a rule
   function ruleOnEnter(state, dispatch) {
     const { $from, empty } = state.selection;
@@ -419,7 +430,7 @@
     "Shift-Tab": C.chainCommands((s, d, v) => A.tableui.tab(-1)(s, d, v), untabBlock, untabPlain, inList(L.liftListItem(N.list_item)), swallow),
     "Mod-Enter": toggleTask,
     "Shift-Enter": C.chainCommands((s) => A.tableui.noBreak(s), hardBreak),
-    Enter: C.chainCommands(openSelected, (s, d, v) => A.tableui.enter(s, d, v), (s, d, v) => A.islands.onEnter(s, d, v), (s, d) => A.tableui.make(s, d), ruleOnEnter, enterInList, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
+    Enter: C.chainCommands(openSelected, (s, d, v) => A.tableui.enter(s, d, v), (s, d, v) => A.islands.onEnter(s, d, v), (s, d) => A.tableui.make(s, d), ruleOnEnter, enterInList, enterBeforeHeading, C.createParagraphNear, C.liftEmptyBlock, splitBlock),
     Space: openSelected,
     Backspace: C.chainCommands(IR.undoInputRule, C.deleteSelection, backspaceAtStart, C.joinBackward, C.selectNodeBackward),
     Delete: C.chainCommands(C.deleteSelection, C.joinForward, C.selectNodeForward),
@@ -808,7 +819,9 @@
       // a click on an island opens its dialog; on a formula its popover; a picture wants a double click
       handleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
+        if (event.target.matches?.(".props input.task[data-prop]")) return true; // (a property's box: it switches the property, islands.js — not the dialog)
         if (node.type === N.island && node.attrs.virtual) return A.notes.clicked(view, event);
+        if (node.type === N.island && node.attrs.kind === "frontmatter") return true; // (the properties stand at the note's head, no block to open: edited from the menu of a right click)
         // (an embedded picture or PDF page is a picture: a click selects it, its dialog is in its menu)
         // … and a callout that folds is its own control: a click on its title folds it
         if (node.type === N.island && (node.attrs.kind === "blockquote" || A.islands.picture(view, nodePos, node))) return false;
@@ -847,6 +860,7 @@
     // d: the document ({ store, loaded }) the state is made for
     plugins: (d) => [
       new Plugin({ key: context, state: { init: () => d || null, apply: (_tr, value) => value } }),
+      A.blocks.gapPlugin, // (… and so are they at the place between two blocks)
       A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
       A.ghost.plugin,     // (with a suggestion shown, Tab, Ctrl+→ and Esc are the suggestion's — in a formula too)
       A.mathtext.plugin,  // (in a formula being typed in the text: LaTeX Suite's keys)
