@@ -471,44 +471,6 @@
       return state.tr.replaceWith(from, end, N.iatom.create({ kind, raw, html }));
     });
   }
-  /* The notes a link can lead to, as they are written in one: by name, the folder's own order
-   * (what was opened last comes first); a name that two notes have, with its folders. PDFs by
-   * their file name — and for what is shown in the note (embed), every other file listed too. */
-  function noteNames(embed) {
-    const core = window.MdView.core, f = core.folder, all = [];
-    if (!f) return [];
-    const walk = (n) => { all.push(...n.notes); n.dirs.forEach(walk); };
-    walk(f.all || f.tree);
-    const here = core.current && core.current.path, stem = (n) => (n.pdf ? n.name : n.path.split("/").pop().replace(/\.[^.]+$/, ""));
-    const list = [...core.sortNotes(all.filter((n) => !n.pdf)), ...all.filter((n) => n.pdf && (embed || n.kind === "pdf"))].filter((n) => n.real !== here && n.path !== here);
-    const times = new Map();
-    for (const n of list) times.set(stem(n).toLowerCase(), (times.get(stem(n).toLowerCase()) || 0) + 1);
-    return list.map((n) => [times.get(stem(n).toLowerCase()) > 1 ? n.path.slice(f.root.length + 1).replace(n.pdf ? /$^/ : /\.[^./]+$/, "") : stem(n), n]);
-  }
-  /* The small window "[[" opens at the caret: which note (those of the folder are offered while
-   * it is typed in; one chosen is the link at once), and the text to show for it. Enter puts the
-   * link in, whole; Esc, or nothing named, leaves the brackets as they were typed. */
-  function pickNote(view, embed) {
-    if (view.isDestroyed || !view.editable || !view.state.selection.empty) return;
-    const T = window.MdStrings.t, c = view.coordsAtPos(view.state.selection.from), open = (embed ? "!" : "") + "[[";
-    const typedOnly = () => { view.focus(); view.dispatch(view.state.tr.insertText(open).setMeta("step", true)); };
-    A.dialog.fields({
-      rect: { left: c.left, right: c.left, top: c.top, bottom: c.bottom }, label: T("dialog.wikilink"), applyOn: "]", // (typed on as it is written: the bracket that closes the link ends it)
-      fields: [{ key: "target", label: T(embed ? "link.file" : "dialog.note"), value: "", placeholder: T("link.pickNote"), combo: () => noteNames(embed).map(([name]) => name), take: true }, ...(embed ? [] : [{ key: "alias", label: T("link.text"), value: "" }])],
-      apply(v) {
-        const target = v.target.trim().replace(/[\[\]|\n]/g, ""), alias = (v.alias || "").trim().replace(/[\[\]\n]/g, "");
-        if (!target) return typedOnly();
-        view.focus();
-        const raw = "[[" + target + (alias ? "|" + alias : "") + "]]";
-        // (a note of the folder's: the link leads somewhere, and shows it — the application says where when the note is read again)
-        const links = A.view.store && A.view.store.env.links, known = noteNames(embed).find(([name]) => name.toLowerCase() === target.split("#")[0].toLowerCase());
-        if (!embed && links && known && !links[target]) links[target] = { path: known[1].real || known[1].path, kind: known[1].kind || "md" };
-        if (embed) { A.clip.insertMarkdown(view, "!" + raw); return; }
-        view.dispatch(view.state.tr.replaceSelectionWith(N.iatom.create({ kind: "wikilink", raw, html: renderInline(view.state, raw) }), true).setMeta("step", true).scrollIntoView());
-      },
-      cancel: typedOnly,
-    });
-  }
   const startOfTextblock = (state, start) => state.doc.resolve(start).parentOffset === 0;
   const rules = [
     IR.textblockTypeInputRule(/^(#{1,6})\s$/, N.heading, (m) => ({ level: m[1].length })),
@@ -619,14 +581,15 @@
     }),
     // math: nothing that looks like prices ("$5 and $10")
     atomRule(/(?:^|[^\\$\p{L}\p{N}])(\$[^\s$](?:[^$]*[^\s$\\])?\$)$/u, "math"),
-    // "[[": a link to another note is being made — the brackets do not stay as typed, a small window
-    // at the caret asks for the note (pickNote); "![[" the same for what is shown in the note itself
+    // "[[": a link to another note is being made — the brackets that close it are put in at once,
+    // the caret between them, and the folder's notes are offered under it while its name is typed
+    // (wikilink.js). "![[" the same for what is shown in the note itself.
     new IR.InputRule(/(!?)\[\[$/, (state, match, start, end) => {
       const $from = state.doc.resolve(start);
-      if (!A.dialog || !A.view || !A.view.pm || $from.marks().some((m) => m.type === M.code) || state.doc.textBetween(Math.max($from.start(), start - 1), start) === "\\") return null;
-      const view = A.view.pm;
-      setTimeout(() => pickNote(view, !!match[1]), 0);
-      return state.tr.delete(start, end);
+      if (!A.wikilink || $from.marks().some((m) => m.type === M.code) || state.doc.textBetween(Math.max($from.start(), start - 1), start) === "\\") return null;
+      if (state.doc.textBetween(end, Math.min($from.end(), end + 2)) === "]]") return null; // (they are there already: the rules are looked at again after what was put in)
+      const tr = state.tr.insertText("[]]", end);
+      return tr.setSelection(TextSelection.create(tr.doc, end + 1)).setMeta("wikilink", true);
     }),
     atomRule(/(\[\[[^\[\]\n]+\]\])$/, "wikilink"),
     // :smile: — whatever the reading view would show as an emoji
@@ -916,7 +879,7 @@
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.columns.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.columns.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.wikilink.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },

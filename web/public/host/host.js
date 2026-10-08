@@ -862,6 +862,20 @@
       sendTabs();
       commit();
     },
+    /* A note or another file, handed out: the browser saves it under its name. A note as it is
+     * written here, what is typed and not committed yet with it. */
+    async download({ path }) {
+      if (!exists(path)) return;
+      try {
+        let blob;
+        if (C.isMd(path)) blob = new Blob([await textOf(path)], { type: "text/markdown;charset=utf-8" });
+        else { const res = await ask(fileUrl(path)); if (!res.ok) throw new Error("not read"); blob = await res.blob(); }
+        const a = document.createElement("a"), url = URL.createObjectURL(blob);
+        a.href = url; a.download = C.nameOf(path); a.hidden = true;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } catch { toast(`Couldn't download “${C.nameOf(path)}”`); }
+    },
     /* A note, another file or a folder deleted — or several at once (paths: what is selected in
      * All Notes). A folder is the files in it. */
     async trash({ path, paths: many }) {

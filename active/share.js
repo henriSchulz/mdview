@@ -14,7 +14,7 @@
   const el = (tag, attrs = {}, text) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
 
   const ICON = window.MdView.core.UI; // (the symbols as the app draws them)
-  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, rawRow = null, raw = null, copyRaw = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, back = null;
+  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, rawRow = null, raw = null, copyRaw = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, down = null, get = null, back = null;
   let path = null, state = null, waiting = false, opened = false; // state: what the application said last; opened: the password's part is unfolded
   const isOpen = () => !!root && root.hasAttribute("data-open");
 
@@ -53,12 +53,22 @@
     inner.append(line, el("p", { class: "share-hint" }, T("share.password.hint")), drop);
     fold.appendChild(inner);
     card.append(linkRow, rawRow, more, fold);
+    // … or, instead of a link: the note itself, to keep or pass on — where the host can hand a file
+    // out (a browser; on the desktop the note is a file in a folder already)
+    down = el("div", { class: "share-card share-down" });
+    const downRow = el("div", { class: "share-row" });
+    get = el("button", { class: "pf-link", type: "button" }, T("share.download"));
+    const what = el("span", { class: "share-name" }, T("share.download.name"));
+    downRow.append(what, el("span", { class: "share-value" }, T("share.download.what")), get);
+    down.appendChild(downRow);
+    down.hidden = !(window.MdHost && window.MdHost.download);
+    get.onclick = () => { post("download", { path }); };
     const foot = el("div", { class: "share-foot" });
     stop = el("button", { class: "pf-link danger", type: "button" }, T("share.stop"));
     go = el("button", { class: "btn primary", type: "button" }, T("share.start"));
     back = el("button", { class: "btn", type: "button" });
     foot.append(stop, el("span"), back, go);
-    box.append(head, card, foot);
+    box.append(head, card, down, foot);
     root.appendChild(box);
     document.body.appendChild(root);
 

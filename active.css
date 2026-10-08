@@ -41,7 +41,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm { caret-color: var(--accent); }
 .pm.ProseMirror-focused .typing { white-space: pre-wrap; }
 .pm a { cursor: text; }
-.pm .isl a, .pm .ia a, body.mod-down .pm a { cursor: pointer; }
+.pm a, .pm .isl a, .pm .ia a { cursor: pointer; }
 .pm .placeholder::before {
   content: attr(data-placeholder);
   float: left;
@@ -1073,6 +1073,8 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
 .share-chev .sf { font-size: 9px; }
 .share-more[aria-expanded="true"] .share-chev { transform: rotate(90deg); }
 .share-name { flex: 1; font-weight: 500; }
+.share-down .share-name { flex: none; }
+.share-down .share-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-value { color: var(--fg2); }
 /* (folded as the sidebar's folders are: the rows of a grid, the content clipped) */
 .share-fold { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows calc(var(--spring-smooth-dur) * 0.7) var(--spring-smooth), opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--spring-smooth-dur) * 0.7); }
@@ -1093,5 +1095,4 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
 @media (prefers-reduced-motion: reduce) { .share-box, .share-scrim[data-open] .share-box { transform: none; transition: none; } .share-fold, .share-fold[data-open], .share-chev { transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; } }
 @media (prefers-contrast: more) { .share-box, .share-card { box-shadow: 0 0 0 1.5px var(--fg); } }
 
-/* a file block while it is edited: the reading view's card (viewer.css), its name typed in as any link's text */
-.pm p.file-block > a { cursor: text; }
+/* a file block while it is edited: the reading view's card (viewer.css); a click opens its file, as any link's leads on */

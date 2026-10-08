@@ -2251,7 +2251,7 @@
     });
     return activeLoad || (activeLoad = (async () => {
       const css = style("active.css");
-      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "vendor/diff.min.js", "active/history.js", "active/conflict.js", "active/share.js", "active/slash.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
+      await Promise.all(["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "vendor/diff.min.js", "active/history.js", "active/conflict.js", "active/share.js", "active/slash.js", "active/wikilink.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/panel.js", "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
     })().catch((e) => { activeLoad = null; throw e; }));
@@ -2928,6 +2928,7 @@
     entry("default", "external", "Open in Default App", "file ovnote") +
     entry("openwith", "apps", "Open With…", "file ovnote") +
     entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
+    entry("download", "down", "Download", "file ovnote") +
     `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
     entry("share", "share", "Share…", "file ovnote") +
     entry("rename", "rename", "Rename", "file dir ovnote ovdir", "F2") +
@@ -3004,7 +3005,8 @@
     ctxKind = ctx.dataset.kind = kind;
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState())
       || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed) // (a host whose folders always have their history: nothing to switch off)
-      || HOST_LACKS.has(el.dataset.cmd); // (what a host has no way to do — a browser shows nothing in a Finder — is not offered)
+      || HOST_LACKS.has(el.dataset.cmd) // (what a host has no way to do — a browser shows nothing in a Finder — is not offered)
+      || (el.dataset.cmd === "download" && !(window.MdHost && window.MdHost.download)); // (… and a file is handed out only where it is not one in a folder already)
     // (a rule with nothing above it, nothing below it, or another rule above it divides nothing)
     let above = false, rule = null;
     for (const el of ctx.children) {
@@ -3069,6 +3071,7 @@
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") MdOverview.go(item);
       else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd === "download") post("download", { path });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
       else if (cmd === "trash") post("trash", { path });
@@ -3751,8 +3754,11 @@
     const a = e.target.closest("a");
     if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
-    // In text that is being edited a click places the caret; Ctrl+click follows the link.
-    if (mode === "active" && MdActive.view.editable && !a.closest(".isl") && !(e.ctrlKey || e.metaKey)) return;
+    // In text that is being edited a click follows the link too (it is changed from the menu of a
+    // right click: Edit Link…). Not with Alt held, which only places the caret in it, and not at
+    // the end of a selection pulled over it.
+    if (mode === "active" && MdActive.view.editable && !a.closest(".isl") && (e.altKey || !getSelection().isCollapsed)) return;
+    if (mode === "active" && window.MdActive && MdActive.link) MdActive.link.close(); // (the small window under the link the caret came to rest in: not over the way out)
     // (another note or a PDF: in a tab of its own — the one it has already, else a new one — so the note the link stands in stays open; tab: "own")
     if (a.dataset.wiki != null) { post("wikilink", { target: a.dataset.wiki, tab: "own" }); return; }
     const href = a.getAttribute("href");

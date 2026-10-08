@@ -178,7 +178,10 @@ test("a file's menu offers what a browser can do, and calls it what it is here",
   await page.click('.sb-row[data-real="/octo/notes/Second note.md"]', { button: "right" });
   await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });
   const shown = await page.evaluate(() => [...document.querySelector("#ctxmenu").children].filter((e) => !e.hidden).map((e) => (e.classList.contains("menu-rule") ? "—" : e.querySelector(".menu-label").textContent)));
-  assert.deepEqual(shown, ["Open in New Tab", "—", "Share…", "Rename", "Delete", "—", "Show"]); // (no Open With…, no Show in Finder; and no rule that divides nothing)
+  assert.deepEqual(shown, ["Open in New Tab", "—", "Download", "—", "Share…", "Rename", "Delete", "—", "Show"]); // (no Open With…, no Show in Finder; and no rule that divides nothing)
+  // Download hands the note out as the file it is
+  const [got] = await Promise.all([page.waitForEvent("download", { timeout: 8000 }), page.click('#ctxmenu [data-cmd="download"]')]);
+  assert.equal(got.suggestedFilename(), "Second note.md");
   await page.keyboard.press("Escape");
 });
 

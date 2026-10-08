@@ -81,7 +81,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   // yet is kept for it), the settings, and the theme the system has
   const before =
     `window.MdWeb=${inline(web)};` +
-    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}};` +
+    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}${o.reading ? "" : ",download:true"}};` +
     `window.MdPrefs=${CHOSEN}(${inline({ ...PREFS, ...(o.prefs || {}) })});` +
     `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");

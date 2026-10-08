@@ -72,6 +72,24 @@ test("with the note go the files it shows, and no other file of the repository",
   assert.equal((await get("/file/octo/notes/docs/Secret.md")).status, 307);
 });
 
+test("a browser arriving is answered at once with a page that waits, and asks again", async () => {
+  // (asked as a browser asks for a page it goes to — fetch may not say that of itself)
+  const { get: ask } = await import("node:http");
+  const arrive = (path) => new Promise((resolve, reject) => ask(base + path, { headers: { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document" } }, (res) => {
+    let page = ""; res.setEncoding("utf8"); res.on("data", (d) => { page += d; }); res.on("end", () => resolve({ status: res.statusCode, page }));
+  }).on("error", reject));
+  for (const path of [`/s/octo/notes/${OPEN}`, `/s/${OPEN}`, `/${OPEN}`, `/s/octo/notes/${GONE}`]) {
+    const { status, page } = await arrive(path);
+    assert.equal(status, 200, path);
+    assert.match(page, /class='ring' role='status'/, path);
+    assert.match(page, /searchParams\.set\("go","1"\)/, path);
+    assert.doesNotMatch(page, /viewer\.js/, path); // (nothing of the note yet)
+  }
+  // asked again, marked: the answer itself — the note, or that there is none
+  assert.match((await arrive(`/s/octo/notes/${OPEN}?go=1`)).page, /viewer\.js/);
+  assert.equal((await arrive(`/s/octo/notes/${GONE}?go=1`)).status, 404);
+});
+
 test("a link that is not one, or not any more, shows nothing", async () => {
   for (const id of [GONE, "short", `${OPEN}!`]) assert.equal((await get(`/s/octo/notes/${id}`)).status, 404, id);
   // … with a shrug, and the number — and nothing else

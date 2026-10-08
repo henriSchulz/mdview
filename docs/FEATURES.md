@@ -354,10 +354,13 @@ embed's menu has Show as File.
 
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
-In the active mode `[[` opens a small window at the caret: the folder's notes are offered while a
-name is typed (the one opened last first), one chosen is the link at once, complete; a text of
-its own goes in the second field. `Enter` or `]` puts the link in, `Esc` leaves the two brackets
-as typed. `![[` does the same for what is shown in the note itself.
+In the active mode `[[` brings its closing brackets, the caret between them, and the folder's notes
+are offered under the caret while the name is typed — in the text itself (the one opened last
+first). `Enter` or a click takes the one marked and the link stands, complete; `]` ends it with the
+name as typed (also one with `|` and a text of its own); `Esc` puts the offers away. `![[` does the
+same for what is shown in the note itself. A click on a link follows it in the active mode too;
+it is changed from the menu of a right click (Edit Link…), and `Alt`+click only places the caret
+in it.
 
 ### Properties (frontmatter)
 
@@ -590,6 +593,9 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - **Shared Notes** (in the browser, beside the repositories): everything that is shared in your
   repositories, each with its link, whether it has a password, and how often and when it was
   last opened.
+- **Download** (in the browser): the share window hands the note out as its Markdown file
+  instead, and a right click on any file in the sidebar or in All Notes has Download too.
+- **A link opened** shows a ring at once while the note is fetched, not an empty window.
 - **Stop Sharing** ends the link, within half a minute. So does deleting the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.

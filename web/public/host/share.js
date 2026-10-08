@@ -14,6 +14,8 @@
   const keep = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* (not kept) */ } };
   const NOT_SHARED = "This was not shared with the note";
   let prefs = { ...window.MdPrefs }, note = null; // note: { path, text, links, vault }
+  // (the mark the page that waited put on the address — lib/sharepage.ts, waitFirst — is not the link's: taken off again)
+  try { const u = new URL(location.href); if (u.searchParams.has("go")) { u.searchParams.delete("go"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch { /* (it stays) */ }
 
   // (the note is there, or it is said why not: the window's ring has done its part)
   const shown = () => { const boot = document.getElementById("boot"); if (boot) { boot.dataset.done = ""; setTimeout(() => boot.remove(), 600); } };

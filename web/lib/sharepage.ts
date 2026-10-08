@@ -63,6 +63,32 @@ export function shrug(here: string): Response {
 }
 export const nothing = (here: string, why: string) => { const [status, text] = NOTHING[why] || NOTHING.gone; return status === 404 && why !== "off" ? shrug(here) : card(here, "Nothing here", `<h1>Nothing here</h1><p>${text}</p>`, status); };
 
+/** Before anything is known of the link — which repository it belongs to, whether it is still
+ * shared, its password: all asked of GitHub, which takes a moment — a browser that comes to the
+ * address is answered at once with a page that only waits: a ring in its middle (after the wait
+ * that is no wait), and the same address asked for again, marked (?go). The ring stands until the
+ * note's own page is there, which has one too (lib/page.ts). Only a person's browser arriving gets
+ * it (Sec-Fetch-*): whatever else asks — a program, a preview — has its answer as before. → the
+ * page, or null where the real answer is to be given. */
+export function waitFirst(request: Request): Response | null {
+  const url = new URL(request.url);
+  if (url.searchParams.has("go") || request.headers.get("sec-fetch-mode") !== "navigate" || request.headers.get("sec-fetch-dest") !== "document") return null;
+  const here = origin(request), nonce = randomBytes(16).toString("base64");
+  const style =
+    `${css(LIGHT, "light")}@media (prefers-color-scheme: dark){${css(DARK, "dark")}}` +
+    `:root{color-scheme:light dark}html,body{height:100%}body{margin:0;display:grid;place-items:center;background:var(--c-background)}` +
+    `.ring{width:28px;height:28px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--c-foreground) 14%,transparent);border-top-color:var(--c-accent);opacity:0;animation:in var(--dur-base) var(--ease-out) var(--loading-delay) forwards,turn .9s linear infinite}` +
+    `@keyframes in{to{opacity:1}}@keyframes turn{to{transform:rotate(360deg)}}` +
+    `@media (prefers-reduced-motion:reduce){.ring{animation:in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--c-foreground) 14%,transparent)}}`;
+  // (the place in the note the link names — its #… — goes along; a browser without scripts follows the link)
+  const next = `var u=new URL(location.href);u.searchParams.set("go","1");location.replace(u.href)`;
+  const page =
+    `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><meta name='robots' content='noindex'>` +
+    `<title>A shared note</title>${icons(here)}<link rel='stylesheet' href='${here}/app/motion.css'><style nonce='${nonce}'>${style}</style></head>` +
+    `<body><span class='ring' role='status' aria-label='Loading'></span><noscript><a href='?go=1'>Open the note</a></noscript><script nonce='${nonce}'>${next}</script></body></html>`;
+  return new Response(page, { headers: { ...HEAD, "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'; img-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'` } });
+}
+
 /** The note, or the question for its password. self: the address the browser is at. */
 export async function showShared(request: Request, owner: string, repo: string, id: string, self: string): Promise<Response> {
   const here = origin(request), at = address(owner, repo, id);

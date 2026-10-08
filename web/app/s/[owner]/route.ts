@@ -4,7 +4,7 @@
 import { sharing } from "@/lib/app";
 import { origin } from "@/lib/session";
 import { ID, whereIs } from "@/lib/share";
-import { givePassword, nothing, showShared } from "@/lib/sharepage";
+import { givePassword, nothing, showShared, waitFirst } from "@/lib/sharepage";
 
 export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ owner: string }> };
@@ -15,6 +15,8 @@ async function found(request: Request, id: string): Promise<{ owner: string; rep
   try { return (await whereIs(id)) || nothing(origin(request), "gone"); } catch { return nothing(origin(request), "unreachable"); }
 }
 export async function GET(request: Request, { params }: Params) {
+  const wait = waitFirst(request);
+  if (wait) return wait;
   const id = (await params).owner, at = await found(request, id);
   return at instanceof Response ? at : showShared(request, at.owner, at.repo, id, `/s/${id}`);
 }

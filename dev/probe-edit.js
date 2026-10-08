@@ -77,11 +77,7 @@
     ok("link, bare address and tag", lastLines(1) === "See [the site](https://example.org) and https://bare.example/x and #tag" &&
       view.dom.querySelectorAll("p:last-of-type a").length === 2 && !!view.dom.querySelector("p:last-of-type .tag"), lastLines(1));
     press("Enter");
-    type("Math $x^2$ and a [[");
-    await sleep(200); // ("[[" opens the small window that asks for the note: its name typed on, the closing bracket ends it)
-    { const f = document.querySelector('#atompop[data-open] input[data-key="target"]'); if (f) { f.value = "Wiki note"; f.dispatchEvent(new KeyboardEvent("keydown", { key: "]", bubbles: true, cancelable: true })); } }
-    await sleep(150);
-    type(".");
+    type("Math $x^2$ and a [[Wiki note]]."); // ("[[" brings its closing brackets; typed out to the end all the same, it is the link — wikilink.js)
     ok("math and wikilink become atoms", view.dom.querySelectorAll("p:last-of-type .ia").length === 2 && lastLines(1) === "Math $x^2$ and a [[Wiki note]].", lastLines(1));
 
     // 4. an input rule undone leaves the typed characters, written so that they stay characters
