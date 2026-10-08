@@ -258,7 +258,10 @@
     scrim = el("div", { id: "settings-scrim" });
     root = el("div", { id: "settings", role: "dialog", "aria-modal": "true", "aria-labelledby": "st-title", tabindex: "-1" });
     const side = el("nav", { class: "st-side", "aria-label": T("prefs.title") });
-    side.appendChild(el("div", { class: "st-name" }, T("prefs.title")));
+    // (closing: at the window's upper left corner, where a window has it — above the names of its pages)
+    const x = el("button", { class: "st-close", type: "button", "data-do": "cancel", "aria-label": T("prefs.close") });
+    x.innerHTML = UI.x;
+    side.append(x, el("div", { class: "st-name" }, T("prefs.title")));
     for (const [title, ids] of GROUPS) {
       const group = el("div", { class: "st-group" });
       if (title) group.appendChild(el("div", { class: "st-group-title" }, T(title)));
@@ -273,9 +276,7 @@
     }
     const main = el("div", { class: "st-main" });
     const head = el("header", { class: "st-head" });
-    const x = el("button", { class: "st-close", type: "button", "data-do": "cancel", "aria-label": T("prefs.close") });
-    x.innerHTML = UI.x;
-    head.append(x, el("h2", { id: "st-title" }));
+    head.append(el("h2", { id: "st-title" }));
     const content = el("div", { class: "st-content" });
     for (const [id, , sections] of PAGES) {
       const pg = el("section", { class: "st-page", "data-page": id });

@@ -40,13 +40,19 @@ pub fn launch_uri(uri: &str) {
     if cfg!(target_os = "macos") {
         spawn("open", &[uri]);
     } else {
-        spawn("cmd", &["/C", "start", "", uri]);
+        // (not through the command line's own interpreter: an address is text from a note, and
+        // "&" in it would be the next command — the shell's handler takes it as one argument)
+        spawn("rundll32", &["url.dll,FileProtocolHandler", uri]);
     }
 }
 
 #[cfg(not(target_os = "linux"))]
 pub fn launch_path(path: &Path) {
-    launch_uri(&path.to_string_lossy());
+    if cfg!(target_os = "macos") {
+        spawn("open", &[&path.to_string_lossy()]);
+    } else {
+        spawn("explorer", &[&path.to_string_lossy()]);
+    }
 }
 
 #[cfg(target_os = "linux")]

@@ -80,6 +80,7 @@
   }
   function replace(view, at, raw) {
     const pos = locate(view, at);
+    target = null; // (looked for once: what is changed at that place later is the block that stands there)
     if (pos < 0) { copy(raw); toast(T("dialog.gone")); return; } // not lost: on the clipboard
     const state = view.state, node = state.doc.nodeAt(pos);
     if (!node) return;

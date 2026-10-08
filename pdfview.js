@@ -457,18 +457,18 @@
   function toolbar() {
     const v = V, p = prefs();
     v.bar.innerHTML =
-      `<button class="pdf-b" data-do="side" data-tip="Outline, pages and notes (O)">${I.side}</button>` +
-      `<button class="pdf-b" data-do="back" data-tip="Back to where you were (Alt+←)" disabled>${I.back}</button>` +
+      `<button class="pdf-b" data-do="side" data-tip="Outline, pages and notes (O)" aria-label="Outline, pages and notes">${I.side}</button>` +
+      `<button class="pdf-b" data-do="back" data-tip="Back to where you were (Alt+←)" aria-label="Back to where you were" disabled>${I.back}</button>` +
       `<span class="pdf-sep"></span>` +
       `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="Page" data-tip="Go to page (G)"><span class="pdf-of">/ ${v.pages.length}</span>` +
       `<span class="pdf-sep"></span>` +
-      `<button class="pdf-b" data-do="out" data-tip="Zoom out (−)">−</button><span class="pdf-zoom">100%</span><button class="pdf-b" data-do="in" data-tip="Zoom in (+)">+</button>` +
-      `<button class="pdf-b" data-fit="width" data-tip="Fit width (W)" aria-pressed="true">${I.width}</button><button class="pdf-b" data-fit="page" data-tip="Fit page (H)" aria-pressed="false">${I.page}</button>` +
+      `<button class="pdf-b" data-do="out" data-tip="Zoom out (−)" aria-label="Zoom out">−</button><span class="pdf-zoom">100%</span><button class="pdf-b" data-do="in" data-tip="Zoom in (+)" aria-label="Zoom in">+</button>` +
+      `<button class="pdf-b" data-fit="width" data-tip="Fit width (W)" aria-label="Fit width" aria-pressed="true">${I.width}</button><button class="pdf-b" data-fit="page" data-tip="Fit page (H)" aria-label="Fit page" aria-pressed="false">${I.page}</button>` +
       `<span class="pdf-sep"></span>` +
       Object.entries(COLORS).map(([name, c]) => `<button class="pdf-color" data-color="${name}" style="--hl:${c}" data-tip="Copy a link to the selection: ${name}" aria-pressed="${name === v.color}"></button>`).join("") +
       `<select class="pdf-format lp-field" aria-label="What is copied" data-tip="What is copied">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}"${k === p.pdfFormat ? " selected" : ""}>${esc(f.label)}</option>`).join("")}</select>` +
-      `<button class="pdf-b" data-do="auto" data-tip="Copy as soon as text is selected" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
-      `<button class="pdf-b" data-do="rect" data-tip="Select a region to embed (R)" aria-pressed="false">${I.rect}</button>`;
+      `<button class="pdf-b" data-do="auto" data-tip="Copy as soon as text is selected" aria-label="Copy as soon as text is selected" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
+      `<button class="pdf-b" data-do="rect" data-tip="Select a region to embed (R)" aria-label="Select a region to embed" aria-pressed="false">${I.rect}</button>`;
   }
   function act(what) {
     const v = V;

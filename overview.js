@@ -146,7 +146,7 @@
     body.textContent = "";
     tiles.clear();
     items = [];
-    if (!total) { body.innerHTML = `<p class="ov-none">No notes in this folder yet.</p>`; return; }
+    if (!total) { body.innerHTML = core.emptyState(); return; }
     let i = 0;
     for (const g of gs) {
       if (g.label) { const h = document.createElement("h2"); h.className = "ov-dir"; h.textContent = g.label; body.appendChild(h); }

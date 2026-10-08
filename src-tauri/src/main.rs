@@ -211,6 +211,12 @@ fn msg(window: tauri::WebviewWindow, tx: tauri::State<'_, Sender<Event>>, json: 
 }
 
 fn main() {
+    // (the network of the history's other side: a connection that hangs — the Wi-Fi gone in the
+    // middle of it — is given up, not waited for without end by the thread everything runs on)
+    unsafe {
+        let _ = git2::opts::set_server_connect_timeout_in_milliseconds(15_000);
+        let _ = git2::opts::set_server_timeout_in_milliseconds(30_000);
+    }
     let (tx, rx) = std::sync::mpsc::channel::<Event>();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cwd = std::env::current_dir().map(|d| scan::s(&d)).unwrap_or_default();

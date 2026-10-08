@@ -8,7 +8,7 @@
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
-  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab"]);
+  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab", "link", "wikilink"]); // (a link followed leaves the note too: what was typed a moment ago is in the file first)
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
@@ -151,6 +151,18 @@
   // ------------------------------------------------------------ markdown-it
   const md = window.markdownit({ html: true, linkify: true, typographer: false, breaks: false });
   md.validateLink = (url) => !/^\s*(javascript|vbscript):/i.test(url);
+  /* A note's own HTML is shown as it is written — but not what would reach beyond the note: a
+   * page that is sent elsewhere at once (meta), styles and style sheets for the whole window,
+   * forms, frames, scripts, another base for its addresses. Notes come from shared and synced
+   * folders too. (Scripts and handlers are kept out by the page's policy as well; this is the
+   * note's side of it.) */
+  const BEYOND = "meta|link|base|style|script|form|iframe|frame|frameset|object|embed|applet";
+  const safeHtml = (html) => String(html)
+    .replace(new RegExp("<(style|script)\\b[\\s\\S]*?(?:<\\/\\1\\s*>|$)", "gi"), "")
+    .replace(new RegExp("<\\/?(?:" + BEYOND + ")\\b[^>]*>?", "gi"), "")
+    .replace(/(<[^>]*?)\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "$1")
+    .replace(/(<[^>]*?\s(?:href|src|action|formaction|xlink:href)\s*=\s*["']?)\s*(?:javascript|vbscript):/gi, "$1#");
+  md.renderer.rules.html_inline = (t, i) => safeHtml(t[i].content);
   const plugin = (p) => { if (p) md.use(p.full || p.default || p); };
   [window.markdownitFootnote, window.markdownitDeflist, window.markdownitMark,
     window.markdownitSub, window.markdownitSup, window.markdownitAbbr,
@@ -997,7 +1009,7 @@
   const htmlBlockRule = md.renderer.rules.html_block;
   md.renderer.rules.html_block = (t, i, o, env, self) => {
     const m = PAGE_ROW.exec(t[i].content.trim());
-    if (!m) return htmlBlockRule ? htmlBlockRule(t, i, o, env, self) : t[i].content;
+    if (!m) return safeHtml(t[i].content);
     const page = pagesShown && pagesShown.byId.get(m[3]), look = pageLook(m[1]), name = esc((page ? page.title : m[2]) || "Untitled");
     return `<div class="page-row" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-page="${esc(m[3])}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
   };
@@ -1146,7 +1158,7 @@
     drawn = null;
     outline = [];
     document.title = folder ? folder.name : "Markdown Notes";
-    content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><p>No notes in this folder yet.</p></div>`;
+    content.innerHTML = emptyState();
     window.scrollTo(0, 0);
     reveal();
     markActiveNote(false);
@@ -1450,12 +1462,31 @@
   toastEl.setAttribute("role", "status");
   document.body.appendChild(toastEl);
   let toastTimer = 0;
-  function toast(msg) {
+  /* A short message. With something to take back ({ label, type }: a button that sends that to
+   * the application — Undo after a move to the trash), it stands longer, and Ctrl+Z does the
+   * same while it stands (outside a text that is being typed in). */
+  let toastAct = null;
+  function toast(msg, action = null) {
     toastEl.textContent = msg;
+    toastAct = action && action.type ? action : null;
+    toastEl.toggleAttribute("data-action", !!toastAct);
+    if (toastAct) {
+      const b = toastEl.appendChild(document.createElement("button"));
+      b.type = "button";
+      b.textContent = toastAct.label === "Undo" ? T("toast.undo") : toastAct.label;
+    }
     toastEl.dataset.open = "";
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => delete toastEl.dataset.open, 1600);
+    toastTimer = setTimeout(() => { delete toastEl.dataset.open; toastAct = null; }, toastAct ? 6000 : 1600);
   }
+  const toastDo = () => { const a = toastAct; if (!a) return false; toastAct = null; clearTimeout(toastTimer); delete toastEl.dataset.open; post(a.type); return true; };
+  toastEl.addEventListener("click", (e) => { if (e.target.closest("button")) toastDo(); });
+  addEventListener("keydown", (e) => {
+    if (!toastAct || e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+    if (e.target.closest?.('input, textarea, [contenteditable="true"]')) return; // (there it is the text's own undo)
+    e.preventDefault(); e.stopPropagation();
+    toastDo();
+  }, true);
 
   const outlineOpen = () => outlinePop.hasAttribute("data-open");
   const findOpen = () => findBar.hasAttribute("data-open");
@@ -2577,7 +2608,6 @@
     `<button class="tb sb-sync" data-act="syncnow" title="Sync Now: fetch what other devices wrote, and send what was written here" aria-label="Sync Now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
     `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header>` +
-    `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
     `<input class="sb-field qn-search" type="search" placeholder="Search" aria-label="Search the quick notes" spellcheck="false" autocomplete="off">` +
     `<nav class="sb-list" aria-label="Notes"></nav>`;
   document.body.appendChild(sidebar);
@@ -2585,8 +2615,6 @@
   sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; quickPaint(); e.target.blur(); } });
   const sbHead = sidebar.querySelector(".sb-head");
   const sbList = sidebar.querySelector(".sb-list");
-  const sbNew = sidebar.querySelector(".sb-new");
-  const sbNewInput = sidebar.querySelector("#sb-new-input");
   const sbTitlesBtn = sbHead.querySelector('[data-act="titles"]');
   const sbHistoryBtn = sbHead.querySelector('[data-act="historymenu"]');
   // where the folder stands with a history (the shell says: f.history) — as the menu's entries name it
@@ -2668,7 +2696,7 @@
       if (e.dir) {
         el.classList.toggle("open", sbOpen.has(e.key));
         row.setAttribute("aria-expanded", String(sbOpen.has(e.key)));
-        syncDir(row.nextSibling.firstChild, e.dir, depth + 1, fresh);
+        syncDir(el.querySelector(":scope > .sb-in > .sb-kids > .sb-in"), e.dir, depth + 1, fresh); // (not the row's next sibling: while the folder is renamed, that is the name's field)
       }
     }
     for (const el of have.values()) {
@@ -2880,9 +2908,9 @@
   };
   addEventListener("keydown", (e) => {
     if (!folder || !folder.quick || e.defaultPrevented || !keysMatch(e, window.MdPrefs?.quickNew || "Ctrl+N")) return;
-    if (document.querySelector("#settings[data-open], #dlg[data-open], #share[data-open]")) return;
+    if (document.querySelector("#settings[data-open], #dlg[data-open], #share[data-open], #newdlg[data-open]")) return;
     e.preventDefault(); e.stopPropagation();
-    post("quicknote");
+    openNewNote();
   }, true);
 
   /* What stands beside the notes — PDFs, pictures, sound and film, anything else — is listed as
@@ -3478,6 +3506,7 @@
       if (e.key === "Enter") { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
       else if (e.key.startsWith("Arrow") || e.key === "Delete" || e.key === "F2") e.stopPropagation(); // not the list's keys
+      else if ((e.ctrlKey || e.metaKey) && !/^[acvxz]$/i.test(e.key)) { e.preventDefault(); e.stopPropagation(); } // (nor the window's, while a name is typed)
     });
     input.addEventListener("blur", () => finish(true)); // clicking away keeps the name, like Finder
     row.classList.add("renaming");
@@ -3572,34 +3601,79 @@
     }
   }
 
-  // --- new note: a name field unfolds under the header; Enter creates the file
-  let newKind = "note", newDir = null; // what the name field makes, and where (null: beside the note on screen)
-  function openNewNote(kind = "note", dir = null) {
-    if (!sidebarOpen()) { showSidebar(true, true); post("sidebar", { visible: true }); }
-    newKind = kind; newDir = dir;
-    sbNewInput.placeholder = kind === "folder" ? "Folder name" : "Note name";
-    sbNewInput.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
-    sbNewInput.value = "";
-    sbNew.classList.add("open");
-    sbNewInput.focus({ preventScroll: true });
+  /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
+   * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
+  const emptyState = () => `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
+    (READING || !folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
+  document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && folder) { e.preventDefault(); openNewNote(); } });
+
+  // --- new note
+  /* A new note or folder is asked for in a small window of its own — from the sidebar's +, from All
+   * Notes, from a menu, by Ctrl+N: its name, and where it goes. Enter makes it, Esc (or a click
+   * beside the window) does not. Among the quick notes the name may be left out: the note is then
+   * named after its first line, as ever. */
+  let newKind = "note", newDir = null, newDlg = null, newBack = null;
+  const newOpen = () => !!newDlg && newDlg.hasAttribute("data-open");
+  function buildNewNote() {
+    newDlg = document.createElement("div");
+    newDlg.id = "newdlg";
+    newDlg.innerHTML = `<form class="new-box surface" role="dialog" aria-modal="true" aria-labelledby="new-title" novalidate>` +
+      `<div class="new-head"><span class="new-sign" aria-hidden="true"></span><div class="new-words"><b id="new-title"></b><p class="new-where"></p></div></div>` +
+      `<input id="new-name" class="sb-field" type="text" spellcheck="false" autocomplete="off">` +
+      `<div class="new-foot"><button class="btn" type="button" data-new="cancel">${esc(T("dialog.cancel"))}</button><button class="btn primary" type="submit">${esc(T("new.create"))}</button></div></form>`;
+    document.body.appendChild(newDlg);
+    const input = newDlg.querySelector("#new-name"), go = newDlg.querySelector(".btn.primary");
+    const quick = () => !!(folder && folder.quick) && newKind !== "folder";
+    input.addEventListener("input", () => { go.disabled = !input.value.trim() && !quick(); });
+    newDlg.addEventListener("mousedown", (e) => { if (e.target === newDlg) { e.preventDefault(); closeNewNote(); } });
+    newDlg.addEventListener("click", (e) => { if (e.target.closest('[data-new="cancel"]')) closeNewNote(); });
+    newDlg.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeNewNote(); return; }
+      if (e.key === "Enter" && !e.isComposing && e.target === input) { e.preventDefault(); newDlg.querySelector("form").requestSubmit(); return; }
+      if (e.key !== "Tab") return; // (the keyboard stays in the window)
+      const stops = [...newDlg.querySelectorAll("input, button:not(:disabled)")], i = stops.indexOf(document.activeElement);
+      e.preventDefault();
+      stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+    });
+    // (… and no key of the window behind it works through it: Ctrl+E, Ctrl+F, Ctrl+W)
+    newDlg.addEventListener("keydown", (e) => { if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) { e.stopPropagation(); if (!/^[acvxz]$/i.test(e.key)) e.preventDefault(); } });
+    newDlg.querySelector("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = input.value.trim(), kind = newKind;
+      if (!name && !quick()) return;
+      // next to the note on screen, if that one lives in this folder
+      const here = newDir || (current && current.path.startsWith(folder.root + "/") && !document.body.hasAttribute("data-overview") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
+      closeNewNote(false);
+      if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
+      if (!name) post("quicknote"); else post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
+    });
   }
-  function closeNewNote() {
-    if (!sbNew.classList.contains("open")) return false;
-    sbNew.classList.remove("open");
-    sbNewInput.blur();
+  function openNewNote(kind = "note", dir = null) {
+    if (!folder || newOpen()) return;
+    if (!newDlg) buildNewNote();
+    newKind = kind; newDir = dir;
+    const quick = !!folder.quick && kind !== "folder", input = newDlg.querySelector("#new-name");
+    const where = dir || (current && current.path.startsWith(folder.root + "/") && !document.body.hasAttribute("data-overview") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
+    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : ICON.note;
+    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : "new.note");
+    newDlg.querySelector(".new-where").textContent = quick ? T("new.quickHint") : T("new.in", where === folder.root ? folder.name : where.slice(folder.root.length + 1));
+    input.placeholder = kind === "folder" ? "Folder name" : "Note name";
+    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
+    input.value = "";
+    newDlg.querySelector(".btn.primary").disabled = !quick;
+    closeCtx(false);
+    newBack = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    newDlg.dataset.open = "";
+    input.focus({ preventScroll: true });
+  }
+  function closeNewNote(back = true) {
+    if (!newOpen()) return false;
+    delete newDlg.dataset.open;
+    newDlg.querySelector("#new-name").blur();
+    if (back && newBack && newBack.isConnected) newBack.focus({ preventScroll: true });
+    newBack = null;
     return true;
   }
-  sbNewInput.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.isComposing) return;
-    e.preventDefault();
-    // next to the note on screen, if that one lives in this folder
-    const here = newDir || (current && current.path.startsWith(folder.root + "/") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
-    const name = sbNewInput.value, kind = newKind;
-    closeNewNote();
-    if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
-    post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
-  });
-  sbNewInput.addEventListener("blur", () => closeNewNote());
 
 
   // ------------------------------------------------------------ tabs (folder windows)
@@ -3835,8 +3909,8 @@
     panel: () => { if (mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
-    newmenu: () => { // the + button: a note or a folder — among the quick notes a new one, at once
-      if (folder && folder.quick) return post("quicknote");
+    newmenu: () => { // the + button: a note or a folder — among the quick notes a new one
+      if (folder && folder.quick) return openNewNote();
       const b = sidebar.querySelector('[data-act="newmenu"]'), r = b.getBoundingClientRect();
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
       openCtx(b, r.right, r.bottom + 4, "new");
@@ -3886,6 +3960,7 @@
     if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); }
   }, true);
 
+  document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".page-row") && !e.target.closest('.pm[contenteditable="true"]')) { e.preventDefault(); e.target.click(); } });
   // a link to a note followed: in a tab of its own (the note it stands in stays open); a heading of this note: there
   const followWiki = (target) => { if (String(target).startsWith("#")) scrollToFragment(String(target).slice(1), true); else post("wikilink", { target, tab: "own" }); };
   // --- content clicks: links, tasks, copy
@@ -4143,7 +4218,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,

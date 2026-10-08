@@ -14,7 +14,7 @@
   const el = (tag, attrs = {}, text) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
 
   const ICON = window.MdView.core.UI; // (the symbols as the app draws them)
-  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, rawRow = null, raw = null, copyRaw = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, down = null, get = null, back = null;
+  let root = null, box = null, title = null, text = null, card = null, linkRow = null, link = null, copy = null, rawRow = null, raw = null, copyRaw = null, more = null, moreValue = null, fold = null, pass = null, set = null, drop = null, stop = null, go = null, fix = null, down = null, get = null, back = null;
   let path = null, state = null, waiting = false, opened = false; // state: what the application said last; opened: the password's part is unfolded
   const isOpen = () => !!root && root.hasAttribute("data-open");
 
@@ -67,7 +67,15 @@
     stop = el("button", { class: "pf-link danger", type: "button" }, T("share.stop"));
     go = el("button", { class: "btn primary", type: "button" }, T("share.start"));
     back = el("button", { class: "btn", type: "button" });
-    foot.append(stop, el("span"), back, go);
+    // … and where it cannot be shared from yet: what is missing, to be done from here
+    fix = el("button", { class: "btn primary", type: "button" });
+    fix.onclick = () => {
+      const need = state && state.need, folder = window.MdView.core.folder;
+      close();
+      if (need === "history" && folder) post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
+      else if (need === "link" && A.prefs) A.prefs.open("history");
+    };
+    foot.append(stop, el("span"), back, go, fix);
     box.append(head, card, down, foot);
     root.appendChild(box);
     document.body.appendChild(root);
@@ -118,7 +126,8 @@
   function draw() {
     const s = state, shared = !!(s && s.link), can = !!(s && s.can);
     title.textContent = T("share.title", (path || "").split("/").pop().replace(/\.(md|markdown)$/i, ""));
-    text.textContent = !s ? "" : !can ? s.why || T("share.cannot") : !shared ? T("share.intro")
+    const need = !can && s && (s.need === "history" || s.need === "link") ? s.need : "";
+    text.textContent = !s ? "" : need ? T("share.need." + need) : !can ? s.why || T("share.cannot") : !shared ? T("share.intro")
       : (s.password ? T("share.on.password") : T("share.on")) + (s.pending ? " " + T("share.pending") : "");
     box.toggleAttribute("data-shared", shared);
     card.hidden = !can;
@@ -137,7 +146,9 @@
     drop.hidden = !(shared && s.password);
     stop.hidden = !shared;
     go.hidden = shared || !can;
-    back.textContent = T(shared || !can ? "dialog.done" : "dialog.cancel");
+    fix.hidden = !need;
+    fix.textContent = need ? T("share.fix." + need) : "";
+    back.textContent = T(shared || (!can && !need) ? "dialog.done" : "dialog.cancel");
     for (const b of [go, drop, stop]) b.disabled = waiting;
     box.toggleAttribute("aria-busy", waiting);
     // (a button that went while it had the focus: the keys stay the window's)
@@ -168,7 +179,7 @@
     const asked = path;
     setTimeout(() => { if (isOpen() && path === asked && !state) { state = { path, can: false, why: T("share.silent") }; waiting = false; draw(); } }, 2500);
     (document.activeElement || document.body).blur?.();
-    setTimeout(() => { if (isOpen()) (state && state.link ? copy : state && state.can ? go : back).focus(); }, 60);
+    setTimeout(() => { if (isOpen()) (state && state.link ? copy : state && state.can ? go : fix && !fix.hidden ? fix : back).focus(); }, 60);
     return true;
   }
   function close() {

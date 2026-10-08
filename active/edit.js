@@ -181,7 +181,8 @@
     while (index > 0) {
       const node = parent.child(--index);
       pos -= node.nodeSize;
-      if (node.type !== N.hidden) return { node, pos };
+      // (nor a comment of HTML alone, which shows nothing: Backspace would select and then delete what cannot be seen)
+      if (node.type !== N.hidden && !(node.type === N.island && node.attrs.kind === "html" && !String(node.attrs.raw || "").replace(/<!--[\s\S]*?-->/g, "").trim() && !window.MdView.core.pages.isRow(node.attrs.raw))) return { node, pos };
     }
     return null;
   }
@@ -733,6 +734,14 @@
           const where = node.attrs.virtual ? state.doc.content.size : $at.depth ? $at.after(1) : $at.pos;
           tr.insert(tr.mapping.map(where), node);
         }
+      }
+      // (… and one that went into a list or a quote with the blocks around it — made items, set in —
+      // has no place there: it stands in the document, where it was put back; there it would be twice)
+      const nested = [];
+      tr.doc.descendants((n, pos) => { if (n.type === N.hidden && tr.doc.resolve(pos).depth > 0) nested.push([pos, n.nodeSize]); return !n.isTextblock && n.type !== N.hidden; });
+      for (const [pos, size] of nested.reverse()) {
+        const $p = tr.doc.resolve(pos);
+        if ($p.parent.childCount > 1 && $p.parent.canReplace($p.index(), $p.index() + 1)) tr.delete(pos, pos + size);
       }
       // lists and links, where something changed
       const touched = (node, pos) => {

@@ -53,6 +53,16 @@ test("comments are invisible but stay in the text", () => {
   assert.equal(s.segs[1].raw, "Two %%inline%% end");
 });
 
+test("a comment between two blocks stays when its neighbours change", () => {
+  const s = parse("A\n\n%%\nkept\n%%\n\nB\n\nC\n"), ser = (parts) => store.serialize(s, parts);
+  assert.equal(ser([{ id: 0 }]), "A\n\n%%\nkept\n%%\n", "the block after it gone");
+  assert.equal(ser([{ id: 0 }, { text: "new" }, { id: 1 }, { id: 2 }]), "A\n\n%%\nkept\n%%\n\nnew\n\nB\n\nC\n", "a block typed behind it");
+  assert.equal(ser([{ id: 1 }, { id: 2 }]), "%%\nkept\n%%\n\nB\n\nC\n", "its own block gone: before the next");
+  assert.equal(ser([{ id: 1 }, { id: 0 }, { id: 2 }]), "B\n\nA\n\n%%\nkept\n%%\n\nC\n", "moved: it goes with its block");
+  assert.equal(ser([{ id: 0 }, { id: 1 }, { id: 2 }]), "A\n\n%%\nkept\n%%\n\nB\n\nC\n", "nothing changed: as written");
+  assert.equal(ser([{ id: 2 }]), "%%\nkept\n%%\n\nC\n", "only the last block left");
+});
+
 test("blocks under one open HTML element are one segment", () => {
   const s = parse("Before\n\n<details>\n<summary>S</summary>\n\nInside *text*.\n\n- list\n\n</details>\n\nAfter\n");
   same(shape(s), ["block:paragraph", "block:html", "block:paragraph"]);

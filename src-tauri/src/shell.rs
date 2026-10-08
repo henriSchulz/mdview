@@ -356,6 +356,8 @@ pub struct Win {
     tree_json: Option<String>,
     note_paths: HashSet<String>,
     kept_dirs: HashSet<String>, // folders made from the sidebar: shown although nothing is in them yet
+    trashed: Vec<PathBuf>, // what went to the trash last: taken out again by Undo (while its message stands)
+    trashed_shown: Option<PathBuf>, // … and the note that was on screen then, if it went with it
     share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
@@ -1059,6 +1061,8 @@ impl Win {
             tree_json: None,
             note_paths: HashSet::new(),
             kept_dirs: HashSet::new(),
+            trashed: vec![],
+            trashed_shown: None,
             share_asked: None,
             title_cache: TitleCache::new(),
             watcher,
@@ -1699,7 +1703,12 @@ impl Win {
         }
         self.rescan(app);
         self.open_path(app, &path, None, true);
-        self.js("MdView.setMode", &[json!("edit"), json!("end")]);
+        // written at once, in the mode that is worked in: the active one where that is it, else the source
+        if app.state.get("mode").and_then(Value::as_str) == Some("active") {
+            self.js("MdView.setMode", &[json!("active")]);
+        } else {
+            self.js("MdView.setMode", &[json!("edit"), json!("end")]);
+        }
     }
 
     fn new_folder(&mut self, app: &mut App, name: &str, wanted: Option<&str>) {
@@ -1876,8 +1885,16 @@ impl Win {
         for (p, _, _) in &done {
             self.kept_dirs.remove(&s(p));
         }
-        self.toast(if done.len() == 1 { format!("Moved “{}” to Trash", name_of(&done[0].0)) } else { format!("Moved {} items to Trash", done.len()) });
+        let said = if done.len() == 1 { format!("Moved “{}” to Trash", name_of(&done[0].0)) } else { format!("Moved {} items to Trash", done.len()) };
         let current_gone = self.path.as_ref().is_some_and(|p| gone(p, &done));
+        // (it can be taken back while the message stands — where the system's trash can be read: not on macOS)
+        self.trashed = done.iter().map(|(p, _, _)| p.clone()).collect();
+        self.trashed_shown = self.path.clone().filter(|_| current_gone);
+        if cfg!(target_os = "macos") {
+            self.toast(said);
+        } else {
+            self.js("MdView.toast", &[json!(said), json!({ "label": "Undo", "type": "untrash" })]);
+        }
         self.rescan(app);
         if !current_gone {
             return self.send_tabs(app);
@@ -1887,6 +1904,42 @@ impl Win {
             None => self.show_nothing(app),
         }
     }
+
+    /// Undo of the last move to the trash: its files and folders back where they stood, the
+    /// note that was on screen shown again. (Tabs that were closed for it stay closed.)
+    #[cfg(not(target_os = "macos"))]
+    fn untrash(&mut self, app: &mut App) {
+        let wanted = std::mem::take(&mut self.trashed);
+        let shown = self.trashed_shown.take();
+        if wanted.is_empty() {
+            return;
+        }
+        let items = match trash::os_limited::list() {
+            Ok(items) => items,
+            Err(e) => return self.toast(format!("Couldn't read the Trash: {e}")),
+        };
+        // (of each, what was put there last under that path)
+        let back: Vec<_> = wanted.iter().filter_map(|p| items.iter().filter(|i| i.original_path() == *p).max_by_key(|i| i.time_deleted).cloned()).collect();
+        if back.is_empty() {
+            return self.toast("It is no longer in the Trash");
+        }
+        let n = back.len();
+        if let Err(e) = trash::os_limited::restore_all(back) {
+            self.toast(format!("Couldn't put it back: {e}"));
+        } else {
+            self.toast(if n == 1 { format!("Put back “{}”", name_of(&wanted[0])) } else { format!("Put back {n} items") });
+        }
+        for p in wanted.iter().filter(|p| p.is_dir()) {
+            self.kept_dirs.insert(s(p)); // (a folder that was empty is listed again)
+        }
+        self.rescan(app);
+        match shown.filter(|p| p.is_file()) {
+            Some(p) => self.open_path(app, &p, None, true),
+            None => self.send_tabs(app),
+        }
+    }
+    #[cfg(target_os = "macos")]
+    fn untrash(&mut self, _app: &mut App) {}
 
     fn sidebar_pref(&mut self, app: &mut App, msg: &Value) {
         if let Some(width) = msg.get("width") {
@@ -2091,7 +2144,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2441,6 +2494,7 @@ impl Win {
                 Some(many) => self.trash_paths(app, &many.iter().filter_map(|p| p.as_str().map(String::from)).collect::<Vec<_>>()),
                 None => self.trash_note(app, text_of("path")),
             },
+            "untrash" => self.untrash(app),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
             "folder" => self.pick(app, Pick::Folder),
@@ -2583,6 +2637,12 @@ impl Win {
 
     fn toggle_task(&mut self, app: &mut App, line: i64, checked: bool) {
         let Some(path) = self.path.clone().filter(|_| line >= 0) else { return };
+        // (a note that is only read — not UTF-8, too large, not to be written: its text read as
+        // UTF-8 and written back would not be the file any more)
+        if let Some(why) = fs::read(&path).ok().and_then(|raw| readonly_reason(&path, Some(&raw))) {
+            self.toast(format!("Can't edit: {why}"));
+            return self.render(app, true, None, false);
+        }
         let Ok(text) = read_text(&path, None) else { return };
         let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
         let Some(old) = lines.get(line as usize).cloned() else { return };

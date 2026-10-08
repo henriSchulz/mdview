@@ -15,7 +15,7 @@
 .pdf-b:hover:not(:disabled) { background: color-mix(in srgb, var(--fg) 8%, transparent); transition-duration: var(--dur-instant); }
 .pdf-b:active:not(:disabled) { transform: scale(var(--press-scale, 0.97)); }
 .pdf-b:disabled { opacity: 0.4; }
-.pdf-b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.pdf-b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-text); }
 .pdf-b svg { width: 16px; height: 16px; }
 .pdf-sep { width: 1px; height: 16px; margin: 0 4px; background: var(--line-strong); }
 .pdf-page-in { width: 38px; height: 22px; border: 0; border-radius: var(--radius-chip, 5px); background: color-mix(in srgb, var(--fg) 7%, transparent); color: inherit; font: inherit; text-align: center; outline: none; }

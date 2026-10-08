@@ -84,7 +84,7 @@ body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(
 .ov-prev > :first-child { margin-top: 0; }
 .ov-prev h1:first-child { display: none; }  /* (the name stands above already) */
 .ov-prev img { max-height: 220px; object-fit: cover; }
-.ov-empty .ov-prev::before { content: "Empty"; color: var(--fg3); }
+.ov-empty .ov-prev::before { content: "Empty"; color: var(--fg-quiet); }
 
 .ov-red { --c: var(--c-red); }
 .ov-orange { --c: var(--c-orange); }
@@ -97,7 +97,7 @@ body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(
  * and a wash in the colour were too much) */
 .ov-tile:is(.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta) .ov-name::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; background: var(--c); vertical-align: 0.04em; }
 
-#toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent); }
+#toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent-text); }
 @media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }
 
 /* over the tiles there is no note to outline, search, switch the mode of or format: those stand
@@ -169,7 +169,7 @@ body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12
 .ov-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .ov-row .ov-name { padding: 0; margin: 0; border: 0; font: 600 16px/1.3 var(--ui); display: block; white-space: nowrap; text-overflow: ellipsis; }
 .ov-snip { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg2); font-size: 14px; }
-.ov-row.ov-empty .ov-snip::before { content: "Empty"; color: var(--fg3); }
+.ov-row.ov-empty .ov-snip::before { content: "Empty"; color: var(--fg-quiet); }
 .ov-go { display: grid; place-items: center; flex: none; color: var(--fg3); }
 .ov-go svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .ov-row .ov-rename { position: static; width: min(360px, 100%); height: 28px; margin: 0; padding: 0 8px; font-size: 15px; }
