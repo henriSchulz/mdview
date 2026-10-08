@@ -1381,3 +1381,14 @@ body[data-linked] .sb-sync { display: grid; }
 .sb-sync.turning svg { animation: sb-sync-turn var(--dur-slower) var(--ease-in-out); }
 @keyframes sb-sync-turn { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .sb-sync.turning svg { animation: none; } }
+
+/* ---- under a finger (a tablet, a phone): what is pulled is wide enough to be met, what is typed in does not make the page
+ * larger (a field under 16 px does, on an iPhone), and a tap is a tap — no grey flash, no wait for a second one */
+@media (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, [role="button"], .sb-row, .tab, .menu-item, .tb { touch-action: manipulation; }
+  input[type="text"], input[type="search"], input[type="url"], input[type="email"], input[type="password"], input:not([type]), textarea, select { font-size: 16px !important; } /* (whatever a field's own rule says) */
+  #sb-grip { width: 22px; touch-action: none; }
+  body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 11px); width: 22px; }
+  .code-tools .btn { min-height: 36px; }
+}

@@ -3634,6 +3634,43 @@
 
   // --- showing / hiding: the sidebar slides, the text column glides to its new
   // place (transform only; the width change itself is applied at once)
+  /* Under a finger. A browser makes mouse events of a tap, after the fact — a pointer that came to rest where the finger was: what
+   * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
+   * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
+   * the touch is handed on as the mouse's press, moves and release, and the browser's own are left out. */
+  let touchedAt = -1e9;
+  addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
+  const touching = () => performance.now() - touchedAt < 1200;
+  {
+    const GRIPS = "#sb-grip, .col-grip, .tbl-h-col, .tbl-h-row, .dlg-grip, .pa-sheet";
+    let pulled = null;
+    const mouse = (type, t, target, buttons) => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons, clientX: t.clientX, clientY: t.clientY, screenX: t.screenX, screenY: t.screenY }));
+    const under = (t) => document.elementFromPoint(t.clientX, t.clientY) || document.body;
+    addEventListener("touchstart", (e) => {
+      const grip = e.touches.length === 1 && e.target.closest?.(GRIPS);
+      if (!grip) { pulled = null; return; }
+      const t = e.touches[0];
+      pulled = { id: t.identifier, moved: false };
+      mouse("mousedown", t, e.target, 1);
+    }, { capture: true, passive: true });
+    addEventListener("touchmove", (e) => {
+      const t = pulled && [...e.changedTouches].find((x) => x.identifier === pulled.id);
+      if (!t) return;
+      if (e.cancelable) e.preventDefault();
+      pulled.moved = true;
+      mouse("mousemove", t, under(t), 1);
+    }, { capture: true, passive: false });
+    const done = (e) => {
+      const t = pulled && [...e.changedTouches].find((x) => x.identifier === pulled.id);
+      if (!t) return;
+      const was = pulled;
+      pulled = null;
+      mouse("mouseup", t, under(t), 0);
+      if (was.moved && e.cancelable) e.preventDefault(); // (pulled: no tap follows, and none of the browser's mouse events)
+    };
+    addEventListener("touchend", done, { capture: true, passive: false });
+    addEventListener("touchcancel", done, { capture: true, passive: false });
+  }
   /* A finger held on something for a moment is a right click: the menu of what it rests on. (A
    * browser on a phone sends no "contextmenu" for it — Safari never, others not everywhere — so
    * the page makes one, where the browser did not: its own counts and this one is dropped.) The
@@ -4318,7 +4355,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, touching, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },

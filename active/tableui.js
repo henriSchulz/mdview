@@ -252,6 +252,15 @@
     });
   }
 
+  // under a finger: the cell that is tapped has the handles, at once (nothing rests over a cell there)
+  document.addEventListener("pointerup", (e) => {
+    if (e.pointerType !== "touch" || drag || document.body.dataset.view !== "active") return;
+    if (e.target.closest?.(".tbl-h, .actmenu")) return;
+    const td = e.target.closest?.(".pm td, .pm th");
+    if (td && td.closest(".table-wrap")) setTimeout(() => { if (td.isConnected && !drag) { clearTimeout(restTimer); resting = null; place(td); } }, 60); // (after what the browser makes of the tap)
+    else if (over) hide();
+  }, true);
+
   /* Dragging a handle moves its row or column: a line shows where it goes, the
    * row (column) under it is lifted a little. Let go, it moves there — one step. */
   let drag = null, dragged = false;
@@ -338,7 +347,7 @@
     props: {
       handleDOMEvents: {
         mousemove(view, e) {
-          if (!view.editable || A.menu.isOpen) return false;
+          if (!view.editable || A.menu.isOpen || window.MdView.core.touching()) return false; // (a finger: its tap shows the handles)
           const td = e.target.closest?.("td, th");
           // (not at once: the pointer rests on a cell a moment before its handles come)
           if (td && td.closest(".pm") === view.dom && !td.closest(".isl")) {
@@ -348,6 +357,7 @@
         },
         mouseleave(_view, e) {
           clearTimeout(restTimer); resting = null;
+          if (window.MdView.core.touching()) return false;
           if (over && !e.relatedTarget?.closest?.(".tbl-h") && !A.menu.isOpen) hide();
           return false;
         },

@@ -32,7 +32,7 @@
     const doneBtn = () => document.querySelector('#dlg [data-do="done"]');
     const tidy = () => { clearInterval(timer); if (busy) post("graphic-cancel"); if (url) URL.revokeObjectURL(url); const b = doneBtn(); if (b) b.disabled = false; if (live === me) live = null; };
     A.dialog.show({
-      title: T("graphic.title"),
+      title: T(from ? "graphic.boardTitle" : "graphic.title"),
       kind: "graphic",
       anchor: () => null,
       build(body, _tools, info) {
@@ -45,9 +45,21 @@
         const view = el("div", { class: "gr-view" }, `<div class="gr-empty">${esc(T("graphic.empty"))}</div>`);
         const changeRow = el("div", { class: "gr-change", hidden: "" },
           `<input class="lp-field gr-change-in" type="text" placeholder="${esc(T("graphic.change"))}" aria-label="${esc(T("graphic.change"))}" spellcheck="false"><button class="btn" type="button" data-go="change">${esc(T("graphic.apply"))}</button>`);
-        body.append(text, refRow, view, changeRow);
-        info.textContent = T("graphic.hint");
         const drawBtn = refRow.querySelector('[data-go="draw"]'), thumb = refRow.querySelector(".gr-thumb"), changeIn = changeRow.querySelector("input");
+        if (from) { // from a whiteboard: what was scribbled and what becomes of it, side by side — nothing to describe, nothing to choose
+          const pair = el("div", { class: "gr-pair" }, `<figure class="gr-from"><img alt="" src="${esc(from.img.src)}"><figcaption>${esc(T("graphic.sketch"))}</figcaption></figure><span class="gr-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>`);
+          const fig = el("figure", { class: "gr-to" }, `<figcaption>${esc(T("graphic.figure"))}</figcaption>`);
+          fig.prepend(view);
+          pair.append(fig);
+          changeRow.append(drawBtn);
+          changeRow.hidden = false;
+          body.classList.add("gr-board");
+          body.append(pair, changeRow);
+          info.textContent = T("graphic.boardHint");
+        } else {
+          body.append(text, refRow, view, changeRow);
+          info.textContent = T("graphic.hint");
+        }
         const insert = doneBtn();
         insert.textContent = T("graphic.insert");
         insert.disabled = true;
@@ -58,7 +70,8 @@
           thumb.innerHTML = ref ? `<img src="${esc(ref.url)}" alt="">` : "";
           drawBtn.textContent = busy ? T("graphic.stop") : svg ? T("graphic.again") : T("graphic.draw");
           drawBtn.classList.toggle("primary", !busy && !svg);
-          changeRow.hidden = !svg;
+          changeRow.hidden = !svg && !from;
+          if (from) changeIn.hidden = changeRow.querySelector('[data-go="change"]').hidden = !svg;
           changeRow.querySelector("button").disabled = !!busy;
           insert.disabled = !svg || !!busy;
           view.classList.toggle("busy", !!busy);
@@ -94,10 +107,10 @@
         };
         me.onImage = (path, fileUrl, error) => { if (error) { toast(error); return; } ref = path ? { path, url: fileUrl } : null; show(); if (me.auto && ref) { me.auto = false; ask(null); } };
         if (from) { // the board's picture, as it stands in the note: handed to the application, and drawn from as soon as it is there
-          text.placeholder = T("graphic.describeBoard");
           me.auto = true;
           shot(from.img).then((data) => { if (live === me) post("graphic-image", { how: "data", data }); }).catch(() => { me.auto = false; toast(T("graphic.failed")); });
         }
+        drawBtn.addEventListener("click", (e) => { if (from) { e.stopPropagation(); busy ? stop() : ask(null); } }); // (it stands in the row below then)
         refRow.addEventListener("click", (e) => {
           const b = e.target.closest("button");
           if (!b) return;
@@ -107,14 +120,14 @@
           else if (b.dataset.go === "draw") busy ? stop() : ask(null);
         });
         const change = () => { const c = changeIn.value.trim(); if (c && svg && !busy) ask(c); };
-        changeRow.querySelector("button").addEventListener("click", change);
+        changeRow.querySelector('[data-go="change"]').addEventListener("click", change);
         changeIn.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); e.stopPropagation(); change(); } });
         // Ctrl+Enter in the description draws (once there is a figure, the dialog's own Ctrl+Enter inserts it)
         text.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !svg && !busy) { e.preventDefault(); e.stopPropagation(); ask(null); } });
         // a picture pasted into the description is the reference
         text.addEventListener("paste", (e) => { if ([...(e.clipboardData?.items || [])].some((i) => i.type.startsWith("image/"))) { e.preventDefault(); post("graphic-image", { how: "paste" }); } });
         show();
-        return { focus: () => text.focus(), result: () => (svg && !busy ? { svg, name: text.value.trim() } : undefined), text: () => text.value };
+        return { focus: () => (from ? changeIn.hidden ? drawBtn : changeIn : text).focus(), result: () => (svg && !busy ? { svg, name: text.value.trim() } : undefined), text: () => text.value };
       },
       done(r) { tidy(); if (from) A.context.INSERT.svg(view, r.svg, from.at); else post("graphic-save", { svg: r.svg, name: r.name }); },
       cancel() { tidy(); },

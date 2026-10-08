@@ -389,9 +389,9 @@ shut back into it.
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
 - **Drawn clean by Claude** (the desktop application; a right click on the board's block, Draw
   Clean with Claude…): what was scribbled on the board — a circuit, a diagram, a scheme — is
-  shown to Claude as a picture and drawn as a clean figure, in the dialog of Graphic by
-  Claude. It starts at once; a description can be added, and the figure changed by saying
-  what to change. Insert puts it directly under the board, as its SVG in the note (a fence of
+  shown to Claude as a picture and drawn as a clean figure. The dialog shows the scribble and
+  the figure side by side and starts at once; the figure is changed by saying what to change,
+  or drawn again. Insert puts it directly under the board, as its SVG in the note (a fence of
   `svg`, which shows as a picture). The board's picture is sent to Anthropic for that.
 - **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
 - **What the hand does** is chosen in the bar at the top: the lasso (`V` or `L`, in hand when a
@@ -732,6 +732,11 @@ counts — and has no writing help by a model.
   row, a tab or the note has the menu a right click has (a tab is closed from there). Added to the
   home screen it opens as an app of its own. It needs the network: nothing is kept for reading
   without it.
+- **Under a finger** (an iPad, any touch screen): what a mouse pulls a finger pulls — the
+  sidebar's edge (wider there), the gap between columns, a dialog's corner, a table's row and
+  column handles. In the active mode a tapped block has its handle beside it, at once; a tap
+  on the handle chooses the block and opens its menu. A tapped cell has the table's handles.
+  Fields are 16 px, so that a phone does not make the page larger while one is typed in.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes, as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

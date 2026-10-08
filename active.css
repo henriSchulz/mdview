@@ -1227,3 +1227,28 @@ body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(-
 /* a row that is pulled into the text says so under the pointer */
 .rp-tile[draggable="true"] { cursor: grab; }
 .rp-tile[draggable="true"]:active { cursor: grabbing; }
+
+/* ---- under a finger: the handles are large enough to be met, and pulled without the page going along */
+@media (pointer: coarse) {
+  .blk-h { width: 30px; height: 34px; margin: -8px 0 0 -10px; touch-action: none; }
+  .blk-h svg { width: 12px; height: 19px; }
+  .tbl-h { touch-action: none; }
+  .tbl-h-col { width: 44px; height: 24px; }
+  .tbl-h-row { width: 24px; height: 44px; }
+  .tbl-h-more { width: 40px; height: 34px; }
+  .col-grip, .dlg-grip, .pa-sheet { touch-action: none; }
+  .dlg-grip { width: 28px; height: 28px; }
+}
+
+/* a whiteboard drawn clean: the scribble and the figure side by side */
+.gr-pair { display: grid; grid-template-columns: minmax(0, 0.8fr) auto minmax(0, 1.2fr); align-items: stretch; gap: 12px; }
+.gr-pair figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gr-pair figcaption { color: var(--fg2); font-size: 11px; text-align: center; }
+.gr-from img { flex: 1; min-height: 0; width: 100%; height: 100%; max-height: 52vh; box-sizing: border-box; padding: 14px; object-fit: contain; border-radius: var(--radius-control); background: #fff; box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+.gr-to .gr-view { flex: 1; }
+.gr-arrow { align-self: center; color: var(--fg2); }
+.gr-arrow svg { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.gr-board .gr-change { min-height: var(--control-height, 28px); }
+.gr-board .gr-change [data-go="draw"] { margin-left: auto; }
+.gr-change-in[hidden], .gr-change button[hidden] { display: none; }
+@media (max-width: 640px) { .gr-pair { grid-template-columns: minmax(0, 1fr); } .gr-arrow { justify-self: center; rotate: 90deg; } .gr-from img { max-height: 24vh; } }

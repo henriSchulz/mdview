@@ -1041,8 +1041,10 @@
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
-    if (handle.hasAttribute("data-group")) { view.focus(); return; } // (the handle of all that is selected: they stay selected)
+    const byFinger = window.MdView.core.touching(), menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
+    if (handle.hasAttribute("data-group")) { view.focus(); menu(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
+    menu();
   });
   /* Dragging by the handle. The move is the handle's own business from start to end: wherever
    * the pointer is (also beside the text, where the handle stands), a line shows the gap the
@@ -1386,6 +1388,7 @@
       handleDOMEvents: {
         mousemove(v, e) {
           if (!v.editable || rubber || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return false; // (no handle while a rectangle is pulled)
+          if (window.MdView.core.touching()) return false; // (a finger: its tap shows the handle)
           // on the way to the handle the pointer crosses what lies left of the block (the list it is in):
           // the handle stays the block's while the pointer is beside it, at its height
           if (over && over.isConnected) {
@@ -1486,6 +1489,7 @@
   }
   document.addEventListener("mousemove", (e) => {
     if (!view || !view.editable || document.body.dataset.view !== "active" || e.buttons || rubber || drag || A.menu.isOpen || A.dialog.open || handle.hasAttribute("data-dragging")) return;
+    if (window.MdView.core.touching()) return; // (a finger's tap, which the browser hands on as a mouse that moved there: the tap itself shows the handle, below)
     if (handle.contains(e.target)) return;
     const inText = view.dom.contains(e.target);
     if (inText && !bare(e)) return; // (over a block: the editor's own handler has it)
@@ -1498,9 +1502,28 @@
       if (!(e.clientY >= r.top - 6 && e.clientY <= Math.max(r.bottom, h.bottom) + 6 && e.clientX < r.left + 6 && e.clientX >= h.left - 12)) hideSoon();
     }
   });
+  /* Under a finger nothing rests over a block: the block that is tapped has the handle, at once, and keeps it until another is
+   * tapped or the note is scrolled. A tap on the handle chooses the block and opens its menu (a finger has no right click; held
+   * on the handle, the block is dragged). */
+  document.addEventListener("pointerup", (e) => {
+    if (e.pointerType !== "touch" || !view || !view.editable || document.body.dataset.view !== "active" || drag || rubber) return;
+    if (handle.contains(e.target) || e.target.closest?.(".actmenu")) return;
+    if (!view.dom.contains(e.target)) { hide(); return; }
+    const el = blockOf(view, e.target, e.clientY);
+    if (!el) { hide(); return; }
+    // (after what the browser makes of the tap — the caret set, the note moved to show it: those put a handle away)
+    setTimeout(() => {
+      if (!view || !el.isConnected) return;
+      clearTimeout(leaving); rest(null);
+      const group = groupEls(view.state), mine = group && group.find((x) => x === el || x.contains(el));
+      if (mine) placeGroup(group, mine); else place(el);
+      tapped = performance.now();
+    }, 60);
+  }, true);
+  let tapped = -1e9;
   handle.addEventListener("mouseenter", () => clearTimeout(leaving));
   handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hideSoon(); });
-  window.addEventListener("scroll", () => { if (over && !handle.hasAttribute("data-dragging")) hide(); }, { passive: true });
+  window.addEventListener("scroll", () => { if (!over || handle.hasAttribute("data-dragging")) return; if (performance.now() - tapped < 500 && view) follow(view.state); else hide(); }, { passive: true }); // (the note moving to show the caret a tap set: the handle goes along)
 
   /* A click below the document's last block: an empty line there, the caret in it (the one that
    * is there already, if the document ends in one). */
