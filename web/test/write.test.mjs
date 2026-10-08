@@ -37,7 +37,7 @@ before(async () => {
   browser = await chromium.launch({ executablePath: browserPath, headless: true });
   context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: "mdview", value: cookie.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
-  await context.addInitScript(() => { if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })); }); // (a commit a second after the last change)
+  await context.addInitScript(() => { if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })); if (localStorage.getItem("mdview:attach-grace") == null) localStorage.setItem("mdview:attach-grace", "0"); }); // (a commit a second after the last change)
   page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
@@ -514,6 +514,42 @@ test("a picture put in while writing goes again with what shows it, and comes ba
   assert.deepEqual([...gh.repo.files.get(name).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
   assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], "Gone.md");
   await page.waitForFunction((n) => { const i = [...document.querySelectorAll(".pm img")].find((i) => i.src.includes(n)); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 10000 });
+});
+
+test("a picture taken out of a note stays for a while: cut, saved, and undone, it was never gone", async () => {
+  put("Stays.md", "# Stays\n\ntext\n");
+  await page.evaluate(() => localStorage.setItem("mdview:attach-grace", "3600")); // (as it is for everyone: an hour)
+  await open("Stays.md");
+  await page.reload();
+  await page.waitForFunction(() => window.MdView && MdView.core.current && MdView.core.current.name === "Stays.md", null, { timeout: 15000 });
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
+  await page.evaluate(async () => {
+    const dt = new DataTransfer(), c = document.createElement("canvas");
+    c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+    dt.items.add(new File([await new Promise((r) => c.toBlob(r, "image/png"))], "image.png", { type: "image/png" }));
+    document.querySelector(".pm").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await until(() => /\(pasted-\d{8}-\d{6}\.png\)/.test(text("Stays.md") || ""), "the picture's markup in the note");
+  const name = /\((pasted-[^)]+)\)/.exec(text("Stays.md"))[1];
+  // taken out, and the note committed without it: the file is still in the repository, and still the note's
+  await page.evaluate((what) => {
+    const v = MdActive.view.pm, tr = v.state.tr, at = [];
+    v.state.doc.descendants((n, p) => { if (n.type.name === "image" && n.attrs.src.includes(what)) at.push([p, p + n.nodeSize]); });
+    for (const [a, b] of at.reverse()) tr.delete(a, b);
+    v.dispatch(tr);
+  }, name);
+  await until(() => !(text("Stays.md") || name).includes(name), "the note, committed without the picture");
+  await page.waitForTimeout(1500);
+  assert.ok(gh.repo.files.has(name), "the file stays");
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[name], "Stays.md");
+  // undone: the picture is drawn at once — it never went
+  await page.evaluate(() => PM.history.undo(MdActive.view.pm.state, MdActive.view.pm.dispatch));
+  await page.waitForFunction((n) => { const i = [...document.querySelectorAll(".pm img")].find((i) => i.src.includes(n)); return i && i.complete && i.naturalWidth === 3; }, name, { timeout: 4000 });
+  await until(() => (text("Stays.md") || "").includes(name), "the picture's markup is back");
+  await page.evaluate(() => localStorage.setItem("mdview:attach-grace", "0"));
+  await page.reload();
 });
 
 test("where nothing else is set, what is pasted goes into a folder of its own beside the note: assets", async () => {

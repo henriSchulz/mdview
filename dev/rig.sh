@@ -296,7 +296,8 @@ case "${1:-}" in
   dnd)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".dnd.json
     magick -size 20x20 xc:'#e5484d' "$R/drop.png"; echo text > "$R/notes.txt"
-    app 90 MDVIEW_PROBE="$D/probe-dnd.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    # (MDVIEW_ATTACH_GRACE=0: what was dropped and taken back goes at once here — else it stays for an hour, attach.rs)
+    app 90 MDVIEW_PROBE="$D/probe-dnd.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_ATTACH_GRACE=0 -- "$R/work/$name"
     for _ in $(seq 500); do [[ -f $R/out/$name.dnd.json ]] && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"

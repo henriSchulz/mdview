@@ -2608,7 +2608,9 @@ impl Win {
     fn tidy_attachments(&mut self, text: Option<&str>) {
         let (Some(note), Some(text)) = (self.path.clone().filter(|p| !is_pdf(p)), text) else { return };
         let root = self.vault().or_else(|| self.folder.clone().filter(|f| note.starts_with(f))).unwrap_or_else(|| dir_of(&note));
-        let done = attachments().tidy(&note, text, &root, now(), |p| trash::delete(p).is_ok());
+        // (how long a file stays after the note stopped naming it; another time: for tests)
+        let grace = env("MDVIEW_ATTACH_GRACE").and_then(|g| g.parse().ok()).unwrap_or(crate::attach::GRACE_SECS);
+        let done = attachments().tidy(&note, text, &root, now(), grace, |p| trash::delete(p).is_ok());
         if !done.restored.is_empty() {
             let names: Vec<String> = done.restored.iter().map(|p| name_of(p)).collect();
             self.js("MdView.filesBack", &[json!(names)]);

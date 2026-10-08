@@ -184,7 +184,8 @@
       const size = fileSizeOf(state.selection.$from.parent);
       items.push({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => setFileSize(view, v), { checked: size === v })) });
     }
-    if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item("menu.embedFile", () => embedFile(view)));
+    // (a picture's file: "Show as Picture", the way back from "Show as File")
+    if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item(PICTURE.test(file.split(/[?#]/)[0]) ? "menu.asPicture" : "menu.embedFile", () => embedFile(view)));
     else if (file && window.MdView.core.codeLang(file) != null) items.push(item("menu.embedCode", () => embedFile(view))); // (a file of text: as the code it is)
     items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
     items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
@@ -310,10 +311,27 @@
     view.focus();
   }
   // a picture, or a file shown in the note → a file block that names it
+  // the way from the note's folder to a file (both as the application names them)
+  const wayTo = (path) => {
+    const cur = window.MdView.core.current, from = cur && cur.path ? String(cur.path).split("/").slice(0, -1) : null, to = String(path).split("/");
+    if (!from) return null;
+    let i = 0;
+    while (i < from.length && i < to.length - 1 && from[i] === to[i]) i++;
+    return [...from.slice(i).map(() => ".."), ...to.slice(i)].join("/");
+  };
   const embedded = (node) => {
     if (node.type === N.image) return fileHrefOf(node.attrs.src);
-    const m = node.type === N.island ? /^!\[\[([^\]|#\n]+)(?:[#|][^\]\n]*)?\]\]\s*$/.exec(String(node.attrs.raw || "")) : null;
-    return m && (EMBEDS.test(m[1]) || window.MdView.core.codeLang(m[1]) != null) ? m[1].split("/").map(encodeURIComponent).join("/") : null;
+    if (node.type !== N.island) return null;
+    const raw = String(node.attrs.raw || "");
+    // a Markdown picture alone in its paragraph (a block of its own here)
+    const pic = /^\s*!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)\s*$/.exec(raw);
+    if (pic) return fileHrefOf(pic[1]);
+    const m = /^!\[\[([^\]|#\n]+)(?:[#|][^\]\n]*)?\]\]\s*$/.exec(raw);
+    if (!m || !(EMBEDS.test(m[1]) || window.MdView.core.codeLang(m[1]) != null)) return null;
+    // (a name alone may lie anywhere in the folder — a vault finds it: the file's link is the way there from the note,
+    // or it would name a file that is not beside the note, and the picture made of it again would be none)
+    const links = (A.view.store && A.view.store.env.links) || {}, info = links[m[1].trim()], way = info && info.path ? wayTo(info.path) : null;
+    return (way || m[1]).split("/").map(encodeURIComponent).join("/");
   };
   const fileHrefOf = (src) => (src && window.MdView.core.fileHref(src) ? src : null);
   function asFile(view, pos, node) {

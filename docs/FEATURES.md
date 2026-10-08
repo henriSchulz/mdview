@@ -320,7 +320,8 @@ In the active mode the size is a choice — its own size, Small (240), Medium (4
 width — in the menu of a picture or an embed (right click → Size), in a picture's popover (double
 click or Enter on it) and in the dialog of an embed.
 
-Paths are relative to the note. SVG files and embedded PDF pages stand centred. A double click shows a picture large.
+Paths are relative to the note. A picture alone in its paragraph is a block of its own: it has the
+line to itself and stands in its middle, as embedded PDF pages do. A double click shows a picture large.
 A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
 whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
 a picture stays part of the line.
@@ -340,8 +341,12 @@ that also says what kind of file it is — chosen in its menu (right click › S
 stands where a link has its title: `[report.zip](report.zip "large")`, or `"small"`.
 
 A file that can be shown in the note itself — a picture, a PDF, sound, film — is embedded on
-request: right click on its block › Embed in the Note. The other way round, a picture's or an
-embed's menu has Show as File.
+request: right click on its block › Show as Picture (a picture's file) or Embed in the Note. The
+other way round, a picture's or an embed's menu has Show as File.
+
+A picture or file the app itself put beside the note (pasted, dropped) goes again when the note no
+longer shows it — but not at once: it stays for an hour first, so that cutting and pasting it,
+or undoing its removal, finds it where it was.
 
 ### Links between notes
 

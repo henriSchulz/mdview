@@ -126,6 +126,9 @@ img, video { max-width: 100%; height: auto; border-radius: var(--radius-control)
 img.emoji { height: 1.2em; vertical-align: -0.2em; }
 /* a picture as wide as the text column (|full) */
 img.full { display: block; width: 100%; height: auto; }
+/* a picture alone in its paragraph: a block of its own, the line to itself, in its middle */
+p.pic-block { text-align: center; }
+p.pic-block > img { display: block; margin-left: auto; margin-right: auto; }
 audio { width: 100%; }
 
 ul, ol { padding-left: 1.6em; }

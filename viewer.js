@@ -439,6 +439,19 @@
       if (size) kids[0].attrs = kids[0].attrs.filter(([k]) => k !== "title"); // (not a title to show)
     }
   });
+  /* A picture alone in its paragraph is a block of its own: it has the line to itself, whatever
+   * room is left beside it, and stands in its middle (viewer.css: p.pic-block). The same for a
+   * picture that is embedded by its name (![[tree.png]]). */
+  md.core.ruler.after("inline", "picture_blocks", (state) => {
+    const toks = state.tokens, PIC = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
+    for (let i = 0; i + 2 < toks.length; i++) {
+      if (toks[i].type !== "paragraph_open" || toks[i + 1].type !== "inline" || toks[i].hidden) continue;
+      const kids = (toks[i + 1].children || []).filter((k) => !((k.type === "text" && !k.content.trim()) || k.type === "softbreak"));
+      if (kids.length !== 1) continue;
+      const k = kids[0];
+      if (k.type === "image" || (k.type === "wiki_embed" && PIC.test(String(k.meta.target || "").split("#")[0].trim()))) toks[i].attrJoin("class", "pic-block");
+    }
+  });
   md.core.ruler.after("inline", "tasks", (state) => {
     const toks = state.tokens, env = state.env;
     for (let i = 2; i < toks.length; i++) {
@@ -2029,6 +2042,7 @@
     setTimeout(() => post("resolve", { target }), 0);
   }
   function linkResolved(target, info) {
+    asked.delete(target); // (answered: what misses it later — after an undo, a paste — asks again)
     if (!current || !current.links) return;
     current.links[target] = info;
     if (!info) return;
@@ -2041,8 +2055,14 @@
     if (pm) {
       let tr = null;
       pm.state.doc.descendants((node, pos) => {
-        if (node.type.name === "iatom" && typeof node.attrs.html === "string" && node.attrs.html.includes("embed-missing") && node.attrs.raw === `![[${target}]]`) {
+        if (typeof node.attrs.html !== "string" || !node.attrs.html.includes("embed-missing")) return;
+        if (node.type.name === "iatom" && node.attrs.raw === `![[${target}]]`) {
           tr = (tr || pm.state.tr).setNodeMarkup(pos, null, { ...node.attrs, html });
+        } else if (node.type.name === "island" && String(node.attrs.raw || "").includes(`![[${target}`)) {
+          // a block that is the embed (a picture alone in its paragraph, a PDF's page, a file as code): drawn anew, whole —
+          // it stayed "⤷ name" for good: a picture shown as a file and undone, or cut and pasted, was not there
+          const again = MdActive.islands.blocksOf(node.attrs.raw, MdActive.view.store).find((n) => n.type.name === "island");
+          if (again && again.attrs.html !== node.attrs.html) tr = (tr || pm.state.tr).setNodeMarkup(pos, null, { ...node.attrs, html: again.attrs.html });
         }
       });
       if (tr) pm.dispatch(tr.setMeta("addToHistory", false).setMeta("allowLoss", true));

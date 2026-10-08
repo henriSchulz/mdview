@@ -12,6 +12,11 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
+/// How long a file stays after the note stopped naming it, before it goes. Within that time
+/// nothing is taken away: a picture cut and pasted again, an undo, a redo find the file where it
+/// was. (It went at the very next save before — and what was undone showed a picture that was
+/// not there until the save after.)
+pub const GRACE_SECS: u64 = 3600;
 /// How long the copy of a removed file is kept for putting it back.
 const KEEP_SECS: u64 = 30 * 24 * 3600;
 /// How many notes are read at most to see whether another one names a file.
@@ -102,7 +107,7 @@ impl Store {
 
     /// The note was saved with this text. root: the folder whose notes may name the file too.
     /// remove: how a file goes (the trash) — true when it is gone.
-    pub fn tidy(&self, note: &Path, text: &str, root: &Path, now: u64, remove: impl Fn(&Path) -> bool) -> Tidied {
+    pub fn tidy(&self, note: &Path, text: &str, root: &Path, now: u64, grace: u64, remove: impl Fn(&Path) -> bool) -> Tidied {
         let mut all = self.load();
         if all.is_empty() {
             return Tidied::default();
@@ -133,7 +138,24 @@ impl Store {
                 }
                 continue;
             }
-            if entry["note"].as_str() != Some(s(note).as_str()) || named {
+            if entry["note"].as_str() != Some(s(note).as_str()) {
+                continue;
+            }
+            if named {
+                if !entry["unnamed"].is_null() {
+                    all.insert(key, json!({ "note": s(note) })); // (named again in time: nothing happened)
+                    changed = true;
+                }
+                continue;
+            }
+            // no longer named: noted, and left where it is for the time of grace
+            let since = entry["unnamed"].as_u64();
+            if since.is_none() && grace > 0 {
+                all.insert(key, json!({ "note": s(note), "unnamed": now }));
+                changed = true;
+                continue;
+            }
+            if since.is_some_and(|t| now.saturating_sub(t) < grace) {
                 continue;
             }
             if !file.is_file() {
@@ -187,18 +209,18 @@ mod tests {
         fs::write(&pic, b"png").unwrap();
         store.own(&pic, &note);
         // still named (as an address writes it): it stays
-        assert_eq!(store.tidy(&note, "![](pasted%201.png)\n", &base.join("notes"), 10, gone), Tidied::default());
+        assert_eq!(store.tidy(&note, "![](pasted%201.png)\n", &base.join("notes"), 10, 0, gone), Tidied::default());
         assert!(pic.is_file());
         // no longer named: it goes
-        let t = store.tidy(&note, "text\n", &base.join("notes"), 20, gone);
+        let t = store.tidy(&note, "text\n", &base.join("notes"), 20, 0, gone);
         assert_eq!(t.removed, vec![pic.clone()]);
         assert!(!pic.exists());
         // named again (undone): it is back, with what was in it
-        let t = store.tidy(&note, "![](pasted%201.png)\n", &base.join("notes"), 30, gone);
+        let t = store.tidy(&note, "![](pasted%201.png)\n", &base.join("notes"), 30, 0, gone);
         assert_eq!(t.restored, vec![pic.clone()]);
         assert_eq!(fs::read(&pic).unwrap(), b"png");
         // … and goes again
-        assert_eq!(store.tidy(&note, "", &base.join("notes"), 40, gone).removed.len(), 1);
+        assert_eq!(store.tidy(&note, "", &base.join("notes"), 40, 0, gone).removed.len(), 1);
         let _ = fs::remove_dir_all(base);
     }
 
@@ -210,26 +232,50 @@ mod tests {
         fs::create_dir_all(notes.join("sub")).unwrap();
         // a file that was there before is not in the list: never touched
         fs::write(notes.join("old.png"), b"x").unwrap();
-        assert_eq!(store.tidy(&note, "", &notes, 1, gone), Tidied::default());
+        assert_eq!(store.tidy(&note, "", &notes, 1, 0, gone), Tidied::default());
         assert!(notes.join("old.png").is_file());
         // one that another note names stays, and is that note's from then on
         let pic = notes.join("shared.png");
         fs::write(&pic, b"x").unwrap();
         fs::write(&other, "![](../shared.png)\n").unwrap();
         store.own(&pic, &note);
-        assert_eq!(store.tidy(&note, "", &notes, 2, gone), Tidied::default());
+        assert_eq!(store.tidy(&note, "", &notes, 2, 0, gone), Tidied::default());
         assert!(pic.is_file());
-        assert_eq!(store.tidy(&note, "", &notes, 3, gone), Tidied::default()); // (not a's any more)
-        assert_eq!(store.tidy(&other, "nothing\n", &notes, 4, gone).removed, vec![pic.clone()]);
+        assert_eq!(store.tidy(&note, "", &notes, 3, 0, gone), Tidied::default()); // (not a's any more)
+        assert_eq!(store.tidy(&other, "nothing\n", &notes, 4, 0, gone).removed, vec![pic.clone()]);
         // a save of another note leaves a note's files alone
         let mine = notes.join("mine.png");
         fs::write(&mine, b"x").unwrap();
         store.own(&mine, &note);
-        assert_eq!(store.tidy(&other, "nothing\n", &notes, 5, gone), Tidied::default());
+        assert_eq!(store.tidy(&other, "nothing\n", &notes, 5, 0, gone), Tidied::default());
         assert!(mine.is_file());
         // what cannot be removed keeps no copy aside
-        assert_eq!(store.tidy(&note, "", &notes, 6, |_| false), Tidied::default());
+        assert_eq!(store.tidy(&note, "", &notes, 6, 0, |_| false), Tidied::default());
         assert!(mine.is_file());
+        let _ = fs::remove_dir_all(base);
+    }
+
+    #[test]
+    fn what_is_no_longer_named_stays_for_a_while_first() {
+        let (base, store) = dirs("grace");
+        let (note, pic) = (base.join("notes/a.md"), base.join("notes/p.png"));
+        fs::write(&pic, b"png").unwrap();
+        store.own(&pic, &note);
+        let notes = base.join("notes");
+        // cut out of the note: saved without it, again and again — the file stays
+        for now in [100, 130, 100 + GRACE_SECS - 1] {
+            assert_eq!(store.tidy(&note, "text\n", &notes, now, GRACE_SECS, gone), Tidied::default());
+            assert!(pic.is_file());
+        }
+        // pasted again, or undone: as if nothing had happened, and the time starts anew when it is cut once more
+        assert_eq!(store.tidy(&note, "![](p.png)\n", &notes, 200 + GRACE_SECS, GRACE_SECS, gone), Tidied::default());
+        assert_eq!(store.tidy(&note, "text\n", &notes, 300 + GRACE_SECS, GRACE_SECS, gone), Tidied::default());
+        assert!(pic.is_file());
+        // left out for longer than that: at the next save it goes — and comes back when it is named again
+        assert_eq!(store.tidy(&note, "text\n", &notes, 300 + 2 * GRACE_SECS, GRACE_SECS, gone).removed, vec![pic.clone()]);
+        assert!(!pic.exists());
+        assert_eq!(store.tidy(&note, "![](p.png)\n", &notes, 400 + 2 * GRACE_SECS, GRACE_SECS, gone).restored, vec![pic.clone()]);
+        assert_eq!(fs::read(&pic).unwrap(), b"png");
         let _ = fs::remove_dir_all(base);
     }
 
@@ -239,9 +285,9 @@ mod tests {
         let (note, pic) = (base.join("notes/a.md"), base.join("notes/p.png"));
         fs::write(&pic, b"x").unwrap();
         store.own(&pic, &note);
-        store.tidy(&note, "", &base.join("notes"), 100, gone);
+        store.tidy(&note, "", &base.join("notes"), 100, 0, gone);
         assert!(store.stashed(&pic).is_file());
-        store.tidy(&note, "", &base.join("notes"), 100 + KEEP_SECS + 1, gone);
+        store.tidy(&note, "", &base.join("notes"), 100 + KEEP_SECS + 1, 0, gone);
         assert!(!store.stashed(&pic).exists());
         assert!(store.load().is_empty());
         let _ = fs::remove_dir_all(base);

@@ -446,8 +446,14 @@
     }
     return null;
   }
+  /* How long a file stays after the note stopped naming it, before it goes (attach.rs: GRACE_SECS).
+   * Within that time nothing is taken away: a picture cut and pasted again, an undo, a redo find
+   * the file where it was. Since when a file is not named is kept in this browser. */
+  const GRACE = Number(load("mdview:attach-grace", 3600)) * 1000;
+  const unnamedKey = "mdview:unnamed:" + BASE;
   async function tidyFiles(note, text) {
     if (!has(C.ATTACH) && !removed.size) return;
+    const unnamed = load(unnamedKey, {}), since = JSON.stringify(unnamed);
     const all = await owned(), back = [];
     let changed = false;
     for (const [r] of [...removed]) {
@@ -460,8 +466,14 @@
       back.push(C.nameOf(r));
     }
     for (const [r, of] of Object.entries(all)) {
-      if (of !== note || C.mentions(text, C.nameOf(r))) continue;
-      if (!has(r)) { delete all[r]; changed = true; continue; } // (taken away by other means)
+      if (of !== note) continue;
+      if (C.mentions(text, C.nameOf(r))) { delete unnamed[r]; continue; } // (named, or named again in time)
+      if (!has(r)) { delete all[r]; delete unnamed[r]; changed = true; continue; } // (taken away by other means)
+      if (GRACE > 0) { // no longer named: noted, and left where it is for the time of grace
+        if (!unnamed[r]) { unnamed[r] = Date.now(); continue; }
+        if (Date.now() - unnamed[r] < GRACE) continue;
+      }
+      delete unnamed[r];
       const other = await namedElsewhere(C.nameOf(r), note);
       if (other) { all[r] = other; changed = true; continue; } // (it is that note's now)
       let bytes = blobs.get(r);
@@ -476,6 +488,7 @@
       delete all[r];
       changed = true;
     }
+    if (JSON.stringify(unnamed) !== since) keep(unnamedKey, unnamed);
     if (!changed) return;
     write(C.ATTACH, C.attachText(all));
     sendFolder();
