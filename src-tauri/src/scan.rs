@@ -78,7 +78,13 @@ pub fn file_kind(path: &Path) -> &'static str {
 }
 
 pub fn s(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
+    let text = path.to_string_lossy().into_owned();
+    // (the page takes paths apart at "/" — a note's name, its folder, a folder's place under the
+    // window's. Windows reads "/" as it reads "\\": the page is given the one it knows.)
+    if cfg!(windows) {
+        return text.replace('\\', "/");
+    }
+    text
 }
 
 /// The path made absolute, links followed where the file exists.

@@ -138,8 +138,8 @@
     ok("the description is written", md().includes("![a description](missing.png)"), md().split("\n").find((l) => l.startsWith("Inline")));
     key(view.dom, "z", { ctrlKey: true });
 
-    // --- properties
-    click(island("frontmatter"));
+    // --- properties (they stand at the note's head and are no block to click open: from their menu — Edit Properties…)
+    MdActive.islands.open(view, island("frontmatter"));
     await sleep(400);
     const form = dlg.querySelector(".fm-form");
     ok("simple properties open as a form", isOpen() && !form.hidden && [...form.querySelectorAll(".fm-key")].map((k) => k.textContent).join(",") === "title,tags" && form.querySelector(".fm-value").value === "Test", form.textContent);
@@ -148,7 +148,7 @@
     await done();
     ok("the form writes the changed line only", md().startsWith("---\ntitle: From the form\ntags: [a, b]\n---"), md().slice(0, 60));
     key(view.dom, "z", { ctrlKey: true });
-    click(island("frontmatter"));
+    MdActive.islands.open(view, island("frontmatter"));
     await sleep(400);
     dlg.querySelector('.dlg-seg [data-shape="yaml"]').click();
     await sleep(100);

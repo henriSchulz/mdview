@@ -641,7 +641,9 @@
   }
   function keys(e) {
     if (!V || !V.root.isConnected) return;
-    const typing = e.target.closest && e.target.closest("input, textarea, select, [contenteditable]");
+    // (single keys are the PDF's only while the PDF has them: not while a name is typed, the keyboard
+    // is in the sidebar or the tabs, or a menu or a window stands open — there Esc closes that)
+    const typing = (e.target.closest && e.target.closest("input, textarea, select, [contenteditable], #sidebar, #tabs, .ui-menu")) || document.querySelector("#ctxmenu[data-open], .actmenu[data-open], #newdlg[data-open], #settings[data-open], #share[data-open]");
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") { stop(); copySelection(); return; }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "v") { stop(); copyView(); return; }

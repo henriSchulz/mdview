@@ -16,7 +16,10 @@
     await sleep(300);
     const A = MdActive, V = A.view, view = V.pm;
     const md = () => V.serialize(false);
-    const key = (k, mods = {}) => { const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...mods }); Object.defineProperty(e, "keyCode", { get: () => ({ Enter: 13, Escape: 27, Backspace: 8, ArrowUp: 38, ArrowDown: 40 })[k] || k.toUpperCase().charCodeAt(0) }); view.dom.dispatchEvent(e); return e; };
+    // (↑ and ↓ stop at the place between two blocks where one of them is a picture, code, a table …:
+    // a block can be made there. The steps below mean the blocks — that place is stepped over.)
+    const key = (k, mods = {}) => { const e = key1(k, mods); if ((k === "ArrowDown" || k === "ArrowUp") && !mods.shiftKey && !mods.altKey && !mods.ctrlKey && !mods.metaKey && view.dom.classList.contains("has-gap")) key1(k, mods); return e; };
+    const key1 = (k, mods = {}) => { const e = new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...mods }); Object.defineProperty(e, "keyCode", { get: () => ({ Enter: 13, Escape: 27, Backspace: 8, ArrowUp: 38, ArrowDown: 40 })[k] || k.toUpperCase().charCodeAt(0) }); view.dom.dispatchEvent(e); return e; };
     const undo = () => key("z", { ctrlKey: true });
     const picked = () => [...view.dom.querySelectorAll(".blk-sel")].map((el) => el.textContent.trim().slice(0, 18));
     const para = (text) => [...view.dom.children].find((p) => p.textContent.startsWith(text));

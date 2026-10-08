@@ -10,6 +10,7 @@
     "prebuild": "node scripts/assets.mjs",
     "build": "next build",
     "start": "next start",
+    "pretest": "node scripts/assets.mjs",
     "test": "node --test test/"
   },
   "dependencies": {

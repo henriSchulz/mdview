@@ -838,7 +838,7 @@
       // a click on an island opens its dialog; on a formula its popover; a picture wants a double click
       handleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
-        if (event.target.matches?.(".props input.task[data-prop]")) return true; // (a property's box: it switches the property, islands.js — not the dialog)
+        if (event.target?.matches?.(".props input.task[data-prop]")) return true; // (a property's box: it switches the property, islands.js — not the dialog)
         if (node.type === N.island && node.attrs.virtual) return A.notes.clicked(view, event);
         if (node.type === N.island && node.attrs.kind === "frontmatter") return true; // (the properties stand at the note's head, no block to open: edited from the menu of a right click)
         // (an embedded picture or PDF page is a picture: a click selects it, its dialog is in its menu)
