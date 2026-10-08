@@ -8,6 +8,7 @@
     pen: { c: "auto", w: 3, o: 1, widths: [1, 2, 3, 5, 8] },
     mono: { c: "auto", w: 2, o: 1, widths: [1, 1.5, 2, 3, 5] },
     marker: { c: "#f2b90f", w: 14, o: 0.4, widths: [8, 14, 20, 28, 36] },
+    pencil: { c: "auto", w: 2.5, o: 0.9, widths: [1.5, 2.5, 4, 6, 9] },
     eraser: { mode: "object", w: 20, widths: [10, 20, 32, 48, 64] }, // (its width: on the screen)
   };
   const GAP = 0.75; // a new point only this far (in screen pixels) from the one before
@@ -15,7 +16,11 @@
   function trace(ctx, it, auto) {
     ctx.globalAlpha = it.o;
     if (!it.path) { const o = B.render.outline(it); it.path = new Path2D(o.d); it.stroke = o.stroke; it.cap = o.cap; }
-    if (it.stroke) { ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = it.cap || "round"; ctx.lineJoin = "round"; ctx.stroke(it.path); }
+    if (it.stroke && it.t === "pencil") { // (the line twice, as in the board's picture: whole and faint, then darker in short pieces)
+      ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.globalAlpha = it.o * 0.5; ctx.stroke(it.path);
+      ctx.globalAlpha = it.o * 0.6; ctx.setLineDash(B.render.grain(it.stroke)); ctx.stroke(it.path); ctx.setLineDash([]);
+    } else if (it.stroke) { ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = it.cap || "round"; ctx.lineJoin = "round"; ctx.stroke(it.path); }
     else { ctx.fillStyle = B.render.colorOf(it, auto); ctx.fill(it.path); }
   }
   /* All the ink that the view shows. size: { w, h } in CSS pixels. */

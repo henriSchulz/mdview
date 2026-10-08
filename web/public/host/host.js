@@ -835,7 +835,7 @@
         tell("boardText", id, await textOf(path), null);
       } catch (e) { tell("boardText", id, null, String(e.message || e)); }
     },
-    // a picture for a whiteboard, handed over as it is: a file beside the board's own, the note's from now on, in a commit at once
+    // a picture or another file for a whiteboard, handed over as it is: a file beside the board's own, the note's from now on, in a commit at once
     async "board-put"({ path, name, base64, id }) {
       const failed = (error) => tell("boardPut", id, [], error);
       if (typeof path !== "string" || typeof base64 !== "string" || !exists(path) || !isBoard(path) || !onScreen || onScreen === GUIDE) return failed("not a whiteboard");
@@ -844,7 +844,7 @@
       const clean = C.cleanName(String(name || "")) || "picture.png", dot = clean.lastIndexOf(".") > 0 ? clean.lastIndexOf(".") : clean.length, dir = C.dirOf(path);
       let target = `${dir}/${clean}`;
       for (let n = 2; exists(target); n++) target = `${dir}/${clean.slice(0, dot)}-${n}${clean.slice(dot)}`;
-      if (C.kindOf(target) !== "image" || isBoard(target)) return failed("not a picture");
+      if (C.isMd(target) || isBoard(target)) return failed("not a file for a whiteboard");
       blobs.set(rel(target), base64);
       const all = await owned();
       all[rel(target)] = rel(onScreen);

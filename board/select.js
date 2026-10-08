@@ -9,6 +9,7 @@
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const ICON = {
     arrange: svg('<rect x="4" y="5" width="9" height="6" rx="1.5"/><rect x="11" y="13" width="9" height="6" rx="1.5"/>'),
+    crop: svg('<path d="M7 3v14h14M3 7h14v14"/>'), uncrop: svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 20 20 4"/>'), open: svg('<path d="M14 5h5v5M19 5l-8 8M11 6H6.5A1.5 1.5 0 0 0 5 7.5v10A1.5 1.5 0 0 0 6.5 19h10a1.5 1.5 0 0 0 1.5-1.5V13"/>'),
     table: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M3.5 10h17M3.5 14h17M9.5 5.5v13M14.5 5.5v13"/>'),
     ends: svg('<path d="M5 19 19 5M11 5h8v8"/>'),
     alignL: svg('<path d="M4 4v16"/><rect x="7" y="6.5" width="11" height="4" rx="1"/><rect x="7" y="13.5" width="7" height="4" rx="1"/>'),
@@ -66,7 +67,7 @@
       const it = st.pick[0], r = GRAB / z();
       if (it.k === "line") { for (const i of [0, 1]) if (Math.hypot(p.x - it.p[i * 2], p.y - it.p[i * 2 + 1]) <= r) return { end: i }; return null; }
       const [lx, ly] = I.local(it, p.x, p.y);
-      if (!st.connect && it.k !== "table" && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
+      if (!st.connect && !st.crop && it.k !== "table" && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
       for (const [name, hx, hy] of DOTS) if (Math.hypot(lx - (hx * it.w) / 2, ly - (hy * it.h) / 2) <= r) return { name, hx, hy };
       // the connectors' arrows, a little off each side: pulled, a line grows out of the item
       if (st.connect) for (const [side, hx, hy] of [["t", 0, -1], ["r", 1, 0], ["b", 0, 1], ["l", -1, 0]]) if (Math.hypot(lx - hx * (it.w / 2 + ARROW / z()), ly - hy * (it.h / 2 + ARROW / z())) <= r + 2 / z()) return { conn: side };
@@ -88,7 +89,7 @@
       const it = under(p.x, p.y), now = performance.now();
       if (it) {
         // twice on the same item, and let go without having moved it: its text is typed (end())
-        const twice = lastDown.id === it.id && now - lastDown.t < 400 && (I.texty(it) || it.k === "table") && !it.lock;
+        const twice = lastDown.id === it.id && now - lastDown.t < 400 && (((I.texty(it) || it.k === "table") && !it.lock) || it.k === "link" || it.k === "file");
         lastDown = twice ? { id: null, t: 0 } : { id: it.id, t: now };
         if (e.shiftKey) { pick(st.pick.includes(it) ? st.pick.filter((i) => i !== it && !(it.group && i.group === it.group)) : [...st.pick, it]); return false; }
         if (!st.pick.includes(it)) pick([it]);
@@ -160,8 +161,13 @@
         let l = -was.w / 2, r = was.w / 2, t = -was.h / 2, b = was.h / 2;
         if (hx < 0) l = Math.min(lx, r - MIN); if (hx > 0) r = Math.max(lx, l + MIN);
         if (hy < 0) t = Math.min(ly, b - MIN); if (hy > 0) b = Math.max(ly, t + MIN);
-        if (was.k === "image" && !(hx && hy)) return; // (a picture is sized at its corners)
-        if (hx && hy && (e.shiftKey || was.k === "sticky" || was.k === "image")) { // a corner with Shift (a sticky note and a picture always): its proportions stay
+        if (st.crop === was.id && was.k === "image") { // being cut: the dot pulled is the picture's edge there — the picture stays where it is, the frame closes in on it (never beyond the whole picture)
+          const c = was.crop || [0, 0, 0, 0], fw = was.w / (1 - c[0] - c[2]), fh = was.h / (1 - c[1] - c[3]), fl = -was.w / 2 - c[0] * fw, ft = -was.h / 2 - c[1] * fh;
+          l = Math.max(fl, l); r = Math.min(fl + fw, r); t = Math.max(ft, t); b = Math.min(ft + fh, b);
+          const crop = [(l - fl) / fw, (t - ft) / fh, (fl + fw - r) / fw, (ft + fh - b) / fh].map((v) => Math.max(0, Math.round(v * 10000) / 10000));
+          if (crop.some((v) => v > 0.0005)) it.crop = crop; else delete it.crop;
+        } else if (was.k === "image" && !(hx && hy)) return; // (a picture is sized at its corners)
+        else if (hx && hy && (e.shiftKey || was.k === "sticky" || was.k === "image")) { // a corner with Shift (a sticky note and a picture always): its proportions stay
           const k = Math.max((r - l) / was.w, (b - t) / was.h), w = was.w * k, h = was.h * k;
           if (hx < 0) l = r - w; else r = l + w;
           if (hy < 0) t = b - h; else b = t + h;
@@ -205,6 +211,7 @@
         return ctx.ask([(x2 - st.view.x) * z(), (y2 - st.view.y) * z()]);
       }
       if (a.before) commit(a.before);
+      if (a.kind === "move" && !a.moved && a.twice && (a.twice.k === "link" || a.twice.k === "file")) { ctx.paint(); return ctx.open(a.twice); } // (a card clicked twice: what it stands for is opened)
       if (a.kind === "move" && !a.moved && a.twice) { pick([a.twice]); return begin(a.twice, a.twice.k === "table" ? I.cellAt(a.twice, ...I.local(a.twice, ...a.from)) : null); }
       ctx.paint();
     }
@@ -310,11 +317,33 @@
     }
 
     // ------------------------------------------------------------ making, copying, order
+    /* Cards for files kept beside the board (their names), or for an address. */
+    function cards(list, at = null) {
+      if (!list.length) return;
+      const st = S(), s = ctx.size(), [cx, cy] = at || st.view.toBoard(s.w / 2, s.h / 2), before = snap();
+      const made = list.map((c, i) => I.fresh(c.url ? "link" : "file", cx + i * 24, cy + i * 24, c)).map(I.norm).filter(Boolean);
+      if (!made.length) return false;
+      st.model.items.push(...made);
+      commit(before);
+      pick(made);
+      return true;
+    }
+    /* The chosen item's look is what a new one of its kind begins with from now on, on this board. */
+    function insertStyle() {
+      const st = S(), it = st.pick[0];
+      if (!it) return;
+      const look = I.data({ fill: it.fill, stroke: it.stroke, ts: it.ts, ends: it.ends, route: it.route, shape: undefined });
+      st.model.board.insert = { ...(st.model.board.insert || {}), [it.k]: JSON.parse(JSON.stringify(look)) };
+      ctx.changed();
+      closePop();
+    }
     function insert(kind, more = {}) {
       const st = S(), s = ctx.size(), [cx, cy] = st.view.toBoard(s.w / 2, s.h / 2), before = snap();
       // (not on top of the one made just before)
       const n = plain(st).filter((it) => Math.abs(I.mid(it)[0] - cx) % 24 < 1 && Math.abs(I.mid(it)[1] - cy) % 24 < 1 && Math.abs(I.mid(it)[0] - cx) < 240).length;
-      const it = I.fresh(kind, Math.round(cx) + n * 24, Math.round(cy) + n * 24, more);
+      let it = I.fresh(kind, Math.round(cx) + n * 24, Math.round(cy) + n * 24, more);
+      const look = (st.model.board.insert || {})[kind];
+      if (look) it = I.norm({ ...it, ...look, ts: it.ts ? { ...it.ts, ...(look.ts || {}) } : undefined }) || it; // (the look saved for new ones of its kind)
       st.model.items.push(it);
       commit(before);
       pick([it]);
@@ -447,6 +476,8 @@
         if (every(I.texty)) html += btn("text", T("board.textLook"), '<b class="bd-aa">Aa</b>');
         if (every((it) => it.k === "line")) html += btn("ends", T("board.ends"), ICON.ends);
         if (every((it) => it.k === "table")) html += btn("table", T("board.table"), ICON.table);
+        if (p.length === 1 && first.k === "image") html += `<button type="button" class="bd-btn" data-f="crop" title="${esc(T("board.crop"))}" aria-label="${esc(T("board.crop"))}" aria-pressed="${st.crop === first.id}">${ICON.crop}</button>` + (first.crop ? btn("uncrop", T("board.uncrop"), ICON.uncrop) : "");
+        if (p.length === 1 && (first.k === "link" || first.k === "file")) html += btn("open", T("board.open"), ICON.open);
         html += `<span class="bd-sep"></span>` + btn("arrange", T("board.arrange"), ICON.arrange) + btn("duplicate", T("board.duplicate"), ctx.icons.copy) + btn("remove", T("board.delete"), ctx.icons.trash);
       }
       if (b.dataset.sig !== html) { b.innerHTML = html; b.dataset.sig = html; }
@@ -486,7 +517,7 @@
       } else if (kind === "arrange") {
         const many = st.pick.length > 1, grouped = st.pick.some((it) => it.group);
         html = (many ? `<h6>${esc(T("board.align"))}</h6><div class="bd-row bd-aligns">${["L", "C", "R", "T", "M", "B"].map((a) => `<button type="button" class="bd-btn" data-al="${a}" title="${esc(T("board.align." + a))}" aria-label="${esc(T("board.align." + a))}">${ICON["align" + a]}</button>`).join("")}${st.pick.length > 2 ? `<button type="button" class="bd-btn" data-dist="H" title="${esc(T("board.distribute.H"))}" aria-label="${esc(T("board.distribute.H"))}">${ICON.distH}</button><button type="button" class="bd-btn" data-dist="V" title="${esc(T("board.distribute.V"))}" aria-label="${esc(T("board.distribute.V"))}">${ICON.distV}</button>` : ""}</div>` : "") +
-          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button><hr><button type="button" data-f="copyLook">${esc(T("board.copyStyle"))}</button>${look ? `<button type="button" data-f="pasteLook">${esc(T("board.pasteStyle"))}</button>` : ""}</div>`;
+          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button><hr>${st.pick.length === 1 && ["shape", "sticky", "text", "line"].includes(first.k) ? `<button type="button" data-f="insertStyle">${esc(T("board.insertStyle"))}</button>` : ""}<button type="button" data-f="copyLook">${esc(T("board.copyStyle"))}</button>${look ? `<button type="button" data-f="pasteLook">${esc(T("board.pasteStyle"))}</button>` : ""}</div>`;
       }
       p.innerHTML = html;
       p.dataset.kind = kind;
@@ -502,7 +533,10 @@
       const d = b.dataset;
       if (d.f) {
         if (["fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
-        ({ duplicate, remove, group, ungroup, link, copyLook: () => { copyLook(); closePop(); }, pasteLook, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
+        ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]),
+          crop: () => { const st = S(); st.crop = st.crop === st.pick[0].id ? null : st.pick[0].id; ctx.paint(); },
+          uncrop: () => change((p) => { const it = p[0], c = it.crop; if (!c) return; const fw = it.w / (1 - c[0] - c[2]), fh = it.h / (1 - c[1] - c[3]), [lx, ly] = [-(c[0] - c[2]) * fw / 2, -(c[1] - c[3]) * fh / 2], rad = (it.r * Math.PI) / 180, [cx, cy] = I.mid(it); delete it.crop; Object.assign(it, { w: Math.round(fw * 10) / 10, h: Math.round(fh * 10) / 10 }); Object.assign(it, { x: Math.round((cx + lx * Math.cos(rad) - ly * Math.sin(rad) - it.w / 2) * 10) / 10, y: Math.round((cy + lx * Math.sin(rad) + ly * Math.cos(rad) - it.h / 2) * 10) / 10 }); }),
+          copyLook: () => { copyLook(); closePop(); }, pasteLook, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
         return true;
       }
       if (d.trows) return tableGrow("rows", Number(d.trows)), true;
@@ -532,6 +566,8 @@
         frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : "many";
         frame.toggleAttribute("data-lock", locked());
         frame.toggleAttribute("data-busy", !!(act && act.kind === "move" && act.moved));
+        if (st.crop && !(one && one.id === st.crop)) st.crop = null; // (cutting ends with the choice of something else)
+        frame.toggleAttribute("data-crop", !!st.crop);
         frame.toggleAttribute("data-noturn", !!(one && one.k === "table")); // (a table stands upright)
         frame.toggleAttribute("data-conn", !!(st.connect && one && one.k !== "line" && !one.lock && !act));
         if (one && one.k === "line") {
@@ -586,7 +622,7 @@
       return false;
     }
 
-    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

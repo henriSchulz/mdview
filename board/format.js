@@ -136,7 +136,7 @@
       if (o && typeof o === "object" && "board" in o && !("id" in o)) {
         if (head) continue; // (two heads after a merge: the first stands)
         head = true;
-        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, ...(o.snap === true ? { snap: true } : {}), view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
+        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, ...(o.snap === true ? { snap: true } : {}), ...(o.insert && typeof o.insert === "object" && !Array.isArray(o.insert) ? { insert: JSON.parse(JSON.stringify(o.insert)) } : {}), view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
         continue;
       }
       if (o && o.k === "scene") { // (scenes stand in their own order, beside the items)
@@ -160,7 +160,7 @@
   const json = (o) => JSON.stringify(o).replace(/[<>&\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   /* { board, items } → the file's text. */
   function write(model) {
-    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid, ...(b.snap ? { snap: true } : {}) };
+    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid, ...(b.snap ? { snap: true } : {}), ...(b.insert && Object.keys(b.insert).length ? { insert: b.insert } : {}) }; // (insert: the look new items of a kind begin with)
     if (b.view) head.view = { x: Math.round(b.view.x), y: Math.round(b.view.y), z: Math.round(b.view.z * 1000) / 1000 };
     const lines = [json(head), ...(model.scenes || []).map((sc) => json({ id: sc.id, k: "scene", name: sc.name, view: sc.view })), ...model.items.map(lineOf).filter(Boolean).map(json)];
     const pic = B.render.picture(model);

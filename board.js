@@ -31,6 +31,7 @@
     textbox: svg('<rect x="3.5" y="6" width="17" height="12" rx="2" stroke-dasharray="2.5 2.5"/><path d="M9.5 15 12 9l2.5 6M10.4 13h3.2"/>'),
     shapes: svg('<circle cx="9.5" cy="9.5" r="5.5"/><rect x="10.5" y="10.5" width="10" height="10" rx="2"/>'),
     table: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M3.5 10h17M3.5 14h17M9.5 5.5v13M14.5 5.5v13"/>'),
+    link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
     sticky: svg('<path d="M4.5 5.5h15v9l-5 5h-10z"/><path d="M19.5 14.5h-5v5M8 9.5h8M8 13h4"/>'),
     unlock: svg('<rect x="5.5" y="10.5" width="13" height="9" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.7-1.4"/>'),
     copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5v-0.5A1.5 1.5 0 0 0 14 3.5H6A2.5 2.5 0 0 0 3.5 6v8A1.5 1.5 0 0 0 5 15.5h0.5"/>'),
@@ -73,7 +74,7 @@
   async function put(files, at = null) {
     const s = S, names = [];
     let failed = null;
-    for (const f of files.filter((f) => f && /^image\//.test(f.type) && TYPE_EXT[f.type])) {
+    for (const f of files.filter((f) => f && typeof f.size === "number" && (f.name || TYPE_EXT[f.type]))) {
       const d = new Date(), two = (n) => String(n).padStart(2, "0");
       const name = f.name && !/^image\.[a-z]+$/i.test(f.name) ? f.name : `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}${TYPE_EXT[f.type]}`; // (a pasted picture is called "image.png" by every browser)
       const [got, error] = await ask("board-put", { path: s.ref, name, base64: base64Of(new Uint8Array(await f.arrayBuffer())) });
@@ -81,10 +82,13 @@
     }
     if (S === s) placed(names, failed, at);
   }
-  /* Pictures kept beside the board, by their names: each on the board in its own size (no larger than fits well). */
+  /* Files kept beside the board, by their names: a picture on the board in its own size (no larger than fits well), any other file as a card. */
   async function placed(names, error, at = null) {
     const s = S;
     if (error) core.toast(T("board.noPicture"));
+    const others = (names || []).filter((n) => !B.items.PICTURE.test(n));
+    names = (names || []).filter((n) => B.items.PICTURE.test(n));
+    if (others.length && S === s) { if (S.mode !== "select") setMode("select"); sel.cards(others.map((src) => ({ src })), at); save(); }
     const list = (await Promise.all((names || []).map((src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ src, w: i.naturalWidth || 200, h: i.naturalHeight || 150 }); i.onerror = () => res({ src, w: 200, h: 150 }); i.src = fileUrl(s.ref.slice(0, s.ref.lastIndexOf("/") + 1) + src); })))).filter(Boolean);
     if (S !== s || !list.length) return;
     if (S.mode !== "select") setMode("select");
@@ -138,7 +142,8 @@
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
   const auto = () => getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f";
   const button = (name, key, more = "") => `<button type="button" class="bd-btn" data-do="${name}" title="${esc(T(key))}" aria-label="${esc(T(key))}"${more}>${I[name] || ""}</button>`;
-  const DRAWS = ["pen", "mono", "marker"], ALL = [...DRAWS, "eraser", "lasso"];
+  const DRAWS = ["pen", "mono", "marker", "pencil"], ALL = [...DRAWS, "eraser", "lasso"];
+  const RULER = { h: 64, grip: 80, near: 22 }; // the ruler on the screen: how broad, how much of each end turns it, how near its edge a stroke is taken along it
   /* A tool as it stands in the palette: a flat sign of the thing — a body, a band in its colour
    * (var(--band)), a tip. Drawn here; no picture of anyone's is used. */
   function toolSign(kind) {
@@ -148,6 +153,7 @@
       pen: `<path d="M9 22 15 5l6 17z" ${shade} stroke="var(--bd-tool-line)"/><path d="M13 10.7 15 5l2 5.7z" fill="var(--band)"/>`,
       mono: `<path d="M11 22l2-9h4l2 9z" ${shade} stroke="var(--bd-tool-line)"/><rect x="14.2" y="4" width="1.6" height="9.5" rx="0.8" fill="var(--bd-tool-dark)"/>`,
       marker: `<path d="M9 22l1-9h10l1 9z" ${shade} stroke="var(--bd-tool-line)"/><path d="M11 13V7.5l8-3V13z" fill="var(--band)"/>`,
+      pencil: `<path d="M8 22 15 4l7 18z" fill="#e8c9a0" stroke="var(--bd-tool-line)"/><path d="M13.2 8.7 15 4l1.8 4.7z" fill="var(--band)"/>`,
       eraser: `<rect x="7" y="7" width="16" height="16" rx="5" fill="var(--bd-tool-rubber)" stroke="var(--bd-tool-line)"/>`,
       lasso: `<ellipse cx="15" cy="12" rx="8.5" ry="6" fill="none" stroke="var(--bd-tool-dark)" stroke-width="1.7" stroke-dasharray="3 2.6"/>`,
     }[kind];
@@ -161,20 +167,21 @@
     el.tabIndex = -1;
     el.hidden = true;
     el.innerHTML =
-      `<div class="bd-stage"><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div>` +
+      `<div class="bd-stage"><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
         `<div class="bd-band" hidden></div><div class="bd-guide bd-guide-v" hidden></div><div class="bd-guide bd-guide-h" hidden></div>` +
         `<div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i>${["t", "r", "b", "l"].map((d) => `<i class="bd-conn" data-side="${d}"></i>`).join("")}</div><div class="bd-target" hidden></div><div class="bd-angle" hidden></div>` +
         `<div class="bd-sel" hidden>${["nw", "ne", "se", "sw"].map((c) => `<i class="bd-dot" data-corner="${c}"></i>`).join("")}</div></div>` +
       `<div class="bd-bar bd-selbar" role="toolbar" hidden>${button("copy", "board.duplicate")}${button("trash", "board.delete")}</div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
-      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}${button("table", "board.insert.table")}</div>` +
+      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}${button("table", "board.insert.table")}${button("link", "board.insert.link")}</div>` +
       `<div class="bd-spop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-shape="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}` +
         `<button type="button" class="bd-tile bd-tile-line" data-line="line" title="${esc(T("board.shape.line"))}" aria-label="${esc(T("board.shape.line"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4"/></svg></button><button type="button" class="bd-tile bd-tile-line" data-line="arrow" title="${esc(T("board.shape.arrow"))}" aria-label="${esc(T("board.shape.arrow"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4M14 4h10v10"/></svg></button></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
       `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("more", "board.more")}</div>` +
       `<div class="bd-vpop ui-menu ui-popover" role="menu"></div>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
-        `<span role="radiogroup" class="bd-tools">${ALL.map((t) => `<button type="button" class="bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${toolSign(t)}</button>`).join("")}</span><span class="bd-sep"></span>` +
+        `<span role="radiogroup" class="bd-tools">${ALL.map((t) => `<button type="button" class="bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${toolSign(t)}</button>`).join("")}</span>` +
+        `<button type="button" class="bd-tool bd-rule" data-ruler="1" aria-pressed="false" title="${esc(T("board.tool.ruler"))}" aria-label="${esc(T("board.tool.ruler"))}"><svg viewBox="0 0 30 72" aria-hidden="true"><rect x="6" y="6" width="18" height="68" rx="2" fill="var(--bd-tool-body)" stroke="var(--bd-tool-line)"/><path d="M6 14h7M6 22h4M6 30h7M6 38h4M6 46h7M6 54h4M6 62h7" stroke="var(--bd-tool-dark)"/></svg></button><span class="bd-sep"></span>` +
         `<span role="radiogroup" class="bd-wells" aria-label="${esc(T("board.color"))}">${INKS.map(([name, c]) => `<button type="button" class="bd-well" role="radio" data-ink="${c}" title="${esc(T("board.ink." + name))}" aria-label="${esc(T("board.ink." + name))}" style="--ink:${c === "auto" ? "var(--fg)" : c}"></button>`).join("")}` +
           `<label class="bd-well bd-any" title="${esc(T("board.ink.any"))}"><input type="color" aria-label="${esc(T("board.ink.any"))}"></label></span></div>` +
       `<div class="bd-pop ui-menu ui-popover" role="dialog" aria-label="${esc(T("board.options"))}"></div>` +
@@ -187,7 +194,7 @@
       if (!b || !S) return;
       if (b.closest(".bd-fbar, .bd-fpop")) return void sel.click(b);
       if (b.closest(".bd-vpop")) return void picked(b);
-      if (["zoom", "more", "scenes"].includes(b.dataset.do)) return menu(b.dataset.do, b);
+      if (["zoom", "more", "scenes", "link"].includes(b.dataset.do)) return menu(b.dataset.do, b);
       if (b.dataset.do === "prev" || b.dataset.do === "next") return sceneStep(b.dataset.do === "next" ? 1 : -1);
       if (b.dataset.next) { delete el.querySelector(".bd-cpop").dataset.open; return void sel.connectTo(b.dataset.next); }
       if (b.dataset.do === "connect") { if (S.mode !== "select") setMode("select"); S.connect = !S.connect; return paint(); }
@@ -195,6 +202,7 @@
       if (b.dataset.do === "draw") return setMode(S.mode === "draw" ? "select" : "draw");
       if (["textbox", "sticky", "table"].includes(b.dataset.do)) { setMode("select"); return void sel.insert(b.dataset.do === "textbox" ? "text" : b.dataset.do); }
       if (b.dataset.do === "shapes") return shapes();
+      if (b.dataset.ruler) return ruler();
       if (b.dataset.tool) return b.dataset.tool === S.tool && S.tool !== "lasso" ? options(b) : setTool(b.dataset.tool);
       if (b.dataset.ink) return setInk(b.dataset.ink);
       if (b.dataset.w) return setWidth(Number(b.dataset.w));
@@ -208,14 +216,32 @@
     el.addEventListener("pointerdown", (e) => {
       if (popOpen() && !e.target.closest(".bd-pop, .bd-tool")) options(null);
       if (!e.target.closest('.bd-spop, [data-do="shapes"]')) shapes(false);
-      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"]')) menu(null);
+      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="link"]')) menu(null);
       if (S && sel.pending && !e.target.closest(".bd-cpop")) { delete el.querySelector(".bd-cpop").dataset.open; sel.connectTo(null); } // (no shape chosen for a connector's end: it ends where it was let go)
       if (S && e.target.closest(".bd-bar") && !e.target.closest(".bd-fbar")) sel.finish(); // (a bar touched while text is typed: the text is done)
     }, true);
+    // the palette, pulled by its bare parts: let go in the other half of the window, it lies at that edge from then on
+    const pal = el.querySelector(".bd-palette");
+    try { if (localStorage.getItem(KEEP + ":place") === "top") el.dataset.palette = "top"; } catch (e) { /* (not kept: at the foot) */ }
+    pal.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest("button, label, input")) return;
+      const y0 = e.clientY;
+      try { pal.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test) */ }
+      const moved = (m) => { pal.style.translate = `-50% ${m.clientY - y0}px`; pal.style.transition = "none"; };
+      const up = (u) => {
+        pal.removeEventListener("pointermove", moved); pal.removeEventListener("pointerup", up); pal.removeEventListener("pointercancel", up);
+        pal.style.translate = pal.style.transition = "";
+        const top = u.clientY - el.getBoundingClientRect().top < el.clientHeight / 2;
+        if (u.type === "pointerup" && Math.abs(u.clientY - y0) > 24) { if (top) el.dataset.palette = "top"; else delete el.dataset.palette; try { localStorage.setItem(KEEP + ":place", top ? "top" : "bottom"); } catch (x) { /* (as above) */ } options(null); }
+      };
+      pal.addEventListener("pointermove", moved); pal.addEventListener("pointerup", up); pal.addEventListener("pointercancel", up);
+    });
     // text in the board's picture breaks where it breaks on the screen: measured with the same letters
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
     sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
+      // a card's file or address, opened: by the host, as a link in a note is (a file in the program for its kind, an address in the browser)
+      open: (it) => { if (it && (it.k === "link" || it.k === "file")) post("link", { href: it.k === "link" ? it.url : fileUrl(S.ref.slice(0, S.ref.lastIndexOf("/") + 1) + it.src), tab: "own" }); },
       // a connector let go over the bare board: which shape is to stand at its end? (at: on the screen)
       ask: (at) => { const p = el.querySelector(".bd-cpop"), s = size(); p.style.left = Math.round(Math.max(8, Math.min(s.w - p.offsetWidth - 8, at[0] + 10))) + "px"; p.style.top = Math.round(Math.max(56, Math.min(s.h - p.offsetHeight - 8, at[1] - p.offsetHeight / 2))) + "px"; p.dataset.open = ""; } });
     // a picture's small copy for the board's own picture was made after the board was last kept without it: kept again, with it
@@ -233,7 +259,7 @@
     }, true);
     new ResizeObserver(() => { if (S) paint(); }).observe(el);
     const mine = () => S && S.mode === "select" && !S.readonly;
-    hands = B.pointer.attach(stage(), { start: (pt, e) => (mine() ? sel.start(pt, e) : start(pt)), move: (pts, e) => (sel.busy ? sel.move(pts, e) : move(pts)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
+    hands = B.pointer.attach(stage(), { start: (pt, e) => (mine() ? sel.start(pt, e) : start(pt)), move: (pts, e) => (sel.busy ? sel.move(pts, e) : move(pts, e)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
       pan: (dx, dy) => S && S.view.panBy(dx, dy),
       zoom: (f, cx, cy) => S && S.view.zoomAt(cx, cy, S.view.z * f) });
   }
@@ -286,6 +312,14 @@
     el.querySelector(".bd-any").toggleAttribute("data-on", !!shown && !known);
     el.querySelector(".bd-wells").toggleAttribute("data-off", !S.sel.length && !DRAWS.includes(S.tool)); // (an eraser has no colour)
     st.dataset.tool = S.readonly ? "look" : S.mode === "select" ? "select" : S.tool;
+    const rule = el.querySelector(".bd-ruler"), ruled = !!S.ruler && S.mode === "draw" && !S.readonly;
+    rule.hidden = !ruled;
+    el.querySelector("[data-ruler]").setAttribute("aria-pressed", String(!!S.ruler));
+    if (ruled) {
+      const L = rulerLen(), cx = (S.ruler.x - v.x) * v.z, cy = (S.ruler.y - v.y) * v.z;
+      rule.style.cssText = `width:${L}px;height:${RULER.h}px;transform:translate(${cx - L / 2}px, ${cy - RULER.h / 2}px) rotate(${S.ruler.a}deg)`;
+      rule.firstChild.textContent = Math.round(((S.ruler.a % 180) + 180) % 180) + "°";
+    }
     const ring = el.querySelector(".bd-ring"), d = S.tools.eraser.w;
     ring.style.width = ring.style.height = d + "px";
     if (S.tool !== "eraser") ring.hidden = true;
@@ -321,6 +355,32 @@
       ctx.setLineDash([]);
     }
   }
+
+  // ---------------------------------------------------------------- the ruler
+  /* A ruler lies on the board while it is wanted: a stroke begun at one of its long edges runs
+   * straight along it. It is moved by its middle and turned by its ends (Shift: in steps of 15°). */
+  const rulerLen = () => Math.min(900, Math.max(320, size().w * 0.7));
+  function ruler(on = !S.ruler) {
+    if (S.readonly) return;
+    if (on && S.mode !== "draw") setTool(DRAWS.includes(S.tool) ? S.tool : "pen");
+    const s = size(), [x, y] = S.view.toBoard(s.w / 2, s.h / 2);
+    S.ruler = on ? { x, y, a: 0 } : null;
+    paint();
+  }
+  /* A point of the screen in the ruler's own frame: along it and across it, from its middle. */
+  function onRuler(pt) {
+    const v = S.view, r = S.ruler, dx = pt.x - (r.x - v.x) * v.z, dy = pt.y - (r.y - v.y) * v.z, a = (-r.a * Math.PI) / 180;
+    return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)];
+  }
+  /* The edge of the ruler a stroke begun at pt runs along: { x, y, ux, uy } on the board (a point of it and its direction); null: none near. */
+  function rulerEdge(pt) {
+    if (!S.ruler) return null;
+    const [lx, ly] = onRuler(pt), half = RULER.h / 2, off = Math.abs(ly) - half;
+    if (Math.abs(lx) > rulerLen() / 2 || off < 0 || off > RULER.near) return null;
+    const a = (S.ruler.a * Math.PI) / 180, side = Math.sign(ly) * half / S.view.z;
+    return { x: S.ruler.x - Math.sin(a) * side, y: S.ruler.y + Math.cos(a) * side, ux: Math.cos(a), uy: Math.sin(a) };
+  }
+  const along = (edge, p) => { const t = (p.x - edge.x) * edge.ux + (p.y - edge.y) * edge.uy; return { ...p, x: edge.x + t * edge.ux, y: edge.y + t * edge.uy }; };
 
   // ---------------------------------------------------------------- tools and what they are set to
   const KEEP = "mdview:board-tools"; // (in this browser, for this person: the next board begins with the same pen)
@@ -389,7 +449,10 @@
       : `${widths}<label class="bd-opacity"><span>${esc(T("board.opacity"))}</span><input type="range" min="10" max="100" step="1" value="${Math.round(set.o * 100)}"><output>${Math.round(set.o * 100)} %</output></label>`;
     const r = anchor.getBoundingClientRect(), box = el.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(box.width - pop.offsetWidth - 8, r.left - box.left + r.width / 2 - pop.offsetWidth / 2)) + "px";
-    pop.style.bottom = box.bottom - el.querySelector(".bd-palette").getBoundingClientRect().top + 10 + "px";
+    const pr = el.querySelector(".bd-palette").getBoundingClientRect(), under = el.dataset.palette === "top"; // (the palette at the top: its options open under it)
+    pop.style.bottom = under ? "auto" : box.bottom - pr.top + 10 + "px";
+    pop.style.top = under ? pr.bottom - box.top + 10 + "px" : "auto";
+    pop.style.setProperty("--origin", under ? "top center" : "bottom center");
     pop.dataset.open = "";
   }
 
@@ -408,8 +471,10 @@
           (S.readonly ? "" : `<button type="button" class="bd-btn" data-scene-name="${sc.id}" title="${esc(T("board.scene.rename"))}" aria-label="${esc(T("board.scene.rename"))}">${I.rename}</button><button type="button" class="bd-btn" data-scene-set="${sc.id}" title="${esc(T("board.scene.replace"))}" aria-label="${esc(T("board.scene.replace"))}">${I.frame}</button><button type="button" class="bd-btn" data-scene-del="${sc.id}" title="${esc(T("board.delete"))}" aria-label="${esc(T("board.delete"))}">${I.trash}</button>`) + `</div>`).join("")}</div>`
         : `<p class="bd-hint">${esc(T("board.scene.none"))}</p>`) + (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="scene-add">${esc(T("board.scene.add"))}</button>`);
     }
+    else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
     p.dataset.kind = kind;
+    if (kind === "link") { const input = p.querySelector("input"); setTimeout(() => input.focus(), 0); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") linkAdd(); else if (e.key === "Escape") menu(null); }); }
     const a = anchor || el.querySelector(`[data-do="${kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
     p.style.left = Math.round(Math.max(8, Math.min(box.width - p.offsetWidth - 8, r.left - box.left + r.width / 2 - p.offsetWidth / 2))) + "px";
     p.style.top = up ? "auto" : Math.round(r.bottom - box.top + 10) + "px";
@@ -426,11 +491,21 @@
     if (d.sceneSet) return scenesDo(() => { const sc = S.model.scenes.find((x) => x.id === d.sceneSet); if (sc) sc.view = sceneNow(); });
     if (d.sceneDel) return scenesDo(() => { S.model.scenes = S.model.scenes.filter((x) => x.id !== d.sceneDel); S.scene = -1; });
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
+    if (d.m === "link-add") return linkAdd();
     if (d.m === "fit") { S.view.fit(bounds()); return menu(null); }
     if (d.m === "actual") { S.view.zoomAt(s.w / 2, s.h / 2, 1); return menu(null); }
     if (d.m === "snap") { S.model.board.snap = !S.model.board.snap; changed(); return menu("more", null, true); }
     if (d.m === "copy") { menu(null); return copyPicture(); }
     if (d.m === "print") { menu(null); return printBoard(); }
+  }
+
+  /* The address typed into the link's small window, as a card on the board. ("example.org" is taken for https://example.org.) */
+  function linkAdd() {
+    const input = vpop().querySelector(".bd-link-input"), typed = (input ? input.value : "").trim(), url = /^https?:\/\//i.test(typed) ? typed : typed && /^[^\s/]+\.[^\s]+$/.test(typed) ? "https://" + typed : "";
+    if (!url) { if (input) { input.focus(); input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); } return; }
+    if (S.mode !== "select") setMode("select");
+    if (sel.cards([{ url }]) === false) { input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); return; }
+    menu(null);
   }
 
   // ---------------------------------------------------------------- scenes: parts of the board under a name
@@ -568,9 +643,14 @@
   function start(pt) {
     if (!S || S.readonly) return false;
     options(null);
+    if (S.ruler) { // on the ruler itself: it is moved, or turned by an end
+      const [lx, ly] = onRuler(pt), L = rulerLen();
+      if (Math.abs(lx) <= L / 2 && Math.abs(ly) <= RULER.h / 2) { S.act = { rule: Math.abs(lx) > L / 2 - RULER.grip ? "turn" : "move", at: onBoard(pt), flip: lx < 0 }; return true; }
+    }
     if (S.tool === "eraser") { S.act = { erase: true, before: [...S.model.items], at: pt }; erase(pt); return true; }
     if (S.tool === "lasso") return grab(pt);
-    S.act = { stroke: B.ink.begin(S.tool, S.tools[S.tool], onBoard(pt), S.view.z), still: pt };
+    const edge = rulerEdge(pt), first = edge ? along(edge, onBoard(pt)) : onBoard(pt);
+    S.act = { stroke: B.ink.begin(S.tool, S.tools[S.tool], first, S.view.z), still: pt, edge };
     live(S.act.stroke.item);
     bars(true);
     return true;
@@ -599,9 +679,19 @@
     S.act = { grab: "move", at: [p.x, p.y], first: [p.x, p.y], was: S.sel.map((it) => ({ it, pts: it.pts, w: it.w })) };
     return true;
   }
-  function move(pts) {
+  function move(pts, e) {
     if (!S || !S.act) return;
     const act = S.act, lastPt = pts[pts.length - 1];
+    if (act.rule) {
+      const p = onBoard(lastPt);
+      if (act.rule === "move") { S.ruler.x += p.x - act.at.x; S.ruler.y += p.y - act.at.y; act.at = p; }
+      else {
+        let a = (Math.atan2(p.y - S.ruler.y, p.x - S.ruler.x) * 180) / Math.PI + (act.flip ? 180 : 0);
+        if (e && e.shiftKey) a = Math.round(a / 15) * 15;
+        S.ruler.a = Math.round((((a + 180) % 360) + 360) % 360 - 180);
+      }
+      return paint();
+    }
     if (act.erase) { // (the whole way since the last sample: a quick hand skips nothing)
       for (const p of pts) {
         const a = act.at, n = Math.max(1, Math.ceil(Math.hypot(p.x - a.x, p.y - a.y) / Math.max(2, S.tools.eraser.w / 4)));
@@ -632,8 +722,9 @@
       return live(item);
     }
     let more = false;
-    for (const p of pts) more = act.stroke.add(onBoard(p)) || more;
+    for (const p of pts) more = act.stroke.add(act.edge ? along(act.edge, onBoard(p)) : onBoard(p)) || more;
     if (more) live(item);
+    if (act.edge) return; // (along the ruler it is straight already)
     if (Math.hypot(lastPt.x - act.still.x, lastPt.y - act.still.y) > STILL || !act.hold) {
       act.still = lastPt;
       clearTimeout(act.hold);
@@ -676,6 +767,7 @@
     S.act = null;
     clearTimeout(act.hold);
     bars(false);
+    if (act.rule) return paint();
     if (act.erase) {
       if (S.model.items.length !== act.before.length || S.model.items.some((it, i) => it !== act.before[i])) replaced(act.before);
       return paint();
@@ -762,7 +854,8 @@
     if (mod && k === "d") { done(); return duplicate(); }
     if (mod || e.altKey) return;
     if ((e.key === "Delete" || e.key === "Backspace") && S.sel.length) { done(); return remove(); }
-    const tool = { p: "pen", 1: "pen", f: "mono", 2: "mono", m: "marker", 3: "marker", e: "eraser", 4: "eraser", l: "lasso", 5: "lasso" }[k];
+    const tool = { p: "pen", 1: "pen", f: "mono", 2: "mono", m: "marker", 3: "marker", b: "pencil", 4: "pencil", e: "eraser", 5: "eraser", l: "lasso", 6: "lasso" }[k];
+    if (k === "r") { done(); return ruler(); }
     if (tool) { done(); return setTool(tool); }
     if (k === "v") { done(); return setMode("select"); }
     if (k === "t" || k === "n") { done(); setMode("select"); return void sel.insert(k === "t" ? "text" : "sticky"); }
@@ -799,7 +892,7 @@
     if (S || !B.isBoard(img)) return false;
     const ref = refOf(img), cur = core.current || {};
     if (!el) build();
-    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, paint), undo: [], redo: [], dirty: false, timer: 0, tool: "pen", tools: toolsNow(), sel: [], act: null, mode: "draw", pick: [], connect: false, scene: -1 });
+    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, paint), undo: [], redo: [], dirty: false, timer: 0, tool: "pen", tools: toolsNow(), sel: [], act: null, mode: "draw", pick: [], connect: false, scene: -1, ruler: null, crop: null });
     core.lockScroll(true);
     post("board-open", { on: true });
     el.setAttribute("aria-label", T("board.name"));
@@ -872,7 +965,7 @@
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
-  B.state = () => (S ? { scenes: S.model.scenes.map((sc) => ({ ...sc })), scene: S.scene, snap: !!S.model.board.snap, menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
+  B.state = () => (S ? { ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })), scene: S.scene, snap: !!S.model.board.snap, menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
   B.emptyText = () => B.format.empty();

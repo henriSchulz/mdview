@@ -376,13 +376,18 @@ shut back into it.
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
 - **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
 - **Drawing**: the tools stand in a tray at the foot — the pen (`P`), the fineliner (`F`), the
-  marker (`M`, see-through), the eraser (`E`) and the lasso (`L`) — with six colours and a seventh
+  marker (`M`, see-through), the pencil (`B`, with a grain), the eraser (`E`) and the lasso (`L`) — with six colours and a seventh
   well for any other beside them. Each tool keeps its own colour. A click on the tool in hand
   opens its options: how wide, how see-through; for the eraser whether it takes whole strokes
   or the parts it passes over.
 - **A stroke made clean**: rest the hand at the end of a stroke before lifting it, and a line
   becomes straight (its end still follows the hand), a ring a circle or an ellipse, a box a
   rectangle, three sides a triangle.
+- **The ruler** (`R`, the last thing in the tray) lies across the board: a stroke begun at one
+  of its long edges runs straight along it. It is moved by its middle and turned by its ends
+  (`Shift`: in steps of 15°); its angle stands in its middle.
+- **The tray** is pulled by a bare part of it to the window's upper half, and lies at the top
+  from then on (and back the same way).
 - **The lasso**: a loop around strokes, or a tap on one, chooses them. What is chosen is moved
   by pulling inside its frame, made larger or smaller at the frame's corners, given another
   colour from the wells, copied (`Ctrl+D`) and deleted (`Delete`) — both also in the small bar
@@ -404,7 +409,13 @@ shut back into it.
   several chosen), Group (`Ctrl+G`, apart again with `Ctrl+Shift+G`), Bring to Front and Send
   to Back (`Ctrl+Shift+F` / `B`), Lock (`Ctrl+L`). Copy, cut and paste with `Ctrl+C`, `X`, `V`,
   a copy beside it with `Ctrl+D`, gone with `Delete`.
-- **Pictures**: paste one (`Ctrl+V`) or drop picture files on the board. Each is kept as a file
+- **Links and files**: Link in the bar at the top takes an address and puts a card for it on
+  the board; any file dropped on the board that is no picture is kept beside the board and
+  stands on it as a card with its name. A card clicked twice, or Open in its bar, opens what
+  it stands for — an address in the browser, a file in the program for its kind.
+- **Pictures**: paste one (`Ctrl+V`) or drop picture files on the board. Crop in a picture's bar
+  makes its frame its edge: a dot pulled in cuts the picture there (never beyond the whole
+  picture), Show the Whole Picture brings it back. Each is kept as a file
   beside the board's own and belongs to the note; it is chosen, moved, turned and sized (at its
   corners, in its proportions) like the rest. The board's picture in the note holds a small
   copy of it. Taken off the board it goes to the trash an hour later, as a picture taken out of
@@ -416,7 +427,8 @@ shut back into it.
   table is pulled to size at its dots — its columns and rows keep their shares — and stands
   upright.
 - **A look taken along**: `Ctrl+Alt+C` takes the chosen item's fill, border and text setting,
-  `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange).
+  `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange). Use as Style for New
+  Ones, there too, makes it the look every new item of that kind begins with on this board.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
   sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
@@ -443,7 +455,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: links and files other than pictures on a board; a table's single rows and columns pulled to size, or put in between others.
+Not there yet: a table's single rows and columns pulled to size or put in between others; a preview of the page behind a link's card.
 
 ### Links between notes
 

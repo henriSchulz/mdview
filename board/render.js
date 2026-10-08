@@ -13,6 +13,9 @@
   /* How wide a stroke is at a point: a pen follows the pressure, the others keep their width. */
   const radius = (it, p) => (it.t === "pen" ? (it.w / 2) * (0.35 + 1.3 * Math.max(0, Math.min(1, p == null ? 0.5 : p))) : it.w / 2);
   const even = (it) => it.t !== "pen" || it.pts.every((p) => p[2] === it.pts[0][2]);
+  /* A pencil's stroke is its line twice: once whole and faint, once darker and broken into short
+   * pieces — the grain of graphite on paper. → the dashes for the second, by the stroke's width. */
+  const grain = (w) => [w * 1.4, w * 0.4, w * 0.6, w * 0.35].map((v) => Math.round(v * 10) / 10);
 
   /* The stroke as a path: { d, stroke, cap } — stroke: a line of that width to be stroked, with
    * ends of that kind (a stroke of one width: little to write); else an outline to be filled.
@@ -64,6 +67,11 @@
       if (b[0] < x0) x0 = b[0]; if (b[1] < y0) y0 = b[1]; if (b[2] > x1) x1 = b[2]; if (b[3] > y1) y1 = b[3];
       if (it.k !== "ink") { body += B.items.svg(it); continue; }
       const o = outline(it), op = it.o < 1 ? ` opacity="${n(it.o)}"` : "";
+      if (it.t === "pencil" && o.stroke) {
+        const look = `d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="round" stroke-linejoin="round"`;
+        body += `<g id="${it.id}"${op}><path ${look} opacity="0.5"/><path ${look} opacity="0.6" stroke-dasharray="${grain(o.stroke).join(" ")}"/></g>\n`;
+        continue;
+      }
       body += o.stroke
         ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
         : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${op}/>\n`;
@@ -77,5 +85,5 @@
     return { w: x1 - x0, h: y1 - y0, box: [x0, y0, x1 - x0, y1 - y0], body, empty: false };
   }
 
-  B.render = { outline, radius, colorOf, picture, AUTO };
+  B.render = { outline, radius, colorOf, picture, grain, AUTO };
 })();

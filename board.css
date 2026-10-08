@@ -200,7 +200,7 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-tile:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .bd-tile svg { width: 100%; height: 100%; fill: var(--accent); }
 .bd-tile-line svg { fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.bd-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: color-mix(in srgb, var(--fg) 8%, transparent); border-radius: 1px; }
+.bd-img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; display: block; background: color-mix(in srgb, var(--fg) 8%, transparent); border-radius: 1px; }
 
 /* connectors: an arrow off each side of the chosen item (a line is pulled out of it), the item a line's end is about to join, the choice of what is to stand at a free end */
 .bd-conn { position: absolute; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; background: var(--raised); box-shadow: var(--shadow-capsule); translate: -50% -50%; display: none; }
@@ -246,3 +246,31 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-item[data-k="table"][data-editing] .bd-cell { overflow: visible; }
 .bd-label { flex: 1; color: var(--fg2); }
 .bd-pick[data-noturn] .bd-knob { display: none; }
+
+/* a card: an address or a file, opened from the board */
+.bd-card { position: absolute; inset: 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-radius: 12px; background: #fff; color: #1d1d1f; box-shadow: 0 0 0 1px #b9b9be, 0 2px 8px rgb(0 0 0 / 0.08); font-family: var(--ui); overflow: hidden; }
+.bd-badge { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 7px; background: rgb(29 29 31 / 0.08); color: rgb(29 29 31 / 0.65); font-size: 9px; font-weight: 600; letter-spacing: 0.02em; }
+.bd-card-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bd-card-text b, .bd-card-text i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
+.bd-card-text b { font-size: 13px; font-weight: 600; }
+.bd-card-text i { font-size: 11px; opacity: 0.6; }
+.bd-link-input { width: 240px; flex: none; }
+.bd-shake { animation: bd-shake var(--shake-duration) var(--ease-in-out); }
+@keyframes bd-shake { 20%, 60% { translate: calc(-1 * var(--shake-distance)) 0; } 40%, 80% { translate: var(--shake-distance) 0; } }
+/* a picture being cut: its frame is its edge, drawn stronger; no turning meanwhile */
+.bd-pick[data-crop] { border: 2px solid var(--accent); }
+.bd-pick[data-crop] .bd-knob { display: none; }
+.bd-pick[data-crop] .bd-dot { border-radius: 2px; background: var(--accent); }
+
+/* the ruler: lying on the board, marks along both long edges, its angle in its middle */
+.bd-ruler { position: absolute; left: 0; top: 0; box-sizing: border-box; border-radius: 4px; pointer-events: none; display: grid; place-items: center;
+  background: repeating-linear-gradient(90deg, var(--bd-tool-dark) 0 1px, transparent 1px 10px) top / 100% 7px no-repeat, repeating-linear-gradient(90deg, var(--bd-tool-dark) 0 1px, transparent 1px 10px) bottom / 100% 7px no-repeat, color-mix(in srgb, var(--bd-tool-body) 82%, transparent);
+  box-shadow: 0 0 0 0.5px var(--bd-tool-line), 0 4px 14px rgb(0 0 0 / 0.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.bd-ruler[hidden] { display: none; }
+.bd-ruler span { padding: 2px 8px; border-radius: var(--radius-pill); background: rgb(0 0 0 / 0.06); color: #1d1d1f; font-size: 12px; font-variant-numeric: tabular-nums; }
+.bd-rule[aria-pressed="true"] svg { transform: translateY(calc(var(--bd-tool-w) * 0.75)); }
+.bd-rule { margin-left: 6px; }
+/* the palette at the window's upper edge */
+#board[data-palette="top"] .bd-palette { bottom: auto; top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
+#board[data-palette="top"][data-mode="select"] .bd-palette { translate: -50% calc(-100% - var(--bd-inset) - var(--bd-bar-h) - 18px); }
+.bd-palette { touch-action: none; }

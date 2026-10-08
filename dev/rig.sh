@@ -248,6 +248,18 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-table.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-table.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-table.json"; } | grep -qv '^ok' ;;
+  board-more)
+    # the rest of the whiteboard's tools: pencil, ruler, the palette at the other edge, cards, a picture cut, a look kept for new items
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/outside"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{ruler,more,board-more}.json
+    magick -size 240x120 xc:'#1f6fe5' "$R/work/outside/photo.png"; printf '%%PDF-1.4\n%%%%EOF\n' > "$R/work/outside/Lecture notes.pdf"; echo '# other' > "$R/work/outside/other.md"
+    app 120 MDVIEW_PROBE="$D/probe-board-more.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in ruler more; do for _ in $(seq 800); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-more.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-more-$v.png"; done
+    for _ in $(seq 600); do [[ -f $R/out/$name.board-more.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-more.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-more.json"
+    [[ -f "$R/work/assets/Lecture notes.pdf" && ! -e "$R/work/assets/other.md" ]] && echo "ok   the dropped PDF is kept beside the board, the note is not" || echo "FAIL the dropped files: $(ls "$R/work/assets" | tr '\n' ' ')"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-more.json"; } | grep -qv '^ok' ;;
   ghostmath)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
     app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"

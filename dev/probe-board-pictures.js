@@ -23,18 +23,18 @@
     const key = (k, more = {}) => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true, ...more }));
     // a picture file from elsewhere, dropped on the board
     const dt = new DataTransfer();
-    dt.setData("text/uri-list", "file://" + encodeURI(dir + "/outside/photo one.png") + "\r\nfile://" + encodeURI(dir + "/outside/readme.txt"));
+    dt.setData("text/uri-list", "file://" + encodeURI(dir + "/outside/photo one.png") + "\r\nfile://" + encodeURI(dir + "/outside/nothing there.png"));
     const r = el().getBoundingClientRect();
     const over = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + 300, clientY: r.top + 300 });
     el().querySelector(".bd-stage").dispatchEvent(over);
     ok("the board takes files held over it", over.defaultPrevented, [...dt.types]);
     el().querySelector(".bd-stage").dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + 300, clientY: r.top + 300 }));
-    ok("dropped: the picture stands on the board where it fell, chosen; the file that is no picture is left out", await until(() => st().things.length === 1) && st().things[0].k === "image" && st().things[0].src === "photo one.png" && st().mode === "select" && st().picked.length === 1, st().things);
+    ok("dropped: the picture stands on the board where it fell, chosen; an address with no file behind it is left out", await until(() => st().things.length === 1) && st().things[0].k === "image" && st().things[0].src === "photo one.png" && st().mode === "select" && st().picked.length === 1, st().things);
     const t = st().things[0];
     ok("… in its own proportions, its middle where it was dropped", Math.abs(t.w / t.h - 2) < 0.05 && Math.abs(t.x + t.w / 2 - (st().view.x + 300)) <= 1, t);
     const img = () => el().querySelector(".bd-world .bd-img");
     ok("… and shows", await until(() => img() && img().complete && img().naturalWidth === 240, 4000), img() && [img().src, img().naturalWidth]);
-    ok("its bar offers what a picture can take: no fill, no text", [...el().querySelectorAll(".bd-fbar .bd-btn")].map((b) => b.dataset.f).join() === "arrange,duplicate,remove", [...el().querySelectorAll(".bd-fbar .bd-btn")].map((b) => b.dataset.f));
+    ok("its bar offers what a picture can take: cutting, no fill, no text", [...el().querySelectorAll(".bd-fbar .bd-btn")].map((b) => b.dataset.f).join() === "crop,arrange,duplicate,remove", [...el().querySelectorAll(".bd-fbar .bd-btn")].map((b) => b.dataset.f));
     ok("kept by itself", await until(() => st() && !st().dirty, 3000), st().dirty);
     await sleep(400);
     out("dropped", {});

@@ -8,7 +8,8 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const KINDS = new Set(["text", "sticky", "shape", "line", "image", "table"]);
+  const KINDS = new Set(["text", "sticky", "shape", "line", "image", "table", "link", "file"]);
+  const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i; // (a file that is shown as itself; any other stands on the board as a card)
   const CELL = 6, GRIDLINE = "#b9b9be"; // a table: the room around a cell's text, the colour of its lines
   const texty = (it) => it.k === "text" || it.k === "sticky" || it.k === "shape"; // (what takes text)
   /* A picture on a board is a file beside the board's own, named by its name alone. In the board's
@@ -31,6 +32,8 @@
     const id = B.format.id();
     // a table: columns and rows by their widths and heights, a text per cell; its first row may be its head
     if (kind === "table") return { id, k: "table", x: Math.round(cx - 180), y: Math.round(cy - 54), w: 360, h: 108, r: 0, cols: [120, 120, 120], rows: [36, 36, 36], cells: [["", "", ""], ["", "", ""], ["", "", ""]], head: true, ts: { size: 14 } };
+    // a card: an address elsewhere (link), or a file kept beside the board (file) — opened from the board
+    if (kind === "link" || kind === "file") return { id, k: kind, x: Math.round(cx - 130), y: Math.round(cy - 32), w: 260, h: 64, r: 0, ...(kind === "link" ? { url: String(more.url || "") } : { src: String(more.src || "") }) };
     if (kind === "line") return { id, k: "line", p: [cx - 80, cy, cx + 80, cy], stroke: { c: "auto", w: 2 }, ends: ["none", more.arrow ? "arrow" : "none"] };
     const base = { text: { w: 220, h: 44 }, sticky: { w: 180, h: 180 }, shape: { w: 150, h: more.shape === "rect" || more.shape === "round" ? 100 : 150 } }[kind];
     const it = { id, k: kind, x: Math.round(cx - base.w / 2), y: Math.round(cy - base.h / 2), w: base.w, h: base.h, r: 0, text: "", ts: { size: 16, align: kind === "text" ? "left" : "center", color: "auto" } };
@@ -61,6 +64,13 @@
       // (a name, never a way to somewhere else)
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite) || typeof o.src !== "string" || !/^[^/\\\x00-\x1f]{1,255}$/.test(o.src) || o.src.startsWith(".")) return null;
       Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: num(o.w, 100, 4, 20000), h: num(o.h, 100, 4, 20000), r: num(o.r, 0, -360, 360), src: o.src });
+      // what is cut off its four sides (left, top, right, bottom), as shares of the whole picture
+      if (Array.isArray(o.crop) && o.crop.length === 4 && o.crop.every((v) => Number.isFinite(v) && v >= 0 && v < 1) && o.crop[0] + o.crop[2] < 0.98 && o.crop[1] + o.crop[3] < 0.98 && o.crop.some((v) => v > 0.0005)) it.crop = o.crop.map((v) => Math.round(v * 10000) / 10000);
+    } else if (o.k === "link" || o.k === "file") {
+      if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) return null;
+      Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: num(o.w, 260, 80, 4000), h: num(o.h, 64, 40, 4000), r: num(o.r, 0, -360, 360) });
+      if (o.k === "link") { if (typeof o.url !== "string" || !/^https?:\/\/[^\s<>"]{1,2000}$/i.test(o.url)) return null; it.url = o.url; }
+      else { if (typeof o.src !== "string" || !/^[^/\\\x00-\x1f]{1,255}$/.test(o.src) || o.src.startsWith(".")) return null; it.src = o.src; }
     } else {
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) return null;
       Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: num(o.w, 100, 4, 20000), h: num(o.h, 100, 4, 20000), r: num(o.r, 0, -360, 360) });
@@ -261,6 +271,15 @@
     for (const rh of it.rows.slice(0, -1)) { at += rh; d += `M${n(it.x)} ${n(at)}h${n(it.w)}`; }
     return out + `<path d="${d}" fill="none" stroke="${GRIDLINE}" stroke-width="1"/></g>\n`;
   }
+  /* What a card says: a short sign, a title, a line under it. */
+  function card(it) {
+    if (it.k === "link") {
+      const m = /^https?:\/\/([^/?#]+)(.*)$/i.exec(it.url) || [], host = (m[1] || it.url).replace(/^www\./, ""), rest = (m[2] || "").replace(/^\/$/, "");
+      return { badge: "WWW", title: host, sub: rest ? host + rest : it.url };
+    }
+    const dot = it.src.lastIndexOf("."), ext = dot > 0 ? it.src.slice(dot + 1) : "";
+    return { badge: (ext || "file").slice(0, 4).toUpperCase(), title: dot > 0 ? it.src.slice(0, dot) : it.src, sub: it.src };
+  }
   /* The item in the board's picture. */
   function svg(it) {
     const strokeOf = (s) => (s && s.c !== "none" ? ` stroke="${s.c === "auto" ? INK : s.c}" stroke-width="${n(s.w)}" stroke-linejoin="round"` : "");
@@ -272,9 +291,18 @@
     const [cx, cy] = mid(it), turn = it.r ? ` transform="rotate(${n(it.r)} ${n(cx)} ${n(cy)})"` : "";
     let body = "";
     if (it.k === "image") {
-      const small = thumbs.get(it.src), frame = `x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}"`;
+      const small = thumbs.get(it.src), frame = `x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}"`, c = it.crop;
       if (!small) missing.add(it.src);
-      body = small ? `<image data-src="${xml(it.src)}" ${frame} preserveAspectRatio="none" href="${small}"/>` : `<rect ${frame} rx="4" fill="#b9b9be" fill-opacity="0.35"/>`;
+      // (cut: the part that stays, stretched over the frame — a picture of its own inside the picture, looking at that part)
+      body = !small ? `<rect ${frame} rx="4" fill="#b9b9be" fill-opacity="0.35"/>`
+        : c ? `<svg ${frame} viewBox="${c[0]} ${c[1]} ${Math.round((1 - c[0] - c[2]) * 10000) / 10000} ${Math.round((1 - c[1] - c[3]) * 10000) / 10000}" preserveAspectRatio="none"><image data-src="${xml(it.src)}" width="1" height="1" preserveAspectRatio="none" href="${small}"/></svg>`
+        : `<image data-src="${xml(it.src)}" ${frame} preserveAspectRatio="none" href="${small}"/>`;
+    }
+    if (it.k === "link" || it.k === "file") {
+      const c = card(it), fit = (s, most) => (s.length > most ? s.slice(0, most - 1) + "…" : s), room = Math.max(4, Math.floor((it.w - 62) / 7));
+      body = `<rect x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}" rx="12" fill="#ffffff" stroke="${GRIDLINE}" stroke-width="1"/>` +
+        `<rect x="${n(it.x + 12)}" y="${n(it.y + it.h / 2 - 16)}" width="32" height="32" rx="7" fill="${INK}" fill-opacity="0.08"/><text font-family='${FONT}' font-size="9" font-weight="600" fill="${INK}" fill-opacity="0.65" text-anchor="middle" x="${n(it.x + 28)}" y="${n(it.y + it.h / 2 + 3)}">${xml(c.badge)}</text>` +
+        `<text font-family='${FONT}' font-size="13" font-weight="600" fill="${INK}" x="${n(it.x + 54)}" y="${n(it.y + it.h / 2 - 3)}">${xml(fit(c.title, room))}</text><text font-family='${FONT}' font-size="11" fill="${INK}" fill-opacity="0.6" x="${n(it.x + 54)}" y="${n(it.y + it.h / 2 + 14)}">${xml(fit(c.sub, room + 4))}</text>`;
     }
     if (it.k === "shape") body = `<path transform="translate(${n(it.x)} ${n(it.y)})" d="${shapePath(it.shape, it.w, it.h)}" fill="${it.fill}"${strokeOf(it.stroke)}/>`;
     if (it.k === "sticky") body = `<rect x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}" rx="2" fill="${it.fill === "none" ? PAPERS.yellow : it.fill}"/>`;
@@ -297,5 +325,5 @@
     }
   }
 
-  B.items = { CELL, cellAt, tableFit, SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
+  B.items = { PICTURE, card, CELL, cellAt, tableFit, SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
 })();

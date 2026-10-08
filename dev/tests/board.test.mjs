@@ -289,6 +289,31 @@ test("a table: columns, rows and a text per cell, in the file and in the picture
   for (const bad of [{ cols: [], rows: [30] }, { cols: [100], rows: [0] }, { cols: "x", rows: [30] }, { cols: Array(41).fill(20), rows: [30] }]) assert.equal(I.norm({ id: "t2", k: "table", x: 0, y: 0, ...bad }), null);
 });
 
+test("cards, a cut picture, a pencil's stroke and the look for new items: in the file and in the picture", () => {
+  const I = B.items, model = F.fresh();
+  const link = I.fresh("link", 100, 100, { url: "https://www.example.org/path/to/page?x=1" }), file = I.fresh("file", 100, 200, { src: "Lecture notes.pdf" });
+  const pic = { id: "pic00002", k: "image", x: 0, y: 300, w: 100, h: 50, r: 0, src: "p.png", crop: [0.25, 0, 0.25, 0.5] };
+  I.thumbs.set("p.png", "data:image/png;base64,iVBORw0KGgo=");
+  model.board.insert = { shape: { fill: "#e5372c", stroke: { c: "auto", w: 4 } } };
+  model.items.push(link, file, pic, ink("aaaaaaa1", wave(8), { t: "pencil", w: 2.5, o: 0.9 }));
+  const text = F.write(model), back = F.parse(text);
+  assert.equal(back.lost, 0);
+  assert.deepEqual(plain(back.items.slice(0, 3)), plain([link, file, pic]));
+  assert.deepEqual(plain(back.board.insert), { shape: { fill: "#e5372c", stroke: { c: "auto", w: 4 } } });
+  assert.equal(F.write(back), F.write(F.parse(F.write(back))));
+  const svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement;
+  assert.deepEqual([...svg.querySelectorAll(`#${link.id} text`)].map((t) => t.textContent), ["WWW", "example.org", "example.org/path/to/page?x=1"]);
+  assert.deepEqual([...svg.querySelectorAll(`#${file.id} text`)].map((t) => t.textContent), ["PDF", "Lecture notes", "Lecture notes.pdf"]);
+  const cut = svg.querySelector("#pic00002 svg");
+  assert.deepEqual([cut.getAttribute("viewBox"), cut.getAttribute("width"), cut.querySelector("image").getAttribute("width")], ["0.25 0 0.5 0.5", "100", "1"], "the part that stays, over the whole frame");
+  const pencil = svg.querySelectorAll("#aaaaaaa1 path");
+  assert.deepEqual([pencil.length, pencil[1].getAttribute("stroke-dasharray")], [2, "3.5 1 1.5 0.9"], "a pencil's line twice: whole, and in short pieces");
+  // what a file may not say
+  for (const url of ["javascript:alert(1)", "file:///etc/passwd", "ftp://x", "https://a b", ""]) assert.equal(I.norm({ id: "x", k: "link", x: 0, y: 0, w: 260, h: 64, url }), null, url);
+  assert.equal(I.norm({ id: "x", k: "file", x: 0, y: 0, w: 260, h: 64, src: "../x.pdf" }), null);
+  for (const crop of [[0.6, 0, 0.6, 0], [0, 0, 0, 1], [-0.1, 0, 0, 0], [0, 0, 0], [0, 0, 0, 0]]) assert.equal(I.norm({ ...pic, crop }).crop, undefined, JSON.stringify(crop));
+});
+
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {
   const w = await loadPage(), md = w.MdView.core.md;
   assert.match(md.render("![](assets/board-1.board.svg)\n", {}), /<p class="pic-block board-block"[^>]*><img src="assets\/board-1\.board\.svg"/);

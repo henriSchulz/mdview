@@ -39,6 +39,7 @@
       el.appendChild(img);
     }
     if (it.k === "table") { const grid = document.createElement("div"); grid.className = "bd-table"; el.appendChild(grid); }
+    if (it.k === "link" || it.k === "file") { el.innerHTML = '<div class="bd-card"><span class="bd-badge"></span><span class="bd-card-text"><b></b><i></i></span></div>'; }
     if (B.items.texty(it)) {
       const box = document.createElement("div"), t = document.createElement("div");
       box.className = "bd-text"; t.className = "bd-t";
@@ -76,8 +77,18 @@
       return;
     }
     if (it.k === "image") {
-      const img = el.firstChild;
+      const img = el.firstChild, c = it.crop;
       if (img.dataset.src !== it.src) { img.dataset.src = it.src; img.src = B.layer.url ? B.layer.url(it.src) : ""; }
+      // (cut: the whole picture, larger than its frame and shifted, the frame hiding what is cut off)
+      el.style.overflow = c ? "hidden" : "";
+      img.style.cssText = c ? `right:auto;bottom:auto;width:${100 / (1 - c[0] - c[2])}%;height:${100 / (1 - c[1] - c[3])}%;left:${(-c[0] * 100) / (1 - c[0] - c[2])}%;top:${(-c[1] * 100) / (1 - c[1] - c[3])}%` : "";
+      return;
+    }
+    if (it.k === "link" || it.k === "file") {
+      const c = I.card(it), box = el.firstChild;
+      box.querySelector(".bd-badge").textContent = c.badge;
+      box.querySelector("b").textContent = c.title;
+      box.querySelector("i").textContent = c.sub;
       return;
     }
     if (it.k === "shape") {

@@ -2899,8 +2899,9 @@ impl Win {
         }
     }
 
-    /// Picture files dropped on a whiteboard: one that lies beside the board already is used
-    /// where it is, any other is copied there. What is no picture is left out.
+    /// Files dropped on a whiteboard: one that lies beside the board already is used where it
+    /// is, any other is copied there (a picture stands on the board as itself, any other file
+    /// as a card). Notes and whiteboards are left out.
     fn board_drop(&mut self, board: &str, uris: &Value, id: &Value) {
         let p = resolve(Path::new(board));
         let Some(note) = self.path.clone().filter(|n| !is_pdf(n) && is_board(&p) && p.is_file()) else {
@@ -2909,7 +2910,7 @@ impl Win {
         let (beside, mut names, mut failed) = (dir_of(&p), Vec::new(), None);
         for uri in uris.as_array().map(Vec::as_slice).unwrap_or_default() {
             let src = uri.as_str().and_then(url_file).map(|(p, _)| p).unwrap_or_default();
-            if !src.is_file() || !scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str()) || is_board(&src) {
+            if !src.is_file() || scan::is_md(&src) || is_board(&src) || fs::metadata(&src).map_or(true, |m| m.len() > 50_000_000) {
                 continue;
             }
             if resolve(&src).parent() == Some(beside.as_path()) {
