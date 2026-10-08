@@ -8,6 +8,7 @@
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   try {
+    localStorage.setItem("mdview:board-tools:tray", JSON.stringify({ edge: "bottom", mini: null })); // (the tray at the foot, where this pulls it from)
     await document.fonts.ready;
     await sleep(700);
     MdView.setMode("active");
@@ -38,8 +39,11 @@
     // ---- drawing
     const stage = el().querySelector(".bd-stage");
     const ev = (type, x, y, more = {}) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 7, pointerType: "mouse", isPrimary: true, button: 0, buttons: type === "pointerup" ? 0 : 1, pressure: type === "pointerup" ? 0 : 0.5, ...more }));
-    const stroke = async (pts) => { ev("pointerdown", ...pts[0]); for (const p of pts.slice(1)) { ev("pointermove", ...p); await sleep(8); } ev("pointerup", ...pts[pts.length - 1]); await sleep(60); };
+    const stroke = async (pts, more = {}) => { ev("pointerdown", ...pts[0], more); for (const p of pts.slice(1)) { ev("pointermove", ...p, more); await sleep(8); } ev("pointerup", ...pts[pts.length - 1], more); await sleep(60); };
     const wave = (x0, y0, n = 30) => Array.from({ length: n }, (_v, i) => [x0 + i * 8, y0 + Math.sin(i / 3) * 30]);
+    ok("a board opens with the lasso in hand: no tray", st().kind === "lasso" && getComputedStyle(el().querySelector(".bd-palette")).pointerEvents === "none" && el().querySelector('[data-kind="lasso"]').getAttribute("aria-checked") === "true", st().kind);
+    el().querySelector('[data-kind="pen"]').click();
+    ok("the pens, chosen in the bar at the top: their tray", st().kind === "pen" && st().mode === "draw" && getComputedStyle(el().querySelector(".bd-palette")).pointerEvents !== "none" && el().querySelectorAll(".bd-palette .bd-tool[data-tool]").length === 4, st().kind);
     await stroke(wave(200, 200));
     ok("a stroke drawn with the pen is on the board", st().items === 1 && st().undo === 1 && st().dirty, st());
     const inked = () => { const c = el().querySelector(".bd-ink"), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++; return n; };
@@ -50,9 +54,21 @@
     key("z", { ctrlKey: true, shiftKey: true });
     ok("Ctrl+Shift+Z brings it back", st().items === 1 && inked() === one, [st(), inked()]);
     key("f");
+    ok("the pens' tray: three colours at hand", el().querySelectorAll(".bd-wells .bd-well").length === 3, el().querySelector(".bd-wells").innerHTML.slice(0, 200));
     el().querySelector('.bd-well[data-ink="#1f6fe5"]').click();
     await stroke(wave(200, 320));
     ok("F: the fineliner, in the blue chosen from the wells", st().items === 2 && st().tool === "mono" && st().ink === "#1f6fe5", st());
+    // the colour in use, pressed again: the colours, and the one chosen there takes its place among the three
+    el().querySelector('.bd-well[data-ink="#1f6fe5"]').click();
+    await sleep(300);
+    ok("the colour in use, pressed again: all the colours, in a small window", st().options && el().querySelector(".bd-pop").dataset.what === "hues" && el().querySelectorAll(".bd-pop .bd-well").length === 7, el().querySelector(".bd-pop").innerHTML.slice(0, 120));
+    el().querySelector('.bd-pop [data-ink="#2fa84f"]').click();
+    ok("one chosen there: the pen's colour, and one of the three from now on", st().tools.mono.c === "#2fa84f" && !st().options && [...el().querySelectorAll(".bd-wells .bd-well")].map((b) => b.dataset.ink).join() === "auto,#2fa84f,#e5372c", st().tools.mono);
+    key("p");
+    ok("… of this pen only: another pen has its own three", [...el().querySelectorAll(".bd-wells .bd-well")].map((b) => b.dataset.ink).join() === "auto,#1f6fe5,#e5372c", [...el().querySelectorAll(".bd-wells .bd-well")].map((b) => b.dataset.ink));
+    key("f");
+    el().querySelector('.bd-well[data-ink="#2fa84f"]').click(); await sleep(200);
+    el().querySelector('.bd-pop [data-ink="#1f6fe5"]').click();
     key("e");
     await stroke([[150, 320], [260, 320], [300, 330]]);
     ok("E: the eraser takes the stroke it touches, and only that", st().items === 1 && st().tool === "eraser", st());
@@ -67,7 +83,7 @@
     tool("marker").click();
     await sleep(350);
     const pop = el().querySelector(".bd-pop");
-    ok("the tool in hand, clicked again: its options over it", st().options && pop.querySelectorAll(".bd-width").length === 5 && !!pop.querySelector("input[type=range]") && pop.getBoundingClientRect().bottom <= tool("marker").getBoundingClientRect().top + 30, [st().options, pop.innerHTML.slice(0, 120)]);
+    ok("the pen in hand, clicked again: how broad and how see-through it is, over it", st().options && pop.querySelectorAll(".bd-width").length === 5 && !!pop.querySelector("input[type=range]") && pop.getBoundingClientRect().bottom <= tool("marker").getBoundingClientRect().top + 30, [st().options, pop.innerHTML.slice(0, 120)]);
     pop.querySelector('.bd-width[data-w="28"]').click();
     const range = pop.ownerDocument.querySelector("#board .bd-pop input[type=range]");
     range.value = "60"; range.dispatchEvent(new Event("input", { bubbles: true }));
@@ -85,22 +101,20 @@
     ok("without the rest a stroke stays as drawn", st().items === 6 && !st().kinds[5].includes("!") && st().kinds[5] !== "pen:2", st().kinds);
     // the eraser set to parts: the straight line is cut where the eraser crosses it
     key("e");
-    tool("eraser").click();
-    await sleep(300);
-    el().querySelector('.bd-pop [data-mode="pixel"]').click();
-    key("Escape");
+    ok("E: the eraser's tray — what it takes, how large it is; no pens, no colours", st().kind === "eraser" && el().querySelectorAll(".bd-sizes .bd-width").length === 5 && !el().querySelector(".bd-tools").offsetWidth && !el().querySelector(".bd-wells").offsetWidth, st().kind);
+    el().querySelector('.bd-palette [data-mode="pixel"]').click();
     await stroke([[620, 300], [620, 330], [620, 360]]);
     ok("the eraser set to parts cuts the line in two", st().items === 7 && st().kinds.filter((k) => k === "pen!:2").length === 2 && st().tools.eraser.mode === "pixel", st().kinds);
     key("z", { ctrlKey: true });
     ok("… one step back: the line is whole", st().items === 6 && st().kinds.filter((k) => k === "pen!:2").length === 1, st().kinds);
-    tool("eraser").click(); await sleep(300); el().querySelector('.bd-pop [data-mode="object"]').click(); key("Escape");
-    // the lasso
+    el().querySelector('.bd-palette [data-mode="object"]').click();
+    // the lasso: a pen draws a loop around what it wants
     key("l");
-    await stroke([[180, 150], [460, 150], [460, 250], [180, 250], [180, 152]].flatMap((c, i, a) => (i ? Array.from({ length: 10 }, (_v, k) => [a[i - 1][0] + ((c[0] - a[i - 1][0]) * (k + 1)) / 10, a[i - 1][1] + ((c[1] - a[i - 1][1]) * (k + 1)) / 10]) : [c])));
-    const frame = el().querySelector(".bd-sel");
-    ok("L: a loop around a stroke chooses it — a frame, and a small bar beside it", st().chosen === 1 && !frame.hidden && !el().querySelector(".bd-selbar").hidden && st().items === 6, st());
+    await stroke([[180, 150], [460, 150], [460, 250], [180, 250], [180, 152]].flatMap((c, i, a) => (i ? Array.from({ length: 10 }, (_v, k) => [a[i - 1][0] + ((c[0] - a[i - 1][0]) * (k + 1)) / 10, a[i - 1][1] + ((c[1] - a[i - 1][1]) * (k + 1)) / 10]) : [c])), { pointerType: "pen" });
+    const frame = el().querySelector(".bd-pick");
+    ok("L: a pen's loop around a stroke chooses it — a frame, and a small bar beside it", st().kind === "lasso" && st().chosen === 1 && !frame.hidden && frame.dataset.kind === "ink" && !el().querySelector(".bd-fbar").hidden && st().items === 6, st());
     const box0 = st().chosenBox;
-    await stroke([[300, 200], [300, 190], [300, 170], [300, 160]]);
+    await stroke([[300, 200], [300, 190], [300, 170], [300, 160]], { altKey: true });
     ok("pulled from inside its frame, it moves", st().chosen === 1 && st().chosenBox[1] === box0[1] - 40 && st().chosenBox[0] === box0[0], [box0, st().chosenBox]);
     key("z", { ctrlKey: true });
     ok("… and back with one step", st().chosenBox[1] === box0[1], [box0, st().chosenBox]);
@@ -108,8 +122,10 @@
     await stroke([[fr.right, fr.bottom], [fr.right + 20, fr.bottom + 6], [fr.right + 60, fr.bottom + 16]]);
     ok("pulled at a corner, it grows from the opposite one", st().chosenBox[2] - st().chosenBox[0] > (box0[2] - box0[0]) * 1.15 && Math.abs(st().chosenBox[0] - box0[0]) <= 2 && Math.abs(st().chosenBox[1] - box0[1]) <= 2, [box0, st().chosenBox]);
     key("z", { ctrlKey: true });
-    el().querySelector('.bd-well[data-ink="#e5372c"]').click();
-    ok("a colour chosen is the stroke's, not the tool's", st().inks[0] === "#e5372c" && st().tools.pen.c === "auto" && st().tool === "lasso", st().inks);
+    el().querySelector('.bd-fbar [data-f="ink"]').click();
+    await sleep(200);
+    el().querySelector('.bd-fpop [data-ic="#e5372c"]').click();
+    ok("a colour chosen in its bar is the stroke's, not the pen's", st().inks[0] === "#e5372c" && st().tools.pen.c === "auto" && st().kind === "lasso", st().inks);
     key("d", { ctrlKey: true });
     ok("Ctrl+D: a copy beside it, chosen in its place", st().items === 7 && st().chosen === 1 && st().chosenBox[0] === box0[0] + 16, st());
     key("Delete");
@@ -158,6 +174,7 @@
     ok("the reading view shows the block", !!readImg, document.getElementById("content").innerHTML.slice(-200));
     readImg && readImg.click();
     ok("… and a click opens the board there too", await until(() => st() && el().hasAttribute("data-ready")) && st().items === count, [count, st()]);
+    key("p");
     await stroke(wave(200, 440, 12));
     ok("drawn on from the reading view", st().items === count + 1, st());
     o.strokes = count + 1;

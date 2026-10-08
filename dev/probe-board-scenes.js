@@ -33,7 +33,7 @@
     key("1", { ctrlKey: true });
     // ---- things to frame
     key("v");
-    for (const [i, shape] of ["rect", "ellipse", "triangle"].entries()) { q('[data-do="shapes"]').click(); await sleep(250); q(`.bd-spop [data-shape="${shape}"]`).click(); await sleep(150); B().pick([shapes()[i].id]); const t = shapes()[i]; await drag(steps(at(t.x + 10, t.y + t.h - 10), at(t.x + 10 + [-407, -93, 311][i], t.y + t.h - 10 + [-13, 47, 9][i])), { altKey: true }); await sleep(420); }
+    for (const [i, shape] of ["rect", "ellipse", "triangle"].entries()) { B().put("shape", { shape }); await sleep(150); B().pick([shapes()[i].id]); const t = shapes()[i]; await drag(steps(at(t.x + 10, t.y + t.h - 10), at(t.x + 10 + [-407, -93, 311][i], t.y + t.h - 10 + [-13, 47, 9][i])), { altKey: true }); await sleep(420); }
     ok("three shapes, put somewhere off the grid", shapes().length === 3 && shapes().some((t) => t.x % 20 !== 0), shapes().map((t) => [t.x, t.y]));
     // ---- onto the grid
     q('[data-do="more"]').click(); await sleep(300);

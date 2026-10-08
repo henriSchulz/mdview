@@ -26,8 +26,7 @@
     const steps = (a, b, n = 8) => Array.from({ length: n + 1 }, (_v, i) => [a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n]);
     const things = () => st().things, of = (k) => things().filter((t) => t.k === k);
     key("v");
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-shape="round"]').click(); await sleep(200);
+    B().put("shape", { shape: "round" }); await sleep(200);
     const first = () => of("shape")[0];
     ok("without the connectors a chosen item has its knob and no arrows", !st().connect && !q(".bd-pick").hasAttribute("data-conn") && getComputedStyle(q(".bd-knob")).display !== "none", st().connect);
     q('[data-do="connect"]').click(); await sleep(100);
@@ -74,8 +73,7 @@
     out("joined", {});
     await sleep(400);
     // a line between two chosen items
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-shape="diamond"]').click(); await sleep(200);
+    B().put("shape", { shape: "diamond" }); await sleep(200);
     const third = () => of("shape")[2];
     B().pick([first().id, third().id]);
     q('.bd-fbar [data-f="arrange"]').click(); await sleep(300);

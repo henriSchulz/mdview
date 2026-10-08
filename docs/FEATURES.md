@@ -388,35 +388,48 @@ shut back into it.
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
 - **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
-- **Drawing**: the tools stand in a tray at the foot — the pen (`P`), the fineliner (`F`), the
-  marker (`M`, see-through), the pencil (`B`, with a grain), the eraser (`E`) and the lasso (`L`) — with six colours and a seventh
-  well for any other beside them. Each tool keeps its own colour. A click on the tool in hand
-  opens its options: how wide, how see-through; for the eraser whether it takes whole strokes
-  or the parts it passes over.
+- **What the hand does** is chosen in the bar at the top: the lasso (`V` or `L`, in hand when a
+  board opens), the pens (`P`), the eraser (`E`), text (`T`), shapes (`S`), then Picture, and
+  under `+` a sticky note (`N`), a table and a link. Each tool but the lasso has a small tray
+  of its own with what it is set to; the tray changes with the tool.
+- **The pens**: pen (`P`), fineliner (`F`), marker (`M`, see-through) and pencil (`B`, with a
+  grain), and the ruler. Under them how broad the line is — pressed, the widths open, and how
+  see-through the line is (a press on the pen in hand opens the same) — and three colours at
+  hand. The colour in use, pressed again, opens all the colours; the one chosen there takes
+  its place among the three. Each pen keeps its own width, its own colour and its own three.
+- **The eraser**'s tray: whether it takes whole strokes or the parts it passes over, and how
+  large it is.
 - **A stroke made clean**: rest the hand at the end of a stroke before lifting it, and a line
   becomes straight (its end still follows the hand), a ring a circle or an ellipse, a box a
   rectangle, three sides a triangle.
 - **The ruler** (`R`, the last thing in the tray) lies across the board: a stroke begun at one
   of its long edges runs straight along it. It is moved by its middle and turned by its ends
   (`Shift`: in steps of 15°); its angle stands in its middle.
-- **The tray** goes where it is pulled — by any part of it, a tool too: let go near an edge of
-  the window it lies along that edge, upright at the sides with its tools on their sides; let
-  go in a corner it shrinks to a round sign of the tool in hand, which a tap opens again. The
-  small arrow at its end shrinks it too.
-- **The lasso**: a loop around strokes, or a tap on one, chooses them. What is chosen is moved
-  by pulling inside its frame, made larger or smaller at the frame's corners, given another
-  colour from the wells, copied (`Ctrl+D`) and deleted (`Delete`) — both also in the small bar
-  beside it —, nudged with the arrow keys (`Shift`: ten pixels). `Ctrl+A` chooses everything,
-  `Esc` lets go.
+- **The tray** stands upright at the right edge. It goes where it is pulled — by any part of
+  it, a tool too: let go near an edge of the window it lies along that edge; let go in a
+  corner it shrinks to a round sign of the tool in hand, which a tap opens again. The small
+  arrow at its end shrinks it too.
+- **The lasso** chooses and moves whatever is on the board, strokes of ink included: a click,
+  `Shift` and a click for more, `Ctrl+A` for all; a pen draws a loop around what it wants, a
+  mouse pulls a box from the bare board. What is chosen is pulled to another place — several
+  things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
+  with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
+  corners of their frame, and take another colour in the small bar beside them. `Esc`, or a
+  click or tap on the bare board, lets go.
 - `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it again.
-- **The pointer** (`V`, the first thing in the tray) chooses and moves whatever is on the
-  board, strokes of ink included: a click, `Shift` and a click for more, a box pulled from the
-  bare board, `Ctrl+A` for all. What is chosen is pulled to another place, copied (`Ctrl+D`),
-  deleted (`Delete`), nudged with the arrow keys; a chosen stroke takes its colour from the
-  wells. A drawing tool's key, or a click on it, takes that tool up again.
-- **Things on the board**: the bar at the top puts a text box (`T`), a shape — rectangle,
-  ellipse, triangle, diamond, star, hexagon, a line, an arrow — a sticky note (`N`), a table
-  or a link into the middle of the view, and hands over to the pointer.
+- **Shapes**: the shape tool's tray holds a rectangle, a rounded one, an ellipse, a triangle,
+  a diamond, a star, a hexagon, a line and an arrow, how broad their outline is, and its
+  colour (the one well opens the colours). The shape in the tray is pulled open on the board
+  from corner to corner (`Shift`: as high as wide; a line in steps of 45°); a tap puts one of
+  the usual size there. With the first thing in the tray — drawn by hand — a shape is drawn
+  freely and made clean when the hand lets go: a straight line, a circle or an ellipse and a
+  rectangle become things of the board, a triangle a clean stroke. What was just made is
+  chosen: pulled at its dots at once, it is sized.
+- **Text**: with the text tool a click or tap on the bare board begins a text there, and one
+  click on a text types in it. Its tray sets the size, bold, italic, underlined, where the
+  text stands and its colour — for the text being typed or chosen, and for every text begun
+  after it on this board. A click beside the text ends the typing.
+- **Picture** (in the bar at the top) asks for picture files from this device.
 - **What is chosen** is moved by pulling it — it comes to rest where an edge or its middle
   meets another's, a line shows where (`Alt`: nothing holds it; `Shift`: straight along or up) —,
   pulled to size at its dots (`Shift` at a corner keeps its proportions), turned at the knob
@@ -427,7 +440,7 @@ shut back into it.
   several chosen), Group (`Ctrl+G`, apart again with `Ctrl+Shift+G`), Bring to Front and Send
   to Back (`Ctrl+Shift+F` / `B`), Lock (`Ctrl+L`). Copy, cut and paste with `Ctrl+C`, `X`, `V`,
   a copy beside it with `Ctrl+D`, gone with `Delete`.
-- **Links and files**: Link in the bar at the top takes an address and puts a card for it on
+- **Links and files**: Link under `+` in the bar at the top takes an address and puts a card for it on
   the board; any file dropped on the board that is no picture is kept beside the board and
   stands on it as a card with its name. A card clicked twice, or Open in its bar, opens what
   it stands for — an address in the browser, a file in the program for its kind.
@@ -438,7 +451,7 @@ shut back into it.
   corners, in its proportions) like the rest. The board's picture in the note holds a small
   copy of it. Taken off the board it goes to the trash an hour later, as a picture taken out of
   a note does.
-- **Tables** (the last button of the bar at the top): three by three to begin with, the first
+- **Tables** (under `+` in the bar at the top): three by three to begin with, the first
   cell ready to be typed in. `Tab` goes on to the next cell, `Shift+Tab` back; a row grows with
   its text; a cell clicked twice is typed in. In a table's bar, Table adds and takes away rows
   and columns at its end, sets the size of its text and whether the first row is its head. A
@@ -448,24 +461,25 @@ shut back into it.
   `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange). Use as Style for New
   Ones, there too, makes it the look every new item of that kind begins with on this board.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
-- **With a pen** (an Apple Pencil, any pen the system knows as one): it draws wherever it comes
-  down, whatever was in hand — its pressure makes the pen's line broader and finer, and a pencil
-  held flat draws a broad faint band. Held over the board before it touches, its tip shows where
-  it will come down. Once a pen has been used, a finger no longer draws but moves the board, and
-  a hand lying on the glass beside the pen does nothing. Two settings appear under More then:
-  Draw with Finger, and Pen Selects and Scrolls (with the pointer in hand the pen chooses and
-  moves things instead of drawing).
-- **Pen and fingers together**: what the lasso holds is moved by a finger laid on it. A
-  finger's tap on a thing chooses it, whatever tool is in hand; the finger then moves it, and
-  the pen takes hold of it too — at its dots it pulls it to size, at its knob it turns it, on
-  it it moves it — while on the bare board beside it the pen draws on. A pen's double tap, its squeeze and its turning about its
-  own axis do not reach a web page: they are not there.
-- **With fingers** (a tablet, a phone): one finger draws with the tool in hand. With the
-  pointer in hand a finger takes a thing and moves it; on the bare board it moves the board,
-  and held still for a moment first it pulls a box over what is to be chosen. Two fingers move
-  the board and make it larger or smaller; both on one thing, they turn it. On a narrow screen
-  the bar of things to add stands under the top row and the tray above the bottom row, where
-  its tools scroll sideways.
+- **With a pen** (an Apple Pencil, any pen the system knows as one): it does what the tool in
+  hand does — draws, rubs out, draws the lasso's loop, pulls a shape open, begins a text. Its
+  pressure makes the pen's line broader and finer, and a pencil held flat draws a broad faint
+  band. Held over the board before it touches, its tip shows where it will come down. Once a
+  pen has been used, a finger no longer draws but moves the board, and a hand lying on the
+  glass beside the pen does nothing; Draw with Finger under More changes that.
+- **Pen and fingers together**: what is chosen is moved by a finger laid on it, anywhere in
+  its frame. A finger's tap on a thing chooses it, whatever tool is in hand, and the tool
+  stays in hand: the finger moves the thing, the pen takes hold of it too — at its dots it
+  pulls it to size, at its knob it turns it, on it it moves it — while on the bare board
+  beside it the pen goes on drawing; a tap beside it lets it go. A pen's double tap, its
+  squeeze and its turning about its own axis do not reach a web page: they are not there.
+- **With fingers** (a tablet, a phone): one finger works the tool in hand. With the lasso a
+  finger takes a thing and moves it; on the bare board it moves the board, and held still for
+  a moment first it pulls a box over what is to be chosen. Two fingers move the board and make
+  it larger or smaller; both on one thing, they turn it. The board let go in mid-move runs on
+  and comes to rest; a finger put down holds it. Two fingers tapped together take the last
+  step back, three bring it again. On a narrow screen the bar of tools stands under the top
+  row and the tray above the bottom row.
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
   sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
   shapes asks what is to stand at its end — it has the first one's size and look. A joined line

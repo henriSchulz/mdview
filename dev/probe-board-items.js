@@ -9,6 +9,7 @@
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   try {
+    localStorage.setItem("mdview:board-tools:tray", JSON.stringify({ edge: "bottom", mini: null })); // (the tray at the foot, where this pulls it from)
     await document.fonts.ready;
     await sleep(700);
     MdView.setMode("active");
@@ -33,11 +34,21 @@
     // ---- the tools put away: the pointer chooses
     key("v");
     await sleep(500);
-    ok("V: the pointer is the tool in hand — it stands up in the tray, no drawing tool does", st().mode === "select" && q(".bd-tool[data-pointer]").getAttribute("aria-checked") === "true" && !el().querySelector('.bd-tool[data-tool][aria-checked="true"]') && getComputedStyle(q(".bd-palette")).opacity === "1", [st().mode, q(".bd-tool[data-pointer]").getAttribute("aria-checked")]);
-    q('[data-do="shapes"]').click();
-    await sleep(350);
-    ok("Shape: a choice of them under its button", q(".bd-spop").hasAttribute("data-open") && q(".bd-spop").querySelectorAll(".bd-tile").length === 9, q(".bd-spop").innerHTML.slice(0, 80));
-    q('.bd-spop [data-shape="rect"]').click();
+    ok("V: the lasso is in hand — chosen in the bar at the top, and it has no tray", st().mode === "select" && st().kind === "lasso" && q('[data-kind="lasso"]').getAttribute("aria-checked") === "true" && getComputedStyle(q(".bd-palette")).pointerEvents === "none", [st().mode, st().kind]);
+    key("s");
+    await sleep(200);
+    ok("S: the shape tool — its tray holds the shapes, a line and an arrow, and drawing by hand", st().kind === "shape" && q(".bd-forms").querySelectorAll(".bd-tile").length === 10 && q(".bd-forms").offsetWidth > 0 && q('[data-form="auto"]').getAttribute("aria-checked") === "true", st().kind);
+    q('[data-form="ellipse"]').click();
+    await drag(steps([300, 560], [420, 620]));
+    ok("a shape of the tray is pulled open on the board: an outline, as large as it was pulled, chosen", st().things.length === 1 && thing(0).shape === "ellipse" && thing(0).fill === "none" && thing(0).w === 120 && thing(0).h === 60 && st().picked.length === 1 && st().kind === "shape", thing(0));
+    await drag(steps(at(thing(0).x + thing(0).w, thing(0).y + thing(0).h), at(thing(0).x + thing(0).w + 30, thing(0).y + thing(0).h + 20)));
+    ok("… and pulled at its corner at once, it is sized — no second shape", st().things.length === 1 && thing(0).w === 150 && thing(0).h === 80, st().things);
+    q('[data-form="auto"]').click();
+    await drag([[500, 560], [540, 558], [580, 561], [620, 559], [660, 560], [700, 561]]);
+    ok("drawn by hand: a straight line is a line of the board", st().things.length === 2 && thing(1).k === "line" && st().items === 0, st().things);
+    key("z", { ctrlKey: true }); key("z", { ctrlKey: true }); key("z", { ctrlKey: true });
+    ok("all of it taken back", st().things.length === 0, st().things);
+    B().put("shape", { shape: "rect" });
     await sleep(200);
     ok("a rectangle stands in the middle of the view, chosen: its frame with dots, its bar beside it", st().things.length === 1 && thing(0).k === "shape" && st().picked.length === 1 && !q(".bd-pick").hidden && !q(".bd-fbar").hidden && q(".bd-fbar").querySelectorAll(".bd-btn").length === 6, [st().things, q(".bd-fbar").innerHTML.slice(0, 200)]);
     const drawn = el().querySelector(".bd-world .bd-item[data-k='shape'] path");
@@ -97,7 +108,7 @@
     key("t");
     await sleep(150);
     await type("A heading");
-    q('[data-do="textbox"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    q('[data-kind="text"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     await sleep(100);
     ok("T: a text box; it is as tall as its text", st().things.length === 3 && thing(2).k === "text" && thing(2).text === "A heading" && thing(2).h > 30 && thing(2).h < 60 && !st().editing, thing(2));
     key("t");
@@ -105,6 +116,22 @@
     key("Escape");
     await sleep(100);
     ok("a text box left empty is none", st().things.length === 3, st().things.map((t) => t.k));
+    // the text tool: a click on the bare board begins a text there; its tray sets how it looks
+    ok("T left the text tool in hand: its tray", st().kind === "text" && q(".bd-type").offsetWidth > 0, st().kind);
+    await click(160, 600);
+    await sleep(150);
+    await type("Here");
+    q('.bd-type [data-size="1"]').click();
+    ok("a click on the bare board begins a text there; the tray's size is its size while it is typed", st().things.length === 4 && thing(3).text === "Here" && thing(3).ts.size === 20 && st().editing === thing(3).id && Math.abs(at(thing(3).x, 0)[0] - 150) < 3, thing(3));
+    await click(700, 640);
+    ok("a click beside it ends the typing, and begins no other text", !st().editing && st().things.length === 4, st().things.length);
+    await click(...at(thing(3).x + 20, thing(3).y + thing(3).h / 2));
+    await sleep(120);
+    ok("with the text tool one click on a text types in it", st().editing === thing(3).id, st().editing);
+    key("Escape");
+    key("z", { ctrlKey: true }); key("z", { ctrlKey: true }); key("z", { ctrlKey: true });
+    ok("… taken back", st().things.length === 3, st().things.map((t) => t.k));
+    key("v");
     await click(...at(...midOf(thing(2))));
     q('.bd-fbar [data-f="text"]').click();
     await sleep(300);
@@ -113,8 +140,7 @@
     key("Escape"); key("Escape");
 
     // ---- a line with an arrow
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-line="arrow"]').click(); await sleep(150);
+    B().put("line", { arrow: true }); await sleep(150);
     ok("an arrow: a line with a head at its end, chosen by its two ends", st().things.length === 4 && thing(3).k === "line" && thing(3).ends.join() === "none,arrow" && q(".bd-pick").dataset.kind === "line", thing(3));
     was = thing(3);
     await drag(steps(at(was.p[2], was.p[3]), at(was.p[2] + 40, was.p[3] + 90)));
@@ -188,8 +214,7 @@
     // a look taken from one and given to another
     B().pick([thing(0).id]);
     key("c", { ctrlKey: true, altKey: true });
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-shape="ellipse"]').click(); await sleep(150);
+    B().put("shape", { shape: "ellipse" }); await sleep(150);
     const fresh = st().things[st().things.length - 1];
     key("v", { ctrlKey: true, altKey: true });
     const got = st().things[st().things.length - 1];
@@ -201,16 +226,16 @@
     // ---- ink over it, kept, read again
     key("p");
     await sleep(400);
-    ok("P: the pen in hand again, nothing is chosen", st().mode === "draw" && q('.bd-tool[data-tool="pen"]').getAttribute("aria-checked") === "true" && q(".bd-tool[data-pointer]").getAttribute("aria-checked") === "false" && q(".bd-pick").hidden && q(".bd-fbar").hidden, st().mode);
+    ok("P: the pen in hand again, nothing is chosen", st().mode === "draw" && st().kind === "pen" && q('.bd-tool[data-tool="pen"]').getAttribute("aria-checked") === "true" && q('[data-kind="lasso"]').getAttribute("aria-checked") === "false" && q(".bd-pick").hidden && q(".bd-fbar").hidden, st().mode);
     const sm = at(...midOf(shape()));
     await drag(steps([sm[0] - 60, sm[1] - 20], [sm[0] + 60, sm[1] + 20], 14));
     ok("a stroke over a shape is a stroke; the shape stays where it is", st().items === 1 && st().things.length === 4, [st().items, st().things.length]);
     // the pointer takes a stroke as it takes anything: clicked it is chosen, pulled it moves
     await drag(Array.from({ length: 20 }, (_v, i) => [140 + i * 9, 640 + Math.sin(i / 2) * 12]));
-    q(".bd-tool[data-pointer]").click(); await sleep(80);
-    ok("the pointer, clicked in the tray: in hand", st().mode === "select", st().mode);
+    q('[data-kind="lasso"]').click(); await sleep(80);
+    ok("the lasso, clicked in the bar: in hand", st().mode === "select" && st().kind === "lasso", st().mode);
     await drag([[185, 640 + Math.sin(2.5) * 12], [185, 640 + Math.sin(2.5) * 12]]);
-    ok("a stroke clicked with the pointer is chosen: a frame around it, a bar beside it", st().picked.length === 1 && st().things.every((t) => t.id !== st().picked[0]) && !q(".bd-pick").hidden && q(".bd-pick").dataset.kind === "many" && !q(".bd-fbar").hidden, [st().picked, q(".bd-pick").dataset.kind]);
+    ok("a stroke clicked with the lasso in hand is chosen: a frame with dots at its corners, a bar beside it", st().picked.length === 1 && st().things.every((t) => t.id !== st().picked[0]) && !q(".bd-pick").hidden && q(".bd-pick").dataset.kind === "ink" && !q(".bd-fbar").hidden, [st().picked, q(".bd-pick").dataset.kind]);
     key("a", { ctrlKey: true });
     const allBox = st().picked.length;
     key("Escape");

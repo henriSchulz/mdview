@@ -2554,6 +2554,7 @@ impl Win {
             "board-open" => self.board_open = msg["on"].as_bool().unwrap_or(false),
             "board-paste" => self.board_paste(app, text_of("path"), &msg["id"]),
             "board-drop" => self.board_drop(text_of("path"), &msg["uris"], &msg["id"]),
+            "board-pick" => self.board_pick(app, text_of("path"), &msg["id"]),
             "pdfdata" => {
                 let id = match &msg["id"] {
                     Value::String(t) => t.clone(),
@@ -3026,6 +3027,18 @@ impl Win {
             }
             Err(e) => done(self, vec![], Some(strerror(&e))),
         }
+    }
+
+    /// Pictures for a whiteboard, chosen in the system's own window (the board's Picture button):
+    /// what is chosen comes in as files dropped on the board do.
+    fn board_pick(&self, app: &App, board: &str, id: &Value) {
+        let Some(window) = &self.window else { return };
+        let dialog = app.handle.dialog().file().set_parent(window).set_title("Insert Picture").add_filter("Pictures", scan::IMAGE_EXT);
+        let (tx, label, board, id) = (app.tx.clone(), self.label.clone(), board.to_string(), id.clone());
+        dialog.pick_files(move |paths| {
+            let uris: Vec<String> = paths.unwrap_or_default().into_iter().filter_map(|p| p.into_path().ok()).filter_map(|p| tauri::Url::from_file_path(p).ok()).map(|u| u.to_string()).collect();
+            let _ = tx.send(Event::Msg { label, json: json!({ "type": "board-drop", "uris": uris, "path": board, "id": id }).to_string() });
+        });
     }
 
     /// Files dropped on a whiteboard: one that lies beside the board already is used where it

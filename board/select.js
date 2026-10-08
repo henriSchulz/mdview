@@ -28,7 +28,7 @@
   function make(ctx) {
     const I = B.items, T = ctx.T, esc = ctx.esc;
     const S = () => ctx.S(), z = () => S().view.z;
-    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 }, pending = null, look = null;
+    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 }, pending = null, look = null, stopped = 0; // (stopped: when a pointer coming down last ended the typing of a text)
     const q = (el, sel) => el.querySelector(sel);
     const root = () => ctx.el();
 
@@ -77,8 +77,14 @@
     const DOTS = [["nw", -1, -1], ["n", 0, -1], ["ne", 1, -1], ["e", 1, 0], ["se", 1, 1], ["s", 0, 1], ["sw", -1, 1], ["w", -1, 0]];
     function handleAt(p) {
       const st = S();
-      if (st.pick.length !== 1 || st.pick[0].lock || st.pick[0].k === "ink") return null; // (a stroke is moved here; the lasso sizes it)
-      const it = st.pick[0], r = GRAB / z();
+      const r = GRAB / z();
+      if (st.pick.length && !locked() && st.pick.every((i) => i.k === "ink")) { // strokes alone: pulled larger or smaller at a corner of their frame, about the corner opposite
+        const b = pickBox();
+        for (const [x, y, ax, ay] of [[b[0], b[1], b[2], b[3]], [b[2], b[1], b[0], b[3]], [b[2], b[3], b[0], b[1]], [b[0], b[3], b[2], b[1]]]) if (Math.hypot(p.x - x, p.y - y) <= r) return { ink: [ax, ay] };
+        return null;
+      }
+      if (st.pick.length !== 1 || st.pick[0].lock) return null;
+      const it = st.pick[0];
       if (it.k === "line") { for (const i of [0, 1]) if (Math.hypot(p.x - it.p[i * 2], p.y - it.p[i * 2 + 1]) <= r) return { end: i }; return null; }
       const [lx, ly] = I.local(it, p.x, p.y);
       if (!st.connect && !st.crop && it.k !== "table" && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
@@ -90,9 +96,11 @@
     function start(pt, e) {
       const st = S(), p = ctx.onBoard(pt);
       GRAB = e.pointerType === "touch" ? 22 : e.pointerType === "pen" ? 14 : 10;
-      if (edit) finish();
+      const typing = !!edit;
+      if (edit) { finish(); stopped = performance.now(); }
       closePop();
       const h = handleAt(p);
+      if (h && h.ink) { act = { kind: "inksize", anchor: h.ink, from: Math.hypot(p.x - h.ink[0], p.y - h.ink[1]) || 1, before: snap(), was: st.pick.map((it) => ({ it, pts: it.pts, w: it.w })) }; return true; }
       if (h && h.conn) {
         const from = st.pick[0], a = I.sidePoint(from, h.conn), before = snap();
         const line = I.norm({ id: B.format.id(), k: "line", p: [a[0], a[1], p.x, p.y], stroke: { c: "auto", w: 2 }, ends: ["none", "arrow"], route: "corner", from: { id: from.id, at: h.conn } });
@@ -101,10 +109,12 @@
         return true;
       }
       if (h) { act = { kind: h.turn ? "turn" : h.end != null ? "end" : "size", h, before: snap(), was: I.data(st.pick[0]) }; return true; }
-      const it = under(p.x, p.y), now = performance.now();
+      // (several things chosen, or strokes: a finger or a pen anywhere in their frame has them — a stroke is thin, and hard to meet)
+      const hit = under(p.x, p.y), boxed = !hit && !e.shiftKey && st.pick.length > 0 && (st.pick.length > 1 || st.pick[0].k === "ink") && (e.pointerType !== "mouse" || st.pick.some((i) => i.k === "ink")) && inBox(p);
+      const it = hit || (boxed ? st.pick[0] : null), now = performance.now(), text = ctx.kind() === "text";
       if (it) {
-        // twice on the same item, and let go without having moved it: its text is typed (end())
-        const twice = lastDown.id === it.id && now - lastDown.t < 400 && (((I.texty(it) || it.k === "table") && !it.lock) || it.k === "link" || it.k === "file");
+        // twice on the same item, and let go without having moved it: its text is typed (end()) — once is enough with the text tool in hand
+        const twice = !boxed && ((text && I.texty(it) && !it.lock) || (lastDown.id === it.id && now - lastDown.t < 400 && (((I.texty(it) || it.k === "table") && !it.lock) || it.k === "link" || it.k === "file")));
         lastDown = twice ? { id: null, t: 0 } : { id: it.id, t: now };
         if (e.shiftKey) { pick(st.pick.includes(it) ? st.pick.filter((i) => i !== it && !(it.group && i.group === it.group)) : [...st.pick, it]); return false; }
         if (!st.pick.includes(it)) pick([it]);
@@ -112,11 +122,28 @@
         return true;
       }
       lastDown = { id: null, t: 0 };
-      if (e.pointerType === "touch") { pick([]); return "pan"; } // a finger on the bare board moves the board; held still first, it pulls a box (hold)
-      act = { kind: "box", from: [p.x, p.y], keep: e.shiftKey ? [...st.pick] : [] };
+      if (e.pointerType === "touch") return "pan"; // a finger on the bare board moves the board (what is chosen stays so — a tap there lets it go: board.js); held still first, it pulls a box (hold)
+      if (text) { pick([]); act = { kind: "place", from: [p.x, p.y], not: typing }; return true; } // the text tool on the bare board: let go, a text stands there (not where the click only ended another's typing)
+      // a pen draws a loop around what it wants (a mouse pulls a box)
+      act = e.pointerType === "pen" ? { kind: "loop", pts: [[p.x, p.y]], keep: e.shiftKey ? [...st.pick] : [] } : { kind: "box", from: [p.x, p.y], keep: e.shiftKey ? [...st.pick] : [] };
       if (!e.shiftKey) pick([]);
       return true;
     }
+    const inBox = (p) => { const b = pickBox(), slack = 8 / z(); return p.x >= b[0] - slack && p.x <= b[2] + slack && p.y >= b[1] - slack && p.y <= b[3] + slack; };
+    /* A shape pulled open from where the pointer came down. spec: { form (a shape's name, "line", "arrow"), c, w } */
+    function make(pt, spec) {
+      const p = ctx.onBoard(pt);
+      if (edit) finish();
+      closePop();
+      S().pick = [];
+      act = { kind: "make", from: [p.x, p.y], spec, before: snap(), it: null };
+      return true;
+    }
+    const made = (spec, x, y) => { const line = spec.form === "line" || spec.form === "arrow", it = I.fresh(line ? "line" : "shape", x, y, line ? { arrow: spec.form === "arrow" } : { shape: spec.form }); it.stroke = { c: spec.c, w: spec.w }; if (!line) it.fill = "none"; return it; };
+    /* A thing put on the board as it is (o: its line in the file, without a name), and chosen. */
+    function put(o) { const st = S(), before = snap(), it = I.norm({ ...o, id: B.format.id() }); if (!it) return null; st.model.items.push(it); commit(before); pick([it]); return it; }
+    /* The text tool's finger tapped the bare board: a text there (not where the tap only ended another's typing). */
+    function type(pt) { if (performance.now() - stopped < 600) return; const p = ctx.onBoard(pt); insert("text", {}, [p.x, p.y]); }
     /* Would a pointer at pt take hold of what is chosen — at one of its dots, its knob, a connector's arrow, or anywhere on it?
      * (A pen draws wherever it comes down, except there: what is chosen is what the hand is working on.) */
     function grabs(pt, type) {
@@ -124,8 +151,7 @@
       if (!st.pick.length) return false;
       GRAB = type === "touch" ? 22 : type === "pen" ? 14 : 10;
       if (handleAt(p)) return true;
-      const b = pickBox(), slack = 8 / z();
-      return p.x >= b[0] - slack && p.x <= b[2] + slack && p.y >= b[1] - slack && p.y <= b[3] + slack;
+      return inBox(p);
     }
     /* The thing (no stroke of ink) that lies at pt. */
     const itemAt = (pt) => { const p = ctx.onBoard(pt), items = plain(S()); for (let i = items.length - 1; i >= 0; i--) if (I.hit(items[i], p.x, p.y, 6 / z())) return items[i]; return null; };
@@ -164,6 +190,35 @@
         act.rect = b;
         // everything the box touches
         st.pick = withGroup([...act.keep, ...st.model.items.filter((it) => { const c = I.bounds(it); return c[0] <= b[2] && c[2] >= b[0] && c[1] <= b[3] && c[3] >= b[1]; })]);
+        return ctx.paint();
+      }
+      if (act.kind === "loop") {
+        for (const pt of pts) { const q2 = ctx.onBoard(pt); act.pts.push([q2.x, q2.y]); }
+        ctx.loop(act.pts);
+        // the strokes with most of themselves inside it, and every thing whose middle is
+        if (act.pts.length > 3) st.pick = withGroup([...act.keep, ...B.ink.circled(st.model.items, act.pts), ...plain(st).filter((it) => !it.foreign && B.ink.within(act.pts, ...I.mid(it)))]);
+        return ctx.paint();
+      }
+      if (act.kind === "inksize") {
+        const [ax, ay] = act.anchor, k = Math.max(0.05, Math.hypot(p.x - ax, p.y - ay) / act.from);
+        for (const w of act.was) { w.it.pts = w.pts; w.it.w = w.w; B.ink.moved(w.it, (q2) => [ax + (q2[0] - ax) * k, ay + (q2[1] - ay) * k], k); }
+        return ctx.paint();
+      }
+      if (act.kind === "place") return;
+      if (act.kind === "make") {
+        const [fx, fy] = act.from;
+        if (!act.it && Math.hypot(p.x - fx, p.y - fy) * z() < 5) return;
+        if (!act.it) { act.it = made(act.spec, fx, fy); st.model.items.push(act.it); }
+        const it = act.it;
+        if (it.k === "line") {
+          let x = p.x, y = p.y;
+          if (e.shiftKey) { const a = Math.round(Math.atan2(y - fy, x - fx) / (Math.PI / 4)) * (Math.PI / 4), len = Math.hypot(x - fx, y - fy); x = fx + Math.cos(a) * len; y = fy + Math.sin(a) * len; }
+          it.p = [Math.round(fx), Math.round(fy), Math.round(x), Math.round(y)];
+        } else {
+          let w = Math.abs(p.x - fx), h = Math.abs(p.y - fy);
+          if (e.shiftKey) w = h = Math.max(w, h); // (Shift: as high as wide)
+          Object.assign(it, { x: Math.round(p.x < fx ? fx - w : fx), y: Math.round(p.y < fy ? fy - h : fy), w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) });
+        }
         return ctx.paint();
       }
       if (act.kind === "move") {
@@ -254,6 +309,16 @@
       if (!act) return;
       const a = act;
       act = null;
+      if (a.kind === "loop") { ctx.loop(null); return ctx.paint(); }
+      if (a.kind === "place") { if (!a.not) insert("text", {}, a.from); return; }
+      if (a.kind === "make") { // (only tapped, or pulled next to nothing: one of the usual size stands there)
+        const st = S();
+        let it = a.it;
+        if (it && (it.k === "line" ? Math.hypot(it.p[2] - it.p[0], it.p[3] - it.p[1]) : Math.max(it.w, it.h)) * z() < 8) { st.model.items = st.model.items.filter((i) => i !== it); it = null; }
+        if (!it) { it = made(a.spec, a.from[0], a.from[1]); st.model.items.push(it); }
+        commit(a.before);
+        return pick([it]);
+      }
       if (a.kind === "end" && a.over) S().pick[0][a.h.end ? "to" : "from"] = { id: a.over.id, at: sideNear(a.over, ...a.at) };
       if (a.kind === "conn") {
         const [x1, y1, x2, y2] = a.line.p, st = S();
@@ -276,7 +341,8 @@
       act = null;
       if (a.before) restore(a.before);
       if (a.kind === "conn") S().pick = [a.source];
-      if (a.kind === "box") S().pick = a.keep;
+      if (a.kind === "box" || a.kind === "loop") S().pick = a.keep;
+      if (a.kind === "loop") ctx.loop(null);
       ctx.paint();
     }
     /* Where the box being moved comes to rest against the others: by how much to shift it so that
@@ -392,11 +458,13 @@
       ctx.changed();
       closePop();
     }
-    function insert(kind, more = {}) {
-      const st = S(), s = ctx.size(), [cx, cy] = st.view.toBoard(s.w / 2, s.h / 2), before = snap();
+    /* at: where on the board (a text begins there); none: in the middle of what is seen. */
+    function insert(kind, more = {}, at = null) {
+      const st = S(), s = ctx.size(), [cx, cy] = at || st.view.toBoard(s.w / 2, s.h / 2), before = snap();
       // (not on top of the one made just before)
-      const n = plain(st).filter((it) => Math.abs(I.mid(it)[0] - cx) % 24 < 1 && Math.abs(I.mid(it)[1] - cy) % 24 < 1 && Math.abs(I.mid(it)[0] - cx) < 240).length;
+      const n = at ? 0 : plain(st).filter((it) => Math.abs(I.mid(it)[0] - cx) % 24 < 1 && Math.abs(I.mid(it)[1] - cy) % 24 < 1 && Math.abs(I.mid(it)[0] - cx) < 240).length;
       let it = I.fresh(kind, Math.round(cx) + n * 24, Math.round(cy) + n * 24, more);
+      if (at && kind === "text") it.x = Math.round(cx - I.PAD);
       const look = (st.model.board.insert || {})[kind];
       if (look) it = I.norm({ ...it, ...look, ts: it.ts ? { ...it.ts, ...(look.ts || {}) } : undefined }) || it; // (the look saved for new ones of its kind)
       st.model.items.push(it);
@@ -527,6 +595,7 @@
       let html = "";
       if (locked()) html = btn("unlock", T("board.unlock"), ctx.icons.unlock);
       else {
+        if (every((it) => it.k === "ink")) html += btn("ink", T("board.color"), well(first.c));
         if (every((it) => it.k === "shape" || it.k === "sticky")) html += btn("fill", T("board.fill"), well(first.fill));
         if (every((it) => it.k === "shape" || it.k === "line")) html += btn("stroke", T("board.stroke"), well(first.stroke.c, true));
         if (every(I.texty)) html += btn("text", T("board.textLook"), '<b class="bd-aa">Aa</b>');
@@ -549,7 +618,8 @@
       const sw = (c, on, attr) => `<button type="button" class="bd-well" ${attr}="${c}" aria-pressed="${on}" style="--ink:${c === "none" ? "transparent" : c === "auto" ? "var(--fg)" : c}"${c === "none" ? " data-none" : ""} aria-label="${c}"></button>`;
       const seg = (attr, opts, now) => `<div class="bd-seg">${opts.map(([v, label]) => `<button type="button" ${attr}="${v}" aria-pressed="${now(v)}" title="${esc(typeof label === "string" && !label.startsWith("<") ? label : v)}">${label}</button>`).join("")}</div>`;
       let html = "";
-      if (kind === "fill") {
+      if (kind === "ink") html = `<div class="bd-swatches">${ctx.inks.map((c) => sw(c, first.c === c, "data-ic")).join("")}</div>`;
+      else if (kind === "fill") {
         const cs = every((it) => it.k === "sticky") ? Object.values(I.PAPERS) : I.FILLS;
         html = `<div class="bd-swatches">${cs.map((c) => sw(c, first.fill === c, "data-fill")).join("")}</div>` + (every((it) => it.k === "shape") ? `<button type="button" class="bd-wide-btn" data-fill="none" aria-pressed="${first.fill === "none"}">${esc(T("board.noFill"))}</button>` : "");
       } else if (kind === "stroke") {
@@ -588,7 +658,7 @@
     function click(b) {
       const d = b.dataset;
       if (d.f) {
-        if (["fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
+        if (["ink", "fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
         ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]),
           crop: () => { const st = S(); st.crop = st.crop === st.pick[0].id ? null : st.pick[0].id; ctx.paint(); },
           uncrop: () => change((p) => { const it = p[0], c = it.crop; if (!c) return; const fw = it.w / (1 - c[0] - c[2]), fh = it.h / (1 - c[1] - c[3]), [lx, ly] = [-(c[0] - c[2]) * fw / 2, -(c[1] - c[3]) * fh / 2], rad = (it.r * Math.PI) / 180, [cx, cy] = I.mid(it); delete it.crop; Object.assign(it, { w: Math.round(fw * 10) / 10, h: Math.round(fh * 10) / 10 }); Object.assign(it, { x: Math.round((cx + lx * Math.cos(rad) - ly * Math.sin(rad) - it.w / 2) * 10) / 10, y: Math.round((cy + lx * Math.sin(rad) + ly * Math.cos(rad) - it.h / 2) * 10) / 10 }); }),
@@ -598,6 +668,7 @@
       if (d.trows) return tableGrow("rows", Number(d.trows)), true;
       if (d.tcols) return tableGrow("cols", Number(d.tcols)), true;
       if (d.thead) return change((p) => { const on = !p[0].head; for (const it of p) if (it.k === "table") it.head = on; }), true;
+      if (d.ic) return change((p) => { for (const it of p) if (it.k === "ink") { it.c = d.ic; it.path = null; } }), true;
       if (d.fill) return change((p) => { for (const it of p) if ("fill" in it) it.fill = d.fill; }), true;
       if (d.stroke) return change((p) => { for (const it of p) if (it.stroke) it.stroke.c = d.stroke; }), true;
       if (d.sw) return change((p) => { for (const it of p) if (it.stroke) { it.stroke.w = Number(d.sw); if (it.stroke.c === "none") it.stroke.c = "auto"; } }), true;
@@ -619,7 +690,7 @@
       frame.hidden = !p.length;
       if (p.length) {
         const one = p.length === 1 && p[0].k !== "ink" ? p[0] : null; // (a stroke alone has a plain frame, as several things have)
-        frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : "many";
+        frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : !locked() && p.every((it) => it.k === "ink") ? "ink" : "many"; // (strokes alone: dots at the corners, to size them)
         frame.toggleAttribute("data-lock", locked());
         frame.toggleAttribute("data-busy", !!(act && act.kind === "move" && act.moved));
         if (st.crop && !(one && one.id === st.crop)) st.crop = null; // (cutting ends with the choice of something else)
@@ -678,7 +749,7 @@
       return false;
     }
 
-    return { grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { make, put, type, grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

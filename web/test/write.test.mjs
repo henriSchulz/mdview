@@ -767,6 +767,7 @@ test("a whiteboard is made in the note, drawn on with the pointer, kept in commi
   assert.equal(JSON.parse(text(".mdview/attachments.json"))[name()] ?? Object.values(JSON.parse(text(".mdview/attachments.json"))).includes("Beta.md"), "Beta.md"); // (the note's own: it goes with the note)
   assert.equal(await page.evaluate(() => MdBoard.state().items), 0);
   await page.waitForTimeout(700); // (grown to the window's size)
+  await page.click('#board [data-kind="pen"]'); // (a board opens with the lasso in hand)
   await page.mouse.move(400, 400);
   await page.mouse.down();
   for (let i = 1; i <= 30; i++) await page.mouse.move(400 + i * 10, 400 + Math.sin(i / 2) * 40);

@@ -46,17 +46,12 @@ body[data-mode="dark"] #board { --bd-on-accent: #000; --bd-tool-body: #dedee3; -
   box-shadow: var(--shadow-capsule);
   transition: opacity var(--dur-fast) var(--ease-out);
 }
-#board[data-drawing] .bd-bar { opacity: 0.35; pointer-events: none; }
+#board[data-drawing] .bd-bar { pointer-events: none; } /* (while a stroke runs the bars let it through — they do not fade: with a pen going up and down that flickered) */
 .bd-title { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); top: calc(var(--bd-inset) + env(safe-area-inset-top, 0px)); max-width: 40vw; }
 .bd-actions { right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + env(safe-area-inset-top, 0px)); }
 .bd-palette { left: 50%; bottom: calc(var(--bd-inset) + env(safe-area-inset-bottom, 0px)); translate: -50% 0; height: var(--bd-palette-h); padding: 0 14px; border-radius: 22px; gap: 10px; align-items: center; overflow: hidden; max-width: calc(100vw - 2 * var(--bd-inset)); }
 /* the tools stand in the palette as in a tray: sunk, cut off by its lower edge; the one in hand stands higher */
 .bd-tools { display: flex; align-self: stretch; align-items: flex-end; gap: 6px; }
-.bd-tool { width: var(--bd-tool-w); height: 100%; flex: none; padding: 0; border: 0; background: none; display: flex; align-items: flex-end; cursor: default; border-radius: 6px 6px 0 0; }
-.bd-tool svg { width: var(--bd-tool-w); height: calc(var(--bd-tool-w) * 2.4); flex: none; transform: translateY(calc(var(--bd-tool-w) * 0.75 + var(--bd-tool-rise))); transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
-.bd-tool:hover svg { transform: translateY(calc(var(--bd-tool-w) * 0.75 + var(--bd-tool-rise) - 3px)); }
-.bd-tool[aria-checked="true"] svg { transform: translateY(calc(var(--bd-tool-w) * 0.75)); }
-.bd-tool:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: -2px; }
 .bd-wells[data-off] { opacity: 0.35; }
 .bd-well.bd-any { position: relative; background: conic-gradient(#e5372c, #f2b90f, #2fa84f, #55b9ee, #1f6fe5, #8e4fd6, #e8559c, #e5372c); overflow: hidden; }
 .bd-any input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: default; }
@@ -262,18 +257,15 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
   box-shadow: 0 0 0 0.5px var(--bd-tool-line), 0 4px 14px rgb(0 0 0 / 0.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .bd-ruler[hidden] { display: none; }
 .bd-ruler span { padding: 2px 8px; border-radius: var(--radius-pill); background: rgb(0 0 0 / 0.06); color: #1d1d1f; font-size: 12px; font-variant-numeric: tabular-nums; }
-.bd-rule[aria-pressed="true"] svg { transform: translateY(calc(var(--bd-tool-w) * 0.75)); }
-.bd-rule { margin-left: 6px; }
 /* the palette at the window's upper edge */
 #board[data-palette="top"] .bd-palette { bottom: auto; top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
 .bd-palette { touch-action: none; }
-.bd-pointer { margin-right: 4px; }
 .bd-tools { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior: contain; }
 .bd-tools::-webkit-scrollbar { display: none; }
-.bd-tool, .bd-wells, .bd-palette .bd-sep { flex-shrink: 0; }
+.bd-wells, .bd-palette .bd-sep { flex-shrink: 0; }
 
-/* a tablet upright, a narrow window: the tray stands above the bars at the foot, not between them */
-@media (max-width: 1000px) {
+/* a tablet, a narrow window: the tray stands above the bars at the foot, not between them */
+@media (max-width: 1400px) {
   .bd-palette { bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 560px) {
@@ -300,38 +292,112 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 #board[data-palette="left"] .bd-palette { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); }
 #board[data-palette="right"] .bd-palette { left: auto; right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 #board[data-palette="left"] .bd-tools, #board[data-palette="right"] .bd-tools { flex-direction: column; align-self: stretch; align-items: stretch; gap: 6px; min-height: 0; overflow-x: hidden; overflow-y: auto; }
-#board[data-palette="left"] .bd-tool, #board[data-palette="right"] .bd-tool { position: relative; display: block; width: 100%; height: var(--bd-tool-w); border-radius: 0; margin: 0; }
 /* the tools lie on their sides there, their tips towards the board, sunk into the window's edge */
-#board[data-palette="left"] .bd-tool svg, #board[data-palette="right"] .bd-tool svg { position: absolute; left: 50%; top: 50%; margin: calc(var(--bd-tool-w) * -1.2) 0 0 calc(var(--bd-tool-w) * -0.5); }
-#board[data-palette="left"] .bd-tool svg { transform: rotate(90deg) translateY(calc(var(--bd-tool-w) * 0.5 + var(--bd-tool-rise))); }
-#board[data-palette="left"] .bd-tool:hover svg { transform: rotate(90deg) translateY(calc(var(--bd-tool-w) * 0.5 + var(--bd-tool-rise) - 3px)); }
-#board[data-palette="left"] .bd-tool[aria-checked="true"] svg, #board[data-palette="left"] .bd-rule[aria-pressed="true"] svg { transform: rotate(90deg) translateY(calc(var(--bd-tool-w) * 0.5)); }
-#board[data-palette="right"] .bd-tool svg { transform: rotate(-90deg) translateY(calc(var(--bd-tool-w) * 0.5 + var(--bd-tool-rise))); }
-#board[data-palette="right"] .bd-tool:hover svg { transform: rotate(-90deg) translateY(calc(var(--bd-tool-w) * 0.5 + var(--bd-tool-rise) - 3px)); }
-#board[data-palette="right"] .bd-tool[aria-checked="true"] svg, #board[data-palette="right"] .bd-rule[aria-pressed="true"] svg { transform: rotate(-90deg) translateY(calc(var(--bd-tool-w) * 0.5)); }
 /* (the pointer is no pen: it stands as it is, in the tray's middle) */
-#board[data-palette="left"] .bd-pointer svg, #board[data-palette="right"] .bd-pointer svg, #board[data-palette="left"] .bd-pointer:hover svg, #board[data-palette="right"] .bd-pointer:hover svg, #board[data-palette="left"] .bd-pointer[aria-checked="true"] svg, #board[data-palette="right"] .bd-pointer[aria-checked="true"] svg { transform: translateY(calc(var(--bd-tool-w) * 0.55)) scale(0.8); }
-#board[data-palette="left"] .bd-pointer[aria-checked="true"], #board[data-palette="right"] .bd-pointer[aria-checked="true"] { background: var(--fill-pressed); }
 #board[data-palette="left"] .bd-palette .bd-sep, #board[data-palette="right"] .bd-palette .bd-sep { width: 16px; height: 1px; margin: 4px 0; }
 #board[data-palette="left"] .bd-wells, #board[data-palette="right"] .bd-wells { grid-template-columns: repeat(2, var(--bd-well)); gap: 8px; }
-#board[data-palette="left"] .bd-rule, #board[data-palette="right"] .bd-rule { margin: 0; }
 .bd-shrink { align-self: center; opacity: 0.55; }
 .bd-shrink:hover { opacity: 1; }
 #board[data-palette="top"] .bd-shrink svg { rotate: 180deg; }
 #board[data-palette="left"] .bd-shrink svg { rotate: 90deg; }
 #board[data-palette="right"] .bd-shrink svg { rotate: -90deg; }
 /* shrunk: a round sign of the tool in hand in a corner, above or below the bars there; a tap opens the tray again */
-.bd-mini { position: absolute; display: none; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; place-items: center; cursor: default;
+.bd-shrunk { position: absolute; display: grid; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; place-items: center; cursor: default;
   background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule);
   transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
-.bd-mini:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
-.bd-mini svg { width: 26px; height: 62px; translate: 0 12px; }
-#board[data-mini] .bd-mini { display: grid; }
-#board[data-mini] .bd-palette, #board[data-readonly] .bd-mini { display: none; }
-#board[data-mini="bl"] .bd-mini { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-bottom, 0px)); }
-#board[data-mini="br"] .bd-mini { right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-bottom, 0px)); }
-#board[data-mini="tl"] .bd-mini { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
-#board[data-mini="tr"] .bd-mini { right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
-#board[data-drawing] .bd-mini { opacity: 0.35; pointer-events: none; }
+.bd-shrunk:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.bd-shrunk svg { width: 26px; height: 62px; translate: 0 12px; }
+#board[data-readonly] .bd-shrunk { display: none; }
+#board[data-mini="bl"] .bd-shrunk { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-bottom, 0px)); }
+#board[data-mini="br"] .bd-shrunk { right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-bottom, 0px)); }
+#board[data-mini="tl"] .bd-shrunk { left: calc(var(--bd-inset) + env(safe-area-inset-left, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
+#board[data-mini="tr"] .bd-shrunk { right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
+#board[data-drawing] .bd-shrunk { pointer-events: none; }
 /* the tray is pulled by any part of it: the browser makes nothing of its own of a touch there (board.js moves the row of tools where they do not all fit) */
 .bd-palette, .bd-palette * { touch-action: none; }
+
+/* ---- what the hand does (the bar at the top), and each tool's own tray */
+.bd-kinds { display: contents; }
+.bd-file { display: none; }
+.bd-set { display: flex; align-items: center; gap: 4px; flex: none; }
+#board[data-tray="pen"] .bd-palette [data-for]:not([data-for~="pen"]), #board[data-tray="eraser"] .bd-palette [data-for]:not([data-for~="eraser"]),
+#board[data-tray="text"] .bd-palette [data-for]:not([data-for~="text"]), #board[data-tray="shape"] .bd-palette [data-for]:not([data-for~="shape"]) { display: none; }
+/* (only the pens stand in their tray as things; the other trays hold plain buttons, and are as high as those) */
+#board[data-kind="eraser"], #board[data-kind="text"], #board[data-kind="shape"] { --bd-palette-h: calc(var(--bd-bar-h) + 8px); }
+#board .bd-palette { padding: 0 8px; gap: 6px; overflow: visible; }
+.bd-palette .bd-tile { width: var(--bd-bar-btn); height: var(--bd-bar-btn); padding: 6px; background: transparent; flex: none; }
+.bd-palette .bd-tile:hover { background: var(--fill-hover); }
+.bd-palette .bd-tile svg { fill: none; stroke: var(--fg); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.bd-palette .bd-tile[aria-checked="true"] { background: var(--accent); }
+.bd-palette .bd-tile[aria-checked="true"] svg { stroke: var(--bd-on-accent); }
+.bd-palette .bd-width { flex: none; }
+.bd-palette .bd-step { width: 30px; height: 30px; flex: none; }
+.bd-tsize { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+.bd-letter { font-size: 15px; font-family: var(--serif, Georgia, serif); }
+.bd-shrunk[data-flat] svg { width: 24px; height: 24px; translate: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.bd-stage[data-tool="text"] { cursor: text; }
+.bd-stage[data-tool="shape"] { cursor: crosshair; }
+#board[data-mode="select"] .bd-stage[data-tool="text"] { cursor: text; }
+#board[data-mode="select"] .bd-stage[data-tool="shape"] { cursor: crosshair; }
+/* strokes alone, chosen: dots at the four corners of their frame */
+.bd-pick[data-kind="ink"] { border-style: dashed; border-radius: 2px; }
+.bd-pick[data-kind="ink"] .bd-knob, .bd-pick[data-kind="ink"] .bd-dot[data-dot="n"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="e"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="s"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="w"] { display: none; }
+/* upright at a side: every set a column */
+#board[data-palette="left"] .bd-set, #board[data-palette="right"] .bd-set { flex-direction: column; }
+/* (the trays of plain buttons: two abreast, so that they stay short) */
+#board[data-palette="left"] .bd-palette, #board[data-palette="right"] .bd-palette { width: auto; padding: 10px 8px; }
+#board[data-palette="left"] .bd-set, #board[data-palette="right"] .bd-set { display: grid; grid-template-columns: repeat(2, auto); justify-items: center; gap: 4px; }
+#board[data-palette="left"] .bd-wells, #board[data-palette="right"] .bd-wells { grid-template-columns: repeat(2, var(--bd-well)); gap: 10px 14px; padding: 4px; }
+#board[data-palette="left"] .bd-tsize, #board[data-palette="right"] .bd-tsize { grid-column: span 2; order: -1; }
+@media (max-width: 560px) {
+  /* a phone: the row of what is set scrolls with the tools */
+  #board .bd-palette { overflow-x: auto; scrollbar-width: none; }
+  .bd-palette .bd-sizes .bd-width:nth-child(n+4) { display: none; }
+}
+
+/* the trays of plain buttons, lying: the colours in one row (the tray is no higher than a button), and never over the bars at the foot */
+#board:not([data-palette="left"]):not([data-palette="right"]) .bd-wells { grid-template-columns: repeat(7, var(--bd-well)); }
+#board:not([data-palette="left"]):not([data-palette="right"]) .bd-palette { max-width: calc(100% - 2 * var(--bd-inset)); }
+
+/* the shape tool's and the text tool's colour: one well in the tray, the one in use; pressed, the colours open beside it */
+.bd-hue { outline: 2px solid var(--fg); outline-offset: 3px; margin: 0 8px; }
+#board[data-palette="left"] .bd-hue, #board[data-palette="right"] .bd-hue { margin: 10px 0 6px; }
+.bd-hues { display: grid; grid-template-columns: repeat(4, var(--bd-well)); gap: 12px 14px; padding: 4px; justify-content: center; }
+.bd-pop[data-what="hues"] { min-width: 0; }
+
+/* ---- under the hand: what appears comes in, what is pressed gives */
+@keyframes bd-in { from { opacity: 0; transform: scale(0.94); } }
+@media (prefers-reduced-motion: no-preference) {
+  .bd-kinds .bd-btn, .bd-palette .bd-tile, .bd-palette .bd-width { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .bd-palette .bd-tile:active, .bd-palette .bd-width:active, .bd-step:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+}
+.bd-said { position: absolute; left: 50%; top: 38%; translate: -50% 0; padding: 8px 16px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); font-weight: 600; pointer-events: none; opacity: 0; scale: 0.94; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
+.bd-said[data-on] { opacity: 1; scale: 1; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
+#board { overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+#board [data-editing], #board input { -webkit-user-select: text; user-select: text; }
+
+/* ---- every tray is a small one of plain buttons (the pens too: signs, not things) */
+#board[data-kind] { --bd-palette-h: calc(var(--bd-bar-h) + 8px); }
+.bd-palette { padding: 0 8px; gap: 6px; overflow: visible; }
+.bd-tools { align-items: center; gap: 4px; overflow: visible; }
+.bd-size-now { flex: none; }
+/* upright, the pens' tray is one button wide: the pens, how broad, the colours — one under the other */
+#board[data-palette="left"] .bd-tools, #board[data-palette="right"] .bd-tools { align-items: center; gap: 4px; overflow: visible; }
+#board[data-palette="left"][data-kind="pen"] .bd-wells, #board[data-palette="right"][data-kind="pen"] .bd-wells { grid-template-columns: var(--bd-well); gap: 12px; padding: 6px 4px; }
+#board[data-palette="left"] .bd-palette, #board[data-palette="right"] .bd-palette { overflow: visible; }
+#board[data-palette="left"] .bd-set.bd-tools, #board[data-palette="right"] .bd-set.bd-tools { grid-template-columns: auto; }
+
+/* the pens' colours: three kept at hand; the one in use, pressed again, is changed for another */
+.bd-wells { grid-template-columns: repeat(3, var(--bd-well)); gap: 12px; padding: 0 6px; }
+#board:not([data-palette="left"]):not([data-palette="right"]) .bd-wells { grid-template-columns: repeat(3, var(--bd-well)); }
+
+/* ---- the tray comes and goes, and changes from one tool's to another's, in motion */
+.bd-palette { transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy), visibility 0s; transform-origin: center; }
+#board[data-kind="lasso"] .bd-palette, #board[data-mini] .bd-palette { opacity: 0; scale: 0.9; visibility: hidden; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast); }
+.bd-shrunk { opacity: 0; scale: 0.6; visibility: hidden; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast), transform var(--spring-snappy-dur) var(--spring-snappy); }
+#board[data-mini]:not([data-kind="lasso"]) .bd-shrunk { opacity: 1; scale: 1; visibility: visible; pointer-events: auto; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy), visibility 0s, transform var(--spring-snappy-dur) var(--spring-snappy); }
+/* upright, the pens', the eraser's and the text tool's trays are one button wide (the shapes stand two abreast: there are many) */
+#board[data-palette="left"] .bd-set:not(.bd-forms), #board[data-palette="right"] .bd-set:not(.bd-forms) { grid-template-columns: auto; }
+#board[data-palette="left"] .bd-tsize, #board[data-palette="right"] .bd-tsize { grid-column: auto; order: 0; }
+#board[data-palette="left"][data-tray="shape"] .bd-sizes, #board[data-palette="right"][data-tray="shape"] .bd-sizes { grid-template-columns: repeat(2, auto); }
+.bd-palette .bd-btn, .bd-palette .bd-well { flex: none; }

@@ -25,7 +25,9 @@
     const steps = (a, b, n = 8) => Array.from({ length: n + 1 }, (_v, i) => [a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n]);
     const type = async (text) => { document.execCommand("insertText", false, text); await sleep(80); };
     const table = () => st().things.find((t) => t.k === "table");
-    q('[data-do="table"]').click(); await sleep(200);
+    q('[data-do="plus"]').click(); await sleep(250);
+    ok("More to Add: a sticky note, a table, a link", st().menu === "plus" && q(".bd-vpop").querySelectorAll("[data-m]").length === 3, st().menu);
+    q('.bd-vpop [data-m="table"]').click(); await sleep(200);
     ok("Table: three by three in the middle of the view, the first cell ready to be typed in", st().mode === "select" && table() && table().rows.length === 3 && table().cols.length === 3 && st().editing === table().id && document.activeElement.closest(".bd-cell")?.dataset.cell === "0,0", [st().things, st().editing]);
     await type("Day");
     key("Tab"); await sleep(120);

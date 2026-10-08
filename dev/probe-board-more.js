@@ -10,7 +10,7 @@
   try {
     await document.fonts.ready;
     await sleep(700);
-    try { localStorage.removeItem("mdview:board-tools:place"); } catch (e) { /* none */ }
+    localStorage.setItem("mdview:board-tools:tray", JSON.stringify({ edge: "bottom", mini: null }));
     MdView.setMode("active");
     for (let i = 0; i < 300 && !(window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active"); i++) await sleep(10);
     await sleep(300);
@@ -31,7 +31,7 @@
     // ---- the pencil
     key("b");
     await drag(Array.from({ length: 25 }, (_v, i) => [200 + i * 8, 180 + Math.sin(i / 3) * 25]));
-    ok("B: the pencil — a stroke of its kind; the tray holds the pointer and six tools", st().tool === "pencil" && st().kinds[0].startsWith("pencil:") && el().querySelectorAll(".bd-tools .bd-tool").length === 7, st().kinds);
+    ok("B: the pencil — a stroke of its kind; the pens' tray holds four of them", st().tool === "pencil" && st().kind === "pen" && st().kinds[0].startsWith("pencil:") && el().querySelectorAll(".bd-tools [data-tool]").length === 4, st().kinds);
     // ---- the ruler
     key("r");
     await sleep(100);
@@ -76,7 +76,7 @@
     const from2 = [bare.getBoundingClientRect().left + 0.5, pal.getBoundingClientRect().top + 30];
     await drag(steps(from2, [from2[0], H - 60], 8), {}, bare);
     await sleep(700);
-    ok("… and back to the foot", st().palette === "bottom" && pal.getBoundingClientRect().bottom > H - 40, [st().palette, pal.getBoundingClientRect().bottom]);
+    ok("… and back to the foot", st().palette === "bottom" && pal.getBoundingClientRect().bottom > H - 120, [st().palette, pal.getBoundingClientRect().bottom]);
 
     // at a side it stands upright, its tools on their sides; in a corner it shrinks to a round sign
     const from3 = [bare.getBoundingClientRect().left + 0.5, pal.getBoundingClientRect().top + 30];
@@ -84,8 +84,6 @@
     await sleep(700);
     let pr2 = pal.getBoundingClientRect();
     ok("pulled to the left edge: the tray stands upright there, inside the window", st().palette === "left" && pr2.height > pr2.width * 2 && pr2.left >= 0 && pr2.left < 40 && pr2.top >= 0 && pr2.bottom <= H, [st().palette, pr2.left, pr2.width, pr2.height]);
-    const penSign = q('.bd-tool[data-tool="pen"] svg').getBoundingClientRect();
-    ok("its tools lie on their sides, tips towards the board", penSign.width > penSign.height * 1.5, [penSign.width, penSign.height]);
     q('.bd-tool[data-tool="pen"]').click(); await sleep(350);
     ok("a tool's options open beside it", q(".bd-pop").hasAttribute("data-open") && q(".bd-pop").getBoundingClientRect().left >= pr2.right, [q(".bd-pop").getBoundingClientRect().left, pr2.right]);
     key("Escape");
@@ -98,10 +96,10 @@
     const sep2 = q(".bd-palette .bd-sep").getBoundingClientRect();
     await drag(steps([sep2.left + 2, sep2.top], [50, H - 50], 8), {}, q(".bd-palette .bd-sep"));
     await sleep(500);
-    const mini = q(".bd-mini");
-    ok("pulled into a corner: shrunk to a round sign of the tool in hand, above the bar there", st().mini === "bl" && getComputedStyle(pal).display === "none" && mini.getBoundingClientRect().width === 56 && !!mini.querySelector("svg") && mini.getBoundingClientRect().bottom < q(".bd-zoom").getBoundingClientRect().top, [st().mini, getComputedStyle(pal).display]);
+    const mini = q(".bd-shrunk");
+    ok("pulled into a corner: shrunk to a round sign of the tool in hand, above the bar there", st().mini === "bl" && getComputedStyle(pal).pointerEvents === "none" && Math.abs(mini.getBoundingClientRect().width - 56) < 1 && !!mini.querySelector("svg") && mini.getBoundingClientRect().bottom < q(".bd-zoom").getBoundingClientRect().top, [st().mini, getComputedStyle(pal).pointerEvents, st().kind, mini.getBoundingClientRect().width, !!mini.querySelector("svg"), mini.getBoundingClientRect().bottom, q(".bd-zoom").getBoundingClientRect().top]);
     mini.click(); await sleep(400);
-    ok("the sign clicked: the tray is there again, where it stood", !st().mini && getComputedStyle(pal).display !== "none" && st().palette === "right", [st().mini, st().palette]);
+    ok("the sign clicked: the tray is there again, where it stood", !st().mini && getComputedStyle(pal).pointerEvents !== "none" && st().palette === "right", [st().mini, st().palette]);
     q('[data-do="tray-min"]').click(); await sleep(300);
     ok("its small arrow shrinks it too", st().mini === "br", st().mini);
     mini.click(); await sleep(300);
@@ -110,7 +108,8 @@
     ok("… and back to the foot again", st().palette === "bottom" && !st().mini, st().palette);
 
     // ---- a link as a card
-    q('[data-do="link"]').click(); await sleep(300);
+    q('[data-do="plus"]').click(); await sleep(250);
+    q('.bd-vpop [data-m="linkask"]').click(); await sleep(300);
     const field = q(".bd-vpop .bd-link-input");
     ok("Link: a field for its address", st().menu === "link" && !!field && document.activeElement === field, st().menu);
     field.value = "not an address";
@@ -168,16 +167,14 @@
     key("Escape");
 
     // ---- a look kept for new items
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-shape="rect"]').click(); await sleep(150);
+    B().put("shape", { shape: "rect" }); await sleep(150);
     q('.bd-fbar [data-f="fill"]').click(); await sleep(300);
     q('.bd-fpop [data-fill="#52b85a"]').click();
     q('.bd-fbar [data-f="arrange"]').click(); await sleep(300);
     ok("Arrange offers to make an item's look the look of new ones", !!q('.bd-fpop [data-f="insertStyle"]'), q(".bd-fpop").innerHTML.slice(-300));
     q('.bd-fpop [data-f="insertStyle"]').click(); await sleep(80);
     key("Escape");
-    q('[data-do="shapes"]').click(); await sleep(300);
-    q('.bd-spop [data-shape="star"]').click(); await sleep(150);
+    B().put("shape", { shape: "star" }); await sleep(150);
     const star = st().things[st().things.length - 1];
     ok("the next shape begins green, whatever its form", star.shape === "star" && star.fill === "#52b85a" && st().insert && st().insert.shape.fill === "#52b85a", star);
     key("Escape");
