@@ -28,6 +28,7 @@
 "use strict";
 (() => {
   const core = window.MdView.core;
+  const T = window.MdStrings.t;
   const { md, stripFrontmatter, stripComments, esc, post, DECO_COLORS, UI: ICON } = core;
   const BATCH = 40;
 
@@ -39,10 +40,10 @@
   // the head, as Craft's "All Docs" has it: the plus before the name, at the right the choices in a
   // raised field of their own, and "…" for the rest (the order, what is listed beside the notes)
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
-  el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
+  el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
     seg("scope", "Show", [["all", "All Notes"], ["folders", "Folders"]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
-    `<button class="ov-more" type="button" title="Sort and show" aria-label="Sort and show" aria-haspopup="menu">${DOTS}</button>` +
+    `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
   const body = el.querySelector(".ov-body");
@@ -75,8 +76,8 @@
 
   // [notes, other files] in a folder and below it
   const count = (node) => node.dirs.reduce((n, d) => { const c = count(d); return [n[0] + c[0], n[1] + c[1]]; }, [node.notes.filter((n) => !n.pdf).length, node.notes.filter((n) => n.pdf).length]);
-  const plural = (n, one) => (n === 1 ? "1 " + one : n + " " + one + "s");
-  const says = ([notes, files]) => [notes || !files ? plural(notes, "note") : "", files ? plural(files, "file") : ""].filter(Boolean).join(", ");
+  const plural = (n, one) => T(n === 1 ? "1 " + one : "{0} " + one + "s", n); // ("1 note", "{0} notes": the strings' own keys)
+  const says = ([notes, files]) => [notes || !files ? T(notes === 1 ? "1 note" : "{0} notes", notes) : "", files ? T(files === 1 ? "1 file" : "{0} files", files) : ""].filter(Boolean).join(", ");
   const KIND = { pdf: "PDF", image: "Picture", audio: "Sound", video: "Video" };
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   const urlOf = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");

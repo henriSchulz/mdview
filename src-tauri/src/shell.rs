@@ -226,6 +226,36 @@ fn can_write(path: &Path) -> bool {
 }
 
 /// Why the file can't be edited in place, or None if it can.
+/// A file written whole or not at all: beside it under another name first, then put in its place
+/// — a full disk or a crash in the middle leaves the file as it was, not cut off. A link is
+/// followed (the file it names is what is written), the file keeps its permissions; where no file
+/// can be made beside it, it is written in place as before.
+fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let real = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let Some(name) = real.file_name().map(|n| n.to_string_lossy().into_owned()) else { return fs::write(path, data) };
+    let beside = real.with_file_name(format!(".{name}.mdview-{}", std::process::id()));
+    let made = (|| -> std::io::Result<()> {
+        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&beside)?;
+        f.write_all(data)?;
+        f.sync_all()?;
+        if let Ok(meta) = fs::metadata(&real) {
+            let _ = fs::set_permissions(&beside, meta.permissions());
+        }
+        fs::rename(&beside, &real)
+    })();
+    match made {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = fs::remove_file(&beside);
+            // (the disk is full: nothing is tried in place — that would cut the file off)
+            if e.raw_os_error() == Some(28) && real.exists() {
+                return Err(e);
+            }
+            fs::write(path, data)
+        }
+    }
+}
+
 fn readonly_reason(path: &Path, raw: Option<&[u8]>) -> Option<&'static str> {
     let Some(raw) = raw else {
         return (!can_write(&dir_of(path))).then_some("folder is read-only");
@@ -459,18 +489,48 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
 }
 
 impl App {
+    /// The event, later. One thread keeps all that is waited for — not a thread each: a folder in
+    /// which thousands of files change at once asks for as many, and a thread that cannot be had
+    /// would take the one everything runs on with it.
     fn after(&self, ms: u64, event: Event) {
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(ms));
-            let _ = tx.send(event);
+        use std::sync::mpsc::RecvTimeoutError;
+        use std::time::Instant;
+        static TIMER: std::sync::OnceLock<std::sync::Mutex<Sender<(Instant, Event)>>> = std::sync::OnceLock::new();
+        let timer = TIMER.get_or_init(|| {
+            let (to, due) = std::sync::mpsc::channel::<(Instant, Event)>();
+            let tx = self.tx.clone();
+            let _ = std::thread::Builder::new().name("timer".into()).spawn(move || {
+                let mut waiting: Vec<(Instant, Event)> = vec![];
+                loop {
+                    let now = Instant::now();
+                    let (mut ripe, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut waiting).into_iter().partition(|w| w.0 <= now);
+                    waiting = rest;
+                    ripe.sort_by_key(|w| w.0); // (in the order they were asked for)
+                    for (_, event) in ripe {
+                        let _ = tx.send(event);
+                    }
+                    let got = match waiting.iter().map(|w| w.0).min() {
+                        Some(at) => due.recv_timeout(at.saturating_duration_since(Instant::now())),
+                        None => due.recv().map_err(|_| RecvTimeoutError::Disconnected),
+                    };
+                    match got {
+                        Ok(w) => waiting.push(w),
+                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Disconnected) => return,
+                    }
+                }
+            });
+            std::sync::Mutex::new(to)
         });
+        if let Ok(to) = timer.lock() {
+            let _ = to.send((Instant::now() + Duration::from_millis(ms), event));
+        }
     }
 
     fn save_state(&self) {
         let file = state_file();
         let _ = fs::create_dir_all(dir_of(&file));
-        let _ = fs::write(file, Value::Object(self.state.clone()).to_string());
+        let _ = write_whole(&file, Value::Object(self.state.clone()).to_string().as_bytes());
     }
 
     // -- history ----------------------------------------------------------
@@ -2650,7 +2710,7 @@ impl Win {
             return self.render(app, true, None, false);
         };
         lines[line as usize] = format!("{}{}{}", &m[1], if checked { "x" } else { " " }, &old[m.get(2).unwrap().end()..]);
-        if let Err(e) = fs::write(&path, lines.join("\n")) {
+        if let Err(e) = write_whole(&path, lines.join("\n").as_bytes()) {
             self.toast(format!("Couldn't save: {}", strerror(&e)));
             self.render(app, true, None, false);
         }
@@ -2664,7 +2724,7 @@ impl Win {
             return; // (never the text of a note into a PDF)
         }
         if exact {
-            match fs::write(&path, text.as_bytes()) {
+            match write_whole(&path, text.as_bytes()) {
                 Ok(()) => self.own_write = Some(text.as_bytes().to_vec()), // the watcher will report it: nothing to reload
                 Err(e) => self.js("MdView.saveFailed", &[json!(strerror(&e))]),
             }
@@ -2675,12 +2735,11 @@ impl Win {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => vec![],
             Err(e) => return self.js("MdView.saveFailed", &[json!(strerror(&e))]),
         };
-        // Written in place (no temp file + rename), so symlinked files and
-        // their permissions stay what they are. Line endings are kept.
+        // (Written whole — write_whole: a link is followed, the permissions stay.) Line endings are kept.
         let crlf = old.windows(2).any(|w| w == b"\r\n");
         let data = if crlf { text.replace('\n', "\r\n").into_bytes() } else { text.as_bytes().to_vec() };
         if data != old {
-            if let Err(e) = fs::write(&path, &data) {
+            if let Err(e) = write_whole(&path, &data) {
                 return self.js("MdView.saveFailed", &[json!(strerror(&e))]);
             }
         }
@@ -2969,7 +3028,7 @@ impl Win {
             self.closing = true;
             self.js("MdView.flush", &[json!(true)]);
             self.close_turn += 1;
-            return app.after(400, Event::CloseNow { label: self.label.clone(), turn: self.close_turn });
+            return app.after(1500, Event::CloseNow { label: self.label.clone(), turn: self.close_turn });
         }
         self.close_turn += 1;
         self.settle_quick(); // (a quick note left by closing: named, or gone if nothing is in it)

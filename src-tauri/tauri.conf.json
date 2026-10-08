@@ -17,7 +17,8 @@
       "../pdfview.js": "pdfview.js", "../pdfview.css": "pdfview.css",
       "../strings.js": "strings.js", "../active.css": "active.css", "../motion.css": "motion.css",
       "../active/": "active/", "../vendor/": "vendor/",
-      "../docs/FEATURES.md": "docs/FEATURES.md"
+      "../docs/FEATURES.md": "docs/FEATURES.md",
+      "../LICENSE": "LICENSE"
     }
   }
 }

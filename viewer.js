@@ -601,7 +601,7 @@
     }
     return `<div class="code-block${from ? " code-file" : ""}"${attr}>${from ? `<div class="code-from">${from.html}</div>` : ""}<div class="code-tools">` +
       (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") +
-      `<button class="btn code-copy" type="button" title="Copy code">Copy</button></div>` +
+      `<button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div>` +
       `<pre><code class="hljs${lang ? " language-" + esc(lang) : ""}">${code}</code></pre></div>`;
   }
   /* A file that is text — source code, a list of files, a log — can stand in a note as the code it
@@ -625,7 +625,7 @@
       { label, html: `<a class="wikilink file" href="#" data-wiki="${esc(target.split("#")[0])}">${esc(label)}</a>` + (alias && !how ? `<span class="code-from-title">${esc(alias)}</span>` : "") });
   }
   md.renderer.rules.code_block = (toks, idx) =>
-    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
+    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
   /* How a table looks is said by a line before it, a comment no renderer shows:
    *     <!-- table narrow head=#cfeefc -->
    * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
@@ -952,10 +952,10 @@
     for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
     const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
     pagebar.innerHTML = `<div class="pb-way">` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
-      `<input class="pb-title" type="text" aria-label="Page name" spellcheck="false" autocomplete="off">`;
+      `<input class="pb-title" type="text" aria-label="${esc(T("Page name"))}" spellcheck="false" autocomplete="off">`;
     const title = pagebar.querySelector(".pb-title");
     title.value = v.page.title;
-    title.placeholder = "Untitled";
+    title.placeholder = T("page.untitled");
     title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
   }
@@ -1034,7 +1034,7 @@
       return md.renderInline(String(v), env);
     };
     const rows = keys.map((k) => `<tr><th>${esc(k)}</th><td>${value(k, props[k])}</td></tr>`).join("");
-    return `<details class="props" open><summary><span class="callout-fold">${ICON.chevron}</span>Properties</summary><table>${rows}</table></details>`;
+    return `<details class="props" open><summary><span class="callout-fold">${ICON.chevron}</span>${esc(T("Properties"))}</summary><table>${rows}</table></details>`;
   }
 
   // ------------------------------------------------------------ rendering
@@ -1108,6 +1108,10 @@
       draw(p, null);
       return;
     }
+    // (another note than the one before: the count of saves is the application's again — a save that
+    // came too late for the note it was for is not counted there, and would keep every later state
+    // of this note from being shown)
+    if (p.seq != null && (!prev || prev.path !== p.path)) saveSeq = Math.min(saveSeq, p.seq);
     // read from disk before the last save from here was written: older than what is on screen
     if (prev && prev.path === p.path && p.seq != null && p.seq < saveSeq && !p.error) return;
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
@@ -1174,7 +1178,7 @@
     if (p.kind === "pdf" && !p.error) {
       outline = [];
       reveal();
-      loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast("The PDF viewer could not be loaded"));
+      loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast(T("The PDF viewer could not be loaded")));
       return;
     }
     if (p.error) {
@@ -1283,7 +1287,7 @@
     let el = null;
     if (ln) { for (const x of shownRoot().querySelectorAll("[data-line]")) { if (Number(x.dataset.line) <= Number(ln[1])) el = x; else break; } }
     else el = findTarget(frag);
-    if (!el) { if (smooth) toast("Section not found"); return; }
+    if (!el) { if (smooth) toast(T("Section not found")); return; }
     el.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "instant", block: "start" });
     el.classList.remove("flash");
     void el.offsetWidth;
@@ -1421,17 +1425,17 @@
   const toolbar = document.createElement("nav");
   toolbar.id = "toolbar";
   toolbar.innerHTML =
-    `<button class="tb" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
-    `<button class="tb" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.apps}</button>` +
-    `<button class="tb" data-act="outline" title="Outline (Ctrl+Shift+O)" aria-label="Outline">${ICON.list}</button>` +
-    `<button class="tb" data-act="find" title="Find (Ctrl+F)" aria-label="Find">${ICON.search}</button>` +
-    `<button class="tb" data-act="share" title="Share…" aria-label="Share">${ICON.share}</button>` +
+    `<button class="tb" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    `<button class="tb" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
+    `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
+    `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
+    `<button class="tb" data-act="share" title="${esc(T("Share…"))}" aria-label="${esc(T("Share"))}">${ICON.share}</button>` +
     `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
     [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
     `</div>` +
-    `<button class="tb" data-act="panel" title="Insert and Format (Ctrl+Alt+P)" aria-label="Insert and Format" aria-pressed="false">${ICON.panel}</button>`;
+    `<button class="tb" data-act="panel" title="${esc(T("Insert and Format (Ctrl+Alt+P)"))}" aria-label="${esc(T("Insert and Format"))}" aria-pressed="false">${ICON.panel}</button>`;
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
@@ -1448,11 +1452,11 @@
   findBar.style.setProperty("--origin", "top right");
   findBar.innerHTML =
     `<span class="find-icon">${ICON.search}</span>` +
-    `<input id="find-input" type="search" placeholder="Find" spellcheck="false" autocomplete="off">` +
+    `<input id="find-input" type="search" placeholder="${esc(T("Find"))}" spellcheck="false" autocomplete="off">` +
     `<span id="find-count" aria-live="polite"></span>` +
-    `<button class="tb" data-act="prev" title="Previous match (Shift+Enter)" aria-label="Previous match">${ICON.up}</button>` +
-    `<button class="tb" data-act="next" title="Next match (Enter)" aria-label="Next match">${ICON.down}</button>` +
-    `<button class="tb" data-act="closefind" title="Close (Esc)" aria-label="Close find">${ICON.x}</button>`;
+    `<button class="tb" data-act="prev" title="${esc(T("Previous match (Shift+Enter)"))}" aria-label="${esc(T("Previous match"))}">${ICON.up}</button>` +
+    `<button class="tb" data-act="next" title="${esc(T("Next match (Enter)"))}" aria-label="${esc(T("Next match"))}">${ICON.down}</button>` +
+    `<button class="tb" data-act="closefind" title="${esc(T("Close (Esc)"))}" aria-label="${esc(T("Close find"))}">${ICON.x}</button>`;
   document.body.appendChild(findBar);
   const findInput = findBar.querySelector("#find-input");
   const findCount = findBar.querySelector("#find-count");
@@ -1611,7 +1615,7 @@
       }
     }
     if (!hits.length) {
-      findCount.textContent = "No matches";
+      findCount.textContent = T("No matches");
       findBar.classList.add("no-hits");
       return;
     }
@@ -1625,7 +1629,7 @@
     hitIdx = (i + hits.length) % hits.length;
     const r = hits[hitIdx];
     if (canHighlight) CSS.highlights.set("find-current", new Highlight(r));
-    findCount.textContent = `${hitIdx + 1} of ${hits.length}`;
+    findCount.textContent = T("{0} of {1}", hitIdx + 1, hits.length);
     if (!scroll) return;
     const rect = r.getBoundingClientRect();
     if (rect.top < 80 || rect.bottom > innerHeight - 40) {
@@ -2023,16 +2027,17 @@
     edReplace(a, v.length - b, text.slice(a, text.length - b));
   }
   function saveFailed(msg) {
-    if (mode === "active") MdActive.view.failed();
-    savedText = null; // still dirty: the next edit or mode switch tries again
-    toast(`Couldn't save: ${msg}`);
+    // still dirty: the next edit or mode switch tries again — the mode's own text: after a save from
+    // the active mode failed, the source editor's (older) text is not what is written next
+    if (mode === "active") MdActive.view.failed(); else savedText = null;
+    toast(T("Couldn't save: {0}", msg));
   }
   // The file changed on disk while it is open in the editor.
   function adoptDisk(p) {
     if (p.text === edInput.value) { savedText = p.text; return; }
     if (dirty()) {
       sourceIs(p, edInput.value);
-      toast("File changed on disk — keeping your edits");
+      toast(T("File changed on disk — keeping your edits"));
       return;
     }
     const pos = edInput.selectionStart;
@@ -2048,7 +2053,7 @@
   function setMode(next, caret) {
     if (next === mode || !current) return;
     if (READING && next !== "read") return; // (a host that only shows a note: there is nothing but reading it)
-    if (current.kind === "pdf") { toast("A PDF is read here, not edited"); return; }
+    if (current.kind === "pdf") { toast(T("A PDF is read here, not edited")); return; }
     if (next === "active") {
       if (current.error) return;
       if (!window.MdActive?.view) { // first use: ProseMirror and active/*.js
@@ -2057,7 +2062,7 @@
         return;
       }
     }
-    if (next === "edit" && current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
+    if (next === "edit" && current.readonly) { toast(T("Can't edit: {0}", current.readonly)); return; }
     edCaret = mode === "active" && next === "edit" && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // current.text is what the active mode holds
     if (next === "active" && !current.toldLarge && current.text.length > 400000 && current.text.split("\n").length > LARGE_LINES) {
@@ -2244,7 +2249,7 @@
   codeBox.id = "codeview";
   codeBox.innerHTML = `<div class="codeview-box surface" role="dialog" aria-modal="true" aria-labelledby="codeview-title" tabindex="-1">` +
     `<header class="codeview-head"><b id="codeview-title"></b><span class="code-lang"></span><span class="codeview-space"></span>` +
-    `<button class="btn code-copy" type="button">Copy</button><button class="tb" type="button" data-codeview-close aria-label="Close" title="Close (Esc)">${ICON.x}</button></header>` +
+    `<button class="btn code-copy" type="button">${esc(T("Copy"))}</button><button class="tb" type="button" data-codeview-close aria-label="${esc(T("Close"))}" title="${esc(T("Close (Esc)"))}">${ICON.x}</button></header>` +
     `<div class="code-block"><pre><code></code></pre></div></div>`;
   document.body.appendChild(codeBox);
   let codeFrom = null;
@@ -2601,15 +2606,15 @@
   sidebar.id = "sidebar";
   sidebar.innerHTML =
     `<header class="sb-head">` +
-    `<button class="sb-folder" data-act="folder" title="Open another folder (Ctrl+Alt+O)">${ICON.folder}<span class="sb-folder-name"></span></button>` +
+    `<button class="sb-folder" data-act="folder" title="${esc(T("Open another folder (Ctrl+Alt+O)"))}">${ICON.folder}<span class="sb-folder-name"></span></button>` +
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
     `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
     // (only where the folder has another side to be brought in line with: a project linked to a repository, a repository in the browser)
-    `<button class="tb sb-sync" data-act="syncnow" title="Sync Now: fetch what other devices wrote, and send what was written here" aria-label="Sync Now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
-    `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
+    `<button class="tb sb-sync" data-act="syncnow" title="${esc(T("Sync Now: fetch what other devices wrote, and send what was written here"))}" aria-label="${esc(T("Sync Now"))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
+    `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `</header>` +
-    `<input class="sb-field qn-search" type="search" placeholder="Search" aria-label="Search the quick notes" spellcheck="false" autocomplete="off">` +
-    `<nav class="sb-list" aria-label="Notes"></nav>`;
+    `<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off">` +
+    `<nav class="sb-list" aria-label="${esc(T("Notes"))}"></nav>`;
   document.body.appendChild(sidebar);
   sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); quickPaint(); });
   sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; quickPaint(); e.target.blur(); } });
@@ -2713,7 +2718,7 @@
     const any = folder.tree.dirs.length || folder.tree.notes.length;
     sbList.querySelector(":scope > .menu-empty")?.remove();
     syncDir(sbList, folder.tree, 0, fresh);
-    if (!any) sbList.insertAdjacentHTML("afterbegin", '<div class="menu-empty">No notes yet</div>');
+    if (!any) sbList.insertAdjacentHTML("afterbegin", `<div class="menu-empty">${esc(T("No notes yet"))}</div>`);
     const moved = [];
     for (const [key, top] of stood) {
       const el = sbList.querySelector(`.sb-item[data-key="${CSS.escape(key)}"]:not(.leaving)`), dy = el ? top - el.getBoundingClientRect().top : 0;
@@ -2853,13 +2858,13 @@
   function quickOf(n) {
     const seen = quickSeen.get(n.path);
     if (seen) return seen;
-    return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? "New Note" : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
+    return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? T("New Note") : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
   }
   function quickWhen(secs) {
     if (!secs) return "";
     const d = new Date(secs * 1000), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), days = Math.round((day(now) - day(d)) / 86400000);
     if (days <= 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    if (days === 1) return "Yesterday";
+    if (days === 1) return T("Yesterday");
     if (days < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
     return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "2-digit" });
   }
@@ -2873,7 +2878,7 @@
       const q = quickOf(n);
       let meta = row.querySelector(".qn-meta");
       if (!meta) { meta = document.createElement("span"); meta.className = "qn-meta"; meta.innerHTML = "<span class='qn-when'></span><span class='qn-says'></span>"; row.appendChild(meta); }
-      const when = quickWhen(n.mtime), says = q.says || "No additional text";
+      const when = quickWhen(n.mtime), says = q.says || T("No additional text");
       if (meta.firstChild.textContent !== when) meta.firstChild.textContent = when;
       if (meta.lastChild.textContent !== says) meta.lastChild.textContent = says;
       const seen = quickSeen.get(n.path);
@@ -2889,7 +2894,7 @@
     const mtimes = new Map(folder.tree.notes.map((n) => [n.path, n.mtime]));
     for (const [path, p] of Object.entries(got || {})) {
       const lines = stripFrontmatter(String(p.text || "")).body.split("\n").map(quickPlain).filter(Boolean);
-      quickSeen.set(path, { mtime: mtimes.get(path), title: lines[0] || "New Note", says: lines.slice(1, 3).join(" ") });
+      quickSeen.set(path, { mtime: mtimes.get(path), title: lines[0] || T("New Note"), says: lines.slice(1, 3).join(" ") });
     }
     syncList(false); // (their names are what they say first now)
     markActiveNote(false);
@@ -3053,44 +3058,44 @@
   const entry = (cmd, icon, label, on, key = "", cls = "", more = "") =>
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
-    entry("open", "note", "Open", "ovnote ovdir") +
-    entry("opentab", "plus", "Open in New Tab", "file ovnote") +
-    entry("opentab", "plus", "Open in New Tabs", "ovmany") +
+    entry("open", "note", T("Open"), "ovnote ovdir") +
+    entry("opentab", "plus", T("Open in New Tab"), "file ovnote") +
+    entry("opentab", "plus", T("Open in New Tabs"), "ovmany") +
     `<div class="menu-rule" data-for="file ovnote ovdir ovmany"></div>` +
-    entry("tab:new", "plus", "New Tab", "tab", "Ctrl+T") +
-    entry("tab:reopen", "note", "Reopen Closed Tab", "tab", "Ctrl+Shift+T") +
+    entry("tab:new", "plus", T("New Tab"), "tab", "Ctrl+T") +
+    entry("tab:reopen", "note", T("Reopen Closed Tab"), "tab", "Ctrl+Shift+T") +
     `<div class="menu-rule" data-for="tab"></div>` +
-    entry("tab:close", "x", "Close Tab", "tab", "Ctrl+W") +
-    entry("tab:others", "x", "Close Other Tabs", "tab") +
+    entry("tab:close", "x", T("Close Tab"), "tab", "Ctrl+W") +
+    entry("tab:others", "x", T("Close Other Tabs"), "tab") +
     // the history's button: what can be done where the folder stands (data-state), or what is so (disabled)
-    entry("history:conflicts", "info", "Resolve Conflicts…", "history", "", "", ' data-sync="conflict"') +
+    entry("history:conflicts", "info", T("Resolve Conflicts…"), "history", "", "", ' data-sync="conflict"') +
     `<div class="menu-rule" data-for="history" data-sync="conflict"></div>` +
-    entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
+    entry("history:show", "history", T("Show History of This Note"), "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
     `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt paused"></div>` +
-    entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none paused"') +
-    entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
-    entry("history:is", "check", "History Is On", "history", "", "", ' data-state="project" disabled') +
+    entry("history:on", "history", T("Turn On History"), "history", "", "", ' data-state="none paused"') +
+    entry("history:on", "history", T("Use This Repository for History…"), "history", "", "", ' data-state="adopt"') +
+    entry("history:is", "check", T("History Is On"), "history", "", "", ' data-state="project" disabled') +
     entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
     entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
-    entry("history:off", "x", "Turn Off History", "history", "", "", ' data-state="project"') +
-    entry("newnote", "note", "New Note", "dir new blank ovnew", "Ctrl+N") +
-    entry("newfolder", "folderPlus", "New Folder", "dir new blank ovnew") +
+    entry("history:off", "x", T("Turn Off History"), "history", "", "", ' data-state="project"') +
+    entry("newnote", "note", T("New Note"), "dir new blank ovnew", "Ctrl+N") +
+    entry("newfolder", "folderPlus", T("New Folder"), "dir new blank ovnew") +
     `<div class="menu-rule" data-for="blank"></div>` +
-    entry("sort:opened", "check", "Sort by Last Opened", "blank") +
-    entry("sort:name", "check", "Sort by Name", "blank") +
-    entry("sort:modified", "check", "Sort by Date Modified", "blank") +
+    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
+    entry("sort:name", "check", T("Sort by Name"), "blank") +
+    entry("sort:modified", "check", T("Sort by Date Modified"), "blank") +
     `<div class="menu-rule" data-for="dir"></div>` +
-    entry("default", "external", "Open in Default App", "file ovnote") +
-    entry("openwith", "apps", "Open With…", "file ovnote") +
-    entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
-    entry("download", "down", "Download", "file ovnote") +
+    entry("default", "external", T("Open in Default App"), "file ovnote") +
+    entry("openwith", "apps", T("Open With…"), "file ovnote") +
+    entry("reveal", "reveal", T("Show in Finder"), "file dir ovnote ovdir") +
+    entry("download", "down", T("Download"), "file ovnote") +
     `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
-    entry("share", "share", "Share…", "file ovnote") +
-    entry("rename", "rename", "Rename", "file dir ovnote ovdir", "F2") +
-    entry("trash", "trash", "Move to Trash", "file dir ovnote ovdir ovmany", "Del", " danger") +
+    entry("share", "share", T("Share…"), "file ovnote") +
+    entry("rename", "rename", T("Rename"), "file dir ovnote ovdir", "F2") +
+    entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany", "Del", " danger") +
     // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
     `<div class="menu-rule" data-for="blank file dir ovnote ovdir"></div>` +
-    entry("sub:show", "list", "Show", "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
+    entry("sub:show", "list", T("Show"), "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
   for (const el of ctx.querySelectorAll(".has-sub")) el.insertAdjacentHTML("beforeend", `<span class="menu-key menu-go">${ICON.chevron}</span>`);
   // the menu beside it: what "Show" leads to — a tick for each kind that is listed
   const ctxSub = document.createElement("div");
@@ -3220,7 +3225,7 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" || kind === "ovnew" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
-      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast("Only notes can be shared"); }
+      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast(T("Only notes can be shared")); }
       else if (cmd === "history:conflicts") openConflicts();
       else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
@@ -3407,19 +3412,19 @@
     const href = link && !link.getAttribute("href").startsWith("#") ? link.href : null;
     const edit = (cmd) => () => post("editcmd", { cmd });
     const rows = [];
-    if (editable) rows.push(["Cut", "Ctrl+X", selected, edit("Cut")]);
-    rows.push(["Copy", "Ctrl+C", selected, edit("Copy")]);
-    if (editable) rows.push(["Paste", "Ctrl+V", true, edit("Paste")]);
-    if (pdf) rows.push(["Go to PDF", "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
+    if (editable) rows.push([T("Cut"), "Ctrl+X", selected, edit("Cut")]);
+    rows.push([T("Copy"), "Ctrl+C", selected, edit("Copy")]);
+    if (editable) rows.push([T("Paste"), "Ctrl+V", true, edit("Paste")]);
+    if (pdf) rows.push([T("Go to PDF"), "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
     const fig = img || field || t.closest(".pm") ? null : zoomFigureAt(t);
-    if (fig) rows.push(["Show Large", "", true, () => zoomFigure(fig)], null);
+    if (fig) rows.push([T("Show Large"), "", true, () => zoomFigure(fig)], null);
     if (href || (img && img.src)) rows.push(null);
-    if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
-    if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
+    if (href) rows.push([T("Copy Link"), "", true, () => post("copy", { text: href })]);
+    if (img && img.src) rows.push([T("Copy Image"), "", true, () => post("copyimage", { src: img.src })]);
     rows.push(null);
     // (in the active mode, beside the text or on it: the note's blocks as wholes, not its text — a field's text stays text)
     const blocks = !field && mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share"));
-    rows.push(["Select All", "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
+    rows.push([T("Select All"), "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
     // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
     if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {
       const shown = window.MdPrefs?.props !== false;
@@ -3691,10 +3696,10 @@
   // (the sidebar's button stands at the left, where the sidebar is: first in the strip — beside the
   // sidebar's edge while that is open, at the window's while it is closed)
   tabbar.innerHTML = `<div class="tab-row">` +
-    `<button class="tab-home tab-side" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
-    `<button class="tab-home" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.home}</button>` +
+    `<button class="tab-home tab-side" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    `<button class="tab-home" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.home}</button>` +
     `<div class="tab-list" role="tablist"></div>` +
-    `<button class="tab-new" data-act="newtab" title="New tab (Ctrl+T)" aria-label="New tab">${ICON.plus}</button></div>`;
+    `<button class="tab-new" data-act="newtab" title="${esc(T("New tab (Ctrl+T)"))}" aria-label="${esc(T("New tab"))}">${ICON.plus}</button></div>`;
   document.body.appendChild(tabbar);
   const tabRow = tabbar.firstChild, tabList = tabbar.querySelector(".tab-list");
   let tabs = [], tabActive = null, tabShown = null, tabClosed = false; // tabActive: the one marked (at once, on a click); tabShown: the one the application says is shown
@@ -3702,7 +3707,7 @@
   const topRoom = () => (tabsOn() ? tabbar.offsetHeight : 0); // what of the window's top the strip takes
   const tabEls = () => [...tabList.children].filter((el) => !el.classList.contains("leaving"));
   function tabLabel(t) {
-    if (!t.path) return "All Notes";
+    if (!t.path) return T("All Notes");
     let title = "";
     if (sbTitles && folder) { // as the sidebar names it
       const find = (dir) => dir.notes.find((n) => n.real === t.path) || dir.dirs.reduce((hit, d) => hit || find(d), null);
@@ -3759,7 +3764,7 @@
         el.className = "tab";
         el.setAttribute("role", "tab");
         el.dataset.id = t.id;
-        el.innerHTML = `<span class="tab-icon"></span><button class="tab-x" type="button" tabindex="-1" aria-label="Close tab" data-tip="Close tab (${keys("Ctrl+W")})">${ICON.x}</button><span class="tab-label"></span>`;
+        el.innerHTML = `<span class="tab-icon"></span><button class="tab-x" type="button" tabindex="-1" aria-label="${esc(T("Close tab"))}" data-tip="Close tab (${keys("Ctrl+W")})">${ICON.x}</button><span class="tab-label"></span>`;
         if (!first) { el.classList.add("enter"); fresh.push(el); }
       }
       const at = prev ? prev.nextSibling : tabList.firstChild;
@@ -3899,7 +3904,7 @@
   const actions = {
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
-    share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast("Only notes can be shared"); },
+    share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast(T("Only notes can be shared")); },
     edit: () => switchMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
@@ -3921,7 +3926,7 @@
       flush(false);
       post("sync-now");
       b.classList.remove("turning"); void b.offsetWidth; b.classList.add("turning"); // (it turns once: asked for)
-      toast("Syncing…");
+      toast(T("Syncing…"));
     },
     historymenu: () => { // the clock: the folder's history, switched on or said to be
       const r = sbHistoryBtn.getBoundingClientRect();
@@ -3996,9 +4001,9 @@
     const copy = e.target.closest(".code-copy");
     if (copy) {
       post("copy", { text: copy.closest(".code-block").querySelector("code").textContent });
-      copy.textContent = "Copied";
+      copy.textContent = T("Copied");
       copy.classList.add("done");
-      setTimeout(() => { copy.textContent = "Copy"; copy.classList.remove("done"); }, 1400);
+      setTimeout(() => { copy.textContent = T("Copy"); copy.classList.remove("done"); }, 1400);
       return;
     }
     // A PDF embedded in the note is a picture: a double click shows it large, like any picture. To
@@ -4086,7 +4091,7 @@
         f: openFind, e: actions.edit, o: () => post("open"), r: () => post("reload"),
         // (saved — and, in a folder with a history, kept as a version at once and sent to its
         // repository, without waiting for the quiet while)
-        s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } post("history-now"); },
+        s: () => { if (mode !== "read") { flushSave(); toast(T("Saved")); } post("history-now"); },
         n: () => { if (folder) openNewNote(); },
         ",": openSettings,
         p: printDoc, w: () => post("close"), q: () => post("close"), // (Ctrl+W in a window with tabs: the tab, see there)

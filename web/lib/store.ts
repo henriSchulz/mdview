@@ -27,6 +27,9 @@ export async function getShare(id: string): Promise<Share | null> {
 /** What is known of a share written down: made if it is new (its count of openings kept if not). */
 export async function putShare(id: string, s: Pick<Share, "owner" | "name" | "path" | "password" | "created">): Promise<void> {
   const data = { state: "shared", repo: repoKey(s.owner, s.name), owner: s.owner, name: s.name, path: s.path, password: s.password, created: s.created };
+  // (an id is one note's: a repository that names an id another one shares under does not take the link over)
+  const had = await getShare(id);
+  if (had && had.state === "shared" && had.repo && had.repo !== data.repo) return;
   if (fs.here()) return fs.set(COLLECTION, id, data);
   memory.set(id, { ...blank, ...(memory.get(id) || {}), ...data });
 }

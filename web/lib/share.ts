@@ -62,7 +62,8 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
   let entry: { path?: unknown; password?: unknown } | undefined;
   try { entry = (JSON.parse((await texts(token, owner, repo, [list]))[list] || "{}").shares || {})[id]; } catch { return null; }
   if (!entry || typeof entry.path !== "string" || !sha.has(entry.path) || !C.isMd(entry.path)) {
-    void dropShare(id).catch(() => {}); // (the repository names it no more: neither does the server)
+    // (the repository names it no more: neither does the server — if the link was this repository's at all)
+    void getShare(id).then((had) => (had && had.repo === repoKey(owner, repo) ? dropShare(id) : undefined)).catch(() => {});
     where.delete(id);
     return null;
   }
@@ -189,7 +190,8 @@ export function matches(password: string, p: Password): Promise<boolean> {
   return new Promise((done) => {
     let want: Buffer, salt: Buffer;
     try { want = Buffer.from(p.hash, "base64"); salt = Buffer.from(p.salt, "base64"); } catch { return done(false); }
-    if (want.length < 16 || p.iterations < 1 || p.iterations > 5_000_000) return done(false);
+    // (what a guess may cost is bounded: the numbers come from a repository's own file, and are anyone's to write)
+    if (want.length < 16 || want.length > 64 || salt.length > 64 || !Number.isInteger(p.iterations) || p.iterations < 1 || p.iterations > 1_000_000) return done(false);
     pbkdf2(password, salt, p.iterations, want.length, "sha256", (err, got) => done(!err && got.length === want.length && timingSafeEqual(got, want)));
   });
 }

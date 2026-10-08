@@ -16,6 +16,7 @@
 "use strict";
 (() => {
   const { esc, toast, copy, post } = window.MdView.core;
+  const T = window.MdStrings.t;
   const lib = window.pdfjsLib;
   const COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" };
   const DEFAULT_COLOR = "yellow";
@@ -156,7 +157,7 @@
     }
     leave();
     document.body.classList.add("pdf-open");
-    container.innerHTML = `<div class="pdfv"><div class="pdf-bar surface" role="toolbar" aria-label="PDF"></div><div class="pdf-main"><aside class="pdf-side" hidden></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
+    container.innerHTML = `<div class="pdfv"><div class="pdf-bar surface" role="toolbar" aria-label="${esc(T("PDF"))}"></div><div class="pdf-main"><aside class="pdf-side" hidden></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
     const root = container.firstChild;
     const v = (V = { p, root, bar: root.querySelector(".pdf-bar"), side: root.querySelector(".pdf-side"), box: root.querySelector(".pdf-pages"), pages: [], scale: 1, fit: "width", history: [], color: DEFAULT_COLOR, rectTool: false,
       backlinks: (p.backlinks || []).map((b) => ({ ...b, at: parseFrag(b.frag) })) });
@@ -419,7 +420,7 @@
     const f = at.rect ? FORMATS.embed : !at.selection ? FORMATS.link : FORMATS[format] || FORMATS.callout;
     const text = f.text.replace(/\{\{(\w+)\}\}/g, (_m, k) => ({ link: t.link, linkWithDisplay: t.linkWithDisplay, text: at.text || "", colorName: color, page: String(at.page), file: stem(V.p.path) })[k] ?? "");
     copy(text);
-    toast(at.rect ? "Embed of the region copied" : at.selection ? "Link to the selection copied" : "Link to page " + at.page + " copied");
+    toast(at.rect ? T("Embed of the region copied") : at.selection ? T("Link to the selection copied") : T("Link to page {0} copied", at.page));
     // shown at once, as it will be once the link stands in a note
     if (at.selection || at.rect) {
       const pg = V.pages[at.page - 1], layer = pg.div.querySelector(".pdf-marks");
@@ -457,18 +458,18 @@
   function toolbar() {
     const v = V, p = prefs();
     v.bar.innerHTML =
-      `<button class="pdf-b" data-do="side" data-tip="Outline, pages and notes (O)" aria-label="Outline, pages and notes">${I.side}</button>` +
-      `<button class="pdf-b" data-do="back" data-tip="Back to where you were (Alt+←)" aria-label="Back to where you were" disabled>${I.back}</button>` +
+      `<button class="pdf-b" data-do="side" data-tip="${esc(T("Outline, pages and notes (O)"))}" aria-label="${esc(T("Outline, pages and notes"))}">${I.side}</button>` +
+      `<button class="pdf-b" data-do="back" data-tip="${esc(T("Back to where you were (Alt+←)"))}" aria-label="${esc(T("Back to where you were"))}" disabled>${I.back}</button>` +
       `<span class="pdf-sep"></span>` +
-      `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="Page" data-tip="Go to page (G)"><span class="pdf-of">/ ${v.pages.length}</span>` +
+      `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="${esc(T("Page"))}" data-tip="${esc(T("Go to page (G)"))}"><span class="pdf-of">/ ${v.pages.length}</span>` +
       `<span class="pdf-sep"></span>` +
-      `<button class="pdf-b" data-do="out" data-tip="Zoom out (−)" aria-label="Zoom out">−</button><span class="pdf-zoom">100%</span><button class="pdf-b" data-do="in" data-tip="Zoom in (+)" aria-label="Zoom in">+</button>` +
-      `<button class="pdf-b" data-fit="width" data-tip="Fit width (W)" aria-label="Fit width" aria-pressed="true">${I.width}</button><button class="pdf-b" data-fit="page" data-tip="Fit page (H)" aria-label="Fit page" aria-pressed="false">${I.page}</button>` +
+      `<button class="pdf-b" data-do="out" data-tip="${esc(T("Zoom out (−)"))}" aria-label="${esc(T("Zoom out"))}">−</button><span class="pdf-zoom">100%</span><button class="pdf-b" data-do="in" data-tip="${esc(T("Zoom in (+)"))}" aria-label="${esc(T("Zoom in"))}">+</button>` +
+      `<button class="pdf-b" data-fit="width" data-tip="${esc(T("Fit width (W)"))}" aria-label="${esc(T("Fit width"))}" aria-pressed="true">${I.width}</button><button class="pdf-b" data-fit="page" data-tip="${esc(T("Fit page (H)"))}" aria-label="${esc(T("Fit page"))}" aria-pressed="false">${I.page}</button>` +
       `<span class="pdf-sep"></span>` +
       Object.entries(COLORS).map(([name, c]) => `<button class="pdf-color" data-color="${name}" style="--hl:${c}" data-tip="Copy a link to the selection: ${name}" aria-pressed="${name === v.color}"></button>`).join("") +
-      `<select class="pdf-format lp-field" aria-label="What is copied" data-tip="What is copied">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}"${k === p.pdfFormat ? " selected" : ""}>${esc(f.label)}</option>`).join("")}</select>` +
-      `<button class="pdf-b" data-do="auto" data-tip="Copy as soon as text is selected" aria-label="Copy as soon as text is selected" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
-      `<button class="pdf-b" data-do="rect" data-tip="Select a region to embed (R)" aria-label="Select a region to embed" aria-pressed="false">${I.rect}</button>`;
+      `<select class="pdf-format lp-field" aria-label="${esc(T("What is copied"))}" data-tip="${esc(T("What is copied"))}">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}"${k === p.pdfFormat ? " selected" : ""}>${esc(f.label)}</option>`).join("")}</select>` +
+      `<button class="pdf-b" data-do="auto" data-tip="${esc(T("Copy as soon as text is selected"))}" aria-label="${esc(T("Copy as soon as text is selected"))}" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
+      `<button class="pdf-b" data-do="rect" data-tip="${esc(T("Select a region to embed (R)"))}" aria-label="${esc(T("Select a region to embed"))}" aria-pressed="false">${I.rect}</button>`;
   }
   function act(what) {
     const v = V;
@@ -476,21 +477,21 @@
     else if (what === "back") back();
     else if (what === "in") zoomTo(v.scale * 1.15);
     else if (what === "out") zoomTo(v.scale / 1.15);
-    else if (what === "auto") { const on = !prefs().pdfAuto; setPref({ pdfAuto: on }); v.bar.querySelector('[data-do="auto"]').setAttribute("aria-pressed", String(on)); toast(on ? "Selecting text copies a link to it" : "Copy on select is off"); }
+    else if (what === "auto") { const on = !prefs().pdfAuto; setPref({ pdfAuto: on }); v.bar.querySelector('[data-do="auto"]').setAttribute("aria-pressed", String(on)); toast(on ? T("Selecting text copies a link to it") : T("Copy on select is off")); }
     else if (what === "rect") { v.rectTool = !v.rectTool; v.root.classList.toggle("rect-tool", v.rectTool); v.bar.querySelector('[data-do="rect"]').setAttribute("aria-pressed", String(v.rectTool)); }
   }
   function sidePanel(tab) {
     const v = V;
     v.tab = tab;
     v.side.hidden = false;
-    v.side.innerHTML = `<div class="pdf-tabs">${[["outline", "Outline"], ["pages", "Pages"], ["notes", "Notes"]].map(([k, l]) => `<button data-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join("")}</div><div class="pdf-side-body"></div>`;
+    v.side.innerHTML = `<div class="pdf-tabs">${[["outline", T("Outline")], ["pages", T("Pages")], ["notes", T("Notes")]].map(([k, l]) => `<button data-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join("")}</div><div class="pdf-side-body"></div>`;
     const body = v.side.lastChild;
     if (tab === "outline") {
       const list = (items, depth) => items.map((it, i) => `<div class="pdf-out" style="--depth:${depth}" draggable="true" data-path="${esc(depth + ":" + i)}">${esc(it.title || "")}</div>` + (it.items && it.items.length ? list(it.items, depth + 1) : "")).join("");
       v.flat = [];
       const walk = (items) => items.forEach((it) => { v.flat.push(it); if (it.items) walk(it.items); });
       walk(v.outline || []);
-      body.innerHTML = v.flat.length ? list(v.outline, 0) : '<div class="menu-empty">This PDF has no outline</div>';
+      body.innerHTML = v.flat.length ? list(v.outline, 0) : '<div class="menu-empty">${esc(T("This PDF has no outline"))}</div>';
       body.querySelectorAll(".pdf-out").forEach((d, i) => { d.dataset.i = i; });
     } else if (tab === "pages") {
       body.innerHTML = v.pages.map((pg) => `<div class="pdf-thumb${pg.n === pageNow(true) ? " on" : ""}" data-page="${pg.n}" draggable="true"><div class="pdf-thumb-img" style="aspect-ratio:${pg.w}/${pg.h}"></div><span>${pg.n}</span></div>`).join("");
@@ -516,7 +517,7 @@
     const body = v.side.querySelector(".pdf-side-body"), now = pageNow(true);
     const rows = v.backlinks.map((b, i) => ({ b, i })).sort((x, y) => (x.b.at.page === now ? 0 : 1) - (y.b.at.page === now ? 0 : 1) || x.b.at.page - y.b.at.page);
     body.innerHTML = rows.length ? rows.map(({ b, i }) => `<div class="pdf-note${b.at.page === now ? " here" : ""}" data-bl="${i}"><span class="pdf-note-dot" style="--hl:${colorOf(b.at.color)}"></span><b>${esc(b.name.replace(/\.md$/i, ""))}</b><i>p. ${b.at.page}</i><span>${esc(b.text)}</span></div>`).join("")
-      : '<div class="menu-empty">No note links to this PDF yet</div>';
+      : '<div class="menu-empty">${esc(T("No note links to this PDF yet"))}</div>';
   }
   const outlineLink = async (it) => { const pl = it.dest ? await placeOf(it.dest) : null; return pl ? `[[${basename(V.p.path)}#page=${pl.n}|${(it.title || "").trim() || stem(V.p.path) + ", page " + pl.n}]]` : null; };
   const pageLink = (n) => `[[${basename(V.p.path)}#page=${n}|${stem(V.p.path)}, page ${n}]]`;
@@ -549,7 +550,7 @@
       e.preventDefault();
       if (note) { const b = v.backlinks[note.dataset.bl]; post("pdfnote", { path: b.path, line: b.line }); return; }
       const text = out ? await outlineLink(v.flat[out.dataset.i]) : pageLink(+th.dataset.page);
-      if (text) { copy(text); toast(out ? "Link to the section copied" : "Link to the page copied"); }
+      if (text) { copy(text); toast(out ? T("Link to the section copied") : T("Link to the page copied")); }
     });
     v.side.addEventListener("dragstart", (e) => {
       const out = e.target.closest(".pdf-out"), th = e.target.closest(".pdf-thumb");
@@ -581,7 +582,7 @@
       if (!a || !a.pdfDest) return;
       e.preventDefault();
       const pl = await placeOf(a.pdfDest);
-      if (pl) { copy(pageLink(pl.n)); toast("Link to page " + pl.n + " copied"); }
+      if (pl) { copy(pageLink(pl.n)); toast(T("Link to page {0} copied", pl.n)); }
     });
     v.box.addEventListener("mousedown", (e) => {
       v.pointerDown = true;
