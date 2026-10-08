@@ -549,6 +549,13 @@ counts — and has no writing help by a model.
   hold, and leaves an editor to try; nothing typed there is kept.
 - **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
   is chosen beforehand.
+- **On a phone or a tablet**: the same app, laid out for the screen. On a narrow screen the
+  sidebar is a drawer over the note (the button at the strip's left; a note chosen shuts it, as
+  does a tap beside it), the toolbar stands at the foot, and the settings and the history fill
+  the screen with their list above. What is pressed is a finger's size, and a finger held on a
+  row, a tab or the note has the menu a right click has (a tab is closed from there). Added to the
+  home screen it opens as an app of its own. It needs the network: nothing is kept for reading
+  without it.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes, as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
