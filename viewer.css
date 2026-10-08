@@ -487,6 +487,8 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .page-row[data-style="card"] .page-row-icon { width: 26px; height: 26px; border-radius: 7px; background: var(--pc); color: #fff; }
 .page-row[data-style="card"] .page-row-icon svg { width: 15px; height: 15px; stroke-width: 1.9; }
 .page-row[data-style="card"] .page-row-icon .sf { font-size: 13px; }
+/* a link to another note as a block of its own (viewer.js: link_rows) looks as a page's line does; a note that is not there yet: fainter */
+.page-row.link-row.unresolved .page-row-name { color: var(--fg2); text-decoration-style: dashed; }
 /* A page that is open: the way to it, and its name (typed there in the active mode). */
 #pagebar { display: grid; gap: 6px; margin: 0 0 1.4em; }
 .pb-way { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: -6px; color: var(--fg2); font: 400 13px/1.45 var(--ui); }
@@ -873,7 +875,7 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
   top: var(--sb-inset);
   bottom: var(--sb-inset);
   left: var(--sb-inset);
-  z-index: 15;
+  z-index: 16;                       /* over the strip of tabs: its ground must not cover the card's edge and shade */
   display: flex;
   flex-direction: column;
   width: calc(var(--sb-w) - var(--sb-inset));

@@ -60,9 +60,15 @@
   // put: a node made new, set below the caret's block or at the place it is dropped, the caret in it
   const put = (make) => (v, at) => A.context.putBlock(v, make(), true, at);
   const mermaid = (v, at) => { const pos = A.context.putBlock(v, A.context.island("```mermaid\ngraph TD\n  A --> B\n```", "code"), false, at); setTimeout(() => A.islands.open(v, pos, true), 0); };
+  // a line of its own at a place between blocks, the caret in it (in a column with nothing in it: its empty line is that line)
+  const lineAt = (v, at) => {
+    const $a = v.state.doc.resolve(at), tr = v.state.tr;
+    if ($a.parent.type === N.column && A.columns.blank($a.parent)) at = $a.start(); else tr.insert(at, para());
+    v.dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)));
+  };
   // a picture stands in a line of text: dropped between blocks, it gets a line of its own
   const picture = (v, at) => {
-    if (at != null) { const tr = v.state.tr.insert(at, para()); v.dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1))); }
+    if (at != null) lineAt(v, at);
     A.context.INSERT.image(v);
   };
   const CALLOUTS = ["note", "info", "tip", "success", "question", "warning", "error", "bug", "example", "important"];
@@ -87,7 +93,7 @@
     ...CALLOUTS.map((c) => ["slash.callout", ["callout." + c], "callout box hinweis " + c, PIC.callout(CALLOUT.kind(c)), put(quote({ callout: c }))]),
     ...[2, 3].map((n) => ["slash.columns", ["columns.n", n], "column columns spalten " + n, PIC.cols(n), put(() => N.columns.create(null, Array.from({ length: n }, () => A.columns.empty())))]),
     ["panel.media", ["menu.image"], "image picture photo bild foto", PIC.picture, picture],
-    ["panel.media", ["menu.file"], "file attachment datei anhang", PIC.file, (v, at) => { if (at != null) { const tr = v.state.tr.insert(at, para()); v.dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1))); } A.context.INSERT.file(v); }],
+    ["panel.media", ["menu.file"], "file attachment datei anhang", PIC.file, (v, at) => { if (at != null) lineAt(v, at); A.context.INSERT.file(v); }],
     // a rule, in its four looks: tiles that show the line itself (viewer.js: ruleLook)
     ["panel.lines", ["panel.line.dots"], "divider rule line dots separator trennlinie punkte", linePic('<circle cx="34" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="44" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="54" cy="12" r="1.6" fill="currentColor" opacity="0.5"/>'), (v, at) => A.context.INSERT.rule(v, at, "***")],
     ["panel.lines", ["panel.line.dotted"], "divider rule line dotted separator trennlinie gepunktet", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.1 4.4"/>'), (v, at) => A.context.INSERT.rule(v, at, "- - -")],
@@ -170,19 +176,35 @@
   const line = document.createElement("div");
   line.className = "blk-line";
   document.body.appendChild(line);
-  function gapAt(v, y) {
-    let best = null, d = Infinity;
-    for (const c of v.dom.children) {
-      const desc = c.pmViewDesc;
-      if (!desc || !desc.node || desc.dom !== c || c.classList.contains("hid")) continue;
-      const r = c.getBoundingClientRect(), dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-      if (r.height && dist < d) { d = dist; best = { r, pos: desc.posBefore, size: desc.node.nodeSize }; }
-    }
+  /* (Over a row of columns: the column at the pointer, and in it the block nearest to the pointer's
+   * height — the line is as wide as the column, and the column is marked, as when a block is moved
+   * there (blocks.js). Above and below the row, and for columns themselves: the row.) */
+  function gapAt(v, x, y, flat) {
+    const nearest = (els, dist) => {
+      let best = null, d = Infinity;
+      for (const c of els) {
+        const desc = c.pmViewDesc;
+        if (!desc || !desc.node || desc.dom !== c || c.classList.contains("hid")) continue;
+        const r = c.getBoundingClientRect(), n = dist(r);
+        if (r.height && n < d) { d = n; best = { el: c, r, pos: desc.posBefore, size: desc.node.nodeSize }; }
+      }
+      return best;
+    };
+    const byY = (r) => (y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0);
+    let best = nearest(v.dom.children, byY), col = null;
     if (!best) return null;
-    const after = y > best.r.top + best.r.height / 2;
-    return { at: best.pos + (after ? best.size : 0), x: best.r.left, w: best.r.width, y: after ? best.r.bottom + 4 : best.r.top - 4 };
+    if (!flat && best.el.classList.contains("cols") && y >= best.r.top && y <= best.r.bottom) {
+      col = nearest(best.el.children, (r) => (x < r.left ? r.left - x : x > r.right ? x - r.right : 0));
+      best = (col && nearest(col.el.children, byY)) || best;
+      if (best.el.parentElement !== (col && col.el)) col = null;
+    }
+    const after = y > best.r.top + best.r.height / 2, box = col ? col.r : best.r;
+    return { at: best.pos + (after ? best.size : 0), x: box.left, w: box.width, y: after ? best.r.bottom + 4 : best.r.top - 4, col: col ? col.el : null };
   }
+  let colEl = null; // the column it would go into
   const showLine = (g) => {
+    if (colEl && (!g || g.col !== colEl)) { colEl.classList.remove("drop-col"); colEl = null; }
+    if (g && g.col && g.col !== colEl) { colEl = g.col; colEl.classList.add("drop-col"); }
     if (!g) { delete line.dataset.on; return; }
     line.style.left = g.x + scrollX + "px";
     line.style.width = g.w + "px";
@@ -192,7 +214,7 @@
   itemsEl.addEventListener("dragstart", (e) => {
     const tile = e.target.closest?.(".rp-tile"), v = view();
     if (!tile || !v || !v.editable) { e.preventDefault(); return; }
-    drag = { i: +tile.dataset.i, at: null };
+    drag = { i: +tile.dataset.i, at: null, flat: ITEMS[+tile.dataset.i][0] === "slash.columns" }; // (columns are not put into a column)
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", tile.textContent);
     // (the row itself goes along, held where it was taken)
@@ -205,7 +227,7 @@
     if (!drag || !v) return;
     e.stopPropagation();
     const over = !el.contains(e.target) && A.view.el && A.view.el.contains(e.target);
-    const g = over ? gapAt(v, e.clientY) : null;
+    const g = over ? gapAt(v, e.clientX, e.clientY, drag.flat) : null;
     drag.at = g ? g.at : null;
     showLine(g);
     if (g) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }

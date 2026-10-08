@@ -419,6 +419,33 @@
   md.renderer.rules.callout_body_open = () => '<div class="callout-content">';
   md.renderer.rules.callout_body_close = () => "</div>";
 
+  /* A link to a note that stands alone in its paragraph, with a comment behind it that says how it
+   * looks — [[Name]] <!-- link row -->, <!-- link card -->, one of the theme's colours after that —
+   * is a block of its own: drawn as the line of a page is, opened by a click. Any other program
+   * shows the link. (Not in a list: there a link is a line of text.) */
+  const LINK_ROW = /^ {0,3}\[\[([^\[\]\n]+)\]\][ \t]*<!--\s*link(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*-->\s*$/;
+  const linkMark = (inner, look) => `[[${inner}]] <!-- link ${[look.style, look.color].filter(Boolean).join(" ")} -->`;
+  md.core.ruler.after("inline", "link_rows", (state) => {
+    const toks = state.tokens;
+    let lists = 0;
+    for (let i = 0; i + 2 < toks.length; i++) {
+      const t = toks[i];
+      if (/^(bullet_list|ordered_list|dl)_(open|close)$/.test(t.type)) lists += t.nesting;
+      if (lists || t.type !== "paragraph_open" || t.hidden || toks[i + 1].type !== "inline") continue;
+      const kids = (toks[i + 1].children || []).filter((k) => !(k.type === "text" && !k.content.trim()));
+      if (kids.length !== 2 || kids[0].type !== "wikilink" || kids[1].type !== "html_inline") continue;
+      const m = /^<!--\s*link(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*-->$/.exec(kids[1].content);
+      if (!m) continue;
+      const row = new state.Token("link_row", "", 0);
+      row.block = true; row.map = t.map; row.level = t.level; row.meta = { ...kids[0].meta, look: m[1] || "" };
+      toks.splice(i, 3, row);
+    }
+  });
+  md.renderer.rules.link_row = (t, i, _o, env) => {
+    const { target, alias, look: words } = t[i].meta, look = pageLook(words), ok = target.startsWith("#") || (env.links && env.links[target]);
+    return `<div class="page-row link-row${ok ? "" : " unresolved"}" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-wiki="${esc(target)}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${esc(alias || wikiLabel(target))}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
+  };
+
   // --- task lists (clickable, written back to the file)
   /* A file block: a paragraph that is nothing but a link to a file beside the note — not a note,
    * not an address elsewhere. It is drawn as a card that names the file; a click opens it, or
@@ -3859,10 +3886,16 @@
     if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); }
   }, true);
 
+  // a link to a note followed: in a tab of its own (the note it stands in stays open); a heading of this note: there
+  const followWiki = (target) => { if (String(target).startsWith("#")) scrollToFragment(String(target).slice(1), true); else post("wikilink", { target, tab: "own" }); };
   // --- content clicks: links, tasks, copy
   document.addEventListener("click", (e) => {
     if (e.defaultPrevented) return;
     const row = e.target.closest(".page-row");
+    if (row && row.dataset.wiki != null) { // a link to a note, a block of its own (in text that is being edited: its block's own click, islands.js)
+      if (!row.closest('.pm[contenteditable="true"]')) followWiki(row.dataset.wiki);
+      return;
+    }
     if (row && !row.closest(".pm") && !row.closest(".transclusion")) { pageOpen(row.dataset.page); return; } // (in the active mode: its block's own click, islands.js)
     const box = e.target.closest("input.task");
     if (box && box.dataset.prop != null) { // a property, true or false: written into the note at once
@@ -4103,6 +4136,8 @@
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
+      // a link to a note as a block of its own: [[inner]] and how it looks
+      link: { isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },
       lookOf: (raw) => pageLook((PAGE_ROW.exec(String(raw || "").trim()) || [])[1]),
       rename: (raw, name) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark(pageLook(m[1]), pageName(name) || m[2], m[3]) : raw; }, titleOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[2] || "",
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },

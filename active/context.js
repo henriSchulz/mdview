@@ -107,7 +107,11 @@
     const state = view.state, { $from } = state.selection;
     const tr = state.tr;
     let pos;
-    if (at != null) {
+    const $at = at != null ? state.doc.resolve(at) : null;
+    if ($at && $at.parent.type === N.column && A.columns.blank($at.parent)) { // dropped into a column with nothing in it: its empty line makes way
+      pos = $at.start();
+      tr.replaceWith(pos, $at.end(), node);
+    } else if (at != null) {
       pos = at;
       tr.insert(pos, node);
     } else if ($from.parent.type === N.paragraph && !$from.parent.content.size && $from.node(-1).canReplaceWith($from.index(-1), $from.indexAfter(-1), node.type)) {
@@ -228,6 +232,30 @@
     items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));
     return items;
   }
+  /* A link in the text made a block of its own (style: a row, a card): it goes out of the text and
+   * stands under the block it stood in — a paragraph that held nothing else is the block itself. In
+   * a list or a table: under the whole of it (a link there is a line of text). */
+  function linkBlock(view, pos, node, style) {
+    const state = view.state, $p = state.doc.resolve(pos), par = $p.parent;
+    let d = $p.depth;
+    while (d > 1 && !["column", "blockquote"].includes($p.node(d - 1).type.name)) d--;
+    const row = island(window.MdView.core.pages.link.mark(node.attrs.raw.slice(2, -2), { style, color: "" }), "linkrow");
+    const start = $p.before(d), end = $p.after(d), tr = state.tr;
+    let at = start;
+    if (d === $p.depth && par.type === N.paragraph && par.childCount === 1) tr.replaceWith(start, end, row);
+    else {
+      tr.insert(end, row);
+      // (the space that stood before it does not stay behind, doubled or at the line's end)
+      const off = $p.parentOffset, ch = (a) => (a < 0 || a >= par.content.size ? "" : par.textBetween(a, a + 1, null, "\ufffc"));
+      let from = pos, to = pos + node.nodeSize;
+      if (ch(off - 1) === " " && (ch(off + 1) === " " || off + 1 >= par.content.size)) from--;
+      else if (off === 0 && ch(off + 1) === " ") to++;
+      tr.delete(from, to);
+      at = end - (to - from);
+    }
+    view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, at)).scrollIntoView().setMeta("step", true));
+    view.focus();
+  }
   function nodeItems(view, pos, node) {
     const raw = node.type === N.image ? A.clip.markdownOf(view.state, new PM.model.Slice(PM.model.Fragment.from(node), 0, 0)) : node.attrs.raw;
     const editable = !(node.type === N.island && node.attrs.virtual);
@@ -259,6 +287,34 @@
         item("menu.delete", () => { view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { danger: true, key: "⌫" }),
       ];
     }
+    // a link to a note: in the text, or a block of its own that looks as a page's line does — a row, a card
+    const L = P.link, linkStyle = (now, set) => ({ label: T("menu.pageStyle"), items: ["inline", ...P.STYLES].map((s) => item(s === "inline" ? "link.style.inline" : "page.style." + s, () => set(s), { checked: now === s })) });
+    if (node.type === N.island && L.isRow(raw)) {
+      const inner = L.innerOf(raw), look = L.lookOf(raw), put = (md) => { A.islands.replace(view, pos, md); view.focus(); };
+      return [
+        item("menu.noteOpen", () => A.islands.open(view, pos), { key: "↩" }),
+        // the note it names and what it says, changed from where it stands
+        item("menu.edit", () => {
+          const dom = view.nodeDOM(pos), r = dom && dom.getBoundingClientRect ? dom.getBoundingClientRect() : { left: 100, right: 100, top: 100, bottom: 120 };
+          const [target, ...alias] = inner.split("|");
+          A.dialog.fields({
+            rect: r, label: T("dialog.wikilink"),
+            fields: [{ key: "target", label: T("dialog.note"), value: target }, { key: "alias", label: T("link.text"), value: alias.join("|") }],
+            apply(v) { const t = v.target.trim(), next = t ? L.mark(t + (v.alias.trim() ? "|" + v.alias.trim() : ""), look) : ""; if (next !== raw) A.islands.replace(view, pos, next); view.focus(); },
+            cancel() { view.focus(); },
+          });
+        }),
+        null,
+        linkStyle(look.style, (s) => put(s === "inline" ? `[[${inner}]]` : L.mark(inner, { ...look, style: s }))),
+        { label: T("slash.color"), items: [item("slash.colorDefault", () => put(L.mark(inner, { ...look, color: "" })), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, () => put(L.mark(inner, { ...look, color: c })), { checked: look.color === c }))] },
+        null,
+        item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
+        item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
+        null,
+        item("menu.delete", () => { view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { danger: true, key: "⌫" }),
+      ];
+    }
+    const wiki = node.type === N.iatom && node.attrs.kind === "wikilink";
     // a diagram or a drawing (a fence of Mermaid or SVG): large, as a picture is by a double click
     const sizes = (now, set) => ({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => set(v), { checked: now === v })) });
     const fc = editable ? A.islands.fileCode(view, pos, node) : null; // a file shown as code: put away like a code block, its card as large
@@ -266,6 +322,7 @@
     return [
       item(node.type === N.island && node.attrs.kind === "frontmatter" ? "menu.propsEdit" : "menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
       ...(figure ? [item("menu.showLarge", () => window.MdView.core.zoomFigure(figure))] : []),
+      ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),

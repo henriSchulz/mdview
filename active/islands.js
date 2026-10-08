@@ -752,6 +752,8 @@
     if (node.type !== N.island || node.attrs.virtual) return false;
     // a page of the note, its line: opened (viewer.js) — its name is typed on the page itself
     if (node.attrs.kind === "html" && window.MdView.core.pages.isRow(node.attrs.raw)) { window.MdView.core.pages.open(window.MdView.core.pages.idOf(node.attrs.raw)); return true; }
+    // a link to a note, a block of its own: followed (the note it names is changed from its menu)
+    if (window.MdView.core.pages.link.isRow(node.attrs.raw)) { window.MdView.core.pages.link.follow(window.MdView.core.pages.link.innerOf(node.attrs.raw).split("|")[0].trim()); return true; }
     target = { pos, node };
     // the block is selected while its dialog is up: closing it hands the focus back to the block
     if (!(view.state.selection instanceof NodeSelection && view.state.selection.from === pos)) view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));

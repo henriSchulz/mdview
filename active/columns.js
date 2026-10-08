@@ -12,7 +12,8 @@
  *                   right click in a column
  *   widths          the gap between two columns can be pulled: both change,
  *                   the others stay; a double click makes all alike
- *   Backspace       in a column with nothing in it takes the column away
+ *   Backspace       (or Delete) in a column with nothing in it takes the column away; so
+ *                   does the cross that stands in it under the pointer
  *
  * A row has at least two columns: with one left, its blocks stand in the
  * document again. Columns are not put into columns, lists or quotes. */
@@ -279,13 +280,47 @@
   });
   grip.addEventListener("mouseleave", () => { if (!pull) leaving = setTimeout(hide, 120); });
 
+  // ------------------------------------------------------------ a column with nothing in it: a cross takes it away
+  const cross = document.createElement("button");
+  cross.type = "button";
+  cross.className = "col-x";
+  cross.innerHTML = window.MdView.core.UI.x;
+  cross.title = window.MdStrings.t("columns.remove");
+  cross.setAttribute("aria-label", cross.title);
+  document.body.appendChild(cross);
+  let bare = null, crossGone = 0; // the empty column the cross stands in
+  const blankAt = (e) => { const c = e.target.closest?.(".col"), d = c && c.pmViewDesc; return view && d && d.node && d.node.type === N.column && blank(d.node) && view.dom.contains(c) ? c : null; };
+  const uncross = () => { clearTimeout(crossGone); bare = null; delete cross.dataset.on; };
+  document.addEventListener("mousemove", (e) => {
+    if (!view || !view.editable || pull || e.buttons || document.body.dataset.view !== "active") { if (bare) uncross(); return; }
+    if (cross.contains(e.target)) { clearTimeout(crossGone); return; }
+    const c = blankAt(e);
+    if (!c) { if (bare) { clearTimeout(crossGone); crossGone = setTimeout(uncross, 120); } return; }
+    clearTimeout(crossGone);
+    bare = c;
+    const r = c.getBoundingClientRect();
+    cross.style.left = r.right - 26 + scrollX + "px";
+    cross.style.top = r.top + (r.height - 20) / 2 + scrollY + "px";
+    cross.dataset.on = "";
+  });
+  window.addEventListener("scroll", uncross, { passive: true });
+  cross.addEventListener("mousedown", (e) => e.preventDefault()); // (the caret stays where it is until the click)
+  cross.addEventListener("click", () => {
+    const d = bare && bare.isConnected && bare.pmViewDesc, pos = d ? d.posBefore : -1, col = pos >= 0 && view ? view.state.doc.nodeAt(pos) : null;
+    uncross();
+    if (!col || col.type !== N.column || !blank(col) || !view.editable) return;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 2)));
+    remove(view.state, (tr) => view.dispatch(tr.setMeta("step", true)));
+    view.focus();
+  });
+
   const plugin = new Plugin({
     key,
     state: {
       init: () => null,
       apply: (tr, value) => { const m = tr.getMeta(key); return m !== undefined ? m : value && tr.docChanged ? null : value; },
     },
-    view(v) { view = v; return { update() { if (hot && !hot.el.isConnected) hide(); }, destroy() { if (view === v) view = null; hide(); } }; },
+    view(v) { view = v; return { update() { if (hot && !hot.el.isConnected) hide(); if (bare && !(bare.isConnected && bare.pmViewDesc && blank(bare.pmViewDesc.node))) uncross(); }, destroy() { if (view === v) view = null; hide(); uncross(); } }; },
     props: {
       // while the gap is pulled, the columns show the widths they would get
       decorations(state) {
@@ -297,9 +332,9 @@
         cols.forEach((col, _o, i) => { decos.push(Decoration.node(pos, pos + col.nodeSize, { style: `--w-live: ${p.widths[i]}` })); pos += col.nodeSize; });
         return DecorationSet.create(state.doc, decos);
       },
-      // Backspace in a column with nothing in it: the column goes
+      // Backspace or Delete in a column with nothing in it: the column goes
       handleKeyDown(v, e) {
-        if (e.key !== "Backspace" || e.ctrlKey || e.metaKey || e.altKey || !v.editable) return false;
+        if ((e.key !== "Backspace" && e.key !== "Delete") || e.ctrlKey || e.metaKey || e.altKey || !v.editable) return false;
         const sel = v.state.selection, c = at(v.state);
         if (!c || !sel.empty || !blank(c.col) || sel.$from.parent !== c.col.firstChild) return false;
         e.preventDefault();
