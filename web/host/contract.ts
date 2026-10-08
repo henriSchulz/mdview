@@ -86,6 +86,9 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "board-new": ["write", "a new whiteboard: its file where the note's pictures go, in a commit at once"],
   "board-read": ["answer", "a whiteboard's text: the draft kept here, else the branch's"],
   "board-save": ["write", "a whiteboard as it is to be: a draft, in the next commit"],
+  "board-put": ["write", "a picture for a whiteboard, as the browser has it: a file beside the board's, in a commit at once"],
+  "board-paste": ["none", "the desktop's way to a pasted picture (the shell reads the clipboard); a browser has it in the paste itself: board-put"],
+  "board-drop": ["none", "the desktop's way to dropped files (it is told their addresses); a browser has the files: board-put"],
   "board-open": ["none", "a whiteboard is open or shut: the shell asks the page before the window closes — a browser tells the page itself"],
   // decided against: no AI in the web app
   complete: ["none", "the next words suggested while typing"],
@@ -135,6 +138,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   pasteText: ["local", "the clipboard's plain text"],
   boardMade: ["write", "the new whiteboard, and how the note names it"],
   boardText: ["answer", "a whiteboard's text"],
+  boardPut: ["write", "the pictures kept for a whiteboard, by their names beside it"],
   boardSaved: ["write", "the whiteboard was kept, or why not"],
   completion: ["none", "no AI in the web app"],
   graphic: ["none", "as completion"],

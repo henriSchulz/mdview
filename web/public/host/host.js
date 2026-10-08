@@ -461,6 +461,11 @@
     if (!has(C.ATTACH) && !removed.size) return;
     const unnamed = load(unnamedKey, {}), since = JSON.stringify(unnamed);
     const all = await owned(), back = [];
+    // (what a whiteboard of the note names — the pictures put on it — the note names too: the board's own lines are read along)
+    for (const r of Object.keys(all)) {
+      if (all[r] !== note || !isBoard(r) || !has(r) || !C.mentions(text, C.nameOf(r))) continue;
+      try { const t = await textOf(BASE + "/" + r), a = t.indexOf(BOARD_MARK), z = t.indexOf("]]>", a); if (a >= 0) text += "\n" + t.slice(a, z < 0 ? t.length : z); } catch (e) { /* (not to be read: as if it named nothing) */ }
+    }
     let changed = false;
     for (const [r] of [...removed]) {
       if (!C.mentions(text, C.nameOf(r))) continue;
@@ -829,6 +834,25 @@
         if (typeof path !== "string" || !exists(path) || !isBoard(path)) throw new Error("not a whiteboard");
         tell("boardText", id, await textOf(path), null);
       } catch (e) { tell("boardText", id, null, String(e.message || e)); }
+    },
+    // a picture for a whiteboard, handed over as it is: a file beside the board's own, the note's from now on, in a commit at once
+    async "board-put"({ path, name, base64, id }) {
+      const failed = (error) => tell("boardPut", id, [], error);
+      if (typeof path !== "string" || typeof base64 !== "string" || !exists(path) || !isBoard(path) || !onScreen || onScreen === GUIDE) return failed("not a whiteboard");
+      if (!mayWrite()) return failed(NOT_YET);
+      if (base64.length > PICTURE_MOST * 1.37) return failed("too large to keep here (over 10 MB)");
+      const clean = C.cleanName(String(name || "")) || "picture.png", dot = clean.lastIndexOf(".") > 0 ? clean.lastIndexOf(".") : clean.length, dir = C.dirOf(path);
+      let target = `${dir}/${clean}`;
+      for (let n = 2; exists(target); n++) target = `${dir}/${clean.slice(0, dot)}-${n}${clean.slice(dot)}`;
+      if (C.kindOf(target) !== "image" || isBoard(target)) return failed("not a picture");
+      blobs.set(rel(target), base64);
+      const all = await owned();
+      all[rel(target)] = rel(onScreen);
+      write(C.ATTACH, C.attachText(all));
+      tell("busy", "Adding the picture…");
+      try { await commit(); } finally { tell("busy", null); }
+      if (blobs.has(rel(target))) return failed("Couldn't keep the picture");
+      tell("boardPut", id, [C.nameOf(target)], null);
     },
     "board-save"({ path, text, id }) {
       if (typeof path !== "string" || typeof text !== "string" || !exists(path) || !isBoard(path) || !text.includes(BOARD_MARK)) return tell("boardSaved", id, "not a whiteboard");

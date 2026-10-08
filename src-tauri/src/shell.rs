@@ -2099,7 +2099,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2429,6 +2429,8 @@ impl Win {
             "board-read" => self.board_read(text_of("path"), &msg["id"]),
             "board-save" => self.board_save(text_of("path"), text_of("text"), &msg["id"]),
             "board-open" => self.board_open = msg["on"].as_bool().unwrap_or(false),
+            "board-paste" => self.board_paste(app, text_of("path"), &msg["id"]),
+            "board-drop" => self.board_drop(text_of("path"), &msg["uris"], &msg["id"]),
             "pdfdata" => {
                 let id = match &msg["id"] {
                     Value::String(t) => t.clone(),
@@ -2650,6 +2652,17 @@ impl Win {
         let root = self.vault().or_else(|| self.folder.clone().filter(|f| note.starts_with(f))).unwrap_or_else(|| dir_of(&note));
         // (how long a file stays after the note stopped naming it; another time: for tests)
         let grace = env("MDVIEW_ATTACH_GRACE").and_then(|g| g.parse().ok()).unwrap_or(crate::attach::GRACE_SECS);
+        // What a whiteboard of the note names — the pictures put on it — the note names too: the
+        // board's own lines (not its drawn picture) are read along with the note's text.
+        let mut full = text.to_string();
+        for board in attachments().owned_by(&note).into_iter().filter(|b| is_board(b) && crate::attach::mentions(text, &name_of(b))) {
+            if let Ok(t) = fs::read_to_string(&board) {
+                let lines = t.find(BOARD_MARK).map(|a| &t[a..t[a..].find("]]>").map_or(t.len(), |z| a + z)]).unwrap_or("");
+                full.push('\n');
+                full.push_str(lines);
+            }
+        }
+        let text = full.as_str();
         let done = attachments().tidy(&note, text, &root, now(), grace, |p| trash::delete(p).is_ok());
         if !done.restored.is_empty() {
             let names: Vec<String> = done.restored.iter().map(|p| name_of(p)).collect();
@@ -2867,6 +2880,52 @@ impl Win {
             fs::write(&p, text.as_bytes()).map_err(|e| strerror(&e))
         };
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
+    }
+
+    /// A picture from the clipboard for a whiteboard: a file beside the board's own, the note's
+    /// from now on. The page is told its name (none: the clipboard holds no picture).
+    fn board_paste(&mut self, app: &mut App, board: &str, id: &Value) {
+        let done = |w: &Self, names: Vec<String>, e: Option<String>| w.js("MdView.boardPut", &[id.clone(), json!(names), e.map(|e| json!(e)).unwrap_or(Value::Null)]);
+        let p = resolve(Path::new(board));
+        let Some(note) = self.path.clone().filter(|n| !is_pdf(n) && is_board(&p) && p.is_file()) else { return done(self, vec![], Some("not a whiteboard".into())) };
+        let Some((data, ext)) = host::clipboard_image(&app.handle) else { return done(self, vec![], None) };
+        let stem = chrono::Local::now().format("pasted-%Y%m%d-%H%M%S").to_string();
+        match write_new(&dir_of(&p), |n| if n == 1 { format!("{stem}{ext}") } else { format!("{stem}-{n}{ext}") }, &data, 100) {
+            Ok(target) => {
+                attachments().own(&target, &note);
+                done(self, vec![name_of(&target)], None)
+            }
+            Err(e) => done(self, vec![], Some(strerror(&e))),
+        }
+    }
+
+    /// Picture files dropped on a whiteboard: one that lies beside the board already is used
+    /// where it is, any other is copied there. What is no picture is left out.
+    fn board_drop(&mut self, board: &str, uris: &Value, id: &Value) {
+        let p = resolve(Path::new(board));
+        let Some(note) = self.path.clone().filter(|n| !is_pdf(n) && is_board(&p) && p.is_file()) else {
+            return self.js("MdView.boardPut", &[id.clone(), json!([]), json!("not a whiteboard")]);
+        };
+        let (beside, mut names, mut failed) = (dir_of(&p), Vec::new(), None);
+        for uri in uris.as_array().map(Vec::as_slice).unwrap_or_default() {
+            let src = uri.as_str().and_then(url_file).map(|(p, _)| p).unwrap_or_default();
+            if !src.is_file() || !scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str()) || is_board(&src) {
+                continue;
+            }
+            if resolve(&src).parent() == Some(beside.as_path()) {
+                names.push(name_of(&src));
+                continue;
+            }
+            let (stem, dot) = (src.file_stem().unwrap_or_default().to_string_lossy().into_owned(), src.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default());
+            match fs::read(&src).and_then(|data| write_new(&beside, |n| if n == 1 { name_of(&src) } else { format!("{stem}-{n}{dot}") }, &data, 100)) {
+                Ok(target) => {
+                    attachments().own(&target, &note);
+                    names.push(name_of(&target));
+                }
+                Err(e) => failed = Some(strerror(&e)),
+            }
+        }
+        self.js("MdView.boardPut", &[id.clone(), json!(names), failed.map(|e| json!(e)).unwrap_or(Value::Null)]);
     }
 
     /// From a file's menu in the sidebar: open it in its default application, in one chosen

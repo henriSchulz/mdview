@@ -179,7 +179,8 @@
     ok("Unlock", !thing(0).lock, thing(0));
     B().pick([thing(0).id]);
     key("c", { ctrlKey: true }); key("v", { ctrlKey: true });
-    ok("Ctrl+C, Ctrl+V: a copy beside it, chosen", st().things.length === 5 && st().things[4].x === thing(0).x + 16 && st().picked[0] === st().things[4].id && st().things[4].text === "Start", st().things.map((t) => t.id));
+    // (the shell is asked first whether the clipboard holds a picture: it holds the copied item's text)
+    ok("Ctrl+C, Ctrl+V: a copy beside it, chosen", await until(() => st().things.length === 5, 3000) && st().things[4].x === thing(0).x + 16 && st().picked[0] === st().things[4].id && st().things[4].text === "Start", st().things.map((t) => t.id));
     key("ArrowRight", { shiftKey: true });
     ok("the arrow keys nudge what is chosen (Shift: ten)", st().things[4].x === thing(0).x + 26, st().things[4].x);
     key("Delete");

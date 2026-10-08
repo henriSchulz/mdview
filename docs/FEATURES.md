@@ -404,6 +404,11 @@ shut back into it.
   several chosen), Group (`Ctrl+G`, apart again with `Ctrl+Shift+G`), Bring to Front and Send
   to Back (`Ctrl+Shift+F` / `B`), Lock (`Ctrl+L`). Copy, cut and paste with `Ctrl+C`, `X`, `V`,
   a copy beside it with `Ctrl+D`, gone with `Delete`.
+- **Pictures**: paste one (`Ctrl+V`) or drop picture files on the board. Each is kept as a file
+  beside the board's own and belongs to the note; it is chosen, moved, turned and sized (at its
+  corners, in its proportions) like the rest. The board's picture in the note holds a small
+  copy of it. Taken off the board it goes to the trash an hour later, as a picture taken out of
+  a note does.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
   drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
@@ -416,7 +421,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: pictures and files on a board, lines that stay joined to the things they connect, tables.
+Not there yet: other files and links on a board, lines that stay joined to the things they connect, tables.
 
 ### Links between notes
 

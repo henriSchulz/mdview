@@ -24,7 +24,8 @@
 
   // ---------------------------------------------------------------- ids
   const ALPHA = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const id = () => { let s = ""; for (let i = 0; i < 8; i++) s += ALPHA[Math.floor(Math.random() * ALPHA.length)]; return s; };
+  // (a letter first: an id is an id in the picture too, and a name there does not begin with a digit)
+  const id = () => { let s = ALPHA[Math.floor(Math.random() * 26)]; for (let i = 1; i < 8; i++) s += ALPHA[Math.floor(Math.random() * ALPHA.length)]; return s; };
 
   // ---------------------------------------------------------------- a stroke's points
   /* A point is [x, y, pressure, time]: board pixels, pressure 0…1, milliseconds since the stroke

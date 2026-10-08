@@ -8,7 +8,12 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const KINDS = new Set(["text", "sticky", "shape", "line"]);
+  const KINDS = new Set(["text", "sticky", "shape", "line", "image"]);
+  const texty = (it) => it.k === "text" || it.k === "sticky" || it.k === "shape"; // (what takes text)
+  /* A picture on a board is a file beside the board's own, named by its name alone. In the board's
+   * picture stands a small copy of it (a picture shown through <img> may not load other files);
+   * the copies are made when a picture has loaded on the screen (layer.js) and kept here, by name. */
+  const thumbs = new Map(), missing = new Set();
   const SHAPES = ["rect", "round", "ellipse", "triangle", "diamond", "star", "hexagon"];
   const PAPERS = { yellow: "#ffe27a", orange: "#ffc078", pink: "#ffb3c7", purple: "#d9c2ff", blue: "#b5dcff", green: "#bfe8b0", grey: "#e3e3e6" };
   const FILLS = ["#ffffff", "#b9b9be", "#1d1d1f", "#5fd6c3", "#e8559c", "#7a3ff0", "#e5372c", "#f08a12", "#f2c744", "#52b85a", "#55b9ee", "#1f6fe5"];
@@ -39,6 +44,10 @@
       it.p = o.p.map((v) => num(v, 0));
       it.stroke = stroke(o.stroke, "auto");
       it.ends = [0, 1].map((i) => (Array.isArray(o.ends) && o.ends[i] === "arrow" ? "arrow" : "none"));
+    } else if (o.k === "image") {
+      // (a name, never a way to somewhere else)
+      if (![o.x, o.y, o.w, o.h].every(Number.isFinite) || typeof o.src !== "string" || !/^[^/\\\x00-\x1f]{1,255}$/.test(o.src) || o.src.startsWith(".")) return null;
+      Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: num(o.w, 100, 4, 20000), h: num(o.h, 100, 4, 20000), r: num(o.r, 0, -360, 360), src: o.src });
     } else {
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) return null;
       Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: num(o.w, 100, 4, 20000), h: num(o.h, 100, 4, 20000), r: num(o.r, 0, -360, 360) });
@@ -151,9 +160,14 @@
     }
     const [cx, cy] = mid(it), turn = it.r ? ` transform="rotate(${n(it.r)} ${n(cx)} ${n(cy)})"` : "";
     let body = "";
+    if (it.k === "image") {
+      const small = thumbs.get(it.src), frame = `x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}"`;
+      if (!small) missing.add(it.src);
+      body = small ? `<image data-src="${xml(it.src)}" ${frame} preserveAspectRatio="none" href="${small}"/>` : `<rect ${frame} rx="4" fill="#b9b9be" fill-opacity="0.35"/>`;
+    }
     if (it.k === "shape") body = `<path transform="translate(${n(it.x)} ${n(it.y)})" d="${shapePath(it.shape, it.w, it.h)}" fill="${it.fill}"${strokeOf(it.stroke)}/>`;
     if (it.k === "sticky") body = `<rect x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}" rx="2" fill="${it.fill === "none" ? PAPERS.yellow : it.fill}"/>`;
-    if (it.text) {
+    if (texty(it) && it.text) {
       const ls = lines(it), lead = it.ts.size * LEAD, block = ls.length * lead;
       const top = it.k === "text" ? it.y + PAD : it.y + Math.max(PAD, (it.h - block) / 2);
       const x = it.ts.align === "left" ? it.x + PAD : it.ts.align === "right" ? it.x + it.w - PAD : cx;
@@ -164,5 +178,13 @@
     return `<g id="${it.id}"${turn}>${body}</g>\n`;
   }
 
-  B.items = { KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
+  /* The small copies a board's file holds already: taken from its picture, so that keeping the board again needs none made anew. */
+  function thumbsFrom(text) {
+    for (const m of String(text).matchAll(/<image data-src="([^"]+)"[^>]*? href="(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)"/g)) {
+      const src = m[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      if (!thumbs.has(src)) thumbs.set(src, m[2]);
+    }
+  }
+
+  B.items = { texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
 })();

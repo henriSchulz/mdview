@@ -57,6 +57,45 @@
     return text;
   }
 
+  // ---------------------------------------------------------------- pictures on a board
+  const BROWSER = typeof (window.MdHost || {}).drop === "function"; // (a browser has the files themselves; the desktop's shell is told where they are)
+  const fileUrl = (path) => String((window.MdHost || {}).files || "") + path.split("/").map(encodeURIComponent).join("/");
+  const base64Of = (bytes) => { let bin = ""; for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000)); return btoa(bin); };
+  const TYPE_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
+  /* Files the browser handed over: the pictures among them are kept beside the board, then put on it. */
+  async function put(files, at = null) {
+    const s = S, names = [];
+    let failed = null;
+    for (const f of files.filter((f) => f && /^image\//.test(f.type) && TYPE_EXT[f.type])) {
+      const d = new Date(), two = (n) => String(n).padStart(2, "0");
+      const name = f.name && !/^image\.[a-z]+$/i.test(f.name) ? f.name : `pasted-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}${TYPE_EXT[f.type]}`; // (a pasted picture is called "image.png" by every browser)
+      const [got, error] = await ask("board-put", { path: s.ref, name, base64: base64Of(new Uint8Array(await f.arrayBuffer())) });
+      if (error) failed = error; else names.push(...(got || []));
+    }
+    if (S === s) placed(names, failed, at);
+  }
+  /* Pictures kept beside the board, by their names: each on the board in its own size (no larger than fits well). */
+  async function placed(names, error, at = null) {
+    const s = S;
+    if (error) core.toast(T("board.noPicture"));
+    const list = (await Promise.all((names || []).map((src) => new Promise((res) => { const i = new Image(); i.onload = () => res({ src, w: i.naturalWidth || 200, h: i.naturalHeight || 150 }); i.onerror = () => res({ src, w: 200, h: 150 }); i.src = fileUrl(s.ref.slice(0, s.ref.lastIndexOf("/") + 1) + src); })))).filter(Boolean);
+    if (S !== s || !list.length) return;
+    if (S.mode !== "select") setMode("select");
+    sel.pictures(list, at);
+    save(); // (at once: until the board's file names them, the pictures' files are nobody's)
+  }
+  /* Ctrl+V on the desktop: a picture on the clipboard is put on the board; else what was copied on the board is. */
+  function pasteHere() {
+    const s = S;
+    ask("board-paste", { path: s.ref }).then(([names, error]) => { if (S !== s) return; if ((names || []).length || error) placed(names, error); else if (S.mode === "select") sel.paste(); });
+  }
+  function pasted(e) {
+    if (!S || S.readonly || sel.editing || e.target.closest?.("input, textarea")) return;
+    const files = [...(e.clipboardData?.files || [])].filter((f) => /^image\//.test(f.type));
+    e.preventDefault(); e.stopPropagation();
+    if (files.length) put(files); else if (S.mode === "select") sel.paste();
+  }
+
   // ---------------------------------------------------------------- the picture in the note
   /* A board changed here is shown by its picture at once — from what was written, not from the
    * file (whose address is the same as before: the browser would show what it has). */
@@ -160,7 +199,20 @@
     // text in the board's picture breaks where it breaks on the screen: measured with the same letters
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
-    sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, onBoard: (pt) => onBoard(pt), T, esc, icons: I });
+    sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text) });
+    // a picture's small copy for the board's own picture was made after the board was last kept without it: kept again, with it
+    B.layer.onsmall = (src) => { if (S && !S.readonly && S.lacked && S.lacked.has(src)) changed(); };
+    B.layer.url = (src) => (S ? fileUrl(S.ref.slice(0, S.ref.lastIndexOf("/") + 1) + src) : "");
+    // pictures dropped on the board, or pasted (in a browser the paste itself holds them)
+    el.addEventListener("dragover", (e) => { if (S && !S.readonly && [...(e.dataTransfer?.types || [])].some((t) => t === "Files" || t === "text/uri-list")) { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; } }, true);
+    el.addEventListener("drop", (e) => {
+      if (!S || S.readonly) return;
+      e.preventDefault(); e.stopPropagation();
+      const r = el.getBoundingClientRect(), at = S.view.toBoard(e.clientX - r.left, e.clientY - r.top);
+      if (BROWSER) return void put([...(e.dataTransfer?.files || [])], at);
+      const uris = (e.dataTransfer?.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => u && !u.startsWith("#"));
+      if (uris.length) ask("board-drop", { path: S.ref, uris }).then(([names, error]) => placed(names, error, at));
+    }, true);
     new ResizeObserver(() => { if (S) paint(); }).observe(el);
     const mine = () => S && S.mode === "select" && !S.readonly;
     hands = B.pointer.attach(stage(), { start: (pt, e) => (mine() ? sel.start(pt, e) : start(pt)), move: (pts, e) => (sel.busy ? sel.move(pts, e) : move(pts)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
@@ -351,7 +403,9 @@
     S.dirty = false;
     const s = S, v = s.view;
     s.model.board.view = { x: v.x, y: v.y, z: v.z };
+    B.items.missing.clear();
     const text = B.format.write(s.model);
+    s.lacked = new Set(B.items.missing); // (pictures whose small copies were not made yet: the board is kept again when they are)
     remember(s.ref, text);
     ask("board-save", { path: s.ref, text }).then(([error]) => {
       if (S !== s) { if (error) core.toast(T("board.notSaved")); return; }
@@ -552,6 +606,7 @@
     if (e.target.matches?.("input[type=range]") && (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End")) return; // (the slider's own)
     const done = () => e.preventDefault();
     if (e.key === " " && !mod) { space = true; stage().dataset.space = ""; return done(); }
+    if (mod && k === "v" && !S.readonly) { if (BROWSER) return; done(); return pasteHere(); } // (a browser: its paste follows, with what is pasted in it)
     if (S.mode === "select" && !S.readonly && sel.key(e)) return done();
     if (e.key === "Escape") { // one thing at a time: the options, what is chosen, then the board itself
       done();
@@ -632,10 +687,13 @@
     document.addEventListener("visibilitychange", hidden);
     addEventListener("pagehide", save);
     addEventListener("blur", save);
+    document.addEventListener("paste", pasted, true);
     el.focus({ preventScroll: true });
     paint();
     try {
-      const model = B.format.parse(await read(ref, img.src));
+      const text = await read(ref, img.src);
+      B.items.thumbsFrom(text);
+      const model = B.format.parse(text);
       if (S !== s) return false;
       s.model = model;
       if (model.board.view) s.view.set(model.board.view.x, model.board.view.y, model.board.view.z); else s.view.fit(bounds());
@@ -661,6 +719,7 @@
     document.removeEventListener("visibilitychange", hidden);
     removeEventListener("pagehide", save);
     removeEventListener("blur", save);
+    document.removeEventListener("paste", pasted, true);
     core.lockScroll(false);
     post("board-open", { on: false });
     delete el.dataset.open; delete el.dataset.ready;

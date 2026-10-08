@@ -200,3 +200,4 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-tile:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .bd-tile svg { width: 100%; height: 100%; fill: var(--accent); }
 .bd-tile-line svg { fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bd-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: color-mix(in srgb, var(--fg) 8%, transparent); border-radius: 1px; }

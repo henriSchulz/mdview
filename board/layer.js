@@ -7,6 +7,19 @@
   const NS = "http://www.w3.org/2000/svg";
   const els = new WeakMap(); // layer → Map(id → { el, sig })
 
+  /* A picture has loaded: a small copy of it for the board's own picture (items.js), once per file. */
+  function small(img) {
+    const src = img.dataset.src, I = B.items;
+    if (!src || I.thumbs.has(src) || !img.naturalWidth) return;
+    try {
+      const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      // (a photograph as JPEG; what may be see-through — PNG, SVG, WebP, GIF — keeps that)
+      I.thumbs.set(src, /\.jpe?g$/i.test(src) ? c.toDataURL("image/jpeg", 0.78) : c.toDataURL("image/png"));
+      if (B.layer.onsmall) B.layer.onsmall(src);
+    } catch (e) { /* (a picture the page may not read back: the board's picture shows a grey field for it) */ }
+  }
   function make(it) {
     const el = document.createElement("div");
     el.className = "bd-item";
@@ -19,7 +32,13 @@
       if (it.k === "line") { svg.appendChild(document.createElementNS(NS, "path")); svg.appendChild(document.createElementNS(NS, "path")); }
       el.appendChild(svg);
     }
-    if (it.k !== "line") {
+    if (it.k === "image") {
+      const img = document.createElement("img");
+      img.className = "bd-img"; img.alt = ""; img.draggable = false;
+      img.addEventListener("load", () => small(img));
+      el.appendChild(img);
+    }
+    if (B.items.texty(it)) {
       const box = document.createElement("div"), t = document.createElement("div");
       box.className = "bd-text"; t.className = "bd-t";
       box.appendChild(t); el.appendChild(box);
@@ -43,6 +62,11 @@
       return;
     }
     el.style.cssText += `;left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;transform:rotate(${it.r || 0}deg)`;
+    if (it.k === "image") {
+      const img = el.firstChild;
+      if (img.dataset.src !== it.src) { img.dataset.src = it.src; img.src = B.layer.url ? B.layer.url(it.src) : ""; }
+      return;
+    }
     if (it.k === "shape") {
       const svg = el.firstChild, path = svg.firstChild;
       svg.setAttribute("viewBox", `0 0 ${it.w} ${it.h}`);

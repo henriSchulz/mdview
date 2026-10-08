@@ -76,7 +76,7 @@
       const it = under(p.x, p.y), now = performance.now();
       if (it) {
         // twice on the same item, and let go without having moved it: its text is typed (end())
-        const twice = lastDown.id === it.id && now - lastDown.t < 400 && it.k !== "line" && !it.lock;
+        const twice = lastDown.id === it.id && now - lastDown.t < 400 && I.texty(it) && !it.lock;
         lastDown = twice ? { id: null, t: 0 } : { id: it.id, t: now };
         if (e.shiftKey) { pick(st.pick.includes(it) ? st.pick.filter((i) => i !== it && !(it.group && i.group === it.group)) : [...st.pick, it]); return false; }
         if (!st.pick.includes(it)) pick([it]);
@@ -137,7 +137,8 @@
         let l = -was.w / 2, r = was.w / 2, t = -was.h / 2, b = was.h / 2;
         if (hx < 0) l = Math.min(lx, r - MIN); if (hx > 0) r = Math.max(lx, l + MIN);
         if (hy < 0) t = Math.min(ly, b - MIN); if (hy > 0) b = Math.max(ly, t + MIN);
-        if (hx && hy && (e.shiftKey || was.k === "sticky")) { // a corner with Shift (a sticky note always): its proportions stay
+        if (was.k === "image" && !(hx && hy)) return; // (a picture is sized at its corners)
+        if (hx && hy && (e.shiftKey || was.k === "sticky" || was.k === "image")) { // a corner with Shift (a sticky note and a picture always): its proportions stay
           const k = Math.max((r - l) / was.w, (b - t) / was.h), w = was.w * k, h = was.h * k;
           if (hx < 0) l = r - w; else r = l + w;
           if (hy < 0) t = b - h; else b = t + h;
@@ -242,7 +243,20 @@
     }
     function duplicate() { const st = S(); if (!st.pick.length) return; const before = snap(), cs = copies(st.pick.map(I.data), 16); st.model.items.push(...cs); st.pick = cs; commit(before); ctx.paint(); }
     function remove() { const st = S(); if (!st.pick.length || locked()) return; const before = snap(), gone = new Set(st.pick); st.model.items = st.model.items.filter((it) => !gone.has(it)); st.pick = []; commit(before); closePop(); ctx.paint(); }
-    function copy(cut) { const st = S(); if (!st.pick.length) return; clip = st.pick.map(I.data); clip.n = 0; if (cut) remove(); }
+    // (the system's clipboard is given their text: a picture copied before is no longer what a paste here means)
+    function copy(cut) { const st = S(); if (!st.pick.length) return; clip = st.pick.map(I.data); clip.n = 0; ctx.copied(st.pick.map((it) => it.text || "").filter(Boolean).join("\n") || " "); if (cut) remove(); }
+    /* Pictures kept beside the board (their names), put on it: list of { src, w, h } as they are; at: where on the board, else the middle of the view. */
+    function pictures(list, at = null) {
+      if (!list.length) return;
+      const st = S(), s = ctx.size(), [cx, cy] = at || st.view.toBoard(s.w / 2, s.h / 2), before = snap();
+      const made = list.map((p, i) => {
+        const k = Math.min(1, 480 / p.w, 400 / p.h), w = Math.max(8, Math.round(p.w * k)), h = Math.max(8, Math.round(p.h * k));
+        return { id: B.format.id(), k: "image", x: Math.round(cx - w / 2) + i * 24, y: Math.round(cy - h / 2) + i * 24, w, h, r: 0, src: p.src };
+      });
+      st.model.items.push(...made);
+      commit(before);
+      pick(made);
+    }
     function paste() { if (!clip.length) return; const st = S(), before = snap(), cs = copies(clip, 16 * ++clip.n); st.model.items.push(...cs); st.pick = cs; commit(before); ctx.paint(); }
     function order(front) {
       change((p) => { const st = S(), set = new Set(p), rest = st.model.items.filter((it) => !set.has(it)), mine = st.model.items.filter((it) => set.has(it)); st.model.items = front ? [...rest, ...mine] : [...mine, ...rest]; });
@@ -281,7 +295,7 @@
       else {
         if (every((it) => it.k === "shape" || it.k === "sticky")) html += btn("fill", T("board.fill"), well(first.fill));
         if (every((it) => it.k === "shape" || it.k === "line")) html += btn("stroke", T("board.stroke"), well(first.stroke.c, true));
-        if (every((it) => it.k !== "line")) html += btn("text", T("board.textLook"), '<b class="bd-aa">Aa</b>');
+        if (every(I.texty)) html += btn("text", T("board.textLook"), '<b class="bd-aa">Aa</b>');
         if (every((it) => it.k === "line")) html += btn("ends", T("board.ends"), ICON.ends);
         html += `<span class="bd-sep"></span>` + btn("arrange", T("board.arrange"), ICON.arrange) + btn("duplicate", T("board.duplicate"), ctx.icons.copy) + btn("remove", T("board.delete"), ctx.icons.trash);
       }
@@ -389,7 +403,6 @@
       if (mod && k === "a") return pick(plain(st)), true;
       if (mod && k === "c") return copy(false), true;
       if (mod && k === "x") return copy(true), true;
-      if (mod && k === "v") return paste(), true;
       if (mod && k === "d") return duplicate(), true;
       if (mod && k === "g") return (e.shiftKey ? ungroup() : group()), true;
       if (mod && e.shiftKey && k === "f") return order(true), true;
@@ -397,7 +410,7 @@
       if (mod && k === "l") return lock(!locked()), true;
       if (mod || e.altKey || !p.length) return false;
       if (e.key === "Delete" || e.key === "Backspace") return remove(), true;
-      if (e.key === "Enter" && p.length === 1 && p[0].k !== "line" && !p[0].lock) return begin(p[0]), true;
+      if (e.key === "Enter" && p.length === 1 && I.texty(p[0]) && !p[0].lock) return begin(p[0]), true;
       if (e.key.startsWith("Arrow") && !locked()) {
         const n = e.shiftKey ? 10 : 1, dx = k === "arrowleft" ? -n : k === "arrowright" ? n : 0, dy = k === "arrowup" ? -n : k === "arrowdown" ? n : 0;
         return change((items) => { for (const it of items) I.moveBy(it, dx, dy); }), true;
@@ -405,7 +418,7 @@
       return false;
     }
 
-    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, get clip() { return clip.length; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

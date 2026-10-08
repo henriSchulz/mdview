@@ -196,6 +196,27 @@ test("an item is hit where it is, turned or not; what a file may not say about o
   assert.equal(I.norm({ id: "x3", k: "text", x: 0, y: 0, w: 10 }), null);
 });
 
+test("a picture on a board: named by its file's name, with a small copy of it in the board's picture", () => {
+  const I = B.items, model = F.fresh(), small = "data:image/png;base64,iVBORw0KGgo=";
+  model.items.push({ id: "pic00001", k: "image", x: 10, y: 20, w: 200, h: 120, r: 15, src: 'Photo & "more".png' });
+  I.thumbs.clear(); I.missing.clear();
+  const bare = F.write(model);
+  assert.deepEqual([...I.missing], ['Photo & "more".png'], "no copy yet: said, so that the board is kept again once there is one");
+  assert.match(bare, /<rect x="10" y="20" width="200" height="120"/, "… and a grey field stands for it");
+  I.thumbs.set('Photo & "more".png', small);
+  const text = F.write(model), svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement, image = svg.querySelector("image");
+  assert.deepEqual([image.getAttribute("href"), image.getAttribute("width"), image.getAttribute("data-src")], [small, "200", 'Photo & "more".png']);
+  assert.match(svg.querySelector("#pic00001").getAttribute("transform"), /^rotate\(15 110 80\)/);
+  assert.deepEqual(plain(F.parse(text).items), plain(model.items));
+  // read again in another session: the copy comes out of the file
+  I.thumbs.clear();
+  I.thumbsFrom(text);
+  assert.equal(I.thumbs.get('Photo & "more".png'), small);
+  assert.equal(F.write(F.parse(text)), text);
+  // a name is a name: nothing that leads elsewhere
+  for (const src of ["../secret.png", "a/b.png", "C:\\x.png", ".hidden.png", "", 5]) assert.equal(I.norm({ id: "x", k: "image", x: 0, y: 0, w: 10, h: 10, src }), null, String(src));
+});
+
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {
   const w = await loadPage(), md = w.MdView.core.md;
   assert.match(md.render("![](assets/board-1.board.svg)\n", {}), /<p class="pic-block board-block"[^>]*><img src="assets\/board-1\.board\.svg"/);

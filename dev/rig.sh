@@ -195,6 +195,25 @@ case "${1:-}" in
     f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
     [[ -n $f ]] && for k in shape sticky text line ink; do grep -q "\"k\":\"$k\"" "$f" && echo "ok   the file has a line for the $k" || echo "FAIL no $k in the file"; done
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-items.json"; } | grep -qv '^ok' ;;
+  board-pictures)
+    # a picture dropped on a whiteboard: kept beside the board, shown in its picture, left alone by the collector while the board shows it
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/outside"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dropped,kept,gone,board-pictures}.json
+    magick -size 240x120 xc:'#e5372c' "$R/work/outside/photo one.png"; echo text > "$R/work/outside/readme.txt"
+    app 90 MDVIEW_PROBE="$D/probe-board-pictures.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_ATTACH_GRACE=0 -- "$R/work/$name"
+    pic="$R/work/assets/photo one.png"; said=()
+    for v in dropped kept gone; do
+      for _ in $(seq 600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-pictures.json ]] && break; sleep 0.1; done
+      [[ $v == dropped ]] && { shot "$R/out/board-pictures.png"; f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
+        [[ -f $pic ]] && said+=("ok   the picture's file is copied beside the board's") || said+=("FAIL no copy of the picture beside the board")
+        [[ -n $f ]] && grep -q '"k":"image"' "$f" && grep -q '<image data-src="photo one.png"' "$f" && said+=("ok   the board's file names it and holds a small copy for its picture") || said+=("FAIL the board's file does not hold the picture"); }
+      [[ $v == kept ]] && { [[ -f $pic ]] && cmp -s "$pic" "$R/work/outside/photo one.png" && said+=("ok   the note saved three times: the picture stays as it is, the board names it") || said+=("FAIL the collector took a picture the board shows"); }
+      [[ $v == gone ]] && { [[ ! -f $pic ]] && said+=("ok   off the board and the note saved again: the picture's file goes to the trash") || said+=("FAIL a picture nothing names any more stayed"); }
+    done
+    for _ in $(seq 400); do [[ -f $R/out/$name.board-pictures.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-pictures.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-pictures.json"; printf '%s\n' "${said[@]}"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-pictures.json"; printf '%s\n' "${said[@]}"; } | grep -qv '^ok' ;;
   ghostmath)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
     app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"

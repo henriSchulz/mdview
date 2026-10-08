@@ -787,6 +787,38 @@ test("a whiteboard is made in the note, drawn on with the pointer, kept in commi
   await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 });
 });
 
+test("a picture pasted on a whiteboard is kept beside the board, shown on it and in its picture", async () => {
+  await open("Beta.md");
+  await page.waitForFunction(() => document.querySelector("#content .board-block img, #active .board-block img"), null, { timeout: 8000 });
+  await page.evaluate(() => MdView.core.board.open(document.querySelector("#content .board-block img, #active .board-block img")));
+  await page.waitForFunction(() => window.MdBoard && MdBoard.shown && document.getElementById("board").hasAttribute("data-ready"), null, { timeout: 15000 });
+  const board = [...gh.repo.files.keys()].find((k) => /\.board\.svg$/.test(k)), had = new Set(gh.repo.files.keys());
+  await page.evaluate(async () => {
+    const c = document.createElement("canvas"); c.width = 40; c.height = 20;
+    const x = c.getContext("2d"); x.fillStyle = "#e5372c"; x.fillRect(0, 0, 40, 20);
+    const dt = new DataTransfer();
+    dt.items.add(new File([await new Promise((r) => c.toBlob(r, "image/png"))], "image.png", { type: "image/png" }));
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  const pic = () => [...gh.repo.files.keys()].find((k) => !had.has(k) && /^pasted-\d{8}-\d{6}(-\d+)?\.png$/.test(k));
+  await until(() => !!pic(), "the picture's file in the repository", 12000);
+  assert.deepEqual([...gh.repo.files.get(pic()).subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[pic()], "Beta.md"); // (the note's own, like the board)
+  await page.waitForFunction(() => { const t = MdBoard.state().things; return t.length === 1 && t[0].k === "image" && t[0].w === 40 && MdBoard.state().mode === "select"; }, null, { timeout: 8000 });
+  await page.waitForFunction(() => { const i = document.querySelector("#board .bd-img"); return i && i.complete && i.naturalWidth === 40; }, null, { timeout: 8000 });
+  await until(() => (text(board) || "").includes(`"src":"${pic()}"`) && (text(board) || "").includes(`<image data-src="${pic()}"`), "the board in a commit: the picture named, and a small copy of it for the board's picture", 12000);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 });
+  // the note is written on: the picture is the board's, it stays
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active", null, { timeout: 10000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.insert(v.state.doc.content.size, MdActive.schema.nodes.paragraph.create())); v.dispatch(v.state.tr.insertText("more words", v.state.doc.content.size - 1)); });
+  await until(() => (text("Beta.md") || "").includes("more words"), "the note in a commit", 12000);
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(gh.repo.files.has(pic()), "a picture that only the board names is not taken away");
+});
+
 test("nothing was refused or thrown along the way", () => {
   // (but the answers that were cut off on purpose above: a commit that could not be sent is said, and tried again)
   assert.deepEqual(problems.filter((p) => !/Failed to load resource|mdview host: commit TypeError: Failed to fetch/i.test(p)), []);

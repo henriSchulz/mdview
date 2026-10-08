@@ -43,7 +43,7 @@ fn name_of(p: &Path) -> String {
 }
 
 /// Does the note's text name the file? (as it is, or as an address writes it: %20 for a space)
-fn mentions(text: &str, name: &str) -> bool {
+pub fn mentions(text: &str, name: &str) -> bool {
     !name.is_empty() && (text.contains(name) || scan::unquote(text).contains(name))
 }
 
@@ -103,6 +103,12 @@ impl Store {
         let mut all = self.load();
         all.insert(s(file), json!({ "note": s(note) }));
         self.save(&all);
+    }
+
+    /// The files the application made for that note, as far as they are still there.
+    pub fn owned_by(&self, note: &Path) -> Vec<PathBuf> {
+        let note = s(note);
+        self.load().iter().filter(|(_, v)| v["note"].as_str() == Some(note.as_str()) && v.get("gone").is_none()).map(|(file, _)| PathBuf::from(file)).collect()
     }
 
     /// The note was saved with this text. root: the folder whose notes may name the file too.
