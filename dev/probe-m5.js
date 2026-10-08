@@ -42,7 +42,7 @@
     // --- the context menu on text
     select("plain words");
     await contextHere();
-    ok("a right click on text: the editing menu", menu.hasAttribute("data-open") && labels(menu).join("|") === "Cut|Copy|Paste|Paste and Match Style|Add Link…|Format|Paragraph|Insert|Settings…", labels(menu));
+    ok("a right click on text: the editing menu", menu.hasAttribute("data-open") && labels(menu).join("|") === "Cut|Copy|Paste|Paste and Match Style|Select All|Add Link…|Format|Paragraph|Insert|Settings…", labels(menu));
     ok("… and the selection stays", view().state.doc.textBetween(view().state.selection.from, view().state.selection.to) === "plain words");
     await hover("Format");
     ok("Format opens a menu beside it", sub.hasAttribute("data-open") && labels(sub).join("|") === "Bold|Italic|Strikethrough|Code|Formula from Selection" && sub.getBoundingClientRect().left >= menu.getBoundingClientRect().right - 8, [labels(sub), sub.getBoundingClientRect().left, menu.getBoundingClientRect().right, sub.hasAttribute("data-open")]);
@@ -51,7 +51,7 @@
     await choose(sub, "Bold");
     ok("Bold from the menu", md().includes("with **plain words** in it") && !menu.hasAttribute("data-open") && view().hasFocus(), md().slice(0, 80));
     await contextHere();
-    key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown"); key(menu, "ArrowDown");
+    for (let i = 0; i < 7; i++) key(menu, "ArrowDown"); // (Cut, Copy, Paste, Paste and Match Style, Select All, Add Link…, Format)
     key(menu, "ArrowRight");
     await sleep(200);
     ok("by keyboard: down to Format, right into it; what is on is ticked", sub.hasAttribute("data-open") && A.menu.panel === "sub" && sub.querySelector('[aria-checked="true"]')?.querySelector(".menu-label").textContent === "Bold", [document.activeElement.id, labels(sub)]);

@@ -107,7 +107,7 @@
       await sleep(300);
       const r = menu.getBoundingClientRect(), c = view.coordsAtPos(view.state.selection.to);
       ok("Shift+F10 opens the menu at the caret", menu.hasAttribute("data-open") && A.menu.panel === "root" && view.hasFocus() && Math.abs(r.top - c.bottom) < 12, [r.top, c.bottom]);
-      for (let i = 0; i < 6; i++) key(menu, "ArrowDown");
+      for (let i = 0; i < 7; i++) key(menu, "ArrowDown"); // (… Select All, Add Link…, Format)
       key(menu, "ArrowRight");
       await sleep(200);
       key(document.getElementById("actsub"), "Enter");

@@ -228,7 +228,7 @@
    * small ring over the page while a note's text is fetched or the app is left — each only after
    * the wait that is no wait (--loading-delay). */
   const booted = () => { if (window.MdBooted) window.MdBooted(); };
-  const wait = (on) => { if (on) document.body.dataset.wait = ""; else delete document.body.dataset.wait; };
+  const wait = (on) => { if (on) document.body.dataset.wait = on === "leave" ? "leave" : ""; else delete document.body.dataset.wait; }; // ("leave": the page blurs behind the ring)
   window.addEventListener("pageshow", () => wait(false)); // (come back to with the browser's Back)
   let turn = 0;
   async function render(path, { keepScroll = false, fragment = null, end = false } = {}) {
@@ -297,7 +297,7 @@
    * window closes on the desktop. It says close once that is done. */
   let leaving = false;
   function leave() {
-    wait(true); // (the repositories are asked of GitHub before the page comes)
+    wait("leave"); // (the repositories are asked of GitHub before the page comes: what is left blurs meanwhile)
     if (leaving || !(window.MdView && window.MdView.flush)) { location.href = "/"; return; }
     leaving = true;
     tell("flush", true);
@@ -938,6 +938,13 @@
     dropfiles() { toast("These files can't be read from here"); }, // (addresses of files on a disk: nothing a browser can read)
 
     // turning a repository into a project: the marker, as a commit (the clock's menu, when asked)
+    // Sync Now: what was written here is committed, and what others wrote fetched — at once
+    async "sync-now"() {
+      if (busy) await busy;
+      if (drafts.size || gone.size) await commit();
+      await refresh();
+      toast(conflicts.length ? "Changed here and elsewhere: resolve from the clock in the sidebar" : "Up to date");
+    },
     "history-enable"() {
       if (project()) return;
       if (!window.confirm(`“${W.repo}” will be written to from here: every change becomes a commit on the branch “${branch}”, a little while after it was made.`)) return;

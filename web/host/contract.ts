@@ -58,6 +58,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   // the history
   "history-log": ["answer", "a note's versions: the commits of its path"],
   "history-text": ["answer", "a note as a version has it"],
+  "sync-now": ["answer", "Sync Now: what waits is committed, and what others wrote fetched, at once"],
   "sync-conflicts": ["answer", "what stands in the way of a commit: the same shape as the shell's"],
   // the browser's own
   copy: ["local", "text onto the clipboard"],

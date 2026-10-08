@@ -436,7 +436,9 @@
       const size = fileSize(kids[0].attrGet("title"));
       toks[i].attrJoin("class", "file-block" + (size ? " file-" + size : ""));
       toks[i].attrSet("data-ext", fileExt(href));
-      if (size) kids[0].attrs = kids[0].attrs.filter(([k]) => k !== "title"); // (not a title to show)
+      // (not a title to show — but the token keeps it: the active mode reads the block's size from it. Taken off
+      // the token here, a card set to Large was Medium again once the note was read anew.)
+      if (size) kids[0].meta = { ...kids[0].meta, fileSize: size };
     }
   });
   /* A picture alone in its paragraph is a block of its own: it has the line to itself, whatever
@@ -687,6 +689,13 @@
   md.renderer.rules.link_open = (t, i, o, e, self) => {
     const href = t[i].attrGet("href") || "";
     if (isExternal(href) && !/\bexternal\b/.test(t[i].attrGet("class") || "")) t[i].attrJoin("class", "external");
+    if (t[i].meta && t[i].meta.fileSize) { // a file block's size, written where a title stands: not drawn as one
+      const all = t[i].attrs;
+      t[i].attrs = all.filter(([k]) => k !== "title");
+      const html = defaultLinkOpen(t, i, o, e, self);
+      t[i].attrs = all;
+      return html;
+    }
     return defaultLinkOpen(t, i, o, e, self);
   };
 
@@ -908,7 +917,7 @@
     const title = pagebar.querySelector(".pb-title");
     title.value = v.page.title;
     title.placeholder = "Untitled";
-    title.readOnly = !(mode === "active" && !v.readonly);
+    title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
   }
   pagebar.addEventListener("click", (e) => { const c = e.target.closest(".pb-crumb"); if (c) pageGo(pageAt.ids.slice(0, Number(c.dataset.depth))); });
@@ -917,13 +926,33 @@
     e.stopPropagation();
     if (e.key === "Enter" || e.key === "Escape" || e.key === "ArrowDown") { e.preventDefault(); e.target.blur(); if (mode === "active") window.MdActive.view.focus(); }
   });
+  // a page's name, as it can stand in its line: one line, nothing that ends the comment or reads as its number
+  const pageName = (name) => String(name || "").replace(/[\r\n]+/g, " ").replace(/--+>/g, "→").replace(/\s#[a-z]\d+\s*$/, "").trim();
   pagebar.addEventListener("change", (e) => {
-    const vp = mode === "active" && window.MdActive ? MdActive.view.payload : null, to = e.target.value.trim();
-    if (!e.target.matches(".pb-title") || !vp || !vp.pageOf || vp.page.id == null || vp.readonly || to === vp.page.title) return;
+    if (!e.target.matches(".pb-title")) return;
+    const to = pageName(e.target.value);
+    e.target.value = to;
+    if (mode === "active" && window.MdActive) {
+      const vp = MdActive.view.payload;
+      if (!vp || !vp.pageOf || vp.page.id == null || vp.readonly || to === vp.page.title) return;
+      vp.page.title = to;
+      vp.page.open = pageMark(pageLook(vp.page.look), to) + (/\r$/.test(vp.page.close || "") ? "\r" : "");
+      MdActive.view.touch(); // (the name is in the file with the next save)
+      activeChanged();
+      return;
+    }
+    // the reading view: the page's first line says the new name, and the file is written at once
+    const vp = mode === "read" ? viewOf(current) : null;
+    if (!vp || !vp.pageOf || vp.page.id == null || vp.readonly || to === vp.page.title) return;
     vp.page.title = to;
     vp.page.open = pageMark(pageLook(vp.page.look), to) + (/\r$/.test(vp.page.close || "") ? "\r" : "");
-    MdActive.view.touch(); // (the name is in the file with the next save)
-    activeChanged();
+    const p = vp.pageOf;
+    p.raw = pagesText(vp.root);
+    p.text = p.raw.replace(/\r\n?/g, "\n");
+    pageTree = { raw: p.raw, path: p.path, root: vp.root };
+    p._view = null;
+    post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
+    for (const el of tabEls()) { const t = tabs.find((x) => String(x.id) === el.dataset.id); if (t) paintTab(el, t); }
   });
 
   /* A property that is true or false, switched: its line in the properties at the head of the
@@ -1836,6 +1865,14 @@
       if (lost) { console.error("mdview: " + lost); post("log", { text: lost }); }
     }, 3000);
   }
+  /* The note's text as the source editor has it now. The file as it is to be (raw) follows, its
+   * line ends kept — the views of a note with pages are made from it, and the active mode showed
+   * the note as it had been before the source was edited, until it was read anew. */
+  function sourceIs(p, text) {
+    p.text = text;
+    p.raw = /\r\n/.test(p.raw || "") ? text.replace(/\n/g, "\r\n") : text;
+    p._view = null;
+  }
   function flushSave() {
     clearTimeout(saveTimer);
     saveTimer = 0;
@@ -1853,7 +1890,7 @@
     }
     if (!dirty()) return;
     savedText = edInput.value;
-    if (current && current.path === edPath) { current.text = savedText; current.error = null; trailPush(edPath, savedText); }
+    if (current && current.path === edPath) { sourceIs(current, savedText); current.error = null; trailPush(edPath, savedText); }
     post("save", { text: savedText, path: edPath, seq: ++saveSeq });
   }
   function flush(thenClose) {
@@ -1936,7 +1973,7 @@
   function adoptDisk(p) {
     if (p.text === edInput.value) { savedText = p.text; return; }
     if (dirty()) {
-      p.text = edInput.value;
+      sourceIs(p, edInput.value);
       toast("File changed on disk — keeping your edits");
       return;
     }
@@ -2030,7 +2067,7 @@
         const caret = from === "edit" && mode === "active" ? edInput.selectionStart : null;
         if (from === "edit") {
           edInput.blur();
-          current.text = edInput.value;
+          sourceIs(current, edInput.value);
           trailPush(current.path, current.text);
         }
         if (mode === "active" && from === "read") MdActive.view.arriving(); // while the reading view can still be measured
@@ -2509,6 +2546,8 @@
     `<button class="sb-folder" data-act="folder" title="Open another folder (Ctrl+Alt+O)">${ICON.folder}<span class="sb-folder-name"></span></button>` +
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
     `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
+    // (only where the folder has another side to be brought in line with: a project linked to a repository, a repository in the browser)
+    `<button class="tb sb-sync" data-act="syncnow" title="Sync Now: fetch what other devices wrote, and send what was written here" aria-label="Sync Now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
     `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header>` +
     `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
@@ -2834,6 +2873,8 @@
   function applyFolder(f, animate) {
     f.all = f.tree;
     f.tree = listed(f.all, "sidebar");
+    // (is there another side to sync with: a linked project — or, in the browser, always: the repository itself)
+    document.body.toggleAttribute("data-linked", !!(window.MdWeb || ((f.history || {}).sync)));
     if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
     if (f.quick && !sbDragging && !(f.width >= 340)) document.documentElement.style.setProperty("--sb-w", "360px"); // (a list of notes wants room)
     document.body.toggleAttribute("data-quick", !!f.quick);
@@ -3321,7 +3362,9 @@
     if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
     if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
     rows.push(null);
-    rows.push(["Select All", "Ctrl+A", true, edit("SelectAll")]);
+    // (in the active mode, beside the text or on it: the note's blocks as wholes, not its text — a field's text stays text)
+    const blocks = !field && mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share"));
+    rows.push(["Select All", "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
     // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
     if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {
       const shown = window.MdPrefs?.props !== false;
@@ -3771,6 +3814,14 @@
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
       openCtx(b, r.right, r.bottom + 4, "new");
     },
+    // Sync Now: what is typed is saved first; the application keeps what waits and brings the two sides in line
+    syncnow: () => {
+      const b = sbHead.querySelector(".sb-sync");
+      flush(false);
+      post("sync-now");
+      b.classList.remove("turning"); void b.offsetWidth; b.classList.add("turning"); // (it turns once: asked for)
+      toast("Syncing…");
+    },
     historymenu: () => { // the clock: the folder's history, switched on or said to be
       const r = sbHistoryBtn.getBoundingClientRect();
       if (ctxOpen() && ctxKind === "history") { closeCtx(false); return; }
@@ -4053,6 +4104,7 @@
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
       lookOf: (raw) => pageLook((PAGE_ROW.exec(String(raw || "").trim()) || [])[1]),
+      rename: (raw, name) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark(pageLook(m[1]), pageName(name) || m[2], m[3]) : raw; }, titleOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[2] || "",
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,

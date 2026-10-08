@@ -2109,6 +2109,14 @@ impl Win {
             }
             // the conflicts' window (active/conflict.js): what stands in the way of joining the
             // project with its other side, and joining with what the user picked
+            // Sync Now (the sidebar's button): what waits in the project is kept at once, and the
+            // project brought in line with its other side — not after the quiet while, or the minute
+            "sync-now" => {
+                match self.here().map(|h| history::place_of(&h)) {
+                    Some(Place::Project(root)) if sync::linked(&root).is_some() => app.keep_now(&root),
+                    _ => self.toast("Nothing to sync with: this folder is not linked to a repository"),
+                }
+            }
             "sync-conflicts" | "sync-resolve" => {
                 let Some(root) = self.here().and_then(|h| match history::place_of(&h) {
                     Place::Project(r) => Some(r),

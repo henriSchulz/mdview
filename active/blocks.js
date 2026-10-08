@@ -964,8 +964,21 @@
       view.focus();
       return;
     }
+    // a click into the empty space lets go of whatever was selected — blocks (below), and text too:
+    // the press is held back so that no text is selected by a pull, which left a selection of text standing
+    const st = view.state;
+    if (!st.selection.empty && !selOf(st)) view.dispatch(st.tr.setSelection(Selection.near(st.doc.resolve(st.selection.head), -1)));
+    getSelection()?.removeAllRanges(); // (… and what is selected outside the text: a title, a word of the reading view under it)
     // a click: below the last block an empty line, the caret in it
     if (view.editable && e && e.clientY > view.dom.getBoundingClientRect().bottom && view.dom.parentElement && view.dom.parentElement.contains(e.target)) lineBelow(view);
+  }
+  // every block of the document, selected as wholes (Select All from a menu) → whether there are any
+  function selectAll(v) {
+    const top = { parent: v.state.doc, start: 0 }, f = nextUsable(top, -1, 1), l = nextUsable(top, v.state.doc.childCount, -1);
+    if (f < 0 || l < 0 || f >= v.state.doc.childCount) return false;
+    v.dispatch(setSel(v.state, posOfChild(top, f), posOfChild(top, l)));
+    v.focus();
+    return true;
   }
   document.addEventListener("mousedown", (e) => {
     if (!rubberAt(e)) return;
@@ -1473,5 +1486,5 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

@@ -177,6 +177,7 @@
       item("menu.copy", () => clipboard(view, "copy"), { key: "Ctrl+C", disabled: empty }),
       item("menu.paste", () => { view.focus(); post("pasteclip"); }, { key: "Ctrl+V" }),
       item("menu.pastePlain", () => { view.focus(); post("pastetext"); }, { key: "Ctrl+Shift+V" }),
+      item("menu.selectAll", () => A.blocks.selectAll(view)), // (the note's blocks, as wholes)
       null,
     ];
     if (link) items.push(item("menu.openLink", () => follow(link.mark.attrs.href)));
@@ -238,6 +239,16 @@
       const look = P.lookOf(raw), set = (to) => () => { A.islands.replace(view, pos, P.withLook(raw, to)); view.focus(); }, whole = P.markdownOf(raw);
       return [
         item("menu.pageOpen", () => A.islands.open(view, pos), { key: "↩" }),
+        // its name, changed from where its line stands (inside the page it is typed at the page's head)
+        item("menu.pageRename", () => {
+          const dom = view.nodeDOM(pos), r = dom && dom.getBoundingClientRect ? dom.getBoundingClientRect() : { left: 100, right: 100, top: 100, bottom: 120 };
+          A.dialog.fields({
+            rect: r, label: T("menu.pageRename"),
+            fields: [{ key: "name", label: T("page.name"), value: P.titleOf(raw) }],
+            apply(v) { const next = P.rename(raw, v.name); if (next !== raw) A.islands.replace(view, pos, next); view.focus(); },
+            cancel() { view.focus(); },
+          });
+        }, { label: T("menu.pageRename") + "…" }),
         null,
         { label: T("menu.pageStyle"), items: P.STYLES.map((s) => item("page.style." + s, set({ style: s }), { checked: look.style === s })) },
         { label: T("slash.color"), items: [item("slash.colorDefault", set({ color: "" }), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, set({ color: c }), { checked: look.color === c }))] },

@@ -1328,3 +1328,11 @@ details.props .callout-fold .sf { font-size: 10px; }
    * the tap that chooses the tab. A tab is closed from its menu: a finger held on it.) */
   .tab-x { display: none; }
 }
+
+/* Sync Now, in the sidebar's head: there only where the folder has another side (viewer.js: data-linked); it turns once when pressed */
+.sb-sync { display: none; }
+body[data-linked] .sb-sync { display: grid; }
+.sb-sync svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-sync.turning svg { animation: sb-sync-turn var(--dur-slower) var(--ease-in-out); }
+@keyframes sb-sync-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sb-sync.turning svg { animation: none; } }

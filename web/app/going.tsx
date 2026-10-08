@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 export function Going() {
   useEffect(() => {
-    const on = () => { document.body.dataset.wait = ""; }, off = () => { delete document.body.dataset.wait; };
+    const on = () => { document.body.dataset.wait = "leave"; }, off = () => { delete document.body.dataset.wait; }; // ("leave": the page blurs behind the ring)
     const click = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
