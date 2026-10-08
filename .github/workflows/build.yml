@@ -4,7 +4,8 @@
 #   by hand        (Actions › Build › Run workflow)             -> the installers as the run's artifacts
 #
 # Linux is what the app is written and tested on. Windows and macOS are tried: where they do not
-# build, the run and the release go on without them.
+# build, the run goes on without them — and what they build is the run's artifact only, not a
+# file of the release: an installer nobody has started, unsigned, is not offered for download.
 name: Build
 
 on:
@@ -30,6 +31,12 @@ jobs:
     continue-on-error: ${{ matrix.tried }}
     steps:
       - uses: actions/checkout@v4
+      - name: The tag names the version that is built
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version *= *"\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          [[ "v$version" == "$GITHUB_REF_NAME" ]] || { echo "the tag is $GITHUB_REF_NAME, Cargo.toml says $version"; exit 1; }
       - name: What the build needs (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -45,7 +52,7 @@ jobs:
       - name: Build the installers
         working-directory: src-tauri
         shell: bash
-        run: npx --yes @tauri-apps/cli@2 build --bundles "${{ matrix.bundles }}" --config ../packaging/bundle.json
+        run: npx --yes @tauri-apps/cli@2 build --bundles "${{ matrix.bundles }}" --config ../packaging/bundle.json -- --locked
       - uses: actions/upload-artifact@v4
         with:
           name: markdown-notes-${{ matrix.name }}
@@ -57,7 +64,7 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/dmg/*.dmg
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && !matrix.tried
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

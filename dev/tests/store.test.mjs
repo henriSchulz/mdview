@@ -63,6 +63,17 @@ test("a comment between two blocks stays when its neighbours change", () => {
   assert.equal(ser([{ id: 2 }]), "%%\nkept\n%%\n\nC\n", "only the last block left");
 });
 
+test("%% in code is the code's, not a comment's", () => {
+  const strip = w.MdView.core.stripComments;
+  const two = "```\n%%time\n```\n\nVisible\n\n```\n%%time\n```\n";
+  assert.equal(strip(two), two, "two fences with a cell magic each");
+  assert.equal(strip('`printf("%%d %%s")` and %% gone %% text'), '`printf("%%d %%s")` and  text');
+  assert.equal(strip("a %% one\ntwo %% b"), "a \n b", "a comment over lines keeps its line break");
+  assert.equal(strip("~~~\n%% x %%\n~~~\nafter %%c%%"), "~~~\n%% x %%\n~~~\nafter ");
+  assert.equal(strip("never %% closed"), "never %% closed");
+  same(shape(parse(two)), ["block:code", "block:paragraph", "block:code"]);
+});
+
 test("blocks under one open HTML element are one segment", () => {
   const s = parse("Before\n\n<details>\n<summary>S</summary>\n\nInside *text*.\n\n- list\n\n</details>\n\nAfter\n");
   same(shape(s), ["block:paragraph", "block:html", "block:paragraph"]);

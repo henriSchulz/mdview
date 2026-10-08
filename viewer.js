@@ -752,7 +752,39 @@
     if (props !== null && typeof props !== "object") return { body: text, props: null, offset: 0 };
     return { body: text.slice(m[0].length), props: props || {}, offset: (m[0].match(/\n/g) || []).length };
   }
-  const stripComments = (text) => text.replace(/%%[\s\S]*?%%/g, (m) => m.replace(/[^\n]/g, ""));
+  /* %% comments %% are blank to the parser (their line breaks stay: the lines keep their numbers).
+   * Not what stands in code: there "%%" is the code's — a cell magic, a format string — and two
+   * of them in two code blocks would swallow everything between them. */
+  const stripComments = (text) => {
+    const next = /%%|^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)$|(`+)/gm;
+    let out = "", at = 0, m;
+    while ((m = next.exec(text))) {
+      let end;
+      if (m[0] === "%%") {
+        const close = text.indexOf("%%", m.index + 2);
+        if (close < 0) break; // (never closed: text)
+        end = close + 2;
+        out += text.slice(at, m.index) + text.slice(m.index, end).replace(/[^\n]/g, "");
+      } else {
+        const run = m[1] || m[2] || m[3];
+        if (m[3]) { // code in the line: to the same run of backticks, within its paragraph
+          const stop = text.indexOf("\n\n", m.index), close = new RegExp("(?<!`)" + run + "(?!`)", "g");
+          close.lastIndex = m.index + run.length;
+          const c = close.exec(text);
+          end = c && (stop < 0 || c.index < stop) ? c.index + run.length : m.index + run.length;
+        } else { // a fence: to the line that closes it, or the end
+          const close = new RegExp("^ {0,3}" + run[0] + "{" + run.length + ",}[ \\t]*$", "gm");
+          close.lastIndex = next.lastIndex;
+          const c = close.exec(text);
+          end = c ? c.index + c[0].length : text.length;
+        }
+        out += text.slice(at, end);
+      }
+      at = end;
+      next.lastIndex = end;
+    }
+    return out + text.slice(at);
+  };
 
   /* ------------------------------------------------------------ pages in a note
    * A note can hold pages of its own. In the file — one Markdown file, as ever — a page is what
