@@ -421,14 +421,20 @@
   /* A picture put in: where the settings say (beside the note, else a folder under it), under a
    * name not taken; its bytes wait for the next commit. → its path */
   const PICTURE_MOST = 10 * 1024 * 1024, MOVE_MOST = 14 * 1024 * 1024; // (a commit takes 20 MB, as base64)
-  async function putPicture(note, stem, ext, blob) {
+  function placeFor(note, stem, ext) {
     const dir = C.dirOf(note), wanted = String(prefs.images || "assets").trim().replace(/^\/+|\/+$/g, "");
     const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
     let target = `${into}/${stem}${ext}`;
     for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;
+    return target;
+  }
+  async function putPicture(note, stem, ext, blob) {
+    const target = placeFor(note, stem, ext);
     blobs.set(rel(target), base64Of(new Uint8Array(await blob.arrayBuffer())));
     return target;
   }
+  /* A whiteboard (board.js) is a picture that is text: *.board.svg, with its own data in it. */
+  const BOARD_MARK = '<metadata id="mdview-board">', isBoard = (path) => /\.board\.svg$/i.test(path);
   /* What the app put beside a note goes again with what shows it (core.js, ATTACH). After a save
    * from the active mode: a file of that note which the note no longer names — nor any other
    * note — is deleted, in the next commit (its versions stay in the repository). Its bytes are
@@ -799,6 +805,36 @@
       if (!found) return tellShare(path);
       delete all.shares[found[0]];
       await keepShares(all, path);
+    },
+
+    // whiteboards: a new one where the note's pictures go — in a commit at once, so that the note
+    // can show it —, a board's text (as it was left here, else the branch's), and the board as it
+    // is to be: a draft like a note's, in the next commit
+    async "board-new"({ path, text, id }) {
+      const failed = (error) => tell("boardMade", { id, error });
+      if (!path || path !== onScreen || path === GUIDE || typeof text !== "string" || !text.includes(BOARD_MARK)) return failed("not a whiteboard");
+      if (!mayWrite()) return failed(NOT_YET);
+      const d = new Date(), two = (n) => String(n).padStart(2, "0");
+      const target = placeFor(path, `board-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`, ".board.svg");
+      write(rel(target), text);
+      const all = await owned();
+      all[rel(target)] = rel(path);
+      write(C.ATTACH, C.attachText(all));
+      tell("busy", "Adding the whiteboard…");
+      try { await commit(); } finally { tell("busy", null); }
+      tell("boardMade", { id, path, markup: markupOf(path, target), file: target });
+    },
+    async "board-read"({ path, id }) {
+      try {
+        if (typeof path !== "string" || !exists(path) || !isBoard(path)) throw new Error("not a whiteboard");
+        tell("boardText", id, await textOf(path), null);
+      } catch (e) { tell("boardText", id, null, String(e.message || e)); }
+    },
+    "board-save"({ path, text, id }) {
+      if (typeof path !== "string" || typeof text !== "string" || !exists(path) || !isBoard(path) || !text.includes(BOARD_MARK)) return tell("boardSaved", id, "not a whiteboard");
+      if (!project()) return tell("boardSaved", id, NOT_YET);
+      write(rel(path), text);
+      tell("boardSaved", id, null);
     },
 
     // writing

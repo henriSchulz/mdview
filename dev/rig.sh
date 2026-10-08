@@ -168,6 +168,20 @@ case "${1:-}" in
     f=$(ls "$R/work"/*.svg 2>/dev/null | head -1)
     [[ -n $f ]] && ! grep -qi '<script\|onclick' "$f" && echo "ok   the figure is a file beside the note ($(basename "$f"), $(wc -c < "$f") bytes), with nothing in it that could run" || echo "FAIL no clean .svg beside the note: $f"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.graphic.json"; } | grep -qv '^ok' ;;
+  board)
+    # a whiteboard in a note: made from the / menu, drawn on, kept, opened again from both views
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{open,drawn,closed,board}.json
+    app 60 MDVIEW_PROBE="$D/probe-board.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in open drawn closed; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-$v.png"; done
+    for _ in $(seq 400); do [[ -f $R/out/$name.board.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board.json"
+    f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
+    n=$([[ -n $f ]] && grep -c '^{"id"' "$f")
+    [[ -n $f && $n == 3 ]] && echo "ok   the board is a file where the note's pictures go ($(basename "$f"), $(wc -c < "$f") bytes), with a line for each of its 3 strokes" || echo "FAIL the board's file: ${f:-none}, $n strokes"
+    [[ -n $f ]] && grep -q "$(basename "$f")" "$R/work/$name" && echo "ok   the note on disk names it" || echo "FAIL the note on disk does not name the board"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board.json"; } | grep -qv '^ok' ;;
   ghostmath)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
     app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"

@@ -750,6 +750,11 @@
     if (node.type === N.image) { imagePopover(view, pos, node); return true; }
     if (node.type === N.iatom) { if (node.attrs.kind === "footnote") return A.notes.edit(view, A.notes.labelOf(node)); atomPopover(view, pos, node); return true; }
     if (node.type !== N.island || node.attrs.virtual) return false;
+    // a whiteboard (its picture alone in the block): the board is opened (board.js), no dialog
+    if (/\.board\.svg/i.test(node.attrs.raw || "")) {
+      const dom = view.nodeDOM(pos), bi = dom && dom.querySelector && dom.querySelector(".board-block img");
+      if (bi && window.MdView.core.board.is(bi)) return window.MdView.core.board.open(bi);
+    }
     // a page of the note, its line: opened (viewer.js) — its name is typed on the page itself
     if (node.attrs.kind === "html" && window.MdView.core.pages.isRow(node.attrs.raw)) { window.MdView.core.pages.open(window.MdView.core.pages.idOf(node.attrs.raw)); return true; }
     target = { pos, node };

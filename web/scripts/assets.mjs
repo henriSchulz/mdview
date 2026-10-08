@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(web, "..");
 const out = join(web, "public", "app");
-const files = ["motion.css", "viewer.css", "active.css", "overview.css", "pdfview.css", "viewer.js", "overview.js", "pdfview.js", "strings.js"];
-const folders = ["active", "vendor"];
+const files = ["motion.css", "viewer.css", "active.css", "overview.css", "pdfview.css", "board.css", "viewer.js", "overview.js", "pdfview.js", "board.js", "strings.js"];
+const folders = ["active", "board", "vendor"];
 
 if (!existsSync(join(root, "viewer.js"))) {
   console.error("assets: the checkout's page (viewer.js) is not beside web/ — nothing copied");

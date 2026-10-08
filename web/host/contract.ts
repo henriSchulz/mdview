@@ -82,6 +82,11 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "github-repos": ["none", "the repositories are chosen before the page"],
   "github-give": ["none", "as github-repos"],
   "github-get": ["none", "as github-repos"],
+  // whiteboards (board.js)
+  "board-new": ["write", "a new whiteboard: its file where the note's pictures go, in a commit at once"],
+  "board-read": ["answer", "a whiteboard's text: the draft kept here, else the branch's"],
+  "board-save": ["write", "a whiteboard as it is to be: a draft, in the next commit"],
+  "board-open": ["none", "a whiteboard is open or shut: the shell asks the page before the window closes — a browser tells the page itself"],
   // decided against: no AI in the web app
   complete: ["none", "the next words suggested while typing"],
   graphic: ["none", "a figure drawn by a model"],
@@ -128,6 +133,9 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   conflictsFailed: ["write", "the joining did not go"],
   pasteClip: ["local", "what the clipboard holds"],
   pasteText: ["local", "the clipboard's plain text"],
+  boardMade: ["write", "the new whiteboard, and how the note names it"],
+  boardText: ["answer", "a whiteboard's text"],
+  boardSaved: ["write", "the whiteboard was kept, or why not"],
   completion: ["none", "no AI in the web app"],
   graphic: ["none", "as completion"],
   graphicImage: ["none", "as completion"],

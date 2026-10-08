@@ -364,6 +364,34 @@ In the active mode a picture or a file is put in from the `/` menu, the Insert p
 menu's Insert › Picture / File: the system's own window for files opens, and what is chosen there
 is kept beside the note and stands at the caret — as a file dropped on the note does.
 
+### Whiteboards
+
+A whiteboard is a block in a note: a board without edges to draw on, opened from the note and
+shut back into it.
+
+- **Making one**: `/whiteboard` in the active mode, or the Whiteboard tile of the panel's Insert
+  tab, or Insert in the menu of a right click. The board opens at once.
+- **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
+  browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
+  its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
+- **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
+- **Drawing**: the pen (`P`), the fineliner (`M`) and the eraser (`E`, it takes whole strokes) at
+  the foot, with six colours beside them. `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it
+  again.
+- **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
+  drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
+  `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
+  The dots of the grid are switched at the bottom right.
+- **Kept by itself**, a moment after the last stroke and whenever the board or the note is left.
+- **The file**: a board is one file where the note's pictures go, `board-….board.svg` — an SVG
+  picture that any program shows, with the board's own data inside it (a line for each stroke,
+  so that Git joins what two devices drew). The note names it as it names a picture:
+  `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
+  taken out of the note it goes to the trash after an hour, as a pasted picture does.
+
+Not there yet: text, shapes and pictures on a board, choosing and moving what is drawn, an
+eraser for parts of a stroke.
+
 ### Links between notes
 
 ```markdown

@@ -133,6 +133,14 @@ img.full { display: block; width: 100%; height: auto; }
 /* a picture alone in its paragraph: a block of its own, the line to itself, in its middle */
 p.pic-block { text-align: center; }
 p.pic-block > img { display: block; margin-left: auto; margin-right: auto; }
+/* ---- a whiteboard in the note: its picture in a frame, opened by a click (board.js) */
+p.board-block { box-sizing: border-box; min-height: 120px; padding: 12px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-popover); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+p.board-block:hover { box-shadow: inset 0 0 0 1px var(--line-strong); transition-duration: var(--dur-instant); }
+p.board-block:active { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+p.board-block > img { max-width: 100%; max-height: 336px; height: auto; margin: 0; }
+p.board-block > img:not([width]) { width: auto; }
+/* (the picture is drawn for a light board: on a dark note its black ink is turned white, its colours kept) */
+body[data-mode="dark"] p.board-block > img { filter: invert(1) hue-rotate(180deg); }
 audio { width: 100%; }
 
 ul, ol { padding-left: 1.6em; }

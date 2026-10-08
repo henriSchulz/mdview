@@ -135,6 +135,8 @@
       putBlock(view, island(`<!-- page: ${T("page.untitled")} #${id} -->`, "html"), false, at);
       setTimeout(() => window.MdView.core.pages.open(id), 0);
     },
+    // a whiteboard: the host makes its file where the note's pictures go, its picture stands here and the board is opened (viewer.js)
+    board(view, at) { view.focus(); window.MdView.core.board.make((markup) => putBlock(view, island(markup, "paragraph"), false, at)); },
     math(view, at) { const pos = putBlock(view, island("$$\n\n$$", "math"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
     // (rows, cols: how many of each, the head row counted — as the panel's field of squares says)
     table(view, at, rows = 3, cols = 2) {
@@ -211,6 +213,7 @@
         item("menu.image", () => INSERT.image(view)),
         item("menu.file", () => INSERT.file(view)),
         item("menu.graphic", () => INSERT.graphic(view)),
+        item("menu.board", () => INSERT.board(view)),
         item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
       ] });
     } else {

@@ -195,7 +195,7 @@ test("blocks selected as wholes: Tab stands them under the list above, / and a r
   await page.waitForFunction(() => !!MdActive.blocks.selection(MdActive.view.pm.state), null, { timeout: 8000 });
   await page.keyboard.type("/");
   await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
-  assert.deepEqual(await menu(), ["Text Style", "List", "Format", "Decorations", "Color", "Callout", "Columns", "Code Block", "Formula", "Table", "Divider", "Picture", "File", "Graphic by Claude…", "Footnote", "Page", "Actions"]); // (all the "/" menu has)
+  assert.deepEqual(await menu(), ["Text Style", "List", "Format", "Decorations", "Color", "Callout", "Columns", "Code Block", "Formula", "Table", "Divider", "Picture", "File", "Graphic by Claude…", "Whiteboard", "Footnote", "Page", "Actions"]); // (all the "/" menu has)
   assert.ok(await page.evaluate(() => !!document.querySelector("#actmenu .menu-search"))); // (… and it is searched by typing)
   assert.equal(await md(), "- one\n\nbelow\n\nthird\n");
   await page.keyboard.press("Escape");
@@ -753,6 +753,38 @@ test("only the app's own pages can have a commit made, and only inside the repos
   assert.equal(gh.commits.length, before);
   assert.equal(await send(good), 200);
   assert.equal(text("x.md"), "x");
+});
+
+test("a whiteboard is made in the note, drawn on with the pointer, kept in commits, and shown by its picture", async () => {
+  await open("Beta.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active", null, { timeout: 10000 });
+  await page.evaluate(() => { MdActive.view.focus(); MdActive.context.INSERT.board(MdActive.view.pm); });
+  await page.waitForFunction(() => window.MdBoard && MdBoard.shown && document.getElementById("board").hasAttribute("data-ready"), null, { timeout: 15000 });
+  const name = () => [...gh.repo.files.keys()].find((k) => /^board-\d{8}-\d{6}\.board\.svg$/.test(k));
+  await until(() => !!name(), "the board's file in the repository");
+  assert.match(text(name()), /<metadata id="mdview-board">/);
+  assert.equal(JSON.parse(text(".mdview/attachments.json"))[name()] ?? Object.values(JSON.parse(text(".mdview/attachments.json"))).includes("Beta.md"), "Beta.md"); // (the note's own: it goes with the note)
+  assert.equal(await page.evaluate(() => MdBoard.state().items), 0);
+  await page.waitForTimeout(700); // (grown to the window's size)
+  await page.mouse.move(400, 400);
+  await page.mouse.down();
+  for (let i = 1; i <= 30; i++) await page.mouse.move(400 + i * 10, 400 + Math.sin(i / 2) * 40);
+  await page.mouse.up();
+  assert.equal(await page.evaluate(() => MdBoard.state().items), 1);
+  const strokes = () => (text(name()) || "").split("\n").filter((l) => l.startsWith('{"id"')).length;
+  await until(() => strokes() === 1, "the stroke in a commit", 12000);
+  await until(() => (text("Beta.md") || "").includes(`![](${name()})`), "the note names the board", 12000);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !MdBoard.shown && document.getElementById("board").hidden, null, { timeout: 5000 });
+  await page.waitForFunction(() => { const i = document.querySelector("#active .board-block img"); return i && i.complete && i.naturalWidth > 250; }, null, { timeout: 8000 }); // (what was drawn, not the empty board's sign)
+  // opened again in the reading view: the stroke is there
+  await page.evaluate(() => MdView.setMode("read"));
+  await page.waitForFunction(() => document.body.dataset.view !== "active" && document.querySelector("#content .board-block img"), null, { timeout: 8000 });
+  await page.click("#content .board-block img");
+  await page.waitForFunction(() => MdBoard.shown && document.getElementById("board").hasAttribute("data-ready") && MdBoard.state().items === 1, null, { timeout: 8000 });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 });
 });
 
 test("nothing was refused or thrown along the way", () => {

@@ -834,6 +834,11 @@
         if (node.type === N.island && node.attrs.kind === "frontmatter") return true; // (the properties stand at the note's head, no block to open: edited from the menu of a right click)
         // (an embedded picture or PDF page is a picture: a click selects it, its dialog is in its menu)
         // … and a callout that folds is its own control: a click on its title folds it
+        // … but a whiteboard is opened by the click (it is chosen as a block by its handle, or with Esc)
+        if (node.type === N.island) {
+          const bi = event.target.closest?.(".board-block")?.querySelector("img") || (event.target.tagName === "IMG" ? event.target : null);
+          if (bi && window.MdView.core.board.is(bi)) return window.MdView.core.board.open(bi);
+        }
         if (node.type === N.island && (node.attrs.kind === "blockquote" || A.islands.picture(view, nodePos, node))) return false;
         if (node.type === N.island || (node.type === N.iatom && node.attrs.kind === "math")) return A.islands.open(view, nodePos);
         return false;
@@ -843,6 +848,7 @@
         if (!direct || !view.editable || !([N.image, N.iatom].includes(node.type) || pictured)) return false;
         // a picture grows to the size of the window (its address is edited from its menu, or with Enter)
         const img = event.target?.closest?.("img");
+        if (img && window.MdView.core.board.is(img)) return true; // (a whiteboard: opened by the click before)
         if (img && view.dom.contains(img)) return window.MdView.core.zoomImage(img) || true;
         return pictured ? true : A.islands.open(view, nodePos);
       },

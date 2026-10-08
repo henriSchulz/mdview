@@ -241,6 +241,12 @@ fn readonly_reason(path: &Path, raw: Option<&[u8]>) -> Option<&'static str> {
     }
 }
 
+/// What a whiteboard's file holds (board/format.js), and how it is named.
+const BOARD_MARK: &str = "<metadata id=\"mdview-board\">";
+fn is_board(path: &Path) -> bool {
+    name_of(path).to_lowercase().ends_with(".board.svg")
+}
+
 /// A new file in folder, named by name(1), name(2), … — the first that is free.
 fn write_new(folder: &Path, name: impl Fn(u32) -> String, data: &[u8], tries: u32) -> std::io::Result<PathBuf> {
     fs::create_dir_all(folder)?;
@@ -379,6 +385,7 @@ pub struct Win {
     closed_tabs: Vec<(PathBuf, usize)>, // (path, place) of tabs closed here, for Ctrl+Shift+T
     resolver: Option<Resolver>,
     editing: bool,
+    board_open: bool, // a whiteboard is open over the note: closing asks the page first, as while a note is written
     own_text: Option<String>,
     own_write: Option<Vec<u8>>, // bytes just written here: the reload for them is skipped
     closing: bool,
@@ -1080,6 +1087,7 @@ impl Win {
             closed_tabs: vec![],
             resolver: None,
             editing: false,
+            board_open: false,
             own_text: None,
             own_write: None,
             closing: false,
@@ -2091,7 +2099,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2416,6 +2424,11 @@ impl Win {
                 }
             }
             "fileop" => self.file_op(text_of("op"), text_of("path")),
+            // whiteboards (board.js): a new one beside the note, a board's text for the page, and back
+            "board-new" => self.board_new(app, text_of("path"), text_of("text"), &msg["id"]),
+            "board-read" => self.board_read(text_of("path"), &msg["id"]),
+            "board-save" => self.board_save(text_of("path"), text_of("text"), &msg["id"]),
+            "board-open" => self.board_open = msg["on"].as_bool().unwrap_or(false),
             "pdfdata" => {
                 let id = match &msg["id"] {
                     Value::String(t) => t.clone(),
@@ -2805,6 +2818,57 @@ impl Win {
         }
     }
 
+    /// A whiteboard for the note: its file (the page wrote what an empty one holds) where the
+    /// note's pictures go, the note's own from now on, and how the note names it.
+    fn board_new(&mut self, app: &mut App, note: &str, text: &str, id: &Value) {
+        let failed = |w: &Self, e: String| w.js("MdView.boardMade", &[json!({ "id": id, "error": e })]);
+        let Some(path) = self.path.clone().filter(|p| !is_pdf(p) && s(p) == note) else { return failed(self, "another note".into()) };
+        if !text.contains(BOARD_MARK) {
+            return failed(self, "not a whiteboard".into());
+        }
+        let vault = self.vault();
+        let stem = chrono::Local::now().format("board-%Y%m%d-%H%M%S").to_string();
+        let folder = self.attachment_dir(app, &path, vault.as_deref());
+        match write_new(&folder, |n| if n == 1 { format!("{stem}.board.svg") } else { format!("{stem}-{n}.board.svg") }, text.as_bytes(), 100) {
+            Ok(target) => {
+                attachments().own(&target, &path);
+                let markup = self.image_markup(&target, &path, vault.is_some());
+                self.js("MdView.boardMade", &[json!({ "id": id, "path": s(&path), "markup": markup, "file": s(&target) })]);
+            }
+            Err(e) => failed(self, strerror(&e)),
+        }
+    }
+
+    /// A whiteboard's text for the page (it may not read files itself).
+    fn board_read(&self, path: &str, id: &Value) {
+        let p = resolve(Path::new(path));
+        let read = || -> Result<String, String> {
+            if !is_board(&p) || !p.is_file() {
+                return Err("not a whiteboard".into());
+            }
+            if fs::metadata(&p).map_err(|e| strerror(&e))?.len() > 50_000_000 {
+                return Err("larger than 50 MB".into());
+            }
+            fs::read_to_string(&p).map_err(|e| strerror(&e))
+        };
+        match read() {
+            Ok(text) => self.js("MdView.boardText", &[id.clone(), json!(text), Value::Null]),
+            Err(e) => self.js("MdView.boardText", &[id.clone(), Value::Null, json!(e)]),
+        }
+    }
+
+    /// … and the board as it is to be. Only into a whiteboard that is there, and only a
+    /// whiteboard's text: this is no way to write any file.
+    fn board_save(&mut self, path: &str, text: &str, id: &Value) {
+        let p = resolve(Path::new(path));
+        let done = if !is_board(&p) || !p.is_file() || !text.contains(BOARD_MARK) {
+            Err("not a whiteboard".to_string())
+        } else {
+            fs::write(&p, text.as_bytes()).map_err(|e| strerror(&e))
+        };
+        self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
+    }
+
     /// From a file's menu in the sidebar: open it in its default application, in one chosen
     /// from the system's list, or show it in the file manager.
     /// Before a repository that exists becomes a project: what follows from it, to be agreed to.
@@ -2905,7 +2969,7 @@ impl Win {
     /// The window is to go. While a note is being written the page hands over unsaved text
     /// first; it answers with "close" (or holds the window, to ask).
     fn close(&mut self, app: &mut App) {
-        if self.editing && self.shell_ready && !self.closing {
+        if (self.editing || self.board_open) && self.shell_ready && !self.closing {
             self.closing = true;
             self.js("MdView.flush", &[json!(true)]);
             self.close_turn += 1;

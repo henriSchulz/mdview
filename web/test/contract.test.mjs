@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), ".."), root = join(web, "..");
 const read = (...p) => readFileSync(join(...p), "utf8");
-const page = [...["viewer.js", "overview.js", "pdfview.js"].map((f) => read(root, f)), ...readdirSync(join(root, "active")).filter((f) => f.endsWith(".js")).map((f) => read(root, "active", f))].join("\n");
+const page = [...["viewer.js", "overview.js", "pdfview.js", "board.js"].map((f) => read(root, f)), ...readdirSync(join(root, "active")).filter((f) => f.endsWith(".js")).map((f) => read(root, "active", f))].join("\n");
 const contract = read(web, "host", "contract.ts"), host = read(web, "public", "host", "host.js");
 
 // the two lists of the contract: name → what the web host does with it

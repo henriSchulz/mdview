@@ -11,7 +11,7 @@
   const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab"]);
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
-    if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
+    if (LEAVING.has(type)) { leaving = true; window.MdBoard?.leave?.(); flushSave(); leaving = false; } // (an open whiteboard is the note's: what is drawn goes first)
     window.MdHost?.post(JSON.stringify({ type, ...data }));
   };
   const T = window.MdStrings.t;
@@ -445,13 +445,15 @@
    * room is left beside it, and stands in its middle (viewer.css: p.pic-block). The same for a
    * picture that is embedded by its name (![[tree.png]]). */
   md.core.ruler.after("inline", "picture_blocks", (state) => {
-    const toks = state.tokens, PIC = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
+    const toks = state.tokens, PIC = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i, BOARD = /\.board\.svg$/i;
     for (let i = 0; i + 2 < toks.length; i++) {
       if (toks[i].type !== "paragraph_open" || toks[i + 1].type !== "inline" || toks[i].hidden) continue;
       const kids = (toks[i + 1].children || []).filter((k) => !((k.type === "text" && !k.content.trim()) || k.type === "softbreak"));
       if (kids.length !== 1) continue;
       const k = kids[0];
       if (k.type === "image" || (k.type === "wiki_embed" && PIC.test(String(k.meta.target || "").split("#")[0].trim()))) toks[i].attrJoin("class", "pic-block");
+      // … and a whiteboard is a block of its own kind: its picture in a frame, opened by a click (board.js)
+      if (BOARD.test(k.type === "image" ? k.attrGet("src") || "" : k.type === "wiki_embed" ? String(k.meta.target || "").split(/[#|]/)[0].trim() : "")) toks[i].attrJoin("class", "board-block");
     }
   });
   md.core.ruler.after("inline", "tasks", (state) => {
@@ -1905,6 +1907,7 @@
       });
       return;
     }
+    window.MdBoard?.leave?.();
     flushSave();
     if (thenClose) post("close");
   }
@@ -2090,6 +2093,58 @@
 
   // --- active mode: the rendered document, editable in place (active/*.js).
   // Loaded on first use, so reading and editing start as fast as without it.
+  // --- whiteboards: a board stands in the note as a picture (*.board.svg) and is opened over the
+  // window (board.js, board/*.js), loaded on first use
+  let boardLoad = null;
+  const BOARD_SRC = /\.board\.svg(?:[?#]|$)/i;
+  const isBoardImg = (img) => !!img && img.tagName === "IMG" && (img.dataset.board != null || BOARD_SRC.test(img.getAttribute("src") || ""));
+  function loadBoard() {
+    const script = (src) => new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.nonce = NONCE; s.async = false; s.src = `${ASSETS}/${src}`; s.onload = resolve; s.onerror = () => reject(new Error(src + " missing"));
+      document.head.appendChild(s);
+    });
+    return boardLoad || (boardLoad = (async () => {
+      const l = document.createElement("link");
+      l.rel = "stylesheet"; l.href = `${ASSETS}/board.css`;
+      const styled = new Promise((resolve) => { l.onload = l.onerror = resolve; });
+      document.head.appendChild(l);
+      await Promise.all([styled, ...["board/format.js", "board/render.js", "board/view.js", "board/pointer.js", "board/ink.js", "board.js"].map(script)]);
+    })().catch((e) => { boardLoad = null; throw e; }));
+  }
+  function openBoard(img) {
+    if (!isBoardImg(img)) return false;
+    loadBoard().then(() => window.MdBoard.open(img)).catch(() => toast("Couldn't open the whiteboard"));
+    return true;
+  }
+  /* A new board in the note (the / menu, the panel; context.js): the host makes its file where
+   * the note's pictures go and says how it is written; then it stands at the caret and is opened. */
+  let boardWanted = null;
+  function newBoard(put) {
+    if (!current || boardWanted) return;
+    const path = current.path;
+    loadBoard().then(() => {
+      boardWanted = { id: "n" + Date.now(), path, put };
+      post("board-new", { path, text: window.MdBoard.emptyText(), id: boardWanted.id });
+      setTimeout(() => { boardWanted = null; }, 8000); // (no answer: asked again the next time)
+    }).catch(() => toast("Couldn't make the whiteboard"));
+  }
+  function boardMade(r) {
+    const w = boardWanted;
+    boardWanted = null;
+    if (!w || !r || r.id !== w.id || !current || current.path !== w.path) return;
+    if (r.error || !r.markup) { toast("Couldn't make the whiteboard"); return; }
+    w.put(r.markup);
+    // its picture, once it is drawn (in a vault the host is asked first where the name leads): the board opens
+    const name = String(r.file || "").split("/").pop();
+    let tries = 0;
+    const look = () => {
+      const img = name && [...shownRoot().querySelectorAll("img")].find((i) => isBoardImg(i) && decodeURIComponent((i.getAttribute("src") || "").split(/[?#]/)[0]).endsWith(name));
+      if (img) openBoard(img); else if (++tries < 40) setTimeout(look, 50);
+    };
+    setTimeout(look, 0);
+  }
+
   // --- PDFs: the viewer and embeds (pdfview.js, pdf.js), loaded on first use
   let pdfLoad = null;
   function loadPdf() {
@@ -2291,7 +2346,7 @@
   content.addEventListener("dblclick", (e) => {
     const img = e.target.closest?.("img"), fig = img ? null : zoomFigureAt(e.target);
     if (fig) { e.preventDefault(); getSelection()?.removeAllRanges(); zoomFigure(fig); return; }
-    if (!img || img.closest(".pdfv, a")) return; // (an embedded PDF page is a picture like any other here)
+    if (!img || img.closest(".pdfv, a") || isBoardImg(img)) return; // (an embedded PDF page is a picture like any other here; a whiteboard is opened, by the click before)
     e.preventDefault();
     getSelection()?.removeAllRanges();
     zoomImage(img);
@@ -3497,6 +3552,7 @@
     addEventListener("pointerdown", (e) => {
       drop();
       if (e.pointerType !== "touch" || !e.isPrimary) return;
+      if (e.target.closest?.("#board")) return; // (on a whiteboard a finger held still is drawing, or about to)
       const target = e.target, x = e.clientX, y = e.clientY;
       held = { x, y, timer: setTimeout(() => {
         held = null;
@@ -3895,6 +3951,9 @@
     }
     // A PDF embedded in the note is a picture: a double click shows it large, like any picture. To
     // the PDF itself it is Ctrl+click, or Go to PDF in its menu.
+    // a whiteboard: opened (in the active mode: its block's own click, edit.js)
+    const bi = e.target.closest(".board-block")?.querySelector("img") || (e.target.tagName === "IMG" ? e.target : null);
+    if (bi && isBoardImg(bi) && !bi.closest(".pm") && shownRoot().contains(bi)) { e.preventDefault(); openBoard(bi); return; }
     const pe = e.target.closest(".pdf-embed[data-wiki]");
     if (pe && shownRoot().contains(pe)) { if (e.ctrlKey || e.metaKey) post("wikilink", { target: pe.dataset.wiki, tab: "own" }); return; }
     const a = e.target.closest("a");
@@ -3946,6 +4005,7 @@
     const reset = !e.shiftKey && (e.key === "0" || e.code === "Numpad0");
     if (!up && !down && !reset) return;
     if (window.MdPdf && MdPdf.shown && MdPdf.shown.root.isConnected) return; // (the PDF's own)
+    if (window.MdBoard && MdBoard.shown) return; // (the whiteboard's own)
     e.preventDefault(); e.stopPropagation();
     const i = DOC_ZOOMS.indexOf(docZoom());
     setDocZoom(reset ? 100 : DOC_ZOOMS[Math.max(0, Math.min(DOC_ZOOMS.length - 1, i + (up ? 1 : -1)))]);
@@ -4099,7 +4159,7 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { filesBack, pinch: (phase, scale) => window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { filesBack, pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
@@ -4110,6 +4170,7 @@
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
+      board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,
     setPreviews: (p) => { quickPreviews(p); if (window.MdOverview) MdOverview.previews(p); } };
