@@ -387,6 +387,12 @@ shut back into it.
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
+- **Drawn clean by Claude** (the desktop application; a right click on the board's block, Draw
+  Clean with Claude…): what was scribbled on the board — a circuit, a diagram, a scheme — is
+  shown to Claude as a picture and drawn as a clean figure, in the dialog of Graphic by
+  Claude. It starts at once; a description can be added, and the figure changed by saying
+  what to change. Insert puts it directly under the board, as its SVG in the note (a fence of
+  `svg`, which shows as a picture). The board's picture is sent to Anthropic for that.
 - **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
 - **What the hand does** is chosen in the bar at the top: the lasso (`V` or `L`, in hand when a
   board opens), the pens (`P`), the eraser (`E`), text (`T`), shapes (`S`), then Picture, and

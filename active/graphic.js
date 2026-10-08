@@ -12,7 +12,19 @@
   let live = null; // the open dialog: { id, onResult, onImage }
   let nextId = 1;
 
-  function open(view) {
+  /* A picture of the note (a whiteboard's) as a PNG's base64, on white, its longer side at most 1600: what Claude is shown. */
+  async function shot(img) {
+    if (!img.complete || !img.naturalWidth) await new Promise((res, rej) => { img.addEventListener("load", res, { once: true }); img.addEventListener("error", () => rej(new Error("no picture")), { once: true }); });
+    const w = img.naturalWidth || 800, h = img.naturalHeight || 600, k = Math.min(3, 1600 / Math.max(w, h)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const x = c.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL("image/png").split(",")[1];
+  }
+  /* from: { img, at } — a whiteboard's picture in the note is the reference, drawn at once; the figure goes into the note as its
+   * SVG, a block of its own at `at` (under the board). */
+  function open(view, from = null) {
     if (A.dialog.open) return false;
     const el = A.dialog.el;
     let svg = null, url = null, busy = 0, ref = null, timer = 0, started = 0;
@@ -80,7 +92,12 @@
           show();
           changeIn.focus();
         };
-        me.onImage = (path, fileUrl, error) => { if (error) { toast(error); return; } ref = path ? { path, url: fileUrl } : null; show(); };
+        me.onImage = (path, fileUrl, error) => { if (error) { toast(error); return; } ref = path ? { path, url: fileUrl } : null; show(); if (me.auto && ref) { me.auto = false; ask(null); } };
+        if (from) { // the board's picture, as it stands in the note: handed to the application, and drawn from as soon as it is there
+          text.placeholder = T("graphic.describeBoard");
+          me.auto = true;
+          shot(from.img).then((data) => { if (live === me) post("graphic-image", { how: "data", data }); }).catch(() => { me.auto = false; toast(T("graphic.failed")); });
+        }
         refRow.addEventListener("click", (e) => {
           const b = e.target.closest("button");
           if (!b) return;
@@ -99,7 +116,7 @@
         show();
         return { focus: () => text.focus(), result: () => (svg && !busy ? { svg, name: text.value.trim() } : undefined), text: () => text.value };
       },
-      done(r) { tidy(); post("graphic-save", { svg: r.svg, name: r.name }); },
+      done(r) { tidy(); if (from) A.context.INSERT.svg(view, r.svg, from.at); else post("graphic-save", { svg: r.svg, name: r.name }); },
       cancel() { tidy(); },
     });
     return true;

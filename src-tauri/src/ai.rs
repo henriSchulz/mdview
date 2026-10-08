@@ -308,7 +308,7 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
         // (tests: no model, a known figure)
         std::thread::sleep(Duration::from_millis(400));
         let tag = if d.change.is_some() { "changed" } else if d.image.is_some() { "ref" } else { "new" };
-        return (turn.load(Ordering::SeqCst) == mine).then(|| (Some(fake.replace("TAG", tag)), None));
+        return (turn.load(Ordering::SeqCst) == mine).then(|| (clean_svg(&fake.replace("TAG", tag)), None)); // (cleaned as a model's answer is: the page may put it into the note as it comes)
     }
     let Some(exe) = find_claude() else {
         return Some((None, Some("The claude command was not found".into())));

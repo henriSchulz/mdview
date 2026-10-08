@@ -132,6 +132,9 @@
   const island = (raw, kind) => A.islands.blocksOf(raw, A.view.store).find((n) => n.type === N.island) || N.island.create({ kind, raw });
   const INSERT = {
     graphic(view) { setTimeout(() => A.graphic.open(view), 0); }, // a figure drawn by Claude (graphic.js)
+    // a whiteboard drawn clean by Claude: its picture is the reference, the figure stands under it as its SVG
+    boardGraphic(view, pos, node) { const img = view.nodeDOM(pos)?.querySelector?.("img"); if (img) setTimeout(() => A.graphic.open(view, { img, at: pos + node.nodeSize }), 0); },
+    svg(view, svg, at) { const max = view.state.doc.content.size; return putBlock(view, island("```svg\n" + String(svg).trim() + "\n```", "code"), false, Math.min(at, max)); },
     code(view, at) { const pos = putBlock(view, island("```\n```", "code"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
     // a page of the note's own: its line here, and the page opened to be named and written
     page(view, at) {
@@ -325,6 +328,8 @@
     return [
       item(node.type === N.island && node.attrs.kind === "frontmatter" ? "menu.propsEdit" : "menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
       ...(figure ? [item("menu.showLarge", () => window.MdView.core.zoomFigure(figure))] : []),
+      // a whiteboard: drawn clean by Claude (the desktop application runs the claude command; a browser has none)
+      ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && typeof (window.MdHost || {}).drop !== "function" ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
       ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),

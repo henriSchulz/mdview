@@ -2517,7 +2517,7 @@ impl Win {
                 change: Some(take(text_of("change"), 3000)).filter(|c| !c.is_empty()),
             }),
             "graphic-cancel" => app.illustrator.stop(),
-            "graphic-image" => self.graphic_image(app, text_of("how")),
+            "graphic-image" => self.graphic_image(app, text_of("how"), text_of("data")),
             "graphic-save" => self.save_graphic(app, text_of("svg"), text_of("name")),
             "complete" => {
                 // the next words for what is being written (active/ghost.js); only when switched on
@@ -2927,12 +2927,18 @@ impl Win {
 
     /// A reference picture for a figure: chosen from the files, or the one on the clipboard
     /// (kept in the cache while it is needed). The page gets its path.
-    fn graphic_image(&mut self, app: &mut App, how: &str) {
-        if how != "paste" {
+    fn graphic_image(&mut self, app: &mut App, how: &str, sent: &str) {
+        if how != "paste" && how != "data" {
             return self.pick(app, Pick::Reference);
         }
-        let Some((data, ext)) = host::clipboard_image(&app.handle) else {
-            return self.js("MdView.graphicImage", &[Value::Null, Value::Null, json!("No picture on the clipboard")]);
+        // (data: a picture the page made itself — a whiteboard as it stands in the note —, a PNG's base64, no larger than 20 MB)
+        let got = if how == "data" {
+            base64::engine::general_purpose::STANDARD.decode(sent).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG")).map(|d| (d, ".png".to_string()))
+        } else {
+            host::clipboard_image(&app.handle).map(|(d, ext)| (d, ext.to_string()))
+        };
+        let Some((data, ext)) = got else {
+            return self.js("MdView.graphicImage", &[Value::Null, Value::Null, json!(if how == "data" { "No picture came" } else { "No picture on the clipboard" })]);
         };
         let dir = env("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".cache")).join("mdview");
         let p = dir.join(format!("reference{ext}"));

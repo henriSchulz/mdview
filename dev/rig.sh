@@ -248,6 +248,16 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-table.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-table.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-table.json"; } | grep -qv '^ok' ;;
+  board-graphic)
+    # a whiteboard drawn clean by Claude (the model is a fixed figure)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{drawn,inserted,board-graphic}.json
+    if [[ ${2:-} == real ]]; then { echo 'window.__graphicReal = true;'; cat "$D/probe-board-graphic.js"; } > "$R/probe-board-graphic-real.js"; app 300 MDVIEW_PROBE="$R/probe-board-graphic-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
+    app 90 MDVIEW_PROBE="$D/probe-board-graphic.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GRAPHIC_FAKE='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80"><script>alert(1)</script><rect x="8" y="8" width="184" height="64" rx="8" fill="none" stroke="#1d1d1f" stroke-width="1.6" onclick="x()"/><text x="100" y="46" text-anchor="middle" font-size="14">TAG</text></svg>' -- "$R/work/$name"; fi
+    for v in drawn inserted; do for _ in $(seq 2600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-graphic.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/board-graphic-$v.png"; done
+    for _ in $(seq 400); do [[ -f $R/out/$name.board-graphic.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-graphic.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.board-graphic.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   board-more)
     # the rest of the whiteboard's tools: pencil, ruler, the palette at the other edge, cards, a picture cut, a look kept for new items
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/outside"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{ruler,more,board-more}.json
