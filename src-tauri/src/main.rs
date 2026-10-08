@@ -174,6 +174,9 @@ fn file(path: &Path, range: Option<&str>) -> Response<Vec<u8>> {
     let mut body = Vec::new();
     match asked {
         Some((a, b)) if a <= b => {
+            // (a part of the file at a time: a film asked for "from here to the end" is not read into
+            // memory to its end — the player asks for what follows)
+            let b = b.min(a + 32 * 1024 * 1024 - 1);
             if f.seek(SeekFrom::Start(a)).is_err() || f.take(b - a + 1).read_to_end(&mut body).is_err() {
                 return plain(StatusCode::INTERNAL_SERVER_ERROR);
             }
