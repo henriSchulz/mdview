@@ -143,11 +143,12 @@ test("a pen: it draws wherever it comes down, with its pressure and how it is he
   await sleep(80);
   s = await st();
   assert.ok(s.items === 3 && Math.abs(s.view.x - v0.x) < 0.5 && Math.abs(s.view.y - v0.y) < 0.5, `a hand on the glass beside the pen neither draws nor moves the board: ${JSON.stringify([s.items, v0, s.view])}`);
-  // a touch right after the pen lifted is still the hand
+  // a stroke, and the other hand moves the board at once: its first try counts (only the briefest moment after the pen is the palm's)
   await pen("mousePressed", cx - 100, 470); await pen("mouseMoved", cx - 40, 474, { down: true }); await pen("mouseReleased", cx - 40, 474);
+  await sleep(200);
   await fingers([[[cx, cy + 200], [cx + 60, cy + 200]]], { steps: 3 });
   s = await st();
-  assert.ok(s.items === 4 && Math.abs(s.view.x - v0.x) < 0.5, "… nor does a touch in the moment after the pen lifted");
+  assert.ok(s.items === 4 && Math.abs(s.view.x - (v0.x - 60)) < 3, `right after a stroke a finger moves the board at the first try: ${JSON.stringify([s.items, v0.x, s.view.x])}`);
   await sleep(600);
   // the pointer in hand: the pen draws all the same, with the tool it had
   await page.tap("#board .bd-tool[data-pointer]");

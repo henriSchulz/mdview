@@ -16,7 +16,7 @@
 <style>
   body { margin: 0; font: 15px/1.5 var(--ui); color: var(--fg); background: var(--bg); padding: 24px; }
   #lab-note { max-width: 46rem; margin: 0 auto; }
-  #lab-hud { position: fixed; z-index: 70; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 60px); translate: -50% 0; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 82%, transparent); color: var(--bg); font: 12px/1.4 var(--mono); pointer-events: none; white-space: nowrap; }
+  #lab-hud { position: fixed; z-index: 70; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 60px); translate: -50% 0; max-width: 94vw; white-space: normal; text-align: center; padding: 4px 10px; border-radius: 14px; background: color-mix(in srgb, var(--fg) 82%, transparent); color: var(--bg); font: 12px/1.4 var(--mono); pointer-events: none; }
   #lab-hud:empty { display: none; }
 </style>
 <body data-mode="light" data-view="read">
@@ -81,7 +81,9 @@
   // ?hud: what the pointer says, for judging a pen on a device — its kind, samples a second (with those the browser
   // bundled), pressure, tilt, whether the browser hands over bundled and foreseen samples, whether it tells of hovering
   if (location.search.includes("hud")) {
-    const hud = document.getElementById("lab-hud"), seen = { n: 0, since: performance.now(), hz: 0, coalesced: "?", predicted: "?", hover: "no" };
+    const hud = document.getElementById("lab-hud"), seen = { n: 0, since: performance.now(), hz: 0, coalesced: "?", predicted: "?", hover: "no", down: 0, up: 0, cancel: 0 };
+    // how many times a pen came down, lifted, and was taken away by the browser — against how many strokes the board has
+    for (const [type, k] of [["pointerdown", "down"], ["pointerup", "up"], ["pointercancel", "cancel"]]) addEventListener(type, (e) => { if (e.pointerType === "pen" && e.target.closest?.(".bd-stage")) seen[k]++; }, true);
     let last = null;
     addEventListener("pointermove", (e) => {
       let c = [];
@@ -94,7 +96,7 @@
     setInterval(() => {
       const now = performance.now();
       seen.hz = Math.round((seen.n * 1000) / (now - seen.since)); seen.n = 0; seen.since = now;
-      if (last) hud.textContent = `${last.pointerType} · ${seen.hz}/s · p ${last.pressure.toFixed(2)} · tilt ${Math.round(Math.hypot(last.tiltX || 0, last.tiltY || 0))}° · bundled ${seen.coalesced} · foreseen ${seen.predicted} · hover ${seen.hover}`;
+      if (last) hud.textContent = `${last.pointerType} · ${seen.hz}/s · p ${last.pressure.toFixed(2)} · tilt ${Math.round(Math.hypot(last.tiltX || 0, last.tiltY || 0))}° · bundled ${seen.coalesced} · foreseen ${seen.predicted} · hover ${seen.hover} · pen ↓${seen.down} ↑${seen.up} ✕${seen.cancel} · strokes ${(MdBoard.state() || {}).items ?? "-"}`;
     }, 500);
     toast = () => {};
   }

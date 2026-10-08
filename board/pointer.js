@@ -13,19 +13,35 @@
   function attach(stage, on) {
     const fingers = new Map(); // touches down: id → { x, y }
     let tool = null, drag = null, pinch = null, twist = null, toolType = "";
-    const pen = { down: false, last: -1e9 }, PALM = 500; // a hand lying on the glass beside the pen: touches while the pen is down, and for this long after, are nobody's
+    // A hand lying on the glass beside the pen: touches while the pen is down, and for a moment after, are nobody's. (The moment is
+    // short: the other hand moves the board right after a stroke — at half a second its first try was lost every time.)
+    const pen = { down: false, last: -1e9, press: null }, PALM = 120;
     const HOLD = 350, SLACK = 8; // a finger resting this long, within this many pixels: held
     const at = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    /* How hard the pointer presses, as the stroke is to take it. A mouse says 0.5 while a button is down. A pen says what it
+     * feels — but not with every sample (the samples a browser bundles may come without it, as 0), and what it says jumps:
+     * taken as it comes, a line is a row of beads. So a sample without pressure has the pressure before it, and each follows
+     * the one before only part of the way. */
+    function pressure(e) {
+      if (e.pointerType === "mouse") return 0.5;
+      const said = e.pressure > 0 ? e.pressure : null;
+      if (pen.press == null) pen.press = said == null ? 0.3 : said;
+      else if (said != null) pen.press += (said - pen.press) * 0.35;
+      return Math.round(pen.press * 100) / 100;
+    }
     const point = (e) => {
       const tilt = Math.hypot(e.tiltX || 0, e.tiltY || 0);
-      // a mouse says 0.5 while a button is down; a pen says what it feels
-      return { ...at(e), p: e.pointerType === "mouse" ? 0.5 : e.pressure > 0 ? e.pressure : 0.5, tilt, az: tilt ? (Math.atan2(e.tiltY || 0, e.tiltX || 0) * 180) / Math.PI : 0, t: e.timeStamp, type: e.pointerType };
+      return { ...at(e), p: pressure(e), tilt, az: tilt ? (Math.atan2(e.tiltY || 0, e.tiltX || 0) * 180) / Math.PI : 0, t: e.timeStamp, type: e.pointerType };
     };
+    // Touches and a pen on the stage are the board's alone: the browser is not to make its own of them — a selection, a callout,
+    // handwriting taken for text, the wait to see whether a tap becomes two. (On an iPad strokes begun quickly were lost to that.)
+    for (const type of ["touchstart", "touchmove", "touchend"]) stage.addEventListener(type, (e) => { if (!e.target.closest("[data-editing]") && e.cancelable) e.preventDefault(); }, { passive: false });
     const span = () => { const [a, b] = [...fingers.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
     const capture = (e) => { try { stage.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test has none) */ } };
 
     stage.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".bd-bar, [data-editing]")) return; // (a bar's own; text being typed: the browser's)
+      pen.press = null; // (a new stroke: its pressure begins anew)
       if (e.pointerType === "pen") { // the pen comes down: whatever fingers were doing is over (they are the hand that holds it)
         pen.down = true; pen.last = e.timeStamp;
         if (fingers.size) { fingers.clear(); pinch = null; if (twist) { twist = null; on.twisted(); } }

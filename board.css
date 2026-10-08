@@ -290,3 +290,7 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 /* a pen held over the board: its tip, before it touches */
 .bd-tip { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; z-index: 1; }
 .bd-tip[hidden] { display: none; }
+
+/* under a finger: no grey flash where it taps, no callout where it rests, nothing selected */
+#board, #board * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+.bd-palette, .bd-bar { touch-action: manipulation; }
