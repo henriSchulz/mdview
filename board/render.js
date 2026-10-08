@@ -13,7 +13,7 @@
   /* How wide a stroke is at a point: a pen follows the pressure, the others keep their width. */
   const radius = (it, p) => (it.t === "pen" ? (it.w / 2) * (0.35 + 1.3 * Math.max(0, Math.min(1, p == null ? 0.5 : p))) : it.w / 2);
   /* … at one of its points, with all a pen said there: a pencil held flat (its tilt, where the stroke has one) draws broader. */
-  const FLAT = 30; // degrees of tilt from which a pencil counts as held flat
+  const FLAT = 50; // degrees of tilt from which a pencil counts as held flat (a hand that writes holds it at 30 to 45)
   function reach(it, pt) {
     if (it.t === "pencil") { const i = it.ch ? it.ch.indexOf("i") : -1, tilt = i < 0 ? 0 : pt[i] || 0; return (it.w / 2) * (1 + (Math.max(0, tilt - FLAT) / (90 - FLAT)) * 4); }
     return radius(it, pt[2]);
@@ -45,19 +45,34 @@
       const z = pts[pts.length - 1];
       return { d: d + `L${n(z[0])} ${n(z[1])}`, stroke: w, cap };
     }
-    let d = "";
-    const dot = (x, y, r) => `M${n(x - r)} ${n(y)}a${n(r)} ${n(r)} 0 1 1 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 1 ${n(-2 * r)} 0Z`;
-    for (let i = 0; i < pts.length; i++) {
-      const [x, y] = pts[i], r = reach(it, pts[i]);
-      d += dot(x, y, r);
-      if (i + 1 === pts.length) break;
-      const [x2, y2] = pts[i + 1], r2 = reach(it, pts[i + 1]);
-      const dx = x2 - x, dy = y2 - y, len = Math.hypot(dx, dy);
-      if (len < 0.05) continue;
-      const nx = -dy / len, ny = dx / len;
-      // (the same way round as the dots: clockwise on the screen)
-      d += `M${n(x + nx * r)} ${n(y + ny * r)}L${n(x - nx * r)} ${n(y - ny * r)}L${n(x2 - nx * r2)} ${n(y2 - ny * r2)}L${n(x2 + nx * r2)} ${n(y2 + ny * r2)}Z`;
+    // A band along the stroke: its one edge forwards, round the end, its other edge back, round the beginning. The breadth at
+    // each point is the mean of what the pen said there and just before and after — taken point by point, a line is a row of
+    // beads (so it looked on the first iPad). Where the stroke turns sharply the band ends and a new one begins: their round
+    // ends lie on each other at the turn. All bands are wound the same way; filled together they are the stroke.
+    const f = (v) => String(Math.round(v * 100) / 100), last = pts.length - 1;
+    const raw = pts.map((p) => reach(it, p)), rs = raw.map((_r, i) => { let sum = 0, k = 0; for (let j = Math.max(0, i - 2); j <= Math.min(last, i + 2); j++) { sum += raw[j]; k++; } return sum / k; });
+    const dir = (a, z) => { const dx = pts[z][0] - pts[a][0], dy = pts[z][1] - pts[a][1], len = Math.hypot(dx, dy); return len < 0.01 ? null : [dx / len, dy / len]; };
+    // an edge: through the middles between its points, each point pulling the line (as the stroke of one width is drawn)
+    const edge = (e) => { let out = ""; for (let i = 1; i < e.length - 1; i++) out += `Q${f(e[i][0])} ${f(e[i][1])} ${f((e[i][0] + e[i + 1][0]) / 2)} ${f((e[i][1] + e[i + 1][1]) / 2)}`; return out + `L${f(e[e.length - 1][0])} ${f(e[e.length - 1][1])}`; };
+    function band(from, to) {
+      const left = [], right = [];
+      let was = null;
+      for (let i = from; i <= to; i++) {
+        const t = dir(Math.max(from, i - 1), Math.min(to, i + 1)) || was || [1, 0];
+        was = t;
+        left.push([pts[i][0] - t[1] * rs[i], pts[i][1] + t[0] * rs[i]]);
+        right.push([pts[i][0] + t[1] * rs[i], pts[i][1] - t[0] * rs[i]]);
+      }
+      const back = [...right].reverse();
+      return `M${f(left[0][0])} ${f(left[0][1])}` + edge(left) + `A${f(rs[to])} ${f(rs[to])} 0 0 0 ${f(back[0][0])} ${f(back[0][1])}` + edge(back) + `A${f(rs[from])} ${f(rs[from])} 0 0 0 ${f(left[0][0])} ${f(left[0][1])}Z`;
     }
+    let d = "", from = 0, before = null;
+    for (let i = 1; i <= last; i++) {
+      const now = dir(i - 1, i);
+      if (now && before && now[0] * before[0] + now[1] * before[1] < 0.5) { d += band(from, i - 1); from = i - 1; } // (turned by more than 60 degrees at the point before)
+      if (now) before = now;
+    }
+    d += band(from, last);
     return { d, stroke: 0, cap: "round" };
   }
   const colorOf = (it, auto = AUTO) => (it.c === "auto" || !/^#[0-9a-f]{3,8}$/i.test(it.c) ? auto : it.c);
