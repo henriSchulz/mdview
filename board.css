@@ -286,3 +286,7 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
   .bd-wells { grid-template-columns: repeat(4, var(--bd-well)); gap: 5px 6px; }
   .bd-tools { gap: 2px; }
 }
+
+/* a pen held over the board: its tip, before it touches */
+.bd-tip { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; z-index: 1; }
+.bd-tip[hidden] { display: none; }

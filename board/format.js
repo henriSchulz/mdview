@@ -110,7 +110,7 @@
     if (it.box) return it.box;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const p of it.pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
-    const r = it.w / 2 + 1;
+    const r = (it.t === "pencil" && it.ch.includes("i") ? it.w * 2.5 : it.w / 2) + 1; // (a pencil held flat draws up to five times as broad)
     return (it.box = [x0 - r, y0 - r, x1 + r, y1 + r]);
   }
 

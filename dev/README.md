@@ -84,3 +84,8 @@ cannot be put on it there.
 python3 -m http.server 8377 --bind 0.0.0.0     # in the checkout; then on the device:
 # http://<this machine's address>:8377/dev/board-lab.html      ?dark  ?new (an empty board)
 ```
+
+With `?hud` the page says what the pointer tells it: its kind, samples a second (those the
+browser bundled counted in), pressure, tilt, whether bundled and foreseen samples are handed
+over, whether a pen's hovering is told of. That is what there is to read off a device; how far
+the ink trails the tip is for the eye.

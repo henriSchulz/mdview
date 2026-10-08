@@ -51,10 +51,10 @@
       else if (m.type === "print") window.print();
     },
   };
-  const toast = (text) => { const hud = document.getElementById("lab-hud"); hud.textContent = text; clearTimeout(toast.t); toast.t = setTimeout(() => { hud.textContent = ""; }, 1800); };
+  let toast = (text) => { const hud = document.getElementById("lab-hud"); hud.textContent = text; clearTimeout(toast.t); toast.t = setTimeout(() => { hud.textContent = ""; }, 1800); };
   window.MdView = { core: {
     post: (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data })),
-    toast, esc: (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    toast: (text) => toast(text), esc: (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
     lockScroll: (on) => { locks += on ? 1 : -1; }, copy: () => {}, current: { path: "/lab/note.md" },
   } };
   window.MdLab = { said, get locks() { return locks; } };
@@ -78,6 +78,26 @@
   img.parentNode.addEventListener("click", () => MdBoard.open(img));
   document.getElementById("lab-reset").addEventListener("click", () => { try { localStorage.removeItem(KEY); } catch (e) { /* none */ } location.reload(); });
   if (!location.search.includes("closed")) MdBoard.open(img);
+  // ?hud: what the pointer says, for judging a pen on a device — its kind, samples a second (with those the browser
+  // bundled), pressure, tilt, whether the browser hands over bundled and foreseen samples, whether it tells of hovering
+  if (location.search.includes("hud")) {
+    const hud = document.getElementById("lab-hud"), seen = { n: 0, since: performance.now(), hz: 0, coalesced: "?", predicted: "?", hover: "no" };
+    let last = null;
+    addEventListener("pointermove", (e) => {
+      let c = [];
+      try { c = e.getCoalescedEvents ? e.getCoalescedEvents() : []; seen.coalesced = e.getCoalescedEvents ? (c.length ? "yes" : "empty") : "no"; } catch (x) { seen.coalesced = "throws"; }
+      try { seen.predicted = e.getPredictedEvents ? (e.getPredictedEvents().length ? "yes" : "empty") : "no"; } catch (x) { seen.predicted = "throws"; }
+      seen.n += Math.max(1, c.length);
+      if (e.pointerType === "pen" && e.buttons === 0) seen.hover = "yes";
+      last = e;
+    }, true);
+    setInterval(() => {
+      const now = performance.now();
+      seen.hz = Math.round((seen.n * 1000) / (now - seen.since)); seen.n = 0; seen.since = now;
+      if (last) hud.textContent = `${last.pointerType} · ${seen.hz}/s · p ${last.pressure.toFixed(2)} · tilt ${Math.round(Math.hypot(last.tiltX || 0, last.tiltY || 0))}° · bundled ${seen.coalesced} · foreseen ${seen.predicted} · hover ${seen.hover}`;
+    }, 500);
+    toast = () => {};
+  }
 </script>
 </body>
 </html>

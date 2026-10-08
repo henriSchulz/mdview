@@ -21,7 +21,7 @@
       ctx.globalAlpha = it.o * 0.5; ctx.stroke(it.path);
       ctx.globalAlpha = it.o * 0.6; ctx.setLineDash(B.render.grain(it.stroke)); ctx.stroke(it.path); ctx.setLineDash([]);
     } else if (it.stroke) { ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = it.cap || "round"; ctx.lineJoin = "round"; ctx.stroke(it.path); }
-    else { ctx.fillStyle = B.render.colorOf(it, auto); ctx.fill(it.path); }
+    else { if (it.t === "pencil") ctx.globalAlpha = it.o * 0.6; ctx.fillStyle = B.render.colorOf(it, auto); ctx.fill(it.path); } // (a pencil held flat: broad and faint)
   }
   /* All the ink that the view shows. size: { w, h } in CSS pixels. */
   function draw(canvas, items, view, size, auto, skip = null) {
@@ -44,15 +44,17 @@
    * and opacity. Points are the board's. */
   function begin(tool, set, first, zoom) {
     const def = { ...(TOOLS[tool] || TOOLS.pen), ...set }, color = def.c, t0 = first.t;
+    // a pen says how it is held too: its tilt and where it leans to, kept with every point (a pencil's line broadens with them)
+    const held = first.type === "pen", more = (pt) => (held ? [Math.round(pt.tilt || 0), Math.round(pt.az || 0)] : []);
     // (as the file will hold them — tenths of a pixel, hundredths of pressure — so that the stroke looks the same once it is read again)
     const q = (v, k) => Math.round(v * k) / k;
-    const item = { id: B.format.id(), k: "ink", t: tool, c: color, o: def.o, w: def.w, ch: "xypt", pts: [[q(first.x, 10), q(first.y, 10), q(first.p, 100), 0]] };
+    const item = { id: B.format.id(), k: "ink", t: tool, c: color, o: def.o, w: def.w, ch: held ? "xyptia" : "xypt", pts: [[q(first.x, 10), q(first.y, 10), q(first.p, 100), 0, ...more(first)]] };
     return {
       item,
       add(pt) {
         const last = item.pts[item.pts.length - 1];
         if (Math.hypot(pt.x - last[0], pt.y - last[1]) * zoom < GAP) return false;
-        item.pts.push([q(pt.x, 10), q(pt.y, 10), q(pt.p, 100), Math.round(pt.t - t0)]);
+        item.pts.push([q(pt.x, 10), q(pt.y, 10), q(pt.p, 100), Math.round(pt.t - t0), ...more(pt)]);
         item.path = null; item.box = null;
         return true;
       },
@@ -90,7 +92,7 @@
         const a = pts[i], c = pts[Math.min(i + 1, pts.length - 1)];
         const dx = c[0] - a[0], dy = c[1] - a[1], len = dx * dx + dy * dy;
         const s = len ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / len)) : 0;
-        if (Math.hypot(x - (a[0] + s * dx), y - (a[1] + s * dy)) <= r + B.render.radius(it, a[2])) { out.push(it); break; }
+        if (Math.hypot(x - (a[0] + s * dx), y - (a[1] + s * dy)) <= r + B.render.reach(it, a)) { out.push(it); break; }
       }
     }
     return out;

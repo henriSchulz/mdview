@@ -12,7 +12,13 @@
 
   /* How wide a stroke is at a point: a pen follows the pressure, the others keep their width. */
   const radius = (it, p) => (it.t === "pen" ? (it.w / 2) * (0.35 + 1.3 * Math.max(0, Math.min(1, p == null ? 0.5 : p))) : it.w / 2);
-  const even = (it) => it.t !== "pen" || it.pts.every((p) => p[2] === it.pts[0][2]);
+  /* … at one of its points, with all a pen said there: a pencil held flat (its tilt, where the stroke has one) draws broader. */
+  const FLAT = 30; // degrees of tilt from which a pencil counts as held flat
+  function reach(it, pt) {
+    if (it.t === "pencil") { const i = it.ch ? it.ch.indexOf("i") : -1, tilt = i < 0 ? 0 : pt[i] || 0; return (it.w / 2) * (1 + (Math.max(0, tilt - FLAT) / (90 - FLAT)) * 4); }
+    return radius(it, pt[2]);
+  }
+  const even = (it) => (it.t === "pen" ? it.pts.every((p) => p[2] === it.pts[0][2]) : it.t === "pencil" ? !(it.ch && it.ch.includes("i")) || it.pts.every((p) => (p[it.ch.indexOf("i")] || 0) <= FLAT) : true);
   /* A pencil's stroke is its line twice: once whole and faint, once darker and broken into short
    * pieces — the grain of graphite on paper. → the dashes for the second, by the stroke's width. */
   const grain = (w) => [w * 1.4, w * 0.4, w * 0.6, w * 0.35].map((v) => Math.round(v * 10) / 10);
@@ -42,10 +48,10 @@
     let d = "";
     const dot = (x, y, r) => `M${n(x - r)} ${n(y)}a${n(r)} ${n(r)} 0 1 1 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 1 ${n(-2 * r)} 0Z`;
     for (let i = 0; i < pts.length; i++) {
-      const [x, y] = pts[i], r = radius(it, pts[i][2]);
+      const [x, y] = pts[i], r = reach(it, pts[i]);
       d += dot(x, y, r);
       if (i + 1 === pts.length) break;
-      const [x2, y2] = pts[i + 1], r2 = radius(it, pts[i + 1][2]);
+      const [x2, y2] = pts[i + 1], r2 = reach(it, pts[i + 1]);
       const dx = x2 - x, dy = y2 - y, len = Math.hypot(dx, dy);
       if (len < 0.05) continue;
       const nx = -dy / len, ny = dx / len;
@@ -74,7 +80,7 @@
       }
       body += o.stroke
         ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
-        : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${op}/>\n`;
+        : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${it.t === "pencil" ? ` opacity="${n(it.o * 0.6)}"` : op}/>\n`;
     }
     if (!body) {
       const [x, y, w, h] = EMPTY, cx = x + w / 2, cy = y + h / 2;
@@ -85,5 +91,5 @@
     return { w: x1 - x0, h: y1 - y0, box: [x0, y0, x1 - x0, y1 - y0], body, empty: false };
   }
 
-  B.render = { outline, radius, colorOf, picture, grain, AUTO };
+  B.render = { outline, radius, reach, colorOf, picture, grain, AUTO };
 })();

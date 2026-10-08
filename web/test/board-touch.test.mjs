@@ -109,4 +109,80 @@ for (const size of ["tablet", "phone"]) {
   });
 }
 
+test("a pen: it draws wherever it comes down, with its pressure and how it is held; beside it a finger moves the board and the palm is nobody's", async () => {
+  const { page, context, st, fingers, at, sleep, w, h } = await open("tablet");
+  const cdp = await context.newCDPSession(page), cx = w / 2, cy = h / 2;
+  const pen = (type, x, y, more = {}) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" && !more.down ? "none" : "left", buttons: type === "mouseReleased" || (type === "mouseMoved" && !more.down) ? 0 : 1, clickCount: type === "mouseMoved" ? 0 : 1, force: more.force ?? 0.5, tiltX: more.tilt ?? 0, tiltY: 0 });
+  const stroke = async (pts, how = () => ({})) => { await pen("mousePressed", ...pts[0], how(0)); for (let i = 1; i < pts.length; i++) { await pen("mouseMoved", ...pts[i], { down: true, ...how(i) }); await sleep(10); } await pen("mouseReleased", ...pts[pts.length - 1]); await sleep(80); };
+  const line = (x, y, n = 16) => Array.from({ length: n }, (_v, i) => [x + i * 9, y + Math.sin(i / 2) * 14]);
+  // before any pen: a finger draws
+  await fingers([[[cx - 80, 200], [cx, 170], [cx + 80, 200]]]);
+  assert.deepEqual([(await st()).items, (await st()).pens.seen], [1, false]);
+  // held over the board: its tip shows
+  await pen("mouseMoved", cx, cy);
+  await sleep(60);
+  assert.equal((await st()).tip, true, "a pen held over the board shows where its tip will come down");
+  // it draws: pressure and tilt are the stroke's
+  await stroke(line(cx - 100, 300), (i) => ({ force: 0.2 + (i % 8) / 10, tilt: 20 }));
+  let s = await st();
+  assert.deepEqual([s.items, s.channels[1], s.pens.seen, s.tip], [2, "xyptia", true, false], "a stroke with a pen keeps its tilt and where it leans; the tip is gone while it draws");
+  // now a finger does not draw: it moves the board (once the moment after the pen has passed)
+  await sleep(600);
+  let v0 = s.view;
+  await fingers([[[cx, cy + 200], [cx + 70, cy + 260]]]);
+  s = await st();
+  assert.ok(s.items === 2 && Math.abs(s.view.x - (v0.x - 70)) < 3 && Math.abs(s.view.y - (v0.y - 60)) < 3, `beside a pen a finger moves the board: ${JSON.stringify([s.items, v0, s.view])}`);
+  // the palm: touches while the pen is down do nothing
+  v0 = s.view;
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await pen("mousePressed", cx - 100, 420);
+  await touch("touchStart", [[cx + 150, 520]]);
+  for (let i = 1; i <= 10; i++) { await pen("mouseMoved", cx - 100 + i * 10, 420 + i, { down: true }); await touch("touchMove", [[cx + 150 + i * 4, 520 + i * 6]]); await sleep(10); }
+  await touch("touchEnd", []);
+  await pen("mouseReleased", cx, 430);
+  await sleep(80);
+  s = await st();
+  assert.ok(s.items === 3 && Math.abs(s.view.x - v0.x) < 0.5 && Math.abs(s.view.y - v0.y) < 0.5, `a hand on the glass beside the pen neither draws nor moves the board: ${JSON.stringify([s.items, v0, s.view])}`);
+  // a touch right after the pen lifted is still the hand
+  await pen("mousePressed", cx - 100, 470); await pen("mouseMoved", cx - 40, 474, { down: true }); await pen("mouseReleased", cx - 40, 474);
+  await fingers([[[cx, cy + 200], [cx + 60, cy + 200]]], { steps: 3 });
+  s = await st();
+  assert.ok(s.items === 4 && Math.abs(s.view.x - v0.x) < 0.5, "… nor does a touch in the moment after the pen lifted");
+  await sleep(600);
+  // the pointer in hand: the pen draws all the same, with the tool it had
+  await page.tap("#board .bd-tool[data-pointer]");
+  assert.equal((await st()).mode, "select");
+  await stroke(line(cx - 100, 560));
+  s = await st();
+  assert.deepEqual([s.items, s.mode, s.tool], [5, "draw", "pen"], "with the pointer in hand the pen draws wherever it comes down");
+  // a pencil held flat draws broad
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "b", bubbles: true, cancelable: true })));
+  await stroke(line(cx - 100, 640), () => ({ tilt: 65 }));
+  await stroke(line(cx - 100, 700), () => ({ tilt: 5 }));
+  await page.waitForFunction(() => !MdBoard.state().dirty, null, { timeout: 4000 });
+  const paths = await page.evaluate(() => { const d = new DOMParser().parseFromString(localStorage.getItem("mdview-lab:board"), "image/svg+xml"), ids = [...d.querySelectorAll("metadata")][0].textContent.split("\n").filter((l) => l.includes('"k":"ink"')).map((l) => JSON.parse(l)); return ids.map((it) => { const e = d.getElementById(it.id); return [it.t, it.ch, e.tagName, e.getAttribute("fill") !== "none" && e.tagName === "path" ? "outline" : "line"]; }); });
+  assert.deepEqual(paths.slice(1, 2), [["pen", "xyptia", "path", "outline"]], "a pen's stroke with changing pressure is an outline that follows it");
+  assert.deepEqual(paths.slice(5), [["pencil", "xyptia", "path", "outline"], ["pencil", "xyptia", "g", "line"]], "a pencil held flat draws a broad faint band; held upright, its line");
+  // the two settings
+  await page.tap('#board [data-do="more"]');
+  await sleep(300);
+  assert.deepEqual(await page.evaluate(() => ["finger", "selects"].map((m) => !!document.querySelector(`#board .bd-vpop [data-m="${m}"]`))), [true, true], "where a pen was used, More has its two settings");
+  await page.tap('#board .bd-vpop [data-m="finger"]');
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  const n = (await st()).items;
+  await fingers([[[cx - 80, 800], [cx, 770], [cx + 80, 800]]]);
+  assert.equal((await st()).items, n + 1, "Draw with Finger: a finger draws again");
+  await sleep(700); // (a tap in the moment after a finger's stroke is not a tap to the browser)
+  await page.tap('#board [data-do="more"]'); await sleep(300);
+  await page.tap('#board .bd-vpop [data-m="selects"]');
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  await page.tap("#board .bd-tool[data-pointer]");
+  const first = await at(...(await page.evaluate(() => { const it = MdBoard.format.parse(localStorage.getItem("mdview-lab:board")).items[1]; return [it.pts[4][0], it.pts[4][1]]; })));
+  await pen("mousePressed", ...first); await pen("mouseReleased", ...first);
+  await sleep(80);
+  s = await st();
+  assert.deepEqual([s.mode, s.picked.length, s.items], ["select", 1, n + 1], "Pen Selects and Scrolls: with the pointer in hand the pen chooses instead of drawing");
+  await context.close();
+});
+
 test("nothing was thrown along the way", () => { assert.deepEqual(problems, []); });

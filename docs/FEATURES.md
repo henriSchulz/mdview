@@ -433,6 +433,14 @@ shut back into it.
   `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange). Use as Style for New
   Ones, there too, makes it the look every new item of that kind begins with on this board.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
+- **With a pen** (an Apple Pencil, any pen the system knows as one): it draws wherever it comes
+  down, whatever was in hand — its pressure makes the pen's line broader and finer, and a pencil
+  held flat draws a broad faint band. Held over the board before it touches, its tip shows where
+  it will come down. Once a pen has been used, a finger no longer draws but moves the board, and
+  a hand lying on the glass beside the pen does nothing. Two settings appear under More then:
+  Draw with Finger, and Pen Selects and Scrolls (with the pointer in hand the pen chooses and
+  moves things instead of drawing). A pen's double tap, its squeeze and its turning about its
+  own axis do not reach a web page: they are not there.
 - **With fingers** (a tablet, a phone): one finger draws with the tool in hand. With the
   pointer in hand a finger takes a thing and moves it; on the bare board it moves the board,
   and held still for a moment first it pulls a box over what is to be chosen. Two fingers move

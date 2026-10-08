@@ -12,7 +12,8 @@
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
   function attach(stage, on) {
     const fingers = new Map(); // touches down: id → { x, y }
-    let tool = null, drag = null, pinch = null, twist = null;
+    let tool = null, drag = null, pinch = null, twist = null, toolType = "";
+    const pen = { down: false, last: -1e9 }, PALM = 500; // a hand lying on the glass beside the pen: touches while the pen is down, and for this long after, are nobody's
     const HOLD = 350, SLACK = 8; // a finger resting this long, within this many pixels: held
     const at = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const point = (e) => {
@@ -25,7 +26,14 @@
 
     stage.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".bd-bar, [data-editing]")) return; // (a bar's own; text being typed: the browser's)
+      if (e.pointerType === "pen") { // the pen comes down: whatever fingers were doing is over (they are the hand that holds it)
+        pen.down = true; pen.last = e.timeStamp;
+        if (fingers.size) { fingers.clear(); pinch = null; if (twist) { twist = null; on.twisted(); } }
+        if (drag) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
+        if (tool != null && toolType === "touch") { tool = null; on.cancel(); }
+      }
       if (e.pointerType === "touch") {
+        if (pen.down || e.timeStamp - pen.last < PALM) return;
         fingers.set(e.pointerId, at(e));
         if (fingers.size === 2) { // the second finger: what the first began is not a stroke
           if (tool) { tool = null; on.cancel(); }
@@ -50,11 +58,11 @@
       if (began === false) return;
       if (began === "pan") { // (a finger on the bare board with the pointer in hand: the board goes with it — unless it rests first)
         const first = point(e), id = e.pointerId;
-        drag = { id, ...at(e), far: false, hold: setTimeout(() => { if (!drag || drag.id !== id || drag.far) return; drag = null; delete stage.dataset.panning; if (on.hold && on.hold(first, e) !== false) tool = id; }, HOLD) };
+        drag = { id, ...at(e), far: false, hold: setTimeout(() => { if (!drag || drag.id !== id || drag.far) return; drag = null; delete stage.dataset.panning; if (on.hold && on.hold(first, e) !== false) { tool = id; toolType = e.pointerType; } }, HOLD) };
         capture(e); e.preventDefault();
         return;
       }
-      tool = e.pointerId;
+      tool = e.pointerId; toolType = e.pointerType;
       capture(e); e.preventDefault();
     });
     stage.addEventListener("pointermove", (e) => {
@@ -87,12 +95,17 @@
         let all = null;
         try { all = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null; } catch (x) { all = null; }
         if (!all || !all.length || !all.every((c) => Number.isFinite(c.clientX) && c.pointerId === e.pointerId)) all = [e];
-        on.move(all.map(point), e);
+        // … and where the browser thinks the pointer is going: drawn ahead of the stroke, never kept
+        let ahead = [];
+        try { ahead = typeof e.getPredictedEvents === "function" ? e.getPredictedEvents().filter((c) => Number.isFinite(c.clientX)).map(point) : []; } catch (x) { ahead = []; }
+        if (e.pointerType === "pen") pen.last = e.timeStamp;
+        on.move(all.map(point), e, ahead);
         return;
       }
       if (!tool && !fingers.size) on.hover(point(e), e);
     });
     const up = (e, cancelled) => {
+      if (e.pointerType === "pen") { pen.down = false; pen.last = e.timeStamp; }
       if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
       if (drag && e.pointerId === drag.id) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
       if (tool === e.pointerId) { tool = null; if (cancelled) on.cancel(); else on.end(e); }
