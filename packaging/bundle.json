@@ -1,0 +1,19 @@
+{
+  "bundle": {
+    "active": true,
+    "category": "Productivity",
+    "shortDescription": "Markdown notes",
+    "longDescription": "Markdown Notes: a reader and editor for folders of Markdown notes.",
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "mimeType": "text/markdown",
+        "name": "Markdown",
+        "role": "Editor"
+      }
+    ]
+  }
+}
