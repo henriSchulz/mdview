@@ -565,6 +565,24 @@
       }
       v.focus();
     };
+    // a page made of them: its line where the first of them stood, and they are what the page says
+    const toPage = () => {
+      const P = window.MdView.core.pages, id = P.fresh(), doc = v.state.doc;
+      const markdown = runs.map((run) => {
+        const list = doc.resolve(run.from).parent, slice = doc.slice(run.from, run.to);
+        // (items of a list, without their list: as a list of that kind)
+        return A.clip.markdownOf(v.state, list.type.name.endsWith("_list") ? new Slice(Fragment.from(list.type.create(list.attrs, slice.content)), 0, 0) : slice);
+      }).join("\n\n");
+      const tr = v.state.tr.setMeta(selKey, null).setMeta("step", true);
+      for (const run of runs.slice().reverse()) takeOut(tr, run, -1);
+      const row = A.context.island(`<!-- page: ${T("page.untitled")} #${id} -->`, "html");
+      const at = PM.transform.insertPoint(tr.doc, Math.min(tr.mapping.map(runs[0].from, -1), tr.doc.content.size), row.type);
+      if (at == null) return;
+      tr.insert(at, row);
+      v.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(at), 1)));
+      if (!P.append(id, markdown)) { PM.history.undo(v.state, v.dispatch); v.focus(); return; } // (the page did not take them: they are back)
+      setTimeout(() => P.open(id), 0); // (to be named, as a page just made is)
+    };
     // put in: once, below the last of them
     const insert = (e) => () => {
       const last = runs[runs.length - 1];
@@ -579,7 +597,7 @@
     // (… but what is around them: with the quote that is selected, or none)
     const own = A.slash.entries(plainFor(quoteAt(v.state, runs[0])));
     const all = (A.slash.entries(first).some((g) => g && g.key === "slash.style") ? A.slash.entries(first) : own).map((g) => (g && WRAPS.includes(g.key) ? own.find((x) => x && x.key === g.key) || g : g)), text = A.slash.entries(first).some((g) => g && g.key === "slash.style"); // (in a table the "/" menu is the table's own: of it only what goes around blocks is for them)
-    const leaf = (group) => (e) => e && { label: label(e), icon: e.icon, words: e.words || "", run: group === undefined && e.key.startsWith("menu.") ? insert(e) : WRAPS.includes(group) ? around(group, e) : choose(group, e), disabled: e.disabled, checked: e.checked, danger: e.danger };
+    const leaf = (group) => (e) => e && { label: label(e), icon: e.icon, words: e.words || "", run: group === undefined && e.key === "menu.page" ? toPage : group === undefined && e.key.startsWith("menu.") ? insert(e) : WRAPS.includes(group) ? around(group, e) : choose(group, e), disabled: e.disabled, checked: e.checked, danger: e.danger };
     const shown = (g) => g && g.key !== "slash.actions" && (full || SLASH_GROUPS.includes(g.key));
     const list = all.filter((g) => !g || (shown(g) && (text || WRAPS.includes(g.key)))).map((g) => g && (g.items ? { label: label(g), icon: g.icon, items: g.items.filter((e) => !e || e.key !== "callout.title").map(leaf(g.key)), ...(full ? { checked: g.items.some((e) => e && e.checked && !PLAIN.includes(e.key)) } : null) } : leaf(undefined)(g)));
     if (full) {

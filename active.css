@@ -596,6 +596,11 @@ body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, v
 .hi-tools [hidden] { display: none; }
 .hi-body { user-select: text; -webkit-user-select: text; }
 .hi-empty { margin: 80px 0 0; text-align: center; color: var(--fg2); }
+/* the versions, or one's text, on their way: a ring in the middle of the window's right part, after the wait that is no wait */
+#history .st-main { position: relative; }
+.hi-wait { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; display: grid; place-items: center; border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 6px 18px rgb(0 0 0 / 0.14); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#history[data-wait] .hi-wait { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out) var(--loading-delay), visibility 0s linear var(--loading-delay); }
+#history:not([data-wait]) .hi-wait .busy-ring { animation: none; }
 .hi-diff { padding: 6px 0; border-radius: calc(var(--radius-control) + 2px); background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); font: 400 12.5px/1.55 var(--mono); animation: fade-in var(--dur-fast) var(--ease-out); }
 body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
 .hi-line { display: flex; padding: 0 12px 0 0; }
@@ -895,7 +900,10 @@ body.blk-pulling { cursor: default; user-select: none; -webkit-user-select: none
 .ce-b2 { color: var(--c-green, var(--accent)); }
 
 /* a continuation offered while writing: there to read, not part of the text */
-.pm [data-ghost]::after { content: attr(data-ghost); white-space: pre-wrap; color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; }
+/* (a place to break before it: what is offered wraps by itself. Without it a suggestion that goes on in the word
+ * being typed made one word of the two — too long for the line's end, so the typed word went to the next line
+ * with the caret, and back when the suggestion went: the caret jumped about while one wrote.) */
+.pm [data-ghost]::after { content: "\200B" attr(data-ghost); white-space: pre-wrap; color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; }
 @media print { .pm [data-ghost]::after { content: none; } }
 
 /* LaTeX Suite in the text: the places of a snippet still to fill in */

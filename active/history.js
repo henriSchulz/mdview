@@ -85,7 +85,8 @@
     const [a, b] = mode.value === "now" ? [v.id, NOW] : [older ? older.id : null, v.id];
     ask(v); if (mode.value !== "now") ask(older);
     const before = textOf(a), after = textOf(b);
-    if (before === undefined || after === undefined) return; // (on its way: what is shown stays until it is here)
+    if (before === undefined || after === undefined) { waiting(true); return; } // (on its way: what is shown stays until it is here, and a ring says so)
+    waiting(false);
     draw(before, after);
     body.scrollTop = 0;
   }
@@ -99,8 +100,13 @@
     restore.disabled = texts.has(v.id) && texts.get(v.id) === noteNow(); // (the note is this version already)
     show();
   }
+  /* Waiting shown: the versions are asked of the application (in the browser: of GitHub), and each
+   * version's text when it is chosen. A ring in the window's middle — after the wait that is no
+   * wait (--loading-delay), over whatever is shown, which stays. */
+  const waiting = (on) => { if (root) root.toggleAttribute("data-wait", !!on); };
   function got(data) {
     if (!isOpen() || data.path !== path) return;
+    waiting(false);
     versions = data.versions || [];
     standing = data.state || "none";
     list.textContent = "";
@@ -218,6 +224,9 @@
     restore = el("button", { class: "pf-link", type: "button" }, T("history.restore"));
     restore.onclick = () => { const v = versions[chosen]; if (v) post("history-restore", { path, id: v.id, at: v.path }); };
     win.tools.append(pick, restore);
+    const ring = el("div", { class: "hi-wait", role: "status", "aria-label": T("history.loading") });
+    ring.appendChild(el("span", { class: "busy-ring", "aria-hidden": "true" }));
+    body.parentNode.appendChild(ring);
   }
   function open() {
     const cur = current();
@@ -231,6 +240,7 @@
     list.textContent = ""; body.textContent = ""; title.textContent = T("history.title");
     mode.closest(".pop-wrap").hidden = restore.hidden = true;
     post("history-log", { path });
+    waiting(true);
     win.show();
     return true;
   }
