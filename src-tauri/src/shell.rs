@@ -105,10 +105,12 @@ fn default_prefs() -> Map<String, Value> {
         "historyQuiet": 30,       // a project's changes are kept as a commit after this many seconds without another
         "deviceName": "",         // what this device is called in a commit ("": the computer's name)
     });
-    match prefs {
-        Value::Object(m) => m,
-        _ => unreachable!(),
-    }
+    let Value::Object(mut m) = prefs else { unreachable!() };
+    // quick notes (mdview --quick): the folder they are kept in ("": Documents/Notizen/QuickNotes), and the keys that make a new one
+    // (put in here: the list above is as long as one json! takes)
+    m.insert("quickDir".into(), json!(""));
+    m.insert("quickNew".into(), json!("Ctrl+N"));
+    m
 }
 
 fn env(name: &str) -> Option<String> {
@@ -266,6 +268,20 @@ fn host_name() -> String {
     env("COMPUTERNAME").unwrap_or_else(|| "device".into())
 }
 
+/// Quick notes: a window for writing something down at once — a list of short notes, newest
+/// first, each a Markdown file in one folder, named after what its first line says. Started with
+/// `mdview --quick`. The folder: the settings' quickDir, else Documents/Notizen/QuickNotes.
+fn quick_dir(prefs: &Map<String, Value>) -> PathBuf {
+    let set = prefs.get("quickDir").and_then(Value::as_str).map(str::trim).filter(|d| !d.is_empty());
+    match set {
+        Some(d) if d.starts_with("~/") => home().join(&d[2..]),
+        Some(d) => PathBuf::from(d),
+        None => home().join("Documents/Notizen/QuickNotes"),
+    }
+}
+/// A quick note's name while it has none of its own: the time it was made at.
+static QUICK_NAME: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}(-\d+)?$").unwrap());
+
 /// What the application itself put beside notes, and what of it went (attach.rs).
 fn attachments() -> crate::attach::Store {
     let cache = env("XDG_CACHE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".cache")).join("mdview");
@@ -320,6 +336,7 @@ pub struct Win {
     title: String,
     path: Option<PathBuf>,
     folder: Option<PathBuf>, // set: this window browses a folder (sidebar)
+    quick: bool,             // … the folder of the quick notes: a list of short notes, made and named without asking
     tree: Option<Node>,
     tree_json: Option<String>,
     note_paths: HashSet<String>,
@@ -915,8 +932,18 @@ impl App {
     }
 
     fn open(&mut self, args: Vec<String>, cwd: &str) {
+        let quick = args.iter().any(|a| a == "--quick");
         let files: Vec<String> = args.into_iter().filter(|a| !a.starts_with('-')).collect();
-        self.restart_if_stale(&files);
+        self.restart_if_stale(&if quick { vec!["--quick".to_string()] } else { files.clone() });
+        if quick {
+            // the quick notes: their folder (made if it is not there), in a window of its own kind
+            let dir = quick_dir(&self.prefs());
+            if let Err(e) = fs::create_dir_all(&dir) {
+                eprintln!("[quick] {}: {e}", dir.display());
+                return;
+            }
+            return self.open_folder(&resolve(&dir));
+        }
         if files.is_empty() {
             // Started bare: back to the folder that was open last, if there was one.
             let last = self.state.get("folder").and_then(Value::as_str).map(PathBuf::from).filter(|p| p.is_dir());
@@ -1012,6 +1039,7 @@ impl Win {
             title: String::new(),
             path: None,
             folder: None,
+            quick: false,
             tree: None,
             tree_json: None,
             note_paths: HashSet::new(),
@@ -1247,8 +1275,12 @@ impl Win {
         self.folder = Some(folder.clone());
         self.tree_json = None;
         self.title_cache.clear();
-        app.state.insert("folder".into(), json!(s(&folder)));
-        app.save_state();
+        self.quick = folder == resolve(&quick_dir(&app.prefs()));
+        if !self.quick {
+            // (the quick notes are not the folder a bare start goes back to)
+            app.state.insert("folder".into(), json!(s(&folder)));
+            app.save_state();
+        }
         self.rescan(app);
         let notes: Vec<(String, bool)> = self.tree.as_ref().map(|t| t.notes().iter().map(|n| (n.real.clone(), n.pdf)).collect()).unwrap_or_default();
         let known = |p: &str| notes.iter().any(|(real, _)| real == p);
@@ -1525,6 +1557,7 @@ impl Win {
             "history": history,
             "shared": share::listed(&folder),
             "root": s(&folder),
+            "quick": self.quick,
             "name": if name_of(&folder).is_empty() { s(&folder) } else { name_of(&folder) },
             "tree": tree,
             "titles": st.get("sidebar_titles").is_some_and(truthy),
@@ -1553,9 +1586,55 @@ impl Win {
         self.js("MdView.setPreviews", &[Value::Object(out)]);
     }
 
+    /// A quick note is left: one with nothing in it goes, one that still has the time for a
+    /// name is named after what its first line says. → the folder's list has to be read anew
+    fn settle_quick(&mut self) -> bool {
+        let Some(path) = self.path.clone().filter(|p| self.quick && p.is_file() && Some(dir_of(p)) == self.folder) else { return false };
+        let stem = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if !QUICK_NAME.is_match(&stem) {
+            return false;
+        }
+        let Ok(text) = fs::read_to_string(&path) else { return false };
+        if text.trim().is_empty() {
+            return fs::remove_file(&path).is_ok();
+        }
+        let first = text.lines().map(str::trim).find(|l| !l.is_empty() && !l.starts_with("---") && !l.starts_with("<!--")).unwrap_or("");
+        let plain = first.trim_start_matches(|c: char| matches!(c, '#' | '>' | '-' | '*' | '+' | ' ')).trim_start_matches("[ ] ").trim_start_matches("[x] ");
+        let plain: String = plain.chars().filter(|c| !matches!(c, '*' | '_' | '`' | '$' | '[' | ']')).collect();
+        let name = clean_name(&take(plain.trim(), 60));
+        let name = name.trim().trim_end_matches('.').to_string();
+        if name.is_empty() {
+            return false;
+        }
+        let dir = dir_of(&path);
+        let target = (1..100).map(|n| dir.join(if n == 1 { format!("{name}.md") } else { format!("{name} {n}.md") })).find(|t| !t.exists());
+        target.is_some_and(|t| fs::rename(&path, t).is_ok())
+    }
+
+    /// A new quick note: made at once, under the time for a name, shown and ready to be written in.
+    fn new_quick(&mut self, app: &mut App) {
+        let Some(folder) = self.folder.clone().filter(|_| self.quick) else { return };
+        self.settle_quick();
+        let stem = chrono::Local::now().format("%Y-%m-%d %H.%M.%S").to_string();
+        let path = match write_new(&folder, |n| if n == 1 { format!("{stem}.md") } else { format!("{stem}-{n}.md") }, b"", 50) {
+            Ok(path) => path,
+            Err(e) => return self.toast(format!("Couldn't create note: {}", strerror(&e))),
+        };
+        self.rescan(app);
+        self.open_path(app, &path, None, true);
+        self.js("MdView.setMode", &[json!("active")]);
+        self.js("MdView.quickFresh", &[json!(s(&path))]);
+    }
+
     fn open_note(&mut self, app: &mut App, path: &str, tab: bool) {
         if self.folder.is_none() || !self.note_paths.contains(path) {
             return;
+        }
+        if self.quick && self.path.as_deref() != Some(Path::new(path)) && self.settle_quick() {
+            self.rescan(app);
+            if !Path::new(path).exists() {
+                return;
+            }
         }
         let path = Path::new(path);
         if !matches!(file_kind(path), "md" | "pdf") {
@@ -1934,7 +2013,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "newfolder" | "rename" | "move" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2262,6 +2341,7 @@ impl Win {
                 }
             }
             "newnote" => self.new_note(app, text_of("name"), msg["dir"].as_str()),
+            "quicknote" => self.new_quick(app),
             "newfolder" => self.new_folder(app, text_of("name"), msg["dir"].as_str()),
             "rename" => self.rename_note(app, text_of("path"), text_of("name")),
             "move" => self.move_to(app, text_of("path"), text_of("dir")),
@@ -2716,6 +2796,7 @@ impl Win {
             return app.after(400, Event::CloseNow { label: self.label.clone(), turn: self.close_turn });
         }
         self.close_turn += 1;
+        self.settle_quick(); // (a quick note left by closing: named, or gone if nothing is in it)
         if let Some(window) = self.window.take() {
             if !window.is_maximized().unwrap_or(false) {
                 if let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) {

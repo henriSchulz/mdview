@@ -8,7 +8,7 @@
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
-  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "folder", "rename", "move", "trash", "tab"]);
+  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab"]);
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; flushSave(); leaving = false; }
@@ -2404,8 +2404,11 @@
     `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
     `</header>` +
     `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
+    `<input class="sb-field qn-search" type="search" placeholder="Search" aria-label="Search the quick notes" spellcheck="false" autocomplete="off">` +
     `<nav class="sb-list" aria-label="Notes"></nav>`;
   document.body.appendChild(sidebar);
+  sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); quickPaint(); });
+  sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; quickPaint(); e.target.blur(); } });
   const sbHead = sidebar.querySelector(".sb-head");
   const sbList = sidebar.querySelector(".sb-list");
   const sbNew = sidebar.querySelector(".sb-new");
@@ -2433,8 +2436,8 @@
   // the order of a folder's notes (the settings' sidebarSort): the one opened last first, by name,
   // or the one changed last first — by name where that does not tell them apart. Folders: by name.
   const SORTS = ["opened", "name", "modified"];
-  const sortKey = () => (SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "opened");
-  const noteLabel = (n) => (sbTitles && n.title) || n.name;
+  const sortKey = () => (folder && folder.quick ? "modified" : SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "opened"); // (quick notes: what was written last is first)
+  const noteLabel = (n) => (folder && folder.quick ? quickOf(n).title : (sbTitles && n.title) || n.name);
   function sortNotes(notes) {
     const key = sortKey(), by = key === "opened" ? "opened" : key === "modified" ? "mtime" : null;
     return [...notes].sort((a, b) => (by && (b[by] || 0) - (a[by] || 0)) || collator.compare(noteLabel(a), noteLabel(b)));
@@ -2634,8 +2637,83 @@
     btn.classList.toggle("active", on);
     btn.title = on ? "Shared under a link…" : "Share…";
   }
+  /* ------------------------------------------------------------ quick notes
+   * A window for writing something down at once (mdview --quick): the folder of the quick notes,
+   * shown as a list of short notes — what each says first is its name, under it when it was
+   * written and how it goes on; what was written last stands first. A new one is made by the +
+   * and by a key of the settings' (quickNew), without a name being asked for: the application
+   * names the file after its first line when it is left, and takes away one left empty.
+   * The notes' beginnings are the application's to read ("previews", as the tiles of all notes). */
+  const quickSeen = new Map(); // path → { mtime, title, says }
+  const quickPlain = (line) => line.replace(/^\s*(#{1,6}\s+|>\s?|[-*+]\s+(\[.\]\s+)?|\d+[.)]\s+)/, "").replace(/[*_`$]|\[\[|\]\]|!?\[([^\]]*)\]\([^)]*\)/g, "$1").trim();
+  function quickOf(n) {
+    const seen = quickSeen.get(n.path);
+    if (seen) return seen;
+    return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? "New Note" : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
+  }
+  function quickWhen(secs) {
+    if (!secs) return "";
+    const d = new Date(secs * 1000), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), days = Math.round((day(now) - day(d)) / 86400000);
+    if (days <= 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (days === 1) return "Yesterday";
+    if (days < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "2-digit" });
+  }
+  let quickAsked = false, quickFilter = "";
+  function quickPaint() {
+    if (!folder || !folder.quick) return;
+    const notes = new Map(folder.tree.notes.map((n) => [n.real, n])), want = [];
+    for (const row of sbList.querySelectorAll(".sb-row[data-real]")) {
+      const n = notes.get(row.dataset.real);
+      if (!n) continue;
+      const q = quickOf(n);
+      let meta = row.querySelector(".qn-meta");
+      if (!meta) { meta = document.createElement("span"); meta.className = "qn-meta"; meta.innerHTML = "<span class='qn-when'></span><span class='qn-says'></span>"; row.appendChild(meta); }
+      const when = quickWhen(n.mtime), says = q.says || "No additional text";
+      if (meta.firstChild.textContent !== when) meta.firstChild.textContent = when;
+      if (meta.lastChild.textContent !== says) meta.lastChild.textContent = says;
+      const seen = quickSeen.get(n.path);
+      if (!seen || seen.mtime !== n.mtime) want.push(n.path);
+      const hit = !quickFilter || (q.title + "\n" + q.says).toLowerCase().includes(quickFilter);
+      row.closest(".sb-item").hidden = !hit;
+    }
+    if (want.length && !quickAsked) { quickAsked = true; post("previews", { paths: want.slice(0, 40) }); }
+  }
+  function quickPreviews(got) {
+    if (!folder || !folder.quick) return;
+    quickAsked = false;
+    const mtimes = new Map(folder.tree.notes.map((n) => [n.path, n.mtime]));
+    for (const [path, p] of Object.entries(got || {})) {
+      const lines = stripFrontmatter(String(p.text || "")).body.split("\n").map(quickPlain).filter(Boolean);
+      quickSeen.set(path, { mtime: mtimes.get(path), title: lines[0] || "New Note", says: lines.slice(1, 3).join(" ") });
+    }
+    syncList(false); // (their names are what they say first now)
+    markActiveNote(false);
+    quickPaint();
+  }
+  // a new quick note is on screen: the caret in it, to write at once
+  function quickFresh() {
+    let tries = 0;
+    const go = () => { if (mode === "active" && window.MdActive && MdActive.view.pm) MdActive.view.focus(); else if (tries++ < 40) setTimeout(go, 25); };
+    go();
+  }
+  // the keys that make a new quick note, as the settings name them ("Ctrl+N", "Ctrl+Shift+K" …)
+  const keysMatch = (e, combo) => {
+    const parts = String(combo || "").split("+").map((x) => x.trim().toLowerCase()).filter(Boolean), key = parts.pop();
+    return !!key && e.key.toLowerCase() === key && (e.ctrlKey || e.metaKey) === (parts.includes("ctrl") || parts.includes("super") || parts.includes("cmd")) && e.altKey === parts.includes("alt") && e.shiftKey === parts.includes("shift");
+  };
+  addEventListener("keydown", (e) => {
+    if (!folder || !folder.quick || e.defaultPrevented || !keysMatch(e, window.MdPrefs?.quickNew || "Ctrl+N")) return;
+    if (document.querySelector("#settings[data-open], #dlg[data-open], #share[data-open]")) return;
+    e.preventDefault(); e.stopPropagation();
+    post("quicknote");
+  }, true);
+
   function applyFolder(f, animate) {
     if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
+    if (f.quick && !sbDragging && !(f.width >= 340)) document.documentElement.style.setProperty("--sb-w", "360px"); // (a list of notes wants room)
+    document.body.toggleAttribute("data-quick", !!f.quick);
+    if (!f.quick) quickSeen.clear();
     const first = !folder || folder.root !== f.root;
     if (first) { sbOpen.clear(); sbList.textContent = ""; }
     folder = f;
@@ -2643,7 +2721,8 @@
     sbTitlesBtn.classList.toggle("active", sbTitles);
     sbTitlesBtn.setAttribute("aria-pressed", String(sbTitles));
     sbTitlesBtn.title = sbTitlesBtn.ariaLabel = sbTitles ? "Show file names" : "Show note titles";
-    sidebar.querySelector(".sb-folder-name").textContent = f.name;
+    sidebar.querySelector(".sb-folder-name").textContent = f.quick ? "Quick Notes" : f.name;
+    sidebar.querySelector('[data-act="newmenu"]').title = sidebar.querySelector('[data-act="newmenu"]').ariaLabel = f.quick ? `New note (${keys(window.MdPrefs?.quickNew || "Ctrl+N")})` : "New note or folder";
     const hs = historyState();
     sbHistoryBtn.classList.toggle("quiet", hs !== "project" && hs !== "inside"); // (dimmed: this app keeps no history here)
     const odds = syncState() === "conflict"; // (changed here and on another device, the same place: to be said — the clock's menu)
@@ -2655,8 +2734,9 @@
     document.body.dataset.folder = "";
     if (first) openAncestors();
     syncList(animate && !first);
+    quickPaint();
     markActiveNote(first);
-    showSidebar(f.visible, !first);
+    showSidebar(f.quick ? true : f.visible, !first); // (the quick notes are their list)
     if (!current) clear();
     for (const el of tabEls()) { const t = tabs.find((x) => String(x.id) === el.dataset.id); if (t) paintTab(el, t); } // (names or titles, as the list)
     if (window.MdOverview) MdOverview.folderChanged();
@@ -3454,7 +3534,8 @@
     panel: () => { if (mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
-    newmenu: () => { // the + button: a note or a folder
+    newmenu: () => { // the + button: a note or a folder — among the quick notes a new one, at once
+      if (folder && folder.quick) return post("quicknote");
       const b = sidebar.querySelector('[data-act="newmenu"]'), r = b.getBoundingClientRect();
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
       openCtx(b, r.right, r.bottom + 4, "new");
@@ -3738,5 +3819,6 @@
       copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
-    setPreviews: (p) => window.MdOverview && MdOverview.previews(p) };
+    quickFresh,
+    setPreviews: (p) => { quickPreviews(p); if (window.MdOverview) MdOverview.previews(p); } };
 })();

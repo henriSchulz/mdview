@@ -41,6 +41,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   save: ["write", "the note's text"],
   toggle: ["write", "a task ticked in the reading view"],
   newnote: ["write", "a note made"],
+  quicknote: ["none", "a quick note made at once (the desktop app's window of quick notes: mdview --quick)"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
   rename: ["write", "a note or another file renamed"],
   move: ["write", "a note, another file or a folder put into another folder"],

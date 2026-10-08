@@ -412,6 +412,27 @@ details[open] > summary .callout-fold { transform: rotate(90deg); }
 .callout-quote { --cc: var(--fg2); }
 
 /* ------------------------------------------------------------- properties + transclusion */
+/* ------------------------------------------------------------- quick notes (viewer.js)
+ * The folder's list as a list of short notes: wide, a row a note — what it says first, under it
+ * when it was written and how it goes on. No tabs, no names of files: one note at a time. */
+.qn-search { display: none; }
+body[data-quick][data-tabs] #tabs { display: none; }
+body[data-quick][data-tabs] :is(#content, #active, #editor) { padding-top: 56px; }
+body[data-quick] .sb-head :is([data-act="titles"], [data-act="historymenu"]) { display: none; }
+body[data-quick] .sb-folder { pointer-events: none; font-weight: 600; }
+body[data-quick] .qn-search { display: block; margin: 2px 10px 8px; width: auto; }
+body[data-quick] .sb-row { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; gap: 2px; height: auto; min-height: 58px; padding: 8px 12px; border-radius: 10px; }
+body[data-quick] .sb-row .sb-icon { display: none; }
+body[data-quick] .sb-row .sb-label { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qn-meta { display: none; }
+body[data-quick] .qn-meta { display: flex; gap: 8px; min-width: 0; font-size: 12.5px; color: var(--fg2); }
+.qn-when { flex: none; color: var(--fg); opacity: 0.72; font-variant-numeric: tabular-nums; }
+.qn-says { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body[data-quick] .sb-row.active .qn-meta, body[data-quick] .sb-row.active .qn-when { color: inherit; opacity: 0.85; }
+body[data-quick] .sb-item + .sb-item:not([hidden]) > .sb-in > .sb-row:not(.active)::before { content: ""; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--line); }
+body[data-quick] .sb-item { position: relative; }
+body[data-quick] .sb-item[hidden] { display: none; }
+
 /* ------------------------------------------------------------- pages in a note
  * A page's line on the page it lies on: a sign and its name, a row to click. */
 .page-row { --pc: var(--accent); display: flex; align-items: center; gap: 8px; min-height: 30px; margin: 0 -8px 0.5em; padding: 3px 8px; border-radius: var(--radius-control); color: var(--fg); cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out); }

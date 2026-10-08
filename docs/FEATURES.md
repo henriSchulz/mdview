@@ -203,6 +203,15 @@ The ratio is optional (`<!-- columns -->` makes them alike). Only among the note
 in a list or a quote, not inside each other. In a narrow window, and in any other Markdown program,
 the blocks simply stand one under the other.
 
+### Quick notes
+
+`mdview --quick` opens a window for writing something down at once: a list of short notes at the
+left — what each says first, when it was written, how it goes on; the newest first — and the note
+at the right. The + (or Ctrl+N; another key can be set in the settings) makes a new note without
+asking for a name: its file is named after its first line when the note is left, and a note left
+empty is gone again. The notes are Markdown files in one folder (Documents/Notizen/QuickNotes,
+or the folder the settings name), so they are notes like any other everywhere else.
+
 ### Pages in a note
 
 A note can hold pages of its own. On the page it lies on, a page is a line with its name; a click

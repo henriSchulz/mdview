@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
     aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true,
+    ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -65,6 +65,8 @@
       [null, [["bar", "switch"], ["slash", "switch"], ["syntax", "switch"], ["quotes", "switch"]]],
       ["prefs.paragraphs", [["wrap", "select", [[0, "prefs.wrap.off"], [72, "72"], [80, "80"], [100, "100"], [120, "120"]]]]],
       ["prefs.pictures", [["images", "select", [["assets", "prefs.images.assets"], ["beside", "prefs.images.beside"]]]]],
+      // the quick notes (mdview --quick): the keys that make a new one — pressed in the field — and their folder
+      ["prefs.quick", [["quickNew", "keys"], ["quickDir", "text"]]],
     ]],
     ["newMarkdown", "source", [
       [null, [
@@ -132,10 +134,27 @@
       input.onchange = () => set(key, typeof DEFAULTS[key] === "number" ? Number(input.value) : input.value);
       return popup(input);
     }
+    if (kind === "keys") { // a key combination: pressed in the field, not typed
+      const input = el("input", { type: "text", class: "lp-field pf-text pf-keys", readonly: "", spellcheck: "false", autocomplete: "off" });
+      const show = () => { input.value = window.MdView.core.keys(now()[key] || DEFAULTS[key]); };
+      show();
+      refresh.push(show);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Tab" || e.key === "Escape") return;
+        e.preventDefault(); e.stopPropagation();
+        if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;
+        if (e.key === "Backspace" || e.key === "Delete") { set(key, DEFAULTS[key]); return show(); } // (back to what it is by itself)
+        if (!(e.ctrlKey || e.metaKey || e.altKey) && e.key.length === 1) return; // (a plain letter is for writing)
+        const name = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+        set(key, [e.ctrlKey || e.metaKey ? "Ctrl" : "", e.altKey ? "Alt" : "", e.shiftKey ? "Shift" : "", name].filter(Boolean).join("+"));
+        show();
+      });
+      return input;
+    }
     if (kind === "text") {
       const input = el("input", { type: "text", class: "lp-field pf-text", spellcheck: "false", autocomplete: "off" });
       input.value = now()[key] || "";
-      refresh.push(() => { input.placeholder = (key === "aiModel" && info.aiModel) || (key === "deviceName" && info.deviceName) || ""; });
+      refresh.push(() => { input.placeholder = (key === "aiModel" && info.aiModel) || (key === "deviceName" && info.deviceName) || (key === "quickDir" && "~/Documents/Notizen/QuickNotes") || ""; });
       input.onchange = () => set(key, input.value.trim());
       return input;
     }

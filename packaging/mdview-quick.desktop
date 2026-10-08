@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Notes
+GenericName=Quick Notes
+Comment=Write something down at once – short notes, to-dos, what is on the clipboard
+Exec=mdview --quick
+Icon=mdview
+Terminal=false
+Categories=Utility;
+Keywords=notes;notizen;quick;schnell;todo;keep;memo;
+StartupNotify=true
+StartupWMClass=dev.henri.MdView

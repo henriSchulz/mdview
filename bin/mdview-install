@@ -8,7 +8,8 @@
 # so nothing is copied but what the desktop needs to find it:
 #
 #   ~/.local/bin/mdnotes   `mdnotes FILE…`, `mdnotes FOLDER`, `mdnotes` (and the same as `mdview`)
-#   desktop entry + icon   Spotlight, the dock, "Open With"
+#   desktop entry + icon   Spotlight, the dock, "Open With" — and a second entry, "Notes":
+#                          the quick notes (mdview --quick)
 #   default application    text/markdown opens here (xdg-open, file managers)
 #   ~/.claude/skills/mdview-notes   the Claude skill for writing notes (a link into this checkout)
 set -euo pipefail
@@ -30,6 +31,7 @@ done
 ln -sfn "$src/bin/mdview" "$HOME/.local/bin/mdview"
 ln -sfn "$src/bin/mdview" "$HOME/.local/bin/mdnotes"   # the app is called Markdown Notes; both names start it
 install -m644 "$src/packaging/mdview.desktop" "$apps/mdview.desktop"
+install -m644 "$src/packaging/mdview-quick.desktop" "$apps/mdview-quick.desktop"
 install -m644 "$src/packaging/mdview.svg" "$icons/mdview.svg"
 
 # The Claude skill for writing notes this app renders (skill/mdview-notes), where Claude Code looks.
