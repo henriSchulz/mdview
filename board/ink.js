@@ -3,13 +3,19 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const TOOLS = { pen: { w: 3, o: 1 }, mono: { w: 2, o: 1 } };
+  // what each tool is set to before anyone chose otherwise, and the widths its options offer
+  const TOOLS = {
+    pen: { c: "auto", w: 3, o: 1, widths: [1, 2, 3, 5, 8] },
+    mono: { c: "auto", w: 2, o: 1, widths: [1, 1.5, 2, 3, 5] },
+    marker: { c: "#f2b90f", w: 14, o: 0.4, widths: [8, 14, 20, 28, 36] },
+    eraser: { mode: "object", w: 20, widths: [10, 20, 32, 48, 64] }, // (its width: on the screen)
+  };
   const GAP = 0.75; // a new point only this far (in screen pixels) from the one before
 
   function trace(ctx, it, auto) {
-    if (!it.path) { const o = B.render.outline(it); it.path = new Path2D(o.d); it.stroke = o.stroke; }
     ctx.globalAlpha = it.o;
-    if (it.stroke) { ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke(it.path); }
+    if (!it.path) { const o = B.render.outline(it); it.path = new Path2D(o.d); it.stroke = o.stroke; it.cap = o.cap; }
+    if (it.stroke) { ctx.strokeStyle = B.render.colorOf(it, auto); ctx.lineWidth = it.stroke; ctx.lineCap = it.cap || "round"; ctx.lineJoin = "round"; ctx.stroke(it.path); }
     else { ctx.fillStyle = B.render.colorOf(it, auto); ctx.fill(it.path); }
   }
   /* All the ink that the view shows. size: { w, h } in CSS pixels. */
@@ -29,9 +35,10 @@
     }
     ctx.globalAlpha = 1;
   }
-  /* A stroke being drawn: begin(tool, color, pt) → { add(pt), item }. Points are the board's. */
-  function begin(tool, color, first, zoom) {
-    const def = TOOLS[tool] || TOOLS.pen, t0 = first.t;
+  /* A stroke being drawn: begin(tool, set, pt) → { add(pt), item }. set: the tool's colour, width
+   * and opacity. Points are the board's. */
+  function begin(tool, set, first, zoom) {
+    const def = { ...(TOOLS[tool] || TOOLS.pen), ...set }, color = def.c, t0 = first.t;
     // (as the file will hold them — tenths of a pixel, hundredths of pressure — so that the stroke looks the same once it is read again)
     const q = (v, k) => Math.round(v * k) / k;
     const item = { id: B.format.id(), k: "ink", t: tool, c: color, o: def.o, w: def.w, ch: "xypt", pts: [[q(first.x, 10), q(first.y, 10), q(first.p, 100), 0]] };
@@ -47,6 +54,26 @@
     };
   }
   /* The strokes a round eraser of radius r at (x, y) touches. */
+  /* Is (x, y) inside the closed line poly ([[x, y], …])? */
+  function within(poly, x, y) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if (a[1] > y !== b[1] > y && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+  /* The strokes a loop drawn around them takes: those with most of their points inside it. */
+  function circled(items, poly) {
+    return items.filter((it) => it.k === "ink" && it.pts.filter((p) => within(poly, p[0], p[1])).length >= Math.max(1, it.pts.length * 0.6));
+  }
+  /* The same stroke somewhere else, or larger: every point through f([x, y]) → [x, y]; its width times k. */
+  function moved(it, f, k = 1) {
+    const q = (v) => Math.round(v * 10) / 10;
+    it.pts = it.pts.map((p) => { const [x, y] = f(p); return [q(x), q(y), ...p.slice(2)]; });
+    it.w = Math.max(0.5, Math.min(200, Math.round(it.w * k * 100) / 100));
+    it.path = null; it.box = null;
+  }
   function touched(items, x, y, r) {
     const out = [];
     for (const it of items) {
@@ -63,5 +90,5 @@
     }
     return out;
   }
-  B.ink = { draw, begin, touched, trace, TOOLS };
+  B.ink = { draw, begin, touched, circled, moved, within, trace, TOOLS };
 })();

@@ -12,7 +12,7 @@ function load() {
   const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
   w.window = w;
   vm.createContext(w);
-  for (const f of ["board/format.js", "board/render.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
   return w.MdBoard;
 }
 const B = load(), F = B.format;
@@ -100,6 +100,64 @@ test("what a text holds cannot end the data early", () => {
   const text = F.write(model);
   assert.equal(text.split("]]>").length, 2);
   assert.equal(F.parse(text).items[0].foreign.text, "]]> </metadata><script>&");
+});
+
+test("a marker's stroke ends flat, a stroke made straight keeps its corners — in the file and in the picture", () => {
+  const model = F.fresh();
+  model.items.push(ink("aaaaaaa1", wave(12), { t: "marker", w: 14, o: 0.4, c: "#f2b90f" }), ink("aaaaaaa2", [[0, 0, 0.5, 0], [100, 0, 0.5, 0], [100, 60, 0.5, 0], [0, 60, 0.5, 0], [0, 0, 0.5, 0]], { t: "mono", w: 2, sharp: true }));
+  const text = F.write(model), back = F.parse(text);
+  assert.deepEqual(plain(back.items.map((it) => [it.t, it.o, !!it.sharp])), [["marker", 0.4, false], ["mono", 1, true]]);
+  const svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement;
+  assert.deepEqual([svg.querySelector("#aaaaaaa1").getAttribute("stroke-linecap"), svg.querySelector("#aaaaaaa1").getAttribute("opacity")], ["butt", "0.4"]);
+  assert.equal(svg.querySelector("#aaaaaaa2").getAttribute("d"), "M0 0L100 0L100 60L0 60Z");
+  assert.equal(F.write(F.parse(F.write(back))), F.write(back));
+});
+
+// a hand's version of a figure: its points, each a little off
+const shaky = (pts, by = 1.5) => pts.map(([x, y], i) => [x + Math.sin(i * 12.9898) * by, y + Math.cos(i * 78.233) * by, 0.5, i * 8]);
+const along = (corners, step = 4) => corners.slice(1).flatMap((b, i) => { const a = corners[i], n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / step)); return Array.from({ length: n }, (_v, k) => [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]); });
+const kind = (pts) => { const g = B.shape.guess(pts); return g ? g.kind : null; };
+
+test("a hand that rests at the end of a stroke: what it drew is made clean", () => {
+  assert.equal(kind(shaky(along([[0, 0], [200, 60]]))), "line");
+  const line = B.shape.guess(shaky(along([[10, 10], [210, 70]])));
+  assert.deepEqual([line.sharp, line.pts.length], [true, 2]);
+  const ring = (rx, ry, n = 80) => Array.from({ length: n }, (_v, i) => [300 + rx * Math.cos((2 * Math.PI * i) / (n - 2)), 200 + ry * Math.sin((2 * Math.PI * i) / (n - 2))]);
+  assert.equal(kind(shaky(ring(60, 60), 2.5)), "circle");
+  assert.equal(kind(shaky(ring(110, 50), 2.5)), "ellipse");
+  const circle = B.shape.guess(shaky(ring(60, 62), 2.5));
+  const radii = plain(circle.pts).map((p) => Math.hypot(p[0] - 300, p[1] - 200));
+  assert.ok(Math.max(...radii) - Math.min(...radii) < 2.5, "a circle is round, about where it was drawn");
+  assert.deepEqual(plain(circle.pts[0]), plain(circle.pts[circle.pts.length - 1]), "and shut");
+  assert.equal(kind(shaky(along([[0, 0], [180, 4], [176, 110], [3, 104], [0, 6]]))), "rectangle");
+  const rect = B.shape.guess(shaky(along([[0, 0], [180, 4], [176, 110], [3, 104], [0, 6]])));
+  assert.deepEqual([rect.sharp, rect.pts.length], [true, 5]);
+  assert.equal(kind(shaky(along([[100, 0], [200, 160], [0, 150], [98, 4]]))), "triangle");
+});
+
+test("… and what is nothing in particular is left as drawn", () => {
+  assert.equal(kind(shaky(wave(40))), null, "a wave");
+  assert.equal(kind(shaky(along([[0, 0], [100, 0], [100, 100]]))), null, "a corner");
+  assert.equal(kind([[0, 0, 0.5, 0], [3, 2, 0.5, 8], [6, 1, 0.5, 16]]), null, "a tick too short to mean anything");
+  assert.equal(kind(shaky(along([[0, 0], [40, 80], [80, 0], [120, 80], [160, 0]]))), null, "a zigzag");
+});
+
+test("an eraser put through a stroke leaves the pieces beside it", () => {
+  const line = Array.from({ length: 21 }, (_v, i) => [i * 10, 0, 0.5, i * 8]);
+  assert.equal(B.shape.cut(line, 100, 50, 10), null, "not touched: as it was");
+  const mid = plain(B.shape.cut(line, 100, 0, 15));
+  assert.equal(mid.length, 2);
+  assert.deepEqual([mid[0][0][0], mid[0].at(-1)[0], mid[1][0][0], mid[1].at(-1)[0]], [0, 85, 115, 200]);
+  assert.equal(mid[0].at(-1)[3], 68, "the cut has the time the stroke had there");
+  const end = plain(B.shape.cut(line, 200, 0, 15));
+  assert.deepEqual([end.length, end[0].at(-1)[0]], [1, 185]);
+  assert.deepEqual(plain(B.shape.cut(line, 100, 0, 500)), [], "all of it under the eraser: nothing stays");
+  assert.deepEqual(plain(B.shape.cut([[5, 5, 0.5, 0]], 5, 5, 3)), []);
+  assert.equal(B.shape.cut([[5, 5, 0.5, 0]], 50, 5, 3), null);
+  // between two points that are both outside: the eraser still cuts what runs under it
+  const two = plain(B.shape.cut([[0, 0, 0.2, 0], [100, 0, 0.8, 100]], 50, 0, 10));
+  assert.deepEqual(two.map((p) => [p[0][0], p.at(-1)[0]]), [[0, 40], [60, 100]]);
+  assert.deepEqual([two[0].at(-1)[2], two[1][0][2]], [0.44, 0.56], "the pressure the stroke had there");
 });
 
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {

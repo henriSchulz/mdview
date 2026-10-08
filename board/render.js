@@ -14,20 +14,27 @@
   const radius = (it, p) => (it.t === "pen" ? (it.w / 2) * (0.35 + 1.3 * Math.max(0, Math.min(1, p == null ? 0.5 : p))) : it.w / 2);
   const even = (it) => it.t !== "pen" || it.pts.every((p) => p[2] === it.pts[0][2]);
 
-  /* The stroke as a path: { d, stroke } — stroke: a line of that width to be stroked with round
-   * ends (a stroke of one width: little to write); else an outline to be filled. The outline is
+  /* The stroke as a path: { d, stroke, cap } — stroke: a line of that width to be stroked, with
+   * ends of that kind (a stroke of one width: little to write); else an outline to be filled.
+   * A marker's line ends flat, as its tip is; a stroke made straight (sharp) keeps its corners. The outline is
    * a row of closed pieces, one per stretch between two points, all wound the same way: filled
    * together they are the stroke, and no turn, however sharp, cuts a hole into it. */
   function outline(it) {
     const pts = it.pts;
     if (even(it)) {
       const w = radius(it, pts[0][2]) * 2;
-      if (pts.length === 1) return { d: `M${n(pts[0][0])} ${n(pts[0][1])}h0.01`, stroke: w };
+      const cap = it.t === "marker" && pts.length > 1 ? "butt" : "round";
+      if (pts.length === 1) return { d: `M${n(pts[0][0])} ${n(pts[0][1])}h0.01`, stroke: w, cap };
       let d = `M${n(pts[0][0])} ${n(pts[0][1])}`;
+      if (it.sharp) {
+        const shut = pts.length > 3 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1];
+        for (let i = 1; i < pts.length - (shut ? 1 : 0); i++) d += `L${n(pts[i][0])} ${n(pts[i][1])}`;
+        return { d: d + (shut ? "Z" : ""), stroke: w, cap };
+      }
       // through the middles between the points, each point pulling the line: no corners where the hand drew none
       for (let i = 1; i < pts.length - 1; i++) d += `Q${n(pts[i][0])} ${n(pts[i][1])} ${n((pts[i][0] + pts[i + 1][0]) / 2)} ${n((pts[i][1] + pts[i + 1][1]) / 2)}`;
       const z = pts[pts.length - 1];
-      return { d: d + `L${n(z[0])} ${n(z[1])}`, stroke: w };
+      return { d: d + `L${n(z[0])} ${n(z[1])}`, stroke: w, cap };
     }
     let d = "";
     const dot = (x, y, r) => `M${n(x - r)} ${n(y)}a${n(r)} ${n(r)} 0 1 1 ${n(2 * r)} 0a${n(r)} ${n(r)} 0 1 1 ${n(-2 * r)} 0Z`;
@@ -42,7 +49,7 @@
       // (the same way round as the dots: clockwise on the screen)
       d += `M${n(x + nx * r)} ${n(y + ny * r)}L${n(x - nx * r)} ${n(y - ny * r)}L${n(x2 - nx * r2)} ${n(y2 - ny * r2)}L${n(x2 + nx * r2)} ${n(y2 + ny * r2)}Z`;
     }
-    return { d, stroke: 0 };
+    return { d, stroke: 0, cap: "round" };
   }
   const colorOf = (it, auto = AUTO) => (it.c === "auto" || !/^#[0-9a-f]{3,8}$/i.test(it.c) ? auto : it.c);
 
@@ -56,7 +63,7 @@
       if (b[0] < x0) x0 = b[0]; if (b[1] < y0) y0 = b[1]; if (b[2] > x1) x1 = b[2]; if (b[3] > y1) y1 = b[3];
       const o = outline(it), op = it.o < 1 ? ` opacity="${n(it.o)}"` : "";
       body += o.stroke
-        ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="round" stroke-linejoin="round"${op}/>\n`
+        ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
         : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${op}/>\n`;
     }
     if (!body) {

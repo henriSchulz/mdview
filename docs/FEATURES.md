@@ -375,9 +375,20 @@ shut back into it.
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
 - **The board** fills the window. Back to the note: the arrow at the top left, `Esc` or `Ctrl+W`.
-- **Drawing**: the pen (`P`), the fineliner (`M`) and the eraser (`E`, it takes whole strokes) at
-  the foot, with six colours beside them. `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it
-  again.
+- **Drawing**: the tools stand in a tray at the foot — the pen (`P`), the fineliner (`F`), the
+  marker (`M`, see-through), the eraser (`E`) and the lasso (`L`) — with six colours and a seventh
+  well for any other beside them. Each tool keeps its own colour. A click on the tool in hand
+  opens its options: how wide, how see-through; for the eraser whether it takes whole strokes
+  or the parts it passes over.
+- **A stroke made clean**: rest the hand at the end of a stroke before lifting it, and a line
+  becomes straight (its end still follows the hand), a ring a circle or an ellipse, a box a
+  rectangle, three sides a triangle.
+- **The lasso**: a loop around strokes, or a tap on one, chooses them. What is chosen is moved
+  by pulling inside its frame, made larger or smaller at the frame's corners, given another
+  colour from the wells, copied (`Ctrl+D`) and deleted (`Delete`) — both also in the small bar
+  beside it —, nudged with the arrow keys (`Shift`: ten pixels). `Ctrl+A` chooses everything,
+  `Esc` lets go.
+- `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it again.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
   drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
@@ -389,8 +400,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: text, shapes and pictures on a board, choosing and moving what is drawn, an
-eraser for parts of a stroke.
+Not there yet: text, shapes and pictures on a board.
 
 ### Links between notes
 

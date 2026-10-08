@@ -49,15 +49,80 @@
     ok("Ctrl+Z takes it back", st().items === 0 && st().redo === 1 && inked() === 0, [st(), inked()]);
     key("z", { ctrlKey: true, shiftKey: true });
     ok("Ctrl+Shift+Z brings it back", st().items === 1 && inked() === one, [st(), inked()]);
-    key("m");
+    key("f");
     el().querySelector('.bd-well[data-ink="#1f6fe5"]').click();
     await stroke(wave(200, 320));
-    ok("M: the fineliner, in the blue chosen from the wells", st().items === 2 && st().tool === "mono" && st().ink === "#1f6fe5", st());
+    ok("F: the fineliner, in the blue chosen from the wells", st().items === 2 && st().tool === "mono" && st().ink === "#1f6fe5", st());
     key("e");
     await stroke([[150, 320], [260, 320], [300, 330]]);
     ok("E: the eraser takes the stroke it touches, and only that", st().items === 1 && st().tool === "eraser", st());
     key("z", { ctrlKey: true });
     ok("… undone: both are there", st().items === 2, st());
+
+    // ---- the palette: marker, a tool's options, a stroke made clean, parts erased, the lasso
+    const tool = (t) => el().querySelector(`.bd-tool[data-tool="${t}"]`);
+    key("m");
+    await stroke(wave(520, 200, 14));
+    ok("M: the marker — see-through, in its own colour", st().items === 3 && st().kinds[2].startsWith("marker:") && st().ink === "#f2b90f" && tool("marker").getAttribute("aria-checked") === "true", st());
+    tool("marker").click();
+    await sleep(350);
+    const pop = el().querySelector(".bd-pop");
+    ok("the tool in hand, clicked again: its options over it", st().options && pop.querySelectorAll(".bd-width").length === 5 && !!pop.querySelector("input[type=range]") && pop.getBoundingClientRect().bottom <= tool("marker").getBoundingClientRect().top + 30, [st().options, pop.innerHTML.slice(0, 120)]);
+    pop.querySelector('.bd-width[data-w="28"]').click();
+    const range = pop.ownerDocument.querySelector("#board .bd-pop input[type=range]");
+    range.value = "60"; range.dispatchEvent(new Event("input", { bubbles: true }));
+    ok("a width and an opacity chosen there are the tool's", st().tools.marker.w === 28 && st().tools.marker.o === 0.6 && st().options, st().tools.marker);
+    key("Escape");
+    ok("Esc shuts the options, not the board", !st().options && B().shown, st());
+    // a hand that rests at the end: the stroke is made clean
+    key("p");
+    const rest = async (pts, ms = 750) => { ev("pointerdown", ...pts[0]); for (const p of pts.slice(1)) { ev("pointermove", ...p); await sleep(6); } await sleep(ms); ev("pointerup", ...pts[pts.length - 1]); await sleep(60); };
+    await rest(Array.from({ length: 30 }, (_v, i) => [520 + i * 7, 330 + Math.sin(i * 1.7) * 1.5]));
+    ok("a line drawn and the hand resting: it is straight, two points", st().items === 4 && st().kinds[3] === "pen!:2", st().kinds);
+    await rest(Array.from({ length: 60 }, (_v, i) => [620 + Math.cos((i / 57) * 2 * Math.PI) * 45 + Math.sin(i * 2.1), 460 + Math.sin((i / 57) * 2 * Math.PI) * 45]));
+    ok("a ring drawn and the hand resting: a circle", st().items === 5 && st().kinds[4] === "pen:65", st().kinds);
+    await stroke(Array.from({ length: 30 }, (_v, i) => [200 + i * 7, 460 + Math.sin(i * 1.7) * 1.5]));
+    ok("without the rest a stroke stays as drawn", st().items === 6 && !st().kinds[5].includes("!") && st().kinds[5] !== "pen:2", st().kinds);
+    // the eraser set to parts: the straight line is cut where the eraser crosses it
+    key("e");
+    tool("eraser").click();
+    await sleep(300);
+    el().querySelector('.bd-pop [data-mode="pixel"]').click();
+    key("Escape");
+    await stroke([[620, 300], [620, 330], [620, 360]]);
+    ok("the eraser set to parts cuts the line in two", st().items === 7 && st().kinds.filter((k) => k === "pen!:2").length === 2 && st().tools.eraser.mode === "pixel", st().kinds);
+    key("z", { ctrlKey: true });
+    ok("… one step back: the line is whole", st().items === 6 && st().kinds.filter((k) => k === "pen!:2").length === 1, st().kinds);
+    tool("eraser").click(); await sleep(300); el().querySelector('.bd-pop [data-mode="object"]').click(); key("Escape");
+    // the lasso
+    key("l");
+    await stroke([[180, 150], [460, 150], [460, 250], [180, 250], [180, 152]].flatMap((c, i, a) => (i ? Array.from({ length: 10 }, (_v, k) => [a[i - 1][0] + ((c[0] - a[i - 1][0]) * (k + 1)) / 10, a[i - 1][1] + ((c[1] - a[i - 1][1]) * (k + 1)) / 10]) : [c])));
+    const frame = el().querySelector(".bd-sel");
+    ok("L: a loop around a stroke chooses it — a frame, and a small bar beside it", st().chosen === 1 && !frame.hidden && !el().querySelector(".bd-selbar").hidden && st().items === 6, st());
+    const box0 = st().chosenBox;
+    await stroke([[300, 200], [300, 190], [300, 170], [300, 160]]);
+    ok("pulled from inside its frame, it moves", st().chosen === 1 && st().chosenBox[1] === box0[1] - 40 && st().chosenBox[0] === box0[0], [box0, st().chosenBox]);
+    key("z", { ctrlKey: true });
+    ok("… and back with one step", st().chosenBox[1] === box0[1], [box0, st().chosenBox]);
+    const fr = frame.getBoundingClientRect();
+    await stroke([[fr.right, fr.bottom], [fr.right + 20, fr.bottom + 6], [fr.right + 60, fr.bottom + 16]]);
+    ok("pulled at a corner, it grows from the opposite one", st().chosenBox[2] - st().chosenBox[0] > (box0[2] - box0[0]) * 1.15 && Math.abs(st().chosenBox[0] - box0[0]) <= 2 && Math.abs(st().chosenBox[1] - box0[1]) <= 2, [box0, st().chosenBox]);
+    key("z", { ctrlKey: true });
+    el().querySelector('.bd-well[data-ink="#e5372c"]').click();
+    ok("a colour chosen is the stroke's, not the tool's", st().inks[0] === "#e5372c" && st().tools.pen.c === "auto" && st().tool === "lasso", st().inks);
+    key("d", { ctrlKey: true });
+    ok("Ctrl+D: a copy beside it, chosen in its place", st().items === 7 && st().chosen === 1 && st().chosenBox[0] === box0[0] + 16, st());
+    key("Delete");
+    ok("Delete takes what is chosen", st().items === 6 && st().chosen === 0 && frame.hidden, st());
+    await stroke([[200, 320], [200, 321]]);
+    ok("a tap on a stroke chooses that one", st().chosen === 1 && st().inks[1] === "#1f6fe5", st());
+    key("Escape");
+    ok("Esc lets go of it, the board stays", st().chosen === 0 && B().shown, st());
+    key("p");
+    out("palette", {});
+    await sleep(500);
+    const count = st().items;
+
     const docZoom = getComputedStyle(document.documentElement).fontSize, z0 = st().zoom;
     key("+", { ctrlKey: true });
     ok("Ctrl + makes the board larger, not the note under it", st().zoom > z0 && getComputedStyle(document.documentElement).fontSize === docZoom, [z0, st().zoom]);
@@ -83,7 +148,7 @@
     blockImg().dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
     // (the editor's own click handling wants a real press: the block's opening is asked for directly where that did not do it)
     if (!(await until(() => B().shown, 400))) A.islands.open(view, (() => { let at = -1; view.state.doc.descendants((n, pos) => { if (n.type.name === "island" && /board\.svg/.test(n.attrs.raw || "")) at = pos; }); return at; })());
-    ok("opened again from its block: both strokes are there", await until(() => st() && el().hasAttribute("data-ready")) && st().items === 2, st());
+    ok("opened again from its block: every stroke is there", await until(() => st() && el().hasAttribute("data-ready")) && st().items === count, [count, st()]);
     key("Escape");
     await until(() => el().hidden, 2000);
     MdView.setMode("read");
@@ -92,9 +157,10 @@
     const readImg = document.querySelector("#content p.board-block img");
     ok("the reading view shows the block", !!readImg, document.getElementById("content").innerHTML.slice(-200));
     readImg && readImg.click();
-    ok("… and a click opens the board there too", await until(() => st() && el().hasAttribute("data-ready")) && st().items === 2, st());
+    ok("… and a click opens the board there too", await until(() => st() && el().hasAttribute("data-ready")) && st().items === count, [count, st()]);
     await stroke(wave(200, 440, 12));
-    ok("drawn on from the reading view", st().items === 3, st());
+    ok("drawn on from the reading view", st().items === count + 1, st());
+    o.strokes = count + 1;
     // the note is left with the board open: what is unsaved goes first
     MdView.core.post("reload");
     ok("leaving the note shuts the board", !B().shown, B().shown);
