@@ -50,15 +50,14 @@
     el.style.zIndex = String(order);
     el.toggleAttribute("data-lock", !!it.lock);
     if (it.k === "line") {
-      const b = I.bounds(it), [x1, y1, x2, y2] = it.p, svg = el.firstChild, [line, h1, h2] = svg.children, c = ink(it.stroke.c === "none" ? "auto" : it.stroke.c);
+      const b = I.bounds(it), svg = el.firstChild, [line, h1, h2] = svg.children, c = ink(it.stroke.c === "none" ? "auto" : it.stroke.c);
       el.style.cssText += `;left:${b[0]}px;top:${b[1]}px;width:${b[2] - b[0]}px;height:${b[3] - b[1]}px;transform:none`;
       svg.setAttribute("viewBox", `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}`);
-      const back = (ax, ay, bx, by, on) => { const len = Math.hypot(bx - ax, by - ay) || 1, d = on ? Math.min(len / 2, 4 + it.stroke.w * 2) : 0; return [ax + ((bx - ax) * d) / len, ay + ((by - ay) * d) / len]; };
-      const a = back(x1, y1, x2, y2, it.ends[0] === "arrow"), z = back(x2, y2, x1, y1, it.ends[1] === "arrow");
-      line.setAttribute("d", `M${a[0]} ${a[1]}L${z[0]} ${z[1]}`);
-      line.setAttribute("style", `fill:none;stroke:${c};stroke-width:${it.stroke.w};stroke-linecap:${it.ends.includes("arrow") ? "butt" : "round"}`);
-      h1.setAttribute("d", it.ends[0] === "arrow" ? I.head(x1, y1, x2, y2, it.stroke.w) : ""); h1.setAttribute("style", `fill:${c}`);
-      h2.setAttribute("d", it.ends[1] === "arrow" ? I.head(x2, y2, x1, y1, it.stroke.w) : ""); h2.setAttribute("style", `fill:${c}`);
+      const l = I.lineDraw(it);
+      line.setAttribute("d", l.d);
+      line.setAttribute("style", `fill:none;stroke:${c};stroke-width:${it.stroke.w};stroke-linejoin:round;stroke-linecap:${it.ends.includes("arrow") ? "butt" : "round"}`);
+      h1.setAttribute("d", l.heads[0]); h1.setAttribute("style", `fill:${c}`);
+      h2.setAttribute("d", l.heads[1]); h2.setAttribute("style", `fill:${c}`);
       return;
     }
     el.style.cssText += `;left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;transform:rotate(${it.r || 0}deg)`;

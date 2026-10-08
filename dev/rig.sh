@@ -214,6 +214,30 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-pictures.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-pictures.json"; printf '%s\n' "${said[@]}"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-pictures.json"; printf '%s\n' "${said[@]}"; } | grep -qv '^ok' ;;
+  board-connect)
+    # connectors on a whiteboard: lines pulled out of items, joined, following them, their way
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{arrows,joined,closed,board-connect}.json
+    app 90 MDVIEW_PROBE="$D/probe-board-connect.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in arrows joined closed; do for _ in $(seq 600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-connect.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-connect-$v.png"; done
+    for _ in $(seq 400); do [[ -f $R/out/$name.board-connect.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-connect.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-connect.json"
+    f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
+    [[ -n $f ]] && grep -q '"from":{"id"' "$f" && ! grep -q '"sides"' "$f" && echo "ok   the file says what each line is joined to, and nothing that is worked out" || echo "FAIL the file's lines"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-connect.json"; } | grep -qv '^ok' ;;
+  board-scenes)
+    # the whiteboard's small menus: size, scenes, the grid, spreading, printing
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{scenes,list,board-scenes}.json
+    app 90 MDVIEW_PROBE="$D/probe-board-scenes.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in scenes list; do for _ in $(seq 600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-scenes.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-scenes-$v.png"; done
+    for _ in $(seq 500); do [[ -f $R/out/$name.board-scenes.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-scenes.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-scenes.json"
+    f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
+    [[ -n $f && $(grep -c '"k":"scene"' "$f") == 2 ]] && echo "ok   the file has a line for each scene" || echo "FAIL the file's scenes"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-scenes.json"; } | grep -qv '^ok' ;;
   ghostmath)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
     app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"

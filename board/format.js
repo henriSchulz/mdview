@@ -115,7 +115,12 @@
   }
 
   // ---------------------------------------------------------------- the file
-  const fresh = () => ({ board: { v: VERSION, bg: "auto", grid: true, view: null }, items: [], lost: 0 });
+  const fresh = () => ({ board: { v: VERSION, bg: "auto", grid: true, view: null }, items: [], scenes: [], lost: 0 });
+  /* A scene: a part of the board under a name, to go back to — { id, name, view: [x, y, w, h] }. */
+  function sceneOf(o) {
+    if (typeof o.id !== "string" || !o.id || !Array.isArray(o.view) || o.view.length !== 4 || !o.view.every(Number.isFinite) || o.view[2] <= 0 || o.view[3] <= 0) return null;
+    return { id: o.id, name: typeof o.name === "string" ? o.name.slice(0, 200) : "", view: o.view.map((v) => Math.round(v)) };
+  }
   /* The file's text → { board, items, lost }. lost: how many lines could not be read. Throws where
    * the text is no board at all. */
   function parse(text) {
@@ -131,7 +136,14 @@
       if (o && typeof o === "object" && "board" in o && !("id" in o)) {
         if (head) continue; // (two heads after a merge: the first stands)
         head = true;
-        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
+        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, ...(o.snap === true ? { snap: true } : {}), view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
+        continue;
+      }
+      if (o && o.k === "scene") { // (scenes stand in their own order, beside the items)
+        const sc = sceneOf(o);
+        if (!sc) { out.lost++; continue; }
+        out.scenes = out.scenes.filter((x) => x.id !== sc.id);
+        out.scenes.push(sc);
         continue;
       }
       let it = null;
@@ -148,9 +160,9 @@
   const json = (o) => JSON.stringify(o).replace(/[<>&\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   /* { board, items } → the file's text. */
   function write(model) {
-    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid };
+    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid, ...(b.snap ? { snap: true } : {}) };
     if (b.view) head.view = { x: Math.round(b.view.x), y: Math.round(b.view.y), z: Math.round(b.view.z * 1000) / 1000 };
-    const lines = [json(head), ...model.items.map(lineOf).filter(Boolean).map(json)];
+    const lines = [json(head), ...(model.scenes || []).map((sc) => json({ id: sc.id, k: "scene", name: sc.name, view: sc.view })), ...model.items.map(lineOf).filter(Boolean).map(json)];
     const pic = B.render.picture(model);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${pic.w}" height="${pic.h}" viewBox="${pic.box.join(" ")}">\n${OPEN}\n${lines.join("\n")}\n${CLOSE}\n${pic.body}</svg>\n`;
   }

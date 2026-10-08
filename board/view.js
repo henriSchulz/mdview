@@ -24,11 +24,12 @@
         v.zoomAt(w / 2, h / 2, STEPS[i < 0 || i >= STEPS.length ? (dir > 0 ? STEPS.length - 1 : 0) : i]);
       },
       // box: [x0, y0, x1, y1] of the board, shown whole with room around — never larger than life
-      fit(box, pad = 64) {
+      // (most: how large at most — a scene is shown as large as it was framed)
+      fit(box, pad = 64, most = 1) {
         const { w, h } = size();
         if (!box) return v.set(-w / 2, -h / 2, 1);
         const bw = Math.max(1, box[2] - box[0]), bh = Math.max(1, box[3] - box[1]);
-        const z = clamp(Math.min(1, (w - 2 * pad) / bw, (h - 2 * pad) / bh));
+        const z = clamp(Math.min(most, (w - 2 * pad) / bw, (h - 2 * pad) / bh));
         v.set((box[0] + box[2]) / 2 - w / 2 / z, (box[1] + box[3]) / 2 - h / 2 / z, z);
       },
     };

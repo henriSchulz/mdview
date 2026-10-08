@@ -410,6 +410,20 @@ shut back into it.
   copy of it. Taken off the board it goes to the trash an hour later, as a picture taken out of
   a note does.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
+- **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
+  sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
+  shapes asks what is to stand at its end — it has the first one's size and look. A joined line
+  goes where its items go. An end pulled off its item lets go of it; let go over an item it
+  joins that, at the side it was dropped near. Line Ends in a line's bar also sets its way:
+  straight, by right angles, or as a bow. Two items chosen: Arrange › Add Connection Line.
+- **Scenes** (the list beside the size, bottom left): Add Scene keeps what the window shows
+  under a name; a click on a scene, or the arrows beside the list, goes back to it. A scene is
+  renamed, replaced with the present view, or deleted from its row.
+- **The size shown**, clicked, lists sizes to choose, Show Everything and Actual Size.
+- **More** (`…`, top right): Copy as Picture puts the board on the clipboard; Print… prints the
+  board's picture alone on the page (or keeps it as a PDF, from the system's print window);
+  Snap to Grid makes what is moved come to rest on the dots. With three or more chosen,
+  Arrange also spreads them at equal distances.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
   drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
@@ -421,7 +435,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: other files and links on a board, lines that stay joined to the things they connect, tables.
+Not there yet: tables, links and other files on a board.
 
 ### Links between notes
 

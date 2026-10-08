@@ -18,6 +18,7 @@
   const PAPERS = { yellow: "#ffe27a", orange: "#ffc078", pink: "#ffb3c7", purple: "#d9c2ff", blue: "#b5dcff", green: "#bfe8b0", grey: "#e3e3e6" };
   const FILLS = ["#ffffff", "#b9b9be", "#1d1d1f", "#5fd6c3", "#e8559c", "#7a3ff0", "#e5372c", "#f08a12", "#f2c744", "#52b85a", "#55b9ee", "#1f6fe5"];
   const SIZES = [12, 14, 16, 20, 24, 32, 48, 64], WIDTHS = [1, 2, 4, 6, 10];
+  const SIDES = ["auto", "t", "r", "b", "l"], ROUTES = ["straight", "corner", "curve"];
   const FONT = '"SF Pro", "Inter", system-ui, sans-serif', LEAD = 1.375, PAD = 10, INK = "#1d1d1f";
   const num = (v, d, lo = -1e7, hi = 1e7) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
   const color = (v, d) => (typeof v === "string" && (/^#[0-9a-f]{6}$/i.test(v) || v === "none" || v === "auto") ? v : d);
@@ -44,6 +45,9 @@
       it.p = o.p.map((v) => num(v, 0));
       it.stroke = stroke(o.stroke, "auto");
       it.ends = [0, 1].map((i) => (Array.isArray(o.ends) && o.ends[i] === "arrow" ? "arrow" : "none"));
+      // an end joined to an item: it goes where the item goes (relink). at: the side it leaves from, or wherever is nearest (auto)
+      for (const end of ["from", "to"]) if (o[end] && typeof o[end].id === "string" && o[end].id) it[end] = { id: o[end].id, at: SIDES.includes(o[end].at) ? o[end].at : "auto" };
+      if (ROUTES.includes(o.route) && o.route !== "straight") it.route = o.route;
     } else if (o.k === "image") {
       // (a name, never a way to somewhere else)
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite) || typeof o.src !== "string" || !/^[^/\\\x00-\x1f]{1,255}$/.test(o.src) || o.src.startsWith(".")) return null;
@@ -62,14 +66,14 @@
     if (typeof o.group === "string" && o.group) it.group = o.group;
     return it;
   }
-  const data = (it) => JSON.parse(JSON.stringify(it));
+  const data = (it) => { const d = JSON.parse(JSON.stringify(it)); delete d.sides; return d; }; // (sides: worked out, not kept)
 
   // ---------------------------------------------------------------- where it is
   const rad = (it) => ((it.r || 0) * Math.PI) / 180;
   const mid = (it) => (it.k === "line" ? [(it.p[0] + it.p[2]) / 2, (it.p[1] + it.p[3]) / 2] : [it.x + it.w / 2, it.y + it.h / 2]);
   /* Its four corners on the board (a line: its two ends). */
   function corners(it) {
-    if (it.k === "line") return [[it.p[0], it.p[1]], [it.p[2], it.p[3]]];
+    if (it.k === "line") return it.route ? way(it) : [[it.p[0], it.p[1]], [it.p[2], it.p[3]]];
     const [cx, cy] = mid(it), c = Math.cos(rad(it)), s = Math.sin(rad(it));
     return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [cx + (a * it.w * c) / 2 - (b * it.h * s) / 2, cy + (a * it.w * s) / 2 + (b * it.h * c) / 2]);
   }
@@ -85,9 +89,13 @@
   /* Does (x, y) hit it? slack: how far beside it still counts (a line is thin). */
   function hit(it, x, y, slack = 0) {
     if (it.k === "line") {
-      const [x1, y1, x2, y2] = it.p, dx = x2 - x1, dy = y2 - y1, len = dx * dx + dy * dy;
-      const t = len ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len)) : 0;
-      return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)) <= it.stroke.w / 2 + Math.max(slack, 5);
+      const pts = way(it), near = it.stroke.w / 2 + Math.max(slack, 5);
+      for (let i = 1; i < pts.length; i++) {
+        const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], dx = x2 - x1, dy = y2 - y1, len = dx * dx + dy * dy;
+        const t = len ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len)) : 0;
+        if (Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)) <= near) return true;
+      }
+      return false;
     }
     const [lx, ly] = local(it, x, y);
     return Math.abs(lx) <= it.w / 2 + slack && Math.abs(ly) <= it.h / 2 + slack;
@@ -95,6 +103,68 @@
   function moveBy(it, dx, dy) {
     if (it.k === "line") it.p = [it.p[0] + dx, it.p[1] + dy, it.p[2] + dx, it.p[3] + dy];
     else { it.x += dx; it.y += dy; }
+  }
+
+  // ---------------------------------------------------------------- lines that join items
+  /* The middle of an item's side (t, r, b, l), turned as the item is. */
+  function sidePoint(it, side) {
+    const [cx, cy] = mid(it), c = Math.cos(rad(it)), s = Math.sin(rad(it)), [a, b] = { t: [0, -1], r: [1, 0], b: [0, 1], l: [-1, 0] }[side];
+    return [cx + (a * it.w * c) / 2 - (b * it.h * s) / 2, cy + (a * it.w * s) / 2 + (b * it.h * c) / 2];
+  }
+  /* Where a joined end stands: on the side it names; auto: the side nearest to (tx, ty), where the line is headed. */
+  function joint(it, at, tx, ty) {
+    if (at !== "auto") return { side: at, p: sidePoint(it, at) };
+    let best = null;
+    for (const side of ["t", "r", "b", "l"]) { const p = sidePoint(it, side), d = Math.hypot(p[0] - tx, p[1] - ty); if (!best || d < best.d) best = { side, p, d }; }
+    return best;
+  }
+  /* Every line's joined ends are put where their items are now. An end whose item is gone stays
+   * where it was, joined to nothing. → whether anything moved. */
+  function relink(items) {
+    const byId = new Map(items.filter((it) => it.k !== "ink" && it.k !== "line").map((it) => [it.id, it]));
+    let moved = false;
+    for (const line of items) {
+      if (line.k !== "line" || (!line.from && !line.to)) continue;
+      for (const end of ["from", "to"]) if (line[end] && !byId.has(line[end].id)) { delete line[end]; moved = true; }
+      const a = line.from && byId.get(line.from.id), z = line.to && byId.get(line.to.id);
+      let p = [...line.p];
+      const sides = [null, null];
+      const put = (i, item, at, tx, ty) => { const j = joint(item, at, tx, ty); p[i * 2] = j.p[0]; p[i * 2 + 1] = j.p[1]; sides[i] = j.side; };
+      // each end looks to where the other is: first to the other item's middle, then to the end as it came to stand
+      if (a) put(0, a, line.from.at, ...(z ? mid(z) : [p[2], p[3]]));
+      if (z) put(1, z, line.to.at, p[0], p[1]);
+      if (a && z) put(0, a, line.from.at, p[2], p[3]);
+      p = p.map((v) => Math.round(v * 10) / 10);
+      if (p.some((v, i) => v !== line.p[i])) { line.p = p; moved = true; }
+      line.sides = sides.map((s) => s || null); // (which way each end leaves its item: for the way a cornered or curved line takes; not kept in the file)
+    }
+    return moved;
+  }
+  /* The way a line takes, as points: its two ends; cornered: by right angles; curved: a bow, in short straight pieces. */
+  function way(it) {
+    const [x1, y1, x2, y2] = it.p;
+    if (!it.route) return [[x1, y1], [x2, y2]];
+    const s = it.sides || [null, null];
+    // does an end leave sideways (from a left or right side) or up and down? unjoined: along the longer way
+    const flat = (side) => (side ? side === "l" || side === "r" : Math.abs(x2 - x1) >= Math.abs(y2 - y1));
+    const h1 = flat(s[0]), h2 = s[1] ? flat(s[1]) : h1;
+    if (it.route === "corner") {
+      if (h1 && h2) { const mx = (x1 + x2) / 2; return [[x1, y1], [mx, y1], [mx, y2], [x2, y2]]; }
+      if (!h1 && !h2) { const my = (y1 + y2) / 2; return [[x1, y1], [x1, my], [x2, my], [x2, y2]]; }
+      return h1 ? [[x1, y1], [x2, y1], [x2, y2]] : [[x1, y1], [x1, y2], [x2, y2]];
+    }
+    const k = 0.5, c1 = h1 ? [x1 + (x2 - x1) * k, y1] : [x1, y1 + (y2 - y1) * k], c2 = h2 ? [x2 - (x2 - x1) * k, y2] : [x2, y2 - (y2 - y1) * k], out = [];
+    for (let i = 0; i <= 24; i++) { const t = i / 24, u = 1 - t; out.push([u * u * u * x1 + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * x2, u * u * u * y1 + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * y2]); }
+    return out;
+  }
+  /* A line as it is drawn: { d, heads } — the way, stopping short inside an arrow's head, and the heads. */
+  function lineDraw(it) {
+    const pts = way(it).map((p) => [...p]), w = it.stroke.w, last = pts.length - 1;
+    const heads = [it.ends[0] === "arrow" ? head(pts[0][0], pts[0][1], pts[1][0], pts[1][1], w) : "", it.ends[1] === "arrow" ? head(pts[last][0], pts[last][1], pts[last - 1][0], pts[last - 1][1], w) : ""];
+    const pull = (i, j) => { const len = Math.hypot(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]) || 1, d = Math.min(len / 2, 4 + w * 2); pts[i] = [pts[i][0] + ((pts[j][0] - pts[i][0]) * d) / len, pts[i][1] + ((pts[j][1] - pts[i][1]) * d) / len]; };
+    if (heads[0]) pull(0, 1);
+    if (heads[1]) pull(last, last - 1);
+    return { d: "M" + pts.map((p) => `${n(p[0])} ${n(p[1])}`).join("L"), heads };
   }
 
   // ---------------------------------------------------------------- how it looks
@@ -151,12 +221,8 @@
   function svg(it) {
     const strokeOf = (s) => (s && s.c !== "none" ? ` stroke="${s.c === "auto" ? INK : s.c}" stroke-width="${n(s.w)}" stroke-linejoin="round"` : "");
     if (it.k === "line") {
-      const [x1, y1, x2, y2] = it.p, c = it.stroke.c === "auto" || it.stroke.c === "none" ? INK : it.stroke.c;
-      // (the line stops inside an arrow's head, so that its blunt end does not show at the tip)
-      const back = (ax, ay, bx, by, on) => { const len = Math.hypot(bx - ax, by - ay) || 1, d = on ? Math.min(len / 2, 4 + it.stroke.w * 2) : 0; return [ax + ((bx - ax) * d) / len, ay + ((by - ay) * d) / len]; };
-      const a = back(x1, y1, x2, y2, it.ends[0] === "arrow"), z = back(x2, y2, x1, y1, it.ends[1] === "arrow");
-      return `<g id="${it.id}"><path d="M${n(a[0])} ${n(a[1])}L${n(z[0])} ${n(z[1])}" fill="none" stroke="${c}" stroke-width="${n(it.stroke.w)}" stroke-linecap="${it.ends.includes("arrow") ? "butt" : "round"}"/>` +
-        (it.ends[0] === "arrow" ? `<path d="${head(x1, y1, x2, y2, it.stroke.w)}" fill="${c}"/>` : "") + (it.ends[1] === "arrow" ? `<path d="${head(x2, y2, x1, y1, it.stroke.w)}" fill="${c}"/>` : "") + "</g>\n";
+      const c = it.stroke.c === "auto" || it.stroke.c === "none" ? INK : it.stroke.c, l = lineDraw(it);
+      return `<g id="${it.id}"><path d="${l.d}" fill="none" stroke="${c}" stroke-width="${n(it.stroke.w)}" stroke-linejoin="round" stroke-linecap="${it.ends.includes("arrow") ? "butt" : "round"}"/>` + l.heads.filter(Boolean).map((h) => `<path d="${h}" fill="${c}"/>`).join("") + "</g>\n";
     }
     const [cx, cy] = mid(it), turn = it.r ? ` transform="rotate(${n(it.r)} ${n(cx)} ${n(cy)})"` : "";
     let body = "";
@@ -186,5 +252,5 @@
     }
   }
 
-  B.items = { texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
+  B.items = { SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
 })();

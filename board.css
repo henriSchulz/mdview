@@ -189,7 +189,7 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-seg button[aria-pressed="true"] { background: var(--accent); color: var(--bd-on-accent); }
 .bd-seg button { display: grid; place-items: center; min-width: 30px; white-space: nowrap; }
 .bd-seg svg, .bd-aligns svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.bd-aligns { gap: 4px; }
+.bd-aligns { gap: 4px; flex-wrap: wrap; max-width: 212px; }
 .bd-aligns .bd-btn { border-radius: var(--radius-control); background: var(--fill-hover); width: 32px; }
 .bd-list { display: flex; flex-direction: column; margin: 0 -7px -7px; }
 .bd-list button { height: var(--menu-item-height); padding: 0 10px; border: 0; border-radius: var(--menu-row-radius); background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: default; }
@@ -201,3 +201,40 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-tile svg { width: 100%; height: 100%; fill: var(--accent); }
 .bd-tile-line svg { fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .bd-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: color-mix(in srgb, var(--fg) 8%, transparent); border-radius: 1px; }
+
+/* connectors: an arrow off each side of the chosen item (a line is pulled out of it), the item a line's end is about to join, the choice of what is to stand at a free end */
+.bd-conn { position: absolute; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%; background: var(--raised); box-shadow: var(--shadow-capsule); translate: -50% -50%; display: none; }
+.bd-conn::after { content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; border: solid var(--accent); border-width: 1.5px 1.5px 0 0; translate: -50% -50%; }
+.bd-pick[data-conn] .bd-conn { display: block; }
+.bd-pick[data-conn] .bd-knob { display: none; }
+.bd-conn[data-side="t"] { left: 50%; top: -24px; } .bd-conn[data-side="t"]::after { rotate: -45deg; translate: -50% -30%; }
+.bd-conn[data-side="r"] { left: calc(100% + 24px); top: 50%; } .bd-conn[data-side="r"]::after { rotate: 45deg; translate: -70% -50%; }
+.bd-conn[data-side="b"] { left: 50%; top: calc(100% + 24px); } .bd-conn[data-side="b"]::after { rotate: 135deg; translate: -50% -70%; }
+.bd-conn[data-side="l"] { left: -24px; top: 50%; } .bd-conn[data-side="l"]::after { rotate: -135deg; translate: -30% -50%; }
+.bd-target { position: absolute; left: 0; top: 0; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 4px; pointer-events: none; }
+.bd-target[hidden] { display: none; }
+.bd-cpop { position: absolute; box-sizing: border-box; display: grid; grid-template-columns: repeat(4, 40px); gap: 6px; padding: 8px; border-radius: var(--menu-radius); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); --origin: center left; }
+.bd-cpop .bd-tile { width: 40px; height: 40px; padding: 7px; }
+
+/* the small menus: how large, the scenes, what else */
+.bd-vpop { position: absolute; box-sizing: border-box; padding: 12px; min-width: 180px; max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; border-radius: var(--menu-radius); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); }
+.bd-vpop .bd-list { margin: -7px; }
+.bd-list hr { height: 1px; margin: 4px 10px; border: 0; background: var(--line); }
+.bd-list button[aria-checked="true"]::after { content: "✓"; float: right; margin-left: 16px; }
+.bd-scenes { display: flex; flex-direction: column; gap: 2px; margin: -5px; }
+.bd-scene { display: flex; align-items: center; gap: 2px; border-radius: var(--menu-row-radius); }
+.bd-scene[data-now] { background: var(--fill-hover); }
+.bd-scene-go { flex: 1; min-width: 96px; max-width: 260px; height: var(--control-height); padding: 0 8px; border: 0; border-radius: var(--menu-row-radius); background: transparent; color: var(--fg); font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+.bd-scene-go:hover { background: var(--fill-hover); }
+.bd-scene .bd-btn { width: 24px; height: 24px; opacity: 0.55; }
+.bd-scene .bd-btn:hover { opacity: 1; }
+.bd-scene .bd-btn svg { width: 15px; height: 15px; }
+.bd-scene-input { flex: 1; min-width: 96px; height: var(--control-height); box-sizing: border-box; padding: 0 7px; border: 0; border-radius: var(--menu-row-radius); background: var(--bg); color: var(--fg); font: inherit; outline: var(--focus-ring) solid var(--accent); user-select: text; -webkit-user-select: text; }
+.bd-hint { margin: 0; max-width: 220px; color: var(--fg2); }
+.bd-zoom .bd-btn[hidden] { display: none; }
+/* printed: the board's picture alone on the page */
+#board-print { display: none; }
+@media print {
+  body[data-board-print] > :not(#board-print) { display: none !important; }
+  body[data-board-print] > #board-print { display: block !important; max-width: 100%; max-height: 96vh; margin: 0 auto; }
+}

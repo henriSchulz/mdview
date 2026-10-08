@@ -217,6 +217,57 @@ test("a picture on a board: named by its file's name, with a small copy of it in
   for (const src of ["../secret.png", "a/b.png", "C:\\x.png", ".hidden.png", "", 5]) assert.equal(I.norm({ id: "x", k: "image", x: 0, y: 0, w: 10, h: 10, src }), null, String(src));
 });
 
+test("a line joined to items goes where they go; cornered and curved, it takes its way by which sides it leaves", () => {
+  const I = B.items, a = I.fresh("shape", 0, 0, { shape: "rect" }), z = I.fresh("shape", 400, 0, { shape: "rect" });
+  const line = I.norm({ id: "ln000001", k: "line", p: [0, 0, 1, 1], stroke: { c: "auto", w: 2 }, ends: ["none", "arrow"], route: "corner", from: { id: a.id, at: "auto" }, to: { id: z.id, at: "auto" } });
+  const items = [a, z, line];
+  assert.equal(I.relink(items), true);
+  assert.deepEqual(plain(line.p), [75, 0, 325, 0], "from the right side of the one to the left side of the other");
+  assert.equal(I.relink(items), false, "nothing moved: nothing to do");
+  z.y += 300; z.x -= 400; // now below
+  I.relink(items);
+  assert.deepEqual(plain(line.p), [0, 50, 0, 250], "the other moved below: bottom to top");
+  assert.deepEqual(plain(I.way(line)), [[0, 50], [0, 150], [0, 150], [0, 250]]);
+  line.from.at = "r";
+  I.relink(items);
+  assert.deepEqual(plain(line.p.slice(0, 2)), [75, 0], "a side that was named stays that side");
+  assert.deepEqual(plain(I.way(line)), [[75, 0], [0, 0], [0, 250]]);
+  assert.equal(I.way(line).length, 3, "sideways out, then down in: one corner");
+  line.route = "curve";
+  assert.ok(I.way(line).length > 10 && I.hit(line, ...I.way(line)[12]), "a curved line is hit along its bow");
+  a.r = 90;
+  I.relink(items);
+  assert.deepEqual(plain(line.p.slice(0, 2)), [0, 75], "a turned item's right side is where it has turned to");
+  // the file keeps what an end is joined to, not which way it was worked out to leave
+  const model = F.fresh();
+  model.items.push(...items);
+  const text = F.write(model), back = F.parse(text).items.find((it) => it.k === "line");
+  assert.deepEqual(plain([back.from, back.to, back.route, back.sides]), plain([{ id: a.id, at: "r" }, { id: z.id, at: "auto" }, "curve", undefined]));
+  assert.ok(!text.includes('"sides"'));
+  // the item it was joined to is gone: the end stays where it was, joined to nothing
+  const where = [...line.p];
+  I.relink([a, line]);
+  assert.deepEqual(plain([line.to, line.p.slice(2)]), plain([undefined, where.slice(2)]));
+  assert.equal(I.norm({ id: "x", k: "line", p: [0, 0, 1, 1], from: { id: 5 }, to: { id: "y", at: "sideways" }, route: "zigzag" }).from, undefined);
+  assert.deepEqual(plain(I.norm({ id: "x", k: "line", p: [0, 0, 1, 1], to: { id: "y", at: "sideways" }, route: "zigzag" }).to), { id: "y", at: "auto" });
+});
+
+test("scenes and the board's own settings are lines of the file too", () => {
+  const model = F.fresh();
+  model.board.snap = true;
+  model.scenes.push({ id: "sc000001", name: "Overview", view: [-100, -50, 1200, 800] }, { id: "sc000002", name: 'Details <&> "x"', view: [300, 200, 400.4, 300.6] });
+  model.items.push(ink("aaaaaaa1", wave(5)));
+  const text = F.write(model), back = F.parse(text);
+  assert.deepEqual(plain([back.board.snap, back.scenes, back.items.length, back.lost]), [true, [{ id: "sc000001", name: "Overview", view: [-100, -50, 1200, 800] }, { id: "sc000002", name: 'Details <&> "x"', view: [300, 200, 400, 301] }], 1, 0]);
+  assert.equal(F.write(back), F.write(F.parse(F.write(back))));
+  assert.ok(!F.write(F.fresh()).includes("snap"), "a board that does not snap says nothing of it");
+  // a scene that says nothing usable is left out and counted; of two with one id the later stands
+  const lines = text.split("\n"), i = lines.findIndex((l) => l.includes('"k":"scene"'));
+  lines.splice(i, 0, '{"id":"sc000009","k":"scene","name":"x","view":[0,0,0,10]}', '{"id":"sc000002","k":"scene","name":"old","view":[0,0,10,10]}');
+  const again = F.parse(lines.join("\n"));
+  assert.deepEqual(plain([again.lost, again.scenes.map((sc) => sc.name)]), [1, ["Overview", 'Details <&> "x"']]);
+});
+
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {
   const w = await loadPage(), md = w.MdView.core.md;
   assert.match(md.render("![](assets/board-1.board.svg)\n", {}), /<p class="pic-block board-block"[^>]*><img src="assets\/board-1\.board\.svg"/);

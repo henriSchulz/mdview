@@ -5,7 +5,7 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const SNAP = 6, GRAB = 10, KNOB = 26; // screen pixels: how near a guide holds, how near a dot is hit, how far the knob stands off
+  const SNAP = 6, GRAB = 10, KNOB = 26, ARROW = 24; // screen pixels: how near a guide holds, how near a dot is hit, how far the knob stands off
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const ICON = {
     arrange: svg('<rect x="4" y="5" width="9" height="6" rx="1.5"/><rect x="11" y="13" width="9" height="6" rx="1.5"/>'),
@@ -16,6 +16,8 @@
     alignT: svg('<path d="M4 4h16"/><rect x="6.5" y="7" width="4" height="11" rx="1"/><rect x="13.5" y="7" width="4" height="7" rx="1"/>'),
     alignM: svg('<path d="M4 12h16"/><rect x="6.5" y="6" width="4" height="12" rx="1"/><rect x="13.5" y="8.5" width="4" height="7" rx="1"/>'),
     alignB: svg('<path d="M4 20h16"/><rect x="6.5" y="6" width="4" height="11" rx="1"/><rect x="13.5" y="10" width="4" height="7" rx="1"/>'),
+    routestraight: svg('<path d="M4 12h16"/>'), routecorner: svg('<path d="M4 16h8V8h8"/>'), routecurve: svg('<path d="M4 16c4-10 12-10 16 0"/>'),
+    distH: svg('<path d="M4 4v16M20 4v16"/><rect x="9" y="7" width="6" height="10" rx="1"/>'), distV: svg('<path d="M4 4h16M4 20h16"/><rect x="7" y="9" width="10" height="6" rx="1"/>'),
     textL: svg('<path d="M5 7h14M5 12h9M5 17h12"/>'), textC: svg('<path d="M5 7h14M7.5 12h9M6 17h12"/>'), textR: svg('<path d="M5 7h14M10 12h9M7 17h12"/>'),
   };
 
@@ -23,7 +25,7 @@
   function make(ctx) {
     const I = B.items, T = ctx.T, esc = ctx.esc;
     const S = () => ctx.S(), z = () => S().view.z;
-    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 };
+    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 }, pending = null;
     const q = (el, sel) => el.querySelector(sel);
     const root = () => ctx.el();
 
@@ -63,8 +65,10 @@
       const it = st.pick[0], r = GRAB / z();
       if (it.k === "line") { for (const i of [0, 1]) if (Math.hypot(p.x - it.p[i * 2], p.y - it.p[i * 2 + 1]) <= r) return { end: i }; return null; }
       const [lx, ly] = I.local(it, p.x, p.y);
-      if (Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true };
+      if (!st.connect && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
       for (const [name, hx, hy] of DOTS) if (Math.hypot(lx - (hx * it.w) / 2, ly - (hy * it.h) / 2) <= r) return { name, hx, hy };
+      // the connectors' arrows, a little off each side: pulled, a line grows out of the item
+      if (st.connect) for (const [side, hx, hy] of [["t", 0, -1], ["r", 1, 0], ["b", 0, 1], ["l", -1, 0]]) if (Math.hypot(lx - hx * (it.w / 2 + ARROW / z()), ly - hy * (it.h / 2 + ARROW / z())) <= r + 2 / z()) return { conn: side };
       return null;
     }
     function start(pt, e) {
@@ -72,6 +76,13 @@
       if (edit) finish();
       closePop();
       const h = handleAt(p);
+      if (h && h.conn) {
+        const from = st.pick[0], a = I.sidePoint(from, h.conn), before = snap();
+        const line = I.norm({ id: B.format.id(), k: "line", p: [a[0], a[1], p.x, p.y], stroke: { c: "auto", w: 2 }, ends: ["none", "arrow"], route: "corner", from: { id: from.id, at: h.conn } });
+        st.model.items.push(line);
+        act = { kind: "conn", line, before, side: h.conn, source: from, over: null };
+        return true;
+      }
       if (h) { act = { kind: h.turn ? "turn" : h.end != null ? "end" : "size", h, before: snap(), was: I.data(st.pick[0]) }; return true; }
       const it = under(p.x, p.y), now = performance.now();
       if (it) {
@@ -104,10 +115,17 @@
         if (!act.moved && Math.hypot(dx, dy) * z() < 3) return; // (a click with an unsteady hand moves nothing)
         act.moved = true;
         if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; } // straight along or straight up
-        const g = e.altKey ? { dx: 0, dy: 0, v: null, h: null } : guides([act.box[0] + dx, act.box[1] + dy, act.box[2] + dx, act.box[3] + dy]);
+        // onto the grid, where the board says so: the top left corner of what is moved comes to rest on a dot (no guides then)
+        const GRID = 20, grid = st.model.board.snap && !e.altKey ? { dx: Math.round((act.box[0] + dx) / GRID) * GRID - (act.box[0] + dx), dy: Math.round((act.box[1] + dy) / GRID) * GRID - (act.box[1] + dy), v: null, h: null } : null;
+        const g = grid || (e.altKey ? { dx: 0, dy: 0, v: null, h: null } : guides([act.box[0] + dx, act.box[1] + dy, act.box[2] + dx, act.box[3] + dy]));
         dx += g.dx; dy += g.dy;
         for (const [it, was] of act.was) { Object.assign(it, I.data(was)); I.moveBy(it, Math.round(dx * 10) / 10, Math.round(dy * 10) / 10); }
         act.guide = g;
+        return ctx.paint();
+      }
+      if (act.kind === "conn") {
+        act.line.p = [act.line.p[0], act.line.p[1], Math.round(p.x), Math.round(p.y)];
+        act.over = joinable(p.x, p.y, act.source);
         return ctx.paint();
       }
       const it = st.pick[0];
@@ -118,7 +136,11 @@
           const a = Math.round(Math.atan2(y - o[1], x - o[0]) / (Math.PI / 4)) * (Math.PI / 4), len = Math.hypot(x - o[0], y - o[1]);
           x = o[0] + Math.cos(a) * len; y = o[1] + Math.sin(a) * len;
         }
+        delete it[act.h.end ? "to" : "from"]; // (pulled: it lets go of what it was joined to; let go over an item, it joins that)
         it.p = act.h.end ? [o[0], o[1], Math.round(x), Math.round(y)] : [Math.round(x), Math.round(y), o[0], o[1]];
+        const other = it[act.h.end ? "from" : "to"];
+        act.over = joinable(p.x, p.y, other ? st.model.items.find((i) => i.id === other.id) : null);
+        act.at = [p.x, p.y];
         return ctx.paint();
       }
       if (act.kind === "turn") {
@@ -149,10 +171,32 @@
         return ctx.paint();
       }
     }
+    /* The item a line's end could join at (x, y): what lies there, lines and `not` left out. */
+    function joinable(x, y, not) {
+      const items = plain(S());
+      for (let i = items.length - 1; i >= 0; i--) if (items[i].k !== "line" && items[i] !== not && I.hit(items[i], x, y, 6 / z())) return items[i];
+      return null;
+    }
+    /* Which of an item's sides the point is at; auto where it is at none in particular. */
+    function sideNear(it, x, y) {
+      for (const side of ["t", "r", "b", "l"]) { const q = I.sidePoint(it, side); if (Math.hypot(q[0] - x, q[1] - y) <= 16 / z()) return side; }
+      return "auto";
+    }
     function end() {
       if (!act) return;
       const a = act;
       act = null;
+      if (a.kind === "end" && a.over) S().pick[0][a.h.end ? "to" : "from"] = { id: a.over.id, at: sideNear(a.over, ...a.at) };
+      if (a.kind === "conn") {
+        const [x1, y1, x2, y2] = a.line.p, st = S();
+        if (Math.hypot(x2 - x1, y2 - y1) * z() < 12) { restore(a.before); return ctx.paint(); } // (a click on the arrow: nothing)
+        if (a.over) { a.line.to = { id: a.over.id, at: "auto" }; commit(a.before); pick([a.line]); return; }
+        // let go over the bare board: what is to stand there is asked for
+        pending = { line: a.line, before: a.before, side: a.side, source: a.source };
+        st.pick = [];
+        ctx.paint();
+        return ctx.ask([(x2 - st.view.x) * z(), (y2 - st.view.y) * z()]);
+      }
       if (a.before) commit(a.before);
       if (a.kind === "move" && !a.moved && a.twice) { pick([a.twice]); return begin(a.twice); }
       ctx.paint();
@@ -162,6 +206,7 @@
       const a = act;
       act = null;
       if (a.before) restore(a.before);
+      if (a.kind === "conn") S().pick = [a.source];
       if (a.kind === "box") S().pick = a.keep;
       ctx.paint();
     }
@@ -237,9 +282,46 @@
       if (kind === "text" || kind === "sticky") begin(it);
       return it;
     }
+    /* The shape chosen for a connector's free end (null: none — the line ends where it was let go). */
+    function connectTo(shape) {
+      if (!pending) return;
+      const { line, before, side, source } = pending, st = S();
+      pending = null;
+      if (shape) {
+        const [, , x, y] = line.p, w = source.k === "line" ? 150 : source.w, h = source.k === "line" ? 100 : source.h;
+        // it stands beyond the line's end, facing the item the line comes from
+        const off = { r: [w / 2, 0], l: [-w / 2, 0], b: [0, h / 2], t: [0, -h / 2] }[side];
+        const it = I.fresh("shape", x + off[0], y + off[1], { shape });
+        Object.assign(it, { x: Math.round(x + off[0] - w / 2), y: Math.round(y + off[1] - h / 2), w, h });
+        if (source.k === "shape") { it.fill = source.fill; it.stroke = { ...source.stroke }; it.ts = { ...source.ts }; }
+        st.model.items.push(it);
+        line.to = { id: it.id, at: { r: "l", l: "r", b: "t", t: "b" }[side] };
+        commit(before);
+        return pick([it]);
+      }
+      commit(before);
+      pick([line]);
+    }
+    /* A line between the two items chosen. */
+    function link() {
+      const st = S(), two = st.pick.filter((it) => it.k !== "line");
+      if (two.length !== 2) return;
+      const before = snap(), line = I.norm({ id: B.format.id(), k: "line", p: [...I.mid(two[0]), ...I.mid(two[1])], stroke: { c: "auto", w: 2 }, ends: ["none", "arrow"], route: "corner", from: { id: two[0].id, at: "auto" }, to: { id: two[1].id, at: "auto" } });
+      st.model.items.push(line);
+      commit(before);
+      closePop();
+      pick([line]);
+    }
     function copies(list, by) {
-      const groups = new Map();
-      return list.map((d) => { const c = I.norm({ ...d, id: B.format.id() }); if (d.group) { if (!groups.has(d.group)) groups.set(d.group, B.format.id()); c.group = groups.get(d.group); } I.moveBy(c, by, by); return c; });
+      const groups = new Map(), ids = new Map(list.map((d) => [d.id, B.format.id()]));
+      return list.map((d) => {
+        const c = I.norm({ ...d, id: ids.get(d.id) });
+        if (d.group) { if (!groups.has(d.group)) groups.set(d.group, B.format.id()); c.group = groups.get(d.group); }
+        // a line copied with what it joins joins the copies; copied alone it joins nothing
+        for (const end of ["from", "to"]) if (c[end]) { if (ids.has(c[end].id)) c[end].id = ids.get(c[end].id); else delete c[end]; }
+        I.moveBy(c, by, by);
+        return c;
+      });
     }
     function duplicate() { const st = S(); if (!st.pick.length) return; const before = snap(), cs = copies(st.pick.map(I.data), 16); st.model.items.push(...cs); st.pick = cs; commit(before); ctx.paint(); }
     function remove() { const st = S(); if (!st.pick.length || locked()) return; const before = snap(), gone = new Set(st.pick); st.model.items = st.model.items.filter((it) => !gone.has(it)); st.pick = []; commit(before); closePop(); ctx.paint(); }
@@ -278,6 +360,20 @@
           const dy = how === "T" ? all[1] - b[1] : how === "B" ? all[3] - b[3] : how === "M" ? (all[1] + all[3] - b[1] - b[3]) / 2 : 0;
           for (const i of unit) I.moveBy(i, Math.round(dx * 10) / 10, Math.round(dy * 10) / 10);
         }
+      });
+    }
+
+    /* Three or more, at equal distances between the outermost two: side by side (H) or one under the other (V). */
+    function distribute(how) {
+      change((p) => {
+        const units = [], done = new Set();
+        for (const it of p) { const unit = it.group ? p.filter((i) => i.group === it.group) : [it]; if (!done.has(unit[0])) { unit.forEach((i) => done.add(i)); units.push({ unit, b: pickBox(unit) }); } }
+        if (units.length < 3) return;
+        const a = how === "H" ? 0 : 1;
+        units.sort((u, v) => u.b[a] + u.b[a + 2] - v.b[a] - v.b[a + 2]);
+        const span = units[units.length - 1].b[a + 2] - units[0].b[a], taken = units.reduce((s, u) => s + u.b[a + 2] - u.b[a], 0), gap = (span - taken) / (units.length - 1);
+        let at = units[0].b[a];
+        for (const u of units) { const d = Math.round((at - u.b[a]) * 10) / 10; for (const i of u.unit) I.moveBy(i, how === "H" ? d : 0, how === "H" ? 0 : d); at += u.b[a + 2] - u.b[a] + gap; }
       });
     }
 
@@ -326,11 +422,12 @@
           seg("data-align", [["left", ICON.textL], ["center", ICON.textC], ["right", ICON.textR]], (v) => ts.align === v) +
           `<div class="bd-swatches">${["auto", "#ffffff", "#e5372c", "#f08a12", "#52b85a", "#1f6fe5"].map((c) => sw(c, ts.color === c, "data-tc")).join("")}</div>`;
       } else if (kind === "ends") {
-        html = seg("data-end", [[0, esc(T("board.startArrow"))], [1, esc(T("board.endArrow"))]], (v) => first.ends[v] === "arrow");
+        html = seg("data-end", [[0, esc(T("board.startArrow"))], [1, esc(T("board.endArrow"))]], (v) => first.ends[v] === "arrow") +
+          `<h6>${esc(T("board.route"))}</h6>` + seg("data-route", I.ROUTES.map((r) => [r, ICON["route" + r]]), (v) => (first.route || "straight") === v);
       } else if (kind === "arrange") {
         const many = st.pick.length > 1, grouped = st.pick.some((it) => it.group);
-        html = (many ? `<h6>${esc(T("board.align"))}</h6><div class="bd-row bd-aligns">${["L", "C", "R", "T", "M", "B"].map((a) => `<button type="button" class="bd-btn" data-al="${a}" title="${esc(T("board.align." + a))}" aria-label="${esc(T("board.align." + a))}">${ICON["align" + a]}</button>`).join("")}</div>` : "") +
-          `<div class="bd-list">${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button></div>`;
+        html = (many ? `<h6>${esc(T("board.align"))}</h6><div class="bd-row bd-aligns">${["L", "C", "R", "T", "M", "B"].map((a) => `<button type="button" class="bd-btn" data-al="${a}" title="${esc(T("board.align." + a))}" aria-label="${esc(T("board.align." + a))}">${ICON["align" + a]}</button>`).join("")}${st.pick.length > 2 ? `<button type="button" class="bd-btn" data-dist="H" title="${esc(T("board.distribute.H"))}" aria-label="${esc(T("board.distribute.H"))}">${ICON.distH}</button><button type="button" class="bd-btn" data-dist="V" title="${esc(T("board.distribute.V"))}" aria-label="${esc(T("board.distribute.V"))}">${ICON.distV}</button>` : ""}</div>` : "") +
+          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button></div>`;
       }
       p.innerHTML = html;
       p.dataset.kind = kind;
@@ -346,7 +443,7 @@
       const d = b.dataset;
       if (d.f) {
         if (["fill", "stroke", "text", "ends", "arrange"].includes(d.f)) return pop(d.f), true;
-        ({ duplicate, remove, group, ungroup, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
+        ({ duplicate, remove, group, ungroup, link, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
         return true;
       }
       if (d.fill) return change((p) => { for (const it of p) if ("fill" in it) it.fill = d.fill; }), true;
@@ -357,7 +454,9 @@
       if (d.align) return change((p) => { for (const it of p) if (it.ts) it.ts.align = d.align; }), true;
       if (d.tc) return change((p) => { for (const it of p) if (it.ts) it.ts.color = d.tc; }), true;
       if (d.end != null) return change((p) => { const on = p[0].ends[d.end] !== "arrow"; for (const it of p) if (it.ends) it.ends[d.end] = on ? "arrow" : "none"; }), true;
+      if (d.route) return change((p) => { for (const it of p) if (it.k === "line") { if (d.route === "straight") delete it.route; else it.route = d.route; } }), true;
       if (d.al) return align(d.al), true;
+      if (d.dist) return distribute(d.dist), true;
       return false;
     }
 
@@ -371,6 +470,7 @@
         frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : "many";
         frame.toggleAttribute("data-lock", locked());
         frame.toggleAttribute("data-busy", !!(act && act.kind === "move" && act.moved));
+        frame.toggleAttribute("data-conn", !!(st.connect && one && one.k !== "line" && !one.lock && !act));
         if (one && one.k === "line") {
           const [ax, ay] = toScreen(one.p[0], one.p[1]), [bx, by] = toScreen(one.p[2], one.p[3]);
           frame.style.cssText = "transform:none;width:0;height:0";
@@ -390,6 +490,9 @@
       gv.hidden = !(g && g.v); gh.hidden = !(g && g.h);
       if (g && g.v) { const [x, y0] = toScreen(g.v.at, g.v.a), y1 = toScreen(0, g.v.z)[1]; gv.style.cssText = `height:${y1 - y0 + 16}px;transform:translate(${Math.round(x)}px, ${y0 - 8}px)`; }
       if (g && g.h) { const [x0, y] = toScreen(g.h.a, g.h.at), x1 = toScreen(g.h.z, 0)[0]; gh.style.cssText = `width:${x1 - x0 + 16}px;transform:translate(${x0 - 8}px, ${Math.round(y)}px)`; }
+      const over = act && (act.kind === "conn" || act.kind === "end") ? act.over : null, target = q(el, ".bd-target");
+      target.hidden = !over;
+      if (over) { const [cx, cy] = toScreen(...I.mid(over)), w = over.w * z() + 8, h = over.h * z() + 8; target.style.cssText = `width:${w}px;height:${h}px;transform:translate(${cx - w / 2}px, ${cy - h / 2}px) rotate(${over.r || 0}deg)`; }
       tip.hidden = !(act && act.kind === "turn" && act.angle != null);
       if (!tip.hidden) { const [cx, cy] = toScreen(...I.mid(p[0])); tip.textContent = Math.round(act.angle) + "°"; tip.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`; }
       bar(true);
@@ -418,7 +521,7 @@
       return false;
     }
 
-    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, get clip() { return clip.length; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();
