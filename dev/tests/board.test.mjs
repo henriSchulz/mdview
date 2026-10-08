@@ -12,7 +12,7 @@ function load() {
   const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
   w.window = w;
   vm.createContext(w);
-  for (const f of ["board/format.js", "board/render.js", "board/shape.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
   return w.MdBoard;
 }
 const B = load(), F = B.format;
@@ -158,6 +158,42 @@ test("an eraser put through a stroke leaves the pieces beside it", () => {
   const two = plain(B.shape.cut([[0, 0, 0.2, 0], [100, 0, 0.8, 100]], 50, 0, 10));
   assert.deepEqual(two.map((p) => [p[0][0], p.at(-1)[0]]), [[0, 40], [60, 100]]);
   assert.deepEqual([two[0].at(-1)[2], two[1][0][2]], [0.44, 0.56], "the pressure the stroke had there");
+});
+
+test("text boxes, sticky notes, shapes and lines: a line of the file each, the picture drawn from them under the ink", () => {
+  const I = B.items, model = F.fresh();
+  const box = I.fresh("text", 100, 40), note = I.fresh("sticky", 400, 100), star = I.fresh("shape", 100, 300, { shape: "star" }), arrow = I.fresh("line", 400, 300, { arrow: true });
+  box.text = "A heading & <more>\nsecond line"; box.ts.bold = true;
+  note.text = "Ask about the lab report on Thursday, before the seminar begins"; note.r = -4;
+  star.stroke = { c: "auto", w: 4 }; star.lock = true; star.group = "g1"; arrow.group = "g1";
+  model.items.push(box, ink("aaaaaaa1", wave(10)), note, star, arrow);
+  const text = F.write(model), back = F.parse(text);
+  assert.equal(back.lost, 0);
+  assert.deepEqual(plain(back.items.filter((it) => it.k !== "ink")), plain([box, note, star, arrow]));
+  assert.equal(F.write(back), F.write(F.parse(F.write(back))));
+  const svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement;
+  assert.deepEqual([...svg.children].slice(1).map((e) => e.id), [box.id, note.id, star.id, arrow.id, "aaaaaaa1"], "the ink lies over what stands on the board");
+  assert.deepEqual([...svg.querySelectorAll(`#${box.id} tspan`)].map((t) => t.textContent), ["A heading & <more>", "second line"]);
+  assert.equal(svg.querySelector(`#${box.id} text`).getAttribute("font-weight"), "600");
+  assert.ok(svg.querySelectorAll(`#${note.id} tspan`).length >= 3, "a note's text is broken into lines that fit it");
+  assert.match(svg.querySelector(`#${note.id}`).getAttribute("transform"), /^rotate\(-4 /);
+  assert.equal(svg.querySelector(`#${note.id} text`).getAttribute("fill"), "#1d1d1f");
+  assert.equal(svg.querySelectorAll(`#${arrow.id} path`).length, 2, "a line and its one head");
+  const [x, y, w, h] = svg.getAttribute("viewBox").split(" ").map(Number), b = I.bounds(note);
+  assert.ok(x <= b[0] && y <= b[1] && x + w >= b[2] && y + h >= b[3], "a turned note is inside the picture, corners and all");
+});
+
+test("an item is hit where it is, turned or not; what a file may not say about one is put right or left out", () => {
+  const I = B.items, it = I.fresh("shape", 0, 0, { shape: "rect" });
+  assert.deepEqual([I.hit(it, 70, 45), I.hit(it, 80, 0), I.hit(it, 0, 55)], [true, false, false]);
+  it.r = 90;
+  assert.deepEqual([I.hit(it, 45, 70), I.hit(it, 70, 45)], [true, false]);
+  const line = I.fresh("line", 0, 0);
+  assert.deepEqual([I.hit(line, 0, 3), I.hit(line, 0, 12), I.hit(line, 90, 0)], [true, false, false]);
+  const odd = I.norm({ id: "x1", k: "shape", x: 0, y: 0, w: -5, h: 1e9, r: "9", shape: "blob", fill: "url(#x)", stroke: { c: "red", w: 999 }, ts: { size: "big", align: "justify", color: "javascript:1" }, text: 7, lock: "yes", onclick: "x()" });
+  assert.deepEqual(plain(odd), { id: "x1", k: "shape", x: 0, y: 0, w: 4, h: 20000, r: 0, text: "", ts: { size: 16, align: "center", color: "auto" }, shape: "rect", fill: "#1f6fe5", stroke: { c: "none", w: 60 } });
+  assert.equal(I.norm({ id: "x2", k: "line", p: [0, 0, 1] }), null);
+  assert.equal(I.norm({ id: "x3", k: "text", x: 0, y: 0, w: 10 }), null);
 });
 
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {

@@ -21,6 +21,11 @@
     mono: svg('<path d="M4 17c3-9 5-9 7-3s4 6 9-7"/>'),
     eraser: svg('<path d="m8.5 19-4-4a1.6 1.6 0 0 1 0-2.3l8.2-8.2a1.6 1.6 0 0 1 2.3 0l4.5 4.5a1.6 1.6 0 0 1 0 2.3L12 19z"/><path d="m8.8 8.6 6.6 6.6M7 19h13"/>'),
     grid: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><g fill="currentColor" stroke="none"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></g>'),
+    draw: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5 9 14.5h6z"/><path d="M10 17h4"/>'),
+    textbox: svg('<rect x="3.5" y="6" width="17" height="12" rx="2" stroke-dasharray="2.5 2.5"/><path d="M9.5 15 12 9l2.5 6M10.4 13h3.2"/>'),
+    shapes: svg('<circle cx="9.5" cy="9.5" r="5.5"/><rect x="10.5" y="10.5" width="10" height="10" rx="2"/>'),
+    sticky: svg('<path d="M4.5 5.5h15v9l-5 5h-10z"/><path d="M19.5 14.5h-5v5M8 9.5h8M8 13h4"/>'),
+    unlock: svg('<rect x="5.5" y="10.5" width="13" height="9" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.7-1.4"/>'),
     copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5v-0.5A1.5 1.5 0 0 0 14 3.5H6A2.5 2.5 0 0 0 3.5 6v8A1.5 1.5 0 0 0 5 15.5h0.5"/>'),
     trash: svg('<path d="M4.5 7h15M9.5 7V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2M6.5 7l0.8 11.5a1.5 1.5 0 0 0 1.5 1.5h6.4a1.5 1.5 0 0 0 1.5-1.5L17.5 7M10 11v5M14 11v5"/>'),
     fit: svg('<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>'),
@@ -82,7 +87,7 @@
   }
 
   // ---------------------------------------------------------------- the window
-  let el = null, S = null, hands = null, space = false;
+  let el = null, S = null, hands = null, space = false, sel = null;
   const stage = () => el.querySelector(".bd-stage");
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
   const auto = () => getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f";
@@ -110,9 +115,15 @@
     el.tabIndex = -1;
     el.hidden = true;
     el.innerHTML =
-      `<div class="bd-stage"><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div>` +
+      `<div class="bd-stage"><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div>` +
+        `<div class="bd-band" hidden></div><div class="bd-guide bd-guide-v" hidden></div><div class="bd-guide bd-guide-h" hidden></div>` +
+        `<div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i></div><div class="bd-angle" hidden></div>` +
         `<div class="bd-sel" hidden>${["nw", "ne", "se", "sw"].map((c) => `<i class="bd-dot" data-corner="${c}"></i>`).join("")}</div></div>` +
       `<div class="bd-bar bd-selbar" role="toolbar" hidden>${button("copy", "board.duplicate")}${button("trash", "board.delete")}</div>` +
+      `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
+      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}</div>` +
+      `<div class="bd-spop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-shape="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}` +
+        `<button type="button" class="bd-tile bd-tile-line" data-line="line" title="${esc(T("board.shape.line"))}" aria-label="${esc(T("board.shape.line"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4"/></svg></button><button type="button" class="bd-tile bd-tile-line" data-line="arrow" title="${esc(T("board.shape.arrow"))}" aria-label="${esc(T("board.shape.arrow"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4M14 4h10v10"/></svg></button></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
       `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}</div>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
@@ -126,19 +137,33 @@
     el.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b || !S) return;
+      if (b.closest(".bd-fbar, .bd-fpop")) return void sel.click(b);
+      if (b.dataset.shape || b.dataset.line) { shapes(false); setMode("select"); return void (b.dataset.shape ? sel.insert("shape", { shape: b.dataset.shape }) : sel.insert("line", { arrow: b.dataset.line === "arrow" })); }
+      if (b.dataset.do === "draw") return setMode(S.mode === "draw" ? "select" : "draw");
+      if (b.dataset.do === "textbox" || b.dataset.do === "sticky") { setMode("select"); return void sel.insert(b.dataset.do === "sticky" ? "sticky" : "text"); }
+      if (b.dataset.do === "shapes") return shapes();
       if (b.dataset.tool) return b.dataset.tool === S.tool && S.tool !== "lasso" ? options(b) : setTool(b.dataset.tool);
       if (b.dataset.ink) return setInk(b.dataset.ink);
       if (b.dataset.w) return setWidth(Number(b.dataset.w));
-      if (b.dataset.mode) return setMode(b.dataset.mode);
+      if (b.dataset.mode) return setErase(b.dataset.mode);
       ({ back: () => B.close(), undo: () => step(-1), redo: () => step(1), fit: () => S.view.fit(bounds()), actual: () => { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, 1); },
         grid: () => { S.model.board.grid = !S.model.board.grid; changed(); paint(); }, copy: duplicate, trash: remove })[b.dataset.do]?.();
     });
     el.querySelector(".bd-any input").addEventListener("input", (e) => setInk(e.target.value));
     el.querySelector(".bd-pop").addEventListener("input", (e) => { if (S && e.target.matches("input[type=range]")) setOpacity(Number(e.target.value) / 100); });
     // the options shut when anything beside them is touched
-    el.addEventListener("pointerdown", (e) => { if (popOpen() && !e.target.closest(".bd-pop, .bd-tool")) options(null); }, true);
+    el.addEventListener("pointerdown", (e) => {
+      if (popOpen() && !e.target.closest(".bd-pop, .bd-tool")) options(null);
+      if (!e.target.closest('.bd-spop, [data-do="shapes"]')) shapes(false);
+      if (S && e.target.closest(".bd-bar") && !e.target.closest(".bd-fbar")) sel.finish(); // (a bar touched while text is typed: the text is done)
+    }, true);
+    // text in the board's picture breaks where it breaks on the screen: measured with the same letters
+    const meter = document.createElement("canvas").getContext("2d");
+    B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
+    sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, onBoard: (pt) => onBoard(pt), T, esc, icons: I });
     new ResizeObserver(() => { if (S) paint(); }).observe(el);
-    hands = B.pointer.attach(stage(), { start, move, end, cancel, hover, space: () => space,
+    const mine = () => S && S.mode === "select" && !S.readonly;
+    hands = B.pointer.attach(stage(), { start: (pt, e) => (mine() ? sel.start(pt, e) : start(pt)), move: (pts, e) => (sel.busy ? sel.move(pts, e) : move(pts)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
       pan: (dx, dy) => S && S.view.panBy(dx, dy),
       zoom: (f, cx, cy) => S && S.view.zoomAt(cx, cy, S.view.z * f) });
   }
@@ -161,6 +186,12 @@
     if (!S) return;
     const v = S.view, st = stage(), s = size();
     B.ink.draw(el.querySelector(".bd-ink"), S.model.items, v, s, auto(), null);
+    const world = el.querySelector(".bd-world");
+    world.style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
+    B.layer.sync(world, S.model.items, sel.editing);
+    el.dataset.mode = S.readonly ? "look" : S.mode;
+    el.querySelector('[data-do="draw"]').setAttribute("aria-pressed", String(S.mode === "draw"));
+    sel.paint();
     // the dots: every 20 of the board's pixels; fewer of them the smaller the board is shown, so they never crowd
     const every = v.z < 0.25 ? 4 : v.z < 0.5 ? 2 : 1, gap = 20 * every * v.z;
     st.toggleAttribute("data-grid", S.model.board.grid);
@@ -180,7 +211,7 @@
     for (const b of el.querySelectorAll("[data-ink]")) { const on = b.dataset.ink === shown; known = known || on; b.setAttribute("aria-checked", String(on)); }
     el.querySelector(".bd-any").toggleAttribute("data-on", !!shown && !known);
     el.querySelector(".bd-wells").toggleAttribute("data-off", !S.sel.length && !DRAWS.includes(S.tool)); // (an eraser has no colour)
-    st.dataset.tool = S.readonly ? "look" : S.tool;
+    st.dataset.tool = S.readonly ? "look" : S.mode === "select" ? "select" : S.tool;
     const ring = el.querySelector(".bd-ring"), d = S.tools.eraser.w;
     ring.style.width = ring.style.height = d + "px";
     if (S.tool !== "eraser") ring.hidden = true;
@@ -231,9 +262,27 @@
     try { localStorage.setItem(KEEP, JSON.stringify(Object.fromEntries(Object.entries(S.tools).map(([k, v]) => [k, { c: v.c, w: v.w, o: v.o, mode: v.mode }])))); } catch (e) { /* (as above) */ }
   }
   const popOpen = () => el.querySelector(".bd-pop").hasAttribute("data-open");
+  /* The drawing tools in hand (draw), or put away: the pointer chooses and moves what stands on the board (select). */
+  function setMode(m) {
+    if (S.readonly || S.mode === m) return;
+    options(null);
+    sel.finish(); sel.closePop();
+    S.sel = []; S.pick = [];
+    S.mode = m;
+    paint();
+  }
+  function shapes(on = !el.querySelector(".bd-spop").hasAttribute("data-open")) {
+    const p = el.querySelector(".bd-spop");
+    if (!on) { delete p.dataset.open; return; }
+    const r = el.querySelector('[data-do="shapes"]').getBoundingClientRect(), box = el.getBoundingClientRect();
+    p.style.left = Math.round(Math.max(8, Math.min(box.width - p.offsetWidth - 8, r.left - box.left + r.width / 2 - p.offsetWidth / 2))) + "px";
+    p.style.top = Math.round(r.bottom - box.top + 8) + "px";
+    p.dataset.open = "";
+  }
   function setTool(t) {
     if (!ALL.includes(t) || S.readonly) return;
     options(null);
+    if (S.mode !== "draw") { sel.finish(); sel.closePop(); S.pick = []; S.mode = "draw"; }
     if (t !== "lasso") S.sel = [];
     S.tool = t;
     paint();
@@ -254,7 +303,7 @@
   }
   function setWidth(w) { S.tools[S.tool].w = w; keepTools(); options(el.querySelector(`[data-tool="${S.tool}"]`), true); paint(); }
   function setOpacity(o) { S.tools[S.tool].o = Math.max(0.1, Math.min(1, o)); keepTools(); const out = el.querySelector(".bd-pop output"); if (out) out.textContent = Math.round(S.tools[S.tool].o * 100) + " %"; }
-  function setMode(m) { S.tools.eraser.mode = m === "pixel" ? "pixel" : "object"; keepTools(); options(el.querySelector('[data-tool="eraser"]'), true); }
+  function setErase(m) { S.tools.eraser.mode = m === "pixel" ? "pixel" : "object"; keepTools(); options(el.querySelector('[data-tool="eraser"]'), true); }
   /* The chosen tool's options, over it: how wide, how see-through; for the eraser what it takes. anchor null: shut. */
   function options(anchor, again = false) {
     const pop = el.querySelector(".bd-pop");
@@ -291,6 +340,7 @@
     if (!act) return;
     (dir < 0 ? act.undo : act.redo)();
     S.sel = S.sel.filter((it) => S.model.items.includes(it));
+    S.pick = S.pick.filter((it) => S.model.items.includes(it));
     to.push(act);
     changed();
     paint();
@@ -498,11 +548,14 @@
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
     if (mod && k === "q") return; // (the application's: it asks the page for what is unsaved, which leave() hands over)
     e.stopPropagation(); // nothing of this is the note's under the board
+    if (sel.editing || e.target.isContentEditable) { if (e.key === "Escape") { e.preventDefault(); sel.finish(); } return; } // (text being typed: the keys are its own)
     if (e.target.matches?.("input[type=range]") && (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End")) return; // (the slider's own)
     const done = () => e.preventDefault();
     if (e.key === " " && !mod) { space = true; stage().dataset.space = ""; return done(); }
+    if (S.mode === "select" && !S.readonly && sel.key(e)) return done();
     if (e.key === "Escape") { // one thing at a time: the options, what is chosen, then the board itself
       done();
+      if (el.querySelector(".bd-spop").hasAttribute("data-open")) return shapes(false);
       if (popOpen()) return options(null);
       if (S.sel.length) { S.sel = []; return paint(); }
       return B.close();
@@ -517,12 +570,14 @@
     if (mod && (e.key === "0" || e.code === "Numpad0")) { done(); return S.view.fit(bounds()); }
     if (mod && e.key === "1") { done(); return S.view.zoomAt(s.w / 2, s.h / 2, 1); }
     if (S.readonly) return;
-    if (mod && k === "a") { done(); S.tool = "lasso"; S.sel = S.model.items.filter((it) => it.k === "ink"); return paint(); }
+    if (mod && k === "a") { done(); S.mode = "draw"; S.tool = "lasso"; S.sel = S.model.items.filter((it) => it.k === "ink"); return paint(); }
     if (mod && k === "d") { done(); return duplicate(); }
     if (mod || e.altKey) return;
     if ((e.key === "Delete" || e.key === "Backspace") && S.sel.length) { done(); return remove(); }
     const tool = { p: "pen", 1: "pen", f: "mono", 2: "mono", m: "marker", 3: "marker", e: "eraser", 4: "eraser", l: "lasso", 5: "lasso" }[k];
     if (tool) { done(); return setTool(tool); }
+    if (k === "v") { done(); return setMode("select"); }
+    if (k === "t" || k === "n") { done(); setMode("select"); return void sel.insert(k === "t" ? "text" : "sticky"); }
     if (e.key.startsWith("Arrow")) {
       done();
       const dx = k === "arrowleft" ? -1 : k === "arrowright" ? 1 : 0, dy = k === "arrowup" ? -1 : k === "arrowdown" ? 1 : 0;
@@ -556,7 +611,7 @@
     if (S || !B.isBoard(img)) return false;
     const ref = refOf(img), cur = core.current || {};
     if (!el) build();
-    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, paint), undo: [], redo: [], dirty: false, timer: 0, tool: "pen", tools: toolsNow(), sel: [], act: null });
+    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, paint), undo: [], redo: [], dirty: false, timer: 0, tool: "pen", tools: toolsNow(), sel: [], act: null, mode: "draw", pick: [] });
     core.lockScroll(true);
     post("board-open", { on: true });
     el.setAttribute("aria-label", T("board.name"));
@@ -597,6 +652,7 @@
   B.close = (quick = false) => {
     if (!S) return;
     if (S.act) cancel();
+    sel.cancel(); sel.finish(); sel.closePop(); shapes(false);
     save();
     const s = S;
     S = null; space = false;
@@ -624,7 +680,8 @@
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
-  B.state = () => (S ? { ref: S.ref, items: S.model.items.length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.map((it) => it.c), options: popOpen(), kinds: S.model.items.map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
+  B.state = () => (S ? { view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
+  B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
   B.emptyText = () => B.format.empty();
 })();

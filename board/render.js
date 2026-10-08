@@ -57,10 +57,12 @@
    * data and </svg>. An empty board is a faint sign of one, so that the note shows where it is. */
   function picture(model) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, body = "";
-    for (const it of model.items) {
+    // what stands on the board first, in its order; the ink lies over it, as it does on the screen
+    for (const it of [...model.items.filter((i) => i.k !== "ink"), ...model.items.filter((i) => i.k === "ink")]) {
       const b = B.format.boundsOf(it);
       if (!b) continue;
       if (b[0] < x0) x0 = b[0]; if (b[1] < y0) y0 = b[1]; if (b[2] > x1) x1 = b[2]; if (b[3] > y1) y1 = b[3];
+      if (it.k !== "ink") { body += B.items.svg(it); continue; }
       const o = outline(it), op = it.o < 1 ? ` opacity="${n(it.o)}"` : "";
       body += o.stroke
         ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`

@@ -21,7 +21,7 @@
     const capture = (e) => { try { stage.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test has none) */ } };
 
     stage.addEventListener("pointerdown", (e) => {
-      if (e.target.closest(".bd-bar")) return;
+      if (e.target.closest(".bd-bar, [data-editing]")) return; // (a bar's own; text being typed: the browser's)
       if (e.pointerType === "touch") {
         fingers.set(e.pointerId, at(e));
         if (fingers.size === 2) { // the second finger: what the first began is not a stroke

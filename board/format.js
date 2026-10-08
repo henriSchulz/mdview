@@ -84,6 +84,7 @@
   /* A line of the file → the item as the program holds it; null where it is not one. */
   function itemOf(o) {
     if (!o || typeof o !== "object" || typeof o.id !== "string" || !o.id || typeof o.k !== "string") return null;
+    if (B.items && B.items.KINDS.has(o.k)) return B.items.norm(o); // a text box, a note, a shape, a line (items.js)
     if (!KINDS.has(o.k)) return { id: o.id, k: o.k, foreign: o }; // (a later version's: carried along untouched)
     if (o.k === "ink") {
       const ch = typeof o.ch === "string" ? o.ch : "xypt";
@@ -97,11 +98,13 @@
   }
   function lineOf(it) {
     if (it.foreign) return it.foreign;
+    if (B.items && B.items.KINDS.has(it.k)) return B.items.data(it);
     if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ...(it.sharp ? { sharp: true } : {}), ch: it.ch, p: pack(it.pts, it.ch) };
     return null;
   }
   /* What an item covers: [x0, y0, x1, y1]. */
   function boundsOf(it) {
+    if (B.items && B.items.KINDS.has(it.k)) return B.items.bounds(it);
     if (it.k !== "ink") return null;
     if (it.box) return it.box;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;

@@ -2109,7 +2109,7 @@
       l.rel = "stylesheet"; l.href = `${ASSETS}/board.css`;
       const styled = new Promise((resolve) => { l.onload = l.onerror = resolve; });
       document.head.appendChild(l);
-      await Promise.all([styled, ...["board/format.js", "board/render.js", "board/shape.js", "board/view.js", "board/pointer.js", "board/ink.js", "board.js"].map(script)]);
+      await Promise.all([styled, ...["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/layer.js", "board/view.js", "board/pointer.js", "board/ink.js", "board/select.js", "board.js"].map(script)]);
     })().catch((e) => { boardLoad = null; throw e; }));
   }
   function openBoard(img) {

@@ -389,6 +389,22 @@ shut back into it.
   beside it —, nudged with the arrow keys (`Shift`: ten pixels). `Ctrl+A` chooses everything,
   `Esc` lets go.
 - `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it again.
+- **Things on the board**: the bar at the top puts a text box (`T`), a shape — rectangle,
+  ellipse, triangle, diamond, star, hexagon, a line, an arrow — or a sticky note (`N`) into the
+  middle of the view. Its first button puts the drawing tools away and takes them up again
+  (`V` puts them away; a tool's key takes it up). With the tools away the pointer chooses:
+  a click, `Shift` and a click for more, a box pulled from the bare board, `Ctrl+A` for all.
+- **What is chosen** is moved by pulling it — it comes to rest where an edge or its middle
+  meets another's, a line shows where (`Alt`: nothing holds it; `Shift`: straight along or up) —,
+  pulled to size at its dots (`Shift` at a corner keeps its proportions), turned at the knob
+  above it (`Shift`: in steps of 45°), nudged with the arrow keys. A line is moved by its two
+  ends. Clicked twice, or with `Enter`, it takes text; `Esc` or a click beside it ends that.
+- **Its look** is in the small bar beside it: fill, border, text (size, bold, italic,
+  underlined, where it stands, its colour), a line's arrowheads; under Arrange: align (with
+  several chosen), Group (`Ctrl+G`, apart again with `Ctrl+Shift+G`), Bring to Front and Send
+  to Back (`Ctrl+Shift+F` / `B`), Lock (`Ctrl+L`). Copy, cut and paste with `Ctrl+C`, `X`, `V`,
+  a copy beside it with `Ctrl+D`, gone with `Delete`.
+- Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
   drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
@@ -400,7 +416,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: text, shapes and pictures on a board.
+Not there yet: pictures and files on a board, lines that stay joined to the things they connect, tables.
 
 ### Links between notes
 
