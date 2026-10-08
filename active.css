@@ -1104,3 +1104,40 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
 @media (prefers-contrast: more) { .share-box, .share-card { box-shadow: 0 0 0 1.5px var(--fg); } }
 
 /* a file block while it is edited: the reading view's card (viewer.css); a click opens its file, as any link's leads on */
+
+/* ------------------------------------------------------------- narrow windows: a phone
+ * The windows with a list at their left (settings, history, conflicts) fill the screen, the list
+ * above what it chooses: the settings' groups as a row to push sideways, the versions as a short
+ * list. Dialogs and the share window keep to the screen's width. */
+@media (max-width: 760px) {
+  #settings, #history, #conflict {
+    width: 100vw; height: 100vh; height: 100dvh; border-radius: 0;
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .st-side { margin: 8px 8px 0; padding: 8px; gap: 6px; }
+  .st-name { display: none; }
+  /* the settings: their groups in one row */
+  #settings .st-side { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  #settings .st-side::-webkit-scrollbar { display: none; }
+  #settings .st-group { display: flex; flex: none; gap: 4px; }
+  #settings .st-group:last-child { margin-top: 0; }
+  #settings .st-group-title { display: none; }
+  #settings .st-nav { flex: none; white-space: nowrap; padding: 0 12px 0 10px; }
+  /* the history, the conflicts: the versions above, as far as a third of the screen */
+  #history .st-side, #conflict .st-side { max-height: 30vh; }
+  .st-head { padding: 12px 14px 8px; }
+  .st-content { padding: 4px 14px 24px; }
+  .hi-tools { flex-wrap: wrap; justify-content: flex-end; }
+  /* a setting: its name, and under it what is chosen, where the two do not fit beside each other */
+  .pf-row { flex-wrap: wrap; gap: 8px 14px; }
+  .pf-select { min-width: 0; max-width: 100%; }
+  .pf-text { width: 100%; }
+  #dlg { max-width: 100vw; max-height: 100dvh; }
+  .share-box { width: calc(100vw - 20px); }
+}
+@media (pointer: coarse) {
+  .st-nav { height: 40px; }
+  .st-close { width: 40px; height: 40px; }
+  .hi-row { min-height: 48px; }
+}

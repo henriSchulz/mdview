@@ -1272,3 +1272,46 @@ details.props .callout-fold .sf { font-size: 10px; }
 .ov-folder.ov-tile .ov-icon .sf { font-size: 40px; color: var(--accent); }
 .ov-row .ov-icon .sf { font-size: 18px; }
 .ov-go .sf { font-size: 11px; }
+
+/* ------------------------------------------------------------- narrow windows: a phone, a split
+ * The sidebar is a drawer over the note (viewer.js: compact), the toolbar stands at the window's
+ * foot where a thumb reaches it, the tabs have the whole strip. Sizes are layout; a finger's
+ * controls are larger (pointer: coarse) — 44 px, Apple's measure for what is touched. */
+#sb-scrim { position: fixed; inset: 0; z-index: 29; display: none; background: rgb(0 0 0 / 0.28); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+@media (max-width: 760px) {
+  :root { --sb-w: min(86vw, 340px) !important; }
+  #sb-scrim { display: block; }
+  body[data-sidebar="open"] #sb-scrim { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+  body[data-sidebar="open"] { padding-left: 0; }
+  body[data-sidebar="open"] #tabs { left: 0; padding-left: 12px; }
+  body[data-sidebar="open"] #overview, body[data-sidebar="open"] #loading { left: 0; }
+  #sidebar { z-index: 30; top: calc(var(--sb-inset) + env(safe-area-inset-top, 0px)); bottom: calc(var(--sb-inset) + env(safe-area-inset-bottom, 0px)); }
+  body[data-sidebar="open"] #settings-btn { z-index: 31; }
+  body:not([data-sidebar="open"]) #settings-btn { display: none; } /* (the gear is the drawer's foot here: nothing floats over the note's corner) */
+  #sb-grip { display: none !important; }
+  #tabs { padding-right: 12px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); height: calc(var(--tabs-h) + env(safe-area-inset-top, 0px)); }
+  .tab-list { overflow-x: auto; scrollbar-width: none; }
+  .tab-list::-webkit-scrollbar { display: none; }
+  /* the toolbar: at the foot, in the middle */
+  #toolbar { top: auto; right: auto; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100vw - 16px); }
+  #toolbar.hidden { transform: translate(-50%, 6px); }
+  #outline { top: auto; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); right: 8px; left: 8px; width: auto; max-height: 60vh; }
+  #findbar { top: calc(var(--tabs-h) + 4px + env(safe-area-inset-top, 0px)); right: 8px; left: 8px; }
+  body:not([data-tabs]) #findbar { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  :is(#content, #active, #editor) { padding-bottom: max(40vh, 120px); }
+}
+/* a finger for a pointer: what is pressed is as large as a finger, and what a hover would show is there */
+@media (pointer: coarse) {
+  :root { --control-height: 40px; --sb-row: 44px; --tab-h: 40px; --tabs-h: 58px; }
+  .tb svg { width: 20px; height: 20px; }
+  .ui-menu .menu-item, #ctxmenu .menu-item, .actmenu .menu-item { min-height: 40px; }
+  /* (code: its language and Copy stand over it, in a line of their own — no hover brings them) */
+  .code-tools { opacity: 1; }
+  .code-block:not(.code-hidden) > .code-tools + pre { padding-top: 44px; }
+  .sb-row { font-size: 15px; }
+  /* (a finger held on a row or a tab asks for its menu, not for the system's own or a selection) */
+  .sb-row, .ov-item, .tab, .tab-home, #toolbar { -webkit-touch-callout: none; }
+  /* (a tab's cross comes under a pointer that rests on the tab: a finger never does — unseen, it would be hit by
+   * the tap that chooses the tab. A tab is closed from its menu: a finger held on it.) */
+  .tab-x { display: none; }
+}

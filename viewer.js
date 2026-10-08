@@ -2802,7 +2802,8 @@
     syncList(animate && !first);
     quickPaint();
     markActiveNote(first);
-    showSidebar(f.quick ? true : f.visible, !first); // (the quick notes are their list)
+    // (on a narrow window — a phone — the sidebar is a drawer over the note: shut until it is asked for, and as it stands after that)
+    showSidebar(compact() ? (first ? false : sidebarOpen()) : f.quick ? true : f.visible, !first); // (the quick notes are their list)
     if (!current) clear();
     for (const el of tabEls()) { const t = tabs.find((x) => String(x.id) === el.dataset.id); if (t) paintTab(el, t); } // (names or titles, as the list)
     if (window.MdOverview) MdOverview.folderChanged();
@@ -3384,6 +3385,42 @@
 
   // --- showing / hiding: the sidebar slides, the text column glides to its new
   // place (transform only; the width change itself is applied at once)
+  /* A finger held on something for a moment is a right click: the menu of what it rests on. (A
+   * browser on a phone sends no "contextmenu" for it — Safari never, others not everywhere — so
+   * the page makes one, where the browser did not: its own counts and this one is dropped.) The
+   * tap that would follow the lift is swallowed, so nothing under the menu is set off. */
+  {
+    const HOLD = 500, SLACK = 10;
+    let held = null, own = 0, swallow = 0;
+    const drop = () => { if (held) { clearTimeout(held.timer); held = null; } };
+    addEventListener("pointerdown", (e) => {
+      drop();
+      if (e.pointerType !== "touch" || !e.isPrimary) return;
+      const target = e.target, x = e.clientX, y = e.clientY;
+      held = { x, y, timer: setTimeout(() => {
+        held = null;
+        if (performance.now() - own < HOLD + 200 || !target.isConnected) return; // (the browser said it itself)
+        swallow = performance.now();
+        getSelection()?.removeAllRanges(); // (the word a held finger selects is not what was meant)
+        target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, button: 2, clientX: x, clientY: y }));
+      }, HOLD) };
+    }, true);
+    addEventListener("pointermove", (e) => { if (held && Math.hypot(e.clientX - held.x, e.clientY - held.y) > SLACK) drop(); }, true);
+    for (const type of ["pointerup", "pointercancel", "scroll"]) addEventListener(type, drop, true);
+    addEventListener("contextmenu", (e) => { if (e.isTrusted) { own = performance.now(); drop(); } }, true);
+    addEventListener("click", (e) => { if (swallow && performance.now() - swallow < 900) { swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+  /* A narrow window — a phone, a tablet held upright in a split: the sidebar is a drawer that lies
+   * over the note (viewer.css, the same width), with a shade beside it that shuts it; a note chosen
+   * in it shuts it too. */
+  const narrow = window.matchMedia ? window.matchMedia("(max-width: 760px)") : { matches: false, addEventListener() {} };
+  const compact = () => narrow.matches;
+  const sbScrim = document.createElement("div");
+  sbScrim.id = "sb-scrim";
+  document.body.appendChild(sbScrim);
+  sbScrim.addEventListener("click", () => { if (sidebarOpen()) showSidebar(false, true); });
+  sidebar.addEventListener("click", (e) => { if (compact() && e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row") && !e.ctrlKey && !e.metaKey) showSidebar(false, true); });
+  narrow.addEventListener("change", () => { if (folder && compact() && sidebarOpen()) showSidebar(false, false); });
   function showSidebar(open, animate) {
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
     const col = mode === "edit" ? editor : mode === "active" ? MdActive.view.el : content;
@@ -3663,7 +3700,7 @@
     share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast("Only notes can be shared"); },
     edit: () => switchMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
-    sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); post("sidebar", { visible: sidebarOpen() }); } },
+    sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
     overview: () => { if (folder && window.MdOverview) MdOverview.open(); }, // (the house: always to all notes — back to the note by its tab, or Esc)
     // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
     // active mode: in the others its button is dimmed and does nothing
