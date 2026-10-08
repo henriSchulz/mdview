@@ -95,26 +95,38 @@ test("what a note brings cannot run as script", async () => {
 });
 
 test("links lead where they do on the desktop", async () => {
+  // a link to another note: in a tab of its own, the note it stands in stays open
   await page.click('#content a[data-wiki="Second note"]');
   await untilNote("Second note.md");
   assert.match((await shown()).text, /The second/);
+  assert.deepEqual(await tabNames(), ["Home", "Second note"]);
+  // … and to a note that has a tab: that tab
   await page.click('#content a[data-wiki="Home"]');
   await untilNote("Home.md");
+  assert.deepEqual(await tabNames(), ["Home", "Second note"]);
   // an ordinary link to a note in a folder, with a place in it
   await page.click('#content a[href="sub/Deep.md#part-two"]');
   await untilNote("Deep.md");
   assert.equal(new URL(page.url()).searchParams.get("n"), "sub/Deep.md");
-  // back, and back again; forward
+  assert.deepEqual(await tabNames(), ["Home", "Deep", "Second note"]);
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "tab", op: "close" })));
+  await untilNote("Second note.md");
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "tab", op: "close" })));
+  await untilNote("Home.md");
+  // within a tab (a note chosen in the sidebar): back, and forward
+  await page.click('.sb-row[data-real="/octo/notes/Second note.md"]');
+  await untilNote("Second note.md");
   await page.keyboard.press("Alt+ArrowLeft");
   await untilNote("Home.md");
-  await page.keyboard.press("Alt+ArrowLeft");
-  await untilNote("Second note.md");
   await page.keyboard.press("Alt+ArrowRight");
+  await untilNote("Second note.md");
+  await page.keyboard.press("Alt+ArrowLeft");
   await untilNote("Home.md");
   // a note that is not there says so, and nothing changes
   await page.click('#content a[data-wiki="Nowhere"]');
   await page.waitForFunction(() => /doesn.t exist/.test((document.querySelector("#toast") || {}).textContent || ""), null, { timeout: 5000 });
   assert.equal((await shown()).name, "Home.md");
+  assert.deepEqual(await tabNames(), ["Home"]);
 });
 
 test("the sidebar and the tabs", async () => {

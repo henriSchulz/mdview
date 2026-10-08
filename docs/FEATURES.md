@@ -154,7 +154,24 @@ module alu(…);
 ````
 
 In the active mode the code block's menu has Hide the Code, and its dialog a Hide button. Other
-Markdown programs show such a block as any other.
+Markdown programs show such a block as any other. The card has a size, as a file block has:
+`hide:small` (a chip in the line's height) or `hide:large`, from the block's menu › Size.
+
+**A file as code.** A file that is text — source code, a list of files, a log — stands in the note
+as the code it is, read from the file each time the note is opened:
+
+```markdown
+![[src/alu.sv]]                        the whole file, highlighted by its ending
+![[src/alu.sv#L10-L42]]                lines 10 to 42 of it
+![[src/alu.sv|hide]]                   put away behind a card that names the file
+![[src/alu.sv#L10-L42|hide:large The ALU]]   … with a size and a title
+```
+
+The block names its file (a click opens it). In the active mode a file block of such a file has
+Show as Code in its menu, and the code has Hide the Code, Size and Show as File.
+
+A Mermaid diagram and a fence of SVG grow to the window's size by a double click, as a picture
+does (in the active mode: right click › Show Large).
 
 Hardware descriptions are among the languages: `verilog` (also `systemverilog`, `sv`, `svh`),
 `vhdl`, `tcl` — and `filelist` (also `f`), the list of sources and options a simulator is handed.
@@ -400,7 +417,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Tabs**: a strip above the note with the notes and PDFs that are open, each where it was left
   and with its own way back. `Ctrl`+click or the middle button on a note — in the sidebar, among
   the tiles, on a link — opens it in a tab of its own, as does Open in New Tab in a file's menu; a
-  plain click opens it in the tab shown, or goes to the tab the note already has. `+` (`Ctrl+T`)
+  plain click opens it in the tab shown, or goes to the tab the note already has. A link in a
+  note that leads to another note or a PDF opens it in a tab of its own (the tab it has already,
+  if it has one), so the note the link stands in stays open. `+` (`Ctrl+T`)
   makes an empty tab, which shows All Notes to choose from; the house before the tabs shows All
   Notes over the note. The ✕ in the icon's place under the pointer, the middle button or `Ctrl+W`
   closes a tab (the last one leaves an empty tab with All Notes; closed once more, the window

@@ -61,7 +61,7 @@
         }
       } catch (e) { tell("pdfChunk", id, 0, 1, "", String(e.message || e)); }
     },
-    prefs({ prefs: changed }) { prefs = { ...prefs, ...(changed || {}) }; keep("mdview:prefs", prefs); tell("setPrefs", prefs); },
+    prefs({ prefs: changed }) { prefs = { ...prefs, ...(changed || {}) }; keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); tell("setPrefs", prefs); },
     "settings-info"() {
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: "", deviceId: "", home: "",
         hide: ["page:ai", "page:history", "githubAccount", "githubGet", "hinting", "configDir"], history: { state: "none" }, github: { user: null, repos: [] } });

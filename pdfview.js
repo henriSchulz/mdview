@@ -702,11 +702,14 @@
       const room = Math.max(200, Math.min(span.parentElement.clientWidth || 700, 1100));
       const want = span.hasAttribute("data-full") ? room : Number(span.dataset.width) || 0;
       // (a region is shown as large as it is on its page, when the page fills the column)
-      const scale = Math.min(3, (want || room) / (crop && (want || !at.rect) ? crop[2] : base.width));
+      // (as wide as was asked for, whatever is shown: a small region — a formula, a narrow figure —
+      // grows as far as a page does. What is drawn of it has its limit, not what is shown.)
+      const scale = (want || room) / (crop && (want || !at.rect) ? crop[2] : base.width);
       const ratio = Math.min(2, window.devicePixelRatio || 1);
       // Only what is shown is drawn: the canvas is as large as the region, the page shifted under it
       // (a whole page drawn at this scale and then cut cost several times the work, on the page's own thread).
-      const k = scale * ratio, cut = crop || [0, 0, base.width, base.height];
+      const cut = crop || [0, 0, base.width, base.height];
+      const k = Math.min(scale * ratio, 8, Math.sqrt(16e6 / Math.max(1, cut[2] * cut[3])));
       const ox = Math.floor(cut[0] * k), oy = Math.floor(cut[1] * k);
       const vp = page.getViewport({ scale: k, offsetX: -ox, offsetY: -oy });
       const shown = document.createElement("canvas");
@@ -724,7 +727,7 @@
       const blob = await new Promise((res) => shown.toBlob(res, "image/png"));
       const img = new Image();
       img.className = "pdf-embed-img";
-      img.width = Math.round(shown.width / ratio); img.height = Math.round(shown.height / ratio);
+      img.width = Math.max(1, Math.round(cut[2] * scale)); img.height = Math.max(1, Math.round(cut[3] * scale));
       img.alt = basename(span.dataset.pdf) + ", page " + at.page;
       img.src = URL.createObjectURL(blob);
       await img.decode().catch(() => {});

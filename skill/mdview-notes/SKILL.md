@@ -42,6 +42,8 @@ the note better. The full reference, with every example rendered, is
 | formula in the line | `$a^2 + b^2 = c^2$` |
 | formula as a block | `$$` on its own line, the LaTeX, `$$` on its own line |
 | diagram | a fence named `mermaid` |
+| a source or text file shown as code, read from the file | `![[src/main.c]]`, lines only: `![[src/main.c#L10-L42]]`, put away behind a card: `![[src/main.c\|hide The title]]` (`hide:small`, `hide:large`) |
+| code put away behind a card | a fence's head `python hide The title` (`hide:small`, `hide:large` for the card's size) |
 | drawing | a fence named `svg` with one `<svg>` element |
 | PDF page link / embed | `[[paper.pdf#page=3]]`, `![[paper.pdf#page=3]]` |
 | a figure out of a PDF | `![[paper.pdf#page=3&rect=72,400,300,520]]` — see *Pictures from a PDF* |

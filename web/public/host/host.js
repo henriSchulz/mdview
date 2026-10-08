@@ -197,6 +197,13 @@
   // ------------------------------------------------------------ showing a note
   /* What a note's [[wikilinks]] lead to, as the page wants it told; a note embedded with ![[…]]
    * comes with its text, and its own links are looked up too. */
+  /* The text of a file that is one — source code, a list, a log; not too large, nothing in it that
+   * is no text — or null. (shell.rs: embedded_text) */
+  async function fileText(path) {
+    const f = files.get(rel(path));
+    if (!f || f.size > EMBED_LIMIT) return null;
+    try { const text = await textOf(path); return text.length > EMBED_LIMIT || /[\0\uFFFD]/.test(text) ? null : text; } catch { return null; }
+  }
   async function buildLinks(text, noteDir) {
     const links = {}, r = C.resolver(BASE, paths(), noteDir), queue = [text];
     while (queue.length) {
@@ -207,15 +214,25 @@
         const info = { path: p, url: fileUrl(p), kind: C.kindOf(p) };
         if (info.kind === "md" && embed && Object.keys(links).length < 400) {
           try { info.text = (await textOf(p)).slice(0, EMBED_LIMIT); queue.push(info.text); } catch { /* (shown as a link then) */ }
+        } else if (info.kind === "file" && embed) { // (a file of text, shown in the note as the code it is)
+          const text = await fileText(p);
+          if (text != null) Object.assign(info, { kind: "text", text });
         }
         links[target] = info;
       }
     }
     return { links, vault: !!r.vault };
   }
+  /* Waiting shown (lib/page.ts): the window's ring until the first thing is there, and afterwards a
+   * small ring over the page while a note's text is fetched or the app is left — each only after
+   * the wait that is no wait (--loading-delay). */
+  const booted = () => { if (window.MdBooted) window.MdBooted(); };
+  const wait = (on) => { if (on) document.body.dataset.wait = ""; else delete document.body.dataset.wait; };
+  window.addEventListener("pageshow", () => wait(false)); // (come back to with the browser's Back)
   let turn = 0;
   async function render(path, { keepScroll = false, fragment = null, end = false } = {}) {
     const mine = ++turn, t = tabs.current;
+    wait(true);
     const payload = { name: C.nameOf(path), path, base: fileUrl(C.dirOf(path)) + "/", fragment, canBack: t.back.length > 0, error: null, links: {}, vault: false };
     if (C.kindOf(path) === "pdf") {
       Object.assign(payload, { kind: "pdf", text: "", readonly: "a PDF", mtime: 0, backlinks: [] });
@@ -236,7 +253,9 @@
       }
     }
     modeGiven = true;
+    wait(false);
     tell("render", payload);
+    booted();
   }
   function openPath(path, fragment, push) {
     const same = onScreen === path;
@@ -257,7 +276,9 @@
   function showNothing() {
     onScreen = null;
     turn++;
+    wait(false);
     tell("clear");
+    booted();
     sendTabs();
     address(null);
   }
@@ -268,11 +289,14 @@
     if (now.same) return sendTabs();
     if (now.show && known(now.show)) { onScreen = null; openPath(now.show, now.fragment, false); } else showNothing(); // (another tab: shown anew, also where it is the same note)
   }
+  // a note or PDF a link leads to, in a tab: a new one, or (tab: "own") the one it has already
+  const linkTab = (p, fragment, tab) => { const there = tab === "own" ? tabs.find(p) : -1; return there >= 0 ? { ...tabs.selectAt(there), fragment: fragment || null } : tabs.add(p, fragment); };
   /* Away from the repository, to the list of them. The page is asked first: what is typed is
    * saved, and a dialog with changes in it asks what is to become of them (closehold), as when a
    * window closes on the desktop. It says close once that is done. */
   let leaving = false;
   function leave() {
+    wait(true); // (the repositories are asked of GitHub before the page comes)
     if (leaving || !(window.MdView && window.MdView.flush)) { location.href = "/"; return; }
     leaving = true;
     tell("flush", true);
@@ -592,22 +616,23 @@
       const there = tabs.find(path);
       if (tab) apply(tabs.add(path)); else if (there >= 0) apply(tabs.selectAt(there)); else openPath(path, null, true);
     },
+    // (tab: true — a tab of its own, always; "own" — the tab the file has already, else a new one)
     link({ href, tab }) {
       const to = C.linkPath(href, FILES);
       if (!to) { if (/^(https?:|mailto:)/i.test(href) && !href.startsWith(location.origin + "/")) window.open(href, "_blank", "noopener"); return; }
       let p = to.path;
       if (!exists(p) && !C.isMd(p) && exists(p + ".md")) p += ".md";
-      if (onScreen === p && !tab) { if (to.fragment) tell("scrollToFragment", to.fragment, true); return; }
+      if (onScreen === p && (!tab || tab === "own")) { if (to.fragment) tell("scrollToFragment", to.fragment, true); return; }
       if (!exists(p)) return toast(`Not found: ${C.nameOf(p)}`);
       if (!["md", "pdf"].includes(C.kindOf(p))) return openFile(p);
-      if (tab) apply(tabs.add(p, to.fragment)); else openPath(p, to.fragment, true);
+      if (tab) apply(linkTab(p, to.fragment, tab)); else openPath(p, to.fragment, true);
     },
     wikilink({ target, tab }) {
       const heading = target.includes("#") ? target.slice(target.indexOf("#") + 1) : null;
       const p = C.resolver(BASE, paths(), noteDir()).resolve(target);
       if (!p) return toast(`Note “${target.split("#")[0]}” doesn't exist`);
       if (!["md", "pdf"].includes(C.kindOf(p))) return openFile(p);
-      if (tab) apply(tabs.add(p, heading)); else openPath(p, heading, true);
+      if (tab && !(tab === "own" && onScreen === p)) apply(linkTab(p, heading, tab)); else openPath(p, heading, true);
     },
     tab({ op, id, to }) {
       const which = id != null && id !== "" ? Number(id) : tabs.current.id;
@@ -620,9 +645,9 @@
     },
     back() { const now = tabs.go(true); if (now) { onScreen = null; openPath(now.show, null, false); } },
     forward() { const now = tabs.go(false); if (now) { onScreen = null; openPath(now.show, null, false); } },
-    resolve({ target }) {
-      const p = target ? C.resolver(BASE, paths(), noteDir()).resolve(target) : null;
-      tell("linkResolved", target, p ? { path: p, url: fileUrl(p), kind: C.kindOf(p) } : null);
+    async resolve({ target }) {
+      const p = target ? C.resolver(BASE, paths(), noteDir()).resolve(target) : null, text = p && C.kindOf(p) === "file" ? await fileText(p) : null;
+      tell("linkResolved", target, p ? (text != null ? { path: p, url: fileUrl(p), kind: "text", text } : { path: p, url: fileUrl(p), kind: C.kindOf(p) }) : null);
     },
     reload() { if (onScreen) render(onScreen, { keepScroll: true }); },
     async previews({ paths: wanted }) {
@@ -652,7 +677,7 @@
     mode({ name }) { if (["read", "edit", "active"].includes(name)) keep("mdview:mode", name); },
     prefs({ prefs: changed }) {
       prefs = { ...prefs, ...(changed || {}) };
-      keep("mdview:prefs", prefs);
+      keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); // (what was chosen, not the defaults beside it: lib/page.ts)
       tell("setPrefs", prefs);
       if (Object.keys(changed || {}).some((k) => k.startsWith("sidebar"))) sendFolder();
     },
@@ -681,7 +706,7 @@
     open() { leave(); },
     folder() { leave(); },
     close() { leave(); },
-    closehold() { leaving = false; }, // (the page has a question to ask first; it says close again once that is answered)
+    closehold() { leaving = false; wait(false); }, // (the page has a question to ask first; it says close again once that is answered)
     // the browser's own
     copy({ text }) { navigator.clipboard?.writeText(text || "").catch(() => {}); },
     /* The page cannot read the clipboard while a menu or a key of its own is the cause: the host
@@ -933,6 +958,7 @@
     window.MdHost.drop = (dropped, path, how) => { drop(dropped, path, how).catch((e) => console.error("mdview host: drop", e)); };
     try { await look(); } catch (e) {
       tell("render", { name: W.repo, path: BASE, base: fileUrl(BASE) + "/", text: "", links: {}, error: String(e.message || e), readonly: "not read", canBack: false });
+      booted();
       return;
     }
     const wanted = new URLSearchParams(location.search).get("n");

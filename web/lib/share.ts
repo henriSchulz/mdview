@@ -91,6 +91,10 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
       if (embed && files.size < FILES_MOST) {
         files.add(rel(to));
         if (info.kind === "md") { info.text = (await textOf(rel(to))).slice(0, EMBED_LIMIT); queue.push([info.text, C.dirOf(to)]); }
+        else if (info.kind === "file") { // (a file of text, shown in the note as the code it is: host.js, fileText)
+          const code = await textOf(rel(to));
+          if (code && code.length <= EMBED_LIMIT && !/[\0\uFFFD]/.test(code)) { info.kind = "text"; info.text = code; }
+        }
       }
       links[target] = info;
     }

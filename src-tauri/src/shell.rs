@@ -131,6 +131,19 @@ fn strerror(e: &std::io::Error) -> String {
     text.split(" (os error").next().unwrap_or(&text).to_string()
 }
 
+/// The text of a file that is one — source code, a list, a log: UTF-8 without a NUL, and not
+/// too large — for showing it in a note as code (`![[main.c]]`).
+fn embedded_text(p: &Path) -> Option<String> {
+    if fs::metadata(p).ok()?.len() > EMBED_LIMIT as u64 {
+        return None;
+    }
+    let bytes = fs::read(p).ok()?;
+    if bytes.contains(&0) {
+        return None;
+    }
+    String::from_utf8(bytes).ok()
+}
+
 fn truthy(v: &Value) -> bool {
     match v {
         Value::Null => false,
@@ -715,7 +728,7 @@ impl App {
                 }
             }
             Event::Loaded { label, url } => self.with_win(&label, |w, app| w.on_loaded(app, &url)),
-            Event::Link { label, href } => self.with_win(&label, |w, app| w.handle_link(app, &href, false)),
+            Event::Link { label, href } => self.with_win(&label, |w, app| w.handle_link(app, &href, false, false)),
             Event::Fs { label, paths } => {
                 for p in &paths {
                     self.touch(p);
@@ -1922,6 +1935,12 @@ impl Win {
                         info["text"] = json!(embedded);
                         texts.push(embedded);
                     }
+                } else if kind == "file" && m[0].starts_with('!') {
+                    // (a file of text, shown in the note as the code it is)
+                    if let Some(text) = embedded_text(&p) {
+                        info["kind"] = json!("text");
+                        info["text"] = json!(text);
+                    }
                 }
                 links.insert(target, info);
             }
@@ -2220,8 +2239,9 @@ impl Win {
                     Err(e) => self.toast(format!("No history here: {e}")),
                 }
             }
-            "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"])),
-            "wikilink" => self.open_wikilink(app, text_of("target"), truthy(&msg["tab"])),
+            // (tab: true — a tab of its own, always; "own" — the tab the file has already, else a new one)
+            "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"]), msg["tab"] == "own"),
+            "wikilink" => self.open_wikilink(app, text_of("target"), truthy(&msg["tab"]), msg["tab"] == "own"),
             "tab" => self.tab_op(app, msg),
             "toggle" => self.toggle_task(app, msg["line"].as_i64().unwrap_or(-1), truthy(&msg["checked"])),
             "editcmd" => {
@@ -2315,7 +2335,10 @@ impl Win {
                 // a link written after the note was read: where it points
                 let target = text_of("target");
                 let found = if target.is_empty() { None } else { self.resolver.as_mut().and_then(|r| r.resolve(target)) };
-                let info = found.map_or(Value::Null, |p| json!({ "path": s(&p), "url": file_url(&p), "kind": file_kind(&p) }));
+                let info = found.map_or(Value::Null, |p| match embedded_text(&p).filter(|_| file_kind(&p) == "file") {
+                    Some(text) => json!({ "path": s(&p), "url": file_url(&p), "kind": "text", "text": text }),
+                    None => json!({ "path": s(&p), "url": file_url(&p), "kind": file_kind(&p) }),
+                });
                 self.js("MdView.linkResolved", &[json!(target), info]);
             }
             "painted" => {
@@ -2425,7 +2448,20 @@ impl Win {
         }
     }
 
-    fn handle_link(&mut self, app: &mut App, href: &str, tab: bool) {
+    /// A note or PDF a link leads to, in a tab: a new one, or (own) the one the file has already.
+    fn link_tab(&mut self, app: &mut App, p: &Path, fragment: Option<String>, own: bool) {
+        let real = fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let there = self.tabs.iter().enumerate().position(|(k, t)| own && k != self.tab && t.path.as_ref() == Some(&real));
+        match there {
+            Some(there) => {
+                self.stash_tab();
+                self.show_tab(app, there, fragment);
+            }
+            None => self.new_tab(app, Some(p), fragment, None),
+        }
+    }
+
+    fn handle_link(&mut self, app: &mut App, href: &str, tab: bool, own: bool) {
         let Some((mut p, frag)) = url_file(href) else {
             // (not a file: the system's to open — unless it is the page's own address)
             if tauri::Url::parse(href).is_ok() && !href.starts_with(ORIGIN) && !href.starts_with("about:") {
@@ -2440,7 +2476,7 @@ impl Win {
             }
         }
         let tab = tab && !self.tabs.is_empty();
-        if self.path.as_ref() == Some(&p) && !tab {
+        if self.path.as_ref() == Some(&p) && (!tab || own) {
             if let Some(frag) = frag {
                 self.js("MdView.scrollToFragment", &[json!(frag), json!(true)]);
             }
@@ -2450,7 +2486,7 @@ impl Win {
             self.toast(format!("Not found: {}", name_of(&p)));
         } else if p.is_file() && (is_md(&p) || is_pdf(&p)) {
             if tab {
-                self.new_tab(app, Some(&p), frag, None);
+                self.link_tab(app, &p, frag, own);
             } else {
                 self.open_path(app, &p, frag, true);
             }
@@ -2459,15 +2495,15 @@ impl Win {
         }
     }
 
-    fn open_wikilink(&mut self, app: &mut App, target: &str, tab: bool) {
+    fn open_wikilink(&mut self, app: &mut App, target: &str, tab: bool, own: bool) {
         let heading = target.split_once('#').map(|(_, h)| h.to_string());
         let Some(p) = self.resolver.as_mut().and_then(|r| r.resolve(target)) else {
             return self.toast(format!("Note “{}” doesn't exist", target.split('#').next().unwrap_or("")));
         };
         if !matches!(file_kind(&p), "md" | "pdf") {
             host::launch_path(&p);
-        } else if tab && !self.tabs.is_empty() {
-            self.new_tab(app, Some(&p), heading, None);
+        } else if tab && !self.tabs.is_empty() && !(own && self.path.as_ref() == Some(&p)) {
+            self.link_tab(app, &p, heading, own);
         } else {
             self.open_path(app, &p, heading, true);
         }

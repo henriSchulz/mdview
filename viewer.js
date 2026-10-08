@@ -304,6 +304,9 @@
         const frag = target.includes("#") ? target.slice(target.indexOf("#") + 1) : "";
         return `<span class="pdf-embed${full ? " full" : ""}" data-pdf="${esc(info.path)}" data-frag="${esc(frag)}" data-wiki="${esc(target)}"${size ? ` data-width="${size[1]}"` : ""}${full ? " data-full" : ""} title="${esc(wikiLabel(target))}"></span>`;
       }
+      case "text": // a file of text, as code (the host read it: it is one)
+        if (info.text == null) break;
+        return fileCode(target, alias, info);
       case "md": {
         if ((env.depth || 0) >= 2 || info.text == null) break;
         const sub = target.includes("#") ? target.slice(target.indexOf("#") + 1) : "";
@@ -502,10 +505,11 @@
     return new XMLSerializer().serializeToString(root);
   }
 
-  // a fence's head line that puts its code away: "<language> hide <title>" → { title }, else null
+  // a fence's head line that puts its code away: "<language> hide <title>" → { title, size }, else null
+  // (how large its card is drawn, as a file block's: "hide:small", "hide:large" — none: medium)
   function codeHidden(info) {
-    const m = /^\S+[ \t]+hide(?:[ \t]+(.*))?$/i.exec(String(info || "").trim());
-    return m ? { title: (m[1] || "").trim().replace(/^(["'])(.*)\1$/, "$2") } : null;
+    const m = /^\S+[ \t]+hide(?::(small|large))?(?:[ \t]+(.*))?$/i.exec(String(info || "").trim());
+    return m ? { title: (m[2] || "").trim().replace(/^(["'])(.*)\1$/, "$2"), size: (m[1] || "").toLowerCase() } : null;
   }
   // --- code fences: highlight, copy button, mermaid, math, svg
   md.renderer.rules.fence = (toks, idx) => {
@@ -519,30 +523,53 @@
       return `<div class="mermaid-block"${lineAttr(t)}><pre class="mermaid">${esc(t.content)}</pre></div>`;
     }
     if (lang === "math") return `<div class="math-block"${lineAttr(t)}>${tex(t.content, true)}</div>`;
+    return codeHtml(lang, t.content, codeHidden(t.info), lineAttr(t));
+  };
+  /* A block of code: highlighted, with its language and Copy. hidden ({ title, size }): put away
+   * behind a card — its title, or the code's first line — and a click shows it in a window of its
+   * own. from ({ label, html }): the code is a file's (![[main.c]], below): the block says which. */
+  function codeHtml(lang, content, hidden, attr, from) {
     let code;
     try {
       code = lang && hljs.getLanguage(lang)
-        ? hljs.highlight(t.content, { language: lang, ignoreIllegals: true }).value
-        : esc(t.content);
+        ? hljs.highlight(content, { language: lang, ignoreIllegals: true }).value
+        : esc(content);
     } catch (e) {
-      code = esc(t.content);
+      code = esc(content);
     }
-    // "hide" after the language: the code is put away behind a card — its title (what follows
-    // "hide"), or the code's first line — and a click shows it in a window of its own
-    const hidden = codeHidden(t.info);
     if (hidden) {
-      const lines = t.content.replace(/\n+$/, "").split("\n"), first = lines.find((l) => l.trim()) || "";
-      return `<div class="code-block code-hidden"${lineAttr(t)}><button class="code-card" type="button" aria-haspopup="dialog">` +
+      const lines = content.replace(/\n+$/, "").split("\n"), first = lines.find((l) => l.trim()) || "", title = hidden.title || (from ? from.label : "");
+      return `<div class="code-block code-hidden${hidden.size ? " code-" + hidden.size : ""}${from ? " code-file" : ""}"${attr}><button class="code-card" type="button" aria-haspopup="dialog">` +
         `<span class="code-card-icon">${ICON.source}</span>` +
-        (hidden.title ? `<span class="code-card-title">${esc(hidden.title)}</span>` : `<span class="code-card-title code-card-peek">${esc(first.trim())}</span>`) +
+        (title ? `<span class="code-card-title">${esc(title)}</span>` : `<span class="code-card-title code-card-peek">${esc(first.trim())}</span>`) +
         (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") + `<span class="code-card-count">${lines.length === 1 ? "1 line" : lines.length + " lines"}</span></button>` +
         `<pre hidden><code class="hljs${lang ? " language-" + esc(lang) : ""}">${code}</code></pre></div>`;
     }
-    return `<div class="code-block"${lineAttr(t)}><div class="code-tools">` +
+    return `<div class="code-block${from ? " code-file" : ""}"${attr}>${from ? `<div class="code-from">${from.html}</div>` : ""}<div class="code-tools">` +
       (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") +
       `<button class="btn code-copy" type="button" title="Copy code">Copy</button></div>` +
       `<pre><code class="hljs${lang ? " language-" + esc(lang) : ""}">${code}</code></pre></div>`;
+  }
+  /* A file that is text — source code, a list of files, a log — can stand in a note as the code it
+   * is, read from the file each time the note is: ![[main.c]], lines 10 to 20 of it
+   * ![[main.c#L10-L20]], put away behind a card ![[main.c|hide]] (with a size and a title as a
+   * fence has them: |hide:small The ALU). codeLang: the language its name stands for ("" for
+   * plain text), or null where the name does not say that it is text. */
+  const TEXT_EXT = /^(txt|text|log|csv|tsv|f|lst|list|cfg|conf|ini|env|toml|lock|tcl|sdc|xdc|ucf|ld|lds|s|asm|vhd|vhdl|sv|svh|v|vh|mk|cmake|proto|tex|bib|srt|vtt|patch|diff|gitignore|editorconfig|properties|gradle|csproj|sln)$/i;
+  const codeLang = (path) => {
+    const name = String(path || "").split(/[\\/]/).pop().split(/[?#]/)[0], ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : name.toLowerCase();
+    return /^(md|markdown|pdf)$/.test(ext) ? null : hljs.getLanguage(ext) ? ext : TEXT_EXT.test(ext) ? "" : null;
   };
+  function fileCode(target, alias, info) {
+    const sub = target.includes("#") ? target.slice(target.indexOf("#") + 1).trim() : "", range = /^L(\d+)(?:\s*-\s*L?(\d+))?$/i.exec(sub);
+    let lines = String(info.text).replace(/\r\n?/g, "\n").replace(/\n+$/, "").split("\n");
+    const first = range ? Math.max(1, Math.min(lines.length, Number(range[1]))) : 1, last = range ? Math.max(first, Math.min(lines.length, Number(range[2] || range[1]))) : lines.length;
+    if (range) lines = lines.slice(first - 1, last);
+    const name = String(info.path).split(/[\\/]/).pop(), label = name + (range ? ":" + first + (last > first ? "–" + last : "") : "");
+    const how = /^hide(?::(small|large))?(?:\s+(.*))?$/i.exec(alias || "");
+    return codeHtml(codeLang(info.path) || "", lines.join("\n") + "\n", how ? { title: (how[2] || "").trim(), size: (how[1] || "").toLowerCase() } : null, "",
+      { label, html: `<a class="wikilink file" href="#" data-wiki="${esc(target.split("#")[0])}">${esc(label)}</a>` + (alias && !how ? `<span class="code-from-title">${esc(alias)}</span>` : "") });
+  }
   md.renderer.rules.code_block = (toks, idx) =>
     `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
   md.renderer.rules.table_open = (t, i, o, _e, self) => `<div class="table-wrap${t[i].meta && t[i].meta.wide ? " wide" : ""}">` + self.renderToken(t, i, o);
@@ -2038,19 +2065,21 @@
     }
   }
   /* A picture, large: a double click on it lets it grow from its place to the size of the window
-   * (a drawing as large as fits, a photo no larger than it is). A click, Esc or scrolling puts it back. */
+   * (a drawing as large as fits, a photo no larger than it is). A click, Esc or scrolling puts it back.
+   * A drawing that stands in the page itself — a Mermaid diagram, a fence of SVG — does the same: a
+   * copy of it flies (zoomFigure). */
   const zoomBox = document.createElement("div");
   zoomBox.id = "zoom";
   zoomBox.setAttribute("role", "dialog");
   zoomBox.setAttribute("aria-label", "Picture");
   zoomBox.innerHTML = '<img alt="">';
   document.body.appendChild(zoomBox);
-  let zoomFrom = null;
+  let zoomFrom = null, zoomBig = zoomBox.firstChild; // (what flies: the box's own picture, or the copy of a drawing)
   const zoomOpen = () => zoomBox.hasAttribute("data-open");
   function zoomPlace(img) { // where the large picture lies, and the transform that puts it over the small one
-    const big = zoomBox.firstChild, r = img.getBoundingClientRect();
+    const big = zoomBig, r = img.getBoundingClientRect(), drawn = img.localName !== "img";
     const nw = img.naturalWidth || r.width, nh = img.naturalHeight || r.height;
-    const vector = /\.svg([?#]|$)/i.test(img.currentSrc || img.src) || /^data:image\/svg|^blob:/.test(img.src);
+    const vector = drawn || /\.svg([?#]|$)/i.test(img.currentSrc || img.src) || /^data:image\/svg|^blob:/.test(img.src);
     const scale = Math.min((innerWidth * 0.94) / nw, (innerHeight * 0.92) / nh, vector ? Infinity : Math.max(1, r.width / nw));
     const w = nw * scale, h = nh * scale, left = (innerWidth - w) / 2, top = (innerHeight - h) / 2;
     big.style.width = w + "px"; big.style.height = h + "px"; big.style.left = left + "px"; big.style.top = top + "px";
@@ -2118,9 +2147,29 @@
   for (const type of ["keydown", "keypress", "paste", "drop", "beforeinput"]) document.addEventListener(type, (e) => { if (isBusy()) { e.preventDefault(); e.stopPropagation(); } }, true);
   function zoomImage(img) {
     if (!img || !img.complete || !img.naturalWidth || zoomOpen()) return false;
-    const big = zoomBox.firstChild;
+    zoomBig = zoomBox.firstChild;
+    zoomBig.src = img.currentSrc || img.src;
+    return zoomFly(img);
+  }
+  // a drawing in the page (an <svg>): its copy, on a ground of the page's colour (a diagram is drawn for it)
+  function zoomFigure(svg) {
+    const r = svg && svg.getBoundingClientRect();
+    if (!svg || !r.width || !r.height || zoomOpen()) return false;
+    zoomBox.querySelector(".zoom-fig")?.remove();
+    zoomBig = svg.cloneNode(true);
+    zoomBig.removeAttribute("style"); zoomBig.removeAttribute("width"); zoomBig.removeAttribute("height");
+    if (!zoomBig.hasAttribute("viewBox")) zoomBig.setAttribute("viewBox", `0 0 ${r.width} ${r.height}`);
+    zoomBig.setAttribute("class", ((svg.getAttribute("class") || "") + " zoom-fig").trim());
+    zoomBox.appendChild(zoomBig);
+    return zoomFly(svg);
+  }
+  const zoomFigureAt = (target) => { // the drawing a click fell on: a diagram's or a fence's own <svg>
+    const block = target && target.closest && target.closest(".mermaid-block, .svg-block");
+    return block ? block.querySelector(":scope > svg") : null;
+  };
+  function zoomFly(img) {
+    const big = zoomBig;
     zoomFrom = img;
-    big.src = img.currentSrc || img.src;
     big.style.transition = "none";
     big.style.transform = zoomPlace(img);
     zoomBox.dataset.open = "";
@@ -2132,10 +2181,10 @@
   }
   function zoomClose() {
     if (!zoomOpen()) return false;
-    const big = zoomBox.firstChild, img = zoomFrom;
+    const big = zoomBig, img = zoomFrom;
     delete zoomBox.dataset.open;
     if (img && img.isConnected) big.style.transform = zoomPlace(img);
-    setTimeout(() => { if (img) img.style.visibility = ""; if (!zoomOpen()) big.removeAttribute("src"); }, motionMs("--dur-slow", 270) * 0.7);
+    setTimeout(() => { if (img) img.style.visibility = ""; if (zoomOpen() && zoomBig === big) return; if (big.localName === "img") big.removeAttribute("src"); else big.remove(); }, motionMs("--dur-slow", 270) * 0.7);
     zoomFrom = null;
     return true;
   }
@@ -2145,7 +2194,8 @@
   document.addEventListener("keydown", (e) => { if (zoomOpen() && (e.key === "Escape" || e.key === " " || e.key === "Enter")) { e.preventDefault(); e.stopPropagation(); zoomClose(); } }, true);
   // (reading view; in the active mode the editor says when a picture was double clicked)
   content.addEventListener("dblclick", (e) => {
-    const img = e.target.closest?.("img");
+    const img = e.target.closest?.("img"), fig = img ? null : zoomFigureAt(e.target);
+    if (fig) { e.preventDefault(); getSelection()?.removeAllRanges(); zoomFigure(fig); return; }
     if (!img || img.closest(".pdfv, a")) return; // (an embedded PDF page is a picture like any other here)
     e.preventDefault();
     getSelection()?.removeAllRanges();
@@ -3125,7 +3175,9 @@
     if (editable) rows.push(["Cut", "Ctrl+X", selected, edit("Cut")]);
     rows.push(["Copy", "Ctrl+C", selected, edit("Copy")]);
     if (editable) rows.push(["Paste", "Ctrl+V", true, edit("Paste")]);
-    if (pdf) rows.push(["Go to PDF", "", true, () => post("wikilink", { target: pdf.dataset.wiki })], null);
+    if (pdf) rows.push(["Go to PDF", "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
+    const fig = img || field || t.closest(".pm") ? null : zoomFigureAt(t);
+    if (fig) rows.push(["Show Large", "", true, () => zoomFigure(fig)], null);
     if (href || (img && img.src)) rows.push(null);
     if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
     if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
@@ -3613,17 +3665,18 @@
     // A PDF embedded in the note is a picture: a double click shows it large, like any picture. To
     // the PDF itself it is Ctrl+click, or Go to PDF in its menu.
     const pe = e.target.closest(".pdf-embed[data-wiki]");
-    if (pe && shownRoot().contains(pe)) { if (e.ctrlKey || e.metaKey) post("wikilink", { target: pe.dataset.wiki }); return; }
+    if (pe && shownRoot().contains(pe)) { if (e.ctrlKey || e.metaKey) post("wikilink", { target: pe.dataset.wiki, tab: "own" }); return; }
     const a = e.target.closest("a");
     if (!a || !shownRoot().contains(a)) return;
     e.preventDefault();
     // In text that is being edited a click places the caret; Ctrl+click follows the link.
     if (mode === "active" && MdActive.view.editable && !a.closest(".isl") && !(e.ctrlKey || e.metaKey)) return;
-    if (a.dataset.wiki != null) { post("wikilink", { target: a.dataset.wiki }); return; }
+    // (another note or a PDF: in a tab of its own — the one it has already, else a new one — so the note the link stands in stays open; tab: "own")
+    if (a.dataset.wiki != null) { post("wikilink", { target: a.dataset.wiki, tab: "own" }); return; }
     const href = a.getAttribute("href");
     if (!href) return;
     if (href.startsWith("#")) { scrollToFragment(href.slice(1), true); return; }
-    post("link", { href: a.href });
+    post("link", { href: a.href, tab: "own" });
   });
   document.addEventListener("auxclick", (e) => {
     const a = e.target.closest("a");
@@ -3709,7 +3762,7 @@
   // open a link as a click on it would: another note here, anything else outside
   function follow(href) {
     if (href.startsWith("#")) { scrollToFragment(href.slice(1), true); return; }
-    post("link", { href: new URL(href, document.baseURI).href });
+    post("link", { href: new URL(href, document.baseURI).href, tab: "own" });
   }
   // Ctrl held: links in the active mode show that a click follows them
   for (const type of ["keydown", "keyup", "blur"]) {
@@ -3816,7 +3869,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,

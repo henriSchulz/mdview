@@ -185,6 +185,7 @@
       items.push({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => setFileSize(view, v), { checked: size === v })) });
     }
     if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item("menu.embedFile", () => embedFile(view)));
+    else if (file && window.MdView.core.codeLang(file) != null) items.push(item("menu.embedCode", () => embedFile(view))); // (a file of text: as the code it is)
     items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
     items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
       item("menu.bold", () => toggle(view, "strong"), { key: "Ctrl+B", checked: markActive(state, M.strong) }),
@@ -243,13 +244,20 @@
         item("menu.delete", () => { view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { danger: true, key: "⌫" }),
       ];
     }
+    // a diagram or a drawing (a fence of Mermaid or SVG): large, as a picture is by a double click
+    const sizes = (now, set) => ({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => set(v), { checked: now === v })) });
+    const fc = editable ? A.islands.fileCode(view, pos, node) : null; // a file shown as code: put away like a code block, its card as large
+    const dom = node.type === N.island ? view.nodeDOM(pos) : null, figure = dom && dom.querySelector ? window.MdView.core.zoomFigureAt(dom.querySelector(".mermaid-block > svg, .svg-block > svg")) : null;
     return [
       item(node.type === N.island && node.attrs.kind === "frontmatter" ? "menu.propsEdit" : "menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
+      ...(figure ? [item("menu.showLarge", () => window.MdView.core.zoomFigure(figure))] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
-        ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target }), { key: "Ctrl+Click" })] : [])] : []),
+        ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),
       ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),
-      ...(node.type === N.island && node.attrs.kind === "code" && !A.islands.parseCode(String(node.attrs.raw || "")).indented ? [item("menu.hideCode", () => A.islands.toggleHidden(view, pos), { checked: A.islands.codeIsHidden(node) })] : []),
+      ...(fc ? [item("menu.hideCode", fc.toggle, { checked: fc.hidden }), ...(fc.hidden ? [sizes(fc.size, fc.setSize)] : [])] : []),
+      ...(node.type === N.island && node.attrs.kind === "code" && !A.islands.parseCode(String(node.attrs.raw || "")).indented ? [item("menu.hideCode", () => A.islands.toggleHidden(view, pos), { checked: A.islands.codeIsHidden(node) }),
+        ...(A.islands.codeIsHidden(node) ? [sizes(A.islands.codeSize(node), (v) => A.islands.setCodeSize(view, pos, v))] : [])] : []),
       null,
       item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
       item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
@@ -305,7 +313,7 @@
   const embedded = (node) => {
     if (node.type === N.image) return fileHrefOf(node.attrs.src);
     const m = node.type === N.island ? /^!\[\[([^\]|#\n]+)(?:[#|][^\]\n]*)?\]\]\s*$/.exec(String(node.attrs.raw || "")) : null;
-    return m && EMBEDS.test(m[1]) ? m[1].split("/").map(encodeURIComponent).join("/") : null;
+    return m && (EMBEDS.test(m[1]) || window.MdView.core.codeLang(m[1]) != null) ? m[1].split("/").map(encodeURIComponent).join("/") : null;
   };
   const fileHrefOf = (src) => (src && window.MdView.core.fileHref(src) ? src : null);
   function asFile(view, pos, node) {

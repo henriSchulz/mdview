@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Going } from "./going";
 
 export const metadata: Metadata = {
   title: "Markdown Notes",
@@ -18,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* how the app moves and the sizes its controls share: the desktop app's own file (scripts/assets.mjs) */}
         <link rel="stylesheet" href="/app/motion.css" />
       </head>
-      <body>{children}</body>
+      <body>{children}<Going /></body>
     </html>
   );
 }

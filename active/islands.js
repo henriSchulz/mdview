@@ -148,10 +148,11 @@
         // card in the note (its title: what follows "hide") — switched on and off by the button
         rest = el("input", { class: "lp-field dlg-rest", type: "text", "aria-label": T("dialog.info"), spellcheck: "false", autocomplete: "off" });
         // (the field holds the title alone: the word "hide" is the button's, never typed or shown)
-        let hidden = /^hide(?:\s|$)/i.test(c.rest.trim());
-        rest.value = hidden ? c.rest.trim().replace(/^hide\s*/i, "") : c.rest.trim();
+        const wasHidden = HIDE.exec(c.rest.trim()), size = wasHidden && wasHidden[1] ? ":" + wasHidden[1].toLowerCase() : ""; // (its card's size is the menu's: kept as it is)
+        let hidden = !!wasHidden;
+        rest.value = hidden ? c.rest.trim().replace(HIDE, "") : c.rest.trim();
         const hide = el("button", { class: "btn", type: "button", "aria-pressed": "false" }, T("dialog.hide"));
-        restNow = () => (hidden ? ("hide " + rest.value.trim()).trim() : rest.value.trim());
+        restNow = () => (hidden ? ("hide" + size + " " + rest.value.trim()).trim() : rest.value.trim());
         const showRest = () => { hide.setAttribute("aria-pressed", String(hidden)); rest.hidden = !hidden && !rest.value.trim(); rest.placeholder = hidden ? T("dialog.hideTitle") : ""; };
         hide.onclick = () => {
           hidden = !hidden;
@@ -779,6 +780,8 @@
 
   // a formula in the line, made new at this position: its dialog opens empty
   const newMath = (view, pos) => mathDialog(view, pos, null, true, { from: pos, tex: "", create: true });
+  // "hide" in a fence's head, with the size of its card where one is given ("hide:small"), and the room after it
+  const HIDE = /^hide(?::(small|large))?(?=\s|$)\s*/i;
   // a code block's code put away behind its card, or shown again (the menu's entry)
   const codeIsHidden = (node) => node.type === N.island && node.attrs.kind === "code" && !!window.MdView.core.codeHidden((parseCode(String(node.attrs.raw || "")).lang || "") + (parseCode(String(node.attrs.raw || "")).rest || ""));
   function toggleHidden(view, pos) {
@@ -787,8 +790,28 @@
     const c = parseCode(node.attrs.raw), was = c.rest.trim();
     if (c.indented) return;
     const lang = c.lang || "text"; // (a fence without a language has no place for "hide" after it)
-    const rest = /^hide(?:\s|$)/i.test(was) ? was.replace(/^hide\s*/i, "") : ("hide " + was).trim();
+    const rest = HIDE.test(was) ? was.replace(HIDE, "") : ("hide " + was).trim();
     replace(view, pos, buildCode({ ...c, lang, rest: rest ? " " + rest : "" }));
+  }
+  // how large the card of code that is put away is drawn: "small", "large", or "" (medium)
+  const codeSize = (node) => { const m = codeIsHidden(node) && HIDE.exec(parseCode(String(node.attrs.raw)).rest.trim()); return m && m[1] ? m[1].toLowerCase() : ""; };
+  function setCodeSize(view, pos, size) {
+    const node = view.state.doc.nodeAt(pos);
+    if (!node || !codeIsHidden(node)) return;
+    const c = parseCode(node.attrs.raw);
+    replace(view, pos, buildCode({ ...c, rest: " " + ("hide" + (size ? ":" + size : "") + " " + c.rest.trim().replace(HIDE, "")).trim() }));
+    view.focus();
+  }
+  /* A file shown as code (![[main.c|hide:small The ALU]], viewer.js: fileCode): whether it is put
+   * away, its card's size, and how to change either — for its menu. null: not one. */
+  const FILE_CODE = /^(\s*!\[\[[^\]|]+)(?:\|([^\]]*))?(\]\]\s*)$/;
+  function fileCode(view, pos, node) {
+    if (node.type !== N.island || node.attrs.virtual || typeof node.attrs.raw !== "string") return null;
+    const m = FILE_CODE.exec(node.attrs.raw);
+    if (!m || window.MdView.core.codeLang(m[1].replace(/^\s*!\[\[/, "").split("#")[0]) == null) return null;
+    const alias = (m[2] || "").trim(), h = HIDE.exec(alias), title = h ? alias.replace(HIDE, "") : alias;
+    const write = (hidden, size) => { const a = (hidden ? "hide" + (size ? ":" + size : "") + " " + title : title).trim(); target = null; replace(view, pos, m[1] + (a ? "|" + a : "") + m[3]); view.focus(); };
+    return { hidden: !!h, size: h && h[1] ? h[1].toLowerCase() : "", toggle: () => write(!h, ""), setSize: (v) => write(true, v) };
   }
   /* A property that is true or false, its box clicked (the page's click, viewer.js: the island
    * keeps the editor's own events out): the properties as they are written say the other now. */
@@ -800,5 +823,5 @@
     replace(view, pos, raw);
     return true;
   }
-  A.islands = { propClicked, codeIsHidden, toggleHidden, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  A.islands = { propClicked, codeIsHidden, toggleHidden, codeSize, setCodeSize, fileCode, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

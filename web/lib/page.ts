@@ -20,6 +20,15 @@ export const PREFS = {
   aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", measure: "normal", docZoom: 100, hinting: false, aiModel: "",
 };
 
+// The settings of this browser: the defaults, and over them what was chosen here ("mdview:set" —
+// only that, so a default that changes later reaches a browser that never chose). Before, all
+// settings were kept as they stood ("mdview:prefs"), the defaults of that day among them: of
+// those, what differs from today's defaults is taken over once — but not pictures "beside" the
+// note, which was the default then and nobody's choice.
+const CHOSEN =
+  `(function(d){var s=null;try{s=JSON.parse(localStorage.getItem("mdview:set"));if(!s||typeof s!=="object"){s={};var o=JSON.parse(localStorage.getItem("mdview:prefs"))||{};` +
+  `for(var k in o)if(o[k]!==d[k]&&!(k==="images"&&o[k]==="beside"))s[k]=o[k];localStorage.setItem("mdview:set",JSON.stringify(s));localStorage.removeItem("mdview:prefs")}}catch(e){s=s||{}}return Object.assign(d,s)})`;
+
 // The colours: the desktop's light theme, and a dark one of the same hues.
 export const LIGHT = { background: "#f5f5f7", foreground: "#1d1d1f", accent: "#0071e3", muted: "#a1a1a6", selection: "#b4d5fe", red: "#d70015", green: "#248a3d", yellow: "#a05a00", orange: "#c93400", blue: "#0071e3", cyan: "#0071a4", magenta: "#8944ab", brown: "#7f6545", bright_red: "#ff3b30", bright_green: "#34c759", bright_yellow: "#d18b00", bright_blue: "#0a84ff", bright_magenta: "#af52de", bright_cyan: "#30b0c7" };
 export const DARK = { background: "#1e1e20", foreground: "#f5f5f7", accent: "#0a84ff", muted: "#6e6e73", selection: "#3a5f8f", red: "#ff453a", green: "#32d74b", yellow: "#ffd60a", orange: "#ff9f0a", blue: "#0a84ff", cyan: "#64d2ff", magenta: "#bf5af2", brown: "#ac8e68", bright_red: "#ff6961", bright_green: "#4cd964", bright_yellow: "#ffe066", bright_blue: "#409cff", bright_magenta: "#da8fff", bright_cyan: "#70d7ff" };
@@ -39,16 +48,23 @@ export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\
 const LACKS = ["default", "openwith", "reveal"];
 const LABELS = { trash: "Delete" };
 
-// While a shared note is on its way — the page's scripts, then the note itself — the whole window
-// says so: a ring that turns, in the middle of it. Not at once (what comes within a moment needs no
-// waiting shown: motion.css, --loading-delay), and it fades when the note is there (share.js).
+// While the page is on its way — its scripts, then the repository or the shared note itself — the
+// whole window says so: a ring that turns, in the middle of it. Not at once (what comes within a
+// moment needs no waiting shown: motion.css, --loading-delay), and it fades when something is
+// there: the note, or the word that there is none (below: the first thing in #content, or All Notes).
+// Later waits — a note whose text is fetched, the way back to the repositories — show a small ring
+// over the page, which stays as it is (#wait, body[data-wait]: host.js).
 const BOOT = `<div id='boot' role='status' aria-label='Loading'><span class='boot-ring'></span></div>`;
 const BOOT_CSS =
   `#boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--c-background);transition:opacity var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base)}` +
   `#boot[data-done]{opacity:0;visibility:hidden;pointer-events:none}` +
   `.boot-ring{width:28px;height:28px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--c-foreground) 14%,transparent);border-top-color:var(--c-accent);opacity:0;animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards,boot-turn .9s linear infinite}` +
   `@keyframes boot-in{to{opacity:1}}@keyframes boot-turn{to{transform:rotate(360deg)}}` +
-  `@media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--c-foreground) 14%,transparent);box-shadow:0 0 0 0 transparent}}`;
+  `@media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--c-foreground) 14%,transparent);box-shadow:0 0 0 0 transparent}}` +
+  `#wait{position:fixed;left:50%;top:50%;z-index:95;width:44px;height:44px;margin:-22px 0 0 -22px;display:grid;place-items:center;border-radius:50%;background:var(--c-background);box-shadow:0 0 0 .5px color-mix(in srgb,var(--c-foreground) 14%,transparent),0 8px 24px rgb(0 0 0/.18);pointer-events:none;opacity:0;visibility:hidden;transition:opacity calc(var(--dur-base)*.7) var(--ease-exit),visibility 0s linear calc(var(--dur-base)*.7)}body[data-wait] #wait{opacity:1;visibility:visible;transition:opacity var(--dur-base) var(--ease-out) var(--loading-delay),visibility 0s linear var(--loading-delay)}#wait span{width:20px;height:20px;box-sizing:border-box;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--c-foreground) 14%,transparent);border-top-color:var(--c-accent)}body[data-wait] #wait span{animation:wait-turn .9s linear infinite}@keyframes wait-turn{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){body[data-wait] #wait span{animation:none}}`;
+const WAIT = `<div id='wait' role='status' aria-label='Loading'><span></span></div>`;
+// (the ring goes when the page shows something, whoever its host is)
+const BOOTED = `(function(){var b=document.getElementById("boot"),c=document.getElementById("content");if(!b)return;var done=function(){if(b.dataset.done!=null)return;b.dataset.done="";o.disconnect();setTimeout(function(){b.remove()},600)};var o=new MutationObserver(function(){if(c.firstChild||document.body.hasAttribute("data-overview"))done()});o.observe(c,{childList:true});o.observe(document.body,{attributes:true,attributeFilter:["data-overview"]});window.MdBooted=done})();`;
 
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
@@ -66,8 +82,8 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   const before =
     `window.MdWeb=${inline(web)};` +
     `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}};` +
-    `window.MdPrefs=Object.assign(${inline({ ...PREFS, ...(o.prefs || {}) })},(function(){try{return JSON.parse(localStorage.getItem("mdview:prefs"))||{}}catch(e){return {}}})());` +
-    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();`;
+    `window.MdPrefs=${CHOSEN}(${inline({ ...PREFS, ...(o.prefs || {}) })});` +
+    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
   const page =
     `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>` +
@@ -75,6 +91,6 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `<base href='${attr(here + o.base)}'>` +
     `<link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
     `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'><link rel='stylesheet' href='${here}${a}/viewer.css'><link rel='stylesheet' href='${here}${a}/overview.css'>` +
-    `${o.reading ? `<style>${BOOT_CSS}</style>` : ""}</head><body data-mode='light'>${o.reading ? BOOT : ""}<main id='content'></main>${scripts}</body></html>`;
+    `<style>${BOOT_CSS}</style></head><body data-mode='light'>${BOOT}${WAIT}<main id='content'></main>${scripts}</body></html>`;
   return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": o.referrer || "same-origin", "X-Robots-Tag": "noindex" } });
 }
