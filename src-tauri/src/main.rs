@@ -105,11 +105,11 @@ fn find_assets() -> PathBuf {
     if let Some(d) = std::env::var_os("MDVIEW_ASSETS").map(PathBuf::from).filter(|d| has(d)) {
         return d;
     }
-    let exe = std::env::current_exe().ok().and_then(|p| std::fs::canonicalize(p).ok());
+    let exe = std::env::current_exe().ok().and_then(|p| crate::scan::canon(p).ok());
     let beside = exe.as_deref().and_then(Path::parent).map(Path::to_path_buf).unwrap_or_default();
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).parent().map(Path::to_path_buf).unwrap_or_default();
     let found = [checkout.clone(), beside.clone(), beside.join("../lib/mdview"), beside.join("../lib/Markdown Notes"), beside.join("../Resources")].into_iter().find(|d| has(d));
-    found.map(|d| std::fs::canonicalize(&d).unwrap_or(d)).unwrap_or(checkout)
+    found.map(|d| crate::scan::canon(&d).unwrap_or(d)).unwrap_or(checkout)
 }
 
 fn mime(path: &Path) -> &'static str {
@@ -174,6 +174,9 @@ fn file(path: &Path, range: Option<&str>) -> Response<Vec<u8>> {
     let mut body = Vec::new();
     match asked {
         Some((a, b)) if a <= b => {
+            // (a part of the file at a time: a film asked for "from here to the end" is not read into
+            // memory to its end — the player asks for what follows)
+            let b = b.min(a + 32 * 1024 * 1024 - 1);
             if f.seek(SeekFrom::Start(a)).is_err() || f.take(b - a + 1).read_to_end(&mut body).is_err() {
                 return plain(StatusCode::INTERNAL_SERVER_ERROR);
             }
@@ -211,6 +214,12 @@ fn msg(window: tauri::WebviewWindow, tx: tauri::State<'_, Sender<Event>>, json: 
 }
 
 fn main() {
+    // (the network of the history's other side: a connection that hangs — the Wi-Fi gone in the
+    // middle of it — is given up, not waited for without end by the thread everything runs on)
+    unsafe {
+        let _ = git2::opts::set_server_connect_timeout_in_milliseconds(15_000);
+        let _ = git2::opts::set_server_timeout_in_milliseconds(30_000);
+    }
     let (tx, rx) = std::sync::mpsc::channel::<Event>();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let cwd = std::env::current_dir().map(|d| scan::s(&d)).unwrap_or_default();

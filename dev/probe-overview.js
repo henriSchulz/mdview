@@ -76,8 +76,8 @@
     ov.querySelector(".ov-body").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 900, clientY: 600 })); await sleep(400);
     ok("a right click on the empty room: New Note, New Folder, the orders", menu.hasAttribute("data-open") && shown() === "New Note|New Folder|Sort by Last Opened|Sort by Name|Sort by Date Modified|Show", shown());
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "newfolder").click(); await sleep(500);
-    const nf = document.querySelector(".sb-new input");
-    ok("New Folder: the sidebar's field asks for its name", document.activeElement === nf && /Folder/.test(nf.placeholder), nf && nf.placeholder);
+    const nf = document.querySelector("#newdlg input");
+    ok("New Folder: a small window asks for its name", document.activeElement === nf && /Folder/.test(nf.placeholder), nf && nf.placeholder);
     nf.value = "Skizzen"; nf.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(1200);
     ok("it is made in the folder shown, and stands among the tiles", names(".ov-tile.ov-folder").join("|") === "Skizzen" && ov.querySelector(".ov-folder").dataset.path.endsWith("/Projekte/Skizzen"), names(".ov-tile").join("|"));
     ov.querySelector(".ov-tile").focus(); key("Backspace"); await sleep(600);

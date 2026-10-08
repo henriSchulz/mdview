@@ -500,13 +500,21 @@
     if (how !== "done" && opts.key != null && parts.text && parts.result() !== undefined) discarded = { key: opts.key, text: parts.text() };
     else if (how === "done" && discarded && discarded.key === opts.key) discarded = null;
     open = null;
-    if (how === "done" && result !== undefined) opts.done(result); else if (opts.cancel) opts.cancel(how);
-    // back into the island as it is now
-    delete scrim.dataset.open;
-    delete dlg.dataset.open;
-    window.MdView.core.lockScroll(false);
-    dlg.style.transform = from(opts.anchor());
-    if (A.view.pm) A.view.pm.focus();
+    // (the window goes whatever taking its result over does: a place of the text that is no longer
+    // there — the file changed under the dialog — must not leave it standing, never to be closed)
+    try {
+      if (how === "done" && result !== undefined) opts.done(result); else if (opts.cancel) opts.cancel(how);
+    } catch (e) {
+      console.error(e);
+      window.MdView.core.toast(window.MdStrings.t("dialog.gone"));
+    } finally {
+      // back into the island as it is now
+      delete scrim.dataset.open;
+      delete dlg.dataset.open;
+      window.MdView.core.lockScroll(false);
+      try { dlg.style.transform = from(opts.anchor()); } catch (e) { /* (its anchor went with the text) */ }
+      if (A.view.pm) A.view.pm.focus();
+    }
   }
   dlg.addEventListener("click", (e) => {
     const b = e.target.closest("[data-do]");

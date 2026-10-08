@@ -46,7 +46,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
   content: attr(data-placeholder);
   float: left;
   height: 0;
-  color: var(--fg3);
+  color: var(--fg-quiet);
   pointer-events: none;
 }
 /* an island or a picture that is selected (arrow keys, a click): the focus ring */
@@ -106,7 +106,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
   transition: box-shadow var(--dur-fast) var(--ease-out);
 }
 .lp-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
-.lp-field::placeholder { color: var(--fg3); }
+.lp-field::placeholder { color: var(--fg-quiet); }
 
 /* islands: a hint on hover that a click edits them, a shimmer when they were just changed */
 .pm[contenteditable="true"] .isl:not(.none) {
@@ -250,7 +250,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 
 /* An embed's region, adjusted (islands.js pdfAdjust): the whole page with a frame on it. What
  * lies outside the frame is dimmed; the frame is moved, and pulled at eight handles. */
-#dlg .dlg-tools .btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+#dlg .dlg-tools .btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
 .pdf-adjust { display: grid; gap: 8px; justify-items: center; user-select: none; -webkit-user-select: none; }
 .pa-bar { display: flex; align-items: center; gap: 8px; width: 100%; font: 400 12px/1.3 var(--ui); color: var(--fg2); }
 #dlg .pa-bar .btn { width: 24px; height: 24px; padding: 0; font-size: 15px; line-height: 1; }
@@ -542,12 +542,13 @@ body[data-mode="dark"] :is(#settings, #history, #conflict) { box-shadow: 0 0 0 0
 .st-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
 .st-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .st-icon .sf { font-size: 14px; }
-.st-nav[aria-current] .st-icon { color: var(--accent); }
+.st-nav[aria-current] .st-icon { color: var(--accent-text); }
 
 /* the chosen group */
 .st-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .st-head { display: flex; align-items: center; gap: 12px; flex: none; padding: 16px 24px 12px 20px; }
 .st-head h2 { margin: 0; font: 600 15px/1.3 var(--ui); letter-spacing: 0; }
+.st-side > .st-close { align-self: flex-start; margin: -4px 0 -4px 2px; }
 .st-close { display: grid; place-items: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.06); color: var(--fg2); cursor: default; transition: color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 .st-close:hover { color: var(--fg); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
 .st-close:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
@@ -574,7 +575,7 @@ body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, v
 .pf-text { flex: none; width: 220px; }
 .pf-value { flex: none; max-width: 60%; color: var(--fg2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
 /* an action in a row: the word itself, in the accent */
-.pf-link { flex: none; height: var(--control-height, 28px); padding: 0 8px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--accent); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.pf-link { flex: none; height: var(--control-height, 28px); padding: 0 8px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--accent-text); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 .pf-link:hover { background: var(--fill-hover); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
 .pf-link:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .pf-link:disabled { opacity: 0.4; pointer-events: none; }
@@ -613,7 +614,7 @@ body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, v
 .hi-line.del .hi-sign { color: var(--c-red); }
 .hi-text ins { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-green) 26%, transparent); }
 .hi-text del { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-red) 22%, transparent); }
-.hi-gap { margin: 4px 0; padding: 2px 26px; color: var(--fg3); font: 400 12px/1.5 var(--ui); user-select: none; -webkit-user-select: none; }
+.hi-gap { margin: 4px 0; padding: 2px 26px; color: var(--fg-quiet); font: 400 12px/1.5 var(--ui); user-select: none; -webkit-user-select: none; }
 @media (max-width: 720px) { #history, #conflict { grid-template-columns: 190px minmax(0, 1fr); } }
 /* --- the conflicts' window (conflict.js): the history's frame; a note place by place, each
  * with this device's lines and the other's, and the choice between them */
@@ -635,7 +636,7 @@ body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, v
 .cf-lines { font: 400 12.5px/1.55 var(--mono); }
 .cf-lines .hi-sign { width: 12px; }
 .cf-lines mark { border-radius: 3px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; }
-.cf-lines i { color: var(--fg3); font: italic 400 12px/1.55 var(--ui); }
+.cf-lines i { color: var(--fg-quiet); font: italic 400 12px/1.55 var(--ui); }
 .cf-whole { margin: 0; padding: 0 12px; }
 /* signing in with GitHub: what is so, the code to confirm, and what can be done */
 .pf-github { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: none; max-width: 66%; }
@@ -729,11 +730,11 @@ body[data-mode="dark"] #repos { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14),
 .blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
 .blk-h[data-dragging] { cursor: grabbing; }
 /* the one handle of several selected blocks: beside all of them, its grip at the first */
-/* (It stands in the blocks' own highlight, which is one box: the handle is the grip at its top and
- * takes the pointer all the way down, but draws nothing of its own — no strip across the box.) */
-.blk-h[data-group], .blk-h[data-group]:hover { place-items: start center; padding-top: 5px; box-sizing: border-box; background: transparent; color: var(--accent); }
-.blk-h[data-group]:hover { color: color-mix(in srgb, var(--accent) 70%, var(--fg)); }
-.blk-h[data-apart] { place-items: center; padding-top: 0; } /* (blocks picked one by one: the handle of the one under the pointer) */
+/* (The blocks wear a field each; what holds them together is this handle: one bar as tall as all
+ * of them, in the fields' tint and a little stronger, its grip at the top.) */
+.blk-h[data-group], .blk-h[data-group]:hover { place-items: start center; padding-top: 5px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 14%, var(--bg)); color: var(--accent-text); }
+.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 24%, var(--bg)); color: color-mix(in srgb, var(--accent) 70%, var(--fg)); }
+.blk-h[data-apart], .blk-h[data-apart]:hover { place-items: center; padding-top: 0; background: transparent; } /* (blocks picked one by one: the handle of the one under the pointer) */
 /* what is dragged stands back where it was while its picture is under the pointer */
 .pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
 body.blk-dragging .pm .blk-sel { opacity: 0.35; }
@@ -828,6 +829,9 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * (how far a field reached out over the block's handle) is none any more: the handle stands
  * beside the field. */
 .pm { --blk-sel: color-mix(in srgb, var(--accent) 9%, var(--bg)); --blk-out: 0px; }
+/* (a row of columns selected: its blocks wear the fields, each its own — the row itself none) */
+.pm.has-blocksel.ProseMirror-focused .cols.blk-row.ProseMirror-selectednode { outline: none; background-color: transparent; box-shadow: none; }
+.pm .cols.blk-row, .pm .cols.blk-row * { cursor: default; caret-color: transparent; }
 .pm .blk-sel { --blk-box: 0 0 0 5px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
 /* The room between two fields is the same whatever the blocks are: one that follows another
  * reaches up over what its gap has more than that — the gap is the blocks' margins, which differ
@@ -863,6 +867,8 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
 
 /* … or the page of the note it would go into: its line is marked */
+/* … into a column: the column is marked, the line as wide as it (under the row instead: the line as wide as the text, no column marked) */
+.pm .col.drop-col { border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 7%, transparent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 7%, transparent); }
 .pm .page-row.drop-into { box-shadow: 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* where a block dragged by its handle will go */
 .blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
@@ -881,6 +887,15 @@ body.col-pulling { cursor: col-resize; user-select: none; -webkit-user-select: n
 /* a column with nothing in it yet shows where it is */
 .pm .col:has(> p:only-child > br:only-child) { border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 7%, transparent); }
 .pm .col:has(> p:only-child > br:only-child) > p { padding: 4px 10px; }
+/* … and, under the pointer, a cross at its right that takes the column away (columns.js) */
+.col-x { position: absolute; top: 0; left: 0; z-index: 24; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-chip); background: transparent; color: var(--fg2); cursor: default; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.col-x[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.col-x svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.col-x .sf { font-size: 10px; }
+.col-x:hover { background: var(--fill-pressed); color: var(--fg); transition-duration: var(--dur-instant); }
+.col-x:active { background: color-mix(in srgb, var(--fg) 20%, transparent); }
+.col-x:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: -2px; }
+@media print { .col-x { display: none !important; } }
 /* the rectangle pulled over blocks: it follows the pointer at once, and fades when it is let go */
 .blk-band { position: absolute; top: 0; left: 0; z-index: 27; box-sizing: border-box; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 .blk-band[data-on] { opacity: 1; visibility: visible; transition: none; }
@@ -966,28 +981,32 @@ body[data-view="active"][data-panel] #rpanel { transform: none; visibility: visi
 body[data-view="active"][data-panel] { padding-right: var(--rp-w); }
 body[data-view="active"][data-panel] #toolbar { transform: translateX(calc(-1 * var(--rp-w))); }
 body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(calc(-1 * var(--rp-w)), -6px); }
+@media (max-width: 640px) { /* (a narrow window: the toolbar stands at the foot, in the middle — viewer.css — and stays there) */
+  body[data-view="active"][data-panel] #toolbar { transform: translateX(-50%); }
+  body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(-50%, 6px); }
+}
 body[data-view="active"][data-panel] #outline, body[data-view="active"][data-panel] #findbar { right: calc(12px + var(--rp-w)); }
 body[data-view="active"][data-panel] #tabs { right: var(--rp-w); }
-#toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent); }
+#toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent-text); }
 @media (max-width: 760px) { body[data-view="active"][data-panel] { padding-right: 0; } }
 
 .rp-tabs { display: flex; gap: 14px; margin: 0 16px; padding: 14px 0 10px; border-bottom: 1px solid var(--line); flex: none; }
-.rp-tab { padding: 0; border: 0; background: none; font: 500 13px/1.3 var(--ui); color: var(--fg3); cursor: default; transition: color var(--dur-fast) var(--ease-out); }
+.rp-tab { padding: 0; border: 0; background: none; font: 500 13px/1.3 var(--ui); color: var(--fg-quiet); cursor: default; transition: color var(--dur-fast) var(--ease-out); }
 .rp-tab:hover { color: var(--fg2); transition-duration: var(--dur-instant); }
 .rp-tab[aria-selected="true"] { color: var(--fg); font-weight: 600; }
 .rp-tab:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 3px; border-radius: var(--radius-chip); }
 /* the two tabs lie on each other: the one chosen shows (a crossfade) */
 .rp-pane { position: absolute; inset: 44px 0 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 24px; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 #rpanel[data-tab="insert"] [data-pane="insert"], #rpanel[data-tab="format"] [data-pane="format"] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
-.rp-hint { margin: 0 0 10px; font-size: 12px; color: var(--fg3); }
+.rp-hint { margin: 0 0 10px; font-size: 12px; color: var(--fg-quiet); }
 .rp-none { margin: 24px 0; text-align: center; color: var(--fg2); }
 .rp-search { display: flex; align-items: center; gap: 6px; height: var(--control-height, 28px); padding: 0 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); transition: box-shadow var(--dur-fast) var(--ease-out); }
 .rp-search:focus-within { box-shadow: 0 0 0 var(--focus-ring) var(--accent); }
 .rp-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .rp-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: var(--fg); user-select: text; -webkit-user-select: text; }
-.rp-search input::placeholder { color: var(--fg3); }
+.rp-search input::placeholder { color: var(--fg-quiet); }
 .rp-search input::-webkit-search-cancel-button { display: none; }
-.rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg3); }
+.rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-quiet); }
 .rp-sec[hidden], .rp-grid[hidden], .rp-tile[hidden] { display: none; }
 
 /* a tile: a card with a small picture of the thing, its name below */
@@ -1059,7 +1078,7 @@ body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(-
 .share-box [hidden] { display: none; }
 .share-head { display: flex; gap: 12px; align-items: flex-start; }
 .share-sign { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
-.share-box[data-shared] .share-sign { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.share-box[data-shared] .share-sign { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text); }
 .share-sign svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .share-sign .sf { font-size: 17px; }
 .share-words { display: grid; gap: 2px; flex: 1; min-width: 0; padding-top: 1px; }
@@ -1116,6 +1135,7 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
   }
   .st-side { margin: 8px 8px 0; padding: 8px; gap: 6px; }
   .st-name { display: none; }
+  .st-side > .st-close { align-self: center; margin: 0 4px 0 0; }
   /* the settings: their groups in one row */
   #settings .st-side { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   #settings .st-side::-webkit-scrollbar { display: none; }
@@ -1181,7 +1201,7 @@ body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(-
 /* --- the Format tab, as Craft's: small grey names over each part; Text — what the block is, each
  * written as it looks; Groups; the marks and the lists in joined rows; decorations; colours as
  * round swatches. What is on is tinted and lined in the accent's colour. */
-.rp-pane[data-pane="format"] .rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg3); }
+.rp-pane[data-pane="format"] .rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-quiet); }
 .rp-pane[data-pane="format"] .rp-sec:first-child { margin-top: 6px; }
 .rp-row.rp-2 { grid-template-columns: repeat(2, 1fr); }
 .rp-row.rp-1 { grid-template-columns: 1fr; }

@@ -24,7 +24,7 @@
   const TYPES = {
     paragraph_open: "paragraph", heading_open: "heading", bullet_list_open: "list", ordered_list_open: "list",
     blockquote_open: "blockquote", table_open: "table", fence: "code", code_block: "code", math_block: "math",
-    html_block: "html", columns_open: "columns", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes",
+    html_block: "html", columns_open: "columns", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes", link_row: "linkrow",
   };
 
   // Offsets of every line in the normalised text and in the original.
@@ -212,17 +212,30 @@
     const segs = store.segs;
     if (!parts) parts = segs.map((s) => ({ id: s.id }));
     if (!parts.length) return pick(store.head);
+    /* What stands between two blocks is not always room: a %% comment %% on lines of its own is
+     * blank to the parser, no block, and lies in the separator after the block before it. It is
+     * text of the file all the same, and stays when its neighbours change: behind its block where
+     * that block is still there, else before the next block that was loaded after it. */
+    const loaded = store.count ?? segs.length, worded = (id) => id != null && id < loaded && /\S/.test(segs[id].sep.raw);
+    const words = (id) => pick(segs[id].sep).replace(/^\s+|\s+$/g, ""), told = new Set();
+    const there = new Set(parts.map((p) => p.id).filter((id) => id != null));
+    const orphans = [];
+    for (let id = 0; id < loaded; id++) if (worded(id) && !there.has(id)) orphans.push(id);
     let out = "";
     parts.forEach((p, i) => {
       const prev = i ? parts[i - 1] : null;
       if (!i) out += pick(store.head);
-      else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) out += pick(segs[prev.id].sep);
+      else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) { out += pick(segs[prev.id].sep); told.add(prev.id); }
+      else if (worded(prev.id) && !told.has(prev.id)) { out += nl + nl + words(prev.id) + nl + nl; told.add(prev.id); }
       else out += nl + nl;
+      while (p.id != null && orphans.length && orphans[0] < p.id) out += words(orphans.shift()) + nl + nl;
       if (starts) starts.push(out.length);
       out += p.text != null ? eol(p.text) : pick(segs[p.id]);
     });
     const last = parts[parts.length - 1];
-    out += last.id === (store.count ?? segs.length) - 1 ? pick(segs[last.id].sep) : trailingOf(store, exact, out);
+    if (last.id !== loaded - 1 && worded(last.id) && !told.has(last.id)) out += nl + nl + words(last.id);
+    for (const id of orphans) if (id !== loaded - 1 || last.id !== id) out += nl + nl + words(id);
+    out += last.id === loaded - 1 ? pick(segs[last.id].sep) : trailingOf(store, exact, out);
     return out;
   }
   // What the file ends with stays, whichever block is last now.

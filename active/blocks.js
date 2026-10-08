@@ -72,9 +72,9 @@
     delete handle.dataset.apart;
     over = els[0];
     const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
-    handle.style.left = leftOf(els[0], a) + scrollX + "px";
-    handle.style.top = a.top - 4 + scrollY + "px"; // (as far as the highlight of the selected blocks goes)
-    handle.style.height = b.bottom - a.top + 8 + "px";
+    handle.style.left = leftOf(els[0], a) - 4 + scrollX + "px"; // (clear of the fields, which reach 5 px out of their blocks)
+    handle.style.top = a.top - 5 + scrollY + "px"; // (as far as the fields of the selected blocks go)
+    handle.style.height = b.bottom - a.top + 10 + "px";
     handle.dataset.group = "";
     handle.dataset.on = "";
   }
@@ -821,15 +821,24 @@
         // (only when what is drawn is this document: after a change the blocks are measured a frame later)
         const view = A.view.pm;
         const rectAt = (pos) => { try { const d = view && drawnDoc === state.doc ? view.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; } catch (e) { return null; } };
-        return DecorationSet.create(state.doc, P.map((x, i) => {
-          const before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
+        // (a row of columns selected: each block in its columns wears its field, as anywhere — not one
+        // box around the row; the row is only marked, blk-row)
+        const D = [], rows = [];
+        for (const x of P) {
+          if (x.node.type.name !== "columns") { D.push(x); continue; }
+          rows.push(Decoration.node(x.pos, x.pos + x.node.nodeSize, { class: "blk-row" }));
+          let colPos = x.pos + 1;
+          x.node.forEach((col) => { let p = colPos + 1; col.forEach((b) => { if (usable(b)) D.push({ pos: p, node: b }); p += b.nodeSize; }); colPos += col.nodeSize; });
+        }
+        return DecorationSet.create(state.doc, D.map((x, i) => {
+          const P = D, before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
           // (the room between two fields is 6 px whatever the blocks are: a field reaches 5 px out of
           // its block — a rule's 8 —, and up over what the gap has more than that (--up), or is cut
           // where the gap has less (--cut). Items of a list are left as they are: one list.)
           const out = (n) => (n.type.name === "horizontal_rule" ? 8 : 5), item = x.node.type.name === "list_item";
           const up = before && here && !item ? Math.round((here.top - before.bottom - 6 - out(P[i - 1].node) - out(x.node)) * 10) / 10 : null;
           return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null || !up ? { class: "blk-sel" } : { class: "blk-sel", style: up > 0 ? `--up: ${up}px` : `--cut: ${-up}px` });
-        }).concat(around(P.map((x) => x.pos))));
+        }).concat(rows, around(P.map((x) => x.pos))));
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : state.selection instanceof NodeSelection ? { class: "has-nodesel" } : null),
       handleKeyDown: keydown,
@@ -1131,7 +1140,7 @@
   function targetAt(e) {
     const v = view, doc = v.state.doc, pm = v.dom.getBoundingClientRect();
     // over the line of a page of the note: into that page (at its end) — not a page into itself
-    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".page-row"), isl = row && row.closest(".isl");
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".page-row[data-page]"), isl = row && row.closest(".isl");
     if (row && isl && v.dom.contains(isl) && isl.pmViewDesc && drag) {
       const pos = isl.pmViewDesc.posBefore;
       if (!drag.ranges.some((x) => pos >= x.from && pos < x.to)) return { into: row.dataset.page, el: row, pos };
@@ -1149,9 +1158,20 @@
       el = best;
     }
     if (!el) return null;
+    /* Over a row of columns itself — the room under a column shorter than the one beside it, the gap
+     * between two blocks of a column: the column at the pointer is meant, and in it the block nearest
+     * to the pointer's height. (Above and below the row, the row is.) */
+    if (!drag.cols && el.classList.contains("cols") && descOf(el) && y >= el.getBoundingClientRect().top && y <= el.getBoundingClientRect().bottom) {
+      const nearest = (els, dist) => { let best = null, d = Infinity; for (const c of els) { if (!descOf(c) || c.classList.contains("hid")) continue; const r = c.getBoundingClientRect(), n = dist(r); if (r.height && n < d) { d = n; best = c; } } return best; };
+      const col = nearest(el.children, (r) => (e.clientX < r.left ? r.left - e.clientX : e.clientX > r.right ? e.clientX - r.right : 0));
+      el = (col && nearest(col.children, (r) => (y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0))) || el;
+    }
     const within = (pos) => drag.ranges.some((r) => pos > r.from && pos < r.to);
+    // (a place in a column: the line ends where the column does, and the column itself is marked — under
+    // a row's last block the place in its column and the place under the row lie a few pixels apart)
+    const colOf = (pos) => { const c = A.columns.around(doc.resolve(pos)), dom = c && v.nodeDOM(c.colPos); return dom && dom.getBoundingClientRect ? dom : null; };
     const fits = (pos, content) => { const $p = doc.resolve(pos); return $p.parent.canReplace($p.index(), $p.index(), content); };
-    const made = (pos, wrap, x0, y0) => (within(pos) || (!wrap && drag.ranges.length === 1 && (pos === drag.from || pos === drag.to)) ? null : { pos, wrap, x: x0, y: y0, w: Math.max(40, pm.right - x0) });
+    const made = (pos, wrap, x0, y0) => (within(pos) || (!wrap && drag.ranges.length === 1 && (pos === drag.from || pos === drag.to)) ? null : { pos, wrap, x: x0, y: y0, w: Math.max(40, (colOf(pos) || v.dom).getBoundingClientRect().right - x0), col: colOf(pos) });
     // the edge between an element and its neighbour (the middle of the gap)
     const edge = (elx, after) => {
       const r = elx.getBoundingClientRect(), sib = after ? elx.nextElementSibling : elx.previousElementSibling, sr = sib && sib.getBoundingClientRect();
@@ -1257,7 +1277,10 @@
     return null;
   }
   let intoEl = null; // the page's line the blocks would go into
+  let colEl = null; // the column the blocks would go into
   function showLine(t) {
+    if (colEl && (!t || t.col !== colEl)) { colEl.classList.remove("drop-col"); colEl = null; }
+    if (t && t.col && t.col !== colEl) { colEl = t.col; colEl.classList.add("drop-col"); }
     if (intoEl && (!t || t.el !== intoEl)) { intoEl.classList.remove("drop-into"); intoEl = null; }
     if (t && t.into) { delete line.dataset.on; intoEl = t.el; intoEl.classList.add("drop-into"); return; }
     if (!t) { delete line.dataset.on; return; }
@@ -1275,7 +1298,7 @@
     e.dataTransfer.dropEffect = "move";
     drag.cy = e.clientY;
     if (!drag.frame) drag.frame = requestAnimationFrame(dragScroll);
-    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && (a.side || 0) === (b.side || 0) && (a.into || "") === (b.into || ""));
+    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && a.col === b.col && (a.side || 0) === (b.side || 0) && (a.into || "") === (b.into || ""));
     if (!same(t, drag.target)) { drag.target = t; showLine(t); }
   }, true);
   /* Dragged to the window's upper or lower edge, the page scrolls along — the faster the nearer
@@ -1332,8 +1355,11 @@
     const content = t.wrap ? listed() : d.slice.content;
     const tr = view.state.tr;
     for (const x of d.ranges.slice().reverse()) takeOut(tr, x, t.pos); // (a list left without items goes with them)
-    const at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
-    tr.insert(at, content);
+    let at = tr.mapping.map(t.pos, t.pos <= d.from ? -1 : 1);
+    // into a column with nothing in it: its empty line makes way
+    const tc = A.columns.around(tr.doc.resolve(at));
+    if (tc && A.columns.blank(tc.col)) { at = tc.colPos + 1; tr.replaceWith(at, tc.colPos + tc.col.nodeSize - 1, content); }
+    else tr.insert(at, content);
     // what was moved stays selected as blocks: the keyboard can go on with it
     const first = at + (t.wrap ? 1 : 0);
     let last = first;

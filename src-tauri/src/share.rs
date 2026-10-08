@@ -122,7 +122,7 @@ pub fn arrived(root: &Path) -> bool {
 /// The notes of a folder that are shared, by their paths — for the sidebar, which marks them.
 pub fn listed(folder: &Path) -> Vec<String> {
     let (Place::Project(root), true) = (history::place_of(folder), folder.is_dir()) else { return vec![] };
-    let mut all: Vec<String> = read(&root).values().filter_map(|e| e["path"].as_str()).map(|rel| root.join(rel)).filter(|p| p.starts_with(folder) && p.is_file()).map(|p| fs::canonicalize(&p).unwrap_or(p).to_string_lossy().into_owned()).collect();
+    let mut all: Vec<String> = read(&root).values().filter_map(|e| e["path"].as_str()).map(|rel| root.join(rel)).filter(|p| p.starts_with(folder) && p.is_file()).map(|p| crate::scan::canon(&p).unwrap_or(p).to_string_lossy().into_owned()).collect();
     all.sort();
     all
 }
@@ -131,9 +131,11 @@ pub fn listed(folder: &Path) -> Vec<String> {
 /// password, pending }.
 pub fn info(path: &Path) -> Value {
     let told = |can: bool, why: Option<&str>, link: Option<String>, password: bool, pending: bool| json!({ "path": path.to_string_lossy(), "can": can, "why": why, "link": link, "password": password, "pending": pending });
-    let Some((root, rel)) = place(path) else { return told(false, Some("Turn the history on first: the clock in the sidebar."), None, false, false) };
+    // (what is missing is named too — "history", "link": the window offers to do it)
+    let lacking = |need: &str, why: &str| { let mut v = told(false, Some(why), None, false, false); v["need"] = json!(need); v };
+    let Some((root, rel)) = place(path) else { return lacking("history", "Turn the history on first: the clock in the sidebar.") };
     let at = sync::linked(&root).and_then(|url| GITHUB_RE.captures(&url).map(|m| (m[1].to_string(), m[2].to_string())));
-    let Some(_) = at else { return told(false, Some("Link this project to a repository on GitHub first: Settings › History."), None, false, false) };
+    let Some(_) = at else { return lacking("link", "Link this project to a repository on GitHub first: Settings › History.") };
     let shares = read(&root);
     let Some(id) = find(&shares, &rel) else { return told(true, None, None, false, false) };
     told(true, None, Some(format!("{}/{id}", web())), !shares[&id]["password"].is_null(), !arrived(&root))
@@ -212,7 +214,7 @@ mod tests {
         fs::create_dir_all(d.join(".mdview")).unwrap();
         fs::write(d.join(".mdview/project.json"), "{}").unwrap();
         fs::write(d.join("docs/Note.md"), "# Note\n").unwrap();
-        fs::canonicalize(d).unwrap()
+        crate::scan::canon(d).unwrap()
     }
 
     #[test]

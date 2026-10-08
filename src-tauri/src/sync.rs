@@ -30,7 +30,11 @@ impl Access {
     fn callbacks(&self) -> RemoteCallbacks<'_> {
         let mut callbacks = RemoteCallbacks::new();
         let mut asked = false;
-        callbacks.credentials(move |_url, _user, _allowed| {
+        callbacks.credentials(move |url, _user, _allowed| {
+            // (the sign-in is GitHub's: no other server is handed it, whatever a repository's origin is)
+            if !github_url(url) {
+                return Err(git2::Error::from_str("this repository is not on GitHub: the app does not sign in there"));
+            }
             // (asked again: the token was not taken — said once, not tried for ever)
             if std::mem::replace(&mut asked, true) {
                 return Err(git2::Error::from_str("the sign-in was not accepted"));
@@ -456,6 +460,15 @@ fn checkout(repo: &Repository, tree: &git2::Tree) -> bool {
     let mut safe = CheckoutBuilder::new();
     safe.safe();
     repo.checkout_tree(tree.as_object(), Some(&mut safe)).is_ok()
+}
+
+/// An address on GitHub itself (https://github.com/…, with or without a name before the host).
+fn github_url(url: &str) -> bool {
+    let rest = url.strip_prefix("https://").unwrap_or("");
+    let host = rest.split('/').next().unwrap_or("");
+    let host = host.rsplit('@').next().unwrap_or(host);
+    // (… or the GitHub the app was pointed at instead: the rig's own, dev/fake-github.py)
+    host.eq_ignore_ascii_case("github.com") || std::env::var("MDVIEW_GITHUB_WEB").is_ok_and(|w| !w.is_empty() && url.starts_with(&w))
 }
 
 #[cfg(test)]

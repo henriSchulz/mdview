@@ -27,20 +27,47 @@ beside the notes. The command and the repository are still called `mdview`;
 
 ## Install
 
+**Installers.** A tagged version is built on GitHub (`.github/workflows/build.yml`) and stands
+under *Releases*: `.deb`, `.rpm` and an AppImage for Linux. Windows and macOS are built in the
+same run, as its artifacts only: neither signed nor tried on those systems yet.
+
+**From the sources** (Linux; what the author runs):
+
 ```sh
-git clone git@github.com:henriSchulz/mdview ~/Projects/mdview
-~/Projects/mdview/bin/mdview-install
+git clone https://github.com/henriSchulz/mdview
+mdview/bin/mdview-install
 ```
 
-The installer builds the program (`cargo build --release` in `src-tauri`), which
-then runs out of the checkout; besides that it only links the launcher into
-`~/.local/bin`, installs the desktop entry and icon, and makes mdview the
-default for Markdown files. Needs `cargo`, `webkit2gtk-4.1` and the
-fonts Inter and JetBrains Mono Nerd Font.
+The installer builds the program (`cargo build --release` in `src-tauri`), which then runs out
+of the checkout — move or delete the checkout and it is gone. Besides that it links the launcher
+into `~/.local/bin` (which must be on the `PATH`), installs the desktop entries and the icon,
+makes mdview the default for Markdown files (`xdg-mime`), and links the Claude skill into
+`~/.claude/skills`. To build it needs `cargo` and the development
+packages of WebKitGTK 4.1, GTK 3, OpenSSL, D-Bus and librsvg, and `pkg-config`
+(Debian: `libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev libdbus-1-dev librsvg2-dev pkg-config`).
+The fonts Inter and JetBrains Mono Nerd Font are used where they are installed.
 
 The page (`viewer.js` and what it loads) is read from the checkout at every
 start: a change to it needs no build, only a new window. A change to
 `src-tauri` needs `cargo build`.
+
+## What goes over the network
+
+Nothing, until one of these is used:
+
+- **History and sync.** A folder can keep versions of its notes (a Git repository in the folder)
+  and be linked to a repository on GitHub: the notes are then pushed there and pulled from
+  there. Signing in goes through the app's GitHub App; the sign-in is kept in the system's
+  keyring.
+- **Sharing.** A note of a linked folder can be shared as a link on `md.henrischulz.com`, the
+  author's server, which reads it from the repository on GitHub. A link without a password is
+  short and can be guessed: set a password for what is not public. Another server:
+  the environment variable `MDVIEW_WEB`.
+- **Writing help** (off by default). With a Gemini API key set in the settings, the text around
+  the caret is sent to Google when a continuation is asked for. Figures drawn on request go
+  through the `claude` command line, if it is installed.
+- **Pictures from elsewhere.** A note that names a picture by an `http(s)` address loads it from
+  there when it is shown.
 
 ## Layout
 
@@ -48,7 +75,7 @@ start: a change to it needs no build, only a new window. A change to
 |---|---|
 | `src-tauri/` | the shell (Rust, Tauri): windows, files, folder scan, tabs, theme — `src/shell.rs` is the windows, `scan.rs` the disk, `host.rs` what is asked of the system, `ai.rs` the models, `main.rs` the start and the `md://` protocol the page is served over |
 | `viewer.js`, `viewer.css` | renderer, source editor, sidebar and chrome inside the web view |
-| `vendor/` | markdown-it and plugins, KaTeX, highlight.js, Mermaid (minified, committed) |
+| `vendor/` | markdown-it and plugins, KaTeX, highlight.js, Mermaid, PDF.js, ProseMirror, diff (minified, committed) |
 | `bin/` | launcher and installer |
 | `packaging/` | desktop entry and icon |
 | `overview.js`, `overview.css` | all notes of a folder as tiles |
@@ -61,4 +88,4 @@ start: a change to it needs no build, only a new window. A change to
 
 ## License
 
-MIT — see `LICENSE`. The libraries in `vendor/` keep their own licenses: `vendor/README.md`.
+MIT — see `LICENSE`. The libraries in `vendor/` keep their own licenses: `vendor/README.md` names them, `vendor/LICENSES.md` holds their texts.

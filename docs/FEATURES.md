@@ -271,6 +271,19 @@ text simply stands where it is written. In the active mode a page is made from t
 once — or changed from the page it lies on: right click on its line › Rename…. Its line can be
 moved, copied and deleted like any block — the page goes with it.
 
+### A link to a note as a block
+
+A link to another note stands in the text, or — a block of its own — looks as a page's line does:
+a row or a card, in one of the theme's colours. Right click on the link › Style. A link in the
+text that is made a row or a card goes out of the text and stands under the block it stood in;
+In Text puts it back as a line of its own. In the file the look is a comment behind the link, so
+any other Markdown program shows the link:
+
+```markdown
+[[Plan]] <!-- link row -->
+[[Plan|The plan]] <!-- link card blue -->
+```
+
 ### Formulas (KaTeX)
 
 In the line: $e^{i\pi} + 1 = 0$. As a block:

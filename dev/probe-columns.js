@@ -78,7 +78,7 @@
       const dt = new DataTransfer(), hr = h.getBoundingClientRect();
       h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hr.left + 9, clientY: hr.top + 9, dataTransfer: dt }));
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
-      const lr = line.getBoundingClientRect(), dg = A.blocks.dragging(), shown = { on: line.hasAttribute("data-on"), w: lr.width, h: lr.height, x: lr.left, over: A.blocks.over() && A.blocks.over().textContent.slice(0, 8), drag: dg && [dg.from, dg.to], under: (document.elementFromPoint(x, y) || {}).tagName };
+      const lr = line.getBoundingClientRect(), dg = A.blocks.dragging(), shown = { on: line.hasAttribute("data-on"), w: lr.width, h: lr.height, x: lr.left, over: A.blocks.over() && A.blocks.over().textContent.slice(0, 8), drag: dg && [dg.from, dg.to], under: (document.elementFromPoint(x, y) || {}).tagName, col: !!view.dom.querySelector(".col.drop-col") };
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
       await sleep(250);
@@ -101,6 +101,62 @@
     para("Delta").dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: para("Delta").getBoundingClientRect().left + 20, clientY: para("Delta").getBoundingClientRect().top + 6 }));
     await sleep(200);
     ok("a block in a column has its own handle", h.hasAttribute("data-on") && A.blocks.over() === para("Delta") && h.getBoundingClientRect().height < 30, A.blocks.over() && A.blocks.over().textContent);
+
+    // --- into a column: under a column shorter than the one beside it, between two of its blocks, into an empty one
+    {
+      const base = shape(), colR = (text) => para(text).closest(".col").getBoundingClientRect();
+      let r = para("Right"), d = para("Delta").getBoundingClientRect(), c = colR("Right");
+      s = await drag("Beta", c.left + 60, d.top + d.height / 2);
+      ok("under a short column (beside a longer one's second block): into that column, at its end", shape() === "Columns (Alpha+Delta | Right+Beta) Gamma", shape());
+      ok("… the line stood in that column, no wider than it, and the column was marked", s.on && s.col && s.x >= c.left - 2 && s.x + s.w <= c.right + 2 && s.h <= 3 && !view.dom.querySelector(".col.drop-col"), [s, c.left, c.right]);
+      undo(); await sleep(150);
+      // … and a few pixels further down, under the row: the other of the two places there
+      const rowB = view.dom.querySelector(".cols").getBoundingClientRect();
+      c = colR("Alpha");
+      s = await drag("Beta", rowB.left + 60, rowB.bottom + 3);
+      ok("just under the row: under it, not in a column — the line as wide as the text, no column marked", shape() === "Columns (Alpha+Delta | Right) Beta Gamma" && s.on && !s.col && s.w > c.width + 40, [shape(), s]);
+      undo(); await sleep(150);
+      s = await drag("Beta", colR("Right").left + 60, para("Delta").getBoundingClientRect().top + 8);
+      const al = para("Alpha").getBoundingClientRect(); d = para("Delta").getBoundingClientRect(); c = colR("Alpha");
+      s = await drag("Gamma", al.left + 60, (al.bottom + d.top) / 2);
+      ok("in the gap between two blocks of a column: between them", shape() === "Columns (Alpha+Gamma+Delta | Right+Beta)", shape());
+      ok("… the line ended where the column does", s.on && s.x + s.w <= c.right + 2 && s.h <= 3, [s, c.right]);
+      undo(); await sleep(150); undo(); await sleep(150);
+      ok("(undone twice: as before)", shape() === base, shape());
+      // a tile of the Insert panel pulled into a column
+      {
+        const tile = document.querySelector('#rpanel .rp-tile[draggable="true"]'), dt = new DataTransfer(), cR = colR("Right"), dd = para("Delta").getBoundingClientRect();
+        const x = cR.left + 60, y = dd.top + dd.height / 2, pl = [...document.querySelectorAll(".blk-line")].find((l) => l !== line);
+        tile.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: 5, clientY: 5, dataTransfer: dt }));
+        document.elementFromPoint(x, y).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+        const lr = pl.getBoundingClientRect(), marked = !!view.dom.querySelector(".col.drop-col");
+        document.elementFromPoint(x, y).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+        document.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
+        await sleep(250);
+        ok("a tile of the Insert panel dropped under a short column: into that column", shape() === "Columns (Alpha+Delta | Right+-) (Gamma | Beta)", shape());
+        ok("… its line as wide as the column, the column marked while it was held there", pl.hasAttribute("data-on") === false && marked && lr.left >= cR.left - 2 && lr.right <= cR.right + 2 && !view.dom.querySelector(".col.drop-col"), [marked, lr.left, lr.right, cR.left, cR.right]);
+        undo(); await sleep(200);
+        ok("(undone: as before)", shape() === base, shape());
+      }
+      // an empty column: a cross in it under the pointer; a block dropped into it takes its place
+      caret("Right side.");
+      entry("columns.addRight").act(view);
+      await sleep(200);
+      const blank = [...view.dom.querySelector(".cols").querySelectorAll(".col")][2], br = blank.getBoundingClientRect(), cross = document.querySelector(".col-x");
+      s = await drag("Beta", br.left + 30, br.top + br.height / 2);
+      ok("a block dropped into an empty column: the column holds it, and nothing else", shape() === "Columns (Alpha+Delta | Right | Beta) Gamma", shape());
+      undo(); await sleep(200);
+      const again = [...view.dom.querySelector(".cols").querySelectorAll(".col")][2], ar = again.getBoundingClientRect();
+      again.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: ar.left + 30, clientY: ar.top + ar.height / 2 }));
+      await sleep(250);
+      const xr = cross.getBoundingClientRect();
+      ok("in an empty column, under the pointer: a cross at its right", cross.hasAttribute("data-on") && getComputedStyle(cross).visibility === "visible" && xr.right <= ar.right && xr.left > ar.left + ar.width / 2 && xr.top >= ar.top - 1 && xr.bottom <= ar.bottom + 1, [cross.hasAttribute("data-on"), xr.left, xr.top, ar.left, ar.right, ar.top, ar.bottom]);
+      cross.click();
+      await sleep(200);
+      ok("the cross takes the column away", shape() === base && !cross.hasAttribute("data-on"), shape());
+      para("Delta").dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: para("Delta").getBoundingClientRect().left + 20, clientY: para("Delta").getBoundingClientRect().top + 6 }));
+      await sleep(350);
+    }
 
     // --- handles beside blocks in a row (the real pointer)
     {
@@ -155,10 +211,15 @@
       dragTo(bb.left + 40, bb.bottom - 3); await sleep(150);
       ok("a rectangle pulled into a row takes the blocks of the column it reaches", picked() === "Beta", picked());
       dragTo(g.left + 40, g.bottom - 3); await sleep(150);
-      ok("… pulled on over the next column, all the row holds: the row itself", A.blocks.picked(view.state).map((x) => x.node.type.name).join() === "columns" && !!view.dom.querySelector(".cols.blk-sel"), picked());
+      ok("… pulled on over the next column, all the row holds: the row itself", A.blocks.picked(view.state).map((x) => x.node.type.name).join() === "columns" && !!view.dom.querySelector(".cols.blk-row"), picked());
+      { // … shown as anywhere: each block of its columns a field of its own, the row itself none
+        const rowEl2 = view.dom.querySelector(".cols.blk-row"), inner = [...rowEl2.querySelectorAll(".col > .blk-sel")], blocksIn = [...rowEl2.querySelectorAll(".col > *")];
+        const tint = getComputedStyle(inner[0] || rowEl2).backgroundColor, rs = getComputedStyle(rowEl2);
+        ok("… its blocks wear the fields, each its own, with room between them; the row none", inner.length === blocksIn.length && inner.length >= 2 && !rowEl2.classList.contains("blk-sel") && rs.backgroundColor !== tint && rs.boxShadow === "none" && inner.every((b, i) => !i || b.parentElement !== inner[i - 1].parentElement || b.getBoundingClientRect().top - inner[i - 1].getBoundingClientRect().bottom >= 6), [inner.length, blocksIn.length, rs.backgroundColor, tint, rs.boxShadow]);
+      }
       const al = para("Alpha").getBoundingClientRect();
       dragTo(g.left + 40, al.top + 4); await sleep(150);
-      ok("… pulled on over other blocks: those, and the row as a whole", picked().split("|").length >= 3 && !!view.dom.querySelector(".cols.blk-sel"), picked());
+      ok("… pulled on over other blocks: those, and the row as a whole", picked().split("|").length >= 3 && !!view.dom.querySelector(".cols.blk-row"), picked());
       post("probe-pointer", { kind: "up", x: g.left + 40, y: al.top + 4 }); await sleep(250);
       await click("Alpha", false);
 

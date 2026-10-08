@@ -7,7 +7,9 @@
   --fg: var(--c-foreground);
   --accent: var(--c-accent);
   --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
-  --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+  --fg3: color-mix(in srgb, var(--fg) 45%, transparent);              /* what cannot be chosen, and signs that only decorate — not for text that is read */
+  --fg-quiet: color-mix(in srgb, var(--fg) 62%, transparent);         /* the faintest text that is still read: a field's hint, a small title (4.6 : 1 on the page) */
+  --accent-text: color-mix(in srgb, var(--accent) 85%, var(--fg));    /* the accent as text: a link, a name in blue (5.3 : 1; fields and the focus ring keep the accent itself) */
   --line: color-mix(in srgb, var(--fg) 10%, transparent);
   --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
   --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha, 8%), transparent);
@@ -102,7 +104,7 @@ h6 { font-size: 0.92em; color: var(--fg2); }
 .flash { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: var(--dur-instant); }
 
 strong { font-weight: 600; }
-a { color: var(--accent); text-decoration: none; border-radius: 3px; transition: color var(--dur-fast) var(--ease-out); }
+a { color: var(--accent-text); text-decoration: none; border-radius: 3px; transition: color var(--dur-fast) var(--ease-out); }
 a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; transition-duration: var(--dur-instant); }
 a:focus-visible, button:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
 a.wikilink.unresolved { color: var(--fg2); text-decoration: underline dashed color-mix(in srgb, var(--fg) 30%, transparent); text-underline-offset: 3px; }
@@ -180,7 +182,7 @@ blockquote.deco-magenta { --cc: var(--c-magenta); --ct: var(--c-magenta); }
   line-height: 1.5;
   padding: 0 0.55em;
   border-radius: 999px;
-  color: var(--accent);
+  color: var(--accent-text);
   background: color-mix(in srgb, var(--accent) 11%, transparent);
 }
 
@@ -260,16 +262,16 @@ code, pre { font-family: var(--mono); }
 .code-card:hover { background: color-mix(in srgb, var(--fg) 5%, var(--code-bg)); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
 .code-card:active { transform: scale(0.995); transition-duration: var(--dur-instant); }
 .code-card:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
-.code-card-icon { display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--accent); }
+.code-card-icon { display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--accent-text); }
 .code-card-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .code-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-card-peek { font: 400 13px var(--mono); color: var(--fg2); }
-.code-card-count { flex: none; color: var(--fg3); font: 400 12px var(--ui); font-variant-numeric: tabular-nums; }
+.code-card-count { flex: none; color: var(--fg-quiet); font: 400 12px var(--ui); font-variant-numeric: tabular-nums; }
 /* code that is a file's (![[main.c]]): the block says which, and lines of it */
 .code-from { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px 0; font: 500 12px var(--ui); color: var(--fg2); }
 .code-from a { color: inherit; text-decoration: none; }
-.code-from a:hover { color: var(--accent); }
-.code-from-title { color: var(--fg3); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-from a:hover { color: var(--accent-text); }
+.code-from-title { color: var(--fg-quiet); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .code-file > .code-from + .code-tools + pre { padding-top: 8px; }
 /* its size, as a file block's — small: a chip in the line's height; large: a card with more room */
 .code-small .code-card { display: inline-flex; width: auto; max-width: 100%; min-height: 26px; padding: 2px 10px 2px 7px; gap: 6px; border-radius: var(--radius-control); font-size: 13px; }
@@ -320,7 +322,7 @@ code, pre { font-family: var(--mono); }
 .btn.done { color: var(--c-green); }
 
 /* highlight.js mapped onto the theme's ANSI palette */
-.hljs-comment, .hljs-quote { color: var(--fg3); font-style: italic; }
+.hljs-comment, .hljs-quote { color: var(--fg-quiet); font-style: italic; }
 .hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag, .hljs-meta .hljs-keyword { color: var(--c-magenta); }
 .hljs-string, .hljs-regexp, .hljs-meta .hljs-string, .hljs-char.escape_ { color: var(--c-red); }
 .hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable.constant_ { color: var(--c-blue); }
@@ -330,7 +332,7 @@ code, pre { font-family: var(--mono); }
 .hljs-meta, .hljs-template-tag, .hljs-template-variable, .hljs-selector-pseudo { color: var(--c-brown); }
 .hljs-variable, .hljs-params, .hljs-subst { color: var(--fg); }
 .hljs-tag { color: var(--fg2); }
-.hljs-link { color: var(--accent); text-decoration: underline; }
+.hljs-link { color: var(--accent-text); text-decoration: underline; }
 .hljs-addition { color: var(--c-green); background: color-mix(in srgb, var(--c-green) 10%, transparent); }
 .hljs-deletion { color: var(--c-red); background: color-mix(in srgb, var(--c-red) 10%, transparent); }
 .hljs-emphasis { font-style: italic; }
@@ -404,7 +406,7 @@ th:first-child, td:first-child { padding-left: 10px; }
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: var(--cc);
+  color: color-mix(in srgb, var(--cc) 85%, var(--fg));   /* (its colour as text, on its own tint: as --accent-text) */
   list-style: none;
 }
 summary.callout-title { cursor: default; }
@@ -495,6 +497,8 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .page-row[data-style="card"] .page-row-icon { width: 26px; height: 26px; border-radius: 7px; background: var(--pc); color: #fff; }
 .page-row[data-style="card"] .page-row-icon svg { width: 15px; height: 15px; stroke-width: 1.9; }
 .page-row[data-style="card"] .page-row-icon .sf { font-size: 13px; }
+/* a link to another note as a block of its own (viewer.js: link_rows) looks as a page's line does; a note that is not there yet: fainter */
+.page-row.link-row.unresolved .page-row-name { color: var(--fg2); text-decoration-style: dashed; }
 /* A page that is open: the way to it, and its name (typed there in the active mode). */
 #pagebar { display: grid; gap: 6px; margin: 0 0 1.4em; }
 .pb-way { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: -6px; color: var(--fg2); font: 400 13px/1.45 var(--ui); }
@@ -505,7 +509,7 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .pb-sep svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .pb-sep .sf { font-size: 8px; }
 .pb-title { width: 100%; box-sizing: border-box; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--fg); font-family: inherit; font-weight: 700; font-size: 2em; line-height: 1.25; letter-spacing: -0.022em; text-overflow: ellipsis; }
-.pb-title::placeholder { color: var(--fg3); }
+.pb-title::placeholder { color: var(--fg-quiet); }
 .pb-title[readonly] { cursor: default; }
 @media print { .pb-way { display: none; } }
 
@@ -535,7 +539,7 @@ details.props th { width: 28%; font-weight: 500; color: var(--fg2); white-space:
   background: var(--code-bg);
 }
 .tag + .tag { margin-left: 4px; }
-.prop-empty { color: var(--fg3); }
+.prop-empty { color: var(--fg-quiet); }
 .transclusion {
   margin: 0 0 1em;
   padding: 10px 0 2px 16px;
@@ -551,7 +555,12 @@ details.props th { width: 28%; font-weight: 500; color: var(--fg2); white-space:
 .footnote-ref a, a.footnote-backref { font-size: 0.85em; }
 
 /* ------------------------------------------------------------- empty / error */
-.empty-state { text-align: center; color: var(--fg2); padding-top: 20vh; }
+.empty-state { display: grid; justify-items: center; gap: 6px; text-align: center; color: var(--fg2); padding-top: 20vh; font: 400 14px/1.45 var(--ui); font-variation-settings: "opsz" 17; }
+.empty-state b { margin-top: 6px; color: var(--fg); font-weight: 600; font-size: 16px; }
+.empty-state p { margin: 0; max-width: 34ch; }
+.empty-state .btn.primary { height: var(--control-height, 28px); min-width: 96px; margin-top: 10px; padding: 0 14px; background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; font-size: 13px; }
+.empty-state .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+#overview .empty-state { padding-top: 14vh; }
 .empty-icon svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
 /* ------------------------------------------------------------- editor */
@@ -613,7 +622,7 @@ body.swapping #content, body.swapping #editor {
   caret-color: var(--accent);
 }
 #ed-input::selection { color: transparent; -webkit-text-fill-color: transparent; }
-#ed-input::placeholder { color: var(--fg3); -webkit-text-fill-color: var(--fg3); }
+#ed-input::placeholder { color: var(--fg-quiet); -webkit-text-fill-color: var(--fg-quiet); }
 #ed-back { position: relative; z-index: 1; pointer-events: none; } /* (over the field that is typed in: a selection is painted behind the letters, not over them) */
 .ln { min-height: 24px; transition: background-color var(--dur-slow) var(--ease-out); }
 .ln.flash { transition-duration: var(--dur-instant); }
@@ -629,7 +638,7 @@ body.swapping #content, body.swapping #editor {
 .m-s { color: var(--fg2); text-decoration: line-through; }
 .m-mark { background: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 38%, transparent); border-radius: 3px; }
 .m-code { background: color-mix(in srgb, var(--fg) 7%, transparent); border-radius: 3px; }
-.m-link, .m-url, .m-tag, .m-list, .m-callout { color: var(--accent); }
+.m-link, .m-url, .m-tag, .m-list, .m-callout { color: var(--accent-text); }
 .m-math { color: var(--c-magenta); }
 .m-comment { color: var(--fg2); font-style: italic; }
 .m-key { color: var(--fg); }
@@ -653,7 +662,8 @@ body.swapping #content, body.swapping #editor {
   --fg2: #b3b7ba;
   --fg3: color-mix(in srgb, var(--fg2) 60%, #3b3c40);   /* what cannot be chosen */
   --line: color-mix(in srgb, var(--fg) 12%, transparent);
-  --accent: #508dff;
+  --accent: #2563eb;        /* the row under the pointer: white on it at 5.2 : 1 */
+  --accent-text: #8ab4ff;   /* … and what is written in blue on the plate */
   --on-accent: #fff;
   --menu-radius: 10px;
   --menu-pad: 6px;
@@ -666,7 +676,7 @@ body.swapping #content, body.swapping #editor {
 }
 #ctxmenu .menu-item, .actmenu .menu-item { min-height: 26px; font-size: 14px; font-weight: 500; }
 #ctxmenu .menu-item.current, .actmenu .menu-item.current { color: var(--fg); font-weight: 700; }
-#ctxmenu .menu-item.danger:not(.hl), .actmenu .menu-item.danger:not(.hl) { color: color-mix(in srgb, #f64468 80%, var(--fg)); }
+#ctxmenu .menu-item.danger:not(.hl), .actmenu .menu-item.danger:not(.hl) { color: color-mix(in srgb, #f64468 60%, var(--fg)); }
 #ctxmenu .menu-key, .actmenu .menu-key { color: var(--fg2); font-size: 12px; }
 #ctxmenu .menu-item.hl .menu-key, .actmenu .menu-item.hl .menu-key { color: var(--on-accent); }
 @media (prefers-contrast: more) { #ctxmenu, .actmenu { box-shadow: 0 0 0 1.5px var(--fg); } }
@@ -721,7 +731,7 @@ body.swapping #content, body.swapping #editor {
 .tb svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tb:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
 .tb:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
-.tb.active { color: var(--accent); }
+.tb.active { color: var(--accent-text); }
 #toolbar .tb { border-radius: var(--radius-pill); }
 /* (the keyboard's ring stands inside the round button: outside it, the capsule's edge cut it off) */
 #toolbar .tb:focus-visible, #toolbar .seg-btn:focus-visible { outline-offset: -2px; }
@@ -802,7 +812,7 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.menu-item.current { color: var(--accent); font-weight: 500; }
+.menu-item.current { color: var(--accent-text); font-weight: 500; }
 .menu-item.hl { background: var(--accent); color: var(--on-accent, #fff); }
 .menu-empty { padding: 8px 10px; font: 400 13px/1.45 var(--ui); color: var(--fg2); }
 
@@ -832,7 +842,7 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
   color: var(--fg);
   font: 400 13px var(--ui);
 }
-#find-input::placeholder { color: var(--fg3); }
+#find-input::placeholder { color: var(--fg-quiet); }
 #find-input::-webkit-search-cancel-button { display: none; }
 #find-count { font: 400 12px var(--ui); color: var(--fg2); white-space: nowrap; padding: 0 4px; font-variant-numeric: tabular-nums; }
 #findbar.no-hits #find-count { color: var(--c-red); transition: color var(--dur-fast) var(--ease-out); }
@@ -857,6 +867,12 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
     opacity calc(var(--dur-slow) * 0.7) var(--ease-exit),
     transform calc(var(--dur-slow) * 0.7) var(--ease-exit);
 }
+/* (with something to take back: a button in it — Undo) */
+#toast[data-action] { display: inline-flex; align-items: center; gap: 14px; padding-right: 8px; }
+#toast[data-action][data-open] { pointer-events: auto; }
+#toast button { height: 24px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: transparent; color: color-mix(in srgb, var(--accent) 50%, var(--bg)); font: 600 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+#toast button:hover { background: color-mix(in srgb, var(--bg) 14%, transparent); transition-duration: var(--dur-instant); }
+#toast button:focus-visible { outline: var(--focus-ring, 2px) solid currentColor; outline-offset: -2px; }
 #toast[data-open] {
   opacity: 1;
   transform: translate(-50%, 0);
@@ -881,7 +897,7 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
   top: var(--sb-inset);
   bottom: var(--sb-inset);
   left: var(--sb-inset);
-  z-index: 15;
+  z-index: 16;                       /* over the strip of tabs: its ground must not cover the card's edge and shade */
   display: flex;
   flex-direction: column;
   width: calc(var(--sb-w) - var(--sb-inset));
@@ -907,9 +923,8 @@ body[data-sidebar="open"] #sidebar {
 #sidebar.no-anim { transition: none; }
 @media (prefers-contrast: more) { #sidebar { box-shadow: 0 0 0 1.5px var(--fg2); } }
 /* the settings: a gear at the window's lower left corner — the foot of the sidebar when that is open */
-#settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; opacity: 0.55; border-radius: var(--radius-pill); }
-#settings-btn:hover, #settings-btn:focus-visible { opacity: 1; }
-body[data-sidebar="open"] #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); opacity: 0.8; }
+#settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; border-radius: var(--radius-pill); }
+body[data-sidebar="open"] #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); }
 #settings-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 body[data-sidebar="open"] .sb-list { padding-bottom: 48px; }
 @media print { #settings-btn { display: none !important; } }
@@ -927,7 +942,9 @@ body[data-sidebar="open"] { padding-left: var(--sb-w); }
 body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
 /* the history's button where this app keeps none: dimmed, and still to be clicked */
 .sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-.sb-head [data-act="historymenu"].quiet { opacity: 0.4; }
+/* (not dimmed — it is there to be clicked: a stroke through it says that nothing is kept) */
+.sb-head [data-act="historymenu"] { position: relative; }
+.sb-head [data-act="historymenu"].quiet::after { content: ""; position: absolute; left: 50%; top: 50%; width: 19px; height: 1.7px; margin: -0.85px 0 0 -9.5px; border-radius: 1px; background: currentColor; box-shadow: 0 0 0 1.5px var(--raised); transform: rotate(45deg); pointer-events: none; }
 .sb-head [data-act="historymenu"].warn { color: var(--c-red); } /* (conflicts to resolve: its menu and its tooltip say so) */
 /* (the sidebar's button: at the left, first in the strip of tabs — not among these; all notes: the house beside it) */
 .tab-side { width: 38px; color: var(--fg2); }
@@ -987,7 +1004,7 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
 :is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
 .tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: color-mix(in srgb, var(--fg) 12%, transparent); color: var(--fg); }
 .tab-home { color: var(--fg); }
-.tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent); background: color-mix(in srgb, var(--fg) 12%, transparent); }
+.tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent-text); background: color-mix(in srgb, var(--fg) 12%, transparent); }
 /* All notes shown over a note: the house is where one is, and the note's tab is the way back — it
  * looks like a tab to go to. (An empty tab has nothing but all notes: it stays the one shown.) */
 body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):not(:hover) { background: color-mix(in srgb, var(--fg) 4.5%, transparent); color: var(--fg2); }
@@ -1125,7 +1142,7 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 .sb-item.open > .sb-in > .sb-row .sb-chev { transform: rotate(90deg); }
 .sb-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
 .sb-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.is-dir > .sb-in > .sb-row .sb-icon, .sb-row.active .sb-icon { color: var(--accent); }
+.is-dir > .sb-in > .sb-row .sb-icon, .sb-row.active .sb-icon { color: var(--accent-text); }
 /* a note shared under a link: a small sign at the end of its row */
 .sb-shared { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-left: auto; color: var(--fg3); animation: sb-shared-in var(--dur-fast) var(--ease-out); }
 .sb-shared svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -1151,7 +1168,27 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
   transition: box-shadow var(--dur-fast) var(--ease-out);
 }
 .sb-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
-.sb-field::placeholder { color: var(--fg3); }
+.sb-field::placeholder { color: var(--fg-quiet); }
+/* a new note or folder: a small window that asks for its name (viewer.js: openNewNote) */
+#newdlg { position: fixed; inset: 0; z-index: 52; display: grid; place-items: start center; padding-top: 22vh; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#newdlg[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+.new-box { display: grid; gap: 14px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; margin: 0; padding: 18px 18px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg); transform: scale(var(--popover-from-scale, 0.96)); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+#newdlg[data-open] .new-box { transform: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.new-head { display: flex; gap: 12px; align-items: center; }
+.new-sign { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text); }
+.new-sign svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.new-sign .sf { font-size: 17px; }
+.new-words { display: grid; gap: 1px; min-width: 0; }
+.new-words b { font-weight: 600; font-size: 14px; }
+.new-where { margin: 0; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.new-box .sb-field { width: 100%; height: 30px; margin: 0; }
+.new-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.new-box .btn { height: var(--control-height, 28px); min-width: 72px; padding: 0 12px; font-size: 13px; }
+.new-box .btn:disabled { opacity: 0.4; pointer-events: none; }
+.new-box .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+.new-box .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+@media (prefers-reduced-motion: reduce) { .new-box { transform: none; } }
+@media print { #newdlg { display: none !important; } }
 /* renaming: the field lies over the name; the row's icon stays where it is */
 .sb-item > .sb-in { position: relative; }
 .sb-row.renaming { background: var(--sb-selected); pointer-events: none; }
@@ -1212,7 +1249,7 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 #textmenu .menu-item:disabled { color: var(--fg3); }
 #textmenu .menu-item:disabled .menu-key { color: var(--fg3); }
 /* a shortcut, as macOS writes it (⌃⇧V) */
-.menu-key { flex: none; margin-left: 16px; color: var(--fg3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.menu-key { flex: none; margin-left: 16px; color: var(--fg-quiet); font-size: 13px; font-variant-numeric: tabular-nums; }
 .menu-item.danger { color: var(--c-red); }
 .menu-item.hl .menu-key, .menu-item.danger.hl { color: var(--on-accent, #fff); }
 .menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }
@@ -1283,14 +1320,14 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 .sf::before { content: attr(data-g); }
 .find-icon .sf, .menu-icon .sf, .rp-search .sf { font-size: 14px; }
 #settings-btn .sf { font-size: 16px; }
-.sb-folder .sf { flex: none; color: var(--accent); }
+.sb-folder .sf { flex: none; color: var(--accent-text); }
 .sb-chev .sf { font-size: 9px; }
 .callout-fold .sf { font-size: 11px; }
 details.props .callout-fold .sf { font-size: 10px; }
 .empty-icon .sf { font-size: 34px; }
 .ov-sep .sf { font-size: 12px; }
 .ov-opt .sf { font-size: 14px; }
-.ov-folder.ov-tile .ov-icon .sf { font-size: 40px; color: var(--accent); }
+.ov-folder.ov-tile .ov-icon .sf { font-size: 40px; color: var(--accent-text); }
 .ov-row .ov-icon .sf { font-size: 18px; }
 .ov-go .sf { font-size: 11px; }
 

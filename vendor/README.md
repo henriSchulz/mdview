@@ -1,7 +1,8 @@
 # Libraries bundled with the app
 
-Minified and committed, so the app needs no build and no network. Each keeps its own license;
-this file names them, as the two that carry no notice of their own in the minified file ask for.
+Minified and committed, so the app needs no build and no network. Each keeps its own license:
+this file names them, and `LICENSES.md` beside it holds their texts (gathered from the packages
+by `dev/build-licenses.mjs`; it goes into the installers with this folder).
 
 | File | Library | License |
 |---|---|---|
@@ -14,6 +15,9 @@ this file names them, as the two that carry no notice of their own in the minifi
 | `pdfjs/` | PDF.js | Apache-2.0 (`pdfjs/LICENSE`) |
 | `prosemirror.min.js` | the ProseMirror packages named at its head | MIT |
 | `diff.min.js` | diff 9.0.0 | BSD-3-Clause |
+
+Not in this folder, and another's work too: the landing page's scroll runtime,
+`web/public/welcome/scrollcraft.js` and `.css` (MIT, `scrollcraft.LICENSE` beside them).
 
 KaTeX — Copyright (c) 2013–2020 Khan Academy and other contributors. MIT License:
 <https://github.com/KaTeX/KaTeX/blob/main/LICENSE>

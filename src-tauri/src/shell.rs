@@ -226,6 +226,36 @@ fn can_write(path: &Path) -> bool {
 }
 
 /// Why the file can't be edited in place, or None if it can.
+/// A file written whole or not at all: beside it under another name first, then put in its place
+/// — a full disk or a crash in the middle leaves the file as it was, not cut off. A link is
+/// followed (the file it names is what is written), the file keeps its permissions; where no file
+/// can be made beside it, it is written in place as before.
+fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
+    let Some(name) = real.file_name().map(|n| n.to_string_lossy().into_owned()) else { return fs::write(path, data) };
+    let beside = real.with_file_name(format!(".{name}.mdview-{}", std::process::id()));
+    let made = (|| -> std::io::Result<()> {
+        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&beside)?;
+        f.write_all(data)?;
+        f.sync_all()?;
+        if let Ok(meta) = fs::metadata(&real) {
+            let _ = fs::set_permissions(&beside, meta.permissions());
+        }
+        fs::rename(&beside, &real)
+    })();
+    match made {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let _ = fs::remove_file(&beside);
+            // (the disk is full: nothing is tried in place — that would cut the file off)
+            if e.raw_os_error() == Some(28) && real.exists() {
+                return Err(e);
+            }
+            fs::write(path, data)
+        }
+    }
+}
+
 fn readonly_reason(path: &Path, raw: Option<&[u8]>) -> Option<&'static str> {
     let Some(raw) = raw else {
         return (!can_write(&dir_of(path))).then_some("folder is read-only");
@@ -362,6 +392,8 @@ pub struct Win {
     tree_json: Option<String>,
     note_paths: HashSet<String>,
     kept_dirs: HashSet<String>, // folders made from the sidebar: shown although nothing is in them yet
+    trashed: Vec<PathBuf>, // what went to the trash last: taken out again by Undo (while its message stands)
+    trashed_shown: Option<PathBuf>, // … and the note that was on screen then, if it went with it
     share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
@@ -464,18 +496,48 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
 }
 
 impl App {
+    /// The event, later. One thread keeps all that is waited for — not a thread each: a folder in
+    /// which thousands of files change at once asks for as many, and a thread that cannot be had
+    /// would take the one everything runs on with it.
     fn after(&self, ms: u64, event: Event) {
-        let tx = self.tx.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(ms));
-            let _ = tx.send(event);
+        use std::sync::mpsc::RecvTimeoutError;
+        use std::time::Instant;
+        static TIMER: std::sync::OnceLock<std::sync::Mutex<Sender<(Instant, Event)>>> = std::sync::OnceLock::new();
+        let timer = TIMER.get_or_init(|| {
+            let (to, due) = std::sync::mpsc::channel::<(Instant, Event)>();
+            let tx = self.tx.clone();
+            let _ = std::thread::Builder::new().name("timer".into()).spawn(move || {
+                let mut waiting: Vec<(Instant, Event)> = vec![];
+                loop {
+                    let now = Instant::now();
+                    let (mut ripe, rest): (Vec<_>, Vec<_>) = std::mem::take(&mut waiting).into_iter().partition(|w| w.0 <= now);
+                    waiting = rest;
+                    ripe.sort_by_key(|w| w.0); // (in the order they were asked for)
+                    for (_, event) in ripe {
+                        let _ = tx.send(event);
+                    }
+                    let got = match waiting.iter().map(|w| w.0).min() {
+                        Some(at) => due.recv_timeout(at.saturating_duration_since(Instant::now())),
+                        None => due.recv().map_err(|_| RecvTimeoutError::Disconnected),
+                    };
+                    match got {
+                        Ok(w) => waiting.push(w),
+                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Disconnected) => return,
+                    }
+                }
+            });
+            std::sync::Mutex::new(to)
         });
+        if let Ok(to) = timer.lock() {
+            let _ = to.send((Instant::now() + Duration::from_millis(ms), event));
+        }
     }
 
     fn save_state(&self) {
         let file = state_file();
         let _ = fs::create_dir_all(dir_of(&file));
-        let _ = fs::write(file, Value::Object(self.state.clone()).to_string());
+        let _ = write_whole(&file, Value::Object(self.state.clone()).to_string().as_bytes());
     }
 
     // -- history ----------------------------------------------------------
@@ -845,6 +907,16 @@ impl App {
                         w.toast(text.clone());
                     }
                 }
+                // (what goes wrong without having been asked for is said too, once when it begins: a project
+                // that has stopped being sent is not found out about from a tooltip weeks later.
+                // "offline" is not said — a machine without a network is no news)
+                let failing = |v: &Value| matches!(v["state"].as_str(), Some("error" | "signin"));
+                if failing(&standing) && !asked && !self.synced.get(&root).is_some_and(failing) {
+                    let text = if standing["state"] == "signin" { "GitHub: sign in again — this folder is not being synced (Settings › History)".to_string() } else { format!("Not synced: {}", standing["why"].as_str().unwrap_or("GitHub refused")) };
+                    for w in self.wins.values().filter(|w| here(w)) {
+                        w.toast(text.clone());
+                    }
+                }
                 if *DEBUG {
                     eprintln!("[sync] {}: {standing}", root.display());
                 }
@@ -1066,6 +1138,8 @@ impl Win {
             tree_json: None,
             note_paths: HashSet::new(),
             kept_dirs: HashSet::new(),
+            trashed: vec![],
+            trashed_shown: None,
             share_asked: None,
             title_cache: TitleCache::new(),
             watcher,
@@ -1665,7 +1739,7 @@ impl Win {
             return host::launch_path(path); // a picture, a film, any other file: in its own application
         }
         // in a tab of its own where that was asked for; a note that has a tab already: that tab
-        let real = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
         let there = self.tabs.iter().enumerate().position(|(k, t)| k != self.tab && t.path.as_ref() == Some(&real));
         if tab {
             self.new_tab(app, Some(&real), None, None);
@@ -1707,7 +1781,12 @@ impl Win {
         }
         self.rescan(app);
         self.open_path(app, &path, None, true);
-        self.js("MdView.setMode", &[json!("edit"), json!("end")]);
+        // written at once, in the mode that is worked in: the active one where that is it, else the source
+        if app.state.get("mode").and_then(Value::as_str) == Some("active") {
+            self.js("MdView.setMode", &[json!("active")]);
+        } else {
+            self.js("MdView.setMode", &[json!("edit"), json!("end")]);
+        }
     }
 
     fn new_folder(&mut self, app: &mut App, name: &str, wanted: Option<&str>) {
@@ -1761,16 +1840,16 @@ impl Win {
     fn relocate(&mut self, app: &mut App, folder: &Path, old: &Path, new: &Path, how: &str) {
         let (old, new) = (old.to_path_buf(), new.to_path_buf());
         let is_dir = old.is_dir();
-        let old_real = fs::canonicalize(&old).unwrap_or_else(|_| old.clone());
+        let old_real = crate::scan::canon(&old).unwrap_or_else(|_| old.clone());
         // (a name that differs only in case is the same file where the file system says so)
-        let taken = fs::symlink_metadata(&new).is_ok() && fs::canonicalize(&new).ok().as_ref() != Some(&old_real);
+        let taken = fs::symlink_metadata(&new).is_ok() && crate::scan::canon(&new).ok().as_ref() != Some(&old_real);
         if taken {
             return self.toast(format!("“{}” already exists", name_of(&new)));
         }
         if let Err(e) = fs::rename(&old, &new) {
             return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
-        let new_real = fs::canonicalize(&new).unwrap_or_else(|_| new.clone());
+        let new_real = crate::scan::canon(&new).unwrap_or_else(|_| new.clone());
         // (a link to a note goes on showing it)
         if let Ok(Some(root)) = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) } {
             app.share_dirty.insert(root);
@@ -1831,7 +1910,7 @@ impl Win {
             if !is_dir && !self.note_paths.contains(path.as_str()) {
                 continue;
             }
-            let real = fs::canonicalize(&p).unwrap_or_else(|_| p.clone());
+            let real = crate::scan::canon(&p).unwrap_or_else(|_| p.clone());
             going.push((p, real, is_dir));
         }
         if going.is_empty() {
@@ -1884,8 +1963,16 @@ impl Win {
         for (p, _, _) in &done {
             self.kept_dirs.remove(&s(p));
         }
-        self.toast(if done.len() == 1 { format!("Moved “{}” to Trash", name_of(&done[0].0)) } else { format!("Moved {} items to Trash", done.len()) });
+        let said = if done.len() == 1 { format!("Moved “{}” to Trash", name_of(&done[0].0)) } else { format!("Moved {} items to Trash", done.len()) };
         let current_gone = self.path.as_ref().is_some_and(|p| gone(p, &done));
+        // (it can be taken back while the message stands — where the system's trash can be read: not on macOS)
+        self.trashed = done.iter().map(|(p, _, _)| p.clone()).collect();
+        self.trashed_shown = self.path.clone().filter(|_| current_gone);
+        if cfg!(target_os = "macos") {
+            self.toast(said);
+        } else {
+            self.js("MdView.toast", &[json!(said), json!({ "label": "Undo", "type": "untrash" })]);
+        }
         self.rescan(app);
         if !current_gone {
             return self.send_tabs(app);
@@ -1895,6 +1982,42 @@ impl Win {
             None => self.show_nothing(app),
         }
     }
+
+    /// Undo of the last move to the trash: its files and folders back where they stood, the
+    /// note that was on screen shown again. (Tabs that were closed for it stay closed.)
+    #[cfg(not(target_os = "macos"))]
+    fn untrash(&mut self, app: &mut App) {
+        let wanted = std::mem::take(&mut self.trashed);
+        let shown = self.trashed_shown.take();
+        if wanted.is_empty() {
+            return;
+        }
+        let items = match trash::os_limited::list() {
+            Ok(items) => items,
+            Err(e) => return self.toast(format!("Couldn't read the Trash: {e}")),
+        };
+        // (of each, what was put there last under that path)
+        let back: Vec<_> = wanted.iter().filter_map(|p| items.iter().filter(|i| i.original_path() == *p).max_by_key(|i| i.time_deleted).cloned()).collect();
+        if back.is_empty() {
+            return self.toast("It is no longer in the Trash");
+        }
+        let n = back.len();
+        if let Err(e) = trash::os_limited::restore_all(back) {
+            self.toast(format!("Couldn't put it back: {e}"));
+        } else {
+            self.toast(if n == 1 { format!("Put back “{}”", name_of(&wanted[0])) } else { format!("Put back {n} items") });
+        }
+        for p in wanted.iter().filter(|p| p.is_dir()) {
+            self.kept_dirs.insert(s(p)); // (a folder that was empty is listed again)
+        }
+        self.rescan(app);
+        match shown.filter(|p| p.is_file()) {
+            Some(p) => self.open_path(app, &p, None, true),
+            None => self.send_tabs(app),
+        }
+    }
+    #[cfg(target_os = "macos")]
+    fn untrash(&mut self, _app: &mut App) {}
 
     fn sidebar_pref(&mut self, app: &mut App, msg: &Value) {
         if let Some(width) = msg.get("width") {
@@ -2099,7 +2222,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -2456,6 +2579,7 @@ impl Win {
                 Some(many) => self.trash_paths(app, &many.iter().filter_map(|p| p.as_str().map(String::from)).collect::<Vec<_>>()),
                 None => self.trash_note(app, text_of("path")),
             },
+            "untrash" => self.untrash(app),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
             "folder" => self.pick(app, Pick::Folder),
@@ -2537,7 +2661,7 @@ impl Win {
 
     /// A note or PDF a link leads to, in a tab: a new one, or (own) the one the file has already.
     fn link_tab(&mut self, app: &mut App, p: &Path, fragment: Option<String>, own: bool) {
-        let real = fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let real = crate::scan::canon(p).unwrap_or_else(|_| p.to_path_buf());
         let there = self.tabs.iter().enumerate().position(|(k, t)| own && k != self.tab && t.path.as_ref() == Some(&real));
         match there {
             Some(there) => {
@@ -2598,6 +2722,12 @@ impl Win {
 
     fn toggle_task(&mut self, app: &mut App, line: i64, checked: bool) {
         let Some(path) = self.path.clone().filter(|_| line >= 0) else { return };
+        // (a note that is only read — not UTF-8, too large, not to be written: its text read as
+        // UTF-8 and written back would not be the file any more)
+        if let Some(why) = fs::read(&path).ok().and_then(|raw| readonly_reason(&path, Some(&raw))) {
+            self.toast(format!("Can't edit: {why}"));
+            return self.render(app, true, None, false);
+        }
         let Ok(text) = read_text(&path, None) else { return };
         let mut lines: Vec<String> = text.split('\n').map(String::from).collect();
         let Some(old) = lines.get(line as usize).cloned() else { return };
@@ -2605,7 +2735,7 @@ impl Win {
             return self.render(app, true, None, false);
         };
         lines[line as usize] = format!("{}{}{}", &m[1], if checked { "x" } else { " " }, &old[m.get(2).unwrap().end()..]);
-        if let Err(e) = fs::write(&path, lines.join("\n")) {
+        if let Err(e) = write_whole(&path, lines.join("\n").as_bytes()) {
             self.toast(format!("Couldn't save: {}", strerror(&e)));
             self.render(app, true, None, false);
         }
@@ -2619,7 +2749,7 @@ impl Win {
             return; // (never the text of a note into a PDF)
         }
         if exact {
-            match fs::write(&path, text.as_bytes()) {
+            match write_whole(&path, text.as_bytes()) {
                 Ok(()) => self.own_write = Some(text.as_bytes().to_vec()), // the watcher will report it: nothing to reload
                 Err(e) => self.js("MdView.saveFailed", &[json!(strerror(&e))]),
             }
@@ -2630,12 +2760,11 @@ impl Win {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => vec![],
             Err(e) => return self.js("MdView.saveFailed", &[json!(strerror(&e))]),
         };
-        // Written in place (no temp file + rename), so symlinked files and
-        // their permissions stay what they are. Line endings are kept.
+        // (Written whole — write_whole: a link is followed, the permissions stay.) Line endings are kept.
         let crlf = old.windows(2).any(|w| w == b"\r\n");
         let data = if crlf { text.replace('\n', "\r\n").into_bytes() } else { text.as_bytes().to_vec() };
         if data != old {
-            if let Err(e) = fs::write(&path, &data) {
+            if let Err(e) = write_whole(&path, &data) {
                 return self.js("MdView.saveFailed", &[json!(strerror(&e))]);
             }
         }
@@ -3033,7 +3162,7 @@ impl Win {
             self.closing = true;
             self.js("MdView.flush", &[json!(true)]);
             self.close_turn += 1;
-            return app.after(400, Event::CloseNow { label: self.label.clone(), turn: self.close_turn });
+            return app.after(1500, Event::CloseNow { label: self.label.clone(), turn: self.close_turn });
         }
         self.close_turn += 1;
         self.settle_quick(); // (a quick note left by closing: named, or gone if nothing is in it)

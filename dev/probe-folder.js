@@ -54,7 +54,7 @@
       ok("the + button offers a note or a folder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder", cmds());
       shown()[1].click();
       await sleep(400);
-      const input = document.getElementById("sb-new-input");
+      const input = document.getElementById("new-name");
       ok("New Folder: the name field asks for a folder's name", document.activeElement === input && input.placeholder === "Folder name", input.placeholder);
       const enter = async (name) => { input.value = name; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(900); };
       await enter("Drafts");

@@ -346,7 +346,7 @@
       row.forEach((cell) => {
         if (r === 0) aligns.push(cell.attrs.align);
         const kept = cell.content.size ? A.tables.source.get(cell.content) : null;
-        out.push(kept != null ? kept : inline(cell, cx).replace(/\n/g, " ").replace(/(?<!\\)\|/g, "\\|"));
+        out.push(kept != null ? kept : inline(cell, cx).replace(/\n/g, " ").replace(/\|/g, "\\|")); // (every "|", also one behind a backslash — a norm in a formula, \|v\|: the table takes one backslash off each, and what is left is the cell's text)
       });
       rows.push(out);
     });
@@ -709,5 +709,15 @@
     return [0, 1, 2].some((level) => says(canonical(node, { profile, level }), node, d.store));
   }
 
-  A.markdown = { plainOk, block, canonical, markerOf: (list, d) => markerOf(list, { profile: d.store.profile || (d.store.profile = profileOf(d.store.text)) }), merge3, same, shape, parseBlock, profileOf, escapeText, expressible };
+  /* A block that no Markdown reads back as it is shown (emphasis that would run into the letters
+   * beside it, …) is written in its plain form. That is said, once for each such text — else what
+   * is on screen and what is in the file differ without a word. */
+  const unsaid = new Set();
+  const cannotSay = (_node, text) => {
+    if (unsaid.has(text) || !window.MdView?.core?.toast) return;
+    if (unsaid.size > 200) unsaid.clear();
+    unsaid.add(text);
+    window.MdView.core.toast(window.MdStrings.t("active.cannotSay"));
+  };
+  A.markdown = { onMismatch: cannotSay, plainOk, block, canonical, markerOf: (list, d) => markerOf(list, { profile: d.store.profile || (d.store.profile = profileOf(d.store.text)) }), merge3, same, shape, parseBlock, profileOf, escapeText, expressible };
 })();

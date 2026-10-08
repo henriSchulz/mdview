@@ -36,6 +36,7 @@
   // what was written here and is no commit yet: path → { text, base } (base: the blob it was
   // written over; null: the file is new), the files deleted here, the folders made here
   const drafts = new Map(), gone = new Set(), keptDirs = new Set(); // (filled when the tab knows which are its own: claimTab)
+  const goneAt = new Map(); // a file deleted here → the blob it was then (this session's deletions: what is written there since is not deleted with it)
   const blobs = new Map(); // pictures put in here, until they are in a commit: path → their bytes, base64
   /* The drafts are a tab's own. Two tabs on the same repository each write what was typed in
    * them; were the drafts one heap, the second tab would take the first's half-typed text for
@@ -55,10 +56,16 @@
       if (!unkept) { unkept = true; setTimeout(() => { unkept = false; commit(); }, 0); }
     }
     if (gone.size) keep(mineKey("gone"), [...gone]); else forget(mineKey("gone"));
+    // (the pictures and files put in and not committed yet: with the drafts that show them — else a
+    // reload before the commit leaves a note that names a picture nobody has. As far as there is room.)
+    let size = 0;
+    for (const b of blobs.values()) size += b.length;
+    if (blobs.size && size < 3000000) keep(mineKey("blobs"), Object.fromEntries(blobs)); else forget(mineKey("blobs"));
   }
-  function adopt(draftsKey, goneKey) {
+  function adopt(draftsKey, goneKey, blobsKey) {
     for (const [r, d] of Object.entries(load(draftsKey, {}))) if (d && typeof d.text === "string" && (!drafts.has(r) || (d.at || 0) > (drafts.get(r).at || 0))) drafts.set(r, d);
     for (const r of load(goneKey, [])) gone.add(r);
+    if (blobsKey) for (const [r, b] of Object.entries(load(blobsKey, {}))) if (typeof b === "string" && !blobs.has(r)) blobs.set(r, b);
   }
   async function claimTab() {
     const locks = navigator.locks, name = (id) => "mdview:tab:" + id;
@@ -72,14 +79,14 @@
       TAB = id;
     }
     try { sessionStorage.setItem("mdview:tab", TAB); } catch { /* (not allowed) */ }
-    adopt(mineKey("drafts"), mineKey("gone"));
+    adopt(mineKey("drafts"), mineKey("gone"), mineKey("blobs"));
     adopt(KEY + ":drafts", KEY + ":gone"); // (from before drafts were a tab's own)
     forget(KEY + ":drafts"); forget(KEY + ":gone");
     const prefix = KEY + ":drafts:", others = [];
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith(prefix) || k.startsWith(KEY + ":gone:"))) others.push(k.slice(k.lastIndexOf(":") + 1)); } } catch { /* (not allowed) */ }
     for (const other of new Set(others)) {
       if (other === TAB) continue;
-      const take = () => { adopt(`${KEY}:drafts:${other}`, `${KEY}:gone:${other}`); forget(`${KEY}:drafts:${other}`); forget(`${KEY}:gone:${other}`); };
+      const take = () => { adopt(`${KEY}:drafts:${other}`, `${KEY}:gone:${other}`, `${KEY}:blobs:${other}`); forget(`${KEY}:drafts:${other}`); forget(`${KEY}:gone:${other}`); forget(`${KEY}:blobs:${other}`); };
       // (its lock is free: the tab is gone. Taken over while the lock is held, so that two tabs opened at once do not both take it)
       if (locks) await locks.request(name(other), { ifAvailable: true }, (lock) => { if (lock) take(); }).catch(() => {});
       else take();
@@ -375,11 +382,18 @@
       if (joined.text === theirs) drafts.delete(r); else drafts.set(r, { text: joined.text, at: d.at, base: now.sha });
       if (onScreen === BASE + "/" + r) render(onScreen, { keepScroll: true }); // (what they wrote is in it now)
     }
-    for (const r of [...gone]) if (!files.has(r)) gone.delete(r); // (deleted there too)
+    for (const r of [...gone]) {
+      if (!files.has(r)) gone.delete(r); // (deleted there too)
+      // (… or written on there since it was deleted here: what they wrote stays — a deletion does not win over a text nobody here has seen)
+      else if (goneAt.has(r) && goneAt.get(r) !== files.get(r).sha) { gone.delete(r); goneAt.delete(r); toast(`“${r.split("/").pop()}” was changed elsewhere after it was deleted here: it stays`); }
+    }
     for (const [r, sha] of [...away]) if ((files.get(r) || {}).sha !== sha) away.delete(r); // (deleted there, or another file by now: that one stays)
     keepDrafts();
     return found;
   }
+  // what keeps the drafts from becoming a commit, said when it begins (not with every try)
+  let unsentAs = "";
+  function unsent(kind, text) { if (kind && kind !== unsentAs) toast(text); unsentAs = kind; }
   /* What was written becomes a commit. Where the branch moved meanwhile, it is looked at and the
    * commit tried again on what is there now. */
   function commit() {
@@ -396,10 +410,21 @@
         // (what each draft is sent as is written down first: should the answer never come, the draft knows its own commit again)
         for (const [, d] of sent) { const sha = await blobId(d.text); if (!(d.sent || []).includes(sha)) d.sent = [...(d.sent || []).slice(-5), sha]; }
         keepDrafts();
-        const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: additions.reduce((n, a) => n + (a.text || a.base64).length, 0) < 40000,
-          body: JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted }) });
+        const body = JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted });
+        // (keepalive — the commit goes on while the tab closes — is for bodies a browser allows it for: 64 KiB, in bytes)
+        const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: new TextEncoder().encode(body).length < 60000, body });
         if (res.status === 409) { await look(true); continue; } // (someone wrote meanwhile)
-        if (!res.ok) { toast("Couldn't keep what was written. It stays in this browser, and is tried again"); later(); return; }
+        if (!res.ok) {
+          // (what trying again cannot mend — no right to write, too large, refused: said once, and tried
+          // again only when something more is written; anything else — the server, the line — after a while)
+          const lasting = [400, 403, 404, 413, 422].includes(res.status);
+          unsent(lasting ? "refused" : "later", lasting
+            ? (res.status === 413 ? "What was written is too large to be kept in one piece" : res.status === 403 || res.status === 404 ? "This repository does not let you write: what was written stays in this browser only" : "GitHub did not take what was written: it stays in this browser only")
+            : "Couldn't keep what was written. It stays in this browser, and is tried again");
+          if (!lasting) later();
+          return;
+        }
+        unsent("", "");
         head = (await res.json()).head;
         // (what is shared changed: the server is told, so that a link finds its repository and the overview is right)
         if (sent.has(C.SHARES)) ask(API + "/shares", { method: "POST" }).catch(() => {});
@@ -419,7 +444,7 @@
         return;
       }
       later();
-    })().catch((e) => { console.error("mdview host: commit", e); later(); }).finally(() => { busy = null; });
+    })().catch((e) => { console.error("mdview host: commit", e); unsent("offline", "No connection: what is written stays in this browser until there is one"); later(); }).finally(() => { busy = null; });
     return busy;
   }
   const mayWrite = () => { if (project()) return true; toast("Turn the history on first: the clock in the sidebar"); return false; };
@@ -437,6 +462,7 @@
   async function putPicture(note, stem, ext, blob) {
     const target = placeFor(note, stem, ext);
     blobs.set(rel(target), base64Of(new Uint8Array(await blob.arrayBuffer())));
+    keepDrafts();
     return target;
   }
   /* A whiteboard (board.js) is a picture that is text: *.board.svg, with its own data in it. */
@@ -501,7 +527,7 @@
       }
       removed.set(r, bytes);
       blobs.delete(r);
-      if (files.has(r)) gone.add(r);
+      if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
       delete all[r];
       changed = true;
     }
@@ -624,7 +650,7 @@
     if (C.isMd(path)) {
       const text = await textOf(path);
       drafts.delete(r);
-      if (files.has(r)) gone.add(r);
+      if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
       write(rel(now), text);
       await sharesFollow(r, rel(now)); // (its link goes on showing it)
     } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
@@ -975,7 +1001,7 @@
       for (const p of list) {
         const r = rel(p);
         drafts.delete(r);
-        if (files.has(r)) gone.add(r);
+        if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
         if (C.isMd(p)) await sharesFollow(r, null); // (a link to it shows nothing any more)
         tabs.drop(p);
       }

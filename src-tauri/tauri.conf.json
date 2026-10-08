@@ -18,7 +18,8 @@
       "../board.js": "board.js", "../board.css": "board.css", "../board/": "board/",
       "../strings.js": "strings.js", "../active.css": "active.css", "../motion.css": "motion.css",
       "../active/": "active/", "../vendor/": "vendor/",
-      "../docs/FEATURES.md": "docs/FEATURES.md"
+      "../docs/FEATURES.md": "docs/FEATURES.md",
+      "../LICENSE": "LICENSE"
     }
   }
 }

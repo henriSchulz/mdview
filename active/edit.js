@@ -181,7 +181,8 @@
     while (index > 0) {
       const node = parent.child(--index);
       pos -= node.nodeSize;
-      if (node.type !== N.hidden) return { node, pos };
+      // (nor a comment of HTML alone, which shows nothing: Backspace would select and then delete what cannot be seen)
+      if (node.type !== N.hidden && !(node.type === N.island && node.attrs.kind === "html" && !String(node.attrs.raw || "").replace(/<!--[\s\S]*?-->/g, "").trim() && !window.MdView.core.pages.isRow(node.attrs.raw))) return { node, pos };
     }
     return null;
   }
@@ -734,6 +735,14 @@
           tr.insert(tr.mapping.map(where), node);
         }
       }
+      // (… and one that went into a list or a quote with the blocks around it — made items, set in —
+      // has no place there: it stands in the document, where it was put back; there it would be twice)
+      const nested = [];
+      tr.doc.descendants((n, pos) => { if (n.type === N.hidden && tr.doc.resolve(pos).depth > 0) nested.push([pos, n.nodeSize]); return !n.isTextblock && n.type !== N.hidden; });
+      for (const [pos, size] of nested.reverse()) {
+        const $p = tr.doc.resolve(pos);
+        if ($p.parent.childCount > 1 && $p.parent.canReplace($p.index(), $p.index() + 1)) tr.delete(pos, pos + size);
+      }
       // lists and links, where something changed
       const touched = (node, pos) => {
         if (isList(node)) {
@@ -829,7 +838,7 @@
       // a click on an island opens its dialog; on a formula its popover; a picture wants a double click
       handleClickOn(view, pos, node, nodePos, event, direct) {
         if (!direct || event.button !== 0 || event.ctrlKey || event.metaKey || !view.editable) return false;
-        if (event.target.matches?.(".props input.task[data-prop]")) return true; // (a property's box: it switches the property, islands.js — not the dialog)
+        if (event.target?.matches?.(".props input.task[data-prop]")) return true; // (a property's box: it switches the property, islands.js — not the dialog)
         if (node.type === N.island && node.attrs.virtual) return A.notes.clicked(view, event);
         if (node.type === N.island && node.attrs.kind === "frontmatter") return true; // (the properties stand at the note's head, no block to open: edited from the menu of a right click)
         // (an embedded picture or PDF page is a picture: a click selects it, its dialog is in its menu)

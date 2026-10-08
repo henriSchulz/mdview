@@ -8,7 +8,7 @@
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
   // Anything that leaves the file or the window hands over unsaved edits first.
-  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab"]);
+  const LEAVING = new Set(["back", "forward", "open", "reload", "close", "print", "external", "note", "newnote", "quicknote", "folder", "rename", "move", "trash", "tab", "link", "wikilink"]); // (a link followed leaves the note too: what was typed a moment ago is in the file first)
   let leaving = false; // a save because the note, the mode or the window is being left (not the timer's)
   const post = (type, data = {}) => {
     if (LEAVING.has(type)) { leaving = true; window.MdBoard?.leave?.(); flushSave(); leaving = false; } // (an open whiteboard is the note's: what is drawn goes first)
@@ -151,6 +151,18 @@
   // ------------------------------------------------------------ markdown-it
   const md = window.markdownit({ html: true, linkify: true, typographer: false, breaks: false });
   md.validateLink = (url) => !/^\s*(javascript|vbscript):/i.test(url);
+  /* A note's own HTML is shown as it is written — but not what would reach beyond the note: a
+   * page that is sent elsewhere at once (meta), styles and style sheets for the whole window,
+   * forms, frames, scripts, another base for its addresses. Notes come from shared and synced
+   * folders too. (Scripts and handlers are kept out by the page's policy as well; this is the
+   * note's side of it.) */
+  const BEYOND = "meta|link|base|style|script|form|iframe|frame|frameset|object|embed|applet";
+  const safeHtml = (html) => String(html)
+    .replace(new RegExp("<(style|script)\\b[\\s\\S]*?(?:<\\/\\1\\s*>|$)", "gi"), "")
+    .replace(new RegExp("<\\/?(?:" + BEYOND + ")\\b[^>]*>?", "gi"), "")
+    .replace(/(<[^>]*?)\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "$1")
+    .replace(/(<[^>]*?\s(?:href|src|action|formaction|xlink:href)\s*=\s*["']?)\s*(?:javascript|vbscript):/gi, "$1#");
+  md.renderer.rules.html_inline = (t, i) => safeHtml(t[i].content);
   const plugin = (p) => { if (p) md.use(p.full || p.default || p); };
   [window.markdownitFootnote, window.markdownitDeflist, window.markdownitMark,
     window.markdownitSub, window.markdownitSup, window.markdownitAbbr,
@@ -419,6 +431,33 @@
   md.renderer.rules.callout_body_open = () => '<div class="callout-content">';
   md.renderer.rules.callout_body_close = () => "</div>";
 
+  /* A link to a note that stands alone in its paragraph, with a comment behind it that says how it
+   * looks — [[Name]] <!-- link row -->, <!-- link card -->, one of the theme's colours after that —
+   * is a block of its own: drawn as the line of a page is, opened by a click. Any other program
+   * shows the link. (Not in a list: there a link is a line of text.) */
+  const LINK_ROW = /^ {0,3}\[\[([^\[\]\n]+)\]\][ \t]*<!--\s*link(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*-->\s*$/;
+  const linkMark = (inner, look) => `[[${inner}]] <!-- link ${[look.style, look.color].filter(Boolean).join(" ")} -->`;
+  md.core.ruler.after("inline", "link_rows", (state) => {
+    const toks = state.tokens;
+    let lists = 0;
+    for (let i = 0; i + 2 < toks.length; i++) {
+      const t = toks[i];
+      if (/^(bullet_list|ordered_list|dl)_(open|close)$/.test(t.type)) lists += t.nesting;
+      if (lists || t.type !== "paragraph_open" || t.hidden || toks[i + 1].type !== "inline") continue;
+      const kids = (toks[i + 1].children || []).filter((k) => !(k.type === "text" && !k.content.trim()));
+      if (kids.length !== 2 || kids[0].type !== "wikilink" || kids[1].type !== "html_inline") continue;
+      const m = /^<!--\s*link(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*-->$/.exec(kids[1].content);
+      if (!m) continue;
+      const row = new state.Token("link_row", "", 0);
+      row.block = true; row.map = t.map; row.level = t.level; row.meta = { ...kids[0].meta, look: m[1] || "" };
+      toks.splice(i, 3, row);
+    }
+  });
+  md.renderer.rules.link_row = (t, i, _o, env) => {
+    const { target, alias, look: words } = t[i].meta, look = pageLook(words), ok = target.startsWith("#") || (env.links && env.links[target]);
+    return `<div class="page-row link-row${ok ? "" : " unresolved"}" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-wiki="${esc(target)}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${esc(alias || wikiLabel(target))}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
+  };
+
   // --- task lists (clickable, written back to the file)
   /* A file block: a paragraph that is nothing but a link to a file beside the note — not a note,
    * not an address elsewhere. It is drawn as a card that names the file; a click opens it, or
@@ -564,7 +603,7 @@
     }
     return `<div class="code-block${from ? " code-file" : ""}"${attr}>${from ? `<div class="code-from">${from.html}</div>` : ""}<div class="code-tools">` +
       (lang ? `<span class="code-lang">${esc(lang)}</span>` : "") +
-      `<button class="btn code-copy" type="button" title="Copy code">Copy</button></div>` +
+      `<button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div>` +
       `<pre><code class="hljs${lang ? " language-" + esc(lang) : ""}">${code}</code></pre></div>`;
   }
   /* A file that is text — source code, a list of files, a log — can stand in a note as the code it
@@ -588,7 +627,7 @@
       { label, html: `<a class="wikilink file" href="#" data-wiki="${esc(target.split("#")[0])}">${esc(label)}</a>` + (alias && !how ? `<span class="code-from-title">${esc(alias)}</span>` : "") });
   }
   md.renderer.rules.code_block = (toks, idx) =>
-    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
+    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
   /* How a table looks is said by a line before it, a comment no renderer shows:
    *     <!-- table narrow head=#cfeefc -->
    * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
@@ -715,7 +754,39 @@
     if (props !== null && typeof props !== "object") return { body: text, props: null, offset: 0 };
     return { body: text.slice(m[0].length), props: props || {}, offset: (m[0].match(/\n/g) || []).length };
   }
-  const stripComments = (text) => text.replace(/%%[\s\S]*?%%/g, (m) => m.replace(/[^\n]/g, ""));
+  /* %% comments %% are blank to the parser (their line breaks stay: the lines keep their numbers).
+   * Not what stands in code: there "%%" is the code's — a cell magic, a format string — and two
+   * of them in two code blocks would swallow everything between them. */
+  const stripComments = (text) => {
+    const next = /%%|^ {0,3}(?:(`{3,})[^`\n]*|(~{3,})[^\n]*)$|(`+)/gm;
+    let out = "", at = 0, m;
+    while ((m = next.exec(text))) {
+      let end;
+      if (m[0] === "%%") {
+        const close = text.indexOf("%%", m.index + 2);
+        if (close < 0) break; // (never closed: text)
+        end = close + 2;
+        out += text.slice(at, m.index) + text.slice(m.index, end).replace(/[^\n]/g, "");
+      } else {
+        const run = m[1] || m[2] || m[3];
+        if (m[3]) { // code in the line: to the same run of backticks, within its paragraph
+          const stop = text.indexOf("\n\n", m.index), close = new RegExp("(?<!`)" + run + "(?!`)", "g");
+          close.lastIndex = m.index + run.length;
+          const c = close.exec(text);
+          end = c && (stop < 0 || c.index < stop) ? c.index + run.length : m.index + run.length;
+        } else { // a fence: to the line that closes it, or the end
+          const close = new RegExp("^ {0,3}" + run[0] + "{" + run.length + ",}[ \\t]*$", "gm");
+          close.lastIndex = next.lastIndex;
+          const c = close.exec(text);
+          end = c ? c.index + c[0].length : text.length;
+        }
+        out += text.slice(at, end);
+      }
+      at = end;
+      next.lastIndex = end;
+    }
+    return out + text.slice(at);
+  };
 
   /* ------------------------------------------------------------ pages in a note
    * A note can hold pages of its own. In the file — one Markdown file, as ever — a page is what
@@ -915,10 +986,10 @@
     for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
     const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
     pagebar.innerHTML = `<div class="pb-way">` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
-      `<input class="pb-title" type="text" aria-label="Page name" spellcheck="false" autocomplete="off">`;
+      `<input class="pb-title" type="text" aria-label="${esc(T("Page name"))}" spellcheck="false" autocomplete="off">`;
     const title = pagebar.querySelector(".pb-title");
     title.value = v.page.title;
-    title.placeholder = "Untitled";
+    title.placeholder = T("page.untitled");
     title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
   }
@@ -972,7 +1043,7 @@
   const htmlBlockRule = md.renderer.rules.html_block;
   md.renderer.rules.html_block = (t, i, o, env, self) => {
     const m = PAGE_ROW.exec(t[i].content.trim());
-    if (!m) return htmlBlockRule ? htmlBlockRule(t, i, o, env, self) : t[i].content;
+    if (!m) return safeHtml(t[i].content);
     const page = pagesShown && pagesShown.byId.get(m[3]), look = pageLook(m[1]), name = esc((page ? page.title : m[2]) || "Untitled");
     return `<div class="page-row" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-page="${esc(m[3])}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
   };
@@ -997,7 +1068,7 @@
       return md.renderInline(String(v), env);
     };
     const rows = keys.map((k) => `<tr><th>${esc(k)}</th><td>${value(k, props[k])}</td></tr>`).join("");
-    return `<details class="props" open><summary><span class="callout-fold">${ICON.chevron}</span>Properties</summary><table>${rows}</table></details>`;
+    return `<details class="props" open><summary><span class="callout-fold">${ICON.chevron}</span>${esc(T("Properties"))}</summary><table>${rows}</table></details>`;
   }
 
   // ------------------------------------------------------------ rendering
@@ -1071,6 +1142,10 @@
       draw(p, null);
       return;
     }
+    // (another note than the one before: the count of saves is the application's again — a save that
+    // came too late for the note it was for is not counted there, and would keep every later state
+    // of this note from being shown)
+    if (p.seq != null && (!prev || prev.path !== p.path)) saveSeq = Math.min(saveSeq, p.seq);
     // read from disk before the last save from here was written: older than what is on screen
     if (prev && prev.path === p.path && p.seq != null && p.seq < saveSeq && !p.error) return;
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
@@ -1095,7 +1170,7 @@
     }
     if (mode === "active") {
       if (!p.error) {
-        if (prev && prev.path === p.path && !MdActive.view.shows(viewOf(p))) MdActive.dialog.closeFields(); // a popover's place is gone; a dialog finds its block again (islands.js)
+        if (prev && prev.path === p.path && !MdActive.view.shows(viewOf(p))) { MdActive.dialog.closeFields(); if (MdActive.menu.isOpen) MdActive.menu.close(true); } // a popover's place is gone, and a menu's entries name places of the text that was; a dialog finds its block again (islands.js)
         if (prev && prev.path === p.path && MdActive.view.dirty) { // edits here that are not saved yet win, as in the source editor
           if (p.text !== prev.text) toast(T("active.keptEdits"));
           const shown = MdActive.view.payload, text = MdActive.view.serialize();
@@ -1121,7 +1196,7 @@
     drawn = null;
     outline = [];
     document.title = folder ? folder.name : "Markdown Notes";
-    content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><p>No notes in this folder yet.</p></div>`;
+    content.innerHTML = emptyState();
     window.scrollTo(0, 0);
     reveal();
     markActiveNote(false);
@@ -1137,7 +1212,7 @@
     if (p.kind === "pdf" && !p.error) {
       outline = [];
       reveal();
-      loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast("The PDF viewer could not be loaded"));
+      loadPdf().then(() => { if (current === p) MdPdf.show(content, p); }, () => toast(T("The PDF viewer could not be loaded")));
       return;
     }
     if (p.error) {
@@ -1246,7 +1321,7 @@
     let el = null;
     if (ln) { for (const x of shownRoot().querySelectorAll("[data-line]")) { if (Number(x.dataset.line) <= Number(ln[1])) el = x; else break; } }
     else el = findTarget(frag);
-    if (!el) { if (smooth) toast("Section not found"); return; }
+    if (!el) { if (smooth) toast(T("Section not found")); return; }
     el.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "instant", block: "start" });
     el.classList.remove("flash");
     void el.offsetWidth;
@@ -1384,17 +1459,17 @@
   const toolbar = document.createElement("nav");
   toolbar.id = "toolbar";
   toolbar.innerHTML =
-    `<button class="tb" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
-    `<button class="tb" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.apps}</button>` +
-    `<button class="tb" data-act="outline" title="Outline (Ctrl+Shift+O)" aria-label="Outline">${ICON.list}</button>` +
-    `<button class="tb" data-act="find" title="Find (Ctrl+F)" aria-label="Find">${ICON.search}</button>` +
-    `<button class="tb" data-act="share" title="Share…" aria-label="Share">${ICON.share}</button>` +
+    `<button class="tb" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    `<button class="tb" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
+    `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
+    `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
+    `<button class="tb" data-act="share" title="${esc(T("Share…"))}" aria-label="${esc(T("Share"))}">${ICON.share}</button>` +
     `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
     [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
     `</div>` +
-    `<button class="tb" data-act="panel" title="Insert and Format (Ctrl+Alt+P)" aria-label="Insert and Format" aria-pressed="false">${ICON.panel}</button>`;
+    `<button class="tb" data-act="panel" title="${esc(T("Insert and Format (Ctrl+Alt+P)"))}" aria-label="${esc(T("Insert and Format"))}" aria-pressed="false">${ICON.panel}</button>`;
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
@@ -1411,11 +1486,11 @@
   findBar.style.setProperty("--origin", "top right");
   findBar.innerHTML =
     `<span class="find-icon">${ICON.search}</span>` +
-    `<input id="find-input" type="search" placeholder="Find" spellcheck="false" autocomplete="off">` +
+    `<input id="find-input" type="search" placeholder="${esc(T("Find"))}" spellcheck="false" autocomplete="off">` +
     `<span id="find-count" aria-live="polite"></span>` +
-    `<button class="tb" data-act="prev" title="Previous match (Shift+Enter)" aria-label="Previous match">${ICON.up}</button>` +
-    `<button class="tb" data-act="next" title="Next match (Enter)" aria-label="Next match">${ICON.down}</button>` +
-    `<button class="tb" data-act="closefind" title="Close (Esc)" aria-label="Close find">${ICON.x}</button>`;
+    `<button class="tb" data-act="prev" title="${esc(T("Previous match (Shift+Enter)"))}" aria-label="${esc(T("Previous match"))}">${ICON.up}</button>` +
+    `<button class="tb" data-act="next" title="${esc(T("Next match (Enter)"))}" aria-label="${esc(T("Next match"))}">${ICON.down}</button>` +
+    `<button class="tb" data-act="closefind" title="${esc(T("Close (Esc)"))}" aria-label="${esc(T("Close find"))}">${ICON.x}</button>`;
   document.body.appendChild(findBar);
   const findInput = findBar.querySelector("#find-input");
   const findCount = findBar.querySelector("#find-count");
@@ -1425,12 +1500,31 @@
   toastEl.setAttribute("role", "status");
   document.body.appendChild(toastEl);
   let toastTimer = 0;
-  function toast(msg) {
+  /* A short message. With something to take back ({ label, type }: a button that sends that to
+   * the application — Undo after a move to the trash), it stands longer, and Ctrl+Z does the
+   * same while it stands (outside a text that is being typed in). */
+  let toastAct = null;
+  function toast(msg, action = null) {
     toastEl.textContent = msg;
+    toastAct = action && action.type ? action : null;
+    toastEl.toggleAttribute("data-action", !!toastAct);
+    if (toastAct) {
+      const b = toastEl.appendChild(document.createElement("button"));
+      b.type = "button";
+      b.textContent = toastAct.label === "Undo" ? T("toast.undo") : toastAct.label;
+    }
     toastEl.dataset.open = "";
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => delete toastEl.dataset.open, 1600);
+    toastTimer = setTimeout(() => { delete toastEl.dataset.open; toastAct = null; }, toastAct ? 6000 : 1600);
   }
+  const toastDo = () => { const a = toastAct; if (!a) return false; toastAct = null; clearTimeout(toastTimer); delete toastEl.dataset.open; post(a.type); return true; };
+  toastEl.addEventListener("click", (e) => { if (e.target.closest("button")) toastDo(); });
+  addEventListener("keydown", (e) => {
+    if (!toastAct || e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+    if (e.target.closest?.('input, textarea, [contenteditable="true"]')) return; // (there it is the text's own undo)
+    e.preventDefault(); e.stopPropagation();
+    toastDo();
+  }, true);
 
   const outlineOpen = () => outlinePop.hasAttribute("data-open");
   const findOpen = () => findBar.hasAttribute("data-open");
@@ -1555,7 +1649,7 @@
       }
     }
     if (!hits.length) {
-      findCount.textContent = "No matches";
+      findCount.textContent = T("No matches");
       findBar.classList.add("no-hits");
       return;
     }
@@ -1569,7 +1663,7 @@
     hitIdx = (i + hits.length) % hits.length;
     const r = hits[hitIdx];
     if (canHighlight) CSS.highlights.set("find-current", new Highlight(r));
-    findCount.textContent = `${hitIdx + 1} of ${hits.length}`;
+    findCount.textContent = T("{0} of {1}", hitIdx + 1, hits.length);
     if (!scroll) return;
     const rect = r.getBoundingClientRect();
     if (rect.top < 80 || rect.bottom > innerHeight - 40) {
@@ -1968,16 +2062,17 @@
     edReplace(a, v.length - b, text.slice(a, text.length - b));
   }
   function saveFailed(msg) {
-    if (mode === "active") MdActive.view.failed();
-    savedText = null; // still dirty: the next edit or mode switch tries again
-    toast(`Couldn't save: ${msg}`);
+    // still dirty: the next edit or mode switch tries again — the mode's own text: after a save from
+    // the active mode failed, the source editor's (older) text is not what is written next
+    if (mode === "active") MdActive.view.failed(); else savedText = null;
+    toast(T("Couldn't save: {0}", msg));
   }
   // The file changed on disk while it is open in the editor.
   function adoptDisk(p) {
     if (p.text === edInput.value) { savedText = p.text; return; }
     if (dirty()) {
       sourceIs(p, edInput.value);
-      toast("File changed on disk — keeping your edits");
+      toast(T("File changed on disk — keeping your edits"));
       return;
     }
     const pos = edInput.selectionStart;
@@ -1993,7 +2088,7 @@
   function setMode(next, caret) {
     if (next === mode || !current) return;
     if (READING && next !== "read") return; // (a host that only shows a note: there is nothing but reading it)
-    if (current.kind === "pdf") { toast("A PDF is read here, not edited"); return; }
+    if (current.kind === "pdf") { toast(T("A PDF is read here, not edited")); return; }
     if (next === "active") {
       if (current.error) return;
       if (!window.MdActive?.view) { // first use: ProseMirror and active/*.js
@@ -2002,7 +2097,7 @@
         return;
       }
     }
-    if (next === "edit" && current.readonly) { toast(`Can't edit: ${current.readonly}`); return; }
+    if (next === "edit" && current.readonly) { toast(T("Can't edit: {0}", current.readonly)); return; }
     edCaret = mode === "active" && next === "edit" && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // current.text is what the active mode holds
     if (next === "active" && !current.toldLarge && current.text.length > 400000 && current.text.split("\n").length > LARGE_LINES) {
@@ -2241,7 +2336,7 @@
   codeBox.id = "codeview";
   codeBox.innerHTML = `<div class="codeview-box surface" role="dialog" aria-modal="true" aria-labelledby="codeview-title" tabindex="-1">` +
     `<header class="codeview-head"><b id="codeview-title"></b><span class="code-lang"></span><span class="codeview-space"></span>` +
-    `<button class="btn code-copy" type="button">Copy</button><button class="tb" type="button" data-codeview-close aria-label="Close" title="Close (Esc)">${ICON.x}</button></header>` +
+    `<button class="btn code-copy" type="button">${esc(T("Copy"))}</button><button class="tb" type="button" data-codeview-close aria-label="${esc(T("Close"))}" title="${esc(T("Close (Esc)"))}">${ICON.x}</button></header>` +
     `<div class="code-block"><pre><code></code></pre></div></div>`;
   document.body.appendChild(codeBox);
   let codeFrom = null;
@@ -2598,23 +2693,20 @@
   sidebar.id = "sidebar";
   sidebar.innerHTML =
     `<header class="sb-head">` +
-    `<button class="sb-folder" data-act="folder" title="Open another folder (Ctrl+Alt+O)">${ICON.folder}<span class="sb-folder-name"></span></button>` +
+    `<button class="sb-folder" data-act="folder" title="${esc(T("Open another folder (Ctrl+Alt+O)"))}">${ICON.folder}<span class="sb-folder-name"></span></button>` +
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
     `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
     // (only where the folder has another side to be brought in line with: a project linked to a repository, a repository in the browser)
-    `<button class="tb sb-sync" data-act="syncnow" title="Sync Now: fetch what other devices wrote, and send what was written here" aria-label="Sync Now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
-    `<button class="tb" data-act="newmenu" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
+    `<button class="tb sb-sync" data-act="syncnow" title="${esc(T("Sync Now: fetch what other devices wrote, and send what was written here"))}" aria-label="${esc(T("Sync Now"))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
+    `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `</header>` +
-    `<div class="sb-new sb-fold"><div class="sb-in"><input id="sb-new-input" class="sb-field" type="text" placeholder="Note name" aria-label="New note name" spellcheck="false" autocomplete="off"></div></div>` +
-    `<input class="sb-field qn-search" type="search" placeholder="Search" aria-label="Search the quick notes" spellcheck="false" autocomplete="off">` +
-    `<nav class="sb-list" aria-label="Notes"></nav>`;
+    `<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off">` +
+    `<nav class="sb-list" aria-label="${esc(T("Notes"))}"></nav>`;
   document.body.appendChild(sidebar);
   sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); quickPaint(); });
   sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; quickPaint(); e.target.blur(); } });
   const sbHead = sidebar.querySelector(".sb-head");
   const sbList = sidebar.querySelector(".sb-list");
-  const sbNew = sidebar.querySelector(".sb-new");
-  const sbNewInput = sidebar.querySelector("#sb-new-input");
   const sbTitlesBtn = sbHead.querySelector('[data-act="titles"]');
   const sbHistoryBtn = sbHead.querySelector('[data-act="historymenu"]');
   // where the folder stands with a history (the shell says: f.history) — as the menu's entries name it
@@ -2696,7 +2788,7 @@
       if (e.dir) {
         el.classList.toggle("open", sbOpen.has(e.key));
         row.setAttribute("aria-expanded", String(sbOpen.has(e.key)));
-        syncDir(row.nextSibling.firstChild, e.dir, depth + 1, fresh);
+        syncDir(el.querySelector(":scope > .sb-in > .sb-kids > .sb-in"), e.dir, depth + 1, fresh); // (not the row's next sibling: while the folder is renamed, that is the name's field)
       }
     }
     for (const el of have.values()) {
@@ -2713,7 +2805,7 @@
     const any = folder.tree.dirs.length || folder.tree.notes.length;
     sbList.querySelector(":scope > .menu-empty")?.remove();
     syncDir(sbList, folder.tree, 0, fresh);
-    if (!any) sbList.insertAdjacentHTML("afterbegin", '<div class="menu-empty">No notes yet</div>');
+    if (!any) sbList.insertAdjacentHTML("afterbegin", `<div class="menu-empty">${esc(T("No notes yet"))}</div>`);
     const moved = [];
     for (const [key, top] of stood) {
       const el = sbList.querySelector(`.sb-item[data-key="${CSS.escape(key)}"]:not(.leaving)`), dy = el ? top - el.getBoundingClientRect().top : 0;
@@ -2853,13 +2945,13 @@
   function quickOf(n) {
     const seen = quickSeen.get(n.path);
     if (seen) return seen;
-    return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? "New Note" : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
+    return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? T("New Note") : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
   }
   function quickWhen(secs) {
     if (!secs) return "";
     const d = new Date(secs * 1000), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), days = Math.round((day(now) - day(d)) / 86400000);
     if (days <= 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    if (days === 1) return "Yesterday";
+    if (days === 1) return T("Yesterday");
     if (days < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
     return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "2-digit" });
   }
@@ -2873,7 +2965,7 @@
       const q = quickOf(n);
       let meta = row.querySelector(".qn-meta");
       if (!meta) { meta = document.createElement("span"); meta.className = "qn-meta"; meta.innerHTML = "<span class='qn-when'></span><span class='qn-says'></span>"; row.appendChild(meta); }
-      const when = quickWhen(n.mtime), says = q.says || "No additional text";
+      const when = quickWhen(n.mtime), says = q.says || T("No additional text");
       if (meta.firstChild.textContent !== when) meta.firstChild.textContent = when;
       if (meta.lastChild.textContent !== says) meta.lastChild.textContent = says;
       const seen = quickSeen.get(n.path);
@@ -2889,7 +2981,7 @@
     const mtimes = new Map(folder.tree.notes.map((n) => [n.path, n.mtime]));
     for (const [path, p] of Object.entries(got || {})) {
       const lines = stripFrontmatter(String(p.text || "")).body.split("\n").map(quickPlain).filter(Boolean);
-      quickSeen.set(path, { mtime: mtimes.get(path), title: lines[0] || "New Note", says: lines.slice(1, 3).join(" ") });
+      quickSeen.set(path, { mtime: mtimes.get(path), title: lines[0] || T("New Note"), says: lines.slice(1, 3).join(" ") });
     }
     syncList(false); // (their names are what they say first now)
     markActiveNote(false);
@@ -2908,9 +3000,9 @@
   };
   addEventListener("keydown", (e) => {
     if (!folder || !folder.quick || e.defaultPrevented || !keysMatch(e, window.MdPrefs?.quickNew || "Ctrl+N")) return;
-    if (document.querySelector("#settings[data-open], #dlg[data-open], #share[data-open]")) return;
+    if (document.querySelector("#settings[data-open], #dlg[data-open], #share[data-open], #newdlg[data-open]")) return;
     e.preventDefault(); e.stopPropagation();
-    post("quicknote");
+    openNewNote();
   }, true);
 
   /* What stands beside the notes — PDFs, pictures, sound and film, anything else — is listed as
@@ -3053,44 +3145,44 @@
   const entry = (cmd, icon, label, on, key = "", cls = "", more = "") =>
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
-    entry("open", "note", "Open", "ovnote ovdir") +
-    entry("opentab", "plus", "Open in New Tab", "file ovnote") +
-    entry("opentab", "plus", "Open in New Tabs", "ovmany") +
+    entry("open", "note", T("Open"), "ovnote ovdir") +
+    entry("opentab", "plus", T("Open in New Tab"), "file ovnote") +
+    entry("opentab", "plus", T("Open in New Tabs"), "ovmany") +
     `<div class="menu-rule" data-for="file ovnote ovdir ovmany"></div>` +
-    entry("tab:new", "plus", "New Tab", "tab", "Ctrl+T") +
-    entry("tab:reopen", "note", "Reopen Closed Tab", "tab", "Ctrl+Shift+T") +
+    entry("tab:new", "plus", T("New Tab"), "tab", "Ctrl+T") +
+    entry("tab:reopen", "note", T("Reopen Closed Tab"), "tab", "Ctrl+Shift+T") +
     `<div class="menu-rule" data-for="tab"></div>` +
-    entry("tab:close", "x", "Close Tab", "tab", "Ctrl+W") +
-    entry("tab:others", "x", "Close Other Tabs", "tab") +
+    entry("tab:close", "x", T("Close Tab"), "tab", "Ctrl+W") +
+    entry("tab:others", "x", T("Close Other Tabs"), "tab") +
     // the history's button: what can be done where the folder stands (data-state), or what is so (disabled)
-    entry("history:conflicts", "info", "Resolve Conflicts…", "history", "", "", ' data-sync="conflict"') +
+    entry("history:conflicts", "info", T("Resolve Conflicts…"), "history", "", "", ' data-sync="conflict"') +
     `<div class="menu-rule" data-for="history" data-sync="conflict"></div>` +
-    entry("history:show", "history", "Show History of This Note", "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
+    entry("history:show", "history", T("Show History of This Note"), "history", "Ctrl+Alt+H", "", ' data-state="project inside foreign adopt paused"') +
     `<div class="menu-rule" data-for="history" data-state="project inside foreign adopt paused"></div>` +
-    entry("history:on", "history", "Turn On History", "history", "", "", ' data-state="none paused"') +
-    entry("history:on", "history", "Use This Repository for History…", "history", "", "", ' data-state="adopt"') +
-    entry("history:is", "check", "History Is On", "history", "", "", ' data-state="project" disabled') +
+    entry("history:on", "history", T("Turn On History"), "history", "", "", ' data-state="none paused"') +
+    entry("history:on", "history", T("Use This Repository for History…"), "history", "", "", ' data-state="adopt"') +
+    entry("history:is", "check", T("History Is On"), "history", "", "", ' data-state="project" disabled') +
     entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
     entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
-    entry("history:off", "x", "Turn Off History", "history", "", "", ' data-state="project"') +
-    entry("newnote", "note", "New Note", "dir new blank ovnew", "Ctrl+N") +
-    entry("newfolder", "folderPlus", "New Folder", "dir new blank ovnew") +
+    entry("history:off", "x", T("Turn Off History"), "history", "", "", ' data-state="project"') +
+    entry("newnote", "note", T("New Note"), "dir new blank ovnew", "Ctrl+N") +
+    entry("newfolder", "folderPlus", T("New Folder"), "dir new blank ovnew") +
     `<div class="menu-rule" data-for="blank"></div>` +
-    entry("sort:opened", "check", "Sort by Last Opened", "blank") +
-    entry("sort:name", "check", "Sort by Name", "blank") +
-    entry("sort:modified", "check", "Sort by Date Modified", "blank") +
+    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
+    entry("sort:name", "check", T("Sort by Name"), "blank") +
+    entry("sort:modified", "check", T("Sort by Date Modified"), "blank") +
     `<div class="menu-rule" data-for="dir"></div>` +
-    entry("default", "external", "Open in Default App", "file ovnote") +
-    entry("openwith", "apps", "Open With…", "file ovnote") +
-    entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
-    entry("download", "down", "Download", "file ovnote") +
+    entry("default", "external", T("Open in Default App"), "file ovnote") +
+    entry("openwith", "apps", T("Open With…"), "file ovnote") +
+    entry("reveal", "reveal", T("Show in Finder"), "file dir ovnote ovdir") +
+    entry("download", "down", T("Download"), "file ovnote") +
     `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
-    entry("share", "share", "Share…", "file ovnote") +
-    entry("rename", "rename", "Rename", "file dir ovnote ovdir", "F2") +
-    entry("trash", "trash", "Move to Trash", "file dir ovnote ovdir ovmany", "Del", " danger") +
+    entry("share", "share", T("Share…"), "file ovnote") +
+    entry("rename", "rename", T("Rename"), "file dir ovnote ovdir", "F2") +
+    entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany", "Del", " danger") +
     // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
     `<div class="menu-rule" data-for="blank file dir ovnote ovdir"></div>` +
-    entry("sub:show", "list", "Show", "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
+    entry("sub:show", "list", T("Show"), "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
   for (const el of ctx.querySelectorAll(".has-sub")) el.insertAdjacentHTML("beforeend", `<span class="menu-key menu-go">${ICON.chevron}</span>`);
   // the menu beside it: what "Show" leads to — a tick for each kind that is listed
   const ctxSub = document.createElement("div");
@@ -3220,7 +3312,7 @@
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" || kind === "ovnew" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
-      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast("Only notes can be shared"); }
+      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast(T("Only notes can be shared")); }
       else if (cmd === "history:conflicts") openConflicts();
       else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
@@ -3407,19 +3499,19 @@
     const href = link && !link.getAttribute("href").startsWith("#") ? link.href : null;
     const edit = (cmd) => () => post("editcmd", { cmd });
     const rows = [];
-    if (editable) rows.push(["Cut", "Ctrl+X", selected, edit("Cut")]);
-    rows.push(["Copy", "Ctrl+C", selected, edit("Copy")]);
-    if (editable) rows.push(["Paste", "Ctrl+V", true, edit("Paste")]);
-    if (pdf) rows.push(["Go to PDF", "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
+    if (editable) rows.push([T("Cut"), "Ctrl+X", selected, edit("Cut")]);
+    rows.push([T("Copy"), "Ctrl+C", selected, edit("Copy")]);
+    if (editable) rows.push([T("Paste"), "Ctrl+V", true, edit("Paste")]);
+    if (pdf) rows.push([T("Go to PDF"), "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
     const fig = img || field || t.closest(".pm") ? null : zoomFigureAt(t);
-    if (fig) rows.push(["Show Large", "", true, () => zoomFigure(fig)], null);
+    if (fig) rows.push([T("Show Large"), "", true, () => zoomFigure(fig)], null);
     if (href || (img && img.src)) rows.push(null);
-    if (href) rows.push(["Copy Link", "", true, () => post("copy", { text: href })]);
-    if (img && img.src) rows.push(["Copy Image", "", true, () => post("copyimage", { src: img.src })]);
+    if (href) rows.push([T("Copy Link"), "", true, () => post("copy", { text: href })]);
+    if (img && img.src) rows.push([T("Copy Image"), "", true, () => post("copyimage", { src: img.src })]);
     rows.push(null);
     // (in the active mode, beside the text or on it: the note's blocks as wholes, not its text — a field's text stays text)
     const blocks = !field && mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share"));
-    rows.push(["Select All", "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
+    rows.push([T("Select All"), "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
     // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
     if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {
       const shown = window.MdPrefs?.props !== false;
@@ -3506,6 +3598,7 @@
       if (e.key === "Enter") { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
       else if (e.key.startsWith("Arrow") || e.key === "Delete" || e.key === "F2") e.stopPropagation(); // not the list's keys
+      else if ((e.ctrlKey || e.metaKey) && !/^[acvxz]$/i.test(e.key)) { e.preventDefault(); e.stopPropagation(); } // (nor the window's, while a name is typed)
     });
     input.addEventListener("blur", () => finish(true)); // clicking away keeps the name, like Finder
     row.classList.add("renaming");
@@ -3601,34 +3694,79 @@
     }
   }
 
-  // --- new note: a name field unfolds under the header; Enter creates the file
-  let newKind = "note", newDir = null; // what the name field makes, and where (null: beside the note on screen)
-  function openNewNote(kind = "note", dir = null) {
-    if (!sidebarOpen()) { showSidebar(true, true); post("sidebar", { visible: true }); }
-    newKind = kind; newDir = dir;
-    sbNewInput.placeholder = kind === "folder" ? "Folder name" : "Note name";
-    sbNewInput.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
-    sbNewInput.value = "";
-    sbNew.classList.add("open");
-    sbNewInput.focus({ preventScroll: true });
+  /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
+   * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
+  const emptyState = () => `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
+    (READING || !folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
+  document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && folder) { e.preventDefault(); openNewNote(); } });
+
+  // --- new note
+  /* A new note or folder is asked for in a small window of its own — from the sidebar's +, from All
+   * Notes, from a menu, by Ctrl+N: its name, and where it goes. Enter makes it, Esc (or a click
+   * beside the window) does not. Among the quick notes the name may be left out: the note is then
+   * named after its first line, as ever. */
+  let newKind = "note", newDir = null, newDlg = null, newBack = null;
+  const newOpen = () => !!newDlg && newDlg.hasAttribute("data-open");
+  function buildNewNote() {
+    newDlg = document.createElement("div");
+    newDlg.id = "newdlg";
+    newDlg.innerHTML = `<form class="new-box surface" role="dialog" aria-modal="true" aria-labelledby="new-title" novalidate>` +
+      `<div class="new-head"><span class="new-sign" aria-hidden="true"></span><div class="new-words"><b id="new-title"></b><p class="new-where"></p></div></div>` +
+      `<input id="new-name" class="sb-field" type="text" spellcheck="false" autocomplete="off">` +
+      `<div class="new-foot"><button class="btn" type="button" data-new="cancel">${esc(T("dialog.cancel"))}</button><button class="btn primary" type="submit">${esc(T("new.create"))}</button></div></form>`;
+    document.body.appendChild(newDlg);
+    const input = newDlg.querySelector("#new-name"), go = newDlg.querySelector(".btn.primary");
+    const quick = () => !!(folder && folder.quick) && newKind !== "folder";
+    input.addEventListener("input", () => { go.disabled = !input.value.trim() && !quick(); });
+    newDlg.addEventListener("mousedown", (e) => { if (e.target === newDlg) { e.preventDefault(); closeNewNote(); } });
+    newDlg.addEventListener("click", (e) => { if (e.target.closest('[data-new="cancel"]')) closeNewNote(); });
+    newDlg.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeNewNote(); return; }
+      if (e.key === "Enter" && !e.isComposing && e.target === input) { e.preventDefault(); newDlg.querySelector("form").requestSubmit(); return; }
+      if (e.key !== "Tab") return; // (the keyboard stays in the window)
+      const stops = [...newDlg.querySelectorAll("input, button:not(:disabled)")], i = stops.indexOf(document.activeElement);
+      e.preventDefault();
+      stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+    });
+    // (… and no key of the window behind it works through it: Ctrl+E, Ctrl+F, Ctrl+W)
+    newDlg.addEventListener("keydown", (e) => { if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) { e.stopPropagation(); if (!/^[acvxz]$/i.test(e.key)) e.preventDefault(); } });
+    newDlg.querySelector("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = input.value.trim(), kind = newKind;
+      if (!name && !quick()) return;
+      // next to the note on screen, if that one lives in this folder
+      const here = newDir || (current && current.path.startsWith(folder.root + "/") && !document.body.hasAttribute("data-overview") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
+      closeNewNote(false);
+      if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
+      if (!name) post("quicknote"); else post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
+    });
   }
-  function closeNewNote() {
-    if (!sbNew.classList.contains("open")) return false;
-    sbNew.classList.remove("open");
-    sbNewInput.blur();
+  function openNewNote(kind = "note", dir = null) {
+    if (!folder || newOpen()) return;
+    if (!newDlg) buildNewNote();
+    newKind = kind; newDir = dir;
+    const quick = !!folder.quick && kind !== "folder", input = newDlg.querySelector("#new-name");
+    const where = dir || (current && current.path.startsWith(folder.root + "/") && !document.body.hasAttribute("data-overview") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
+    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : ICON.note;
+    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : "new.note");
+    newDlg.querySelector(".new-where").textContent = quick ? T("new.quickHint") : T("new.in", where === folder.root ? folder.name : where.slice(folder.root.length + 1));
+    input.placeholder = kind === "folder" ? "Folder name" : "Note name";
+    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
+    input.value = "";
+    newDlg.querySelector(".btn.primary").disabled = !quick;
+    closeCtx(false);
+    newBack = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    newDlg.dataset.open = "";
+    input.focus({ preventScroll: true });
+  }
+  function closeNewNote(back = true) {
+    if (!newOpen()) return false;
+    delete newDlg.dataset.open;
+    newDlg.querySelector("#new-name").blur();
+    if (back && newBack && newBack.isConnected) newBack.focus({ preventScroll: true });
+    newBack = null;
     return true;
   }
-  sbNewInput.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" || e.isComposing) return;
-    e.preventDefault();
-    // next to the note on screen, if that one lives in this folder
-    const here = newDir || (current && current.path.startsWith(folder.root + "/") ? current.path.replace(/\/[^/]*$/, "") : folder.root);
-    const name = sbNewInput.value, kind = newKind;
-    closeNewNote();
-    if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
-    post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
-  });
-  sbNewInput.addEventListener("blur", () => closeNewNote());
 
 
   // ------------------------------------------------------------ tabs (folder windows)
@@ -3646,10 +3784,10 @@
   // (the sidebar's button stands at the left, where the sidebar is: first in the strip — beside the
   // sidebar's edge while that is open, at the window's while it is closed)
   tabbar.innerHTML = `<div class="tab-row">` +
-    `<button class="tab-home tab-side" data-act="sidebar" title="Sidebar (Ctrl+Alt+S)" aria-label="Sidebar">${ICON.sidebar}</button>` +
-    `<button class="tab-home" data-act="overview" title="All notes (Ctrl+Alt+G)" aria-label="All notes" aria-pressed="false">${ICON.home}</button>` +
+    `<button class="tab-home tab-side" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    `<button class="tab-home" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.home}</button>` +
     `<div class="tab-list" role="tablist"></div>` +
-    `<button class="tab-new" data-act="newtab" title="New tab (Ctrl+T)" aria-label="New tab">${ICON.plus}</button></div>`;
+    `<button class="tab-new" data-act="newtab" title="${esc(T("New tab (Ctrl+T)"))}" aria-label="${esc(T("New tab"))}">${ICON.plus}</button></div>`;
   document.body.appendChild(tabbar);
   const tabRow = tabbar.firstChild, tabList = tabbar.querySelector(".tab-list");
   let tabs = [], tabActive = null, tabShown = null, tabClosed = false; // tabActive: the one marked (at once, on a click); tabShown: the one the application says is shown
@@ -3657,7 +3795,7 @@
   const topRoom = () => (tabsOn() ? tabbar.offsetHeight : 0); // what of the window's top the strip takes
   const tabEls = () => [...tabList.children].filter((el) => !el.classList.contains("leaving"));
   function tabLabel(t) {
-    if (!t.path) return "All Notes";
+    if (!t.path) return T("All Notes");
     let title = "";
     if (sbTitles && folder) { // as the sidebar names it
       const find = (dir) => dir.notes.find((n) => n.real === t.path) || dir.dirs.reduce((hit, d) => hit || find(d), null);
@@ -3714,7 +3852,7 @@
         el.className = "tab";
         el.setAttribute("role", "tab");
         el.dataset.id = t.id;
-        el.innerHTML = `<span class="tab-icon"></span><button class="tab-x" type="button" tabindex="-1" aria-label="Close tab" data-tip="Close tab (${keys("Ctrl+W")})">${ICON.x}</button><span class="tab-label"></span>`;
+        el.innerHTML = `<span class="tab-icon"></span><button class="tab-x" type="button" tabindex="-1" aria-label="${esc(T("Close tab"))}" data-tip="Close tab (${keys("Ctrl+W")})">${ICON.x}</button><span class="tab-label"></span>`;
         if (!first) { el.classList.add("enter"); fresh.push(el); }
       }
       const at = prev ? prev.nextSibling : tabList.firstChild;
@@ -3854,7 +3992,7 @@
   const actions = {
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
-    share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast("Only notes can be shared"); },
+    share: () => { if (current && current.kind !== "pdf" && !current.error) openShare(); else toast(T("Only notes can be shared")); },
     edit: () => switchMode(mode === "edit" ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
@@ -3864,8 +4002,8 @@
     panel: () => { if (mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!sbTitles),
     newnote: () => openNewNote(),
-    newmenu: () => { // the + button: a note or a folder — among the quick notes a new one, at once
-      if (folder && folder.quick) return post("quicknote");
+    newmenu: () => { // the + button: a note or a folder — among the quick notes a new one
+      if (folder && folder.quick) return openNewNote();
       const b = sidebar.querySelector('[data-act="newmenu"]'), r = b.getBoundingClientRect();
       if (ctxOpen() && ctxKind === "new") { closeCtx(false); return; }
       openCtx(b, r.right, r.bottom + 4, "new");
@@ -3876,7 +4014,7 @@
       flush(false);
       post("sync-now");
       b.classList.remove("turning"); void b.offsetWidth; b.classList.add("turning"); // (it turns once: asked for)
-      toast("Syncing…");
+      toast(T("Syncing…"));
     },
     historymenu: () => { // the clock: the folder's history, switched on or said to be
       const r = sbHistoryBtn.getBoundingClientRect();
@@ -3915,10 +4053,17 @@
     if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); }
   }, true);
 
+  document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".page-row") && !e.target.closest('.pm[contenteditable="true"]')) { e.preventDefault(); e.target.click(); } });
+  // a link to a note followed: in a tab of its own (the note it stands in stays open); a heading of this note: there
+  const followWiki = (target) => { if (String(target).startsWith("#")) scrollToFragment(String(target).slice(1), true); else post("wikilink", { target, tab: "own" }); };
   // --- content clicks: links, tasks, copy
   document.addEventListener("click", (e) => {
     if (e.defaultPrevented) return;
     const row = e.target.closest(".page-row");
+    if (row && row.dataset.wiki != null) { // a link to a note, a block of its own (in text that is being edited: its block's own click, islands.js)
+      if (!row.closest('.pm[contenteditable="true"]')) followWiki(row.dataset.wiki);
+      return;
+    }
     if (row && !row.closest(".pm") && !row.closest(".transclusion")) { pageOpen(row.dataset.page); return; } // (in the active mode: its block's own click, islands.js)
     const box = e.target.closest("input.task");
     if (box && box.dataset.prop != null) { // a property, true or false: written into the note at once
@@ -3931,6 +4076,9 @@
       return;
     }
     if (box) {
+      // (in the text that is being edited a box is the editor's own — edit.js; one that stands in a
+      // block of HTML there has a line number from when the note was read: nothing is ticked by it)
+      if (box.closest('.pm[contenteditable="true"] .isl')) { e.preventDefault(); return; }
       if (box.disabled || box.dataset.line == null) { e.preventDefault(); return; }
       box.closest("li")?.classList.toggle("is-checked", box.checked);
       const shown = viewOf(current), line = Number(box.dataset.line);
@@ -3944,9 +4092,9 @@
     const copy = e.target.closest(".code-copy");
     if (copy) {
       post("copy", { text: copy.closest(".code-block").querySelector("code").textContent });
-      copy.textContent = "Copied";
+      copy.textContent = T("Copied");
       copy.classList.add("done");
-      setTimeout(() => { copy.textContent = "Copy"; copy.classList.remove("done"); }, 1400);
+      setTimeout(() => { copy.textContent = T("Copy"); copy.classList.remove("done"); }, 1400);
       return;
     }
     // A PDF embedded in the note is a picture: a double click shows it large, like any picture. To
@@ -4038,7 +4186,7 @@
         f: openFind, e: actions.edit, o: () => post("open"), r: () => post("reload"),
         // (saved — and, in a folder with a history, kept as a version at once and sent to its
         // repository, without waiting for the quiet while)
-        s: () => { if (mode !== "read") { flushSave(); toast("Saved"); } post("history-now"); },
+        s: () => { if (mode !== "read") { flushSave(); toast(T("Saved")); } post("history-now"); },
         n: () => { if (folder) openNewNote(); },
         ",": openSettings,
         p: printDoc, w: () => post("close"), q: () => post("close"), // (Ctrl+W in a window with tabs: the tab, see there)
@@ -4163,12 +4311,14 @@
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
+      // a link to a note as a block of its own: [[inner]] and how it looks
+      link: { isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },
       lookOf: (raw) => pageLook((PAGE_ROW.exec(String(raw || "").trim()) || [])[1]),
       rename: (raw, name) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark(pageLook(m[1]), pageName(name) || m[2], m[3]) : raw; }, titleOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[2] || "",
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },

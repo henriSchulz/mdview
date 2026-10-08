@@ -48,6 +48,7 @@ the note better. The full reference, with every example rendered, is
 | code put away behind a card | a fence's head `python hide The title` (`hide:small`, `hide:large` for the card's size) |
 | drawing | a fence named `svg` with one `<svg>` element |
 | whiteboard (drawn by hand in the app) | never written by hand: it is made in the app with `/whiteboard`. One that exists is named like a picture, alone on its line: `![](assets/board-….board.svg)` — keep such a line as it is, and never edit or regenerate the `.board.svg` file |
+| a link to a note as a block of its own: a row, a card (a colour after it) | alone in its paragraph: `[[Note]] <!-- link row -->`, `[[Note]] <!-- link card blue -->` |
 | PDF page link / embed | `[[paper.pdf#page=3]]`, `![[paper.pdf#page=3]]` |
 | a figure out of a PDF | `![[paper.pdf#page=3&rect=72,400,300,520]]` — see *Pictures from a PDF* |
 
