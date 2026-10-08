@@ -351,7 +351,10 @@
       rows.push(out);
     });
     const lines = A.tables.write(rows, aligns, style);
-    return node.attrs.wide ? [style.indent + "<!-- wide -->"].concat(lines) : lines;
+    // the line that says how it looks: as it was written, where it still says so; else written anew, or none
+    const core = window.MdView.core, was = node.attrs.mark ? core.tableLook(node.attrs.mark) : null;
+    const mark = was && was.wide === !!node.attrs.wide && was.head === (node.attrs.head || "") ? node.attrs.mark : core.tableMark({ wide: !!node.attrs.wide, head: node.attrs.head || "" });
+    return mark ? [style.indent + mark].concat(lines) : lines;
   }
   // -> the lines of every item of a list
   function listItems(node, cx) {
@@ -520,7 +523,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    table_cell: ["header", "align"], table: ["wide"], blockquote: ["deco", "color", "callout", "title", "fold"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], table: ["wide", "head"], blockquote: ["deco", "color", "callout", "title", "fold"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {

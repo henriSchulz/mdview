@@ -112,14 +112,20 @@ Right block(s).
 The ratio is optional. Top level only: never inside a list, a quote, a callout or other columns.
 Two to four columns; elsewhere they read as blocks one under the other.
 
-### Wide table
+### Tables and rules
+
+A table is as wide as the text column by itself. A line right before it changes how it looks:
+`narrow` (as wide as what it holds), `head=…` (its head row in a colour: red, orange, yellow,
+green, cyan, blue, magenta, or any `#rrggbb`).
 
 ```markdown
-<!-- wide -->
+<!-- table head=#cfeefc -->
 | A | B |
 |---|---|
 | 1 | 2 |
 ```
+
+A rule's look follows how it is written: `---` thin, `***` three dots, `___` heavy, `- - -` dotted.
 
 ### SVG drawings
 

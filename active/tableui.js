@@ -138,6 +138,42 @@
     view.dispatch(view.state.tr.setNodeMarkup(cell.tablePos, null, { ...cell.table.attrs, wide: !cell.table.attrs.wide }).setMeta("step", true));
     view.focus();
   };
+  // the head row's colour: one of the theme's, any other (#rrggbb), or none
+  const head = (view, cell, value) => {
+    const now = view.state.doc.nodeAt(cell.tablePos);
+    if (now && now.type === N.table) view.dispatch(view.state.tr.setNodeMarkup(cell.tablePos, null, { ...now.attrs, head: window.MdView.core.headColor(value) }).setMeta("step", true));
+    view.focus();
+  };
+  function headItems(view, cell) {
+    const core = window.MdView.core, now = cell.table.attrs.head || "", own = now.startsWith("#");
+    return [
+      item("table.head.none", () => head(view, cell, ""), { checked: !now }),
+      ...core.DECO_COLORS.map((c) => item("color." + c, () => head(view, cell, c), { checked: now === c })),
+      null,
+      // any colour, written as web pages write one
+      item("table.head.own", () => {
+        const dom = view.nodeDOM(cell.tablePos), rect = (dom && dom.getBoundingClientRect) ? dom.getBoundingClientRect() : { left: 100, right: 100, top: 100, bottom: 100 };
+        A.dialog.fields({
+          rect: { left: rect.left, right: rect.left, top: rect.top, bottom: rect.top + 24 }, label: T("table.head"),
+          fields: [{ key: "color", label: T("table.head.hex"), value: own ? now : "#cfeefc", mono: true, placeholder: "#cfeefc" }],
+          apply(v) { const c = core.headColor(v.color.trim().replace(/^(?!#)/, "#")); if (c) head(view, cell, c); else { core.toast(T("table.head.bad")); view.focus(); } },
+          cancel() { view.focus(); },
+        });
+      }, { label: T("table.head.own") + (own ? " (" + now + ")" : "") + "…", checked: own }),
+    ];
+  }
+  // the table's own menu (its "…"): how it looks, its rows and columns, and away with it
+  function tableItems(view, cell) {
+    return [
+      item("table.wide", () => wide(view, cell), { checked: !!cell.table.attrs.wide }),
+      { label: T("table.head"), items: headItems(view, cell) },
+      null,
+      { label: T("table.row"), items: rowItems(view, cell) },
+      { label: T("table.column"), items: colItems(view, cell) },
+      null,
+      item("table.delete", () => change(view, cell.tablePos, ops.remove()), { danger: true }),
+    ];
+  }
   function rowItems(view, cell) {
     const go = (op) => () => change(view, cell.tablePos, op), last = cell.table.childCount - 1;
     return [
@@ -166,12 +202,12 @@
   const cellOfDom = (view, dom) => { const pos = view.posAtDOM(dom, 0); return cellAt(view.state.doc.resolve(pos)); };
 
   // ------------------------------------------------------------ handles
-  const handles = { col: document.createElement("button"), row: document.createElement("button") };
+  const handles = { col: document.createElement("button"), row: document.createElement("button"), more: document.createElement("button") };
   for (const [kind, h] of Object.entries(handles)) {
     h.className = "tbl-h tbl-h-" + kind;
     h.type = "button";
     h.tabIndex = -1;
-    h.setAttribute("aria-label", T(kind === "col" ? "table.column" : "table.row"));
+    h.setAttribute("aria-label", T(kind === "col" ? "table.column" : kind === "row" ? "table.row" : "table.menu"));
     h.innerHTML = "<i></i><i></i><i></i>";
     document.body.appendChild(h);
   }
@@ -184,17 +220,23 @@
     const cx = Math.max(wrap.left, Math.min(r.left + r.width / 2, wrap.right));
     handles.col.style.left = cx + sx + "px";
     handles.col.style.top = table.top + sy + "px";
-    handles.row.style.left = Math.max(wrap.left, table.left) + sx + "px";
+    // the row's: three dots in the row itself, at the end of its first cell (pulled, the row moves)
+    const first = td.parentElement.cells[0].getBoundingClientRect();
+    handles.row.style.left = Math.max(wrap.left + 8, Math.min(first.right - 9, wrap.right - 9)) + sx + "px";
     handles.row.style.top = r.top + r.height / 2 + sy + "px";
-    handles.col.dataset.on = handles.row.dataset.on = "";
+    // the table's own menu: "…" beside its upper right corner
+    handles.more.style.left = Math.min(Math.min(table.right, wrap.right) + 20, innerWidth - 18) + sx + "px";
+    handles.more.style.top = table.top + 13 + sy + "px";
+    handles.col.dataset.on = handles.row.dataset.on = handles.more.dataset.on = "";
   }
   function hide() {
     over = null;
     delete handles.col.dataset.on;
     delete handles.row.dataset.on;
+    delete handles.more.dataset.on;
   }
   for (const [kind, h] of Object.entries(handles)) {
-    h.addEventListener("mousedown", (e) => { e.preventDefault(); if (e.button === 0) startDrag(kind, h, e); }); // the caret stays
+    h.addEventListener("mousedown", (e) => { e.preventDefault(); if (e.button === 0 && kind !== "more") startDrag(kind, h, e); }); // the caret stays
     h.addEventListener("mouseleave", (e) => { if (!drag && !e.relatedTarget?.closest?.(".pm table, .tbl-h") && !A.menu.isOpen) hide(); });
     h.addEventListener("click", () => {
       if (dragged) { dragged = false; return; } // the end of a drag, not a click
@@ -204,7 +246,7 @@
       if (!cell) return;
       const r = h.getBoundingClientRect();
       h.dataset.held = "";
-      A.menu.open({ x: kind === "col" ? r.left : r.right + 4, y: kind === "col" ? r.bottom + 4 : r.top, items: kind === "col" ? colItems(view, cell) : rowItems(view, cell), closed: () => view.focus() });
+      A.menu.open({ x: kind === "row" ? r.right + 4 : r.left, y: kind === "row" ? r.top : r.bottom + 4, items: kind === "col" ? colItems(view, cell) : kind === "row" ? rowItems(view, cell) : tableItems(view, cell), closed: () => view.focus() });
       const done = new MutationObserver(() => { if (!A.menu.isOpen) { delete h.dataset.held; done.disconnect(); if (!h.matches(":hover")) hide(); } });
       done.observe(A.menu.el, { attributes: true });
     });
@@ -314,5 +356,5 @@
     },
   });
 
-  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems, wide };
+  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems, wide, head, headItems, tableItems };
 })();

@@ -202,3 +202,26 @@ body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12
  * above it, a third line of the name showed in that room) */
 .ov-tile:not(.ov-folder) .ov-name { padding-bottom: 0; margin-bottom: 8px; border-bottom: 0; }
 .ov-tile:not(.ov-folder) .ov-name + :is(.ov-prev, .ov-pic) { border-top: 1px solid var(--line); padding-top: 8px; }
+
+/* --- the head, as Craft's "All Docs": the plus before the name — a raised round button — and at
+ * the right the choices in raised fields of their own, what is chosen a shade darker in it; "…"
+ * for the order and for what is listed beside the notes. (Sizes are layout; times, curves and
+ * radii the central ones.) */
+.ov-head { align-items: center; gap: 12px; }
+.ov-count { align-self: center; padding-top: 6px; }
+.ov-add, .ov-more {
+  width: 34px; height: 34px; background: var(--raised); color: var(--fg);
+  box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1);
+}
+.ov-add { margin-right: 4px; }
+.ov-add:hover, .ov-add.ctx-target, .ov-more:hover, .ov-more.ctx-target { background: color-mix(in srgb, var(--fg) 6%, var(--raised)); }
+.ov-add svg { stroke-width: 2.2; }
+.ov-more { align-self: center; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: var(--radius-popover); cursor: default; outline: var(--focus-ring) solid transparent; outline-offset: 2px; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.ov-more:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.ov-more:focus-visible { outline-color: var(--accent); }
+.ov-more svg { width: 18px; height: 18px; fill: currentColor; stroke: none; }
+.ov-seg { padding: 3px; border-radius: var(--radius-popover); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); }
+.ov-opt { height: calc(var(--control-height, 28px)); border-radius: calc(var(--radius-popover) - 3px); }
+.ov-thumb { top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--n, 2)); border-radius: calc(var(--radius-popover) - 3px); background: color-mix(in srgb, var(--fg) 8%, transparent); box-shadow: none; }
+body[data-mode="dark"] .ov-add, body[data-mode="dark"] .ov-more, body[data-mode="dark"] .ov-seg { box-shadow: 0 0 0 0.5px var(--line-strong); }
+body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 16%, transparent); }

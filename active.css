@@ -355,7 +355,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 
 /* ------------------------------------------------------------- tables */
 /* rows sit directly in <table> here: stripe them as the reading view's body rows */
-.pm table > tr:nth-child(odd) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }
+.pm table > tr:nth-child(odd) td { background: transparent; } /* (a sheet of lines: no stripes — viewer.css) */
 .pm td, .pm th { transition: background-color var(--dur-slow) var(--ease-out); }
 .pm td.fresh, .pm th.fresh { transition-duration: 0s; }
 .pm .selectedCell { background-color: color-mix(in srgb, var(--accent) 16%, transparent) !important; }
@@ -383,6 +383,7 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .tbl-h:hover, .tbl-h[data-held] { background: color-mix(in srgb, var(--fg) 10%, var(--surface)); }
 .tbl-h i { width: 3px; height: 3px; border-radius: 50%; background: var(--fg2); }
 .tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
+.tbl-h-more { width: 28px; height: 22px; transform: translate(-50%, -50%); }
 .tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
 
 .actmenu { position: fixed; z-index: 45; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
@@ -821,22 +822,13 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .actmenu:not([data-open]) { pointer-events: none; }
 
 /* blocks selected as wholes (a click on a handle, then the keyboard) */
-/* The highlight reaches out to the left over the block's handle (--blk-out: how far the handle
- * stands out, blocks.js leftOf), so the two are one box. Its colour is opaque: the part over the
- * handle is a second shadow, and two see-through ones would show double where they overlap. */
-.pm { --blk-sel: color-mix(in srgb, var(--accent) 16%, var(--bg)); --blk-out: 22px; }
-.pm .blk-sel { --blk-box: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
-.pm .cols.blk-sel { --blk-out: 46px; }
-/* Selected blocks that follow each other are one box: each reaches up over the gap to the one
- * before it — a shadow shifted up by the gap less the 4 px each of the two already reaches into
- * it (--up; the gap is the 1em under a block, or a heading's own room above it), so it ends where
- * the block before ends and covers nothing of it. */
-.pm .blk-sel + .blk-sel { --up: 8px; --blk-box: 0 0 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) 0 0 4px var(--blk-sel), 0 calc(-1 * var(--up)) 0 4px var(--blk-sel), calc(-1 * var(--blk-out)) calc(-1 * var(--up)) 0 4px var(--blk-sel); }
-/* (where two join, the corners between them are square: a round one would leave a notch) */
-.pm .blk-sel + .blk-sel { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; }   /* (a block with corners of its own — a formula, a code block — too) */
-.pm .blk-sel:has(+ .blk-sel) { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
-.pm .blk-sel + :is(h2, h3, h4, h5, h6).blk-sel { --up: calc(1.8em - 8px); }
-.pm .blk-sel + h1.blk-sel { --up: calc(1.2em - 8px); }
+/* Each selected block wears a field of its own: a light tint with round corners, a little wider
+ * than the block, with the room between two blocks left clear — several selected are several
+ * fields, one under the other (as Craft shows them), not one box around all of them. --blk-out
+ * (how far a field reached out over the block's handle) is none any more: the handle stands
+ * beside the field. */
+.pm { --blk-sel: color-mix(in srgb, var(--accent) 9%, var(--bg)); --blk-out: 0px; }
+.pm .blk-sel { --blk-box: 0 0 0 5px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
 .pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
 .pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.6em - var(--blk-out) - 4px); z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (as far out as the box of a block beside the list: the list's indent, 1.6em, and what a block's box reaches out — its handle stands 46 out, inside it) */
@@ -845,10 +837,7 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * before it, and the line is drawn over it — the same however the rule came to be selected.) */
 .pm hr.blk-sel, .pm.has-blocksel.ProseMirror-focused hr.blk-sel.ProseMirror-selectednode { position: relative; isolation: isolate; overflow: visible; background-color: transparent; box-shadow: none; }
 .pm hr.blk-sel::before { content: ""; position: absolute; inset: -8px -4px -8px calc(-4px - var(--blk-out)); z-index: -2; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; }
-.pm hr.blk-sel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--line-strong); pointer-events: none; }
-.pm .blk-sel + hr.blk-sel { --up: calc(2.2em - 8px); }
-.pm .blk-sel + hr.blk-sel::before { top: calc(-4px - var(--up)); border-top-left-radius: 0; border-top-right-radius: 0; }
-.pm hr.blk-sel:has(+ .blk-sel)::before { bottom: -4px; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.pm hr.blk-sel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--rule, var(--line-strong)); pointer-events: none; }
 /* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
 .pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
 /* (… and it reaches back into what stands before the block — the cells of a table lit up — and
@@ -1141,3 +1130,40 @@ body[data-mode="dark"] .share-card { background: color-mix(in srgb, var(--fg) 6%
   .st-close { width: 40px; height: 40px; }
   .hi-row { min-height: 48px; }
 }
+
+/* a table selected as a whole: a thin line around it in the accent's colour, its cells as they
+ * are — not the tint other blocks wear, which would lie over its head row's own colour */
+.pm .table-wrap.blk-sel { --blk-box: 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent); background-color: transparent; border-radius: 2px; }
+
+/* --- the Insert tab, as Craft's: one row for each thing — what it is in small, its name, and a
+ * grip where it can be pulled into the text — in raised fields; a rule's four looks as tiles that
+ * show the line; and a field of squares for a table of a size chosen by pointing. */
+.rp-sec { margin: 20px 0 8px; font: 600 13px/1.2 var(--ui); letter-spacing: 0; text-transform: none; color: var(--fg); }
+.rp-grid { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.rp-tile {
+  flex-direction: row; align-items: center; gap: 10px; height: 36px; padding: 0 8px 0 8px; box-sizing: border-box;
+  border-radius: var(--radius-control); background: var(--tile, var(--raised)); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.05);
+  transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
+.rp-tile:hover { box-shadow: 0 0 0 0.5px var(--line-strong), 0 3px 10px rgb(0 0 0 / 0.12); transition-duration: var(--dur-instant); }
+.rp-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+.rp-tile:focus-visible { box-shadow: 0 0 0 var(--focus-ring) var(--accent); }
+.rp-tile .rp-card { flex: none; width: 28px; aspect-ratio: 44 / 32; border-radius: 0; background: none; box-shadow: none !important; transform: none !important; }
+.rp-tile .rp-pic { width: 100%; }
+.rp-tile .rp-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; color: var(--fg); text-align: left; display: block; white-space: nowrap; text-overflow: ellipsis; }
+.rp-grip { flex: none; display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; opacity: 0.45; }
+.rp-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--fg2); }
+.rp-tile:hover .rp-grip { opacity: 0.9; }
+/* (a rule's looks: two beside each other, the line itself for a name) */
+.rp-grid.rp-tiled { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rp-tiled .rp-tile { height: 32px; padding: 0 6px 0 8px; gap: 4px; }
+.rp-tiled .rp-card { flex: 1; width: auto; aspect-ratio: auto; height: 24px; }
+.rp-tiled .rp-pic.rp-line { width: 100%; height: 24px; }
+.rp-tiled .rp-name { display: none; }
+/* (a table by pointing) */
+.rp-table-say { margin: -2px 0 8px; min-height: 1.3em; }
+.rp-tablepick { display: grid; grid-template-columns: repeat(var(--cols, 8), minmax(0, 1fr)); gap: 5px; }
+.rp-cell { aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: inset 0 0 0 0.5px var(--line-strong); cursor: default; transition: background-color var(--dur-instant) var(--ease-out); }
+.rp-cell.on { background: color-mix(in srgb, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); }
+.rp-table-sec[hidden], .rp-table-say[hidden], .rp-tablepick[hidden] { display: none; }

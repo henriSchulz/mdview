@@ -585,7 +585,31 @@
   }
   md.renderer.rules.code_block = (toks, idx) =>
     `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="Copy code">Copy</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
-  md.renderer.rules.table_open = (t, i, o, _e, self) => `<div class="table-wrap${t[i].meta && t[i].meta.wide ? " wide" : ""}">` + self.renderToken(t, i, o);
+  /* How a table looks is said by a line before it, a comment no renderer shows:
+   *     <!-- table narrow head=#cfeefc -->
+   * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
+   * when nothing is said); head=…: its head row in a colour — one of the theme's by name (blue,
+   * green …) or any colour written as #rgb / #rrggbb. (<!-- wide -->, the line of before, is read
+   * as it was: a table as wide as the column.) tableLook: that line, read → { wide, head };
+   * tableMark: the line for a look, or "" where none is needed; tableStyle: a head colour as CSS. */
+  const TABLE_MARK = /^<!--\s*(wide|table(?:\s+[^>]*?)?)\s*-->\s*$/;
+  const headColor = (v) => { v = String(v || "").trim().toLowerCase(); return DECO_COLORS.includes(v) || /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/.test(v) ? v : ""; };
+  function tableLook(line) {
+    const m = TABLE_MARK.exec(String(line || "").trim());
+    if (!m) return null;
+    const words = m[1].split(/\s+/).slice(1), head = words.map((w) => /^head=(.+)$/i.exec(w)).find(Boolean);
+    return { wide: !words.some((w) => /^narrow$/i.test(w)), head: head ? headColor(head[1]) : "" };
+  }
+  const tableMark = (look) => (look.wide !== false && !look.head ? "" : `<!-- table${look.wide === false ? " narrow" : ""}${look.head ? " head=" + look.head : ""} -->`);
+  function tableStyle(head) {
+    head = headColor(head);
+    if (!head) return "";
+    if (!head.startsWith("#")) return `--th: color-mix(in srgb, var(--c-${head}) 24%, var(--bg));`;
+    // (a colour of one's own: its text in black or white, whichever is read on it)
+    const h = head.length === 4 ? [...head.slice(1)].map((c) => c + c).join("") : head.slice(1), [r, g, b] = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
+    return `--th: ${head}; --th-ink: ${0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1d1d1f" : "#fff"};`;
+  }
+  md.renderer.rules.table_open = (t, i, o, _e, self) => { const look = t[i].meta || {}, style = tableStyle(look.head); return `<div class="table-wrap${look.wide === false ? "" : " wide"}"${style ? ` style="${style}"` : ""}>` + self.renderToken(t, i, o); };
   /* Columns: blocks side by side. In the file they stand one under the other, between comment
    * lines no renderer shows — elsewhere the text simply reads top to bottom:
    *     <!-- columns 2:1 -->      (the widths, as a ratio; without it all are alike)
@@ -631,14 +655,28 @@
       i += out.length - 1;
     }
   });
-  // a table as wide as the text column: the line before it says so, as a comment no renderer shows
-  const WIDE = /^<!--\s*wide\s*-->\s*$/;
+  /* A rule has four looks, by how its line is written: --- a thin line (as ever), *** three dots,
+   * ___ a heavy line, - - - a dotted one. (Any other Markdown program draws a rule for each.)
+   * The token keeps the line as it stands (markup), so it is written back as it was. */
+  const ruleLook = (markup) => { const m = String(markup || "").trim(); return m.startsWith("*") ? "dots" : m.startsWith("_") ? "heavy" : /^-\s/.test(m) ? "dotted" : ""; };
+  md.core.ruler.after("block", "rule_looks", (state) => {
+    const lines = state.src.split("\n");
+    for (const t of state.tokens) {
+      if (t.type !== "hr" || !t.map) continue;
+      const line = (lines[t.map[0]] || "").trim();
+      if (/^([-*_])(\s*\1){2,}\s*$/.test(line)) t.markup = line;
+      const look = ruleLook(t.markup);
+      if (look) t.attrJoin("class", "hr-" + look);
+    }
+  });
+  // the line before a table that says how it looks (tableLook, above) is the table's own
   md.core.ruler.after("block", "wide_tables", (state) => {
     const toks = state.tokens;
     for (let i = 0; i < toks.length - 1; i++) {
       const c = toks[i], t = toks[i + 1];
-      if (c.type !== "html_block" || t.type !== "table_open" || !WIDE.test(c.content) || !c.map || !t.map || c.map[1] !== t.map[0]) continue;
-      t.meta = { ...t.meta, wide: true };
+      const look = c.type === "html_block" && t.type === "table_open" && c.map && t.map && c.map[1] === t.map[0] ? tableLook(c.content) : null;
+      if (!look) continue;
+      t.meta = { ...t.meta, ...look, mark: c.content.trim() };
       t.map = [c.map[0], t.map[1]]; // (the line belongs to the table)
       toks.splice(i, 1);
     }
@@ -2939,8 +2977,8 @@
     entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
     entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
     entry("history:off", "x", "Turn Off History", "history", "", "", ' data-state="project"') +
-    entry("newnote", "note", "New Note", "dir new blank", "Ctrl+N") +
-    entry("newfolder", "folderPlus", "New Folder", "dir new blank") +
+    entry("newnote", "note", "New Note", "dir new blank ovnew", "Ctrl+N") +
+    entry("newfolder", "folderPlus", "New Folder", "dir new blank ovnew") +
     `<div class="menu-rule" data-for="blank"></div>` +
     entry("sort:opened", "check", "Sort by Last Opened", "blank") +
     entry("sort:name", "check", "Sort by Name", "blank") +
@@ -3054,7 +3092,7 @@
     ctxItems = ctxItems.filter((el) => !el.disabled);
     const hangs = kind === "new" || kind === "history"; // (from a button of the sidebar's head)
     ctx.style.setProperty("--origin", hangs ? "top right" : "top left");
-    if (!hangs && kind !== "blank") item.classList.add("ctx-target");
+    if (!hangs && kind !== "blank" || item.matches(".ov-more")) item.classList.add("ctx-target");
     setCtxHl(-1);
     if (hangs) x -= ctx.offsetWidth; // (it hangs from the button's right edge)
     ctx.style.left = Math.max(8, Math.min(x, innerWidth - ctx.offsetWidth - 8)) + "px";
@@ -3083,7 +3121,7 @@
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
       if (kind === "ovmany") { MdOverview.many(cmd); return; } // (what is selected in All Notes, all of it)
-      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
+      if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" || kind === "ovnew" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
       else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast("Only notes can be shared"); }
@@ -4018,7 +4056,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,

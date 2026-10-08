@@ -46,6 +46,8 @@
     focus: pic('<rect x="7" y="7" width="2.6" height="18" rx="1.3" fill="var(--accent)"/>' + bar(14, 9, 22) + bar(14, 14.5, 18) + bar(14, 20, 20)),
     both: pic('<rect x="6" y="6" width="34" height="20" rx="4" fill="var(--accent)" opacity="0.14"/><rect x="6" y="6" width="2.8" height="20" rx="1.4" fill="var(--accent)"/>' + bar(13, 11.5, 22) + bar(13, 17.5, 15)),
     cols: (n) => pic(Array.from({ length: n }, (_x, i) => { const w = (34 - (n - 1) * 3) / n, x = 5 + i * (w + 3); return `<rect x="${x}" y="5" width="${w}" height="22" rx="2.5" fill="currentColor" opacity="0.1"/>` + bar(x + 2.5, 9, w - 5, 0.3) + bar(x + 2.5, 14, w - 7, 0.2) + bar(x + 2.5, 19, w - 5, 0.2); }).join("")),
+    text: pic('<text x="8" y="23" font-family="Georgia, serif" font-size="19" font-weight="700" fill="currentColor" opacity="0.8">A</text>' + bar(24, 11, 13, 0.3) + bar(24, 17, 9, 0.3)),
+    page: pic('<rect x="11" y="4" width="22" height="24" rx="3.5" fill="currentColor" opacity="0.1"/><rect x="11.5" y="4.5" width="21" height="23" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.4"/>' + bar(15, 10, 14, 0.5) + bar(15, 15.5, 10) + bar(15, 21, 12)),
     rule: pic(bar(8, 8, 28, 0.16) + '<path d="M5 16h34" stroke="currentColor" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round"/>' + bar(8, 21, 20, 0.16)),
     callout: (kind) => `<svg class="rp-pic callout-${kind}" viewBox="0 0 44 32" aria-hidden="true"><rect x="4" y="5" width="36" height="22" rx="4" fill="var(--cc)" opacity="0.16"/><rect x="4.5" y="5.5" width="35" height="21" rx="3.5" fill="none" stroke="var(--cc)" stroke-opacity="0.3"/><circle cx="11" cy="12" r="2.6" fill="var(--cc)"/><rect x="16" y="10.5" width="14" height="3" rx="1.5" fill="var(--cc)"/>${bar(8.5, 19, 24, 0.22)}</svg>`,
   };
@@ -64,7 +66,10 @@
   };
   const CALLOUTS = ["note", "info", "tip", "success", "question", "warning", "error", "bug", "example", "important"];
   /* [section, [label key, n], more words it is found by, picture, run(view, at), drag (false: only by a click)] */
+  const linePic = (d) => `<svg class="rp-pic rp-line" viewBox="0 0 88 24" aria-hidden="true">${d}</svg>`;
   const ITEMS = [
+    ["panel.blocks", ["menu.text"], "text paragraph absatz", PIC.text, put(para)],
+    ["panel.blocks", ["menu.page"], "page subpage seite unterseite", PIC.page, (v, at) => A.context.INSERT.page(v, at)],
     ["panel.blocks", ["menu.table"], "table tabelle", PIC.table, (v, at) => A.context.INSERT.table(v, at)],
     ["panel.blocks", ["menu.codeBlock"], "code", PIC.code, (v, at) => A.context.INSERT.code(v, at)],
     ["panel.blocks", ["menu.formula"], "formula math latex equation formel", PIC.formula, (v, at) => A.context.INSERT.math(v, at)],
@@ -80,9 +85,14 @@
     ["slash.deco", ["panel.both"], "block focus fokus", PIC.both, put(quote({ deco: "block-focus" }))],
     ...CALLOUTS.map((c) => ["slash.callout", ["callout." + c], "callout box hinweis " + c, PIC.callout(CALLOUT.kind(c)), put(quote({ callout: c }))]),
     ...[2, 3].map((n) => ["slash.columns", ["columns.n", n], "column columns spalten " + n, PIC.cols(n), put(() => N.columns.create(null, Array.from({ length: n }, () => A.columns.empty())))]),
-    ["panel.separators", ["menu.rule"], "divider rule line separator trennlinie", PIC.rule, (v, at) => A.context.INSERT.rule(v, at)],
     ["panel.media", ["menu.image"], "image picture photo bild foto", PIC.picture, picture],
+    // a rule, in its four looks: tiles that show the line itself (viewer.js: ruleLook)
+    ["panel.lines", ["panel.line.dots"], "divider rule line dots separator trennlinie punkte", linePic('<circle cx="34" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="44" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="54" cy="12" r="1.6" fill="currentColor" opacity="0.5"/>'), (v, at) => A.context.INSERT.rule(v, at, "***")],
+    ["panel.lines", ["panel.line.dotted"], "divider rule line dotted separator trennlinie gepunktet", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.1 4.4"/>'), (v, at) => A.context.INSERT.rule(v, at, "- - -")],
+    ["panel.lines", ["panel.line.thin"], "divider rule line thin separator trennlinie dünn", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.45" stroke-width="1"/>'), (v, at) => A.context.INSERT.rule(v, at)],
+    ["panel.lines", ["panel.line.heavy"], "divider rule line heavy thick separator trennlinie dick", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.8" stroke-width="2.2" stroke-linecap="round"/>'), (v, at) => A.context.INSERT.rule(v, at, "___")],
   ];
+  const TILED = new Set(["panel.lines"]); // (sections whose entries are tiles that show the thing itself, without a name)
 
   // ------------------------------------------------------------ the panel
   const el = document.createElement("aside");
@@ -106,10 +116,20 @@
   {
     let html = "", section = null;
     ITEMS.forEach(([sec, [key, n], , picture_, , drag], i) => {
-      if (sec !== section) { html += (section ? `</div>` : "") + `<h3 class="rp-sec">${esc(T(sec))}</h3><div class="rp-grid">`; section = sec; }
-      html += `<button class="rp-tile" type="button" data-i="${i}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span></button>`;
+      if (sec !== section) { html += (section ? `</div>` : "") + `<h3 class="rp-sec">${esc(T(sec))}</h3><div class="rp-grid${TILED.has(sec) ? " rp-tiled" : ""}">`; section = sec; }
+      // a row: what it is in small, its name, and — where it can be pulled into the text — a grip that says so
+      html += `<button class="rp-tile" type="button" data-i="${i}" title="${esc(T(key, n))}" aria-label="${esc(T(key, n))}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span>${drag === false ? "" : '<span class="rp-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</button>`;
     });
-    itemsEl.innerHTML = html + `</div>`;
+    // a table of a size chosen by pointing: a field of squares, as many rows and columns as are marked
+    const ROWS = 6, COLS = 8;
+    html += `</div><h3 class="rp-sec rp-table-sec">${esc(T("panel.tableOf"))}</h3><p class="rp-hint rp-table-say">${esc(T("panel.tableHint"))}</p><div class="rp-tablepick" role="grid" aria-label="${esc(T("panel.tableOf"))}" style="--cols:${COLS}">` +
+      Array.from({ length: ROWS * COLS }, (_x, k) => `<button class="rp-cell" type="button" tabindex="-1" data-r="${Math.floor(k / COLS) + 1}" data-c="${(k % COLS) + 1}" aria-label="${Math.floor(k / COLS) + 1} × ${(k % COLS) + 1}"></button>`).join("") + `</div>`;
+    itemsEl.innerHTML = html;
+    const pick = itemsEl.querySelector(".rp-tablepick"), say = itemsEl.querySelector(".rp-table-say");
+    const markTo = (r, c) => { for (const b of pick.children) b.classList.toggle("on", +b.dataset.r <= r && +b.dataset.c <= c); say.textContent = r ? T("panel.tableSize", r, c) : T("panel.tableHint"); };
+    pick.addEventListener("mousemove", (e) => { const b = e.target.closest(".rp-cell"); if (b) markTo(+b.dataset.r, +b.dataset.c); });
+    pick.addEventListener("mouseleave", () => markTo(0, 0));
+    pick.addEventListener("click", (e) => { const b = e.target.closest(".rp-cell"), v = view(); if (b && v && v.editable) { A.context.INSERT.table(v, null, Math.max(2, +b.dataset.r), +b.dataset.c); markTo(0, 0); } });
   }
   function filter() {
     const q = search.value.trim().toLowerCase();
@@ -125,6 +145,10 @@
       grid.hidden = grid.previousElementSibling.hidden = !shown;
       any = any || !!shown;
     }
+    // (the field of squares is found as "table")
+    const tableHit = !q || ["table", "tabelle", "grid", "raster"].some((w) => w.startsWith(q));
+    for (const x of itemsEl.querySelectorAll(".rp-table-sec, .rp-table-say, .rp-tablepick")) x.hidden = !tableHit;
+    any = any || tableHit;
     none.hidden = any;
   }
   search.addEventListener("input", filter);
@@ -134,6 +158,7 @@
   });
   const runItem = (i, at = null) => { const v = view(); if (v && v.editable) ITEMS[i][4](v, at); };
   itemsEl.addEventListener("click", (e) => { const tile = e.target.closest(".rp-tile"); if (tile) runItem(+tile.dataset.i); });
+  itemsEl.addEventListener("mousedown", (e) => { if (e.target.closest(".rp-cell")) e.preventDefault(); }); // (the caret stays where it is: the table goes there)
 
   /* Dragging a tile into the text: a line shows the gap it will go to — before or after the block
    * of the document at the pointer's height — and letting go puts it there. */

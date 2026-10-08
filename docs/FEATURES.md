@@ -183,14 +183,25 @@ Hardware descriptions are among the languages: `verilog` (also `systemverilog`, 
 | apple | 3 |
 | pear | 12 |
 
-A table as wide as the text column has the line `<!-- wide -->` right before it:
+A table stands as a sheet: every cell in its lines, as wide as the text column. A line right
+before it says otherwise — `narrow`: only as wide as what it holds; `head=…`: its head row in a
+colour, one of the theme's by name (red, orange, yellow, green, cyan, blue, magenta) or any
+colour written as `#rrggbb`:
 
 ```markdown
-<!-- wide -->
+<!-- table narrow head=#cfeefc -->
 | Name | Qty |
 |---|--:|
 | apple | 3 |
 ```
+
+In the active mode: the table's `…` beside its upper right corner (or a right click) has Full
+Width and Header Color (the theme's colours, or Custom… for any other); the three dots in a row
+move the row, those above a column the column. A table selected as a whole wears a thin line.
+(`<!-- wide -->`, the line of before, is still read.)
+
+A rule has four looks, by how its line is written: `---` a thin line, `***` three dots, `___` a
+heavy line, `- - -` a dotted one. The panel's Insert Line puts each in.
 
 ### Columns
 

@@ -62,7 +62,7 @@
     horizontal_rule: block({
       attrs: { markup: { default: null } },
       parseDOM: [{ tag: "hr" }],
-      toDOM: (n) => ["hr", lineAttr(n)],
+      toDOM: (n) => { const look = window.MdView.core.ruleLook(n.attrs.markup); return ["hr", { ...(look ? { class: "hr-" + look } : {}), ...lineAttr(n) }]; }, // (its look: how its line is written — viewer.js, ruleLook)
     }),
     blockquote: block({
       content: "block+",
@@ -130,10 +130,11 @@
       content: "table_row+",
       tableRole: "table",
       isolating: true,
-      // wide: as wide as the text column (a line <!-- wide --> before it in the file)
-      attrs: { raw: { default: null }, wide: { default: false } },
-      parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !!(dom.parentElement && dom.parentElement.classList.contains("wide")) }) }],
-      toDOM: (n) => ["div", { class: "table-wrap" + (n.attrs.wide ? " wide" : ""), ...lineAttr(n) }, ["table", 0]],
+      // wide: as wide as the text column (so it stands when nothing is said); head: its head row's colour.
+      // mark: the line before it in the file that said so, kept to be written again as it was (viewer.js: tableLook)
+      attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null } },
+      parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !dom.parentElement || !dom.parentElement.classList.contains("table-wrap") || dom.parentElement.classList.contains("wide") }) }],
+      toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", 0]]; },
     }),
     table_row: { content: "table_cell+", tableRole: "row", parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
     table_cell: {
@@ -466,8 +467,8 @@
       }
       const width = rows.length ? rows[0].content.length : 0;
       if (!width || rows.some((r) => r.content.length !== width)) throw new Unsupported("ragged table");
-      const wide = !!(group[0].meta && group[0].meta.wide), raw = sourceOf(group, ctx);
-      return { type: "table", attrs: { ...attrs, wide, raw: wide ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
+      const meta = group[0].meta || {}, raw = sourceOf(group, ctx);
+      return { type: "table", attrs: { ...attrs, wide: meta.wide !== false, head: meta.head || "", mark: meta.mark || null, raw: meta.mark ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
     }
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);

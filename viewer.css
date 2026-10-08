@@ -109,7 +109,11 @@ a.wikilink.unresolved { color: var(--fg2); text-decoration: underline dashed col
 .embed-missing { color: var(--fg2); font-style: italic; }
 .embed-missing::before { content: "⤷ "; }
 
-hr { border: 0; height: 1px; background: var(--line-strong); margin: 2.2em 0; }
+hr { border: 0; height: 1px; background: var(--rule, var(--line-strong)); margin: 2.2em 0; }
+/* its other looks (how the line is written: viewer.js, ruleLook): three dots, a heavy line, a dotted one */
+hr.hr-dots { height: 5px; --rule: radial-gradient(circle at calc(50% - 16px) 50%, var(--fg3) 1.7px, transparent 2.2px), radial-gradient(circle at 50% 50%, var(--fg3) 1.7px, transparent 2.2px), radial-gradient(circle at calc(50% + 16px) 50%, var(--fg3) 1.7px, transparent 2.2px); }
+hr.hr-heavy { height: 2px; --rule: color-mix(in srgb, var(--fg) 62%, transparent); border-radius: 1px; }
+hr.hr-dotted { height: 3px; --rule: radial-gradient(circle, var(--fg3) 1px, transparent 1.5px) left center / 7px 3px repeat-x; }
 mark { background: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 38%, transparent); color: inherit; padding: 0 0.12em; border-radius: 3px; }
 del, s { color: var(--fg2); }
 sub, sup { font-size: 0.75em; line-height: 0; }
@@ -341,6 +345,12 @@ th, td { padding: 7px 14px; border-bottom: 1px solid var(--line); text-align: le
 th { font-weight: 600; border-bottom-color: var(--line-strong); }
 tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }
 th:first-child, td:first-child { padding-left: 10px; }
+/* a note's table (not the properties'): a sheet — every cell in its lines, as wide as the text
+ * column unless it is said to be narrow, and its head row in a colour where one is set
+ * (--th, --th-ink: viewer.js, tableStyle) */
+.table-wrap th, .table-wrap td { padding: 6px 10px; border: 1px solid var(--line); }
+.table-wrap th { border-bottom-color: var(--line-strong); background: var(--th, transparent); color: var(--th-ink, inherit); }
+.table-wrap tbody tr:nth-child(even) td { background: transparent; }
 
 /* ------------------------------------------------------------- math + mermaid */
 .math-block, .math-display { display: block; overflow-x: auto; overflow-y: hidden; padding: 0.2em 0; }

@@ -36,9 +36,13 @@
   el.setAttribute("aria-label", "All notes");
   const seg = (name, label, opts) => `<div class="ov-seg" role="radiogroup" data-seg="${name}" aria-label="${label}" style="--n:${opts.length}"><span class="ov-thumb"></span>` +
     opts.map(([v, text, icon]) => `<button class="ov-opt" role="radio" data-v="${v}" aria-checked="false"${icon ? ` title="${text}" aria-label="${text}"` : ""}>${icon ? ICON[icon] : text}</button>`).join("") + `</div>`;
-  el.innerHTML = `<header class="ov-head"><h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
+  // the head, as Craft's "All Docs" has it: the plus before the name, at the right the choices in a
+  // raised field of their own, and "…" for the rest (the order, what is listed beside the notes)
+  const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
+  el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
+    `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
     seg("scope", "Show", [["all", "All Notes"], ["folders", "Folders"]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
-    `<button class="ov-add" type="button" title="New note or folder" aria-label="New note or folder">${ICON.plus}</button>` +
+    `<button class="ov-more" type="button" title="Sort and show" aria-label="Sort and show" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
   const body = el.querySelector(".ov-body");
@@ -349,9 +353,11 @@
   body.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".ov-item")) e.preventDefault(); });
   body.addEventListener("auxclick", (e) => { const t = e.target.closest(".ov-item"); if (t && e.button === 1 && !e.target.closest(".ov-rename")) { e.preventDefault(); go(t, true); } });
   el.querySelector(".ov-head").addEventListener("click", (e) => {
-    const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb"), add = e.target.closest(".ov-add");
-    // the + : a new note or folder, in the folder shown (the menu the empty room has)
-    if (add && core.folder) { const r = add.getBoundingClientRect(); core.fileMenu(add, r.right, r.bottom + 4, "blank", scope === "folders" ? place(tree()).path : core.folder.root); }
+    const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb"), add = e.target.closest(".ov-add"), more = e.target.closest(".ov-more");
+    const here = () => (scope === "folders" ? place(tree()).path : core.folder.root);
+    // the + : a new note or folder, in the folder shown; "…": the order, and what is listed (the menu the empty room has)
+    if (add && core.folder) { const r = add.getBoundingClientRect(); core.fileMenu(add, r.left, r.bottom + 6, "ovnew", here()); }
+    else if (more && core.folder) { const r = more.getBoundingClientRect(); core.fileMenu(more, r.right - 200, r.bottom + 6, "blank", here()); }
     else if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
     else if (crumb) up(Number(crumb.dataset.up));
   });

@@ -71,9 +71,9 @@
     await sleep(550); // (the handles come when the pointer has rested on the cell a moment)
     const hc = document.querySelector(".tbl-h-col"), hr = document.querySelector(".tbl-h-row");
     const tr0 = td.getBoundingClientRect(), tb = td.closest("table").getBoundingClientRect(), c0 = hc.getBoundingClientRect(), r0 = hr.getBoundingClientRect();
-    ok("over a cell, a handle shows above its column and beside its row", getComputedStyle(hc).opacity === "1" && getComputedStyle(hr).opacity === "1"
+    ok("over a cell, a handle shows above its column and in its row, at the end of the row's first cell", getComputedStyle(hc).opacity === "1" && getComputedStyle(hr).opacity === "1"
       && Math.abs(c0.left + c0.width / 2 - (tr0.left + tr0.width / 2)) < 1.5 && Math.abs(c0.top + c0.height / 2 - tb.top) < 1.5
-      && Math.abs(r0.top + r0.height / 2 - (tr0.top + tr0.height / 2)) < 1.5 && Math.abs(r0.left + r0.width / 2 - tb.left) < 1.5, [c0, r0, tr0, tb]);
+      && Math.abs(r0.top + r0.height / 2 - (tr0.top + tr0.height / 2)) < 1.5 && Math.abs(r0.left + r0.width / 2 - (td.parentElement.cells[0].getBoundingClientRect().right - 9)) < 1.5, [c0, r0, tr0, tb]);
     out("handles", {});
     await sleep(1400); // screenshot
     hr.click();

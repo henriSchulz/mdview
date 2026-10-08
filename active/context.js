@@ -136,12 +136,14 @@
       setTimeout(() => window.MdView.core.pages.open(id), 0);
     },
     math(view, at) { const pos = putBlock(view, island("$$\n\n$$", "math"), false, at); setTimeout(() => A.islands.open(view, pos, true), 0); },
-    table(view, at) {
-      const row = (header) => N.table_row.create(null, [0, 1].map(() => N.table_cell.create({ header })));
-      putBlock(view, N.table.create(null, [row(true), row(false), row(false)]), true, at);
+    // (rows, cols: how many of each, the head row counted — as the panel's field of squares says)
+    table(view, at, rows = 3, cols = 2) {
+      const row = (header) => N.table_row.create(null, Array.from({ length: Math.max(1, cols) }, () => N.table_cell.create({ header })));
+      putBlock(view, N.table.create(null, [row(true), ...Array.from({ length: Math.max(1, rows - 1) }, () => row(false))]), true, at);
     },
-    rule(view, at) {
-      const pos = putBlock(view, N.horizontal_rule.create(), false, at);
+    // (markup: how its line is written, which is its look — "***" three dots, "___" heavy, "- - -" dotted)
+    rule(view, at, markup = null) {
+      const pos = putBlock(view, N.horizontal_rule.create(markup ? { markup } : null), false, at);
       const tr = view.state.tr, after = pos + 1;
       if (after >= tr.doc.content.size) tr.insert(after, N.paragraph.create());
       view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)), 1)));
@@ -214,6 +216,7 @@
       const cell = A.tableui.cellAt(state.selection.$from);
       items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
         item("table.wide", () => A.tableui.wide(view, cell), { checked: !!cell.table.attrs.wide }),
+        { label: T("table.head"), items: A.tableui.headItems(view, cell) },
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
     // in a column: what can be done with the columns (the "/" menu's entries for them)

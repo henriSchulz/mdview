@@ -30,7 +30,7 @@
     btn.click();
     await sleep(400);
     ok("in the active mode the button opens it", document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && window.MdPrefs.panel === true);
-    ok("the Insert tab shows, with its tiles in sections", panel.dataset.tab === "insert" && panel.querySelectorAll(".rp-tile").length === 27 && [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent).join("|") === "Blocks|Lists|Decorations|Callout|Columns|Separators|Media", [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent));
+    ok("the Insert tab shows, with its tiles in sections", panel.dataset.tab === "insert" && panel.querySelectorAll(".rp-tile").length === 32 && [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent).join("|") === "Blocks|Lists|Decorations|Callout|Columns|Media|Insert Line|Insert Table", [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent));
     ok("every tile has its picture", [...panel.querySelectorAll(".rp-tile")].every((t) => t.querySelector(".rp-card svg")));
     ok("the text column made room", view.dom.getBoundingClientRect().right <= panel.getBoundingClientRect().left + 1, [view.dom.getBoundingClientRect().right, panel.getBoundingClientRect().left]);
 
@@ -51,7 +51,7 @@
     await sleep(200);
     ok("Table, the caret being in the callout: in there, as the / menu would put it", /> typed\n>\n> \|/.test(md()), md().slice(0, 200));
     caret("First paragraph");
-    press(tile("Divider"));
+    press(tile("Thin Line")); // (a rule, in the look it always had)
     await sleep(200);
     ok("Divider: below the caret's block", /First paragraph[^\n]*\n\n---\n\n> \[!info\]/.test(md()), md().slice(0, 200));
     A.panel.run(A.panel.items.findIndex((i) => i[1][0] === "menu.task"), 0); // (dropped above the first block)
