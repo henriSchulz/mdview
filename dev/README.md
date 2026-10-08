@@ -72,3 +72,15 @@ MDVIEW_THEME_DIR=/nonexistent ./rig.sh m5               # any probe in the light
   `BASE=<ref>`) and against this checkout: rendered HTML, layout, the editor's
   typing helpers, the saved file and screenshots must be identical. Run it
   whenever `viewer.js` or `viewer.css` changes.
+
+## The whiteboard alone (`board-lab.html`)
+
+`dev/board-lab.html` is the whiteboard without the app around it — for trying it on a tablet or
+a phone, and for the touch tests (`web/test/board-touch.test.mjs`, real touches in Chromium at
+a tablet's and a phone's size). The board is kept in that browser only; pictures and files
+cannot be put on it there.
+
+```sh
+python3 -m http.server 8377 --bind 0.0.0.0     # in the checkout; then on the device:
+# http://<this machine's address>:8377/dev/board-lab.html      ?dark  ?new (an empty board)
+```

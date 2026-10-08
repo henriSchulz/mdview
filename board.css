@@ -122,12 +122,6 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 @media (pointer: coarse) {
   #board { --bd-bar-h: 44px; --bd-bar-btn: 40px; --bd-inset: 16px; --bd-well: 28px; --bd-palette-h: 92px; --bd-tool-w: 44px; --bd-handle: 12px; }
 }
-@media (max-width: 560px) {
-  .bd-wells { gap: 6px; }
-  .bd-zoom .bd-btn:not(.bd-wide) { display: none; }
-  .bd-palette { bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 0 10px; gap: 6px; }
-  .bd-tools { gap: 2px; }
-}
 
 /* ---- what stands on the board beside the ink (layer.js): text boxes, sticky notes, shapes, lines */
 .bd-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; pointer-events: none; }
@@ -274,3 +268,21 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 #board[data-palette="top"] .bd-palette { bottom: auto; top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
 .bd-palette { touch-action: none; }
 .bd-pointer { margin-right: 4px; }
+.bd-tools { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior: contain; }
+.bd-tools::-webkit-scrollbar { display: none; }
+.bd-tool, .bd-wells, .bd-palette .bd-sep { flex-shrink: 0; }
+
+/* a tablet upright, a narrow window: the tray stands above the bars at the foot, not between them */
+@media (max-width: 1000px) {
+  .bd-palette { bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 560px) {
+  /* a phone: the bar of things to add goes under the top row, the tray above the bottom row and scrolls sideways when it must */
+  .bd-name { display: none; }
+  .bd-insert { top: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-top, 0px)); }
+  .bd-zoom [data-do="fit"], .bd-zoom [data-do="prev"], .bd-zoom [data-do="next"], .bd-zoom .bd-sep { display: none; }
+  .bd-palette { bottom: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 0 10px; gap: 6px; }
+  #board[data-palette="top"] .bd-palette { top: calc(var(--bd-inset) + 2 * var(--bd-bar-h) + 16px + env(safe-area-inset-top, 0px)); }
+  .bd-wells { grid-template-columns: repeat(4, var(--bd-well)); gap: 5px 6px; }
+  .bd-tools { gap: 2px; }
+}

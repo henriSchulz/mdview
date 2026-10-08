@@ -24,7 +24,7 @@
   // ------------------------------------------------------------ what the browser keeps
   const KEY = `mdview:${W.owner}/${W.repo}`;
   const load = (key, or) => { try { return JSON.parse(localStorage.getItem(key)) ?? or; } catch { return or; } };
-  const keep = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* (no room, or not allowed: not kept) */ } };
+  const keep = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; /* (no room, or not allowed: not kept) */ } };
   const here = load(KEY, {}); // { tabs, opened, last, sidebar: { visible, width, titles } }
   here.opened = here.opened || {}; here.sidebar = here.sidebar || {};
   const save = () => keep(KEY, here);
@@ -42,12 +42,18 @@
    * its own, commit it too, and meet itself as a conflict. A tab has a name that stays with it
    * across a reload (sessionStorage) and holds a lock under it while it lives; what a tab that
    * is gone left behind — closed before its commit — is taken over by the next one opened. */
-  let TAB = null;
+  let TAB = null, unkept = false;
   const mineKey = (what) => `${KEY}:${what}:${TAB}`;
   const forget = (key) => { try { localStorage.removeItem(key); } catch { /* (not allowed: stays) */ } };
   function keepDrafts() {
     if (!TAB) return;
-    if (drafts.size) keep(mineKey("drafts"), Object.fromEntries(drafts)); else forget(mineKey("drafts"));
+    if (!drafts.size) forget(mineKey("drafts"));
+    else if (!keep(mineKey("drafts"), Object.fromEntries(drafts))) {
+      // No room for all of them (a whiteboard with pictures on it is large): the notes' drafts are kept
+      // without the boards', and what could not be kept goes into a commit now instead of after the quiet while.
+      keep(mineKey("drafts"), Object.fromEntries([...drafts].filter(([r]) => !/\.board\.svg$/i.test(r))));
+      if (!unkept) { unkept = true; setTimeout(() => { unkept = false; commit(); }, 0); }
+    }
     if (gone.size) keep(mineKey("gone"), [...gone]); else forget(mineKey("gone"));
   }
   function adopt(draftsKey, goneKey) {

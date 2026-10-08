@@ -433,6 +433,12 @@ shut back into it.
   `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange). Use as Style for New
   Ones, there too, makes it the look every new item of that kind begins with on this board.
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
+- **With fingers** (a tablet, a phone): one finger draws with the tool in hand. With the
+  pointer in hand a finger takes a thing and moves it; on the bare board it moves the board,
+  and held still for a moment first it pulls a box over what is to be chosen. Two fingers move
+  the board and make it larger or smaller; both on one thing, they turn it. On a narrow screen
+  the bar of things to add stands under the top row and the tray above the bottom row, where
+  its tools scroll sideways.
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
   sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
   shapes asks what is to stand at its end — it has the first one's size and look. A joined line

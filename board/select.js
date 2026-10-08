@@ -5,7 +5,8 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const SNAP = 6, GRAB = 10, KNOB = 26, ARROW = 24; // screen pixels: how near a guide holds, how near a dot is hit, how far the knob stands off
+  const SNAP = 6, KNOB = 26, ARROW = 24;
+  let GRAB = 10; // how near a dot is hit: wider under a finger (set by the pointer that came down last) // screen pixels: how near a guide holds, how near a dot is hit, how far the knob stands off
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const ICON = {
     arrange: svg('<rect x="4" y="5" width="9" height="6" rx="1.5"/><rect x="11" y="13" width="9" height="6" rx="1.5"/>'),
@@ -88,6 +89,7 @@
     }
     function start(pt, e) {
       const st = S(), p = ctx.onBoard(pt);
+      GRAB = e.pointerType === "touch" ? 22 : e.pointerType === "pen" ? 14 : 10;
       if (edit) finish();
       closePop();
       const h = handleAt(p);
@@ -110,10 +112,38 @@
         return true;
       }
       lastDown = { id: null, t: 0 };
+      if (e.pointerType === "touch") { pick([]); return "pan"; } // a finger on the bare board moves the board; held still first, it pulls a box (hold)
       act = { kind: "box", from: [p.x, p.y], keep: e.shiftKey ? [...st.pick] : [] };
       if (!e.shiftKey) pick([]);
       return true;
     }
+    /* A finger that rested on the bare board: from there a box is pulled over what is to be chosen. */
+    function hold(pt) {
+      const p = ctx.onBoard(pt);
+      act = { kind: "box", from: [p.x, p.y], keep: [], rect: [p.x, p.y, p.x, p.y] };
+      ctx.paint();
+      return true;
+    }
+    /* Two fingers down: both on the one thing chosen (or on one thing, which is chosen then) — it turns with them. */
+    function twist(points) {
+      const st = S(), [a, b] = points.map((pt) => ctx.onBoard(pt)), slack = 16 / z();
+      let it = st.pick.length === 1 ? st.pick[0] : null;
+      if (!it) { const u = under(a.x, a.y); if (u && u === under(b.x, b.y)) { pick([u]); it = u; } }
+      if (!it || it.lock || ["line", "table", "ink"].includes(it.k) || !I.hit(it, a.x, a.y, slack) || !I.hit(it, b.x, b.y, slack)) return false;
+      if (edit) finish();
+      act = { kind: "twist", before: snap(), was: I.data(it), angle: it.r };
+      return true;
+    }
+    function twisting(deg) {
+      if (!act || act.kind !== "twist") return;
+      let r = act.was.r + deg;
+      r = ((r + 540) % 360) - 180;
+      for (const u of [-180, -90, 0, 90, 180]) if (Math.abs(r - u) < 3) r = u;
+      S().pick[0].r = Math.round(r * 10) / 10;
+      act.angle = S().pick[0].r;
+      ctx.paint();
+    }
+    const twisted = () => end();
     function move(pts, e) {
       if (!act) return;
       const st = S(), p = ctx.onBoard(pts[pts.length - 1]);
@@ -606,7 +636,7 @@
       const over = act && (act.kind === "conn" || act.kind === "end") ? act.over : null, target = q(el, ".bd-target");
       target.hidden = !over;
       if (over) { const [cx, cy] = toScreen(...I.mid(over)), w = over.w * z() + 8, h = over.h * z() + 8; target.style.cssText = `width:${w}px;height:${h}px;transform:translate(${cx - w / 2}px, ${cy - h / 2}px) rotate(${over.r || 0}deg)`; }
-      tip.hidden = !(act && act.kind === "turn" && act.angle != null);
+      tip.hidden = !(act && (act.kind === "turn" || act.kind === "twist") && act.angle != null);
       if (!tip.hidden) { const [cx, cy] = toScreen(...I.mid(p[0])); tip.textContent = Math.round(act.angle) + "°"; tip.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`; }
       bar(true);
     }
@@ -636,7 +666,7 @@
       return false;
     }
 
-    return { cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

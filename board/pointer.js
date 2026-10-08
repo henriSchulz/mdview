@@ -6,11 +6,14 @@
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
 
-  /* on: { start(pt, e) → false to refuse, move(pts, e), end(e), cancel(), pan(dx, dy), zoom(factor, cx, cy), hover(pt, e), space() → held? }
+  /* on: { start(pt, e) → false to refuse, "pan": this pointer moves the board instead (and, held still first, hold(pt, e) is asked
+   *       whether it begins something after all); move(pts, e), end(e), cancel(), pan(dx, dy), zoom(factor, cx, cy), hover(pt, e),
+   *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted() }
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
   function attach(stage, on) {
     const fingers = new Map(); // touches down: id → { x, y }
-    let tool = null, drag = null, pinch = null;
+    let tool = null, drag = null, pinch = null, twist = null;
+    const HOLD = 350, SLACK = 8; // a finger resting this long, within this many pixels: held
     const at = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const point = (e) => {
       const tilt = Math.hypot(e.tiltX || 0, e.tiltY || 0);
@@ -26,7 +29,11 @@
         fingers.set(e.pointerId, at(e));
         if (fingers.size === 2) { // the second finger: what the first began is not a stroke
           if (tool) { tool = null; on.cancel(); }
-          pinch = span();
+          if (drag) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
+          // both on one thing that can be turned: it turns with them; else the board moves and grows with them
+          const [a, b] = [...fingers.values()];
+          if (on.twist && on.twist([a, b])) twist = { from: Math.atan2(b.y - a.y, b.x - a.x) };
+          else pinch = span();
           e.preventDefault();
           return;
         }
@@ -39,13 +46,27 @@
         return;
       }
       if (e.button !== 0 || tool) return;
-      if (on.start(point(e), e) === false) return;
+      const began = on.start(point(e), e);
+      if (began === false) return;
+      if (began === "pan") { // (a finger on the bare board with the pointer in hand: the board goes with it — unless it rests first)
+        const first = point(e), id = e.pointerId;
+        drag = { id, ...at(e), far: false, hold: setTimeout(() => { if (!drag || drag.id !== id || drag.far) return; drag = null; delete stage.dataset.panning; if (on.hold && on.hold(first, e) !== false) tool = id; }, HOLD) };
+        capture(e); e.preventDefault();
+        return;
+      }
       tool = e.pointerId;
       capture(e); e.preventDefault();
     });
     stage.addEventListener("pointermove", (e) => {
       if (fingers.has(e.pointerId)) {
         fingers.set(e.pointerId, at(e));
+        if (twist && fingers.size === 2) {
+          const [a, b] = [...fingers.values()];
+          let deg = ((Math.atan2(b.y - a.y, b.x - a.x) - twist.from) * 180) / Math.PI;
+          deg = ((deg + 540) % 360) - 180;
+          on.twisting(deg);
+          return;
+        }
         if (pinch && fingers.size === 2) {
           const now = span();
           on.pan(now.x - pinch.x, now.y - pinch.y);
@@ -54,7 +75,13 @@
           return;
         }
       }
-      if (drag && e.pointerId === drag.id) { const p = at(e); on.pan(p.x - drag.x, p.y - drag.y); drag.x = p.x; drag.y = p.y; return; }
+      if (drag && e.pointerId === drag.id) {
+        const p = at(e);
+        if (drag.hold && !drag.far && Math.hypot(p.x - drag.x, p.y - drag.y) < SLACK) return; // (still resting: not moved yet)
+        drag.far = true; clearTimeout(drag.hold);
+        on.pan(p.x - drag.x, p.y - drag.y); drag.x = p.x; drag.y = p.y;
+        return;
+      }
       if (tool === e.pointerId) {
         // every sample since the last frame, where the browser hands them over whole
         let all = null;
@@ -66,8 +93,8 @@
       if (!tool && !fingers.size) on.hover(point(e), e);
     });
     const up = (e, cancelled) => {
-      if (fingers.delete(e.pointerId) && fingers.size < 2) pinch = null;
-      if (drag && e.pointerId === drag.id) { drag = null; delete stage.dataset.panning; }
+      if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
+      if (drag && e.pointerId === drag.id) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
       if (tool === e.pointerId) { tool = null; if (cancelled) on.cancel(); else on.end(e); }
     };
     stage.addEventListener("pointerup", (e) => up(e, false));

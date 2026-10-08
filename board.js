@@ -261,6 +261,7 @@
     new ResizeObserver(() => { if (S) paint(); }).observe(el);
     const mine = () => S && S.mode === "select" && !S.readonly;
     hands = B.pointer.attach(stage(), { start: (pt, e) => (mine() ? sel.start(pt, e) : start(pt)), move: (pts, e) => (sel.busy ? sel.move(pts, e) : move(pts, e)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
+      hold: (pt, e) => (mine() ? sel.hold(pt, e) : false), twist: (points) => mine() && sel.twist(points), twisting: (deg) => sel.twisting(deg), twisted: () => sel.twisted(),
       pan: (dx, dy) => S && S.view.panBy(dx, dy),
       zoom: (f, cx, cy) => S && S.view.zoomAt(cx, cy, S.view.z * f) });
   }

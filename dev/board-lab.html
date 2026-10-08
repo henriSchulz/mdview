@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Whiteboard lab</title>
+<!-- The whiteboard alone, without the app around it: for trying it on a device (a tablet, a
+     phone) and for the touch tests. The board is kept in this browser only; pictures and files
+     cannot be put on it here. Serve the checkout's folder and open dev/board-lab.html:
+         python3 -m http.server 8377 --bind 0.0.0.0        (in the checkout)
+         http://<this machine>:8377/dev/board-lab.html      (?dark for the dark look, ?new for an empty board)
+     Not shipped. -->
+<link rel="stylesheet" href="../motion.css">
+<style id="theme"></style>
+<link rel="stylesheet" href="../viewer.css">
+<link rel="stylesheet" href="../board.css">
+<style>
+  body { margin: 0; font: 15px/1.5 var(--ui); color: var(--fg); background: var(--bg); padding: 24px; }
+  #lab-note { max-width: 46rem; margin: 0 auto; }
+  #lab-hud { position: fixed; z-index: 70; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 60px); translate: -50% 0; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 82%, transparent); color: var(--bg); font: 12px/1.4 var(--mono); pointer-events: none; white-space: nowrap; }
+  #lab-hud:empty { display: none; }
+</style>
+<body data-mode="light" data-view="read">
+<div id="content"><div id="lab-note">
+  <h1>Whiteboard lab</h1>
+  <p>The board below is kept in this browser. Tap it to open it.</p>
+  <p class="pic-block board-block"><img id="lab-board" alt="Whiteboard" data-board="/lab/board.board.svg"></p>
+  <p><button id="lab-reset" type="button">Start with an empty board</button></p>
+</div></div>
+<div id="active"></div>
+<div id="lab-hud"></div>
+<script>
+  // the look: the web app's two themes
+  const LIGHT = { background: "#f5f5f7", foreground: "#1d1d1f", accent: "#0071e3", muted: "#a1a1a6", red: "#d70015", green: "#248a3d", orange: "#c93400", yellow: "#a05a00", blue: "#0071e3", "bright-red": "#ff3b30" };
+  const DARK = { background: "#1e1e20", foreground: "#f5f5f7", accent: "#0a84ff", muted: "#6e6e73", red: "#ff453a", green: "#32d74b", orange: "#ff9f0a", yellow: "#ffd60a", blue: "#0a84ff", "bright-red": "#ff6961" };
+  const dark = location.search.includes("dark");
+  document.body.dataset.mode = dark ? "dark" : "light";
+  document.getElementById("theme").textContent = ":root{" + Object.entries(dark ? DARK : LIGHT).map(([k, v]) => `--c-${k}:${v}`).join(";") + "}";
+  // what the board asks of the app around it, as little of it as it needs
+  const KEY = "mdview-lab:board", said = [];
+  let locks = 0;
+  window.MdPrefs = {};
+  window.MdHost = {
+    files: location.origin + "/lab-files", drop() {}, // (drop: the board takes this for a browser, and does not ask a shell for its clipboard)
+    post(json) {
+      const m = JSON.parse(json);
+      said.push(m.type);
+      const answer = (...a) => setTimeout(() => window.MdBoard.answer(m.id, ...a), 0);
+      if (m.type === "board-read") { let text = null; try { text = localStorage.getItem(KEY); } catch (e) { /* none */ } answer(text || window.MdBoard.emptyText(), null); }
+      else if (m.type === "board-save") { let error = null; try { localStorage.setItem(KEY, m.text); } catch (e) { error = "no room in this browser"; } answer(error); }
+      else if (m.type === "board-put" || m.type === "board-paste" || m.type === "board-drop") answer([], "not in the lab");
+      else if (m.type === "print") window.print();
+    },
+  };
+  const toast = (text) => { const hud = document.getElementById("lab-hud"); hud.textContent = text; clearTimeout(toast.t); toast.t = setTimeout(() => { hud.textContent = ""; }, 1800); };
+  window.MdView = { core: {
+    post: (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data })),
+    toast, esc: (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    lockScroll: (on) => { locks += on ? 1 : -1; }, copy: () => {}, current: { path: "/lab/note.md" },
+  } };
+  window.MdLab = { said, get locks() { return locks; } };
+</script>
+<script src="../strings.js"></script>
+<script src="../board/format.js"></script>
+<script src="../board/render.js"></script>
+<script src="../board/shape.js"></script>
+<script src="../board/items.js"></script>
+<script src="../board/layer.js"></script>
+<script src="../board/view.js"></script>
+<script src="../board/pointer.js"></script>
+<script src="../board/ink.js"></script>
+<script src="../board/select.js"></script>
+<script src="../board.js"></script>
+<script>
+  const img = document.getElementById("lab-board");
+  if (location.search.includes("new")) { try { localStorage.removeItem(KEY); } catch (e) { /* none */ } }
+  const show = () => { let text = null; try { text = localStorage.getItem(KEY); } catch (e) { /* none */ } img.src = URL.createObjectURL(new Blob([text || MdBoard.emptyText()], { type: "image/svg+xml" })); };
+  show();
+  img.parentNode.addEventListener("click", () => MdBoard.open(img));
+  document.getElementById("lab-reset").addEventListener("click", () => { try { localStorage.removeItem(KEY); } catch (e) { /* none */ } location.reload(); });
+  if (!location.search.includes("closed")) MdBoard.open(img);
+</script>
+</body>
+</html>
