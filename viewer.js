@@ -1168,7 +1168,7 @@
     }
     if (mode === "active") {
       if (!p.error) {
-        if (prev && prev.path === p.path && !MdActive.view.shows(viewOf(p))) MdActive.dialog.closeFields(); // a popover's place is gone; a dialog finds its block again (islands.js)
+        if (prev && prev.path === p.path && !MdActive.view.shows(viewOf(p))) { MdActive.dialog.closeFields(); if (MdActive.menu.isOpen) MdActive.menu.close(true); } // a popover's place is gone, and a menu's entries name places of the text that was; a dialog finds its block again (islands.js)
         if (prev && prev.path === p.path && MdActive.view.dirty) { // edits here that are not saved yet win, as in the source editor
           if (p.text !== prev.text) toast(T("active.keptEdits"));
           const shown = MdActive.view.payload, text = MdActive.view.serialize();
@@ -4020,6 +4020,9 @@
       return;
     }
     if (box) {
+      // (in the text that is being edited a box is the editor's own — edit.js; one that stands in a
+      // block of HTML there has a line number from when the note was read: nothing is ticked by it)
+      if (box.closest('.pm[contenteditable="true"] .isl')) { e.preventDefault(); return; }
       if (box.disabled || box.dataset.line == null) { e.preventDefault(); return; }
       box.closest("li")?.classList.toggle("is-checked", box.checked);
       const shown = viewOf(current), line = Number(box.dataset.line);

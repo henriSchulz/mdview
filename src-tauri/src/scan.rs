@@ -83,7 +83,25 @@ pub fn s(path: &Path) -> String {
 
 /// The path made absolute, links followed where the file exists.
 pub fn resolve(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()))
+    canon(path).unwrap_or_else(|_| std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()))
+}
+
+/// The path as the system has it, links followed. On Windows the system answers in its long
+/// form (\\?\C:\…), from which no address of a file can be made (a picture beside a note, a
+/// link to another one): the plain form of the same path is what is passed on.
+pub fn canon(path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
+    let p = fs::canonicalize(path)?;
+    #[cfg(windows)]
+    {
+        let text = p.to_string_lossy();
+        if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+            return Ok(PathBuf::from(format!(r"\\{rest}")));
+        }
+        if let Some(rest) = text.strip_prefix(r"\\?\") {
+            return Ok(PathBuf::from(rest));
+        }
+    }
+    Ok(p)
 }
 
 pub fn read_bytes(path: &Path, limit: Option<usize>) -> std::io::Result<Vec<u8>> {
@@ -270,7 +288,7 @@ impl Scan<'_> {
             if !st.is_file() {
                 continue;
             }
-            let real = s(&fs::canonicalize(&path).unwrap_or_else(|_| path.clone()));
+            let real = s(&canon(&path).unwrap_or_else(|_| path.clone()));
             if is_md(&path) {
                 let since = st.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).unwrap_or_default();
                 let mut title = None;

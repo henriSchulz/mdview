@@ -105,11 +105,11 @@ fn find_assets() -> PathBuf {
     if let Some(d) = std::env::var_os("MDVIEW_ASSETS").map(PathBuf::from).filter(|d| has(d)) {
         return d;
     }
-    let exe = std::env::current_exe().ok().and_then(|p| std::fs::canonicalize(p).ok());
+    let exe = std::env::current_exe().ok().and_then(|p| crate::scan::canon(p).ok());
     let beside = exe.as_deref().and_then(Path::parent).map(Path::to_path_buf).unwrap_or_default();
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).parent().map(Path::to_path_buf).unwrap_or_default();
     let found = [checkout.clone(), beside.clone(), beside.join("../lib/mdview"), beside.join("../lib/Markdown Notes"), beside.join("../Resources")].into_iter().find(|d| has(d));
-    found.map(|d| std::fs::canonicalize(&d).unwrap_or(d)).unwrap_or(checkout)
+    found.map(|d| crate::scan::canon(&d).unwrap_or(d)).unwrap_or(checkout)
 }
 
 fn mime(path: &Path) -> &'static str {

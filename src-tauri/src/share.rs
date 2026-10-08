@@ -122,7 +122,7 @@ pub fn arrived(root: &Path) -> bool {
 /// The notes of a folder that are shared, by their paths — for the sidebar, which marks them.
 pub fn listed(folder: &Path) -> Vec<String> {
     let (Place::Project(root), true) = (history::place_of(folder), folder.is_dir()) else { return vec![] };
-    let mut all: Vec<String> = read(&root).values().filter_map(|e| e["path"].as_str()).map(|rel| root.join(rel)).filter(|p| p.starts_with(folder) && p.is_file()).map(|p| fs::canonicalize(&p).unwrap_or(p).to_string_lossy().into_owned()).collect();
+    let mut all: Vec<String> = read(&root).values().filter_map(|e| e["path"].as_str()).map(|rel| root.join(rel)).filter(|p| p.starts_with(folder) && p.is_file()).map(|p| crate::scan::canon(&p).unwrap_or(p).to_string_lossy().into_owned()).collect();
     all.sort();
     all
 }
@@ -214,7 +214,7 @@ mod tests {
         fs::create_dir_all(d.join(".mdview")).unwrap();
         fs::write(d.join(".mdview/project.json"), "{}").unwrap();
         fs::write(d.join("docs/Note.md"), "# Note\n").unwrap();
-        fs::canonicalize(d).unwrap()
+        crate::scan::canon(d).unwrap()
     }
 
     #[test]

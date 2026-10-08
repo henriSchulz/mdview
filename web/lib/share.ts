@@ -126,6 +126,7 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
 const where = new Map<string, { owner: string; repo: string; at: number }>(); // (what was asked a moment ago is not asked again)
 let looking: Promise<void> | null = null, looked = 0;
 const AGAIN = Number(process.env.SHARE_LOOK_MS ?? 5000), REMEMBER = Number(process.env.SHARE_KEEP_MS ?? 60 * 1000);
+const nowhere = new Map<string, number>(); // (ids that were looked for the long way and are no share: not again for a while — any address of one word asks)
 type Listed = { path?: unknown; password?: unknown; created?: unknown };
 const entries = (text: string): [string, Listed][] => { try { return Object.entries((JSON.parse(text).shares || {}) as Record<string, Listed>).filter(([id, e]) => ID.test(id) && e && typeof e.path === "string"); } catch { return []; } };
 const noted = (owner: string, repo: string, id: string, e: Listed) => putShare(id, { owner, name: repo, path: e.path as string, password: !!e.password, created: typeof e.created === "string" ? e.created : "" });
@@ -136,7 +137,7 @@ export async function syncRepo(owner: string, repo: string, token: string): Prom
   const res = await raw(token, owner, repo, SHARES);
   if (!res.ok && res.status !== 404) throw new Error(`GitHub: ${res.status} for the shares`);
   const listed = res.ok ? entries(await res.text()) : [], ids = new Set(listed.map(([id]) => id));
-  for (const [id, e] of listed) await noted(owner, repo, id, e);
+  for (const [id, e] of listed) { await noted(owner, repo, id, e); nowhere.delete(id); }
   for (const [id] of await sharesOf([repoKey(owner, repo)])) if (!ids.has(id)) { await dropShare(id); where.delete(id); }
   return listed.length;
 }
@@ -151,12 +152,15 @@ export async function whereIs(id: string): Promise<{ owner: string; repo: string
   const had = where.get(id);
   if (had && Date.now() - had.at < REMEMBER) return had;
   let s = await getShare(id);
-  if ((!s || s.state !== "shared") && (looking || Date.now() - looked >= AGAIN)) {
+  const missed = nowhere.get(id);
+  if ((!s || s.state !== "shared") && !(missed && Date.now() - missed < REMEMBER) && (looking || Date.now() - looked >= AGAIN)) {
     looking = looking || lookAbout().finally(() => { looking = null; });
     await looking;
     s = await getShare(id);
+    if (!s || s.state !== "shared") { nowhere.set(id, Date.now()); if (nowhere.size > 5000) nowhere.clear(); }
   }
   if (!s || s.state !== "shared") return null;
+  nowhere.delete(id);
   const at = { owner: s.owner, repo: s.name, at: Date.now() };
   where.set(id, at);
   if (where.size > 2000) where.clear();

@@ -231,7 +231,7 @@ fn can_write(path: &Path) -> bool {
 /// followed (the file it names is what is written), the file keeps its permissions; where no file
 /// can be made beside it, it is written in place as before.
 fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
-    let real = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
     let Some(name) = real.file_name().map(|n| n.to_string_lossy().into_owned()) else { return fs::write(path, data) };
     let beside = real.with_file_name(format!(".{name}.mdview-{}", std::process::id()));
     let made = (|| -> std::io::Result<()> {
@@ -896,6 +896,16 @@ impl App {
                 if odds {
                     let n = standing["files"].as_array().map_or(0, Vec::len);
                     let text = format!("{} changed here and on another device. Resolve from the clock in the sidebar", if n == 1 { "A file was".to_string() } else { format!("{n} files were") });
+                    for w in self.wins.values().filter(|w| here(w)) {
+                        w.toast(text.clone());
+                    }
+                }
+                // (what goes wrong without having been asked for is said too, once when it begins: a project
+                // that has stopped being sent is not found out about from a tooltip weeks later.
+                // "offline" is not said — a machine without a network is no news)
+                let failing = |v: &Value| matches!(v["state"].as_str(), Some("error" | "signin"));
+                if failing(&standing) && !asked && !self.synced.get(&root).is_some_and(failing) {
+                    let text = if standing["state"] == "signin" { "GitHub: sign in again — this folder is not being synced (Settings › History)".to_string() } else { format!("Not synced: {}", standing["why"].as_str().unwrap_or("GitHub refused")) };
                     for w in self.wins.values().filter(|w| here(w)) {
                         w.toast(text.clone());
                     }
@@ -1721,7 +1731,7 @@ impl Win {
             return host::launch_path(path); // a picture, a film, any other file: in its own application
         }
         // in a tab of its own where that was asked for; a note that has a tab already: that tab
-        let real = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
         let there = self.tabs.iter().enumerate().position(|(k, t)| k != self.tab && t.path.as_ref() == Some(&real));
         if tab {
             self.new_tab(app, Some(&real), None, None);
@@ -1822,16 +1832,16 @@ impl Win {
     fn relocate(&mut self, app: &mut App, folder: &Path, old: &Path, new: &Path, how: &str) {
         let (old, new) = (old.to_path_buf(), new.to_path_buf());
         let is_dir = old.is_dir();
-        let old_real = fs::canonicalize(&old).unwrap_or_else(|_| old.clone());
+        let old_real = crate::scan::canon(&old).unwrap_or_else(|_| old.clone());
         // (a name that differs only in case is the same file where the file system says so)
-        let taken = fs::symlink_metadata(&new).is_ok() && fs::canonicalize(&new).ok().as_ref() != Some(&old_real);
+        let taken = fs::symlink_metadata(&new).is_ok() && crate::scan::canon(&new).ok().as_ref() != Some(&old_real);
         if taken {
             return self.toast(format!("“{}” already exists", name_of(&new)));
         }
         if let Err(e) = fs::rename(&old, &new) {
             return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
-        let new_real = fs::canonicalize(&new).unwrap_or_else(|_| new.clone());
+        let new_real = crate::scan::canon(&new).unwrap_or_else(|_| new.clone());
         // (a link to a note goes on showing it)
         if let Ok(Some(root)) = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) } {
             app.share_dirty.insert(root);
@@ -1892,7 +1902,7 @@ impl Win {
             if !is_dir && !self.note_paths.contains(path.as_str()) {
                 continue;
             }
-            let real = fs::canonicalize(&p).unwrap_or_else(|_| p.clone());
+            let real = crate::scan::canon(&p).unwrap_or_else(|_| p.clone());
             going.push((p, real, is_dir));
         }
         if going.is_empty() {
@@ -2636,7 +2646,7 @@ impl Win {
 
     /// A note or PDF a link leads to, in a tab: a new one, or (own) the one the file has already.
     fn link_tab(&mut self, app: &mut App, p: &Path, fragment: Option<String>, own: bool) {
-        let real = fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let real = crate::scan::canon(p).unwrap_or_else(|_| p.to_path_buf());
         let there = self.tabs.iter().enumerate().position(|(k, t)| own && k != self.tab && t.path.as_ref() == Some(&real));
         match there {
             Some(there) => {

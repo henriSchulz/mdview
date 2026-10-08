@@ -162,6 +162,7 @@
       "new.note": "New Note",
       "empty.title": "No Notes Yet",
       "toast.undo": "Undo",
+      "active.cannotSay": "Markdown cannot write part of this the way it is shown: it is saved in its plain form",
       "empty.text": "Notes are plain Markdown files in this folder.",
       "new.folder": "New Folder",
       "new.in": "In “{0}”",
@@ -688,6 +689,7 @@
       "new.note": "Neue Notiz",
       "empty.title": "Noch keine Notizen",
       "toast.undo": "Rückgängig",
+      "active.cannotSay": "Markdown kann einen Teil davon nicht so schreiben, wie er gezeigt wird: Er wird in schlichter Form gespeichert",
       // (what the page itself says — sidebar, tabs, menus, messages: asked for by its English words, which are the key)
       "1 file": "1 Datei",
       "1 note": "1 Notiz",
