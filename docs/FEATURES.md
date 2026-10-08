@@ -399,8 +399,10 @@ shut back into it.
 - **The ruler** (`R`, the last thing in the tray) lies across the board: a stroke begun at one
   of its long edges runs straight along it. It is moved by its middle and turned by its ends
   (`Shift`: in steps of 15°); its angle stands in its middle.
-- **The tray** is pulled by a bare part of it to the window's upper half, and lies at the top
-  from then on (and back the same way).
+- **The tray** goes where it is pulled — by any part of it, a tool too: let go near an edge of
+  the window it lies along that edge, upright at the sides with its tools on their sides; let
+  go in a corner it shrinks to a round sign of the tool in hand, which a tap opens again. The
+  small arrow at its end shrinks it too.
 - **The lasso**: a loop around strokes, or a tap on one, chooses them. What is chosen is moved
   by pulling inside its frame, made larger or smaller at the frame's corners, given another
   colour from the wells, copied (`Ctrl+D`) and deleted (`Delete`) — both also in the small bar
@@ -452,7 +454,11 @@ shut back into it.
   it will come down. Once a pen has been used, a finger no longer draws but moves the board, and
   a hand lying on the glass beside the pen does nothing. Two settings appear under More then:
   Draw with Finger, and Pen Selects and Scrolls (with the pointer in hand the pen chooses and
-  moves things instead of drawing). A pen's double tap, its squeeze and its turning about its
+  moves things instead of drawing).
+- **Pen and fingers together**: what the lasso holds is moved by a finger laid on it. A
+  finger's tap on a thing chooses it, whatever tool is in hand; the finger then moves it, and
+  the pen takes hold of it too — at its dots it pulls it to size, at its knob it turns it, on
+  it it moves it — while on the bare board beside it the pen draws on. A pen's double tap, its squeeze and its turning about its
   own axis do not reach a web page: they are not there.
 - **With fingers** (a tablet, a phone): one finger draws with the tool in hand. With the
   pointer in hand a finger takes a thing and moves it; on the bare board it moves the board,

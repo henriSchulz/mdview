@@ -78,6 +78,37 @@
     await sleep(700);
     ok("… and back to the foot", st().palette === "bottom" && pal.getBoundingClientRect().bottom > H - 40, [st().palette, pal.getBoundingClientRect().bottom]);
 
+    // at a side it stands upright, its tools on their sides; in a corner it shrinks to a round sign
+    const from3 = [bare.getBoundingClientRect().left + 0.5, pal.getBoundingClientRect().top + 30];
+    await drag(steps(from3, [30, H / 2], 8), {}, bare);
+    await sleep(700);
+    let pr2 = pal.getBoundingClientRect();
+    ok("pulled to the left edge: the tray stands upright there, inside the window", st().palette === "left" && pr2.height > pr2.width * 2 && pr2.left >= 0 && pr2.left < 40 && pr2.top >= 0 && pr2.bottom <= H, [st().palette, pr2.left, pr2.width, pr2.height]);
+    const penSign = q('.bd-tool[data-tool="pen"] svg').getBoundingClientRect();
+    ok("its tools lie on their sides, tips towards the board", penSign.width > penSign.height * 1.5, [penSign.width, penSign.height]);
+    q('.bd-tool[data-tool="pen"]').click(); await sleep(350);
+    ok("a tool's options open beside it", q(".bd-pop").hasAttribute("data-open") && q(".bd-pop").getBoundingClientRect().left >= pr2.right, [q(".bd-pop").getBoundingClientRect().left, pr2.right]);
+    key("Escape");
+    // pulled by a tool itself: that is a pull, not a click on the tool
+    const marker = q('.bd-tool[data-tool="marker"]'), mr = marker.getBoundingClientRect(), toolWas = st().tool;
+    await drag(steps([mr.left + mr.width / 2, mr.top + mr.height / 2], [W - 30, H / 2], 8), {}, marker);
+    marker.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await sleep(700);
+    ok("pulled by one of its tools to the right edge: there it stands, and the tool was not taken up", st().palette === "right" && pal.getBoundingClientRect().right > W - 40 && st().tool === toolWas, [st().palette, st().tool]);
+    const sep2 = q(".bd-palette .bd-sep").getBoundingClientRect();
+    await drag(steps([sep2.left + 2, sep2.top], [50, H - 50], 8), {}, q(".bd-palette .bd-sep"));
+    await sleep(500);
+    const mini = q(".bd-mini");
+    ok("pulled into a corner: shrunk to a round sign of the tool in hand, above the bar there", st().mini === "bl" && getComputedStyle(pal).display === "none" && mini.getBoundingClientRect().width === 56 && !!mini.querySelector("svg") && mini.getBoundingClientRect().bottom < q(".bd-zoom").getBoundingClientRect().top, [st().mini, getComputedStyle(pal).display]);
+    mini.click(); await sleep(400);
+    ok("the sign clicked: the tray is there again, where it stood", !st().mini && getComputedStyle(pal).display !== "none" && st().palette === "right", [st().mini, st().palette]);
+    q('[data-do="tray-min"]').click(); await sleep(300);
+    ok("its small arrow shrinks it too", st().mini === "br", st().mini);
+    mini.click(); await sleep(300);
+    await drag(steps([q(".bd-palette .bd-sep").getBoundingClientRect().left + 2, q(".bd-palette .bd-sep").getBoundingClientRect().top], [W / 2, H - 40], 8), {}, q(".bd-palette .bd-sep"));
+    await sleep(700);
+    ok("… and back to the foot again", st().palette === "bottom" && !st().mini, st().palette);
+
     // ---- a link as a card
     q('[data-do="link"]').click(); await sleep(300);
     const field = q(".bd-vpop .bd-link-input");

@@ -186,4 +186,85 @@ test("a pen: it draws wherever it comes down, with its pressure and how it is he
   await context.close();
 });
 
+test("pen and fingers together: a finger moves what the lasso holds, a finger's tap chooses a thing, the pen pulls it to size, and draws on beside it", async () => {
+  const { page, context, st, fingers, at, sleep, w, h } = await open("tablet");
+  const cdp = await context.newCDPSession(page), cx = w / 2, cy = h / 2;
+  const pen = (type, x, y, more = {}) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" && !more.down ? "none" : "left", buttons: type === "mouseReleased" || (type === "mouseMoved" && !more.down) ? 0 : 1, clickCount: type === "mouseMoved" ? 0 : 1, force: 0.5 });
+  const stroke = async (pts) => { await pen("mousePressed", ...pts[0]); for (let i = 1; i < pts.length; i++) { await pen("mouseMoved", ...pts[i], { down: true }); await sleep(10); } await pen("mouseReleased", ...pts[pts.length - 1]); await sleep(80); };
+  const keyDown = (key) => page.evaluate((k) => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })), key);
+  // something drawn, then held by the lasso
+  await stroke(Array.from({ length: 16 }, (_v, i) => [cx - 70 + i * 9, 300 + Math.sin(i / 2) * 14]));
+  await keyDown("l");
+  await stroke([[cx - 110, 260], [cx + 110, 260], [cx + 110, 340], [cx - 110, 340], [cx - 110, 262]].flatMap((c, i, a) => (i ? Array.from({ length: 6 }, (_v, k) => [a[i - 1][0] + ((c[0] - a[i - 1][0]) * (k + 1)) / 6, a[i - 1][1] + ((c[1] - a[i - 1][1]) * (k + 1)) / 6]) : [c])));
+  let s = await st();
+  assert.equal(s.chosen, 1, "the lasso holds the stroke");
+  await sleep(300);
+  // a finger laid on it moves it; the board stays where it is
+  const box0 = s.chosenBox, v0 = s.view;
+  await fingers([[[cx, 300], [cx + 80, 380]]]);
+  s = await st();
+  assert.deepEqual([s.chosenBox[0] - box0[0], s.chosenBox[1] - box0[1], Math.round(s.view.x - v0.x), s.chosen], [80, 80, 0, 1], "a finger on what the lasso holds moves it, not the board");
+  // beside it, the finger moves the board as before
+  await sleep(700);
+  await fingers([[[cx - 250, 700], [cx - 190, 700]]]);
+  s = await st();
+  assert.ok(Math.abs(s.view.x - (v0.x - 60)) < 3 && s.chosenBox[0] === box0[0] + 80, `beside it a finger moves the board: ${JSON.stringify([v0.x, s.view.x])}`);
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "1", ctrlKey: true, bubbles: true, cancelable: true })));
+  // a shape put on the board: chosen, and the pen at its corner pulls it to size instead of drawing
+  await sleep(700);
+  await page.tap('#board [data-do="shapes"]'); await sleep(300);
+  await page.tap('#board .bd-spop [data-shape="rect"]'); await sleep(250);
+  s = await st();
+  let t = s.things[0];
+  const inks = s.items, corner = await at(t.x + t.w, t.y + t.h);
+  await stroke([corner, [corner[0] + 30, corner[1] + 20], [corner[0] + 60, corner[1] + 40]]);
+  s = await st();
+  assert.deepEqual([s.items, s.things[0].w - t.w, s.things[0].h - t.h, s.mode], [inks, 60, 40, "select"], "the pen at a chosen shape's corner pulls it to size, and draws nothing");
+  // on the shape itself it moves it
+  t = s.things[0];
+  const mid = await at(t.x + t.w / 2, t.y + t.h / 2);
+  await stroke([mid, [mid[0] + 20, mid[1] + 10], [mid[0] + 40, mid[1] + 20]]);
+  s = await st();
+  assert.deepEqual([s.items, s.things[0].x - t.x, s.things[0].y - t.y], [inks, 40, 20], "on the chosen shape the pen moves it");
+  // on the bare board the pen draws on
+  await stroke(Array.from({ length: 12 }, (_v, i) => [cx - 300 + i * 9, 900 + Math.sin(i / 2) * 10]));
+  s = await st();
+  assert.deepEqual([s.items, s.mode, s.picked.length], [inks + 1, "draw", 0], "beside it the pen draws on");
+  // a finger's tap on the shape chooses it again (a drawing tool in hand, the finger does not draw)
+  await sleep(700);
+  t = s.things[0];
+  const again = await at(t.x + t.w / 2, t.y + t.h / 2);
+  await page.touchscreen.tap(...again);
+  await sleep(150);
+  s = await st();
+  assert.deepEqual([s.mode, s.picked.length, s.items], ["select", 1, inks + 1], "a finger's tap on a thing chooses it, whatever tool is in hand");
+  // … and the finger moves it
+  await sleep(700);
+  await fingers([[again, [again[0] - 50, again[1] + 30]]]);
+  s = await st();
+  assert.deepEqual([Math.round(s.things[0].x - t.x), Math.round(s.things[0].y - t.y)], [-50, 30], "… and moves it");
+  await context.close();
+});
+
+test("the tray goes where a finger pulls it: upright at a side, shrunk in a corner, opened again by a tap", async () => {
+  const { page, context, st, fingers, sleep, w, h } = await open("tablet");
+  const where = () => page.evaluate(() => { const p = document.querySelector("#board .bd-palette").getBoundingClientRect(), m = document.querySelector("#board .bd-mini").getBoundingClientRect(); return { p: [p.left, p.top, p.width, p.height], m: [m.left, m.top, m.width, m.height] }; });
+  const grip = async () => page.evaluate(() => { const r = document.querySelector('#board .bd-tool[data-tool="marker"]').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await fingers([[await grip(), [w - 40, h / 2]]], { steps: 10 });
+  await sleep(700);
+  let s = await st(), r = await where();
+  assert.deepEqual([s.palette, s.mini, s.tool], ["right", null, "pen"], "pulled by a tool to the right edge: it lies there, and the tool was not taken up");
+  assert.ok(r.p[3] > r.p[2] * 2 && r.p[0] + r.p[2] <= w && r.p[1] >= 0 && r.p[1] + r.p[3] <= h, `upright and on the screen: ${JSON.stringify(r.p)}`);
+  await fingers([[await grip(), [50, 70]]], { steps: 10 });
+  await sleep(500);
+  s = await st(); r = await where();
+  assert.deepEqual([s.mini, r.m[2]], ["tl", 56], "pulled into a corner: a round sign");
+  assert.ok(r.m[0] >= 0 && r.m[1] >= 0, JSON.stringify(r.m));
+  await sleep(500);
+  await page.tap("#board .bd-mini");
+  await sleep(400);
+  assert.deepEqual([(await st()).mini, (await st()).palette], [null, "right"], "a tap on it: the tray again, where it stood");
+  await context.close();
+});
+
 test("nothing was thrown along the way", () => { assert.deepEqual(problems, []); });

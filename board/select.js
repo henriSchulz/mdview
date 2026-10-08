@@ -117,6 +117,18 @@
       if (!e.shiftKey) pick([]);
       return true;
     }
+    /* Would a pointer at pt take hold of what is chosen — at one of its dots, its knob, a connector's arrow, or anywhere on it?
+     * (A pen draws wherever it comes down, except there: what is chosen is what the hand is working on.) */
+    function grabs(pt, type) {
+      const st = S(), p = ctx.onBoard(pt);
+      if (!st.pick.length) return false;
+      GRAB = type === "touch" ? 22 : type === "pen" ? 14 : 10;
+      if (handleAt(p)) return true;
+      const b = pickBox(), slack = 8 / z();
+      return p.x >= b[0] - slack && p.x <= b[2] + slack && p.y >= b[1] - slack && p.y <= b[3] + slack;
+    }
+    /* The thing (no stroke of ink) that lies at pt. */
+    const itemAt = (pt) => { const p = ctx.onBoard(pt), items = plain(S()); for (let i = items.length - 1; i >= 0; i--) if (I.hit(items[i], p.x, p.y, 6 / z())) return items[i]; return null; };
     /* A finger that rested on the bare board: from there a box is pulled over what is to be chosen. */
     function hold(pt) {
       const p = ctx.onBoard(pt);
@@ -666,7 +678,7 @@
       return false;
     }
 
-    return { hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

@@ -21,6 +21,7 @@
     mono: svg('<path d="M4 17c3-9 5-9 7-3s4 6 9-7"/>'),
     eraser: svg('<path d="m8.5 19-4-4a1.6 1.6 0 0 1 0-2.3l8.2-8.2a1.6 1.6 0 0 1 2.3 0l4.5 4.5a1.6 1.6 0 0 1 0 2.3L12 19z"/><path d="m8.8 8.6 6.6 6.6M7 19h13"/>'),
     grid: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><g fill="currentColor" stroke="none"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></g>'),
+    shrink: svg('<path d="M8 10l4 4 4-4"/>'),
     more: svg('<circle cx="6" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="18" cy="12" r="1" fill="currentColor"/>'),
     scenes: svg('<path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><circle cx="4.8" cy="7" r="0.9" fill="currentColor"/><circle cx="4.8" cy="12" r="0.9" fill="currentColor"/><circle cx="4.8" cy="17" r="0.9" fill="currentColor"/>'),
     prev: svg('<path d="M14.5 7 9.5 12l5 5"/>'), next: svg('<path d="m9.5 7 5 5-5 5"/>'),
@@ -138,6 +139,16 @@
 
   // ---------------------------------------------------------------- the window
   let el = null, S = null, hands = null, space = false, sel = null;
+  /* Where the tray lies: along an edge of the window; mini: shrunk into a corner (tl, tr, bl, br), a round sign of the tool in hand. */
+  const tray = { edge: "bottom", mini: null };
+  function trayPlaced(keep = true) {
+    if (!["bottom", "top", "left", "right"].includes(tray.edge)) tray.edge = "bottom";
+    if (!["tl", "tr", "bl", "br"].includes(tray.mini)) tray.mini = null;
+    if (tray.edge === "bottom") delete el.dataset.palette; else el.dataset.palette = tray.edge;
+    if (tray.mini) el.dataset.mini = tray.mini; else delete el.dataset.mini;
+    if (keep) { try { localStorage.setItem(KEEP + ":place", JSON.stringify(tray)); } catch (e) { /* (not kept) */ } }
+    if (S) { options(null); paint(); }
+  }
   const stage = () => el.querySelector(".bd-stage");
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
   const auto = () => getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f";
@@ -183,7 +194,9 @@
         `<span role="radiogroup" class="bd-tools"><button type="button" class="bd-tool bd-pointer" role="radio" data-pointer="1" title="${esc(T("board.tool.select"))}" aria-label="${esc(T("board.tool.select"))}"><svg viewBox="0 0 30 72" aria-hidden="true"><path d="M9 8v24l6.2-5.6 4.3 9.6 3.6-1.6-4.3-9.5 8.2-0.5z" fill="var(--bd-tool-body)" stroke="var(--bd-tool-dark)" stroke-width="1.5" stroke-linejoin="round"/></svg></button>${ALL.map((t) => `<button type="button" class="bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${toolSign(t)}</button>`).join("")}</span>` +
         `<button type="button" class="bd-tool bd-rule" data-ruler="1" aria-pressed="false" title="${esc(T("board.tool.ruler"))}" aria-label="${esc(T("board.tool.ruler"))}"><svg viewBox="0 0 30 72" aria-hidden="true"><rect x="6" y="6" width="18" height="68" rx="2" fill="var(--bd-tool-body)" stroke="var(--bd-tool-line)"/><path d="M6 14h7M6 22h4M6 30h7M6 38h4M6 46h7M6 54h4M6 62h7" stroke="var(--bd-tool-dark)"/></svg></button><span class="bd-sep"></span>` +
         `<span role="radiogroup" class="bd-wells" aria-label="${esc(T("board.color"))}">${INKS.map(([name, c]) => `<button type="button" class="bd-well" role="radio" data-ink="${c}" title="${esc(T("board.ink." + name))}" aria-label="${esc(T("board.ink." + name))}" style="--ink:${c === "auto" ? "var(--fg)" : c}"></button>`).join("")}` +
-          `<label class="bd-well bd-any" title="${esc(T("board.ink.any"))}"><input type="color" aria-label="${esc(T("board.ink.any"))}"></label></span></div>` +
+          `<label class="bd-well bd-any" title="${esc(T("board.ink.any"))}"><input type="color" aria-label="${esc(T("board.ink.any"))}"></label></span>` +
+        `<button type="button" class="bd-btn bd-shrink" data-do="tray-min" title="${esc(T("board.tray.min"))}" aria-label="${esc(T("board.tray.min"))}">${I.shrink}</button></div>` +
+      `<button type="button" class="bd-mini" data-do="tray-max" title="${esc(T("board.tray.max"))}" aria-label="${esc(T("board.tray.max"))}"></button>` +
       `<div class="bd-pop ui-menu ui-popover" role="dialog" aria-label="${esc(T("board.options"))}"></div>` +
       `<div class="bd-bar bd-zoom" role="toolbar"><button type="button" class="bd-btn bd-wide" data-do="zoom" title="${esc(T("board.zoom"))}"></button>${button("fit", "board.fit")}<span class="bd-sep"></span>${button("prev", "board.scene.prev")}${button("scenes", "board.scenes")}${button("next", "board.scene.next")}</div>` +
       `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}</div>` +
@@ -202,6 +215,8 @@
       if (b.dataset.do === "draw") return setMode(S.mode === "draw" ? "select" : "draw");
       if (["textbox", "sticky", "table"].includes(b.dataset.do)) { setMode("select"); return void sel.insert(b.dataset.do === "textbox" ? "text" : b.dataset.do); }
       if (b.dataset.do === "shapes") return shapes();
+      if (b.dataset.do === "tray-min") { tray.mini = { bottom: "bl", top: "tl", left: "bl", right: "br" }[tray.edge]; return trayPlaced(); }
+      if (b.dataset.do === "tray-max") { tray.mini = null; return trayPlaced(); }
       if (b.dataset.pointer) return setMode("select");
       if (b.dataset.ruler) return ruler();
       if (b.dataset.tool) return b.dataset.tool === S.tool && S.tool !== "lasso" ? options(b) : setTool(b.dataset.tool);
@@ -221,22 +236,46 @@
       if (S && sel.pending && !e.target.closest(".bd-cpop")) { delete el.querySelector(".bd-cpop").dataset.open; sel.connectTo(null); } // (no shape chosen for a connector's end: it ends where it was let go)
       if (S && e.target.closest(".bd-bar") && !e.target.closest(".bd-fbar")) sel.finish(); // (a bar touched while text is typed: the text is done)
     }, true);
-    // the palette, pulled by its bare parts: let go in the other half of the window, it lies at that edge from then on
+    // The tray is pulled to where it is wanted: let go near an edge of the window it lies along that edge (upright at the sides);
+    // let go in a corner it shrinks to a round sign of the tool in hand, which a tap opens again. Pulled by any part of it — a pull
+    // that began on a tool is no click on it.
     const pal = el.querySelector(".bd-palette");
-    try { if (localStorage.getItem(KEEP + ":place") === "top") el.dataset.palette = "top"; } catch (e) { /* (not kept: at the foot) */ }
+    try { const was = localStorage.getItem(KEEP + ":place") || ""; Object.assign(tray, was.startsWith("{") ? JSON.parse(was) : { edge: was === "top" ? "top" : "bottom" }); } catch (e) { /* (not kept: at the foot) */ }
+    trayPlaced(false);
+    let pulled = 0;
     pal.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0 || e.target.closest("button, label, input")) return;
-      const y0 = e.clientY;
-      try { pal.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test) */ }
-      const moved = (m) => { pal.style.translate = `-50% ${m.clientY - y0}px`; pal.style.transition = "none"; };
-      const up = (u) => {
-        pal.removeEventListener("pointermove", moved); pal.removeEventListener("pointerup", up); pal.removeEventListener("pointercancel", up);
-        pal.style.translate = pal.style.transition = "";
-        const top = u.clientY - el.getBoundingClientRect().top < el.clientHeight / 2;
-        if (u.type === "pointerup" && Math.abs(u.clientY - y0) > 24) { if (top) el.dataset.palette = "top"; else delete el.dataset.palette; try { localStorage.setItem(KEEP + ":place", top ? "top" : "bottom"); } catch (x) { /* (as above) */ } options(null); }
+      if (e.button !== 0 || e.target.closest("input")) return;
+      const x0 = e.clientX, y0 = e.clientY, id = e.pointerId;
+      // (where its tools do not all fit — a phone — a pull along their row moves the row under the finger, not the tray)
+      const row = e.target.closest(".bd-tools"), upright = tray.edge === "left" || tray.edge === "right";
+      const fits = !row || (upright ? row.scrollHeight <= row.clientHeight + 1 : row.scrollWidth <= row.clientWidth + 1), from = row ? (upright ? row.scrollTop : row.scrollLeft) : 0;
+      let far = false, rolls = false;
+      const moved = (m) => {
+        if (m.pointerId !== id) return;
+        const dx = m.clientX - x0, dy = m.clientY - y0;
+        if (!far && Math.hypot(dx, dy) < 10) return;
+        if (!far) { far = true; rolls = !fits && (upright ? Math.abs(dy) > Math.abs(dx) : Math.abs(dx) > Math.abs(dy)); try { pal.setPointerCapture(id); } catch (x) { /* (a pointer made up by a test) */ } options(null); }
+        if (rolls) { if (upright) row.scrollTop = from - dy; else row.scrollLeft = from - dx; return; }
+        pal.style.transform = `translate(${dx}px, ${dy}px)`;
+        pal.style.transition = "none";
       };
-      pal.addEventListener("pointermove", moved); pal.addEventListener("pointerup", up); pal.addEventListener("pointercancel", up);
+      const up = (u) => {
+        if (u.pointerId !== id) return;
+        removeEventListener("pointermove", moved, true); removeEventListener("pointerup", up, true); removeEventListener("pointercancel", up, true);
+        pal.style.transform = pal.style.transition = "";
+        if (!far || u.type !== "pointerup") return;
+        pulled = u.timeStamp;
+        if (rolls) return;
+        const r = el.getBoundingClientRect(), x = u.clientX - r.left, y = u.clientY - r.top, w = r.width, h = r.height, CORNER = 110;
+        const corner = (y < CORNER ? "t" : y > h - CORNER ? "b" : "") + (x < CORNER ? "l" : x > w - CORNER ? "r" : "");
+        if (corner.length === 2) tray.mini = corner;
+        else { tray.mini = null; tray.edge = [["left", x], ["right", w - x], ["top", y], ["bottom", h - y]].sort((a, b) => a[1] - b[1])[0][0]; }
+        trayPlaced();
+      };
+      addEventListener("pointermove", moved, true); addEventListener("pointerup", up, true); addEventListener("pointercancel", up, true);
     });
+    // (the click that ends a pull is not one)
+    pal.addEventListener("click", (e) => { if (e.timeStamp - pulled < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
     // text in the board's picture breaks where it breaks on the screen: measured with the same letters
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
@@ -264,14 +303,23 @@
     const begun = (pt, e) => {
       if (!S || S.readonly) return mine() ? sel.start(pt, e) : start(pt);
       if (pt.type === "pen" && !pens.seen) { pens.seen = true; keepPens(); }
-      // The pen draws wherever it comes down, whatever tool was in hand — unless it is set to choose and scroll as a finger does.
-      if (pt.type === "pen" && S.mode === "select" && !pens.selects) setTool(DRAWS.includes(S.tool) || S.tool === "eraser" ? S.tool : "pen");
+      // What the lasso holds is moved by a finger laid on it — the board does not go with it.
+      if (pt.type === "touch" && S.mode === "draw" && S.tool === "lasso" && S.sel.length) { const r = selRect(); if (r && pt.x >= r[0] - 14 && pt.x <= r[0] + r[2] + 14 && pt.y >= r[1] - 14 && pt.y <= r[1] + r[3] + 14) return start(pt); }
+      // The pen draws wherever it comes down, whatever tool was in hand — except on what is chosen: there it takes hold of it, of its
+      // dots, its knob (a shape put on the board is pulled to size with the pen) — and unless it is set to choose and scroll as a finger does.
+      if (pt.type === "pen" && S.mode === "select" && !pens.selects) {
+        if (sel.grabs(pt, "pen")) return sel.start(pt, e);
+        setTool(DRAWS.includes(S.tool) || S.tool === "eraser" ? S.tool : "pen");
+      }
       // Where a pen is in use a finger does not draw (it is the other hand, or the palm): it moves the board — unless Draw with Finger is on.
       if (pt.type === "touch" && S.mode === "draw" && pens.seen && !pens.finger) return "pan";
       return mine() ? sel.start(pt, e) : start(pt);
     };
     hands = B.pointer.attach(stage(), { start: begun, move: (pts, e, ahead) => (sel.busy ? sel.move(pts, e) : move(pts, e, ahead)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
-      hold: (pt, e) => (mine() ? sel.hold(pt, e) : false), twist: (points) => mine() && sel.twist(points), twisting: (deg) => sel.twisting(deg), twisted: () => sel.twisted(),
+      hold: (pt, e) => (mine() ? sel.hold(pt, e) : false),
+      // a finger tapped while a drawing tool is in hand (it does not draw, a pen is about): the thing under it is chosen — from there
+      // the finger moves it, the pen pulls it to size, and the pen on the bare board draws on
+      tap: (pt) => { if (!S || S.readonly || S.mode !== "draw") return; const it = sel.itemAt(pt); if (it) { setMode("select"); sel.pick([it]); } }, twist: (points) => mine() && sel.twist(points), twisting: (deg) => sel.twisting(deg), twisted: () => sel.twisted(),
       pan: (dx, dy) => S && S.view.panBy(dx, dy),
       zoom: (f, cx, cy) => S && S.view.zoomAt(cx, cy, S.view.z * f) });
   }
@@ -315,6 +363,9 @@
     const strokes = S.sel.length ? S.sel : S.mode === "select" ? S.pick.filter((it) => it.k === "ink") : []; // the strokes chosen: by the lasso, or with the pointer
     const set = S.mode === "draw" ? S.tools[S.tool] || {} : {}, shown = strokes.length ? (strokes.every((it) => it.c === strokes[0].c) ? strokes[0].c : null) : set.c;
     el.querySelector("[data-pointer]").setAttribute("aria-checked", String(S.mode === "select"));
+    const mini = el.querySelector(".bd-mini"), inHand = S.mode === "select" ? "pointer" : S.tool;
+    if (mini.dataset.shows !== inHand) { mini.dataset.shows = inHand; mini.innerHTML = inHand === "pointer" ? el.querySelector("[data-pointer]").innerHTML : toolSign(inHand); }
+    { const c = (S.tools[S.tool] || {}).c; mini.style.setProperty("--band", !c || c === "auto" ? "var(--fg)" : c); }
     for (const b of el.querySelectorAll("[data-tool]")) {
       b.setAttribute("aria-checked", String(S.mode === "draw" && b.dataset.tool === S.tool));
       const c = (S.tools[b.dataset.tool] || {}).c;
@@ -471,7 +522,15 @@
       : `${widths}<label class="bd-opacity"><span>${esc(T("board.opacity"))}</span><input type="range" min="10" max="100" step="1" value="${Math.round(set.o * 100)}"><output>${Math.round(set.o * 100)} %</output></label>`;
     const r = anchor.getBoundingClientRect(), box = el.getBoundingClientRect();
     pop.style.left = Math.max(8, Math.min(box.width - pop.offsetWidth - 8, r.left - box.left + r.width / 2 - pop.offsetWidth / 2)) + "px";
-    const pr = el.querySelector(".bd-palette").getBoundingClientRect(), under = el.dataset.palette === "top"; // (the palette at the top: its options open under it)
+    const pr = el.querySelector(".bd-palette").getBoundingClientRect(), under = tray.edge === "top"; // (the tray at the top: its options open under it)
+    if (tray.edge === "left" || tray.edge === "right") { // … upright at a side: beside it, level with the tool
+      pop.style.left = (tray.edge === "left" ? pr.right - box.left + 10 : pr.left - box.left - 10 - pop.offsetWidth) + "px";
+      pop.style.top = Math.max(8, Math.min(box.height - pop.offsetHeight - 8, r.top - box.top + r.height / 2 - pop.offsetHeight / 2)) + "px";
+      pop.style.bottom = "auto";
+      pop.style.setProperty("--origin", tray.edge === "left" ? "center left" : "center right");
+      pop.dataset.open = "";
+      return;
+    }
     pop.style.bottom = under ? "auto" : box.bottom - pr.top + 10 + "px";
     pop.style.top = under ? pr.bottom - box.top + 10 + "px" : "auto";
     pop.style.setProperty("--origin", under ? "top center" : "bottom center");
@@ -1012,7 +1071,7 @@
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
-  B.state = () => (S ? { pens: { ...pens }, tip: !el.querySelector(".bd-tip").hidden, channels: S.model.items.filter((it) => it.k === "ink").map((it) => it.ch), ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })), scene: S.scene, snap: !!S.model.board.snap, menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
+  B.state = () => (S ? { pens: { ...pens }, tip: !el.querySelector(".bd-tip").hidden, channels: S.model.items.filter((it) => it.k === "ink").map((it) => it.ch), ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", mini: el.dataset.mini || null, crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })), scene: S.scene, snap: !!S.model.board.snap, menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.tool] || {}).c, tools: S.tools, chosen: S.sel.length, chosenBox: S.sel.length ? boundsOf(S.sel).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
   B.emptyText = () => B.format.empty();

@@ -8,6 +8,7 @@
 
   /* on: { start(pt, e) → false to refuse, "pan": this pointer moves the board instead (and, held still first, hold(pt, e) is asked
    *       whether it begins something after all); move(pts, e), end(e), cancel(), pan(dx, dy), zoom(factor, cx, cy), hover(pt, e),
+   *       tap(pt, e): such a pointer went up again without having moved;
    *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted() }
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
   function attach(stage, on) {
@@ -123,7 +124,11 @@
     const up = (e, cancelled) => {
       if (e.pointerType === "pen") { pen.down = false; pen.last = e.timeStamp; }
       if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
-      if (drag && e.pointerId === drag.id) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
+      if (drag && e.pointerId === drag.id) {
+        const tapped = !cancelled && drag.hold && !drag.far; // (a finger that came down to move the board and went up again without having moved: a tap)
+        clearTimeout(drag.hold); drag = null; delete stage.dataset.panning;
+        if (tapped && on.tap) on.tap(point(e), e);
+      }
       if (tool === e.pointerId) { tool = null; if (cancelled) on.cancel(); else on.end(e); }
     };
     stage.addEventListener("pointerup", (e) => up(e, false));
