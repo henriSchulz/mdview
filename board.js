@@ -242,7 +242,8 @@
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
     sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
       // a card's file or address, opened: by the host, as a link in a note is (a file in the program for its kind, an address in the browser)
-      open: (it) => { if (it && (it.k === "link" || it.k === "file")) post("link", { href: it.k === "link" ? it.url : fileUrl(S.ref.slice(0, S.ref.lastIndexOf("/") + 1) + it.src), tab: "own" }); },
+      // (said to the host itself, the board kept first: said the page's own way, a link followed counts as leaving the note, which shuts the board)
+      open: (it) => { if (!it || (it.k !== "link" && it.k !== "file")) return; save(); window.MdHost.post(JSON.stringify({ type: "link", href: it.k === "link" ? it.url : fileUrl(S.ref.slice(0, S.ref.lastIndexOf("/") + 1) + it.src), tab: "own" })); },
       // a connector let go over the bare board: which shape is to stand at its end? (at: on the screen)
       ask: (at) => { const p = el.querySelector(".bd-cpop"), s = size(); p.style.left = Math.round(Math.max(8, Math.min(s.w - p.offsetWidth - 8, at[0] + 10))) + "px"; p.style.top = Math.round(Math.max(56, Math.min(s.h - p.offsetHeight - 8, at[1] - p.offsetHeight / 2))) + "px"; p.dataset.open = ""; } });
     // a picture's small copy for the board's own picture was made after the board was last kept without it: kept again, with it
