@@ -18,6 +18,20 @@
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
 
   // ------------------------------------------------------------ HTML from elsewhere, reduced
+  /* A picture copied out of a note comes with the address the app shows it under (md://…/file/…,
+   * in the browser /file/…): written into a note as it is, it is no picture anywhere else. It
+   * is written as the way to the file from the note's folder instead. Any other address stays. */
+  function localSrc(src) {
+    try {
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(src)) return src; // (a way already)
+      const u = new URL(src), b = new URL(document.baseURI), files = String((window.MdHost && window.MdHost.files) || "");
+      if (u.protocol !== b.protocol || u.host !== b.host || !files || !u.href.startsWith(files + "/") || !b.href.startsWith(files + "/")) return src;
+      const from = b.pathname.split("/").slice(0, -1), to = u.pathname.split("/");
+      let i = 0;
+      while (i < from.length && i < to.length - 1 && from[i] === to[i]) i++;
+      return [...from.slice(i).map(() => ".."), ...to.slice(i)].join("/") + u.hash;
+    } catch (e) { return src; }
+  }
   const SKIP = /^(script|style|head|meta|link|title|noscript|template|iframe|object|embed|svg|math|button|select|textarea|input|caption|colgroup|col|canvas|audio|video)$/;
   const SAME = /^(p|h[1-6]|blockquote|ul|ol|li|table|tr|hr|br)$/;
   const BLOCKISH = /^(div|section|article|main|header|footer|aside|nav|figure|figcaption|details|summary|dl|dt|dd|address|center|form|fieldset)$/;
@@ -45,7 +59,7 @@
         const srcAttr = node.getAttribute("src") || "";
         if (!srcAttr || /^data:/i.test(srcAttr)) continue; // never an embedded picture in the file
         el = doc.createElement("img");
-        el.setAttribute("src", srcAttr);
+        el.setAttribute("src", localSrc(srcAttr));
         if (node.getAttribute("alt")) el.setAttribute("alt", node.getAttribute("alt"));
         if (node.getAttribute("title")) el.setAttribute("title", node.getAttribute("title"));
         dst.appendChild(el);

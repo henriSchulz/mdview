@@ -2621,6 +2621,12 @@ impl Win {
     /// it), or wherever the Obsidian vault keeps its attachments (default: the vault root).
     fn attachment_dir(&self, app: &App, note: &Path, vault: Option<&Path>) -> PathBuf {
         let beside = dir_of(note);
+        // A folder of notes of its own that lies inside a vault (the window shows a folder below the
+        // vault's root — a project with its history, synced on its own): what is pasted stays in
+        // that folder, where the settings say. The vault's place for attachments is outside it —
+        // the pictures were not part of the project, never synced, and no link from the note's
+        // folder led to them.
+        let vault = vault.filter(|v| !self.folder.as_ref().is_some_and(|f| f.as_path() != *v && f.starts_with(v)));
         let Some(vault) = vault else {
             let prefs = app.prefs();
             let wanted = prefs["images"].as_str().unwrap_or("assets").trim();
