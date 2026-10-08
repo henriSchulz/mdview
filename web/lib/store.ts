@@ -40,8 +40,12 @@ export async function dropShare(id: string): Promise<void> {
 /** An id kept for a share that is about to be made — only if nothing has it. → whether it is this caller's now. */
 export async function reserve(id: string): Promise<boolean> {
   const data = { state: "reserved", created: new Date().toISOString() };
-  if (fs.here()) return fs.create(COLLECTION, id, data);
-  if (memory.has(id)) return false;
+  // (an id that was kept and never used — the share was not made after all, or someone only asked —
+  // is free again after an hour: else whoever asks often enough keeps every short id for ever)
+  const had = await getShare(id);
+  const stale = !!had && had.state === "reserved" && Date.now() - (Date.parse(had.created) || 0) > 60 * 60 * 1000;
+  if (fs.here()) { if (stale) { await fs.set(COLLECTION, id, data); return true; } return fs.create(COLLECTION, id, data); }
+  if (memory.has(id) && !stale) return false;
   memory.set(id, { ...blank, ...data });
   return true;
 }

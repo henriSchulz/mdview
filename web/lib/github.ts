@@ -165,7 +165,10 @@ export async function texts(access: string, owner: string, repo: string, shas: s
     });
     if (res.status === 401) throw new Refused("GitHub does not take the token any more");
     if (!res.ok) throw new Error(`GitHub: ${res.status} for the texts`);
-    const said = (await res.json()) as { data?: { repository?: Record<string, { text: string | null; isBinary: boolean | null; isTruncated: boolean } | null> } };
+    const said = (await res.json()) as { errors?: { type?: string; message?: string }[]; data?: { repository?: Record<string, { text: string | null; isBinary: boolean | null; isTruncated: boolean } | null> } };
+    // (GitHub says "too many requests" and the like with a 200 and errors: that is not "these files
+    // have no text" — a list of shares read as empty would end the sharing, a note as empty a conflict)
+    if (said.errors?.length && !said.data?.repository) throw new Error(`GitHub: ${said.errors[0].type || said.errors[0].message || "an error"} for the texts`);
     const got = said.data?.repository || {};
     some.forEach((sha, n) => {
       const b = got[`b${n}`];
