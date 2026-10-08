@@ -938,6 +938,17 @@
     dropfiles() { toast("These files can't be read from here"); }, // (addresses of files on a disk: nothing a browser can read)
 
     // turning a repository into a project: the marker, as a commit (the clock's menu, when asked)
+    /* A picture, or any files, chosen in the browser's own window for files (Insert › Picture, File):
+     * what is chosen comes in as files dropped on the note do. */
+    pickfiles({ kind, path }) {
+      const input = document.createElement("input");
+      input.type = "file"; input.multiple = true; input.hidden = true;
+      if (kind === "image") input.accept = "image/*";
+      input.addEventListener("change", () => { const files = [...input.files]; input.remove(); if (files.length) drop(files, path).catch((e) => console.error("mdview host: pick", e)); });
+      input.addEventListener("cancel", () => input.remove());
+      document.body.appendChild(input);
+      input.click();
+    },
     // Sync Now: what was written here is committed, and what others wrote fetched — at once
     async "sync-now"() {
       if (busy) await busy;

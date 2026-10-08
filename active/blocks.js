@@ -823,8 +823,12 @@
         const rectAt = (pos) => { try { const d = view && drawnDoc === state.doc ? view.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; } catch (e) { return null; } };
         return DecorationSet.create(state.doc, P.map((x, i) => {
           const before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
-          const up = before && here ? Math.max(0, Math.round((here.top - before.bottom - 8) * 10) / 10) : null;
-          return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null ? { class: "blk-sel" } : { class: "blk-sel", style: `--up: ${up}px` });
+          // (the room between two fields is 6 px whatever the blocks are: a field reaches 5 px out of
+          // its block — a rule's 8 —, and up over what the gap has more than that (--up), or is cut
+          // where the gap has less (--cut). Items of a list are left as they are: one list.)
+          const out = (n) => (n.type.name === "horizontal_rule" ? 8 : 5), item = x.node.type.name === "list_item";
+          const up = before && here && !item ? Math.round((here.top - before.bottom - 6 - out(P[i - 1].node) - out(x.node)) * 10) / 10 : null;
+          return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null || !up ? { class: "blk-sel" } : { class: "blk-sel", style: up > 0 ? `--up: ${up}px` : `--cut: ${-up}px` });
         }).concat(around(P.map((x) => x.pos))));
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : state.selection instanceof NodeSelection ? { class: "has-nodesel" } : null),

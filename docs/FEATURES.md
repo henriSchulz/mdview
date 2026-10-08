@@ -267,8 +267,9 @@ This text is on a page of its own.
 
 The note stays one Markdown file: in the source editor, and in any other Markdown program, a page's
 text simply stands where it is written. In the active mode a page is made from the `/` menu
-(Page); its name is typed above its text, and its line can be moved, copied and deleted like any
-block — the page goes with it.
+(Page); its name is typed above its text — in the reading view as well, where it is written at
+once — or changed from the page it lies on: right click on its line › Rename…. Its line can be
+moved, copied and deleted like any block — the page goes with it.
 
 ### Formulas (KaTeX)
 
@@ -359,6 +360,10 @@ A picture or file the app itself put beside the note (pasted, dropped) goes agai
 longer shows it — but not at once: it stays for an hour first, so that cutting and pasting it,
 or undoing its removal, finds it where it was.
 
+In the active mode a picture or a file is put in from the `/` menu, the Insert panel or the
+menu's Insert › Picture / File: the system's own window for files opens, and what is chosen there
+is kept beside the note and stands at the caret — as a file dropped on the note does.
+
 ### Links between notes
 
 ```markdown
@@ -416,8 +421,11 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   `Space` adds an empty block below, `Backspace` deletes, `Tab` and `Shift+Tab` stand them
   further in and out, `/` opens the menu of styles, lists, decorations, colours and callouts for
   all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
-  rectangle pulled from the empty space selects those it reaches. A block dragged to the
-  window's upper or lower edge scrolls the page along.
+  rectangle pulled from the empty space selects those it reaches, and a click there lets go of
+  whatever is selected — blocks or text. Select All in the right-click menu selects the note's
+  blocks as wholes. Each selected block has a field of its own, with the same room between two
+  of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
+  the page along.
 - **Tab stands any block further in**, `Shift+Tab` takes it out again. Right below a list — also
   across an empty line — a paragraph, a code block or a table goes into that list's last item,
   and the first item of a list under the list above it. Where no list is above, the block goes
@@ -522,6 +530,9 @@ A project can be linked to a repository on GitHub. Linked, the two are kept the 
 kept here goes there, and what another device sent comes here — the repository is what counts.
 Without a link, and without GitHub, everything above works as it does.
 
+- **Sync Now**: the two arrows in the sidebar's head (there while the folder is linked; in the
+  browser always). What waits is kept, and the two sides are brought in line at once — not after
+  the quiet while, or the next look a minute later.
 - **Signing in**: Settings › History › GitHub › Sign In…. The app shows a code; Copy Code and
   Open GitHub puts it on the clipboard and opens the page where it is confirmed. No password is
   typed into the app. The sign-in is kept in the system's keyring and taken up again at the next

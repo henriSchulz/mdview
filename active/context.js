@@ -149,12 +149,11 @@
       view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(after + 1, tr.doc.content.size)), 1)));
     },
     footnote(view) { run(view, A.notes.insert); },
-    image(view) {
-      const { from, to } = view.state.selection;
-      if (!view.state.selection.$from.parent.inlineContent) return;
-      view.dispatch(view.state.tr.replaceWith(from, to, N.image.create({ src: "", alt: "" })).setMeta("step", true));
-      setTimeout(() => A.islands.open(view, from), 0);
-    },
+    // a picture, or any file: chosen in the system's own window for files — what is chosen is kept
+    // beside the note and stands at the caret (as a file dropped on the note does). No form to fill
+    // in first: a picture's address and size are its menu's, afterwards.
+    image(view) { view.focus(); post("pickfiles", { kind: "image", path: (window.MdView.core.current || {}).path }); },
+    file(view) { view.focus(); post("pickfiles", { kind: "file", path: (window.MdView.core.current || {}).path }); },
   };
 
   // ------------------------------------------------------------ the menu
@@ -210,6 +209,7 @@
         item("menu.codeBlock", () => INSERT.code(view)), item("menu.formula", () => INSERT.math(view)),
         item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
         item("menu.image", () => INSERT.image(view)),
+        item("menu.file", () => INSERT.file(view)),
         item("menu.graphic", () => INSERT.graphic(view)),
         item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
       ] });

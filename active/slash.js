@@ -191,6 +191,7 @@
       leaf("menu.table", "table tabelle", I.table, (v) => A.context.INSERT.table(v)),
       leaf("menu.rule", "divider rule line hr separator trennlinie", I.rule, (v) => A.context.INSERT.rule(v)),
       leaf("menu.image", "image picture bild", I.image, (v) => A.context.INSERT.image(v)),
+      leaf("menu.file", "file attachment datei anhang", window.MdView.core.UI.file || I.image, (v) => A.context.INSERT.file(v)),
       leaf("menu.graphic", "graphic figure diagram svg ai claude circuit schematic logic rtl grafik schaltung schaltplan zeichnung ki", I.graphic, (v) => A.context.INSERT.graphic(v)),
       leaf("menu.footnote", "footnote note fußnote", I.footnote, (v) => A.context.INSERT.footnote(v)),
       leaf("menu.page", "page subpage seite unterseite", window.MdView.core.ICON.note, (v) => A.context.INSERT.page(v)),

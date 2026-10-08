@@ -195,7 +195,7 @@ test("blocks selected as wholes: Tab stands them under the list above, / and a r
   await page.waitForFunction(() => !!MdActive.blocks.selection(MdActive.view.pm.state), null, { timeout: 8000 });
   await page.keyboard.type("/");
   await page.waitForFunction(() => document.querySelector("#actmenu").hasAttribute("data-open"), null, { timeout: 8000 });
-  assert.deepEqual(await menu(), ["Text Style", "List", "Format", "Decorations", "Color", "Callout", "Columns", "Code Block", "Formula", "Table", "Divider", "Picture", "Graphic by Claude…", "Footnote", "Page", "Actions"]); // (all the "/" menu has)
+  assert.deepEqual(await menu(), ["Text Style", "List", "Format", "Decorations", "Color", "Callout", "Columns", "Code Block", "Formula", "Table", "Divider", "Picture", "File", "Graphic by Claude…", "Footnote", "Page", "Actions"]); // (all the "/" menu has)
   assert.ok(await page.evaluate(() => !!document.querySelector("#actmenu .menu-search"))); // (… and it is searched by typing)
   assert.equal(await md(), "- one\n\nbelow\n\nthird\n");
   await page.keyboard.press("Escape");

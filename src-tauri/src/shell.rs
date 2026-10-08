@@ -1934,6 +1934,24 @@ impl Win {
         }
     }
 
+    /// A picture, or any files, chosen in the system's own window to stand in the note (Insert ›
+    /// Picture, File): what is chosen comes in as files dropped on the note do — kept where
+    /// pasted files go, and put in at the caret.
+    fn pick_attach(&self, app: &App, pictures: bool, note: &str) {
+        let Some(window) = &self.window else { return };
+        let mut dialog = app.handle.dialog().file().set_parent(window).set_title(if pictures { "Insert Picture" } else { "Insert File" });
+        if pictures {
+            dialog = dialog.add_filter("Pictures", scan::IMAGE_EXT);
+        }
+        let (tx, label, note) = (app.tx.clone(), self.label.clone(), note.to_string());
+        dialog.pick_files(move |paths| {
+            let uris: Vec<String> = paths.unwrap_or_default().into_iter().filter_map(|p| p.into_path().ok()).filter_map(|p| tauri::Url::from_file_path(p).ok()).map(|u| u.to_string()).collect();
+            if !uris.is_empty() {
+                let _ = tx.send(Event::Msg { label, json: json!({ "type": "dropfiles", "uris": uris, "path": note }).to_string() });
+            }
+        });
+    }
+
     fn choose_file(&self, app: &App) {
         self.pick(app, Pick::File);
     }
@@ -2324,6 +2342,7 @@ impl Win {
                 app.each_win(told);
             }
             "dropfiles" => self.drop_files(app, &msg["uris"], msg["path"].as_str()),
+            "pickfiles" => self.pick_attach(app, msg["kind"] == "image", text_of("path")),
             "closehold" => {
                 // the page has a question to ask before the window may go
                 self.close_turn += 1;

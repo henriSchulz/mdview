@@ -829,6 +829,16 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
  * beside the field. */
 .pm { --blk-sel: color-mix(in srgb, var(--accent) 9%, var(--bg)); --blk-out: 0px; }
 .pm .blk-sel { --blk-box: 0 0 0 5px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
+/* The room between two fields is the same whatever the blocks are: one that follows another
+ * reaches up over what its gap has more than that — the gap is the blocks' margins, which differ
+ * (a heading, a card, an empty line), and is measured (--up: the gap less 8 px, blocks.js). 6 px
+ * stay clear. */
+.pm .blk-sel[style*="--up"] { --blk-box: 0 0 0 5px var(--blk-sel), 0 calc(-1 * var(--up)) 0 5px var(--blk-sel); }
+.pm .blk-sel[style*="--cut"] { clip-path: inset(calc(var(--cut) - 5px) -5px -5px -5px round var(--radius-row)); }
+/* (a rule: its field is a layer of its own — the same reach) */
+.pm hr.blk-sel[style*="--up"]::before { top: calc(-8px - var(--up)); }
+.pm hr.blk-sel[style*="--cut"] { clip-path: none; }
+.pm hr.blk-sel[style*="--cut"]::before { top: calc(-8px + var(--cut)); }
 /* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
 .pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
 .pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.6em - var(--blk-out) - 4px); z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (as far out as the box of a block beside the list: the list's indent, 1.6em, and what a block's box reaches out — its handle stands 46 out, inside it) */
