@@ -165,7 +165,7 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 .bd-insert { left: 50%; top: calc(var(--bd-inset) + env(safe-area-inset-top, 0px)); translate: -50% 0; }
 #board[data-readonly] .bd-insert { display: none; }
 .bd-palette { transition: opacity var(--dur-fast) var(--ease-out), translate var(--spring-gentle-dur) var(--spring-gentle); }
-#board[data-mode="select"] .bd-palette { translate: -50% calc(100% + var(--bd-inset) + 8px); opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), translate calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+/* (the tray stays in every mode: the pointer is one of its tools) */
 .bd-fbar { left: 0; top: 0; height: 32px; padding: 2px; }
 .bd-fbar .bd-btn { width: 28px; height: 28px; }
 .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-red); }
@@ -272,5 +272,5 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-rule { margin-left: 6px; }
 /* the palette at the window's upper edge */
 #board[data-palette="top"] .bd-palette { bottom: auto; top: calc(var(--bd-inset) + var(--bd-bar-h) + 10px + env(safe-area-inset-top, 0px)); }
-#board[data-palette="top"][data-mode="select"] .bd-palette { translate: -50% calc(-100% - var(--bd-inset) - var(--bd-bar-h) - 18px); }
 .bd-palette { touch-action: none; }
+.bd-pointer { margin-right: 4px; }

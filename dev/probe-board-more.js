@@ -31,7 +31,7 @@
     // ---- the pencil
     key("b");
     await drag(Array.from({ length: 25 }, (_v, i) => [200 + i * 8, 180 + Math.sin(i / 3) * 25]));
-    ok("B: the pencil — a stroke of its kind, a sixth tool in the tray", st().tool === "pencil" && st().kinds[0].startsWith("pencil:") && el().querySelectorAll(".bd-tools .bd-tool").length === 6, st().kinds);
+    ok("B: the pencil — a stroke of its kind; the tray holds the pointer and six tools", st().tool === "pencil" && st().kinds[0].startsWith("pencil:") && el().querySelectorAll(".bd-tools .bd-tool").length === 7, st().kinds);
     // ---- the ruler
     key("r");
     await sleep(100);

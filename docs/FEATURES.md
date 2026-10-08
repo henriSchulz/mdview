@@ -394,11 +394,14 @@ shut back into it.
   beside it —, nudged with the arrow keys (`Shift`: ten pixels). `Ctrl+A` chooses everything,
   `Esc` lets go.
 - `Ctrl+Z` takes a step back, `Ctrl+Shift+Z` brings it again.
+- **The pointer** (`V`, the first thing in the tray) chooses and moves whatever is on the
+  board, strokes of ink included: a click, `Shift` and a click for more, a box pulled from the
+  bare board, `Ctrl+A` for all. What is chosen is pulled to another place, copied (`Ctrl+D`),
+  deleted (`Delete`), nudged with the arrow keys; a chosen stroke takes its colour from the
+  wells. A drawing tool's key, or a click on it, takes that tool up again.
 - **Things on the board**: the bar at the top puts a text box (`T`), a shape — rectangle,
-  ellipse, triangle, diamond, star, hexagon, a line, an arrow — or a sticky note (`N`) into the
-  middle of the view. Its first button puts the drawing tools away and takes them up again
-  (`V` puts them away; a tool's key takes it up). With the tools away the pointer chooses:
-  a click, `Shift` and a click for more, a box pulled from the bare board, `Ctrl+A` for all.
+  ellipse, triangle, diamond, star, hexagon, a line, an arrow — a sticky note (`N`), a table
+  or a link into the middle of the view, and hands over to the pointer.
 - **What is chosen** is moved by pulling it — it comes to rest where an edge or its middle
   meets another's, a line shows where (`Alt`: nothing holds it; `Shift`: straight along or up) —,
   pulled to size at its dots (`Shift` at a corner keeps its proportions), turned at the knob

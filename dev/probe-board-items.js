@@ -33,7 +33,7 @@
     // ---- the tools put away: the pointer chooses
     key("v");
     await sleep(500);
-    ok("V: the drawing tools are put away, the bar at the top stays", st().mode === "select" && getComputedStyle(q(".bd-palette")).opacity === "0" && !!q(".bd-insert").offsetWidth, [st().mode, getComputedStyle(q(".bd-palette")).opacity]);
+    ok("V: the pointer is the tool in hand — it stands up in the tray, no drawing tool does", st().mode === "select" && q(".bd-tool[data-pointer]").getAttribute("aria-checked") === "true" && !el().querySelector('.bd-tool[data-tool][aria-checked="true"]') && getComputedStyle(q(".bd-palette")).opacity === "1", [st().mode, q(".bd-tool[data-pointer]").getAttribute("aria-checked")]);
     q('[data-do="shapes"]').click();
     await sleep(350);
     ok("Shape: a choice of them under its button", q(".bd-spop").hasAttribute("data-open") && q(".bd-spop").querySelectorAll(".bd-tile").length === 9, q(".bd-spop").innerHTML.slice(0, 80));
@@ -201,10 +201,35 @@
     // ---- ink over it, kept, read again
     key("p");
     await sleep(400);
-    ok("P: the tools come back, nothing is chosen", st().mode === "draw" && getComputedStyle(q(".bd-palette")).opacity === "1" && q(".bd-pick").hidden && q(".bd-fbar").hidden, st().mode);
+    ok("P: the pen in hand again, nothing is chosen", st().mode === "draw" && q('.bd-tool[data-tool="pen"]').getAttribute("aria-checked") === "true" && q(".bd-tool[data-pointer]").getAttribute("aria-checked") === "false" && q(".bd-pick").hidden && q(".bd-fbar").hidden, st().mode);
     const sm = at(...midOf(shape()));
     await drag(steps([sm[0] - 60, sm[1] - 20], [sm[0] + 60, sm[1] + 20], 14));
     ok("a stroke over a shape is a stroke; the shape stays where it is", st().items === 1 && st().things.length === 4, [st().items, st().things.length]);
+    // the pointer takes a stroke as it takes anything: clicked it is chosen, pulled it moves
+    await drag(Array.from({ length: 20 }, (_v, i) => [140 + i * 9, 640 + Math.sin(i / 2) * 12]));
+    q(".bd-tool[data-pointer]").click(); await sleep(80);
+    ok("the pointer, clicked in the tray: in hand", st().mode === "select", st().mode);
+    await drag([[185, 640 + Math.sin(2.5) * 12], [185, 640 + Math.sin(2.5) * 12]]);
+    ok("a stroke clicked with the pointer is chosen: a frame around it, a bar beside it", st().picked.length === 1 && st().things.every((t) => t.id !== st().picked[0]) && !q(".bd-pick").hidden && q(".bd-pick").dataset.kind === "many" && !q(".bd-fbar").hidden, [st().picked, q(".bd-pick").dataset.kind]);
+    key("a", { ctrlKey: true });
+    const allBox = st().picked.length;
+    key("Escape");
+    await sleep(450);
+    await drag([[185, 640 + Math.sin(2.5) * 12], [185, 640 + Math.sin(2.5) * 12]]);
+    const before = el().querySelector(".bd-pick").getBoundingClientRect();
+    await drag(steps([185, 640 + Math.sin(2.5) * 12], [245, 600], 8), { altKey: true });
+    const after = el().querySelector(".bd-pick").getBoundingClientRect();
+    ok("pulled, the stroke moves with the hand", Math.abs(after.left - before.left - 60) <= 1.5 && Math.abs(after.top - before.top + 40 + Math.sin(2.5) * 12) <= 1.5 && st().picked.length === 1, [before.left, after.left, before.top, after.top]);
+    key("z", { ctrlKey: true });
+    ok("… one step back: where it was drawn", Math.abs(el().querySelector(".bd-pick").getBoundingClientRect().left - before.left) <= 1, null);
+    el().querySelector('.bd-well[data-ink="#e5372c"]').click();
+    ok("a colour from the wells is the chosen stroke's", st().inks[st().inks.length - 1] === "#e5372c" && st().mode === "select", st().inks);
+    ok("Ctrl+A with the pointer takes strokes and things alike", allBox === st().things.length + st().items, [allBox, st().things.length, st().items]);
+    key("d", { ctrlKey: true });
+    ok("Ctrl+D: the stroke's copy beside it", st().items === 3 && st().picked.length === 1, st().items);
+    key("Delete");
+    ok("Delete takes it", st().items === 2 && st().picked.length === 0, st().items);
+    key("p");
     const kept = JSON.stringify(st().things);
     ok("kept by itself", await until(() => st() && !st().dirty, 3000), st().dirty);
     key("Escape");
@@ -215,7 +240,7 @@
     out("closed", {});
     await sleep(400);
     MdActive.islands.open(MdActive.view.pm, (() => { let p = -1; MdActive.view.pm.state.doc.descendants((n, pos) => { if (n.type.name === "island" && /board\.svg/.test(n.attrs.raw || "")) p = pos; }); return p; })());
-    ok("opened again: everything is there as it was left", await until(() => st() && el().hasAttribute("data-ready")) && JSON.stringify(st().things) === kept && st().items === 1, [kept.slice(0, 200), JSON.stringify(st().things).slice(0, 200)]);
+    ok("opened again: everything is there as it was left", await until(() => st() && el().hasAttribute("data-ready")) && JSON.stringify(st().things) === kept && st().items === 2, [kept.slice(0, 200), JSON.stringify(st().things).slice(0, 200)]);
     key("Escape");
     await until(() => el().hidden, 2000);
     MdView.core.post("reload");

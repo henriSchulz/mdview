@@ -85,7 +85,11 @@
     if (typeof o.group === "string" && o.group) it.group = o.group;
     return it;
   }
-  const data = (it) => { const d = JSON.parse(JSON.stringify(it)); delete d.sides; return d; }; // (sides: worked out, not kept)
+  // (a stroke of ink is taken as it is — its points copied, not what was worked out for drawing it)
+  const data = (it) => {
+    if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ch: it.ch, ...(it.sharp ? { sharp: true } : {}), pts: it.pts.map((p) => [...p]), path: null, box: null };
+    const d = JSON.parse(JSON.stringify(it)); delete d.sides; return d; // (sides: worked out, not kept)
+  };
 
   // ---------------------------------------------------------------- where it is
   const rad = (it) => ((it.r || 0) * Math.PI) / 180;
@@ -97,6 +101,7 @@
     return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [cx + (a * it.w * c) / 2 - (b * it.h * s) / 2, cy + (a * it.w * s) / 2 + (b * it.h * c) / 2]);
   }
   function bounds(it) {
+    if (it.k === "ink") return B.format.boundsOf(it);
     const cs = corners(it), pad = it.k === "line" ? it.stroke.w / 2 + (it.ends.includes("arrow") ? 6 + it.stroke.w * 2 : 1) : it.stroke && it.stroke.c !== "none" ? it.stroke.w / 2 : 0;
     return [Math.min(...cs.map((c) => c[0])) - pad, Math.min(...cs.map((c) => c[1])) - pad, Math.max(...cs.map((c) => c[0])) + pad, Math.max(...cs.map((c) => c[1])) + pad];
   }
@@ -107,6 +112,7 @@
   }
   /* Does (x, y) hit it? slack: how far beside it still counts (a line is thin). */
   function hit(it, x, y, slack = 0) {
+    if (it.k === "ink") return B.ink.touched([it], x, y, Math.max(slack, 4)).length > 0;
     if (it.k === "line") {
       const pts = way(it), near = it.stroke.w / 2 + Math.max(slack, 5);
       for (let i = 1; i < pts.length; i++) {
@@ -120,6 +126,7 @@
     return Math.abs(lx) <= it.w / 2 + slack && Math.abs(ly) <= it.h / 2 + slack;
   }
   function moveBy(it, dx, dy) {
+    if (it.k === "ink") return B.ink.moved(it, (p) => [p[0] + dx, p[1] + dy]);
     if (it.k === "line") it.p = [it.p[0] + dx, it.p[1] + dy, it.p[2] + dx, it.p[3] + dy];
     else { it.x += dx; it.y += dy; }
   }

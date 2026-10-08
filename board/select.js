@@ -33,14 +33,20 @@
 
     // ------------------------------------------------------------ changes that can be taken back
     const plain = (s) => s.model.items.filter((it) => it.k !== "ink");
-    const snap = () => ({ items: [...S().model.items], data: new Map(plain(S()).map((it) => [it, JSON.stringify(it)])) });
+    // (an item as its text; a stroke of ink by what can change of it here — where its points are, its colour — which is cheap to keep for many)
+    const snap = () => ({ items: [...S().model.items], data: new Map(S().model.items.map((it) => [it, it.k === "ink" ? { pts: it.pts, c: it.c, w: it.w } : JSON.stringify(it)])) });
     function restore(s) {
       const st = S();
       st.model.items = [...s.items];
-      for (const [it, json] of s.data) { for (const k of Object.keys(it)) delete it[k]; Object.assign(it, JSON.parse(json)); }
+      for (const [it, was] of s.data) {
+        if (it.k === "ink") { Object.assign(it, was, { path: null, box: null }); continue; }
+        for (const k of Object.keys(it)) delete it[k];
+        Object.assign(it, JSON.parse(was));
+      }
       st.pick = st.pick.filter((it) => st.model.items.includes(it));
     }
-    const same = (a, b) => a.items.length === b.items.length && a.items.every((it, i) => it === b.items[i]) && [...b.data].every(([it, json]) => a.data.get(it) === json);
+    const alike = (x, y) => (typeof x === "string" || typeof y === "string" ? x === y : !!x && !!y && x.pts === y.pts && x.c === y.c && x.w === y.w);
+    const same = (a, b) => a.items.length === b.items.length && a.items.every((it, i) => it === b.items[i]) && [...b.data].every(([it, now]) => alike(a.data.get(it), now));
     /* What was done since `before` is one step. → whether anything was. */
     function commit(before) {
       const after = snap();
@@ -51,10 +57,17 @@
     function change(f) { const before = snap(); f(S().pick); commit(before); ctx.paint(); bar(true); }
 
     // ------------------------------------------------------------ what is chosen
-    const withGroup = (items) => { const st = S(), groups = new Set(items.map((it) => it.group).filter(Boolean)); return st.model.items.filter((it) => it.k !== "ink" && (items.includes(it) || (it.group && groups.has(it.group)))); };
+    const withGroup = (items) => { const st = S(), groups = new Set(items.map((it) => it.group).filter(Boolean)); return st.model.items.filter((it) => items.includes(it) || (it.group && groups.has(it.group))); };
     function pick(items) { S().pick = withGroup(items); closePop(); ctx.paint(); }
     const pickBox = (items = S().pick) => { let b = null; for (const it of items) { const c = I.bounds(it); b = b ? [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[2]), Math.max(b[3], c[3])] : [...c]; } return b; };
-    const under = (x, y) => { const items = plain(S()); for (let i = items.length - 1; i >= 0; i--) if (I.hit(items[i], x, y, 2 / z())) return items[i]; return null; };
+    /* What lies at (x, y): the ink first (it lies over everything), then the items from the front. */
+    const under = (x, y) => {
+      const all = S().model.items, ink = B.ink.touched(all, x, y, 5 / z());
+      if (ink.length) return ink[ink.length - 1];
+      const items = plain(S());
+      for (let i = items.length - 1; i >= 0; i--) if (I.hit(items[i], x, y, 2 / z())) return items[i];
+      return null;
+    };
     const toScreen = (x, y) => [(x - S().view.x) * z(), (y - S().view.y) * z()];
     const locked = () => S().pick.some((it) => it.lock);
 
@@ -63,7 +76,7 @@
     const DOTS = [["nw", -1, -1], ["n", 0, -1], ["ne", 1, -1], ["e", 1, 0], ["se", 1, 1], ["s", 0, 1], ["sw", -1, 1], ["w", -1, 0]];
     function handleAt(p) {
       const st = S();
-      if (st.pick.length !== 1 || st.pick[0].lock) return null;
+      if (st.pick.length !== 1 || st.pick[0].lock || st.pick[0].k === "ink") return null; // (a stroke is moved here; the lasso sizes it)
       const it = st.pick[0], r = GRAB / z();
       if (it.k === "line") { for (const i of [0, 1]) if (Math.hypot(p.x - it.p[i * 2], p.y - it.p[i * 2 + 1]) <= r) return { end: i }; return null; }
       const [lx, ly] = I.local(it, p.x, p.y);
@@ -108,7 +121,7 @@
         const b = [Math.min(act.from[0], p.x), Math.min(act.from[1], p.y), Math.max(act.from[0], p.x), Math.max(act.from[1], p.y)];
         act.rect = b;
         // everything the box touches
-        st.pick = withGroup([...act.keep, ...plain(st).filter((it) => { const c = I.bounds(it); return c[0] <= b[2] && c[2] >= b[0] && c[1] <= b[3] && c[3] >= b[1]; })]);
+        st.pick = withGroup([...act.keep, ...st.model.items.filter((it) => { const c = I.bounds(it); return c[0] <= b[2] && c[2] >= b[0] && c[1] <= b[3] && c[3] >= b[1]; })]);
         return ctx.paint();
       }
       if (act.kind === "move") {
@@ -372,7 +385,7 @@
     }
     /* A line between the two items chosen. */
     function link() {
-      const st = S(), two = st.pick.filter((it) => it.k !== "line");
+      const st = S(), two = st.pick.filter((it) => it.k !== "line" && it.k !== "ink");
       if (two.length !== 2) return;
       const before = snap(), line = I.norm({ id: B.format.id(), k: "line", p: [...I.mid(two[0]), ...I.mid(two[1])], stroke: { c: "auto", w: 2 }, ends: ["none", "arrow"], route: "corner", from: { id: two[0].id, at: "auto" }, to: { id: two[1].id, at: "auto" } });
       st.model.items.push(line);
@@ -383,6 +396,7 @@
     function copies(list, by) {
       const groups = new Map(), ids = new Map(list.map((d) => [d.id, B.format.id()]));
       return list.map((d) => {
+        if (d.k === "ink") { const c = { ...d, id: ids.get(d.id), pts: d.pts.map((p) => [...p]), path: null, box: null }; I.moveBy(c, by, by); return c; }
         const c = I.norm({ ...d, id: ids.get(d.id) });
         if (d.group) { if (!groups.has(d.group)) groups.set(d.group, B.format.id()); c.group = groups.get(d.group); }
         // a line copied with what it joins joins the copies; copied alone it joins nothing
@@ -411,9 +425,9 @@
     function order(front) {
       change((p) => { const st = S(), set = new Set(p), rest = st.model.items.filter((it) => !set.has(it)), mine = st.model.items.filter((it) => set.has(it)); st.model.items = front ? [...rest, ...mine] : [...mine, ...rest]; });
     }
-    const group = () => change((p) => { if (p.length < 2) return; const g = B.format.id(); for (const it of p) it.group = g; });
+    const group = () => change((p) => { const of = p.filter((it) => it.k !== "ink"); if (of.length < 2) return; const g = B.format.id(); for (const it of of) it.group = g; }); // (strokes are not grouped: the lasso holds them together)
     const ungroup = () => change((p) => { for (const it of p) delete it.group; });
-    const lock = (on) => change((p) => { for (const it of p) { if (on) it.lock = true; else delete it.lock; } });
+    const lock = (on) => change((p) => { for (const it of p) { if (it.k === "ink") continue; if (on) it.lock = true; else delete it.lock; } });
     function align(how) {
       change((p) => {
         if (p.length < 2) return;
@@ -517,7 +531,7 @@
       } else if (kind === "arrange") {
         const many = st.pick.length > 1, grouped = st.pick.some((it) => it.group);
         html = (many ? `<h6>${esc(T("board.align"))}</h6><div class="bd-row bd-aligns">${["L", "C", "R", "T", "M", "B"].map((a) => `<button type="button" class="bd-btn" data-al="${a}" title="${esc(T("board.align." + a))}" aria-label="${esc(T("board.align." + a))}">${ICON["align" + a]}</button>`).join("")}${st.pick.length > 2 ? `<button type="button" class="bd-btn" data-dist="H" title="${esc(T("board.distribute.H"))}" aria-label="${esc(T("board.distribute.H"))}">${ICON.distH}</button><button type="button" class="bd-btn" data-dist="V" title="${esc(T("board.distribute.V"))}" aria-label="${esc(T("board.distribute.V"))}">${ICON.distV}</button>` : ""}</div>` : "") +
-          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button><hr>${st.pick.length === 1 && ["shape", "sticky", "text", "line"].includes(first.k) ? `<button type="button" data-f="insertStyle">${esc(T("board.insertStyle"))}</button>` : ""}<button type="button" data-f="copyLook">${esc(T("board.copyStyle"))}</button>${look ? `<button type="button" data-f="pasteLook">${esc(T("board.pasteStyle"))}</button>` : ""}</div>`;
+          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line" && it.k !== "ink") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button><hr>${st.pick.length === 1 && ["shape", "sticky", "text", "line"].includes(first.k) ? `<button type="button" data-f="insertStyle">${esc(T("board.insertStyle"))}</button>` : ""}<button type="button" data-f="copyLook">${esc(T("board.copyStyle"))}</button>${look ? `<button type="button" data-f="pasteLook">${esc(T("board.pasteStyle"))}</button>` : ""}</div>`;
       }
       p.innerHTML = html;
       p.dataset.kind = kind;
@@ -562,7 +576,7 @@
       const p = st.mode === "select" ? st.pick : [];
       frame.hidden = !p.length;
       if (p.length) {
-        const one = p.length === 1 ? p[0] : null;
+        const one = p.length === 1 && p[0].k !== "ink" ? p[0] : null; // (a stroke alone has a plain frame, as several things have)
         frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : "many";
         frame.toggleAttribute("data-lock", locked());
         frame.toggleAttribute("data-busy", !!(act && act.kind === "move" && act.moved));
@@ -604,7 +618,7 @@
       if (e.key === "Escape") { if (popEl().dataset.open != null) return closePop(), true; if (p.length) return pick([]), true; return false; }
       if (mod && e.altKey && k === "c") return copyLook(), true;
       if (mod && e.altKey && k === "v") return pasteLook(), true;
-      if (mod && k === "a") return pick(plain(st)), true;
+      if (mod && k === "a") return pick(st.model.items.filter((it) => !it.foreign)), true;
       if (mod && k === "c") return copy(false), true;
       if (mod && k === "x") return copy(true), true;
       if (mod && k === "d") return duplicate(), true;

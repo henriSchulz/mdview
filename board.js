@@ -173,14 +173,14 @@
         `<div class="bd-sel" hidden>${["nw", "ne", "se", "sw"].map((c) => `<i class="bd-dot" data-corner="${c}"></i>`).join("")}</div></div>` +
       `<div class="bd-bar bd-selbar" role="toolbar" hidden>${button("copy", "board.duplicate")}${button("trash", "board.delete")}</div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
-      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}${button("table", "board.insert.table")}${button("link", "board.insert.link")}</div>` +
+      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}${button("table", "board.insert.table")}${button("link", "board.insert.link")}</div>` +
       `<div class="bd-spop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-shape="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}` +
         `<button type="button" class="bd-tile bd-tile-line" data-line="line" title="${esc(T("board.shape.line"))}" aria-label="${esc(T("board.shape.line"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4"/></svg></button><button type="button" class="bd-tile bd-tile-line" data-line="arrow" title="${esc(T("board.shape.arrow"))}" aria-label="${esc(T("board.shape.arrow"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4M14 4h10v10"/></svg></button></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
       `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("more", "board.more")}</div>` +
       `<div class="bd-vpop ui-menu ui-popover" role="menu"></div>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
-        `<span role="radiogroup" class="bd-tools">${ALL.map((t) => `<button type="button" class="bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${toolSign(t)}</button>`).join("")}</span>` +
+        `<span role="radiogroup" class="bd-tools"><button type="button" class="bd-tool bd-pointer" role="radio" data-pointer="1" title="${esc(T("board.tool.select"))}" aria-label="${esc(T("board.tool.select"))}"><svg viewBox="0 0 30 72" aria-hidden="true"><path d="M9 8v24l6.2-5.6 4.3 9.6 3.6-1.6-4.3-9.5 8.2-0.5z" fill="var(--bd-tool-body)" stroke="var(--bd-tool-dark)" stroke-width="1.5" stroke-linejoin="round"/></svg></button>${ALL.map((t) => `<button type="button" class="bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${toolSign(t)}</button>`).join("")}</span>` +
         `<button type="button" class="bd-tool bd-rule" data-ruler="1" aria-pressed="false" title="${esc(T("board.tool.ruler"))}" aria-label="${esc(T("board.tool.ruler"))}"><svg viewBox="0 0 30 72" aria-hidden="true"><rect x="6" y="6" width="18" height="68" rx="2" fill="var(--bd-tool-body)" stroke="var(--bd-tool-line)"/><path d="M6 14h7M6 22h4M6 30h7M6 38h4M6 46h7M6 54h4M6 62h7" stroke="var(--bd-tool-dark)"/></svg></button><span class="bd-sep"></span>` +
         `<span role="radiogroup" class="bd-wells" aria-label="${esc(T("board.color"))}">${INKS.map(([name, c]) => `<button type="button" class="bd-well" role="radio" data-ink="${c}" title="${esc(T("board.ink." + name))}" aria-label="${esc(T("board.ink." + name))}" style="--ink:${c === "auto" ? "var(--fg)" : c}"></button>`).join("")}` +
           `<label class="bd-well bd-any" title="${esc(T("board.ink.any"))}"><input type="color" aria-label="${esc(T("board.ink.any"))}"></label></span></div>` +
@@ -202,6 +202,7 @@
       if (b.dataset.do === "draw") return setMode(S.mode === "draw" ? "select" : "draw");
       if (["textbox", "sticky", "table"].includes(b.dataset.do)) { setMode("select"); return void sel.insert(b.dataset.do === "textbox" ? "text" : b.dataset.do); }
       if (b.dataset.do === "shapes") return shapes();
+      if (b.dataset.pointer) return setMode("select");
       if (b.dataset.ruler) return ruler();
       if (b.dataset.tool) return b.dataset.tool === S.tool && S.tool !== "lasso" ? options(b) : setTool(b.dataset.tool);
       if (b.dataset.ink) return setInk(b.dataset.ink);
@@ -288,7 +289,6 @@
     world.style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
     B.layer.sync(world, S.model.items, sel.editing, sel.cell);
     el.dataset.mode = S.readonly ? "look" : S.mode;
-    el.querySelector('[data-do="draw"]').setAttribute("aria-pressed", String(S.mode === "draw"));
     sel.paint();
     // the dots: every 20 of the board's pixels; fewer of them the smaller the board is shown, so they never crowd
     const every = v.z < 0.25 ? 4 : v.z < 0.5 ? 2 : 1, gap = 20 * every * v.z;
@@ -301,16 +301,18 @@
     el.querySelector('[data-do="grid"]').setAttribute("aria-pressed", String(S.model.board.grid));
     el.querySelector('[data-do="undo"]').disabled = !S.undo.length;
     el.querySelector('[data-do="redo"]').disabled = !S.redo.length;
-    const set = S.tools[S.tool] || {}, shown = S.sel.length ? (S.sel.every((it) => it.c === S.sel[0].c) ? S.sel[0].c : null) : set.c;
+    const strokes = S.sel.length ? S.sel : S.mode === "select" ? S.pick.filter((it) => it.k === "ink") : []; // the strokes chosen: by the lasso, or with the pointer
+    const set = S.mode === "draw" ? S.tools[S.tool] || {} : {}, shown = strokes.length ? (strokes.every((it) => it.c === strokes[0].c) ? strokes[0].c : null) : set.c;
+    el.querySelector("[data-pointer]").setAttribute("aria-checked", String(S.mode === "select"));
     for (const b of el.querySelectorAll("[data-tool]")) {
-      b.setAttribute("aria-checked", String(b.dataset.tool === S.tool));
+      b.setAttribute("aria-checked", String(S.mode === "draw" && b.dataset.tool === S.tool));
       const c = (S.tools[b.dataset.tool] || {}).c;
       b.style.setProperty("--band", !c || c === "auto" ? "var(--fg)" : c);
     }
     let known = false;
     for (const b of el.querySelectorAll("[data-ink]")) { const on = b.dataset.ink === shown; known = known || on; b.setAttribute("aria-checked", String(on)); }
     el.querySelector(".bd-any").toggleAttribute("data-on", !!shown && !known);
-    el.querySelector(".bd-wells").toggleAttribute("data-off", !S.sel.length && !DRAWS.includes(S.tool)); // (an eraser has no colour)
+    el.querySelector(".bd-wells").toggleAttribute("data-off", !strokes.length && !(S.mode === "draw" && DRAWS.includes(S.tool))); // (an eraser has no colour, nor has the pointer with no stroke chosen)
     st.dataset.tool = S.readonly ? "look" : S.mode === "select" ? "select" : S.tool;
     const rule = el.querySelector(".bd-ruler"), ruled = !!S.ruler && S.mode === "draw" && !S.readonly;
     rule.hidden = !ruled;
@@ -423,8 +425,10 @@
   }
   /* A colour chosen: the chosen strokes take it; else the tool does (an eraser or a lasso in hand: the pen is taken up). */
   function setInk(c) {
-    if (S.sel.length) {
-      const was = S.sel.map((it) => [it, it.c]);
+    const strokes = S.sel.length ? S.sel : S.mode === "select" ? S.pick.filter((it) => it.k === "ink") : [];
+    if (S.mode === "select" && !strokes.length) return; // (the pointer in hand and no stroke chosen: a colour has nothing to colour)
+    if (strokes.length) {
+      const was = strokes.map((it) => [it, it.c]);
       const to = (list) => { for (const [it, col] of list) { it.c = col; it.path = null; } };
       to(was.map(([it]) => [it, c]));
       did({ undo: () => to(was), redo: () => to(was.map(([it]) => [it, c])) });
