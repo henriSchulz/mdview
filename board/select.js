@@ -9,6 +9,7 @@
   const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
   const ICON = {
     arrange: svg('<rect x="4" y="5" width="9" height="6" rx="1.5"/><rect x="11" y="13" width="9" height="6" rx="1.5"/>'),
+    table: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M3.5 10h17M3.5 14h17M9.5 5.5v13M14.5 5.5v13"/>'),
     ends: svg('<path d="M5 19 19 5M11 5h8v8"/>'),
     alignL: svg('<path d="M4 4v16"/><rect x="7" y="6.5" width="11" height="4" rx="1"/><rect x="7" y="13.5" width="7" height="4" rx="1"/>'),
     alignC: svg('<path d="M12 4v16"/><rect x="6" y="6.5" width="12" height="4" rx="1"/><rect x="8.5" y="13.5" width="7" height="4" rx="1"/>'),
@@ -25,7 +26,7 @@
   function make(ctx) {
     const I = B.items, T = ctx.T, esc = ctx.esc;
     const S = () => ctx.S(), z = () => S().view.z;
-    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 }, pending = null;
+    let act = null, edit = null, clip = [], lastDown = { id: null, t: 0 }, pending = null, look = null;
     const q = (el, sel) => el.querySelector(sel);
     const root = () => ctx.el();
 
@@ -65,7 +66,7 @@
       const it = st.pick[0], r = GRAB / z();
       if (it.k === "line") { for (const i of [0, 1]) if (Math.hypot(p.x - it.p[i * 2], p.y - it.p[i * 2 + 1]) <= r) return { end: i }; return null; }
       const [lx, ly] = I.local(it, p.x, p.y);
-      if (!st.connect && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
+      if (!st.connect && it.k !== "table" && Math.hypot(lx, ly + it.h / 2 + KNOB / z()) <= r) return { turn: true }; // (with the connectors shown their arrow stands where the knob does)
       for (const [name, hx, hy] of DOTS) if (Math.hypot(lx - (hx * it.w) / 2, ly - (hy * it.h) / 2) <= r) return { name, hx, hy };
       // the connectors' arrows, a little off each side: pulled, a line grows out of the item
       if (st.connect) for (const [side, hx, hy] of [["t", 0, -1], ["r", 1, 0], ["b", 0, 1], ["l", -1, 0]]) if (Math.hypot(lx - hx * (it.w / 2 + ARROW / z()), ly - hy * (it.h / 2 + ARROW / z())) <= r + 2 / z()) return { conn: side };
@@ -87,7 +88,7 @@
       const it = under(p.x, p.y), now = performance.now();
       if (it) {
         // twice on the same item, and let go without having moved it: its text is typed (end())
-        const twice = lastDown.id === it.id && now - lastDown.t < 400 && I.texty(it) && !it.lock;
+        const twice = lastDown.id === it.id && now - lastDown.t < 400 && (I.texty(it) || it.k === "table") && !it.lock;
         lastDown = twice ? { id: null, t: 0 } : { id: it.id, t: now };
         if (e.shiftKey) { pick(st.pick.includes(it) ? st.pick.filter((i) => i !== it && !(it.group && i.group === it.group)) : [...st.pick, it]); return false; }
         if (!st.pick.includes(it)) pick([it]);
@@ -167,6 +168,12 @@
         }
         const rad = (was.r * Math.PI) / 180, ox = (l + r) / 2, oy = (t + b) / 2, [cx, cy] = I.mid(was);
         const ncx = cx + ox * Math.cos(rad) - oy * Math.sin(rad), ncy = cy + ox * Math.sin(rad) + oy * Math.cos(rad), w = r - l, h = b - t;
+        if (was.k === "table") { // (its columns and rows keep their shares of it)
+          Object.assign(it, { cols: [...was.cols], rows: [...was.rows], w: was.w, h: was.h });
+          I.tableFit(it, w, h);
+          Object.assign(it, { x: Math.round((hx < 0 ? was.x + was.w - it.w : was.x) * 10) / 10, y: Math.round((hy < 0 ? was.y + was.h - it.h : was.y) * 10) / 10 });
+          return ctx.paint();
+        }
         Object.assign(it, { x: Math.round((ncx - w / 2) * 10) / 10, y: Math.round((ncy - h / 2) * 10) / 10, w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10 });
         return ctx.paint();
       }
@@ -198,7 +205,7 @@
         return ctx.ask([(x2 - st.view.x) * z(), (y2 - st.view.y) * z()]);
       }
       if (a.before) commit(a.before);
-      if (a.kind === "move" && !a.moved && a.twice) { pick([a.twice]); return begin(a.twice); }
+      if (a.kind === "move" && !a.moved && a.twice) { pick([a.twice]); return begin(a.twice, a.twice.k === "table" ? I.cellAt(a.twice, ...I.local(a.twice, ...a.from)) : null); }
       ctx.paint();
     }
     function cancel() {
@@ -226,10 +233,12 @@
     }
 
     // ------------------------------------------------------------ text
-    function begin(it) {
-      const el = B.layer.elOf(q(root(), ".bd-world"), it.id), t = el && q(el, ".bd-t");
+    /* cell: [row, column] of a table. */
+    function begin(it, cell = null) {
+      if (it.k === "table" && !cell) cell = [0, 0];
+      const el = B.layer.elOf(q(root(), ".bd-world"), it.id), t = el && q(el, cell ? `[data-cell="${cell[0]},${cell[1]}"] .bd-t` : ".bd-t");
       if (!t) return;
-      edit = { it, t, el, before: snap() };
+      edit = { it, t, el, before: snap(), cell };
       el.dataset.editing = "";
       t.contentEditable = "plaintext-only";
       if (t.contentEditable !== "plaintext-only") t.contentEditable = "true";
@@ -243,7 +252,14 @@
     }
     function typed() {
       if (!edit) return;
-      const { it, t } = edit;
+      const { it, t, cell } = edit;
+      if (cell) { // a table's cell: its row is as tall as its tallest text
+        it.cells[cell[0]][cell[1]] = t.innerText.replace(/\n$/, "");
+        const need = Math.ceil(t.offsetHeight + 2 * I.CELL);
+        if (need > it.rows[cell[0]]) { it.rows[cell[0]] = need; it.h = it.rows.reduce((a, b) => a + b, 0); }
+        ctx.changed();
+        return ctx.paint();
+      }
       it.text = t.innerText.replace(/\n$/, "");
       t.dataset.empty = it.text ? "" : "1";
       // a text box is as tall as its text; a note or a shape grows when its text outgrows it
@@ -255,19 +271,42 @@
     const blurred = () => setTimeout(() => { if (edit && document.activeElement !== edit.t) finish(); }, 0);
     function finish() {
       if (!edit) return;
-      const { it, t, el, before } = edit;
+      const { it, t, el, before, cell } = edit;
       edit = null;
       t.removeEventListener("input", typed);
       t.removeEventListener("blur", blurred);
       t.contentEditable = "false";
       delete el.dataset.editing;
       getSelection().removeAllRanges();
-      it.text = t.innerText.replace(/\n$/, "");
+      if (cell) it.cells[cell[0]][cell[1]] = t.innerText.replace(/\n$/, ""); else it.text = t.innerText.replace(/\n$/, "");
       const st = S();
       if (it.k === "text" && !it.text.trim()) { st.model.items = st.model.items.filter((i) => i !== it); st.pick = st.pick.filter((i) => i !== it); } // (a text box left empty is none)
       commit(before);
       root().focus({ preventScroll: true });
       ctx.paint();
+    }
+
+    /* Tab in a table's cell: on to the next (dir 1) or back to the one before (−1), row after row. */
+    function tab(dir) {
+      if (!edit || !edit.cell) return false;
+      const it = edit.it, n = it.cols.length, at = edit.cell[0] * n + edit.cell[1] + dir, all = it.rows.length * n, next = ((at % all) + all) % all;
+      finish();
+      begin(it, [Math.floor(next / n), next % n]);
+      return true;
+    }
+    /* A table's rows or columns: one more at its end (by 1), or its last one gone (−1). */
+    function tableGrow(what, by) {
+      change((p) => {
+        for (const it of p) {
+          if (it.k !== "table") continue;
+          if (what === "rows") {
+            if (by > 0 && it.rows.length < 40) { it.rows.push(it.rows[it.rows.length - 1]); it.cells.push(it.cols.map(() => "")); }
+            else if (by < 0 && it.rows.length > 1) { it.rows.pop(); it.cells.pop(); }
+          } else if (by > 0 && it.cols.length < 40) { it.cols.push(it.cols[it.cols.length - 1]); for (const row of it.cells) row.push(""); }
+          else if (by < 0 && it.cols.length > 1) { it.cols.pop(); for (const row of it.cells) row.pop(); }
+          it.w = it.cols.reduce((a, b) => a + b, 0); it.h = it.rows.reduce((a, b) => a + b, 0);
+        }
+      });
     }
 
     // ------------------------------------------------------------ making, copying, order
@@ -279,7 +318,7 @@
       st.model.items.push(it);
       commit(before);
       pick([it]);
-      if (kind === "text" || kind === "sticky") begin(it);
+      if (kind === "text" || kind === "sticky" || kind === "table") begin(it);
       return it;
     }
     /* The shape chosen for a connector's free end (null: none — the line ends where it was let go). */
@@ -363,6 +402,20 @@
       });
     }
 
+    /* An item's look taken along (its fill, its border or line, how its text is set), and given to others — each takes what it has a place for. */
+    function copyLook() { const it = S().pick[0]; if (it) look = I.data({ fill: it.fill, stroke: it.stroke, ts: it.ts, ends: it.ends, route: it.route || "straight" }); }
+    function pasteLook() {
+      if (!look) return;
+      change((p) => {
+        for (const it of p) {
+          if (it.lock) continue;
+          if (look.fill && "fill" in it && !(it.k === "sticky" && look.fill === "none")) it.fill = look.fill;
+          if (look.stroke && it.stroke) it.stroke = { ...look.stroke, ...(it.k === "line" && look.stroke.c === "none" ? { c: "auto" } : {}) };
+          if (look.ts && it.ts) it.ts = it.k === "table" ? { size: look.ts.size } : { ...look.ts };
+          if (look.ends && it.ends) { it.ends = [...look.ends]; if (look.route === "straight") delete it.route; else it.route = look.route; }
+        }
+      });
+    }
     /* Three or more, at equal distances between the outermost two: side by side (H) or one under the other (V). */
     function distribute(how) {
       change((p) => {
@@ -393,6 +446,7 @@
         if (every((it) => it.k === "shape" || it.k === "line")) html += btn("stroke", T("board.stroke"), well(first.stroke.c, true));
         if (every(I.texty)) html += btn("text", T("board.textLook"), '<b class="bd-aa">Aa</b>');
         if (every((it) => it.k === "line")) html += btn("ends", T("board.ends"), ICON.ends);
+        if (every((it) => it.k === "table")) html += btn("table", T("board.table"), ICON.table);
         html += `<span class="bd-sep"></span>` + btn("arrange", T("board.arrange"), ICON.arrange) + btn("duplicate", T("board.duplicate"), ctx.icons.copy) + btn("remove", T("board.delete"), ctx.icons.trash);
       }
       if (b.dataset.sig !== html) { b.innerHTML = html; b.dataset.sig = html; }
@@ -424,10 +478,15 @@
       } else if (kind === "ends") {
         html = seg("data-end", [[0, esc(T("board.startArrow"))], [1, esc(T("board.endArrow"))]], (v) => first.ends[v] === "arrow") +
           `<h6>${esc(T("board.route"))}</h6>` + seg("data-route", I.ROUTES.map((r) => [r, ICON["route" + r]]), (v) => (first.route || "straight") === v);
+      } else if (kind === "table") {
+        const stepper = (what, label, count) => `<div class="bd-row"><span class="bd-label">${esc(label)}</span><button type="button" class="bd-step" data-t${what}="-1" aria-label="${esc(label)} −">−</button><output>${count}</output><button type="button" class="bd-step" data-t${what}="1" aria-label="${esc(label)} +">+</button></div>`;
+        html = stepper("rows", T("board.rows"), first.rows.length) + stepper("cols", T("board.columns"), first.cols.length) +
+          `<div class="bd-row"><span class="bd-label">${esc(T("board.textLook"))}</span><button type="button" class="bd-step" data-size="-1" aria-label="${esc(T("board.smaller"))}">−</button><output>${first.ts.size}</output><button type="button" class="bd-step" data-size="1" aria-label="${esc(T("board.larger"))}">+</button></div>` +
+          `<button type="button" class="bd-wide-btn" data-thead="1" aria-pressed="${!!first.head}">${esc(T("board.header"))}</button>`;
       } else if (kind === "arrange") {
         const many = st.pick.length > 1, grouped = st.pick.some((it) => it.group);
         html = (many ? `<h6>${esc(T("board.align"))}</h6><div class="bd-row bd-aligns">${["L", "C", "R", "T", "M", "B"].map((a) => `<button type="button" class="bd-btn" data-al="${a}" title="${esc(T("board.align." + a))}" aria-label="${esc(T("board.align." + a))}">${ICON["align" + a]}</button>`).join("")}${st.pick.length > 2 ? `<button type="button" class="bd-btn" data-dist="H" title="${esc(T("board.distribute.H"))}" aria-label="${esc(T("board.distribute.H"))}">${ICON.distH}</button><button type="button" class="bd-btn" data-dist="V" title="${esc(T("board.distribute.V"))}" aria-label="${esc(T("board.distribute.V"))}">${ICON.distV}</button>` : ""}</div>` : "") +
-          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button></div>`;
+          `<div class="bd-list">${st.pick.length === 2 && st.pick.every((it) => it.k !== "line") ? `<button type="button" data-f="link">${esc(T("board.link"))}</button>` : ""}${many || grouped ? `<button type="button" data-f="${grouped ? "ungroup" : "group"}">${esc(T(grouped ? "board.ungroup" : "board.group"))}</button>` : ""}<button type="button" data-f="front">${esc(T("board.front"))}</button><button type="button" data-f="back">${esc(T("board.toBack"))}</button><button type="button" data-f="lock">${esc(T("board.lock"))}</button><hr><button type="button" data-f="copyLook">${esc(T("board.copyStyle"))}</button>${look ? `<button type="button" data-f="pasteLook">${esc(T("board.pasteStyle"))}</button>` : ""}</div>`;
       }
       p.innerHTML = html;
       p.dataset.kind = kind;
@@ -442,10 +501,13 @@
     function click(b) {
       const d = b.dataset;
       if (d.f) {
-        if (["fill", "stroke", "text", "ends", "arrange"].includes(d.f)) return pop(d.f), true;
-        ({ duplicate, remove, group, ungroup, link, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
+        if (["fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
+        ({ duplicate, remove, group, ungroup, link, copyLook: () => { copyLook(); closePop(); }, pasteLook, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
         return true;
       }
+      if (d.trows) return tableGrow("rows", Number(d.trows)), true;
+      if (d.tcols) return tableGrow("cols", Number(d.tcols)), true;
+      if (d.thead) return change((p) => { const on = !p[0].head; for (const it of p) if (it.k === "table") it.head = on; }), true;
       if (d.fill) return change((p) => { for (const it of p) if ("fill" in it) it.fill = d.fill; }), true;
       if (d.stroke) return change((p) => { for (const it of p) if (it.stroke) it.stroke.c = d.stroke; }), true;
       if (d.sw) return change((p) => { for (const it of p) if (it.stroke) { it.stroke.w = Number(d.sw); if (it.stroke.c === "none") it.stroke.c = "auto"; } }), true;
@@ -470,6 +532,7 @@
         frame.dataset.kind = one ? (one.k === "line" ? "line" : "one") : "many";
         frame.toggleAttribute("data-lock", locked());
         frame.toggleAttribute("data-busy", !!(act && act.kind === "move" && act.moved));
+        frame.toggleAttribute("data-noturn", !!(one && one.k === "table")); // (a table stands upright)
         frame.toggleAttribute("data-conn", !!(st.connect && one && one.k !== "line" && !one.lock && !act));
         if (one && one.k === "line") {
           const [ax, ay] = toScreen(one.p[0], one.p[1]), [bx, by] = toScreen(one.p[2], one.p[3]);
@@ -503,6 +566,8 @@
     function key(e) {
       const st = S(), mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(), p = st.pick;
       if (e.key === "Escape") { if (popEl().dataset.open != null) return closePop(), true; if (p.length) return pick([]), true; return false; }
+      if (mod && e.altKey && k === "c") return copyLook(), true;
+      if (mod && e.altKey && k === "v") return pasteLook(), true;
       if (mod && k === "a") return pick(plain(st)), true;
       if (mod && k === "c") return copy(false), true;
       if (mod && k === "x") return copy(true), true;
@@ -513,7 +578,7 @@
       if (mod && k === "l") return lock(!locked()), true;
       if (mod || e.altKey || !p.length) return false;
       if (e.key === "Delete" || e.key === "Backspace") return remove(), true;
-      if (e.key === "Enter" && p.length === 1 && I.texty(p[0]) && !p[0].lock) return begin(p[0]), true;
+      if (e.key === "Enter" && p.length === 1 && (I.texty(p[0]) || p[0].k === "table") && !p[0].lock) return begin(p[0]), true;
       if (e.key.startsWith("Arrow") && !locked()) {
         const n = e.shiftKey ? 10 : 1, dx = k === "arrowleft" ? -n : k === "arrowright" ? n : 0, dy = k === "arrowup" ? -n : k === "arrowdown" ? n : 0;
         return change((items) => { for (const it of items) I.moveBy(it, dx, dy); }), true;
@@ -521,7 +586,7 @@
       return false;
     }
 
-    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

@@ -185,6 +185,16 @@
     ok("the arrow keys nudge what is chosen (Shift: ten)", st().things[4].x === thing(0).x + 26, st().things[4].x);
     key("Delete");
     ok("Delete", st().things.length === 4 && st().picked.length === 0, st().things.length);
+    // a look taken from one and given to another
+    B().pick([thing(0).id]);
+    key("c", { ctrlKey: true, altKey: true });
+    q('[data-do="shapes"]').click(); await sleep(300);
+    q('.bd-spop [data-shape="ellipse"]').click(); await sleep(150);
+    const fresh = st().things[st().things.length - 1];
+    key("v", { ctrlKey: true, altKey: true });
+    const got = st().things[st().things.length - 1];
+    ok("Ctrl+Alt+C on one, Ctrl+Alt+V on another: its fill and border are the first one's, its shape and place its own", fresh.fill !== thing(0).fill && got.fill === thing(0).fill && got.stroke.w === thing(0).stroke.w && got.stroke.c === thing(0).stroke.c && got.shape === "ellipse" && got.x === fresh.x, [thing(0).fill, got]);
+    key("Delete");
     out("arranged", {});
     await sleep(400);
 

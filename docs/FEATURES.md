@@ -409,6 +409,14 @@ shut back into it.
   corners, in its proportions) like the rest. The board's picture in the note holds a small
   copy of it. Taken off the board it goes to the trash an hour later, as a picture taken out of
   a note does.
+- **Tables** (the last button of the bar at the top): three by three to begin with, the first
+  cell ready to be typed in. `Tab` goes on to the next cell, `Shift+Tab` back; a row grows with
+  its text; a cell clicked twice is typed in. In a table's bar, Table adds and takes away rows
+  and columns at its end, sets the size of its text and whether the first row is its head. A
+  table is pulled to size at its dots — its columns and rows keep their shares — and stands
+  upright.
+- **A look taken along**: `Ctrl+Alt+C` takes the chosen item's fill, border and text setting,
+  `Ctrl+Alt+V` gives them to what is chosen then (also under Arrange).
 - Ink lies over the things on the board, as a pen writes over what is pinned to a wall.
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
   sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
@@ -435,7 +443,7 @@ shut back into it.
   `![](assets/board-….board.svg)`, in a vault `![[board-….board.svg]]`. It is the note's own:
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
-Not there yet: tables, links and other files on a board.
+Not there yet: links and files other than pictures on a board; a table's single rows and columns pulled to size, or put in between others.
 
 ### Links between notes
 

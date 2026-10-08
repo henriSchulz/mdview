@@ -8,7 +8,8 @@
 "use strict";
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
-  const KINDS = new Set(["text", "sticky", "shape", "line", "image"]);
+  const KINDS = new Set(["text", "sticky", "shape", "line", "image", "table"]);
+  const CELL = 6, GRIDLINE = "#b9b9be"; // a table: the room around a cell's text, the colour of its lines
   const texty = (it) => it.k === "text" || it.k === "sticky" || it.k === "shape"; // (what takes text)
   /* A picture on a board is a file beside the board's own, named by its name alone. In the board's
    * picture stands a small copy of it (a picture shown through <img> may not load other files);
@@ -28,6 +29,8 @@
   /* A new item of a kind, with what one looks like before anyone changed it. (cx, cy): its middle. */
   function fresh(kind, cx, cy, more = {}) {
     const id = B.format.id();
+    // a table: columns and rows by their widths and heights, a text per cell; its first row may be its head
+    if (kind === "table") return { id, k: "table", x: Math.round(cx - 180), y: Math.round(cy - 54), w: 360, h: 108, r: 0, cols: [120, 120, 120], rows: [36, 36, 36], cells: [["", "", ""], ["", "", ""], ["", "", ""]], head: true, ts: { size: 14 } };
     if (kind === "line") return { id, k: "line", p: [cx - 80, cy, cx + 80, cy], stroke: { c: "auto", w: 2 }, ends: ["none", more.arrow ? "arrow" : "none"] };
     const base = { text: { w: 220, h: 44 }, sticky: { w: 180, h: 180 }, shape: { w: 150, h: more.shape === "rect" || more.shape === "round" ? 100 : 150 } }[kind];
     const it = { id, k: kind, x: Math.round(cx - base.w / 2), y: Math.round(cy - base.h / 2), w: base.w, h: base.h, r: 0, text: "", ts: { size: 16, align: kind === "text" ? "left" : "center", color: "auto" } };
@@ -48,6 +51,12 @@
       // an end joined to an item: it goes where the item goes (relink). at: the side it leaves from, or wherever is nearest (auto)
       for (const end of ["from", "to"]) if (o[end] && typeof o[end].id === "string" && o[end].id) it[end] = { id: o[end].id, at: SIDES.includes(o[end].at) ? o[end].at : "auto" };
       if (ROUTES.includes(o.route) && o.route !== "straight") it.route = o.route;
+    } else if (o.k === "table") {
+      const sizes = (a) => Array.isArray(a) && a.length >= 1 && a.length <= 40 && a.every((v) => Number.isFinite(v) && v > 0) ? a.map((v) => num(v, 40, 12, 4000)) : null;
+      const cols = sizes(o.cols), rows = sizes(o.rows);
+      if (!cols || !rows || ![o.x, o.y].every(Number.isFinite)) return null;
+      const cells = rows.map((_r, i) => cols.map((_c, j) => (Array.isArray(o.cells) && Array.isArray(o.cells[i]) && typeof o.cells[i][j] === "string" ? o.cells[i][j].slice(0, 5000) : "")));
+      Object.assign(it, { x: num(o.x, 0), y: num(o.y, 0), w: cols.reduce((a, b) => a + b, 0), h: rows.reduce((a, b) => a + b, 0), r: 0, cols, rows, cells, head: o.head !== false, ts: { size: num(o.ts && o.ts.size, 14, 6, 200) } });
     } else if (o.k === "image") {
       // (a name, never a way to somewhere else)
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite) || typeof o.src !== "string" || !/^[^/\\\x00-\x1f]{1,255}$/.test(o.src) || o.src.startsWith(".")) return null;
@@ -217,6 +226,41 @@
     }
     return out;
   }
+  /* Which cell of a table a point of its own frame (from its middle) is in: [row, column]. */
+  function cellAt(it, lx, ly) {
+    const find = (sizes, v) => { let at = 0; for (let i = 0; i < sizes.length; i++) { at += sizes[i]; if (v < at) return i; } return sizes.length - 1; };
+    return [find(it.rows, ly + it.h / 2), find(it.cols, lx + it.w / 2)];
+  }
+  /* A table to another size: its columns and rows keep their shares. */
+  function tableFit(it, w, h) {
+    const kw = w / it.w, kh = h / it.h;
+    it.cols = it.cols.map((c) => Math.max(12, Math.round(c * kw * 10) / 10));
+    it.rows = it.rows.map((r) => Math.max(12, Math.round(r * kh * 10) / 10));
+    it.w = it.cols.reduce((a, b) => a + b, 0); it.h = it.rows.reduce((a, b) => a + b, 0);
+  }
+  function tableSvg(it) {
+    let out = `<g id="${it.id}">`, y = it.y;
+    if (it.head) out += `<rect x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.rows[0])}" fill="${INK}" fill-opacity="0.07"/>`;
+    const lead = it.ts.size * LEAD, look = `font-family='${FONT}' font-size="${n(it.ts.size)}" fill="${INK}"`;
+    it.rows.forEach((rh, i) => {
+      let x = it.x;
+      it.cols.forEach((cw, j) => {
+        const text = it.cells[i][j];
+        if (text) {
+          const ls = lines({ text, w: cw + 2 * (PAD - CELL), ts: { size: it.ts.size, bold: it.head && i === 0 } });
+          out += `<text ${look}${it.head && i === 0 ? ' font-weight="600"' : ""} xml:space="preserve">` + ls.map((l, k) => `<tspan x="${n(x + CELL)}" y="${n(y + CELL + lead * (k + 0.76))}">${xml(l)}</tspan>`).join("") + "</text>";
+        }
+        x += cw;
+      });
+      y += rh;
+    });
+    // the lines: around it, and between its columns and rows
+    let d = `M${n(it.x)} ${n(it.y)}h${n(it.w)}v${n(it.h)}h${n(-it.w)}Z`, at = it.x;
+    for (const cw of it.cols.slice(0, -1)) { at += cw; d += `M${n(at)} ${n(it.y)}v${n(it.h)}`; }
+    at = it.y;
+    for (const rh of it.rows.slice(0, -1)) { at += rh; d += `M${n(it.x)} ${n(at)}h${n(it.w)}`; }
+    return out + `<path d="${d}" fill="none" stroke="${GRIDLINE}" stroke-width="1"/></g>\n`;
+  }
   /* The item in the board's picture. */
   function svg(it) {
     const strokeOf = (s) => (s && s.c !== "none" ? ` stroke="${s.c === "auto" ? INK : s.c}" stroke-width="${n(s.w)}" stroke-linejoin="round"` : "");
@@ -224,6 +268,7 @@
       const c = it.stroke.c === "auto" || it.stroke.c === "none" ? INK : it.stroke.c, l = lineDraw(it);
       return `<g id="${it.id}"><path d="${l.d}" fill="none" stroke="${c}" stroke-width="${n(it.stroke.w)}" stroke-linejoin="round" stroke-linecap="${it.ends.includes("arrow") ? "butt" : "round"}"/>` + l.heads.filter(Boolean).map((h) => `<path d="${h}" fill="${c}"/>`).join("") + "</g>\n";
     }
+    if (it.k === "table") return tableSvg(it);
     const [cx, cy] = mid(it), turn = it.r ? ` transform="rotate(${n(it.r)} ${n(cx)} ${n(cy)})"` : "";
     let body = "";
     if (it.k === "image") {
@@ -252,5 +297,5 @@
     }
   }
 
-  B.items = { SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
+  B.items = { CELL, cellAt, tableFit, SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
 })();

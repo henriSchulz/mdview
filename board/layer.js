@@ -38,6 +38,7 @@
       img.addEventListener("load", () => small(img));
       el.appendChild(img);
     }
+    if (it.k === "table") { const grid = document.createElement("div"); grid.className = "bd-table"; el.appendChild(grid); }
     if (B.items.texty(it)) {
       const box = document.createElement("div"), t = document.createElement("div");
       box.className = "bd-text"; t.className = "bd-t";
@@ -45,7 +46,7 @@
     }
     return el;
   }
-  function draw(el, it, order, editing) {
+  function draw(el, it, order, editing, cell) {
     const I = B.items, auto = "var(--fg)", ink = (c) => (c === "auto" ? auto : c);
     el.style.zIndex = String(order);
     el.toggleAttribute("data-lock", !!it.lock);
@@ -61,6 +62,19 @@
       return;
     }
     el.style.cssText += `;left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;transform:rotate(${it.r || 0}deg)`;
+    if (it.k === "table") {
+      const grid = el.firstChild, count = it.rows.length * it.cols.length;
+      grid.style.cssText = `grid-template-columns:${it.cols.map((c) => c + "px").join(" ")};grid-template-rows:${it.rows.map((r) => r + "px").join(" ")};font-size:${it.ts.size}px`;
+      while (grid.children.length > count) grid.lastChild.remove();
+      while (grid.children.length < count) { const c = document.createElement("div"), t = document.createElement("div"); c.className = "bd-cell"; t.className = "bd-t"; c.appendChild(t); grid.appendChild(c); }
+      it.cells.forEach((row, i) => row.forEach((text, j) => {
+        const c = grid.children[i * it.cols.length + j], t = c.firstChild, typing = editing && cell && cell[0] === i && cell[1] === j;
+        c.toggleAttribute("data-head", it.head && i === 0);
+        c.dataset.cell = i + "," + j;
+        if (!typing && t.textContent !== text) t.textContent = text;
+      }));
+      return;
+    }
     if (it.k === "image") {
       const img = el.firstChild;
       if (img.dataset.src !== it.src) { img.dataset.src = it.src; img.src = B.layer.url ? B.layer.url(it.src) : ""; }
@@ -79,7 +93,7 @@
     t.dataset.empty = it.text ? "" : "1";
   }
   /* The layer shows these items, in this order. editing: the id of the one whose text is being typed (left alone). */
-  function sync(layer, items, editing = null) {
+  function sync(layer, items, editing = null, cell = null) {
     let map = els.get(layer);
     if (!map) els.set(layer, (map = new Map()));
     const seen = new Set();
@@ -89,7 +103,7 @@
       let e = map.get(it.id);
       if (!e) { e = { el: make(it), sig: "" }; map.set(it.id, e); layer.appendChild(e.el); }
       const sig = order + JSON.stringify(it);
-      if (sig !== e.sig) { draw(e.el, it, order, editing === it.id); e.sig = sig; }
+      if (sig !== e.sig) { draw(e.el, it, order, editing === it.id, cell); e.sig = sig; }
     });
     for (const [id, e] of map) if (!seen.has(id)) { e.el.remove(); map.delete(id); }
   }

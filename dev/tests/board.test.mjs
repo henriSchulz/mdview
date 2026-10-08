@@ -268,6 +268,27 @@ test("scenes and the board's own settings are lines of the file too", () => {
   assert.deepEqual(plain([again.lost, again.scenes.map((sc) => sc.name)]), [1, ["Overview", 'Details <&> "x"']]);
 });
 
+test("a table: columns, rows and a text per cell, in the file and in the picture", () => {
+  const I = B.items, model = F.fresh(), t = I.fresh("table", 200, 100);
+  t.cells[0] = ["Day", "Topic", "Room"]; t.cells[1][1] = "Fourier series, and what they are good for in practice"; t.rows[1] = 60;
+  t.h = t.rows.reduce((a, b) => a + b, 0);
+  model.items.push(t);
+  const text = F.write(model), back = F.parse(text).items[0];
+  assert.deepEqual(plain(back), plain(t));
+  const svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement, g = svg.querySelector(`#${t.id}`);
+  assert.deepEqual([...g.querySelectorAll("text")].slice(0, 3).map((x) => x.textContent), ["Day", "Topic", "Room"]);
+  assert.ok(g.querySelectorAll("text")[3].querySelectorAll("tspan").length >= 2, "a cell's text is broken to its column's width");
+  assert.equal(g.querySelector("text").getAttribute("font-weight"), "600", "the head row");
+  assert.equal((g.querySelector("path").getAttribute("d").match(/M/g) || []).length, 5, "a frame, two lines between columns, two between rows");
+  assert.deepEqual(plain(I.cellAt(t, -t.w / 2 + 130, -t.h / 2 + 40)), [1, 1]);
+  I.tableFit(t, 720, t.h);
+  assert.deepEqual(plain([t.cols, t.w]), [[240, 240, 240], 720], "twice as wide: every column twice as wide");
+  // what a file may not say about one
+  const odd = I.norm({ id: "t1", k: "table", x: 0, y: 0, cols: [100, 50], rows: [30], cells: [["a"]], w: 9999, r: 45, ts: { size: "x" } });
+  assert.deepEqual(plain([odd.w, odd.h, odd.r, odd.cells, odd.head, odd.ts]), [150, 30, 0, [["a", ""]], true, { size: 14 }]);
+  for (const bad of [{ cols: [], rows: [30] }, { cols: [100], rows: [0] }, { cols: "x", rows: [30] }, { cols: Array(41).fill(20), rows: [30] }]) assert.equal(I.norm({ id: "t2", k: "table", x: 0, y: 0, ...bad }), null);
+});
+
 test("in a note a board alone in its paragraph is a block of its own, by both ways of writing it", async () => {
   const w = await loadPage(), md = w.MdView.core.md;
   assert.match(md.render("![](assets/board-1.board.svg)\n", {}), /<p class="pic-block board-block"[^>]*><img src="assets\/board-1\.board\.svg"/);

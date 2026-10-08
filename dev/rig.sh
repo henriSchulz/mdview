@@ -238,6 +238,16 @@ case "${1:-}" in
     f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
     [[ -n $f && $(grep -c '"k":"scene"' "$f") == 2 ]] && echo "ok   the file has a line for each scene" || echo "FAIL the file's scenes"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-scenes.json"; } | grep -qv '^ok' ;;
+  board-table)
+    # a table on a whiteboard: typed in cell by cell, grown, sized
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{typed,closed,board-table}.json
+    app 90 MDVIEW_PROBE="$D/probe-board-table.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in typed closed; do for _ in $(seq 600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-table.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-table-$v.png"; done
+    for _ in $(seq 500); do [[ -f $R/out/$name.board-table.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-table.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-table.json"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-table.json"; } | grep -qv '^ok' ;;
   ghostmath)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".ghostmath.json
     app 60 MDVIEW_PROBE="$D/probe-ghostmath.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_AI_FAKE=" b\$ is known." -- "$R/work/$name"

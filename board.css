@@ -238,3 +238,11 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
   body[data-board-print] > :not(#board-print) { display: none !important; }
   body[data-board-print] > #board-print { display: block !important; max-width: 100%; max-height: 96vh; margin: 0 auto; }
 }
+
+/* a table: lines between its cells, its first row its head */
+.bd-table { position: absolute; inset: 0; display: grid; font-family: var(--ui); line-height: 1.375; box-shadow: 0 0 0 1px #b9b9be; }
+.bd-cell { box-sizing: border-box; min-width: 0; padding: 6px; overflow: hidden; box-shadow: 0.5px 0.5px 0 0 #b9b9be, inset 0.5px 0.5px 0 0 #b9b9be; color: var(--fg); }
+.bd-cell[data-head] { font-weight: 600; background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.bd-item[data-k="table"][data-editing] .bd-cell { overflow: visible; }
+.bd-label { flex: 1; color: var(--fg2); }
+.bd-pick[data-noturn] .bd-knob { display: none; }

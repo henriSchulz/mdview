@@ -30,6 +30,7 @@
     draw: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5 9 14.5h6z"/><path d="M10 17h4"/>'),
     textbox: svg('<rect x="3.5" y="6" width="17" height="12" rx="2" stroke-dasharray="2.5 2.5"/><path d="M9.5 15 12 9l2.5 6M10.4 13h3.2"/>'),
     shapes: svg('<circle cx="9.5" cy="9.5" r="5.5"/><rect x="10.5" y="10.5" width="10" height="10" rx="2"/>'),
+    table: svg('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M3.5 10h17M3.5 14h17M9.5 5.5v13M14.5 5.5v13"/>'),
     sticky: svg('<path d="M4.5 5.5h15v9l-5 5h-10z"/><path d="M19.5 14.5h-5v5M8 9.5h8M8 13h4"/>'),
     unlock: svg('<rect x="5.5" y="10.5" width="13" height="9" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.7-1.4"/>'),
     copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5v-0.5A1.5 1.5 0 0 0 14 3.5H6A2.5 2.5 0 0 0 3.5 6v8A1.5 1.5 0 0 0 5 15.5h0.5"/>'),
@@ -166,7 +167,7 @@
         `<div class="bd-sel" hidden>${["nw", "ne", "se", "sw"].map((c) => `<i class="bd-dot" data-corner="${c}"></i>`).join("")}</div></div>` +
       `<div class="bd-bar bd-selbar" role="toolbar" hidden>${button("copy", "board.duplicate")}${button("trash", "board.delete")}</div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
-      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}</div>` +
+      `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.insert"))}">${button("draw", "board.mode.draw")}<span class="bd-sep"></span>${button("textbox", "board.insert.text")}${button("shapes", "board.insert.shape")}${button("sticky", "board.insert.sticky")}${button("table", "board.insert.table")}</div>` +
       `<div class="bd-spop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-shape="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}` +
         `<button type="button" class="bd-tile bd-tile-line" data-line="line" title="${esc(T("board.shape.line"))}" aria-label="${esc(T("board.shape.line"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4"/></svg></button><button type="button" class="bd-tile bd-tile-line" data-line="arrow" title="${esc(T("board.shape.arrow"))}" aria-label="${esc(T("board.shape.arrow"))}"><svg viewBox="0 0 28 28"><path d="M4 24 24 4M14 4h10v10"/></svg></button></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
@@ -192,7 +193,7 @@
       if (b.dataset.do === "connect") { if (S.mode !== "select") setMode("select"); S.connect = !S.connect; return paint(); }
       if (b.dataset.shape || b.dataset.line) { shapes(false); setMode("select"); return void (b.dataset.shape ? sel.insert("shape", { shape: b.dataset.shape }) : sel.insert("line", { arrow: b.dataset.line === "arrow" })); }
       if (b.dataset.do === "draw") return setMode(S.mode === "draw" ? "select" : "draw");
-      if (b.dataset.do === "textbox" || b.dataset.do === "sticky") { setMode("select"); return void sel.insert(b.dataset.do === "sticky" ? "sticky" : "text"); }
+      if (["textbox", "sticky", "table"].includes(b.dataset.do)) { setMode("select"); return void sel.insert(b.dataset.do === "textbox" ? "text" : b.dataset.do); }
       if (b.dataset.do === "shapes") return shapes();
       if (b.dataset.tool) return b.dataset.tool === S.tool && S.tool !== "lasso" ? options(b) : setTool(b.dataset.tool);
       if (b.dataset.ink) return setInk(b.dataset.ink);
@@ -259,7 +260,7 @@
     el.querySelector('[data-do="connect"]').setAttribute("aria-pressed", String(!!S.connect && S.mode === "select"));
     const world = el.querySelector(".bd-world");
     world.style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
-    B.layer.sync(world, S.model.items, sel.editing);
+    B.layer.sync(world, S.model.items, sel.editing, sel.cell);
     el.dataset.mode = S.readonly ? "look" : S.mode;
     el.querySelector('[data-do="draw"]').setAttribute("aria-pressed", String(S.mode === "draw"));
     sel.paint();
@@ -727,11 +728,14 @@
     if (mod && k === "q") return; // (the application's: it asks the page for what is unsaved, which leave() hands over)
     if (e.target.matches?.("input[type=text]")) return; // (a scene's name being typed: its own keys, and its field keeps them from the note)
     e.stopPropagation(); // nothing of this is the note's under the board
-    if (sel.editing || e.target.isContentEditable) { if (e.key === "Escape") { e.preventDefault(); sel.finish(); } return; } // (text being typed: the keys are its own)
+    if (sel.editing || e.target.isContentEditable) { // (text being typed: the keys are its own — but Esc ends it, and Tab goes on to a table's next cell)
+      if (e.key === "Escape") { e.preventDefault(); sel.finish(); } else if (e.key === "Tab" && sel.tab(e.shiftKey ? -1 : 1)) e.preventDefault();
+      return;
+    }
     if (e.target.matches?.("input[type=range]") && (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End")) return; // (the slider's own)
     const done = () => e.preventDefault();
     if (e.key === " " && !mod) { space = true; stage().dataset.space = ""; return done(); }
-    if (mod && k === "v" && !S.readonly) { if (BROWSER) return; done(); return pasteHere(); } // (a browser: its paste follows, with what is pasted in it)
+    if (mod && k === "v" && !e.altKey && !S.readonly) { if (BROWSER) return; done(); return pasteHere(); } // (a browser: its paste follows, with what is pasted in it)
     if (e.key === "Escape" && vpop().dataset.open != null) { done(); return menu(null); }
     if (e.key === "Escape" && sel.pending) { done(); delete el.querySelector(".bd-cpop").dataset.open; return sel.connectTo(null); }
     if (S.mode === "select" && !S.readonly && sel.key(e)) return done();
