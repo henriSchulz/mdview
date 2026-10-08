@@ -17,7 +17,7 @@ export const PREFS = {
   bullet: "-", emphasis: "*", strongMark: "**", ordered: ".", dialogWidth: 0, dialogHeight: 0,
   latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
   pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
-  aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", measure: "normal", docZoom: 100, hinting: false, aiModel: "",
+  aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", ovPdf: false, ovImages: false, ovMedia: false, ovOther: false, measure: "normal", docZoom: 100, hinting: false, aiModel: "",
 };
 
 // The settings of this browser: the defaults, and over them what was chosen here ("mdview:set" —

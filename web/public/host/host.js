@@ -166,7 +166,8 @@
     return gone.has(C.SHARES) || text == null ? [] : Object.values(C.sharesOf(text).shares).map((e) => BASE + "/" + e.path).filter(exists).sort();
   }
   function sendFolder() {
-    const show = [prefs.sidebarPdf !== false && "pdf", prefs.sidebarImages && "image", prefs.sidebarMedia && "media", prefs.sidebarOther && "other"].filter(Boolean);
+    // (what the sidebar lists or All Notes does: the page shows each its own part — viewer.js, listed)
+    const show = [(prefs.sidebarPdf !== false || prefs.ovPdf) && "pdf", (prefs.sidebarImages || prefs.ovImages) && "image", (prefs.sidebarMedia || prefs.ovMedia) && "media", (prefs.sidebarOther || prefs.ovOther) && "other"].filter(Boolean);
     let titles = null;
     if (here.sidebar.titles) {
       titles = new Map();
@@ -579,6 +580,15 @@
 
   /* A file under another path: a note as a draft there and gone here; anything else as its bytes
    * there, in a commit at once. Tabs, what was opened when, a share's link and the page follow. */
+  /* A folder under another path: each file in it (inside) moved, and the folders made here that
+   * are still empty with it. → whether it was done */
+  async function moveFolder(path, to, inside) {
+    const large = inside.find((p) => !C.isMd(p) && !blobs.has(rel(p)) && (files.get(rel(p)) || {}).size > MOVE_MOST);
+    if (large) { toast(`“${C.nameOf(large)}” is too large to move here (over 14 MB)`); return false; }
+    for (const p of inside) if (!(await relocate(p, to + p.slice(path.length), "move"))) break;
+    for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
+    return true;
+  }
   async function relocate(path, now, how) {
     const r = rel(path);
     if (C.isMd(path)) {
@@ -679,7 +689,7 @@
       prefs = { ...prefs, ...(changed || {}) };
       keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); // (what was chosen, not the defaults beside it: lib/page.ts)
       tell("setPrefs", prefs);
-      if (Object.keys(changed || {}).some((k) => k.startsWith("sidebar"))) sendFolder();
+      if (Object.keys(changed || {}).some((k) => k.startsWith("sidebar") || ["ovPdf", "ovImages", "ovMedia", "ovOther"].includes(k))) sendFolder();
     },
     sidebar({ width, visible, titles }) {
       const n = Number(width);
@@ -815,7 +825,17 @@
     },
     async rename({ path, name }) {
       if (busy) await busy; // (as trash)
-      if (!exists(path) || !mayWrite()) return;
+      if (!mayWrite()) return;
+      if (!exists(path)) { // a folder: each file in it under the new path, as when it is moved
+        const inside = paths().filter((p) => p.startsWith(path + "/")), stem = C.cleanName(name), to = `${C.dirOf(path)}/${stem}`;
+        if (!path.startsWith(BASE + "/") || !(inside.length || keptDirs.has(path)) || !stem || to === path) return;
+        if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${stem}” already exists`);
+        if (!(await moveFolder(path, to, inside))) return;
+        sendFolder();
+        sendTabs();
+        commit();
+        return;
+      }
       const suffix = path.slice(path.lastIndexOf("."));
       let stem = C.cleanName(name);
       if (stem.toLowerCase().endsWith(suffix.toLowerCase())) stem = stem.slice(0, -suffix.length).trimEnd();
@@ -836,29 +856,39 @@
       const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
       if (!exists(path) && !folder) return;
       if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${name}” already exists there`);
-      if (folder) {
-        const large = inside.find((p) => !C.isMd(p) && !blobs.has(rel(p)) && (files.get(rel(p)) || {}).size > MOVE_MOST);
-        if (large) return toast(`“${C.nameOf(large)}” is too large to move here (over 14 MB)`);
-        for (const p of inside) if (!(await relocate(p, to + p.slice(path.length), "move"))) break;
-        for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
-      } else if (!(await relocate(path, to, "move"))) return;
+      if (folder) { if (!(await moveFolder(path, to, inside))) return; }
+      else if (!(await relocate(path, to, "move"))) return;
       sendFolder();
       sendTabs();
       commit();
     },
-    async trash({ path }) {
+    /* A note, another file or a folder deleted — or several at once (paths: what is selected in
+     * All Notes). A folder is the files in it. */
+    async trash({ path, paths: many }) {
       if (busy) await busy; // (a commit on its way knows the file as it was sent: what it has is known first)
-      if (!exists(path) || !mayWrite()) return;
-      const was = onScreen === path, notes = C.notesOf(C.buildTree(BASE, every(), { show: [] })), i = notes.findIndex((n) => n.path === path);
-      const next = was && i >= 0 ? (notes[i + 1] || notes[i - 1] || {}).path : null;
-      const r = rel(path);
-      drafts.delete(r);
-      if (files.has(r)) gone.add(r);
+      if (!mayWrite()) return;
+      const all = new Set();
+      let emptied = false;
+      for (const p of (Array.isArray(many) && many.length ? many : [path]).filter((p) => typeof p === "string" && p.startsWith(BASE + "/"))) {
+        if (exists(p)) { all.add(p); continue; }
+        for (const q of paths()) if (q.startsWith(p + "/")) all.add(q);
+        for (const k of [...keptDirs]) if (k === p || k.startsWith(p + "/")) { keptDirs.delete(k); emptied = true; } // (a folder made here, still empty)
+      }
+      const list = [...all];
+      if (!list.length) { if (emptied) sendFolder(); return; }
+      const was = all.has(onScreen), notes = C.notesOf(C.buildTree(BASE, every(), { show: [] })), i = notes.findIndex((n) => n.path === onScreen);
+      const stays = (n) => !all.has(n.path);
+      const next = was && i >= 0 ? (notes.slice(i + 1).find(stays) || notes.slice(0, i).reverse().find(stays) || {}).path : null;
+      for (const p of list) {
+        const r = rel(p);
+        drafts.delete(r);
+        if (files.has(r)) gone.add(r);
+        if (C.isMd(p)) await sharesFollow(r, null); // (a link to it shows nothing any more)
+        tabs.drop(p);
+      }
       keepDrafts();
       later();
-      if (C.isMd(path)) await sharesFollow(r, null); // (a link to it shows nothing any more)
-      tabs.drop(path);
-      toast(`Deleted “${C.nameOf(path)}”. Its versions stay in the repository`);
+      toast(list.length === 1 ? `Deleted “${C.nameOf(list[0])}”. Its versions stay in the repository` : `Deleted ${list.length} files. Their versions stay in the repository`);
       sendFolder();
       if (!was) return sendTabs();
       onScreen = null;

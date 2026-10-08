@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
     aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
+    ovScope: "all", ovLayout: "tiles", ovPdf: false, ovImages: false, ovMedia: false, ovOther: false, pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -49,6 +49,7 @@
         ["ovScope", "select", [["all", "prefs.ovScope.all"], ["folders", "prefs.ovScope.folders"]]],
         ["ovLayout", "select", [["tiles", "prefs.ovLayout.tiles"], ["list", "prefs.ovLayout.list"]]],
       ]],
+      ["prefs.overview", [["ovPdf", "switch"], ["ovImages", "switch"], ["ovMedia", "switch"], ["ovOther", "switch"]]],
     ]],
     ["history", "history", [
       // the folder this window shows: where it stands, and what its repository holds (told by the application)

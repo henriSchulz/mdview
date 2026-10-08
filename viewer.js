@@ -2639,15 +2639,17 @@
    * folder's row (or the list's empty room: the top), a tile of All Notes onto a folder's tile
    * (overview.js uses the same three). The application moves it ("move"). */
   const moving = {
-    path: null,
-    // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it)
-    start(e, path, el) {
-      moving.path = path; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
+    path: null, paths: null,
+    // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it;
+    // also: what goes with it — the others selected in All Notes)
+    start(e, path, el, also) {
+      moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
       if (el) { const r = el.getBoundingClientRect(); e.dataTransfer.setDragImage(el, Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))); }
     },
     // (not where it is already, not into itself)
-    can: (dir) => !!moving.path && !!dir && dir !== moving.path && !dir.startsWith(moving.path + "/") && moving.path.replace(/\/[^/]*$/, "") !== dir,
-    end(dir) { const path = moving.path; moving.path = null; if (path && dir) post("move", { path, dir }); },
+    fits: (path, dir) => dir !== path && !dir.startsWith(path + "/") && path.replace(/\/[^/]*$/, "") !== dir,
+    can: (dir) => !!moving.path && !!dir && (moving.paths || [moving.path]).some((p) => moving.fits(p, dir)),
+    end(dir) { const all = moving.paths || [moving.path]; moving.path = moving.paths = null; if (dir) for (const path of all) if (path && moving.fits(path, dir)) post("move", { path, dir }); },
   };
   let dropInto = null;
   const setDropInto = (el) => { if (dropInto === el) return; if (dropInto) dropInto.classList.remove("drop-into"); dropInto = el; if (el) el.classList.add("drop-into"); };
@@ -2759,7 +2761,21 @@
     post("quicknote");
   }, true);
 
+  /* What stands beside the notes — PDFs, pictures, sound and film, anything else — is listed as
+   * the settings say, and the sidebar and All Notes each have their own say (sidebarPdf …, ovPdf …).
+   * The application hands over what either wants (folder.all); each shows its part of it. */
+  const GROUPS = [["pdf", "Pdf", "PDFs"], ["image", "Images", "Pictures"], ["media", "Media", "Sound and Video"], ["other", "Other", "Other Files"]];
+  const groupOf = (n) => (n.kind === "pdf" ? "pdf" : n.kind === "image" ? "image" : n.kind === "audio" || n.kind === "video" ? "media" : "other");
+  const groupOn = (where, g) => { const v = (window.MdPrefs || {})[where + GROUPS.find((x) => x[0] === g)[1]]; return where === "sidebar" && g === "pdf" ? v !== false : !!v; };
+  function listed(node, where) {
+    const notes = node.notes.filter((n) => !n.pdf || groupOn(where, groupOf(n)));
+    // (a folder that holds only what is not listed here is left out; one that holds nothing at all — made just now — stays)
+    const dirs = node.dirs.map((d) => [d, listed(d, where)]).filter(([d, l]) => l.dirs.length || l.notes.length || !(d.dirs.length || d.notes.length)).map(([, l]) => l);
+    return { ...node, dirs, notes };
+  }
   function applyFolder(f, animate) {
+    f.all = f.tree;
+    f.tree = listed(f.all, "sidebar");
     if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
     if (f.quick && !sbDragging && !(f.width >= 340)) document.documentElement.style.setProperty("--sb-w", "360px"); // (a list of notes wants room)
     document.body.toggleAttribute("data-quick", !!f.quick);
@@ -2859,8 +2875,8 @@
       const next = rows[rows.indexOf(row) + (e.key === "ArrowDown" ? 1 : -1)];
       e.preventDefault();
       if (next) { next.focus({ preventScroll: true }); next.scrollIntoView({ block: "nearest" }); }
-    } else if (e.key === "F2" && !isDir) { e.preventDefault(); startRename(item); }
-    else if (e.key === "Delete" && !isDir) { e.preventDefault(); post("trash", { path: item.dataset.key }); }
+    } else if (e.key === "F2") { e.preventDefault(); startRename(item); }
+    else if (e.key === "Delete") { e.preventDefault(); post("trash", { path: item.dataset.key }); }
     else if (e.key === "ArrowRight" && isDir && !item.classList.contains("open")) { e.preventDefault(); toggleDir(item); }
     else if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -2884,7 +2900,8 @@
   ctx.innerHTML =
     entry("open", "note", "Open", "ovnote ovdir") +
     entry("opentab", "plus", "Open in New Tab", "file ovnote") +
-    `<div class="menu-rule" data-for="file ovnote ovdir"></div>` +
+    entry("opentab", "plus", "Open in New Tabs", "ovmany") +
+    `<div class="menu-rule" data-for="file ovnote ovdir ovmany"></div>` +
     entry("tab:new", "plus", "New Tab", "tab", "Ctrl+T") +
     entry("tab:reopen", "note", "Reopen Closed Tab", "tab", "Ctrl+Shift+T") +
     `<div class="menu-rule" data-for="tab"></div>` +
@@ -2911,10 +2928,67 @@
     entry("default", "external", "Open in Default App", "file ovnote") +
     entry("openwith", "apps", "Open With…", "file ovnote") +
     entry("reveal", "reveal", "Show in Finder", "file dir ovnote ovdir") +
-    `<div class="menu-rule" data-for="file ovnote"></div>` +
+    `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
     entry("share", "share", "Share…", "file ovnote") +
-    entry("rename", "rename", "Rename", "file ovnote", "F2") +
-    entry("trash", "trash", "Move to Trash", "file ovnote", "Del", " danger");
+    entry("rename", "rename", "Rename", "file dir ovnote ovdir", "F2") +
+    entry("trash", "trash", "Move to Trash", "file dir ovnote ovdir ovmany", "Del", " danger") +
+    // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
+    `<div class="menu-rule" data-for="blank file dir ovnote ovdir"></div>` +
+    entry("sub:show", "list", "Show", "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
+  for (const el of ctx.querySelectorAll(".has-sub")) el.insertAdjacentHTML("beforeend", `<span class="menu-key menu-go">${ICON.chevron}</span>`);
+  // the menu beside it: what "Show" leads to — a tick for each kind that is listed
+  const ctxSub = document.createElement("div");
+  ctxSub.id = "ctxsub";
+  ctxSub.className = "ui-menu surface actmenu has-checks";
+  ctxSub.setAttribute("role", "menu");
+  ctxSub.tabIndex = -1;
+  document.body.appendChild(ctxSub);
+  let subItems = [], subHl = -1, subWhere = "sidebar";
+  const subOpen = () => ctxSub.hasAttribute("data-open");
+  const setSubHl = (i) => { subHl = i; subItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
+  function openSub(from, keys) {
+    if (subOpen()) { if (keys) setSubHl(0); return; }
+    subWhere = ctxFor && ctxFor.closest("#overview") ? "ov" : "sidebar";
+    ctxSub.innerHTML = GROUPS.map(([g, , label]) => { const on = groupOn(subWhere, g); return `<button class="menu-item" role="menuitemcheckbox" aria-checked="${on}" data-group="${g}"><span class="menu-icon"${on ? "" : ' style="visibility:hidden"'}>${ICON.check}</span><span class="menu-label">${label}</span></button>`; }).join("");
+    subItems = [...ctxSub.children];
+    const r = from.getBoundingClientRect(), w = ctxSub.offsetWidth, right = r.right + 2 + w <= innerWidth - 8;
+    ctxSub.style.setProperty("--origin", right ? "top left" : "top right");
+    ctxSub.style.left = (right ? r.right + 2 : Math.max(8, r.left - 2 - w)) + "px";
+    ctxSub.style.top = Math.max(8, Math.min(r.top - 6, innerHeight - ctxSub.offsetHeight - 8)) + "px";
+    ctxSub.dataset.open = "";
+    from.setAttribute("aria-expanded", "true");
+    setSubHl(keys ? 0 : -1);
+    if (keys) ctxSub.focus({ preventScroll: true });
+  }
+  function closeSub(back) {
+    if (!subOpen()) return false;
+    delete ctxSub.dataset.open;
+    for (const el of ctx.querySelectorAll(".has-sub")) el.removeAttribute("aria-expanded");
+    if (back) ctx.focus({ preventScroll: true });
+    return true;
+  }
+  function runSub(i) {
+    const el = subItems[i];
+    if (!el) return;
+    const flash = motionMs("--flash-duration", 70), key = subWhere + GROUPS.find((x) => x[0] === el.dataset.group)[1], on = !groupOn(subWhere, el.dataset.group);
+    el.classList.remove("hl");
+    setTimeout(() => el.classList.add("hl"), flash);
+    setTimeout(() => {
+      closeCtx(false);
+      window.MdPrefs = { ...(window.MdPrefs || {}), [key]: on };
+      post("prefs", { prefs: { [key]: on } }); // (the application lists anew: what either wants)
+    }, flash * 2);
+  }
+  ctxSub.addEventListener("mousemove", (e) => { const i = subItems.indexOf(e.target.closest(".menu-item")); if (i !== subHl) setSubHl(i); });
+  ctxSub.addEventListener("mouseleave", () => setSubHl(-1));
+  ctxSub.addEventListener("click", (e) => runSub(subItems.indexOf(e.target.closest(".menu-item"))));
+  ctxSub.addEventListener("contextmenu", (e) => e.preventDefault());
+  ctxSub.addEventListener("keydown", (e) => {
+    const n = subItems.length, moves = { ArrowDown: subHl + 1, ArrowUp: subHl < 0 ? n - 1 : subHl - 1, Home: 0, End: n - 1 };
+    if (e.key in moves) { e.preventDefault(); e.stopPropagation(); setSubHl(Math.min(n - 1, Math.max(0, moves[e.key]))); }
+    else if (e.key === "Enter" && subHl >= 0) { e.preventDefault(); e.stopPropagation(); runSub(subHl); }
+    else if (e.key === "ArrowLeft" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeSub(true); }
+  });
   document.body.appendChild(ctx);
   // A host says what it cannot do (MdHost.lacks: commands of this menu) and what it calls what it
   // does otherwise (MdHost.labels: a file deleted in a repository goes to no Trash).
@@ -2967,6 +3041,7 @@
   }
   function closeCtx(refocus) {
     if (!ctxOpen()) return false;
+    closeSub(false);
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
     if (refocus && ctxKind !== "new" && ctxKind !== "history" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
@@ -2975,6 +3050,7 @@
   function runCtx(i) {
     const el = ctxItems[i], item = ctxFor;
     if (!el) return;
+    if (el.dataset.cmd.startsWith("sub:")) { openSub(el, false); return; } // (a menu of its own: it stays)
     const flash = motionMs("--flash-duration", 70); // blink once, then act — like NSMenu
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
@@ -2983,6 +3059,7 @@
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
+      if (kind === "ovmany") { MdOverview.many(cmd); return; } // (what is selected in All Notes, all of it)
       if (cmd === "newnote" || cmd === "newfolder") openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" ? dir : null);
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
@@ -3226,21 +3303,25 @@
   addEventListener("scroll", closeTextMenu, true);
   ctx.addEventListener("mousemove", (e) => {
     const i = ctxItems.indexOf(e.target.closest(".menu-item"));
-    if (i !== ctxHl) setCtxHl(i);
+    if (i === ctxHl) return;
+    setCtxHl(i);
+    // (the entry that leads to a menu of its own opens it under the pointer; any other entry puts it away)
+    if (i >= 0 && ctxItems[i].classList.contains("has-sub")) openSub(ctxItems[i], false); else if (i >= 0) closeSub(false);
   });
-  ctx.addEventListener("mouseleave", () => setCtxHl(-1));
+  ctx.addEventListener("mouseleave", () => { if (!subOpen()) setCtxHl(-1); }); // (on the way into the menu beside it, its entry stays marked)
   ctx.addEventListener("click", (e) => runCtx(ctxItems.indexOf(e.target.closest(".menu-item"))));
   ctx.addEventListener("keydown", (e) => {
     const n = ctxItems.length;
     const moves = { ArrowDown: ctxHl + 1, ArrowUp: ctxHl < 0 ? n - 1 : ctxHl - 1, Home: 0, End: n - 1 };
-    if (e.key in moves) { e.preventDefault(); setCtxHl(Math.min(n - 1, Math.max(0, moves[e.key]))); }
+    if (e.key in moves) { e.preventDefault(); closeSub(false); setCtxHl(Math.min(n - 1, Math.max(0, moves[e.key]))); }
+    else if ((e.key === "Enter" || e.key === "ArrowRight") && ctxHl >= 0 && ctxItems[ctxHl].classList.contains("has-sub")) { e.preventDefault(); openSub(ctxItems[ctxHl], true); }
     else if (e.key === "Enter" && ctxHl >= 0) { e.preventDefault(); runCtx(ctxHl); }
   });
 
   function startRename(item) {
     const row = item.firstChild.firstChild;
     if (row.classList.contains("renaming")) return;
-    const stem = item.dataset.key.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
+    const stem = item.classList.contains("is-dir") ? item.dataset.key.replace(/^.*\//, "") : item.dataset.key.replace(/^.*\//, "").replace(/\.[^.]+$/, ""); // (a folder has no ending to keep)
     const input = document.createElement("input");
     input.className = "sb-field sb-rename";
     input.type = "text";
@@ -3615,6 +3696,7 @@
   // click outside the outline closes it and is swallowed (macOS popover behaviour)
   let swallowClick = false;
   addEventListener("pointerdown", (e) => {
+    if (ctxOpen() && ctxSub.contains(e.target)) return;
     if (ctxOpen() && !ctx.contains(e.target)) {
       closeCtx(false);
       if (e.button !== 0) return; // a right click goes on to open the next menu
@@ -3794,7 +3876,7 @@
   }
   // what of the page follows the settings: the order of the notes, the width of the text column
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
-  let sortedBy = "opened", measured = "normal", zoomed = 100;
+  let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
   function prefsChanged() {
     if (docZoom() !== zoomed) {
       // (what was at the top of the window stays there: the place is kept as a share of the page's height)
@@ -3806,6 +3888,10 @@
     }
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer.css)
     const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
+    // what the sidebar or All Notes lists beside the notes: each shows its part anew (the application
+    // sends the folder again only where what both want together changed)
+    const lists = ["sidebar", "ov"].map((w) => GROUPS.map(([g]) => (groupOn(w, g) ? 1 : 0)).join("")).join("/");
+    if (lists !== listedAs) { listedAs = lists; if (folder && folder.all) { folder.tree = folder.all; folder.visible = document.body.dataset.sidebar === "open"; applyFolder(folder, true); markShared(); } }
     if (sort !== sortedBy) { sortedBy = sort; resort(); }
     if (measure !== measured) {
       measured = measure;
@@ -3869,7 +3955,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,

@@ -354,6 +354,11 @@ embed's menu has Show as File.
 
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
+In the active mode `[[` opens a small window at the caret: the folder's notes are offered while a
+name is typed (the one opened last first), one chosen is the link at once, complete; a text of
+its own goes in the second field. `Enter` or `]` puts the link in, `Esc` leaves the two brackets
+as typed. `![[` does the same for what is shown in the note itself.
+
 ### Properties (frontmatter)
 
 YAML between `---` lines at the very top is shown as a foldable table of properties. In the active
@@ -434,13 +439,20 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   edge can be pulled wider or away. `Aa` switches between file names and the notes' titles.
 - **Order of the notes**: Last Opened (the default), Name, Date Modified.
 - **Beside notes** the sidebar can list PDFs (on by default), pictures, sound and video, and other
-  files (settings).
+  files — in the settings, or at once from a right click in the sidebar › Show. All Notes has
+  its own choice of the same four (settings, or a right click there › Show), apart from the
+  sidebar's. A folder's menu has Rename and Move to Trash as a file's has.
 - **All Notes** (`Ctrl+Alt+G`): every note as a tile showing its beginning, or as a list. Two
   switches at the head: *All Notes* (grouped by folder) or *Folders* (one folder at a time, click
   into its folders, `Backspace` goes up), and tiles or list. It opens in the folder of the note on
   screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note or folder in the folder shown. A tile under the pointer
-  lifts a little.
+  lifts a little. Other files it is set to show stand after the notes: a picture as itself, any
+  other by its sign and its kind; a click opens a PDF here and the rest in its own application.
+  **Several at once**: a rectangle pulled from the empty room takes what it touches, `Shift`+click
+  takes one more or lets it go, `Ctrl+A` takes all, `Esc` or a click beside them none. What is
+  selected is dragged onto a folder together, trashed together (`Del`), or opened in tabs (right
+  click). Folders are renamed (`F2`) and trashed here too.
 - **Moving**: a note, another file or a folder is dragged into another folder — its row in the
   sidebar onto a folder's row (onto the list's empty room: to the top), its tile in All Notes
   onto a folder's tile. Tabs, the note on screen and a share's link follow.

@@ -210,6 +210,30 @@ test("blocks selected as wholes: Tab stands them under the list above, / and a r
   await page.waitForFunction(() => /below\n\nbelow/.test(MdActive.view.serialize()), null, { timeout: 8000 });
 });
 
+test("a folder renamed and deleted, several files deleted at once, and a file of text shown as code", async () => {
+  put("Keep.md", "# Keep\n\n![[code/main.c#L2-L3]]\n");
+  put("code/main.c", "int a;\nint b;\nint c;\nint d;\n");
+  put("pile/One.md", "# One\n");
+  put("pile/Two.md", "# Two\n");
+  put("Gone1.md", "# Gone 1\n");
+  put("Gone2.md", "# Gone 2\n");
+  await open("Keep.md");
+  // the file's lines stand in the note as code, named
+  await page.waitForFunction(() => document.querySelector("#content .code-file code"), null, { timeout: 8000 });
+  assert.deepEqual(await page.evaluate(() => [document.querySelector("#content .code-file code").textContent, document.querySelector("#content .code-from a").textContent]), ["int b;\nint c;\n", "main.c:2–3"]);
+  // a folder under another name: its files with it
+  await post({ type: "rename", path: "/octo/notes/pile", name: "stack" });
+  await until(() => text("stack/One.md") !== undefined && text("stack/Two.md") !== undefined && text("pile/One.md") === undefined, "the folder, renamed");
+  // … and deleted: every file in it
+  await post({ type: "trash", path: "/octo/notes/stack" });
+  await until(() => text("stack/One.md") === undefined && text("stack/Two.md") === undefined, "the folder, deleted");
+  // several at once
+  await post({ type: "trash", paths: ["/octo/notes/Gone1.md", "/octo/notes/Gone2.md"] });
+  await until(() => text("Gone1.md") === undefined && text("Gone2.md") === undefined, "both notes, deleted");
+  assert.equal(text("Keep.md"), "# Keep\n\n![[code/main.c#L2-L3]]\n");
+  assert.equal(await page.evaluate(() => MdView.core.current.name), "Keep.md");
+});
+
 test("a note dragged into a folder, and a folder into another: the same files under other paths", async () => {
   put("Loose.md", "# Loose\n\nto be moved\n");
   put("box/Inside.md", "# Inside\n");

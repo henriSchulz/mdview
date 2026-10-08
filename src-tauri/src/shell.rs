@@ -97,6 +97,8 @@ fn default_prefs() -> Map<String, Value> {
         "aiComplete": false,
         "panel": false, "panelTab": "insert",   // the panel at the window's right (insert, format): open, and its tab
         "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
+        // what All Notes lists beside the notes — its own choice, apart from the sidebar's
+        "ovPdf": false, "ovImages": false, "ovMedia": false, "ovOther": false,
         "measure": "normal",      // the text column's width: "narrow" | "normal" | "wide" | "full"
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
         "props": true,            // a note's properties show at its head (false: put away, from the menu of a right click)
@@ -1544,10 +1546,11 @@ impl Win {
         let Some(folder) = self.folder.clone() else { return };
         let titles = app.state.get("sidebar_titles").is_some_and(truthy);
         let prefs = app.prefs();
-        let show: HashSet<&'static str> = [("pdf", "sidebarPdf"), ("image", "sidebarImages"), ("media", "sidebarMedia"), ("other", "sidebarOther")]
+        // (what the sidebar lists or All Notes does: the page shows each its own part — viewer.js, listed)
+        let show: HashSet<&'static str> = [("pdf", "sidebarPdf", "ovPdf"), ("image", "sidebarImages", "ovImages"), ("media", "sidebarMedia", "ovMedia"), ("other", "sidebarOther", "ovOther")]
             .into_iter()
-            .filter(|(_, key)| truthy(&prefs[*key]))
-            .map(|(group, _)| group)
+            .filter(|(_, sidebar, all)| truthy(&prefs[*sidebar]) || truthy(&prefs[*all]))
+            .map(|(group, _, _)| group)
             .collect();
         let (tree, walked) = scan::scan_folder(&folder, &mut self.title_cache, titles, &self.kept_dirs, &show);
         self.note_paths = tree.notes().iter().map(|n| n.path.clone()).collect();
@@ -1713,9 +1716,13 @@ impl Win {
     }
 
     fn rename_note(&mut self, app: &mut App, path: &str, name: &str) {
-        let Some(folder) = self.folder.clone().filter(|_| self.note_paths.contains(path)) else { return };
+        let Some(folder) = self.folder.clone() else { return };
         let old = PathBuf::from(path);
-        let suffix = old.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+        let is_dir = old.is_dir() && old.starts_with(&folder) && old != folder; // (a folder of the window's: renamed like a file, without an ending to keep)
+        if !is_dir && !self.note_paths.contains(path) {
+            return;
+        }
+        let suffix = old.extension().filter(|_| !is_dir).map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
         let mut stem = clean_name(name);
         if !suffix.is_empty() && stem.to_lowercase().ends_with(&suffix.to_lowercase()) {
             stem = stem[..stem.len() - suffix.len()].trim_end().to_string();
@@ -1802,43 +1809,77 @@ impl Win {
     }
 
     fn trash_note(&mut self, app: &mut App, path: &str) {
-        if self.folder.is_none() || !self.note_paths.contains(path) {
+        self.trash_paths(app, &[path.to_string()]);
+    }
+
+    /// Notes, other files and folders of the window's to the trash, in one go (All Notes: what
+    /// is selected). Nothing stays on what is gone: no tab, no way back, no link.
+    fn trash_paths(&mut self, app: &mut App, paths: &[String]) {
+        let Some(folder) = self.folder.clone() else { return };
+        let mut going: Vec<(PathBuf, PathBuf, bool)> = vec![]; // (as it was named, as it is, a folder)
+        for path in paths {
+            let p = PathBuf::from(path);
+            let is_dir = p.is_dir() && p.starts_with(&folder) && p != folder;
+            if !is_dir && !self.note_paths.contains(path.as_str()) {
+                continue;
+            }
+            let real = fs::canonicalize(&p).unwrap_or_else(|_| p.clone());
+            going.push((p, real, is_dir));
+        }
+        if going.is_empty() {
             return;
         }
-        let real = fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
-        let was_current = self.path.as_ref() == Some(&real);
+        let gone = |q: &Path, going: &[(PathBuf, PathBuf, bool)]| going.iter().any(|(_, real, dir)| q == real || (*dir && q.starts_with(real)));
+        let was_current = self.path.as_ref().is_some_and(|p| gone(p, &going));
+        // the note on screen goes: the one after it that stays, else the one before
         let mut next = None;
-        if was_current {
-            if let Some(tree) = &self.tree {
-                let notes = tree.notes();
-                if let Some(i) = notes.iter().position(|n| n.path == path) {
-                    next = notes.get(i + 1).or_else(|| i.checked_sub(1).and_then(|k| notes.get(k))).map(|n| PathBuf::from(&n.real));
+        let mut shared = vec![];
+        if let Some(tree) = &self.tree {
+            let notes = tree.notes();
+            if was_current {
+                if let Some(i) = notes.iter().position(|n| self.path.as_deref() == Some(Path::new(&n.real))) {
+                    let stays = |n: &&&scan::Note| !gone(Path::new(&n.real), &going);
+                    next = notes[i + 1..].iter().find(stays).or_else(|| notes[..i].iter().rev().find(stays)).map(|n| PathBuf::from(&n.real));
                 }
             }
+            shared = notes.iter().map(|n| PathBuf::from(&n.real)).filter(|p| gone(p, &going)).collect();
         }
-        if let Err(e) = trash::delete(path) {
-            return self.toast(format!("Couldn't move to Trash: {e}"));
+        let mut done: Vec<(PathBuf, PathBuf, bool)> = vec![];
+        for g in going {
+            match trash::delete(&g.0) {
+                Ok(()) => done.push(g),
+                Err(e) => self.toast(format!("Couldn't move “{}” to Trash: {e}", name_of(&g.0))),
+            }
         }
-        if let Ok(Some(root)) = share::moved(&real, None) {
-            app.share_dirty.insert(root); // (a link to it shows nothing any more)
+        if done.is_empty() {
+            return;
         }
-        self.back.retain(|p| *p != real);
-        self.fwd.retain(|p| *p != real);
+        for real in shared.iter().filter(|p| gone(p, &done)) {
+            if let Ok(Some(root)) = share::moved(real, None) {
+                app.share_dirty.insert(root); // (a link to it shows nothing any more)
+            }
+        }
+        self.back.retain(|p| !gone(p, &done));
+        self.fwd.retain(|p| !gone(p, &done));
         if !self.tabs.is_empty() {
-            // other tabs: none stays on the file, none goes back to it
+            // other tabs: none stays on what is gone, none goes back to it
             self.stash_tab();
             let shown = self.tabs[self.tab].id;
             for t in &mut self.tabs {
-                t.back.retain(|p| *p != real);
-                t.fwd.retain(|p| *p != real);
+                t.back.retain(|p| !gone(p, &done));
+                t.fwd.retain(|p| !gone(p, &done));
             }
-            self.tabs.retain(|t| t.id == shown || t.path.as_ref() != Some(&real));
+            self.tabs.retain(|t| t.id == shown || !t.path.as_ref().is_some_and(|p| gone(p, &done)));
             self.tab = self.tab_index(shown).unwrap_or(0);
-            self.closed_tabs.retain(|(p, _)| *p != real);
+            self.closed_tabs.retain(|(p, _)| !gone(p, &done));
         }
-        self.toast(format!("Moved “{}” to Trash", name_of(Path::new(path))));
+        for (p, _, _) in &done {
+            self.kept_dirs.remove(&s(p));
+        }
+        self.toast(if done.len() == 1 { format!("Moved “{}” to Trash", name_of(&done[0].0)) } else { format!("Moved {} items to Trash", done.len()) });
+        let current_gone = self.path.as_ref().is_some_and(|p| gone(p, &done));
         self.rescan(app);
-        if !was_current {
+        if !current_gone {
             return self.send_tabs(app);
         }
         match next {
@@ -2264,7 +2305,7 @@ impl Win {
             "prefs" => {
                 let new = msg["prefs"].as_object().cloned().unwrap_or_default();
                 let prefs = Value::Object(app.store_prefs(&new));
-                let lists = new.keys().any(|k| k.starts_with("sidebar")); // (what the sidebar lists may have changed)
+                let lists = new.keys().any(|k| k.starts_with("sidebar") || matches!(k.as_str(), "ovPdf" | "ovImages" | "ovMedia" | "ovOther")); // (what the sidebar or All Notes lists may have changed)
                 let told = |w: &mut Win, app: &mut App| {
                     w.js("MdView.setPrefs", &[prefs.clone()]);
                     if lists && w.folder.is_some() {
@@ -2368,7 +2409,11 @@ impl Win {
             "newfolder" => self.new_folder(app, text_of("name"), msg["dir"].as_str()),
             "rename" => self.rename_note(app, text_of("path"), text_of("name")),
             "move" => self.move_to(app, text_of("path"), text_of("dir")),
-            "trash" => self.trash_note(app, text_of("path")),
+            "trash" => match msg["paths"].as_array() {
+                // (several at once: what is selected in All Notes)
+                Some(many) => self.trash_paths(app, &many.iter().filter_map(|p| p.as_str().map(String::from)).collect::<Vec<_>>()),
+                None => self.trash_note(app, text_of("path")),
+            },
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
             "folder" => self.pick(app, Pick::Folder),

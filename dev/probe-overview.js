@@ -66,7 +66,7 @@
     const sorted = (sel) => names(sel).sort().join("|"); // (their order is the sidebar's: the one opened last first)
     const note = [...ov.querySelectorAll(".ov-tile")].find((t) => t.querySelector(".ov-name").textContent === "Commute thoughts");
     note.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Share…|Rename|Move to Trash", shown());
+    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Share…|Rename|Move to Trash|Show", shown());
     out("shot-menu", {}); await sleep(1300);
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "rename").click(); await sleep(500);
     const field = ov.querySelector(".ov-rename");
@@ -74,7 +74,7 @@
     field.value = "Commute ideas"; field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); await sleep(1200);
     ok("Enter renames the file; the tiles follow", sorted(".ov-tile") === "Commute ideas|Decorations", names(".ov-tile").join("|"));
     ov.querySelector(".ov-body").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 900, clientY: 600 })); await sleep(400);
-    ok("a right click on the empty room: New Note, New Folder, the orders", menu.hasAttribute("data-open") && shown() === "New Note|New Folder|Sort by Last Opened|Sort by Name|Sort by Date Modified", shown());
+    ok("a right click on the empty room: New Note, New Folder, the orders", menu.hasAttribute("data-open") && shown() === "New Note|New Folder|Sort by Last Opened|Sort by Name|Sort by Date Modified|Show", shown());
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "newfolder").click(); await sleep(500);
     const nf = document.querySelector(".sb-new input");
     ok("New Folder: the sidebar's field asks for its name", document.activeElement === nf && /Folder/.test(nf.placeholder), nf && nf.placeholder);
@@ -83,7 +83,7 @@
     ov.querySelector(".ov-tile").focus(); key("Backspace"); await sleep(600);
     ok("Backspace goes up, onto the folder left", document.activeElement.dataset.dir === "Projekte" && !ov.querySelector(".ov-crumb"), document.activeElement.className);
     ov.querySelector(".ov-folder").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a folder's menu: Open, Show in Finder", shown() === "Open|Show in Finder", shown());
+    ok("a folder's menu: Open, Show in Finder, Rename, Move to Trash, Show", shown() === "Open|Show in Finder|Rename|Move to Trash|Show", shown());
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(300);
     key("Escape"); await sleep(500);
     btn.click(); await sleep(700);

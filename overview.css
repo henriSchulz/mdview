@@ -180,3 +180,20 @@ body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12
 .ov-item.drop-into { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--cc, var(--paper, transparent))); }
 /* (the tile that is dragged stands where it stood: pressed and lifted, it would be held beside the pointer) */
 #overview[data-open] .ov-tile.dragged, #overview[data-open] .ov-tile.dragged:hover, #overview[data-open] .ov-tile.dragged:active { transform: none; transition: none; }
+
+/* a file that is no note — a PDF, a picture, any other: its name, what it is (a picture as itself), its kind */
+.ov-file .ov-sheet { display: grid; grid-template-rows: auto 1fr auto; }
+.ov-file .ov-sheet::after { content: none; }
+.ov-pic { display: grid; place-items: center; min-height: 0; padding: 4px 14px 2px; overflow: hidden; }
+.ov-pic img { display: block; max-width: 100%; max-height: 100%; min-height: 0; object-fit: contain; border-radius: var(--radius-chip); }
+.ov-file.ov-tile .ov-icon { color: var(--fg2); }
+.ov-file.ov-tile .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.ov-file.ov-tile .ov-icon .sf { font-size: 40px; }
+.ov-file.ov-tile .ov-sub { padding: 0 14px 12px; text-align: center; }
+/* several at once: what is selected — a tile wears a ring, a row the fill a chosen row has */
+#overview { user-select: none; -webkit-user-select: none; }
+.ov-tile.picked { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+#overview[data-open] .ov-row.picked, #overview[data-open] .ov-row.picked:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* the rectangle pulled from the empty room */
+.ov-band { position: absolute; z-index: 3; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent); border-radius: 3px; background: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit); }
+.ov-band.leaving { opacity: 0; }

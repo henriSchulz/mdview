@@ -13,6 +13,7 @@
 //! Everything a window does happens on one thread of its own (shell.rs), so reading a large
 //! folder never holds up the window.
 
+#![recursion_limit = "256"] // (the settings as they are when nothing is set are one long json!: shell.rs, default_prefs)
 #![cfg_attr(all(not(debug_assertions), windows), windows_subsystem = "windows")]
 
 mod ai;

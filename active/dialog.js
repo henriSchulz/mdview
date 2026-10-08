@@ -558,6 +558,15 @@
     const inputs = [...pop.querySelectorAll("input, select")];
     inputs.forEach((inp, i) => { inp.value = opts.fields[i].value || ""; });
     for (const sel of pop.querySelectorAll("select")) window.MdView.core.popup(sel);
+    // a field that offers values while it is typed in (combo: () => [values]); take: one chosen from them is the answer at once
+    inputs.forEach((inp, i) => {
+      const f = opts.fields[i];
+      if (!f.combo) return;
+      // (Esc ends the whole window at once, not only the menu of what is offered — set before the menu's own keys)
+      if (f.take) inp.addEventListener("keydown", (e) => { if (e.key !== "Escape" || !popOpen || popOpen.opts !== opts) return; e.preventDefault(); e.stopImmediatePropagation(); window.MdView.core.closePick(); closeFields(); if (opts.cancel) opts.cancel(); }, true);
+      window.MdView.core.combo(inp, f.combo);
+      if (f.take) inp.addEventListener("change", () => { if (popOpen && popOpen.opts === opts && document.activeElement === inp) applyFields(); });
+    });
     const values = () => Object.fromEntries(inputs.map((inp) => [inp.dataset.key, inp.value]));
     const preview = () => {
       if (!opts.preview) return;
@@ -576,12 +585,13 @@
     pop.dataset.open = "";
     inputs[0].focus({ preventScroll: true });
     inputs[0].select();
+    if (opts.fields[0].combo) inputs[0].dispatchEvent(new Event("input", { bubbles: true })); // (what there is to choose from shows at once)
     pop.oninput = preview;
     pop.onkeydown = (e) => {
       if (e.isComposing) return;
       e.stopPropagation();
       if (e.key === "Enter" && e.shiftKey && opts.more) { e.preventDefault(); const v = values(); closeFields(); opts.more(v); }
-      else if (e.key === "Enter") { e.preventDefault(); applyFields(); }
+      else if (e.key === "Enter" || (opts.applyOn && e.key === opts.applyOn)) { e.preventDefault(); applyFields(); } // (applyOn: a key that ends it as Enter does — the bracket that closes a link)
       else if (e.key === "Escape") { e.preventDefault(); const o = popOpen.opts; closeFields(); if (o.cancel) o.cancel(); }
     };
   }
