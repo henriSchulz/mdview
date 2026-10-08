@@ -118,7 +118,8 @@
     ITEMS.forEach(([sec, [key, n], , picture_, , drag], i) => {
       if (sec !== section) { html += (section ? `</div>` : "") + `<h3 class="rp-sec">${esc(T(sec))}</h3><div class="rp-grid${TILED.has(sec) ? " rp-tiled" : ""}">`; section = sec; }
       // a row: what it is in small, its name, and — where it can be pulled into the text — a grip that says so
-      html += `<button class="rp-tile" type="button" data-i="${i}" title="${esc(T(key, n))}" aria-label="${esc(T(key, n))}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span>${drag === false ? "" : '<span class="rp-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</button>`;
+      // (not a <button>: a browser pulls none of those — Firefox — and the pull begins at the row or its grip)
+      html += `<div class="rp-tile" role="button" tabindex="0" data-i="${i}" title="${esc(T(key, n))}" aria-label="${esc(T(key, n))}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span>${drag === false ? "" : '<span class="rp-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</div>`;
     });
     // a table of a size chosen by pointing: a field of squares, as many rows and columns as are marked
     const ROWS = 6, COLS = 8;
@@ -158,6 +159,7 @@
   });
   const runItem = (i, at = null) => { const v = view(); if (v && v.editable) ITEMS[i][4](v, at); };
   itemsEl.addEventListener("click", (e) => { const tile = e.target.closest(".rp-tile"); if (tile) runItem(+tile.dataset.i); });
+  itemsEl.addEventListener("keydown", (e) => { const tile = e.target.closest(".rp-tile"); if (tile && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); runItem(+tile.dataset.i); } });
   itemsEl.addEventListener("mousedown", (e) => { if (e.target.closest(".rp-cell")) e.preventDefault(); }); // (the caret stays where it is: the table goes there)
 
   /* Dragging a tile into the text: a line shows the gap it will go to — before or after the block
@@ -191,8 +193,9 @@
     drag = { i: +tile.dataset.i, at: null };
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", tile.textContent);
-    const card = tile.querySelector(".rp-card"), r = card.getBoundingClientRect();
-    e.dataTransfer.setDragImage(card, r.width / 2, r.height / 2);
+    // (the row itself goes along, held where it was taken)
+    const r = tile.getBoundingClientRect();
+    e.dataTransfer.setDragImage(tile, Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top)));
   });
   // (before anything else sees them: the editor's own drop handling stays out of it)
   document.addEventListener("dragover", (e) => {
@@ -228,17 +231,21 @@
     const by = (key) => entries.find((e) => e && e.key === key);
     const style = by("slash.style"), lists = by("slash.list"), format = by("menu.format"), deco = by("slash.deco"), color = by("slash.color"), callout = by("slash.callout");
     let html = "";
+    // Text: what the block is — the four headings by what they are for, and plain text — each written as it looks
     if (style) {
-      const s = leaves(style), head = s.filter((e) => e.n && e.n <= 3), rest = s.filter((e) => !(e.n && e.n <= 3));
-      html += sec("panel.titles") + `<div class="rp-row rp-3">${head.map((e) => named("slash.style", e, "rp-h" + e.n)).join("")}</div>` +
-        sec("panel.content") + `<div class="rp-row rp-3">${rest.map((e) => named("slash.style", e, e.n ? "rp-h" + e.n : "")).join("")}</div>`;
+      const s = leaves(style), NAMES = { 1: "panel.title", 2: "panel.subtitle", 3: "panel.heading", 4: "panel.strong" };
+      const order = [...s.filter((e) => e.n), ...s.filter((e) => !e.n)];
+      html += sec("panel.text") + `<div class="rp-row rp-3 rp-styles">${order.map((e) => btn("slash.style", e, `<span>${esc(T(e.n ? NAMES[e.n] || "menu.heading" : "panel.body", e.n))}</span>`, "rp-text " + (e.n ? "rp-h" + e.n : "rp-body"))).join("")}</div>`;
     }
-    html += `<div class="rp-gap"></div>`;
-    if (format) html += `<div class="rp-seg">${leaves(format).map((e) => signed("menu.format", e)).join("")}</div>`;
-    if (lists) html += `<div class="rp-seg">${leaves(lists).map((e) => signed("slash.list", e)).join("")}` +
+    // Groups: a page of the note's own, made at the caret
+    const page = by("menu.page");
+    if (page) html += sec("panel.groups") + `<div class="rp-row rp-2">${btn("", page, `${PIC.page}<span>${esc(T("menu.page"))}</span>`, "rp-text rp-group")}</div>`;
+    // the marks in one row; the lists in another, the indent beside them
+    if (format) html += `<div class="rp-gap"></div><div class="rp-seg">${leaves(format).map((e) => signed("menu.format", e)).join("")}</div>`;
+    if (lists) html += `<div class="rp-segs"><div class="rp-seg">${leaves(lists).map((e) => signed("slash.list", e)).join("")}</div><div class="rp-seg">` +
       `<button class="rp-btn rp-sign" type="button" data-do="outdent" title="${esc(T("panel.outdent"))}" aria-label="${esc(T("panel.outdent"))}">${ICON_OUT}</button>` +
-      `<button class="rp-btn rp-sign" type="button" data-do="indent" title="${esc(T("panel.indent"))}" aria-label="${esc(T("panel.indent"))}">${ICON_IN}</button></div>`;
-    if (deco) html += sec("slash.deco") + `<div class="rp-row rp-3">${leaves(deco).map((e) => named("slash.deco", e)).join("")}</div>`;
+      `<button class="rp-btn rp-sign" type="button" data-do="indent" title="${esc(T("panel.indent"))}" aria-label="${esc(T("panel.indent"))}">${ICON_IN}</button></div></div>`;
+    if (deco) html += sec("slash.deco") + `<div class="rp-row rp-${Math.min(3, leaves(deco).length)} rp-decos">${leaves(deco).map((e) => named("slash.deco", e)).join("")}</div>`;
     if (color) html += sec("slash.color") + `<div class="rp-colors">${leaves(color).map((e) => btn("slash.color", e, `<i style="--sw: ${/^color\./.test(e.key) ? `var(--c-${e.key.slice(6)})` : "transparent"}"></i>`, "rp-swatch")).join("")}</div>`;
     if (callout) {
       const kinds = leaves(callout).filter((e) => /^callout\.(?!title$)/.test(e.key)), title = leaves(callout).find((e) => e.key === "callout.title");
@@ -293,7 +300,8 @@
     refresh();
   });
   // the text keeps the focus (and its selection) whatever is clicked here — but the search field is typed in
-  el.addEventListener("mousedown", (e) => { if (!e.target.closest(".rp-search")) e.preventDefault(); });
+  // (… and a row that can be pulled into the text: held back, its press would never become a pull — none ever did)
+  el.addEventListener("mousedown", (e) => { if (!e.target.closest('.rp-search, .rp-tile[draggable="true"]')) e.preventDefault(); });
 
   // --- tabs, opening and closing
   function setTab(tab, save = true) {

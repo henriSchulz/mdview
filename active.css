@@ -1167,3 +1167,33 @@ body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(-
 .rp-cell { aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: inset 0 0 0 0.5px var(--line-strong); cursor: default; transition: background-color var(--dur-instant) var(--ease-out); }
 .rp-cell.on { background: color-mix(in srgb, var(--accent) 26%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); }
 .rp-table-sec[hidden], .rp-table-say[hidden], .rp-tablepick[hidden] { display: none; }
+
+/* --- the Format tab, as Craft's: small grey names over each part; Text — what the block is, each
+ * written as it looks; Groups; the marks and the lists in joined rows; decorations; colours as
+ * round swatches. What is on is tinted and lined in the accent's colour. */
+.rp-pane[data-pane="format"] .rp-sec { margin: 18px 0 8px; font: 600 11px/1.2 var(--ui); letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg3); }
+.rp-pane[data-pane="format"] .rp-sec:first-child { margin-top: 6px; }
+.rp-row.rp-2 { grid-template-columns: repeat(2, 1fr); }
+.rp-row.rp-1 { grid-template-columns: 1fr; }
+.rp-styles .rp-btn { height: 40px; font-size: 13px; font-weight: 500; }
+.rp-styles .rp-btn.rp-h1 { font-size: 15px; font-weight: 700; }
+.rp-styles .rp-btn.rp-h2 { font-size: 14px; font-weight: 700; }
+.rp-styles .rp-btn.rp-h3 { font-size: 14px; font-weight: 600; }
+.rp-styles .rp-btn.rp-h4 { font-size: 13px; font-weight: 700; }
+.rp-styles .rp-btn.rp-body { font-weight: 400; }
+.rp-group { display: flex; align-items: center; justify-content: center; gap: 8px; height: 40px; font-weight: 500; }
+.rp-group .rp-pic { flex: none; width: 26px; height: auto; }
+.rp-decos .rp-btn { height: 40px; font-weight: 500; }
+.rp-segs { display: grid; grid-template-columns: 3fr 2fr; gap: 6px; }
+.rp-seg { gap: 0; border-radius: var(--radius-control); box-shadow: inset 0 0 0 0.5px var(--line-strong); background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.rp-seg .rp-btn { background: transparent; height: 34px; }
+.rp-seg .rp-btn + .rp-btn { border-left: 1px solid var(--line); }
+.rp-seg .rp-btn:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.rp-seg .rp-btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
+.rp-colors { grid-template-columns: repeat(6, 1fr); gap: 10px 8px; }
+.rp-swatch i { width: 84%; box-shadow: none; }
+.rp-swatch i[style*="transparent"] { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fg) 30%, transparent); }
+.rp-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--fg) 55%, transparent); }
+/* a row that is pulled into the text says so under the pointer */
+.rp-tile[draggable="true"] { cursor: grab; }
+.rp-tile[draggable="true"]:active { cursor: grabbing; }
