@@ -106,7 +106,21 @@ for (const name of ["ipad", "ipadUp"]) {
     await p.waitForTimeout(400);
     const menu = await p.evaluate(() => (MdActive.menu.isOpen ? MdActive.menu.el.querySelectorAll(".menu-item").length : 0));
     assert.ok(menu > 3, `a tap on the handle: the block's menu (${menu} entries)`);
+    assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus()), false, "a block chosen by its handle: the editor does not take the keyboard");
     await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+    assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus()), false, "… nor when its menu shuts");
+    // the handle pulled by a finger: the block goes where it is let go
+    const order = () => p.evaluate(() => [...document.querySelectorAll("#active .pm > *")].map((e) => e.tagName + ":" + e.textContent.slice(0, 12)));
+    const before = await order();
+    await p.touchscreen.tap(para[0], para[1]); await p.waitForTimeout(350);
+    h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left, y: r.top, w: r.width, h: r.height }; });
+    const below = await p.evaluate(() => { const kids = [...document.querySelectorAll("#active .pm > *")], i = kids.findIndex((e) => e.tagName === "H1"), r = kids[i + 2].getBoundingClientRect(); return [r.left + 60, r.bottom - 3]; });
+    await pull([h.x + h.w / 2, h.y + h.h / 2], below, 10);
+    const after2 = await order(), i0 = before.findIndex((x) => x.startsWith("H1")), i1 = after2.findIndex((x) => x.startsWith("H1"));
+    assert.ok(i1 > i0 && after2.length === before.length, `the handle pulled by a finger moves its block down: ${JSON.stringify([before.slice(0, 5), after2.slice(0, 5)])}`);
+    assert.equal(await p.evaluate(() => MdActive.menu.isOpen), false, "… and that was no tap on the handle");
+    await p.evaluate(() => { const v = MdActive.view.pm; PM.history.undo(v.state, v.dispatch); });
+    await p.waitForTimeout(300);
     // a table: a tap on a cell
     const cell = await p.evaluate(() => { const e = document.querySelector("#active .pm .table-wrap td"); if (!e) return null; e.scrollIntoView({ block: "center" }); return true; });
     assert.ok(cell, "the note has a table");

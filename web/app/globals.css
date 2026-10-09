@@ -147,3 +147,8 @@ button { font: inherit; }
 .shrug-page { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 6px; padding: 24px; box-sizing: border-box; }
 .shrug-page .shrug { margin: 0; font-size: clamp(40px, 9vw, 64px); line-height: 1.1; white-space: nowrap; }
 .shrug-page h1 { margin: 0; font-weight: 400; font-size: clamp(18px, 3vw, 24px); }
+/* the repositories on their way from GitHub (page.tsx): the ring in the middle of the window, as a repository's page begins */
+.boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg)}
+.boot-ring{width:28px;height:28px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--fg) 14%,transparent);border-top-color:var(--accent);opacity:0;animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards,boot-turn .9s linear infinite}
+@keyframes boot-in{to{opacity:1}}@keyframes boot-turn{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--fg) 14%,transparent)}}

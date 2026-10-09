@@ -1041,7 +1041,9 @@
   handle.addEventListener("click", (e) => {
     if (!view || !over || !over.isConnected || !over.pmViewDesc) return;
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
-    const byFinger = window.MdView.core.touching(), menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
+    const byFinger = window.MdView.core.touching();
+    if (byFinger) view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard comes up, and one that is up goes)
+    const menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
     if (handle.hasAttribute("data-group")) { view.focus(); menu(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
     menu();
@@ -1521,6 +1523,51 @@
     }, 60);
   }, true);
   let tapped = -1e9;
+  /* A finger on the handle that moves: the block is dragged — the drag a mouse has (above), handed on by hand, since a tablet's
+   * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge. */
+  {
+    let pull = null;
+    const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
+    const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: pull.dt }); target.dispatchEvent(ev); return ev; };
+    const under = (x, y) => document.elementFromPoint(x, y) || document.body;
+    const mine = (e) => pull && [...e.changedTouches].find((t) => t.identifier === pull.id);
+    handle.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1 || !view || !view.editable) { pull = null; return; }
+      const t = e.touches[0];
+      pull = { id: t.identifier, x: t.clientX, y: t.clientY, on: false, dt: null, roll: 0, at: [t.clientX, t.clientY] };
+      handle.draggable = false; // (the browser's own drag, begun by a finger that rests: not beside this one)
+    }, { passive: true });
+    handle.addEventListener("touchmove", (e) => {
+      const t = mine(e);
+      if (!t) return;
+      if (!pull.on) {
+        if (Math.hypot(t.clientX - pull.x, t.clientY - pull.y) < 8) return;
+        pull.dt = made();
+        const began = send("dragstart", handle, pull.x, pull.y);
+        if (began.defaultPrevented || !drag) { pull = null; return; }
+        pull.on = true;
+        handle.dataset.dragging = "";
+        const roll = () => { if (!pull || !pull.on) return; const y = pull.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...pull.at), ...pull.at); } pull.roll = requestAnimationFrame(roll); };
+        pull.roll = requestAnimationFrame(roll);
+      }
+      if (e.cancelable) e.preventDefault();
+      pull.at = [t.clientX, t.clientY];
+      send("dragover", under(t.clientX, t.clientY), t.clientX, t.clientY);
+    }, { passive: false });
+    const done = (e, drop) => {
+      const t = mine(e), was = pull;
+      if (!t) return;
+      setTimeout(() => { handle.draggable = true; }, 0);
+      if (!was.on) { pull = null; return; }
+      cancelAnimationFrame(was.roll);
+      if (drop) send("drop", under(t.clientX, t.clientY), t.clientX, t.clientY);
+      send("dragend", handle, t.clientX, t.clientY);
+      pull = null;
+      if (e.cancelable) e.preventDefault(); // (no tap follows: the handle's menu stays shut)
+    };
+    handle.addEventListener("touchend", (e) => done(e, true), { passive: false });
+    handle.addEventListener("touchcancel", (e) => done(e, false), { passive: false });
+  }
   handle.addEventListener("mouseenter", () => clearTimeout(leaving));
   handle.addEventListener("mouseleave", (e) => { if (view && !view.dom.contains(e.relatedTarget)) hideSoon(); });
   window.addEventListener("scroll", () => { if (!over || handle.hasAttribute("data-dragging")) return; if (performance.now() - tapped < 500 && view) follow(view.state); else hide(); }, { passive: true }); // (the note moving to show the caret a tap set: the handle goes along)

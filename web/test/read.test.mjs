@@ -237,6 +237,20 @@ test("ordered by when a note was last changed: the time of the commit that chang
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "name" } })));
 });
 
+test("the repositories on their way: the window says so at once — a ring, until the list is there", async () => {
+  gh.slow = 1500;
+  try {
+    const going = page.goto(base + "/", { waitUntil: "commit" });
+    await page.waitForSelector(".boot .boot-ring", { timeout: 1400 }); // (there before GitHub has answered)
+    assert.equal(await page.locator(".home-head").count(), 0, "the list is not there yet");
+    await page.waitForTimeout(600);
+    assert.ok(Number(await page.evaluate(() => getComputedStyle(document.querySelector(".boot-ring")).opacity)) > 0.5, "the ring shows once the wait is one");
+    await going;
+    await page.waitForSelector(".home-head", { timeout: 15000 });
+    assert.equal(await page.locator(".boot").count(), 0, "the ring is gone when the list is there");
+  } finally { gh.slow = 0; }
+});
+
 test("nothing was refused or thrown along the way", () => {
   const real = problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p));
   assert.deepEqual(real, []);

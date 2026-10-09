@@ -19,7 +19,7 @@
     // short: the other hand moves the board right after a stroke — at half a second its first try was lost every time.)
     const pen = { down: false, last: -1e9, press: null }, PALM = 120;
     const HOLD = 350, SLACK = 8; // a finger resting this long, within this many pixels: held
-    // The board let go while it was moving under a finger goes on by itself, ever slower, as anything does that is pushed on a
+    // The board let go while it was moving under one finger goes on by itself, ever slower, as anything does that is pushed on a
     // tablet: how fast it went (pixels a millisecond, smoothed), and the run after the fingers left.
     const speed = { x: 0, y: 0, t: 0 };
     let glide = 0;
@@ -122,7 +122,6 @@
         if (pinch && fingers.size === 2) {
           const now = span();
           on.pan(now.x - pinch.x, now.y - pinch.y);
-          pushed(now.x - pinch.x, now.y - pinch.y, e.timeStamp);
           if (pinch.d > 0 && now.d > 0) on.zoom(now.d / pinch.d, now.x, now.y);
           pinch = now;
           return;
@@ -153,9 +152,9 @@
     });
     const up = (e, cancelled) => {
       if (e.pointerType === "pen") { pen.down = false; pen.last = e.timeStamp; }
-      const pinched = !!pinch;
       if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
-      if (pinched && !pinch && !cancelled) coast(e.timeStamp); // (two fingers let go of the board in mid-move)
+      // (two fingers leave the board where they left it: they never lift together, and what the one left behind does last —
+      // the middle between them jumping to it — is no direction to run on in)
       // two fingers, or three, that touched the board and left it at once without moving: a tap of so many fingers
       if (e.pointerType === "touch" && touched && !fingers.size) {
         const was = touched;

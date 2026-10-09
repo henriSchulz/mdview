@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 
 export function fakeGitHub() {
   const gh = {
+    slow: 0, // how long every answer takes, in ms
     seen: [], // what it was asked: [path, form or the Authorization header]
     lifetime: 28800, refreshes: 0, serial: 0, validAccess: "", validRefresh: "", challenge: "",
     repo: { owner: "octo", name: "notes", files: new Map(), private: true },
@@ -34,7 +35,8 @@ export function fakeGitHub() {
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
-    req.on("end", () => {
+    req.on("end", async () => {
+      if (gh.slow) await new Promise((r) => setTimeout(r, gh.slow)); // (a GitHub that takes its time)
       const url = new URL(req.url, "http://x"), form = new URLSearchParams(body);
       const json = (data, status = 200, headers = {}) => { res.writeHead(status, { "Content-Type": "application/json", ...headers }); res.end(JSON.stringify(data)); };
       gh.seen.push([url.pathname, req.method === "POST" && url.pathname !== "/graphql" ? Object.fromEntries(form) : req.headers.authorization || ""]);

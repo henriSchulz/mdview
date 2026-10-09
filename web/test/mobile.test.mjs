@@ -172,7 +172,12 @@ test("written on a phone: typed in the active mode, kept", async () => {
   await open(d, "Second note.md");
   await d.page.tap('#toolbar [data-act="active"], #toolbar [data-mode="active"]').catch(async () => { await d.page.evaluate(() => MdView.setMode("active")); });
   await d.page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 8000 });
-  await d.page.evaluate(() => { const v = MdActive.view.pm; v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
+  // a tap into the text has the keyboard (the mode's button alone does not bring it up: nothing is typed yet)
+  assert.equal(await d.page.evaluate(() => MdActive.view.pm.hasFocus()), false, "the mode chosen with a finger: no keyboard yet");
+  const end = await d.page.evaluate(() => { const r = document.querySelector("#active .pm > p:last-of-type").getBoundingClientRect(); return [r.left + 20, r.top + r.height / 2]; });
+  await d.page.touchscreen.tap(end[0], end[1]); await d.page.waitForTimeout(300);
+  assert.equal(await d.page.evaluate(() => MdActive.view.pm.hasFocus()), true, "a tap into the text: the editor has the keyboard");
+  await d.page.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
   await d.page.keyboard.type(" Written on a phone.");
   await d.page.waitForFunction(() => /Written on a phone\./.test(MdActive.view.serialize(false)), null, { timeout: 5000 });
   assert.ok((await sideways(d.page)) <= 0);

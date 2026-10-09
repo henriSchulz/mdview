@@ -245,6 +245,11 @@
             if (tr.docChanged) { dirty = edited = true; if (A.view.onChange) A.view.onChange(); }
           },
         });
+        // Under a finger the keyboard comes with the editor's focus. The finger's own tap into the text gives it; what only hands
+        // the focus back after a tap elsewhere — a menu shut, a block chosen, a dialog left — does not, or the keyboard would
+        // come up each time. (An editor that has the focus keeps it.)
+        const focus = view.focus.bind(view);
+        view.focus = () => { if (window.MdView.core.touching() && !view.hasFocus()) return; focus(); };
       }
       dirty = edited = false;
     }

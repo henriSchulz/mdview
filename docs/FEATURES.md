@@ -482,8 +482,8 @@ shut back into it.
 - **With fingers** (a tablet, a phone): one finger works the tool in hand. With the lasso a
   finger takes a thing and moves it; on the bare board it moves the board, and held still for
   a moment first it pulls a box over what is to be chosen. Two fingers move the board and make
-  it larger or smaller; both on one thing, they turn it. The board let go in mid-move runs on
-  and comes to rest; a finger put down holds it. Two fingers tapped together take the last
+  it larger or smaller; both on one thing, they turn it. The board let go by one finger in mid-move
+  runs on and comes to rest (a finger put down holds it); two fingers leave it where they left it. Two fingers tapped together take the last
   step back, three bring it again. On a narrow screen the bar of tools stands under the top
   row and the tray above the bottom row.
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
@@ -735,7 +735,10 @@ counts — and has no writing help by a model.
 - **Under a finger** (an iPad, any touch screen): what a mouse pulls a finger pulls — the
   sidebar's edge (wider there), the gap between columns, a dialog's corner, a table's row and
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
-  on the handle chooses the block and opens its menu. A tapped cell has the table's handles.
+  on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
+  the block (the note goes along near its upper and lower edge). A tapped cell has the table's
+  handles. The keyboard comes up when the text itself is tapped — not when a block is chosen
+  or a menu shuts.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes, as here. An address names the note it shows, to keep or send.
