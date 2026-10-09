@@ -4,6 +4,7 @@
 "use strict";
 (() => {
   const NONCE = document.currentScript.nonce;
+  const DESKTOP = !!window.__TAURI_INTERNALS__; // the desktop application's window (not a browser, whose host is the web app's)
   const ASSETS = document.currentScript.src.replace(/\/[^/]*$/, "");
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
@@ -1461,7 +1462,7 @@
   toolbar.innerHTML =
     `<button class="tb" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
     // (a note opened by itself has no sidebar: this opens its folder beside it — the desktop only; viewer.css shows it while no folder is open)
-    ((window.MdHost || {}).reading || typeof (window.MdHost || {}).drop === "function" ? "" : `<button class="tb" data-act="notefolder" title="${esc(T("start.here"))}" aria-label="${esc(T("start.here"))}">${ICON.folder}</button>`) +
+    ((window.MdHost || {}).reading || !DESKTOP ? "" : `<button class="tb" data-act="notefolder" title="${esc(T("start.here"))}" aria-label="${esc(T("start.here"))}">${ICON.folder}</button>`) +
     `<button class="tb" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
     `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
@@ -3743,7 +3744,7 @@
    * sidebar then shows, or one file. */
   const startState = () => `<div class="empty-state start-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("start.title"))}</b><p>${esc(T("start.text"))}</p>` +
     `<div class="start-go"><button class="btn primary" type="button" data-empty="folder">${esc(T("start.folder"))}</button><button class="btn" type="button" data-empty="file">${esc(T("start.file"))}</button></div></div>`;
-  const emptyState = () => !folder && !READING && typeof (window.MdHost || {}).drop !== "function" ? startState() : `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
+  const emptyState = () => !folder && !READING && DESKTOP ? startState() : `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
     (READING || !folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
   document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && folder) { e.preventDefault(); openNewNote(); } });
   document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
@@ -4286,7 +4287,33 @@
   // what of the page follows the settings: the order of the notes, the width of the text column
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
+  // ---------------------------------------------------------------- AI (ai.js, loaded when it is first asked for)
+  /* Claude, asked through the claude command on this computer: to work on blocks of the note (Transform with AI, the menus of a
+   * right click), and to talk about the whole note (the bubble at the lower right). The desktop only — and nowhere at all,
+   * in no menu, once it is turned off in the settings. */
+  const aiOn = () => DESKTOP && !READING && (window.MdPrefs || {}).aiOn !== false;
+  let aiLoad = null;
+  const loadAi = () => aiLoad || (aiLoad = new Promise((resolve, reject) => {
+    const l = document.createElement("link");
+    l.rel = "stylesheet"; l.href = `${ASSETS}/ai.css`;
+    document.head.appendChild(l);
+    const s = document.createElement("script");
+    s.nonce = NONCE; s.src = `${ASSETS}/ai.js`; s.onload = () => resolve(window.MdAi); s.onerror = () => { aiLoad = null; reject(new Error("ai.js missing")); };
+    document.head.appendChild(s);
+  }));
+  const aiBubble = document.createElement("button");
+  aiBubble.id = "ai-bubble"; aiBubble.type = "button";
+  aiBubble.title = T("ai.chat"); aiBubble.setAttribute("aria-label", T("ai.chat"));
+  aiBubble.innerHTML = SVG_ICON.spark;
+  aiBubble.addEventListener("click", () => loadAi().then((ai) => ai.chat.toggle()).catch(() => {}));
+  document.body.appendChild(aiBubble);
+  const aiShown = () => { document.body.toggleAttribute("data-ai", aiOn()); if (!aiOn() && window.MdAi) window.MdAi.off(); };
+  aiShown();
+  // (the note as it is written now, whatever the mode; and Markdown as the page shows it, for what Claude answers)
+  const noteText = () => (mode === "active" && window.MdActive?.view?.pm ? MdActive.view.serialize(false) : mode === "edit" ? edInput.value : current ? current.text || "" : "");
+  const mdHtml = (text) => md.render(stripComments(String(text)), { links: {}, outline: [], depth: 1, lineOffset: 0 });
   function prefsChanged() {
+    aiShown();
     if (docZoom() !== zoomed) {
       // (what was at the top of the window stays there: the place is kept as a share of the page's height)
       const share = document.documentElement.scrollHeight > innerHeight ? scrollY / document.documentElement.scrollHeight : 0;
@@ -4359,7 +4386,7 @@
   // a whiteboard's file changed on the disk (the shell says so): where the note shows it, its picture is made anew
   const boardChanged = (path) => { const name = String(path).split("/").pop(); if ([...document.querySelectorAll("#content img, #active img")].some((i) => (i.dataset.board || decodeURIComponent(i.src)).endsWith(name))) loadBoard().then(() => window.MdBoard.fileChanged(String(path))).catch(() => {}); };
   // (the application is told which whiteboards the note shows, so that it looks at their folders: the desktop only — a browser has no files)
-  if (typeof (window.MdHost || {}).drop !== "function") {
+  if (DESKTOP) {
     let told = "", telling = 0;
     const tell = () => {
       const base = String((window.MdHost || {}).files || "");
@@ -4368,7 +4395,7 @@
     };
     new MutationObserver(() => { clearTimeout(telling); telling = setTimeout(tell, 300); }).observe(document.body, { childList: true, subtree: true });
   }
-  window.MdView = { filesBack, boardChanged, pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { filesBack, boardChanged, aiDelta: (id, text) => window.MdAi && MdAi.delta(id, text), aiDone: (id, text, error) => window.MdAi && MdAi.done(id, text, error), pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
@@ -4379,7 +4406,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, touching, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, touching, mdHtml, noteText, ai: { on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },

@@ -17,7 +17,7 @@
   const { Plugin, PluginKey } = PM.state;
   const { Decoration, DecorationSet } = PM.view;
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
-  const on = () => !!(window.MdPrefs || {}).aiComplete;
+  const on = () => !!(window.MdPrefs || {}).aiComplete && (window.MdPrefs || {}).aiOn !== false; // (AI turned off in the settings: none of it)
   const PAUSE = 75;       // ms without a key before the model is asked (Copilot: the same)
   const BEFORE = 2400, AFTER = 400, MAX = 120; // characters of context, and of a suggestion
 

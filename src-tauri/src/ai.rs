@@ -2,7 +2,8 @@
 //! figure drawn as SVG (the claude command line tool). Both off the window's thread.
 
 use std::fs;
-use std::io::Read;
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -37,6 +38,191 @@ Style (always):
 - The <svg> has xmlns, a viewBox that fits the drawing with 16 units of margin, width and height attributes equal to the viewBox size, and this first child, exactly:
   <style>:root{color:#1d1d1f}@media (prefers-color-scheme:dark){:root{color:#f5f5f7}}text{font-family:Inter,system-ui,sans-serif;fill:currentColor}</style>
 - No scripts, no external references, no images, no foreignObject."##;
+
+/// What Claude is told when it works on a part of a note (Transform with AI).
+pub const TRANSFORM_SYSTEM: &str = r##"You work inside a note-taking app on one part of a Markdown note. The user selected that part and says what to do with it.
+Reply with exactly the Markdown that is to stand in the note — the whole result, nothing else: no introduction, no explanation, no remarks, no code fence around it.
+- Keep the note's own Markdown as it is written: headings, lists, task lists (- [ ]), tables, quotes and callouts (> [!note]), code fences with their language, footnotes, [[wikilinks]], links and pictures (never change an address or a file name), front matter.
+- Formulas are LaTeX: $…$ in a line, $$…$$ as a block. Keep them, and write new ones that way.
+- Write in the language of the selected part unless told otherwise. Keep its tone unless told otherwise.
+- Do not add what was not asked for; do not leave out what was not to be removed.
+- If the instruction asks for something that is not text for the note (a question about it, say), answer it briefly as text for the note all the same."##;
+/// … and when it is talked to about a whole note (the chat).
+pub const CHAT_SYSTEM: &str = r##"You are the assistant inside a note-taking app. The user's note is given to you (Markdown); they ask about it or ask you to write for it.
+- Answer briefly and to the point, in the language the user writes in, as Markdown. Formulas are LaTeX: $…$ in a line, $$…$$ as a block.
+- When the user asks for something that is to stand in the note — a paragraph, a summary to keep, a list, a table, a section, a formula, a rewrite — put exactly that content between <insert> and </insert>, as the Markdown that goes into the note. Outside of it at most one short sentence. One <insert> for each piece that could be put in by itself. The app shows it with a button that puts it into the note.
+- A question about the note is answered directly, without <insert>.
+- Inside <insert> keep to the note's own Markdown: headings, lists, task lists, tables, callouts (> [!note]), code fences, [[wikilinks]]. Never invent addresses or file names.
+- You cannot change the note yourself and have no tools; say so if asked to do something you cannot."##;
+
+/// One question to Claude: what it is told to be, what it is asked, and where the answer goes.
+pub struct Talk {
+    pub label: String,
+    pub id: Value,
+    pub channel: String, // one talk at a time for each: "transform", "chat"
+    pub system: &'static str,
+    pub prompt: String,
+    pub model: String, // "": claude's own
+}
+
+/// Claude asked through the command line tool, its answer handed on as it comes. One talk for each
+/// channel: a new one, or stop, ends the one before.
+pub struct Talker {
+    tx: Sender<Event>,
+    turn: Arc<AtomicU64>,
+    running: Arc<Mutex<HashMap<String, (u64, Option<u32>)>>>, // channel → (whose answer counts, its process)
+}
+
+impl Talker {
+    pub fn new(tx: Sender<Event>) -> Self {
+        Talker { tx, turn: Arc::new(AtomicU64::new(0)), running: Arc::new(Mutex::new(HashMap::new())) }
+    }
+
+    pub fn stop(&self, channel: &str) {
+        if let Some((_, Some(pid))) = self.running.lock().unwrap().remove(channel) {
+            kill(pid);
+        }
+    }
+
+    pub fn ask(&self, t: Talk) {
+        self.stop(&t.channel);
+        let mine = self.turn.fetch_add(1, Ordering::SeqCst) + 1;
+        self.running.lock().unwrap().insert(t.channel.clone(), (mine, None));
+        let (tx, running) = (self.tx.clone(), self.running.clone());
+        std::thread::spawn(move || {
+            let (label, id, channel) = (t.label.clone(), t.id.clone(), t.channel.clone());
+            let current = |running: &Mutex<HashMap<String, (u64, Option<u32>)>>| running.lock().unwrap().get(&channel).is_some_and(|(turn, _)| *turn == mine);
+            let said = talk(&t, &tx, |pid| {
+                if let Some(slot) = running.lock().unwrap().get_mut(&channel).filter(|(turn, _)| *turn == mine) {
+                    slot.1 = pid;
+                }
+            }, || current(&running));
+            if !current(&running) {
+                return; // stopped, or another question took its place
+            }
+            running.lock().unwrap().remove(&channel);
+            let (text, error) = match said {
+                Ok(text) => (Some(text), None),
+                Err(e) => (None, Some(e)),
+            };
+            let _ = tx.send(Event::AiDone { label, id, text, error });
+        });
+    }
+}
+
+/// The talk itself: the answer's pieces go out as they come; → all of it, or what went wrong.
+fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl Fn() -> bool) -> Result<String, String> {
+    let piece = |text: &str| {
+        let _ = tx.send(Event::AiDelta { label: t.label.clone(), id: t.id.clone(), text: text.to_string() });
+    };
+    if let Ok(fake) = std::env::var("MDVIEW_TALK_FAKE") {
+        // (tests: no model — what is said is given, in two pieces: before "||" for a transform, after it for the chat;
+        // CHANNEL names the channel, and "please fail" in the question fails)
+        let mut both = fake.splitn(2, "||");
+        let (first, second) = (both.next().unwrap_or(""), both.next());
+        let said = if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel);
+        if t.prompt.contains("please fail") {
+            std::thread::sleep(Duration::from_millis(150));
+            return Err("Claude: asked to fail".into());
+        }
+        let cut = said.char_indices().nth(said.chars().count() / 2).map_or(0, |(i, _)| i);
+        for part in [&said[..cut], &said[cut..]] {
+            std::thread::sleep(Duration::from_millis(200));
+            if !current() {
+                return Err("stopped".into());
+            }
+            piece(part);
+        }
+        return Ok(said);
+    }
+    let exe = find_claude().ok_or("The claude command was not found. Install Claude Code, or turn AI off in the settings.")?;
+    let work = std::env::temp_dir().join(format!("mdview-talk-{}-{}", std::process::id(), t.channel));
+    fs::create_dir_all(&work).map_err(|e| format!("Couldn't run claude: {e}"))?;
+    let mut cmd = Command::new(exe);
+    // (the question on the way in, not as an argument: a note is longer than a command line may be)
+    cmd.arg("-p").arg("--system-prompt").arg(t.system).args(["--tools", ""]);
+    cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "stream-json", "--include-partial-messages", "--verbose"]);
+    if !t.model.is_empty() {
+        cmd.arg("--model").arg(&t.model);
+    }
+    cmd.current_dir(&work).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // (no console window flashes up)
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("Couldn't run claude: {e}"))?;
+    pid(Some(child.id()));
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(t.prompt.as_bytes());
+    }
+    let err = child.stderr.take().map(|mut p| {
+        std::thread::spawn(move || {
+            let mut raw = Vec::new();
+            let _ = p.read_to_end(&mut raw);
+            String::from_utf8_lossy(&raw).into_owned()
+        })
+    });
+    // (it may take a while; never for ever)
+    let (deadline, late) = (Instant::now() + Duration::from_secs(600), Arc::new(AtomicBool::new(false)));
+    let (watched, flag) = (child.id(), late.clone());
+    let done = Arc::new(AtomicBool::new(false));
+    let over = done.clone();
+    std::thread::spawn(move || {
+        while !over.load(Ordering::SeqCst) {
+            if Instant::now() > deadline {
+                flag.store(true, Ordering::SeqCst);
+                kill(watched);
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        }
+    });
+    let (mut said, mut result, mut failed) = (String::new(), None::<String>, None::<String>);
+    if let Some(out) = child.stdout.take() {
+        for line in BufReader::new(out).lines().map_while(Result::ok) {
+            let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+            match v["type"].as_str() {
+                Some("stream_event") if v["event"]["type"] == "content_block_delta" && v["event"]["delta"]["type"] == "text_delta" => {
+                    if let Some(text) = v["event"]["delta"]["text"].as_str().filter(|_| current()) {
+                        said.push_str(text);
+                        piece(text);
+                    }
+                }
+                Some("result") => {
+                    if v["is_error"].as_bool().unwrap_or(false) {
+                        failed = Some(v["result"].as_str().unwrap_or("it failed").chars().take(300).collect());
+                    } else {
+                        result = v["result"].as_str().map(String::from);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let _ = child.wait();
+    done.store(true, Ordering::SeqCst);
+    pid(None);
+    let _ = fs::remove_dir_all(&work);
+    let err = err.and_then(|h| h.join().ok()).unwrap_or_default();
+    if late.load(Ordering::SeqCst) {
+        return Err("Claude took longer than ten minutes".into());
+    }
+    if let Some(why) = failed {
+        return Err(format!("Claude: {why}"));
+    }
+    let text = if said.trim().is_empty() { result.unwrap_or_default() } else { said };
+    if text.trim().is_empty() {
+        let last = err.trim().lines().last().map(|l| l.chars().take(200).collect::<String>());
+        return Err(format!("Claude: {}", last.unwrap_or_else(|| "nothing came back".into())));
+    }
+    Ok(text)
+}
 
 pub fn config_dir() -> PathBuf {
     let base = std::env::var_os("XDG_CONFIG_HOME").filter(|d| !d.is_empty()).map(PathBuf::from);

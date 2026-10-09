@@ -377,6 +377,31 @@ In the active mode a picture or a file is put in from the `/` menu, the Insert p
 menu's Insert › Picture / File: the system's own window for files opens, and what is chosen there
 is kept beside the note and stands at the caret — as a file dropped on the note does.
 
+### AI
+
+Claude in the desktop application, asked through the `claude` command on the computer (Claude
+Code, installed and signed in there). What is asked — the selected blocks, the note — goes to
+Anthropic. **Settings › AI › AI in the app** turns all of it off: then nothing of AI shows
+anywhere, in no menu, and the application asks nothing. Claude's model is chosen there too.
+
+- **Transform with AI** (the active mode; the first entry of a right click on selected blocks,
+  on a block, or in the text — there it means the block the caret is in, or the blocks the
+  selection reaches): say what is to happen with the blocks, in words or with one press —
+  Improve, Fix spelling, Shorter, Longer, Simpler, Summarise, As a list, As a table, More
+  formal, More casual, To English, To German, Continue. Chosen before asking: **Replace** the
+  blocks, or **Insert below** them; and whether the whole note goes along as context. The
+  answer shows as it comes, then as it will stand in the note; Ask again asks anew, the
+  dialog's button puts it in (`Ctrl+Enter`), one step of Undo takes it back.
+- **The chat** (the bubble at the lower right, in every mode): about the note on screen, which
+  Claude reads whole — and what is selected in it, as “this”. In three sizes (the button in its
+  head), and a talk of its own for each note; New Chat begins anew. What Claude writes *for*
+  the note shows in the chat first, as a card, with **Insert into Document**: under the
+  selected blocks, else under the block the caret is in, else at the note's end (a note that
+  is only read is taken to the active mode for it). `Enter` sends, `Shift+Enter` breaks the
+  line, `Esc` shuts the chat.
+- **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
+  whiteboard) belong to it, and go with it when AI is off.
+
 ### Whiteboards
 
 A whiteboard is a block in a note: a board without edges to draw on, opened from the note and

@@ -55,6 +55,9 @@ pub enum Event {
     Picked { label: String, what: Pick, path: Option<PathBuf> },
     Completion { label: String, id: Value, text: Option<String>, error: Option<String> },
     Graphic { label: String, id: Value, svg: Option<String>, error: Option<String> },
+    /// a piece of what Claude is saying (ai.rs: Talker), and the end of it: all it said, or what went wrong
+    AiDelta { label: String, id: Value, text: String },
+    AiDone { label: String, id: Value, text: Option<String>, error: Option<String> },
     ThemeChanged,
     ApplyTheme { turn: u64 },
     Idle { turn: u64 },

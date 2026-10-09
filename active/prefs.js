@@ -10,7 +10,7 @@
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
-    aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
+    aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
     ovScope: "all", ovLayout: "tiles", ovPdf: false, ovImages: false, ovMedia: false, ovOther: false, pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
   };
@@ -88,7 +88,8 @@
       ]],
     ]],
     ["ai", "spark", [
-      [null, [["aiComplete", "switch"]]],
+      [null, [["aiOn", "switch"], ["aiClaude", "select", [["", "prefs.aiClaude.own"], ["sonnet", "Sonnet"], ["opus", "Opus"], ["haiku", "Haiku"]]]]],
+      ["prefs.aiSuggest", [["aiComplete", "switch"]]],
       ["prefs.aiKeySection", [["aiKey", "key"], ["aiModel", "text"]]],
     ]],
     ["about", "info", [

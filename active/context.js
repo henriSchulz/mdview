@@ -181,6 +181,8 @@
     const go = (command) => () => run(view, command);
     const para = (kind, key, more) => item(key, go(PARAGRAPH[kind]), { checked: kind === "quote" ? b.quote : b.kind === kind, ...more });
     const items = [
+      // Claude asked to work on the block the caret is in, or on the blocks the selection reaches (ai.js)
+      ...(window.MdView.core.ai.on() ? [item("ai.transform", () => window.MdView.core.ai.transform(view), { label: T("ai.transform") + "…" }), null] : []),
       item("menu.cut", () => clipboard(view, "cut"), { key: "Ctrl+X", disabled: empty }),
       item("menu.copy", () => clipboard(view, "copy"), { key: "Ctrl+C", disabled: empty }),
       item("menu.paste", () => { view.focus(); post("pasteclip"); }, { key: "Ctrl+V" }),
@@ -219,7 +221,7 @@
         item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
         item("menu.image", () => INSERT.image(view)),
         item("menu.file", () => INSERT.file(view)),
-        item("menu.graphic", () => INSERT.graphic(view)),
+        ...(window.MdView.core.ai.on() ? [item("menu.graphic", () => INSERT.graphic(view))] : []),
         item("menu.board", () => INSERT.board(view)),
         item("menu.footnote", () => INSERT.footnote(view), { key: "Ctrl+Alt+F" }),
       ] });
@@ -326,10 +328,11 @@
     const fc = editable ? A.islands.fileCode(view, pos, node) : null; // a file shown as code: put away like a code block, its card as large
     const dom = node.type === N.island ? view.nodeDOM(pos) : null, figure = dom && dom.querySelector ? window.MdView.core.zoomFigureAt(dom.querySelector(".mermaid-block > svg, .svg-block > svg")) : null;
     return [
+      ...(window.MdView.core.ai.on() && editable && node.type === N.island && node.attrs.kind !== "frontmatter" ? [item("ai.transform", () => window.MdView.core.ai.transform(view, { from: pos, to: pos + node.nodeSize }), { label: T("ai.transform") + "…" }), null] : []),
       item(node.type === N.island && node.attrs.kind === "frontmatter" ? "menu.propsEdit" : "menu.edit", () => A.islands.open(view, pos), { key: "↩", disabled: !editable }),
       ...(figure ? [item("menu.showLarge", () => window.MdView.core.zoomFigure(figure))] : []),
       // a whiteboard: drawn clean by Claude (the desktop application runs the claude command; a browser has none)
-      ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && typeof (window.MdHost || {}).drop !== "function" ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
+      ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && window.MdView.core.ai.on() ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
       ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),

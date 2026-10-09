@@ -21,7 +21,7 @@ use serde_json::{json, Map, Value};
 use tauri::{AppHandle, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
 
-use crate::ai::{self, Completer, Drawing, Illustrator};
+use crate::ai::{self, Completer, Drawing, Illustrator, Talk, Talker};
 use crate::github::{self, News, Session};
 use crate::history::{self, Historian, Place, Stamp};
 use crate::share;
@@ -94,6 +94,8 @@ fn default_prefs() -> Map<String, Value> {
         "sidebarPdf": true, "sidebarImages": false, "sidebarMedia": false, "sidebarOther": false,
         "sidebarSort": "opened",  // the notes of a folder, in the sidebar and the tiles: "opened" (last opened first) | "name" | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
+        "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
+        "aiClaude": "",           // the model the claude command is asked for ("": its own)
         "aiComplete": false,
         "panel": false, "panelTab": "insert",   // the panel at the window's right (insert, format): open, and its tab
         "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
@@ -441,6 +443,7 @@ pub struct App {
     idle_turn: u64,
     completer: Option<Completer>,
     illustrator: Illustrator,
+    talker: Talker,
     historian: Historian,
     unsnapped: HashMap<PathBuf, u64>, // projects touched since their last snapshot, and the turn that will make it
     snap_turn: u64,
@@ -460,6 +463,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     let state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
     let mut app = App {
         illustrator: Illustrator::new(tx.clone()),
+        talker: Talker::new(tx.clone()),
         historian: Historian::new(tx.clone()),
         unsnapped: HashMap::new(),
         snap_turn: 0,
@@ -840,6 +844,16 @@ impl App {
             Event::Graphic { label, id, svg, error } => {
                 if let Some(w) = self.wins.get(&label) {
                     w.js("MdView.graphic", &[id, json!(svg), json!(error)]);
+                }
+            }
+            Event::AiDelta { label, id, text } => {
+                if let Some(w) = self.wins.get(&label) {
+                    w.js("MdView.aiDelta", &[id, json!(text)]);
+                }
+            }
+            Event::AiDone { label, id, text, error } => {
+                if let Some(w) = self.wins.get(&label) {
+                    w.js("MdView.aiDone", &[id, json!(text), json!(error)]);
                 }
             }
             Event::ThemeChanged => {
@@ -2523,12 +2537,36 @@ impl Win {
                 change: Some(take(text_of("change"), 3000)).filter(|c| !c.is_empty()),
             }),
             "graphic-cancel" => app.illustrator.stop(),
+            // Claude asked about a part of the note (transform) or the whole of it (chat): its answer comes in pieces
+            // (MdView.aiDelta) and ends (MdView.aiDone). Not where AI is turned off in the settings.
+            "ai-ask" => {
+                let prefs = app.prefs();
+                let (channel, id) = (text_of("channel").to_string(), msg["id"].clone());
+                if prefs.get("aiOn") == Some(&Value::Bool(false)) || !matches!(channel.as_str(), "transform" | "chat") {
+                    return self.js("MdView.aiDone", &[id, Value::Null, json!("AI is turned off in the settings")]);
+                }
+                let model = prefs.get("aiClaude").and_then(Value::as_str).filter(|m| (2..=60).contains(&m.len()) && m.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))).unwrap_or("").to_string();
+                let (name, note) = (take(text_of("name"), 200), take(text_of("note"), 120_000));
+                let whole = if note.trim().is_empty() { String::new() } else { format!("The note{}:\n<note>\n{note}\n</note>\n\n", if name.is_empty() { String::new() } else { format!(" “{name}”") }) };
+                let (system, prompt) = if channel == "transform" {
+                    (ai::TRANSFORM_SYSTEM, format!("{whole}The selected part of the note:\n<selection>\n{}\n</selection>\n\nWhat to do with the selected part: {}\n\nReply with the Markdown that takes its place, and nothing else.", take(text_of("selection"), 60_000), take(text_of("instruction"), 4000)))
+                } else {
+                    let said: Vec<String> = msg["messages"].as_array().map(Vec::as_slice).unwrap_or_default().iter().rev().take(30).rev()
+                        .filter_map(|m| Some(format!("{}: {}", if m["role"] == "assistant" { "Assistant" } else { "User" }, take(m["text"].as_str()?, 20_000))))
+                        .collect();
+                    let chosen = take(text_of("selection"), 20_000);
+                    let chosen = if chosen.trim().is_empty() { String::new() } else { format!("What the user has selected in the note right now:\n<selection>\n{chosen}\n</selection>\n\n") };
+                    (ai::CHAT_SYSTEM, format!("{whole}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
+                };
+                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt, model });
+            }
+            "ai-stop" => app.talker.stop(text_of("channel")),
             "graphic-image" => self.graphic_image(app, text_of("how"), text_of("data")),
             "graphic-save" => self.save_graphic(app, text_of("svg"), text_of("name")),
             "complete" => {
                 // the next words for what is being written (active/ghost.js); only when switched on
                 let prefs = app.prefs();
-                if truthy(&prefs["aiComplete"]) {
+                if truthy(&prefs["aiComplete"]) && truthy(&prefs["aiOn"]) {
                     let before: Vec<char> = text_of("before").chars().collect();
                     let before: String = before[before.len().saturating_sub(6000)..].iter().collect();
                     let model = ai::ai_model(prefs["aiModel"].as_str().unwrap_or(""));

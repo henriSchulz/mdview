@@ -664,6 +664,8 @@
     };
     const post = (type) => window.MdHost?.post(JSON.stringify({ type }));
     return [
+      // Claude asked to work on the selected blocks (ai.js)
+      ...(window.MdView.core.ai.on() ? [{ label: T("ai.transform") + "…", run: () => window.MdView.core.ai.transform(v) }, null] : []),
       { label: T("menu.cut"), run: clip("cut"), key: "Ctrl+X" },
       { label: T("menu.copy"), run: clip("copy"), key: "Ctrl+C" },
       { label: T("menu.paste"), run: () => { v.focus(); post("pasteclip"); }, key: "Ctrl+V" },

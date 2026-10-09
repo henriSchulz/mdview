@@ -1406,3 +1406,20 @@ body[data-folder] #toolbar [data-act="notefolder"] { display: none; }
 /* nothing open yet: a folder or a file */
 .start-go { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .start-go .btn { margin: 0; }
+
+/* ---- AI (ai.js): the bubble at the lower right that opens the chat — there only where AI is on (the settings), and nothing of
+ * AI anywhere where it is off */
+#ai-bubble { position: fixed; z-index: 43; right: 20px; bottom: 20px; width: 44px; height: 44px; display: none; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: var(--glass, var(--bg)); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); color: var(--accent); cursor: default;
+  box-shadow: var(--shadow-capsule, 0 4px 16px rgb(0 0 0 / 0.16)), 0 0 0 0.5px var(--line-strong, var(--line));
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+body[data-ai] #ai-bubble { display: grid; }
+#ai-bubble svg { width: 20px; height: 20px; fill: currentColor; }
+#ai-bubble:hover { transform: scale(1.06); }
+#ai-bubble:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
+body[data-ai-chat] #ai-bubble { background: var(--accent); color: #fff; }
+body:not([data-ai]) [data-needs-ai] { display: none !important; }
+/* (not over what fills the window, nor on paper) */
+body[data-overview] #ai-bubble, body[data-overview] #ai-chat { display: none; }
+@media print { #ai-bubble { display: none !important; } }
+@media (max-width: 640px) { #ai-bubble { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 12px; } }

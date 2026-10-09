@@ -845,7 +845,8 @@
         // … and a callout that folds is its own control: a click on its title folds it
         // … but a whiteboard is opened by the click (it is chosen as a block by its handle, or with Esc)
         if (node.type === N.island) {
-          const bi = event.target.closest?.(".board-block")?.querySelector("img") || (event.target.tagName === "IMG" ? event.target : null);
+          const hit = event && event.target && event.target.nodeType === 1 ? event.target : null; // (a click made up by a key, or by a test, has no place)
+          const bi = hit && (hit.closest(".board-block")?.querySelector("img") || (hit.tagName === "IMG" ? hit : null));
           if (bi && window.MdView.core.board.is(bi)) return window.MdView.core.board.open(bi);
         }
         if (node.type === N.island && (node.attrs.kind === "blockquote" || A.islands.picture(view, nodePos, node))) return false;

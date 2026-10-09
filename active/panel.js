@@ -129,7 +129,7 @@
       if (sec !== section) { html += (section ? `</div>` : "") + `<h3 class="rp-sec">${esc(T(sec))}</h3><div class="rp-grid${TILED.has(sec) ? " rp-tiled" : ""}">`; section = sec; }
       // a row: what it is in small, its name, and — where it can be pulled into the text — a grip that says so
       // (not a <button>: a browser pulls none of those — Firefox — and the pull begins at the row or its grip)
-      html += `<div class="rp-tile" role="button" tabindex="0" data-i="${i}" title="${esc(T(key, n))}" aria-label="${esc(T(key, n))}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span>${drag === false ? "" : '<span class="rp-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</div>`;
+      html += `<div class="rp-tile" role="button" tabindex="0" data-i="${i}"${key === "panel.graphic" ? " data-needs-ai" : ""} title="${esc(T(key, n))}" aria-label="${esc(T(key, n))}"${drag === false ? "" : ' draggable="true"'}><span class="rp-card">${picture_}</span><span class="rp-name">${esc(T(key, n))}</span>${drag === false ? "" : '<span class="rp-grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>'}</div>`;
     });
     // a table of a size chosen by pointing: a field of squares, as many rows and columns as are marked
     const ROWS = 6, COLS = 8;

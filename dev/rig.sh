@@ -262,6 +262,16 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/none.start.json && -f $R/out/$name.start.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/none.start.json" "$R/out/$name.start.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  ai)
+    # AI in the app: Transform with AI, the chat, and all of it gone when turned off (Claude is a fixed answer)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{transform,chat,ai}.json
+    if [[ ${2:-} == real ]]; then { echo 'window.__aiReal = true;'; cat "$D/probe-ai.js"; } > "$R/probe-ai-real.js"; app 400 MDVIEW_PROBE="$R/probe-ai-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
+    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE='**Made new** by CHANNEL.||Here it is. <insert>*Written by CHANNEL* for the note.</insert>' -- "$R/work/$name"; fi
+    for v in transform chat; do for _ in $(seq 3600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.ai.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ai-$v.png"; done
+    for _ in $(seq 3600); do [[ -f $R/out/$name.ai.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.ai.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.ai.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   board-graphic)
     # a whiteboard drawn clean by Claude (the model is a fixed figure)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{drawn,inserted,board-graphic}.json

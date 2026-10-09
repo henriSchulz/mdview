@@ -28,7 +28,7 @@ const keys = (entries) => entries.map((e) => (e ? e.key : "-")).join(" ");
 
 test("what it offers follows the caret", () => {
   let v = open("one\n\ntwo\n", "one");
-  assert.equal(keys(A.slash.entries(v)), "slash.style slash.list menu.format slash.deco slash.color slash.callout slash.columns - menu.codeBlock menu.formula menu.table menu.rule menu.image menu.file menu.graphic menu.board menu.footnote menu.page - slash.actions");
+  assert.equal(keys(A.slash.entries(v)), "slash.style slash.list menu.format slash.deco slash.color slash.callout slash.columns - menu.codeBlock menu.formula menu.table menu.rule menu.image menu.file menu.board menu.footnote menu.page - slash.actions");
   const style = A.slash.entries(v)[0].items;
   assert.equal(style.map((e) => +!!e.checked).join(""), "10000");
 
