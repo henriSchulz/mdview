@@ -25,12 +25,12 @@
       MdView.core.ai.transform(view);
       await until(() => dlg.hasAttribute("data-open") && dlg.dataset.kind === "ai");
       await sleep(300);
-      q(".ai-text").value = "Rewrite this sentence so that it mentions the word 'umbrella'. One sentence.";
-      q('[data-go="run"]').click();
+      q(".ai-text").value = "Mention the word 'umbrella'.";
+      q('[data-preset="longer"]').click();
       const streamed = await until(() => ((q(".ai-stream") || {}).textContent || "").length > 3 || q(".ai-preview"), 120000);
       const done = await until(() => q(".ai-preview") && !q('[data-do="done"]').disabled, 120000);
-      o.real = { streamed, transformed: q(".ai-preview") ? q(".ai-preview").textContent.slice(0, 300) : null };
-      ok("Claude itself: the answer comes in pieces and is an answer to what was asked", streamed && done && /umbrella/i.test(o.real.transformed), o.real);
+      o.real = { streamed, transformed: q(".ai-preview") ? q(".ai-preview").textContent.slice(0, 2000) : null };
+      ok("Claude itself, asked with Longer and a word of one's own: the answer comes in pieces, is longer, and has the word", streamed && done && /umbrella/i.test(o.real.transformed) && o.real.transformed.length > 80, o.real);
       q('[data-do="done"]').click();
       await sleep(400);
       ok("… and stands in the note", /umbrella/i.test(md()), md().slice(0, 200));
@@ -39,7 +39,8 @@
       await until(() => chat() && chat().hasAttribute("data-open"));
       const field = chat().querySelector(".ai-field");
       field.value = "Which programming language is the code block in this note written in? Then write one closing sentence for the note that I can insert.";
-      field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      chat().querySelector(".ai-send").click();
       await until(() => MdAi.state().talking, 3000);
       const answered = await until(() => !MdAi.state().talking, 180000);
       const last = MdAi.state().talk.at(-1) || {};
@@ -60,6 +61,7 @@
     ok("its dialog opens: what to do with the blocks, asked with one press or in words", await until(() => dlg.hasAttribute("data-open") && dlg.dataset.kind === "ai") && dlg.querySelectorAll(".ai-chip").length === 13 && !!q(".ai-text") && q('[data-do="done"]').disabled, dlg.dataset.kind);
     ok("Replace is what is chosen at first; the whole note goes along as context", q('[data-where="replace"]').getAttribute("aria-checked") === "true" && q(".ai-whole").checked && q('[data-do="done"]').textContent === "Replace", q('[data-do="done"]').textContent);
     q('[data-preset="shorter"]').click();
+    ok("a press marks what is asked; the field stays for one's own words", q('[data-preset="shorter"]').getAttribute("aria-pressed") === "true" && q(".ai-text").value === "", q(".ai-text").value);
     ok("asked: it says that Claude is writing, and what comes shows as it comes", await until(() => !!q(".ai-wait") && q('[data-go="run"]').textContent === "Stop", 2000) && await until(() => (q(".ai-stream") || {}).textContent || q(".ai-preview"), 3000), q(".ai-out") && q(".ai-out").innerHTML.slice(0, 200));
     ok("the answer shows as it will stand in the note", await until(() => q(".ai-preview") && /Made new by transform/.test(q(".ai-preview").textContent) && !!q(".ai-preview strong"), 5000) && !q('[data-do="done"]').disabled && q('[data-go="run"]').textContent === "Ask again", q(".ai-out") && q(".ai-out").innerHTML.slice(0, 300));
     out("transform", {});
@@ -89,40 +91,70 @@
     const at1 = md().indexOf("First paragraph"), at2 = md().indexOf("**Made new** by transform."), at3 = md().indexOf("Second paragraph");
     ok("Insert Below: the answer stands under the block, which stays", at1 >= 0 && at2 > at1 && at3 > at2, [at1, at2, at3]);
 
+    { // (what Claude writes is shown as the reading view shows it: a formula in a table too)
+      const d = document.createElement("div"); d.innerHTML = MdView.core.mdHtml("| a | b |\n|---|---|\n| $E=mc^2$ | x |\n\nInline $a^2$.\n\n$$\\int_0^1 x\\,dx$$\n");
+      ok("formulas are set in the answers — in a table's cell, in a line, on their own", d.querySelectorAll("table .katex").length === 1 && d.querySelectorAll(".katex").length >= 3, d.innerHTML.slice(0, 600));
+    }
     // ---- the chat
+    MdView.core.post("folder", { here: true }); // (the note's folder, as the toolbar's button opens it)
+    await until(() => MdView.core.folderNotes().length >= 2, 5000);
     bubble.click();
-    const chat = () => document.getElementById("ai-chat"), ai = () => window.MdAi && MdAi.state();
-    ok("the bubble opens a small window at the lower right, about this note", await until(() => chat() && !chat().hidden && chat().hasAttribute("data-open")) && /m5/.test(chat().querySelector(".ai-title").textContent) && chat().getBoundingClientRect().right <= innerWidth && chat().getBoundingClientRect().bottom <= innerHeight && !!chat().querySelector(".ai-empty"), chat() && chat().outerHTML.slice(0, 200));
-    await sleep(700); // (grown to its size)
-    const w0 = chat().getBoundingClientRect().width;
-    chat().querySelector('[data-do="size"]').click(); await sleep(500);
-    const w1 = chat().getBoundingClientRect().width;
-    chat().querySelector('[data-do="size"]').click(); await sleep(500);
-    const w2 = chat().getBoundingClientRect().width;
-    chat().querySelector('[data-do="size"]').click(); await sleep(1100);
-    ok("its size goes through three: medium, large, small — and round again", w1 > w0 + 100 && w2 < w0 - 30 && Math.abs(chat().getBoundingClientRect().width - w0) < 2 && ai().size === "m", [w0, w1, w2]);
-    const field = chat().querySelector(".ai-field");
+    const chat = () => document.getElementById("ai-chat"), ai = () => window.MdAi && MdAi.state(), cq = (sel) => chat().querySelector(sel);
+    ok("the bubble opens a window at the lower right: a new chat, the note on screen as what it reads", await until(() => chat() && !chat().hidden && chat().hasAttribute("data-open")) && cq(".ai-title-text").textContent === "New Chat" && chat().getBoundingClientRect().right <= innerWidth && chat().getBoundingClientRect().bottom <= innerHeight && cq('.ai-ctx [data-ctx="doc"] b').textContent === "m5" && cq('.ai-ctx [data-ctx="doc"] small').textContent === "Current Document", chat() && cq(".ai-ctx").innerHTML.slice(0, 300));
+    await sleep(600);
+    // its size: three to choose in its menu, and pulled at its edge
+    const pick = async (sel) => { cq('.ai-head .ai-ib[data-do="more"]').click(); await sleep(250); cq(".ai-menu " + sel).click(); await sleep(250); };
+    const w0 = ai().width;
+    await pick('[data-size="l"]'); const w1 = ai().width;
+    await pick('[data-size="s"]'); const w2 = ai().width, h2 = ai().height;
+    ok("its size, chosen in its menu: large, small", w1 === 640 && w2 === 340 && h2 === 480 && w0 === 420, [w0, w1, w2, h2]);
+    const grip = cq('[data-grip="corner"]'), g = grip.getBoundingClientRect(), pe = (type, x, y) => grip.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, button: 0, buttons: type === "pointerup" ? 0 : 1, clientX: x, clientY: y }));
+    pe("pointerdown", g.left + 4, g.top + 4); pe("pointermove", g.left - 76, g.top - 56); pe("pointerup", g.left - 76, g.top - 56);
+    ok("… and pulled at its corner: wider and higher by as much", ai().width === 420 && ai().height === 540, [ai().width, ai().height]);
+    await pick('[data-size="m"]');
+    // what it reads: another note of the folder, the whole folder; taken away again
+    cq('[data-do="add"]').click(); await sleep(250);
+    ok("+ offers a note of the folder, the whole folder, a file of this computer", [...chat().querySelectorAll(".ai-menu .ai-row")].map((b) => b.dataset.m).join() === "note,folder,file", cq(".ai-menu").innerHTML.slice(0, 300));
+    cq('.ai-menu [data-m="note"]').click(); await sleep(300);
+    const find = cq(".ai-find"); find.value = "other"; find.dispatchEvent(new Event("input", { bubbles: true })); await sleep(100);
+    ok("a note of the folder is found by its name", chat().querySelectorAll(".ai-found [data-note]").length === 1 && cq(".ai-found [data-note] b").textContent === "other", cq(".ai-found").innerHTML.slice(0, 300));
+    cq(".ai-found [data-note]").click(); await sleep(200);
+    cq('[data-do="add"]').click(); await sleep(250); cq('.ai-menu [data-m="folder"]').click(); await sleep(200);
+    ok("both stand above the field beside the current document", ai().extra.map((c) => c.kind).join() === "note,folder" && chat().querySelectorAll(".ai-ctx .ai-doc").length === 3, ai().extra);
+    cq('.ai-ctx [data-ctx="1"] .ai-doc-x').click(); await sleep(100);
+    ok("… and one is taken away by its ×", ai().extra.length === 1 && ai().extra[0].name === "other", ai().extra);
+    const field = cq(".ai-field");
     field.value = "Write a short closing line for this note.";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-    ok("asked: the question stands there, and Claude's answer comes", await until(() => chat().querySelectorAll(".ai-user").length === 1 && ai().talking, 2000), ai());
-    ok("what it wrote for the note shows as a card, with Insert into Document", await until(() => !ai().talking && chat().querySelector(".ai-card [data-put]"), 5000) && /Here it is/.test(chat().querySelector(".ai-bot .ai-md").textContent) && /Written by chat for the note/.test(chat().querySelector(".ai-card .ai-md").textContent) && !chat().querySelector(".ai-bot").textContent.includes("<insert>"), chat().querySelector(".ai-log").innerHTML.slice(0, 500));
+    ok("asked: the question stands there with what it was given to read, and Claude is at it", await until(() => chat().querySelectorAll(".ai-user").length === 1 && ai().talking, 2000) && chat().querySelectorAll(".ai-user .ai-doc").length === 2 && cq(".ai-send").title === "Stop", ai());
+    const firstMsg = cq(".ai-user");
+    ok("what it wrote for the note shows as a card, with Insert into Document", await until(() => !ai().talking && cq(".ai-card [data-put]"), 5000) && /Here it is/.test(cq(".ai-bot .ai-md").textContent) && /Written by chat for the note/.test(cq(".ai-card .ai-md").textContent) && !cq(".ai-bot").textContent.includes("<insert>"), cq(".ai-log").innerHTML.slice(0, 500));
+    ok("the other note went to Claude with the question (the application read it)", /Seen: other note text/.test(cq(".ai-bot").textContent), cq(".ai-bot").textContent.slice(0, 200));
+    ok("the conversation is named after its first question", cq(".ai-title-text").textContent.startsWith("Write a short closing line") && ai().talks === 1, cq(".ai-title-text").textContent);
     out("chat", {});
-    await sleep(500);
+    await sleep(600);
     // nothing chosen in the note: it goes to the note's end
     view.dispatch(view.state.tr.setSelection(PM.state.Selection.atStart(view.state.doc)));
-    chat().querySelector(".ai-card [data-put]").click();
+    cq(".ai-card [data-put]").click();
     await sleep(500);
     ok("Insert into Document: the piece stands at the note's end", md().trimEnd().endsWith("*Written by chat* for the note."), md().slice(-120));
     // a block selected: under that one
     A.blocks.select(view, posOf("Second paragraph"), false);
-    chat().querySelector(".ai-card [data-put]").click();
+    cq(".ai-card [data-put]").click();
     await sleep(500);
     const s2 = md().indexOf("Second paragraph"), p2 = md().indexOf("*Written by chat* for the note.");
     ok("… with a block selected: under that block", p2 > s2 && p2 < md().lastIndexOf("*Written by chat* for the note."), [s2, p2]);
-    chat().querySelector('[data-do="fresh"]').click();
-    ok("New Chat: the talk begins anew", ai().talk.length === 0 && !!chat().querySelector(".ai-empty"), ai());
+    cq('[data-do="fresh"]').click(); await sleep(150);
+    ok("New Chat: a conversation begins anew, the earlier one is kept", ai().talk.length === 0 && cq(".ai-title-text").textContent === "New Chat" && ai().talks === 1 && JSON.parse(localStorage.getItem("mdview:ai-talks")).length === 1, ai());
+    cq('.ai-head .ai-ib[data-do="more"]').click(); await sleep(250);
+    out("menu", {});
+    await sleep(600);
+    cq(".ai-menu [data-talk]").click(); await sleep(200);
+    ok("… and taken up again from the conversation history", ai().talk.length === 2 && !!cq(".ai-card [data-put]"), ai().talk.length);
+    await pick('[data-m="delete"]');
+    ok("Delete takes the conversation away", ai().talks === 0 && ai().talk.length === 0, ai().talks);
 
-    ok("while AI is on, the “/” menu offers a graphic by Claude", A.slash.entries(view).flatMap((g) => (!g ? [] : g.items ? g.items.filter(Boolean) : [g])).some((e) => e.key === "menu.graphic"), "");
     // ---- turned off in the settings: nothing of it anywhere
     window.MdPrefs = { ...window.MdPrefs, aiOn: false };
     MdView.core.post("prefs", { prefs: { aiOn: false } });

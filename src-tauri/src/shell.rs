@@ -402,6 +402,8 @@ pub struct Win {
     watched: HashSet<PathBuf>,   // every directory the watcher looks at
     dir_watch: HashSet<PathBuf>, // … for the folder's tree
     board_dirs: HashSet<PathBuf>, // … where the whiteboards the note shows are kept (their pictures are made anew when they change)
+    ai_files: HashSet<PathBuf>, // files chosen in the system's window for Claude to read (the chat's context): only those are handed to it
+    ai_token: String,           // … and what the answer of that window carries, so that nothing else can name files
     rescan_turn: u64,
     reload_turn: u64,
     close_turn: u64,
@@ -1158,6 +1160,8 @@ impl Win {
             watched: HashSet::new(),
             dir_watch: HashSet::new(),
             board_dirs: HashSet::new(),
+            ai_files: HashSet::new(),
+            ai_token: nonce(),
             rescan_turn: 0,
             reload_turn: 0,
             close_turn: 0,
@@ -2558,7 +2562,67 @@ impl Win {
                     let chosen = if chosen.trim().is_empty() { String::new() } else { format!("What the user has selected in the note right now:\n<selection>\n{chosen}\n</selection>\n\n") };
                     (ai::CHAT_SYSTEM, format!("{whole}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
                 };
-                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt, model });
+                // what else the chat was given to read: other notes of the folder, the whole folder, files chosen in the system's window
+                let (mut more, mut attach) = (String::new(), Vec::new());
+                if channel == "chat" {
+                    let mut room = 400_000usize; // (letters of other documents, all told: what fits a question)
+                    let put = |more: &mut String, path: &Path, room: &mut usize| -> bool {
+                        let Ok(text) = scan::read_text(path, Some(2_000_000)) else { return false };
+                        let text = take(&text, 80_000);
+                        if text.len() > *room {
+                            return false;
+                        }
+                        *room -= text.len();
+                        more.push_str(&format!("<document name=\"{}\">\n{text}\n</document>\n\n", name_of(path).replace('"', "'")));
+                        true
+                    };
+                    for c in msg["context"].as_array().map(Vec::as_slice).unwrap_or_default().iter().take(40) {
+                        let path = c["path"].as_str().map(PathBuf::from).unwrap_or_default();
+                        match c["kind"].as_str() {
+                            // (a note: one of the folder's, as the sidebar lists them)
+                            Some("note") if self.note_paths.contains(&s(&path)) => {
+                                put(&mut more, &path, &mut room);
+                            }
+                            Some("folder") => {
+                                let mut notes: Vec<PathBuf> = self.note_paths.iter().map(PathBuf::from).filter(|p| scan::is_md(p) && Some(p) != self.path.as_ref()).collect();
+                                notes.sort_by(|a, b| mtime(b).unwrap_or(0.0).total_cmp(&mtime(a).unwrap_or(0.0))); // (what was written last first: it is what fits when not all does)
+                                let left: Vec<String> = notes.iter().filter(|p| !put(&mut more, p, &mut room)).map(|p| name_of(p)).collect();
+                                if !left.is_empty() {
+                                    more.push_str(&format!("(Notes of the folder that are not given here, for their length: {}.)\n\n", take(&left.join(", "), 4000)));
+                                }
+                            }
+                            // (a file from elsewhere: only one that was chosen in the system's window — text as text, anything else for Claude to read)
+                            Some("file") if self.ai_files.contains(&path) && path.is_file() => {
+                                let texty = !scan::IMAGE_EXT.contains(&scan::ext_of(&path).as_str()) && !is_pdf(&path) && fs::metadata(&path).is_ok_and(|m| m.len() <= 2_000_000) && fs::read(&path).is_ok_and(|b| std::str::from_utf8(&b).is_ok());
+                                if !(texty && put(&mut more, &path, &mut room)) && fs::metadata(&path).is_ok_and(|m| m.len() <= 30_000_000) {
+                                    attach.push(path);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    if !more.is_empty() {
+                        more = format!("Other documents the user gave you to read:\n\n{more}");
+                    }
+                }
+                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach });
+            }
+            // files for Claude to read, chosen in the system's own window; what was chosen comes back as "ai-picked", with this window's word
+            "ai-pick" => {
+                let Some(window) = &self.window else { return };
+                let (tx, label, token) = (app.tx.clone(), self.label.clone(), self.ai_token.clone());
+                app.handle.dialog().file().set_parent(window).set_title("Add to the Conversation").pick_files(move |paths| {
+                    let paths: Vec<String> = paths.unwrap_or_default().into_iter().filter_map(|p| p.into_path().ok()).map(|p| s(&p)).collect();
+                    let _ = tx.send(Event::Msg { label, json: json!({ "type": "ai-picked", "token": token, "paths": paths }).to_string() });
+                });
+            }
+            "ai-picked" if text_of("token") == self.ai_token => {
+                let mut list = Vec::new();
+                for p in msg["paths"].as_array().map(Vec::as_slice).unwrap_or_default().iter().filter_map(Value::as_str).map(|p| resolve(Path::new(p))).filter(|p| p.is_file()).take(12) {
+                    list.push(json!({ "path": s(&p), "name": name_of(&p) }));
+                    self.ai_files.insert(p);
+                }
+                self.js("MdView.aiPicked", &[json!(list)]);
             }
             "ai-stop" => app.talker.stop(text_of("channel")),
             "graphic-image" => self.graphic_image(app, text_of("how"), text_of("data")),

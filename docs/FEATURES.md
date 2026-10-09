@@ -386,19 +386,27 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
 
 - **Transform with AI** (the active mode; the first entry of a right click on selected blocks,
   on a block, or in the text — there it means the block the caret is in, or the blocks the
-  selection reaches): say what is to happen with the blocks, in words or with one press —
-  Improve, Fix spelling, Shorter, Longer, Simpler, Summarise, As a list, As a table, More
-  formal, More casual, To English, To German, Continue. Chosen before asking: **Replace** the
-  blocks, or **Insert below** them; and whether the whole note goes along as context. The
-  answer shows as it comes, then as it will stand in the note; Ask again asks anew, the
-  dialog's button puts it in (`Ctrl+Enter`), one step of Undo takes it back.
-- **The chat** (the bubble at the lower right, in every mode): about the note on screen, which
-  Claude reads whole — and what is selected in it, as “this”. In three sizes (the button in its
-  head), and a talk of its own for each note; New Chat begins anew. What Claude writes *for*
-  the note shows in the chat first, as a card, with **Insert into Document**: under the
-  selected blocks, else under the block the caret is in, else at the note's end (a note that
-  is only read is taken to the active mode for it). `Enter` sends, `Shift+Enter` breaks the
-  line, `Esc` shuts the chat.
+  selection reaches): press what is to happen — Improve, Fix spelling, Shorter, Longer, Simpler,
+  Summarise, As a list, As a table, More formal, More casual, To English, To German, Continue —
+  or say it in your own words in the field (both together: the words come on top of what was
+  pressed). Chosen before asking: **Replace** the blocks, or **Insert below** them; and whether
+  the whole note goes along as context. The answer shows as it comes, as it will stand in the
+  note (formulas, tables, code); Ask again asks anew, the dialog's button puts it in
+  (`Ctrl+Enter`), one step of Undo takes it back.
+- **The chat** (the bubble at the lower right, in every mode): a window with the conversation,
+  and under it a card to write in. Above the field stands what Claude is given to read: the
+  **current document** (the note on screen, whichever that is — and what is selected in it, as
+  “this”), and whatever is added with **+**: a note of the open folder (found by its name), the
+  **whole folder** (its notes, the last written first, as many as fit a question — it says
+  which were left out), or a **file of this computer** (text as text; a PDF or a picture is
+  read by Claude itself). Each is taken away again by its ×. The pill beside + chooses Claude's
+  model. What Claude writes *for* the note shows in the chat first, as a card, with **Insert
+  into Document**: under the selected blocks, else under the block the caret is in, else at the
+  note's end (a note that is only read is taken to the active mode for it). Conversations are
+  kept (the last forty, on this computer): the title at the top, or ⋯, lists them, and renames,
+  copies or deletes the one in hand; the pencil begins a new one. The window is pulled wider
+  and higher at its left and upper edge, or set to Small, Medium or Large under ⋯. `Enter`
+  sends, `Shift+Enter` breaks the line, `Esc` shuts the chat.
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
 

@@ -72,10 +72,10 @@
     if (!r) return core.toast(T("ai.nothing"));
     const selection = A.clip.markdownOf(view.state, view.state.doc.slice(r.from, r.to));
     if (!selection.trim()) return core.toast(T("ai.nothing"));
-    let job = null, result = null, where = "replace", shownAt = 0, timer = 0;
+    let job = null, result = null, where = "replace", shownAt = 0, timer = 0, picked = "", paint = 0;
     try { where = localStorage.getItem("mdview:ai-where") === "below" ? "below" : "replace"; } catch (e) { /* (as new) */ }
     const el = A.dialog.el, doneBtn = () => document.querySelector('#dlg [data-do="done"]');
-    const tidy = () => { clearInterval(timer); if (job) stop(job); job = null; };
+    const tidy = () => { clearInterval(timer); clearTimeout(paint); paint = 0; if (job) stop(job); job = null; };
     A.dialog.show({
       title: T("ai.transform"),
       kind: "ai",
@@ -83,7 +83,7 @@
       build(body, _tools, info) {
         const chips = el("div", { class: "ai-chips", role: "group", "aria-label": T("ai.quick") }, PRESETS.map(([k]) => `<button class="ai-chip" type="button" data-preset="${k}">${esc(T("ai.do." + k))}</button>`).join(""));
         const text = el("textarea", { class: "ai-text lp-field", rows: "3", placeholder: T("ai.instruction"), "aria-label": T("ai.instruction"), spellcheck: "false" });
-        const row = el("div", { class: "ai-row" },
+        const row = el("div", { class: "ai-opts" },
           `<span class="ai-seg" role="radiogroup" aria-label="${esc(T("ai.where"))}"><button type="button" role="radio" data-where="replace">${esc(T("ai.where.replace"))}</button><button type="button" role="radio" data-where="below">${esc(T("ai.where.below"))}</button></span>` +
           `<label class="ai-check"><input type="checkbox" class="ai-whole" checked><span>${esc(T("ai.whole"))}</span></label><span class="ai-space"></span>` +
           `<button class="btn primary" type="button" data-go="run">${esc(T("ai.run"))}</button>`);
@@ -98,38 +98,41 @@
           run.classList.toggle("primary", !job && result == null);
           insert.textContent = T(where === "replace" ? "ai.replace" : "ai.insertBelow");
           insert.disabled = result == null || !!job;
-          for (const c of chips.children) c.disabled = !!job;
+          for (const c of chips.children) { c.disabled = !!job; c.setAttribute("aria-pressed", String(c.dataset.preset === picked)); }
         };
         const go = () => {
-          const instruction = text.value.trim();
+          // (what was pressed, and what was written beside it — either is enough)
+          const instruction = [picked ? PRESETS.find(([k]) => k === picked)[1] : "", text.value.trim()].filter(Boolean).join("\n\nAlso: ");
           if (!instruction) { text.focus(); return; }
           tidy();
           result = null;
           let said = "";
           out.hidden = false;
-          out.innerHTML = `<div class="ai-wait"><span class="ai-spin"></span><span class="ai-secs"></span></div><div class="ai-stream"></div>`;
+          out.innerHTML = `<div class="ai-wait"><span class="ai-spin"></span><span class="ai-secs"></span></div><div class="ai-md ai-stream"></div>`;
           const stream = out.querySelector(".ai-stream"), secs = out.querySelector(".ai-secs");
           shownAt = performance.now();
           const tick = () => { secs.textContent = T("ai.working", Math.round((performance.now() - shownAt) / 1000)); };
           tick();
           timer = setInterval(tick, 1000);
           job = ask("transform", { instruction, selection, note: whole.checked ? core.noteText() : "", name: noteName() },
-            (piece) => { said += piece; stream.textContent = said; out.scrollTop = out.scrollHeight; },
+            // (drawn a few times a second, as it will stand in the note — not at every letter)
+            (piece) => { said += piece; if (!paint) paint = setTimeout(() => { paint = 0; if (!stream.isConnected) return; try { stream.innerHTML = core.mdHtml(said); } catch (e) { stream.textContent = said; } out.scrollTop = out.scrollHeight; }, 120); },
             (all, error) => {
               job = null;
-              clearInterval(timer);
+              clearInterval(timer); clearTimeout(paint); paint = 0;
               if (error || all == null || !all.trim()) { out.innerHTML = `<div class="ai-error">${esc(error || T("ai.failed"))}</div>`; show(); return; }
               // (an answer wrapped in a fence all the same: what is in it is meant)
               result = all.trim().replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/i, "$1");
-              out.innerHTML = `<div class="dlg-preview doc ai-preview"></div>`;
-              try { out.firstChild.innerHTML = A.islands.kit.html(result); } catch (e) { out.firstChild.textContent = result; }
+              // (shown as the reading view shows a note: formulas, in a table too, code, diagrams)
+              out.innerHTML = `<div class="ai-md ai-preview"></div>`;
+              try { out.firstChild.innerHTML = core.mdHtml(result); } catch (e) { out.firstChild.textContent = result; }
               out.scrollTop = 0;
               show();
               insert.focus();
             });
           show();
         };
-        chips.addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (!b || job) return; text.value = PRESETS.find(([k]) => k === b.dataset.preset)[1]; go(); });
+        chips.addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (!b || job) return; picked = picked === b.dataset.preset && result == null ? "" : b.dataset.preset; show(); if (picked) go(); });
         row.addEventListener("click", (e) => {
           const b = e.target.closest("button");
           if (!b) return;
@@ -156,11 +159,19 @@
   };
 
   // ---------------------------------------------------------------- the chat
-  const SIZES = ["s", "m", "l"];
-  const talks = new Map(); // a note's path → [{ role, text }]
-  let box = null, log = null, field = null, sendBtn = null, talking = null; // talking: { id, path, text }
-  const pathNow = () => String((core.current && core.current.path) || "");
-  const talk = () => { const p = pathNow(); if (!talks.has(p)) talks.set(p, []); return talks.get(p); };
+  /* A window at the right, about the note on screen and whatever else it is given to read. Conversations are kept in this
+   * browser (the last forty), each with its title; the one in hand goes on whatever note is on screen. */
+  const STORE = "mdview:ai-talks", PLACE = "mdview:ai-place";
+  const PRESET = { s: [340, 480], m: [420, 640], l: [640, 2000] };
+  const MODELS = [["", "ai.model.own"], ["haiku", "Haiku"], ["sonnet", "Sonnet"], ["opus", "Opus"]];
+  let talksAll = [];
+  try { const was = JSON.parse(localStorage.getItem(STORE) || "[]"); if (Array.isArray(was)) talksAll = was.filter((t) => t && Array.isArray(t.messages)); } catch (e) { /* (none kept) */ }
+  const keep = () => { try { localStorage.setItem(STORE, JSON.stringify(talksAll.slice(0, 40).map((t) => ({ ...t, messages: t.messages.slice(-80).map((m) => ({ ...m, text: String(m.text || "").slice(0, 40000) })) })))); } catch (e) { /* (not kept) */ } };
+  let box = null, log = null, field = null, cur = null, talking = null; // cur: the conversation in hand; talking: { id, talk, text, el }
+  let useDoc = true, extra = []; // what the next question is given to read: the note on screen, and { kind, path, name } beside it
+  const fresh = () => ({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: "", at: Date.now(), messages: [] });
+  const titleOf = (t) => t.title || (t.messages.find((m) => m.role === "user") || {}).text || "";
+  const q = (sel) => box.querySelector(sel);
   /* What Claude said, in parts: text, and what it wrote for the note (between <insert> and </insert> — one that is not shut yet,
    * while the answer comes, is one in the making). */
   function parts(text) {
@@ -175,55 +186,91 @@
       out.push({ insert: rest.slice(a + 8, b) });
       rest = rest.slice(b + 9);
     }
-    // (a tag being typed — "<ins" at the end — is not shown as text)
-    rest = rest.replace(/<\/?i(?:n(?:s(?:e(?:r(?:t)?)?)?)?)?$/, "");
+    rest = rest.replace(/<\/?i(?:n(?:s(?:e(?:r(?:t)?)?)?)?)?$/, ""); // (a tag being written — "<ins" at the end — is not shown as text)
     if (rest.trim()) out.push({ text: rest });
     return out;
   }
   const md = (text) => { try { return core.mdHtml(text); } catch (e) { return `<p>${esc(text)}</p>`; } };
-  function bubbleOf(m, i, live) {
-    if (m.role === "user") return `<div class="ai-msg ai-user"><div class="ai-said">${esc(m.text)}</div></div>`;
+  const SHEET = `<span class="ai-sheet" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`;
+  const chipOf = (name, sub, more = "") => `<span class="ai-doc"${more}>${SHEET}<span class="ai-doc-text"><b>${esc(name)}</b><small>${esc(sub)}</small></span></span>`;
+  const subOf = (c) => T(c.kind === "folder" ? "ai.ctx.folder" : c.kind === "file" ? "ai.ctx.file" : c.kind === "doc" ? "ai.ctx.doc" : "ai.ctx.note");
+  /* One message of the conversation, as the window shows it. i: its place in the conversation (for the cards' buttons). */
+  function htmlOf(m, i, live) {
+    if (m.role === "user") return `<div class="ai-msg ai-user">${(m.ctx || []).map((c) => chipOf(c.name, subOf(c))).join("")}<div class="ai-said">${esc(m.text)}</div></div>`;
     if (m.error) return `<div class="ai-msg ai-bot"><div class="ai-error">${esc(m.error)}</div></div>`;
-    const ps = parts(m.text);
     let n = 0;
-    const inner = ps.map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
+    const inner = parts(m.text).map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
       : `<div class="ai-card"${p.open ? " data-open" : ""}><div class="ai-md">${md(p.insert)}</div>` +
-        (p.open ? "" : `<div class="ai-card-foot"><button class="btn primary" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="btn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
-    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner || (live ? `<div class="ai-typing"><i></i><i></i><i></i></div>` : "")}</div>`;
+        (p.open ? "" : `<div class="ai-card-foot"><button class="ai-pillbtn ai-main" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="ai-pillbtn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
+    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
   }
-  function draw(stick = true) {
+  const bottom = () => { log.scrollTop = log.scrollHeight; };
+  /* The whole conversation, drawn (when the window opens, another conversation is taken up, or a message is done). */
+  function drawAll() {
     if (!box) return;
-    const list = talk(), live = talking && talking.path === pathNow();
-    box.querySelector(".ai-title").textContent = noteName() ? T("ai.chat.about", noteName()) : T("ai.chat");
-    log.innerHTML = (list.length || live ? "" : `<div class="ai-empty"><b>${esc(T("ai.chat.hello"))}</b><p>${esc(T("ai.chat.hint"))}</p><div class="ai-tips">${["summary", "explain", "table", "next"].map((k) => `<button class="ai-chip" type="button" data-tip="${k}">${esc(T("ai.tip." + k))}</button>`).join("")}</div></div>`) +
-      list.map((m, i) => bubbleOf(m, i, false)).join("") + (live ? bubbleOf({ role: "assistant", text: talking.text }, list.length, true) : "");
-    sendBtn.innerHTML = live ? I.stop : I.send;
-    sendBtn.title = T(live ? "ai.stop" : "ai.send"); sendBtn.setAttribute("aria-label", sendBtn.title);
-    if (stick) log.scrollTop = log.scrollHeight;
+    const title = titleOf(cur);
+    q(".ai-title-text").textContent = title ? title.slice(0, 60) : T("ai.chat.new");
+    log.innerHTML = cur.messages.map((m, i) => htmlOf(m, i, false)).join("");
+    if (talking && talking.talk === cur) { log.insertAdjacentHTML("beforeend", htmlOf({ role: "assistant", text: talking.text }, cur.messages.length, true)); talking.el = log.lastElementChild; }
+    drawFoot();
+    bottom();
   }
-  let frame = 0;
-  const drawSoon = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; const near = log.scrollHeight - log.scrollTop - log.clientHeight < 80; draw(near); }); };
+  /* What is under the conversation: whether Claude is at it, what the next question is given to read, the model, the button. */
+  function drawFoot() {
+    if (!box) return;
+    const live = !!talking && talking.talk === cur, name = noteName();
+    q(".ai-pill").hidden = !(live && !talking.text.trim());
+    requestAnimationFrame(() => { if (box) box.style.setProperty("--ai-foot", q(".ai-compose").offsetHeight + 22 + "px"); });
+    q(".ai-ctx").innerHTML = (useDoc && name ? chipOf(name, T("ai.ctx.doc"), ' data-ctx="doc"') : "") + extra.map((c, i) => chipOf(c.name, subOf(c), ` data-ctx="${i}"`)).join("");
+    for (const c of q(".ai-ctx").children) c.insertAdjacentHTML("beforeend", `<button class="ai-doc-x" type="button" title="${esc(T("ai.ctx.remove"))}" aria-label="${esc(T("ai.ctx.remove"))}">${I.close}</button>`);
+    const model = (window.MdPrefs || {}).aiClaude || "";
+    q(".ai-model span").textContent = T((MODELS.find(([k]) => k === model) || MODELS[0])[1]);
+    const send = q(".ai-send");
+    send.innerHTML = live ? I.stop : I.send;
+    send.title = T(live ? "ai.stop" : "ai.send"); send.setAttribute("aria-label", send.title);
+    send.toggleAttribute("data-idle", !live && !field.value.trim());
+  }
+  // (what Claude says, as it comes: only its own message is drawn anew, a few times a second — the rest of the window stands still)
+  let pending = 0;
+  function drawLive() {
+    if (pending || !talking || talking.talk !== cur || !talking.el) return;
+    pending = setTimeout(() => {
+      pending = 0;
+      if (!talking || talking.talk !== cur || !talking.el || !talking.el.isConnected) return;
+      const near = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+      talking.el.outerHTML = htmlOf({ role: "assistant", text: talking.text }, cur.messages.length, true);
+      talking.el = log.lastElementChild;
+      q(".ai-pill").hidden = !!talking.text.trim();
+      if (near) bottom();
+    }, 90);
+  }
   function say(text) {
     text = String(text || "").trim();
     if (!text || talking) return;
-    const path = pathNow(), list = talk(), A = active();
-    list.push({ role: "user", text });
+    const A = active(), mine = cur, name = noteName();
+    if (!talksAll.includes(mine)) talksAll.unshift(mine);
+    const ctx = [...(useDoc && name ? [{ kind: "doc", name }] : []), ...extra.map((c) => ({ kind: c.kind, name: c.name }))];
+    mine.messages.push({ role: "user", text, ctx });
+    mine.at = Date.now();
     // (what is chosen in the note goes along: "this", "these" are what the user points at)
     let selection = "";
-    if (A) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
-    const mine = (talking = { id: null, path, text: "" });
-    mine.id = ask("chat", { note: core.noteText(), name: noteName(), selection, messages: list.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
-      (piece) => { mine.text += piece; if (pathNow() === path) drawSoon(); },
+    if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
+    const t = (talking = { id: null, talk: mine, text: "", el: null });
+    t.id = ask("chat", { note: useDoc ? core.noteText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
+      (piece) => { t.text += piece; drawLive(); },
       (all, error) => {
-        if (talking === mine) talking = null;
-        (talks.get(path) || []).push(error || all == null ? { role: "assistant", text: "", error: error || T("ai.failed") } : { role: "assistant", text: all });
-        if (pathNow() === path) draw();
+        if (talking === t) talking = null;
+        clearTimeout(pending); pending = 0;
+        mine.messages.push(error || all == null ? { role: "assistant", text: "", error: error || T("ai.failed") } : { role: "assistant", text: all });
+        keep();
+        if (cur === mine) drawAll();
       });
     field.value = "";
     fit();
-    draw();
+    keep();
+    drawAll();
   }
-  const fit = () => { field.style.height = "auto"; field.style.height = Math.min(160, Math.max(38, field.scrollHeight)) + "px"; };
+  const fit = () => { field.style.height = "auto"; field.style.height = Math.min(180, Math.max(24, field.scrollHeight)) + "px"; };
   /* What Claude wrote for the note, put into it: under the blocks that are selected; else under the block the caret was put
    * in; else at the note's end. (Not in the active mode: the note is taken there first.) */
   async function put(markdown) {
@@ -243,71 +290,167 @@
     view.dispatch(tr.scrollIntoView().setMeta("step", true));
     core.toast(T("ai.putDone"));
   }
+
+  // ---- the small menus of the window: what else there is (conversations, this one, how large), what to add to read
+  let menuFor = null;
+  function menu(kind, anchor) {
+    const m = q(".ai-menu");
+    if (!kind || menuFor === kind) { menuFor = null; delete m.dataset.open; return; }
+    const row = (attr, label, more = "") => `<button class="ai-row" type="button" ${attr}>${label}${more}</button>`;
+    let html = "";
+    if (kind === "more") {
+      const others = talksAll.filter((t) => t.messages.length).slice(0, 8), when = (t) => new Date(t.at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const size = Object.keys(PRESET).find((k) => Math.abs(box.offsetWidth - PRESET[k][0]) < 4) || "";
+      html = (others.length ? `<h6>${esc(T("ai.menu.history"))}</h6>` + others.map((t) => row(`data-talk="${t.id}"${t === cur ? ' aria-current="true"' : ""}`, `<span class="ai-row-two"><b>${esc(titleOf(t).slice(0, 44) || T("ai.chat.new"))}</b><small>${esc(when(t))} · ${esc(T("ai.menu.count", t.messages.length))}</small></span>`)).join("") + "<hr>" : "") +
+        `<h6>${esc(T("ai.menu.this"))}</h6>` + row('data-m="title"', esc(T("ai.menu.title"))) + row('data-m="copy"', esc(T("ai.menu.copy"))) + row('data-m="delete"', esc(T("ai.menu.delete"))) +
+        `<hr><h6>${esc(T("ai.menu.size"))}</h6><div class="ai-sizes">${["s", "m", "l"].map((k) => `<button type="button" data-size="${k}" aria-pressed="${size === k}">${esc(T("ai.size." + k))}</button>`).join("")}</div>`;
+    } else if (kind === "add") {
+      const n = core.folderNotes().length;
+      html = (n ? row('data-m="note"', esc(T("ai.add.note"))) + row('data-m="folder"', esc(T("ai.add.folder", n))) : "") + row('data-m="file"', esc(T("ai.add.file")));
+    } else if (kind === "note") {
+      html = `<input class="ai-find" type="text" placeholder="${esc(T("ai.add.find"))}" aria-label="${esc(T("ai.add.find"))}" spellcheck="false"><div class="ai-found"></div>`;
+    } else if (kind === "model") {
+      const now = (window.MdPrefs || {}).aiClaude || "";
+      html = MODELS.map(([k, label]) => row(`data-model="${k}"${k === now ? ' aria-current="true"' : ""}`, esc(T(label)))).join("");
+    }
+    m.innerHTML = html;
+    m.dataset.kind = kind;
+    const r = anchor.getBoundingClientRect(), b = box.getBoundingClientRect(), up = r.top - b.top > b.height / 2;
+    m.style.left = m.style.right = m.style.top = m.style.bottom = "";
+    if (r.left - b.left > b.width / 2) m.style.right = Math.max(8, b.right - r.right) + "px"; else m.style.left = Math.max(8, r.left - b.left) + "px";
+    if (up) m.style.bottom = b.bottom - r.top + 6 + "px"; else m.style.top = r.bottom - b.top + 6 + "px";
+    m.style.setProperty("--origin", `${up ? "bottom" : "top"} ${r.left - b.left > b.width / 2 ? "right" : "left"}`);
+    menuFor = kind;
+    m.dataset.open = "";
+    if (kind === "note") {
+      const find = m.querySelector(".ai-find"), found = m.querySelector(".ai-found"), all = core.folderNotes();
+      const list = () => {
+        const s = find.value.trim().toLowerCase(), has = new Set(extra.map((c) => c.path));
+        const hits = all.filter((x) => x.path !== (core.current || {}).path && !has.has(x.path) && (!s || x.name.toLowerCase().includes(s) || x.dir.toLowerCase().includes(s))).slice(0, 60);
+        found.innerHTML = hits.length ? hits.map((x) => row(`data-note="${esc(x.path)}" data-name="${esc(x.name)}"`, `<span class="ai-row-two"><b>${esc(x.name)}</b>${x.dir ? `<small>${esc(x.dir)}</small>` : ""}</span>`)).join("") : `<p class="ai-none">${esc(T("ai.add.none"))}</p>`;
+      };
+      find.addEventListener("input", list);
+      find.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); menu(null); field.focus(); } else if (e.key === "Enter") { e.preventDefault(); found.querySelector("[data-note]")?.click(); } });
+      list();
+      setTimeout(() => find.focus(), 0);
+    }
+  }
+  const add = (c) => { if (!extra.some((x) => x.kind === c.kind && x.path === c.path)) extra.push(c); drawFoot(); };
+  /* The files chosen in the system's window (the application answers "ai-pick" with them). */
+  Ai.picked = (list) => { for (const f of list || []) add({ kind: "file", path: f.path, name: f.name }); };
+  function setSize(w, h) {
+    box.style.width = Math.round(Math.max(320, w)) + "px";
+    box.style.height = Math.round(Math.max(360, h)) + "px";
+    try { localStorage.setItem(PLACE, JSON.stringify({ w: box.offsetWidth, h: Math.round(Math.max(360, h)) })); } catch (e) { /* (not kept) */ }
+  }
   function build() {
     box = document.createElement("section");
     box.id = "ai-chat";
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-label", T("ai.chat"));
     box.hidden = true;
-    try { box.dataset.size = SIZES.includes(localStorage.getItem("mdview:ai-size")) ? localStorage.getItem("mdview:ai-size") : "m"; } catch (e) { box.dataset.size = "m"; }
     box.innerHTML =
-      `<header class="ai-head"><span class="ai-title"></span><span class="ai-space"></span>` +
-        `<button class="ai-ib" type="button" data-do="fresh" title="${esc(T("ai.chat.fresh"))}" aria-label="${esc(T("ai.chat.fresh"))}">${I.fresh}</button>` +
-        `<button class="ai-ib" type="button" data-do="size" title="${esc(T("ai.chat.size"))}" aria-label="${esc(T("ai.chat.size"))}">${I.size}</button>` +
-        `<button class="ai-ib" type="button" data-do="close" title="${esc(T("ai.chat.close"))}" aria-label="${esc(T("ai.chat.close"))}">${I.close}</button></header>` +
+      `<i class="ai-grip" data-grip="corner"></i><i class="ai-grip" data-grip="left"></i><i class="ai-grip" data-grip="top"></i>` +
+      `<header class="ai-head"><button class="ai-title" type="button" data-do="more"><span class="ai-title-text"></span>${svg('<path d="m9 6 6 6-6 6"/>')}</button><span class="ai-space"></span>` +
+        `<button class="ai-ib" type="button" data-do="fresh" title="${esc(T("ai.chat.fresh"))}" aria-label="${esc(T("ai.chat.fresh"))}">${svg('<path d="M11.5 4.5H7A2.5 2.5 0 0 0 4.5 7v10A2.5 2.5 0 0 0 7 19.5h10a2.5 2.5 0 0 0 2.5-2.5v-4.5"/><path d="m10 14 1-3.6 7.3-7.3a1.4 1.4 0 0 1 2 0l.6.6a1.4 1.4 0 0 1 0 2L13.6 13z"/>')}</button>` +
+        `<button class="ai-ib" type="button" data-do="more" title="${esc(T("ai.menu.more"))}" aria-label="${esc(T("ai.menu.more"))}">${svg('<circle cx="6" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.3" fill="currentColor" stroke="none"/>')}</button>` +
+        `<button class="ai-ib" type="button" data-do="close" title="${esc(T("ai.chat.close"))}" aria-label="${esc(T("ai.chat.close"))}">${svg('<path d="m6 9 6 6 6-6"/>')}</button></header>` +
       `<div class="ai-log" aria-live="polite"></div>` +
-      `<footer class="ai-foot"><textarea class="ai-field" rows="1" placeholder="${esc(T("ai.chat.ask"))}" aria-label="${esc(T("ai.chat.ask"))}" spellcheck="false"></textarea><button class="ai-send" type="button"></button></footer>` +
-      `<div class="ai-note">${esc(T("ai.hint"))}</div>`;
+      `<div class="ai-pill" hidden><span class="ai-spin"></span>${esc(T("ai.chat.working"))}</div>` +
+      `<footer class="ai-compose"><div class="ai-ctx"></div>` +
+        `<textarea class="ai-field" rows="1" placeholder="${esc(T("ai.chat.ask"))}" aria-label="${esc(T("ai.chat.ask"))}" spellcheck="false"></textarea>` +
+        `<div class="ai-bar"><button class="ai-round" type="button" data-do="add" title="${esc(T("ai.add"))}" aria-label="${esc(T("ai.add"))}">${I.fresh}</button>` +
+          `<button class="ai-model" type="button" data-do="model" title="${esc(T("prefs.aiClaude"))}">${svg('<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>')}<span></span></button><span class="ai-space"></span>` +
+          `<button class="ai-send" type="button"></button></div></footer>` +
+      `<div class="ai-menu"></div>`;
     document.body.appendChild(box);
-    log = box.querySelector(".ai-log"); field = box.querySelector(".ai-field"); sendBtn = box.querySelector(".ai-send");
+    log = q(".ai-log"); field = q(".ai-field");
+    let place = null;
+    try { place = JSON.parse(localStorage.getItem(PLACE) || "null"); } catch (e) { /* (as new) */ }
+    setSize((place && place.w) || PRESET.m[0], (place && place.h) || PRESET.m[1]);
     box.addEventListener("click", (e) => {
       const b = e.target.closest("button");
-      if (!b) return;
-      if (b === sendBtn) { if (talking && talking.path === pathNow()) { stop(talking.id); const t = talking; talking = null; if (t.text.trim()) talk().push({ role: "assistant", text: t.text }); draw(); } else say(field.value); return; }
-      if (b.dataset.tip) return say(T("ai.tip." + b.dataset.tip + ".ask"));
-      if (b.dataset.do === "close") return Ai.chat.close();
-      if (b.dataset.do === "fresh") { if (talking && talking.path === pathNow()) { stop(talking.id); talking = null; } talks.set(pathNow(), []); draw(); field.focus(); return; }
-      if (b.dataset.do === "size") { const next = SIZES[(SIZES.indexOf(box.dataset.size) + 1) % SIZES.length]; box.dataset.size = next; try { localStorage.setItem("mdview:ai-size", next); } catch (x) { /* (not kept) */ } return; }
-      const which = b.dataset.put || b.dataset.copy;
+      if (!b) { if (!e.target.closest(".ai-menu")) menu(null); return; }
+      const d = b.dataset;
+      if (b.classList.contains("ai-doc-x")) { const c = b.closest("[data-ctx]").dataset.ctx; if (c === "doc") useDoc = false; else extra.splice(Number(c), 1); return drawFoot(); }
+      if (b.classList.contains("ai-send")) { if (talking && talking.talk === cur) { const t = talking; stop(t.id); talking = null; clearTimeout(pending); pending = 0; if (t.text.trim()) cur.messages.push({ role: "assistant", text: t.text }); keep(); drawAll(); } else say(field.value); return; }
+      if (d.do === "close") return Ai.chat.close();
+      if (d.do === "fresh") { menu(null); cur = fresh(); useDoc = true; extra = []; drawAll(); field.focus(); return; }
+      if (d.do === "more" || d.do === "add" || d.do === "model") return menu(d.do, b);
+      if (d.size) { const [w, h] = PRESET[d.size]; setSize(w, Math.min(h, innerHeight - 32)); return menu(null); }
+      if (d.talk) { const t = talksAll.find((x) => x.id === d.talk); if (t) { cur = t; menu(null); drawAll(); } return; }
+      if (d.model != null) { window.MdPrefs = { ...(window.MdPrefs || {}), aiClaude: d.model }; post("prefs", { prefs: { aiClaude: d.model } }); menu(null); return drawFoot(); }
+      if (d.note) { add({ kind: "note", path: d.note, name: d.name }); menu(null); field.focus(); return; }
+      if (d.m === "note") { menuFor = null; return menu("note", q('[data-do="add"]')); }
+      if (d.m === "folder") { add({ kind: "folder", path: "", name: core.folderName() || T("ai.ctx.folder") }); return menu(null); }
+      if (d.m === "file") { post("ai-pick", {}); return menu(null); }
+      if (d.m === "copy") { core.copy(cur.messages.map((m) => (m.role === "user" ? "> " + m.text.replace(/\n/g, "\n> ") : m.text.replace(/<\/?insert>/g, ""))).join("\n\n")); core.toast(T("ai.copied")); return menu(null); }
+      if (d.m === "delete") { talksAll = talksAll.filter((t) => t !== cur); keep(); cur = fresh(); menu(null); return drawAll(); }
+      if (d.m === "title") {
+        const m = q(".ai-menu");
+        m.innerHTML = `<input class="ai-find" type="text" value="${esc(titleOf(cur).slice(0, 80))}" aria-label="${esc(T("ai.menu.title"))}" spellcheck="false">`;
+        const input = m.querySelector("input");
+        input.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter") { ev.preventDefault(); cur.title = input.value.trim().slice(0, 80); keep(); menu(null); drawAll(); } else if (ev.key === "Escape") { ev.preventDefault(); menu(null); } });
+        setTimeout(() => { input.focus(); input.select(); }, 0);
+        return;
+      }
+      if (d.copyall != null) { const m = cur.messages[Number(d.copyall)]; if (m) { core.copy(m.text.replace(/<\/?insert>/g, "").trim()); core.toast(T("ai.copied")); } return; }
+      const which = d.put || d.copy;
       if (which) {
-        const [i, n] = which.split(":").map(Number), m = talk()[i], piece = m && parts(m.text).filter((p) => p.insert != null && !p.open)[n];
+        const [i, n] = which.split(":").map(Number), m = cur.messages[i], piece = m && parts(m.text).filter((p) => p.insert != null && !p.open)[n];
         if (!piece) return;
-        if (b.dataset.put) put(piece.insert); else { core.copy(piece.insert.trim()); core.toast(T("ai.copied")); }
+        if (d.put) put(piece.insert); else { core.copy(piece.insert.trim()); core.toast(T("ai.copied")); }
       }
     });
-    field.addEventListener("input", fit);
+    field.addEventListener("input", () => { fit(); q(".ai-send").toggleAttribute("data-idle", !field.value.trim() && !(talking && talking.talk === cur)); });
     field.addEventListener("keydown", (e) => {
       e.stopPropagation(); // (what is typed here is not the note's, nor one of its keys)
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); say(field.value); }
-      else if (e.key === "Escape") { e.preventDefault(); Ai.chat.close(); }
+      else if (e.key === "Escape") { e.preventDefault(); if (menuFor) menu(null); else Ai.chat.close(); }
     });
-    box.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); Ai.chat.close(); } });
+    box.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (menuFor) menu(null); else Ai.chat.close(); } });
+    // pulled at its left edge, its upper edge or the corner between them: wider, higher (it stands at the lower right)
+    for (const grip of box.querySelectorAll(".ai-grip")) {
+      grip.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        const how = grip.dataset.grip, x0 = e.clientX, y0 = e.clientY, w0 = box.offsetWidth, h0 = box.offsetHeight;
+        try { grip.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test) */ }
+        box.dataset.sizing = "";
+        const move = (m) => setSize(how === "top" ? w0 : Math.min(innerWidth - 32, w0 + (x0 - m.clientX)), how === "left" ? h0 : Math.min(innerHeight - 32, h0 + (y0 - m.clientY)));
+        const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); delete box.dataset.sizing; };
+        grip.addEventListener("pointermove", move); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
+      });
+    }
   }
   Ai.chat = {
-    get open() { return !!box && !box.hidden; },
+    get open() { return !!box && !box.hidden && box.dataset.open != null; },
     toggle() { if (Ai.chat.open) Ai.chat.close(); else Ai.chat.show(); },
     show() {
       if (!core.ai.on()) return;
       if (!box) build();
+      if (!cur) cur = talksAll.find((t) => t.messages.length && Date.now() - t.at < 6 * 3600e3) || fresh(); // (the talk of a moment ago goes on; an old one is in the list)
       box.hidden = false;
       void box.offsetWidth;
       box.dataset.open = "";
       document.body.dataset.aiChat = "";
-      draw();
+      drawAll();
       fit();
       setTimeout(() => field.focus({ preventScroll: true }), 0);
     },
     close() {
       if (!box || box.hidden) return;
+      menu(null);
       delete box.dataset.open;
       delete document.body.dataset.aiChat;
-      setTimeout(() => { if (box && box.dataset.open == null) box.hidden = true; }, 220);
+      setTimeout(() => { if (box && box.dataset.open == null) box.hidden = true; }, 240);
     },
   };
   /* AI turned off in the settings: whatever was asked is dropped, the chat is shut. */
-  Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };
-  // (another note on screen: its own talk)
-  new MutationObserver(() => { if (Ai.chat.open && box.dataset.path !== pathNow()) { box.dataset.path = pathNow(); draw(); } }).observe(document.querySelector("title") || document.head, { childList: true, subtree: true, characterData: true });
+  Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; clearTimeout(pending); pending = 0; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };
+  // (another note on screen: it is the current document now)
+  let shownName = "";
+  setInterval(() => { if (!Ai.chat.open) return; const n = noteName(); if (n !== shownName) { shownName = n; drawFoot(); } }, 600);
   /* For the tests: what the chat holds. */
-  Ai.state = () => ({ open: Ai.chat.open, size: box ? box.dataset.size : null, talk: talk().map((m) => ({ ...m })), talking: !!talking, jobs: jobs.size });
+  Ai.state = () => ({ open: Ai.chat.open, width: box ? box.offsetWidth : 0, height: box ? box.offsetHeight : 0, talk: cur ? cur.messages.map((m) => ({ ...m })) : [], title: cur ? titleOf(cur) : "", talks: talksAll.length, talking: !!talking, jobs: jobs.size, doc: useDoc, extra: extra.map((c) => ({ ...c })), menu: menuFor });
 })();

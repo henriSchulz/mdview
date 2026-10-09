@@ -4311,6 +4311,16 @@
   aiShown();
   // (the note as it is written now, whatever the mode; and Markdown as the page shows it, for what Claude answers)
   const noteText = () => (mode === "active" && window.MdActive?.view?.pm ? MdActive.view.serialize(false) : mode === "edit" ? edInput.value : current ? current.text || "" : "");
+  /* The folder's notes, for what the chat may be given to read: { path, name, dir }. */
+  function folderNotes() {
+    const out = [];
+    const walk = (d, dir) => {
+      for (const n of d.notes) out.push({ path: n.real || n.path, name: String(n.title || n.name || "").replace(/\.(md|markdown)$/i, ""), dir });
+      for (const x of d.dirs) walk(x, dir ? dir + "/" + x.name : x.name);
+    };
+    if (folder) walk(folder.tree, "");
+    return out;
+  }
   const mdHtml = (text) => md.render(stripComments(String(text)), { links: {}, outline: [], depth: 1, lineOffset: 0 });
   function prefsChanged() {
     aiShown();
@@ -4395,7 +4405,7 @@
     };
     new MutationObserver(() => { clearTimeout(telling); telling = setTimeout(tell, 300); }).observe(document.body, { childList: true, subtree: true });
   }
-  window.MdView = { filesBack, boardChanged, aiDelta: (id, text) => window.MdAi && MdAi.delta(id, text), aiDone: (id, text, error) => window.MdAi && MdAi.done(id, text, error), pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  window.MdView = { filesBack, boardChanged, aiDelta: (id, text) => window.MdAi && MdAi.delta(id, text), aiDone: (id, text, error) => window.MdAi && MdAi.done(id, text, error), aiPicked: (list) => window.MdAi && MdAi.picked(list), pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
@@ -4406,7 +4416,11 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, touching, mdHtml, noteText, ai: { on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      copy: (text) => post("copy", { text }), post, touching, mdHtml, noteText,
+      // (the folder's notes, for what the chat may be given to read: { path, name, dir })
+      folderName: () => (folder ? (folder.quick ? "Quick Notes" : folder.name) : ""),
+      folderNotes,
+      ai: { on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },

@@ -63,6 +63,7 @@ pub struct Talk {
     pub system: &'static str,
     pub prompt: String,
     pub model: String, // "": claude's own
+    pub attach: Vec<PathBuf>, // files Claude is to read itself (a PDF, a picture): copied beside it, and the tool to read them given
 }
 
 /// Claude asked through the command line tool, its answer handed on as it comes. One talk for each
@@ -120,7 +121,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         // CHANNEL names the channel, and "please fail" in the question fails)
         let mut both = fake.splitn(2, "||");
         let (first, second) = (both.next().unwrap_or(""), both.next());
-        let said = if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel);
+        let said = if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
             return Err("Claude: asked to fail".into());
@@ -138,9 +139,24 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     let exe = find_claude().ok_or("The claude command was not found. Install Claude Code, or turn AI off in the settings.")?;
     let work = std::env::temp_dir().join(format!("mdview-talk-{}-{}", std::process::id(), t.channel));
     fs::create_dir_all(&work).map_err(|e| format!("Couldn't run claude: {e}"))?;
+    // (files to read: copies in its own folder, the only place its one tool may look)
+    let mut attached = Vec::new();
+    for (i, src) in t.attach.iter().take(12).enumerate() {
+        let name = format!("{}-{}", i + 1, src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "file".into()));
+        if fs::copy(src, work.join(&name)).is_ok() {
+            attached.push(name);
+        }
+    }
+    let mut prompt = t.prompt.clone();
     let mut cmd = Command::new(exe);
     // (the question on the way in, not as an argument: a note is longer than a command line may be)
-    cmd.arg("-p").arg("--system-prompt").arg(t.system).args(["--tools", ""]);
+    cmd.arg("-p").arg("--system-prompt").arg(t.system);
+    if attached.is_empty() {
+        cmd.args(["--tools", ""]);
+    } else {
+        cmd.args(["--tools", "Read", "--allowedTools", "Read", "--add-dir"]).arg(&work);
+        prompt = format!("Files the user attached lie in {}: {}. Read each of them with the Read tool before you answer.\n\n{prompt}", work.display(), attached.join(", "));
+    }
     cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "stream-json", "--include-partial-messages", "--verbose"]);
     if !t.model.is_empty() {
         cmd.arg("--model").arg(&t.model);
@@ -159,7 +175,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     let mut child = cmd.spawn().map_err(|e| format!("Couldn't run claude: {e}"))?;
     pid(Some(child.id()));
     if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(t.prompt.as_bytes());
+        let _ = stdin.write_all(prompt.as_bytes());
     }
     let err = child.stderr.take().map(|mut p| {
         std::thread::spawn(move || {
