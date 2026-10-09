@@ -505,6 +505,14 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .pb-crumb { height: 24px; padding: 0 6px; border: 0; border-radius: var(--radius-chip); background: transparent; color: inherit; font: inherit; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .pb-crumb:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
 .pb-crumb:active { background: var(--fill-pressed); }
+.pb-nav { display: inline-flex; gap: 1px; margin-right: 6px; }
+.pb-step { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-chip); background: transparent; color: inherit; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.pb-step svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pb-step[data-step="-1"] svg, .pb-step[data-step="-1"] .sf { transform: scaleX(-1); }
+.pb-step:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.pb-step:active { transform: scale(var(--press-scale, 0.97)); background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+.pb-step:disabled { opacity: 0.3; pointer-events: none; }
+#pagebar[data-bare] { margin-bottom: 0.4em; }
 .pb-sep { display: grid; place-items: center; width: 12px; height: 12px; color: var(--fg3); }
 .pb-sep svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .pb-sep .sf { font-size: 8px; }

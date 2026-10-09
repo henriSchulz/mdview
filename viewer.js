@@ -941,8 +941,24 @@
     return p;
   }
   // to another page of the note: down into one that lies on this page, or up along the way here
-  function pageGo(ids, then = null) {
+  /* Where one has been among the pages of the note on screen, in order: back and forward go along it (the buttons before
+   * the way over a page, Alt+← and Alt+→). Going to a page from anywhere else cuts off what lay ahead. */
+  let pageWalk = { path: null, list: [[]], at: 0 };
+  const walkOf = () => { if (current && pageWalk.path !== current.path) pageWalk = { path: current.path, list: [pageAt.path === current.path ? pageAt.ids : []], at: 0 }; return pageWalk; };
+  const pageCan = (by) => { if (!current || current.kind === "pdf" || mode === "edit") return false; const w = walkOf(); return w.at + by >= 0 && w.at + by < w.list.length; };
+  function pageStep(by) {
+    if (!pageCan(by)) return false;
+    const w = walkOf(), v = viewOf(current), root = v && v.root;
+    w.at += by;
+    // (a page that is gone meanwhile: as far along its way as there still is one)
+    let ids = w.list[w.at];
+    if (root) { const k = ids.findIndex((id) => !root.byId.has(id)); if (k >= 0) ids = w.list[w.at] = ids.slice(0, k); }
+    pageGo(ids, null, true);
+    return true;
+  }
+  function pageGo(ids, then = null, walked = false) {
     if (!current || current.kind === "pdf" || mode === "edit") return;
+    if (!walked) { const w = walkOf(); if (w.list[w.at].join("/") !== ids.join("/")) { w.list.length = w.at + 1; w.list.push(ids.slice()); if (w.list.length > 60) w.list.shift(); w.at = w.list.length - 1; } }
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // (what is typed is the file's first)
     pageAt = { path: current.path, ids, idx: ids.map((_id, i) => (i < pageAt.idx.length ? pageAt.idx[i] : -1)) };
     current.arriving = false;
@@ -982,11 +998,20 @@
   pagebar.id = "pagebar";
   pagebar.setAttribute("aria-label", "Pages");
   function pageBar(v, host) {
-    if (!v || !v.pageOf || v.page.id == null) { pagebar.remove(); return; }
+    // (on the note itself there is a bar only while there is a way forward again)
+    if (!v || !v.pageOf || (v.page.id == null && !pageCan(1))) { pagebar.remove(); return; }
+    const nav = `<span class="pb-nav"><button class="pb-step" type="button" data-step="-1" title="${esc(T("page.back"))}" aria-label="${esc(T("page.back"))}"${pageCan(-1) ? "" : " disabled"}>${ICON.chevron}</button><button class="pb-step" type="button" data-step="1" title="${esc(T("page.forward"))}" aria-label="${esc(T("page.forward"))}"${pageCan(1) ? "" : " disabled"}>${ICON.chevron}</button></span>`;
+    if (v.page.id == null) {
+      pagebar.innerHTML = `<div class="pb-way">${nav}</div>`;
+      pagebar.dataset.bare = "";
+      if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
+      return;
+    }
+    delete pagebar.dataset.bare;
     const way = [];
     for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
     const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
-    pagebar.innerHTML = `<div class="pb-way">` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
+    pagebar.innerHTML = `<div class="pb-way">${nav}` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
       `<input class="pb-title" type="text" aria-label="${esc(T("Page name"))}" spellcheck="false" autocomplete="off">`;
     const title = pagebar.querySelector(".pb-title");
     title.value = v.page.title;
@@ -994,7 +1019,7 @@
     title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
   }
-  pagebar.addEventListener("click", (e) => { const c = e.target.closest(".pb-crumb"); if (c) pageGo(pageAt.ids.slice(0, Number(c.dataset.depth))); });
+  pagebar.addEventListener("click", (e) => { const s = e.target.closest(".pb-step"); if (s) { pageStep(Number(s.dataset.step)); return; } const c = e.target.closest(".pb-crumb"); if (c) pageGo(pageAt.ids.slice(0, Number(c.dataset.depth))); });
   pagebar.addEventListener("keydown", (e) => {
     if (!e.target.matches(".pb-title")) return;
     e.stopPropagation();
@@ -4246,8 +4271,9 @@
       return;
     }
     if (mod && e.shiftKey && k === "g") { e.preventDefault(); focusHit(hitIdx - 1); return; }
-    if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); post("back"); return; }
-    if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); post("forward"); return; }
+    // (among the pages of the note first; then among the notes)
+    if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); if (!pageStep(-1)) post("back"); return; }
+    if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); if (!pageStep(1)) post("forward"); return; }
     if (!typing && !mod && !e.altKey && e.key === "/") { e.preventDefault(); openFind(); }
   });
 

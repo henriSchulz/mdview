@@ -251,6 +251,15 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-table.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-table.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-table.json"; } | grep -qv '^ok' ;;
+  pagenav)
+    # back and forward among the pages of a note
+    name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json
+    app 60 MDVIEW_PROBE="$D/probe-pagenav.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in deep root; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.pagenav.json ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pagenav-$v.png"; done
+    for _ in $(seq 300); do [[ -f $R/out/$name.pagenav.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.pagenav.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagenav.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   start-page)
     # the app started by itself (nothing opened before): a folder or a file, offered in the window; and a note by itself has the way to its folder
     name=m5.md; rm -rf "$R/work" "$R/state-fresh"; mkdir -p "$R/work/sub"; cp "$D/tests/fixtures/$name" "$R/work/$name"; echo '# Other' > "$R/work/Other.md"; echo '# Deep' > "$R/work/sub/Deep.md"; rm -f "$R/out/"{none,$name}.{bare,note,start}.json

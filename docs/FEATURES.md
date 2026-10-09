@@ -243,7 +243,9 @@ or the folder the settings name), so they are notes like any other everywhere el
 ### Pages in a note
 
 A note can hold pages of its own. On the page it lies on, a page is a line with its name; a click
-opens it, and it is shown alone — with the way back above it.
+opens it, and it is shown alone — with the way back above it. Before that way stand **back and
+forward** (`Alt+←`, `Alt+→`): through the pages in the order one went to them; back on the
+note itself they stay for as long as there is a way forward.
 
 <!-- page: An example page -->
 
