@@ -505,6 +505,8 @@ shut back into it.
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
   The dots of the grid are switched at the bottom right.
 - **Kept by itself**, a moment after the last stroke and whenever the board or the note is left.
+  A board changed elsewhere and brought here by a sync shows its new picture in the note at
+  once (the application looks at the folders of the boards a note shows).
 - **The file**: a board is one file where the note's pictures go, `board-….board.svg` — an SVG
   picture that any program shows, with the board's own data inside it (a line for each stroke,
   so that Git joins what two devices drew). The note names it as it names a picture:
@@ -737,8 +739,12 @@ counts — and has no writing help by a model.
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
   the block (the note goes along near its upper and lower edge). A tapped cell has the table's
-  handles. The keyboard comes up when the text itself is tapped — not when a block is chosen
-  or a menu shuts.
+  handles. A block is chosen by a swipe to the right begun beside it, in the margin left of
+  the text (wide enough for that): it is marked and keeps its handle, to be dragged by or for
+  its menu; the same swipe beside another block adds that one, beside a chosen one it lets it
+  go. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
+  when the text itself is tapped — not when a block is chosen, a menu shuts or a whiteboard is
+  left.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on

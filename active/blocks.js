@@ -79,7 +79,18 @@
     handle.dataset.on = "";
   }
   let leaving = 0;
-  function hide() { clearTimeout(leaving); if (typeof rest === "function") rest(null); over = null; delete handle.dataset.on; }
+  const COARSE = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : { matches: false };
+  /* Under a finger, blocks that are chosen keep their handle: there it is the way to drag them and to their menu.
+   * -> whether there are any (and the handle stands with them) */
+  function showHeld() {
+    if (!COARSE.matches || !view || typeof pickedOf !== "function" || !selOf(view.state)) return false;
+    const els = pickedOf(view.state).map((x) => view.nodeDOM(x.pos)).filter((d) => d && d.nodeType === 1);
+    if (!els.length) return false;
+    clearTimeout(leaving); if (typeof rest === "function") rest(null);
+    if (els.length > 1) placeGroup(els, els[0]); else place(els[0]);
+    return true;
+  }
+  function hide() { if (showHeld()) return; clearTimeout(leaving); if (typeof rest === "function") rest(null); over = null; delete handle.dataset.on; }
   // the pointer left the block: the handle stays long enough to be reached across the gap beside the text
   function hideSoon() { clearTimeout(leaving); leaving = setTimeout(() => { if (!handle.matches(":hover") && !handle.hasAttribute("data-dragging")) hide(); }, 350); }
 
@@ -1383,7 +1394,7 @@
   });
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -1523,6 +1534,43 @@
     }, 60);
   }, true);
   let tapped = -1e9;
+  /* Under a finger a block is chosen by a swipe to the right, begun beside it in the margin left of the text: it is marked, its
+   * handle stands by it and stays. The same swipe beside another block adds that one; beside a chosen block it lets that one go
+   * (as a swipe to the left does). Up and down the margin moves the note, as everywhere. */
+  {
+    let sw = null;
+    const beside = (x, y) => { const pm = view.dom.getBoundingClientRect(); return x > pm.left + 6 || y < pm.top || y > pm.bottom ? null : inner(blockAtY(view.dom, y, 6), y); };
+    const mine = (e) => sw && [...e.changedTouches].find((t) => t.identifier === sw.id);
+    document.addEventListener("touchstart", (e) => {
+      sw = null;
+      if (!view || !view.editable || document.body.dataset.view !== "active" || e.touches.length !== 1 || drag || rubber) return;
+      // (by where the finger is, not by what the browser says it touched: beside the margin lie things made to be met — the
+      // sidebar's edge, the handle — and a browser hands a touch that is near one of them to it)
+      const t = e.touches[0], hit = document.elementFromPoint(t.clientX, t.clientY);
+      if (!hit || !hit.closest("#active") || hit.closest(CHROME)) return;
+      const el = beside(t.clientX, t.clientY);
+      if (el && el.pmViewDesc) sw = { id: t.identifier, x: t.clientX, y: t.clientY, el, side: 0, done: false };
+    }, { capture: true, passive: true });
+    document.addEventListener("touchmove", (e) => {
+      const t = mine(e);
+      if (!t) return;
+      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      if (!sw.side) {
+        if (Math.hypot(dx, dy) < 10) return;
+        if (Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // (up or down: the note is moved)
+        sw.side = Math.sign(dx);
+      }
+      if (e.cancelable) e.preventDefault();
+      if (sw.done || Math.abs(dx) < 28 || !sw.el.isConnected || !sw.el.pmViewDesc) return;
+      sw.done = true;
+      const pos = sw.el.pmViewDesc.posBefore, has = pickedOf(view.state).some((x) => x.pos === pos);
+      if (sw.side < 0 && !has) return; // (to the left: only lets a chosen block go)
+      if (has || selOf(view.state)) toggle(view, pos); else selectBlock(view, pos, false);
+      view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
+      if (!showHeld()) hide();
+    }, { capture: true, passive: false });
+    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => { if (mine(e)) sw = null; }, { capture: true, passive: true });
+  }
   /* A finger on the handle that moves: the block is dragged — the drag a mouse has (above), handed on by hand, since a tablet's
    * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge. */
   {

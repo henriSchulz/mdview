@@ -159,6 +159,10 @@
     ok("its picture in the note shows what was drawn", !!sizeNow && sizeNow[0] > 250 && sizeNow[1] > 150, sizeNow);
     out("closed", {});
     await sleep(500);
+    // the board's file changed from outside (as a sync brings what was drawn elsewhere): its picture in the note is made anew
+    const shownWas = blockImg().src;
+    out("outside", {});
+    ok("the board's file changed by someone else: its picture in the note is made anew", await until(() => blockImg() && blockImg().src !== shownWas && blockImg().complete && blockImg().naturalWidth > 0, 8000), [shownWas.slice(0, 30), blockImg() && blockImg().src.slice(0, 30)]);
 
     // ---- opened again, from both views
     blockImg().dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));

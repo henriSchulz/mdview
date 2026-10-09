@@ -399,6 +399,7 @@ pub struct Win {
     watcher: Option<notify::RecommendedWatcher>,
     watched: HashSet<PathBuf>,   // every directory the watcher looks at
     dir_watch: HashSet<PathBuf>, // … for the folder's tree
+    board_dirs: HashSet<PathBuf>, // … where the whiteboards the note shows are kept (their pictures are made anew when they change)
     rescan_turn: u64,
     reload_turn: u64,
     close_turn: u64,
@@ -1145,6 +1146,7 @@ impl Win {
             watcher,
             watched: HashSet::new(),
             dir_watch: HashSet::new(),
+            board_dirs: HashSet::new(),
             rescan_turn: 0,
             reload_turn: 0,
             close_turn: 0,
@@ -1325,6 +1327,7 @@ impl Win {
         let Some(watcher) = self.watcher.as_mut() else { return };
         let mut want = self.dir_watch.clone();
         want.extend(self.path.as_deref().map(dir_of));
+        want.extend(self.board_dirs.iter().cloned());
         for gone in self.watched.difference(&want) {
             let _ = watcher.unwatch(gone);
         }
@@ -1335,6 +1338,10 @@ impl Win {
     }
 
     fn on_fs(&mut self, app: &mut App, paths: &[PathBuf]) {
+        // a whiteboard's file changed (drawn on elsewhere and brought here by a sync): the page shows its picture anew
+        for p in paths.iter().filter(|p| is_board(p) && p.is_file()) {
+            self.js("MdView.boardChanged", &[json!(s(p))]);
+        }
         if self.path.as_ref().is_some_and(|p| paths.contains(p)) {
             // Editors save by delete + rename; wait for the dust to settle.
             self.reload_turn += 1;
@@ -2555,6 +2562,11 @@ impl Win {
             "board-paste" => self.board_paste(app, text_of("path"), &msg["id"]),
             "board-drop" => self.board_drop(text_of("path"), &msg["uris"], &msg["id"]),
             "board-pick" => self.board_pick(app, text_of("path"), &msg["id"]),
+            "board-watch" => {
+                // the whiteboards the note shows: their folders are looked at (no more than a few, and only where a board is)
+                self.board_dirs = msg["paths"].as_array().map(Vec::as_slice).unwrap_or_default().iter().filter_map(Value::as_str).map(|p| resolve(Path::new(p))).filter(|p| is_board(p) && p.is_file()).map(|p| dir_of(&p)).take(8).collect();
+                self.watch();
+            }
             "pdfdata" => {
                 let id = match &msg["id"] {
                     Value::String(t) => t.clone(),

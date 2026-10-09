@@ -129,6 +129,18 @@
     img.dataset.board = ref;
     img.src = urls.get(ref);
   }
+  /* The board's file was changed by someone else — drawn on elsewhere, and brought here by a sync: its picture in the note is made
+   * from what the file holds now. (What was written here is known, and changes nothing; a board that is open is its own business.) */
+  let changing = 0;
+  B.fileChanged = (ref) => {
+    if (S && S.ref === ref) return;
+    clearTimeout(changing); // (a file is written in steps: read once it is whole)
+    changing = setTimeout(async () => {
+      const [text] = await ask("board-read", { path: ref });
+      if (typeof text !== "string" || !text.includes("</svg>") || text === kept.get(ref) || (S && S.ref === ref)) return;
+      remember(ref, text);
+    }, 250);
+  };
   function remember(ref, text) {
     kept.set(ref, text);
     const old = urls.get(ref);
@@ -149,6 +161,7 @@
 
   // ---------------------------------------------------------------- the window
   let el = null, S = null, hands = null, space = false, sel = null;
+  let fast = false, inkAt = null, slideFrame = 0, rested = 0; // (the board going under the hand: viewMoved, below)
   /* Where the tray lies: along an edge of the window; mini: shrunk into a corner (tl, tr, bl, br), a round sign of the tool in hand. */
   const tray = { edge: "right", mini: null }; // (at the right edge, upright, until it is pulled elsewhere)
   function trayPlaced(keep = true) {
@@ -353,8 +366,8 @@
       }, twist: (points) => mine() && sel.twist(points), twisting: (deg) => sel.twisting(deg), twisted: () => sel.twisted(),
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
-      pan: (dx, dy) => S && S.view.panBy(dx, dy),
-      zoom: (f, cx, cy) => S && S.view.zoomAt(cx, cy, S.view.z * f) });
+      pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
+      zoom: (f, cx, cy) => { if (S) { fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } } });
   }
   function boundsOf(items) {
     let b = null;
@@ -365,11 +378,40 @@
     return b;
   }
   const bounds = () => boundsOf(S.model.items);
+  /* The board moved or sized under the hand (fingers, a wheel): drawing all its ink anew for every step of the way is what a
+   * tablet cannot keep up with. So the ink as it was drawn last is moved and sized as a picture, once a frame, with the things on
+   * the board and the dots; it is drawn anew when the hand has come to rest. (Anything else that changes the view draws at once.) */
+  function viewMoved() {
+    if (!S) return;
+    if (!fast || !inkAt || S.ruler) return paint();
+    if (!slideFrame) slideFrame = requestAnimationFrame(slide);
+    clearTimeout(rested);
+    rested = setTimeout(() => { if (S) paint(); }, 140);
+  }
+  function grid(v, st) {
+    // the dots: every 20 of the board's pixels; fewer of them the smaller the board is shown, so they never crowd
+    const every = v.z < 0.25 ? 4 : v.z < 0.5 ? 2 : 1, gap = 20 * every * v.z;
+    st.style.backgroundSize = `${gap}px ${gap}px`;
+    st.style.backgroundPosition = `${-v.x * v.z - gap / 2}px ${-v.y * v.z - gap / 2}px`;
+  }
+  function slide() {
+    slideFrame = 0;
+    if (!S || !inkAt) return;
+    const v = S.view;
+    el.querySelector(".bd-ink").style.transform = `translate(${(inkAt.x - v.x) * v.z}px, ${(inkAt.y - v.y) * v.z}px) scale(${v.z / inkAt.z})`;
+    el.querySelector(".bd-world").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
+    grid(v, stage());
+    el.querySelector('[data-do="zoom"]').textContent = Math.round(v.z * 100) + " %";
+    if (S.pick.length) sel.paint();
+  }
   /* Everything the window shows, from what is so. */
   function paint() {
     if (!S) return;
+    clearTimeout(rested); cancelAnimationFrame(slideFrame); slideFrame = 0;
     const v = S.view, st = stage(), s = size();
     B.ink.draw(el.querySelector(".bd-ink"), S.model.items, v, s, auto(), null);
+    inkAt = { x: v.x, y: v.y, z: v.z };
+    el.querySelector(".bd-ink").style.transform = "";
     B.items.relink(S.model.items); // (lines joined to items: their ends where the items are now)
     el.querySelector('[data-do="connect"]').setAttribute("aria-pressed", String(!!S.connect && S.mode === "select"));
     const world = el.querySelector(".bd-world");
@@ -377,11 +419,8 @@
     B.layer.sync(world, S.model.items, sel.editing, sel.cell);
     el.dataset.mode = S.readonly ? "look" : S.mode;
     sel.paint();
-    // the dots: every 20 of the board's pixels; fewer of them the smaller the board is shown, so they never crowd
-    const every = v.z < 0.25 ? 4 : v.z < 0.5 ? 2 : 1, gap = 20 * every * v.z;
     st.toggleAttribute("data-grid", S.model.board.grid);
-    st.style.backgroundSize = `${gap}px ${gap}px`;
-    st.style.backgroundPosition = `${-v.x * v.z - gap / 2}px ${-v.y * v.z - gap / 2}px`;
+    grid(v, st);
     el.querySelector('[data-do="zoom"]').textContent = Math.round(v.z * 100) + " %";
     const scenes = S.model.scenes.length;
     for (const d of ["prev", "next"]) el.querySelector(`[data-do="${d}"]`).hidden = !scenes;
@@ -1029,7 +1068,8 @@
     if (S || !B.isBoard(img)) return false;
     const ref = refOf(img), cur = core.current || {};
     if (!el) build();
-    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, paint), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
+    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
+    inkAt = null;
     core.lockScroll(true);
     post("board-open", { on: true });
     el.setAttribute("aria-label", T("board.name"));
@@ -1091,14 +1131,16 @@
     const img = [...document.querySelectorAll("#content img, #active img")].find((i) => i.offsetParent && refOf(i) === s.ref) || s.img;
     el.style.transform = place(fromRect(img));
     setTimeout(done, 400);
-    if (img && img.isConnected) img.closest("[tabindex], .pm, body")?.focus?.({ preventScroll: true });
+    // (the note has the keys again — but not after a finger's tap: the note's focus would bring a tablet's keyboard up)
+    if (img && img.isConnected && !(core.touching && core.touching())) img.closest("[tabindex], .pm, body")?.focus?.({ preventScroll: true });
+    else if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur?.();
   };
   /* The note under the board is being left, or the window closed: what is unsaved goes to the host now. */
   B.leave = () => B.close(true);
   B.pinch = (phase, scale) => {
     if (!S) return;
     if (phase === "begin") S.pinch = S.view.z;
-    else if (S.pinch) { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, S.pinch * scale); }
+    else if (S.pinch) { const s = size(); fast = true; S.view.zoomAt(s.w / 2, s.h / 2, S.pinch * scale); fast = false; }
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */

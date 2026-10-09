@@ -1252,3 +1252,11 @@ body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(-
 .gr-board .gr-change [data-go="draw"] { margin-left: auto; }
 .gr-change-in[hidden], .gr-change button[hidden] { display: none; }
 @media (max-width: 640px) { .gr-pair { grid-template-columns: minmax(0, 1fr); } .gr-arrow { justify-self: center; rotate: 90deg; } .gr-from img { max-height: 24vh; } }
+
+/* under a finger: room beside the text to begin a swipe in (a block is chosen by one), in both modes alike; and what a block
+ * shows that is not text to be typed in — a formula, a diagram, a card — is not selected by a finger that rests on it */
+@media (pointer: coarse) {
+  #active, #content { padding-left: 64px; }
+  .pm .isl, .pm .isl :not(input, textarea, [contenteditable], [contenteditable] *), .pm .im, .pm .im *, .pm .ia, #content .katex, #content .katex *, #content .mermaid-block, #content .svg-block { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}
+@media (pointer: coarse) and (max-width: 640px) { #active, #content { padding-left: 44px; } }

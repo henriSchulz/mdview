@@ -3640,7 +3640,7 @@
    * the touch is handed on as the mouse's press, moves and release, and the browser's own are left out. */
   // (an app, not a page: two fingers do not make the window's whole content larger — Safari asks with events of its own, and
   // does not heed what the page's head says; what is meant to be pinched, a whiteboard, a PDF, takes the fingers itself)
-  if (matchMedia("(pointer: coarse)").matches) for (const type of ["gesturestart", "gesturechange"]) document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) for (const type of ["gesturestart", "gesturechange"]) document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
   let touchedAt = -1e9;
   addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
   const touching = () => performance.now() - touchedAt < 1200;
@@ -3650,11 +3650,12 @@
     const mouse = (type, t, target, buttons) => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons, clientX: t.clientX, clientY: t.clientY, screenX: t.screenX, screenY: t.screenY }));
     const under = (t) => document.elementFromPoint(t.clientX, t.clientY) || document.body;
     addEventListener("touchstart", (e) => {
-      const grip = e.touches.length === 1 && e.target.closest?.(GRIPS);
-      if (!grip) { pulled = null; return; }
-      const t = e.touches[0];
+      // (what lies under the finger, not what the browser took the touch for: it hands one that is near a thing made to be met
+      // to that thing, and the note's margin beside the sidebar's edge is a place of its own)
+      const t = e.touches.length === 1 ? e.touches[0] : null, hit = t && document.elementFromPoint(t.clientX, t.clientY);
+      if (!hit || !hit.closest(GRIPS)) { pulled = null; return; }
       pulled = { id: t.identifier, moved: false };
-      mouse("mousedown", t, e.target, 1);
+      mouse("mousedown", t, hit, 1);
     }, { capture: true, passive: true });
     addEventListener("touchmove", (e) => {
       const t = pulled && [...e.changedTouches].find((x) => x.identifier === pulled.id);
@@ -4347,7 +4348,19 @@
   document.addEventListener("keydown", hideTip, true);
   window.addEventListener("blur", hideTip);
   prefsChanged(); // (a new window: the settings it was given — the note's size, the column's width)
-  window.MdView = { filesBack, pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
+  // a whiteboard's file changed on the disk (the shell says so): where the note shows it, its picture is made anew
+  const boardChanged = (path) => { const name = String(path).split("/").pop(); if ([...document.querySelectorAll("#content img, #active img")].some((i) => (i.dataset.board || decodeURIComponent(i.src)).endsWith(name))) loadBoard().then(() => window.MdBoard.fileChanged(String(path))).catch(() => {}); };
+  // (the application is told which whiteboards the note shows, so that it looks at their folders: the desktop only — a browser has no files)
+  if (typeof (window.MdHost || {}).drop !== "function") {
+    let told = "", telling = 0;
+    const tell = () => {
+      const base = String((window.MdHost || {}).files || "");
+      const paths = [...new Set([...document.querySelectorAll("#content .board-block img, #active .board-block img")].map((i) => { const src = String(i.dataset.board || "") || (i.src.startsWith(base + "/") ? decodeURIComponent(i.src.slice(base.length).split(/[?#]/)[0]) : ""); return src; }).filter(Boolean))].sort();
+      if (paths.join("\n") !== told) { told = paths.join("\n"); post("board-watch", { paths }); }
+    };
+    new MutationObserver(() => { clearTimeout(telling); telling = setTimeout(tell, 300); }).observe(document.body, { childList: true, subtree: true });
+  }
+  window.MdView = { filesBack, boardChanged, pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way

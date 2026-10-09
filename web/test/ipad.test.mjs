@@ -123,6 +123,28 @@ for (const name of ["ipad", "ipadUp"]) {
     assert.equal(await p.evaluate(() => MdActive.menu.isOpen), false, "… and that was no tap on the handle");
     await p.evaluate(() => { const v = MdActive.view.pm; PM.history.undo(v.state, v.dispatch); });
     await p.waitForTimeout(300);
+    // a swipe to the right, begun in the margin beside a block: the block is chosen, and its handle stays
+    const count = () => p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).length);
+    await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atStart(v.state.doc))); document.activeElement.blur(); scrollTo(0, 0); });
+    await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+    const kids = await p.evaluate(() => [...document.querySelectorAll("#active .pm > *")].filter((e) => /^(H1|P)$/.test(e.tagName)).slice(0, 2).map((e) => { const r = e.getBoundingClientRect(), pm = document.querySelector("#active .pm").getBoundingClientRect(); return { y: r.top + Math.min(r.height / 2, 14), left: pm.left }; }));
+    assert.ok(kids[0].left >= 60, `room beside the text to begin a swipe in: ${kids[0].left}`);
+    // up and down the margin: the note moves, nothing is chosen
+    await pull([kids[0].left - 30, kids[0].y], [kids[0].left - 26, kids[0].y + 60]);
+    assert.equal(await count(), 0, "a finger moving down the margin chooses nothing");
+    await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(200);
+    await pull([kids[0].left - 34, kids[0].y], [kids[0].left + 50, kids[0].y + 4]);
+    let hh = await p.evaluate(() => document.querySelector(".blk-h").hasAttribute("data-on"));
+    assert.deepEqual([await count(), hh, await p.evaluate(() => MdActive.view.pm.hasFocus())], [1, true, false], "a swipe to the right beside a block chooses it; its handle stands by it, no keyboard");
+    await p.evaluate(() => scrollBy(0, 30)); await p.waitForTimeout(250); await p.evaluate(() => scrollBy(0, -30)); await p.waitForTimeout(250);
+    assert.equal(await p.evaluate(() => document.querySelector(".blk-h").hasAttribute("data-on")), true, "… and stays while the note is moved");
+    await pull([kids[1].left - 34, kids[1].y], [kids[1].left + 50, kids[1].y + 4]);
+    assert.equal(await count(), 2, "the same swipe beside another block adds it");
+    await pull([kids[0].left - 58, kids[0].y], [kids[0].left + 30, kids[0].y + 2]);
+    assert.equal(await count(), 1, "the swipe beside a chosen block lets it go");
+    await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+    // a formula, a diagram: a finger resting on it selects nothing
+    assert.deepEqual(await p.evaluate(() => { const isl = document.querySelector("#active .pm .isl"); return isl ? getComputedStyle(isl).userSelect : "none"; }), "none");
     // a table: a tap on a cell
     const cell = await p.evaluate(() => { const e = document.querySelector("#active .pm .table-wrap td"); if (!e) return null; e.scrollIntoView({ block: "center" }); return true; });
     assert.ok(cell, "the note has a table");

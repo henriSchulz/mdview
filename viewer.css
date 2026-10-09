@@ -1389,7 +1389,7 @@ body[data-linked] .sb-sync { display: grid; }
   button, a, [role="button"], .sb-row, .tab, .menu-item, .tb { touch-action: manipulation; }
   input[type="text"], input[type="search"], input[type="url"], input[type="email"], input[type="password"], input:not([type]), textarea, select { font-size: 16px !important; } /* (whatever a field's own rule says) */
   #sb-grip { width: 22px; touch-action: none; }
-  body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 11px); width: 22px; }
+  body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 18px); width: 22px; } /* (over the sidebar's side: the note's margin beside it is where a swipe chooses a block) */
   .code-tools .btn { min-height: 36px; }
 }
 

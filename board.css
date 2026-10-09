@@ -401,3 +401,6 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 #board[data-palette="left"] .bd-tsize, #board[data-palette="right"] .bd-tsize { grid-column: auto; order: 0; }
 #board[data-palette="left"][data-tray="shape"] .bd-sizes, #board[data-palette="right"][data-tray="shape"] .bd-sizes { grid-template-columns: repeat(2, auto); }
 .bd-palette .bd-btn, .bd-palette .bd-well { flex: none; }
+
+/* (the ink, moved and sized as a picture while the board goes under the hand: board.js, slide) */
+.bd-ink { transform-origin: 0 0; }
