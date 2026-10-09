@@ -89,3 +89,16 @@ With `?hud` the page says what the pointer tells it: its kind, samples a second 
 browser bundled counted in), pressure, tilt, whether bundled and foreseen samples are handed
 over, whether a pen's hovering is told of. That is what there is to read off a device; how far
 the ink trails the tip is for the eye.
+
+## On Windows
+
+The rig runs on Linux. On Windows the app is started on GitHub's machine instead
+(`.github/workflows/system-probe.yml`, by hand): an installer a Build run made is installed, or
+this checkout is built; the app opens a note with `dev/probe-windows.js` in its page, and
+`dev/system-probe.ps1` types a path into the system's own windows (a picture to insert, a folder
+to open). The page's report and pictures of the screen are the run's log and artifact.
+
+```sh
+gh workflow run system-probe.yml -f run=<the Build run's number>     # an installer, tried
+gh workflow run system-probe.yml                                      # this checkout only
+```

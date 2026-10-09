@@ -1,0 +1,55 @@
+# The app started with dev/probe-windows.js in its page (see .github/workflows/system-probe.yml):
+#   pwsh dev/system-probe.ps1 -Exe path\to\mdview.exe [-Assets checkout]
+# The probe asks for the system's own windows (a picture to insert, a folder to open); this types
+# the path into each and reports which windows there were. Everything lands in .\out.
+param([string]$Exe, [string]$Assets = "", [string]$Tag = "run")
+$ErrorActionPreference = "Continue"
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing, Microsoft.VisualBasic
+Add-Type @"
+using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
+public class Wins {
+  delegate bool Each(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] static extern bool EnumWindows(Each f, IntPtr l);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  public static List<string> All() { var o = new List<string>(); EnumWindows((h, l) => { if (IsWindowVisible(h)) { var t = new StringBuilder(256); var c = new StringBuilder(256); GetWindowText(h, t, 256); GetClassName(h, c, 256); uint pid; GetWindowThreadProcessId(h, out pid); if (t.Length > 0) o.Add(h + "|" + pid + "|" + c + "|" + t); } return true; }, IntPtr.Zero); return o; }
+}
+"@
+function Shot($name) { $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height; [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $bmp.Save("$PWD\out\$Tag-$name.png") }
+function Windows-Of($procId) { [Wins]::All() | Where-Object { $_.Split("|")[1] -eq "$procId" } }
+function Answer($title, $path, $procId) {
+  # the system's window: found by its title, brought to the front, the path typed into it
+  Start-Sleep 3
+  "---- windows of the app after asking for '$title':"; Windows-Of $procId
+  $w = [Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title } | Select-Object -First 1
+  Shot "asked-$($title -replace ' ', '-')"
+  if (-not $w) { "!! no window titled '$title'"; return }
+  [Wins]::SetForegroundWindow([IntPtr][long]$w.Split("|")[0]) | Out-Null
+  Start-Sleep 1
+  [System.Windows.Forms.SendKeys]::SendWait($path); Start-Sleep 1
+  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2
+  if ([Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title }) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
+  Shot "answered-$($title -replace ' ', '-')"
+}
+New-Item -ItemType Directory -Force out | Out-Null
+Remove-Item out\*.json -ErrorAction SilentlyContinue
+$env:MDVIEW_PROBE = "$PWD\probe.js"; $env:MDVIEW_PROBE_OUT = "$PWD\out"; $env:MDVIEW_DEBUG = "1"; $env:MDVIEW_NO_KEYRING = "1"
+if ($Assets) { $env:MDVIEW_ASSETS = $Assets } else { Remove-Item Env:MDVIEW_ASSETS -ErrorAction SilentlyContinue }
+"==== $Tag : $Exe"
+$p = Start-Process -FilePath $Exe -ArgumentList "`"$PWD\work\Note.md`"" -PassThru -RedirectStandardError "$Tag.err.log" -RedirectStandardOutput "$Tag.out.log"
+$wait = { param($file, $secs) for ($i = 0; $i -lt $secs -and -not (Test-Path "out\Note.md.$file.json"); $i++) { Start-Sleep 1 }; Test-Path "out\Note.md.$file.json" }
+if (-not (& $wait "windows" 90)) { "!! the page reported nothing"; Shot "silent"; "---- windows:"; [Wins]::All() }
+else {
+  Shot "note"
+  if (& $wait "asked-picture" 30) { Answer "Insert Picture" "$PWD\outside\second.png" $p.Id; & $wait "picture" 40 | Out-Null }
+  if (& $wait "asked-folder" 40) { Answer "Open Folder" "$PWD\work\sub" $p.Id; & $wait "folder" 40 | Out-Null }
+  Shot "end"
+}
+"---- windows of the app at the end:"; Windows-Of $p.Id
+if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+Get-ChildItem out\*.json | ForEach-Object { "==== $($_.Name)"; Get-Content $_; Copy-Item $_ "out\$Tag-$($_.Name)" }
+"==== stderr"; Get-Content "$Tag.err.log" -ErrorAction SilentlyContinue | Select-Object -Last 30
+"==== the note's folder"; Get-ChildItem -Recurse work | ForEach-Object { $_.FullName }

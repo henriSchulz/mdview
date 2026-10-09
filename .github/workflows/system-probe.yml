@@ -1,0 +1,91 @@
+# The app started on a system the rig does not run on, with dev/probe-windows.js in its page: what
+# it reports (where the page is served from, its colours, a picture beside a note, a file handed
+# over, the system's own windows for a picture and a folder) is the run's log and artifact.
+# Twice: an installer a Build run made, as someone who downloads it has it (give the run's number —
+# the one in its address); and this checkout, built. Run by hand: Actions › System probe › Run
+# workflow, or  gh workflow run system-probe.yml -f run=<number>.
+# (Before a Windows installer goes into a release, it is tried here.)
+name: System probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "The Build run whose Windows installer is tried (none: only this checkout, built)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  released:
+    name: the released installer
+    if: inputs.run != ''
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The installer of the release's run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ inputs.run }}" -n markdown-notes-windows-x86_64 -D installer
+          Get-ChildItem -Recurse installer | ForEach-Object { $_.FullName }
+          $setup = Get-ChildItem -Recurse installer -Filter *.exe | Select-Object -First 1
+          Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait
+          Start-Sleep 5
+          $exe = Get-ChildItem -Recurse -ErrorAction SilentlyContinue -Include "mdview.exe", "Markdown Notes.exe" -Path "$env:LOCALAPPDATA", "$env:ProgramFiles" -Depth 3 | Select-Object -First 1
+          "installed: $($exe.FullName)"; Get-ChildItem -Recurse $exe.DirectoryName -Depth 2 | Select-Object -First 60 | ForEach-Object { $_.FullName }
+          "EXE=$($exe.FullName)" | Out-File -Append $env:GITHUB_ENV
+      - name: Notes to open
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force work, work\sub, outside | Out-Null
+          Copy-Item dev\tests\tauri-check\bild.png work\pic.png; Copy-Item dev\tests\tauri-check\bild.png outside\photo.png; Copy-Item dev\tests\tauri-check\bild.png outside\second.png
+          Set-Content -Encoding utf8 work\Note.md "# A note`n`nText with a [link](sub/Deep.md).`n`n![a picture](pic.png)`n`nLast paragraph.`n"
+          Set-Content -Encoding utf8 work\sub\Deep.md "# Deep`n`ntext`n"
+          Set-Content -Encoding utf8 probe.js ("window.__probePicture = " + (([System.Uri]("$PWD\outside\photo.png")).AbsoluteUri | ConvertTo-Json) + ";")
+          Get-Content dev\probe-windows.js | Add-Content -Encoding utf8 probe.js
+      - name: The app, asked
+        shell: pwsh
+        run: ./dev/system-probe.ps1 -Exe "$env:EXE" -Tag released
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: system-probe-released
+          path: |
+            out
+            *.log
+  built:
+    name: this checkout, built
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Build
+        working-directory: src-tauri
+        run: cargo build --locked
+      - name: Notes to open
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force work, work\sub, outside | Out-Null
+          Copy-Item dev\tests\tauri-check\bild.png work\pic.png; Copy-Item dev\tests\tauri-check\bild.png outside\photo.png; Copy-Item dev\tests\tauri-check\bild.png outside\second.png
+          Set-Content -Encoding utf8 work\Note.md "# A note`n`nText with a [link](sub/Deep.md).`n`n![a picture](pic.png)`n`nLast paragraph.`n"
+          Set-Content -Encoding utf8 work\sub\Deep.md "# Deep`n`ntext`n"
+          Set-Content -Encoding utf8 probe.js ("window.__probePicture = " + (([System.Uri]("$PWD\outside\photo.png")).AbsoluteUri | ConvertTo-Json) + ";")
+          Get-Content dev\probe-windows.js | Add-Content -Encoding utf8 probe.js
+      - name: The app, asked
+        shell: pwsh
+        run: ./dev/system-probe.ps1 -Exe "src-tauri\target\debug\mdview.exe" -Assets "$PWD" -Tag built
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: system-probe-built
+          path: |
+            out
+            *.log

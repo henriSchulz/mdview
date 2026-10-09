@@ -3,9 +3,11 @@
 #   a tag v…      (git tag v0.2.0 && git push origin v0.2.0)  -> a release of that name, with the installers
 #   by hand        (Actions › Build › Run workflow)             -> the installers as the run's artifacts
 #
-# Linux is what the app is written and tested on. Windows and macOS are tried: where they do not
-# build, the run goes on without them — and what they build is the run's artifact only, not a
-# file of the release: an installer nobody has started, unsigned, is not offered for download.
+# Linux is what the app is written and tested on. Windows is built with it and is a file of the
+# release too: its installer is started and asked on GitHub's Windows (system-probe.yml) — it is
+# not signed, so Windows warns before it runs. macOS is tried: where it does not build, the run
+# goes on without it — and what it builds is the run's artifact only, not a file of the release:
+# an installer nobody has started, unsigned, is not offered for download.
 name: Build
 
 on:
@@ -25,7 +27,7 @@ jobs:
         include:
           - { name: linux-x86_64, runner: ubuntu-22.04, bundles: "deb,rpm,appimage", tried: false }
           - { name: linux-aarch64, runner: ubuntu-22.04-arm, bundles: "deb,rpm,appimage", tried: false }
-          - { name: windows-x86_64, runner: windows-latest, bundles: "nsis", tried: true }
+          - { name: windows-x86_64, runner: windows-latest, bundles: "nsis", tried: false }
           - { name: macos-aarch64, runner: macos-latest, bundles: "dmg", tried: true }
     runs-on: ${{ matrix.runner }}
     continue-on-error: ${{ matrix.tried }}
