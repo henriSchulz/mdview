@@ -24,17 +24,24 @@ public class Wins {
 function Shot($name) { $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height; [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $bmp.Save("$PWD\out\$Tag-$name.png") }
 function Windows-Of($procId) { [Wins]::All() | Where-Object { $_.Split("|")[1] -eq "$procId" } }
 function Answer($title, $path, $procId) {
-  # the system's window: found by its title, brought to the front, the path typed into it
-  Start-Sleep 3
+  # the system's window: found by its title, brought to the front, the path typed into it — again, should it still be there
+  # (a window that is not in front yet takes no keys: the first try is not always the one that counts)
+  Start-Sleep 4
   "---- windows of the app after asking for '$title':"; Windows-Of $procId
-  $w = [Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title } | Select-Object -First 1
+  $there = { [Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title } | Select-Object -First 1 }
   Shot "asked-$($title -replace ' ', '-')"
-  if (-not $w) { "!! no window titled '$title'"; return }
-  [Wins]::SetForegroundWindow([IntPtr][long]$w.Split("|")[0]) | Out-Null
-  Start-Sleep 1
-  [System.Windows.Forms.SendKeys]::SendWait($path); Start-Sleep 1
-  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2
-  if ([Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title }) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
+  if (-not (& $there)) { "!! no window titled '$title'"; return }
+  $shell = New-Object -ComObject WScript.Shell
+  for ($try = 1; $try -le 5 -and (& $there); $try++) {
+    $w = & $there
+    [Wins]::SetForegroundWindow([IntPtr][long]$w.Split("|")[0]) | Out-Null
+    $shell.AppActivate($title) | Out-Null
+    Start-Sleep 1
+    [System.Windows.Forms.SendKeys]::SendWait($path); Start-Sleep 1
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2
+    if (& $there) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
+    "     try ${try}: the window is $(if (& $there) { 'still there' } else { 'gone' })"
+  }
   Shot "answered-$($title -replace ' ', '-')"
 }
 if ($Setup) {
@@ -55,8 +62,8 @@ $wait = { param($file, $secs) for ($i = 0; $i -lt $secs -and -not (Test-Path "ou
 if (-not (& $wait "windows" 90)) { "!! the page reported nothing"; Shot "silent"; "---- windows:"; [Wins]::All() }
 else {
   Shot "note"
-  if (& $wait "asked-picture" 30) { Answer "Insert Picture" "$PWD\outside\second.png" $p.Id; & $wait "picture" 40 | Out-Null }
-  if (& $wait "asked-folder" 40) { Answer "Open Folder" "$PWD\work\sub" $p.Id; & $wait "folder" 40 | Out-Null }
+  if (& $wait "asked-picture" 30) { Answer "Insert Picture" "$PWD\outside\second.png" $p.Id; & $wait "picture" 70 | Out-Null }
+  if (& $wait "asked-folder" 80) { Answer "Open Folder" "$PWD\work\sub" $p.Id; & $wait "folder" 70 | Out-Null }
   Shot "end"
 }
 "---- windows of the app at the end:"; Windows-Of $p.Id

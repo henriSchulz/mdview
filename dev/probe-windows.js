@@ -52,14 +52,14 @@
       const V = MdActive.view, before = V.serialize(false);
       MdActive.context.INSERT.image(V.pm);
       out("asked-picture", {});
-      const got = await until(() => V.serialize(false) !== before, 30000);
+      const got = await until(() => V.serialize(false) !== before, 60000);
       await sleep(1000);
       out("picture", { inserted: got, markdownStart: V.serialize(false).slice(0, 160), errors: o.errors });
     }
     const folderWas = document.body.dataset.folder ?? null, rowsWas = document.querySelectorAll("#sidebar .sb-row").length;
     window.MdHost.post(JSON.stringify({ type: "folder" }));
     out("asked-folder", {});
-    const opened = await until(() => (document.body.dataset.folder ?? null) !== folderWas || document.querySelectorAll("#sidebar .sb-row").length !== rowsWas, 30000);
+    const opened = await until(() => (document.body.dataset.folder ?? null) !== folderWas || document.querySelectorAll("#sidebar .sb-row").length !== rowsWas, 60000);
     await sleep(1000);
     out("folder", { opened, folder: document.body.dataset.folder ?? null, sidebar: document.body.dataset.sidebar ?? null, rows: [...document.querySelectorAll("#sidebar .sb-row")].slice(0, 12).map((r) => r.textContent.trim().slice(0, 40)), errors: o.errors });
     return;
