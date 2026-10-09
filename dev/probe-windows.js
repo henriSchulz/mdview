@@ -23,6 +23,21 @@
     o.toolbar = [...document.querySelectorAll("#toolbar .tb")].filter((b) => b.offsetParent).map((b) => b.dataset.act || b.dataset.mode || "?");
     o.pictures = [...document.querySelectorAll("#content img")].map((i) => ({ src: i.getAttribute("src").slice(0, 160), ok: i.complete && i.naturalWidth > 0, w: i.naturalWidth }));
     o.sidebarRows = [...document.querySelectorAll("#sidebar .sb-row")].slice(0, 12).map((r) => [r.textContent.trim().slice(0, 40), (r.dataset.real || r.dataset.path || "").slice(0, 120)]);
+    // a whiteboard that stands in the note already (the app started again, with the note of the run before): known by its
+    // picture's address alone, it opens with what was drawn on it
+    const there = [...document.querySelectorAll("#content .board-block img")].find((i) => i.offsetParent);
+    if (there) {
+      const t = (o.boardThere = { address: String(there.src).slice(0, 90) });
+      try {
+        const B = () => window.MdBoard, st = () => B() && B().state && B().state(), bd = () => document.getElementById("board");
+        t.is = MdView.core.board.is(there);
+        MdView.core.board.open(there);
+        t.opened = await until(() => st() && bd() && bd().hasAttribute("data-ready"), 12000);
+        t.known = st() ? st().ref : (window.MdBoard && MdBoard.refOf ? MdBoard.refOf(there) : null);
+        t.items = st() ? st().items : null;
+        if (st()) { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await until(() => !B().shown, 3000); }
+      } catch (e) { t.error = String((e && e.stack) || e).slice(0, 300); }
+    }
     out("first", o);
 
     // ---- a file handed over, as a picture chosen in the system's window or dropped on the note is
@@ -64,13 +79,7 @@
           await sleep(500);
           const shown = document.querySelector("#active .board-block img");
           b.picture = shown ? { src: String(shown.getAttribute("src")).slice(0, 80), ok: shown.complete && shown.naturalWidth > 0 } : null;
-          // the note read anew, as it is when the app is started the next day: the board is known by its picture's address alone
-          MdView.setMode("read");
-          await until(() => document.body.dataset.view !== "active", 4000);
-          MdView.core.post("reload");
-          await sleep(2000);
-          const img = [...document.querySelectorAll("#content .board-block img, #active .board-block img")].find((i) => i.offsetParent);
-          if (img) { delete img.dataset.board; b.address = String(img.getAttribute("src")).slice(0, 60); b.known = B().refOf(img); }
+          const img = shown;
           if (img) { MdView.core.board.open(img); b.again = await until(() => st() && bd().hasAttribute("data-ready") && st().items === 1, 10000); b.itemsAgain = st() ? st().items : null; }
           document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
           await until(() => !B().shown, 3000);

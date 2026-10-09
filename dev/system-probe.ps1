@@ -103,6 +103,7 @@ else {
 }
 if (-not $with) { $bad += "started with a folder, the page reported nothing" }
 elseif ($null -eq $with.note.folder -or @($with.sidebarRows).Count -lt 2 -or @($with.errors).Count) { $bad += "started with a folder, the sidebar does not hold its notes" }
+elseif (-not $with.boardThere -or -not $with.boardThere.opened -or $with.boardThere.items -ne 1) { $bad += "started again, the note's whiteboard does not open with what was drawn on it" }
 # (told of, not counted)
 "---- the system's own windows: a picture chosen $(if ($pic -and $pic.inserted) { 'was put in' } else { 'was NOT put in (the typed path may not have arrived)' }); a folder chosen $(if ($fold -and $fold.opened) { 'was opened' } else { 'was NOT opened (the typed path may not have arrived)' })"
 if ($bad.Count) { "==== NOT HELD ($Tag):"; $bad | ForEach-Object { "  - $_" }; if ($Strict) { exit 1 } } else { "==== everything held ($Tag)" }
