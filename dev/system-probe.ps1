@@ -7,7 +7,7 @@
 #            colours; the pictures show; the picture chosen was put in; the folder chosen was opened
 param([string]$Exe, [string]$Assets = "", [string]$Tag = "run", [switch]$Setup, [switch]$Strict)
 $ErrorActionPreference = "Continue"
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing, Microsoft.VisualBasic
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing, UIAutomationClient, UIAutomationTypes
 Add-Type @"
 using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
 public class Wins {
@@ -24,22 +24,32 @@ public class Wins {
 function Shot($name) { $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height; [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $bmp.Save("$PWD\out\$Tag-$name.png") }
 function Windows-Of($procId) { [Wins]::All() | Where-Object { $_.Split("|")[1] -eq "$procId" } }
 function Answer($title, $path, $procId) {
-  # the system's window: found by its title, brought to the front, the path typed into it — again, should it still be there
-  # (a window that is not in front yet takes no keys: the first try is not always the one that counts)
+  # The system's window, found by its title: the path is put into its field and its button pressed through the system's own
+  # way for programs that work other programs (UI Automation) — keys typed at it arrive only when it happens to be in front.
+  # Tried again while the window is there.
   Start-Sleep 4
   "---- windows of the app after asking for '$title':"; Windows-Of $procId
   $there = { [Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title } | Select-Object -First 1 }
   Shot "asked-$($title -replace ' ', '-')"
   if (-not (& $there)) { "!! no window titled '$title'"; return }
-  $shell = New-Object -ComObject WScript.Shell
+  $A = [System.Windows.Automation.AutomationElement]; $T = [System.Windows.Automation.TreeScope]::Descendants
+  $by = { param($prop, $value) New-Object System.Windows.Automation.PropertyCondition($prop, $value) }
   for ($try = 1; $try -le 5 -and (& $there); $try++) {
     $w = & $there
-    [Wins]::SetForegroundWindow([IntPtr][long]$w.Split("|")[0]) | Out-Null
-    $shell.AppActivate($title) | Out-Null
-    Start-Sleep 1
-    [System.Windows.Forms.SendKeys]::SendWait($path); Start-Sleep 1
-    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2
-    if (& $there) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
+    try {
+      $root = $A::FromHandle([IntPtr][long]$w.Split("|")[0])
+      # the field for the name: 1148 in a window for files, 1152 in one for a folder (never the search field)
+      $edits = @($root.FindAll($T, (& $by $A::ControlTypeProperty ([System.Windows.Automation.ControlType]::Edit))))
+      $field = $edits | Where-Object { $_.Current.AutomationId -in "1148", "1152" } | Select-Object -First 1
+      if (-not $field) { $field = $edits | Where-Object { $_.Current.AutomationId -notmatch "Search" -and $_.Current.IsEnabled } | Select-Object -First 1 }
+      "     try ${try}: fields: $(($edits | ForEach-Object { $_.Current.AutomationId + '/' + $_.Current.Name }) -join ', ')"
+      $field.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($path)
+      Start-Sleep 1
+      # its own button (Open, Select Folder): the window's first, by its number
+      $ok = @($root.FindAll($T, (& $by $A::ControlTypeProperty ([System.Windows.Automation.ControlType]::Button)))) | Where-Object { $_.Current.AutomationId -eq "1" } | Select-Object -First 1
+      $ok.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    } catch { "     try ${try}: $($_.Exception.Message)" }
+    Start-Sleep 3
     "     try ${try}: the window is $(if (& $there) { 'still there' } else { 'gone' })"
   }
   Shot "answered-$($title -replace ' ', '-')"
