@@ -265,8 +265,10 @@ case "${1:-}" in
   ai)
     # AI in the app: Transform with AI, the chat, and all of it gone when turned off (Claude is a fixed answer)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; printf '# Other\n\nother note text\n' > "$R/work/other.md"; rm -f "$R/out/$name".{transform,chat,menu,ai}.json
-    if [[ ${2:-} == real ]]; then { echo 'window.__aiReal = true;'; cat "$D/probe-ai.js"; } > "$R/probe-ai-real.js"; app 400 MDVIEW_PROBE="$R/probe-ai-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
-    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE='**Made new** by CHANNEL.||Here it is. SEEN <insert>*Written by CHANNEL* for the note.</insert>' -- "$R/work/$name"; fi
+    if [[ ${2:-} == real || ${2:-} == draw ]]; then { echo 'window.__aiReal = true;'; [[ $2 == draw ]] && echo 'window.__aiDraw = true;'; cat "$D/probe-ai.js"; } > "$R/probe-ai-real.js"; app 400 MDVIEW_PROBE="$R/probe-ai-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
+    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE='**Made new** by CHANNEL.||Here it is. SEEN <insert><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>
+
+*Written by CHANNEL* for the note.</insert>' -- "$R/work/$name"; fi
     for v in transform chat menu; do for _ in $(seq 3600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.ai.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ai-$v.png"; done
     for _ in $(seq 3600); do [[ -f $R/out/$name.ai.json ]] && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null

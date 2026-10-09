@@ -4321,6 +4321,14 @@
     if (folder) walk(folder.tree, "");
     return out;
   }
+  // (an <svg> written bare, not in a fence, is put in one: as plain HTML among Markdown its empty lines would tear it apart)
+  const fenceSvg = (text) => String(text).split(/(^```[\s\S]*?^```[^\n]*$)/m).map((part, i) => (i % 2 ? part : part.replace(/^[ \t]*(<svg[\s>][\s\S]*?<\/svg>)[ \t]*$/gim, (_m, svg) => "\n```svg\n" + svg.trim() + "\n```\n"))).join("");
+  /* Markdown as the reading view shows it, into el (what Claude wrote): formulas, pictures of svg fences, and diagrams, which are drawn a moment later. */
+  const drawDiagrams = (root) => { if (root.querySelector("pre.mermaid")) renderMermaid(generation, null, root).catch(() => {}); };
+  function mdInto(el, text, diagrams = true) {
+    el.innerHTML = mdHtml(fenceSvg(text));
+    if (diagrams) drawDiagrams(el);
+  }
   const mdHtml = (text) => md.render(stripComments(String(text)), { links: {}, outline: [], depth: 1, lineOffset: 0 });
   function prefsChanged() {
     aiShown();
@@ -4416,7 +4424,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && pagesShown && pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind, title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), post, touching, mdHtml, noteText,
+      copy: (text) => post("copy", { text }), post, touching, mdHtml, mdInto, drawDiagrams, fenceSvg, noteText,
       // (the folder's notes, for what the chat may be given to read: { path, name, dir })
       folderName: () => (folder ? (folder.quick ? "Quick Notes" : folder.name) : ""),
       folderNotes,

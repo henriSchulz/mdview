@@ -25,6 +25,22 @@
       MdView.core.ai.transform(view);
       await until(() => dlg.hasAttribute("data-open") && dlg.dataset.kind === "ai");
       await sleep(300);
+      if (window.__aiDraw) { // (dev/rig.sh ai draw: a drawing is asked for, and looked at)
+        q(".ai-text").value = "Draw a simple diagram of an RC low-pass filter (resistor, capacitor, input, output, ground) and put a one-line caption under it.";
+        q('[data-go="run"]').click();
+        const done = await until(() => q(".ai-preview") && !q('[data-do="done"]').disabled, 240000);
+        await sleep(1500);
+        const pic = q(".ai-preview .svg-block > svg, .ai-preview .mermaid-block svg"), r = pic && pic.getBoundingClientRect();
+        o.real = { text: MdAi && q(".ai-preview").innerHTML.slice(0, 400) };
+        ok("Claude itself, asked for a drawing: a picture shows in the preview", done && !!pic && r.width > 100 && r.height > 50, [r && [r.width, r.height], o.real.text]);
+        out("transform", {});
+        await sleep(1500);
+        q('[data-do="done"]').click();
+        await sleep(600);
+        ok("… and stands in the note as an svg fence", /```svg\n<svg/.test(md()) || /```mermaid/.test(md()), md().slice(0, 300));
+        out("chat", {}); out("menu", {}); out("ai", o);
+        return;
+      }
       q(".ai-text").value = "Mention the word 'umbrella'.";
       q('[data-preset="longer"]').click();
       const streamed = await until(() => ((q(".ai-stream") || {}).textContent || "").length > 3 || q(".ai-preview"), 120000);
@@ -95,6 +111,13 @@
       const d = document.createElement("div"); d.innerHTML = MdView.core.mdHtml("| a | b |\n|---|---|\n| $E=mc^2$ | x |\n\nInline $a^2$.\n\n$$\\int_0^1 x\\,dx$$\n");
       ok("formulas are set in the answers — in a table's cell, in a line, on their own", d.querySelectorAll("table .katex").length === 1 && d.querySelectorAll(".katex").length >= 3, d.innerHTML.slice(0, 600));
     }
+    { // a drawing: an svg fence is the picture — and so is an <svg> written bare, empty lines in it and all
+      const d = document.createElement("div"); d.className = "ai-md"; document.body.appendChild(d);
+      MdView.core.mdInto(d, "Text.\n\n```svg\n<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 100\" width=\"200\"><rect width=\"200\" height=\"100\" fill=\"red\"/></svg>\n```\n\n<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 300 100\" width=\"300\">\n\n  <circle cx=\"50\" cy=\"50\" r=\"40\"/>\n\n  <text x=\"120\" y=\"55\">Label</text>\n</svg>\n\nMore text.");
+      const pics = [...d.querySelectorAll(".svg-block > svg")].map((x) => Math.round(x.getBoundingClientRect().width));
+      ok("drawings show as pictures in what Claude wrote: fenced, and written bare", pics.join() === "200,300" && !!d.querySelector(".svg-block circle") && !!d.querySelector(".svg-block text") && !/&lt;svg|<pre/.test(d.innerHTML), [pics, d.innerHTML.slice(0, 500)]);
+      d.remove();
+    }
     // ---- the chat
     MdView.core.post("folder", { here: true }); // (the note's folder, as the toolbar's button opens it)
     await until(() => MdView.core.folderNotes().length >= 2, 5000);
@@ -140,6 +163,8 @@
     ok("what it wrote for the note shows as a card, with Insert into Document", await until(() => !ai().talking && cq(".ai-card [data-put]"), 5000) && /Here it is/.test(cq(".ai-bot .ai-md").textContent) && /Written by chat for the note/.test(cq(".ai-card .ai-md").textContent) && !cq(".ai-bot").textContent.includes("<insert>"), cq(".ai-log").innerHTML.slice(0, 500));
     ok("the other note went to Claude with the question (the application read it)", /Seen: other note text/.test(cq(".ai-bot").textContent), cq(".ai-bot").textContent.slice(0, 200));
     ok("the conversation is named after its first question", cq(".ai-title-text").textContent.startsWith("Write a short closing line") && ai().talks === 1, cq(".ai-title-text").textContent);
+    { const pic = cq(".ai-card .svg-block > svg"), r = pic && pic.getBoundingClientRect();
+      ok("a drawing in the chat is a picture at its own size, in its own colours (not an icon of the window)", !!pic && Math.round(r.width) === 120 && getComputedStyle(pic.querySelector("rect")).fill !== "none", pic && [r.width, getComputedStyle(pic.querySelector("rect")).fill]); }
     out("chat", {});
     await sleep(600);
     // nothing chosen in the note: it goes to the note's end

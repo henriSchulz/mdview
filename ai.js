@@ -116,7 +116,7 @@
           timer = setInterval(tick, 1000);
           job = ask("transform", { instruction, selection, note: whole.checked ? core.noteText() : "", name: noteName() },
             // (drawn a few times a second, as it will stand in the note — not at every letter)
-            (piece) => { said += piece; if (!paint) paint = setTimeout(() => { paint = 0; if (!stream.isConnected) return; try { stream.innerHTML = core.mdHtml(said); } catch (e) { stream.textContent = said; } out.scrollTop = out.scrollHeight; }, 120); },
+            (piece) => { said += piece; if (!paint) paint = setTimeout(() => { paint = 0; if (!stream.isConnected) return; try { core.mdInto(stream, said, false); } catch (e) { stream.textContent = said; } out.scrollTop = out.scrollHeight; }, 120); },
             (all, error) => {
               job = null;
               clearInterval(timer); clearTimeout(paint); paint = 0;
@@ -125,7 +125,8 @@
               result = all.trim().replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/i, "$1");
               // (shown as the reading view shows a note: formulas, in a table too, code, diagrams)
               out.innerHTML = `<div class="ai-md ai-preview"></div>`;
-              try { out.firstChild.innerHTML = core.mdHtml(result); } catch (e) { out.firstChild.textContent = result; }
+              result = core.fenceSvg(result).trim();
+              try { core.mdInto(out.firstChild, result); } catch (e) { out.firstChild.textContent = result; }
               out.scrollTop = 0;
               show();
               insert.focus();
@@ -190,7 +191,7 @@
     if (rest.trim()) out.push({ text: rest });
     return out;
   }
-  const md = (text) => { try { return core.mdHtml(text); } catch (e) { return `<p>${esc(text)}</p>`; } };
+  const md = (text) => { try { return core.mdHtml(core.fenceSvg(text)); } catch (e) { return `<p>${esc(text)}</p>`; } };
   const SHEET = `<span class="ai-sheet" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`;
   const chipOf = (name, sub, more = "") => `<span class="ai-doc"${more}>${SHEET}<span class="ai-doc-text"><b>${esc(name)}</b><small>${esc(sub)}</small></span></span>`;
   const subOf = (c) => T(c.kind === "folder" ? "ai.ctx.folder" : c.kind === "file" ? "ai.ctx.file" : c.kind === "doc" ? "ai.ctx.doc" : "ai.ctx.note");
@@ -212,6 +213,7 @@
     q(".ai-title-text").textContent = title ? title.slice(0, 60) : T("ai.chat.new");
     log.innerHTML = cur.messages.map((m, i) => htmlOf(m, i, false)).join("");
     if (talking && talking.talk === cur) { log.insertAdjacentHTML("beforeend", htmlOf({ role: "assistant", text: talking.text }, cur.messages.length, true)); talking.el = log.lastElementChild; }
+    core.drawDiagrams(log);
     drawFoot();
     bottom();
   }
@@ -281,7 +283,7 @@
     }
     const A = active();
     if (!A) return core.toast(T("ai.noPut"));
-    const view = A.view.pm, state = view.state, nodes = A.clip.blocksOf(state, String(markdown).trim());
+    const view = A.view.pm, state = view.state, nodes = A.clip.blocksOf(state, core.fenceSvg(markdown).trim());
     if (!nodes.length) return;
     const picked = A.blocks.selection(state), sel = state.selection, end = state.doc.content.size;
     const at = picked ? picked.to : sel.from > 1 || !sel.empty ? (sel.$to.depth ? sel.$to.after(1) : sel.to) : end;
