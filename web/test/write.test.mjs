@@ -820,6 +820,28 @@ test("a picture pasted on a whiteboard is kept beside the board, shown on it and
   assert.ok(gh.repo.files.has(pic()), "a picture that only the board names is not taken away");
 });
 
+test("a repository nothing was ever pushed to becomes a notebook from here: its first commit is made, the rest on top of it", async () => {
+  const kept = new Map(gh.repo.files), commitsWas = gh.commits.length;
+  gh.repo.files.clear();
+  try {
+    await page.goto(`${base}/r/octo/notes`);
+    await page.waitForFunction(() => window.MdView && window.MdHost && document.body.dataset.folder != null, null, { timeout: 15000 });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => MdHost.post(JSON.stringify({ type: "history-enable" }))); // (the clock in the sidebar; its question is answered with yes)
+    await until(() => gh.repo.files.has(".mdview/project.json"), "the marker in the repository");
+    const first = gh.commits[commitsWas];
+    assert.deepEqual([first.first, first.added], [true, [".mdview/project.json"]], "the repository's first commit holds the marker");
+    assert.match(text(".mdview/project.json"), /"version": 1/);
+    // a note written after it is a commit on top, on the branch the first one made
+    await page.evaluate(() => MdHost.post(JSON.stringify({ type: "newnote", name: "First" })));
+    await until(() => [...gh.repo.files.keys()].some((k) => /First.*\.md$/.test(k)), "the first note in the repository", 15000);
+    assert.equal(gh.commits.at(-1).first, undefined, "… as an ordinary commit");
+  } finally {
+    gh.repo.files.clear();
+    for (const [k, v] of kept) gh.repo.files.set(k, v);
+  }
+});
+
 test("nothing was refused or thrown along the way", () => {
   // (but the answers that were cut off on purpose above: a commit that could not be sent is said, and tried again)
   assert.deepEqual(problems.filter((p) => !/Failed to load resource|mdview host: commit TypeError: Failed to fetch/i.test(p)), []);

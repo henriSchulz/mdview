@@ -727,6 +727,13 @@ counts — and has no writing help by a model.
   hold, and leaves an editor to try; nothing typed there is kept.
 - **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
   is chosen beforehand.
+- **A repository that is missing**: the app reaches only what it was given on GitHub. Under the
+  list the page says so and links to the place where that account's repositories are chosen
+  (where the app reaches all of an account's repositories, a new one shows by itself); with
+  nothing given yet, or the app not on the account at all, one button leads there. Come back
+  from GitHub, the page looks again by itself.
+- **A new, empty repository** becomes a notebook like any other: opened, and its history turned
+  on with the clock in the sidebar — the app makes the repository's first commit.
 - **On a phone or a tablet**: the same app, laid out for the screen. On a narrow screen the
   sidebar is a drawer over the note (the button at the strip's left; a note chosen shuts it, as
   does a tap beside it), the toolbar stands at the foot, and the settings and the history fill

@@ -74,7 +74,16 @@ export function fakeGitHub() {
       const { owner, name, files } = gh.repo, at = `/repos/${owner}/${name}`;
       if (url.pathname === "/installation/repositories") return json({ repositories: [{ name: name, owner: { login: owner } }, { name: "Zeta", owner: { login: owner } }] }); // (as the app itself: where it is installed)
       if (url.pathname === "/user") return json({ login: "octo", name: "Octo Cat", id: 42 });
-      if (url.pathname === "/user/installations") return json({ installations: [{ id: 7 }] });
+      if (url.pathname === "/user/installations") return json({ installations: gh.installed === false ? [] : [{ id: 7, html_url: "https://github.com/settings/installations/7", repository_selection: gh.selection || "selected", account: { login: "octo" } }] });
+      // (a repository nothing was pushed to: its first file, put there by itself, makes the branch)
+      if (req.method === "PUT" && url.pathname.startsWith(`${at}/contents/`)) {
+        if (files.size) return json({ message: "Invalid request: sha wasn't supplied" }, 422);
+        const put = JSON.parse(body), path = decodeURIComponent(url.pathname.slice(`${at}/contents/`.length));
+        files.set(path, Buffer.from(put.content, "base64"));
+        note(put.message, "Octo Cat");
+        gh.commits.push({ headline: put.message.split("\n")[0], body: put.message.split("\n").slice(2).join("\n"), added: [path], deleted: [], by: "octo", first: true });
+        return json({ commit: { sha: gh.head() } }, 201);
+      }
       if (url.pathname === "/user/installations/7/repositories" && gh.listed) return json({ repositories: gh.listed });
       if (url.pathname === "/user/installations/7/repositories") return json({ repositories: [
         { full_name: "octo/Zeta", private: true, default_branch: "main", description: null, pushed_at: "2020-01-01T00:00:00Z" },

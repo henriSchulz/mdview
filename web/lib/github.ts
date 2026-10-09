@@ -73,9 +73,11 @@ const PAGES = 5; // … and how often, at most, for one installation
 
 /** The repositories the user can reach through the app: those the app was given on every account
  * it is installed on. By name. */
-export async function repositories(access: string): Promise<Repo[]> {
-  const installed = await get<{ installations: { id: number }[] }>(access, `/user/installations?per_page=${PAGE}`);
+export async function repositories(access: string, places?: Place[]): Promise<Repo[]> {
+  const installed = await get<{ installations: { id: number; html_url?: string; repository_selection?: string; account?: { login?: string } }[] }>(access, `/user/installations?per_page=${PAGE}`);
   const all: Repo[] = [];
+  // (where the app stands: an account, whether it reaches all of its repositories or chosen ones, and the page on GitHub where that is said)
+  for (const i of installed.installations || []) places?.push({ account: i.account?.login || "", all: i.repository_selection === "all", url: /^https:\/\/github\.com\//.test(i.html_url || "") ? (i.html_url as string) : GIVE });
   for (const { id } of installed.installations || []) {
     for (let page = 1; page <= PAGES; page++) {
       const got = await get<{ repositories: { full_name: string; private: boolean; default_branch: string; description?: string | null; pushed_at?: string | null }[] }>(access, `/user/installations/${id}/repositories?per_page=${PAGE}&page=${page}`);
@@ -234,6 +236,12 @@ export async function versions(access: string, owner: string, repo: string, path
   return out;
 }
 
+/** The branch a repository's commits go to by default (a repository begun with its first commit says so only then). */
+export async function defaultBranch(access: string, owner: string, repo: string): Promise<string | null> {
+  const about = await ask(access, repoPath(owner, repo));
+  return about.ok ? ((await about.json()) as { default_branch?: string }).default_branch || null : null;
+}
+
 /** The branch stands elsewhere than the commit was made for: someone wrote meanwhile. */
 export class Moved extends Error {}
 
@@ -242,6 +250,27 @@ export type Change = { additions: { path: string; contents: string }[]; deletion
 /** One commit on a branch, with files added (or replaced) and deleted — only if the branch still
  * stands at `expect`. The author is whom the token belongs to; GitHub signs it. → the new commit. */
 export async function commit(access: string, owner: string, repo: string, branch: string, expect: string, headline: string, body: string, change: Change): Promise<string> {
+  // A repository nothing was ever pushed to has no branch a commit could be made on: its first file is put there by itself
+  // (which makes the branch), the rest follows as the commit on top of it.
+  if (!expect) {
+    const [first, ...rest] = change.additions;
+    if (!first) throw new Error("nothing to begin the repository with");
+    const res = await fetch(`${API}${repoPath(owner, repo)}/contents/${first.path.split("/").map(encodeURIComponent).join("/")}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", Accept: "application/vnd.github+json", "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28" },
+      body: JSON.stringify({ message: body ? `${headline}\n\n${body}` : headline, content: first.contents }),
+      cache: "no-store",
+    });
+    if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+    if (res.status === 409 || res.status === 422) throw new Moved("the repository is no longer empty");
+    if (!res.ok) throw new Error(`GitHub: ${res.status} for the first commit`);
+    const made = ((await res.json()) as { commit?: { sha?: string } }).commit?.sha;
+    if (!made) throw new Error("GitHub did not make the first commit");
+    if (!rest.length) return made;
+    const about = await ask(access, repoPath(owner, repo));
+    const on = about.ok ? ((await about.json()) as { default_branch?: string }).default_branch || branch : branch;
+    return commit(access, owner, repo, on, made, headline, body, { additions: rest, deletions: [] });
+  }
   const input = {
     branch: { repositoryNameWithOwner: `${owner}/${repo}`, branchName: branch },
     expectedHeadOid: expect,
@@ -266,3 +295,7 @@ export async function commit(access: string, owner: string, repo: string, branch
 
 /** Where the user says which repositories the app is given. */
 export const GIVE = "https://github.com/settings/installations";
+/** An account the app stands on: whether it reaches every repository there or chosen ones, and where on GitHub that is set. */
+export type Place = { account: string; all: boolean; url: string };
+/** Where the app is put on an account, with the repositories it may reach (the GitHub App "mdview-notes"). */
+export const INSTALL = "https://github.com/apps/mdview-notes/installations/new";

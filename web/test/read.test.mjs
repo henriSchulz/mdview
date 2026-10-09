@@ -251,6 +251,38 @@ test("the repositories on their way: the window says so at once — a ring, unti
   } finally { gh.slow = 0; }
 });
 
+test("which repositories the app reaches is said on GitHub: the page says where, and looks again when it is come back to", async () => {
+  // the app reaches chosen repositories only: a new one is missing, and the page says where it is added
+  await page.goto(base + "/");
+  await page.waitForSelector(".home-missing", { timeout: 15000 });
+  const missing = await page.evaluate(() => { const p = document.querySelector(".home-missing"); return { text: p.textContent, links: [...p.querySelectorAll("a")].map((a) => a.getAttribute("href")) }; });
+  assert.match(missing.text, /only the repositories you chose/);
+  assert.ok(missing.links.includes("https://github.com/settings/installations/7") && missing.links.includes("https://github.com/apps/mdview-notes/installations/new"), JSON.stringify(missing.links));
+  // every repository: nothing to add
+  gh.selection = "all";
+  await page.click(".home-missing button");
+  await page.waitForFunction(() => /reaches every repository of octo/.test(document.querySelector(".home-missing").textContent), null, { timeout: 8000 });
+  gh.selection = "selected";
+  // the app given nothing yet: one button, to that account's choice of repositories — and what is chosen there shows on coming back
+  const listed = gh.listed;
+  gh.listed = [];
+  try {
+    await page.goto(base + "/");
+    await page.waitForSelector(".home-first .button", { timeout: 15000 });
+    assert.deepEqual(await page.evaluate(() => [document.querySelector(".home-first h2").textContent, document.querySelector(".home-first .button").getAttribute("href"), document.querySelector(".home-first .button").textContent]), ["The app reaches none of your repositories yet", "https://github.com/settings/installations/7", "Choose repositories"]);
+    await page.evaluate(() => { const a = document.querySelector(".home-first .button"); a.addEventListener("click", (e) => e.preventDefault()); a.click(); }); // (the way to GitHub, not gone here)
+    gh.listed = listed;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus"))); // (back from GitHub)
+    await page.waitForSelector(".others, .books", { timeout: 8000 });
+    assert.equal(await page.locator(".home-first .button").count(), 0, "come back to, the page shows what the app was given");
+    // not on any account yet: set up there
+    gh.installed = false;
+    await page.goto(base + "/");
+    await page.waitForSelector(".home-first .button", { timeout: 15000 });
+    assert.deepEqual(await page.evaluate(() => [document.querySelector(".home-first h2").textContent, document.querySelector(".home-first .button").getAttribute("href")]), ["One step on GitHub first", "https://github.com/apps/mdview-notes/installations/new"]);
+  } finally { gh.listed = listed; gh.installed = true; }
+});
+
 test("nothing was refused or thrown along the way", () => {
   const real = problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p));
   assert.deepEqual(real, []);

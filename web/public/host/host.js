@@ -425,7 +425,7 @@
           return;
         }
         unsent("", "");
-        head = (await res.json()).head;
+        { const kept = await res.json(); head = kept.head; if (kept.branch) branch = kept.branch; } // (branch: told with a repository's first commit)
         // (what is shared changed: the server is told, so that a link finds its repository and the overview is right)
         if (sent.has(C.SHARES)) ask(API + "/shares", { method: "POST" }).catch(() => {});
         for (const [r, d] of sent) {

@@ -2,7 +2,7 @@
 // app's (a .mdview folder in them) — to choose one. Any other repository the app was given can be
 // opened too, from a list of its own: it is only read until its history is turned on there.
 // Nothing is chosen beforehand.
-import { GIVE, Refused, projects, repositories, type Repo } from "@/lib/github";
+import { GIVE, INSTALL, Refused, projects, repositories, type Place, type Repo } from "@/lib/github";
 import { sessionFor } from "@/lib/session";
 import { REPOSITORY } from "@/lib/welcome";
 import { redirect } from "next/navigation";
@@ -39,8 +39,9 @@ export default async function Home() {
 
 async function List({ access, name, login }: { access: string; name: string; login: string }) {
   let repos: Repo[] = [], failed = false, known: Set<string> | null = new Set();
+  const places: Place[] = [];
   try {
-    repos = await repositories(access);
+    repos = await repositories(access, places);
     known = await projects(access, repos);
   } catch (e) {
     if (e instanceof Refused) redirect("/auth/renew?next=/");
@@ -48,5 +49,5 @@ async function List({ access, name, login }: { access: string; name: string; log
   }
   const now = Date.now();
   const rows: Row[] = repos.map((r) => ({ name: r.name, private: r.private, about: r.about || "", written: ago(r.pushed, now), pushed: r.pushed || "", notes: !!known && known.has(r.name) }));
-  return <Repos rows={rows} failed={failed} unknown={!failed && !known} name={name} login={login} give={GIVE} source={REPOSITORY} />;
+  return <Repos rows={rows} failed={failed} unknown={!failed && !known} name={name} login={login} give={GIVE} install={INSTALL} places={places} source={REPOSITORY} />;
 }
