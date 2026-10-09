@@ -73,7 +73,7 @@ else {
   if ($page.error) { $bad += "the probe failed: $($page.error)" }
   if (@($page.errors).Count) { $bad += "errors in the page: $(@($page.errors) -join '; ')" }
   if (-not $page.colours.'--c-red' -or -not $page.colours.'--c-accent') { $bad += "colours are missing" }
-  if (@($page.sheets | Where-Object { $_[1] -isnot [int] -or $_[1] -lt 1 }).Count) { $bad += "a style sheet did not load" }
+  if (@($page.sheets | Where-Object { $_[1] -is [string] -or $_[1] -lt 1 }).Count) { $bad += "a style sheet did not load" } # (a sheet that cannot be read reports why, in words; one that loaded, how many rules)
   if (-not @($page.pictures).Count -or @($page.pictures | Where-Object { -not $_.ok }).Count) { $bad += "the picture beside the note does not show" }
   if (-not $page.inserted) { $bad += "a file handed over was not put in" }
   if (@($page.activePictures | Where-Object { $_.src -ne "null" -and -not $_.ok }).Count) { $bad += "a picture put in does not show" }
