@@ -3513,7 +3513,7 @@
     if (img && img.src) rows.push([T("Copy Image"), "", true, () => post("copyimage", { src: img.src })]);
     rows.push(null);
     // (in the active mode, beside the text or on it: the note's blocks as wholes, not its text — a field's text stays text)
-    const blocks = !field && mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share"));
+    const blocks = !field && mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share, #ai-chat"));
     rows.push([T("Select All"), "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
     // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
     if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {

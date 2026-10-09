@@ -123,6 +123,14 @@
     ok("both stand above the field beside the current document", ai().extra.map((c) => c.kind).join() === "note,folder" && chat().querySelectorAll(".ai-ctx .ai-doc").length === 3, ai().extra);
     cq('.ai-ctx [data-ctx="1"] .ai-doc-x').click(); await sleep(100);
     ok("… and one is taken away by its ×", ai().extra.length === 1 && ai().extra[0].name === "other", ai().extra);
+    { // a press into the field is the field's: it is no pull of a rectangle over blocks, and what is typed goes there
+      const f = cq(".ai-field"), r = f.getBoundingClientRect(), down = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, clientX: r.left + 20, clientY: r.top + 8 });
+      const kept = f.dispatchEvent(down);
+      f.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, button: 0, clientX: r.left + 20, clientY: r.top + 8 }));
+      f.focus();
+      const typed = f.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true }));
+      ok("a press into the chat's field is the field's own, and so is what is typed there", kept && typed && document.activeElement === f, [kept, typed, document.activeElement && document.activeElement.className]);
+    }
     const field = cq(".ai-field");
     field.value = "Write a short closing line for this note.";
     field.dispatchEvent(new Event("input", { bubbles: true }));
