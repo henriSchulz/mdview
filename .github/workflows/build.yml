@@ -77,9 +77,9 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Markdown Notes ${GITHUB_REF_NAME#v}" --generate-notes || true # (another job was first)
           gh release upload "$GITHUB_REF_NAME" --clobber "${files[@]}"
 
-  # The Windows installer as someone who downloads it has it: installed, started with the probe in
-  # its page, asked for a picture and a folder through the system's own windows. Only what holds
-  # there becomes a file of the release.
+  # The Windows installer as someone who downloads it has it: installed, and started with the probe
+  # in its page — once with a note (its colours, its pictures, a file handed over), once with a
+  # folder (the sidebar). Only what holds there becomes a file of the release.
   windows-tried:
     name: the Windows installer, tried
     needs: build

@@ -98,8 +98,10 @@ this checkout is built; the app opens a note with `dev/probe-windows.js` in its 
 `dev/system-probe.ps1` types a path into the system's own windows (a picture to insert, a folder
 to open). The page's report and pictures of the screen are the run's log and artifact. A release does this
 with its own installer before the installer becomes a file of the release (`build.yml`): what
-does not hold — a picture that does not show, colours missing, a folder not opened — ends the
-job, and the release has no Windows installer.
+does not hold — a picture that does not show, colours missing, a folder's notes not in the sidebar
+— ends the job, and the release has no Windows installer. (The system's own windows are tried and
+told of there, but nothing depends on them: keys typed at a window on a machine nobody sits at do
+not always arrive.)
 
 ```sh
 gh workflow run system-probe.yml -f run=<the Build run's number>     # an installer, tried

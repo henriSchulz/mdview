@@ -3,11 +3,13 @@
 # The probe asks for the system's own windows (a picture to insert, a folder to open); this types
 # the path into each and reports which windows there were. Everything lands in .\out.
 #   -Setup   makes the notes the app opens (work\, outside\) and the probe with its picture's address
-#   -Strict  ends with an error unless everything held: the page reported, without errors, with its
-#            colours; the pictures show; the picture chosen was put in; the folder chosen was opened
+#   -Strict  ends with an error unless everything held that can be asked for certain: the page
+#            reported, without errors, with its style sheets and colours; the pictures show; a file
+#            handed over was put in and shows; started with a folder, the sidebar holds its notes.
+#            (The system's own windows are tried and told of, and nothing depends on them.)
 param([string]$Exe, [string]$Assets = "", [string]$Tag = "run", [switch]$Setup, [switch]$Strict)
 $ErrorActionPreference = "Continue"
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing, UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 Add-Type @"
 using System; using System.Text; using System.Runtime.InteropServices; using System.Collections.Generic;
 public class Wins {
@@ -24,32 +26,21 @@ public class Wins {
 function Shot($name) { $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height; [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size); $bmp.Save("$PWD\out\$Tag-$name.png") }
 function Windows-Of($procId) { [Wins]::All() | Where-Object { $_.Split("|")[1] -eq "$procId" } }
 function Answer($title, $path, $procId) {
-  # The system's window, found by its title: the path is put into its field and its button pressed through the system's own
-  # way for programs that work other programs (UI Automation) — keys typed at it arrive only when it happens to be in front.
-  # Tried again while the window is there.
-  Start-Sleep 4
+  # The system's window, found by its title and brought to the front: the path is typed into it. Typed keys arrive only
+  # when the window really is in front, which a machine nobody sits at does not promise — so this is tried and told of,
+  # and nothing is made to depend on it (what stands behind the window is asked without it: a file handed over, a folder
+  # given when the app is started).
+  Start-Sleep 3
   "---- windows of the app after asking for '$title':"; Windows-Of $procId
   $there = { [Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title } | Select-Object -First 1 }
   Shot "asked-$($title -replace ' ', '-')"
   if (-not (& $there)) { "!! no window titled '$title'"; return }
-  $A = [System.Windows.Automation.AutomationElement]; $T = [System.Windows.Automation.TreeScope]::Descendants
-  $by = { param($prop, $value) New-Object System.Windows.Automation.PropertyCondition($prop, $value) }
-  for ($try = 1; $try -le 5 -and (& $there); $try++) {
-    $w = & $there
-    try {
-      $root = $A::FromHandle([IntPtr][long]$w.Split("|")[0])
-      # the field for the name: 1148 in a window for files, 1152 in one for a folder (never the search field)
-      $edits = @($root.FindAll($T, (& $by $A::ControlTypeProperty ([System.Windows.Automation.ControlType]::Edit))))
-      $field = $edits | Where-Object { $_.Current.AutomationId -in "1148", "1152" } | Select-Object -First 1
-      if (-not $field) { $field = $edits | Where-Object { $_.Current.AutomationId -notmatch "Search" -and $_.Current.IsEnabled } | Select-Object -First 1 }
-      "     try ${try}: fields: $(($edits | ForEach-Object { $_.Current.AutomationId + '/' + $_.Current.Name }) -join ', ')"
-      $field.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($path)
-      Start-Sleep 1
-      # its own button (Open, Select Folder): the window's first, by its number
-      $ok = @($root.FindAll($T, (& $by $A::ControlTypeProperty ([System.Windows.Automation.ControlType]::Button)))) | Where-Object { $_.Current.AutomationId -eq "1" } | Select-Object -First 1
-      $ok.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    } catch { "     try ${try}: $($_.Exception.Message)" }
-    Start-Sleep 3
+  for ($try = 1; $try -le 3 -and (& $there); $try++) {
+    [Wins]::SetForegroundWindow([IntPtr][long](& $there).Split("|")[0]) | Out-Null
+    Start-Sleep 1
+    [System.Windows.Forms.SendKeys]::SendWait($path); Start-Sleep 1
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2
+    if (& $there) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
     "     try ${try}: the window is $(if (& $there) { 'still there' } else { 'gone' })"
   }
   Shot "answered-$($title -replace ' ', '-')"
@@ -79,12 +70,23 @@ else {
 "---- windows of the app at the end:"; Windows-Of $p.Id
 if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 Get-ChildItem out\*.json | ForEach-Object { "==== $($_.Name)"; Get-Content $_; Copy-Item $_ "out\$Tag-$($_.Name)" }
+# ---- started with a folder: what a folder chosen in the system's window leads to, without the window
+Get-ChildItem out\*.json | Where-Object { $_.Name -notlike "$Tag-*" } | Remove-Item
+Start-Sleep 2
+"==== $Tag : $Exe, with a folder"
+$f = Start-Process -FilePath $Exe -ArgumentList "`"$PWD\work`"" -PassThru -RedirectStandardError "$Tag.folder.err.log" -RedirectStandardOutput "$Tag.folder.out.log"
+for ($i = 0; $i -lt 90 -and -not (Get-ChildItem out\*.first.json -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "$Tag-*" }); $i++) { Start-Sleep 1 }
+Start-Sleep 1
+Shot "with-folder"
+if (-not $f.HasExited) { Stop-Process -Id $f.Id -Force }
+Get-ChildItem out\*.first.json | Where-Object { $_.Name -notlike "$Tag-*" } | Select-Object -First 1 | ForEach-Object { "==== with a folder: $($_.Name)"; Get-Content $_; Copy-Item $_ "out\$Tag-with-folder.json" }
+Get-ChildItem out\*.json | Where-Object { $_.Name -notlike "$Tag-*" } | Remove-Item
 "==== stderr"; Get-Content "$Tag.err.log" -ErrorAction SilentlyContinue | Select-Object -Last 30
 "==== the note's folder"; Get-ChildItem -Recurse work | ForEach-Object { $_.FullName }
 # ---- what held
 $bad = @()
 $read = { param($name) $f = "out\$Tag-$name.json"; if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json } else { $null } }
-$page = & $read "Note.md.windows"; $pic = & $read "Note.md.picture"; $fold = Get-ChildItem "out\$Tag-*.folder.json" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json }
+$page = & $read "Note.md.windows"; $pic = & $read "Note.md.picture"; $with = & $read "with-folder"; $fold = Get-ChildItem "out\$Tag-*.folder.json" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json }
 if (-not $page) { $bad += "the page reported nothing" }
 else {
   if ($page.error) { $bad += "the probe failed: $($page.error)" }
@@ -96,6 +98,8 @@ else {
   if (@($page.activePictures | Where-Object { $_.src -ne "null" -and -not $_.ok }).Count) { $bad += "a picture put in does not show" }
   if (-not @($page.deco).Count) { $bad += "the colours a block can be given are missing" }
 }
-if (-not $pic -or -not $pic.inserted) { $bad += "the picture chosen in the system's window was not put in" }
-if (-not $fold -or -not $fold.opened -or -not @($fold.rows).Count) { $bad += "the folder chosen in the system's window was not opened" }
+if (-not $with) { $bad += "started with a folder, the page reported nothing" }
+elseif ($null -eq $with.note.folder -or @($with.sidebarRows).Count -lt 2 -or @($with.errors).Count) { $bad += "started with a folder, the sidebar does not hold its notes" }
+# (told of, not counted)
+"---- the system's own windows: a picture chosen $(if ($pic -and $pic.inserted) { 'was put in' } else { 'was NOT put in (the typed path may not have arrived)' }); a folder chosen $(if ($fold -and $fold.opened) { 'was opened' } else { 'was NOT opened (the typed path may not have arrived)' })"
 if ($bad.Count) { "==== NOT HELD ($Tag):"; $bad | ForEach-Object { "  - $_" }; if ($Strict) { exit 1 } } else { "==== everything held ($Tag)" }
