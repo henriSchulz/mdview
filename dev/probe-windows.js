@@ -62,8 +62,15 @@
           document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
           b.shut = await until(() => !B().shown && bd().hidden, 4000);
           await sleep(500);
-          const img = document.querySelector("#active .board-block img");
-          b.picture = img ? { src: String(img.getAttribute("src")).slice(0, 80), ok: img.complete && img.naturalWidth > 0 } : null;
+          const shown = document.querySelector("#active .board-block img");
+          b.picture = shown ? { src: String(shown.getAttribute("src")).slice(0, 80), ok: shown.complete && shown.naturalWidth > 0 } : null;
+          // the note read anew, as it is when the app is started the next day: the board is known by its picture's address alone
+          MdView.setMode("read");
+          await until(() => document.body.dataset.view !== "active", 4000);
+          MdView.core.post("reload");
+          await sleep(2000);
+          const img = [...document.querySelectorAll("#content .board-block img, #active .board-block img")].find((i) => i.offsetParent);
+          if (img) { delete img.dataset.board; b.address = String(img.getAttribute("src")).slice(0, 60); b.known = B().refOf(img); }
           if (img) { MdView.core.board.open(img); b.again = await until(() => st() && bd().hasAttribute("data-ready") && st().items === 1, 10000); b.itemsAgain = st() ? st().items : null; }
           document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
           await until(() => !B().shown, 3000);
