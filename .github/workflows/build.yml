@@ -4,7 +4,8 @@
 #   by hand        (Actions › Build › Run workflow)             -> the installers as the run's artifacts
 #
 # Linux is what the app is written and tested on. Windows is built with it and is a file of the
-# release too: its installer is started and asked on GitHub's Windows (system-probe.yml) — it is
+# release too — once its installer has been installed, started and asked on GitHub's Windows
+# (the job after the build, dev/system-probe.ps1): what does not hold there is not released. It is
 # not signed, so Windows warns before it runs. macOS is tried: where it does not build, the run
 # goes on without it — and what it builds is the run's artifact only, not a file of the release:
 # an installer nobody has started, unsigned, is not offered for download.
@@ -66,7 +67,7 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/dmg/*.dmg
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/v') && !matrix.tried
+        if: startsWith(github.ref, 'refs/tags/v') && !matrix.tried && runner.os != 'Windows' # (the Windows installer: after it was tried, below)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -74,4 +75,45 @@ jobs:
           shopt -s nullglob
           files=(src-tauri/target/release/bundle/{deb/*.deb,rpm/*.rpm,appimage/*.AppImage,nsis/*.exe,dmg/*.dmg})
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Markdown Notes ${GITHUB_REF_NAME#v}" --generate-notes || true # (another job was first)
+          gh release upload "$GITHUB_REF_NAME" --clobber "${files[@]}"
+
+  # The Windows installer as someone who downloads it has it: installed, started with the probe in
+  # its page, asked for a picture and a folder through the system's own windows. Only what holds
+  # there becomes a file of the release.
+  windows-tried:
+    name: the Windows installer, tried
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: markdown-notes-windows-x86_64
+          path: installer
+      - name: Installed, started and asked
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Recurse installer -Filter *.exe | Select-Object -First 1
+          "the installer: $($setup.FullName)"
+          Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait
+          Start-Sleep 5
+          $exe = Get-ChildItem -Recurse -ErrorAction SilentlyContinue -Include "mdview.exe", "Markdown Notes.exe" -Path "$env:LOCALAPPDATA", "$env:ProgramFiles" -Depth 3 | Select-Object -First 1
+          if (-not $exe) { "the installer left no program"; exit 1 }
+          ./dev/system-probe.ps1 -Exe $exe.FullName -Tag released -Setup -Strict
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-tried
+          path: |
+            out
+            *.log
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -t files < <(find installer -name '*.exe')
+          [[ ${#files[@]} -gt 0 ]] || { echo "no installer to release"; exit 1; }
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Markdown Notes ${GITHUB_REF_NAME#v}" --generate-notes || true
           gh release upload "$GITHUB_REF_NAME" --clobber "${files[@]}"

@@ -96,7 +96,10 @@ The rig runs on Linux. On Windows the app is started on GitHub's machine instead
 (`.github/workflows/system-probe.yml`, by hand): an installer a Build run made is installed, or
 this checkout is built; the app opens a note with `dev/probe-windows.js` in its page, and
 `dev/system-probe.ps1` types a path into the system's own windows (a picture to insert, a folder
-to open). The page's report and pictures of the screen are the run's log and artifact.
+to open). The page's report and pictures of the screen are the run's log and artifact. A release does this
+with its own installer before the installer becomes a file of the release (`build.yml`): what
+does not hold — a picture that does not show, colours missing, a folder not opened — ends the
+job, and the release has no Windows installer.
 
 ```sh
 gh workflow run system-probe.yml -f run=<the Build run's number>     # an installer, tried

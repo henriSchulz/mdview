@@ -1,8 +1,11 @@
 # The app started with dev/probe-windows.js in its page (see .github/workflows/system-probe.yml):
-#   pwsh dev/system-probe.ps1 -Exe path\to\mdview.exe [-Assets checkout]
+#   pwsh dev/system-probe.ps1 -Exe path\to\mdview.exe [-Assets checkout] [-Setup] [-Strict]
 # The probe asks for the system's own windows (a picture to insert, a folder to open); this types
 # the path into each and reports which windows there were. Everything lands in .\out.
-param([string]$Exe, [string]$Assets = "", [string]$Tag = "run")
+#   -Setup   makes the notes the app opens (work\, outside\) and the probe with its picture's address
+#   -Strict  ends with an error unless everything held: the page reported, without errors, with its
+#            colours; the pictures show; the picture chosen was put in; the folder chosen was opened
+param([string]$Exe, [string]$Assets = "", [string]$Tag = "run", [switch]$Setup, [switch]$Strict)
 $ErrorActionPreference = "Continue"
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing, Microsoft.VisualBasic
 Add-Type @"
@@ -34,6 +37,14 @@ function Answer($title, $path, $procId) {
   if ([Wins]::All() | Where-Object { $_.Split("|")[3] -eq $title }) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}"); Start-Sleep 2 } # (a folder's window: gone into it first, then chosen)
   Shot "answered-$($title -replace ' ', '-')"
 }
+if ($Setup) {
+  New-Item -ItemType Directory -Force work, work\sub, outside | Out-Null
+  foreach ($to in "work\pic.png", "outside\photo.png", "outside\second.png") { Copy-Item dev\tests\tauri-check\bild.png $to }
+  Set-Content -Encoding utf8 work\Note.md "# A note`n`nText with a [link](sub/Deep.md).`n`n![a picture](pic.png)`n`nLast paragraph.`n"
+  Set-Content -Encoding utf8 work\sub\Deep.md "# Deep`n`ntext`n"
+  Set-Content -Encoding utf8 probe.js ("window.__probePicture = " + (([System.Uri]("$PWD\outside\photo.png")).AbsoluteUri | ConvertTo-Json) + ";")
+  Get-Content dev\probe-windows.js | Add-Content -Encoding utf8 probe.js
+}
 New-Item -ItemType Directory -Force out | Out-Null
 Remove-Item out\*.json -ErrorAction SilentlyContinue
 $env:MDVIEW_PROBE = "$PWD\probe.js"; $env:MDVIEW_PROBE_OUT = "$PWD\out"; $env:MDVIEW_DEBUG = "1"; $env:MDVIEW_NO_KEYRING = "1"
@@ -53,3 +64,21 @@ if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 Get-ChildItem out\*.json | ForEach-Object { "==== $($_.Name)"; Get-Content $_; Copy-Item $_ "out\$Tag-$($_.Name)" }
 "==== stderr"; Get-Content "$Tag.err.log" -ErrorAction SilentlyContinue | Select-Object -Last 30
 "==== the note's folder"; Get-ChildItem -Recurse work | ForEach-Object { $_.FullName }
+# ---- what held
+$bad = @()
+$read = { param($name) $f = "out\$Tag-$name.json"; if (Test-Path $f) { Get-Content $f -Raw | ConvertFrom-Json } else { $null } }
+$page = & $read "Note.md.windows"; $pic = & $read "Note.md.picture"; $fold = Get-ChildItem "out\$Tag-*.folder.json" -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { Get-Content $_ -Raw | ConvertFrom-Json }
+if (-not $page) { $bad += "the page reported nothing" }
+else {
+  if ($page.error) { $bad += "the probe failed: $($page.error)" }
+  if (@($page.errors).Count) { $bad += "errors in the page: $(@($page.errors) -join '; ')" }
+  if (-not $page.colours.'--c-red' -or -not $page.colours.'--c-accent') { $bad += "colours are missing" }
+  if (@($page.sheets | Where-Object { $_[1] -isnot [int] -or $_[1] -lt 1 }).Count) { $bad += "a style sheet did not load" }
+  if (-not @($page.pictures).Count -or @($page.pictures | Where-Object { -not $_.ok }).Count) { $bad += "the picture beside the note does not show" }
+  if (-not $page.inserted) { $bad += "a file handed over was not put in" }
+  if (@($page.activePictures | Where-Object { $_.src -ne "null" -and -not $_.ok }).Count) { $bad += "a picture put in does not show" }
+  if (-not @($page.deco).Count) { $bad += "the colours a block can be given are missing" }
+}
+if (-not $pic -or -not $pic.inserted) { $bad += "the picture chosen in the system's window was not put in" }
+if (-not $fold -or -not $fold.opened -or -not @($fold.rows).Count) { $bad += "the folder chosen in the system's window was not opened" }
+if ($bad.Count) { "==== NOT HELD ($Tag):"; $bad | ForEach-Object { "  - $_" }; if ($Strict) { exit 1 } } else { "==== everything held ($Tag)" }
