@@ -60,7 +60,8 @@
     if (img.dataset.board) return img.dataset.board;
     const base = String((window.MdHost || {}).files || ""), src = String(img.currentSrc || img.src || "").split(/[?#]/)[0];
     if (!base || !src.startsWith(base + "/")) return null;
-    try { return decodeURIComponent(src.slice(base.length)); } catch (e) { return null; }
+    // (on Windows the address reads …/file/C:/Users/…: the path the host knows begins at the drive, without the stroke before it)
+    try { return decodeURIComponent(src.slice(base.length)).replace(/^\/(?=[A-Za-z]:[\\/])/, ""); } catch (e) { return null; }
   }
   B.refOf = refOf;
   B.isBoard = (img) => !!img && img.tagName === "IMG" && (img.dataset.board ? true : B.format.isBoard(refOf(img)));
@@ -78,7 +79,7 @@
 
   // ---------------------------------------------------------------- pictures on a board
   const BROWSER = typeof (window.MdHost || {}).drop === "function"; // (a browser has the files themselves; the desktop's shell is told where they are)
-  const fileUrl = (path) => String((window.MdHost || {}).files || "") + path.split("/").map(encodeURIComponent).join("/");
+  const fileUrl = (path) => String((window.MdHost || {}).files || "") + (path.startsWith("/") ? "" : "/") + path.split("/").map(encodeURIComponent).join("/"); // (a path of Windows begins at its drive: the stroke is the address's)
   const base64Of = (bytes) => { let bin = ""; for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000)); return btoa(bin); };
   const TYPE_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
   /* Files the browser handed over: the pictures among them are kept beside the board, then put on it. */

@@ -97,6 +97,9 @@ else {
   if (-not $page.inserted) { $bad += "a file handed over was not put in" }
   if (@($page.activePictures | Where-Object { $_.src -ne "null" -and -not $_.ok }).Count) { $bad += "a picture put in does not show" }
   if (-not @($page.deco).Count) { $bad += "the colours a block can be given are missing" }
+  if (-not $page.board -or -not $page.board.opened) { $bad += "a whiteboard made in the note did not open" }
+  elseif ($page.board.error -or $page.board.drawn -ne 1 -or -not $page.board.kept -or -not $page.board.shut) { $bad += "a whiteboard was not drawn on, kept and shut" }
+  elseif (-not $page.board.picture -or -not $page.board.picture.ok -or -not $page.board.again) { $bad += "a whiteboard's picture in the note does not show, or the board does not open again from it" }
 }
 if (-not $with) { $bad += "started with a folder, the page reported nothing" }
 elseif ($null -eq $with.note.folder -or @($with.sidebarRows).Count -lt 2 -or @($with.errors).Count) { $bad += "started with a folder, the sidebar does not hold its notes" }

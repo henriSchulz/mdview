@@ -4363,7 +4363,7 @@
     let told = "", telling = 0;
     const tell = () => {
       const base = String((window.MdHost || {}).files || "");
-      const paths = [...new Set([...document.querySelectorAll("#content .board-block img, #active .board-block img")].map((i) => { const src = String(i.dataset.board || "") || (i.src.startsWith(base + "/") ? decodeURIComponent(i.src.slice(base.length).split(/[?#]/)[0]) : ""); return src; }).filter(Boolean))].sort();
+      const paths = [...new Set([...document.querySelectorAll("#content .board-block img, #active .board-block img")].map((i) => { const src = String(i.dataset.board || "") || (i.src.startsWith(base + "/") ? decodeURIComponent(i.src.slice(base.length).split(/[?#]/)[0]).replace(/^\/(?=[A-Za-z]:[\\/])/, "") : ""); return src; }).filter(Boolean))].sort();
       if (paths.join("\n") !== told) { told = paths.join("\n"); post("board-watch", { paths }); }
     };
     new MutationObserver(() => { clearTimeout(telling); telling = setTimeout(tell, 300); }).observe(document.body, { childList: true, subtree: true });

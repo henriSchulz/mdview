@@ -43,6 +43,34 @@
         o.slashColour = (() => { try { const e = MdActive.slash.entries(V.pm).find((x) => x && x.key === "slash.color"); return e ? (e.items || []).filter(Boolean).length : "no entry"; } catch (e) { return String(e).slice(0, 120); } })();
       }
     }
+    // ---- a whiteboard: made in the note, opened, drawn on, kept, shut, opened again from its picture
+    if (o.active) {
+      const V = MdActive.view, B = () => window.MdBoard, st = () => B() && B().state && B().state(), bd = () => document.getElementById("board");
+      const b = (o.board = {});
+      try {
+        V.focus();
+        MdActive.context.INSERT.board(V.pm);
+        b.opened = await until(() => st() && bd().hasAttribute("data-ready"), 12000);
+        b.ref = st() ? st().ref : null;
+        if (b.opened) {
+          await sleep(700);
+          const stage = bd().querySelector(".bd-stage"), ev = (type, x, y) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 7, pointerType: "mouse", isPrimary: true, button: 0, buttons: type === "pointerup" ? 0 : 1, pressure: type === "pointerup" ? 0 : 0.5 }));
+          document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "p", bubbles: true, cancelable: true }));
+          ev("pointerdown", 300, 300); for (let i = 1; i < 20; i++) { ev("pointermove", 300 + i * 8, 300 + Math.sin(i / 3) * 30); await sleep(6); } ev("pointerup", 460, 300);
+          b.drawn = st().items;
+          b.kept = await until(() => st() && !st().dirty, 6000);
+          document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          b.shut = await until(() => !B().shown && bd().hidden, 4000);
+          await sleep(500);
+          const img = document.querySelector("#active .board-block img");
+          b.picture = img ? { src: String(img.getAttribute("src")).slice(0, 80), ok: img.complete && img.naturalWidth > 0 } : null;
+          if (img) { MdView.core.board.open(img); b.again = await until(() => st() && bd().hasAttribute("data-ready") && st().items === 1, 10000); b.itemsAgain = st() ? st().items : null; }
+          document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          await until(() => !B().shown, 3000);
+        }
+        b.markdown = V.serialize(false).match(/!\[[^\]]*\]\([^)]*board[^)]*\)/g);
+      } catch (e) { b.error = String((e && e.stack) || e).slice(0, 400); }
+    }
     void toast0;
     out("windows", o);
 
