@@ -1460,6 +1460,8 @@
   toolbar.id = "toolbar";
   toolbar.innerHTML =
     `<button class="tb" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    // (a note opened by itself has no sidebar: this opens its folder beside it — the desktop only; viewer.css shows it while no folder is open)
+    ((window.MdHost || {}).reading || typeof (window.MdHost || {}).drop === "function" ? "" : `<button class="tb" data-act="notefolder" title="${esc(T("start.here"))}" aria-label="${esc(T("start.here"))}">${ICON.folder}</button>`) +
     `<button class="tb" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
     `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
@@ -3737,9 +3739,14 @@
 
   /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
    * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
-  const emptyState = () => `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
+  /* Nothing open at all (the app started by itself, on the desktop): what can be opened — a folder of notes, which the
+   * sidebar then shows, or one file. */
+  const startState = () => `<div class="empty-state start-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("start.title"))}</b><p>${esc(T("start.text"))}</p>` +
+    `<div class="start-go"><button class="btn primary" type="button" data-empty="folder">${esc(T("start.folder"))}</button><button class="btn" type="button" data-empty="file">${esc(T("start.file"))}</button></div></div>`;
+  const emptyState = () => !folder && !READING && typeof (window.MdHost || {}).drop !== "function" ? startState() : `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
     (READING || !folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
   document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && folder) { e.preventDefault(); openNewNote(); } });
+  document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
 
   // --- new note
   /* A new note or folder is asked for in a small window of its own — from the sidebar's +, from All
@@ -4063,6 +4070,7 @@
       openCtx(sbHistoryBtn, r.right, r.bottom + 4, "history");
     },
     folder: () => post("folder"),
+    notefolder: () => post("folder", { here: true }),
     newtab: () => post("tab", { op: "new" }),
     prev: () => focusHit(hitIdx - 1),
     next: () => focusHit(hitIdx + 1),

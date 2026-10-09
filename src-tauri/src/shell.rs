@@ -1067,7 +1067,8 @@ impl App {
         match (folder, path) {
             (Some(folder), _) => w.set_folder(self, folder),
             (None, Some(path)) => w.open_path(self, path, None, false),
-            _ => {}
+            // (neither: the window says what can be opened — a folder, a file — and waits; see on_loaded)
+            _ => w.load_shell(self, false),
         }
         let num = |key: &str| self.state.get(key).and_then(Value::as_f64);
         let (width, height) = if folder.is_some() {
@@ -1108,10 +1109,6 @@ impl App {
             let _ = crash.send(Event::Crashed { label: own.clone() });
         });
         w.window = Some(window);
-        let bare = w.path.is_none() && w.folder.is_none();
-        if bare {
-            w.choose_file(self);
-        }
         self.wins.insert(label, w);
     }
 }
@@ -1272,6 +1269,9 @@ impl Win {
         self.send_tabs(app);
         let fragment = self.pending_fragment.take();
         self.render(app, false, fragment, false);
+        if self.path.is_none() && self.folder.is_none() {
+            self.js("MdView.clear", &[]); // (nothing open yet: the page offers a folder and a file)
+        }
         if let (Some(probe), Some(window)) = (PROBE.as_ref(), &self.window) {
             if let Ok(script) = fs::read_to_string(probe) {
                 let _ = window.eval(script);
@@ -2105,7 +2105,6 @@ impl Win {
                 }
             }
             (Pick::File, Some(file)) => self.open_path(app, &file, None, true),
-            (Pick::File, None) if self.path.is_none() && self.folder.is_none() => self.close(app),
             (Pick::Reference, Some(p)) => self.js("MdView.graphicImage", &[json!(s(&p)), json!(format!("{}?{}", file_url(&p), now())), Value::Null]),
             _ => {}
         }
@@ -2595,7 +2594,11 @@ impl Win {
             "untrash" => self.untrash(app),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
-            "folder" => self.pick(app, Pick::Folder),
+            // a folder chosen in the system's window — or, here: the folder the note on screen lies in, opened beside it
+            "folder" => match self.path.clone().filter(|_| truthy(&msg["here"]) && self.folder.is_none()) {
+                Some(note) => self.set_folder(app, &dir_of(&note)),
+                None => self.pick(app, Pick::Folder),
+            },
             "open" => self.choose_file(app),
             "reload" => {
                 self.new_resolver();

@@ -636,6 +636,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   onto a folder's tile. Tabs, the note on screen and a share's link follow.
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
+- **Started by itself** (nothing opened before), the app says in its window what can be opened:
+  Open Folder… and Open File…. A note opened by itself has no sidebar; the folder button in its
+  toolbar opens the folder the note lies in beside it, and the sidebar shows its notes.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
 
 ## History

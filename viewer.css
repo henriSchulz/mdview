@@ -1400,3 +1400,9 @@ body[data-linked] .sb-sync { display: grid; }
   body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #content, #active .pm, #editor, .pdf-pages, input, textarea, [contenteditable]:not([contenteditable="false"]), .code-block pre { -webkit-user-select: text; user-select: text; }
 }
+
+/* a note opened by itself: its folder, opened beside it, from the toolbar (gone once a folder is open) */
+body[data-folder] #toolbar [data-act="notefolder"] { display: none; }
+/* nothing open yet: a folder or a file */
+.start-go { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.start-go .btn { margin: 0; }
