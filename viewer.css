@@ -1392,3 +1392,11 @@ body[data-linked] .sb-sync { display: grid; }
   body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 11px); width: 22px; }
   .code-tools .btn { min-height: 36px; }
 }
+
+/* ---- under a finger it is an app, not a page: the window is not pinched larger or made larger by a double tap, and only what
+ * is the note's — its text, a field — is selected; a finger resting on a button, a row, a title selects nothing */
+@media (pointer: coarse) {
+  html { touch-action: pan-x pan-y; }
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #content, #active .pm, #editor, .pdf-pages, input, textarea, [contenteditable]:not([contenteditable="false"]), .code-block pre { -webkit-user-select: text; user-select: text; }
+}

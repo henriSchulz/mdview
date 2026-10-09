@@ -3638,6 +3638,9 @@
    * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
    * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
    * the touch is handed on as the mouse's press, moves and release, and the browser's own are left out. */
+  // (an app, not a page: two fingers do not make the window's whole content larger — Safari asks with events of its own, and
+  // does not heed what the page's head says; what is meant to be pinched, a whiteboard, a PDF, takes the fingers itself)
+  if (matchMedia("(pointer: coarse)").matches) for (const type of ["gesturestart", "gesturechange"]) document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
   let touchedAt = -1e9;
   addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
   const touching = () => performance.now() - touchedAt < 1200;

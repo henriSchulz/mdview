@@ -152,3 +152,10 @@ button { font: inherit; }
 .boot-ring{width:28px;height:28px;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--fg) 14%,transparent);border-top-color:var(--accent);opacity:0;animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards,boot-turn .9s linear infinite}
 @keyframes boot-in{to{opacity:1}}@keyframes boot-turn{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--fg) 14%,transparent)}}
+
+/* under a finger: an app — not pinched larger, and its buttons and titles are not selected */
+@media (pointer: coarse) {
+  html { touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; }
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea { -webkit-user-select: text; user-select: text; font-size: 16px; }
+}

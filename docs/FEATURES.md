@@ -740,6 +740,9 @@ counts — and has no writing help by a model.
   handles. The keyboard comes up when the text itself is tapped — not when a block is chosen
   or a menu shuts.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
+  The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
+  are, by themselves), and only the note's text and fields are selected — a finger resting on
+  a button, a row or a title selects nothing.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes, as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

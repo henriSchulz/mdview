@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "light dark", width: "device-width", initialScale: 1, viewportFit: "cover",
+  colorScheme: "light dark", width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false, viewportFit: "cover", // (an app, not a page: it is not pinched larger)
   themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f5f5f7" }, { media: "(prefers-color-scheme: dark)", color: "#1e1e20" }],
 };
 

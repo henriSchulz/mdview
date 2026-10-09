@@ -87,6 +87,8 @@ for (const name of ["ipad", "ipadUp"]) {
     const pull = async (a, b, steps = 8) => { await touch("touchStart", [a]); for (let i = 1; i <= steps; i++) { await touch("touchMove", [[a[0] + ((b[0] - a[0]) * i) / steps, a[1] + ((b[1] - a[1]) * i) / steps]]); await p.waitForTimeout(16); } await p.waitForTimeout(120); await touch("touchEnd", []); await p.waitForTimeout(300); };
     await open(d);
     assert.ok(await p.evaluate(() => matchMedia("(pointer: coarse)").matches), "a finger's device");
+    // an app, not a page: not pinched larger, and what is no text of the note's is not selected
+    assert.deepEqual(await p.evaluate(() => [/user-scalable=no/.test(document.querySelector("meta[name=viewport]").content), getComputedStyle(document.documentElement).touchAction, getComputedStyle(document.querySelector(".sb-row")).userSelect, getComputedStyle(document.querySelector("#toolbar")).userSelect, getComputedStyle(document.querySelector("#content p")).userSelect]), [true, "pan-x pan-y", "none", "none", "text"], "no pinch, no selecting of the app's own parts; the note's text can be selected");
     // the sidebar's edge
     const grip = await rect(p, "#sb-grip"), was = (await rect(p, "#sidebar")).w;
     assert.ok(grip.w >= 20, `the edge is wide enough to be met: ${grip.w}`);

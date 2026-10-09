@@ -88,7 +88,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
   const page =
-    `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>` +
+    `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'>` +
     // (on a phone's home screen: an app of its own, its bars in the page's colour — light and dark)
     `<meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-title' content='Notes'><meta name='apple-mobile-web-app-status-bar-style' content='default'>` +
     `<meta name='theme-color' content='${LIGHT.background}' media='(prefers-color-scheme: light)'><meta name='theme-color' content='${DARK.background}' media='(prefers-color-scheme: dark)'>` +
