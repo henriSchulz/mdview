@@ -87,8 +87,10 @@
         b.markdown = V.serialize(false).match(/!\[[^\]]*\]\([^)]*board[^)]*\)/g);
       } catch (e) { b.error = String((e && e.stack) || e).slice(0, 400); }
     }
-    // (kept by itself a moment after the last change: waited for — nothing here is asked to write, so that the app is as someone uses it)
-    await sleep(4000);
+    // (the board's block is what is chosen in the note now: what is put in next would take its place, as anything put in takes the
+    // place of what is chosen — the caret goes to the note's end first. Then the note is kept by itself, a moment after the last change.)
+    try { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); } catch (e) { /* (not in the active mode) */ }
+    await sleep(2500);
     void toast0;
     out("windows", o);
 
