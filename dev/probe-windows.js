@@ -87,9 +87,8 @@
         b.markdown = V.serialize(false).match(/!\[[^\]]*\]\([^)]*board[^)]*\)/g);
       } catch (e) { b.error = String((e && e.stack) || e).slice(0, 400); }
     }
-    // (what was written is kept now, not a moment later: the app is started again on this note, below)
-    try { if (window.MdView.flush) MdView.flush(); } catch (e) { /* (the next save has it) */ }
-    await sleep(1500);
+    // (kept by itself a moment after the last change: waited for — nothing here is asked to write, so that the app is as someone uses it)
+    await sleep(4000);
     void toast0;
     out("windows", o);
 
