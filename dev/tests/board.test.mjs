@@ -321,3 +321,16 @@ test("in a note a board alone in its paragraph is a block of its own, by both wa
   assert.doesNotMatch(md.render("![](tree.svg)\n", {}), /board-block/);
   assert.doesNotMatch(md.render("text ![](a.board.svg) text\n", {}), /board-block/);
 });
+
+test("the lasso takes a stroke with a fair part of itself in the loop, and a thing by its middle or two of its corners", () => {
+  const vmB = (() => { const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity }; w.window = w; vm.createContext(w); for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js"]) { try { vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f }); } catch (e) { if (f !== "board/ink.js") throw e; } } return w.MdBoard; })();
+  if (!vmB.ink) return; // (ink.js needs a page: covered by web/test/board-touch.test.mjs)
+  const stroke = { k: "ink", pts: Array.from({ length: 40 }, (_v, i) => [i * 10, 0, 0.5, 0]) }, box = (x0, x1) => [[x0, -20], [x1, -20], [x1, 20], [x0, 20]];
+  assert.equal(vmB.ink.circled([stroke], box(-5, 195)).length, 1, "half of it inside");
+  assert.equal(vmB.ink.circled([stroke], box(-5, 105)).length, 1, "a good quarter of it inside");
+  assert.equal(vmB.ink.circled([stroke], box(100, 135)).length, 0, "only crossed");
+  assert.equal(vmB.ink.holds(box(0, 100), [90, -30, 190, 30]), false, "a thing with neither its middle nor a corner inside");
+  assert.equal(vmB.ink.holds(box(0, 100), [20, -10, 160, 10]), true, "two of its corners inside");
+  assert.equal(vmB.ink.holds(box(0, 100), [40, -60, 140, 60]), true, "larger than the loop, its middle inside");
+});
+

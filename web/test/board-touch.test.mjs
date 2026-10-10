@@ -409,4 +409,57 @@ test("as a tablet has it: the board let go in mid-move runs on and comes to rest
   await context.close();
 });
 
+test("a shape drawn and held is made clean under the hand and pulled to its size; the lasso takes what it goes partly round", async () => {
+  const { page, context, st, at, sleep, kind, w } = await open("tablet");
+  const cdp = await context.newCDPSession(page), cx = w / 2;
+  const pen = (type, x, y, more = {}) => cdp.send("Input.dispatchMouseEvent", { type, x, y, pointerType: "pen", button: type === "mouseMoved" && !more.down ? "none" : "left", buttons: type === "mouseReleased" || (type === "mouseMoved" && !more.down) ? 0 : 1, clickCount: type === "mouseMoved" ? 0 : 1, force: 0.5 });
+  const ring = (x, y, r, n = 40) => Array.from({ length: n + 1 }, (_v, i) => [x + r * Math.cos((2 * Math.PI * i) / n), y + r * Math.sin((2 * Math.PI * i) / n)]);
+  // drawn, the hand rests where the circle shuts (its right side), then pulls outward — and then lets go
+  const drawHold = async (pts, pull) => {
+    await pen("mousePressed", ...pts[0]);
+    for (let i = 1; i < pts.length; i++) { await pen("mouseMoved", ...pts[i], { down: true }); await sleep(6); }
+    await sleep(750); // (held still: made clean)
+    for (const p of pull) { await pen("mouseMoved", ...p, { down: true }); await sleep(20); }
+    await pen("mouseReleased", ...pull[pull.length - 1]);
+    await sleep(120);
+  };
+  // ---- the shape tool: a circle of 60 drawn and held, the hand pulled out to twice as far from its middle
+  await kind("shape");
+  await drawHold(ring(cx, 420, 60), [[cx + 80, 420], [cx + 100, 420], [cx + 120, 420]]);
+  let s = await st();
+  const z = s.view.z, c = s.things.find((t) => t.k === "shape");
+  assert.ok(c && c.shape === "ellipse", `a circle drawn with the shape tool and held is a circle of the board: ${JSON.stringify(s.things)}`);
+  assert.ok(Math.abs(c.w * z - 240) < 14 && Math.abs(c.h * z - 240) < 14, `pulled to twice as far out, it is twice as large (240 on the screen): ${JSON.stringify([c.w * z, c.h * z])}`);
+  const mid = await at(c.x + c.w / 2, c.y + c.h / 2);
+  assert.ok(Math.abs(mid[0] - cx) < 8 && Math.abs(mid[1] - 420) < 8, `… around the middle it had: ${JSON.stringify(mid)}`);
+  // … and pulled inward it is smaller
+  await drawHold(ring(cx, 760, 80), [[cx + 60, 760], [cx + 40, 760]]);
+  s = await st();
+  const d = s.things.filter((t) => t.k === "shape").pop();
+  assert.ok(Math.abs(d.w * z - 80) < 12, `pulled in to half as far, it is half as large (80 on the screen): ${d.w * z}`);
+  // held and let go where it was: the size it was drawn
+  await drawHold(ring(cx - 200, 980, 50), [[cx - 150, 980]]);
+  s = await st();
+  const e = s.things.filter((t) => t.k === "shape").pop();
+  assert.ok(Math.abs(e.w * z - 100) < 10, `held and let go where the hand was, it keeps the size it was drawn: ${e.w * z}`);
+  // ---- a pen: the same under its hand, and the circle stays ink
+  await kind("pen");
+  const inks = (await st()).items;
+  await drawHold(ring(cx + 220, 980, 40), [[cx + 280, 980], [cx + 300, 980]]);
+  s = await st();
+  assert.equal(s.items, inks + 1, "a pen's circle, held and pulled, is one stroke of ink");
+  // ---- the lasso: a loop that goes round only a part of a stroke takes it; one that only crosses it does not
+  const line = Array.from({ length: 30 }, (_v, i) => [120 + i * 12, 1090]);
+  await pen("mousePressed", ...line[0]); for (const p of line.slice(1)) { await pen("mouseMoved", ...p, { down: true }); await sleep(6); } await pen("mouseReleased", ...line[29]); await sleep(120);
+  await kind("lasso");
+  const loop = async (x0, x1) => { const pts = [[x0, 1060], [x1, 1060], [x1, 1120], [x0, 1120], [x0, 1062]].flatMap((p, i, a) => (i ? Array.from({ length: 6 }, (_v, k) => [a[i - 1][0] + ((p[0] - a[i - 1][0]) * (k + 1)) / 6, a[i - 1][1] + ((p[1] - a[i - 1][1]) * (k + 1)) / 6]) : [p])); await pen("mousePressed", ...pts[0]); for (const p of pts.slice(1)) { await pen("mouseMoved", ...p, { down: true }); await sleep(6); } await pen("mouseReleased", ...pts[pts.length - 1]); await sleep(120); };
+  await loop(100, 300); // (round the first 180 of the line's 350: about half of it)
+  assert.equal((await st()).chosen, 1, "a loop round half of a stroke takes the stroke");
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  await sleep(100);
+  await loop(200, 235); // (a narrow loop across it: a tenth of it)
+  assert.equal((await st()).chosen, 0, "a loop that only crosses a stroke does not take it");
+  await context.close();
+});
+
 test("nothing was thrown along the way", () => { assert.deepEqual(problems, []); });

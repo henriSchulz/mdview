@@ -855,8 +855,9 @@
   }
   /* What was drawn with the shape tool: a straight line, a circle or an ellipse, a rectangle become things of the board — chosen,
    * to be pulled to size; a triangle a clean line of ink; anything else stays the line it is. */
-  function formed(item) {
-    const g = B.shape.guess(item.pts), stroke = { c: item.c, w: item.w };
+  function formed(item, known = null) {
+    // (made clean under the hand already — held still, and perhaps pulled to its size: it is what it was made)
+    const g = known ? { kind: known, pts: item.pts, sharp: known !== "circle" && known !== "ellipse" } : B.shape.guess(item.pts), stroke = { c: item.c, w: item.w };
     if (g && g.kind === "line") { const it = B.items.fresh("line", 0, 0); return void sel.put({ ...it, id: undefined, p: [g.pts[0][0], g.pts[0][1], g.pts[1][0], g.pts[1][1]].map(Math.round), stroke }); }
     if (g && ["circle", "ellipse", "rectangle"].includes(g.kind)) {
       const xs = g.pts.map((p) => p[0]), ys = g.pts.map((p) => p[1]), x = Math.round(Math.min(...xs)), y = Math.round(Math.min(...ys)), it = B.items.fresh("shape", 0, 0, { shape: g.kind === "rectangle" ? "rect" : "ellipse" });
@@ -890,17 +891,21 @@
       return ring(lastPt);
     }
     const item = act.stroke.item;
-    if (act.shape) { // made clean already: a line's end still follows the hand, the others stand
-      if (act.shape !== "line") return;
-      const p = onBoard(lastPt);
-      item.pts[1] = [Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, 0.5, 0];
+    if (act.shape) { // made clean already, the hand still down: a line's end follows it, any other shape is pulled to its size
+      const p = onBoard(lastPt), q1 = (v) => Math.round(v * 10) / 10;
+      if (act.shape === "line") item.pts[1] = [q1(p.x), q1(p.y), 0.5, 0];
+      else {
+        // (as far from the shape's middle as the hand is now, measured by how far it was when the shape was made)
+        const [mx, my] = act.mid, k = Math.max(0.12, Math.min(12, Math.hypot(p.x - mx, p.y - my) / act.reach));
+        item.pts = act.base.map((b) => [q1(mx + (b[0] - mx) * k), q1(my + (b[1] - my) * k), 0.5, 0]);
+      }
       item.path = null; item.box = null;
       return live(item);
     }
     let more = false;
     for (const p of pts) more = act.stroke.add(act.edge ? along(act.edge, onBoard(p)) : onBoard(p)) || more;
     if (more) live(item, null, act.edge ? null : foreseen(item, ahead));
-    if (act.edge || act.form) return; // (along the ruler it is straight already; the shape tool's line is made clean when it is let go)
+    if (act.edge) return; // (along the ruler it is straight already)
     if (Math.hypot(lastPt.x - act.still.x, lastPt.y - act.still.y) > STILL || !act.hold) {
       act.still = lastPt;
       clearTimeout(act.hold);
@@ -908,6 +913,11 @@
         if (!S || S.act !== act || act.shape) return;
         const g = B.shape.guess(item.pts);
         if (!g) return;
+        // (where the hand rests is how far out the shape reaches for it: from there it is pulled larger and smaller)
+        const hand = item.pts[item.pts.length - 1], xs = g.pts.map((p) => p[0]), ys = g.pts.map((p) => p[1]);
+        act.mid = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+        act.reach = Math.max(12 / S.view.z, Math.hypot(hand[0] - act.mid[0], hand[1] - act.mid[1]));
+        act.base = g.pts.map((p) => [p[0], p[1]]);
         item.pts = g.pts; item.path = null; item.box = null;
         if (g.sharp) item.sharp = true; else delete item.sharp;
         act.shape = g.kind;
@@ -964,7 +974,7 @@
       if (S.model.items.length !== act.before.length || S.model.items.some((it, i) => it !== act.before[i])) replaced(act.before);
       return paint();
     }
-    if (act.form) { live(null); return formed(act.stroke.item); }
+    if (act.form) { live(null); return formed(act.stroke.item, act.shape || null); }
     const item = act.stroke.item;
     S.model.items.push(item);
     did({ undo: () => { S.model.items = S.model.items.filter((it) => it !== item); }, redo: () => { S.model.items.push(item); } });

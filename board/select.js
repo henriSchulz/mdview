@@ -195,8 +195,8 @@
       if (act.kind === "loop") {
         for (const pt of pts) { const q2 = ctx.onBoard(pt); act.pts.push([q2.x, q2.y]); }
         ctx.loop(act.pts);
-        // the strokes with most of themselves inside it, and every thing whose middle is
-        if (act.pts.length > 3) st.pick = withGroup([...act.keep, ...B.ink.circled(st.model.items, act.pts), ...plain(st).filter((it) => !it.foreign && B.ink.within(act.pts, ...I.mid(it)))]);
+        // the strokes with a fair part of themselves inside it, and every thing whose middle is, or two of its corners
+        if (act.pts.length > 3) st.pick = withGroup([...act.keep, ...B.ink.circled(st.model.items, act.pts), ...plain(st).filter((it) => !it.foreign && (B.ink.within(act.pts, ...I.mid(it)) || B.ink.holds(act.pts, I.bounds(it))))]);
         return ctx.paint();
       }
       if (act.kind === "inksize") {

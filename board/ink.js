@@ -70,9 +70,17 @@
     }
     return inside;
   }
-  /* The strokes a loop drawn around them takes: those with most of their points inside it. */
+  /* The strokes a loop drawn around them takes: those with a fair part of themselves inside it — a loop need not go all the
+   * way round a thing, nor be shut, to mean it (a quarter of a stroke's points is enough; a stroke merely crossed is not). */
+  const SHARE = 0.25;
   function circled(items, poly) {
-    return items.filter((it) => it.k === "ink" && it.pts.filter((p) => within(poly, p[0], p[1])).length >= Math.max(1, it.pts.length * 0.6));
+    return items.filter((it) => it.k === "ink" && it.pts.filter((p) => within(poly, p[0], p[1])).length >= Math.max(1, it.pts.length * SHARE));
+  }
+  /* … and whether it takes a thing with this box (a shape, a text, a picture): its middle inside, or two of its corners. */
+  function holds(poly, box) {
+    const [x0, y0, x1, y1] = box;
+    if (within(poly, (x0 + x1) / 2, (y0 + y1) / 2)) return true;
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].filter(([x, y]) => within(poly, x, y)).length >= 2;
   }
   /* The same stroke somewhere else, or larger: every point through f([x, y]) → [x, y]; its width times k. */
   function moved(it, f, k = 1) {
@@ -97,5 +105,5 @@
     }
     return out;
   }
-  B.ink = { draw, begin, touched, circled, moved, within, trace, TOOLS };
+  B.ink = { draw, begin, touched, circled, holds, moved, within, trace, TOOLS };
 })();

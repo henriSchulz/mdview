@@ -123,6 +123,8 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| The lasso took a thing only when the loop went all the way round it; of a group only a part | a stroke needed 60 % of its points inside, a thing its middle | a quarter of a stroke is enough, a thing's middle or two of its corners; a stroke merely crossed is not taken | `web/test/board-touch.test.mjs`, `dev/tests/board.test.mjs` |
+| A shape drawn and held could not be sized while the hand was down (as GoodNotes does); the shape tool did not make it clean on a hold at all | only a line followed the hand after it was made clean; the shape tool waited for the lift | held still, any shape is made clean and then pulled larger or smaller from its middle — with a pen and with the shape tool | `web/test/board-touch.test.mjs` |
 | Moving a block such as an svg picture selected random text on the way | pressed on the picture itself (not its handle), the pull was left to the browser, which began a text selection | a pull on a block that is a thing moves the block, with the handle's drag (rule 30) | `rig.sh cut` |
 | The assistant showed the last conversation on whatever document it was opened | one conversation in hand for the whole window | a conversation for each document, a new one the first time | `rig.sh ai` |
 | Scrolling in the AI chat scrolled the note behind it | the chat's log had nothing (more) to scroll; the wheel went on to the page | wheel swallowed where nothing of the chat can scroll (rule 2) | `rig.sh ai` |

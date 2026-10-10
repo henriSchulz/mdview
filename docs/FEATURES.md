@@ -447,6 +447,10 @@ shut back into it.
   its place among the three. Each pen keeps its own width, its own colour and its own three.
 - **The eraser**'s tray: whether it takes whole strokes or the parts it passes over, and how
   large it is.
+- **Pulled to its size while the hand is down**: once a stroke is made clean (below), the hand
+  still down moves on — away from the shape's middle and it grows, toward it and it shrinks; a
+  line's end follows the hand. With a pen, and with the shape tool, where a hold makes the shape
+  clean before the hand lets go.
 - **A stroke made clean**: rest the hand at the end of a stroke before lifting it, and a line
   becomes straight (its end still follows the hand), a ring a circle or an ellipse, a box a
   rectangle, three sides a triangle.
@@ -458,7 +462,9 @@ shut back into it.
   corner it shrinks to a round sign of the tool in hand, which a tap opens again. The small
   arrow at its end shrinks it too.
 - **The lasso** chooses and moves whatever is on the board, strokes of ink included: a click,
-  `Shift` and a click for more, `Ctrl+A` for all; a pen draws a loop around what it wants, a
+  `Shift` and a click for more, `Ctrl+A` for all; a pen draws a loop around what it wants (it need
+  not go all the way round, nor be shut: a stroke with a quarter of itself in the loop is taken,
+  a thing with its middle or two of its corners; what the loop only crosses is not), a
   mouse pulls a box from the bare board. What is chosen is pulled to another place — several
   things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
   with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
