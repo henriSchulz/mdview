@@ -308,6 +308,22 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  dragnote)
+    # blocks moved with a real pointer in a copy of a real note (NOTE=… its file; pictures beside it go along): columns, svg, formulas, a board
+    V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }
+    src="${NOTE:-$HOME/Documents/Notizen/Test Neu.md}"; name=note.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$src" "$R/work/$name"; for f in "$(dirname "$src")"/*.board.svg "$(dirname "$src")"/assets; do [[ -e $f ]] && cp -r "$f" "$R/work/" 2>/dev/null; done; rm -f "$R/out/$name".plan*.json "$R/out/$name".dragnote.json "$R/out/$name".shot-*.json
+    { echo "window.__seed = ${SEED:-7}; window.__n = ${N:-14};"; cat "$D/probe-dragnote.js"; } > "$R/probe-dragnote.js"
+    app 240 MDVIEW_PROBE="$R/probe-dragnote.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1; rm -f "$R/out"/dragnote-*.png
+    for _ in $(seq 2400); do
+      [[ -f $R/out/$name.dragnote.json ]] && break
+      for sf in "$R/out/$name".shot-*.json; do [[ -f $sf ]] && { b=$(basename "$sf" .json); shot "$R/out/dragnote-${b##*.shot-}.png"; rm -f "$sf"; }; done
+      if [[ -f $R/out/$name.plan$n.json ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$R/out/$name.plan$n.json"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.dragnote.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragnote.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json
