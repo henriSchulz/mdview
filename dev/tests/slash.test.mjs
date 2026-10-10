@@ -95,3 +95,25 @@ test("in a list the block is the item", () => {
   A.slash.BLOCK.duplicate(v);
   assert.equal(v.md(), "- [ ] a\n- [x] b\n- [x] b\n");
 });
+
+test("the bar over the entries: six buttons that are entries of their groups, ticked as they are", () => {
+  let v = open("one\n\ntwo\n", "one");
+  const bar = A.slash.bar(v);
+  assert.equal(bar.length, 6);
+  assert.equal(bar.map((b) => b.text).join(","), ",H1,H2,,,");
+  assert.ok(bar.every((b) => b.label && (b.text || b.icon) && typeof b.run === "function"));
+  assert.equal(bar.map((b) => +!!b.checked).join(""), "100000"); // a plain paragraph: Text
+  v = open("## Head\n\ntext\n", "Head");
+  assert.equal(A.slash.bar(v).map((b) => +!!b.checked).join(""), "001000");
+  v = open("- [ ] open\n", "open");
+  assert.equal(A.slash.bar(v).map((b) => +!!b.checked).join(""), "000010");
+  v = open("> quote\n", "quote");
+  assert.equal(A.slash.bar(v).map((b) => +!!b.checked).join(""), "100001"); // (the text in a quote is still text: both are ticked, as in their groups)
+  // a button does what its entry does, the "/" gone
+  v = open("one /\n\ntwo\n", "one /");
+  A.slash.bar(v)[2].run();
+  assert.equal(v.md(), "## one\n\ntwo\n");
+  // in a table's cell the groups are not there: no bar
+  v = open("| a | b |\n|---|---|\n| c | d |\n", "c");
+  assert.equal(A.slash.bar(v).length, 0);
+});

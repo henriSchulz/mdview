@@ -220,17 +220,31 @@
     return { from: $from.pos - m[1].length - 1, to: $from.pos, query: m[1].toLowerCase() };
   }
   const labelOf = (e) => e.label || T(e.key, e.n);
+  // the "/…" goes (with the space that stood before it at the end of the text), then the entry does its work
+  const runner = (view) => (e) => () => {
+    const t = typed(view.state);
+    if (t) {
+      const $t = view.state.doc.resolve(t.from), atEnd = t.to === $t.end();
+      const space = atEnd && t.from > $t.start() && /\s/.test(view.state.doc.textBetween(t.from - 1, t.from)) ? 1 : 0;
+      view.dispatch(view.state.tr.delete(t.from - space, t.to));
+    }
+    e.act(view);
+  };
+  /* The bar over the entries: what is chosen most often, as six buttons — text, the two big headings, a
+   * bullet list, a task, a quote. The same entries as in their groups (their ticks too); where the
+   * groups are not all there (in a table's cell) there is no bar. */
+  const BAR = [["slash.style", "menu.text"], ["slash.style", "menu.heading", 1], ["slash.style", "menu.heading", 2], ["slash.list", "menu.bullet"], ["slash.list", "menu.task"], ["slash.deco", "menu.quote"]];
+  function bar(view) {
+    const all = entries(view), run = runner(view), out = [];
+    for (const [group, key, n] of BAR) {
+      const g = all.find((e) => e && e.key === group), e = g && g.items.find((x) => x && x.key === key && (n == null || x.n === n));
+      if (!e) return [];
+      out.push({ label: labelOf(e), icon: e.icon, text: e.n ? "H" + e.n : "", checked: e.checked, run: run(e) });
+    }
+    return out;
+  }
   function items(view, q) {
-    // the "/…" goes (with the space that stood before it at the end of the text), then the entry does its work
-    const run = (e) => () => {
-      const t = typed(view.state);
-      if (t) {
-        const $t = view.state.doc.resolve(t.from), atEnd = t.to === $t.end();
-        const space = atEnd && t.from > $t.start() && /\s/.test(view.state.doc.textBetween(t.from - 1, t.from)) ? 1 : 0;
-        view.dispatch(view.state.tr.delete(t.from - space, t.to));
-      }
-      e.act(view);
-    };
+    const run = runner(view);
     const item = (e) => e && (e.items
       ? { label: labelOf(e), icon: e.icon, items: e.items.map(item) }
       : { label: labelOf(e), icon: e.icon, run: run(e), disabled: e.disabled, checked: e.checked, danger: e.danger });
@@ -251,16 +265,16 @@
       update(view, prev) {
         const t = view.editable && A.prefs.get().slash ? typed(view.state) : null;
         if (!t) { if (openFor != null) { openFor = null; A.menu.close(); } return; }
-        if (openFor === t.from) { if (view.state.doc !== prev.doc) A.menu.refill(items(view, t.query)); return; }
+        if (openFor === t.from) { if (view.state.doc !== prev.doc) A.menu.refill(items(view, t.query), t.query ? [] : bar(view)); return; }
         // opens only right after the "/" was typed, not when the caret comes back to one
         if (view.state.doc === prev.doc || t.query) return;
         openFor = t.from;
         const c = view.coordsAtPos(t.to);
-        A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items: items(view, ""), typing: true, steady: true, closed: () => { openFor = null; } });
+        A.menu.open({ x: c.left, y: c.bottom + 4, above: c.top - 4, items: items(view, ""), bar: bar(view), typing: true, steady: true, closed: () => { openFor = null; } });
       },
       destroy() { if (openFor != null) A.menu.close(); },
     }),
   });
 
-  A.slash = { plugin, typed, entries, BLOCK };
+  A.slash = { plugin, typed, entries, bar, BLOCK };
 })();
