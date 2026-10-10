@@ -35,6 +35,7 @@
   --radius-control: 8px;
   --radius-row: 6px;
   --radius-chip: 5px;
+  --radius-tile: 22px;  /* a tile that shows what is in something: a page as a widget */
   --radius-pill: 999px;  /* capsules: toolbar clusters, segmented controls */
 
   /* Pressed, lifted */

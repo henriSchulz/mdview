@@ -273,10 +273,30 @@ text simply stands where it is written. In the active mode a page is made from t
 once — or changed from the page it lies on: right click on its line › Rename…. Its line can be
 moved, copied and deleted like any block — the page goes with it.
 
+How its line looks is chosen from that menu too (right click › Style), and a colour beside it:
+
+- **Row** — a sign and its name. **Card** — the same on a raised ground.
+- **Sheet** — a small sheet of paper drawn as the page is built (its headings, text, pictures,
+  formulas, tasks; sheets behind it where pages lie in it), beside its name, how its text begins,
+  and how much is on it.
+- **Preview** — the sheet large with the page's name on it, the name under it.
+- **Widget** — a tile that shows what is on the page: its tasks (what is to do first, and how
+  many are done), else the pages in it, else how its text begins.
+
+Previews and widgets that follow each other stand side by side. What they show is read from the
+page as it is; a page has no date of its own, so none is shown.
+
+```markdown
+<!-- page sheet: Lecture 1 -->
+<!-- page preview blue: Lecture 1 -->
+<!-- page widget orange: Exercise sheet 3 -->
+```
+
 ### A link to a note as a block
 
 A link to another note stands in the text, or — a block of its own — looks as a page's line does:
-a row or a card, in one of the theme's colours. Right click on the link › Style. A link in the
+a row or a card (not a sheet, a preview or a widget: what is in another note is not at hand),
+in one of the theme's colours. Right click on the link › Style. A link in the
 text that is made a row or a card goes out of the text and stands under the block it stood in;
 In Text puts it back as a line of its own. In the file the look is a comment behind the link, so
 any other Markdown program shows the link:

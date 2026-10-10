@@ -497,6 +497,72 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .page-row[data-style="card"] .page-row-icon { width: 26px; height: 26px; border-radius: 7px; background: var(--pc); color: #fff; }
 .page-row[data-style="card"] .page-row-icon svg { width: 15px; height: 15px; stroke-width: 1.9; }
 .page-row[data-style="card"] .page-row-icon .sf { font-size: 13px; }
+/* Three looks that show what is on the page (viewer.js: pageRowInner). A sheet: a small sheet of
+ * paper that is drawn as the page is built, beside its name and how its text begins. A preview:
+ * the sheet large, the name under it. A widget: a tile with its tasks, the pages in it, its text.
+ * Previews and widgets stand side by side where they follow each other. */
+.page-row:is([data-style="sheet"], [data-style="preview"], [data-style="widget"]) { --page-ground: color-mix(in srgb, #fff 70%, var(--bg)); --page-paper: #fff; --page-edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05); --page-ink: color-mix(in srgb, var(--pc) 88%, var(--fg)); box-sizing: border-box; line-height: 1.3; }
+body[data-mode="dark"] .page-row:is([data-style="sheet"], [data-style="preview"], [data-style="widget"]) { --page-ground: color-mix(in srgb, var(--fg) 7%, var(--bg)); --page-paper: color-mix(in srgb, var(--fg) 16%, var(--bg)); --page-edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent); }
+.page-row:is([data-style="sheet"], [data-style="preview"], [data-style="widget"]) .page-row-name { text-decoration: none; font-weight: 600; }
+.page-row-ex { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--n, 2); overflow: hidden; color: var(--fg2); }
+.page-row-meta, .page-row-more { color: var(--fg-quiet); }
+/* (the sheet: a line for each line of the page — a heading in its colour, text, a picture, a formula, a task; sheets behind it where pages lie in it) */
+.page-sheets { position: relative; flex: none; width: 54px; height: 70px; }
+.page-sheet { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 3.5px; box-sizing: border-box; padding: 8px 7px; border-radius: 4px; background: var(--page-paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 2px 6px rgb(0 0 0 / 0.12); overflow: hidden; }
+.page-sheet.back1 { transform: rotate(-5deg) translate(-3px, 1px); }
+.page-sheet.back2 { transform: rotate(4deg) translate(3px, 0); }
+.page-sheet i { display: block; flex: none; height: 2.5px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 22%, transparent); }
+.page-sheet i:nth-child(3n) { width: 82%; }
+.page-sheet i:nth-child(4n) { width: 64%; }
+.page-sheet i.h { width: 58%; height: 4px; margin-bottom: 1.5px; background: var(--pc); }
+.page-sheet i.h ~ i.h { background: color-mix(in srgb, var(--fg) 45%, transparent); height: 3px; margin-top: 1.5px; }
+.page-sheet i.i { width: 100%; height: 14px; background: color-mix(in srgb, var(--pc) 28%, transparent); }
+.page-sheet i.f { width: 46%; margin: 1px auto; background: color-mix(in srgb, var(--pc) 60%, transparent); }
+.page-sheet i.c { width: 100%; height: 3.5px; border-radius: 1px; background: linear-gradient(90deg, var(--pc) 0 4px, transparent 4px 7px, color-mix(in srgb, var(--fg) 22%, transparent) 7px 80%, transparent 80%); }
+/* a sheet */
+.page-row[data-style="sheet"] { gap: 18px; margin: 0 0 0.6em; padding: 12px 18px 12px 16px; border-radius: var(--radius-panel); background: var(--page-ground); box-shadow: var(--page-edge); }
+.page-row[data-style="sheet"]:hover { background: color-mix(in srgb, var(--fg) 4%, var(--page-ground)); }
+.page-row[data-style="sheet"]:active { background: color-mix(in srgb, var(--fg) 8%, var(--page-ground)); }
+.page-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.page-row[data-style="sheet"] .page-row-name { letter-spacing: -0.01em; }
+.page-row[data-style="sheet"] .page-row-ex { margin-top: 2px; font-size: 0.85em; line-height: 1.4; }
+.page-row[data-style="sheet"] .page-row-meta { margin-top: 5px; font-size: 0.75em; }
+.page-row[data-style="sheet"] .page-row-meta b { font-weight: 500; color: var(--page-ink); }
+/* a preview */
+.page-row[data-style="preview"] { display: inline-flex; flex-direction: column; gap: 0; vertical-align: top; width: max(140px, calc((100% - 32.5px) / 4)); min-height: 0; margin: 0 8px 8px 0; padding: 14px 10px 12px; border-radius: var(--radius-panel); text-align: center; }
+.page-row[data-style="preview"] .page-sheets { width: 104px; height: 136px; margin-bottom: 12px; }
+.page-row[data-style="preview"] .page-sheet { gap: 6px; padding: 14px 12px; border-radius: 6px; box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 12px rgb(0 0 0 / 0.12); text-align: left; }
+.page-row[data-style="preview"] .page-sheet.back1 { transform: rotate(-4deg) translate(-5px, 2px); }
+.page-row[data-style="preview"] .page-sheet.back2 { transform: rotate(3.5deg) translate(5px, 0); }
+.page-row[data-style="preview"] .page-sheet b { display: block; flex: none; margin-bottom: 1px; padding-bottom: 5px; border-bottom: 1.5px solid var(--pc); font: 700 7.5px/1.2 var(--ui); color: var(--fg); overflow-wrap: anywhere; }
+.page-row[data-style="preview"] .page-sheet i { height: 3.5px; }
+.page-row[data-style="preview"] .page-sheet i.h { height: 5px; margin-top: 2px; }
+.page-row[data-style="preview"] .page-sheet i.i { height: 30px; border-radius: 3px; }
+.page-row[data-style="preview"] .page-sheet i.f { margin: 2px auto; }
+.page-row[data-style="preview"] .page-sheet i.c { height: 5px; background: linear-gradient(90deg, var(--pc) 0 5px, transparent 5px 10px, color-mix(in srgb, var(--fg) 22%, transparent) 10px 82%, transparent 82%); }
+.page-row[data-style="preview"] .page-row-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; white-space: normal; font-size: 0.875em; }
+.page-row[data-style="preview"] .page-row-meta { margin-top: 2px; font-size: 0.75em; }
+/* a widget */
+.page-row[data-style="widget"] { display: inline-flex; flex-direction: column; align-items: stretch; gap: 0; vertical-align: top; width: max(200px, calc((100% - 36.5px) / 3)); height: 172px; margin: 0 12px 12px 0; padding: 14px 16px 13px; border-radius: var(--radius-tile); background: var(--page-ground); box-shadow: var(--page-edge), 0 6px 18px -6px rgb(0 0 0 / 0.1); overflow: hidden; }
+.page-row[data-style="widget"]:hover { background: color-mix(in srgb, var(--fg) 4%, var(--page-ground)); }
+.page-row[data-style="widget"]:active { background: color-mix(in srgb, var(--fg) 8%, var(--page-ground)); }
+.page-row-head { display: flex; align-items: center; flex: none; gap: 6px; margin-bottom: 8px; color: var(--page-ink); }
+.page-row[data-style="widget"] .page-row-icon { width: 15px; height: 15px; color: inherit; }
+.page-row[data-style="widget"] .page-row-icon svg { width: 15px; height: 15px; stroke-width: 2; }
+.page-row[data-style="widget"] .page-row-icon .sf { font-size: 13px; }
+.page-row[data-style="widget"] .page-row-name { flex: 1; min-width: 0; font-size: 0.85em; }
+.page-row-count { flex: none; font: 700 17px/1 ui-rounded, "SF Pro Rounded", var(--ui); font-variant-numeric: tabular-nums; }
+.page-row-li { display: flex; align-items: center; flex: none; gap: 8px; height: 24px; font-size: 0.8em; }
+.page-row-li + .page-row-li { border-top: 0.5px solid var(--line); }
+.page-row-li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-row-li > svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--fg3); }
+.page-row-li > .sf { flex: none; width: 14px; font-size: 12px; text-align: center; color: var(--fg3); }
+.page-row-box { position: relative; flex: none; width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--fg3); }
+.page-row-li.done .page-row-box { background: var(--pc); box-shadow: none; }
+.page-row-li.done .page-row-box::after { content: ""; position: absolute; left: 4.6px; top: 2.4px; width: 3.4px; height: 6.4px; border: solid #fff; border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+.page-row-li.done > span:last-child { color: var(--fg-quiet); }
+.page-row[data-style="widget"] .page-row-ex { margin-top: 2px; font-size: 0.8em; line-height: 1.45; }
+.page-row[data-style="widget"] .page-row-more { margin-top: auto; font-size: 0.75em; }
 /* a link to another note as a block of its own (viewer.js: link_rows) looks as a page's line does; a note that is not there yet: fainter */
 .page-row.link-row.unresolved .page-row-name { color: var(--fg2); text-decoration-style: dashed; }
 /* A page that is open: the way to it, and its name (typed there in the active mode). */

@@ -456,6 +456,7 @@
   });
   md.renderer.rules.link_row = (t, i, _o, env) => {
     const { target, alias, look: words } = t[i].meta, look = pageLook(words), ok = target.startsWith("#") || (env.links && env.links[target]);
+    if (!LINK_STYLES.includes(look.style)) look.style = "card"; // (what is in another note is not at hand here: no sheet, no widget)
     return `<div class="page-row link-row${ok ? "" : " unresolved"}" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-wiki="${esc(target)}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${esc(alias || wikiLabel(target))}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
   };
 
@@ -810,8 +811,11 @@
    * the root (id null). Lines keep their own ends (a "\r" before the "\n" stays on the line). */
   /* How a page's line looks on the page it lies on — a word after "page": a plain row (nothing),
    * or a card (a cell of a list) — and, after that, one of the theme's colours:
-   *   <!-- page card: Name -->   <!-- page card blue: Name -->   <!-- page green: Name -->   */
-  const PAGE_STYLES = ["row", "card"];
+   *   <!-- page card: Name -->   <!-- page card blue: Name -->   <!-- page green: Name -->
+   * Three more show what is on the page: sheet (a small sheet of paper beside its name and how
+   * its text begins), preview (the sheet large, the name under it) and widget (a tile with its
+   * tasks, the pages in it, or its text). A link to another note is a row or a card. */
+  const PAGE_STYLES = ["row", "card", "sheet", "preview", "widget"], LINK_STYLES = ["row", "card"];
   const PAGE_OPEN = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*-->\s*$/, PAGE_CLOSE = /^ {0,3}<!--\s*\/page\s*-->\s*$/, PAGE_ROW = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*#([a-z]\d+)\s*-->\s*$/;
   const pageLook = (words) => { const [a, b] = String(words || "").split(/\s+/), style = PAGE_STYLES.includes(a) ? a : "row", color = [a, b].find((x) => DECO_COLORS.includes(x)) || ""; return { style, color }; };
   const pageWords = (look) => [look.style === "row" ? "" : look.style, look.color].filter(Boolean).join(" ");
@@ -1069,13 +1073,58 @@
     if (!line.test(m[2])) return null;
     return m[1] + m[2].replace(line, (_all, head, tail) => head + (on ? "true" : "false") + tail) + m[3] + text.slice(m[0].length);
   }
+  /* What a page says about itself on its line (the looks sheet, preview and widget): how its own
+   * text begins, its tasks, the pages in it, the words in all of it — and its shape, a letter a
+   * line: h a heading, t text, i a picture, f a formula or code, c a task. */
+  function pageFacts(page) {
+    const text = [], subs = [], tasks = [], shape = [];
+    const plain = (s) => s.replace(/<!--.*?-->/g, "").replace(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`~$]|==/g, "").replace(/\s+/g, " ").trim();
+    const wordsOf = (pg) => pg.items.reduce((n, x) => n + (typeof x === "string" ? (plain(x).match(/[\p{L}\p{N}]+/gu) || []).length : wordsOf(x)), 0);
+    let fence = null, math = false;
+    for (const x of page.items) {
+      if (typeof x !== "string") { subs.push(x.title || "Untitled"); shape.push("t"); continue; }
+      const line = x.replace(/\r$/, ""), f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (f && !fence) { fence = f[1]; shape.push("f"); continue; }
+      if (fence) { if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null; continue; }
+      if (/^\s*\$\$/.test(line)) { if (!math) shape.push("f"); if (!/^\s*\$\$.+\$\$\s*$/.test(line)) math = !math; continue; }
+      if (math || !line.trim() || /^ {0,3}([-*_])( *\1){2,} *$/.test(line)) continue;
+      const task = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]\s+(.*)$/.exec(line);
+      if (task) { tasks.push({ text: plain(task[2]), done: task[1] !== " " }); shape.push("c"); continue; }
+      if (/^\s*!\[/.test(line)) { shape.push("i"); continue; }
+      if (/^ {0,3}#{1,6}\s/.test(line)) { shape.push("h"); continue; }
+      if (/^\s*\|/.test(line)) { shape.push("t"); continue; }
+      const t = plain(line.replace(/^\s*(?:>\s*)*(?:\[![^\]]*\][+-]?)?\s*(?:(?:[-*+]|\d+[.)])\s+)?/, ""));
+      if (!t) continue;
+      text.push(t);
+      for (let i = Math.min(3, Math.ceil(t.length / 90)); i > 0; i--) shape.push("t");
+    }
+    const all = text.join(" "), excerpt = all.length > 240 ? all.slice(0, 240).replace(/\s+\S*$/, "") + "…" : all;
+    return { excerpt, words: wordsOf(page), subs, tasks, done: tasks.filter((t) => t.done).length, shape: shape.slice(0, 9).join("") };
+  }
+  // … and the line drawn in one of those looks (page: null where the page is not at hand — its name alone)
+  function pageRowInner(look, name, page) {
+    const f = page ? pageFacts(page) : { excerpt: "", words: 0, subs: [], tasks: [], done: 0, shape: "" };
+    const said = [f.tasks.length ? T("page.tasksDone", f.done, f.tasks.length) : "", f.subs.length ? T(f.subs.length === 1 ? "page.subOne" : "page.subs", f.subs.length) : "", f.words || !page ? T(f.words === 1 ? "page.wordOne" : "page.words", f.words.toLocaleString()) : T("page.empty")].filter(Boolean);
+    const lines = [...f.shape].map((l) => `<i class="${l}"></i>`).join("");
+    const sheets = (head) => `<span class="page-sheets" aria-hidden="true">${f.subs.length > 1 ? '<span class="page-sheet back2"></span>' : ""}${f.subs.length ? '<span class="page-sheet back1"></span>' : ""}<span class="page-sheet">${head}${lines}</span></span>`;
+    if (look.style === "sheet") return `${sheets('<i class="h"></i>')}<span class="page-row-text"><span class="page-row-name">${name}</span>${f.excerpt ? `<span class="page-row-ex">${esc(f.excerpt)}</span>` : ""}<span class="page-row-meta">${said.map((s, i) => (i ? esc(s) : `<b>${esc(s)}</b>`)).join(" · ")}</span></span>`;
+    if (look.style === "preview") return `${sheets(`<b>${name}</b>`)}<span class="page-row-name">${name}</span><span class="page-row-meta">${esc(said[0])}</span>`;
+    // a widget: what is still to do first, then the pages in it, then how its text begins
+    const open = f.tasks.length - f.done, count = f.tasks.length ? open : f.subs.length;
+    const rows = f.tasks.length ? [...f.tasks].sort((a, b) => a.done - b.done).slice(0, 4).map((t) => `<span class="page-row-li${t.done ? " done" : ""}"><span class="page-row-box"></span><span>${esc(t.text)}</span></span>`) : f.subs.slice(0, 4).map((s) => `<span class="page-row-li">${ICON.note}<span>${esc(s)}</span></span>`);
+    const room = 5 - rows.length - (rows.length ? 1 : 0);
+    return `<span class="page-row-head"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span>${count ? `<span class="page-row-count">${count}</span>` : ""}</span>${rows.join("")}`
+      + (f.tasks.length ? `<span class="page-row-more">${esc(said[0])}</span>` : room > 0 && f.excerpt ? `<span class="page-row-ex" style="--n: ${room}">${esc(f.excerpt)}</span>` : !rows.length ? `<span class="page-row-more">${esc(said[said.length - 1])}</span>` : "");
+  }
   // a page's line on the page it lies on: its name, to be opened (reading view and active mode alike)
   const htmlBlockRule = md.renderer.rules.html_block;
   md.renderer.rules.html_block = (t, i, o, env, self) => {
     const m = PAGE_ROW.exec(t[i].content.trim());
     if (!m) return safeHtml(t[i].content);
     const page = pagesShown && pagesShown.byId.get(m[3]), look = pageLook(m[1]), name = esc((page ? page.title : m[2]) || "Untitled");
-    return `<div class="page-row" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-page="${esc(m[3])}" role="link" tabindex="0"><span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
+    const head = `<div class="page-row" data-style="${look.style}"${look.color ? ` data-color="${look.color}" style="--pc: var(--c-${look.color})"` : ""} data-page="${esc(m[3])}" role="link" tabindex="0">`;
+    if (look.style !== "row" && look.style !== "card") return head + pageRowInner(look, name, page) + (look.style === "sheet" ? "</div>\n" : "</div>"); // (tiles stand side by side: nothing between them, not even a space)
+    return `${head}<span class="page-row-icon">${ICON.note}</span><span class="page-row-name">${name}</span><span class="page-row-go">${ICON.chevron}</span></div>\n`;
   };
   function renderProps(props, env) {
     const keys = Object.keys(props);
@@ -4468,10 +4517,10 @@
   }
   window.MdView = { filesBack, boardChanged, aiDelta: (id, text) => window.MdAi && MdAi.delta(id, text), aiDone: (id, text, error) => window.MdAi && MdAi.done(id, text, error), aiPicked: (list) => window.MdAi && MdAi.picked(list), pinch: (phase, scale) => (window.MdBoard && MdBoard.shown ? MdBoard.pinch(phase, scale) : window.MdPdf && MdPdf.pinch && MdPdf.pinch(phase, scale)), boardMade, boardText: (id, text, error) => window.MdBoard && MdBoard.answer(id, text, error), boardSaved: (id, error) => window.MdBoard && MdBoard.answer(id, error), boardPut: (id, names, error) => window.MdBoard && MdBoard.answer(id, names, error), prefsChanged, settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d), historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(), history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d), historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d), historyRestored: (d) => window.MdActive && MdActive.history && MdActive.history.restored(d), busy, share: (d) => window.MdActive && MdActive.share && MdActive.share.got(d), conflicts: (d) => window.MdActive && MdActive.conflict && MdActive.conflict.got(d), conflictsFailed: () => window.MdActive && MdActive.conflict && MdActive.conflict.failed(), graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a), graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a), completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved, pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip, setPrefs, insertDropped,
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, append: (id, markdown) => pageAppend(id, markdown),
+    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
       // a link to a note as a block of its own: [[inner]] and how it looks
-      link: { isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },
+      link: { STYLES: LINK_STYLES, isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },
       lookOf: (raw) => pageLook((PAGE_ROW.exec(String(raw || "").trim()) || [])[1]),
       rename: (raw, name) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark(pageLook(m[1]), pageName(name) || m[2], m[3]) : raw; }, titleOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[2] || "",
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },

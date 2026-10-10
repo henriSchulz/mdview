@@ -131,6 +131,11 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .pm .isl > .page-row { margin-bottom: 0; }
 .pm .isl:has(> .page-row) { margin-bottom: 0.5em; }
 .pm .isl:has(> .page-row[data-style="card"]) { margin-bottom: 0.6em; }
+.pm .isl:has(> .page-row[data-style="sheet"]) { margin-bottom: 0.6em; }
+/* (previews and widgets stand side by side, as in the reading view: here their blocks do) */
+.pm .isl:has(> .page-row[data-style="preview"]) { display: inline-block; vertical-align: top; width: max(140px, calc((100% - 32.5px) / 4)); margin: 0 8px 8px 0; }
+.pm .isl:has(> .page-row[data-style="widget"]) { display: inline-block; vertical-align: top; width: max(200px, calc((100% - 36.5px) / 3)); margin: 0 12px 12px 0; }
+.pm .isl > .page-row:is([data-style="preview"], [data-style="widget"]) { display: flex; width: 100%; margin: 0; }
 /* The properties stand at the note's head: no block — no tint under the pointer, no pencil, no
  * handle, not selected as one. They are edited from the menu of a right click on them. */
 .pm[contenteditable="true"] .isl[data-kind="frontmatter"]:hover { background-color: transparent; }

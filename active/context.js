@@ -269,7 +269,7 @@
     const editable = !(node.type === N.island && node.attrs.virtual);
     // a picture, an embedded picture or PDF page: how large it shows, and — a PDF — which part of the page
     const pic = editable ? A.islands.picture(view, pos, node) : null;
-    // a page of the note, its line: opened, and how the line looks — a row, a card, a tile, a pill, a banner, in a colour
+    // a page of the note, its line: opened, and how the line looks — a row, a card, a sheet, a preview, a widget, in a colour
     const P = window.MdView.core.pages;
     if (node.type === N.island && node.attrs.kind === "html" && P.isRow(raw)) {
       const look = P.lookOf(raw), set = (to) => () => { A.islands.replace(view, pos, P.withLook(raw, to)); view.focus(); }, whole = P.markdownOf(raw);
@@ -296,7 +296,7 @@
       ];
     }
     // a link to a note: in the text, or a block of its own that looks as a page's line does — a row, a card
-    const L = P.link, linkStyle = (now, set) => ({ label: T("menu.pageStyle"), items: ["inline", ...P.STYLES].map((s) => item(s === "inline" ? "link.style.inline" : "page.style." + s, () => set(s), { checked: now === s })) });
+    const L = P.link, linkStyle = (now, set) => ({ label: T("menu.pageStyle"), items: ["inline", ...L.STYLES].map((s) => item(s === "inline" ? "link.style.inline" : "page.style." + s, () => set(s), { checked: now === s })) });
     if (node.type === N.island && L.isRow(raw)) {
       const inner = L.innerOf(raw), look = L.lookOf(raw), put = (md) => { A.islands.replace(view, pos, md); view.focus(); };
       return [

@@ -103,3 +103,24 @@ test("how a page's line looks: a word after \"page\", and a colour", () => {
   const html = w.MdView.core.md.render("<!-- page card blue: B #p2 -->\n");
   assert.match(html, /^<div class="page-row" data-style="card" data-color="blue" style="--pc: var\(--c-blue\)" data-page="p2"/);
 });
+
+test("the looks that show what is on a page: what the page says about itself, and its line drawn", () => {
+  const file = "<!-- page widget orange: Sheet 3 -->\n\n# Tasks\n\n- [x] one **done**\n- [ ] two\n- [ ] [[Plan|three]]\n\n```js\nmany words in code are not text\n```\n\n<!-- /page -->\n\n<!-- page sheet: Lecture -->\n\nStates and *systems*. A [link](https://example.org) too.\n\n![[fig.png]]\n\n$$\nE = mc^2\n$$\n\n<!-- page: Inner -->\ninner text here\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page preview: Nothing -->\n<!-- /page -->\n";
+  const root = P.parse(file), tasks = P.facts(root.byId.get("p1")), lecture = P.facts(root.byId.get("p2")), none = P.facts(root.byId.get("p4"));
+  assert.equal(P.text(root), file);
+  const j = (x) => JSON.parse(JSON.stringify(x)); // (made in the page: another Array than the test's)
+  assert.deepEqual(j(tasks.tasks), [{ text: "one done", done: true }, { text: "two", done: false }, { text: "three", done: false }]);
+  assert.deepEqual([tasks.done, tasks.excerpt, tasks.shape], [1, "", "hcccf"]);
+  assert.deepEqual([lecture.excerpt, j(lecture.subs), lecture.shape, lecture.words], ["States and systems. A link too.", ["Inner"], "tift", 12]);
+  assert.deepEqual([none.excerpt, none.words, none.shape, none.subs.length], ["", 0, "", 0]);
+  assert.deepEqual(j(P.STYLES), ["row", "card", "sheet", "preview", "widget"]);
+  assert.equal(P.withLook("<!-- page card red: A #p1 -->", { style: "widget" }), "<!-- page widget red: A #p1 -->");
+  assert.equal(JSON.stringify(P.lookOf("<!-- page preview: A #p1 -->")), '{"style":"preview","color":""}');
+  // drawn where the page is not at hand: its name, and nothing made up about it
+  const html = w.MdView.core.md.render("<!-- page widget blue: B #p2 -->\n\n<!-- page sheet: <C> #p3 -->\n");
+  assert.match(html, /^<div class="page-row" data-style="widget" data-color="blue"[^>]*data-page="p2"[^>]*><span class="page-row-head">.*<span class="page-row-name">B<\/span><\/span>/);
+  assert.match(html, /data-style="sheet" data-page="p3"[^>]*><span class="page-sheets" aria-hidden="true"><span class="page-sheet"><i class="h"><\/i><\/span><\/span><span class="page-row-text"><span class="page-row-name">&lt;C&gt;<\/span>/);
+  // a link to another note is a row or a card: what is in that note is not at hand
+  assert.deepEqual(j(P.link.STYLES), ["row", "card"]);
+  assert.match(w.MdView.core.md.render("[[Plan]] <!-- link widget -->\n", { links: { Plan: {} } }), /^<div class="page-row link-row" data-style="card"/);
+});

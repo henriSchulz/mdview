@@ -24,6 +24,7 @@
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
+#   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
@@ -267,6 +268,15 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.pagelook.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagelook.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  pagestyles)
+    # a page's line as a sheet, a preview, a widget: what they show, side by side, alike in both views
+    name=styles.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/pagestyles.md" "$R/work/$name"; rm -f "$R/out/$name".*.json
+    app 60 MDVIEW_PROBE="$D/probe-pagestyles.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 300); do [[ -f $R/out/$name.read.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pagestyles-read.png"
+    for _ in $(seq 300); do [[ -f $R/out/$name.pagestyles.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pagestyles-active.png"
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.pagestyles.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagestyles.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   board-enter)
     # stepping into a whiteboard: its content is there at once, shown whole
     name=enter.md; rm -rf "$R/work"; mkdir -p "$R/work/assets"; node "$D/make-board.mjs" > "$R/work/assets/far.board.svg"; printf '# Enter\n\nA board:\n\n![Whiteboard](assets/far.board.svg)\n\nAfter.\n' > "$R/work/$name"; rm -f "$R/out/$name".{shown,enter}.json

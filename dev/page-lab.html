@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – Seiten-Karten, sechs Ansätze</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Die Farben des Themes „cupertino“ und die Namen aus viewer.css, damit die Skizzen so aussehen wie die App.
+   * Dunkel: dieselben Namen mit den hellen Systemfarben. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-red: #d70015; --c-orange: #c93400; --c-yellow: #a05a00; --c-green: #248a3d;
+    --c-cyan: #0071a4; --c-blue: #0071e3; --c-magenta: #8944ab;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --fg-quiet: color-mix(in srgb, var(--fg) 62%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --raised: color-mix(in srgb, #fff 70%, var(--bg));
+    --paper: #fff;
+    --glass-hi: rgb(255 255 255 / 0.78); --glass-lo: rgb(255 255 255 / 0.42); --glass-rim: rgb(255 255 255 / 0.85);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05);
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, monospace;
+    --measure: 46rem;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c1e; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-red: #ff453a; --c-orange: #ff9f0a; --c-yellow: #ffd60a; --c-green: #30d158;
+    --c-cyan: #64d2ff; --c-blue: #0a84ff; --c-magenta: #bf5af2;
+    --raised: color-mix(in srgb, var(--fg) 7%, var(--bg));
+    --paper: #3a3a3c;
+    --glass-hi: rgb(255 255 255 / 0.14); --glass-lo: rgb(255 255 255 / 0.06); --glass-rim: rgb(255 255 255 / 0.22);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent);
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; }  /* beim Laden gleitet nichts an seinen Platz */
+  html { background: var(--bg); }
+  body { margin: 0; padding: 0 24px 120px; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--ui); -webkit-font-smoothing: antialiased; transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+
+  /* ---- die Leiste des Labors */
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width: 62rem; margin: 0 auto; padding: 14px 0 10px; }
+  .bar::before { content: ""; position: absolute; inset: 0 -24px; z-index: -1; background: color-mix(in srgb, var(--bg) 78%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-bottom: 0.5px solid var(--line); }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); flex: 1 1 520px; height: 32px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .seg-thumb { position: absolute; top: 2px; left: 2px; width: calc((100% - 4px) / 6); height: 28px; border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .seg button { position: relative; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font: 500 13px var(--ui); cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-fast) var(--ease-out); }
+  .seg button[aria-pressed="true"] { color: var(--fg); }
+  .seg button kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  .seg button:focus-visible, .mode:focus-visible, .pg:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 2px; }
+  .mode { height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .mode:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+  .mode:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .idea { max-width: 62rem; margin: 14px auto 0; padding: 12px 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 13.5px; line-height: 1.5; color: var(--fg2); }
+  .idea b { color: var(--fg); font-weight: 600; }
+
+  /* ---- die Notiz */
+  .note { max-width: var(--measure); margin: 36px auto 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .note.out { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+  .note h1 { margin: 0 0 0.5em; font-size: 2em; line-height: 1.25; font-weight: 700; letter-spacing: -0.022em; }
+  .note h2 { margin: 1.6em 0 0.5em; font-size: 1.35em; line-height: 1.3; font-weight: 600; letter-spacing: -0.015em; }
+  .note p { margin: 0 0 0.9em; }
+  .grp { margin: 0 0 1.1em; }
+  .pg { --pc: var(--accent); cursor: pointer; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .pg svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .clamp1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clamp2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .press { transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out); }
+  .press:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+
+  /* ==== 1 · Blatt: die Seite als kleines Blatt Papier, daneben was auf ihr steht */
+  .v1 .pg { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; padding: 12px 18px 12px 16px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--edge); }
+  .v1 .pg:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant); }
+  .v1 .sheets { position: relative; flex: none; width: 54px; height: 70px; }
+  .v1 .sheet { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 3.5px; padding: 8px 7px; border-radius: 4px; background: var(--paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 2px 6px rgb(0 0 0 / 0.12); }
+  .v1 .sheet.b1 { transform: rotate(-5deg) translate(-3px, 1px); }
+  .v1 .sheet.b2 { transform: rotate(4deg) translate(3px, 0); }
+  .v1 .sheet i { display: block; flex: none; height: 2.5px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 22%, transparent); }
+  .v1 .sheet i:nth-child(3n) { width: 82%; } .v1 .sheet i:nth-child(4n) { width: 64%; }
+  .v1 .sheet .h { width: 58%; height: 4px; margin-bottom: 1.5px; background: var(--pc); }
+  .v1 .sheet .i { width: 100%; height: 14px; background: color-mix(in srgb, var(--pc) 28%, transparent); }
+  .v1 .sheet .f { width: 46%; margin: 1px auto; background: color-mix(in srgb, var(--pc) 60%, transparent); }
+  .v1 .sheet .c { width: 100%; background: linear-gradient(90deg, var(--pc) 0 4px, transparent 4px 7px, color-mix(in srgb, var(--fg) 22%, transparent) 7px 80%, transparent 80%); border-radius: 1px; height: 3.5px; }
+  .v1 .txt { min-width: 0; flex: 1; }
+  .v1 .name { font-weight: 600; font-size: 16px; line-height: 1.3; letter-spacing: -0.01em; }
+  .v1 .ex { margin-top: 2px; font-size: 13.5px; line-height: 1.4; color: var(--fg2); }
+  .v1 .meta { margin-top: 5px; font-size: 12px; line-height: 1.3; color: var(--fg-quiet); }
+  .v1 .meta b { font-weight: 500; color: color-mix(in srgb, var(--pc) 85%, var(--fg)); }
+
+  /* ==== 2 · Widget: eine Kachel, die eine Zahl der Seite zeigt; mehrere liegen nebeneinander */
+  .v2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+  .v2 .pg { display: flex; flex-direction: column; aspect-ratio: 1 / 0.92; padding: 14px 14px 13px; border-radius: 22px; background: var(--raised); box-shadow: var(--edge), 0 6px 18px -6px rgb(0 0 0 / 0.1); }
+  .v2 .pg:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant); }
+  .v2 .top { display: flex; align-items: center; justify-content: space-between; }
+  .v2 .chip { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--pc); color: #fff; }
+  .v2 .chip svg { width: 17px; height: 17px; }
+  .v2 .when { font-size: 11.5px; color: var(--fg-quiet); }
+  .v2 .stat { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
+  .v2 .big { font: 700 30px/1 ui-rounded, "SF Pro Rounded", var(--ui); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--pc) 88%, var(--fg)); }
+  .v2 .unit { font-size: 12px; color: var(--fg-quiet); }
+  .v2 .ring { width: 34px; height: 34px; align-self: center; }
+  .v2 .ring circle { fill: none; stroke-width: 4; }
+  .v2 .ring .track { stroke: color-mix(in srgb, var(--pc) 18%, transparent); }
+  .v2 .ring .arc { stroke: var(--pc); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; }
+  .v2 .name { margin-top: 6px; font-weight: 600; font-size: 14.5px; line-height: 1.25; letter-spacing: -0.005em; }
+
+  /* ==== 3 · Liste: Seiten, die aufeinander folgen, werden eine Liste wie in Notizen */
+  .v3 { border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--edge); overflow: hidden; }
+  .v3 .pg { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 10px 14px 11px 18px; transition: background-color var(--dur-fast) var(--ease-out); }
+  .v3 .pg:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); transition-duration: var(--dur-instant); }
+  .v3 .pg:active { background: var(--fill-hover); }
+  .v3 .pg + .pg::before { content: ""; position: absolute; top: 0; left: 18px; right: 0; border-top: 0.5px solid var(--line-strong); }
+  .v3 .name { font-weight: 600; font-size: 15.5px; line-height: 1.3; }
+  .v3 .ex { font-size: 13.5px; line-height: 1.4; color: var(--fg2); }
+  .v3 .ex b { margin-right: 6px; font-weight: 400; color: var(--fg); }
+  .v3 .tag { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; line-height: 1.3; color: var(--fg-quiet); }
+  .v3 .tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
+  .v3 .go { width: 13px; height: 13px; color: var(--fg3); }
+  .v3 .go svg { display: block; width: 13px; height: 13px; stroke-width: 2.4; }
+
+  /* ==== 4 · Glas: eine Kapsel aus getöntem Glas, so breit wie ihr Name; mehrere stehen in einer Zeile */
+  .v4 { display: flex; flex-wrap: wrap; gap: 10px; padding: 2px 0; }
+  .v4 .pg { position: relative; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; height: 40px; padding: 0 12px 0 13px; border-radius: var(--radius-pill); overflow: hidden;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 15%, var(--glass-hi)), color-mix(in srgb, var(--pc) 9%, var(--glass-lo)));
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--pc) 32%, transparent), inset 0 1px 0 var(--glass-rim), 0 6px 16px -4px color-mix(in srgb, var(--pc) 30%, transparent), 0 1px 2px rgb(0 0 0 / 0.06); }
+  .v4 .pg::after { content: ""; position: absolute; top: -10px; bottom: -10px; left: -55px; width: 110px; background: radial-gradient(closest-side, var(--glass-rim), transparent); transform: translateX(var(--mx, 0px)); opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-out); }
+  .v4 .pg:hover::after { opacity: 0.55; transition-duration: var(--dur-instant); }
+  .v4 .pg:active { filter: brightness(0.94); }
+  .v4 .gl { position: relative; z-index: 1; flex: none; width: 17px; height: 17px; color: color-mix(in srgb, var(--pc) 88%, var(--fg)); }
+  .v4 .gl svg { display: block; width: 17px; height: 17px; }
+  .v4 .name { position: relative; z-index: 1; font-weight: 500; font-size: 14.5px; }
+  .v4 .n { position: relative; z-index: 1; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--pc) 16%, transparent); color: color-mix(in srgb, var(--pc) 80%, var(--fg)); font: 600 11.5px/20px var(--ui); text-align: center; font-variant-numeric: tabular-nums; }
+  .v4 .go { position: relative; z-index: 1; width: 11px; height: 11px; color: var(--fg3); }
+  .v4 .go svg { display: block; width: 11px; height: 11px; stroke-width: 2.6; }
+
+  /* ==== 5 · Titelseite: die Seite als Umschlag in ihrer Farbe, groß gesetzt */
+  .v5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .v5 .pg { position: relative; display: flex; flex-direction: column; min-height: 172px; padding: 16px 18px 17px; border-radius: 22px; overflow: hidden; color: #fff;
+    background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--pc) 80%, #fff) 0, transparent 55%), radial-gradient(90% 90% at 100% 100%, color-mix(in srgb, var(--pc) 62%, #000) 0, transparent 62%), color-mix(in srgb, var(--pc) 92%, #000);
+    box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.28), inset 0 1px 0 rgb(255 255 255 / 0.3), 0 12px 24px -10px color-mix(in srgb, var(--pc) 60%, transparent); }
+  :root[data-mode="dark"] .v5 .pg { background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--pc) 70%, #000) 0, transparent 55%), radial-gradient(90% 90% at 100% 100%, color-mix(in srgb, var(--pc) 34%, #000) 0, transparent 62%), color-mix(in srgb, var(--pc) 52%, #000); }
+  .v5 .pg:hover { filter: brightness(1.06); transition-duration: var(--dur-instant); }
+  .v5 .eye { display: flex; align-items: center; gap: 6px; font: 600 11px/1 var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: rgb(255 255 255 / 0.88); }
+  .v5 .eye svg { width: 14px; height: 14px; stroke-width: 2; }
+  .v5 .water { position: absolute; right: -14px; bottom: -22px; width: 132px; height: 132px; color: rgb(255 255 255 / 0.14); pointer-events: none; }
+  .v5 .water svg { display: block; width: 100%; height: 100%; stroke-width: 1.2; }
+  .v5 .name { position: relative; margin-top: auto; padding-top: 28px; font-weight: 700; font-size: 22px; line-height: 1.15; letter-spacing: -0.02em; text-wrap: balance; }
+  .v5 .ex { position: relative; margin-top: 5px; max-width: 46ch; font-size: 13.5px; line-height: 1.4; color: rgb(255 255 255 / 0.9); }
+  .v5 .go { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgb(255 255 255 / 0.22); }
+  .v5 .go svg { width: 12px; height: 12px; stroke-width: 2.6; }
+
+  /* ==== 6 · Verzeichnis: keine Fläche — eine Zeile wie im Inhaltsverzeichnis eines Buches */
+  .v6 { padding: 4px 0; border-top: 0.5px solid var(--line-strong); border-bottom: 0.5px solid var(--line-strong); }
+  .v6 .pg { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 10px; margin: 0 -8px; padding: 7px 8px 8px; border-radius: var(--radius-control); transition: background-color var(--dur-fast) var(--ease-out); }
+  .v6 .pg:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .v6 .pg:active { background: var(--fill-pressed); }
+  .v6 .no { padding-top: 4px; font: 600 12px/1.3 var(--mono); font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--pc) 85%, var(--fg)); }
+  .v6 .row { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .v6 .name { flex: 0 1 auto; font-weight: 600; font-size: 16px; line-height: 1.35; letter-spacing: -0.01em; }
+  .v6 .lead { flex: 1 1 24px; min-width: 24px; height: 0; border-bottom: 1.5px dotted color-mix(in srgb, var(--fg) 30%, transparent); transform: translateY(-4px); }
+  .v6 .meta { flex: none; font-size: 12.5px; color: var(--fg-quiet); font-variant-numeric: tabular-nums; }
+  .v6 .go { flex: none; align-self: center; width: 11px; height: 11px; color: var(--fg2); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .v6 .go svg { display: block; width: 11px; height: 11px; stroke-width: 2.6; }
+  .v6 .pg:hover .go, .v6 .pg:focus-visible .go { opacity: 1; }
+  .v6 .ex { grid-column: 2; font-size: 13.5px; line-height: 1.4; color: var(--fg2); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .press:active, .mode:active { transform: none; }
+    .seg-thumb { transition: none; }
+    .v4 .pg::after { display: none; }
+  }
+</style>
+
+<header class="bar">
+  <div class="seg" role="group" aria-label="Ansatz"><span class="seg-thumb"></span></div>
+  <button class="mode" type="button" title="Hell / Dunkel (D)"></button>
+</header>
+<p class="idea" aria-live="polite"></p>
+<article class="note"></article>
+
+<script>
+(() => {
+  const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    note: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>'),
+    book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
+    check: svg('<path d="M10 6h10M10 12h10M10 18h10"/><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/>'),
+    sigma: svg('<path d="M17 5H7l6 7-6 7h10"/>'),
+    question: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 17h.01"/>'),
+    shelf: svg('<path d="M5 4v16M9.5 4v16M14 5l4.5 15"/>'),
+    chevron: svg('<path d="m9 18 6-6-6-6"/>'),
+  };
+  // Was eine Seite über sich weiß: Name, Farbe, der Anfang ihres Textes, Wörter, Unterseiten, Aufgaben.
+  // `lines` ist ihr Aufbau im Kleinen: h Überschrift, t Text, i Bild, f Formel, c Aufgabe.
+  const GROUPS = {
+    a: [
+      { name: "Vorlesung 1 – Grundlagen", color: "blue", glyph: "book", ex: "Zustandsgrößen, Systemgrenzen und der erste Hauptsatz. Was ein System ist und wie man seine Bilanz aufstellt.", words: 1240, subs: 3, when: "gestern", lines: "htttittt" },
+      { name: "Übungsblatt 3", color: "orange", glyph: "check", ex: "Aufgaben 1 bis 4 gerechnet, 5 bis 7 offen. Abgabe am Freitag.", words: 310, subs: 0, when: "heute", lines: "hccccccc", done: 4, total: 7 },
+      { name: "Formelsammlung", color: "magenta", glyph: "sigma", ex: "Ideales Gas, Entropieänderung, Wirkungsgrade – alles, was in der Klausur erlaubt ist.", words: 540, subs: 1, when: "Mo.", lines: "htfttftf" },
+    ],
+    b: [
+      { name: "Offene Fragen", color: "", glyph: "question", ex: "Warum ist die Entropie eine Zustandsgröße, die Wärme aber nicht? In der Sprechstunde nachfragen.", words: 96, subs: 0, when: "vor 3 Tagen", lines: "htttt" },
+    ],
+    c: [
+      { name: "Literatur", color: "green", glyph: "shelf", ex: "Baehr, Thermodynamik, Kapitel 2 und 3. Dazu das Skript vom Lehrstuhl und zwei alte Klausuren.", words: 180, subs: 2, when: "1. Okt.", lines: "htttttt" },
+      { name: "Protokoll vom 12. Oktober", color: "", glyph: "note", ex: "Besprechung der Gruppe: wer welche Aufgabe vorrechnet, und wann wir uns vor der Klausur treffen.", words: 420, subs: 0, when: "12. Okt.", lines: "httthtt" },
+    ],
+  };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const num = (n) => n.toLocaleString("de-DE");
+  const subsText = (p) => p.subs === 1 ? "1 Unterseite" : p.subs + " Unterseiten";
+  const facts = (p) => [p.total ? `${p.done} von ${p.total} erledigt` : "", p.subs ? subsText(p) : "", num(p.words) + " Wörter"].filter(Boolean);
+  const open = (p, cls) => `<div class="pg ${cls}" role="link" tabindex="0"${p.color ? ` style="--pc: var(--c-${p.color})"` : ""}>`;
+  const sheet = (p) => `<span class="sheet">${[...p.lines].map((l) => `<i class="${l}"></i>`).join("")}</span>`;
+  const ring = (p) => { const r = 14, c = 2 * Math.PI * r; return `<svg class="ring" viewBox="0 0 34 34" aria-hidden="true"><circle class="track" cx="17" cy="17" r="${r}"/><circle class="arc" cx="17" cy="17" r="${r}" stroke-dasharray="${(c * p.done / p.total).toFixed(1)} ${c.toFixed(1)}"/></svg>`; };
+  let counter = 0;
+
+  const VARIANTS = [
+    { key: "Blatt", idea: "Die Seite zeigt sich als <b>kleines Blatt</b>, das ihren Aufbau nachzeichnet (Überschrift, Text, Bild, Formel, Aufgaben) – wie die Vorschau im Finder. Hat sie Unterseiten, liegen Blätter dahinter. Daneben der Anfang ihres Textes.",
+      draw: (g) => `<div class="grp v1">${g.map((p) => `${open(p, "press")}<span class="sheets">${p.subs > 1 ? '<span class="sheet b2"></span>' : ""}${p.subs ? '<span class="sheet b1"></span>' : ""}${sheet(p)}</span><span class="txt"><div class="name clamp1">${esc(p.name)}</div><div class="ex clamp2">${esc(p.ex)}</div><div class="meta">${facts(p).map((f, i) => i ? esc(f) : `<b>${esc(f)}</b>`).join(" · ")} · ${esc(p.when)}</div></span></div>`).join("")}</div>` },
+    { key: "Widget", idea: "Die Seite als <b>Kachel wie ein Widget</b>: sie zeigt die eine Zahl, die an ihr zählt – erledigte Aufgaben als Ring, Unterseiten, Wörter. Seiten hintereinander legen sich nebeneinander in ein Raster.",
+      draw: (g) => `<div class="grp v2">${g.map((p) => `${open(p, "press")}<span class="top"><span class="chip">${ICON[p.glyph]}</span><span class="when">${esc(p.when)}</span></span><span class="stat">${p.total ? `${ring(p)}<span class="big">${p.done}/${p.total}</span>` : `<span class="big">${num(p.subs || p.words)}</span><span class="unit">${p.subs ? (p.subs === 1 ? "Unterseite" : "Unterseiten") : "Wörter"}</span>`}</span><div class="name clamp2">${esc(p.name)}</div></div>`).join("")}</div>` },
+    { key: "Liste", idea: "Seiten, die aufeinander folgen, <b>wachsen zu einer Liste zusammen</b> – zweizeilig wie in Notizen oder Mail: Name, Datum und Textanfang, darunter ein Punkt in ihrer Farbe. Kein Symbol-Kästchen mehr.",
+      draw: (g) => `<div class="grp v3">${g.map((p) => `${open(p, "")}<span><div class="name clamp1">${esc(p.name)}</div><div class="ex clamp1"><b>${esc(p.when)}</b>${esc(p.ex)}</div><div class="tag"><i></i>${esc(facts(p).slice(0, 2).join(" · "))}</div></span><span class="go">${ICON.chevron}</span></div>`).join("")}</div>` },
+    { key: "Glas", idea: "Eine <b>Kapsel aus getöntem Glas</b>, nur so breit wie ihr Name: Licht an der oberen Kante, ein Schein in der Farbe der Seite darunter, ein Glanz, der dem Zeiger folgt. Mehrere stehen in einer Zeile – die leichteste Form.",
+      draw: (g) => `<div class="grp v4">${g.map((p) => `${open(p, "press")}<span class="gl">${ICON[p.glyph]}</span><span class="name clamp1">${esc(p.name)}</span>${p.subs ? `<span class="n">${p.subs}</span>` : ""}<span class="go">${ICON.chevron}</span></div>`).join("")}</div>` },
+    { key: "Titelseite", idea: "Die Seite als <b>Umschlag in ihrer Farbe</b>, groß gesetzt wie eine Karte im App Store: Zeile darüber, Titel, Textanfang, ihr Zeichen als Wasserzeichen. Die lauteste Form – für Notizen, die ein Inhaltsverzeichnis aus Bildern sein wollen.",
+      draw: (g) => `<div class="grp v5">${g.map((p) => `${open(p, "press")}<span class="eye">${ICON[p.glyph]}${esc(p.subs ? subsText(p) : "Seite")} · ${esc(p.when)}</span><span class="go">${ICON.chevron}</span><span class="water">${ICON[p.glyph]}</span><div class="name clamp2">${esc(p.name)}</div><div class="ex clamp2">${esc(p.ex)}</div></div>`).join("")}</div>` },
+    { key: "Verzeichnis", idea: "<b>Gar keine Karte</b>: eine Zeile wie im Inhaltsverzeichnis eines Buches – laufende Nummer in der Farbe der Seite, Name, Punkte, Umfang. Zwei Haarlinien fassen die Gruppe. Die ruhigste Form; sie bleibt Text.",
+      draw: (g) => `<div class="grp v6">${g.map((p) => `${open(p, "")}<span class="no">${String(++counter).padStart(2, "0")}</span><span class="row"><span class="name clamp1">${esc(p.name)}</span><span class="lead"></span><span class="meta">${esc(facts(p)[0])}</span><span class="go">${ICON.chevron}</span></span><div class="ex clamp1">${esc(p.ex)}</div></div>`).join("")}</div>` },
+  ];
+
+  const note = document.querySelector(".note"), idea = document.querySelector(".idea"), seg = document.querySelector(".seg"), thumb = seg.querySelector(".seg-thumb"), mode = document.querySelector(".mode");
+  const draw = (v) => { counter = 0; const d = VARIANTS[v].draw; return `
+    <h1>Thermodynamik I</h1>
+    <p>Alles zur Vorlesung im Wintersemester. Die Mitschriften liegen als Seiten in dieser Notiz, damit sie eine Datei bleibt.</p>
+    ${d(GROUPS.a)}
+    <h2>Was noch unklar ist</h2>
+    <p>Beim zweiten Hauptsatz hängt es noch. Die Fragen sammle ich hier, bis sie beantwortet sind:</p>
+    ${d(GROUPS.b)}
+    <p>Der Rest ist Nachschlagen. Für die Klausur sind die alten Aufgaben wichtiger als das Buch.</p>
+    <h2>Drumherum</h2>
+    ${d(GROUPS.c)}
+    <p>Klausur am 14. Februar, zugelassen ist ein handbeschriebenes Blatt.</p>`; };
+
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const hash = new URLSearchParams(location.hash.slice(1));
+  let current = -1;
+  const show = (v, at_once) => {
+    if (v === current || !VARIANTS[v]) return;
+    current = v; store.set("page-lab-variant", v);
+    thumb.style.transform = `translateX(${v * 100}%)`;
+    seg.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", i === v));
+    const swap = () => { note.innerHTML = draw(v); idea.innerHTML = VARIANTS[v].idea; note.classList.remove("out"); };
+    if (at_once) return swap();
+    note.classList.add("out"); setTimeout(() => { if (current === v) swap(); }, 115);
+  };
+  const setMode = (dark) => { document.documentElement.dataset.mode = dark ? "dark" : "light"; mode.textContent = dark ? "Hell" : "Dunkel"; store.set("page-lab-dark", dark ? "1" : ""); };
+
+  VARIANTS.forEach((v, i) => { const b = document.createElement("button"); b.type = "button"; b.innerHTML = `<kbd>${i + 1}</kbd>${v.key}`; b.addEventListener("click", () => show(i)); seg.append(b); });
+  mode.addEventListener("click", () => setMode(document.documentElement.dataset.mode !== "dark"));
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key >= "1" && e.key <= "6") show(+e.key - 1);
+    else if (e.key === "ArrowRight") show(Math.min(5, current + 1));
+    else if (e.key === "ArrowLeft") show(Math.max(0, current - 1));
+    else if (e.key.toLowerCase() === "d") mode.click();
+  });
+  // der Glanz der Glaskapsel folgt dem Zeiger
+  note.addEventListener("pointermove", (e) => { const pg = e.target instanceof Element && e.target.closest(".v4 .pg"); if (pg) pg.style.setProperty("--mx", (e.clientX - pg.getBoundingClientRect().left) + "px"); });
+
+  setMode(hash.has("dark") || (!hash.has("light") && store.get("page-lab-dark") === "1"));
+  show(hash.has("v") ? +hash.get("v") - 1 : +(store.get("page-lab-variant") || 0), true);
+  if (current < 0) show(0, true);
+  requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("boot")));
+})();
+</script>
+</html>
