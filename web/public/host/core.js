@@ -197,6 +197,28 @@
     return { version: 1, shares: Object.fromEntries(Object.entries(shares).filter(([, e]) => e && typeof e.path === "string")) };
   }
   const sharesText = (all) => JSON.stringify({ version: 1, shares: Object.fromEntries(Object.keys(all.shares).sort().map((id) => [id, all.shares[id]])) }, null, 2) + "\n";
+  /* How a repository's folders look in the sidebar — a colour, a sign — as it says itself, in
+   * .mdview/folders.json: { version, folders: { path → { color, icon } } } (the desktop app writes
+   * the same file: src-tauri/src/looks.rs). Read forgivingly, written with the paths in order. */
+  const FOLDERS = ".mdview/folders.json";
+  const lookWord = (v) => (typeof v === "string" && /^[a-z-]{1,24}$/.test(v.trim()) ? v.trim() : "");
+  function looksOf(text) {
+    let all = null;
+    try { all = JSON.parse(text || "{}"); } catch { /* (not to be read: as if empty) */ }
+    const f = all && typeof all.folders === "object" && all.folders && !Array.isArray(all.folders) ? all.folders : {};
+    return Object.fromEntries(Object.entries(f).filter(([, e]) => e && typeof e === "object" && !Array.isArray(e)));
+  }
+  const looksText = (looks) => JSON.stringify({ version: 1, folders: Object.fromEntries(Object.keys(looks).sort().map((k) => [k, looks[k]])) }, null, 2) + "\n";
+  // a colour and a sign chosen for a folder ("" for either: none; neither: no entry)
+  function lookSet(looks, rel, color, icon) {
+    const next = { ...looks }, entry = {};
+    if (lookWord(color)) entry.color = lookWord(color);
+    if (lookWord(icon)) entry.icon = lookWord(icon);
+    if (Object.keys(entry).length) next[rel] = entry; else delete next[rel];
+    return next;
+  }
+  // a folder under another path: its look, and that of the folders in it, go along
+  const looksMoved = (looks, was, now) => Object.fromEntries(Object.entries(looks).map(([k, v]) => [k === was ? now : k.startsWith(was + "/") ? now + k.slice(was.length) : k, v]));
   const shareOf = (all, path) => Object.entries(all.shares).find(([, e]) => e.path === path) || null; // → [id, entry]
 
   /* An address the page was about to go to, as the path of a file here (and the place in it), or
@@ -374,5 +396,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { ATTACH, attachOf, attachText, mentions, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, ATTACH, attachOf, attachText, mentions, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

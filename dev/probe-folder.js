@@ -64,7 +64,7 @@
       const dr = dirRow().getBoundingClientRect();
       dirRow().dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: dr.left + 30, clientY: dr.top + 8 }));
       await sleep(200);
-      ok("right click on a folder: new note, new folder, show in Finder, rename, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,reveal,rename,trash,sub:show", cmds());
+      ok("right click on a folder: new note, new folder, show in Finder, colour and icon, rename, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,reveal,look,rename,trash,sub:show", cmds());
       shown()[0].click();
       await sleep(400);
       ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);

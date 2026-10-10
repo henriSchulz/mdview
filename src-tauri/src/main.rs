@@ -21,6 +21,7 @@ mod attach;
 mod github;
 mod history;
 mod host;
+mod looks;
 mod scan;
 mod share;
 mod shell;

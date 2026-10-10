@@ -45,6 +45,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
   rename: ["write", "a note, another file or a folder renamed"],
   move: ["write", "a note, another file or a folder put into another folder"],
+  folderlook: ["write", "a colour and a sign for a folder: written into the repository (.mdview/folders.json), where the desktop app keeps it too"],
   trash: ["write", "a note, another file or a folder deleted — or several at once (paths)"],
   untrash: ["none", "the last move to the trash taken back (the desktop app: Undo in its message; a repository has its history for that)"],
   download: ["answer", "a note or another file handed out: the browser saves it (the share window, a file's menu)"],

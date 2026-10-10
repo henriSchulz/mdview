@@ -183,3 +183,15 @@ test("what the app put beside a note: written down, and found by its name in a n
   assert.ok(!C.mentions("![](other.png)", "pasted-1.png"));
   assert.ok(!C.mentions("text", ""));
 });
+
+test("how folders look: read forgivingly, written in order, and a folder moved keeps its look", () => {
+  assert.deepEqual(C.looksOf("not json"), {});
+  assert.deepEqual(C.looksOf('{"folders":{"a":{"color":"blue"},"b":"x"}}'), { a: { color: "blue" } });
+  let looks = C.lookSet({}, "b/c", "green", "flag");
+  looks = C.lookSet(looks, "a", "red", "");
+  looks = C.lookSet(looks, "ab", "<x>", "star"); // (what is no word is no look)
+  assert.equal(C.looksText(looks), '{\n  "version": 1,\n  "folders": {\n    "a": {\n      "color": "red"\n    },\n    "ab": {\n      "icon": "star"\n    },\n    "b/c": {\n      "color": "green",\n      "icon": "flag"\n    }\n  }\n}\n');
+  assert.deepEqual(C.lookSet(looks, "a", "", ""), { ab: { icon: "star" }, "b/c": { color: "green", icon: "flag" } });
+  assert.deepEqual(C.looksMoved(looks, "b", "x/y"), { a: { color: "red" }, ab: { icon: "star" }, "x/y/c": { color: "green", icon: "flag" } });
+  assert.deepEqual(C.looksMoved(looks, "a", "z"), { z: { color: "red" }, ab: { icon: "star" }, "b/c": { color: "green", icon: "flag" } });
+});

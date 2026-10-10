@@ -9,7 +9,7 @@
     images: "assets", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened",
+    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened", sidebarLayout: "source",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
     ovScope: "all", ovLayout: "tiles", ovPdf: false, ovImages: false, ovMedia: false, ovOther: false, pdfFormat: "callout", pdfAuto: false, measure: "normal", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
@@ -40,6 +40,7 @@
     ]],
     ["sidebarPage", "sidebar", [
       [null, [
+        ["sidebarLayout", "select", [["source", "prefs.layout.source"], ["rail", "prefs.layout.rail"], ["sheets", "prefs.layout.sheets"], ["tiles", "prefs.layout.tiles"]]],
         ["sidebarSort", "select", [["opened", "prefs.sort.opened"], ["name", "prefs.sort.name"], ["modified", "prefs.sort.modified"]]],
       ]],
       ["prefs.sidebar", [["sidebarPdf", "switch"], ["sidebarImages", "switch"], ["sidebarMedia", "switch"], ["sidebarOther", "switch"]]],

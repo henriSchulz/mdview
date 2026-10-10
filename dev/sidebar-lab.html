@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – Seitenleiste, sechs Ansätze</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Die Farben des Themes „cupertino“ und die Namen aus viewer.css, damit die Skizzen so aussehen wie die App. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-red: #d70015; --c-orange: #c93400; --c-yellow: #a05a00; --c-green: #248a3d;
+    --c-cyan: #0071a4; --c-blue: #0071e3; --c-magenta: #8944ab; --c-gray: #6e6e73;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --fg-quiet: color-mix(in srgb, var(--fg) 62%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --sb-hover: color-mix(in srgb, var(--fg) 4%, transparent);
+    --sb-selected: color-mix(in srgb, var(--fg) 7.8%, transparent);
+    --raised: color-mix(in srgb, #fff 70%, var(--bg));
+    --paper: #fff;
+    --glass: color-mix(in srgb, var(--bg) 72%, transparent);
+    --wall: linear-gradient(160deg, #9fc3e8 0%, #c9d8e6 38%, #8a9a7c 62%, #5e6f58 100%);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05);
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --round: ui-rounded, "SF Pro Rounded", var(--ui);
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c1e; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-red: #ff453a; --c-orange: #ff9f0a; --c-yellow: #ffd60a; --c-green: #30d158;
+    --c-cyan: #64d2ff; --c-blue: #0a84ff; --c-magenta: #bf5af2; --c-gray: #98989d;
+    --raised: color-mix(in srgb, var(--fg) 8%, var(--bg));
+    --paper: #3a3a3c;
+    --wall: linear-gradient(160deg, #1d2b40 0%, #2a3442 38%, #2c3528 62%, #161c15 100%);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent);
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; animation: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0; padding: 0 24px 60px; background: var(--bg); color: var(--fg); font: 400 13px/1.4 var(--ui); -webkit-font-smoothing: antialiased; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; color: inherit; }
+
+  /* ---- die Leiste des Labors */
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width: 72rem; margin: 0 auto; padding: 14px 0 10px; }
+  .bar::before { content: ""; position: absolute; inset: 0 -24px; z-index: -1; background: color-mix(in srgb, var(--bg) 78%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-bottom: 0.5px solid var(--line); }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); flex: 1 1 520px; height: 32px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .seg-thumb { position: absolute; top: 2px; left: 2px; width: calc((100% - 4px) / 6); height: 28px; border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .seg button { position: relative; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font: 500 13px var(--ui); cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-fast) var(--ease-out); }
+  .seg button[aria-pressed="true"] { color: var(--fg); }
+  .seg button kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  :focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 2px; }
+  .mode { height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .mode:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+  .mode:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .idea { max-width: 72rem; margin: 14px auto 0; padding: 12px 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 13.5px; line-height: 1.5; color: var(--fg2); }
+  .idea b { color: var(--fg); font-weight: 600; }
+
+  /* ---- das Fenster: Hintergrundbild, die Leiste als Glasfläche darauf, daneben die Notiz */
+  .stage { max-width: 72rem; margin: 18px auto 0; padding: 26px; border-radius: 18px; background: var(--wall); }
+  .win { position: relative; display: flex; height: 690px; border-radius: var(--radius-panel); overflow: hidden; background: color-mix(in srgb, var(--bg) 86%, transparent); box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.25), 0 24px 60px rgb(0 0 0 / 0.3); }
+  .side { position: relative; flex: none; display: flex; flex-direction: column; width: var(--w, 248px); margin: 8px 0 8px 8px; border-radius: 12px; background: var(--glass); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); box-shadow: 0 0 0 0.5px var(--line-strong), inset 0 0.5px 0 rgb(255 255 255 / 0.5), 0 2px 10px rgb(0 0 0 / 0.07); overflow: hidden; transition: width var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+  .side.out { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), width var(--spring-smooth-dur) var(--spring-smooth); }
+  .doc { flex: 1; min-width: 0; padding: 64px 56px; overflow: hidden; }
+  .doc h1 { margin: 0 0 6px; font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.022em; }
+  .doc .where { margin-bottom: 22px; font-size: 12.5px; color: var(--fg-quiet); }
+  .doc p { max-width: 34rem; margin: 0 0 14px; font-size: 15px; line-height: 1.6; }
+  .doc .sk { display: block; height: 9px; margin: 0 0 11px; border-radius: 5px; background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .clamp1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clamp2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .grow { flex: 1; min-width: 0; }
+  @keyframes in-down { from { opacity: 0; transform: translateY(-4px); } }
+  @keyframes in-right { from { opacity: 0; transform: translateX(28px); } }
+  @keyframes in-left { from { opacity: 0; transform: translateX(-28px); } }
+  .kids.fresh { animation: in-down var(--dur-base) var(--ease-out); }
+  .push.fwd { animation: in-right var(--dur-slow) var(--ease-out); }
+  .push.back { animation: in-left var(--dur-slow) var(--ease-out); }
+
+  /* ---- Teile, die mehrere Ansätze teilen */
+  .tb { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .tb:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .tb:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .tb svg { width: 17px; height: 17px; }
+  .tb.aa { font: 500 14px var(--ui); }
+  .field { display: flex; align-items: center; gap: 6px; height: 28px; margin: 0 10px 8px; padding: 0 9px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); box-shadow: inset 0 0 0 0.5px var(--line-strong); color: var(--fg3); }
+  .field svg { flex: none; width: 14px; height: 14px; stroke-width: 2; }
+  .field input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: none; color: var(--fg); font: 400 13px var(--ui); }
+  .field input::placeholder { color: var(--fg-quiet); }
+  .field:focus-within { box-shadow: inset 0 0 0 var(--focus-ring) var(--accent); }
+  .row { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; border-radius: var(--radius-control); cursor: default; -webkit-user-select: none; user-select: none; transition: background-color var(--dur-fast) var(--ease-out); }
+  .row:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+  .row:active { background: var(--sb-selected); }
+  .row.on { background: var(--sb-selected); font-weight: 500; }
+  .ic { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
+  .ic svg { width: 17px; height: 17px; stroke-width: 1.6; }
+  .row.on .ic { color: var(--accent); }
+  .chev { display: grid; place-items: center; flex: none; width: 12px; height: 12px; color: var(--fg3); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .chev svg { width: 11px; height: 11px; stroke-width: 2.4; }
+  .open > .row .chev { transform: rotate(90deg); }
+  .tail { flex: none; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+  .cap { padding: 12px 10px 4px; font: 600 11px/1.3 var(--ui); color: var(--fg-quiet); }
+  .empty { padding: 28px 12px; text-align: center; color: var(--fg-quiet); }
+
+  /* ==== 1 · Quelle: die Seitenleiste des Finders, zu Ende gedacht */
+  .s1 .head { display: flex; align-items: center; gap: 2px; padding: 12px 8px 8px 14px; }
+  .s1 .title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .s1 .list { padding: 0 8px 8px; }
+  .s1 .kids { padding-left: 16px; }
+  .s1 .fic { color: var(--pc, var(--accent)); }
+  .s1 .fic svg { fill: color-mix(in srgb, var(--pc, var(--accent)) 22%, transparent); }
+  .s1 .row.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: color-mix(in srgb, var(--accent) 85%, var(--fg)); }
+  .s1 .foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 0.5px solid var(--line); }
+  .s1 .new { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font-weight: 500; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+  .s1 .new:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .s1 .new svg { width: 16px; height: 16px; }
+
+  /* ==== 2 · Notizen: keine Ordner im Baum — eine Liste nach Datum, jede Zeile mit Textanfang */
+  .s2 .head { display: flex; align-items: flex-end; gap: 6px; padding: 14px 10px 10px 16px; }
+  .s2 .title { display: flex; align-items: center; gap: 4px; font-size: 20px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+  .s2 .title svg { width: 13px; height: 13px; stroke-width: 2.6; color: var(--fg3); }
+  .s2 .sub { margin-top: 2px; font-size: 11.5px; color: var(--fg-quiet); }
+  .s2 .plus { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--accent); color: #fff; cursor: default; transition: transform var(--spring-snappy-dur) var(--spring-snappy), filter var(--dur-fast) var(--ease-out); }
+  .s2 .plus:hover { filter: brightness(1.08); } .s2 .plus:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .s2 .plus svg { width: 16px; height: 16px; stroke-width: 2.2; }
+  .s2 .chips { display: flex; gap: 6px; padding: 0 10px 8px; overflow-x: auto; scrollbar-width: none; }
+  .s2 .chip { flex: none; height: 24px; padding: 0 10px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg2); font: 500 12px/24px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .s2 .chip:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+  .s2 .chip.on { background: var(--fg); color: var(--bg); }
+  .s2 .list { padding: 0 8px 10px; }
+  .s2 .cap { padding: 12px 10px 5px; font-size: 12px; color: var(--fg); font-weight: 700; }
+  .s2 .n { position: relative; display: block; padding: 8px 10px 9px; border-radius: 10px; cursor: default; -webkit-user-select: none; user-select: none; transition: background-color var(--dur-fast) var(--ease-out); }
+  .s2 .n + .n::before { content: ""; position: absolute; top: 0; left: 10px; right: 10px; border-top: 0.5px solid var(--line); }
+  .s2 .n:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+  .s2 .n.on { background: var(--accent); color: #fff; }
+  .s2 .n.on::before, .s2 .n.on + .n::before { border-color: transparent; }
+  .s2 .n b { display: block; font-weight: 600; font-size: 13.5px; }
+  .s2 .l2 { display: block; font-size: 12.5px; color: var(--fg2); }
+  .s2 .l2 span { margin-right: 6px; color: var(--fg); }
+  .s2 .l3 { display: flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 11.5px; color: var(--fg3); }
+  .s2 .l3 svg { width: 12px; height: 12px; }
+  .s2 .n.on .l2, .s2 .n.on .l2 span, .s2 .n.on .l3 { color: rgb(255 255 255 / 0.85); }
+
+  /* ==== 3 · Schiene: die Ordner als farbige Zeichen in einer schmalen Schiene, daneben ihre Notizen */
+  .s3 { flex-direction: row; }
+  .s3 .rail { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 54px; padding: 12px 0 10px; background: color-mix(in srgb, var(--fg) 4%, transparent); border-right: 0.5px solid var(--line); }
+  .s3 .rt { position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 11px; background: color-mix(in srgb, var(--pc) 16%, transparent); color: var(--pc); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .s3 .rt svg { width: 18px; height: 18px; stroke-width: 1.9; }
+  .s3 .rt:hover { background: color-mix(in srgb, var(--pc) 26%, transparent); transition-duration: var(--dur-instant); }
+  .s3 .rt:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .s3 .rt.on { background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 82%, #fff), var(--pc)); color: #fff; box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--pc) 60%, transparent), inset 0 0.5px 0 rgb(255 255 255 / 0.4); }
+  .s3 .rt.on::before { content: ""; position: absolute; left: -9px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 2px 2px 0; background: var(--pc); }
+  .s3 .rail .sp { flex: 1; }
+  .s3 .pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .s3 .head { display: flex; align-items: center; gap: 2px; padding: 12px 6px 8px 12px; }
+  .s3 .title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .s3 .count { margin-left: 6px; font-size: 12px; color: var(--fg3); }
+  .s3 .list { padding: 0 6px 8px; }
+  .s3 .field { margin: 0 8px 8px; }
+
+  /* ==== 4 · Blätter: jede Notiz ein Blatt Papier, wie die Miniaturen in Vorschau */
+  .s4 .head { display: flex; align-items: center; gap: 2px; padding: 12px 8px 8px 12px; }
+  .s4 .title { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .s4 .backb { display: flex; align-items: center; gap: 2px; height: 28px; margin-left: -6px; padding: 0 8px 0 4px; border: 0; border-radius: var(--radius-pill); background: none; color: color-mix(in srgb, var(--accent) 85%, var(--fg)); font-weight: 500; cursor: default; }
+  .s4 .backb:hover { background: var(--fill-hover); }
+  .s4 .backb svg { width: 14px; height: 14px; stroke-width: 2.4; }
+  .s4 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 2px; padding: 2px 8px 12px; }
+  .s4 .tl { display: flex; flex-direction: column; align-items: center; padding: 10px 4px 8px; border-radius: 10px; text-align: center; cursor: default; -webkit-user-select: none; user-select: none; transition: background-color var(--dur-fast) var(--ease-out); }
+  .s4 .tl:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+  .s4 .sheets { position: relative; width: 78px; height: 102px; margin-bottom: 8px; }
+  .s4 .sheet { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 4.5px; padding: 10px 9px; border-radius: 5px; background: var(--paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 3px 9px rgb(0 0 0 / 0.12); text-align: left; overflow: hidden; transition: box-shadow var(--dur-fast) var(--ease-out); }
+  .s4 .sheet.b1 { transform: rotate(-4deg) translate(-4px, 2px); } .s4 .sheet.b2 { transform: rotate(3.5deg) translate(4px, 0); }
+  .s4 .sheet b { display: block; flex: none; padding-bottom: 4px; border-bottom: 1.5px solid var(--pc, var(--accent)); font: 700 6.5px/1.2 var(--ui); }
+  .s4 .sheet i { display: block; flex: none; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 20%, transparent); }
+  .s4 .sheet i:nth-child(3n) { width: 82%; } .s4 .sheet i:nth-child(4n) { width: 64%; }
+  .s4 .sheet .i { width: 100%; height: 22px; background: color-mix(in srgb, var(--pc, var(--accent)) 26%, transparent); }
+  .s4 .sheet .c { width: 100%; height: 4px; border-radius: 1px; background: linear-gradient(90deg, var(--pc, var(--accent)) 0 4px, transparent 4px 8px, color-mix(in srgb, var(--fg) 20%, transparent) 8px 82%, transparent 82%); }
+  .s4 .tab { position: absolute; left: 0; top: -6px; width: 34px; height: 12px; border-radius: 4px 6px 0 0; background: color-mix(in srgb, var(--pc) 70%, var(--paper)); box-shadow: 0 0 0 0.5px var(--line-strong); }
+  .s4 .folder .sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 42%, var(--paper)), color-mix(in srgb, var(--pc) 58%, var(--paper))); align-items: center; justify-content: center; color: #fff; }
+  .s4 .folder .sheet span { font: 700 22px/1 var(--round); }
+  .s4 .nm { max-width: 100%; padding: 1px 6px; border-radius: 5px; font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .s4 .wh { font-size: 11px; color: var(--fg3); }
+  .s4 .tl.on .sheet:not(.b1, .b2) { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 9px rgb(0 0 0 / 0.12); }
+  .s4 .tl.on .nm { background: var(--accent); color: #fff; }
+
+  /* ==== 5 · Ebenen: immer nur ein Ordner — großer Titel, Gruppen wie in den Einstellungen, hinein und zurück */
+  .s5 .nav { display: flex; align-items: center; height: 40px; padding: 6px 8px 0 6px; }
+  .s5 .backb { display: flex; align-items: center; gap: 1px; height: 28px; padding: 0 8px 0 4px; border: 0; border-radius: var(--radius-pill); background: none; color: color-mix(in srgb, var(--accent) 85%, var(--fg)); font-size: 13.5px; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+  .s5 .backb:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .s5 .backb svg { width: 15px; height: 15px; stroke-width: 2.4; }
+  .s5 .big { padding: 2px 16px 8px; font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -0.022em; }
+  .s5 .field { margin: 0 12px 4px; height: 30px; border-radius: 9px; box-shadow: none; background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .s5 .cap { padding: 14px 20px 5px; font-size: 12px; font-weight: 500; }
+  .s5 .group { margin: 0 12px; border-radius: 12px; background: var(--raised); box-shadow: var(--edge); overflow: hidden; }
+  .s5 .r { position: relative; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px 0 10px; cursor: default; -webkit-user-select: none; user-select: none; transition: background-color var(--dur-fast) var(--ease-out); }
+  .s5 .r + .r::before { content: ""; position: absolute; top: 0; left: 46px; right: 0; border-top: 0.5px solid var(--line-strong); }
+  .s5 .r.note + .r.note::before { left: 12px; }
+  .s5 .r:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+  .s5 .r:active { background: var(--sb-selected); }
+  .s5 .r.on { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+  .s5 .r.note { padding-left: 12px; min-height: 36px; }
+  .s5 .sq { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 7px; background: var(--pc); color: #fff; }
+  .s5 .sq svg { width: 15px; height: 15px; stroke-width: 1.9; }
+  .s5 .go { width: 11px; height: 11px; color: var(--fg3); } .s5 .go svg { display: block; width: 11px; height: 11px; stroke-width: 2.6; }
+  .s5 .foot { display: flex; align-items: center; padding: 6px 8px; border-top: 0.5px solid var(--line); }
+  .s5 .foot span { flex: 1; text-align: center; font-size: 11.5px; color: var(--fg-quiet); padding-left: 28px; }
+
+  /* ==== 6 · Kacheln: oben vier kluge Listen als Kacheln (wie Erinnerungen), darunter die Ordner und was gewählt ist */
+  .s6 .field { height: 32px; margin: 12px 10px 10px; border-radius: 10px; }
+  .s6 .field kbd { flex: none; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--fg) 8%, transparent); font: 500 10.5px var(--ui); color: var(--fg2); }
+  .s6 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 10px; }
+  .s6 .tile { display: grid; grid-template-columns: auto 1fr; align-items: center; row-gap: 7px; padding: 9px 10px 8px; border: 0; border-radius: 12px; background: var(--raised); box-shadow: var(--edge); text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .s6 .tile:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant); }
+  .s6 .tile:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .s6 .dot { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--pc); color: #fff; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .s6 .dot svg { width: 14px; height: 14px; stroke-width: 2.1; }
+  .s6 .num { text-align: right; font: 700 21px/1 var(--round); font-variant-numeric: tabular-nums; }
+  .s6 .lab { grid-column: 1 / -1; font-size: 13px; font-weight: 600; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); }
+  .s6 .tile.on { background: var(--pc); color: #fff; }
+  .s6 .tile.on .dot { background: #fff; color: var(--pc); } .s6 .tile.on .lab { color: #fff; }
+  .s6 .list { padding: 0 8px 10px; }
+  .s6 .cap { padding: 16px 8px 5px; font-size: 13px; font-weight: 700; color: var(--fg); }
+  .s6 .fd { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--pc); color: #fff; }
+  .s6 .fd svg { width: 12px; height: 12px; stroke-width: 2.1; }
+  .s6 .row { min-height: 32px; }
+
+  @media (prefers-reduced-motion: reduce) { .kids.fresh, .push { animation: none; } .seg-thumb, .side { transition: none; } .tb:active, .mode:active { transform: none; } }
+</style>
+
+<header class="bar">
+  <div class="seg" role="group" aria-label="Ansatz"><span class="seg-thumb"></span></div>
+  <button class="mode" type="button" title="Hell / Dunkel (D)"></button>
+</header>
+<p class="idea" aria-live="polite"></p>
+<div class="stage"><div class="win"><aside class="side"></aside><main class="doc"></main></div></div>
+
+<script>
+(() => {
+  const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const I = {
+    note: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>'),
+    pdf: svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 17v-4h1.2a1.3 1.3 0 0 1 0 2.6H9"/>'),
+    folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>'),
+    clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    sync: svg('<path d="M4 12a8 8 0 0 1 13.7-5.6L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.7 5.6L4 16M4 20v-4h4"/>'),
+    plus: svg('<path d="M12 5v14M5 12h14"/>'),
+    search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+    chevron: svg('<path d="m9 18 6-6-6-6"/>'), down: svg('<path d="m6 9 6 6 6-6"/>'), back: svg('<path d="m15 18-6-6 6-6"/>'),
+    sort: svg('<path d="M7 5v14M4 16l3 3 3-3M17 19V5M14 8l3-3 3 3"/>'),
+    compose: svg('<path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/><path d="M18.5 3.5a2.1 2.1 0 0 1 3 3L12 16l-4 1 1-4Z"/>'),
+    stack: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'),
+    book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
+    box: svg('<path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>'),
+    bolt: svg('<path d="M13 3 5 13h6l-1 8 8-10h-6z"/>'),
+    cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
+    person: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'),
+    check: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'),
+  };
+  const FOLDERS = [
+    { id: "root", name: "Notizen", color: "gray", glyph: "stack" },
+    { id: "studium", name: "Studium", color: "blue", glyph: "book" },
+    { id: "projekte", name: "Projekte", color: "magenta", glyph: "box" },
+    { id: "quick", name: "QuickNotes", color: "orange", glyph: "bolt" },
+  ];
+  const GROUPS = [["heute", "Heute"], ["gestern", "Gestern"], ["woche", "Letzte 7 Tage"], ["frueher", "Früher"]];
+  // `lines`: der Aufbau im Kleinen — t Text, i Bild, c Aufgabe
+  const NOTES = [
+    { id: "test", folder: "root", name: "Test Neu", when: "16:20", g: "heute", ex: "Ein Dokument zum Ausprobieren der neuen Seiten-Stile: Blatt, Vorschau und Widget.", lines: "tttit" },
+    { id: "atmung", folder: "root", name: "Atmungskette", when: "14:02", g: "heute", ex: "Komplex I bis IV, der Protonengradient über die innere Membran und die ATP-Synthase.", lines: "ttitttt", color: "green" },
+    { id: "bugs", folder: "root", name: "Current Bugs", when: "11:40", g: "heute", ex: "Offen: Seitenleiste neu gestalten, Drag and Drop im Whiteboard.", lines: "cccccc", tasks: 1, color: "red" },
+    { id: "buggs", folder: "root", name: "MDVIEW BUGGS", when: "gestern", g: "gestern", ex: "Alte Liste, vor dem Umzug in Current Bugs. Nur noch zum Nachschlagen.", lines: "cccttt", tasks: 1 },
+    { id: "thermo", folder: "studium", name: "Thermodynamik I", when: "gestern", g: "gestern", ex: "Alles zur Vorlesung im Wintersemester. Die Mitschriften liegen als Seiten in dieser Notiz.", lines: "ttittt", shared: 1, subs: 2 },
+    { id: "mech", folder: "studium", name: "Mechanik II", when: "Mo.", g: "woche", ex: "Kinematik des starren Körpers, Drallsatz, Schwingungen mit einem Freiheitsgrad.", lines: "tttittt" },
+    { id: "blatt3", folder: "studium", name: "Übungsblatt 3", when: "Di.", g: "woche", ex: "Aufgaben 1 bis 4 gerechnet, 5 bis 7 offen. Abgabe am Freitag.", lines: "ccccccc", tasks: 1 },
+    { id: "skript", folder: "studium", name: "Skript.pdf", when: "2. Okt.", g: "frueher", ex: "PDF · 84 Seiten", lines: "ttttttt", pdf: 1 },
+    { id: "road", folder: "projekte", name: "mdview Roadmap", when: "Mi.", g: "woche", ex: "Als Nächstes: Seitenleiste, Vorschau hinter Link-Karten, Tabellen umsortieren.", lines: "tccccc", tasks: 1 },
+    { id: "shell", folder: "projekte", name: "Omarchy Shell", when: "28. Sep.", g: "frueher", ex: "Notizen zu den Plugins: Dock, Menüleiste, Mitteilungen, Spotlight.", lines: "ttttit" },
+    { id: "ideen", folder: "projekte", name: "Ideen", when: "12. Sep.", g: "frueher", ex: "Eine App für Karteikarten aus Notizen. Ein Wochenplan als Whiteboard.", lines: "tttt" },
+    { id: "einkauf", folder: "quick", name: "Einkauf", when: "09:15", g: "heute", ex: "Haferflocken, Kaffee, Zitronen, Spülmittel.", lines: "cccc", tasks: 1 },
+    { id: "weber", folder: "quick", name: "Telefonat Dr. Weber", when: "3. Okt.", g: "frueher", ex: "Termin am 21. um neun. Unterlagen vorher schicken.", lines: "ttt" },
+  ];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const folder = (id) => FOLDERS.find((f) => f.id === id);
+  const S = { sel: "test", open: new Set(["studium"]), fresh: null, pick: "all", smart: "all", path: ["root"], dir: "", q: "" };
+  const hit = (n) => !S.q || (n.name + " " + n.ex).toLowerCase().includes(S.q.toLowerCase());
+  const inFolder = (id) => NOTES.filter((n) => n.folder === id && hit(n));
+  const picked = () => NOTES.filter((n) => (S.pick === "all" || n.folder === S.pick) && hit(n));
+  const pc = (c) => (c ? ` style="--pc: var(--c-${c})"` : "");
+  const field = (hint = "Suchen", extra = "") => `<label class="field">${I.search}<input type="text" placeholder="${hint}" value="${esc(S.q)}" spellcheck="false">${extra}</label>`;
+  const row = (n, tail = "") => `<div class="row${n.id === S.sel ? " on" : ""}" data-note="${n.id}"><span class="ic">${n.pdf ? I.pdf : I.note}</span><span class="clamp1 grow">${esc(n.name)}</span>${tail}</div>`;
+  const tools = `<button class="tb aa" title="Dateinamen / Titel">Aa</button><button class="tb" title="Verlauf">${I.clock}</button><button class="tb" title="Jetzt abgleichen">${I.sync}</button>`;
+  const none = `<div class="empty">Nichts gefunden</div>`;
+  const sheet = (n) => `<span class="sheets">${n.subs ? '<span class="sheet b2"></span><span class="sheet b1"></span>' : ""}<span class="sheet"><b>${esc(n.name)}</b>${[...n.lines].map((l) => `<i class="${l}"></i>`).join("")}</span></span>`;
+
+  const VARIANTS = [
+    { key: "Quelle", w: 248, idea: "<b>Die Seitenleiste des Finders, zu Ende gedacht.</b> Der Baum bleibt, bekommt aber Ordnung: oben „Zuletzt“ mit den drei Notizen, an denen du gerade sitzt, darunter die Ordner in ihrer Farbe mit Anzahl. Neu und Sortieren wandern nach unten. Am nächsten an heute.",
+      draw: () => {
+        const recent = NOTES.filter((n) => n.g === "heute" && hit(n)).slice(0, 3);
+        const tree = FOLDERS.slice(1).map((f) => { const kids = inFolder(f.id), open = S.open.has(f.id) || (S.q && kids.length); return S.q && !kids.length ? "" : `<div class="${open ? "open" : ""}"${pc(f.color)}><div class="row" data-toggle="${f.id}"><span class="chev">${I.chevron}</span><span class="ic fic">${I.folder}</span><span class="clamp1 grow">${esc(f.name)}</span><span class="tail">${kids.length}</span></div>${open ? `<div class="kids${S.fresh === f.id ? " fresh" : ""}">${kids.map((n) => row(n)).join("")}</div>` : ""}</div>`; }).join("");
+        const loose = inFolder("root").map((n) => row(n)).join("");
+        return `<div class="head"><span class="title grow">Notizen</span>${tools}</div>${field()}<div class="scroll list">${recent.length ? `<div class="cap">Zuletzt</div>${recent.map((n) => row(n, `<span class="tail">${n.when}</span>`)).join("")}` : ""}<div class="cap">Ordner</div>${tree}${loose}${!tree && !loose ? none : ""}</div><div class="foot"><button class="new">${I.plus}Neue Notiz</button><span class="grow"></span><button class="tb" title="Reihenfolge">${I.sort}</button></div>`;
+      } },
+    { key: "Notizen", w: 300, idea: "<b>Kein Baum mehr – eine Liste nach Datum</b>, wie die mittlere Spalte von Apple Notizen: jede Zeile mit Zeit und Textanfang, der Ordner klein darunter. Ordner sind Filter (die Kapseln oben), keine Ebenen. Man findet Notizen über ihren Inhalt, nicht über ihren Platz.",
+      draw: () => {
+        const list = picked(), by = GROUPS.map(([g, label]) => [label, list.filter((n) => n.g === g)]).filter(([, l]) => l.length);
+        return `<div class="head"><div class="grow"><div class="title">${esc(S.pick === "all" ? "Alle Notizen" : folder(S.pick).name)}${I.down}</div><div class="sub">${list.length} Notizen</div></div><button class="plus" title="Neue Notiz">${I.plus}</button></div>${field()}<div class="chips"><button class="chip${S.pick === "all" ? " on" : ""}" data-pick="all">Alle</button>${FOLDERS.map((f) => `<button class="chip${S.pick === f.id ? " on" : ""}" data-pick="${f.id}">${esc(f.id === "root" ? "Lose" : f.name)}</button>`).join("")}</div><div class="scroll list">${by.map(([label, l]) => `<div class="cap">${label}</div>${l.map((n) => `<div class="n${n.id === S.sel ? " on" : ""}" data-note="${n.id}"><b class="clamp1">${esc(n.name)}</b><span class="l2 clamp1"><span>${n.when}</span>${esc(n.ex)}</span><span class="l3">${I.folder}${esc(folder(n.folder).name)}${n.shared ? " · geteilt" : ""}</span></div>`).join("")}`).join("") || none}</div>`;
+      } },
+    { key: "Schiene", w: 300, idea: "<b>Zwei Ebenen nebeneinander:</b> links eine schmale Schiene mit den Ordnern als farbige Zeichen (immer da, ein Klick wechselt), rechts nur die Notizen des gewählten Ordners. Verlauf, Abgleich und Neu sitzen unten in der Schiene. Kein Auf- und Zuklappen, kein Einrücken.",
+      draw: () => {
+        const list = picked(), f = S.pick === "all" ? { name: "Alle Notizen" } : folder(S.pick);
+        return `<div class="rail"><button class="rt${S.pick === "all" ? " on" : ""}" data-pick="all" title="Alle Notizen"${pc("gray")}>${I.stack}</button>${FOLDERS.slice(1).map((x) => `<button class="rt${S.pick === x.id ? " on" : ""}" data-pick="${x.id}" title="${esc(x.name)}"${pc(x.color)}>${I[x.glyph]}</button>`).join("")}<span class="sp"></span><button class="tb" title="Verlauf">${I.clock}</button><button class="tb" title="Jetzt abgleichen">${I.sync}</button><button class="tb" title="Neue Notiz">${I.plus}</button></div><div class="pane"><div class="head"><span class="title clamp1">${esc(f.name)}</span><span class="count grow">${list.length}</span><button class="tb aa" title="Dateinamen / Titel">Aa</button></div>${field()}<div class="scroll list">${list.map((n) => row(n, `<span class="tail">${n.when}</span>`)).join("") || none}</div></div>`;
+      } },
+    { key: "Blätter", w: 264, idea: "<b>Jede Notiz ein Blatt Papier</b> – wie die Miniaturen in Vorschau, und wie die Seiten-Stile, die du gerade gewählt hast. Man erkennt Notizen an ihrer Form (Aufgabenliste, Text, Bild). Ordner sind Mappen mit ihrer Anzahl; ein Klick geht hinein.",
+      draw: () => {
+        const at = S.path[S.path.length - 1], here = folder(at);
+        const folders = at === "root" && !S.q ? FOLDERS.slice(1).map((f) => `<div class="tl folder" data-enter="${f.id}"${pc(f.color)}><span class="sheets"><span class="tab"></span><span class="sheet"><span>${inFolder(f.id).length}</span></span></span><span class="nm clamp1">${esc(f.name)}</span><span class="wh">Ordner</span></div>`).join("") : "";
+        const notes = (S.q ? NOTES.filter(hit) : inFolder(at)).map((n) => `<div class="tl${n.id === S.sel ? " on" : ""}" data-note="${n.id}"${pc(n.color || folder(n.folder).color)}>${sheet(n)}<span class="nm clamp1">${esc(n.name)}</span><span class="wh">${n.when}</span></div>`).join("");
+        return `<div class="head">${at === "root" ? `<span class="title grow">Notizen</span>` : `<button class="backb" data-back>${I.back}Notizen</button><span class="title grow clamp1" style="text-align:center;margin-right:28px">${esc(here.name)}</span>`}${at === "root" ? tools : ""}<button class="tb" title="Neue Notiz">${I.plus}</button></div>${field()}<div class="scroll"><div class="grid push ${S.dir}">${folders}${notes}</div>${!folders && !notes ? none : ""}</div>`;
+      } },
+    { key: "Ebenen", w: 272, idea: "<b>Immer nur ein Ordner auf einmal</b>, mit großem Titel wie in iOS: Ordner und Notizen stehen als Gruppen auf Karten wie in den Einstellungen, ein Klick schiebt den Ordner herein, „‹ Notizen“ führt zurück. Tiefe Bäume bleiben ruhig, weil man nie mehr als eine Ebene sieht.",
+      draw: () => {
+        const at = S.path[S.path.length - 1], here = folder(at), notes = S.q ? NOTES.filter(hit) : inFolder(at);
+        const folders = at === "root" && !S.q ? FOLDERS.slice(1) : [];
+        return `<div class="nav">${at === "root" ? "" : `<button class="backb" data-back>${I.back}Notizen</button>`}<span class="grow"></span>${tools}</div><div class="scroll"><div class="push ${S.dir}"><div class="big">${esc(here.name)}</div>${field()}${folders.length ? `<div class="cap">Ordner</div><div class="group">${folders.map((f) => `<div class="r" data-enter="${f.id}"><span class="sq"${pc(f.color)}>${I[f.glyph]}</span><span class="clamp1 grow">${esc(f.name)}</span><span class="tail">${inFolder(f.id).length}</span><span class="go">${I.chevron}</span></div>`).join("")}</div>` : ""}${notes.length ? `<div class="cap">Notizen</div><div class="group">${notes.map((n) => `<div class="r note${n.id === S.sel ? " on" : ""}" data-note="${n.id}"><span class="clamp1 grow"${n.id === S.sel ? ' style="font-weight:600"' : ""}>${esc(n.name)}</span><span class="tail">${n.when}</span></div>`).join("")}</div>` : none}<div style="height:14px"></div></div></div><div class="foot"><span>${notes.length} Notizen</span><button class="tb" title="Neue Notiz">${I.compose}</button></div>`;
+      } },
+    { key: "Kacheln", w: 280, idea: "<b>Oben vier kluge Listen als Kacheln</b>, wie in Erinnerungen: Alle, Heute, Geteilt, Mit Aufgaben – jede mit ihrer Zahl, ein Klick filtert. Darunter die Ordner als Liste mit farbigem Punkt und die Notizen der Auswahl. Die Suche steht ganz oben, groß. Die Leiste wird zur Übersicht, nicht nur zum Verzeichnis.",
+      draw: () => {
+        const SM = [["all", "Alle", "gray", "stack", () => true], ["heute", "Heute", "blue", "cal", (n) => n.g === "heute"], ["shared", "Geteilt", "green", "person", (n) => n.shared], ["tasks", "Mit Aufgaben", "orange", "check", (n) => n.tasks]];
+        const smart = SM.find((s) => s[0] === S.smart), f = S.pick !== "all" && folder(S.pick);
+        const list = NOTES.filter((n) => hit(n) && (f ? n.folder === f.id : smart[4](n)));
+        return `${field("Suchen oder springen", "<kbd>Ctrl K</kbd>")}<div class="scroll"><div class="tiles">${SM.map(([id, label, color, glyph, test]) => `<button class="tile${!f && S.smart === id ? " on" : ""}" data-smart="${id}"${pc(color)}><span class="dot">${I[glyph]}</span><span class="num">${NOTES.filter(test).length}</span><span class="lab">${label}</span></button>`).join("")}</div><div class="list"><div class="cap">Ordner</div>${FOLDERS.map((x) => `<div class="row${S.pick === x.id ? " on" : ""}" data-pick="${x.id}"><span class="fd"${pc(x.color)}>${I[x.id === "root" ? "note" : x.glyph]}</span><span class="clamp1 grow">${esc(x.id === "root" ? "Lose Notizen" : x.name)}</span><span class="tail">${inFolder(x.id).length}</span></div>`).join("")}<div class="cap">${esc(f ? (f.id === "root" ? "Lose Notizen" : f.name) : smart[1])}</div>${list.map((n) => row(n, `<span class="tail">${n.when}</span>`)).join("") || none}</div></div>`;
+      } },
+  ];
+
+  const side = document.querySelector(".side"), doc = document.querySelector(".doc"), idea = document.querySelector(".idea"), seg = document.querySelector(".seg"), thumb = seg.querySelector(".seg-thumb"), mode = document.querySelector(".mode");
+  let current = -1;
+  const paint = () => {
+    const had = document.activeElement && document.activeElement.matches(".field input"), top = side.querySelector(".scroll") ? side.querySelector(".scroll").scrollTop : 0;
+    side.className = "side s" + (current + 1); side.style.setProperty("--w", VARIANTS[current].w + "px");
+    side.innerHTML = VARIANTS[current].draw();
+    if (side.querySelector(".scroll") && !S.dir) side.querySelector(".scroll").scrollTop = top;
+    if (had) { const f = side.querySelector(".field input"); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+    const n = NOTES.find((x) => x.id === S.sel);
+    doc.innerHTML = `<h1>${esc(n.name)}</h1><div class="where">${esc(folder(n.folder).name)} · ${n.when}</div><p>${esc(n.ex)}</p>${[94, 100, 88, 97, 60, 0, 100, 92, 96, 71].map((w) => (w ? `<span class="sk" style="width:${w * 0.34}rem"></span>` : '<span class="sk" style="width:0;margin-bottom:20px"></span>')).join("")}`;
+    S.fresh = null; S.dir = "";
+  };
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const show = (v, at_once) => {
+    if (v === current || !VARIANTS[v]) return;
+    current = v; store.set("sidebar-lab-variant", v);
+    thumb.style.transform = `translateX(${v * 100}%)`;
+    seg.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", i === v));
+    Object.assign(S, { pick: "all", smart: "all", path: ["root"], q: "", dir: "" });
+    const swap = () => { paint(); idea.innerHTML = VARIANTS[v].idea; side.classList.remove("out"); };
+    if (at_once) return swap();
+    side.classList.add("out"); setTimeout(() => { if (current === v) swap(); }, 115);
+  };
+  const setMode = (dark) => { document.documentElement.dataset.mode = dark ? "dark" : "light"; mode.textContent = dark ? "Hell" : "Dunkel"; store.set("sidebar-lab-dark", dark ? "1" : ""); };
+
+  side.addEventListener("click", (e) => {
+    const t = (sel) => e.target instanceof Element && e.target.closest(sel);
+    let el;
+    if ((el = t("[data-note]"))) S.sel = el.dataset.note;
+    else if ((el = t("[data-toggle]"))) { const id = el.dataset.toggle; if (S.open.has(id)) S.open.delete(id); else { S.open.add(id); S.fresh = id; } }
+    else if ((el = t("[data-pick]"))) { S.pick = S.pick === el.dataset.pick && current === 5 ? "all" : el.dataset.pick; }
+    else if ((el = t("[data-smart]"))) { S.smart = el.dataset.smart; S.pick = "all"; }
+    else if ((el = t("[data-enter]"))) { S.path.push(el.dataset.enter); S.dir = "fwd"; }
+    else if (t("[data-back]")) { S.path.pop(); S.dir = "back"; }
+    else return;
+    paint();
+  });
+  side.addEventListener("input", (e) => { if (e.target.matches(".field input")) { S.q = e.target.value; paint(); } });
+  VARIANTS.forEach((v, i) => { const b = document.createElement("button"); b.type = "button"; b.innerHTML = `<kbd>${i + 1}</kbd>${v.key}`; b.addEventListener("click", () => show(i)); seg.append(b); });
+  mode.addEventListener("click", () => setMode(document.documentElement.dataset.mode !== "dark"));
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || (e.target instanceof Element && e.target.matches("input"))) return;
+    if (e.key >= "1" && e.key <= "6") show(+e.key - 1);
+    else if (e.key === "ArrowRight") show(Math.min(5, current + 1));
+    else if (e.key === "ArrowLeft") show(Math.max(0, current - 1));
+    else if (e.key.toLowerCase() === "d") mode.click();
+  });
+  const hash = new URLSearchParams(location.hash.slice(1));
+  setMode(hash.has("dark") || (!hash.has("light") && store.get("sidebar-lab-dark") === "1"));
+  show(hash.has("v") ? +hash.get("v") - 1 : +(store.get("sidebar-lab-variant") || 0), true);
+  if (current < 0) show(0, true);
+  requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("boot")));
+})();
+</script>
+</html>

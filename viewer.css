@@ -1208,7 +1208,7 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 /* a row: [chevron, folders only] [icon] [name]. The note on screen wears the quiet grey of a
  * macOS sidebar's selection, not the accent. */
 .sb-row {
-  --pad: calc(4px + var(--depth, 0) * var(--sb-step));
+  --pad: calc(4px + (var(--depth, 0) - var(--depth-off, 0)) * var(--sb-step));  /* (--depth-off: the folder shown alone — rail, sheets — is the top) */
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1523,3 +1523,132 @@ body:not([data-ai]) [data-needs-ai] { display: none !important; }
 body[data-overview] #ai-bubble, body[data-overview] #ai-chat { display: none; }
 @media print { #ai-bubble { display: none !important; } }
 @media (max-width: 640px) { #ai-bubble { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 12px; } }
+
+/* ------------------------------------------------------- the sidebar's layouts
+ * (viewer.js: "the sidebar's layouts".) The list is the same in all of them; around it each has
+ * its own parts: the notes opened last and a foot (source), a rail of folders (rail), sheets of
+ * paper for rows (sheets), smart lists as tiles (tiles). The quick notes ("plain") have none. */
+.sb-rail, .sb-crumb, .sb-smart, .sb-recent, .sb-cap-folders, .sb-flat, .sb-foot, .sb-tail, .sb-sheet { display: none; }
+#sidebar { --sb-paper: #fff; }
+body[data-mode="dark"] #sidebar { --sb-paper: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+.sb-extra { --depth-off: 0; }
+.sb-cap { padding: 10px calc(var(--sb-pad) + 8px) 4px; font: 600 11px/1.3 var(--ui); color: var(--fg-quiet); }
+.sb-extra .sb-cap { padding-left: 8px; padding-right: 8px; }
+/* what a note's row says at its end: when it was changed (a folder's says nothing) */
+#sidebar:not([data-layout="plain"]) .sb-tail { display: block; flex: none; margin-left: auto; padding-left: 6px; font-size: 11.5px; font-weight: 400; color: var(--fg3); font-variant-numeric: tabular-nums; }
+#sidebar:not([data-layout="plain"]) .sb-tail::after { content: attr(data-says); }
+.sb-tail + .sb-shared { margin-left: 4px; }
+#sidebar[data-layout="source"] .sb-list .sb-item:not(.is-dir) .sb-tail { display: none; }
+/* a folder in its colour (the accent where none was chosen); the folder's own sign is filled lightly */
+#sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon { color: var(--fc, var(--accent-text)); }
+#sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row:not([data-icon]) .sb-icon svg, #sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row[data-icon=""] .sb-icon svg { fill: color-mix(in srgb, currentColor 18%, transparent); }
+/* what was searched for, a smart list: its notes in one list in place of the tree */
+#sidebar[data-flat] .sb-flat { display: block; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 2px var(--sb-pad) 16px; }
+#sidebar[data-flat] :is(.sb-list, .sb-cap-folders, .sb-crumb, .sb-recent) { display: none !important; }
+
+/* source: the notes opened last above the tree, new and order at the foot */
+#sidebar[data-layout="source"] .sb-recent:not([hidden]) { display: block; padding: 0 var(--sb-pad); }
+#sidebar[data-layout="source"] .sb-cap-folders, #sidebar[data-layout="tiles"] .sb-cap-folders { display: block; }
+#sidebar[data-layout="source"] .sb-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 0.5px solid var(--line); }
+#sidebar[data-layout="source"] .sb-head [data-act="newmenu"] { display: none; }
+/* (the settings' gear floats over the sidebar's lower left corner: here it is the foot's first button — the foot leaves its room, and it stands on the foot's line) */
+#sidebar[data-layout="source"] .sb-foot { padding-left: calc(8px + var(--control-height, 28px) + 2px); }
+body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(var(--sb-inset) + 6px); }
+.sb-new-note { display: flex; align-items: center; gap: 6px; height: var(--control-height, 28px); margin-right: auto; padding: 0 10px 0 6px; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sb-new-note:hover { background: var(--fill-hover); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+.sb-new-note:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.sb-new-note svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* rail: the folder's folders as signs at the left, beside it what is in the one chosen */
+#sidebar[data-layout="rail"] { padding-left: 52px; }
+#sidebar[data-layout="rail"] .sb-rail { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; box-sizing: border-box; width: 52px; padding: 12px 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; background: color-mix(in srgb, var(--fg) 4%, transparent); border-right: 0.5px solid var(--line); }
+#sidebar[data-layout="rail"] .sb-folder-name { display: none; }
+.sb-rt { --fc: var(--accent); display: grid; place-items: center; flex: none; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fc) 16%, transparent); color: var(--fc); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sb-rt svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.sb-rt .sf { font-size: 15px; }
+.sb-rt:hover { background: color-mix(in srgb, var(--fc) 26%, transparent); transition-duration: var(--dur-instant); }
+.sb-rt:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.sb-rt.on { background: linear-gradient(160deg, color-mix(in srgb, var(--fc) 82%, #fff), var(--fc)); color: #fff; box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--fc) 60%, transparent), inset 0 0.5px 0 rgb(255 255 255 / 0.4); }
+.sb-crumb:not([hidden]) { align-items: center; gap: 6px; min-height: 24px; padding: 0 calc(var(--sb-pad) + 8px) 6px; }
+#sidebar:is([data-layout="rail"], [data-layout="sheets"]) .sb-crumb:not([hidden]) { display: flex; }
+.sb-crumb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+.sb-back { display: flex; align-items: center; flex: none; gap: 1px; max-width: 50%; height: 24px; margin-left: -6px; padding: 0 8px 0 2px; border: 0; border-radius: var(--radius-pill); background: none; color: var(--accent-text); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+.sb-back:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.sb-back:active { background: var(--fill-pressed); }
+.sb-back svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transform: rotate(180deg); }
+.sb-back .sf { font-size: 10px; transform: rotate(180deg); }
+.sb-back span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sidebar[data-layout="sheets"] .sb-crumb-name { flex: 1; font-size: 13px; text-align: right; }
+/* (rail, sheets) one folder shown alone: the folders on the way to it have no row and no box,
+ * what is in it stands at the top */
+#sidebar[data-here] .sb-list .sb-item { display: none; }
+#sidebar[data-here] .sb-list .sb-item.sb-path, #sidebar[data-here] .sb-list .sb-item.sb-path > .sb-in, #sidebar[data-here] .sb-list .sb-item.sb-path > .sb-in > .sb-kids, #sidebar[data-here] .sb-list .sb-item.sb-path > .sb-in > .sb-kids > .sb-in { display: contents; visibility: visible; }
+#sidebar[data-here] .sb-list .sb-item.sb-path > .sb-in > .sb-row { display: none; }
+#sidebar[data-layout="rail"][data-here] .sb-list .sb-item.sb-at > .sb-in > .sb-kids > .sb-in > .sb-item, #sidebar[data-layout="rail"][data-here] .sb-list .sb-item.sb-at > .sb-in > .sb-kids > .sb-in > .sb-item .sb-item { display: grid; }
+@keyframes sb-push { from { opacity: 0; transform: translateX(24px); } }
+@keyframes sb-push-back { from { opacity: 0; transform: translateX(-24px); } }
+.sb-list.sb-push { animation: sb-push var(--dur-slow) var(--ease-out); }
+.sb-list.sb-push-back { animation: sb-push-back var(--dur-slow) var(--ease-out); }
+
+/* sheets: a sheet of paper for each note, a folder for each folder — one folder at a time */
+#sidebar[data-layout="sheets"] .sb-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); align-content: start; gap: 2px; }
+#sidebar[data-layout="sheets"] .sb-list .sb-item { display: none; }
+#sidebar[data-layout="sheets"]:not([data-here]) .sb-list > .sb-item, #sidebar[data-layout="sheets"][data-here] .sb-list .sb-item.sb-at > .sb-in > .sb-kids > .sb-in > .sb-item { display: block; }
+#sidebar[data-layout="sheets"] .sb-list .sb-item:not(.sb-path) > .sb-in > .sb-kids { display: none; }
+#sidebar[data-layout="sheets"] .sb-list .sb-item > .sb-in { overflow: visible; }
+#sidebar[data-layout="sheets"] .sb-list .sb-row { flex-direction: column; gap: 0; height: auto; padding: 12px 4px 8px; border-radius: var(--radius-popover); text-align: center; }
+#sidebar[data-layout="sheets"] .sb-list .sb-row :is(.sb-chev, .sb-icon, .sb-shared), #sidebar[data-layout="sheets"] .sb-list .sb-item.is-dir .sb-tail { display: none; }
+#sidebar[data-layout="sheets"] .sb-list .sb-row .sb-label { max-width: 100%; box-sizing: border-box; padding: 1px 6px; border-radius: var(--radius-chip); font-size: 12px; font-weight: 600; line-height: 1.3; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+#sidebar[data-layout="sheets"] .sb-list .sb-row .sb-tail { margin: 1px 0 0; padding: 0; font-size: 11px; }
+#sidebar[data-layout="sheets"] .sb-sheet { --fc-own: var(--fc, var(--accent)); display: block; position: relative; flex: none; width: 78px; height: 102px; margin-bottom: 8px; }
+.sb-sheet-in { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 4.5px; box-sizing: border-box; padding: 10px 9px; border-radius: 5px; background: var(--sb-paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 3px 9px rgb(0 0 0 / 0.12); text-align: left; overflow: hidden; transition: box-shadow var(--dur-fast) var(--ease-out); }
+.sb-sheet-in b { display: block; flex: none; padding-bottom: 4px; border-bottom: 1.5px solid var(--fc-own); font: 700 6.5px/1.2 var(--ui); color: var(--fg); overflow-wrap: anywhere; }
+.sb-sheet-in i { display: block; flex: none; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 20%, transparent); }
+.sb-sheet-in i:nth-child(3n) { width: 82%; }
+.sb-sheet-in i:nth-child(4n) { width: 64%; }
+.sb-sheet-in i.h { width: 58%; height: 4px; margin-top: 2px; background: color-mix(in srgb, var(--fg) 45%, transparent); }
+.sb-sheet-in i.i { width: 100%; height: 22px; background: color-mix(in srgb, var(--fc-own) 26%, transparent); }
+.sb-sheet-in i.f { width: 46%; margin: 1px auto; background: color-mix(in srgb, var(--fc-own) 60%, transparent); }
+.sb-sheet-in i.c { width: 100%; height: 4px; border-radius: 1px; background: linear-gradient(90deg, var(--fc-own) 0 4px, transparent 4px 8px, color-mix(in srgb, var(--fg) 20%, transparent) 8px 82%, transparent 82%); }
+.sb-sheet.is-folder .sb-sheet-in { align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, color-mix(in srgb, var(--fc-own) 46%, var(--sb-paper)), color-mix(in srgb, var(--fc-own) 64%, var(--sb-paper))); color: #fff; }
+.sb-sheet.is-folder .sb-sheet-in svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-sheet.is-folder .sb-sheet-in .sf { font-size: 20px; }
+.sb-sheet-tab { position: absolute; left: 0; top: -6px; width: 34px; height: 12px; border-radius: 4px 6px 0 0; background: color-mix(in srgb, var(--fc-own) 72%, var(--sb-paper)); box-shadow: 0 0 0 0.5px var(--line-strong); }
+#sidebar[data-layout="sheets"] .sb-list .sb-row.active { background: transparent; }
+#sidebar[data-layout="sheets"] .sb-list .sb-row.active .sb-sheet-in { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 9px rgb(0 0 0 / 0.12); }
+#sidebar[data-layout="sheets"] .sb-list .sb-row.active .sb-label { background: var(--accent); color: #fff; }
+
+/* tiles: smart lists as tiles above the folders; a folder's sign stands on a disc in its colour */
+#sidebar[data-layout="tiles"] .sb-smart { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px var(--sb-pad) 4px; }
+.sb-tile { --fc: var(--fg2); display: grid; grid-template-columns: auto 1fr; align-items: center; row-gap: 7px; min-width: 0; padding: 9px 10px 8px; border: 0; border-radius: var(--menu-radius, 12px); background: color-mix(in srgb, var(--fg) 5%, transparent); box-shadow: inset 0 0 0 0.5px var(--line); color: var(--fg); font: inherit; text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sb-tile:hover { background: color-mix(in srgb, var(--fg) 9%, transparent); transition-duration: var(--dur-instant); }
+.sb-tile:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.sb-tile-dot { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--fc); color: #fff; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sb-tile-dot svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.sb-tile-n { text-align: right; font: 700 21px/1 ui-rounded, "SF Pro Rounded", var(--ui); font-variant-numeric: tabular-nums; }
+.sb-tile-name { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); }
+.sb-tile.on { background: var(--fc); color: #fff; box-shadow: none; }
+.sb-tile.on .sb-tile-dot { background: #fff; color: var(--fc); }
+.sb-tile.on .sb-tile-name { color: #fff; }
+#sidebar[data-layout="tiles"] .sb-list .sb-item.is-dir > .sb-in > .sb-row .sb-icon { width: 22px; height: 22px; border-radius: 50%; background: var(--fc, var(--accent)); color: #fff; }
+#sidebar[data-layout="tiles"] .sb-list .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg { width: 12px; height: 12px; fill: none; stroke-width: 2.1; }
+#sidebar[data-layout="tiles"] .sb-list .sb-item.is-dir > .sb-in > .sb-row .sb-icon .sf { font-size: 11px; }
+
+/* a folder's colour and its sign, chosen */
+#sblook { position: fixed; z-index: 40; box-sizing: border-box; width: 236px; padding: 10px 12px 12px; font: 400 13px/1.3 var(--ui); user-select: none; -webkit-user-select: none; outline: none; }
+.sl-cap { margin: 2px 0 7px; font: 600 11px/1.3 var(--ui); color: var(--fg-quiet); }
+.sl-colors + .sl-cap { margin-top: 12px; }
+.sl-colors { display: flex; gap: 7px; }
+.sl-color { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--fc, color-mix(in srgb, var(--fg) 28%, transparent)); box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.15); cursor: default; transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sl-color:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.sl-color.on { outline: 2px solid var(--fc, var(--fg2)); outline-offset: 2px; }
+.sl-icons { --fc-own: var(--fc, var(--accent)); display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin: 0 -4px; }
+.sl-icon { display: grid; place-items: center; height: 30px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.sl-icon > svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sl-icon > .sf { font-size: 14px; }
+.sl-icon:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.sl-icon.on { background: color-mix(in srgb, var(--fc-own) 16%, transparent); color: var(--fc-own); }
+@media (prefers-reduced-motion: reduce) {
+  .sb-list.sb-push, .sb-list.sb-push-back { animation: none; }
+  .sb-rt:active, .sb-tile:active, .sb-new-note:active, .sl-color:active { transform: none; }
+}

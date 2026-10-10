@@ -25,6 +25,7 @@
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
+#   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
@@ -268,6 +269,24 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.pagelook.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagelook.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  sidebar)
+    # the sidebar's layouts over one folder, the search, a folder's colour and sign
+    rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"
+    printf '# Alpha\n\nSome text.\n' > "$R/work/notes/Alpha.md"; printf '# Beta\n\n- [x] done\n- [x] done too\n' > "$R/work/notes/Beta.md"; printf '# Gamma\n\nMore text here.\n\n![](p.png)\n' > "$R/work/notes/Gamma.md"
+    printf '# Thermo\n\nStates and systems.\n' > "$R/work/notes/Studium/Thermo.md"; printf '# Blatt\n\n- [x] one\n- [ ] two\n- [ ] three\n' > "$R/work/notes/Studium/Blatt.md"
+    printf '# Plan\n\nNext.\n' > "$R/work/notes/Projekte/Plan.md"; printf '# Inner\n\nDeep in.\n' > "$R/work/notes/Projekte/Deep/Inner.md"
+    rm -f "$R/out"/*.json
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run opened is not this one's)
+    app 90 MDVIEW_PROBE="$D/probe-sidebar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    for v in source rail sheets tiles; do for _ in $(seq 400); do ls "$R/out"/*."$v".json >/dev/null 2>&1 && break; ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.4; shot "$R/out/sidebar-$v.png"; done
+    for _ in $(seq 300); do ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    ls "$R/out"/*.sidebar.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json
+    looks=$(jq -c '.folders' "$R/work/notes/.mdview/folders.json" 2>/dev/null)
+    [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] && echo "ok   the look stands in the folder, under the folder's new name" || echo "FAIL the look in the folder: $looks"
+    ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json; [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] || echo FAIL; } | grep -qv '^ok' ;;
   pagestyles)
     # a page's line as a sheet, a preview, a widget: what they show, side by side, alike in both views
     name=styles.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/pagestyles.md" "$R/work/$name"; rm -f "$R/out/$name".*.json

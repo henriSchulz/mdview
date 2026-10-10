@@ -689,6 +689,24 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   click on a file has Open in New Tab, Open in Default App, Open With…, Show in Finder, Rename (`F2`), Move to Trash
   (`Del`); a right click on the empty room has New Note, New Folder and the order of the notes. Its
   edge can be pulled wider or away. `Aa` switches between file names and the notes' titles.
+- **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
+  does on them, are the same in all four:
+  - **List** (the default): the folders as a tree; above it
+    **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
+  - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
+    beside it what is in the one chosen — its own folders open in place.
+  - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
+    pictures, formulas, tasks), a folder for each folder. One
+    folder at a time: a click goes in, the name at the top left leads back.
+  - **Tiles**: four smart lists as tiles — All, Today (changed today), Shared, With Tasks (something
+    left to do) — each with how many notes it holds; a click shows its notes in one list. Under
+    them the folders, their signs on a disc in their colour.
+- **Search**: the field under the head narrows the folder's notes to those whose name (or the
+  folder they lie in) has what is typed; `Esc` empties it.
+- **A folder's colour and sign**: right click on a folder › Colour and Icon… — one of the theme's
+  colours and one of twenty signs, shown in every layout. They are kept in the folder itself
+  (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
+  moved keeps them.
 - **Order of the notes**: Last Opened (the default), Name, Date Modified.
 - **Beside notes** the sidebar can list PDFs (on by default), pictures, sound and video, and other
   files — in the settings, or at once from a right click in the sidebar › Show. All Notes has
@@ -951,7 +969,7 @@ the right. A change takes effect at once.
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
 | Appearance | text size of a note, width of the text column, sharper text (letters on whole pixels; at the next start) |
-| Sidebar | order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
+| Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |

@@ -92,6 +92,7 @@ fn default_prefs() -> Map<String, Value> {
         "pdfFormat": "callout", "pdfAuto": false,
         // what the folder sidebar lists beside the notes: PDFs, pictures, sound and film, everything else
         "sidebarPdf": true, "sidebarImages": false, "sidebarMedia": false, "sidebarOther": false,
+        "sidebarLayout": "source", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
         "sidebarSort": "opened",  // the notes of a folder, in the sidebar and the tiles: "opened" (last opened first) | "name" | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
         "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
@@ -1679,6 +1680,7 @@ impl Win {
         let payload = json!({
             "history": history,
             "shared": share::listed(&folder),
+            "looks": crate::looks::listed(&folder),   // the colours and signs chosen for its folders
             "root": s(&folder),
             "quick": self.quick,
             "name": if name_of(&folder).is_empty() { s(&folder) } else { name_of(&folder) },
@@ -1875,6 +1877,9 @@ impl Win {
             return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
         let new_real = crate::scan::canon(&new).unwrap_or_else(|_| new.clone());
+        if is_dir {
+            crate::looks::moved(folder, &old, &new); // (its colour and its sign go along)
+        }
         // (a link to a note goes on showing it)
         if let Ok(Some(root)) = if is_dir { share::moved_dir(&old_real, &new_real) } else { share::moved(&old_real, Some(&new_real)) } {
             app.share_dirty.insert(root);
@@ -2690,6 +2695,16 @@ impl Win {
             "newfolder" => self.new_folder(app, text_of("name"), msg["dir"].as_str()),
             "rename" => self.rename_note(app, text_of("path"), text_of("name")),
             "move" => self.move_to(app, text_of("path"), text_of("dir")),
+            // a colour and a sign for a folder of the window's folder (kept in the folder: looks.rs)
+            "folderlook" => {
+                let dir = PathBuf::from(text_of("path"));
+                if let Some(folder) = self.folder.clone().filter(|f| dir.is_dir() && dir.starts_with(f) && dir != *f) {
+                    match crate::looks::set(&folder, &dir, text_of("color"), text_of("icon")) {
+                        Ok(()) => self.send_folder(app),
+                        Err(e) => self.toast(format!("Couldn't keep the folder's look: {e}")),
+                    }
+                }
+            }
             "trash" => match msg["paths"].as_array() {
                 // (several at once: what is selected in All Notes)
                 Some(many) => self.trash_paths(app, &many.iter().filter_map(|p| p.as_str().map(String::from)).collect::<Vec<_>>()),

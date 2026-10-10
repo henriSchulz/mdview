@@ -46,6 +46,7 @@
     sidebar: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
     panel: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/>'),
     plus: svg('<path d="M12 5v14M5 12h14"/>'),
+    palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.9 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.800-1.800H17a4 4 0 0 0 4-4c0-4.400-4-7.900-9-7.900z"/><path d="M7.500 12h.01M9.500 8h.01M14.500 7.500h.01"/>'),
     title: svg('<path d="M5 7V5h14v2M12 5v14M9 19h6"/>'),
     folder: svg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>'),
     info: svg('<circle cx="12" cy="12" r="9.5"/><path d="M12 16v-4.5M12 8h.01"/>'),
@@ -2819,10 +2820,18 @@
     `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `</header>` +
     `<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off">` +
-    `<nav class="sb-list" aria-label="${esc(T("Notes"))}"></nav>`;
+    // (what the layouts add around the list — viewer.js: "the sidebar's layouts"; each shows its own)
+    `<nav class="sb-rail" aria-label="${esc(T("Folders"))}"></nav>` +
+    `<div class="sb-crumb"></div>` +
+    `<div class="sb-smart" role="group"></div>` +
+    `<div class="sb-recent sb-extra"></div>` +
+    `<div class="sb-cap sb-cap-folders">${esc(T("Folders"))}</div>` +
+    `<nav class="sb-list" aria-label="${esc(T("Notes"))}"></nav>` +
+    `<nav class="sb-flat sb-extra" aria-label="${esc(T("Notes"))}"></nav>` +
+    `<footer class="sb-foot"><button class="sb-new-note" type="button" data-sb="new">${ICON.plus}<span>${esc(T("New Note"))}</span></button><button class="tb" type="button" data-sb="more" title="${esc(T("Order of the notes, and what is listed"))}" aria-label="${esc(T("Order of the notes, and what is listed"))}">${ICON.list}</button></footer>`;
   document.body.appendChild(sidebar);
-  sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); quickPaint(); });
-  sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; quickPaint(); e.target.blur(); } });
+  sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); if (folder && folder.quick) quickPaint(); else layoutSync(); });
+  sidebar.querySelector(".qn-search").addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.target.value = ""; quickFilter = ""; if (folder && folder.quick) quickPaint(); else layoutSync(); e.target.blur(); } });
   const sbHead = sidebar.querySelector(".sb-head");
   const sbList = sidebar.querySelector(".sb-list");
   const sbTitlesBtn = sbHead.querySelector('[data-act="titles"]');
@@ -2903,6 +2912,7 @@
       const row = el.firstChild.firstChild, label = row.querySelector(".sb-label"); // (not the row's last child: a shared note has its sign there)
       if (label.textContent !== e.label) label.textContent = e.label;
       row.title = e.note ? e.note.path.slice(folder.root.length + 1) : "";
+      dressRow(el, e);
       if (e.dir) {
         el.classList.toggle("open", sbOpen.has(e.key));
         row.setAttribute("aria-expanded", String(sbOpen.has(e.key)));
@@ -2923,6 +2933,7 @@
     const any = folder.tree.dirs.length || folder.tree.notes.length;
     sbList.querySelector(":scope > .menu-empty")?.remove();
     syncDir(sbList, folder.tree, 0, fresh);
+    layoutSync();
     if (!any) sbList.insertAdjacentHTML("afterbegin", `<div class="menu-empty">${esc(T("No notes yet"))}</div>`);
     const moved = [];
     for (const [key, top] of stood) {
@@ -2940,6 +2951,223 @@
       fresh.forEach((el) => el.classList.remove("enter"));
     }
   }
+  /* ------------------------------------------------------- the sidebar's layouts
+   * The settings say how the sidebar is laid out (sidebarLayout); the list itself — its rows,
+   * what a press, a pull, a right click does on them — is the same in all of them:
+   *   source  the tree, the notes opened last above it, new and order at its foot
+   *   rail    the folder's folders as signs in a narrow rail; beside it what is in the one chosen
+   *   sheets  a sheet of paper for each note (drawn as the note is built), a folder for each
+   *           folder: one folder at a time, a click goes in
+   *   tiles   smart lists as tiles — all, today, shared, with tasks — above the folders
+   * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
+   * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
+  const SB_LAYOUTS = ["source", "rail", "sheets", "tiles"];
+  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "source");
+  const FOLDER_ICONS = {
+    book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
+    cap: svg('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>'),
+    flask: svg('<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/>'),
+    pencil: svg('<path d="M4 20l1-4L16.500 4.500a2.100 2.100 0 0 1 3 3L8 19z"/>'),
+    bulb: svg('<path d="M9 18h6M10 21h4M8.500 14.500a6 6 0 1 1 7 0c-.6.5-1 1.200-1 2h-5c0-.8-.4-1.500-1-2z"/>'),
+    box: svg('<path d="M12 3 4 7.500v9L12 21l8-4.500v-9z"/><path d="M4 7.500 12 12l8-4.500M12 12v9"/>'),
+    code: svg('<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.500 5l-3 14"/>'),
+    bolt: svg('<path d="M13 3 5 13h6l-1 8 8-10h-6z"/>'),
+    briefcase: svg('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/>'),
+    inbox: svg('<path d="M4 13 6.500 5h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h5a3 3 0 0 0 6 0h5"/>'),
+    calendar: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
+    home: svg('<path d="M4 11 12 4l8 7M6 10v9h12v-9"/>'),
+    people: svg('<circle cx="9" cy="8" r="3.500"/><path d="M2.500 20a6.500 6.500 0 0 1 13 0M16 4.600a3.500 3.500 0 0 1 0 6.800M18 14.500a6.500 6.500 0 0 1 3.500 5.500"/>'),
+    heart: svg('<path d="M12 20s-7-4.400-7-10a4 4 0 0 1 7-2.600A4 4 0 0 1 19 10c0 5.600-7 10-7 10z"/>'),
+    star: svg('<path d="m12 3 2.700 5.600 6.100.8-4.500 4.300 1.100 6.100L12 17l-5.400 2.800 1.100-6.100L3.200 9.400l6.100-.8z"/>'),
+    flag: svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
+    globe: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.200 3 14.800 0 18M12 3c-3 3.200-3 14.800 0 18"/>'),
+    cart: svg('<path d="M3 4h2.500l2.200 11h10.600l1.700-8H7"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>'),
+    music: svg('<path d="M9 18V5l11-2v13"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="17.500" cy="16" r="2.500"/>'),
+    camera: svg('<path d="M4 8h3l1.500-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.500"/>'),
+  };
+  const SMART_ICONS = { all: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'), today: FOLDER_ICONS.calendar, shared: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'), tasks: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>') };
+  const sbRail = sidebar.querySelector(".sb-rail"), sbCrumb = sidebar.querySelector(".sb-crumb"), sbSmartBox = sidebar.querySelector(".sb-smart"), sbRecent = sidebar.querySelector(".sb-recent"), sbFlat = sidebar.querySelector(".sb-flat");
+  let sbHere = null;     // rail, sheets: the folder whose notes are shown (its path; null: the folder itself)
+  let sbSmart = "all";   // tiles: the smart list that is chosen
+  const sbSeen = new Map();   // sheets, tiles: a note's path → { mtime, shape, open, color } — read from its beginning ("previews")
+  const sbAsking = new Set();
+  const relOf = (path) => path.slice(folder.root.length + 1);
+  const lookOf = (path) => ((folder && folder.looks) || {})[relOf(path)] || {};
+  const colorVar = (c) => (DECO_COLORS.includes(c) ? `var(--c-${c})` : "");
+  const folderGlyph = (look) => FOLDER_ICONS[look.icon] || ICON.folder;
+  const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
+  const everyNote = (dir = folder.tree, out = []) => { out.push(...dir.notes); for (const d of dir.dirs) everyNote(d, out); return out; };
+  const sheetOf = (n) => { const s = sbSeen.get(n.path); return `<b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : ""); };
+  // what a row shows beyond its name: how a folder looks; when a note was changed; its sheet
+  function dressRow(el, e) {
+    const row = el.firstChild.firstChild, lay = sbLayout();
+    if (lay === "plain") return;
+    let tail = row.querySelector(":scope > .sb-tail");
+    if (!tail) { tail = document.createElement("span"); tail.className = "sb-tail"; row.insertBefore(tail, row.querySelector(".sb-label").nextSibling); }
+    const says = e.dir ? "" : quickWhen(e.note.mtime); // (a folder says nothing at its end: no number)
+    if (tail.dataset.says !== says) tail.dataset.says = says; // (drawn by the stylesheet: the row's text stays its name)
+    const look = e.dir ? lookOf(e.key) : {}, seen = e.note ? sbSeen.get(e.note.path) : null, color = e.dir ? look.color : seen && seen.color;
+    row.style.setProperty("--fc", colorVar(color) || "");
+    if (!colorVar(color)) row.style.removeProperty("--fc");
+    if (e.dir && (row.dataset.icon || "") !== (FOLDER_ICONS[look.icon] ? look.icon : "")) { row.dataset.icon = FOLDER_ICONS[look.icon] ? look.icon : ""; row.querySelector(".sb-icon").innerHTML = folderGlyph(look); }
+    let sheet = row.querySelector(":scope > .sb-sheet");
+    if (lay !== "sheets") { if (sheet) sheet.remove(); return; }
+    if (!sheet) { sheet = document.createElement("span"); sheet.className = e.dir ? "sb-sheet is-folder" : "sb-sheet"; sheet.setAttribute("aria-hidden", "true"); row.insertBefore(sheet, row.firstChild); }
+    const html = e.dir ? `<span class="sb-sheet-tab"></span><span class="sb-sheet-in">${folderGlyph(look)}</span>` : `<span class="sb-sheet-in">${sheetOf(e.note)}</span>`;
+    if (sheet.dataset.html !== html) { sheet.dataset.html = html; sheet.innerHTML = html; }
+  }
+  // a row that stands outside the tree (opened last, a smart list, what was searched for): the same row, its place said under its name
+  function looseRow(n) {
+    const el = makeItem({ key: n.path, note: n }, 0), row = el.firstChild.firstChild;
+    row.draggable = false;
+    row.dataset.loose = row.dataset.real; delete row.dataset.real; // (not the note's row in the tree: that one is marked, found, moved)
+    row.querySelector(".sb-label").textContent = noteLabel(n);
+    row.title = relOf(n.path);
+    const tail = document.createElement("span"); tail.className = "sb-tail"; tail.dataset.says = quickWhen(n.mtime); row.appendChild(tail);
+    return el;
+  }
+  function fill(box, cap, notes, none) {
+    const key = cap + "\n" + notes.map((n) => n.path + "\t" + noteLabel(n) + "\t" + n.mtime).join("\n");
+    if (box.dataset.key === key) return; // (as it stands: nothing is built anew)
+    box.dataset.key = key;
+    box.textContent = "";
+    if (cap) box.insertAdjacentHTML("beforeend", `<div class="sb-cap">${esc(cap)}</div>`);
+    for (const n of notes) box.appendChild(looseRow(n));
+    if (!notes.length && none) box.insertAdjacentHTML("beforeend", `<div class="menu-empty">${esc(none)}</div>`);
+  }
+  const SMART = [
+    ["all", "All", "gray", () => true],
+    ["today", "Today", "blue", (n) => { const d = new Date(); return (n.mtime || 0) * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }],
+    ["shared", "Shared", "green", (n) => ((folder && folder.shared) || []).includes(n.real)],
+    ["tasks", "With Tasks", "orange", (n) => (sbSeen.get(n.path) || {}).open > 0],
+  ];
+  function layoutSync() {
+    const lay = sbLayout(), query = lay === "plain" ? "" : quickFilter;
+    sidebar.dataset.layout = document.body.dataset.sbLayout = lay; // (the body too: the settings' gear floats over the sidebar's foot — viewer.css)
+    if (lay === "plain") { sidebar.removeAttribute("data-here"); sidebar.removeAttribute("data-flat"); return; }
+    if ((lay !== "rail" && lay !== "sheets") || (sbHere && !dirAt(sbHere))) sbHere = null;
+    if (lay !== "tiles") sbSmart = "all";
+    sidebar.toggleAttribute("data-here", !!sbHere);
+    sidebar.style.setProperty("--depth-off", sbHere ? String(relOf(sbHere).split("/").length) : "0");
+    for (const el of sbList.querySelectorAll(".sb-item.is-dir")) {
+      const k = el.dataset.key, on = !!sbHere && (sbHere === k || sbHere.startsWith(k + "/"));
+      el.classList.toggle("sb-path", on);
+      el.classList.toggle("sb-at", sbHere === k);
+    }
+    const all = everyNote(), here = sbHere ? dirAt(sbHere) : null;
+    // the rail: everything, and the folder's folders
+    const rail = lay === "rail" ? [["", T("All Notes"), SMART_ICONS.all, "var(--c-gray, var(--fg2))"], ...[...folder.tree.dirs].sort((a, b) => collator.compare(a.name, b.name)).map((d) => [d.path, d.name, folderGlyph(lookOf(d.path)), colorVar(lookOf(d.path).color)])] : [];
+    const railKey = JSON.stringify(rail.map(([p, n, , c]) => [p, n, c, (lookOf(p || folder.root + "/") || {}).icon]));
+    if (sbRail.dataset.key !== railKey) { sbRail.dataset.key = railKey; sbRail.innerHTML = rail.map(([p, n, glyph, c]) => `<button class="sb-rt" type="button" data-go="${esc(p)}" title="${esc(n)}" aria-label="${esc(n)}"${c ? ` style="--fc: ${c}"` : ""}>${glyph}</button>`).join(""); }
+    for (const b of sbRail.children) { const on = (b.dataset.go || null) === (sbHere ? folder.root + "/" + relOf(sbHere).split("/")[0] : null); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    // where one is: in the rail's pane its name and how much is in it; among the sheets the way back
+    const up = here && sbHere.replace(/\/[^/]*$/, "");
+    const crumb = lay === "rail" ? `<span class="sb-crumb-name">${esc(here ? here.name : T("All Notes"))}</span>`
+      : lay === "sheets" && here ? `<button class="sb-back" type="button" data-go="${esc(up === folder.root ? "" : up)}">${ICON.chevron}<span>${esc(up === folder.root ? folder.name : up.replace(/^.*\//, ""))}</span></button><span class="sb-crumb-name">${esc(here.name)}</span>` : "";
+    if (sbCrumb.dataset.html !== crumb) { sbCrumb.dataset.html = crumb; sbCrumb.innerHTML = crumb; }
+    sbCrumb.hidden = !crumb;
+    // what was searched for, or a smart list: its notes in one list, in place of the tree
+    const smart = SMART.find((s) => s[0] === sbSmart) || SMART[0];
+    const flat = query ? all.filter((n) => (noteLabel(n) + "\n" + relOf(n.path)).toLowerCase().includes(query)) : smart[0] !== "all" ? all.filter(smart[3]) : null;
+    sidebar.toggleAttribute("data-flat", !!flat);
+    fill(sbFlat, flat ? (query ? T("Found") : T(smart[1])) : "", flat ? sortNotes(flat) : [], flat ? T("Nothing here") : "");
+    // the notes opened last (source)
+    const recent = lay === "source" && !flat ? all.filter((n) => n.opened).sort((a, b) => b.opened - a.opened).slice(0, 3) : [];
+    fill(sbRecent, recent.length ? T("Recent") : "", recent, "");
+    sbRecent.hidden = !recent.length;
+    // the smart lists (tiles): how many notes each holds
+    const tiles = lay === "tiles" ? SMART.map(([id, label, color, test]) => [id, label, color, all.filter(test).length]) : [];
+    const tilesKey = JSON.stringify(tiles);
+    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
+    for (const b of sbSmartBox.children) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!current && row.dataset.loose === current.path);
+    sbAsk(lay, here);
+  }
+  // the beginnings of the notes a layout draws from: the sheets of the folder shown; for the tiles all of them (which have tasks)
+  function sbAsk(lay, here) {
+    if (sbAsking.size || (lay !== "sheets" && lay !== "tiles")) return;
+    const notes = lay === "tiles" ? everyNote() : (here || folder.tree).notes;
+    const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && (sbSeen.get(n.path) || {}).mtime !== n.mtime).slice(0, 40);
+    if (!want.length) return;
+    for (const n of want) { sbAsking.add(n.path); sbSeen.set(n.path, { ...(sbSeen.get(n.path) || { shape: "", open: 0, color: "" }), mtime: n.mtime }); } // (asked once for what it is now, whatever comes back)
+    post("previews", { paths: want.map((n) => n.path) });
+  }
+  // … and what comes back: this list's share of it is taken out (the rest is the quick notes', All Notes')
+  function sbPreviews(got) {
+    const rest = {};
+    let mine = false;
+    for (const [path, p] of Object.entries(got || {})) {
+      if (!sbAsking.has(path)) { rest[path] = p; continue; }
+      mine = true;
+      const fm = stripFrontmatter(String(p.text || "").replace(/\r\n?/g, "\n")), f = pageFacts({ items: fm.body.split("\n") });
+      const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : "";
+      sbSeen.set(path, { mtime: (sbSeen.get(path) || {}).mtime, shape: f.shape, open: f.tasks.length - f.done, color });
+    }
+    if (mine || (sbAsking.size && !Object.keys(got || {}).length)) { sbAsking.clear(); if (folder && !folder.quick) syncList(false); } // (an answer with nothing in it: what was asked for is not to be had)
+    return rest;
+  }
+  // another folder shown (rail, sheets): what is in it comes from the side one went to
+  function setHere(path, back) {
+    if ((path || null) === sbHere) return;
+    sbHere = path || null;
+    sbList.classList.remove("sb-push", "sb-push-back");
+    syncList(false);
+    void sbList.offsetWidth;
+    sbList.classList.add(back ? "sb-push-back" : "sb-push");
+    sbList.scrollTop = 0;
+    markActiveNote(false);
+  }
+  sbList.addEventListener("animationend", () => sbList.classList.remove("sb-push", "sb-push-back"));
+  sidebar.addEventListener("click", (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || !folder) return;
+    const here = t.closest("[data-go]"), smart = t.closest("[data-smart]"), loose = t.closest(".sb-extra .sb-row"), foot = t.closest("[data-sb]");
+    if (here) setHere(here.dataset.go, here.classList.contains("sb-back"));
+    else if (smart) { sbSmart = smart.dataset.smart; layoutSync(); }
+    else if (loose) { if (!loose.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(loose.closest(".sb-item"), e.ctrlKey || e.metaKey); }
+    else if (foot && foot.dataset.sb === "new") openNewNote("note", sbHere);
+    else if (foot) { const r = foot.getBoundingClientRect(); if (ctxOpen() && ctxKind === "blank") closeCtx(false); else openCtx(sidebar, r.left, r.top - 4, "blank", sbHere || folder.root); }
+  });
+  /* A folder's colour and its sign: chosen in a small window beside its row, kept in the folder
+   * (the application writes .mdview/folders.json — "folderlook"). */
+  const sbLook = document.createElement("div");
+  sbLook.id = "sblook";
+  sbLook.className = "ui-menu ui-popover surface";
+  sbLook.setAttribute("role", "dialog");
+  sbLook.tabIndex = -1;
+  document.body.appendChild(sbLook);
+  let sbLookFor = null;
+  function paintLook() {
+    const look = lookOf(sbLookFor);
+    sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
+      + `<div class="sl-cap">${esc(T("Icon"))}</div><div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}>` + ["", ...Object.keys(FOLDER_ICONS)].map((i) => `<button type="button" class="sl-icon${(FOLDER_ICONS[look.icon] ? look.icon : "") === i ? " on" : ""}" data-icon="${i}" aria-label="${i || "folder"}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] : ICON.folder}</button>`).join("") + `</div>`;
+  }
+  function openLook(item) {
+    sbLookFor = item.dataset.key;
+    paintLook();
+    const r = item.firstChild.firstChild.getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
+    sbLook.style.setProperty("--origin", "top left");
+    sbLook.style.left = Math.max(8, Math.min(r.left + 24, innerWidth - w - 8)) + "px";
+    sbLook.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - h - 8)) + "px";
+    sbLook.dataset.open = "";
+    sbLook.focus({ preventScroll: true });
+  }
+  const closeLook = () => { if (!sbLook.hasAttribute("data-open")) return false; delete sbLook.dataset.open; sbLookFor = null; return true; };
+  sbLook.addEventListener("click", (e) => {
+    const b = e.target instanceof Element && e.target.closest("[data-color], [data-icon]");
+    if (!b || !sbLookFor || !folder) return;
+    const was = lookOf(sbLookFor), next = { color: b.dataset.color != null ? b.dataset.color : was.color || "", icon: b.dataset.icon != null ? b.dataset.icon : was.icon || "" };
+    const looks = { ...(folder.looks || {}) };
+    if (next.color || next.icon) looks[relOf(sbLookFor)] = next; else delete looks[relOf(sbLookFor)];
+    folder.looks = looks; // (shown at once; the application says the same when it has written it)
+    post("folderlook", { path: sbLookFor, color: next.color, icon: next.icon });
+    syncList(false);
+    paintLook();
+  });
+  sbLook.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); closeLook(); } });
+  sbLook.addEventListener("contextmenu", (e) => e.preventDefault());
+  document.addEventListener("mousedown", (e) => { if (sbLook.hasAttribute("data-open") && !(e.target instanceof Element && e.target.closest("#sblook"))) closeLook(); }, true);
+
   /* The sidebar's edge can be pulled, as in Finder: wider and narrower; pulled far to the left it
    * goes away, and from the window's left edge it comes out again. A double click: its own width. */
   let sbDragging = false;
@@ -3015,7 +3243,7 @@
   };
   let dropInto = null;
   const setDropInto = (el) => { if (dropInto === el) return; if (dropInto) dropInto.classList.remove("drop-into"); dropInto = el; if (el) el.classList.add("drop-into"); };
-  const sbDropDir = (e) => { const dir = e.target.closest?.(".sb-item.is-dir"); return dir ? [dir, dir.dataset.key] : [sbList, folder && folder.root]; };
+  const sbDropDir = (e) => { const dir = e.target.closest?.(".sb-item.is-dir"); return dir ? [dir, dir.dataset.key] : [sbList, folder && (sbHere || folder.root)]; };
   sbList.addEventListener("dragstart", (e) => {
     const item = e.target.closest?.(".sb-item");
     if (!item || e.target.closest(".sb-rename")) { e.preventDefault(); return; }
@@ -3145,7 +3373,7 @@
     document.body.toggleAttribute("data-quick", !!f.quick);
     if (!f.quick) quickSeen.clear();
     const first = !folder || folder.root !== f.root;
-    if (first) { sbOpen.clear(); sbList.textContent = ""; }
+    if (first) { sbOpen.clear(); sbList.textContent = ""; sbHere = null; sbSmart = "all"; sbSeen.clear(); sbAsking.clear(); closeLook(); }
     folder = f;
     sbTitles = f.titles;
     sbTitlesBtn.classList.toggle("active", sbTitles);
@@ -3190,7 +3418,12 @@
       const before = sbOpen.size;
       openAncestors();
       if (sbOpen.size !== before) syncList(true);
+      // (rail, sheets: the folder the note lies in is the one shown)
+      const lay = sbLayout(), holds = (dir) => dir.notes.some((n) => n.real === current.path), find = (dir) => (holds(dir) ? dir : dir.dirs.map(find).find(Boolean));
+      const home = lay === "rail" || lay === "sheets" ? find(folder.tree) : null;
+      if (home) { const at = home === folder.tree ? null : lay === "sheets" ? home.path : folder.root + "/" + relOf(home.path).split("/")[0]; if (at !== sbHere && !(lay === "rail" && !sbHere)) { sbHere = at; syncList(false); } }
     }
+    for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!current && row.dataset.loose === current.path);
     let active = null;
     for (const row of sbList.querySelectorAll(".sb-row[data-real]")) {
       const on = !!current && row.dataset.real === current.path;
@@ -3209,7 +3442,7 @@
     const row = e.target.closest(".sb-row");
     if (!row) return;
     const item = row.closest(".sb-item");
-    if (item.classList.contains("is-dir")) toggleDir(item);
+    if (item.classList.contains("is-dir")) { if (sbLayout() === "sheets") setHere(item.dataset.key, false); else toggleDir(item); } // (among the sheets a folder is gone into)
     else if (!row.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(item, e.ctrlKey || e.metaKey);
   });
   // a note asked for in the list; with Ctrl held or the middle button: in a tab of its own
@@ -3233,7 +3466,7 @@
       // rows inside a closed (or closing) folder are skipped
       const rows = [...sbList.querySelectorAll(".sb-row")].filter((r) => {
         for (let p = r.closest(".sb-item").parentElement.closest(".sb-item"); p; p = p.parentElement.closest(".sb-item")) {
-          if (!p.classList.contains("open")) return false;
+          if (!p.classList.contains("open") && !p.classList.contains("sb-path")) return false;
         }
         return !r.closest(".leaving");
       });
@@ -3296,6 +3529,7 @@
     entry("download", "down", T("Download"), "file ovnote") +
     `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
     entry("share", "share", T("Share…"), "file ovnote") +
+    entry("look", "palette", T("Colour and Icon…"), "dir") +
     entry("rename", "rename", T("Rename"), "file dir ovnote ovdir", "F2") +
     entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany", "Del", " danger") +
     // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
@@ -3438,6 +3672,7 @@
       else if (cmd === "opentab") post("note", { path, tab: true });
       else if (cmd === "download") post("download", { path });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
+      else if (cmd === "look") openLook(item);
       else if (cmd === "rename") tile ? MdOverview.rename(item) : startRename(item);
       else if (cmd === "trash") post("trash", { path });
       else post("fileop", { op: cmd, path });
@@ -4509,6 +4744,7 @@
     const lists = ["sidebar", "ov"].map((w) => GROUPS.map(([g]) => (groupOn(w, g) ? 1 : 0)).join("")).join("/");
     if (lists !== listedAs) { listedAs = lists; if (folder && folder.all) { folder.tree = folder.all; folder.visible = document.body.dataset.sidebar === "open"; applyFolder(folder, true); markShared(); } }
     if (sort !== sortedBy) { sortedBy = sort; resort(); }
+    if (folder && sidebar.dataset.layout !== sbLayout()) syncList(false); // (the sidebar laid out another way)
     if (measure !== measured) {
       measured = measure;
       if (measure === "normal") document.documentElement.style.removeProperty("--measure"); else document.documentElement.style.setProperty("--measure", MEASURES[measure]);
@@ -4598,5 +4834,5 @@
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
     quickFresh,
-    setPreviews: (p) => { quickPreviews(p); if (window.MdOverview) MdOverview.previews(p); } };
+    setPreviews: (p) => { const rest = sbPreviews(p); if (!Object.keys(rest).length && Object.keys(p || {}).length) return; quickPreviews(rest); if (window.MdOverview) MdOverview.previews(rest); } };
 })();

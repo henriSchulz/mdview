@@ -178,6 +178,16 @@
     const text = drafts.has(C.SHARES) ? drafts.get(C.SHARES).text : texts.get((files.get(C.SHARES) || {}).sha);
     return gone.has(C.SHARES) || text == null ? [] : Object.values(C.sharesOf(text).shares).map((e) => BASE + "/" + e.path).filter(exists).sort();
   }
+  /* How the repository's folders look — a colour, a sign — as it says itself (.mdview/folders.json). */
+  function looksNow() {
+    const text = drafts.has(C.FOLDERS) ? drafts.get(C.FOLDERS).text : texts.get((files.get(C.FOLDERS) || {}).sha);
+    return gone.has(C.FOLDERS) || text == null ? {} : C.looksOf(text);
+  }
+  // a folder under another path keeps its look
+  function looksFollow(was, to) {
+    const looks = looksNow(), a = rel(was);
+    if (Object.keys(looks).some((k) => k === a || k.startsWith(a + "/"))) write(C.FOLDERS, C.looksText(C.looksMoved(looks, a, rel(to))));
+  }
   function sendFolder() {
     // (what the sidebar lists or All Notes does: the page shows each its own part — viewer.js, listed)
     const show = [(prefs.sidebarPdf !== false || prefs.ovPdf) && "pdf", (prefs.sidebarImages || prefs.ovImages) && "image", (prefs.sidebarMedia || prefs.ovMedia) && "media", (prefs.sidebarOther || prefs.ovOther) && "other"].filter(Boolean);
@@ -190,7 +200,7 @@
     if (changed) askDates();
     const payload = {
       root: BASE, name: W.repo, tree: C.buildTree(BASE, every(), { show, titles, changed, opened: here.opened, keep: [...keptDirs] }),
-      titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(),
+      titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(), looks: looksNow(),
     };
     const blob = JSON.stringify(payload);
     if (blob !== toldFolder) { toldFolder = blob; tell("setFolder", payload); }
@@ -928,6 +938,12 @@
       keptDirs.add(`${into}/${C.cleanName(name) || "New Folder"}`); // (a folder is in the repository once a note is in it)
       sendFolder();
     },
+    // a colour and a sign for a folder: written into the repository, as a note is
+    folderlook({ path, color, icon }) {
+      if (!mayWrite() || !path || !path.startsWith(BASE + "/") || exists(path)) return;
+      write(C.FOLDERS, C.looksText(C.lookSet(looksNow(), rel(path), color, icon)));
+      sendFolder();
+    },
     async rename({ path, name }) {
       if (busy) await busy; // (as trash)
       if (!mayWrite()) return;
@@ -936,6 +952,7 @@
         if (!path.startsWith(BASE + "/") || !(inside.length || keptDirs.has(path)) || !stem || to === path) return;
         if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${stem}” already exists`);
         if (!(await moveFolder(path, to, inside))) return;
+        looksFollow(path, to);
         sendFolder();
         sendTabs();
         commit();
@@ -961,7 +978,7 @@
       const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
       if (!exists(path) && !folder) return;
       if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${name}” already exists there`);
-      if (folder) { if (!(await moveFolder(path, to, inside))) return; }
+      if (folder) { if (!(await moveFolder(path, to, inside))) return; looksFollow(path, to); }
       else if (!(await relocate(path, to, "move"))) return;
       sendFolder();
       sendTabs();
@@ -1098,6 +1115,7 @@
     files = new Map((now.tree || []).map((e) => [e.path, { sha: e.sha, size: e.size }]));
     everything = null;
     if (files.has(C.SHARES)) await fetchTexts([files.get(C.SHARES).sha]).catch(() => {}); // (what is shared: the sidebar marks it)
+    if (files.has(C.FOLDERS)) await fetchTexts([files.get(C.FOLDERS).sha]).catch(() => {}); // (how the folders look: the sidebar draws them so)
     return true;
   }
   /* Looked at again every minute, and when the tab is come back to: what another device sent is shown. */

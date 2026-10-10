@@ -16,9 +16,10 @@
   const tabs = C.tabs({ paths: [BASE + "/" + W.first], active: 0 });
   const sidebar = { visible: !W.bare && W.side !== false && window.innerWidth >= 720, width: 0, titles: false };
 
+  let looks = {}; // (how the sample folders look: chosen here, kept for as long as the page is open)
   function sendFolder() {
     tell("setFolder", { root: BASE, name: "notes", tree: C.buildTree(BASE, paths().map((p) => p.slice(BASE.length + 1)), {}), titles: sidebar.titles, visible: sidebar.visible, width: sidebar.width,
-      history: { state: "none" }, shared: shared ? [BASE + "/" + W.first] : [] });
+      history: { state: "none" }, shared: shared ? [BASE + "/" + W.first] : [], looks });
   }
   const sendTabs = () => tell("setTabs", tabs.told());
   function links(path) { // (what the note's wikilinks lead to)
@@ -92,6 +93,7 @@
     save({ text, path, seq }) { const p = path || onScreen; if (exists(p) && typeof text === "string") notes.set(p, text); void seq; },
     toggle({ line }) { if (onScreen) { notes.set(onScreen, C.toggleTask(notes.get(onScreen), line)); render(onScreen, { keepScroll: true }); } },
     "share-info"({ path }) { if (exists(path)) tellShare(path); },
+    folderlook({ path, color, icon }) { looks = C.lookSet(looks, path.slice(BASE.length + 1), color, icon); sendFolder(); },
     "share-set"({ path }) { shared = true; sendFolder(); tellShare(path); },
     "share-stop"({ path }) { shared = false; sendFolder(); tellShare(path); },
     copy({ text }) { navigator.clipboard?.writeText(text || "").catch(() => {}); },
