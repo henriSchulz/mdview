@@ -53,7 +53,11 @@
     const opt = (seg, v) => ov.querySelector(`[data-seg="${seg}"] [data-v="${v}"]`);
     const names = (sel) => [...ov.querySelectorAll(sel)].map((t) => t.querySelector(".ov-name").textContent);
     const menu = document.getElementById("ctxmenu"), shown = () => [...menu.querySelectorAll(".menu-item:not([hidden]) .menu-label")].map((x) => x.textContent).join("|");
+    const edges = () => { const h = document.querySelector("#overview .ov-head").getBoundingClientRect(), b = document.querySelector("#overview .ov-body").getBoundingClientRect(); return [h.left, h.right, b.left, b.right].map(Math.round).join(); };
+    const tilesAt = edges();
     opt("layout", "list").click(); await sleep(900);
+    ok("as a list the page is as wide as with tiles: nothing moves sideways at the switch", edges() === tilesAt, [tilesAt, edges()]);
+    { const ov = document.getElementById("overview"); ok("… whether there is something to scroll or not", ov.offsetWidth - ov.clientWidth > 0 && getComputedStyle(ov).overflowY === "scroll", [ov.offsetWidth, ov.clientWidth]); }
     ok("List: a row per note, the note on screen marked, its first words beside the name", ov.querySelectorAll(".ov-row").length === 8 && !ov.querySelector(".ov-tile") && ov.querySelector(".ov-row[aria-current] .ov-name")?.textContent === "Decorations" && [...ov.querySelectorAll(".ov-row .ov-snip")].filter((x) => x.textContent).length >= 6, names(".ov-row").join());
     out("shot-list", {}); await sleep(1300);
     opt("scope", "folders").click(); await sleep(600);

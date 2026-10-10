@@ -4,7 +4,8 @@
   position: fixed;
   inset: 0;
   z-index: 14;                       /* under the sidebar and the toolbar */
-  overflow-y: auto;
+  overflow-y: scroll;                /* (room for the scrollbar always: the page is as wide with a little as with much on it) */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding: 64px 40px 80px;
   background: var(--bg);
@@ -144,9 +145,10 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 
 /* the list: one card, a row per note — its sign on a chip in the note's colour, its name, and
  * under it its first words. Rows are divided by a hairline from edge to edge. */
-.ov-list { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 920px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 14px rgb(0 0 0 / 0.05); overflow: hidden; }
+.ov-list { display: grid; grid-template-columns: minmax(0, 1fr); border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 14px rgb(0 0 0 / 0.05); overflow: hidden; }
 body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12); }
-#overview[data-layout="list"] .ov-head, #overview[data-layout="list"] .ov-body { max-width: 920px; }
+/* (the list is as wide as the tiles' page: switching between the two moves nothing sideways — the head, the switches and the
+ * left edge stay where they are; and the page's width does not depend on whether there is something to scroll) */
 .ov-row {
   position: relative; display: flex; align-items: center; gap: 14px; box-sizing: border-box; min-height: 68px; padding: 10px 16px;
   font: 400 14px/1.35 var(--ui); color: var(--fg); cursor: default;

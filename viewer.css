@@ -1223,6 +1223,13 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 #ctxsub { position: fixed; z-index: 36; min-width: 170px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
 #ctxsub:not([data-open]) { pointer-events: none; }
 #ctxsub .menu-item { display: flex; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+/* the menu of All Notes' + (a note, a folder): two entries, pressed often — larger than a menu of many */
+#ctxmenu[data-kind="ovnew"] { min-width: 250px; --menu-pad: 7px; --menu-radius: 13px; --menu-row-radius: 7px; }
+#ctxmenu[data-kind="ovnew"] .menu-item { min-height: 36px; padding-left: 12px; padding-right: 12px; gap: 11px; font-size: 15px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon { width: 20px; height: 20px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon svg { width: 19px; height: 19px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon .sf { font-size: 17px; }
+#ctxmenu[data-kind="ovnew"] .menu-key { font-size: 13px; }
 #ctxmenu .menu-go { display: grid; place-items: center; margin-left: auto; }
 #ctxmenu .menu-go svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 #ctxmenu .menu-item.has-sub[aria-expanded="true"]:not(.hl) { background: color-mix(in srgb, var(--fg) 12%, transparent); }
