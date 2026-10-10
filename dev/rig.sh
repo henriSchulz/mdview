@@ -309,7 +309,7 @@ case "${1:-}" in
     # AI in the app: Transform with AI, the chat, and all of it gone when turned off (Claude is a fixed answer)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; printf '# Other\n\nother note text\n' > "$R/work/other.md"; rm -f "$R/out/$name".{transform,chat,menu,edit,ai}.json
     if [[ ${2:-} == real || ${2:-} == draw || ${2:-} == edit ]]; then { echo 'window.__aiReal = true;'; [[ $2 == draw ]] && echo 'window.__aiDraw = true;'; [[ $2 == edit ]] && echo 'window.__aiEdit = true;'; cat "$D/probe-ai.js"; } > "$R/probe-ai-real.js"; app 400 MDVIEW_PROBE="$R/probe-ai-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
-    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE="$(cat "$D/tests/ai/fake.txt")" -- "$R/work/$name"; fi
+    app 200 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE="$(cat "$D/tests/ai/fake.txt")" -- "$R/work/$name"; fi
     for v in transform chat menu edit; do for _ in $(seq 3600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.ai.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ai-$v.png"; done
     for _ in $(seq 3600); do [[ -f $R/out/$name.ai.json ]] && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null

@@ -262,6 +262,20 @@
     MdView.prefsChanged();
     await sleep(300);
     ok("turned on again: the bubble is back", document.body.hasAttribute("data-ai") && bubble.offsetWidth >= 40, bubble.offsetWidth);
+    // ---- each document has its own conversation
+    bubble.click(); await sleep(500);
+    cq(".ai-field").value = "A question about this note."; cq(".ai-field").dispatchEvent(new Event("input", { bubbles: true })); cq(".ai-send").click();
+    await until(() => ai().talking, 2000); await until(() => !ai().talking, 6000); await sleep(200);
+    const mine = ai().talk.length, row = (name) => [...document.querySelectorAll("#sidebar *")].find((e) => !e.children.length && e.textContent.trim() === name);
+    row("other").click();
+    ok("another document opened: the assistant shows a new chat, about that document", await until(() => ai().talk.length === 0 && cq(".ai-title-text").textContent === "New Chat" && (cq('.ai-ctx [data-ctx="doc"] b') || {}).textContent === "other", 5000) && mine >= 2, [mine, ai().talk.length, cq(".ai-ctx").textContent]);
+    row("m5").click();
+    ok("back on the first document: its conversation is there again", await until(() => ai().talk.length === mine && (cq('.ai-ctx [data-ctx="doc"] b') || {}).textContent === "m5", 5000), [mine, ai().talk.length]);
+    cq('[data-do="close"]').click(); await sleep(400);
+    row("other").click(); await sleep(900);
+    bubble.click(); await sleep(500);
+    ok("the assistant opened on a document: that document's own chat — here the new one", ai().open && ai().talk.length === 0 && (cq('.ai-ctx [data-ctx="doc"] b') || {}).textContent === "other", [ai().talk.length, cq(".ai-ctx").textContent]);
+    row("m5").click(); await sleep(900); // (the report is named after the note on screen)
   } catch (e) {
     o.error = String(e && e.stack || e);
   }

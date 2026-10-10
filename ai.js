@@ -229,6 +229,20 @@
     return out;
   }
   let useDoc = true, extra = []; // what the next question is given to read: the note on screen, and { kind, path, name } beside it
+  /* Each document has its own conversation: opened on a document for the first time, the assistant begins a new one; opened
+   * on it again (or come back to it), it shows the one begun there. Earlier ones are in the conversation history. */
+  const byNote = new Map(); // path → the conversation in hand on that document (as long as the window is open)
+  let curPath = null;
+  const pathNow = () => (core.current && core.current.path) || "";
+  function forNote() {
+    const path = pathNow();
+    if (cur && path === curPath) return;
+    curPath = path;
+    cur = byNote.get(path) || fresh();
+    byNote.set(path, cur);
+    useDoc = true; extra = [];
+  }
+  const hold = (t) => { cur = t; byNote.set(curPath == null ? (curPath = pathNow()) : curPath, t); };
   const fresh = () => ({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: "", at: Date.now(), messages: [] });
   const titleOf = (t) => t.title || (t.messages.find((m) => m.role === "user") || {}).text || "";
   const q = (sel) => box.querySelector(sel);
@@ -475,19 +489,19 @@
       if (b.classList.contains("ai-doc-x")) { const c = b.closest("[data-ctx]").dataset.ctx; if (c === "doc") useDoc = false; else extra.splice(Number(c), 1); return drawFoot(); }
       if (b.classList.contains("ai-send")) { if (talking && talking.talk === cur) { const t = talking; stop(t.id); talking = null; clearTimeout(pending); pending = 0; if (t.text.trim()) cur.messages.push({ role: "assistant", text: t.text }); keep(); drawAll(); } else say(field.value); return; }
       if (d.do === "close") return Ai.chat.close();
-      if (d.do === "fresh") { menu(null); cur = fresh(); useDoc = true; extra = []; drawAll(); field.focus(); return; }
+      if (d.do === "fresh") { menu(null); hold(fresh()); useDoc = true; extra = []; drawAll(); field.focus(); return; }
       if (d.do === "mode") { editing = !editing; try { localStorage.setItem("mdview:ai-edit", editing ? "1" : "0"); } catch (x) { /* (not kept) */ } menu(null); drawFoot(); field.focus(); return; }
       if (d.undo != null) { const m = cur.messages[Number(d.undo)], A = active(); if (m && undoable(m)) { PM.history.undo(A.view.pm.state, A.view.pm.dispatch); lastMade = null; m.made = { ...m.made, done: 0, undone: true }; keep(); drawAll(); core.toast(T("ai.made.undone")); } return; }
       if (d.do === "more" || d.do === "add" || d.do === "model") return menu(d.do, b);
       if (d.size) { const [w, h] = PRESET[d.size]; setSize(w, Math.min(h, innerHeight - 32)); return menu(null); }
-      if (d.talk) { const t = talksAll.find((x) => x.id === d.talk); if (t) { cur = t; menu(null); drawAll(); } return; }
+      if (d.talk) { const t = talksAll.find((x) => x.id === d.talk); if (t) { hold(t); menu(null); drawAll(); } return; }
       if (d.model != null) { window.MdPrefs = { ...(window.MdPrefs || {}), aiClaude: d.model }; post("prefs", { prefs: { aiClaude: d.model } }); menu(null); return drawFoot(); }
       if (d.note) { add({ kind: "note", path: d.note, name: d.name }); menu(null); field.focus(); return; }
       if (d.m === "note") { menuFor = null; return menu("note", q('[data-do="add"]')); }
       if (d.m === "folder") { add({ kind: "folder", path: "", name: core.folderName() || T("ai.ctx.folder") }); return menu(null); }
       if (d.m === "file") { post("ai-pick", {}); return menu(null); }
       if (d.m === "copy") { core.copy(cur.messages.map((m) => (m.role === "user" ? "> " + m.text.replace(/\n/g, "\n> ") : m.text.replace(/<\/?insert>/g, ""))).join("\n\n")); core.toast(T("ai.copied")); return menu(null); }
-      if (d.m === "delete") { talksAll = talksAll.filter((t) => t !== cur); keep(); cur = fresh(); menu(null); return drawAll(); }
+      if (d.m === "delete") { talksAll = talksAll.filter((t) => t !== cur); keep(); hold(fresh()); menu(null); return drawAll(); }
       if (d.m === "title") {
         const m = q(".ai-menu");
         m.innerHTML = `<input class="ai-find" type="text" value="${esc(titleOf(cur).slice(0, 80))}" aria-label="${esc(T("ai.menu.title"))}" spellcheck="false">`;
@@ -542,7 +556,7 @@
     show() {
       if (!core.ai.on()) return;
       if (!box) build();
-      if (!cur) cur = talksAll.find((t) => t.messages.length && Date.now() - t.at < 6 * 3600e3) || fresh(); // (the talk of a moment ago goes on; an old one is in the list)
+      forNote(); // (each document has its conversation: a new one the first time the assistant is opened on it)
       box.hidden = false;
       void box.offsetWidth;
       box.dataset.open = "";
@@ -562,8 +576,7 @@
   /* AI turned off in the settings: whatever was asked is dropped, the chat is shut. */
   Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; clearTimeout(pending); pending = 0; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };
   // (another note on screen: it is the current document now)
-  let shownName = "";
-  setInterval(() => { if (!Ai.chat.open) return; const n = noteName(); if (n !== shownName) { shownName = n; drawFoot(); } }, 600);
+  setInterval(() => { if (!Ai.chat.open || talking) return; if (pathNow() !== curPath) { forNote(); drawAll(); } }, 600);
   /* For the tests: what the chat holds. */
   Ai.state = () => ({ open: Ai.chat.open, width: box ? box.offsetWidth : 0, height: box ? box.offsetHeight : 0, talk: cur ? cur.messages.map((m) => ({ ...m })) : [], title: cur ? titleOf(cur) : "", talks: talksAll.length, talking: !!talking, jobs: jobs.size, doc: useDoc, extra: extra.map((c) => ({ ...c })), menu: menuFor, editing });
 })();
