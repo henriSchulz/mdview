@@ -94,18 +94,26 @@
     A.blocks.select(view, first, false);
     const items = A.blocks.menuItems(view).filter(Boolean), entry = items.find((i) => /AI/.test(i.label || ""));
     ok("the menu of selected blocks begins with Transform with AI", !!entry && items[0] === entry && entry.label === "Transform with AI…", items.map((i) => i.label).slice(0, 4));
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 900, dialogHeight: 600 }; // (the dialogs were pulled larger once: Henri's state)
     entry.run();
     ok("its dialog opens: what to do with the blocks, asked with one press or in words", await until(() => dlg.hasAttribute("data-open") && dlg.dataset.kind === "ai") && dlg.querySelectorAll(".ai-chip[data-preset]").length === 5 && !!q('.ai-more[data-menu="more"]') && !!q(".ai-text") && q('[data-do="done"]').disabled, dlg.dataset.kind);
     ok("a small sheet, whatever size the dialogs were pulled to; Replace is pale until there is an answer", dlg.offsetWidth <= 540 && getComputedStyle(q('[data-do="done"]')).opacity < 0.6, [dlg.offsetWidth, getComputedStyle(q('[data-do="done"]')).opacity]);
+    { const b = dlg.querySelector(".dlg-body"), f = dlg.querySelector(".dlg-foot").getBoundingClientRect(), l = q(".ai-links").getBoundingClientRect();
+      ok("all of the sheet shows, nothing of it to scroll: the card whole, the line under it above the buttons", b.scrollHeight <= b.clientHeight + 1 && l.height > 0 && l.bottom <= f.top + 1 && dlg.offsetHeight < 400, [b.scrollHeight, b.clientHeight, Math.round(l.bottom), Math.round(f.top), dlg.offsetHeight]); }
     q('[data-menu="more"]').click();
     ok("More opens the rest of what is asked with one press, under it, inside the window", dlg.querySelector(".ai-tmenu").hasAttribute("data-open") && dlg.querySelectorAll(".ai-tmenu .ai-row[data-preset]").length === 8 && dlg.querySelector(".ai-tmenu").getBoundingClientRect().top >= q('[data-menu="more"]').getBoundingClientRect().bottom && document.activeElement === dlg.querySelector(".ai-tmenu .ai-row"), dlg.querySelector(".ai-tmenu").outerHTML.slice(0, 200));
     dlg.querySelector(".ai-tmenu .ai-row").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
     ok("… Esc shuts the menu, not the sheet; shut, its rows are out of the keys' way", !dlg.querySelector(".ai-tmenu").hasAttribute("data-open") && dlg.hasAttribute("data-open") && document.activeElement === q('[data-menu="more"]') && [...dlg.querySelectorAll(".ai-tmenu .ai-row")].every((r) => r.disabled), document.activeElement && document.activeElement.className);
     ok("Replace is what is chosen at first; the whole note goes along as context", q('[data-menu="where"]').dataset.value === "replace" && /replaces the selection/.test(q('[data-menu="where"]').textContent) && q('[data-menu="context"]').dataset.value === "whole" && q('[data-do="done"]').textContent === "Replace", q('[data-do="done"]').textContent);
+    const h0 = dlg.offsetHeight, heights = [];
     q('[data-preset="shorter"]').click();
+    const h1 = dlg.offsetHeight;
+    for (let i = 0; i < 12; i++) { await sleep(20); heights.push(dlg.offsetHeight); }
     ok("a press marks what is asked; the field stays for one's own words", q('[data-preset="shorter"]').getAttribute("aria-pressed") === "true" && q(".ai-text").value === "", q(".ai-text").value);
     ok("asked: it says that Claude is writing, and what comes shows as it comes", await until(() => !!q(".ai-wait") && q('[data-go="run"]').getAttribute("aria-label") === "Stop", 2000) && await until(() => (q(".ai-stream") || {}).textContent || q(".ai-preview"), 3000), q(".ai-out") && q(".ai-out").innerHTML.slice(0, 200));
     ok("the answer shows as it will stand in the note", await until(() => q(".ai-preview") && /Made new by transform/.test(q(".ai-preview").textContent) && !!q(".ai-preview strong"), 5000) && !q('[data-do="done"]').disabled && q('[data-go="run"]').getAttribute("aria-label") === "Ask again", q(".ai-out") && q(".ai-out").innerHTML.slice(0, 300));
+    await sleep(700);
+    ok("the sheet grew to make room for the answer — from where it stood, on its way for a while, not in one jump — and is as high as its content again", h1 === h0 && dlg.offsetHeight > h0 + 150 && heights.some((h) => h > h0 + 4 && h < dlg.offsetHeight - 4) && !dlg.style.height && !dlg.classList.contains("ai-growing") && dlg.querySelector(".dlg-body").scrollHeight <= dlg.querySelector(".dlg-body").clientHeight + 1, [h0, h1, heights.join(), dlg.offsetHeight, dlg.style.height]);
     out("transform", {});
     await sleep(500);
     const before = md();

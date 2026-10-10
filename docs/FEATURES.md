@@ -417,7 +417,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   own words in the field and press the round button (both together: the words come on top of
   what was pressed). Chosen before asking, in the line under the card: whether the answer
   **replaces the selection** or **goes below** it; and whether the whole note goes along as
-  context, or only the selection. The answer shows as it comes, as it will stand in the
+  context, or only the selection. The sheet is as high as what is on it, and grows to make
+  room when the answer comes. The answer shows as it comes, as it will stand in the
   note (formulas, tables, code); Ask again asks anew, the dialog's button puts it in
   (`Ctrl+Enter`), one step of Undo takes it back.
 - **The chat** (the bubble at the lower right, in every mode): a window with the conversation,

@@ -92,9 +92,16 @@
     ok("all undone again", md() === original);
 
     // --- formula
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 697, dialogHeight: 240 }; // (a height too low for a formula's dialog, kept once)
     click(island("math"));
     await sleep(400);
     ok("a click on a formula opens the formula dialog with a preview", isOpen() && ed().value === "E = mc^2" && !!dlg.querySelector(".dlg-preview .katex"));
+    { const b = dlg.querySelector(".dlg-body"), pv = dlg.querySelector(".dlg-preview");
+      ok("a dialog is never lower than what is on it, whatever height was kept: nothing of it to scroll, the formula whole", b.scrollHeight <= b.clientHeight + 1 && pv.scrollHeight <= pv.clientHeight + 1 && dlg.offsetHeight > 240, [b.scrollHeight, b.clientHeight, pv.scrollHeight, pv.clientHeight, dlg.offsetHeight]); }
+    window.MdPrefs = { ...window.MdPrefs, dialogWidth: 0, dialogHeight: 0 };
+    dlg.querySelector(".dlg-grip").dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, clientX: 500, clientY: 500 }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: 500, clientY: 500 }));
+    ok("a press on the corner that pulls nowhere keeps no size", !window.MdPrefs.dialogHeight && !window.MdPrefs.dialogWidth, [window.MdPrefs.dialogWidth, window.MdPrefs.dialogHeight]);
     setEditor("\\frac{1}{");
     await sleep(60);
     ok("an error shows, the last good preview stays (dimmed)", dlg.querySelector(".dlg-error").textContent.length > 5 && dlg.querySelector(".dlg-preview").classList.contains("stale") && !!dlg.querySelector(".dlg-preview .katex") && !!dlg.querySelector(".ce-err"), dlg.querySelector(".dlg-error").textContent);

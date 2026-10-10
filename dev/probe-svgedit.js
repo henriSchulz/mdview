@@ -9,6 +9,7 @@
     await sleep(900); MdView.setMode("active");
     for (let i = 0; i < 300 && !(window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active"); i++) await sleep(10);
     await sleep(400);
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 697, dialogHeight: 200 }; // (a height no dialog can be pulled to, kept once — Henri's settings on 2026-10-10: it is no size, the dialog has its own)
     const A = MdActive, view = A.view.pm, md = () => A.view.serialize(false), dlg = document.getElementById("dlg");
     const isl = (n) => { let at = -1, k = 0; view.state.doc.forEach((x, p) => { if (x.type.name === "island" && /^```svg/.test(x.attrs.raw || "") && k++ === n) at = p; }); return at; };
     let before1 = "";
@@ -42,14 +43,14 @@
       ok("Done keeps it: the note has the new code, and shows the new picture", /crimson/.test(view.state.doc.nodeAt(isl(n)).attrs.raw) && !dlg.hasAttribute("data-open") && /crimson/.test(view.nodeDOM(isl(n)).innerHTML), md().slice(0, 300));
     }
     // a dialog pulled small elsewhere (a formula's, say): the size kept is the one for all dialogs — code beside its picture keeps room all the same
-    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 697, dialogHeight: 200 };
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 697, dialogHeight: 240 }; // (240: a height the corner can be pulled to — 200, which Henri's settings held, is no size at all any more, see the top)
     A.islands.open(view, isl(0));
     for (let i = 0; i < 100 && !dlg.hasAttribute("data-open"); i++) await sleep(30);
     await sleep(500);
     {
       const ce = dlg.querySelector(".ce"), input = dlg.querySelector(".ce-in"), pv = dlg.querySelector(".dlg-preview"), d = dlg.getBoundingClientRect();
       const lh = parseFloat(getComputedStyle(input).lineHeight) || 20, lines = Math.floor((ce.clientHeight - 28) / lh);
-      ok("opened with a small size kept (697 × 200): still at least ten lines of code in sight, and the picture no stamp", lines >= 10 && pv.clientHeight >= 300 && d.bottom <= innerHeight, { lines, dlg: [Math.round(d.width), Math.round(d.height)], pv: [pv.clientWidth, pv.clientHeight] });
+      ok("opened with a small size kept (697 × 240): still at least ten lines of code in sight, and the picture no stamp", lines >= 10 && pv.clientHeight >= 300 && d.bottom <= innerHeight, { lines, dlg: [Math.round(d.width), Math.round(d.height)], pv: [pv.clientWidth, pv.clientHeight] });
     }
     window.MdPrefs = { ...window.MdPrefs, dialogWidth: 0, dialogHeight: 0 };
     dlg.querySelector('[data-do="cancel"]').click(); await sleep(300);

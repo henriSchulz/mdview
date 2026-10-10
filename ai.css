@@ -127,6 +127,11 @@ body[data-mode="dark"] #ai-chat { --ai-card: color-mix(in srgb, var(--bg) 82%, #
 body[data-mode="dark"] .ai-dialog { --ai-card: color-mix(in srgb, var(--bg) 82%, #fff); }
 /* a small sheet, whatever size the other dialogs were pulled to */
 #dlg[data-kind="ai"] { width: min(540px, 92vw) !important; height: fit-content !important; }
+/* (… and as high as what is on it: where the dialogs were pulled to a size, their body takes the room that is left —
+ * here there is none to take, and it must not fall to nothing and scroll) */
+#dlg[data-kind="ai"] .dlg-body { flex: none; overflow: visible; }
+/* the answer's place comes or goes: the sheet grows or shrinks to it (ai.js, resize) */
+#dlg[data-kind="ai"].ai-growing { overflow: hidden; transition: height var(--spring-smooth-dur) var(--spring-smooth); }
 #dlg[data-kind="ai"] .dlg-grip { display: none; }
 #dlg[data-kind="ai"] .dlg-info { font-size: 11.5px; line-height: 1.35; }
 /* one's own words, and under them what is asked with one press: a card, as the chat's */

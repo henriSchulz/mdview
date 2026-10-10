@@ -393,7 +393,9 @@
   // the corner to pull the dialog larger by; a double click gives it its own size again
   const grip = el("div", { class: "dlg-grip", "aria-hidden": "true" });
   dlg.appendChild(grip);
-  const sized = () => { const p = window.MdPrefs || {}; return [Number(p.dialogWidth) || 0, Number(p.dialogHeight) || 0]; };
+  // (a height under the least the corner can pull to was never pulled: it is no size — every dialog would be that low)
+  const LEAST = 220;
+  const sized = () => { const p = window.MdPrefs || {}, h = Number(p.dialogHeight) || 0; return h >= LEAST ? [Number(p.dialogWidth) || 0, h] : [0, 0]; };
   function applySize() {
     const [w, h] = sized();
     dlg.style.width = w ? Math.min(w, innerWidth * 0.96) + "px" : "";
@@ -406,9 +408,11 @@
     e.preventDefault();
     const r = { width: dlg.offsetWidth, height: dlg.offsetHeight }, x0 = e.clientX, y0 = e.clientY; // (its size, not what a transform makes of it)
     dlg.classList.add("sizing");
-    const move = (ev) => { // (centred: it grows to both sides, so twice the way of the pointer)
+    let pulled = false; // (a press on the corner that pulls nowhere keeps no size: a small dialog's own height, kept, would be every dialog's)
+    const move = (ev) => {
+      pulled = true; // (centred: it grows to both sides, so twice the way of the pointer)
       dlg.style.width = Math.max(380, Math.min(innerWidth * 0.96, r.width + 2 * (ev.clientX - x0))) + "px";
-      dlg.style.height = Math.max(220, Math.min(innerHeight * 0.92, r.height + 2 * (ev.clientY - y0))) + "px";
+      dlg.style.height = Math.max(LEAST, Math.min(innerHeight * 0.92, r.height + 2 * (ev.clientY - y0))) + "px";
       dlg.style.maxHeight = "92vh";
       dlg.classList.add("sized");
     };
@@ -416,6 +420,7 @@
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
       dlg.classList.remove("sizing");
+      if (!pulled) return;
       const prefs = { dialogWidth: dlg.offsetWidth, dialogHeight: dlg.offsetHeight };
       window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
       window.MdHost?.post(JSON.stringify({ type: "prefs", prefs }));
@@ -451,14 +456,17 @@
   const SETTLE = 460; // ms from the call: the dialog is built and its opening has run (the spring's visible part)
   let settled = Promise.resolve(true), shows = 0;
   let fitTimer = 0;
+  // (… and never lower than what is on it: whatever height was kept, nothing of the dialog itself is left to scroll.
+  // Code beside its picture fills the room it has: there the two scroll, each for itself.)
+  function fitNow() {
+    if (!open || !dlg.classList.contains("sized") || dlg.classList.contains("sizing")) return;
+    const p = body.querySelector(".dlg-preview");
+    const lack = Math.max(p ? p.scrollHeight - p.clientHeight : 0, 0) + (dlg.dataset.split != null ? 0 : Math.max(body.scrollHeight - body.clientHeight, 0));
+    if (lack > 1) dlg.style.height = Math.min(innerHeight * 0.92, dlg.offsetHeight + lack) + "px";
+  }
   function fit() {
     clearTimeout(fitTimer);
-    fitTimer = setTimeout(() => {
-      if (!open || !dlg.classList.contains("sized") || dlg.classList.contains("sizing")) return;
-      const p = body.querySelector(".dlg-preview");
-      const lack = p ? p.scrollHeight - p.clientHeight : 0;
-      if (lack > 1) dlg.style.height = Math.min(innerHeight * 0.92, dlg.offsetHeight + lack) + "px";
-    }, 30);
+    fitTimer = setTimeout(fitNow, 30);
   }
   dlg.addEventListener("load", fit, true);
   new MutationObserver(fit).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "src"] });
@@ -486,6 +494,7 @@
     dlg.style.transform = "none";
     window.MdView.core.lockScroll(true);
     dlg.dataset.open = scrim.dataset.open = "";
+    fitNow(); fitNow(); // (as high as it will be, before it is seen; twice: the preview given its room, the body may still lack some)
     dlg.style.transform = from(opts.anchor());
     void dlg.offsetWidth;
     dlg.style.transition = "";

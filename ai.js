@@ -80,7 +80,24 @@
     const tidy = () => { clearInterval(timer); clearTimeout(paint); paint = 0; if (job) stop(job); job = null; };
     // (the dialog is the app's one dialog: what this sheet hung on it — its menu, its ear for presses — goes with the sheet)
     let gone = null;
-    const leave = () => { tidy(); if (gone) gone.abort(); for (const m of document.querySelectorAll("#dlg .ai-tmenu")) m.remove(); };
+    /* The sheet is as high as what is on it. When that changes — the answer's place comes, or goes — it grows or
+     * shrinks from where it stood instead of jumping: the height it had and the height it has now are measured, and
+     * the way between them is the transition's (ai.css, .ai-growing). */
+    let grown = 0;
+    const settle = () => { clearTimeout(grown); grown = 0; const d = document.getElementById("dlg"); d.classList.remove("ai-growing"); d.style.removeProperty("height"); };
+    const resize = (change) => {
+      const d = document.getElementById("dlg"), from = d.offsetHeight;
+      settle();
+      change();
+      const to = d.offsetHeight;
+      if (from === to || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+      d.style.setProperty("height", from + "px", "important");
+      void d.offsetHeight;
+      d.classList.add("ai-growing");
+      d.style.setProperty("height", to + "px", "important");
+      grown = setTimeout(settle, 600); // (the spring's time and a little: from then on it is as high as its content again)
+    };
+    const leave = () => { tidy(); settle(); if (gone) gone.abort(); for (const m of document.querySelectorAll("#dlg .ai-tmenu")) m.remove(); };
     A.dialog.show({
       title: T("ai.transform"),
       kind: "ai",
@@ -144,7 +161,7 @@
           tidy();
           result = null;
           let said = "";
-          out.hidden = false;
+          if (out.hidden) { resize(() => { out.hidden = false; }); if (out.animate) out.animate({ opacity: [0, 1] }, { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }); }
           out.innerHTML = `<div class="ai-wait"><span class="ai-spin"></span><span class="ai-secs"></span></div><div class="ai-md ai-stream"></div>`;
           const stream = out.querySelector(".ai-stream"), secs = out.querySelector(".ai-secs");
           shownAt = performance.now();
@@ -193,7 +210,7 @@
           else if (e.key === "Escape") { const at = opener(menuFor); menu(null); if (at) at.focus(); }
         });
         chips.addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (b && !job) pick(b.dataset.preset); });
-        run.addEventListener("click", () => { if (job) { tidy(); out.hidden = result == null; show(); } else go(); });
+        run.addEventListener("click", () => { if (job) { tidy(); resize(() => { out.hidden = result == null; }); show(); } else go(); });
         // Ctrl+Enter in the field asks (once there is an answer, the dialog's own Ctrl+Enter takes it)
         text.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && result == null && !job) { e.preventDefault(); e.stopPropagation(); go(); } });
         show();
