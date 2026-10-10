@@ -511,6 +511,17 @@
       else if (e.key === "Escape") { e.preventDefault(); if (menuFor) menu(null); else Ai.chat.close(); }
     });
     box.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (menuFor) menu(null); else Ai.chat.close(); } });
+    // the wheel over the window is the window's: where nothing of it can be scrolled further, the note behind stays where it is
+    box.addEventListener("wheel", (e) => {
+      if (e.ctrlKey) return;
+      for (let n = e.target; n && n !== box.parentNode; n = n.parentNode) {
+        if (n.nodeType !== 1) continue;
+        const o = getComputedStyle(n).overflowY;
+        if ((o === "auto" || o === "scroll") && n.scrollHeight > n.clientHeight + 1 && (e.deltaY < 0 ? n.scrollTop > 0 : n.scrollTop + n.clientHeight < n.scrollHeight - 1)) return;
+        if (n === box) break;
+      }
+      e.preventDefault();
+    }, { passive: false });
     // pulled at its left edge, its upper edge or the corner between them: wider, higher (it stands at the lower right)
     for (const grip of box.querySelectorAll(".ai-grip")) {
       grip.addEventListener("pointerdown", (e) => {

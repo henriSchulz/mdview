@@ -1011,11 +1011,15 @@
     const way = [];
     for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
     const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
-    pagebar.innerHTML = `<div class="pb-way">${nav}` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `</div>` +
+    pagebar.innerHTML = `<div class="pb-way">${nav}` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `<span class="pb-here"></span></div>` +
       `<input class="pb-title" type="text" aria-label="${esc(T("Page name"))}" spellcheck="false" autocomplete="off">`;
     const title = pagebar.querySelector(".pb-title");
     title.value = v.page.title;
     title.placeholder = T("page.untitled");
+    // (the way ends at the page one is on: its name, as it is typed below)
+    const here = pagebar.querySelector(".pb-here"), named = () => { here.textContent = title.value.trim() || T("page.untitled"); };
+    named();
+    title.addEventListener("input", named);
     title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
   }

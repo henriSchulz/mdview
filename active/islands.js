@@ -78,6 +78,28 @@
     doc.descendants((n, p) => { if (same(n) && (best < 0 || Math.abs(p - pos) < Math.abs(best - pos))) best = p; return !n.isTextblock; });
     return best;
   }
+  /* The code of a picture of svg with a line for each element, indented by how deep it lies. What is text in the picture
+   * (<text>, <tspan>, <title>, <desc>, <style>, <script>) is not broken: a line's end there would be read. */
+  function tidySvg(code) {
+    const out = [];
+    let depth = 0, inText = 0, line = "";
+    const flush = () => { if (line.trim()) out.push("  ".repeat(Math.max(0, lineDepth)) + line.trim()); line = ""; };
+    let lineDepth = 0;
+    for (const tok of code.match(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[^>]*>|[^<]+/g) || []) {
+      const tag = /^<(\/?)([\w:-]+)/.exec(tok), close = tag && tag[1] === "/", self = tag && /\/>$/.test(tok), texty = tag && /^(text|tspan|textPath|title|desc|style|script)$/.test(tag[2]);
+      if (!tag) { if (inText || tok.trim()) line += inText ? tok : tok.trim(); continue; }
+      if (inText) { line += tok; if (texty && !self) inText += close ? -1 : 1; if (!inText) { flush(); } continue; }
+      if (close) { flush(); depth--; lineDepth = depth; line = tok; flush(); continue; }
+      flush();
+      lineDepth = depth;
+      line = tok;
+      if (texty && !self) { inText = 1; continue; }
+      flush();
+      if (!self && !/^<[!?]/.test(tok)) depth++;
+    }
+    flush();
+    return out.join("\n");
+  }
   function replace(view, at, raw) {
     const pos = locate(view, at);
     target = null; // (looked for once: what is changed at that place later is the block that stands there)
@@ -162,13 +184,19 @@
         };
         showRest();
         tools.append(rest, hide);
-        ed = A.dialog.editor({ value: c.code, language: hl(c.lang), label: T("dialog.code") });
+        // (a picture written on one endless line — as a program writes it — is shown with a line for each of its parts: there
+        // is nothing to edit in a line that runs out of the box. Left as it was where nothing is changed.)
+        const tidy = c.lang.trim().toLowerCase() === "svg" && c.code.split("\n").some((l) => l.length > 200) ? tidySvg(c.code) : c.code;
+        ed = A.dialog.editor({ value: tidy, language: hl(c.lang), label: T("dialog.code") });
         body.append(ed.el);
         const update = infoBar(info, ed);
         ed.onInput = update;
         let preview = null;
         const showPreview = () => {
           const kind = lang.value.trim().toLowerCase();
+          const dlg = body.closest("#dlg");
+          // (a picture or a diagram stands beside its code, in a dialog large enough for both)
+          if (dlg) { if (kind === "svg" || kind === "mermaid") dlg.dataset.split = ""; else delete dlg.dataset.split; }
           if (kind !== "mermaid" && kind !== "math" && kind !== "svg") { if (preview) { preview.remove(); preview = null; } return; }
           if (!preview) { preview = el("div", { class: "dlg-preview" }); body.append(preview); }
           draw(ed.value);
@@ -201,7 +229,7 @@
             // (left as it was written where it was not touched: spaces at the line's end and all)
             const r = restNow(), hid = /^hide(?:\s|$)/i.test(r);
             // (a fence without a language has no place for "hide" after it)
-            const next = { ...c, lang: lang.value.trim() || (hid ? "text" : ""), rest: r === c.rest.trim() ? c.rest : r ? " " + r : "", code: ed.value };
+            const next = { ...c, lang: lang.value.trim() || (hid ? "text" : ""), rest: r === c.rest.trim() ? c.rest : r ? " " + r : "", code: ed.value === tidy ? c.code : ed.value };
             const raw = buildCode(next);
             return raw === node.attrs.raw && !fresh ? undefined : raw;
           },

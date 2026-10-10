@@ -513,6 +513,7 @@ body[data-mode="dark"] .page-row[data-style="card"] { --page-ground: color-mix(i
 .pb-step:active { transform: scale(var(--press-scale, 0.97)); background: var(--fill-pressed); transition-duration: var(--dur-instant); }
 .pb-step:disabled { opacity: 0.3; pointer-events: none; }
 #pagebar[data-bare] { margin-bottom: 0.4em; }
+.pb-here { padding: 0 6px; color: var(--fg); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 22em; }
 .pb-sep { display: grid; place-items: center; width: 12px; height: 12px; color: var(--fg3); }
 .pb-sep svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .pb-sep .sf { font-size: 8px; }

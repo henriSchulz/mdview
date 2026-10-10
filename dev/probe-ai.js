@@ -209,6 +209,12 @@
     await pick('[data-m="delete"]');
     ok("Delete takes the conversation away", ai().talks === 0 && ai().talk.length === 0, ai().talks);
 
+    { // the wheel over the chat does not move the note behind it
+      const y0 = scrollY, w = new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true });
+      const went = cq(".ai-compose").dispatchEvent(w), w2 = new WheelEvent("wheel", { deltaY: 240, bubbles: true, cancelable: true });
+      const went2 = cq(".ai-log").dispatchEvent(w2);
+      ok("the wheel over the chat is the chat's: the note behind it is not scrolled", !went && w.defaultPrevented && !went2 && scrollY === y0, [went, went2, y0, scrollY]);
+    }
     // ---- the Edit mode: what Claude answers changes the note itself
     ok("the chat asks, at first; its button turns to Edit", cq(".ai-mode").textContent === "Ask" && !ai().editing, cq(".ai-mode").textContent);
     cq(".ai-mode").click(); await sleep(150);

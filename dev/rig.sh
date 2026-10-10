@@ -276,6 +276,15 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.enter.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.enter.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  svgedit)
+    # the code of a picture of svg, edited in its dialog
+    name=svgedit.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Svg\n\nText.\n\n```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400">\n'; for i in $(seq 0 24); do printf '  <rect x="20" y="%s" width="360" height="16" fill="teal" opacity="0.%s"/>\n' $((i*24)) $((30 + i*2)); done; printf '</svg>\n```\n\nBetween.\n\n```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300">'; for i in $(seq 0 30); do printf '<circle cx="%s" cy="60" r="4" fill="teal"/>' $((i*9+10)); done; printf '</svg>\n```\n\nEnd.\n'; } > "$R/work/$name"; rm -f "$R/out/$name".{dlg0,dlg1,svgedit}.json
+    app 60 MDVIEW_PROBE="$D/probe-svgedit.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in dlg0 dlg1; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.svgedit.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/svgedit-$v.png"; done
+    for _ in $(seq 300); do [[ -f $R/out/$name.svgedit.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.svgedit.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.svgedit.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json

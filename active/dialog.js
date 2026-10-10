@@ -469,6 +469,7 @@
     dlg.querySelector('[data-do="cancel"]').textContent = T("dialog.cancel");
     dlg.querySelector('[data-do="done"]').textContent = T("dialog.done");
     dlg.dataset.kind = opts.kind || "";
+    delete dlg.dataset.split; // (code beside its picture: the code's dialog says so itself)
     // (what is costly in a dialog — a PDF page drawn, a diagram — waits until it has opened: `settled`)
     const turn = ++shows;
     settled = new Promise((resolve) => setTimeout(() => resolve(shows === turn && !!open), SETTLE));

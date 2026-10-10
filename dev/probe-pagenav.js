@@ -17,6 +17,7 @@
     await open("Alpha");
     ok("in a page: back is there, forward has nowhere to go", title() === "Alpha" && !off(-1) && off(1) && step(-1).getBoundingClientRect().left < bar().querySelector(".pb-crumb").getBoundingClientRect().left, [title(), off(-1), off(1)]);
     await open("Inner");
+    ok("the way ends with the page one is on: note › Alpha › Inner", bar().querySelector(".pb-way").textContent.replace(/\s+/g, " ").trim() === "pagesAlphaInner" && bar().querySelector(".pb-here").textContent === "Inner", bar().querySelector(".pb-way").textContent);
     out("deep", {});
     await sleep(700);
     step(-1).click(); await sleep(350);
