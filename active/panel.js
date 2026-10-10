@@ -220,8 +220,7 @@
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", tile.textContent);
     // (the row itself goes along, held where it was taken)
-    const r = tile.getBoundingClientRect();
-    e.dataTransfer.setDragImage(tile, Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top)));
+    window.MdView.core.moving.picture(e, tile);
   });
   // (before anything else sees them: the editor's own drop handling stays out of it)
   document.addEventListener("dragover", (e) => {

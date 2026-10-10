@@ -3249,6 +3249,12 @@
     // also: what goes with it — the others selected in All Notes)
     start(e, path, el, also) {
       moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
+      moving.picture(e, el);
+    },
+    // what goes with the pointer in a drag, drawn by the page: a copy of el held where the pointer took it
+    // (the browser's own picture of an element is twice as large on a screen scaled by a fraction)
+    // (opt.into: where the copy is put, when el itself stands off the page; opt.hold: where in el it is held)
+    picture(e, el, opt = {}) {
       if (!el) return;
       const r = el.getBoundingClientRect(), x = e.clientX, y = e.clientY;
       e.dataTransfer.setDragImage(noPicture, 0, 0);
@@ -3257,9 +3263,11 @@
       for (const n of [g, ...g.querySelectorAll("[id], [data-path], [data-key]")]) for (const a of ["id", "data-path", "data-key", "draggable", "tabindex"]) n.removeAttribute(a);
       g.classList.add("drag-ghost"); g.setAttribute("aria-hidden", "true");
       g.style.width = r.width + "px"; g.style.height = r.height + "px";
-      ghost = { el: g, gx: Math.max(0, Math.min(r.width, x - r.left)), gy: Math.max(0, Math.min(r.height, y - r.top)), tx: 0, ty: 0 };
+      ghost = { el: g, gx: Math.max(0, Math.min(r.width, opt.hold ? opt.hold[0] : x - r.left)), gy: Math.max(0, Math.min(r.height, opt.hold ? opt.hold[1] : y - r.top)), tx: 0, ty: 0 };
+      if (opt.into) { g.style.left = g.style.top = "0"; g.style.zIndex = "90"; }
+      const into = opt.into || el.parentNode;
       // (put in beside what it copies, where its styles hold — a moment later: a page changed while a drag begins may lose the drag)
-      setTimeout(() => { if (ghost && ghost.el === g && el.parentNode) { el.parentNode.appendChild(g); ghostTo(x, y); } }, 0);
+      setTimeout(() => { if (ghost && ghost.el === g && into) { into.appendChild(g); ghostTo(x, y); } }, 0);
     },
     // (not where it is already, not into itself)
     fits: (path, dir) => dir !== path && !dir.startsWith(path + "/") && path.replace(/\/[^/]*$/, "") !== dir,

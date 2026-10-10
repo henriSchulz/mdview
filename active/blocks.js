@@ -1107,11 +1107,9 @@
     const r = over.getBoundingClientRect();
     // the picture under the pointer: the block — or all the blocks that go, as they stand
     const els = many ? groupEls(view.state) : null;
-    if (els) {
-      const ghost = ghostOf(els);
-      e.dataTransfer.setDragImage(ghost, Math.max(0, Math.min(e.clientX - r.left + 10, ghost.offsetWidth - 10)), Math.max(0, Math.min(e.clientY - r.top + 6, ghost.offsetHeight - 10)));
-      setTimeout(() => ghost.remove(), 0);
-    } else e.dataTransfer.setDragImage(over, Math.min(40, r.width / 2), Math.min(16, r.height / 2));
+    const ghost = ghostOf(els || [over]); // (a card off the page; the page draws a copy of it that goes with the pointer)
+    window.MdView.core.moving.picture(e, ghost, { into: document.body, hold: [e.clientX - r.left + 12, e.clientY - r.top + 8] });
+    ghost.remove();
     // (after the picture is taken:) the selected blocks stand back where they are while they are dragged.
     // By a class on the page — the editor's own elements are not touched, it would draw them anew
     if (els) setTimeout(() => { if (drag) document.body.classList.add("blk-dragging"); }, 0);
