@@ -82,6 +82,19 @@ app itself.
     real-pointer run that fails with "the pointer was not heard". Never `pkill -f` a pattern
     that matches the running command itself.
 
+38. **Everything the editor lays over the note is `user-select: none`, and `selectstart` on it is
+    refused.** A handle, a drop line, a rectangle, a grip: a press there must never begin a
+    selection of the browser's — it anchors on whatever of the page is selectable (the last
+    element in the body, as a rule) and reaches to the pointer.
+39. **Focusing the editor never moves the note.** WebKitGTK scrolls to the page's last selection
+    on `focus()` even with `preventScroll`: `view.focus` (active/view.js) restores the scroll
+    position, and nothing calls the DOM's `focus()` on the editor directly.
+40. **When a bug does not show in the rig after two honest tries, record it where it happens.**
+    `dev/probe-trace.js` runs in Henri's own window (`MDVIEW_PROBE=…`) and writes down presses,
+    drags, every selection-setting transaction with its caller, and the browser's own
+    selection. One recording named the cause three fixes had guessed around: the fixes were for
+    a pull on the picture, the bug was a drag by the handle.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -150,6 +163,7 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| **The cause of "random things selected, the whole block at the bottom blue, the note jumps" — found from a recording on Henri's machine** (`dev/probe-trace.js`), after three fixes that missed it | he drags by the **handle**. A press on the handle let the browser begin a selection of its own (`selectstart`, not refused); with nothing selectable under it the anchor fell on the drop line — the last element in the body — and when the handle's drag began the browser stretched the selection from there to the block under the pointer: every gap from that block to the foot of the window painted blue. And after the drop, focusing the editor made the browser scroll to whatever the page had selected before (a caret far away), `preventScroll` or not | `selectstart` is refused on the handle, the drop line and the rectangle, and they are `user-select: none`; a selection reaching outside the note's text is let go as a drag begins and ends; `view.focus` keeps the scroll position (rules 38–40) | `rig.sh dragreal` (real pointer): the press on the handle begins no selection — fails before, passes after; the note does not jump |
 | **Caused by the fix below:** in the active mode a click on a whiteboard, a picture of svg or a formula opened nothing | the press on a thing was taken from the browser with `preventDefault` in the capture phase — and ProseMirror does not look at an event whose default was prevented before it arrives, so it never saw the click | the default is prevented on the event's way up, after the editor has had it; the editor's own drag of the pressed node is refused in `dragstart` (rule 35) | `rig.sh dragnote` — real clicks on all three in a copy of Henri's note: fails on the released code, passes on the new |
 | The whiteboard's block pulled a little to the lower right: the picture and everything after it turned blue (selected) | *not reproduced* with the real pointer, neither on the released code nor on the new; the rig's window has no keyboard focus and does not paint a selection, only what is selected is measured | the press is handled as above | `rig.sh dragnote` (the pull is in it) — **Henri's try decides** |
 | **Again**, after the fix below was installed: drag and drop in the note still selected random things and scrolled to a random place | the first fix called `preventDefault` on `mousemove` — which does not stop a browser's text selection — and was only ever tested with made-up events, where no browser selection exists; it also scrolled twice (its own loop beside the drag's) | the press on a thing is taken from the browser (`preventDefault` on `mousedown`, `selectstart` refused while it is held); one scroll loop; no `scrollIntoView` after a drop (rules 30–32) | `rig.sh dragreal` — a **real pointer**; it fails on the old code (57 letters selected on the way) and passes on the new. Also `rig.sh dropstay`, `rig.sh cut` |

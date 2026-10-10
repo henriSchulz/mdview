@@ -68,6 +68,27 @@
       out("shot-" + name.replace(/\W+/g, "-").slice(0, 30), {});
       await sleep(900);
     };
+    // ---- a thing pressed and moved only a little — less than a pull, more than a still hand — and let go: nothing but that
+    // thing may be selected, the note may not jump
+    const spans = () => { const sel = getSelection(); if (!sel.rangeCount || sel.isCollapsed) return 0; const r = sel.getRangeAt(0); let n = 0; for (const b of blocksAll()) { const d = domOf(b); if (d && r.intersectsNode(d)) n++; } return n; };
+    o.nudges = [];
+    for (const what of ["board.svg", 'viewBox="18 4', "f(x) ="]) for (const [dx, dy] of [[2, 2], [4, 3], [5, 5], [9, 8], [30, 40]]) {
+      if (window.MdBoard && MdBoard.state && MdBoard.state()) { MdBoard.close(); await sleep(700); }
+      const dlg = document.getElementById("dlg"); if (dlg.hasAttribute("data-open")) { dlg.querySelector('[data-do="cancel"]').click(); await sleep(400); }
+      view.dispatch(view.state.tr.setSelection(PM.state.Selection.atStart(view.state.doc)));
+      const b = blocksAll().find((x) => (x.node.attrs.raw || "").includes(what));
+      if (!b) continue;
+      domOf(b).scrollIntoView({ block: "center" }); await sleep(500);
+      const el = domOf(b).querySelector("svg, .katex, img") || domOf(b), r = el.getBoundingClientRect(), p = [r.left + r.width / 2, r.top + r.height / 2], q = [p[0] + dx, p[1] + dy], y0 = scrollY, w = watch();
+      await run(`g ${G(...p)} 4 20 s 120 d s 150 g ${G(...q)} 4 40 s 200 u s 150`, q, 900);
+      await sleep(400);
+      w.stop();
+      const s = selInfo(), n = spans(), now = blocksAll().find((x) => (x.node.attrs.raw || "").includes(what));
+      const rec = { what: what.slice(0, 12), d: [dx, dy], kind: s.kind, sel: [s.from, s.to], at: now && now.pos, spans: n, text: w.text, dom: s.dom, jump: Math.round(scrollY - y0), opened: !!(window.MdBoard && MdBoard.state && MdBoard.state()) || dlg.hasAttribute("data-open") };
+      o.nudges.push(rec);
+    }
+    { const bad = o.nudges.filter((r) => r.spans > 1 || r.kind === "range" || Math.abs(r.jump) > 4 || (r.kind.startsWith("node") && r.sel[0] !== r.at));
+      ok(o.nudges.length + " small moves on a whiteboard, a picture and a formula: never more than the thing itself selected, never a jump", !bad.length, bad); }
     // ---- the whiteboard's block pressed on its picture and pulled a little to the lower right (as Henri does)
     {
       const board = blocksAll().find((b) => /board\.svg/.test(b.node.attrs.raw || "") || (b.node.type.name === "paragraph" && b.node.firstChild && b.node.firstChild.type.name === "image" && /board\.svg/.test(b.node.firstChild.attrs.src || "")));

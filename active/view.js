@@ -249,7 +249,15 @@
         // the focus back after a tap elsewhere — a menu shut, a block chosen, a dialog left — does not, or the keyboard would
         // come up each time. (An editor that has the focus keeps it.)
         const focus = view.focus.bind(view);
-        view.focus = () => { if (window.MdView.core.touching() && !view.hasFocus()) return; focus(); };
+        // (… and the note stays where it is when it gets the keys: this browser, focusing, brings into sight whatever the page
+        // had selected last — a caret left far away — though it is told not to scroll, and before the editor has put its own
+        // selection there. After a block was dropped, the note jumped to that old place.)
+        view.focus = () => {
+          if (window.MdView.core.touching() && !view.hasFocus()) return;
+          const x = scrollX, y = scrollY;
+          focus();
+          if (scrollX !== x || scrollY !== y) scrollTo({ left: x, top: y, behavior: "instant" });
+        };
       }
       dirty = edited = false;
     }

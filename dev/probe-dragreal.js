@@ -20,6 +20,9 @@
     // (the rig cannot call in: it is done when the pointer has been heard at the plan's last place, or after its time)
     const run = async (cmd, last, ms) => { out("plan" + ++plans, { cmd }); const t = performance.now(); while (performance.now() - t < ms + 6000) { await sleep(40); if (seenAt && Math.hypot(seenAt[0] - last[0], seenAt[1] - last[1]) < 3 && performance.now() - t > ms) break; } await sleep(500); };
     const heard = {}; for (const t of ["dragstart", "dragover", "drop", "dragend", "mousedown", "mouseup", "pointercancel", "selectstart"]) document.addEventListener(t, (e) => { heard[t] = (heard[t] || 0) + 1; if (t === "mousedown" || t === "dragstart") heard[t + "On"] = (e.target.className || e.target.tagName) + ""; }, true);
+    // (what the browser itself selects — a selection that reaches outside the note's text is none the editor made)
+    const strays = []; document.addEventListener("selectstart", (e) => { heard.selectstartKept = (heard.selectstartKept || 0) + (e.defaultPrevented ? 0 : 1); });
+    document.addEventListener("selectionchange", () => { const sl = getSelection(); if (sl.rangeCount && !sl.isCollapsed && (!view.dom.contains(sl.anchorNode) || !view.dom.contains(sl.focusNode))) strays.push([(sl.anchorNode.parentElement || sl.anchorNode).className || sl.anchorNode.nodeName, String(sl).length]); });
     let off = [0, 0];
     seenAt = null;
     out("plan" + ++plans, { cmd: "m 200 300 s 80 m 210 310" });
@@ -54,6 +57,7 @@
       ok("… on the way no text was selected", w.text === 0 || w.text <= what.length + 60, w.text);
       ok("… the note did not jump (it was in sight all along)", w.drift <= 4 && Math.abs(scrollY - w.y0) <= 4, [w.y0, scrollY, w.drift]);
       ok("… what was moved is selected as a block, and nothing else", !!s.blocks && s.blocks[0] === at && s.blocks[1] === at + node.nodeSize, s);
+      ok("… the press on the handle began no selection of the browser's own, and none ever reached outside the note's text", !heard.selectstartKept && !strays.length, [heard, strays.slice(0, 4)]);
     }
     // ---- a picture of svg pressed and pulled itself, two blocks up
     {

@@ -881,6 +881,8 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm .col.drop-col { border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 7%, transparent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 7%, transparent); }
 .pm .page-row.drop-into { box-shadow: 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* where a block dragged by its handle will go */
+/* (what the editor lays over the note — the handle, the drop line, the rectangle — is nothing a selection may begin on or pass) */
+.blk-h, .blk-h *, .blk-line, .blk-band { user-select: none; -webkit-user-select: none; }
 .blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 .blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
 @media print { .blk-line { display: none !important; } }

@@ -1407,7 +1407,15 @@
      * nothing is made unselectable by a style: in this browser that would take the caret from the note.) */
     let held = false;
     const hold = (on) => { held = on; };
-    document.addEventListener("selectstart", (e) => { if (held) e.preventDefault(); }, true);
+    // (… and a press on the handle begins none either. Left to it, the browser starts one there, anchors it on whatever of the
+    // page it finds selectable — the drop line, the last thing in the body — and, as the handle's drag begins, stretches it
+    // to the block under the pointer: everything from that block down to the foot of the window turns blue.)
+    const ours = (t) => !!(t && t.nodeType === 1 ? t : t && t.parentElement)?.closest?.(".blk-h, .blk-line, .blk-band, .tbl-h, .col-grip");
+    document.addEventListener("selectstart", (e) => { if (held || ours(e.target)) e.preventDefault(); }, true);
+    // what the browser selected all the same, outside the note's text, is let go as the drag begins and as it ends
+    const stray = () => { const s = getSelection(); if (!s || !s.rangeCount || s.isCollapsed || !view) return; if (!view.dom.contains(s.anchorNode) || !view.dom.contains(s.focusNode)) s.removeAllRanges(); };
+    handle.addEventListener("dragstart", () => setTimeout(stray, 0));
+    handle.addEventListener("dragend", () => { stray(); setTimeout(stray, 0); });
     addEventListener("blur", () => { grab = null; hold(false); });
     const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
     const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: grab.dt }); target.dispatchEvent(ev); return ev; };
