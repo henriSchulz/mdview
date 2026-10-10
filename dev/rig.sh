@@ -262,11 +262,20 @@ case "${1:-}" in
   pagelook)
     # a page's line turned into a card from its menu
     name=look.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Look\n\nText before.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- /page -->\n\nText after the first.\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n\n![](pic.svg)\n\n'; for i in $(seq 40); do printf 'Filler paragraph %s with some words.\n\n' "$i"; done; printf '<!-- page: Gamma -->\n\nIn gamma.\n\n<!-- /page -->\n'; } > "$R/work/$name"; printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>' > "$R/work/pic.svg"; rm -f "$R/out/$name".pagelook.json
-    app 60 MDVIEW_PROBE="$D/probe-pagelook.js" MDVIEW_TALK_FAKE="$(cat "$D/tests/fixtures/ai-fake-pages.txt")" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    app 60 MDVIEW_PROBE="$D/probe-pagelook.js" MDVIEW_TALK_FAKE="$(cat "$D/tests/ai/fake-pages.txt")" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for _ in $(seq 300); do [[ -f $R/out/$name.pagelook.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pagelook.png"
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.pagelook.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagelook.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  board-enter)
+    # stepping into a whiteboard: its content is there at once, shown whole
+    name=enter.md; rm -rf "$R/work"; mkdir -p "$R/work/assets"; node "$D/make-board.mjs" > "$R/work/assets/far.board.svg"; printf '# Enter\n\nA board:\n\n![Whiteboard](assets/far.board.svg)\n\nAfter.\n' > "$R/work/$name"; rm -f "$R/out/$name".{shown,enter}.json
+    app 60 MDVIEW_PROBE="$D/probe-board-enter.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 300); do [[ -f $R/out/$name.shown.json || -f $R/out/$name.enter.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-enter.png"
+    for _ in $(seq 300); do [[ -f $R/out/$name.enter.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.enter.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.enter.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json
@@ -291,7 +300,7 @@ case "${1:-}" in
     # AI in the app: Transform with AI, the chat, and all of it gone when turned off (Claude is a fixed answer)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; printf '# Other\n\nother note text\n' > "$R/work/other.md"; rm -f "$R/out/$name".{transform,chat,menu,edit,ai}.json
     if [[ ${2:-} == real || ${2:-} == draw || ${2:-} == edit ]]; then { echo 'window.__aiReal = true;'; [[ $2 == draw ]] && echo 'window.__aiDraw = true;'; [[ $2 == edit ]] && echo 'window.__aiEdit = true;'; cat "$D/probe-ai.js"; } > "$R/probe-ai-real.js"; app 400 MDVIEW_PROBE="$R/probe-ai-real.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"; else
-    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE="$(cat "$D/tests/fixtures/ai-fake.txt")" -- "$R/work/$name"; fi
+    app 90 MDVIEW_PROBE="$D/probe-ai.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE="$(cat "$D/tests/ai/fake.txt")" -- "$R/work/$name"; fi
     for v in transform chat menu edit; do for _ in $(seq 3600); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.ai.json ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/ai-$v.png"; done
     for _ in $(seq 3600); do [[ -f $R/out/$name.ai.json ]] && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null

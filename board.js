@@ -1078,11 +1078,33 @@
     el.toggleAttribute("data-readonly", s.readonly);
     chip("");
     options(null);
+    // what is on the board is read first (a moment — not waited for longer than that): the board comes up with it on,
+    // not empty and filled in after
+    const take = (text) => {
+      B.items.thumbsFrom(text);
+      const model = B.format.parse(text);
+      if (S !== s) return false;
+      s.model = model;
+      // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever
+      // was last looked at, on whatever screen)
+      s.view.fit(bounds());
+      if (model.lost) chip(T("board.lost", model.lost));
+      el.dataset.ready = "";
+      return true;
+    };
+    const fail = () => { if (S === s) { s.readonly = true; B.close(); } core.toast(T("board.cantOpen")); return false; };
+    const reading = read(ref, img.src).then((text) => ({ text }), (error) => ({ error }));
     // from the picture's place to the whole window
     el.hidden = false;
     el.style.transition = "none";
     el.style.transform = place(fromRect(img));
     el.style.opacity = "0";
+    void el.offsetWidth;
+    const early = await Promise.race([reading, new Promise((r) => setTimeout(() => r(null), 260))]);
+    if (S !== s) return false;
+    if (early && early.error) { el.style.transition = el.style.transform = el.style.opacity = ""; return fail(); }
+    if (early) { try { take(early.text); } catch (e) { el.style.transition = el.style.transform = el.style.opacity = ""; return fail(); } }
+    paint();
     void el.offsetWidth;
     el.style.transition = el.style.transform = el.style.opacity = "";
     el.dataset.open = "";
@@ -1093,20 +1115,11 @@
     addEventListener("blur", save);
     document.addEventListener("paste", pasted, true);
     el.focus({ preventScroll: true });
-    paint();
-    try {
-      const text = await read(ref, img.src);
-      B.items.thumbsFrom(text);
-      const model = B.format.parse(text);
+    if (!early) { // (a slow read — over a network: it comes when it comes)
+      const late = await reading;
       if (S !== s) return false;
-      s.model = model;
-      if (model.board.view) s.view.set(model.board.view.x, model.board.view.y, model.board.view.z); else s.view.fit(bounds());
-      if (model.lost) chip(T("board.lost", model.lost));
-      el.dataset.ready = "";
-    } catch (e) {
-      if (S === s) { s.readonly = true; B.close(); }
-      core.toast(T("board.cantOpen"));
-      return false;
+      if (late.error) return fail();
+      try { take(late.text); } catch (e) { return fail(); }
     }
     return true;
   };
