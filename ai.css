@@ -76,6 +76,14 @@ body[data-mode="dark"] #ai-chat { --ai-card: color-mix(in srgb, var(--bg) 82%, #
 .ai-pillbtn:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
 .ai-pillbtn.ai-main { background: var(--fg); color: var(--bg); } .ai-pillbtn.ai-main:hover { background: color-mix(in srgb, var(--fg) 84%, var(--bg)); }
 .ai-pillbtn:active, .ai-round:active, .ai-model:active, .ai-send:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
+.ai-made { display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--fg); font-size: 12.5px; }
+.ai-made[data-none], .ai-made[data-live] { background: var(--ai-soft); }
+.ai-made-text { display: inline-flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 28px; }
+.ai-made-text > svg { width: 15px; height: 15px; flex: none; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ai-missed { display: flex; flex-direction: column; gap: 4px; padding: 9px 12px; border-radius: 12px; background: var(--ai-soft); font-size: 12px; }
+.ai-missed b { font-weight: 600; } .ai-missed code { font: 11.5px/1.4 var(--mono); opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-mode[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: none; } .ai-mode[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+#ai-chat[data-editing] .ai-compose { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 10px rgb(0 0 0 / 0.06); }
 .ai-error { padding: 9px 13px; border-radius: 12px; background: color-mix(in srgb, var(--c-red, #d70015) 10%, transparent); color: var(--c-red, #d70015); overflow-wrap: anywhere; }
 .ai-pill { position: absolute; left: 22px; bottom: var(--ai-foot, 150px); display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 12px; border-radius: 14px; background: var(--ai-card); box-shadow: 0 0 0 0.5px var(--line), 0 4px 14px rgb(0 0 0 / 0.08); font-size: 12.5px; color: color-mix(in srgb, var(--fg) 60%, transparent); pointer-events: none; }
 .ai-pill[hidden] { display: none; }

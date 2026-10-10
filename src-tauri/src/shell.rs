@@ -2560,7 +2560,7 @@ impl Win {
                         .collect();
                     let chosen = take(text_of("selection"), 20_000);
                     let chosen = if chosen.trim().is_empty() { String::new() } else { format!("What the user has selected in the note right now:\n<selection>\n{chosen}\n</selection>\n\n") };
-                    (ai::CHAT_SYSTEM, format!("{whole}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
+                    (if truthy(&msg["edit"]) { ai::CHAT_EDIT_SYSTEM } else { ai::CHAT_SYSTEM }, format!("{whole}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
                 };
                 // what else the chat was given to read: other notes of the folder, the whole folder, files chosen in the system's window
                 let (mut more, mut attach) = (String::new(), Vec::new());

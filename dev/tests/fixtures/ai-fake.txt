@@ -1,0 +1,34 @@
+**Made new** by CHANNEL.||Here it is. SEEN <insert><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>
+
+*Written by CHANNEL* for the note.</insert>||I shorten the second paragraph, change the table and add a line.
+
+<edit>
+<find>
+Second paragraph for the bar and the menu.
+</find>
+<replace>
+Second paragraph, **edited**.
+</replace>
+</edit>
+<edit>
+<find>
+| apple | 3 |
+</find>
+<replace>
+| pear | 7 |
+</replace>
+</edit>
+<edit>
+<find>
+This sentence stands nowhere in the note.
+</find>
+<replace>
+Never.
+</replace>
+</edit>
+<edit>
+<find></find>
+<replace>
+Added at the end by edit.
+</replace>
+</edit>

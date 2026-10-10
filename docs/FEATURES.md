@@ -409,6 +409,13 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   copies or deletes the one in hand; the pencil begins a new one. The window is pulled wider
   and higher at its left and upper edge, or set to Small, Medium or Large under ⋯. `Enter`
   sends, `Shift+Enter` breaks the line, `Esc` shuts the chat.
+- **The chat's Edit mode** (the pill beside +, which says Ask or Edit; it is kept): in Edit,
+  what is written is not answered in the chat but **done in the note** — Claude says in a line
+  what it changes and the changes are made at once, wherever in the note they belong (a
+  sentence, a table's row, a block taken out, a section added). The chat shows how many places
+  were changed, with **Undo** (all of them are one step; `Ctrl+Z` in the note does the same),
+  and names a passage it could not find. A note that is only read is taken to the active mode
+  for it; a question is still just answered.
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
 

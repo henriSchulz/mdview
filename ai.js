@@ -17,6 +17,8 @@
     close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
     fresh: svg('<path d="M12 5v14M5 12h14"/>'),
     size: svg('<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 20h3.5a1.5 1.5 0 0 0 1.5-1.5V15M14 10l6-6M10 14l-6 6"/>'),
+    edit: svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="m14.5 7.5 3 3"/>'),
+    chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.500 4h9A2.500 2.500 0 0 1 19 6.500v7a2.500 2.500 0 0 1-2.500 2.500H11l-4 3.500V16A2.500 2.500 0 0 1 5 13.500z"/>'),
     put: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
     copy: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 5.5v-0.5A1.5 1.5 0 0 0 14 3.5H6A2.5 2.5 0 0 0 3.5 6v8A1.5 1.5 0 0 0 5 15.5h0.5"/>'),
   };
@@ -169,15 +171,58 @@
   try { const was = JSON.parse(localStorage.getItem(STORE) || "[]"); if (Array.isArray(was)) talksAll = was.filter((t) => t && Array.isArray(t.messages)); } catch (e) { /* (none kept) */ }
   const keep = () => { try { localStorage.setItem(STORE, JSON.stringify(talksAll.slice(0, 40).map((t) => ({ ...t, messages: t.messages.slice(-80).map((m) => ({ ...m, text: String(m.text || "").slice(0, 40000) })) })))); } catch (e) { /* (not kept) */ } };
   let box = null, log = null, field = null, cur = null, talking = null; // cur: the conversation in hand; talking: { id, talk, text, el }
+  let editing = false; // the chat's Edit mode: what Claude answers changes the note itself
+  try { editing = localStorage.getItem("mdview:ai-edit") === "1"; } catch (e) { /* (as new) */ }
+  let lastMade = null; // { message, doc }: the note as the last edits left it — while it is still so, they can be taken back from the chat
+  const undoable = (m) => { const A = active(); return !!lastMade && lastMade.message === m && !!A && A.view.pm.state.doc === lastMade.doc; };
+  /* Claude's edits, carried out in the note (the active mode): each finds its passage in the blocks as they are written and
+   * puts the new text in their place; all of them are one step of Undo. → { done, missed: [what was not found] } */
+  function carryOut(edits) {
+    const A = active(), out = { done: 0, missed: [] };
+    if (!A) { out.missed = edits.map((e) => e.find); return out; }
+    const view = A.view.pm, state = view.state, blocks = [];
+    state.doc.forEach((node, pos) => { if (!(node.type.name === "island" && (node.attrs.virtual || node.attrs.kind === "frontmatter"))) blocks.push({ from: pos, to: pos + node.nodeSize, md: A.clip.markdownOf(state, state.doc.slice(pos, pos + node.nodeSize)).replace(/^\n+|\s+$/g, "") }); });
+    const loose = (t) => new RegExp(t.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
+    const jobs = [];
+    for (const e of edits) {
+      if (!e.find.trim()) { if (e.replace.trim()) jobs.push({ from: state.doc.content.size, to: state.doc.content.size, text: e.replace, i: blocks.length, j: blocks.length - 1 }); else out.missed.push("∅"); continue; }
+      const re = loose(e.find);
+      let hit = null;
+      // (the fewest blocks, standing together, that hold the passage)
+      for (let span = 1; span <= 14 && !hit; span++) for (let i = 0; i + span <= blocks.length && !hit; i++) {
+        const joined = blocks.slice(i, i + span).map((b) => b.md).join("\n\n");
+        if (re.test(joined)) hit = { i, j: i + span - 1, from: blocks[i].from, to: blocks[i + span - 1].to, text: joined.replace(re, () => e.replace) };
+      }
+      if (!hit || jobs.some((x) => hit.i <= x.j && x.i <= hit.j)) { out.missed.push(e.find.trim()); continue; }
+      jobs.push(hit);
+    }
+    if (!jobs.length) return out;
+    const tr = state.tr;
+    let first = Infinity;
+    for (const x of jobs.sort((a, b) => b.from - a.from || b.i - a.i)) { // (from the end, so that the places before stay where they are)
+      const nodes = x.text.trim() ? A.clip.blocksOf(state, core.fenceSvg(x.text)) : [];
+      if (nodes.length) tr.replaceWith(x.from, x.to, nodes); else tr.delete(x.from, x.to);
+      first = Math.min(first, x.from);
+      out.done++;
+    }
+    try { tr.setSelection(PM.state.Selection.near(tr.doc.resolve(Math.min(first + 1, tr.doc.content.size)), 1)); } catch (e) { /* (the caret stays) */ }
+    view.dispatch(tr.scrollIntoView().setMeta("step", true));
+    return out;
+  }
   let useDoc = true, extra = []; // what the next question is given to read: the note on screen, and { kind, path, name } beside it
   const fresh = () => ({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: "", at: Date.now(), messages: [] });
   const titleOf = (t) => t.title || (t.messages.find((m) => m.role === "user") || {}).text || "";
   const q = (sel) => box.querySelector(sel);
   /* What Claude said, in parts: text, and what it wrote for the note (between <insert> and </insert> — one that is not shut yet,
    * while the answer comes, is one in the making). */
+  /* The edits in what Claude said (the chat's Edit mode): [{ find, replace }]. */
+  const EDIT = /<edit>\s*<find>\n?([\s\S]*?)\n?<\/find>\s*<replace>\n?([\s\S]*?)\n?<\/replace>\s*<\/edit>/g;
+  const editsOf = (text) => [...String(text).matchAll(EDIT)].map((m) => ({ find: m[1], replace: m[2] }));
+  // (what it said without them — one being written, while the answer comes, is left out too)
+  const noEdits = (text) => String(text).replace(EDIT, "").replace(/<edit>[\s\S]*$/, "").replace(/<\/?e(?:d(?:i(?:t)?)?)?$/, "");
   function parts(text) {
     const out = [];
-    let rest = String(text);
+    let rest = noEdits(text);
     for (;;) {
       const a = rest.indexOf("<insert>");
       if (a < 0) break;
@@ -203,7 +248,11 @@
     const inner = parts(m.text).map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
       : `<div class="ai-card"${p.open ? " data-open" : ""}><div class="ai-md">${md(p.insert)}</div>` +
         (p.open ? "" : `<div class="ai-card-foot"><button class="ai-pillbtn ai-main" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="ai-pillbtn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
-    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
+    const made = m.made ? `<div class="ai-made"${m.made.done ? "" : " data-none"}><span class="ai-made-text">${I.edit}<span>${esc(m.made.done ? T(m.made.done === 1 ? "ai.made.one" : "ai.made", m.made.done) : T("ai.made.none"))}</span></span>` +
+      (m.made.done && undoable(m) ? `<button class="ai-pillbtn" type="button" data-undo="${i}">${esc(T("ai.made.undo"))}</button>` : "") + `</div>` +
+      (m.made.missed && m.made.missed.length ? `<div class="ai-missed"><b>${esc(T("ai.made.missed", m.made.missed.length))}</b>${m.made.missed.map((f) => `<code>${esc(f.slice(0, 90))}</code>`).join("")}</div>` : "") : "";
+    const writing = live && /<edit>/.test(m.text) ? `<div class="ai-made" data-live><span class="ai-made-text"><span class="ai-spin"></span><span>${esc(T("ai.made.writing", editsOf(m.text).length + 1))}</span></span></div>` : "";
+    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${made}${writing}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
   }
   const bottom = () => { log.scrollTop = log.scrollHeight; };
   /* The whole conversation, drawn (when the window opens, another conversation is taken up, or a message is done). */
@@ -225,8 +274,14 @@
     requestAnimationFrame(() => { if (box) box.style.setProperty("--ai-foot", q(".ai-compose").offsetHeight + 22 + "px"); });
     q(".ai-ctx").innerHTML = (useDoc && name ? chipOf(name, T("ai.ctx.doc"), ' data-ctx="doc"') : "") + extra.map((c, i) => chipOf(c.name, subOf(c), ` data-ctx="${i}"`)).join("");
     for (const c of q(".ai-ctx").children) c.insertAdjacentHTML("beforeend", `<button class="ai-doc-x" type="button" title="${esc(T("ai.ctx.remove"))}" aria-label="${esc(T("ai.ctx.remove"))}">${I.close}</button>`);
+    const mode = q(".ai-mode");
+    mode.setAttribute("aria-pressed", String(editing));
+    mode.innerHTML = (editing ? I.edit : I.chat) + `<span>${esc(T(editing ? "ai.mode.edit" : "ai.mode.ask"))}</span>`;
+    mode.title = T(editing ? "ai.mode.edit.tip" : "ai.mode.ask.tip");
+    field.placeholder = T(editing ? "ai.chat.change" : "ai.chat.ask");
+    box.toggleAttribute("data-editing", editing);
     const model = (window.MdPrefs || {}).aiClaude || "";
-    q(".ai-model span").textContent = T((MODELS.find(([k]) => k === model) || MODELS[0])[1]);
+    q(".ai-model:not(.ai-mode) span").textContent = T((MODELS.find(([k]) => k === model) || MODELS[0])[1]);
     const send = q(".ai-send");
     send.innerHTML = live ? I.stop : I.send;
     send.title = T(live ? "ai.stop" : "ai.send"); send.setAttribute("aria-label", send.title);
@@ -246,9 +301,17 @@
       if (near) bottom();
     }, 90);
   }
-  function say(text) {
+  async function say(text) {
     text = String(text || "").trim();
     if (!text || talking) return;
+    const edit = editing;
+    if (edit && !active()) { // (the note is changed where it is written: the active mode)
+      if (!core.current || core.current.readonly || core.current.kind === "pdf") return core.toast(T("ai.noEdit"));
+      window.MdView.setMode("active");
+      for (let i = 0; i < 60 && !active(); i++) await new Promise((r) => setTimeout(r, 50));
+      if (!active()) return core.toast(T("ai.noEdit"));
+    }
+    if (edit) useDoc = true;
     const A = active(), mine = cur, name = noteName();
     if (!talksAll.includes(mine)) talksAll.unshift(mine);
     const ctx = [...(useDoc && name ? [{ kind: "doc", name }] : []), ...extra.map((c) => ({ kind: c.kind, name: c.name }))];
@@ -258,12 +321,17 @@
     let selection = "";
     if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
     const t = (talking = { id: null, talk: mine, text: "", el: null });
-    t.id = ask("chat", { note: useDoc ? core.noteText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
+    t.id = ask("chat", { edit, note: useDoc ? core.noteText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
       (piece) => { t.text += piece; drawLive(); },
       (all, error) => {
         if (talking === t) talking = null;
         clearTimeout(pending); pending = 0;
-        mine.messages.push(error || all == null ? { role: "assistant", text: "", error: error || T("ai.failed") } : { role: "assistant", text: all });
+        const m = error || all == null ? { role: "assistant", text: "", error: error || T("ai.failed") } : { role: "assistant", text: all };
+        if (edit && !m.error) { // (its edits, carried out at once)
+          const edits = editsOf(all);
+          if (edits.length) { try { m.made = carryOut(edits); } catch (e) { m.made = { done: 0, missed: [], error: String((e && e.stack) || e) }; } const now = active(); lastMade = m.made.done && now ? { message: m, doc: now.view.pm.state.doc } : null; }
+        }
+        mine.messages.push(m);
         keep();
         if (cur === mine) drawAll();
       });
@@ -362,6 +430,7 @@
       `<footer class="ai-compose"><div class="ai-ctx"></div>` +
         `<textarea class="ai-field" rows="1" placeholder="${esc(T("ai.chat.ask"))}" aria-label="${esc(T("ai.chat.ask"))}" spellcheck="false"></textarea>` +
         `<div class="ai-bar"><button class="ai-round" type="button" data-do="add" title="${esc(T("ai.add"))}" aria-label="${esc(T("ai.add"))}">${I.fresh}</button>` +
+          `<button class="ai-model ai-mode" type="button" data-do="mode"></button>` +
           `<button class="ai-model" type="button" data-do="model" title="${esc(T("prefs.aiClaude"))}">${svg('<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>')}<span></span></button><span class="ai-space"></span>` +
           `<button class="ai-send" type="button"></button></div></footer>` +
       `<div class="ai-menu"></div>`;
@@ -378,6 +447,8 @@
       if (b.classList.contains("ai-send")) { if (talking && talking.talk === cur) { const t = talking; stop(t.id); talking = null; clearTimeout(pending); pending = 0; if (t.text.trim()) cur.messages.push({ role: "assistant", text: t.text }); keep(); drawAll(); } else say(field.value); return; }
       if (d.do === "close") return Ai.chat.close();
       if (d.do === "fresh") { menu(null); cur = fresh(); useDoc = true; extra = []; drawAll(); field.focus(); return; }
+      if (d.do === "mode") { editing = !editing; try { localStorage.setItem("mdview:ai-edit", editing ? "1" : "0"); } catch (x) { /* (not kept) */ } menu(null); drawFoot(); field.focus(); return; }
+      if (d.undo != null) { const m = cur.messages[Number(d.undo)], A = active(); if (m && undoable(m)) { PM.history.undo(A.view.pm.state, A.view.pm.dispatch); lastMade = null; m.made = { ...m.made, done: 0, undone: true }; keep(); drawAll(); core.toast(T("ai.made.undone")); } return; }
       if (d.do === "more" || d.do === "add" || d.do === "model") return menu(d.do, b);
       if (d.size) { const [w, h] = PRESET[d.size]; setSize(w, Math.min(h, innerHeight - 32)); return menu(null); }
       if (d.talk) { const t = talksAll.find((x) => x.id === d.talk); if (t) { cur = t; menu(null); drawAll(); } return; }
@@ -454,5 +525,5 @@
   let shownName = "";
   setInterval(() => { if (!Ai.chat.open) return; const n = noteName(); if (n !== shownName) { shownName = n; drawFoot(); } }, 600);
   /* For the tests: what the chat holds. */
-  Ai.state = () => ({ open: Ai.chat.open, width: box ? box.offsetWidth : 0, height: box ? box.offsetHeight : 0, talk: cur ? cur.messages.map((m) => ({ ...m })) : [], title: cur ? titleOf(cur) : "", talks: talksAll.length, talking: !!talking, jobs: jobs.size, doc: useDoc, extra: extra.map((c) => ({ ...c })), menu: menuFor });
+  Ai.state = () => ({ open: Ai.chat.open, width: box ? box.offsetWidth : 0, height: box ? box.offsetHeight : 0, talk: cur ? cur.messages.map((m) => ({ ...m })) : [], title: cur ? titleOf(cur) : "", talks: talksAll.length, talking: !!talking, jobs: jobs.size, doc: useDoc, extra: extra.map((c) => ({ ...c })), menu: menuFor, editing });
 })();

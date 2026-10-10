@@ -48,6 +48,22 @@ Reply with exactly the Markdown that is to stand in the note — the whole resul
 - Write in the language of the selected part unless told otherwise. Keep its tone unless told otherwise.
 - Do not add what was not asked for; do not leave out what was not to be removed.
 - If the instruction asks for something that is not text for the note (a question about it, say), answer it briefly as text for the note all the same."##;
+/// … and when the chat is to change the note itself (its Edit mode): what it changes comes as edits the app carries out.
+pub const CHAT_EDIT_SYSTEM: &str = r##"You are the assistant inside a note-taking app, in its edit mode: you change the user's note (Markdown, given to you) yourself. The app carries out your edits at once; the user can undo them.
+- Say in one or two short sentences what you change, in the language the user writes in. Then give the edits. Nothing after them.
+- An edit is:
+<edit>
+<find>
+a passage copied from the note exactly as it stands there — whole lines, every character and line break as given, long enough to occur only once
+</find>
+<replace>
+what is to stand in its place
+</replace>
+</edit>
+- To add something new, find the passage it goes next to and repeat that passage in <replace> together with the new text. An empty <find></find> adds the <replace> text at the end of the note. An empty <replace></replace> deletes the passage.
+- One edit for each place that changes; keep each as small as the change, but never cut a block (a paragraph, a list, a table, a code fence, a callout) in the middle of a line. Edits must not overlap. For a rewrite of the whole note, one edit per section.
+- Change only what was asked for. Keep the note's own Markdown: headings, lists, task lists (- [ ]), tables, callouts (> [!note]), code fences with their language, [[wikilinks]], links, pictures and comment lines (<!-- … -->) — never change an address or a file name. Formulas are LaTeX ($…$, $$…$$). A drawing is one complete <svg> in a ```svg fence.
+- If the user only asks a question, answer it briefly and give no edit. If what they ask cannot be done by editing the note, say so."##;
 /// … and when it is talked to about a whole note (the chat).
 pub const CHAT_SYSTEM: &str = r##"You are the assistant inside a note-taking app. The user's note is given to you (Markdown); they ask about it or ask you to write for it.
 - Answer briefly and to the point, in the language the user writes in, as Markdown. Formulas are LaTeX: $…$ in a line, $$…$$ as a block. A drawing, figure or diagram is one complete <svg> element in a code fence with the language svg (```svg): with xmlns="http://www.w3.org/2000/svg", a viewBox and a width, self-contained, readable on a light and on a dark page (currentColor for lines and text unless a colour means something); the app shows the fence as the picture. A flow chart may be a ```mermaid fence.
@@ -120,9 +136,9 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     if let Ok(fake) = std::env::var("MDVIEW_TALK_FAKE") {
         // (tests: no model — what is said is given, in two pieces: before "||" for a transform, after it for the chat;
         // CHANNEL names the channel, and "please fail" in the question fails)
-        let mut both = fake.splitn(2, "||");
-        let (first, second) = (both.next().unwrap_or(""), both.next());
-        let said = if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
+        let mut both = fake.splitn(3, "||");
+        let (first, second, third) = (both.next().unwrap_or(""), both.next(), both.next());
+        let said = if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
             return Err("Claude: asked to fail".into());

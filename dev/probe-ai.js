@@ -25,6 +25,27 @@
       MdView.core.ai.transform(view);
       await until(() => dlg.hasAttribute("data-open") && dlg.dataset.kind === "ai");
       await sleep(300);
+      if (window.__aiEdit) { // (dev/rig.sh ai edit: Claude itself changes the note from the chat)
+        dlg.querySelector('[data-do="cancel"]')?.click(); await sleep(300);
+        bubble.click();
+        const chat = () => document.getElementById("ai-chat");
+        await until(() => chat() && chat().hasAttribute("data-open"));
+        if (!MdAi.state().editing) chat().querySelector(".ai-mode").click();
+        const field = chat().querySelector(".ai-field");
+        field.value = "Rename the table column Qty to Quantity, add a row for pears with 7, turn the code block into Python, delete filler paragraphs 2 and 3, and add a short heading 'Summary' with one sentence at the very end.";
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        chat().querySelector(".ai-send").click();
+        await until(() => MdAi.state().talking, 3000);
+        const answered = await until(() => !MdAi.state().talking, 240000);
+        await sleep(500);
+        const last = MdAi.state().talk.at(-1) || {}, t = md();
+        o.real = { made: last.made, said: String(last.text || last.error).slice(0, 300), note: t.slice(0, 500), end: t.slice(-200) };
+        ok("Claude itself changes the note: the column, a row, the code, paragraphs gone, a heading at the end", answered && last.made && last.made.done >= 4 && !last.made.missed.length && /Quantity/.test(t) && /pear/i.test(t) && /```python/.test(t) && !/Filler paragraph 2 /.test(t) && !/Filler paragraph 3 /.test(t) && /Filler paragraph 4 /.test(t) && /#+ Summary/.test(t.slice(-300)) && /First paragraph with plain words/.test(t), o.real);
+        out("transform", {}); out("chat", {}); out("menu", {}); out("edit", {});
+        await sleep(1200);
+        out("ai", o);
+        return;
+      }
       if (window.__aiDraw) { // (dev/rig.sh ai draw: a drawing is asked for, and looked at)
         q(".ai-text").value = "Draw a simple diagram of an RC low-pass filter (resistor, capacitor, input, output, ground) and put a one-line caption under it.";
         q('[data-go="run"]').click();
@@ -38,7 +59,7 @@
         q('[data-do="done"]').click();
         await sleep(600);
         ok("… and stands in the note as an svg fence", /```svg\n<svg/.test(md()) || /```mermaid/.test(md()), md().slice(0, 300));
-        out("chat", {}); out("menu", {}); out("ai", o);
+        out("chat", {}); out("menu", {}); out("edit", {}); out("ai", o);
         return;
       }
       q(".ai-text").value = "Mention the word 'umbrella'.";
@@ -187,6 +208,28 @@
     ok("… and taken up again from the conversation history", ai().talk.length === 2 && !!cq(".ai-card [data-put]"), ai().talk.length);
     await pick('[data-m="delete"]');
     ok("Delete takes the conversation away", ai().talks === 0 && ai().talk.length === 0, ai().talks);
+
+    // ---- the Edit mode: what Claude answers changes the note itself
+    ok("the chat asks, at first; its button turns to Edit", cq(".ai-mode").textContent === "Ask" && !ai().editing, cq(".ai-mode").textContent);
+    cq(".ai-mode").click(); await sleep(150);
+    ok("Edit: the button says so, and the field asks what to change", ai().editing && cq(".ai-mode").textContent === "Edit" && cq(".ai-mode").getAttribute("aria-pressed") === "true" && /change/.test(cq(".ai-field").placeholder), cq(".ai-field").placeholder);
+    const beforeEdit = md();
+    cq(".ai-field").value = "Shorten the second paragraph and fix the table.";
+    cq(".ai-field").dispatchEvent(new Event("input", { bubbles: true }));
+    cq(".ai-send").click();
+    await until(() => ai().talking, 2000);
+    await until(() => !ai().talking && cq(".ai-made"), 6000);
+    o.edit = ai().talk.at(-1);
+    await sleep(300);
+    const after = md();
+    ok("its edits are carried out in the note: a paragraph, a row of the table, a line at the end", after.includes("Second paragraph, **edited**.") && !after.includes("Second paragraph for the bar") && /\| pear\s*\|\s*7 \|/.test(after) && !/apple/.test(after) && after.trimEnd().endsWith("Added at the end by edit.") && after.includes("# Polish") && after.includes("let a = 1;"), after.slice(0, 400) + " … " + after.slice(-80));
+    ok("the chat says what it did — three places changed, one passage not found — and shows no edit as text", /3 places/.test(cq(".ai-made").textContent) && /Not found/.test(cq(".ai-missed").textContent) && /stands nowhere/.test(cq(".ai-missed code").textContent) && !/<find>|<edit>|Never\./.test(cq(".ai-log").textContent) && /I shorten the second paragraph/.test(cq(".ai-bot .ai-md").textContent), cq(".ai-log").innerHTML.slice(-600));
+    out("edit", {});
+    await sleep(600);
+    cq("[data-undo]").click(); await sleep(300);
+    ok("Undo in the chat takes all of them back in one step", md() === beforeEdit && !cq("[data-undo]") && /Nothing in the note/.test(cq(".ai-made").textContent), md().slice(0, 200));
+    cq(".ai-mode").click(); await sleep(150);
+    ok("turned back to Ask", !ai().editing && localStorage.getItem("mdview:ai-edit") === "0", ai().editing);
 
     // ---- turned off in the settings: nothing of it anywhere
     window.MdPrefs = { ...window.MdPrefs, aiOn: false };
