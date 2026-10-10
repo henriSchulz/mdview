@@ -17,6 +17,7 @@
     const tiles = [...ov.querySelectorAll(".ov-tile")];
     ok("open, with a tile for every note", ov.hasAttribute("data-open") && tiles.length === 8, tiles.length);
     ok("the notes are rendered into their tiles", tiles.filter((t) => t.querySelector(".ov-prev").children.length).length >= 7, tiles.map((t) => t.querySelector(".ov-prev").children.length));
+    ok("a tile is a sheet of paper, its name and when it was changed under it", tiles.every((t) => { const sh = t.querySelector(".ov-sheet"), nm = t.querySelector(".ov-name"), sub = t.querySelector(".ov-sub"); return sh && sh.querySelector(".ov-prev") && nm.getBoundingClientRect().top >= sh.getBoundingClientRect().bottom && /^Today, \d/.test(sub.textContent) && getComputedStyle(t).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(sh).boxShadow !== "none"; }), tiles.map((t) => t.querySelector(".ov-sub")?.textContent));
     ok("a note's colour is its tile's", ov.querySelector('.ov-tile.ov-red .ov-name')?.textContent === "Reading list" && ov.querySelectorAll(".ov-tile[class*=' ov-']").length >= 5);
     ok("folders have their headings", [...ov.querySelectorAll(".ov-dir")].map((h) => h.textContent).join("|") === "Ideen|Projekte", [...ov.querySelectorAll(".ov-dir")].map((h) => h.textContent));
     o.ring = getComputedStyle(ov.querySelector(".ov-tile[aria-current]")).outlineColor;
@@ -59,11 +60,13 @@
     ok("as a list the page is as wide as with tiles: nothing moves sideways at the switch", edges() === tilesAt, [tilesAt, edges()]);
     { const ov = document.getElementById("overview"); ok("… whether there is something to scroll or not", ov.offsetWidth - ov.clientWidth > 0 && getComputedStyle(ov).overflowY === "scroll", [ov.offsetWidth, ov.clientWidth]); }
     ok("List: a row per note, the note on screen marked, its first words beside the name", ov.querySelectorAll(".ov-row").length === 8 && !ov.querySelector(".ov-tile") && ov.querySelector(".ov-row[aria-current] .ov-name")?.textContent === "Decorations" && [...ov.querySelectorAll(".ov-row .ov-snip")].filter((x) => x.textContent).length >= 6, names(".ov-row").join());
+    ok("… no card around the rows; each has the note's sheet in small and says when it was changed", getComputedStyle(ov.querySelector(".ov-list")).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(ov.querySelector(".ov-list")).boxShadow === "none" && [...ov.querySelectorAll(".ov-row")].every((r) => r.querySelector(".ov-mini .ov-prev") && /^Today, \d/.test(r.querySelector(".ov-when").textContent)) && ov.querySelectorAll(".ov-row .ov-mini .ov-prev > *").length > 6, [...ov.querySelectorAll(".ov-when")].map((x) => x.textContent));
     out("shot-list", {}); await sleep(1300);
     opt("scope", "folders").click(); await sleep(600);
     ok("Folders: the folder's own folders first, then its notes", names(".ov-row").join("|") === "Ideen|Projekte|Lecture Notes|Reading list|Weekend Trip|Workout routine" && ov.querySelectorAll(".ov-row.ov-folder").length === 2, names(".ov-row").join("|"));
     opt("layout", "tiles").click(); await sleep(600);
     ok("as tiles too", ov.querySelectorAll(".ov-tile").length === 6 && ov.querySelectorAll(".ov-tile.ov-folder").length === 2 && /2 notes/.test(ov.querySelector(".ov-folder .ov-sub").textContent), ov.querySelectorAll(".ov-tile").length);
+    ok("a folder is a stack of three sheets, its sign on the one on top, its name under it", [...ov.querySelectorAll(".ov-tile.ov-folder")].every((t) => t.querySelectorAll(".ov-stack > i").length === 3 && t.querySelector(".ov-stack > i:last-child .ov-icon") && t.querySelector(".ov-name").getBoundingClientRect().top >= t.querySelector(".ov-stack").getBoundingClientRect().bottom));
     out("shot-folders", {}); await sleep(1300);
     [...ov.querySelectorAll(".ov-folder")].find((t) => t.dataset.dir === "Projekte").click(); await sleep(600);
     ok("a click on a folder goes into it; the way back stands in the title", names(".ov-tile").sort().join("|") === "Commute thoughts|Decorations" && ov.querySelector(".ov-crumb")?.textContent === "Notes" && ov.querySelector(".ov-title").textContent.endsWith("Projekte"), ov.querySelector(".ov-title").textContent);

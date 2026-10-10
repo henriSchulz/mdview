@@ -1,4 +1,4 @@
-/* mdview — all notes of the folder as tiles (overview.js). Sizes are layout; times, curves and
+/* mdview — all notes of the folder as sheets of paper, or as a list (overview.js). Sizes are layout; times, curves and
  * radii are the central ones (motion.css). */
 #overview {
   position: fixed;
@@ -27,24 +27,30 @@ body[data-tabs] #overview { padding-top: calc(var(--tabs-h) + 28px); } /* (under
 .ov-body { max-width: 1400px; margin: 0 auto; }
 .ov-dir { margin: 28px 0 12px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
 .ov-none { color: var(--fg2); text-align: center; padding-top: 16vh; }
-.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 30px 26px; }
 
-/* a tile: the note in small. It comes in after the one before it (the first few), then rests. */
+/* a tile: the note as a small sheet of paper with what it says on it; under the sheet its name and
+ * when it was changed. The tile itself is no card: the sheet is. It comes in after the one before
+ * it (the first few), then rests. */
+.ov-item {
+  --paper: var(--bg);                 /* the sheet */
+  --edge: var(--line-strong);         /* its edge: a hairline */
+  --rest: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);    /* its shadow lying, and lifted */
+  --lifted: 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 28px rgb(0 0 0 / 0.14);
+}
+body[data-mode="light"] .ov-item { --paper: #fff; }
+body[data-mode="dark"] .ov-item { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); --edge: rgb(255 255 255 / 0.12); --rest: 0 6px 18px rgb(0 0 0 / 0.3); --lifted: 0 12px 28px rgb(0 0 0 / 0.45); }
 .ov-tile {
-  --paper: var(--bg);                 /* the sheet; --wash: the sheet with the note's colour in it */
-  --frame: 0px;                       /* a note with a colour has a frame in it */
-  --edge: var(--line-strong);         /* the tile's own edge: a hairline, or the frame's colour */
-  position: relative;
-  height: 236px;
-  box-sizing: border-box;
-  padding: var(--frame);
-  border-radius: calc(var(--radius-panel) + 4px);
-  background: var(--cc, var(--paper));
-  /* one edge and one shadow, the tile's own (the sheet inside has none) */
-  box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  border-radius: var(--radius-control);
   cursor: default;
   outline: var(--focus-ring) solid transparent;
-  outline-offset: 2px;
+  outline-offset: 5px;
   user-select: none;
   -webkit-user-select: none;
   opacity: 0;
@@ -57,33 +63,32 @@ body[data-tabs] #overview { padding-top: calc(var(--tabs-h) + 28px); } /* (under
   transition:
     opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)),
     transform var(--spring-smooth-dur) var(--spring-smooth) calc(var(--i, 0) * var(--stagger-step)),
-    box-shadow var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out);
+    outline-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
-/* Under the pointer a tile lifts a little off the page: two pixels up, its shadow deeper. (Asked
-   for here; elsewhere in the app nothing moves on hover. No delay: that is the entrance's.) */
-#overview[data-open] .ov-tile:hover { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 28px rgb(0 0 0 / 0.14); transition-duration: var(--dur-base), var(--spring-smooth-dur), var(--dur-instant), var(--dur-instant); transition-delay: 0s; }
-body[data-mode="dark"] #overview[data-open] .ov-tile:hover { --edge: rgb(255 255 255 / 0.22); box-shadow: 0 0 0 0.5px var(--edge), 0 12px 28px rgb(0 0 0 / 0.45); }
-#overview[data-open] .ov-tile:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
-@media (prefers-reduced-motion: reduce) { #overview[data-open] .ov-tile:hover { transform: none; } }
 /* (the ring is the keyboard's place, once the arrow keys are used: the note on screen wears none) */
 #overview[data-keys] .ov-tile:focus-visible { outline-color: var(--accent); }
+.ov-sheet, .ov-stack { position: relative; width: 100%; aspect-ratio: 3 / 3.9; margin-bottom: 8px; }
 .ov-sheet {
-  position: relative;
-  height: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  padding: calc(14px - var(--frame)) calc(16px - var(--frame)) 0;
-  border-radius: calc(var(--radius-panel) + 4px - var(--frame));   /* concentric with the frame */
-  background: var(--wash, var(--paper));
+  padding: 14px 14px 0;
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  box-shadow: 0 0 0 0.5px var(--edge), var(--rest);
+  text-align: left;
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth), box-shadow var(--dur-fast) var(--ease-out);
 }
-body[data-mode="light"] .ov-tile { --paper: #fff; }
-body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(--bg)); --edge: rgb(255 255 255 / 0.12); box-shadow: 0 0 0 0.5px var(--edge), 0 6px 18px rgb(0 0 0 / 0.3); }
-/* the text runs out towards the tile's foot */
-.ov-sheet::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: linear-gradient(to bottom, transparent, var(--wash, var(--paper))); pointer-events: none; }
-.ov-name { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line); font: 600 15px/1.25 var(--ui); color: var(--fg); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
-.ov-prev { zoom: 0.56; color: var(--fg); pointer-events: none; overflow: hidden; }
+/* Under the pointer the sheet lifts a little off the page: two pixels up, its shadow deeper. (Asked
+   for here; elsewhere in the app nothing moves on hover.) */
+#overview[data-open] .ov-tile:hover .ov-sheet { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); transition-duration: var(--spring-smooth-dur), var(--dur-instant); }
+body[data-mode="dark"] #overview[data-open] .ov-tile:hover { --edge: rgb(255 255 255 / 0.22); }
+#overview[data-open] .ov-tile:active .ov-sheet { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+/* the text runs out towards the sheet's foot */
+.ov-sheet::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; }
+.ov-tile .ov-name { max-width: 100%; font: 600 13px/1.3 var(--ui); color: var(--fg); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ov-prev { display: block; zoom: 0.5; color: var(--fg); pointer-events: none; overflow: hidden; }
 .ov-prev > :first-child { margin-top: 0; }
-.ov-prev h1:first-child { display: none; }  /* (the name stands above already) */
+.ov-prev h1:first-child { display: none; }  /* (the name stands under the sheet already) */
 .ov-prev img { max-height: 220px; object-fit: cover; }
 .ov-empty .ov-prev::before { content: "Empty"; color: var(--fg-quiet); }
 
@@ -94,12 +99,12 @@ body[data-mode="dark"] .ov-tile { --paper: color-mix(in srgb, var(--fg) 7%, var(
 .ov-cyan { --c: var(--c-cyan); }
 .ov-blue { --c: var(--c-blue); }
 .ov-magenta { --c: var(--c-magenta); }
-/* a note's colour is a small dot before its name: the tile itself stays the plain sheet (a frame
- * and a wash in the colour were too much) */
-.ov-tile:is(.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta) .ov-name::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 50%; background: var(--c); vertical-align: 0.04em; }
+/* a note's colour is a small dot before its name: the sheet itself stays plain (a frame and a wash
+ * in the colour were too much) */
+.ov-item:is(.ov-red, .ov-orange, .ov-yellow, .ov-green, .ov-cyan, .ov-blue, .ov-magenta) .ov-name::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--c); vertical-align: 0.06em; }
 
 #toolbar [data-act="overview"][aria-pressed="true"] { color: var(--accent-text); }
-@media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; } }
+@media (max-width: 640px) { #overview { padding: 56px 20px 60px; } .ov-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 24px 18px; } }
 
 /* over the tiles there is no note to outline, search, switch the mode of or format: those stand
  * dimmed and take no click (the sidebar's and the tiles' own buttons stay) */
@@ -132,78 +137,87 @@ body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-
 .ov-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 2)); border-radius: var(--radius-pill); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
 body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%, var(--bg)); box-shadow: none; }
 
-/* a folder among the tiles: its sign, its name, how many notes lie in it */
-.ov-folder .ov-sheet { display: grid; align-content: center; justify-items: center; gap: 6px; padding-bottom: 14px; text-align: center; }
-.ov-folder .ov-sheet::after { content: none; }
-.ov-folder.ov-tile .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
-.ov-folder .ov-name { padding: 0; margin: 0; border: 0; }
-.ov-sub { font: 400 12px/1.3 var(--ui); color: var(--fg2); }
+/* a folder among the tiles: a stack of sheets in its colour, its sign on the one on top — under
+ * the pointer the two below fan out —, and under the stack its name and how many notes lie in it */
+.ov-stack > i { position: absolute; inset: 12% 8% 6%; border-radius: var(--radius-control); background: color-mix(in srgb, var(--c, var(--accent)) 9%, var(--paper)); box-shadow: 0 0 0 0.5px var(--edge), 0 2px 6px rgb(0 0 0 / 0.06); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.ov-stack > i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
+.ov-stack > i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
+.ov-stack > i:nth-child(3) { display: grid; place-items: center; color: var(--c, var(--accent)); }
+#overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(1) { transform: rotate(-10deg) translate(-12px, 2px); }
+#overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(2) { transform: rotate(9deg) translate(12px, 0); }
+#overview[data-open] .ov-tile:active .ov-stack > i:nth-child(3) { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.ov-stack .ov-icon { display: grid; place-items: center; }
+.ov-stack .ov-icon svg { width: 38px; height: 38px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.ov-sub { font: 400 12px/1.3 var(--ui); color: var(--fg-quiet); }
 .ov-name[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  #overview[data-open] .ov-tile:is(:hover, :active) .ov-sheet, #overview[data-open] .ov-tile:active .ov-stack > i:nth-child(3) { transform: none; }
+  #overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
+  #overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
+}
 /* the menu is open on it */
-.ov-tile.ctx-target { box-shadow: 0 0 0 0.5px var(--edge), 0 1px 2px rgb(0 0 0 / 0.05), 0 10px 26px rgb(0 0 0 / 0.13); }
-.ov-tile .ov-rename { position: static; width: 100%; height: 26px; margin: 0 0 8px; padding: 0 6px; font-size: 14px; }
+.ov-tile.ctx-target .ov-sheet { box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); }
+.ov-tile .ov-rename { position: static; width: 100%; height: 24px; margin: -3px 0; padding: 0 6px; font-size: 13px; text-align: center; }
 
-/* the list: one card, a row per note — its sign on a chip in the note's colour, its name, and
- * under it its first words. Rows are divided by a hairline from edge to edge. */
-.ov-list { display: grid; grid-template-columns: minmax(0, 1fr); border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 14px rgb(0 0 0 / 0.05); overflow: hidden; }
-body[data-mode="dark"] .ov-list { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12); }
-/* (the list is as wide as the tiles' page: switching between the two moves nothing sideways — the head, the switches and the
- * left edge stay where they are; and the page's width does not depend on whether there is something to scroll) */
+/* the list: a row per note — its sheet in small, its name with its first words under it, and at the
+ * end when it was changed. No card around them: rows on the page, divided by a hairline that begins
+ * where the names do. (The list is as wide as the tiles' page: switching between the two moves
+ * nothing sideways, and the page's width does not depend on whether there is something to scroll.) */
+.ov-list { display: grid; grid-template-columns: minmax(0, 1fr); }
 .ov-row {
-  position: relative; display: flex; align-items: center; gap: 14px; box-sizing: border-box; min-height: 68px; padding: 10px 16px;
-  font: 400 14px/1.35 var(--ui); color: var(--fg); cursor: default;
-  outline: var(--focus-ring) solid transparent; outline-offset: -3px; user-select: none; -webkit-user-select: none;
+  position: relative; display: flex; align-items: center; gap: 14px; box-sizing: border-box; min-height: 60px; padding: 7px 12px;
+  border-radius: var(--radius-control);
+  font: 400 13px/1.35 var(--ui); color: var(--fg); cursor: default;
+  outline: var(--focus-ring) solid transparent; outline-offset: -2px; user-select: none; -webkit-user-select: none;
   opacity: 0;
   transition: opacity var(--dur-overview-exit) var(--ease-out);
 }
-.ov-row:first-child { border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
-.ov-row:last-child { border-radius: 0 0 var(--radius-panel) var(--radius-panel); }
-.ov-row:only-child { border-radius: var(--radius-panel); }
 #overview[data-open] .ov-row { opacity: 1; transition: opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)), background-color var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); }
 #overview[data-open] .ov-row:hover, .ov-row.ctx-target { background: var(--sb-hover); transition-duration: var(--dur-base), var(--dur-instant), var(--dur-instant); }
 #overview[data-open] .ov-row:active { background: var(--sb-selected); }
 /* (the note on screen wears no mark here, as among the tiles) */
 #overview[data-keys] .ov-row:focus-visible { outline-color: var(--accent); }
-.ov-row + .ov-row::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
-.ov-row .ov-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--c, var(--fg)) 11%, transparent); color: var(--c, var(--fg2)); }
-.ov-row .ov-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.ov-row.ov-folder .ov-icon { --c: var(--accent); }
-.ov-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.ov-row .ov-name { padding: 0; margin: 0; border: 0; font: 600 16px/1.3 var(--ui); display: block; white-space: nowrap; text-overflow: ellipsis; }
-.ov-snip { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg2); font-size: 14px; }
+.ov-row + .ov-row::before { content: ""; position: absolute; top: 0; left: 62px; right: 12px; height: 1px; background: var(--line); transition: opacity var(--dur-fast) var(--ease-out); }
+/* (a row that is filled — under the pointer, selected — has no line at either edge) */
+.ov-row:is(:hover, .ctx-target, .picked)::before, .ov-row:is(:hover, .ctx-target, .picked) + .ov-row::before { opacity: 0; transition-duration: var(--dur-instant); }
+.ov-mini { position: relative; flex: none; box-sizing: border-box; width: 36px; height: 46px; padding: 5px 5px 0; border-radius: 4px; background: var(--paper); box-shadow: 0 0 0 0.5px var(--edge), 0 1px 3px rgb(0 0 0 / 0.08); overflow: hidden; }
+/* (made small by a transform, not by zoom: the browser lets no letter be smaller than its least size, and at this size zoom
+ * would leave three letters to a line) */
+.ov-mini .ov-prev { zoom: 1; width: 217px; transform: scale(0.12); transform-origin: 0 0; }
+.ov-mini > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ov-mini > .ov-icon { position: absolute; inset: 0; display: grid; place-items: center; color: var(--fg3); }
+.ov-folder .ov-mini { background: color-mix(in srgb, var(--c, var(--accent)) 10%, var(--paper)); }
+.ov-folder .ov-mini > .ov-icon { color: var(--c, var(--accent)); }
+.ov-mini .ov-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ov-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ov-row .ov-name { font: 600 15px/1.3 var(--ui); display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ov-snip { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg2); font-size: 13px; }
 .ov-row.ov-empty .ov-snip::before { content: "Empty"; color: var(--fg-quiet); }
+.ov-when { flex: none; color: var(--fg-quiet); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .ov-go { display: grid; place-items: center; flex: none; color: var(--fg3); }
 .ov-go svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.ov-row .ov-rename { position: static; width: min(360px, 100%); height: 28px; margin: 0; padding: 0 8px; font-size: 15px; }
-/* (a row's colour is its sign's: no frame, no wash) */
-.ov-row { --frame: 0px; }
+.ov-row .ov-rename { position: static; width: min(360px, 100%); height: 26px; margin: -3px 0; padding: 0 8px; font-size: 15px; }
 
 /* a tile dragged over a folder's: it would go into it */
-.ov-item.drop-into { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--cc, var(--paper, transparent))); }
+.ov-item.drop-into { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* (the tile that is dragged stands where it stood: pressed and lifted, it would be held beside the pointer) */
-#overview[data-open] .ov-tile.dragged, #overview[data-open] .ov-tile.dragged:hover, #overview[data-open] .ov-tile.dragged:active { transform: none; transition: none; }
+#overview[data-open] .ov-tile.dragged :is(.ov-sheet, .ov-stack > i:nth-child(3)) { transform: none; transition: none; }
 
-/* a file that is no note — a PDF, a picture, any other: its name, what it is (a picture as itself), its kind */
-.ov-file .ov-sheet { display: grid; grid-template-rows: auto 1fr auto; }
+/* a file that is no note — a PDF, a picture, any other: a sheet with the picture on it, or its sign; under it its name and its kind */
+.ov-file .ov-sheet { padding: 0; }
 .ov-file .ov-sheet::after { content: none; }
-.ov-pic { display: grid; place-items: center; min-height: 0; padding: 4px 14px 2px; overflow: hidden; }
-.ov-pic img { display: block; max-width: 100%; max-height: 100%; min-height: 0; object-fit: contain; border-radius: var(--radius-chip); }
-.ov-file.ov-tile .ov-icon { color: var(--fg2); }
-.ov-file.ov-tile .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
-.ov-file.ov-tile .ov-icon .sf { font-size: 40px; }
-.ov-file.ov-tile .ov-sub { padding: 0 14px 12px; text-align: center; }
+.ov-pic { position: absolute; inset: 0; display: grid; place-items: center; color: var(--fg3); }
+.ov-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ov-pic .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.ov-pic .ov-icon .sf { font-size: 40px; }
 /* several at once: what is selected — a tile wears a ring, a row the fill a chosen row has */
 #overview { user-select: none; -webkit-user-select: none; }
-.ov-tile.picked { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+.ov-tile.picked { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 5px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
 #overview[data-open] .ov-row.picked, #overview[data-open] .ov-row.picked:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 /* the rectangle pulled from the empty room */
 .ov-band { position: absolute; z-index: 3; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent); border-radius: 3px; background: color-mix(in srgb, var(--accent) 12%, transparent); pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit); }
 .ov-band.leaving { opacity: 0; }
 
-/* (a name of two lines: the line under it is the next part's upper edge — as the name's own lower edge, with room
- * above it, a third line of the name showed in that room) */
-.ov-tile:not(.ov-folder) .ov-name { padding-bottom: 0; margin-bottom: 8px; border-bottom: 0; }
-.ov-tile:not(.ov-folder) .ov-name + :is(.ov-prev, .ov-pic) { border-top: 1px solid var(--line); padding-top: 8px; }
 
 /* --- the head, as Craft's "All Docs": the plus before the name — a raised round button — and at
  * the right the choices in raised fields of their own, what is chosen a shade darker in it; "…"

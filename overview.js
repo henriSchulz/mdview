@@ -1,12 +1,14 @@
 /* mdview — all notes of the folder as tiles (folder windows; the toolbar's
- * grid button, Ctrl+Alt+G). A tile is the note in small: its name, a line,
- * and the beginning of what it says, rendered as the reading view renders it.
- * A note whose properties name a colour (`color: red` — one of the theme's)
- * has a dot in that colour before its name.
+ * grid button, Ctrl+Alt+G). A tile is the note as a small sheet of paper: the
+ * beginning of what it says, rendered as the reading view renders it, and under
+ * the sheet its name and when it was changed. A folder is a stack of sheets, in
+ * its colour and with its sign. A note whose properties name a colour
+ * (`color: red` — one of the theme's) has a dot in that colour before its name.
  *
  * Two choices at the head, both remembered: what is shown — all notes, grouped
  * by the folder they lie in, or one folder at a time, its folders to click
- * into — and how: as tiles or as a list (a row per note: its name, under it its first words).
+ * into — and how: as tiles or as a list (a row per note: its sheet in small, its name, under it its
+ * first words, at the end when it was changed).
  * A right click on a note or folder opens the file menu the sidebar has; one
  * on the empty room beside them offers a new note or folder there.
  *
@@ -80,6 +82,8 @@
   const says = ([notes, files]) => [notes || !files ? T(notes === 1 ? "1 note" : "{0} notes", notes) : "", files ? T(files === 1 ? "1 file" : "{0} files", files) : ""].filter(Boolean).join(", ");
   const KIND = { pdf: "PDF", image: "Picture", audio: "Sound", video: "Video" };
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
+  // when a note was changed, as the sidebar says it — today's with the word before the time
+  const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
   const urlOf = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
   // the folder shown (scope "folders"): as far down `at` as the tree still goes
   function place(tree) {
@@ -114,11 +118,16 @@
     if (file) { t.classList.add("ov-file"); t.dataset.kind = n.kind || "file"; }
     if (picked.has(n.path)) t.classList.add("picked");
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : file ? esc(kindOf(n)) : "";
-    const sign = dir ? ICON.folder : file ? core.rowIcon(n.path) : ICON.note;
-    if (list) t.innerHTML = `<span class="ov-icon">${sign}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>${dir ? `<span class="ov-go">${ICON.chevron}</span>` : ""}`;
-    else if (dir) t.innerHTML = `<div class="ov-sheet"><span class="ov-icon">${ICON.folder}</span><div class="ov-name">${name}</div><div class="ov-sub">${sub}</div></div>`;
-    else if (file) t.innerHTML = `<div class="ov-sheet"><div class="ov-name">${name}</div><div class="ov-pic">${n.kind === "image" ? `<img src="${esc(urlOf(n.path))}" alt="" loading="lazy" draggable="false">` : `<span class="ov-icon">${sign}</span>`}</div><div class="ov-sub">${sub}</div></div>`;
-    else t.innerHTML = `<div class="ov-sheet"><div class="ov-name">${name}</div><div class="ov-prev" inert></div></div>`;
+    const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
+    if (look && look.color) t.style.setProperty("--c", look.color);
+    const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
+    const pic = file && n.kind === "image" ? `<img src="${esc(urlOf(n.path))}" alt="" loading="lazy" draggable="false">` : "";
+    // a row: the note's sheet in small, its name, under it its first words, at the end when it was changed
+    if (list) t.innerHTML = `<span class="ov-mini">${dir || file ? pic || sign : `<span class="ov-prev" inert></span>`}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>` +
+      (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
+    // a tile: a folder is a stack of sheets, a note its sheet, any other file a sheet with its picture or its sign — the name under it
+    else t.innerHTML = (dir ? `<div class="ov-stack"><i></i><i></i><i>${sign}</i></div>` : file ? `<div class="ov-sheet"><div class="ov-pic">${pic || sign}</div></div>` : `<div class="ov-sheet"><div class="ov-prev" inert></div></div>`) +
+      `<div class="ov-name">${name}</div><div class="ov-sub">${dir || file ? sub : esc(when(n.mtime))}</div>`;
     return t;
   }
   function build() {

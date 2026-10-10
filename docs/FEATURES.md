@@ -625,7 +625,7 @@ color: green
 ---
 ```
 
-`color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name on the tile, its sign in that colour in the list.
+`color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
 
 ### HTML
 
@@ -714,12 +714,15 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   files — in the settings, or at once from a right click in the sidebar › Show. All Notes has
   its own choice of the same four (settings, or a right click there › Show), apart from the
   sidebar's. A folder's menu has Rename and Move to Trash as a file's has.
-- **All Notes** (`Ctrl+Alt+G`): every note as a tile showing its beginning, or as a list. Two
+- **All Notes** (`Ctrl+Alt+G`): every note as a tile — a small sheet of paper showing its
+  beginning, under it its name and when it was changed; a folder is a stack of sheets in its
+  colour, with its sign — or as a list: a row per note with its sheet in small, its name, its
+  first words and when it was changed. Two
   switches at the head: *All Notes* (grouped by folder) or *Folders* (one folder at a time, click
   into its folders, `Backspace` goes up), and tiles or list. It opens in the folder of the note on
   screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
-  The `+` at the head makes a new note or folder in the folder shown. A tile under the pointer
-  lifts a little. Other files it is set to show stand after the notes: a picture as itself, any
+  The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
+  lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
   **Several at once**: a rectangle pulled from the empty room takes what it touches, `Shift`+click
   takes one more or lets it go, `Ctrl+A` takes all, `Esc` or a click beside them none. What is

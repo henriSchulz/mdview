@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – All Notes, sechs Ansätze</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Die Farben des Themes „cupertino“ und die Namen aus viewer.css, damit die Skizzen so aussehen wie die App. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-red: #d70015; --c-orange: #c93400; --c-yellow: #a05a00; --c-green: #248a3d;
+    --c-cyan: #0071a4; --c-blue: #0071e3; --c-magenta: #8944ab; --c-gray: #6e6e73;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --fg-quiet: color-mix(in srgb, var(--fg) 62%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --sb-hover: color-mix(in srgb, var(--fg) 4%, transparent);
+    --sb-selected: color-mix(in srgb, var(--fg) 7.8%, transparent);
+    --raised: color-mix(in srgb, #fff 62%, var(--bg));
+    --paper: #fff;
+    --edge: 0 0 0 0.5px var(--line-strong);
+    --soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 18px rgb(0 0 0 / 0.07);
+    --deep: 0 1px 2px rgb(0 0 0 / 0.05), 0 12px 28px rgb(0 0 0 / 0.14);
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --serif: "New York", ui-serif, "Iowan Old Style", Georgia, serif;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c1e; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-red: #ff453a; --c-orange: #ff9f0a; --c-yellow: #ffd60a; --c-green: #30d158;
+    --c-cyan: #64d2ff; --c-blue: #0a84ff; --c-magenta: #bf5af2; --c-gray: #98989d;
+    --raised: color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --paper: color-mix(in srgb, var(--fg) 7%, var(--bg));
+    --edge: 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    --soft: 0 6px 18px rgb(0 0 0 / 0.3);
+    --deep: 0 12px 28px rgb(0 0 0 / 0.45);
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; animation: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0; padding: 0 40px 80px; background: var(--bg); color: var(--fg); font: 400 13px/1.4 var(--ui); font-variation-settings: "opsz" 17; -webkit-font-smoothing: antialiased; overflow-y: scroll; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  button { font: inherit; color: inherit; cursor: default; }
+  :focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 2px; }
+  .red { --c: var(--c-red); } .orange { --c: var(--c-orange); } .yellow { --c: var(--c-yellow); } .green { --c: var(--c-green); }
+  .cyan { --c: var(--c-cyan); } .blue { --c: var(--c-blue); } .magenta { --c: var(--c-magenta); }
+
+  /* ---- die Leiste des Labors */
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width: 1100px; margin: 0 auto; padding: 14px 0 10px; }
+  .bar::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; background: color-mix(in srgb, var(--bg) 78%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-bottom: 0.5px solid var(--line); }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); height: 32px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); user-select: none; }
+  .bar .seg { flex: 1 1 520px; }
+  .seg-thumb { position: absolute; top: 2px; left: 2px; width: calc((100% - 4px) / var(--n, 6)); height: 28px; border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .seg button { position: relative; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font: 500 13px var(--ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-fast) var(--ease-out); }
+  .seg button[aria-pressed="true"] { color: var(--fg); }
+  .seg button kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  .mode { height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); font: 500 13px var(--ui); transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .mode:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+  .mode:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .idea { max-width: 1100px; margin: 14px auto 0; padding: 12px 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 13.5px; line-height: 1.5; color: var(--fg2); }
+  .idea b { color: var(--fg); font-weight: 600; }
+
+  /* ---- der Kopf der Seite, wie er in der App steht */
+  .page { max-width: 1100px; margin: 40px auto 0; }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .head h1 { margin: 0; font: 700 28px/1.2 var(--ui); letter-spacing: -0.01em; }
+  .head .count { padding-top: 6px; color: var(--fg2); }
+  .head .space { flex: 1; }
+  .round { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--radius-pill); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); }
+  .round svg { width: 16px; height: 16px; stroke-width: 2.2; }
+  .head .seg { --n: 2; height: 34px; padding: 3px; border-radius: var(--radius-popover); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.1); }
+  .head .seg-thumb { top: 3px; left: 3px; width: calc((100% - 6px) / 2); border-radius: calc(var(--radius-popover) - 3px); background: color-mix(in srgb, var(--fg) 8%, transparent); box-shadow: none; }
+  .head .seg button { border-radius: calc(var(--radius-popover) - 3px); font-size: 12px; }
+
+  /* ---- gemeinsam */
+  .it { cursor: default; user-select: none; -webkit-user-select: none; }
+  .name { font-weight: 600; overflow: hidden; overflow-wrap: anywhere; }
+  .clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines, 2); overflow: hidden; }
+  .one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--c); vertical-align: 0.06em; }
+  .prev { zoom: 0.5; pointer-events: none; font: 400 15px/1.5 var(--ui); color: var(--fg); }
+  .prev > :first-child { margin-top: 0; }
+  .prev h2 { margin: 14px 0 6px; font-size: 19px; }
+  .prev p, .prev ul { margin: 0 0 9px; }
+  .prev ul { padding-left: 20px; }
+  .prev blockquote { margin: 0 0 9px; padding: 8px 12px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .go { flex: none; width: 13px; height: 13px; stroke-width: 2.4; color: var(--fg3); }
+  .group { margin: 28px 0 10px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
+  .group:first-child { margin-top: 0; }
+  .lift { transition: transform var(--spring-smooth-dur) var(--spring-smooth), box-shadow var(--dur-fast) var(--ease-out); }
+  .it:hover .lift, .it.lift:hover { transform: translateY(-2px); box-shadow: var(--edge), var(--deep); transition-duration: var(--spring-smooth-dur), var(--dur-instant); }
+  .it:active .lift, .it.lift:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .hov { transition: background-color var(--dur-fast) var(--ease-out); }
+  .hov:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+  .hov:active { background: var(--sb-selected); }
+  @media (prefers-reduced-motion: reduce) { .it:hover .lift, .it.lift:hover, .it:active .lift, .it.lift:active { transform: none; } }
+
+  /* ============ 1 · Papier: das Blatt ist die Kachel, der Name steht darunter */
+  .g1 { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 30px 26px; }
+  .g1 .it { display: grid; gap: 10px; justify-items: center; text-align: center; }
+  .g1 .sheet { position: relative; width: 100%; aspect-ratio: 3 / 3.9; padding: 14px 14px 0; border-radius: var(--radius-control); background: var(--paper); box-shadow: var(--edge), var(--soft); overflow: hidden; text-align: left; }
+  .g1 .sheet::after { content: ""; position: absolute; inset: auto 0 0; height: 36px; background: linear-gradient(transparent, var(--paper)); }
+  .g1 .name { font-size: 13px; line-height: 1.3; }
+  .g1 .meta { margin-top: -8px; font-size: 12px; color: var(--fg-quiet); }
+  .g1 .stack { position: relative; width: 100%; aspect-ratio: 3 / 3.9; }
+  .g1 .stack i { position: absolute; inset: 12% 8% 6%; border-radius: var(--radius-control); background: color-mix(in srgb, var(--c, var(--accent)) 9%, var(--paper)); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.06); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .g1 .stack i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
+  .g1 .stack i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
+  .g1 .stack i:nth-child(3) { display: grid; place-items: center; color: var(--c, var(--accent)); }
+  .g1 .it:hover .stack i:nth-child(1) { transform: rotate(-10deg) translate(-12px, 2px); }
+  .g1 .it:hover .stack i:nth-child(2) { transform: rotate(9deg) translate(12px, 0); }
+  .g1 .stack svg { width: 38px; height: 38px; stroke-width: 1.3; }
+  .g1 .pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .l1 .it { position: relative; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 12px; border-radius: var(--radius-control); }
+  .l1 .it + .it::before { content: ""; position: absolute; top: 0; left: 62px; right: 12px; height: 1px; background: var(--line); }
+  .l1 .it:hover::before, .l1 .it:hover + .it::before { opacity: 0; }
+  .l1 .mini { flex: none; position: relative; width: 36px; height: 46px; padding: 5px 5px 0; border-radius: 4px; background: var(--paper); box-shadow: var(--edge), 0 1px 3px rgb(0 0 0 / 0.08); overflow: hidden; }
+  .l1 .mini .prev { zoom: 0.12; }
+  .l1 .mini.dir { display: grid; place-items: center; padding: 0; background: color-mix(in srgb, var(--c, var(--accent)) 10%, var(--paper)); color: var(--c, var(--accent)); }
+  .l1 .mini svg { width: 18px; height: 18px; }
+  .l1 .mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .l1 .text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  .l1 .name { font-size: 15px; }
+  .l1 .snip { color: var(--fg2); font-size: 13px; }
+  .l1 .date { flex: none; color: var(--fg-quiet); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+  /* ============ 2 · Karteikarten: Text statt Miniatur, nach Tagen geordnet */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px 0 10px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--c, var(--accent)) 10%, transparent); font-weight: 500; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .chip:hover { background: color-mix(in srgb, var(--c, var(--accent)) 17%, transparent); transition-duration: var(--dur-instant); }
+  .chip:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .chip svg { width: 16px; height: 16px; color: var(--c, var(--accent)); }
+  .chip small { color: var(--fg-quiet); font-size: 12px; }
+  .g2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .g2 .it { display: flex; flex-direction: column; gap: 6px; height: 148px; padding: 14px 16px 12px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line); transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .g2 .it:hover { background: var(--paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 14px rgb(0 0 0 / 0.07); transition-duration: var(--dur-instant); }
+  .g2 .it:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .g2 .name { font-size: 15px; line-height: 1.25; --lines: 2; }
+  .g2 .snip { flex: 1; min-height: 0; color: var(--fg2); font-size: 13px; line-height: 1.4; --lines: 3; }
+  .g2 .meta { display: flex; align-items: center; color: var(--fg-quiet); font-size: 12px; }
+  .l2 .card { border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line); overflow: hidden; }
+  .l2 .it { position: relative; display: grid; gap: 2px; padding: 10px 16px; }
+  .l2 .it + .it::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--line); }
+  .l2 .name { font-size: 15px; }
+  .l2 .sub { display: flex; gap: 10px; font-size: 13px; color: var(--fg2); }
+  .l2 .sub b { flex: none; font-weight: 400; color: var(--fg); font-variant-numeric: tabular-nums; }
+
+  /* ============ 3 · Farbe: die Notiz als Widget in ihrer Farbe */
+  .g3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(164px, 1fr)); gap: 16px; }
+  .g3 .it { --k: var(--c, var(--c-gray)); position: relative; display: flex; flex-direction: column; aspect-ratio: 1; padding: 14px; border-radius: var(--radius-tile); background: linear-gradient(160deg, color-mix(in srgb, var(--k) 82%, #fff), var(--k)); color: #fff; box-shadow: 0 6px 16px color-mix(in srgb, var(--k) 24%, transparent); }
+  .g3 .it.lift:hover { box-shadow: 0 12px 26px color-mix(in srgb, var(--k) 36%, transparent); }
+  .g3 .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .g3 .glyph { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: rgb(255 255 255 / 0.22); }
+  .g3 .glyph svg { width: 19px; height: 19px; }
+  .g3 .num { font: 700 24px/1 var(--ui); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .g3 .num small { display: block; margin-top: 3px; font: 500 11px/1 var(--ui); letter-spacing: 0; text-align: right; opacity: 0.85; }
+  .g3 .name { margin-top: auto; font-size: 15.5px; line-height: 1.22; --lines: 3; }
+  .g3 .meta { margin-top: 4px; font-size: 12px; opacity: 0.88; }
+  :root[data-mode="dark"] .g3 .it { background: linear-gradient(160deg, color-mix(in srgb, var(--k) 34%, var(--bg)), color-mix(in srgb, var(--k) 20%, var(--bg))); color: var(--fg); box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--k) 40%, transparent); }
+  :root[data-mode="dark"] .g3 .glyph { background: color-mix(in srgb, var(--k) 30%, transparent); color: var(--k); }
+  .l3 .card { border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line); overflow: hidden; }
+  .l3 .card + .group { margin-top: 26px; }
+  .l3 .it { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 14px; }
+  .l3 .it + .it::before { content: ""; position: absolute; top: 0; left: 56px; right: 0; height: 1px; background: var(--line); }
+  .l3 .glyph { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--radius-control); background: var(--c, var(--c-gray)); color: #fff; }
+  :root[data-mode="dark"] .l3 .glyph { color: #1c1c1e; }
+  .l3 .glyph svg { width: 17px; height: 17px; }
+  .l3 .name { flex: 1; font-size: 15px; font-weight: 500; }
+  .l3 .date { flex: none; color: var(--fg2); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+
+  /* ============ 4 · Titelbild: jede Notiz hat ein Bild über sich */
+  .g4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+  .g4 .it { border-radius: var(--radius-panel); background: var(--paper); box-shadow: var(--edge), var(--soft); overflow: hidden; }
+  .cover { position: relative; display: grid; place-items: center; overflow: hidden; background: linear-gradient(135deg, color-mix(in srgb, var(--c, var(--c-gray)) 20%, var(--paper)), color-mix(in srgb, var(--c, var(--c-gray)) 7%, var(--paper))); color: color-mix(in srgb, var(--c, var(--c-gray)) 75%, var(--fg)); }
+  .cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .cover .mono { font: 700 44px/1 var(--serif); letter-spacing: -0.03em; opacity: 0.9; }
+  .cover svg { width: 40px; height: 40px; stroke-width: 1.3; }
+  .g4 .cover { height: 124px; }
+  .g4 .body { display: grid; gap: 4px; padding: 12px 14px 13px; }
+  .g4 .name { font-size: 15px; line-height: 1.25; }
+  .g4 .snip { color: var(--fg2); font-size: 13px; line-height: 1.4; --lines: 2; min-height: 2.8em; }
+  .g4 .meta { margin-top: 2px; color: var(--fg-quiet); font-size: 12px; }
+  .l4 .it { position: relative; display: flex; align-items: center; gap: 20px; padding: 14px 12px; border-radius: var(--radius-popover); }
+  .l4 .it + .it::before { content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px; background: var(--line); }
+  .l4 .it:hover::before, .l4 .it:hover + .it::before { opacity: 0; }
+  .l4 .text { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .l4 .name { font-size: 16px; }
+  .l4 .snip { color: var(--fg2); font-size: 13.5px; line-height: 1.4; --lines: 2; }
+  .l4 .meta { color: var(--fg-quiet); font-size: 12px; }
+  .l4 .cover { flex: none; width: 112px; height: 72px; border-radius: var(--radius-control); box-shadow: 0 0 0 0.5px var(--line); }
+  .l4 .cover .mono { font-size: 28px; }
+  .l4 .cover svg { width: 26px; height: 26px; }
+
+  /* ============ 5 · Satz: keine Karten, nur Schrift und Linien — und die Liste als Tabelle */
+  .g5 { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); border-top: 1px solid var(--fg); overflow: hidden; }
+  .g5 .it { position: relative; display: flex; flex-direction: column; gap: 6px; min-height: 172px; padding: 16px 18px 18px; margin: 0 -1px -1px 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .g5 .kick { font: 600 10.5px/1.3 var(--ui); letter-spacing: 0.07em; text-transform: uppercase; color: var(--c, var(--fg-quiet)); }
+  .g5 .name { font: 600 20px/1.2 var(--serif); letter-spacing: -0.01em; --lines: 3; }
+  .g5 .snip { font: 400 14px/1.45 var(--serif); color: var(--fg2); --lines: 3; }
+  .g5 .it.dir .name::after { content: " →"; color: var(--fg3); }
+  .l5 { font-size: 13px; }
+  .l5 .row, .l5 .th { display: grid; grid-template-columns: minmax(0, 1fr) 150px 80px 120px; align-items: center; gap: 16px; padding: 0 10px; }
+  .l5 .th { height: 28px; border-bottom: 1px solid var(--line-strong); font: 500 11.5px var(--ui); color: var(--fg-quiet); }
+  .l5 .th span:nth-child(3), .l5 .row span:nth-child(3) { text-align: right; }
+  .l5 .th span:first-child::after { content: " ↑"; color: var(--fg3); }
+  .l5 .row { height: 32px; border-radius: var(--radius-row); color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .l5 .row:nth-child(odd) { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }
+  .l5 .row:hover { background: var(--sb-selected); }
+  .l5 .first { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--fg); }
+  .l5 .first svg { flex: none; width: 16px; height: 16px; color: var(--c, var(--fg3)); }
+  .l5 .first .name { font-weight: 500; }
+
+  /* ============ 6 · Regale: jeder Ordner eine Reihe, die zur Seite läuft */
+  .shelf-h { display: flex; align-items: center; gap: 6px; margin: 30px 0 12px; font: 700 18px/1.2 var(--ui); letter-spacing: -0.01em; }
+  .shelf-h:first-child { margin-top: 0; }
+  .shelf-h svg { width: 14px; height: 14px; stroke-width: 2.4; color: var(--fg3); }
+  .shelf-h small { margin-left: 4px; font: 400 13px var(--ui); color: var(--fg-quiet); letter-spacing: 0; }
+  .shelf { display: flex; gap: 16px; margin: 0 -40px; padding: 4px 40px 22px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding: 0 40px; scrollbar-width: none; }
+  .shelf::-webkit-scrollbar { display: none; }
+  .shelf .it { flex: none; width: 172px; scroll-snap-align: start; display: grid; gap: 8px; }
+  .shelf .sheet { position: relative; height: 128px; padding: 12px 12px 0; border-radius: var(--radius-popover); background: var(--paper); box-shadow: var(--edge), var(--soft); overflow: hidden; }
+  .shelf .sheet::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--c, transparent); }
+  .shelf .sheet::after { content: ""; position: absolute; inset: auto 0 0; height: 30px; background: linear-gradient(transparent, var(--paper)); }
+  .shelf .sheet img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .shelf .name { font-size: 13px; line-height: 1.3; --lines: 2; }
+  .shelf .meta { margin-top: -6px; font-size: 12px; color: var(--fg-quiet); }
+  .l6 .fold { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: var(--radius-control); background: none; font: 600 14px var(--ui); text-align: left; }
+  .l6 .fold .tri { width: 12px; height: 12px; stroke-width: 2.4; color: var(--fg3); transform: rotate(90deg); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .l6 .fold[aria-expanded="false"] .tri { transform: none; }
+  .l6 .fold .fi { width: 17px; height: 17px; color: var(--c, var(--accent)); }
+  .l6 .fold small { font: 400 12.5px var(--ui); color: var(--fg-quiet); }
+  .l6 .kids { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+  .l6 .fold[aria-expanded="false"] + .kids { grid-template-rows: 0fr; opacity: 0; }
+  .l6 .kids > div { min-height: 0; overflow: hidden; margin-left: 13px; padding-left: 14px; border-left: 1px solid var(--line); }
+  .l6 .it { display: flex; align-items: baseline; gap: 10px; height: 36px; padding: 0 10px; line-height: 36px; border-radius: var(--radius-control); }
+  .l6 .name { flex: none; max-width: 45%; font-size: 14px; }
+  .l6 .snip { flex: 1; color: var(--fg2); font-size: 13px; }
+  .l6 .date { flex: none; color: var(--fg-quiet); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .l6 .sect { margin-bottom: 8px; }
+</style>
+
+<div class="bar">
+  <div class="seg" id="pick" role="group" aria-label="Ansatz"><span class="seg-thumb"></span></div>
+  <button class="mode" id="view" title="T / L"></button>
+  <button class="mode" id="mode" title="D">Dunkel</button>
+</div>
+<p class="idea" id="idea"></p>
+
+<div class="page">
+  <div class="head">
+    <button class="round" aria-label="New"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></button>
+    <h1>All Notes</h1><span class="count">2 folders, 10 notes, 2 files</span><span class="space"></span>
+    <div class="seg" id="tl" role="group" aria-label="View"><span class="seg-thumb"></span><button data-v="tiles">Tiles</button><button data-v="list">List</button></div>
+    <button class="round" aria-label="More"><svg viewBox="0 0 16 16" style="fill:currentColor;stroke:none"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+  </div>
+  <div id="body"></div>
+</div>
+
+<script>
+const I = {
+  doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+  folder: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  pdf: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M8.5 17v-4h1.2a1.2 1.2 0 0 1 0 2.4H8.500M13 13v4M13 13h.8a2 2 0 0 1 0 4H13"/></svg>',
+  image: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 8"/></svg>',
+  go: '<svg class="go" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg>',
+};
+const pic = (a, b) => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="300" height="200" fill="url(#g)"/><circle cx="230" cy="60" r="26" fill="#fff" opacity=".7"/><path d="M0 200l90-90 60 50 60-80 90 120z" fill="#000" opacity=".22"/></svg>`);
+
+// Die Beispiele. „date“, „words“ und ein Titelbild zeigt die App heute nicht (das Änderungsdatum kennt sie, die Wörter ließen sich zählen).
+const DIRS = [
+  { dir: true, name: "Uni", c: "blue", n: 14 },
+  { dir: true, name: "Projekte", c: "orange", n: 6 },
+];
+const NOTES = [
+  { name: "Analysis II – Zusammenfassung", c: "blue", in: "Uni", when: "Today", date: "14:32", words: 1840, body: ["## Taylor", "Jede (n+1)-mal differenzierbare Funktion lässt sich um a entwickeln, das Restglied nach Lagrange misst den Fehler.", "> Gleichmäßige Konvergenz erhält Stetigkeit.", "- Potenzreihen", "- Konvergenzradius", "- Vertauschen von Limes und Integral"] },
+  { name: "Einkauf & Woche", c: "green", in: "", when: "Today", date: "09:05", words: 64, body: ["- Hafermilch, Tomaten, Basilikum", "- Paket abholen", "- Fahrrad: Schlauch hinten", "Mittwoch Abend kochen mit Jonas."] },
+  { name: "mdview – Ideen für die Übersicht", c: "orange", in: "Projekte", when: "Today", date: "08:41", words: 412, img: pic("#f7b267", "#f25c54"), body: ["Die Kacheln sollen ruhiger werden, die Liste dichter.", "## Offen", "- Datum zeigen?", "- Ordner als Stapel", "- Farbe sparsam"] },
+  { name: "Lineare Algebra – Übungsblatt 7", c: "blue", in: "Uni", when: "Previous 7 Days", date: "Thursday", words: 530, body: ["## Aufgabe 1", "Zeige, dass die Abbildung linear ist und bestimme Kern und Bild.", "## Aufgabe 2", "Diagonalisiere die Matrix A über den reellen Zahlen."] },
+  { name: "Reise Lissabon", c: "cyan", in: "", when: "Previous 7 Days", date: "Wednesday", words: 298, img: pic("#8ecae6", "#219ebc"), body: ["Flug 7:40 ab Frankfurt, Unterkunft in Alfama.", "- Tram 28", "- Pastéis in Belém", "- Tagesausflug Sintra"] },
+  { name: "Besprechung Presswerk", c: "", in: "Projekte", when: "Previous 7 Days", date: "Tuesday", words: 221, body: ["Liefertermin KW 44 bestätigt, Bolzenpreis wird neu verhandelt.", "- Muster bis Freitag", "- Zeichnung Rev. C"] },
+  { name: "Bücher 2026", c: "magenta", in: "", when: "Previous 7 Days", date: "Monday", words: 176, body: ["## Gelesen", "- Die Jahre", "- Stoner", "## Als Nächstes", "- Der Zauberberg"] },
+  { name: "Thermodynamik – Formelsammlung", c: "red", in: "Uni", when: "September", date: "28.09.", words: 960, body: ["## Hauptsätze", "Die innere Energie eines abgeschlossenen Systems bleibt erhalten.", "> dS ≥ δQ / T", "- ideales Gas", "- Carnot-Prozess"] },
+  { name: "Wohnung – Zählerstände", c: "yellow", in: "", when: "September", date: "21.09.", words: 48, body: ["Strom 48 213 kWh, Wasser 312 m³, Gas 9 871 m³.", "Nächste Ablesung im Dezember."] },
+  { name: "Ohne Titel", c: "", in: "", when: "September", date: "03.09.", words: 0, body: [] },
+  { name: "Skript Analysis.pdf", file: "pdf", sub: "PDF · 2.4 MB", c: "", in: "Uni", when: "September", date: "02.09.", words: null, body: [] },
+  { name: "Whiteboard-Foto.jpg", file: "image", sub: "JPEG · 1.1 MB", c: "", in: "Projekte", when: "September", date: "01.09.", words: null, img: pic("#cdb4db", "#5e60ce"), body: [] },
+];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const prev = (n) => {
+  let out = "", ul = false;
+  for (const l of n.body) {
+    const li = l.startsWith("- ");
+    if (li !== ul) { out += li ? "<ul>" : "</ul>"; ul = li; }
+    out += li ? `<li>${esc(l.slice(2))}</li>` : l.startsWith("## ") ? `<h2>${esc(l.slice(3))}</h2>` : l.startsWith("> ") ? `<blockquote>${esc(l.slice(2))}</blockquote>` : `<p>${esc(l)}</p>`;
+  }
+  return `<div class="prev">${out + (ul ? "</ul>" : "") || '<p style="color:var(--fg-quiet)">Empty</p>'}</div>`;
+};
+const snip = (n) => n.file ? n.sub : n.body.map((l) => l.replace(/^(## |- |> )/, "")).join(" · ") || "Empty";
+const full = (n) => (n.when === "Today" ? "Today, " : "") + n.date;
+const sign = (n) => n.dir ? I.folder : n.file ? I[n.file] : I.doc;
+const dot = (n) => n.c ? '<i class="dot"></i>' : "";
+const mono = (n) => esc(n.name.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).slice(0, 2).map((w) => w[0]).join(""));
+const cover = (n) => `<div class="cover">${n.img ? `<img src="${n.img}" alt="">` : n.dir || n.file ? sign(n) : `<span class="mono">${mono(n)}</span>`}</div>`;
+const by = (key) => { const m = new Map(); for (const n of NOTES) (m.get(n[key]) || m.set(n[key], []).get(n[key])).push(n); return [...m]; };
+const cls = (n, more = "") => `class="it ${n.c || ""} ${n.dir ? "dir" : ""} ${more}" tabindex="0"`;
+
+const V = [
+  { name: "Papier", idea: "<b>Das Blatt ist die Kachel.</b> Die Notiz liegt als kleines Blatt im Seitenformat da, Name und Datum stehen darunter wie im Dokumenten-Browser von Pages; ein Ordner ist ein Stapel, der sich unter dem Zeiger auffächert. Die Liste verliert ihre Karte: Zeilen mit dem Blatt in klein, das Datum rechts.",
+    tiles: () => `<div class="g1">${DIRS.map((d) => `<div ${cls(d)}><div class="stack"><i></i><i></i><i>${I.folder}</i></div><div class="name clamp">${esc(d.name)}</div><div class="meta">${d.n} notes</div></div>`).join("")}${NOTES.map((n) => `<div ${cls(n)}><div class="sheet lift">${n.img && n.file ? `<img class="pic" src="${n.img}" alt="">` : n.file ? `<div style="display:grid;place-items:center;height:90%;color:var(--fg3)"><span style="width:44px">${sign(n)}</span></div>` : prev(n)}</div><div class="name clamp">${dot(n)}${esc(n.name)}</div><div class="meta">${full(n)}</div></div>`).join("")}</div>`,
+    list: () => `<div class="l1">${[...DIRS, ...NOTES].map((n) => `<div ${cls(n, "hov")}><span class="mini ${n.dir ? "dir" : ""}">${n.dir ? I.folder : n.img && n.file ? `<img src="${n.img}" alt="">` : n.file ? "" : prev(n)}</span><span class="text"><span class="name one">${n.dir ? "" : dot(n)}${esc(n.name)}</span><span class="snip one">${n.dir ? n.n + " notes" : esc(snip(n))}</span></span><span class="date">${n.dir ? "" : full(n)}</span>${n.dir ? I.go : ""}</div>`).join("")}</div>` },
+
+  { name: "Karteikarten", idea: "<b>Text statt Miniatur.</b> Wie in Apple Notes: flache Karten mit Name, den ersten Zeilen in lesbarer Größe und dem Datum — geordnet nach „Today“, „Previous 7 Days“, dem Monat. Ordner sind Kapseln über allem. Die Liste: dieselben Gruppen, je eine Karte, Datum und erste Worte in einer Zeile.",
+    tiles: () => chips() + by("when").map(([w, ns]) => `<div class="group">${w}</div><div class="g2">${ns.map((n) => `<div ${cls(n)}><div class="name clamp">${esc(n.name)}</div><div class="snip clamp">${esc(snip(n))}</div><div class="meta">${dot(n)}${n.date}${n.in ? " · " + n.in : ""}</div></div>`).join("")}</div>`).join(""),
+    list: () => `<div class="l2">${chips()}${by("when").map(([w, ns]) => `<div class="group">${w}</div><div class="card">${ns.map((n) => `<div ${cls(n, "hov")}><span class="name one">${dot(n)}${esc(n.name)}</span><span class="sub"><b>${n.date}</b><span class="one">${esc(snip(n))}</span></span></div>`).join("")}</div>`).join("")}</div>` },
+
+  { name: "Farbe", idea: "<b>Die Notiz als Widget.</b> Jede Kachel ist ein Quadrat in der Farbe der Notiz, mit Zeichen, Wortzahl und großem Namen — wie die Kacheln in Erinnerungen und Kurzbefehle; ohne Farbe ist sie grau. Die Liste ist die gruppierte Liste der Systemeinstellungen: farbiges Zeichen, Name, Datum, dicht.",
+    tiles: () => `<div class="g3">${[...DIRS, ...NOTES].map((n) => `<div ${cls(n, "lift")}><div class="top"><span class="glyph">${sign(n)}</span>${n.dir ? `<span class="num">${n.n}<small>notes</small></span>` : n.words ? `<span class="num">${n.words}<small>words</small></span>` : ""}</div><div class="name clamp">${esc(n.name)}</div><div class="meta">${n.dir ? "Folder" : full(n)}</div></div>`).join("")}</div>`,
+    list: () => `<div class="l3"><div class="group">Folders</div><div class="card">${DIRS.map(row3).join("")}</div><div class="group">Notes</div><div class="card">${NOTES.map(row3).join("")}</div></div>` },
+
+  { name: "Titelbild", idea: "<b>Jede Notiz hat ein Bild über sich.</b> Das erste Bild der Notiz wird ihr Titelbild; hat sie keins, ein Farbfeld mit ihren Anfangsbuchstaben. Darunter Name, zwei Zeilen Text, Ordner und Datum. In der Liste steht das Bild klein am rechten Rand, die Zeilen sind groß und luftig wie in einer Leseliste.",
+    tiles: () => `<div class="g4">${[...DIRS, ...NOTES].map((n) => `<div ${cls(n, "lift")}>${cover(n)}<div class="body"><div class="name one">${esc(n.name)}</div><div class="snip clamp">${n.dir ? n.n + " notes" : esc(snip(n))}</div><div class="meta">${n.dir ? "Folder" : (n.in ? n.in + " · " : "") + full(n)}</div></div></div>`).join("")}</div>`,
+    list: () => `<div class="l4">${[...DIRS, ...NOTES].map((n) => `<div ${cls(n, "hov")}><span class="text"><span class="name one">${esc(n.name)}</span><span class="snip clamp">${n.dir ? n.n + " notes" : esc(snip(n))}</span><span class="meta">${n.dir ? "Folder" : (n.in ? n.in + " · " : "") + full(n)}</span></span>${cover(n)}</div>`).join("")}</div>` },
+
+  { name: "Satz", idea: "<b>Keine Karten, nur Schrift und Linien.</b> Die Kacheln sind Spalten einer Zeitungsseite: eine kleine Zeile in der Farbe der Notiz, der Name in einer Serifenschrift, darunter der Anfang. Die Liste ist das Gegenteil davon — eine Tabelle wie im Finder: Name, geändert, Wörter, Ordner, 32 px je Zeile.",
+    tiles: () => `<div class="g5">${[...DIRS, ...NOTES].map((n) => `<div ${cls(n, "hov")}><div class="kick">${n.dir ? "Folder · " + n.n + " notes" : (n.in ? esc(n.in) + " · " : "") + full(n)}</div><div class="name clamp">${esc(n.name)}</div><div class="snip clamp">${n.dir ? "" : esc(snip(n))}</div></div>`).join("")}</div>`,
+    list: () => `<div class="l5"><div class="th"><span>Name</span><span>Changed</span><span>Words</span><span>Folder</span></div><div>${[...DIRS, ...NOTES].map((n) => `<div class="row it ${n.c || ""}" tabindex="0"><span class="first">${sign(n)}<span class="name one">${esc(n.name)}</span></span><span>${n.dir ? "—" : full(n)}</span><span>${n.dir ? n.n + " notes" : n.words == null ? "—" : n.words}</span><span>${n.dir ? "" : esc(n.in || "—")}</span></div>`).join("")}</div></div>` },
+
+  { name: "Regale", idea: "<b>Jeder Ordner eine Reihe.</b> Statt eines Rasters mit Ordner-Kacheln liegen die Notizen in Regalen, die zur Seite laufen: zuoberst „Recents“, dann je Ordner eines — man sieht in alle Ordner, ohne einen zu öffnen. Die Liste ist dieselbe Ordnung als Gliederung zum Auf- und Zuklappen, eine Zeile je Notiz.",
+    tiles: () => [["Recents", "", NOTES.slice(0, 6)], ...by("in").map(([d, ns]) => [d || "Notes", (DIRS.find((x) => x.name === d) || {}).c || "", ns])].map(([d, c, ns]) => `<div class="shelf-h">${esc(d)}${d === "Recents" ? "" : I.go}<small>${ns.length}</small></div><div class="shelf">${ns.map((n) => `<div ${cls(n)}><div class="sheet lift">${n.img && n.file ? `<img src="${n.img}" alt="">` : n.file ? `<div style="display:grid;place-items:center;height:90%;color:var(--fg3)"><span style="width:38px">${sign(n)}</span></div>` : prev(n)}</div><div class="name clamp">${esc(n.name)}</div><div class="meta">${full(n)}</div></div>`).join("")}</div>`).join(""),
+    list: () => `<div class="l6">${by("in").map(([d, ns]) => `<div class="sect ${(DIRS.find((x) => x.name === d) || {}).c || ""}"><button class="fold" aria-expanded="true">${I.go.replace("go", "tri")}${I.folder.replace("<svg", '<svg class="fi"')}${esc(d || "Notes")}<small>${ns.length}</small></button><div class="kids"><div>${ns.map((n) => `<div ${cls(n, "hov")}><span class="name one">${dot(n)}${esc(n.name)}</span><span class="snip one">${esc(snip(n))}</span><span class="date">${full(n)}</span></div>`).join("")}</div></div></div>`).join("")}</div>` },
+];
+function chips() { return `<div class="chips">${DIRS.map((d) => `<span class="chip ${d.c}" tabindex="0">${I.folder}${esc(d.name)}<small>${d.n}</small></span>`).join("")}</div>`; }
+function row3(n) { return `<div ${cls(n, "hov")}><span class="glyph">${sign(n)}</span><span class="name one">${esc(n.name)}</span><span class="date">${n.dir ? n.n : full(n)}</span>${n.dir ? I.go : ""}</div>`; }
+
+const $ = (id) => document.getElementById(id);
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} return null; };
+let at = Math.min(5, +(store("ovlab.v") || 0)), view = store("ovlab.view") === "list" ? "list" : "tiles";
+$("pick").insertAdjacentHTML("beforeend", V.map((v, i) => `<button data-i="${i}"><kbd>${i + 1}</kbd>${v.name}</button>`).join(""));
+function draw(fade) {
+  $("pick").querySelector(".seg-thumb").style.setProperty("--i", at);
+  for (const b of $("pick").querySelectorAll("button")) b.setAttribute("aria-pressed", +b.dataset.i === at);
+  $("tl").querySelector(".seg-thumb").style.setProperty("--i", view === "list" ? 1 : 0);
+  for (const b of $("tl").querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.v === view);
+  $("view").textContent = view === "list" ? "Liste (T: Kacheln)" : "Kacheln (L: Liste)";
+  $("idea").innerHTML = `<b>${at + 1} · ${V[at].name}.</b> ${V[at].idea}`;
+  $("body").innerHTML = V[at][view]();
+  if (fade && $("body").animate) $("body").animate({ opacity: [0, 1] }, { duration: 160, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+  store("ovlab.v", at); store("ovlab.view", view);
+}
+const go = (i) => { at = i; draw(true); }, show = (v) => { view = v; draw(true); };
+const dark = () => { const d = document.documentElement; d.dataset.mode = d.dataset.mode === "dark" ? "light" : "dark"; $("mode").textContent = d.dataset.mode === "dark" ? "Hell" : "Dunkel"; };
+$("pick").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(+b.dataset.i); });
+$("tl").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.v); });
+$("view").addEventListener("click", () => show(view === "list" ? "tiles" : "list"));
+$("mode").addEventListener("click", dark);
+$("body").addEventListener("click", (e) => { const f = e.target.closest(".fold"); if (f) f.setAttribute("aria-expanded", f.getAttribute("aria-expanded") !== "true"); });
+addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key >= "1" && e.key <= "6") go(+e.key - 1);
+  else if (e.key === "t" || e.key === "T") show("tiles");
+  else if (e.key === "l" || e.key === "L") show("list");
+  else if (e.key === "d" || e.key === "D") dark();
+});
+const q = new URLSearchParams(location.search);
+if (q.get("v")) at = +q.get("v") - 1;
+if (q.get("view")) view = q.get("view");
+if (q.get("mode") === "dark") dark();
+draw(false);
+requestAnimationFrame(() => document.documentElement.classList.remove("boot"));
+</script>
+</html>
