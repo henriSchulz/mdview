@@ -78,7 +78,9 @@
       w.stop();
       ok("a picture only clicked with the pointer: nothing moves, no text is selected", md() === before && w.text === 0, [w.text]);
       const dlg = document.getElementById("dlg");
+      await sleep(400);
       o.afterClick = { dlg: dlg && dlg.hasAttribute("data-open"), s: state() };
+      ok("… and the click opens it: its code, in the dialog", !!o.afterClick.dlg && dlg.dataset.kind !== "ai", o.afterClick);
       if (dlg && dlg.hasAttribute("data-open")) dlg.querySelector('[data-do="cancel"]').click();
     }
   } catch (e) { o.error = String(e && e.stack || e); }

@@ -1425,11 +1425,13 @@
       if (inner && el.contains(inner)) return;
       grab = { x: e.clientX, y: e.clientY, el, on: false, dt: null, at: [e.clientX, e.clientY] };
       hold(true);
-      // (the press is not the browser's: it begins no selection and no drag of its own. The editor still gets it — it
-      // chooses the thing — and the note keeps the keys.)
-      e.preventDefault();
-      if (!view.hasFocus()) view.focus();
+      // (the press is taken from the browser — it begins no selection and no drag of its own — but only AFTER the editor
+      // has had it, below: the editor does not look at a press whose default was prevented before it came, and then a click
+      // on the thing opens nothing)
     }, true);
+    document.addEventListener("mousedown", (e) => { if (grab && e.button === 0) { e.preventDefault(); if (view && !view.hasFocus()) view.focus(); } }); // (on its way up: after the editor)
+    // (… and the editor makes what is pressed draggable for a drag of its own: that one is not begun either)
+    document.addEventListener("dragstart", (e) => { if (grab && e.target !== handle && view && view.dom.contains(e.target)) { e.preventDefault(); e.stopPropagation(); } }, true);
     document.addEventListener("mousemove", (e) => {
       if (!grab) return;
       if (!(e.buttons & 1)) { grab = null; hold(false); return; }
@@ -1445,8 +1447,8 @@
       }
       e.preventDefault();
       e.stopPropagation();
-      const sel = getSelection();
-      if (sel && !sel.isCollapsed) sel.removeAllRanges(); // (nothing is selected by a pull that moves a block)
+      // (the selection is not touched here: taken away under the editor, it is put back by it at the next move, and the two
+      // go on undoing each other for as long as the pull lasts — with whatever lies between selected on the way)
       grab.at = [e.clientX, e.clientY];
       send("dragover", under(e.clientX, e.clientY), e.clientX, e.clientY);
     }, true);
@@ -1458,8 +1460,6 @@
       send("dragend", handle, e.clientX, e.clientY);
       grab = null;
       hold(false);
-      const picked = getSelection();
-      if (picked && !picked.isCollapsed && !view.state.selection.node) picked.removeAllRanges(); // (whatever the browser took on the way)
       e.preventDefault();
       e.stopPropagation();
       // (the click that ends the pull is not one on the block: it opens nothing)

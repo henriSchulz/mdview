@@ -8,6 +8,7 @@
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   try {
+    for (let i = 0; i < 200 && !(MdView.core.current && /note\.md$/.test(MdView.core.current.path || "")); i++) await sleep(50); // (a folder's window: its note comes a moment later)
     await sleep(900); MdView.setMode("active");
     for (let i = 0; i < 300 && !(window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active"); i++) await sleep(10);
     await sleep(400);
@@ -25,7 +26,7 @@
     out("plan" + ++plans, { cmd: "m 200 300 s 80 m 210 310" });
     for (let i = 0; i < 200 && !seenAt; i++) await sleep(50);
     await sleep(300);
-    if (!seenAt) throw new Error("the pointer was not heard");
+    if (!seenAt) throw new Error("the pointer was not heard: " + JSON.stringify({ path: (MdView.core.current || {}).path, view: document.body.dataset.view, overview: document.body.hasAttribute("data-overview"), size: [innerWidth, innerHeight], plans }));
     off = [210 - seenAt[0], 310 - seenAt[1]];
     o.off = off;
     const G = (x, y) => `${Math.round(x + off[0])} ${Math.round(y + off[1])}`;
@@ -67,19 +68,43 @@
       out("shot-" + name.replace(/\W+/g, "-").slice(0, 30), {});
       await sleep(900);
     };
-    // ---- what it looks like when the row of columns itself is the editor's selection, and one block in it is selected as a block
+    // ---- the whiteboard's block pressed on its picture and pulled a little to the lower right (as Henri does)
     {
-      let colsAt = -1; view.state.doc.forEach((n, p) => { if (n.type.name === "columns") colsAt = p; });
-      const mux = find('viewBox="40 56');
-      A.blocks.select(view, mux.pos, false);
-      await sleep(200);
-      o.selectable = PM.state.NodeSelection.isSelectable(view.state.doc.nodeAt(colsAt));
-      try { view.dispatch(view.state.tr.setSelection(PM.state.NodeSelection.create(view.state.doc, colsAt))); } catch (e) { o.forceError = String(e); }
-      view.focus();
-      view.nodeDOM(colsAt).scrollIntoView({ block: "center" });
-      await sleep(600);
-      o.forced = selInfo();
-      out("shot-forced", {}); await sleep(900);
+      const board = blocksAll().find((b) => /board\.svg/.test(b.node.attrs.raw || "") || (b.node.type.name === "paragraph" && b.node.firstChild && b.node.firstChild.type.name === "image" && /board\.svg/.test(b.node.firstChild.attrs.src || "")));
+      if (!board) throw new Error("no whiteboard block: " + JSON.stringify(blocksAll().map((b) => [b.node.type.name, (b.node.attrs.raw || b.node.textContent || "").slice(0, 30)])));
+      const dom = domOf(board), img = dom.querySelector("img") || dom;
+      scrollTo(0, 0); await sleep(700);
+      const r = img.getBoundingClientRect(), from = [r.left + r.width / 2, r.top + r.height / 2], to = [from[0] + 60, from[1] + 50];
+      o.board = { type: board.node.type.name, kind: board.node.attrs.kind, raw: (board.node.attrs.raw || "").slice(0, 60), dom: dom.outerHTML.slice(0, 260), draggable: img.draggable, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] };
+      // (first an ordinary click into text, as one has done before: the browser remembers that a press may begin a selection)
+      const hd = view.dom.querySelector("h1, p").getBoundingClientRect(), txt = [hd.left + 30, hd.top + hd.height / 2];
+      if (hd.top > 60 && hd.bottom < innerHeight) { await run(`g ${G(...txt)} 4 20 s 80 d s 60 u s 150`, txt, 400); }
+      o.focus = { doc: document.hasFocus(), view: view.hasFocus(), active: document.activeElement && document.activeElement.className };
+      o.clickedText = { in: hd.top > 60 && hd.bottom < innerHeight, s: selInfo() };
+      const before = md(), w = watch();
+      await run(`g ${G(...from)} 5 20`, from, 150);
+      await run(`d s 200 g ${G(...to)} 10 30 s 400`, to, 700);
+      o.boardHeld = { s: selInfo(), heard: { ...heard }, grab: document.body.className, dragging: h.dataset.dragging != null };
+      await run(`u s 150 g ${G(to[0] + 20, to[1] + 20)} 2 30`, [to[0] + 20, to[1] + 20], 300);
+      w.stop();
+      const s = selInfo();
+      o.boardAfter = { s, text: w.text, heard: { ...heard }, open: !!(window.MdBoard && MdBoard.shown) };
+      ok("the whiteboard's block pressed and pulled a little: no text is selected on the way or after, and the board is not opened", w.text === 0 && s.dom === 0 && s.kind !== "range" && !o.boardAfter.open, o.boardAfter);
+      out("shot-board", {}); await sleep(900);
+    }
+    // ---- clicked, each of them opens: a picture of svg and a formula their dialog, the whiteboard the board
+    for (const [name, what, opened] of [["a picture of svg", 'viewBox="40 56', () => document.getElementById("dlg").hasAttribute("data-open")], ["a formula", "f(x) =", () => document.getElementById("dlg").hasAttribute("data-open")], ["the whiteboard", "board.svg", () => !!(window.MdBoard && MdBoard.shown)]]) {
+      const b = blocksAll().find((x) => (x.node.attrs.raw || "").includes(what));
+      if (!b) { ok(name + " clicked: found", false, what); continue; }
+      domOf(b).scrollIntoView({ block: "center" }); await sleep(600);
+      const el = domOf(b).querySelector("svg, .katex, img") || domOf(b), r = el.getBoundingClientRect(), p = [r.left + r.width / 2, r.top + r.height / 2];
+      await run(`g ${G(...p)} 4 20 s 120 d s 90 u s 120`, p, 500);
+      let yes = false; for (let i = 0; i < 30 && !(yes = opened()); i++) await sleep(50);
+      ok(name + " clicked with the pointer in the active mode: it opens", yes, { heard: { ...heard }, sel: selInfo() });
+      for (const k of Object.keys(heard)) delete heard[k];
+      if (document.getElementById("dlg").hasAttribute("data-open")) document.getElementById("dlg").querySelector('[data-do="cancel"]').click();
+      if (window.MdBoard && MdBoard.shown) MdBoard.close();
+      await sleep(700);
     }
   } catch (e) { o.error = String(e && e.stack || e); }
   out("dragnote", o);
