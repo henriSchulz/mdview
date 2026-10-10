@@ -1,0 +1,18 @@
+x||y||I turn the pages into cards.
+
+<edit>
+<find>
+<!-- page: Alpha #p1 -->
+</find>
+<replace>
+<!-- page card: Alpha -->
+</replace>
+</edit>
+<edit>
+<find>
+<!-- page: Gamma #p3 -->
+</find>
+<replace>
+<!-- page card blue: Gamma #p3 -->
+</replace>
+</edit>

@@ -259,6 +259,14 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.cut.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     if jq -e '.steps' "$R/out/$name.cut.json" >/dev/null 2>&1; then ! jq -r '.steps[], (.error // empty)' "$R/out/$name.cut.json" | tee /dev/stderr | grep -q '^FAIL\|Error'; else jq . "$R/out/$name.cut.json"; fi ;;
+  pagelook)
+    # a page's line turned into a card from its menu
+    name=look.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Look\n\nText before.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- /page -->\n\nText after the first.\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n\n![](pic.svg)\n\n'; for i in $(seq 40); do printf 'Filler paragraph %s with some words.\n\n' "$i"; done; printf '<!-- page: Gamma -->\n\nIn gamma.\n\n<!-- /page -->\n'; } > "$R/work/$name"; printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>' > "$R/work/pic.svg"; rm -f "$R/out/$name".pagelook.json
+    app 60 MDVIEW_PROBE="$D/probe-pagelook.js" MDVIEW_TALK_FAKE="$(cat "$D/tests/fixtures/ai-fake-pages.txt")" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 300); do [[ -f $R/out/$name.pagelook.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pagelook.png"
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.pagelook.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagelook.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json

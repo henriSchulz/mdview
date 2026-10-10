@@ -197,6 +197,22 @@
       jobs.push(hit);
     }
     if (!jobs.length) return out;
+    // (a page of the note is its line, "<!-- page: Name #id -->": the id is what holds the page's content — a line that comes
+    // back without it gets it again, by its name or its place, so that no page is emptied by a rewrite of its line)
+    const PAGE = /^([ \t]*<!--\s*page(?:\s+[a-z ]+?)?\s*:\s*)(.*?)(\s*-->[ \t]*)$/gm, idOf = (t) => (/\s#([\w-]+)$/.exec(t) || [])[1];
+    for (const x of jobs) {
+      if (x.i > x.j) continue;
+      const had = [...blocks.slice(x.i, x.j + 1).map((b) => b.md).join("\n\n").matchAll(PAGE)].map((m) => ({ id: idOf(m[2]), title: m[2].replace(/\s#[\w-]+$/, "").trim() })).filter((p) => p.id);
+      if (!had.length) continue;
+      const kept = new Set([...x.text.matchAll(PAGE)].map((m) => idOf(m[2])).filter(Boolean));
+      x.text = x.text.replace(PAGE, (line, head, title, tail) => {
+        if (idOf(title)) return line;
+        const free = had.filter((p) => !kept.has(p.id)), p = free.find((f) => f.title === title.trim()) || free[0];
+        if (!p) return line;
+        kept.add(p.id);
+        return `${head}${title.trim()} #${p.id}${tail}`;
+      });
+    }
     const tr = state.tr;
     let first = Infinity;
     for (const x of jobs.sort((a, b) => b.from - a.from || b.i - a.i)) { // (from the end, so that the places before stay where they are)
@@ -205,8 +221,11 @@
       first = Math.min(first, x.from);
       out.done++;
     }
-    try { tr.setSelection(PM.state.Selection.near(tr.doc.resolve(Math.min(first + 1, tr.doc.content.size)), 1)); } catch (e) { /* (the caret stays) */ }
-    view.dispatch(tr.scrollIntoView().setMeta("step", true));
+    // (the caret and what is selected stay as they are, and so does the place on screen: only when the first change is out of
+    // sight is it brought in, gently)
+    view.dispatch(tr.setMeta("step", true));
+    const dom = view.nodeDOM(Math.min(first, view.state.doc.content.size - 1));
+    if (dom && dom.getBoundingClientRect) { const r = dom.getBoundingClientRect(); if (r.bottom < 60 || r.top > innerHeight - 60) dom.scrollIntoView({ block: "center", behavior: "smooth" }); }
     return out;
   }
   let useDoc = true, extra = []; // what the next question is given to read: the note on screen, and { kind, path, name } beside it
