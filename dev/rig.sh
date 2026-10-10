@@ -347,7 +347,7 @@ case "${1:-}" in
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.ai-subpage.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
-    name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json
+    name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; for i in $(seq 40); do printf '\nFiller paragraph %s with some words to make the note long.\n' "$i" >> "$R/work/$name"; done; printf '\n<!-- page: Far -->\n\nFar down.\n\n<!-- /page -->\n\nAfter it.\n' >> "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json
     app 60 MDVIEW_PROBE="$D/probe-pagenav.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     for v in deep root; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.pagenav.json ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pagenav-$v.png"; done
     for _ in $(seq 300); do [[ -f $R/out/$name.pagenav.json ]] && break; sleep 0.1; done

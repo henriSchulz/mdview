@@ -246,7 +246,9 @@ A note can hold pages of its own. On the page it lies on, a page is a line with 
 opens it, and it is shown alone — with the way back above it. Before that way stand **back and
 forward** (`Alt+←`, `Alt+→`): through the pages in the order one went to them; back on the
 note itself they stay for as long as there is a way forward. A page's name is typed at
-its head: it is the page's as it is typed, without leaving the field.
+its head: it is the page's as it is typed, without leaving the field. Coming back out of a page — by back, by
+the way above it — one stands where one stood: at the line of the page one was in, which is
+marked for a moment.
 
 <!-- page: An example page -->
 

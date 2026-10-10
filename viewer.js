@@ -960,14 +960,42 @@
     pageGo(ids, null, true);
     return true;
   }
+  /* Where one stood on each page of the note (path + the way to the page → how far down), kept as a page is left: come
+   * back to — up from a page in it, or along the way one went — it is where it was. Left for a page in it, that is at the
+   * page's line; so "back" lands on the line of the page one comes from. A page gone into anew begins at its top. */
+  const pageStood = new Map();
+  const stoodKey = (path, ids) => path + "\n" + ids.join("/");
   function pageGo(ids, then = null, walked = false) {
     if (!current || current.kind === "pdf" || mode === "edit") return;
+    const from = pageAt.path === current.path ? pageAt.ids : [];
+    { // (… and, going into a page, where that page's line stood on screen: it is put back there exactly)
+      const into = ids.length > from.length ? String(ids[from.length]) : null, row = into && [...document.querySelectorAll("#content .page-row[data-page], #active .page-row[data-page]")].find((r) => r.offsetParent && r.dataset.page === into);
+      pageStood.set(stoodKey(current.path, from), { y: scrollY, id: row ? into : null, top: row ? row.getBoundingClientRect().top : 0 });
+    }
+    if (pageStood.size > 300) pageStood.delete(pageStood.keys().next().value);
     if (!walked) { const w = walkOf(); if (w.list[w.at].join("/") !== ids.join("/")) { w.list.length = w.at + 1; w.list.push(ids.slice()); if (w.list.length > 60) w.list.shift(); w.at = w.list.length - 1; } }
     if (mode === "active") { leaving = true; flushSave(); leaving = false; } // (what is typed is the file's first)
     pageAt = { path: current.path, ids, idx: ids.map((_id, i) => (i < pageAt.idx.length ? pageAt.idx[i] : -1)) };
     current.arriving = false;
     if (mode === "active") { drawn = null; showActive(current, null); } else draw(current, null);
-    window.scrollTo(0, 0);
+    // up out of a page, or back along the way: where one stood there — and, where that is not known, at the line of the
+    // page one comes from; into a page: its top
+    const up = ids.length < from.length && ids.every((id, i) => id === from[i]), stood = pageStood.get(stoodKey(current.path, ids));
+    if ((up || walked) && stood) window.scrollTo({ top: stood.y, behavior: "instant" });
+    else window.scrollTo(0, 0);
+    if (up) {
+      // (the line of the page one was in: in sight in any case — the page above may have changed meanwhile — and marked for a moment)
+      const row = [...document.querySelectorAll("#content .page-row[data-page], #active .page-row[data-page]")].find((r) => r.offsetParent && r.dataset.page === String(from[ids.length]));
+      if (row) {
+        // (what stands above it may be taller or shorter now — the bar with the way forward is there: the line itself is put
+        // where it was)
+        if (stood && stood.id === row.dataset.page) window.scrollBy({ top: row.getBoundingClientRect().top - stood.top, behavior: "instant" });
+        const r = row.getBoundingClientRect(), top = (document.documentElement.style.getPropertyValue("--top") ? parseFloat(document.documentElement.style.getPropertyValue("--top")) : 0) + 12;
+        if (r.top < top || r.bottom > innerHeight - 12) row.scrollIntoView({ block: "center", behavior: "instant" });
+        row.classList.add("came-from");
+        setTimeout(() => row.classList.remove("came-from"), 900);
+      }
+    }
     if (then) then();
   }
   /* Blocks put into a page (dragged onto its line): their Markdown stands at the page's end. A

@@ -40,6 +40,30 @@
     step(-1).click(); await sleep(350);
     step(-1).click(); await sleep(350);
     ok("back, back: the note, then the inner page the jump was made from", title() === "Inner", where());
+    // ---- back out of a page far down the note: one stands at that page's line again, not at the note's top
+    {
+      bar() && bar().isConnected && bar().querySelector('.pb-crumb[data-depth="0"]') && bar().querySelector('.pb-crumb[data-depth="0"]').click();
+      await sleep(400);
+      const row = () => [...document.querySelectorAll(".page-row[data-page]")].find((r) => r.textContent.includes("Far"));
+      row().scrollIntoView({ block: "center" }); await sleep(300);
+      const y0 = Math.round(scrollY), top0 = Math.round(row().getBoundingClientRect().top);
+      ok("(a page's line far down the note is in sight after scrolling there)", y0 > 300, y0);
+      row().click(); await sleep(400);
+      ok("into the page: its top", title() === "Far" && scrollY === 0, [title(), scrollY]);
+      step(-1).click(); await sleep(400);
+      ok("back: the note stands where it stood, the page's line where it was — and marked for a moment", Math.abs(scrollY - y0) <= 90 && Math.abs(row().getBoundingClientRect().top - top0) <= 2 && row().classList.contains("came-from"), [y0, Math.round(scrollY), top0, Math.round(row().getBoundingClientRect().top), row().className]);
+      const top1 = Math.round(row().getBoundingClientRect().top);
+      row().click(); await sleep(400);
+      bar().querySelector('.pb-crumb[data-depth="0"]').click(); await sleep(400);
+      ok("… and by the way above just the same", Math.abs(row().getBoundingClientRect().top - top1) <= 2, [top1, Math.round(row().getBoundingClientRect().top)]);
+      // (the note's own place was not known — it was never left from there: the line is brought into sight)
+      scrollTo(0, 0); await sleep(100);
+      row().click(); await sleep(400);
+      scrollTo(0, 0);
+      await key("ArrowLeft");
+      const r2 = row().getBoundingClientRect();
+      ok("Alt+← back as well: the page's line is in sight", r2.top >= 0 && r2.bottom <= innerHeight, [Math.round(r2.top), innerHeight]);
+    }
   } catch (e) { o.error = String(e && e.stack || e); }
   out("pagenav", o);
 })();
