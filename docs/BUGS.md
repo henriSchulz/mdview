@@ -95,6 +95,15 @@ app itself.
     selection. One recording named the cause three fixes had guessed around: the fixes were for
     a pull on the picture, the bug was a drag by the handle.
 
+41. **What is done to "the note" is done to the note's file text, not to the page on screen.** A
+    note with pages is one text; the editor shows one page of it. Anything that reads the note
+    for someone (Claude, an export, a search) reads `core.ai.fileText()`; anything that rewrites
+    it goes through `setFileText` (one step of the note's history, the page on screen stays).
+42. **A field that is being typed in is never rebuilt from under the hand.** Whatever redraws a
+    bar or a panel keeps the focused field's text, caret and focus — and what is typed is taken
+    while it is typed (debounced `input`), not only on `change`, which never comes when the
+    field is replaced.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -163,6 +172,8 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| The chat's Edit mode, asked to write into a subpage: "I cannot do that from here, the page's content is not shown to me" | Claude was given the editor's view of the note — where a page is one line — and its edits were carried out on the editor's blocks | Claude is given the note as its file has it (pages are sections of that text) and told which page is on screen; edits are made in the file's text, as one step of the note's history (rule 41) | `rig.sh pagelook` (a fixed answer writes into a page from outside it; Undo), `rig.sh ai-subpage` (the real Claude, Henri's own sentence) |
+| A subpage's name could not be changed reliably from inside the page | the name was taken only when the field was left (`change`); the bar is drawn anew whenever the note is — a save, a picture that changed — and then the field, with what was typed, was replaced before it was ever left | the name is the page's a moment after the last letter; a field being typed in keeps its text, its caret and the keys when the bar is drawn anew (rule 42) | `rig.sh pagelook` — *the exact moment it failed for Henri was not reproduced; the check covers the redraw under the hand* |
 | **The cause of "random things selected, the whole block at the bottom blue, the note jumps" — found from a recording on Henri's machine** (`dev/probe-trace.js`), after three fixes that missed it | he drags by the **handle**. A press on the handle let the browser begin a selection of its own (`selectstart`, not refused); with nothing selectable under it the anchor fell on the drop line — the last element in the body — and when the handle's drag began the browser stretched the selection from there to the block under the pointer: every gap from that block to the foot of the window painted blue. And after the drop, focusing the editor made the browser scroll to whatever the page had selected before (a caret far away), `preventScroll` or not | `selectstart` is refused on the handle, the drop line and the rectangle, and they are `user-select: none`; a selection reaching outside the note's text is let go as a drag begins and ends; `view.focus` keeps the scroll position (rules 38–40) | `rig.sh dragreal` (real pointer): the press on the handle begins no selection — fails before, passes after; the note does not jump |
 | **Caused by the fix below:** in the active mode a click on a whiteboard, a picture of svg or a formula opened nothing | the press on a thing was taken from the browser with `preventDefault` in the capture phase — and ProseMirror does not look at an event whose default was prevented before it arrives, so it never saw the click | the default is prevented on the event's way up, after the editor has had it; the editor's own drag of the pressed node is refused in `dragstart` (rule 35) | `rig.sh dragnote` — real clicks on all three in a copy of Henri's note: fails on the released code, passes on the new |
 | The whiteboard's block pulled a little to the lower right: the picture and everything after it turned blue (selected) | *not reproduced* with the real pointer, neither on the released code nor on the new; the rig's window has no keyboard focus and does not paint a selection, only what is selected is measured | the press is handled as above | `rig.sh dragnote` (the pull is in it) — **Henri's try decides** |

@@ -245,7 +245,8 @@ or the folder the settings name), so they are notes like any other everywhere el
 A note can hold pages of its own. On the page it lies on, a page is a line with its name; a click
 opens it, and it is shown alone — with the way back above it. Before that way stand **back and
 forward** (`Alt+←`, `Alt+→`): through the pages in the order one went to them; back on the
-note itself they stay for as long as there is a way forward.
+note itself they stay for as long as there is a way forward. A page's name is typed at
+its head: it is the page's as it is typed, without leaving the field.
 
 <!-- page: An example page -->
 
@@ -435,7 +436,10 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   sentence, a table's row, a block taken out, a section added). The chat shows how many places
   were changed, with **Undo** (all of them are one step; `Ctrl+Z` in the note does the same),
   and names a passage it could not find. A note that is only read is taken to the active mode
-  for it; a question is still just answered.
+  for it; a question is still just answered. Claude works on the **whole note with all its
+  pages** — a page's content is part of what it reads, and it writes into a page from wherever
+  one is ("put a section about … into the subpage"); it is told which page is on screen, so
+  "here" and "this page" mean that one.
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
 

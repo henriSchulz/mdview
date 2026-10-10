@@ -1,8 +1,8 @@
-x||y||I turn the pages into cards.
+x||y||I turn the pages into cards and write into Alpha.
 
 <edit>
 <find>
-<!-- page: Alpha #p1 -->
+<!-- page: Alpha -->
 </find>
 <replace>
 <!-- page card: Alpha -->
@@ -10,9 +10,19 @@ x||y||I turn the pages into cards.
 </edit>
 <edit>
 <find>
-<!-- page: Gamma #p3 -->
+<!-- page: Gamma -->
 </find>
 <replace>
-<!-- page card blue: Gamma #p3 -->
+<!-- page card blue: Gamma -->
+</replace>
+</edit>
+<edit>
+<find>
+In alpha.
+</find>
+<replace>
+In alpha.
+
+A line **written into the page** by Claude.
 </replace>
 </edit>

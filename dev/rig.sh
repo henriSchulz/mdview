@@ -336,6 +336,15 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragnote.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragnote.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  ai-subpage)
+    # the real Claude writes into a subpage, asked from the note (the chat's Edit mode)
+    name=look.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Look\n\nText before.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- /page -->\n\nText after the first.\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{shot,ai-subpage}.json
+    app 400 MDVIEW_PROBE="$D/probe-ai-subpage.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 3600); do [[ -f $R/out/$name.shot.json || -f $R/out/$name.ai-subpage.json ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/ai-subpage.png"
+    for _ in $(seq 600); do [[ -f $R/out/$name.ai-subpage.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.ai-subpage.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.ai-subpage.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json

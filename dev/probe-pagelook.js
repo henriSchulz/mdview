@@ -43,11 +43,33 @@
     for (let i = 0; i < 40 && !MdAi.state().talking; i++) await sleep(50);
     for (let i = 0; i < 200 && (MdAi.state().talking || !chat().querySelector(".ai-made")); i++) await sleep(50);
     await sleep(700);
-    const s = state(), t = md();
-    ok("asked of Claude in the chat: the pages are cards — and a line that came back without its id is still its page", /<!-- page card: Alpha #p1 -->/.test(t) && /<!-- page card blue: Gamma #p3 -->/.test(t) && /<!-- page: Beta #p2 -->/.test(t) && view.dom.querySelectorAll('.page-row[data-style="card"]').length === 2, t.slice(0, 200));
-    ok("… the caret stays where it was, nothing gets selected, and the note does not jump", s.kind === "caret" && s.from === sel0 && !s.blocks && s.y === 0, [s, sel0]);
-    await sleep(900); // (saved)
-    ok("… and the page's content is still in the file", /<!-- page card: Alpha -->\n\nIn alpha\.\n\n<!-- \/page -->/.test(MdView.core.current.text) && /In gamma\./.test(MdView.core.current.text), MdView.core.current.text.slice(0, 200));
+    const s = state(), t = md(), file = () => MdView.core.ai.fileText();
+    ok("asked of Claude in the chat: the pages are cards", /<!-- page card: Alpha/.test(t) && /<!-- page card blue: Gamma/.test(t) && /<!-- page: Beta/.test(t) && view.dom.querySelectorAll('.page-row[data-style="card"]').length === 2, t.slice(0, 200));
+    ok("… and Claude wrote into a page from outside it: the line stands in Alpha, in the note's file", /<!-- page card: Alpha -->\n\nIn alpha\.\n\nA line \*\*written into the page\*\* by Claude\.\n\n<!-- \/page -->/.test(file()) && /In gamma\./.test(file()) && !/written into the page/.test(t), file().slice(0, 260));
+    ok("… the note does not jump, and no text gets selected", s.kind !== "range" && !s.blocks && Math.abs(s.y) <= 2, s);
+    ok("the chat says what it did, with Undo", /3 places/.test(chat().querySelector(".ai-made").textContent) && !!chat().querySelector("[data-undo]"), chat().querySelector(".ai-log").innerHTML.slice(-300));
+    const changed = file();
+    chat().querySelector("[data-undo]").click(); await sleep(700);
+    ok("Undo takes all of it back: the file's text is as before", file() !== changed && !/page card/.test(file()) && !/written into the page/.test(file()) && /<!-- page: Alpha -->\n\nIn alpha\.\n\n<!-- \/page -->/.test(file()), file().slice(0, 200));
+    // ---- a page's name, typed in the page: it is the page's without leaving the field, and stays in the field when the page is drawn anew
+    {
+      const v2 = MdActive.view.pm; let betaAt = -1;
+      v2.state.doc.forEach((n, p2) => { if (n.type.name === "island" && /page[^:]*:\s*Beta/.test(n.attrs.raw || "")) betaAt = p2; });
+      MdActive.islands.open(v2, betaAt); await sleep(700);
+      const title = () => document.querySelector("#pagebar .pb-title");
+      title().focus();
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+      set.call(title(), "Beta renamed"); title().dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(900);
+      ok("a page's name typed in the page is the page's a moment later — the field not left", /<!-- page: Beta renamed -->/.test(file()) && document.activeElement === title(), [file().match(/<!-- page[^>]*Beta[^>]*-->/), document.activeElement && document.activeElement.className]);
+      set.call(title(), "Beta renamed aga"); title().dispatchEvent(new Event("input", { bubbles: true }));
+      MdView.core.ai.setFileText(file() + "\n\nA line more.\n"); // (the note drawn anew while the name is being typed)
+      await sleep(200);
+      ok("… and when the note is drawn anew meanwhile, what is typed stays in the field, the hand on it", title().value === "Beta renamed aga" && document.activeElement === title(), [title().value, document.activeElement && document.activeElement.className]);
+      set.call(title(), "Beta renamed again"); title().dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(900);
+      ok("… typed on, it is the name", /<!-- page: Beta renamed again -->/.test(file()) && /A line more\./.test(file()), file().match(/<!-- page[^>]*Beta[^>]*-->/));
+    }
     if (MdAi.state().editing) chat().querySelector(".ai-mode").click();
   } catch (e) { o.error = String(e && e.stack || e); }
   out("pagelook", o);

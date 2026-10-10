@@ -173,59 +173,33 @@
   let box = null, log = null, field = null, cur = null, talking = null; // cur: the conversation in hand; talking: { id, talk, text, el }
   let editing = false; // the chat's Edit mode: what Claude answers changes the note itself
   try { editing = localStorage.getItem("mdview:ai-edit") === "1"; } catch (e) { /* (as new) */ }
-  let lastMade = null; // { message, doc }: the note as the last edits left it — while it is still so, they can be taken back from the chat
-  const undoable = (m) => { const A = active(); return !!lastMade && lastMade.message === m && !!A && A.view.pm.state.doc === lastMade.doc; };
-  /* Claude's edits, carried out in the note (the active mode): each finds its passage in the blocks as they are written and
-   * puts the new text in their place; all of them are one step of Undo. → { done, missed: [what was not found] } */
+  let lastMade = null; // { message, text }: the note as the last edits left it — while it is still so, they can be taken back from the chat
+  const undoable = (m) => !!lastMade && lastMade.message === m && !!active() && core.ai.fileText() === lastMade.text;
+  /* Claude's edits, carried out in the note — the whole of it, as it is written in its file: its pages are sections of
+   * that text (between "<!-- page: Name -->" and "<!-- /page -->"), so an edit reaches into a page as it reaches anywhere.
+   * Each finds its passage (spaces and line ends as they come) and puts the new text in its place; all of them together are
+   * one step back. → { done, missed: [what was not found], error? } */
   function carryOut(edits) {
-    const A = active(), out = { done: 0, missed: [] };
-    if (!A) { out.missed = edits.map((e) => e.find); return out; }
-    const view = A.view.pm, state = view.state, blocks = [];
-    state.doc.forEach((node, pos) => { if (!(node.type.name === "island" && (node.attrs.virtual || node.attrs.kind === "frontmatter"))) blocks.push({ from: pos, to: pos + node.nodeSize, md: A.clip.markdownOf(state, state.doc.slice(pos, pos + node.nodeSize)).replace(/^\n+|\s+$/g, "") }); });
+    const out = { done: 0, missed: [] };
+    if (!active()) { out.missed = edits.map((e) => e.find); return out; }
+    const before = core.ai.fileText();
+    let text = before;
     const loose = (t) => new RegExp(t.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
-    const jobs = [];
     for (const e of edits) {
-      if (!e.find.trim()) { if (e.replace.trim()) jobs.push({ from: state.doc.content.size, to: state.doc.content.size, text: e.replace, i: blocks.length, j: blocks.length - 1 }); else out.missed.push("∅"); continue; }
-      const re = loose(e.find);
-      let hit = null;
-      // (the fewest blocks, standing together, that hold the passage)
-      for (let span = 1; span <= 14 && !hit; span++) for (let i = 0; i + span <= blocks.length && !hit; i++) {
-        const joined = blocks.slice(i, i + span).map((b) => b.md).join("\n\n");
-        if (re.test(joined)) hit = { i, j: i + span - 1, from: blocks[i].from, to: blocks[i + span - 1].to, text: joined.replace(re, () => e.replace) };
-      }
-      if (!hit || jobs.some((x) => hit.i <= x.j && x.i <= hit.j)) { out.missed.push(e.find.trim()); continue; }
-      jobs.push(hit);
-    }
-    if (!jobs.length) return out;
-    // (a page of the note is its line, "<!-- page: Name #id -->": the id is what holds the page's content — a line that comes
-    // back without it gets it again, by its name or its place, so that no page is emptied by a rewrite of its line)
-    const PAGE = /^([ \t]*<!--\s*page(?:\s+[a-z ]+?)?\s*:\s*)(.*?)(\s*-->[ \t]*)$/gm, idOf = (t) => (/\s#([\w-]+)$/.exec(t) || [])[1];
-    for (const x of jobs) {
-      if (x.i > x.j) continue;
-      const had = [...blocks.slice(x.i, x.j + 1).map((b) => b.md).join("\n\n").matchAll(PAGE)].map((m) => ({ id: idOf(m[2]), title: m[2].replace(/\s#[\w-]+$/, "").trim() })).filter((p) => p.id);
-      if (!had.length) continue;
-      const kept = new Set([...x.text.matchAll(PAGE)].map((m) => idOf(m[2])).filter(Boolean));
-      x.text = x.text.replace(PAGE, (line, head, title, tail) => {
-        if (idOf(title)) return line;
-        const free = had.filter((p) => !kept.has(p.id)), p = free.find((f) => f.title === title.trim()) || free[0];
-        if (!p) return line;
-        kept.add(p.id);
-        return `${head}${title.trim()} #${p.id}${tail}`;
-      });
-    }
-    const tr = state.tr;
-    let first = Infinity;
-    for (const x of jobs.sort((a, b) => b.from - a.from || b.i - a.i)) { // (from the end, so that the places before stay where they are)
-      const nodes = x.text.trim() ? A.clip.blocksOf(state, core.fenceSvg(x.text)) : [];
-      if (nodes.length) tr.replaceWith(x.from, x.to, nodes); else tr.delete(x.from, x.to);
-      first = Math.min(first, x.from);
+      const put = core.fenceSvg(e.replace).replace(/^\n+|\s+$/g, "");
+      if (!e.find.trim()) { if (put) { text = text.replace(/\s*$/, "") + "\n\n" + put + "\n"; out.done++; } else out.missed.push("∅"); continue; }
+      const re = loose(e.find), m = re.exec(text);
+      if (!m) { out.missed.push(e.find.trim()); continue; }
+      // (a passage taken out whole leaves no empty lines behind it)
+      text = put ? text.slice(0, m.index) + put + text.slice(m.index + m[0].length) : (text.slice(0, m.index).replace(/\n+$/, "\n") + text.slice(m.index + m[0].length).replace(/^\n+/, "\n")).replace(/^\n+/, "");
       out.done++;
     }
-    // (the caret and what is selected stay as they are, and so does the place on screen: only when the first change is out of
-    // sight is it brought in, gently)
-    view.dispatch(tr.setMeta("step", true));
-    const dom = view.nodeDOM(Math.min(first, view.state.doc.content.size - 1));
-    if (dom && dom.getBoundingClientRect) { const r = dom.getBoundingClientRect(); if (r.bottom < 60 || r.top > innerHeight - 60) dom.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    if (!out.done || text === before) { out.done = 0; return out; }
+    // (every page that is opened is shut again, and none is shut that was not opened: else the edits are not made at all)
+    const depth = (t) => { let d = 0; for (const l of t.split("\n")) { if (/^[ \t]*<!--\s*page(?:\s+[a-z ]+?)?\s*:.*-->[ \t]*$/.test(l)) d++; else if (/^[ \t]*<!--\s*\/page\s*-->[ \t]*$/.test(l)) { d--; if (d < 0) return -1; } } return d; };
+    if (depth(text) !== 0) { out.done = 0; out.error = T("ai.made.pages"); return out; }
+    if (!core.ai.setFileText(text)) { out.done = 0; out.error = T("ai.noEdit"); return out; }
+    out.text = core.ai.fileText();
     return out;
   }
   let useDoc = true, extra = []; // what the next question is given to read: the note on screen, and { kind, path, name } beside it
@@ -283,6 +257,7 @@
         (p.open ? "" : `<div class="ai-card-foot"><button class="ai-pillbtn ai-main" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="ai-pillbtn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
     const made = m.made ? `<div class="ai-made"${m.made.done ? "" : " data-none"}><span class="ai-made-text">${I.edit}<span>${esc(m.made.done ? T(m.made.done === 1 ? "ai.made.one" : "ai.made", m.made.done) : T("ai.made.none"))}</span></span>` +
       (m.made.done && undoable(m) ? `<button class="ai-pillbtn" type="button" data-undo="${i}">${esc(T("ai.made.undo"))}</button>` : "") + `</div>` +
+      (m.made.error ? `<div class="ai-error">${esc(m.made.error)}</div>` : "") +
       (m.made.missed && m.made.missed.length ? `<div class="ai-missed"><b>${esc(T("ai.made.missed", m.made.missed.length))}</b>${m.made.missed.map((f) => `<code>${esc(f.slice(0, 90))}</code>`).join("")}</div>` : "") : "";
     return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${made}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
   }
@@ -364,7 +339,7 @@
     let selection = "";
     if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
     const t = (talking = { id: null, talk: mine, text: "", el: null });
-    t.id = ask("chat", { edit, note: useDoc ? core.noteText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
+    t.id = ask("chat", { edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
       (piece) => { t.text += piece; drawLive(); },
       (all, error) => {
         if (talking === t) talking = null;
@@ -372,7 +347,7 @@
         const m = error || all == null ? { role: "assistant", text: "", error: error || T("ai.failed") } : { role: "assistant", text: all };
         if (edit && !m.error) { // (its edits, carried out at once)
           const edits = editsOf(all);
-          if (edits.length) { try { m.made = carryOut(edits); } catch (e) { m.made = { done: 0, missed: [], error: String((e && e.stack) || e) }; } const now = active(); lastMade = m.made.done && now ? { message: m, doc: now.view.pm.state.doc } : null; }
+          if (edits.length) { try { m.made = carryOut(edits); } catch (e) { m.made = { done: 0, missed: [], error: String((e && e.stack) || e) }; } lastMade = m.made.done ? { message: m, text: m.made.text } : null; delete m.made.text; setTimeout(() => field && field.focus({ preventScroll: true }), 0); }
         }
         mine.messages.push(m);
         keep();
@@ -491,7 +466,7 @@
       if (d.do === "close") return Ai.chat.close();
       if (d.do === "fresh") { menu(null); hold(fresh()); useDoc = true; extra = []; drawAll(); field.focus(); return; }
       if (d.do === "mode") { editing = !editing; try { localStorage.setItem("mdview:ai-edit", editing ? "1" : "0"); } catch (x) { /* (not kept) */ } menu(null); drawFoot(); field.focus(); return; }
-      if (d.undo != null) { const m = cur.messages[Number(d.undo)], A = active(); if (m && undoable(m)) { PM.history.undo(A.view.pm.state, A.view.pm.dispatch); lastMade = null; m.made = { ...m.made, done: 0, undone: true }; keep(); drawAll(); core.toast(T("ai.made.undone")); } return; }
+      if (d.undo != null) { const m = cur.messages[Number(d.undo)]; if (m && undoable(m)) { core.ai.undoFileText(); lastMade = null; m.made = { ...m.made, done: 0, undone: true }; keep(); drawAll(); core.toast(T("ai.made.undone")); } return; }
       if (d.do === "more" || d.do === "add" || d.do === "model") return menu(d.do, b);
       if (d.size) { const [w, h] = PRESET[d.size]; setSize(w, Math.min(h, innerHeight - 32)); return menu(null); }
       if (d.talk) { const t = talksAll.find((x) => x.id === d.talk); if (t) { hold(t); menu(null); drawAll(); } return; }

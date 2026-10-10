@@ -1015,10 +1015,14 @@
     const way = [];
     for (let pg = v.page.parent; pg; pg = pg.parent) way.unshift(pg);
     const name = (pg) => (pg.id == null ? (v.name || "").replace(/\.(md|markdown)$/i, "") || "Note" : pg.title || "Untitled");
+    // (the name being typed stays as typed: the bar is drawn anew whenever the note is — a save, a picture that changed —
+    // and what was in the field would be gone, with the hand still on it)
+    const typing = document.activeElement && document.activeElement.matches && document.activeElement.matches(".pb-title") && pagebar.contains(document.activeElement) && pagebar.dataset.page === String(v.page.id) ? { value: document.activeElement.value, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd } : null;
+    pagebar.dataset.page = String(v.page.id);
     pagebar.innerHTML = `<div class="pb-way">${nav}` + way.map((pg, i) => `<button class="pb-crumb" type="button" data-depth="${i}">${esc(name(pg))}</button><span class="pb-sep" aria-hidden="true">${ICON.chevron}</span>`).join("") + `<span class="pb-here"></span></div>` +
       `<input class="pb-title" type="text" aria-label="${esc(T("Page name"))}" spellcheck="false" autocomplete="off">`;
     const title = pagebar.querySelector(".pb-title");
-    title.value = v.page.title;
+    title.value = typing ? typing.value : v.page.title;
     title.placeholder = T("page.untitled");
     // (the way ends at the page one is on: its name, as it is typed below)
     const here = pagebar.querySelector(".pb-here"), named = () => { here.textContent = title.value.trim() || T("page.untitled"); };
@@ -1026,6 +1030,7 @@
     title.addEventListener("input", named);
     title.readOnly = !!v.readonly || mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
+    if (typing) { title.focus({ preventScroll: true }); try { title.setSelectionRange(typing.a, typing.b); } catch (e) { /* (as it stands) */ } }
   }
   pagebar.addEventListener("click", (e) => { const s = e.target.closest(".pb-step"); if (s) { pageStep(Number(s.dataset.step)); return; } const c = e.target.closest(".pb-crumb"); if (c) pageGo(pageAt.ids.slice(0, Number(c.dataset.depth))); });
   pagebar.addEventListener("keydown", (e) => {
@@ -1035,10 +1040,14 @@
   });
   // a page's name, as it can stand in its line: one line, nothing that ends the comment or reads as its number
   const pageName = (name) => String(name || "").replace(/[\r\n]+/g, " ").replace(/--+>/g, "→").replace(/\s#[a-z]\d+\s*$/, "").trim();
-  pagebar.addEventListener("change", (e) => {
-    if (!e.target.matches(".pb-title")) return;
-    const to = pageName(e.target.value);
-    e.target.value = to;
+  // (the name is the page's as it is typed, a moment after the last letter — not only when the field is left: left by a
+  // click on something that draws the page anew, the change never came)
+  let nameTimer = 0;
+  pagebar.addEventListener("input", (e) => { if (!e.target.matches(".pb-title")) return; clearTimeout(nameTimer); nameTimer = setTimeout(() => { if (e.target.isConnected) renamePage(e.target, false); }, 350); });
+  pagebar.addEventListener("change", (e) => { if (e.target.matches(".pb-title")) { clearTimeout(nameTimer); renamePage(e.target, true); } });
+  function renamePage(field, done) {
+    const to = pageName(field.value);
+    if (done) field.value = to; // (while it is typed the field is left as it is: a space at its end is on its way to a word)
     if (mode === "active" && window.MdActive) {
       const vp = MdActive.view.payload;
       if (!vp || !vp.pageOf || vp.page.id == null || vp.readonly || to === vp.page.title) return;
@@ -1060,7 +1069,7 @@
     p._view = null;
     post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
     for (const el of tabEls()) { const t = tabs.find((x) => String(x.id) === el.dataset.id); if (t) paintTab(el, t); }
-  });
+  }
 
   /* A property that is true or false, switched: its line in the properties at the head of the
    * text (a note, or the properties alone) says the other — everything else stays as written.
@@ -4413,6 +4422,29 @@
   aiShown();
   // (the note as it is written now, whatever the mode; and Markdown as the page shows it, for what Claude answers)
   const noteText = () => (mode === "active" && window.MdActive?.view?.pm ? MdActive.view.serialize(false) : mode === "edit" ? edInput.value : current ? current.text || "" : "");
+  /* The note's whole text as its file has it (what is typed is in it first). */
+  function aiFileText() {
+    if (mode === "active" && window.MdActive && MdActive.view.pm && MdActive.view.dirty) { leaving = true; flushSave(); leaving = false; }
+    return mode === "edit" ? edInput.value : current ? current.text || "" : "";
+  }
+  /* … and that text put anew (the active mode): shown, kept, and one step of the note's history — back with Ctrl+Z, or
+   * undoFileText. The page on screen stays the page on screen. → whether it was done */
+  function aiSetFileText(text) {
+    if (mode !== "active" || !current || current.readonly || current.kind === "pdf" || !window.MdActive) return false;
+    const before = aiFileText();
+    text = String(text).replace(/\r\n?/g, "\n");
+    if (text === before) return false;
+    trailRedo = [];
+    trailPush(current.path, before);
+    trailPush(current.path, text);
+    // (whoever had the keys keeps them: a field of the chat, the page's name being typed)
+    const had = document.activeElement, named = !!(had && had.matches && had.matches(".pb-title")), sel = named ? [had.selectionStart, had.selectionEnd] : null;
+    trailShow(text);
+    trailFloor = trail.at;
+    const back = named ? pagebar.querySelector(".pb-title") : had && had !== document.body && had.isConnected && !MdActive.view.dom.contains(had) ? had : null;
+    if (back && back !== document.activeElement) { back.focus({ preventScroll: true }); if (sel) { try { back.setSelectionRange(sel[0], sel[1]); } catch (e) { /* (as it stands) */ } } }
+    return true;
+  }
   /* The folder's notes, for what the chat may be given to read: { path, name, dir }. */
   function folderNotes() {
     const out = [];
@@ -4530,7 +4562,10 @@
       // (the folder's notes, for what the chat may be given to read: { path, name, dir })
       folderName: () => (folder ? (folder.quick ? "Quick Notes" : folder.name) : ""),
       folderNotes,
-      ai: { on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+      ai: {
+        // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
+        fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
+        where: () => { const v = current && viewOf(current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
       hydrate: (root) => renderMermaid(generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return current; }, get folder() { return folder; }, get top() { return topRoom(); } },
