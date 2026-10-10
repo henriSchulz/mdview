@@ -244,6 +244,8 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 /* code beside the picture it draws (a picture of svg, a diagram): a dialog large enough for both — the code as high as the
  * dialog, the picture whole beside it */
 #dlg[data-split]:not(.sized) { width: min(1120px, 94vw); height: min(720px, 88vh); }
+/* (the size kept is one for all dialogs: pulled small on a formula's, code beside its picture keeps room to write and to see) */
+#dlg[data-split].sized { min-width: min(720px, 94vw); min-height: min(480px, 88vh); }
 #dlg[data-split] .dlg-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 10px; overflow: hidden; }
 #dlg[data-split] .ce { max-height: none; min-height: 0; height: 100%; box-sizing: border-box; }
 #dlg[data-split] .dlg-preview { display: grid; place-items: center; height: 100%; box-sizing: border-box; min-height: 0; overflow: auto; }

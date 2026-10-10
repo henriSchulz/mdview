@@ -41,6 +41,18 @@
       dlg.querySelector('[data-do="done"]').click(); await sleep(500);
       ok("Done keeps it: the note has the new code, and shows the new picture", /crimson/.test(view.state.doc.nodeAt(isl(n)).attrs.raw) && !dlg.hasAttribute("data-open") && /crimson/.test(view.nodeDOM(isl(n)).innerHTML), md().slice(0, 300));
     }
+    // a dialog pulled small elsewhere (a formula's, say): the size kept is the one for all dialogs — code beside its picture keeps room all the same
+    window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 697, dialogHeight: 200 };
+    A.islands.open(view, isl(0));
+    for (let i = 0; i < 100 && !dlg.hasAttribute("data-open"); i++) await sleep(30);
+    await sleep(500);
+    {
+      const ce = dlg.querySelector(".ce"), input = dlg.querySelector(".ce-in"), pv = dlg.querySelector(".dlg-preview"), d = dlg.getBoundingClientRect();
+      const lh = parseFloat(getComputedStyle(input).lineHeight) || 20, lines = Math.floor((ce.clientHeight - 28) / lh);
+      ok("opened with a small size kept (697 × 200): still at least ten lines of code in sight, and the picture no stamp", lines >= 10 && pv.clientHeight >= 300 && d.bottom <= innerHeight, { lines, dlg: [Math.round(d.width), Math.round(d.height)], pv: [pv.clientWidth, pv.clientHeight] });
+    }
+    window.MdPrefs = { ...window.MdPrefs, dialogWidth: 0, dialogHeight: 0 };
+    dlg.querySelector('[data-do="cancel"]').click(); await sleep(300);
   } catch (e) { o.error = String(e && e.stack || e); }
   out("svgedit", o);
 })();

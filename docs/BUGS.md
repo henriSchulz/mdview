@@ -107,6 +107,11 @@ app itself.
     while it is typed (debounced `input`), not only on `change`, which never comes when the
     field is replaced.
 
+43. **The size a dialog was pulled to is kept for all dialogs, so a dialog that needs room has a
+    floor of its own** (`#dlg[data-split].sized`): a size right for a formula is no size for code
+    beside its picture. A dialog that is not to be pulled at all (Transform with AI) hides the
+    corner and takes no kept size.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -175,6 +180,7 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| The code dialog of an svg picture was far too small: three lines of code, the picture a stamp | the size kept for dialogs was 697 × 200 and a kept size was applied to every dialog as it is, however little it leaves. *Where the 200 came from was not found* — no path in the released code keeps a height under 220; the likeliest is a test instance of the Transform restyling, which ran on Henri's own settings | code beside its picture is never smaller than 720 × 480 (or what the window allows), whatever size is kept (rule 43); a double click on the corner gives a dialog its own size again | `rig.sh svgedit` (opened with 697 × 200 kept: fails before — 2 lines in sight — passes after) |
 | Leaving a subpage put one at the top of the page above, not where the subpage's line is | going to a page always scrolled to the top | where one stood on each page is kept; back out of a page the page's line stands where it stood, and is marked for a moment | `rig.sh pagenav` |
 | The chat's Edit mode, asked to write into a subpage: "I cannot do that from here, the page's content is not shown to me" | Claude was given the editor's view of the note — where a page is one line — and its edits were carried out on the editor's blocks | Claude is given the note as its file has it (pages are sections of that text) and told which page is on screen; edits are made in the file's text, as one step of the note's history (rule 41) | `rig.sh pagelook` (a fixed answer writes into a page from outside it; Undo), `rig.sh ai-subpage` (the real Claude, Henri's own sentence) |
 | A subpage's name could not be changed reliably from inside the page | the name was taken only when the field was left (`change`); the bar is drawn anew whenever the note is — a save, a picture that changed — and then the field, with what was typed, was replaced before it was ever left | the name is the page's a moment after the last letter; a field being typed in keeps its text, its caret and the keys when the bar is drawn anew (rule 42) | `rig.sh pagelook` — *the exact moment it failed for Henri was not reproduced; the check covers the redraw under the hand* |
