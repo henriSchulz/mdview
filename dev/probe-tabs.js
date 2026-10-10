@@ -136,6 +136,13 @@
     ok("an empty tab opened and closed again: as before", els().length === 1 && !document.getElementById("overview").hasAttribute("data-open"), labels());
     row(first).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true })); await sleep(900);
     out("shot-tabs", {}); await sleep(1300);
+    { // the plate lies under the tab one is on, and goes to another when that is chosen
+      const list = document.querySelector(".tab-list"), plate = document.querySelector(".tab-plate"), on = () => list.querySelector('.tab[aria-selected="true"]'), fits = () => { const p = plate.getBoundingClientRect(), t = on().getBoundingClientRect(); return [Math.abs(p.left - t.left), Math.abs(p.width - t.width), Math.abs(p.top - t.top)]; };
+      await sleep(700);
+      const first = fits(), other = [...list.querySelectorAll(".tab")].find((t) => t !== on());
+      ok("the tab in hand lies on a lifted plate in the tabs' track", first.every((d) => d < 1.5) && plate === list.lastElementChild && getComputedStyle(plate).opacity === "1" && getComputedStyle(on()).backgroundColor === "rgba(0, 0, 0, 0)", [first, getComputedStyle(on()).backgroundColor]);
+      if (other) { press(other); other.click(); await sleep(900); ok("another tab chosen: the plate has gone to it", fits().every((d) => d < 1.5) && on() === other, fits()); }
+    }
   } catch (e) { o.error = String(e.stack || e); }
   out("tabs", o);
 })();

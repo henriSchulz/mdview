@@ -3871,7 +3871,30 @@
   let tabs = [], tabActive = null, tabShown = null, tabClosed = false; // tabActive: the one marked (at once, on a click); tabShown: the one the application says is shown
   const tabsOn = () => document.body.hasAttribute("data-tabs");
   const topRoom = () => (tabsOn() ? tabbar.offsetHeight : 0); // what of the window's top the strip takes
-  const tabEls = () => [...tabList.children].filter((el) => !el.classList.contains("leaving"));
+  const tabEls = () => [...tabList.children].filter((el) => el.classList.contains("tab") && !el.classList.contains("leaving"));
+  /* The plate under the tab one is on: it lies in the tabs' track (its last child, always) and glides to the tab chosen.
+   * It follows by watching the list — which tab is marked, how many there are, how wide they got — and is out of the way
+   * while a tab is pulled (that one carries its own). */
+  const tabPlate = document.createElement("i");
+  tabPlate.className = "tab-plate";
+  tabPlate.setAttribute("aria-hidden", "true");
+  tabList.appendChild(tabPlate);
+  let plateFrame = 0, plateSet = false;
+  function placePlate() {
+    plateFrame = 0;
+    const on = tabList.querySelector('.tab[aria-selected="true"]:not(.leaving)'), pulled = !!tabList.querySelector(".tab.pulled, .tab.landing");
+    tabList.toggleAttribute("data-none", !tabEls().length);
+    if (!on || pulled || !on.offsetWidth) { tabPlate.style.opacity = "0"; plateSet = false; return; }
+    if (!plateSet) tabPlate.style.transition = "none"; // (it appears where it belongs: it does not come gliding from the corner)
+    tabPlate.style.width = on.offsetWidth + "px";
+    tabPlate.style.transform = `translateX(${on.offsetLeft}px)`;
+    tabPlate.style.opacity = "";
+    if (!plateSet) { void tabPlate.offsetWidth; tabPlate.style.transition = ""; plateSet = true; }
+  }
+  const plateSoon = () => { if (!plateFrame) plateFrame = requestAnimationFrame(placePlate); };
+  new MutationObserver(plateSoon).observe(tabList, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-selected", "class"] });
+  if (window.ResizeObserver) new ResizeObserver(plateSoon).observe(tabList);
+  addEventListener("resize", plateSoon);
   function tabLabel(t) {
     if (!t.path) return T("All Notes");
     let title = "";

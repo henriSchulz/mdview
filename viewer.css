@@ -964,7 +964,7 @@ body[data-sidebar="open"] .tab-side { color: var(--fg); }
  * the one shown a shade darker — and a plus. It stands on the page's colour, so the note scrolls
  * away under it; the toolbar's capsule floats at its right end. Sizes are layout; times, curves
  * and radii are the central ones. */
-:root { --tabs-h: 52px; --tab-h: 34px; --tab-w: 168px; }
+:root { --tabs-h: 52px; --tab-h: 36px; --tab-w: 190px; }
 #tabs {
   position: fixed;
   top: 0;
@@ -989,7 +989,13 @@ body[data-sidebar="open"] #tabs { left: var(--sb-w); padding-left: 6px; }
 /* the note begins under the strip; what sticks to the window's top sticks under it */
 body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }
 .tab-row { display: flex; align-items: center; gap: 4px; height: var(--tab-h); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
-.tab-list { position: relative; display: flex; flex: 0 1 auto; gap: 4px; min-width: 0; height: 100%; }
+/* the tabs lie in a track; the one in hand is a plate lifted off it (.tab-plate), which glides to the tab chosen */
+.tab-list { position: relative; display: flex; flex: 0 1 auto; gap: 0; min-width: 0; height: 100%; box-sizing: border-box; margin: 0 2px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--fg) 7%, transparent); transition: opacity var(--dur-fast) var(--ease-out); }
+.tab-list[data-none] { opacity: 0; padding-left: 0; padding-right: 0; margin: 0; }
+.tab-plate { position: absolute; z-index: 0; left: 0; top: 3px; height: calc(var(--tab-h) - 6px); border-radius: 9px; background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.12); pointer-events: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth), width var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+body[data-mode="dark"] .tab.pulled { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+body[data-mode="dark"] .tab-plate { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 1px 3px rgb(0 0 0 / 0.3); }
+body[data-overview] .tab-list:not(:has(.tab[aria-selected="true"][data-path=""])) .tab-plate { opacity: 0; } /* (all notes over a note: the house is where one is) */
 .tab, .tab-home, .tab-new {
   box-sizing: border-box;
   height: var(--tab-h);
@@ -1006,18 +1012,22 @@ body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h
     transform var(--spring-smooth-dur) var(--spring-smooth),
     scale var(--spring-snappy-dur) var(--spring-snappy);
 }
-.tab { position: relative; display: flex; align-items: center; gap: 8px; flex: 0 1 auto; width: var(--tab-w); min-width: 0; padding: 0 12px 0 10px; outline-offset: -2px; }
-.tab-home, .tab-new { flex: none; display: grid; place-items: center; width: 44px; padding: 0; outline-offset: -2px; }
-.tab-new { width: var(--tab-h); background: transparent; }
-:is(.tab, .tab-home, .tab-new):hover, .tab.ctx-target { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--spring-snappy-dur); }
+.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; flex: 0 1 auto; width: var(--tab-w); min-width: 0; height: calc(var(--tab-h) - 6px); padding: 0 28px; border-radius: 9px; background: transparent; outline-offset: -2px; }
+/* (a hairline between two tabs — not beside the one in hand, nor beside the one under the pointer) */
+.tab + .tab::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 0.5px; background: var(--line-strong); transition: opacity var(--dur-fast) var(--ease-out); }
+.tab:is([aria-selected="true"], :hover, .pulled, .landing, .ctx-target)::before, .tab:is([aria-selected="true"], :hover, .pulled, .landing, .ctx-target) + .tab::before { opacity: 0; }
+.tab-home, .tab-new { flex: none; display: grid; place-items: center; width: 40px; padding: 0; background: transparent; outline-offset: -2px; }
+.tab-new { width: var(--tab-h); }
+:is(.tab-home, .tab-new):hover { background: var(--fill-hover); color: var(--fg); }
+.tab:hover, .tab.ctx-target { background: color-mix(in srgb, var(--fg) 5%, transparent); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--spring-snappy-dur); }
 :is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
-.tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: color-mix(in srgb, var(--fg) 12%, transparent); color: var(--fg); }
-.tab-home { color: var(--fg); }
+.tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: transparent; color: var(--fg); font-weight: 500; }
+.tab-home { color: var(--fg2); }
 .tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent-text); background: color-mix(in srgb, var(--fg) 12%, transparent); }
 /* All notes shown over a note: the house is where one is, and the note's tab is the way back — it
  * looks like a tab to go to. (An empty tab has nothing but all notes: it stays the one shown.) */
-body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):not(:hover) { background: color-mix(in srgb, var(--fg) 4.5%, transparent); color: var(--fg2); }
-body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { background: var(--fill-hover); }
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):not(:hover) { color: var(--fg2); font-weight: 400; }
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
 .tab:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); }
 :is(.tab, .tab-home, .tab-new) svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .tab-icon { flex: none; display: grid; place-items: center; width: 16px; height: 16px; transition: opacity var(--dur-fast) var(--ease-out); }
@@ -1025,7 +1035,7 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 /* closing: a ✕ in the icon's place while the pointer is on the tab (or the keyboard in it) */
 .tab-x {
   position: absolute;
-  left: 8px;
+  left: 5px;
   top: calc(50% - 10px);
   display: grid;
   place-items: center;
@@ -1042,14 +1052,14 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 }
 .tab-x svg { width: 12px; height: 12px; stroke-width: 2; }
 .tab-x .sf { font-size: 10px; }
-.tab:is(:hover, :focus-visible) .tab-icon { opacity: 0; transition-duration: var(--dur-instant); }
+/* (the x stands at the tab's left edge, beside the sign and the name, which stay in the middle) */
 .tab:is(:hover, :focus-visible) .tab-x { opacity: 1; transition-duration: var(--dur-instant); }
 .tab-x:hover { background: var(--fill-pressed); color: var(--fg); }
 .tab-x:active { background: color-mix(in srgb, var(--fg) 20%, transparent); }
 /* a new tab comes in, a closed one fades where it stood (out of the others' way), a pulled one is lifted */
 .tab.enter { opacity: 0; scale: var(--menu-from-scale, 0.96); }
 .tab.leaving { position: absolute; top: 0; opacity: 0; scale: var(--exit-to-scale, 0.98); pointer-events: none; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), scale calc(var(--dur-base) * 0.7) var(--ease-exit); }
-.tab.pulled { z-index: 2; scale: var(--lift-scale); background: color-mix(in srgb, var(--fg) 12%, var(--bg)); box-shadow: 0 4px 14px rgb(0 0 0 / 0.12); transition-property: background-color, color, opacity, scale; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy); }
+.tab.pulled { z-index: 2; scale: var(--lift-scale); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 14px rgb(0 0 0 / 0.14); transition-property: background-color, color, opacity, scale; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy); }
 .tab.landing { z-index: 2; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy), var(--spring-snappy); }
 @media (prefers-reduced-motion: reduce) { .tab, .tab-home, .tab-new, .tab.pulled { scale: 1 !important; } .tab-row { transition: none; } }
 @media (prefers-contrast: more) { .tab, .tab-home { box-shadow: inset 0 0 0 1px var(--fg2); } .tab[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--fg); } }
