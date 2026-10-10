@@ -88,12 +88,12 @@
       await run(`u s 150 g ${G(to[0] + 20, to[1] + 20)} 2 30`, [to[0] + 20, to[1] + 20], 300);
       w.stop();
       const s = selInfo();
-      o.boardAfter = { s, text: w.text, heard: { ...heard }, open: !!(window.MdBoard && MdBoard.shown) };
+      o.boardAfter = { s, text: w.text, heard: { ...heard }, open: !!(window.MdBoard && MdBoard.state && MdBoard.state()) };
       ok("the whiteboard's block pressed and pulled a little: no text is selected on the way or after, and the board is not opened", w.text === 0 && s.dom === 0 && s.kind !== "range" && !o.boardAfter.open, o.boardAfter);
       out("shot-board", {}); await sleep(900);
     }
     // ---- clicked, each of them opens: a picture of svg and a formula their dialog, the whiteboard the board
-    for (const [name, what, opened] of [["a picture of svg", 'viewBox="40 56', () => document.getElementById("dlg").hasAttribute("data-open")], ["a formula", "f(x) =", () => document.getElementById("dlg").hasAttribute("data-open")], ["the whiteboard", "board.svg", () => !!(window.MdBoard && MdBoard.shown)]]) {
+    for (const [name, what, opened] of [["a picture of svg", 'viewBox="40 56', () => document.getElementById("dlg").hasAttribute("data-open")], ["a formula", "f(x) =", () => document.getElementById("dlg").hasAttribute("data-open")], ["the whiteboard", "board.svg", () => !!(window.MdBoard && MdBoard.state && MdBoard.state())]]) {
       const b = blocksAll().find((x) => (x.node.attrs.raw || "").includes(what));
       if (!b) { ok(name + " clicked: found", false, what); continue; }
       domOf(b).scrollIntoView({ block: "center" }); await sleep(600);
@@ -103,7 +103,7 @@
       ok(name + " clicked with the pointer in the active mode: it opens", yes, { heard: { ...heard }, sel: selInfo() });
       for (const k of Object.keys(heard)) delete heard[k];
       if (document.getElementById("dlg").hasAttribute("data-open")) document.getElementById("dlg").querySelector('[data-do="cancel"]').click();
-      if (window.MdBoard && MdBoard.shown) MdBoard.close();
+      if (window.MdBoard && MdBoard.state && MdBoard.state()) MdBoard.close();
       await sleep(700);
     }
   } catch (e) { o.error = String(e && e.stack || e); }
