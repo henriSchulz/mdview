@@ -1298,6 +1298,8 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
   border-radius: calc(8px - 3px);
 }
 .sb-item.ctx-target > .sb-in > .sb-row:not(.active) { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
+/* the copy that goes with the pointer while a row or a tile is moved (moving.start): the page's own, laid over everything, deaf to the pointer */
+.drag-ghost { position: fixed !important; left: 0; top: 0; z-index: 90; box-sizing: border-box; margin: 0 !important; pointer-events: none; user-select: none; -webkit-user-select: none; opacity: 0.94; will-change: transform; transition: none !important; animation: none !important; }
 /* what is dragged would go into this folder — or, the list itself marked, to the top */
 .sb-item.drop-into > .sb-in > .sb-row { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .sb-list.drop-into, #sb-list.drop-into { box-shadow: inset 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 60%, transparent); border-radius: var(--radius-control); }

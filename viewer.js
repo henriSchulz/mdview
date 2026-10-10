@@ -3228,13 +3228,38 @@
   /* A note, another file or a folder dragged into another folder — a row of the sidebar onto a
    * folder's row (or the list's empty room: the top), a tile of All Notes onto a folder's tile
    * (overview.js uses the same three). The application moves it ("move"). */
+  /* What goes with the pointer while something is moved: a copy of it, drawn by the page and moved by the page. The
+   * browser's own picture of the element is not used (an empty one is handed to it): it comes out twice as large on a
+   * screen scaled by a fraction, and shows at full size what the element holds made small with zoom. */
+  const noPicture = new Image();
+  noPicture.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  let ghost = null; // { el, gx, gy: where in it the pointer took it; tx, ty: how far it is moved }
+  const ghostTo = (x, y) => {
+    if (!ghost || !ghost.el.isConnected) return;
+    const r = ghost.el.getBoundingClientRect(); // (from where it is now: whatever it hangs in may have scrolled)
+    ghost.tx += x - ghost.gx - r.left; ghost.ty += y - ghost.gy - r.top;
+    ghost.el.style.transform = `translate(${ghost.tx}px, ${ghost.ty}px)`;
+  };
+  const ghostGone = () => { if (ghost) ghost.el.remove(); ghost = null; };
+  document.addEventListener("dragover", (e) => ghostTo(e.clientX, e.clientY), true);
+  for (const t of ["dragend", "drop"]) document.addEventListener(t, ghostGone, true);
   const moving = {
     path: null, paths: null,
     // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it;
     // also: what goes with it — the others selected in All Notes)
     start(e, path, el, also) {
       moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
-      if (el) { const r = el.getBoundingClientRect(); e.dataTransfer.setDragImage(el, Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))); }
+      if (!el) return;
+      const r = el.getBoundingClientRect(), x = e.clientX, y = e.clientY;
+      e.dataTransfer.setDragImage(noPicture, 0, 0);
+      ghostGone();
+      const g = el.cloneNode(true);
+      for (const n of [g, ...g.querySelectorAll("[id], [data-path], [data-key]")]) for (const a of ["id", "data-path", "data-key", "draggable", "tabindex"]) n.removeAttribute(a);
+      g.classList.add("drag-ghost"); g.setAttribute("aria-hidden", "true");
+      g.style.width = r.width + "px"; g.style.height = r.height + "px";
+      ghost = { el: g, gx: Math.max(0, Math.min(r.width, x - r.left)), gy: Math.max(0, Math.min(r.height, y - r.top)), tx: 0, ty: 0 };
+      // (put in beside what it copies, where its styles hold — a moment later: a page changed while a drag begins may lose the drag)
+      setTimeout(() => { if (ghost && ghost.el === g && el.parentNode) { el.parentNode.appendChild(g); ghostTo(x, y); } }, 0);
     },
     // (not where it is already, not into itself)
     fits: (path, dir) => dir !== path && !dir.startsWith(path + "/") && path.replace(/\/[^/]*$/, "") !== dir,

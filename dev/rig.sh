@@ -38,6 +38,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before)
 #   dev/rig.sh move                   a note dragged into a folder, a folder into another
 #   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
@@ -56,7 +57,8 @@ app() { # app SECONDS ENV… -- FILE…
     XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
     setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
-shot() { local id; id=$(hyprctl clients -j | jq -r '.[] | select(.class=="aquamarine") | .stableId' | head -1); grim -T "$id" "$1"; }
+# (this rig's own window: several rigs stand side by side on the hidden workspace)
+shot() { local id pid; pid=$(HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)" '.[] | select(.instance==$s) | .pid'); id=$(hyprctl clients -j | jq -r --argjson p "${pid:-0}" '[.[] | select(.class=="aquamarine")] | (map(select(.pid==$p)) + .)[0].stableId'); grim -T "$id" "$1"; }
 case "${1:-}" in
   start)
     [[ -n $(sig) ]] && HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl version >/dev/null 2>&1 && { echo "already up: $(sig)"; exit 0; }
@@ -337,6 +339,30 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  tiledrag)
+    # a tile of All Notes held by a real pointer (dev/vptr): the picture that goes with the pointer is the tile's, at the tile's size
+    V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }
+    rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.plan?.json "$R/out"/*.tiledrag.json
+    app 60 MDVIEW_PROBE="$D/probe-tiledrag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    for _ in $(seq 300); do P=$(ls "$R/out"/*.plan1.json 2>/dev/null | head -1); [[ -n $P ]] && break; sleep 0.1; done
+    read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"
+    for _ in $(seq 300); do P=$(ls "$R/out"/*.plan2.json 2>/dev/null | head -1); [[ -n $P ]] && break; sleep 0.1; done
+    read -r -a cmd < <(jq -r '.cmd' "$P"); read -r AX AY TW TH HX HY < <(jq -r '"\(.at[0]) \(.at[1]) \(.tile[0]) \(.tile[1]) \(.hold[0]) \(.hold[1])"' "$P")
+    WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" m "$HX" "$HY"; sleep 0.4; shot "$R/out/tiledrag-before.png"
+    WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}" & sleep 2.2; shot "$R/out/tiledrag-held.png"; wait
+    for _ in $(seq 100); do ls "$R/out"/*.tiledrag.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    # the picture held by the pointer (taken by the tile's middle) against the tile where it stood: the same picture, at the same size
+    K=$(echo "$(magick identify -format '%w' "$R/out/tiledrag-held.png") / $MW" | bc -l)
+    box() { printf '%.0fx%.0f+%.0f+%.0f' "$(echo "$TW * $K" | bc)" "$(echo "$TH * $K" | bc)" "$(echo "$1 * $K" | bc)" "$(echo "$2 * $K" | bc)"; }
+    magick "$R/out/tiledrag-before.png" -crop "$(box "$AX" "$AY")" +repage "$R/out/tiledrag-tile.png"
+    magick "$R/out/tiledrag-held.png" -crop "$(box "$(echo "$HX - $TW / 2" | bc -l)" "$(echo "$HY - $TH / 2" | bc -l)")" +repage "$R/out/tiledrag-ghost.png"
+    apart=$(magick compare -metric RMSE "$R/out/tiledrag-tile.png" "$R/out/tiledrag-ghost.png" null: 2>&1 | sed 's/.*(\(.*\)).*/\1/')
+    printf 'the picture at the pointer is %.3f apart from the tile (the same picture: under 0.08)\n' "$apart"
+    f=$(ls "$R/out"/*.tiledrag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$f"
+    ! jq -r '.steps[], (.error // empty)' "$f" | grep -q '^FAIL\|Error' && (( $(echo "$apart < 0.08" | bc -l) )) ;;
   dragnote)
     # blocks moved with a real pointer in a copy of a real note (NOTE=… its file; pictures beside it go along): columns, svg, formulas, a board
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }

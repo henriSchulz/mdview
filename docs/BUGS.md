@@ -112,6 +112,13 @@ app itself.
     beside its picture. A dialog that is not to be pulled at all (Transform with AI) hides the
     corner and takes no kept size.
 
+44. **What goes with the pointer in a drag is drawn by the page** (`moving.start`: a copy of the
+    row or tile, moved on `dragover`), and the browser is handed an empty picture. WebKitGTK's
+    own picture of an element comes out twice as large on a screen scaled by a fraction, and
+    shows at full size, unclipped, whatever the element holds made small with `zoom`.
+45. **The rig's screenshot is of the rig's own window** (`shot` asks for the nested compositor's
+    pid): with several rigs side by side the first window found is another session's.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -180,6 +187,7 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| A tile of All Notes dragged: the picture at the pointer was enormous — the sheet twice its size, the neighbours' text in it | the picture was the browser's own of the tile. In the rig (screen not scaled) it showed the preview's text at full size under the sheet: the preview is made small with `zoom`, which that picture does not keep to. The doubling of the whole picture on Henri's screen (scaled 1.25) *was not reproduced* — the rig's screen could not be scaled | the page draws what goes with the pointer itself, a copy of the tile (of a row, in the sidebar), and hands the browser an empty picture (rule 44) | `rig.sh tiledrag` — a **real pointer** holds a tile, the screen is looked at: the picture at the pointer against the tile where it stood, 0.166 apart before, 0.046 after. **On the scaled screen Henri's try decides** |
 | The code dialog of an svg picture was far too small: three lines of code, the picture a stamp | the size kept for dialogs was 697 × 200 and a kept size was applied to every dialog as it is, however little it leaves. *Where the 200 came from was not found* — no path in the released code keeps a height under 220; the likeliest is a test instance of the Transform restyling, which ran on Henri's own settings | code beside its picture is never smaller than 720 × 480 (or what the window allows), whatever size is kept (rule 43); a double click on the corner gives a dialog its own size again | `rig.sh svgedit` (opened with 697 × 200 kept: fails before — 2 lines in sight — passes after) |
 | Leaving a subpage put one at the top of the page above, not where the subpage's line is | going to a page always scrolled to the top | where one stood on each page is kept; back out of a page the page's line stands where it stood, and is marked for a moment | `rig.sh pagenav` |
 | The chat's Edit mode, asked to write into a subpage: "I cannot do that from here, the page's content is not shown to me" | Claude was given the editor's view of the note — where a page is one line — and its edits were carried out on the editor's blocks | Claude is given the note as its file has it (pages are sections of that text) and told which page is on screen; edits are made in the file's text, as one step of the note's history (rule 41) | `rig.sh pagelook` (a fixed answer writes into a page from outside it; Undo), `rig.sh ai-subpage` (the real Claude, Henri's own sentence) |
