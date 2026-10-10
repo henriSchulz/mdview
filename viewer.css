@@ -1052,6 +1052,11 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 }
 .tab-x svg { width: 12px; height: 12px; stroke-width: 2; }
 .tab-x .sf { font-size: 10px; }
+/* A formula's letters are never text to select — in no view, in no block, in a line or by itself: the formula is one thing.
+ * (Neither are the letters in a picture of svg or a diagram. Where a selection passes over them all the same — one made by
+ * the editor around a block — it is not painted on them.) */
+.katex, .katex *, .katex-display, .svg-block, .svg-block *, .mermaid-block, .mermaid-block * { user-select: none; -webkit-user-select: none; }
+:is(.katex, .katex-display, .svg-block, .mermaid-block, .board-block)::selection, :is(.katex, .katex-display, .svg-block, .mermaid-block, .board-block) *::selection { background: transparent; color: inherit; }
 /* (the x stands at the tab's left edge, beside the sign and the name, which stay in the middle) */
 .tab:is(:hover, :focus-visible) .tab-x { opacity: 1; transition-duration: var(--dur-instant); }
 .tab-x:hover { background: var(--fill-pressed); color: var(--fg); }
