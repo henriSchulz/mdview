@@ -251,8 +251,7 @@
     const made = m.made ? `<div class="ai-made"${m.made.done ? "" : " data-none"}><span class="ai-made-text">${I.edit}<span>${esc(m.made.done ? T(m.made.done === 1 ? "ai.made.one" : "ai.made", m.made.done) : T("ai.made.none"))}</span></span>` +
       (m.made.done && undoable(m) ? `<button class="ai-pillbtn" type="button" data-undo="${i}">${esc(T("ai.made.undo"))}</button>` : "") + `</div>` +
       (m.made.missed && m.made.missed.length ? `<div class="ai-missed"><b>${esc(T("ai.made.missed", m.made.missed.length))}</b>${m.made.missed.map((f) => `<code>${esc(f.slice(0, 90))}</code>`).join("")}</div>` : "") : "";
-    const writing = live && /<edit>/.test(m.text) ? `<div class="ai-made" data-live><span class="ai-made-text"><span class="ai-spin"></span><span>${esc(T("ai.made.writing", editsOf(m.text).length + 1))}</span></span></div>` : "";
-    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${made}${writing}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
+    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${made}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
   }
   const bottom = () => { log.scrollTop = log.scrollHeight; };
   /* The whole conversation, drawn (when the window opens, another conversation is taken up, or a message is done). */
@@ -270,7 +269,7 @@
   function drawFoot() {
     if (!box) return;
     const live = !!talking && talking.talk === cur, name = noteName();
-    q(".ai-pill").hidden = !(live && !talking.text.trim());
+    pill();
     requestAnimationFrame(() => { if (box) box.style.setProperty("--ai-foot", q(".ai-compose").offsetHeight + 22 + "px"); });
     q(".ai-ctx").innerHTML = (useDoc && name ? chipOf(name, T("ai.ctx.doc"), ' data-ctx="doc"') : "") + extra.map((c, i) => chipOf(c.name, subOf(c), ` data-ctx="${i}"`)).join("");
     for (const c of q(".ai-ctx").children) c.insertAdjacentHTML("beforeend", `<button class="ai-doc-x" type="button" title="${esc(T("ai.ctx.remove"))}" aria-label="${esc(T("ai.ctx.remove"))}">${I.close}</button>`);
@@ -287,6 +286,15 @@
     send.title = T(live ? "ai.stop" : "ai.send"); send.setAttribute("aria-label", send.title);
     send.toggleAttribute("data-idle", !live && !field.value.trim());
   }
+  /* The small sign over the field while Claude is at it and nothing new shows: working, or which change it is writing. */
+  function pill() {
+    const el = q(".ai-pill"), live = !!talking && talking.talk === cur;
+    const opened = live ? (talking.text.match(/<edit>/g) || []).length : 0, writing = opened > (live ? (talking.text.match(/<\/edit>/g) || []).length : 0) ? opened : 0;
+    const label = writing ? T("ai.made.writing", writing) : T("ai.chat.working"), show = live && (!!writing || !noEdits(talking.text).trim());
+    if (el.hidden === show) el.hidden = !show;
+    const text = el.querySelector(".ai-pill-text");
+    if (text.textContent !== label) text.textContent = label;
+  }
   // (what Claude says, as it comes: only its own message is drawn anew, a few times a second — the rest of the window stands still)
   let pending = 0;
   function drawLive() {
@@ -295,9 +303,11 @@
       pending = 0;
       if (!talking || talking.talk !== cur || !talking.el || !talking.el.isConnected) return;
       const near = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
-      talking.el.outerHTML = htmlOf({ role: "assistant", text: talking.text }, cur.messages.length, true);
-      talking.el = log.lastElementChild;
-      q(".ai-pill").hidden = !!talking.text.trim();
+      // (only what changed is drawn anew: while an edit is being written nothing of the message does, and the circle that
+      // says so is one that stays — drawn anew at every piece it would begin its turn again each time)
+      const html = htmlOf({ role: "assistant", text: talking.text }, cur.messages.length, true);
+      if (html !== talking.html) { talking.html = html; talking.el.outerHTML = html; talking.el = log.lastElementChild; }
+      pill();
       if (near) bottom();
     }, 90);
   }
@@ -426,7 +436,7 @@
         `<button class="ai-ib" type="button" data-do="more" title="${esc(T("ai.menu.more"))}" aria-label="${esc(T("ai.menu.more"))}">${svg('<circle cx="6" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.3" fill="currentColor" stroke="none"/>')}</button>` +
         `<button class="ai-ib" type="button" data-do="close" title="${esc(T("ai.chat.close"))}" aria-label="${esc(T("ai.chat.close"))}">${svg('<path d="m6 9 6 6 6-6"/>')}</button></header>` +
       `<div class="ai-log" aria-live="polite"></div>` +
-      `<div class="ai-pill" hidden><span class="ai-spin"></span>${esc(T("ai.chat.working"))}</div>` +
+      `<div class="ai-pill" hidden><span class="ai-spin"></span><span class="ai-pill-text">${esc(T("ai.chat.working"))}</span></div>` +
       `<footer class="ai-compose"><div class="ai-ctx"></div>` +
         `<textarea class="ai-field" rows="1" placeholder="${esc(T("ai.chat.ask"))}" aria-label="${esc(T("ai.chat.ask"))}" spellcheck="false"></textarea>` +
         `<div class="ai-bar"><button class="ai-round" type="button" data-do="add" title="${esc(T("ai.add"))}" aria-label="${esc(T("ai.add"))}">${I.fresh}</button>` +

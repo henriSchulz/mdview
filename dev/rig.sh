@@ -251,6 +251,14 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-table.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-table.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-table.json"; } | grep -qv '^ok' ;;
+  cut)
+    # text and a picture of svg, selected together, cut, and put in elsewhere
+    name=cut.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Cut\n\nBefore the picture here.\n\n```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>\n```\n\nAfter the picture here.\n\nLast.\n' > "$R/work/$name"; rm -f "$R/out/$name".cut.json
+    app 60 MDVIEW_PROBE="$D/probe-cut.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 300); do [[ -f $R/out/$name.cut.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.cut.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    if jq -e '.steps' "$R/out/$name.cut.json" >/dev/null 2>&1; then ! jq -r '.steps[], (.error // empty)' "$R/out/$name.cut.json" | tee /dev/stderr | grep -q '^FAIL\|Error'; else jq . "$R/out/$name.cut.json"; fi ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json

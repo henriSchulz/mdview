@@ -685,7 +685,9 @@
     e.clipboardData.setData("text/plain", A.clip.markdownOf(v.state, slice));
     const box = document.createElement("div");
     box.appendChild(A.clip.plugin.props.clipboardSerializer.serializeFragment(slice.content));
-    e.clipboardData.setData("text/html", box.innerHTML);
+    // (marked as this editor's own: put in again, it is read from its Markdown — a picture of svg, a formula, a whiteboard
+    // are no HTML the editor could read back)
+    e.clipboardData.setData("text/html", `<meta charset="utf-8"><div data-mdview="blocks">${box.innerHTML}</div>`);
     if (cut && v.editable) {
       const tr = v.state.tr;
       if (apart) for (const x of P.slice().reverse()) tr.deleteRange(x.pos, x.pos + x.node.nodeSize); else tr.deleteRange(r.from, r.to);

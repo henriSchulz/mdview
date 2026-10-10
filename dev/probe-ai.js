@@ -218,6 +218,9 @@
     cq(".ai-field").dispatchEvent(new Event("input", { bubbles: true }));
     cq(".ai-send").click();
     await until(() => ai().talking, 2000);
+    const spin = cq(".ai-pill .ai-spin"), seen = new Set(), redrawn = new Set();
+    while (ai().talking) { if (!cq(".ai-pill").hidden) seen.add(cq(".ai-pill-text").textContent.replace(/\d+/, "N")); redrawn.add(cq(".ai-bot[data-live]")); await sleep(20); }
+    ok("while a change is written, one sign says so — its circle is the same one all along, turning on", cq(".ai-pill .ai-spin") === spin && seen.has("Writing change N …") && getComputedStyle(spin).animationName === "ai-spin" && cq(".ai-pill").hidden, [...seen]);
     await until(() => !ai().talking && cq(".ai-made"), 6000);
     o.edit = ai().talk.at(-1);
     await sleep(300);
