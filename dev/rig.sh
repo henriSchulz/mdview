@@ -285,6 +285,29 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.svgedit.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.svgedit.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  dropstay)
+    # a block moved by its handle in a long note: the note stays where it is, only what was moved is selected
+    name=drop.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Drop\n\n'; for i in $(seq 40); do printf 'Filler paragraph %s with some words to make the page long enough to scroll.\n\n' "$i"; [[ $i == 30 ]] && printf '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>\n```\n\n'; done; printf 'Last.\n'; } > "$R/work/$name"; rm -f "$R/out/$name".dropstay.json
+    app 60 MDVIEW_PROBE="$D/probe-dropstay.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 400); do [[ -f $R/out/$name.dropstay.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.dropstay.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dropstay.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  dragreal)
+    # blocks moved with a real pointer (dev/vptr): what the browser does by itself with a held button is in this check
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    name=drop.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Drop\n\n'; for i in $(seq 40); do printf 'Filler paragraph %s with some words to make the page long enough to scroll.\n\n' "$i"; [[ $i == 30 ]] && printf '```svg\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60" width="120"><rect width="120" height="60" fill="teal"/></svg>\n```\n\n'; done; printf 'Last.\n'; } > "$R/work/$name"; rm -f "$R/out/$name".plan*.json "$R/out/$name".dragreal.json
+    app 90 MDVIEW_PROBE="$D/probe-dragreal.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 900); do
+      [[ -f $R/out/$name.dragreal.json ]] && break
+      if [[ -f $R/out/$name.plan$n.json ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$R/out/$name.plan$n.json"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    shot "$R/out/dragreal.png"
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagenav)
     # back and forward among the pages of a note
     name=pages.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Pages\n\nText.\n\n<!-- page: Alpha -->\n\nIn alpha.\n\n<!-- page: Inner -->\n\nDeep.\n\n<!-- /page -->\n\n<!-- /page -->\n\n<!-- page: Beta -->\n\nIn beta.\n\n<!-- /page -->\n' > "$R/work/$name"; rm -f "$R/out/$name".{deep,root,pagenav}.json

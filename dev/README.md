@@ -107,3 +107,13 @@ not always arrive.)
 gh workflow run system-probe.yml -f run=<the Build run's number>     # an installer, tried
 gh workflow run system-probe.yml                                      # this checkout only
 ```
+
+## A real pointer
+
+`dev/vptr/vptr.c` moves and presses a virtual pointer in the rig's nested compositor (built into
+the rig's folder by `rig.sh dragreal`). Made-up DOM events reach the app's handlers but not what
+the browser does by itself with a held button — text selected by a pull, the note scrolled after
+it, a native drag. A probe that needs the pointer writes `plan1`, `plan2`, … (`{ cmd: "m X Y d g
+X Y STEPS MS u" }`, in the compositor's coordinates — it finds how they lie to the page's from a
+first move) and the rig runs each as it appears: see `probe-dragreal.js` and the `dragreal` case.
+

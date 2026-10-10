@@ -55,6 +55,21 @@ app itself.
     `closest("[contenteditable='true']")` from inside the note always finds the note itself:
     check that what was found lies *inside* the block.
 
+31. **`preventDefault` on `mousemove` stops nothing the browser does with a held button.** A
+    text selection is held off by `selectstart` (prevented) and `user-select: none` for as long
+    as the button is down — and both are let go on `mouseup`, `dragend`, `drop` and the window's
+    `blur`, or the note stays unselectable.
+32. **A check with made-up events proves the app's own handlers, not the browser's behaviour.**
+    What the browser does by itself with a real pointer — selecting, scrolling after a
+    selection, a native drag — is not in such a check. For anything a held button does, use the
+    real pointer: `dev/vptr` moves and presses one in the rig's compositor (`rig.sh dragreal`
+    shows how a probe hands it its way). A fix for such a bug is not verified without it.
+33. **No style that makes the note unselectable, not even for a moment**: in WebKit
+    `user-select: none` on a contenteditable takes the caret and the typing with it.
+34. **The rig's window can be half as wide as usual** — another session's rig shares the hidden
+    workspace. Probes that measure layout (`blocks`, `columns`, `m5`) then fail with or without
+    a change: compare against the committed code before blaming the change.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -123,6 +138,7 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| **Again**, after the fix below was installed: drag and drop in the note still selected random things and scrolled to a random place | the first fix called `preventDefault` on `mousemove` — which does not stop a browser's text selection — and was only ever tested with made-up events, where no browser selection exists; it also scrolled twice (its own loop beside the drag's) | the press on a thing is taken from the browser (`preventDefault` on `mousedown`, `selectstart` refused while it is held); one scroll loop; no `scrollIntoView` after a drop (rules 30–32) | `rig.sh dragreal` — a **real pointer**; it fails on the old code (57 letters selected on the way) and passes on the new. Also `rig.sh dropstay`, `rig.sh cut` |
 | The lasso took a thing only when the loop went all the way round it; of a group only a part | a stroke needed 60 % of its points inside, a thing its middle | a quarter of a stroke is enough, a thing's middle or two of its corners; a stroke merely crossed is not taken | `web/test/board-touch.test.mjs`, `dev/tests/board.test.mjs` |
 | A shape drawn and held could not be sized while the hand was down (as GoodNotes does); the shape tool did not make it clean on a hold at all | only a line followed the hand after it was made clean; the shape tool waited for the lift | held still, any shape is made clean and then pulled larger or smaller from its middle — with a pen and with the shape tool | `web/test/board-touch.test.mjs` |
 | Moving a block such as an svg picture selected random text on the way | pressed on the picture itself (not its handle), the pull was left to the browser, which began a text selection | a pull on a block that is a thing moves the block, with the handle's drag (rule 30) | `rig.sh cut` |

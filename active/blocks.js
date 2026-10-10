@@ -1367,7 +1367,7 @@
       const n = tr.steps.length;
       for (const x of d.ranges.slice().reverse()) A.columns.tidy(tr, tr.mapping.map(x.from)); // (the columns they came from, if nothing is left in them)
       tr.setSelection(Selection.near(tr.doc.resolve(tr.mapping.slice(n).map(began)), 1)).setMeta("uiEvent", "drop").setMeta("step", true);
-      view.dispatch(tr.scrollIntoView());
+      view.dispatch(tr); // (no scrolling to it: it was dropped where the pointer is, in sight)
       view.focus();
       return;
     }
@@ -1400,12 +1400,21 @@
    * pulled: it is moved, as by its handle. (Left to the browser, the pull began a selection of text, which took in whatever
    * the pointer passed.) The drag is the handle's, its events made by hand; a press let go where it was stays the click it is. */
   {
-    let grab = null; // { x, y, el, on, dt, at, roll }
+    let grab = null; // { x, y, el, on, dt, at }
+    /* While a thing is pressed the browser may begin no selection of text: a pull it takes for its own selects every block
+     * the pointer passes, and scrolls the note after it. That is held off where it begins — the press itself is taken from the
+     * browser (below), and a selection it would start meanwhile is refused. (preventDefault on mousemove undoes nothing; and
+     * nothing is made unselectable by a style: in this browser that would take the caret from the note.) */
+    let held = false;
+    const hold = (on) => { held = on; };
+    document.addEventListener("selectstart", (e) => { if (held) e.preventDefault(); }, true);
+    addEventListener("blur", () => { grab = null; hold(false); });
     const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
     const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: grab.dt }); target.dispatchEvent(ev); return ev; };
     const under = (x, y) => document.elementFromPoint(x, y) || document.body;
     document.addEventListener("mousedown", (e) => {
       grab = null;
+      hold(false);
       if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !view || !view.editable || document.body.dataset.view !== "active" || !e.target.closest) return;
       if (!view.dom.contains(e.target)) return;
       const el = blockOf(view, e.target), node = el && el.pmViewDesc && el.pmViewDesc.node;
@@ -1414,22 +1423,25 @@
       // (what is worked in the block itself — a button, a field, a link, text one may select — is not a grip)
       const inner = e.target.closest("button, a, input, textarea, select, summary, label, video, audio, iframe, [contenteditable='true'], .code-block, pre, table");
       if (inner && el.contains(inner)) return;
-      grab = { x: e.clientX, y: e.clientY, el, on: false, dt: null, at: [e.clientX, e.clientY], roll: 0 };
+      grab = { x: e.clientX, y: e.clientY, el, on: false, dt: null, at: [e.clientX, e.clientY] };
+      hold(true);
+      // (the press is not the browser's: it begins no selection and no drag of its own. The editor still gets it — it
+      // chooses the thing — and the note keeps the keys.)
+      e.preventDefault();
+      if (!view.hasFocus()) view.focus();
     }, true);
     document.addEventListener("mousemove", (e) => {
       if (!grab) return;
-      if (!(e.buttons & 1)) { grab = null; return; }
+      if (!(e.buttons & 1)) { grab = null; hold(false); return; }
       if (!grab.on) {
         if (Math.hypot(e.clientX - grab.x, e.clientY - grab.y) < 6) return;
-        if (!grab.el.isConnected || !grab.el.pmViewDesc) { grab = null; return; }
+        if (!grab.el.isConnected || !grab.el.pmViewDesc) { grab = null; hold(false); return; }
         place(grab.el);
         grab.dt = made();
         const began = send("dragstart", handle, grab.x, grab.y);
-        if (began.defaultPrevented || !drag) { grab = null; return; }
+        if (began.defaultPrevented || !drag) { grab = null; hold(false); return; }
         grab.on = true;
-        handle.dataset.dragging = "";
-        const roll = () => { if (!grab || !grab.on) return; const y = grab.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...grab.at), ...grab.at); } grab.roll = requestAnimationFrame(roll); };
-        grab.roll = requestAnimationFrame(roll);
+        handle.dataset.dragging = ""; // (near the window's edge the note goes along: the drag's own scrolling, dragScroll)
       }
       e.preventDefault();
       e.stopPropagation();
@@ -1441,11 +1453,13 @@
     document.addEventListener("mouseup", (e) => {
       const was = grab;
       if (!was) return;
-      if (!was.on) { grab = null; return; }
-      cancelAnimationFrame(was.roll);
+      if (!was.on) { grab = null; hold(false); return; }
       send("drop", under(e.clientX, e.clientY), e.clientX, e.clientY);
       send("dragend", handle, e.clientX, e.clientY);
       grab = null;
+      hold(false);
+      const picked = getSelection();
+      if (picked && !picked.isCollapsed && !view.state.selection.node) picked.removeAllRanges(); // (whatever the browser took on the way)
       e.preventDefault();
       e.stopPropagation();
       // (the click that ends the pull is not one on the block: it opens nothing)
