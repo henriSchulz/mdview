@@ -8,12 +8,12 @@
   const o = {};
   try {
     await sleep(1500);
-    const root = MdView.core.folder.root, row = (p) => document.querySelector(`.sb-item[data-key="${root}/${p}"] > .sb-in > .sb-row`);
+    const root = MdView.core.folder.root, row = (p) => document.querySelector(`.sb-list .sb-item[data-key="${root}/${p}"] > .sb-in > .sb-row`); // (the row in the tree — not the same note among those opened last)
     const drag = (from, to) => {
       const dt = new DataTransfer(), ev = (type, el) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
       ev("dragstart", from); ev("dragover", to); o.marked = !!document.querySelector(".drop-into"); ev("drop", to); ev("dragend", from);
     };
-    o.rows = [...document.querySelectorAll(".sb-item")].map((e) => e.dataset.key.slice(root.length + 1));
+    o.rows = [...document.querySelectorAll(".sb-list .sb-item")].map((e) => e.dataset.key.slice(root.length + 1));
     o.before = MdView.core.current.path.slice(root.length + 1);
     drag(row("Loose.md"), row("box")); await sleep(1500);
     o.after = MdView.core.current.path.slice(root.length + 1);

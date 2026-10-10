@@ -1546,6 +1546,9 @@ body[data-mode="dark"] #sidebar { --sb-paper: color-mix(in srgb, var(--fg) 16%, 
 #sidebar[data-flat] .sb-flat { display: block; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 2px var(--sb-pad) 16px; }
 #sidebar[data-flat] :is(.sb-list, .sb-cap-folders, .sb-crumb, .sb-recent) { display: none !important; }
 
+/* (a row pulled over what stands for a folder — its sign in the rail, the way back, the folder's name at the head: marked as a folder's row is) */
+:is(.sb-rt, .sb-back, .sb-folder).drop-into { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
 /* source: the notes opened last above the tree, new and order at the foot */
 #sidebar[data-layout="source"] .sb-recent:not([hidden]) { display: block; padding: 0 var(--sb-pad); }
 #sidebar[data-layout="source"] .sb-cap-folders, #sidebar[data-layout="tiles"] .sb-cap-folders { display: block; }

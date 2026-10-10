@@ -724,8 +724,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   selected is dragged onto a folder together, trashed together (`Del`), or opened in tabs (right
   click). Folders are renamed (`F2`) and trashed here too.
 - **Moving**: a note, another file or a folder is dragged into another folder — its row in the
-  sidebar onto a folder's row (onto the list's empty room: to the top), its tile in All Notes
-  onto a folder's tile. Tabs, the note on screen and a share's link follow.
+  sidebar onto a folder's row, its tile in All Notes onto a folder's tile. **Out of a folder
+  again**: onto the folder's name at the sidebar's head (the folder itself), or anywhere in the
+  sidebar that is no folder's row — the folder shown. In the rail a folder's sign takes what is
+  dropped on it (All Notes: the folder itself); among the sheets the way back at the top left
+  takes it into the folder above. What would take it is marked while it is pulled over.
+  Tabs, the note on screen and a share's link follow.
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
 - **Started by itself** (nothing opened before), the app says in its window what can be opened:

@@ -3243,21 +3243,29 @@
   };
   let dropInto = null;
   const setDropInto = (el) => { if (dropInto === el) return; if (dropInto) dropInto.classList.remove("drop-into"); dropInto = el; if (el) el.classList.add("drop-into"); };
-  const sbDropDir = (e) => { const dir = e.target.closest?.(".sb-item.is-dir"); return dir ? [dir, dir.dataset.key] : [sbList, folder && (sbHere || folder.root)]; };
+  /* Where a row that is pulled would go: a folder's row — that folder; and what stands for a folder
+   * in the layouts: its sign in the rail, the way back among the sheets (the folder above), the
+   * folder's own name at the sidebar's head (the folder itself). Anywhere else in the sidebar:
+   * the folder that is shown — so a note comes out of a folder again without a row to aim at. */
+  const sbDropDir = (e) => {
+    const t = e.target instanceof Element ? e.target : null, root = folder && folder.root;
+    const dir = t && t.closest(".sb-list .sb-item.is-dir"), go = t && t.closest(".sb-rt[data-go], .sb-back[data-go]"), head = t && t.closest(".sb-folder");
+    return dir ? [dir, dir.dataset.key] : go ? [go, go.dataset.go || root] : head ? [head, root] : [sbList, folder && (sbHere || root)];
+  };
   sbList.addEventListener("dragstart", (e) => {
     const item = e.target.closest?.(".sb-item");
     if (!item || e.target.closest(".sb-rename")) { e.preventDefault(); return; }
     moving.start(e, item.dataset.key, item.firstChild.firstChild);
   });
-  sbList.addEventListener("dragover", (e) => {
+  sidebar.addEventListener("dragover", (e) => {
     const [el, dir] = sbDropDir(e);
     if (!moving.can(dir)) { setDropInto(null); return; }
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDropInto(el);
   });
-  sbList.addEventListener("dragleave", (e) => { if (!sbList.contains(e.relatedTarget)) setDropInto(null); });
-  sbList.addEventListener("drop", (e) => {
+  sidebar.addEventListener("dragleave", (e) => { if (!sidebar.contains(e.relatedTarget)) setDropInto(null); });
+  sidebar.addEventListener("drop", (e) => {
     const [, dir] = sbDropDir(e), ok = moving.can(dir);
     setDropInto(null);
     if (!ok) return;

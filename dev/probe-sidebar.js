@@ -88,6 +88,36 @@
     ok("… and a row there opens its note", MdView.core.current.name === "Plan.md", MdView.core.current.name);
     field.value = ""; field.dispatchEvent(new Event("input", { bubbles: true })); await sleep(300);
 
+    // ---- out of a folder again: a row pulled onto what stands for the folder above
+    const root = MdView.core.folder.root, has = (rel) => !!document.querySelector(`.sb-list .sb-item[data-key="${root}/${rel}"]`);
+    const drag = async (from, to) => {
+      const dt = new DataTransfer(), ev = (type, el) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+      ev("dragstart", from); ev("dragover", to); const marked = !!to.closest(".drop-into"); ev("drop", to); ev("dragend", from);
+      await sleep(1300);
+      return marked;
+    };
+    await layout("source");
+    if (!rowOf("Projekte").closest(".sb-item").classList.contains("open")) { rowOf("Projekte").click(); await sleep(500); }
+    let marked = await drag(rowOf("Plan"), q(".sb-folder"));
+    ok("list: a note pulled out of its folder onto the folder's name at the head lies in the folder itself — the name marked on the way", marked && has("Plan.md") && !has("Projekte/Plan.md"), [marked, has("Plan.md"), has("Projekte/Plan.md")]);
+    marked = await drag(rowOf("Plan"), rowOf("Projekte"));
+    ok("… and onto a folder's row, in that folder again", marked && has("Projekte/Plan.md"), [marked, has("Projekte/Plan.md")]);
+    await layout("sheets");
+    rowOf("Studium").click(); await sleep(700);
+    marked = await drag(rowOf("Thermo"), q(".sb-back"));
+    ok("sheets: in a folder, a sheet pulled onto the way back lies in the folder above", marked && has("Thermo.md") && !has("Studium/Thermo.md"), [marked, has("Thermo.md")]);
+    q(".sb-back").click(); await sleep(600);
+    await layout("rail");
+    const tile = (name) => qa(".sb-rail .sb-rt").find((b) => b.title === name);
+    tile("All Notes").click(); await sleep(400);
+    marked = await drag(rowOf("Thermo"), tile("Studium"));
+    ok("rail: a note pulled onto a folder's sign lies in that folder", marked && has("Studium/Thermo.md") && !has("Thermo.md"), [marked, has("Studium/Thermo.md")]);
+    tile("Studium").click(); await sleep(500);
+    marked = await drag(rowOf("Thermo"), tile("All Notes"));
+    ok("… and from inside a folder onto All Notes, in the folder itself", marked && has("Thermo.md"), [marked, has("Thermo.md")]);
+    tile("All Notes").click(); await sleep(400);
+    await drag(rowOf("Thermo"), tile("Studium")); // (as it was)
+
     // ---- the look is the folder's: renamed, it keeps it
     await layout("source");
     window.MdHost.post(JSON.stringify({ type: "rename", path: rowOf("Studium").closest(".sb-item").dataset.key, name: "Uni" }));
