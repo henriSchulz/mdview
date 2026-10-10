@@ -70,6 +70,18 @@ app itself.
     workspace. Probes that measure layout (`blocks`, `columns`, `m5`) then fail with or without
     a change: compare against the committed code before blaming the change.
 
+35. **Never `preventDefault` an event in the capture phase that the editor must still see.**
+    ProseMirror ignores every DOM event that arrives with its default prevented
+    (`eventBelongsToView`). Prevent it in a bubble-phase listener on the document — the default
+    is still held off — or the editor loses its clicks.
+36. **A check of "it opens on a click" uses the real pointer and asserts that it opened.** The
+    first real-pointer check only recorded whether the dialog was open and asserted nothing;
+    the regression went out with a green run.
+37. **The rig's pointer tool loses its bearings when the rig's output is resized** (another
+    session's rig joining or leaving the hidden workspace): `rig.sh stop`, `start` before a
+    real-pointer run that fails with "the pointer was not heard". Never `pkill -f` a pattern
+    that matches the running command itself.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -138,6 +150,8 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| **Caused by the fix below:** in the active mode a click on a whiteboard, a picture of svg or a formula opened nothing | the press on a thing was taken from the browser with `preventDefault` in the capture phase — and ProseMirror does not look at an event whose default was prevented before it arrives, so it never saw the click | the default is prevented on the event's way up, after the editor has had it; the editor's own drag of the pressed node is refused in `dragstart` (rule 35) | `rig.sh dragnote` — real clicks on all three in a copy of Henri's note: fails on the released code, passes on the new |
+| The whiteboard's block pulled a little to the lower right: the picture and everything after it turned blue (selected) | *not reproduced* with the real pointer, neither on the released code nor on the new; the rig's window has no keyboard focus and does not paint a selection, only what is selected is measured | the press is handled as above | `rig.sh dragnote` (the pull is in it) — **Henri's try decides** |
 | **Again**, after the fix below was installed: drag and drop in the note still selected random things and scrolled to a random place | the first fix called `preventDefault` on `mousemove` — which does not stop a browser's text selection — and was only ever tested with made-up events, where no browser selection exists; it also scrolled twice (its own loop beside the drag's) | the press on a thing is taken from the browser (`preventDefault` on `mousedown`, `selectstart` refused while it is held); one scroll loop; no `scrollIntoView` after a drop (rules 30–32) | `rig.sh dragreal` — a **real pointer**; it fails on the old code (57 letters selected on the way) and passes on the new. Also `rig.sh dropstay`, `rig.sh cut` |
 | The lasso took a thing only when the loop went all the way round it; of a group only a part | a stroke needed 60 % of its points inside, a thing its middle | a quarter of a stroke is enough, a thing's middle or two of its corners; a stroke merely crossed is not taken | `web/test/board-touch.test.mjs`, `dev/tests/board.test.mjs` |
 | A shape drawn and held could not be sized while the hand was down (as GoodNotes does); the shape tool did not make it clean on a hold at all | only a line followed the hand after it was made clean; the shape tool waited for the lift | held still, any shape is made clean and then pulled larger or smaller from its middle — with a pen and with the shape tool | `web/test/board-touch.test.mjs` |
