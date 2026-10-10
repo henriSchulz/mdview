@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transform with AI lab</title>
+<!-- Transform with AI, restyled: the dialog as it is today and four proposals beside it, to choose
+     from. Nothing is asked of Claude here; "Answer" shows a made-up one. Keys 0–4 switch, D turns
+     dark, A shows the answer. Open the file as it is. Not shipped. -->
+<link rel="stylesheet" href="../motion.css">
+<style>
+  :root { --c-background: #f5f5f7; --c-foreground: #1d1d1f; --c-accent: #0071e3; }
+  :root[data-mode="dark"] { --c-background: #1e1e20; --c-foreground: #f5f5f7; --c-accent: #0a84ff; }
+  :root {
+    --bg: var(--c-background); --fg: var(--c-foreground); --accent: var(--c-accent);
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent); --fg-quiet: color-mix(in srgb, var(--fg) 62%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent); --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent); --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --card: color-mix(in srgb, var(--bg) 88%, #fff); --soft: color-mix(in srgb, var(--fg) 6%, transparent);
+  }
+  :root[data-mode="dark"] { --card: color-mix(in srgb, var(--bg) 82%, #fff); }
+  html, body { height: 100%; }
+  body { margin: 0; display: flex; flex-direction: column; background: color-mix(in srgb, var(--bg) 70%, #808088); color: var(--fg); font: 400 13px/1.45 var(--ui); user-select: none; -webkit-user-select: none; transition: background-color var(--dur-fast) var(--ease-out); }
+  button { font: inherit; color: inherit; cursor: default; }
+
+  /* the lab's own bar */
+  #bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: var(--bg); box-shadow: 0 0.5px 0 var(--line-strong); }
+  #tabs, .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--radius-pill); background: var(--soft); }
+  #tabs button, .seg button { height: 26px; padding: 0 13px; border: 0; border-radius: var(--radius-pill); background: transparent; font-weight: 500; transition: background-color var(--dur-fast) var(--ease-out); }
+  #tabs button[aria-pressed="true"], .seg button[aria-checked="true"], .seg button[aria-pressed="true"] { background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.08); }
+  #tabs kbd { font: inherit; opacity: 0.45; margin-right: 6px; }
+  #idea { flex: 1; min-width: 0; color: var(--fg2); }
+  #stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: 24px; overflow: auto; }
+
+  /* the dialog's frame, as the app's */
+  .dlg { display: flex; flex-direction: column; width: min(720px, 92vw); border-radius: var(--radius-panel); background: var(--bg); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25), 0 0 0 0.5px var(--line-strong); animation: in var(--dur-slow) var(--ease-out); }
+  @keyframes in { from { opacity: 0; transform: translateY(-10px) scale(0.98); } }
+  .head { padding: 12px 14px 10px; font-weight: 600; }
+  .body { display: flex; flex-direction: column; gap: 12px; padding: 0 14px; }
+  .foot { display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
+  .info { flex: 1; color: var(--fg2); font-size: 12px; }
+  .btn { height: 28px; padding: 0 12px; border: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--bg) 85%, transparent); box-shadow: 0 0 0 1px var(--line); font: 500 13px var(--ui); transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .btn:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .btn:active, .chip:active, .send:active, .tog:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .btn.primary { background: var(--accent); color: #fff; box-shadow: none; }
+  .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+  .btn.pill { border-radius: var(--radius-pill); padding: 0 14px; }
+  .space { flex: 1; }
+  textarea, input[type="text"] { font: 400 13.5px/1.45 var(--ui); color: var(--fg); user-select: text; -webkit-user-select: text; }
+  textarea::placeholder, input::placeholder { color: var(--fg-quiet); }
+  .out { box-sizing: border-box; height: 190px; overflow-y: auto; padding: 14px 16px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.06); font-size: 14px; line-height: 1.55; user-select: text; -webkit-user-select: text; }
+  .out p { margin: 0 0 9px; }
+  [hidden] { display: none !important; }
+
+  /* shared pieces of the proposals */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { height: 28px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 0.5px var(--line-strong); font: 500 12.5px/1 var(--ui); white-space: nowrap; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .chip:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); box-shadow: none; }
+  .ask { padding: 12px 12px 10px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 0.5px var(--line), 0 2px 10px rgb(0 0 0 / 0.06); transition: box-shadow var(--dur-fast) var(--ease-out); }
+  .ask:focus-within { box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 16px rgb(0 0 0 / 0.09); }
+  .ask textarea, .ask input { display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 1px 4px; border: 0; outline: none; resize: none; background: transparent; }
+  .ask textarea { height: 58px; }
+  .opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .ask .opts { margin-top: 10px; }
+  .seg button { height: 24px; font-size: 12.5px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 7px; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 0.5px var(--line-strong); color: var(--fg2); font: 500 12.5px/1 var(--ui); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .tog > svg { width: 16px; height: 16px; } .tog circle { fill: transparent; stroke: var(--line-strong); transition: fill var(--dur-fast) var(--ease-out); } .tog path { fill: none; stroke: #fff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .tog[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 10%, transparent); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 30%, transparent); color: var(--fg); }
+  .tog[aria-pressed="true"] circle { fill: var(--accent); stroke: var(--accent); } .tog[aria-pressed="true"] path { opacity: 1; }
+  .send { width: 30px; height: 30px; flex: none; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fg); color: var(--bg); transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .send > svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .dim { opacity: 0.4; pointer-events: none; }
+
+  /* 0 — today */
+  .v0 .chip { background: var(--fill-hover); box-shadow: none; } .v0 .chip:hover { background: var(--fill-pressed); } .v0 .chip[aria-pressed="true"] { background: var(--fg); }
+  .v0 textarea { width: 100%; box-sizing: border-box; height: 58px; padding: 9px 12px; resize: none; border: 0; outline: none; border-radius: 12px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .v0 textarea:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+  .v0 .seg { border-radius: 9px; background: var(--fill-hover); } .v0 .seg button { height: 26px; border-radius: 7px; font-weight: 400; }
+  .v0 .native { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: 0.75; }
+  .v0 .opts { gap: 12px; } .v0 .out { border-radius: 14px; }
+
+  /* 2 — the field first, what can be asked in one press sorted under it */
+  .v2 .ask { display: flex; align-items: center; gap: 8px; padding: 9px 9px 9px 14px; border-radius: 22px; }
+  .v2 .ask input { height: 30px; font-size: 15px; }
+  .v2 .groups { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; align-items: center; padding: 0 4px; }
+  .v2 .groups b { font: 600 11px/1 var(--ui); color: var(--fg2); }
+  .v2 .chip { height: 26px; padding: 0 11px; background: var(--soft); box-shadow: none; } .v2 .chip:hover { background: var(--fill-pressed); } .v2 .chip[aria-pressed="true"] { background: var(--fg); }
+  .v2 .foot .seg { margin-right: 2px; }
+
+  /* 3 — two panes: a menu of what can be asked at the left, one's own words and the answer at the right */
+  .v3.dlg { width: min(780px, 94vw); }
+  .v3 .body { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 12px; }
+  .v3 .menu { padding: 5px; border-radius: 12px; background: var(--soft); align-self: start; }
+  .v3 .menu h6 { margin: 0; padding: 7px 10px 3px; font: 600 11px/1.3 var(--ui); color: var(--fg2); } .v3 .menu h6:first-child { padding-top: 3px; }
+  .v3 .row { display: flex; width: 100%; height: var(--menu-item-height); align-items: center; box-sizing: border-box; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; }
+  .v3 .row:hover { background: var(--fill-hover); } .v3 .row[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .v3 .right { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .v3 .out { flex: 1; height: auto; min-height: 150px; display: block; }
+  .v3 .empty { display: grid; place-items: center; color: var(--fg-quiet); font-size: 12.5px; box-shadow: inset 0 0 0 0.5px var(--line); background: transparent; }
+
+  /* 4 — small: the field, the five asked most, the rest behind More */
+  .v4.dlg { width: min(540px, 92vw); }
+  .v4 .ask { padding: 12px; }
+  .v4 .ask textarea { height: 44px; }
+  .v4 .ask .opts { justify-content: space-between; }
+  .v4 .chip { height: 26px; padding: 0 11px; }
+  .v4 .links { display: flex; gap: 14px; color: var(--fg2); font-size: 12px; } .v4 .links b { color: var(--fg); font-weight: 500; }
+  .v4 .out { height: 150px; }
+</style>
+<body>
+<div id="bar">
+  <div id="tabs" role="group" aria-label="Proposal"></div>
+  <span id="idea"></span>
+  <div class="seg"><button type="button" id="answer" aria-pressed="false">Answer</button></div>
+  <div class="seg"><button type="button" id="dark" aria-pressed="false">Dark</button></div>
+</div>
+<div id="stage"></div>
+<script>
+  const PRESETS = ["Improve", "Fix spelling", "Shorter", "Longer", "Simpler", "Summarise", "As a list", "As a table", "More formal", "More casual", "To English", "To German", "Continue"];
+  const GROUPS = [["Writing", ["Improve", "Fix spelling", "Simpler"]], ["Length", ["Shorter", "Longer", "Summarise", "Continue"]], ["Form", ["As a list", "As a table"]], ["Tone", ["More formal", "More casual"]], ["Language", ["To English", "To German"]]];
+  const HINT = "Answered by Claude (the claude command on this computer). What is asked goes to Anthropic.";
+  const ANSWER = "<p>Mark this paragraph and choose <b>Transform with AI</b>. It is written a little long on purpose, so that Shorter has something to do.</p><p>A second paragraph, so that one sees how the answer stands in its place.</p>";
+  const IDEAS = [
+    ["Today", "The dialog as it is now."],
+    ["Chat card", "The field and its options in one card, as the chat's; quiet capsules; Replace is pale until there is an answer. (Built in the worktree.)"],
+    ["Field first", "One line to write in, with its round button; the presets sorted under it by what they do; where the answer goes, at the foot beside Replace."],
+    ["Two panes", "The presets as a menu at the left, one's own words and the answer at the right: nothing wraps, the answer has the height."],
+    ["Small", "A narrow sheet: the field, the five asked most, the rest behind More; the options as one quiet line."],
+  ];
+  const chip = (n) => `<button class="chip" type="button" data-preset="${n}">${n}</button>`;
+  const seg = `<span class="seg"><button type="button" data-where aria-checked="true">Replace</button><button type="button" data-where aria-checked="false">Insert below</button></span>`;
+  const tog = `<button class="tog" type="button" aria-pressed="true"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><path d="M4.8 8.3l2.2 2.2 4.2-4.8"/></svg>Whole note as context</button>`;
+  const send = `<button class="send" type="button" aria-label="Ask Claude"><svg viewBox="0 0 16 16"><path d="M8 13V3.5M4 7.2l4-4 4 4"/></svg></button>`;
+  const foot = (a, extra = "") => `<div class="foot">${extra || `<span class="info">${HINT}</span>`}<button class="btn" type="button">Cancel</button><button class="btn primary${a ? "" : " dim"}" type="button">Replace</button></div>`;
+  const out = (a) => `<div class="out"${a ? "" : " hidden"}>${ANSWER}</div>`;
+  const run = (a, cls = "") => `<button class="btn ${cls} ${a ? "" : "primary"}" type="button">${a ? "Ask again" : "Ask Claude"}</button>`;
+  const VIEWS = [
+    (a) => `<div class="dlg v0"><div class="head">Transform with AI</div><div class="body"><div class="chips">${PRESETS.map(chip).join("")}</div><textarea placeholder="Or say it in your own words …"></textarea>
+      <div class="opts">${seg}<label class="native"><input type="checkbox" checked>Whole note as context</label><span class="space"></span>${run(a)}</div>${out(a)}</div>
+      <div class="foot"><span class="info">${HINT}</span><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Replace</button></div></div>`,
+    (a) => `<div class="dlg v1"><div class="head">Transform with AI</div><div class="body"><div class="chips">${PRESETS.map(chip).join("")}</div>
+      <div class="ask"><textarea placeholder="Or say it in your own words …"></textarea><div class="opts">${seg}${tog}<span class="space"></span>${run(a, "pill")}</div></div>${out(a)}</div>${foot(a)}</div>`,
+    (a) => `<div class="dlg v2"><div class="head">Transform with AI</div><div class="body"><div class="ask"><input type="text" placeholder="Say what to do with it …">${send}</div>
+      <div class="groups">${GROUPS.map(([g, list]) => `<b>${g}</b><div class="chips">${list.map(chip).join("")}</div>`).join("")}</div>${out(a)}</div>${foot(a, `${tog}<span class="space"></span>${seg}`)}</div>`,
+    (a) => `<div class="dlg v3"><div class="head">Transform with AI</div><div class="body"><div class="menu">${GROUPS.map(([g, list]) => `<h6>${g}</h6>` + list.map((n) => `<button class="row" type="button" data-preset="${n}">${n}</button>`).join("")).join("")}</div>
+      <div class="right"><div class="ask"><textarea placeholder="Or say it in your own words …"></textarea><div class="opts">${seg}${tog}<span class="space"></span>${send}</div></div>
+      ${a ? `<div class="out">${ANSWER}</div>` : `<div class="out empty">The answer shows here, as it will stand in the note.</div>`}</div></div>${foot(a)}</div>`,
+    (a) => `<div class="dlg v4"><div class="head">Transform with AI</div><div class="body"><div class="ask"><textarea placeholder="Say what to do with it …"></textarea>
+      <div class="opts"><div class="chips">${PRESETS.slice(0, 5).map(chip).join("")}<button class="chip" type="button">More ⌄</button></div>${send}</div></div>
+      <div class="links"><span>Answer: <b>replaces the selection ⌄</b></span><span>Context: <b>whole note ⌄</b></span></div>${out(a)}</div>${foot(a)}</div>`,
+  ];
+  const stage = document.getElementById("stage"), tabs = document.getElementById("tabs"), idea = document.getElementById("idea");
+  let at = 1, answered = false;
+  try { at = Number(localStorage.getItem("mdview-lab:transform") ?? 1) || 0; } catch (e) { /* (as new) */ }
+  tabs.innerHTML = IDEAS.map(([n], i) => `<button type="button" data-at="${i}"><kbd>${i}</kbd>${n}</button>`).join("");
+  function draw() {
+    stage.innerHTML = VIEWS[at](answered);
+    idea.textContent = IDEAS[at][1];
+    for (const b of tabs.children) b.setAttribute("aria-pressed", String(Number(b.dataset.at) === at));
+    document.getElementById("answer").setAttribute("aria-pressed", String(answered));
+    try { localStorage.setItem("mdview-lab:transform", String(at)); } catch (e) { /* (not kept) */ }
+  }
+  tabs.addEventListener("click", (e) => { const b = e.target.closest("[data-at]"); if (b) { at = Number(b.dataset.at); draw(); } });
+  const flip = { answer: () => { answered = !answered; draw(); }, dark: () => { const d = document.documentElement.dataset.mode !== "dark"; document.documentElement.dataset.mode = d ? "dark" : "light"; document.getElementById("dark").setAttribute("aria-pressed", String(d)); } };
+  document.getElementById("answer").addEventListener("click", flip.answer);
+  document.getElementById("dark").addEventListener("click", flip.dark);
+  stage.addEventListener("click", (e) => {
+    const p = e.target.closest("[data-preset]"), w = e.target.closest("[data-where]"), t = e.target.closest(".tog");
+    if (p) { const on = p.getAttribute("aria-pressed") === "true"; for (const c of stage.querySelectorAll("[data-preset]")) c.setAttribute("aria-pressed", "false"); p.setAttribute("aria-pressed", String(!on)); }
+    if (w) for (const b of w.parentNode.children) b.setAttribute("aria-checked", String(b === w));
+    if (t) t.setAttribute("aria-pressed", String(t.getAttribute("aria-pressed") !== "true"));
+  });
+  addEventListener("keydown", (e) => {
+    if (e.target.closest("textarea, input")) return;
+    if (/^[0-4]$/.test(e.key)) { at = Number(e.key); draw(); } else if (e.key === "d" || e.key === "D") flip.dark(); else if (e.key === "a" || e.key === "A") flip.answer();
+  });
+  draw();
+</script>
+</body>
+</html>

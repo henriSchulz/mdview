@@ -123,21 +123,38 @@ body[data-mode="dark"] #ai-chat { --ai-card: color-mix(in srgb, var(--bg) 82%, #
 @media print { #ai-chat { display: none !important; } }
 
 /* ---- Transform with AI (a dialog of the active mode's) */
-.ai-dialog { display: flex; flex-direction: column; gap: 12px; }
-.ai-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ai-chip { height: 28px; padding: 0 12px; border: 0; border-radius: 14px; background: var(--fill-hover); color: var(--fg); font: 500 12.5px/1 var(--ui); white-space: nowrap; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
-.ai-chip:hover { background: var(--fill-pressed, var(--fill-hover)); transition-duration: var(--dur-instant); }
-.ai-chip:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
-.ai-chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.ai-dialog { --ai-card: color-mix(in srgb, var(--bg) 88%, #fff); --ai-soft: color-mix(in srgb, var(--fg) 6%, transparent); display: flex; flex-direction: column; gap: 10px; padding-bottom: 2px; }
+body[data-mode="dark"] .ai-dialog { --ai-card: color-mix(in srgb, var(--bg) 82%, #fff); }
+/* a small sheet, whatever size the other dialogs were pulled to */
+#dlg[data-kind="ai"] { width: min(540px, 92vw) !important; height: fit-content !important; }
+#dlg[data-kind="ai"] .dlg-grip { display: none; }
+#dlg[data-kind="ai"] .dlg-info { font-size: 11.5px; line-height: 1.35; }
+/* one's own words, and under them what is asked with one press: a card, as the chat's */
+.ai-ask { margin: 0 1px; padding: 12px; border-radius: 16px; background: var(--ai-card); box-shadow: 0 0 0 0.5px var(--line), 0 2px 10px rgb(0 0 0 / 0.06); transition: box-shadow var(--dur-fast) var(--ease-out); }
+.ai-ask:focus-within { box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 16px rgb(0 0 0 / 0.09); }
+.ai-text { display: block; width: 100%; box-sizing: border-box; height: 44px; margin: 0; padding: 1px 4px; resize: none; border: 0; outline: none; background: transparent; color: var(--fg); font: 400 13.5px/1.45 var(--ui); user-select: text; -webkit-user-select: text; }
+.ai-text::placeholder { color: var(--fg-quiet); }
+.ai-opts { display: flex; align-items: flex-end; gap: 8px; margin-top: 10px; }
+.ai-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 11px; border: 0; border-radius: var(--radius-pill); background: transparent; box-shadow: inset 0 0 0 0.5px var(--line-strong); color: var(--fg); font: 500 12.5px/1 var(--ui); white-space: nowrap; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.ai-chip:hover, .ai-chip[aria-expanded="true"] { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.ai-chip:active, .ai-dialog .ai-send:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
+.ai-chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); box-shadow: none; }
 .ai-chip:disabled { opacity: 0.45; pointer-events: none; } .ai-chip[aria-pressed="true"]:disabled { opacity: 1; }
-.ai-text { width: 100%; box-sizing: border-box; height: 58px; min-height: 40px; padding: 9px 12px; resize: none; border-radius: 12px; font: 400 13.5px/1.45 var(--ui); user-select: text; -webkit-user-select: text; }
-.ai-opts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ai-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--fill-hover); }
-.ai-seg button { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--fg); font: inherit; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
-.ai-seg button[aria-checked="true"] { background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong, var(--line)), 0 1px 2px rgb(0 0 0 / 0.08); }
-.ai-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: 0.75; }
+.ai-more { padding-right: 8px; }
+.ai-more > svg, .ai-link > svg { width: 10px; height: 10px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.ai-dialog .ai-send > svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ai-chip:focus-visible, .ai-link:focus-visible, .ai-dialog .ai-send:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 1px; }
+/* where the answer goes and what goes along: one quiet line, each part opening its two choices */
+.ai-links { display: flex; flex-wrap: wrap; gap: 2px 4px; margin: -2px -5px; }
+.ai-link { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px; border: 0; border-radius: var(--radius-row); background: transparent; color: var(--fg2); font: 400 12px/1 var(--ui); white-space: pre; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+.ai-link b { font-weight: 500; color: var(--fg); }
+.ai-link:hover, .ai-link[aria-expanded="true"] { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+.ai-tmenu { min-width: 180px; max-height: none; }
+/* what cannot be pressed yet says so (Replace, before there is an answer) */
+#dlg[data-kind="ai"] .btn:disabled { opacity: 0.4; pointer-events: none; }
 /* the answer: a place of one size from the first letter on, so that nothing around it moves while it comes */
-.ai-out { position: relative; height: min(240px, 34vh); box-sizing: border-box; overflow-y: auto; padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, var(--bg) 88%, #fff); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.06); font-size: 14px; line-height: 1.55; user-select: text; -webkit-user-select: text; }
+.ai-out { position: relative; height: min(220px, 34vh); box-sizing: border-box; overflow-y: auto; margin: 0 1px; padding: 14px 16px; border-radius: 16px; background: var(--ai-card); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.06); font-size: 14px; line-height: 1.55; user-select: text; -webkit-user-select: text; }
 .ai-out[hidden] { display: none; }
 .ai-wait { display: flex; align-items: center; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; margin-bottom: 10px; opacity: 0.6; }
 .ai-stream { opacity: 0.8; }

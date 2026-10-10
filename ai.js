@@ -78,30 +78,65 @@
     try { where = localStorage.getItem("mdview:ai-where") === "below" ? "below" : "replace"; } catch (e) { /* (as new) */ }
     const el = A.dialog.el, doneBtn = () => document.querySelector('#dlg [data-do="done"]');
     const tidy = () => { clearInterval(timer); clearTimeout(paint); paint = 0; if (job) stop(job); job = null; };
+    // (the dialog is the app's one dialog: what this sheet hung on it — its menu, its ear for presses — goes with the sheet)
+    let gone = null;
+    const leave = () => { tidy(); if (gone) gone.abort(); for (const m of document.querySelectorAll("#dlg .ai-tmenu")) m.remove(); };
     A.dialog.show({
       title: T("ai.transform"),
       kind: "ai",
       anchor: () => null,
       build(body, _tools, info) {
-        const chips = el("div", { class: "ai-chips", role: "group", "aria-label": T("ai.quick") }, PRESETS.map(([k]) => `<button class="ai-chip" type="button" data-preset="${k}">${esc(T("ai.do." + k))}</button>`).join(""));
-        const text = el("textarea", { class: "ai-text lp-field", rows: "3", placeholder: T("ai.instruction"), "aria-label": T("ai.instruction"), spellcheck: "false" });
+        /* A small sheet: a card to write in, with what is asked most at its foot and the rest behind More; under it,
+         * as one quiet line, where the answer goes and what Claude is given beside the blocks. */
+        const FIRST = 5, REST = PRESETS.slice(FIRST), dlg = document.getElementById("dlg");
+        const CARET = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.8l3 3 3-3"/></svg>', cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+        const text = el("textarea", { class: "ai-text", rows: "2", placeholder: T("ai.instruction"), "aria-label": T("ai.instruction"), spellcheck: "false" });
         const row = el("div", { class: "ai-opts" },
-          `<span class="ai-seg" role="radiogroup" aria-label="${esc(T("ai.where"))}"><button type="button" role="radio" data-where="replace">${esc(T("ai.where.replace"))}</button><button type="button" role="radio" data-where="below">${esc(T("ai.where.below"))}</button></span>` +
-          `<label class="ai-check"><input type="checkbox" class="ai-whole" checked><span>${esc(T("ai.whole"))}</span></label><span class="ai-space"></span>` +
-          `<button class="btn primary" type="button" data-go="run">${esc(T("ai.run"))}</button>`);
+          `<div class="ai-chips" role="group" aria-label="${esc(T("ai.quick"))}">${PRESETS.slice(0, FIRST).map(([k]) => `<button class="ai-chip" type="button" data-preset="${k}">${esc(T("ai.do." + k))}</button>`).join("")}<button class="ai-chip ai-more" type="button" data-menu="more" aria-haspopup="menu" aria-expanded="false"></button></div>` +
+          `<button class="ai-send" type="button" data-go="run"></button>`);
+        const card = el("div", { class: "ai-ask" });
+        card.append(text, row);
+        const links = el("div", { class: "ai-links" }, `<button class="ai-link" type="button" data-menu="where" aria-haspopup="menu" aria-expanded="false"></button><button class="ai-link" type="button" data-menu="context" aria-haspopup="menu" aria-expanded="false"></button>`);
         const out = el("div", { class: "ai-out", hidden: "" });
+        for (const old of dlg.querySelectorAll(".ai-tmenu")) old.remove();
+        const list = el("div", { class: "ai-menu ai-tmenu", role: "menu" });
         body.classList.add("ai-dialog");
-        body.append(chips, text, row, out);
+        body.append(card, links, out);
+        dlg.append(list);
         info.textContent = T("ai.hint");
-        const run = row.querySelector('[data-go="run"]'), whole = row.querySelector(".ai-whole"), insert = doneBtn();
+        const chips = row.querySelector(".ai-chips"), run = row.querySelector('[data-go="run"]'), insert = doneBtn();
+        const opener = (kind) => body.querySelector(`[data-menu="${kind}"]`);
+        let whole = true, menuFor = null;
         const show = () => {
-          for (const b of row.querySelectorAll("[data-where]")) b.setAttribute("aria-checked", String(b.dataset.where === where));
-          run.textContent = job ? T("ai.stop") : result != null ? T("ai.again") : T("ai.run");
-          run.classList.toggle("primary", !job && result == null);
+          const label = T(job ? "ai.stop" : result != null ? "ai.again" : "ai.run"), more = REST.some(([k]) => k === picked);
+          run.innerHTML = job ? I.stop : I.send;
+          run.title = label; run.setAttribute("aria-label", label);
           insert.textContent = T(where === "replace" ? "ai.replace" : "ai.insertBelow");
           insert.disabled = result == null || !!job;
-          for (const c of chips.children) { c.disabled = !!job; c.setAttribute("aria-pressed", String(c.dataset.preset === picked)); }
+          for (const c of chips.querySelectorAll("[data-preset]")) { c.disabled = !!job; c.setAttribute("aria-pressed", String(c.dataset.preset === picked)); }
+          // (one of the rest, once pressed, stands where More stood)
+          const moreBtn = opener("more");
+          moreBtn.innerHTML = esc(T(more ? "ai.do." + picked : "ai.more")) + CARET;
+          moreBtn.disabled = !!job; moreBtn.setAttribute("aria-pressed", String(more));
+          opener("where").innerHTML = `${esc(T("ai.answer"))} <b>${esc(T("ai.answer." + where))}</b>${CARET}`; opener("where").dataset.value = where;
+          opener("context").innerHTML = `${esc(T("ai.context"))} <b>${esc(T("ai.context." + (whole ? "whole" : "none")))}</b>${CARET}`; opener("context").dataset.value = whole ? "whole" : "none";
         };
+        /* The sheet's menus — the rest of what is asked with one press, where the answer goes, what goes along — one at a
+         * time, under what opened it. Shut, its rows cannot be reached with the keys. */
+        const menu = (kind) => {
+          if (menuFor) opener(menuFor).setAttribute("aria-expanded", "false");
+          if (!kind || menuFor === kind) { menuFor = null; delete list.dataset.open; for (const r of list.children) r.disabled = true; return; }
+          const item = (attr, label, on) => `<button class="ai-row" type="button" role="menuitemradio" ${attr} aria-checked="${on}" aria-current="${on}">${esc(label)}</button>`;
+          list.innerHTML = kind === "more" ? REST.map(([k]) => item(`data-preset="${k}"`, T("ai.do." + k), picked === k)).join("")
+            : kind === "where" ? ["replace", "below"].map((w) => item(`data-where="${w}"`, cap(T("ai.answer." + w)), where === w)).join("")
+            : ["whole", "none"].map((n) => item(`data-whole="${n}"`, cap(T("ai.context." + n)), whole === (n === "whole"))).join("");
+          const at = opener(kind), d = dlg.getBoundingClientRect(), a = at.getBoundingClientRect();
+          list.style.left = Math.max(8, Math.min(a.left - d.left, d.width - list.offsetWidth - 8)) + "px";
+          list.style.top = a.bottom - d.top + 4 + "px";
+          menuFor = kind; list.dataset.open = ""; at.setAttribute("aria-expanded", "true");
+          (list.querySelector('[aria-current="true"]') || list.firstChild).focus();
+        };
+        const pick = (k) => { picked = picked === k && result == null ? "" : k; show(); if (picked) go(); };
         const go = () => {
           // (what was pressed, and what was written beside it — either is enough)
           const instruction = [picked ? PRESETS.find(([k]) => k === picked)[1] : "", text.value.trim()].filter(Boolean).join("\n\nAlso: ");
@@ -116,7 +151,7 @@
           const tick = () => { secs.textContent = T("ai.working", Math.round((performance.now() - shownAt) / 1000)); };
           tick();
           timer = setInterval(tick, 1000);
-          job = ask("transform", { instruction, selection, note: whole.checked ? core.noteText() : "", name: noteName() },
+          job = ask("transform", { instruction, selection, note: whole ? core.noteText() : "", name: noteName() },
             // (drawn a few times a second, as it will stand in the note — not at every letter)
             (piece) => { said += piece; if (!paint) paint = setTimeout(() => { paint = 0; if (!stream.isConnected) return; try { core.mdInto(stream, said, false); } catch (e) { stream.textContent = said; } out.scrollTop = out.scrollHeight; }, 120); },
             (all, error) => {
@@ -135,20 +170,37 @@
             });
           show();
         };
-        chips.addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (!b || job) return; picked = picked === b.dataset.preset && result == null ? "" : b.dataset.preset; show(); if (picked) go(); });
-        row.addEventListener("click", (e) => {
-          const b = e.target.closest("button");
-          if (!b) return;
-          if (b.dataset.where) { where = b.dataset.where; try { localStorage.setItem("mdview:ai-where", where); } catch (x) { /* (not kept) */ } show(); }
-          else if (b.dataset.go === "run") { if (job) { tidy(); out.hidden = result == null; show(); } else go(); }
+        // (a press anywhere on the sheet: on what opens a menu, on a menu's row, or beside an open menu — which shuts it)
+        gone = new AbortController();
+        dlg.addEventListener("click", (e) => {
+          const t = e.target instanceof Element ? e.target : null, m = t && t.closest("[data-menu]"), r = t && t.closest(".ai-tmenu .ai-row");
+          if (m && body.contains(m)) { if (!job) menu(m.dataset.menu); return; }
+          if (r) {
+            const at = opener(menuFor);
+            menu(null);
+            if (at) at.focus();
+            if (r.dataset.preset) return pick(r.dataset.preset);
+            if (r.dataset.where) { where = r.dataset.where; try { localStorage.setItem("mdview:ai-where", where); } catch (x) { /* (not kept) */ } }
+            else whole = r.dataset.whole === "whole";
+            show();
+          } else if (menuFor) menu(null);
+        }, { signal: gone.signal });
+        list.addEventListener("keydown", (e) => {
+          const rows = [...list.children], i = rows.indexOf(document.activeElement), step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+          if (e.key !== "Escape" && e.key !== "Tab" && !step) return;
+          e.preventDefault(); e.stopPropagation();
+          if (step) rows[(i + step + rows.length) % rows.length].focus();
+          else if (e.key === "Escape") { const at = opener(menuFor); menu(null); if (at) at.focus(); }
         });
+        chips.addEventListener("click", (e) => { const b = e.target.closest("[data-preset]"); if (b && !job) pick(b.dataset.preset); });
+        run.addEventListener("click", () => { if (job) { tidy(); out.hidden = result == null; show(); } else go(); });
         // Ctrl+Enter in the field asks (once there is an answer, the dialog's own Ctrl+Enter takes it)
         text.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && result == null && !job) { e.preventDefault(); e.stopPropagation(); go(); } });
         show();
         return { focus: () => text.focus(), result: () => (result != null && !job ? { text: result, where } : undefined), text: () => text.value };
       },
       done(res) {
-        tidy();
+        leave();
         const state = view.state, nodes = A.clip.blocksOf(state, res.text);
         if (!nodes.length || r.to > state.doc.content.size) { view.focus(); return; }
         const tr = res.where === "replace" ? state.tr.replaceWith(r.from, r.to, nodes) : state.tr.insert(r.to, nodes);
@@ -157,7 +209,7 @@
         view.dispatch(tr.scrollIntoView().setMeta("step", true));
         view.focus();
       },
-      cancel() { tidy(); view.focus(); },
+      cancel() { leave(); view.focus(); },
     });
   };
 

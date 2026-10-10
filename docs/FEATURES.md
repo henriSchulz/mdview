@@ -411,11 +411,13 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
 
 - **Transform with AI** (the active mode; the first entry of a right click on selected blocks,
   on a block, or in the text — there it means the block the caret is in, or the blocks the
-  selection reaches): press what is to happen — Improve, Fix spelling, Shorter, Longer, Simpler,
-  Summarise, As a list, As a table, More formal, More casual, To English, To German, Continue —
-  or say it in your own words in the field (both together: the words come on top of what was
-  pressed). Chosen before asking: **Replace** the blocks, or **Insert below** them; and whether
-  the whole note goes along as context. The answer shows as it comes, as it will stand in the
+  selection reaches): a small sheet with a card to write in. Press what is to happen — Improve,
+  Fix spelling, Shorter, Longer, Simpler at the card's foot; Summarise, As a list, As a table,
+  More formal, More casual, To English, To German, Continue behind **More** — or say it in your
+  own words in the field and press the round button (both together: the words come on top of
+  what was pressed). Chosen before asking, in the line under the card: whether the answer
+  **replaces the selection** or **goes below** it; and whether the whole note goes along as
+  context, or only the selection. The answer shows as it comes, as it will stand in the
   note (formulas, tables, code); Ask again asks anew, the dialog's button puts it in
   (`Ctrl+Enter`), one step of Undo takes it back.
 - **The chat** (the bubble at the lower right, in every mode): a window with the conversation,
