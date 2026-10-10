@@ -1201,7 +1201,7 @@
   loader.id = "loading";
   loader.setAttribute("aria-hidden", "true");
   document.body.appendChild(loader);
-  let goingAt = 0, goingTimer = 0, pendingRender = null, renderFrame = 0;
+  let goingAt = 0, goingTo = null, goingTimer = 0, pendingRender = null, renderFrame = 0;
   let modeBeforePdf = null; // the mode a note was in when a PDF took its place, or nothing did (an empty tab, All Notes)
   /* Where each note was left: opened again — after a PDF, another note, in a new window — it stands
    * at that place. Kept as the note is scrolled (the page's own storage, by the file's path). */
@@ -1223,6 +1223,7 @@
   function going(path) {
     if (!current || path === current.path) return;
     goingAt = performance.now();
+    goingTo = path;
     document.body.dataset.going = "";
     for (const row of document.querySelectorAll("#sidebar .sb-row[data-real]")) row.classList.toggle("active", row.dataset.real === path || row.closest(".sb-item")?.dataset.key === path);
     clearTimeout(goingTimer);
@@ -1231,6 +1232,7 @@
   function arrived() {
     clearTimeout(goingTimer);
     goingAt = 0;
+    goingTo = null;
     delete document.body.dataset.going;
   }
   function render(p) {
@@ -3466,8 +3468,9 @@
     }
     for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!current && row.dataset.loose === current.path);
     let active = null;
+    const here = goingAt && goingTo ? goingTo : current?.path; // (a note on its way is the marked one: the list changes while it loads, and must not mark the last one again)
     for (const row of sbList.querySelectorAll(".sb-row[data-real]")) {
-      const on = !!current && row.dataset.real === current.path;
+      const on = !!here && (row.dataset.real === here || row.closest(".sb-item")?.dataset.key === here);
       row.classList.toggle("active", on);
       if (on) { row.setAttribute("aria-current", "page"); active = row; } else row.removeAttribute("aria-current");
     }

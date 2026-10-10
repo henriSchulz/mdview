@@ -289,6 +289,16 @@ case "${1:-}" in
     looks=$(jq -c '.folders' "$R/work/notes/.mdview/folders.json" 2>/dev/null)
     [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] && echo "ok   the look stands in the folder, under the folder's new name" || echo "FAIL the look in the folder: $looks"
     ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json; [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] || echo FAIL; } | grep -qv '^ok' ;;
+  sbflicker)
+    # a note chosen in the sidebar: its row stays marked, the last one's does not flicker back
+    rm -rf "$R/work"; mkdir -p "$R/work/notes"; for n in Alpha Beta Gamma; do printf '# %s\n\nText.\n' "$n" > "$R/work/notes/$n.md"; done
+    rm -f "$R/out"/*.sbflicker.json
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 40 MDVIEW_PROBE="$D/probe-sbflicker.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    for _ in $(seq 300); do ls "$R/out"/*.sbflicker.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    ls "$R/out"/*.sbflicker.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out"/*.sbflicker.json | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   pagestyles)
     # a page's line as a sheet, a preview, a widget: what they show, side by side, alike in both views
     name=styles.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/pagestyles.md" "$R/work/$name"; rm -f "$R/out/$name".*.json
