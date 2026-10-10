@@ -1396,6 +1396,64 @@
     drag = null; showLine(null); delete handle.dataset.dragging; hide();
     document.body.classList.remove("blk-dragging");
   });
+  /* A block that is a thing, not text — a picture, a picture of svg, a diagram, a formula, a file, a whiteboard — pressed and
+   * pulled: it is moved, as by its handle. (Left to the browser, the pull began a selection of text, which took in whatever
+   * the pointer passed.) The drag is the handle's, its events made by hand; a press let go where it was stays the click it is. */
+  {
+    let grab = null; // { x, y, el, on, dt, at, roll }
+    const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
+    const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: grab.dt }); target.dispatchEvent(ev); return ev; };
+    const under = (x, y) => document.elementFromPoint(x, y) || document.body;
+    document.addEventListener("mousedown", (e) => {
+      grab = null;
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !view || !view.editable || document.body.dataset.view !== "active" || !e.target.closest) return;
+      if (!view.dom.contains(e.target)) return;
+      const el = blockOf(view, e.target), node = el && el.pmViewDesc && el.pmViewDesc.node;
+      // (a thing: an island — a picture of svg, a diagram, a formula, a file, a whiteboard — or a line that is one picture)
+      if (!node || !(node.type.name === "island" || (node.type.name === "paragraph" && node.childCount === 1 && node.firstChild.type.name === "image"))) return;
+      // (what is worked in the block itself — a button, a field, a link, text one may select — is not a grip)
+      const inner = e.target.closest("button, a, input, textarea, select, summary, label, video, audio, iframe, [contenteditable='true'], .code-block, pre, table");
+      if (inner && el.contains(inner)) return;
+      grab = { x: e.clientX, y: e.clientY, el, on: false, dt: null, at: [e.clientX, e.clientY], roll: 0 };
+    }, true);
+    document.addEventListener("mousemove", (e) => {
+      if (!grab) return;
+      if (!(e.buttons & 1)) { grab = null; return; }
+      if (!grab.on) {
+        if (Math.hypot(e.clientX - grab.x, e.clientY - grab.y) < 6) return;
+        if (!grab.el.isConnected || !grab.el.pmViewDesc) { grab = null; return; }
+        place(grab.el);
+        grab.dt = made();
+        const began = send("dragstart", handle, grab.x, grab.y);
+        if (began.defaultPrevented || !drag) { grab = null; return; }
+        grab.on = true;
+        handle.dataset.dragging = "";
+        const roll = () => { if (!grab || !grab.on) return; const y = grab.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...grab.at), ...grab.at); } grab.roll = requestAnimationFrame(roll); };
+        grab.roll = requestAnimationFrame(roll);
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const sel = getSelection();
+      if (sel && !sel.isCollapsed) sel.removeAllRanges(); // (nothing is selected by a pull that moves a block)
+      grab.at = [e.clientX, e.clientY];
+      send("dragover", under(e.clientX, e.clientY), e.clientX, e.clientY);
+    }, true);
+    document.addEventListener("mouseup", (e) => {
+      const was = grab;
+      if (!was) return;
+      if (!was.on) { grab = null; return; }
+      cancelAnimationFrame(was.roll);
+      send("drop", under(e.clientX, e.clientY), e.clientX, e.clientY);
+      send("dragend", handle, e.clientX, e.clientY);
+      grab = null;
+      e.preventDefault();
+      e.stopPropagation();
+      // (the click that ends the pull is not one on the block: it opens nothing)
+      const eat = (c) => { c.preventDefault(); c.stopPropagation(); };
+      document.addEventListener("click", eat, { capture: true, once: true });
+      setTimeout(() => document.removeEventListener("click", eat, true), 0);
+    }, true);
+  }
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
     view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },

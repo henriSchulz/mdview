@@ -35,6 +35,27 @@
     view.dispatch(view.state.tr.setSelection(S.TextSelection.create(view.state.doc, isl - 6, isl + 1)));
     c = await cutPaste();
     ok("text and the picture selected as text, cut and put in: both arrive", (md().match(/<svg/g) || []).length === 1 && md().trimEnd().endsWith(SVG) && /here\.\n\n```svg/.test(md().slice(-220)), [md(), c.text]);
+    // ---- a picture pressed and pulled: the block moves, and no text gets selected on the way
+    {
+      const at = posOf((n) => n.type.name === "island" && n.attrs.kind !== "frontmatter"), dom = view.nodeDOM(at), r = dom.getBoundingClientRect();
+      const last = view.nodeDOM(posOf((n) => n.type.name === "paragraph")), lr = last.getBoundingClientRect(); // (the first paragraph: the picture stands further down)
+      const m = (type, x, y, buttons = 1) => { const t = document.elementFromPoint(x, y) || document.body, ev = new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0, buttons, detail: 1 }); t.dispatchEvent(ev); return ev; };
+      const x = r.left + r.width / 2, y = r.top + r.height / 2, before = md();
+      m("mousedown", x, y);
+      const seen = [];
+      for (let i = 1; i <= 12; i++) { const yy = y + ((lr.top + 2 - y) * i) / 12 - (i === 12 ? 0 : 0); const ev = m("mousemove", x - 40, yy); seen.push([ev.defaultPrevented, String(getSelection()).length, view.state.selection.empty]); await sleep(30); }
+      m("mouseup", x - 40, lr.top + 2, 0);
+      await sleep(400);
+      const t = md(), iSvg = t.indexOf("<svg"), iAfter = t.indexOf("After the picture");
+      ok("a picture of svg pressed and pulled upward past a paragraph: it stands above it now", t !== before && (t.match(/<svg/g) || []).length === 1 && t.length === before.length, [before, t]);
+      ok("… and on the way no text was selected", seen.slice(2).every((x) => x[0] && x[1] === 0) && String(getSelection()) === "", seen);
+      ok("… what was moved is selected as a block, as after its handle", !!A.blocks.selection(view.state), A.blocks.selection(view.state));
+      // a press let go where it was is still a click
+      const dom2 = view.nodeDOM(posOf((n) => n.type.name === "island" && n.attrs.kind !== "frontmatter")), r2 = dom2.getBoundingClientRect(), c = t;
+      m("mousedown", r2.left + 20, r2.top + 10); m("mouseup", r2.left + 20, r2.top + 10, 0);
+      await sleep(200);
+      ok("a press let go where it was moves nothing", md() === c, md());
+    }
   } catch (e) { o.error = String(e && e.stack || e); }
   out("cut", o);
 })();

@@ -47,6 +47,14 @@ app itself.
    (`core.fenceSvg`): as plain HTML its empty lines end the HTML block and the picture falls
    apart.
 
+### What the pointer does
+
+30. **A press-and-pull never falls through to the browser by accident.** On anything that is not
+    text — a picture, a diagram, a formula, a file, a whiteboard's block — decide what the pull
+    means (it moves the block); left alone, the browser starts selecting text. And
+    `closest("[contenteditable='true']")` from inside the note always finds the note itself:
+    check that what was found lies *inside* the block.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -115,6 +123,8 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| Moving a block such as an svg picture selected random text on the way | pressed on the picture itself (not its handle), the pull was left to the browser, which began a text selection | a pull on a block that is a thing moves the block, with the handle's drag (rule 30) | `rig.sh cut` |
+| The assistant showed the last conversation on whatever document it was opened | one conversation in hand for the whole window | a conversation for each document, a new one the first time | `rig.sh ai` |
 | Scrolling in the AI chat scrolled the note behind it | the chat's log had nothing (more) to scroll; the wheel went on to the page | wheel swallowed where nothing of the chat can scroll (rule 2) | `rig.sh ai` |
 | Editing an svg code block: only 2–3 lines of code in sight, hard to edit | the picture took the dialog's height; code written on one endless line ran out of the box | code and picture side by side in a larger dialog; one-line svg shown a line per element, left as written when nothing is typed | `rig.sh svgedit` |
 | The whiteboard opened at the wrong place and filled in late | it opened at the view saved last (another screen, a far corner), and read its file while the opening animation ran | read first, then open; shown whole as the note's picture shows it (rule 6) | `rig.sh board-enter` |
