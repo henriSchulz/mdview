@@ -47,6 +47,10 @@
 #   dev/rig.sh open FILE…            just open the files (MDVIEW_DEBUG on)
 #   dev/rig.sh shot NAME             screenshot of the nested compositor
 #   dev/rig.sh stop
+# A case says what fails, and in one line how many checks held (every line, the ones that held too: RIG_ALL=1).
+if [[ -z ${RIG_ALL:-} && ! ${1:-} =~ ^(start|stop|open|shot|)$ ]]; then
+  RIG_ALL=1 "$0" "$@" | awk '/^ok   /{ n++; next } /^FAIL /{ f++ } { print } END { if (n + f) printf "%d ok, %d FAIL\n", n, f }'; exit "${PIPESTATUS[0]}"
+fi
 D="$(cd "$(dirname "$0")" && pwd)"; APP="${MDVIEW_BIN:-$D/../src-tauri/target/debug/mdview}"; [[ -x $APP ]] || APP="$D/../src-tauri/target/release/mdview"
 R="${MDVIEW_RIG:-$HOME/.cache/mdview-rig}"; H="$XDG_RUNTIME_DIR/hypr"; WS="${MDVIEW_RIG_WS:-name:spare}"
 mkdir -p "$R/out" "$R/state"
@@ -938,11 +942,17 @@ case "${1:-}" in
     ok "unlinked, the project has no other side, and its history is all there" '[[ -z $(git -C "$W" remote) && $(git -C "$W" rev-list --count HEAD) == 2 ]]' 'git -C "$W" remote -v' || fail=1
     exit $fail ;;
   regress)
-    # The page as it is on BASE (viewer.js, viewer.css), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.
+    # The page as it is on BASE (viewer.js and viewer/ — its scripts and styles), shown by this checkout's shell (MDVIEW_ASSETS) for the probe hook.
     # (A BASE from before the move to Tauri posts to WebKit's message handler: pointed at MdHost here.)
-    shift; base="${BASE:-main}"; B="$R/base"; rm -rf "$B"; mkdir -p "$B"; top=$(git -C "$D" rev-parse --show-toplevel); rel=$(git -C "$D" rev-parse --show-prefix)
-    for f in viewer.js viewer.css; do git -C "$top" show "$base:${rel%dev/}$f" > "$B/$f"; done
-    sed -i 's/window\.webkit?\.messageHandlers?\.mdview?\.postMessage(/window.MdHost?.post(/g' "$B/viewer.js"; ln -s "$D/../vendor" "$B/vendor"; echo 'window.MdStrings = { t: (k) => k };' > "$B/strings.js"
+    # (Its texts too — strings.js — or a text with a number in it differs; a BASE without that file gets one that says the keys.
+    # A BASE from before the page was several files has no viewer/: a script that is not found does nothing, and its one sheet,
+    # viewer.css, stands where the first of the sheets is linked.)
+    shift; base="${BASE:-main}"; B="$R/base"; rm -rf "$B"; mkdir -p "$B/viewer"; top=$(git -C "$D" rev-parse --show-toplevel); rel=$(git -C "$D" rev-parse --show-prefix); rel=${rel%dev/}
+    git -C "$top" show "$base:${rel}viewer.js" > "$B/viewer.js"
+    git -C "$top" archive "$base" "${rel}viewer" 2>/dev/null | tar -x -C "$B" --strip-components="$(tr -cd / <<<"$rel" | wc -c)" 2>/dev/null
+    git -C "$top" show "$base:${rel}viewer.css" > "$B/viewer/page.css.base" 2>/dev/null && mv "$B/viewer/page.css.base" "$B/viewer/page.css" || rm -f "$B/viewer/page.css.base"
+    git -C "$top" show "$base:${rel}strings.js" > "$B/strings.js" 2>/dev/null || echo 'window.MdStrings = { t: (k) => k };' > "$B/strings.js"
+    sed -i 's/window\.webkit?\.messageHandlers?\.mdview?\.postMessage(/window.MdHost?.post(/g' "$B/viewer.js"; ln -s "$D/../vendor" "$B/vendor"
     fail=0
     for f in "$@"; do
       name=$(basename "$f")

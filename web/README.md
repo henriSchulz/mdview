@@ -31,8 +31,8 @@ is shared from the server, and everything else works:
 GITHUB_APP_PRIVATE_KEY=…   # the GitHub App's private key (the .pem's text; line ends may be written \n)
 ```
 
-`npm run dev` and `npm run build` first copy the page's own files (`viewer.js`, `active/`,
-`vendor/`, the stylesheets) from the checkout into `public/app/`; they are not kept twice.
+`npm run dev` and `npm run build` first copy the page's own files (`viewer.js`, `viewer/`,
+`active/`, `vendor/`, the other stylesheets) from the checkout into `public/app/`; they are not kept twice.
 
 ## Tests
 

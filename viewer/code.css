@@ -1,0 +1,117 @@
+/* mdview, styles — code blocks and code in the text. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- code */
+code, pre { font-family: var(--mono); }
+:not(pre) > code {
+  font-size: 0.86em;
+  padding: 0.14em 0.38em;
+  border-radius: var(--radius-chip);
+  background: var(--code-bg);
+}
+.code-block {
+  position: relative;
+  background: var(--code-bg);
+  border-radius: var(--radius-control);
+}
+.code-block pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.6;
+  tab-size: 4;
+}
+.code-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit);
+}
+/* code put away behind a card ("hide" in the fence's head): the card names it, a click shows it */
+.code-hidden { background: none; }
+.code-card {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; min-height: 42px; padding: 8px 14px 8px 12px; border: 0;
+  border-radius: var(--radius-popover); background: var(--code-bg); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); font: 500 14px var(--ui); text-align: left; cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.code-card:hover { background: color-mix(in srgb, var(--fg) 5%, var(--code-bg)); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+.code-card:active { transform: scale(0.995); transition-duration: var(--dur-instant); }
+.code-card:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+.code-card-icon { display: grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--accent-text); }
+.code-card-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.code-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-card-peek { font: 400 13px var(--mono); color: var(--fg2); }
+.code-card-count { flex: none; color: var(--fg-quiet); font: 400 12px var(--ui); font-variant-numeric: tabular-nums; }
+/* code that is a file's (![[main.c]]): the block says which, and lines of it */
+.code-from { display: flex; align-items: baseline; gap: 10px; padding: 9px 14px 0; font: 500 12px var(--ui); color: var(--fg2); }
+.code-from a { color: inherit; text-decoration: none; }
+.code-from a:hover { color: var(--accent-text); }
+.code-from-title { color: var(--fg-quiet); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-file > .code-from + .code-tools + pre { padding-top: 8px; }
+/* its size, as a file block's — small: a chip in the line's height; large: a card with more room */
+.code-small .code-card { display: inline-flex; width: auto; max-width: 100%; min-height: 26px; padding: 2px 10px 2px 7px; gap: 6px; border-radius: var(--radius-control); font-size: 13px; }
+.code-small .code-card-icon, .code-small .code-card-icon svg { width: 15px; height: 15px; }
+.code-small .code-card-peek { font-size: 12px; }
+.code-small .code-card-count { display: none; }
+.code-large .code-card { min-height: 68px; padding: 14px 18px; gap: 14px; border-radius: var(--radius-panel); font-size: 15.5px; }
+.code-large .code-card-icon, .code-large .code-card-icon svg { width: 32px; height: 32px; }
+.code-large .code-card-icon svg { stroke-width: 1.4; }
+/* the window is busy with something that must not be done twice (viewer/modes.js: busy) */
+#busy { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 45%, transparent); opacity: 0; visibility: hidden; cursor: progress; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+#busy[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-instant) var(--ease-out), visibility 0s; }
+.busy-card { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); color: var(--fg); font: 500 13px var(--ui); }
+.busy-ring { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 16%, transparent); border-top-color: var(--accent); animation: busy-turn 0.9s linear infinite; }
+@keyframes busy-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .busy-ring { animation: none; border-color: var(--accent); } }
+/* … and the window it is shown in */
+#codeview { position: fixed; inset: 0; z-index: 68; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+#codeview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+.codeview-box { display: flex; flex-direction: column; width: min(980px, 100%); max-height: min(86vh, 100%); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); overflow: hidden; outline: none; transform: scale(0.97); transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+#codeview[data-open] .codeview-box { transform: none; transition: transform var(--spring-gentle-dur) var(--spring-gentle); }
+.codeview-head { display: flex; align-items: center; gap: 10px; flex: none; padding: 10px 10px 10px 16px; font: 400 13px var(--ui); color: var(--fg); }
+.codeview-head b { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.codeview-space { flex: 1; }
+.codeview-head .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
+.codeview-box .code-block { flex: 1; min-height: 0; display: flex; border-radius: 0; }
+.codeview-box .code-block pre { flex: 1; overflow: auto; overscroll-behavior: contain; user-select: text; -webkit-user-select: text; }
+@media (prefers-reduced-motion: reduce) { .codeview-box, #codeview[data-open] .codeview-box { transform: none; transition: none; } }
+.code-block:hover .code-tools, .code-tools:focus-within { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+.code-lang { font: 500 11px var(--ui); color: var(--fg2); letter-spacing: 0.02em; }
+.btn {
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-control);
+  font: 500 12px var(--ui);
+  color: var(--fg);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.btn:hover { background: var(--fill-hover); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+.btn:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.btn.done { color: var(--c-green); }
+
+/* highlight.js mapped onto the theme's ANSI palette */
+.hljs-comment, .hljs-quote { color: var(--fg-quiet); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag, .hljs-meta .hljs-keyword { color: var(--c-magenta); }
+.hljs-string, .hljs-regexp, .hljs-meta .hljs-string, .hljs-char.escape_ { color: var(--c-red); }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable.constant_ { color: var(--c-blue); }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--c-cyan); }
+.hljs-title.class_, .hljs-type, .hljs-built_in, .hljs-class .hljs-title { color: var(--c-cyan); font-weight: 500; }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-name { color: var(--c-orange); }
+.hljs-meta, .hljs-template-tag, .hljs-template-variable, .hljs-selector-pseudo { color: var(--c-brown); }
+.hljs-variable, .hljs-params, .hljs-subst { color: var(--fg); }
+.hljs-tag { color: var(--fg2); }
+.hljs-link { color: var(--accent-text); text-decoration: underline; }
+.hljs-addition { color: var(--c-green); background: color-mix(in srgb, var(--c-green) 10%, transparent); }
+.hljs-deletion { color: var(--c-red); background: color-mix(in srgb, var(--c-red) 10%, transparent); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }

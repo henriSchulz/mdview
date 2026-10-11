@@ -1,0 +1,138 @@
+/* mdview, styles — the note's text (headings, lists, quotes, links, rules) and tasks. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- text */
+#content > :first-child { margin-top: 0; }
+p, ul, ol, dl, blockquote, pre, table, .code-block, .callout, .table-wrap, .math-block, details { margin: 0 0 1em; }
+h1, h2, h3, h4, h5, h6 {
+  margin: 1.8em 0 0.6em;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  scroll-margin-top: 24px;
+  border-radius: var(--radius-chip);
+  transition: background-color var(--dur-slow) var(--ease-out);
+}
+h1 { font-size: 2em; font-weight: 700; letter-spacing: -0.022em; margin-top: 1.2em; }
+h2 { font-size: 1.5em; letter-spacing: -0.018em; }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1.08em; }
+h5 { font-size: 1em; }
+h6 { font-size: 0.92em; color: var(--fg2); }
+.flash { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: var(--dur-instant); }
+
+strong { font-weight: 600; }
+a { color: var(--accent-text); text-decoration: none; border-radius: 3px; transition: color var(--dur-fast) var(--ease-out); }
+a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; transition-duration: var(--dur-instant); }
+a:focus-visible, button:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+a.wikilink.unresolved { color: var(--fg2); text-decoration: underline dashed color-mix(in srgb, var(--fg) 30%, transparent); text-underline-offset: 3px; }
+.embed-missing { color: var(--fg2); font-style: italic; }
+.embed-missing::before { content: "⤷ "; }
+
+hr { border: 0; height: 1px; background: var(--rule, var(--line-strong)); margin: 2.2em 0; }
+/* its other looks (how the line is written: viewer/markdown.js, ruleLook): three dots, a heavy line, a dotted one */
+hr.hr-dots { height: 5px; --rule: radial-gradient(circle at calc(50% - 16px) 50%, var(--fg3) 1.7px, transparent 2.2px), radial-gradient(circle at 50% 50%, var(--fg3) 1.7px, transparent 2.2px), radial-gradient(circle at calc(50% + 16px) 50%, var(--fg3) 1.7px, transparent 2.2px); }
+hr.hr-heavy { height: 2px; --rule: color-mix(in srgb, var(--fg) 62%, transparent); border-radius: 1px; }
+hr.hr-dotted { height: 3px; --rule: radial-gradient(circle, var(--fg3) 1px, transparent 1.5px) left center / 7px 3px repeat-x; }
+mark { background: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 38%, transparent); color: inherit; padding: 0 0.12em; border-radius: 3px; }
+del, s { color: var(--fg2); }
+sub, sup { font-size: 0.75em; line-height: 0; }
+abbr[title] { text-decoration: underline dotted; cursor: help; }
+kbd {
+  font: 500 0.82em var(--mono);
+  padding: 0.1em 0.45em;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  background: var(--code-bg);
+}
+img, video { max-width: 100%; height: auto; border-radius: var(--radius-control); }
+img.emoji { height: 1.2em; vertical-align: -0.2em; }
+/* a picture as wide as the text column (|full) */
+img.full { display: block; width: 100%; height: auto; }
+/* a picture alone in its paragraph: a block of its own, the line to itself, in its middle */
+p.pic-block { text-align: center; }
+p.pic-block > img { display: block; margin-left: auto; margin-right: auto; }
+/* ---- a whiteboard in the note: its picture in a frame, opened by a click (board.js) */
+p.board-block { box-sizing: border-box; min-height: 120px; padding: 12px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-popover); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+p.board-block:hover { box-shadow: inset 0 0 0 1px var(--line-strong); transition-duration: var(--dur-instant); }
+p.board-block:active { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+p.board-block > img { max-width: 100%; max-height: 336px; height: auto; margin: 0; }
+p.board-block > img:not([width]) { width: auto; }
+/* (the picture is drawn for a light board: on a dark note its black ink is turned white, its colours kept) */
+body[data-mode="dark"] p.board-block > img { filter: invert(1) hue-rotate(180deg); }
+audio { width: 100%; }
+
+ul, ol { padding-left: 1.6em; }
+li { margin: 0.25em 0; }
+li > ul, li > ol { margin: 0.25em 0; }
+li::marker { color: var(--fg2); }
+li > p { margin: 0.25em 0; }
+dt { font-weight: 600; margin-top: 0.6em; }
+dd { margin: 0.2em 0 0.6em 1.4em; color: var(--fg2); }
+
+blockquote {
+  padding: 0.1em 0 0.1em 1em;
+  border-left: 3px solid var(--line-strong);
+  color: var(--fg2);
+}
+blockquote > :last-child { margin-bottom: 0; }
+/* (a heading first in a quote or block: the box's own padding is the room above it) */
+blockquote > :first-child { margin-top: 0; }
+/* decorations: a quote as a tinted block ([!block]), with a bar in a colour of its own ([!focus]),
+ * or both ([!block-focus]). --cc: the bar's colour, --ct: the tint's; a colour chosen sets both. */
+blockquote.deco { --cc: var(--accent); --ct: var(--fg2); color: var(--fg); }
+blockquote.deco-block { padding: 10px 14px; border-left: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--ct) 10%, transparent); }
+blockquote.deco-focus { border-left: 3px solid var(--cc); }
+/* [!indent]: what is in it stands further in, and nothing else */
+blockquote.deco-indent { margin-inline: 0; padding: 0 0 0 2em; border: 0; border-radius: 0; background: none; color: inherit; font-style: inherit; }
+blockquote.deco-red { --cc: var(--c-red); --ct: var(--c-red); }
+blockquote.deco-orange { --cc: var(--c-orange); --ct: var(--c-orange); }
+blockquote.deco-yellow { --cc: var(--c-yellow); --ct: var(--c-yellow); }
+blockquote.deco-green { --cc: var(--c-green); --ct: var(--c-green); }
+blockquote.deco-cyan { --cc: var(--c-cyan); --ct: var(--c-cyan); }
+blockquote.deco-blue { --cc: var(--c-blue); --ct: var(--c-blue); }
+blockquote.deco-magenta { --cc: var(--c-magenta); --ct: var(--c-magenta); }
+
+.tag {
+  display: inline-block;
+  font-size: 0.86em;
+  line-height: 1.5;
+  padding: 0 0.55em;
+  border-radius: 999px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+/* ------------------------------------------------------------- tasks */
+ul.contains-task-list, ol.contains-task-list { padding-left: 1.6em; }
+li.task-item { list-style: none; position: relative; }
+input.task {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  left: -1.55em;
+  top: 0.34em; /* (the box's middle on the middle of the letters, not of the line) */
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0;
+  border-radius: 0.3em;
+  border: 1.5px solid color-mix(in srgb, var(--fg) 38%, transparent);
+  background: transparent center / 72% no-repeat;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+input.task:hover { border-color: var(--accent); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+input.task:active { transform: scale(0.9); transition-duration: var(--dur-instant); }
+input.task:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input.task:disabled { cursor: default; }
+.props input.task { position: static; vertical-align: -0.15em; }
+li.task-item > p { margin: 0; }
+li.is-checked { color: var(--fg2); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--fg) 35%, transparent); transition: color var(--dur-fast) var(--ease-out); }
+li.is-checked li { text-decoration: none; }
+li[data-task] > input.task:checked { background-image: none; }

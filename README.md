@@ -73,15 +73,15 @@ Nothing, until one of these is used:
 
 | Path | What |
 |---|---|
-| `src-tauri/` | the shell (Rust, Tauri): windows, files, folder scan, tabs, theme — `src/shell.rs` is the windows, `scan.rs` the disk, `host.rs` what is asked of the system, `ai.rs` the models, `main.rs` the start and the `md://` protocol the page is served over |
-| `viewer.js`, `viewer.css` | renderer, source editor, sidebar and chrome inside the web view |
+| `src-tauri/` | the shell (Rust, Tauri): windows, files, folder scan, tabs, theme — `src/shell.rs` and `src/shell/` are the windows, `scan.rs` the disk, `host.rs` what is asked of the system, `ai.rs` the models, `main.rs` the start and the `md://` protocol the page is served over |
+| `viewer/`, `viewer.js` | renderer, source editor, sidebar and chrome inside the web view: its scripts and styles, by what they are about (`docs/MAP.md` says where what is) |
 | `vendor/` | markdown-it and plugins, KaTeX, highlight.js, Mermaid, PDF.js, ProseMirror, diff (minified, committed) |
 | `bin/` | launcher and installer |
 | `packaging/` | desktop entry and icon |
 | `overview.js`, `overview.css` | all notes of a folder as tiles |
 | `strings.js` | user-facing strings of the active mode (English, German) |
-| `active/`, `active.css` | the active mode: the rendered document, editable in place (in progress, see `docs/`) |
-| `docs/` | `FEATURES.md` (what the app does), design notes and milestone reports |
+| `active/` | the active mode: the rendered document, editable in place (in progress, see `docs/`) |
+| `docs/` | `FEATURES.md` (what the app does), `MAP.md` (where what is in the code), `BUGS.md` (the rules that came out of bugs), design notes and milestone reports |
 | `skill/` | the Claude skill `mdview-notes` |
 | `web/` | the notes in the browser, from a repository on GitHub (Next.js; in progress, see `docs/Git-Phase-3.md`) |
 | `dev/` | build of the vendored editor libraries, tests, a rig that runs the app off-screen — see `dev/README.md` |

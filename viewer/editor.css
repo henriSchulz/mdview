@@ -1,0 +1,80 @@
+/* mdview, styles — the source editor. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- editor */
+/* Reading and editing swap in place: one fades out, then the other fades in. */
+#editor {
+  display: none;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 56px 40px 40vh;
+  cursor: text;
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+@media (max-width: 640px) { #editor { padding: 48px 20px 40vh; } }
+body[data-view="edit"] #editor { display: block; }
+body[data-view="edit"] #content { display: none; }
+body.swapped #content { transition-duration: var(--dur-fast), var(--spring-smooth-dur); }
+body.swapping #content, body.swapping #editor {
+  opacity: 0;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit);
+}
+
+/* The textarea (transparent glyphs) and the coloured copy on top of it must
+ * wrap identically: same font, same width, and nothing below may change a
+ * glyph's advance — colours, weight and slant of the monospace only. */
+#ed-wrap {
+  position: relative;
+  min-height: 40vh;
+  font: 400 14px/24px var(--mono);
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  text-rendering: auto;
+  tab-size: 4;
+}
+#ed-input, #ed-back {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  font-variant-ligatures: inherit;
+  font-feature-settings: inherit;
+  text-rendering: inherit;
+  letter-spacing: inherit;
+  tab-size: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+#ed-input {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--accent);
+}
+#ed-input::selection { color: transparent; -webkit-text-fill-color: transparent; }
+#ed-input::placeholder { color: var(--fg-quiet); -webkit-text-fill-color: var(--fg-quiet); }
+#ed-back { position: relative; z-index: 1; pointer-events: none; } /* (over the field that is typed in: a selection is painted behind the letters, not over them) */
+.ln { min-height: 24px; transition: background-color var(--dur-slow) var(--ease-out); }
+.ln.flash { transition-duration: var(--dur-instant); }
+.ln.code, .ln.meta { margin: 0 -12px; padding: 0 12px; }
+.ln.code { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.ln.code-start { border-radius: var(--radius-control) var(--radius-control) 0 0; }
+.ln.code-end { border-radius: 0 0 var(--radius-control) var(--radius-control); }
+.ln.meta, .ln.quote { color: var(--fg2); }
+.m-dim, .m-quote, .m-lang, .m-html, .m-task { color: var(--fg2); }
+.m-h, .m-b, .m-callout { font-weight: 700; }
+.m-h .m-dim { font-weight: 400; }
+.m-i { font-style: italic; }
+.m-s { color: var(--fg2); text-decoration: line-through; }
+.m-mark { background: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 38%, transparent); border-radius: 3px; }
+.m-code { background: color-mix(in srgb, var(--fg) 7%, transparent); border-radius: 3px; }
+.m-link, .m-url, .m-tag, .m-list, .m-callout { color: var(--accent-text); }
+.m-math { color: var(--c-magenta); }
+.m-comment { color: var(--fg2); font-style: italic; }
+.m-key { color: var(--fg); }

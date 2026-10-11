@@ -1,0 +1,69 @@
+/* mdview, styles — the sidebar of a folder window (its layouts: layouts.css). (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- sidebar (folder windows) */
+/* A card that floats in the window, as the sidebar of a macOS window does: set in from the
+ * window's edge, round, a shade lighter than the page. Sizes are Finder's. --sb-w is
+ * the room it takes in the window, the inset included. */
+:root {
+  --sb-w: 260px;
+  --sb-inset: 8px;
+  --sb-pad: 10px;  /* card edge to a row's highlight */
+  --sb-row: 32px;
+  --sb-step: 16px;                                     /* a level deeper */
+}
+#sidebar {
+  position: fixed;
+  top: var(--sb-inset);
+  bottom: var(--sb-inset);
+  left: var(--sb-inset);
+  z-index: 16;                       /* over the strip of tabs: its ground must not cover the card's edge and shade */
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--sb-w) - var(--sb-inset));
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--raised);
+  box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04);
+  font: 400 13px/1.3 var(--ui);
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateX(calc(-100% - var(--sb-inset) * 3));
+  visibility: hidden;
+  transition:
+    transform calc(var(--dur-slow) * 0.7) var(--ease-exit),
+    visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+body[data-sidebar="open"] #sidebar {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
+}
+#sidebar.no-anim { transition: none; }
+@media (prefers-contrast: more) { #sidebar { box-shadow: 0 0 0 1.5px var(--fg2); } }
+/* the settings: a gear at the window's lower left corner — the foot of the sidebar when that is open */
+#settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; border-radius: var(--radius-pill); }
+body[data-sidebar="open"] #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); }
+#settings-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+body[data-sidebar="open"] .sb-list { padding-bottom: 48px; }
+@media print { #settings-btn { display: none !important; } }
+/* its edge, to pull it wider, narrower, away — and, from the window's edge, out again (the pointer says so) */
+#sb-grip { position: fixed; top: 0; bottom: 0; left: 0; z-index: 16; width: 6px; cursor: col-resize; display: none; }
+body[data-folder] #sb-grip { display: block; }
+body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; }
+body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+@media print { #sb-grip { display: none !important; } }
+/* The text column makes room at once; viewer.js glides it over (transform). */
+body[data-sidebar="open"] { padding-left: var(--sb-w); }
+#toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
+/* the panel at the right is the active mode's: elsewhere its button stands dimmed and takes no click */
+#toolbar [data-act="panel"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+body:not([data-view="active"]) #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
+/* the history's button where this app keeps none: dimmed, and still to be clicked */
+.sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+/* (not dimmed — it is there to be clicked: a stroke through it says that nothing is kept) */
+.sb-head [data-act="historymenu"] { position: relative; }
+.sb-head [data-act="historymenu"].quiet::after { content: ""; position: absolute; left: 50%; top: 50%; width: 19px; height: 1.7px; margin: -0.85px 0 0 -9.5px; border-radius: 1px; background: currentColor; box-shadow: 0 0 0 1.5px var(--raised); transform: rotate(45deg); pointer-events: none; }
+.sb-head [data-act="historymenu"].warn { color: var(--c-red); } /* (conflicts to resolve: its menu and its tooltip say so) */
+/* (the sidebar's button: at the left, first in the strip of tabs — not among these; all notes: the house beside it) */
+.tab-side { width: 38px; color: var(--fg2); }
+body[data-sidebar="open"] .tab-side { color: var(--fg); }

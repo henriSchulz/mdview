@@ -1,0 +1,136 @@
+/* mdview, styles — tables, formulas and diagrams, callouts. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- tables */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 0.94em; font-variant-numeric: tabular-nums; }
+.table-wrap table { margin: 0; }
+.table-wrap.wide > table { width: 100%; }
+/* columns: blocks side by side (<!-- columns --> … <!-- column --> … <!-- /columns -->); a column's
+ * width is its share (flex). In a narrow window they stand one under the other again. */
+.cols { display: flex; align-items: flex-start; gap: 36px; margin: 0 0 1em; }
+.col { flex: var(--w-live, var(--w, 1)) 1 0; min-width: 0; }   /* --w: its share; --w-live: while its gap is pulled */
+.col > :first-child { margin-top: 0; }
+.col > :last-child { margin-bottom: 0; }
+@media (max-width: 640px) { .cols { flex-direction: column; gap: 0; } .col { flex: none !important; width: 100%; } .col > :last-child { margin-bottom: 1em; } }
+@media print { .cols { break-inside: avoid; } }   /* as wide as the text column (<!-- wide --> before it) */
+th, td { padding: 7px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-weight: 600; border-bottom-color: var(--line-strong); }
+tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--fg) 2.5%, transparent); }
+th:first-child, td:first-child { padding-left: 10px; }
+/* a note's table (not the properties'): a sheet — every cell in its lines, as wide as the text
+ * column unless it is said to be narrow, and its head row in a colour where one is set
+ * (--th, --th-ink: viewer/markdown.js, tableStyle) */
+.table-wrap th, .table-wrap td { padding: 6px 10px; border: 1px solid var(--line); }
+.table-wrap th { border-bottom-color: var(--line-strong); background: var(--th, transparent); color: var(--th-ink, inherit); }
+.table-wrap tbody tr:nth-child(even) td { background: transparent; }
+
+/* ------------------------------------------------------------- math + mermaid */
+.math-block, .math-display { display: block; overflow-x: auto; overflow-y: hidden; padding: 0.2em 0; }
+.katex { font-size: 1.08em; }
+.katex-display { margin: 0.4em 0; }
+.math-error { color: var(--c-red); }
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  margin: 0 0 1em;
+  min-height: 3em;
+}
+.mermaid-block pre.mermaid { opacity: 0; margin: 0; }
+.mermaid-block.failed pre.mermaid { opacity: 1; }
+.mermaid-block svg { max-width: 100%; height: auto; animation: none; }
+.mermaid-block.rendered { animation: fade-in var(--dur-base) var(--ease-out); }
+@keyframes fade-in { from { opacity: 0; } }
+/* a fence of SVG, drawn: the picture, centred in the column */
+.svg-block { display: flex; justify-content: center; overflow-x: auto; margin: 0 0 1em; }
+.svg-block > svg { flex: none; max-width: 100%; height: auto; }
+.mermaid-error {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-control);
+  color: var(--c-red);
+  background: color-mix(in srgb, var(--c-red) 8%, transparent);
+  font-size: 0.9em;
+}
+.mermaid-error pre { margin: 6px 0 0; white-space: pre-wrap; font-size: 12px; }
+
+/* ------------------------------------------------------------- callouts */
+.callout {
+  --cc: var(--c-blue);
+  padding: 12px 16px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--cc) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 14%, transparent);
+  color: var(--fg);
+}
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--cc) 85%, var(--fg));   /* (its colour as text, on its own tint: as --accent-text) */
+  list-style: none;
+}
+summary.callout-title { cursor: default; }
+/* a file block: a paragraph that is only a link to a file beside the note, drawn as a card that names it */
+p.file-block { margin-block: 1em; } /* (as any block's: cards of files and of code stand as far apart as each other) */
+p.file-block > a {
+  display: inline-flex; align-items: center; gap: 9px; max-width: 100%; box-sizing: border-box; min-height: 40px; padding: 7px 14px 7px 11px;
+  border-radius: var(--radius-popover); background: var(--code-bg); box-shadow: inset 0 0 0 1px var(--line); /* (the ground a card of code has: the two are one kind of thing, also where blocks are selected) */
+  color: var(--fg); font-weight: 500; text-decoration: none; overflow-wrap: anywhere;
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+p.file-block > a::before {
+  content: ""; flex: none; width: 20px; height: 20px; background: var(--accent);
+  -webkit-mask: var(--file-icon) center / contain no-repeat; mask: var(--file-icon) center / contain no-repeat;
+}
+/* small: a chip in the line's height; large: a card as wide as the text, with what kind of file it is at the right */
+p.file-block.file-small > a { min-height: 26px; padding: 2px 10px 2px 7px; gap: 6px; border-radius: var(--radius-control); font-size: 0.9em; }
+p.file-block.file-small > a::before { width: 15px; height: 15px; }
+p.file-block.file-large { position: relative; }
+p.file-block.file-large > a { display: flex; min-height: 68px; padding: 14px 84px 14px 18px; gap: 14px; border-radius: var(--radius-panel); font-size: 1.08em; }
+p.file-block.file-large > a::before { width: 32px; height: 32px; }
+p.file-block.file-large::after { content: attr(data-ext); position: absolute; right: 18px; top: 50%; transform: translateY(-50%); padding: 2px 7px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg2); font: 600 11px var(--ui); letter-spacing: 0.04em; pointer-events: none; }
+p.file-block > a:hover { background: color-mix(in srgb, var(--fg) 5%, var(--code-bg)); transition-duration: var(--dur-instant); }
+:root { --file-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8Z'/%3E%3Cpath d='M14 3v5h5M12 11.5v5.5M9.5 14.8l2.5 2.4 2.5-2.4'/%3E%3C/svg%3E"); }
+summary::-webkit-details-marker { display: none; }
+.callout-icon { display: inline-flex; flex: none; }
+.callout-icon svg, .callout-fold svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.callout-fold { display: inline-flex; margin-left: auto; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+details[open] > summary .callout-fold { transform: rotate(90deg); }
+.callout-content { margin-top: 6px; }
+.callout-content > :last-child { margin-bottom: 0; }
+.callout-content > :first-child { margin-top: 0; }
+
+/* Callouts and Focus in another look (the settings' calloutStyle, on the root). The box above is the one without a name.
+ * "tip": a hint as an app gives one — the sign large beside the text, the ground a breath of the kind's colour;
+ *        Focus a tinted line in the colour's own text. */
+:root[data-callout="tip"] .callout { position: relative; padding: 13px 16px 14px 54px; border-radius: var(--radius-panel); box-shadow: none; }
+:root[data-callout="tip"] .callout-icon { position: absolute; left: 16px; top: 13px; color: var(--cc); }
+:root[data-callout="tip"] .callout-icon svg { width: 26px; height: 26px; stroke-width: 1.6; }
+:root[data-callout="tip"] .callout-icon .sf { font-size: 22px; line-height: 26px; }
+:root[data-callout="tip"] .callout-content { margin-top: 2px; }
+:root[data-callout="tip"] blockquote.deco-focus { padding: 11px 16px; border-left: 0; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--cc) 11%, transparent); color: color-mix(in srgb, var(--cc) 85%, var(--fg)); font-weight: 500; }
+/* "label": a fine line in the colour, the title a capsule on its upper edge (the page's ground under it hides the line);
+ *          folded, the line alone. Focus stands in two brackets. */
+:root[data-callout="label"] .callout { position: relative; margin-top: 1.5em; padding: 16px 16px 12px; border-radius: var(--radius-panel); background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); }
+:root[data-callout="label"] .callout-content > .callout:first-child { margin-top: 14px; }
+:root[data-callout="label"] .callout-title { position: absolute; left: 12px; top: -12px; height: 24px; max-width: calc(100% - 24px); padding: 0 10px 0 8px; gap: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--cc) 14%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); font-size: 0.78em; white-space: nowrap; }
+:root[data-callout="label"] .callout-title-text { overflow: hidden; text-overflow: ellipsis; }
+:root[data-callout="label"] .callout-icon svg { width: 14px; height: 14px; stroke-width: 2; }
+:root[data-callout="label"] .callout-icon .sf { font-size: 12px; }
+:root[data-callout="label"] .callout-fold { margin-left: 2px; }
+:root[data-callout="label"] .callout-content { margin-top: 0; }
+:root[data-callout="label"] details.callout:not([open]) { padding-block: 12px 0; border-radius: 0; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cc) 38%, transparent); }
+:root[data-callout="label"] blockquote.deco-focus { position: relative; padding: 6px 16px; border-left: 0; }
+:root[data-callout="label"] blockquote.deco-block.deco-focus { padding: 10px 16px; }
+:root[data-callout="label"] blockquote.deco-focus::before, :root[data-callout="label"] blockquote.deco-focus::after { content: ""; position: absolute; top: 0; bottom: 0; width: 9px; border: 2px solid var(--cc); pointer-events: none; }
+:root[data-callout="label"] blockquote.deco-focus::before { left: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+:root[data-callout="label"] blockquote.deco-focus::after { right: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+.callout-note, .callout-info, .callout-todo { --cc: var(--c-blue); }
+.callout-abstract, .callout-tip { --cc: var(--c-cyan); }
+.callout-success { --cc: var(--c-green); }
+.callout-question { --cc: var(--c-yellow); }
+.callout-warning { --cc: var(--c-orange); }
+.callout-failure, .callout-danger, .callout-bug { --cc: var(--c-red); }
+.callout-example, .callout-important { --cc: var(--c-magenta); }
+.callout-quote { --cc: var(--fg2); }

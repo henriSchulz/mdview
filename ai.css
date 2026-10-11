@@ -1,5 +1,5 @@
 /* mdview — AI (ai.js): the chat at the lower right and Transform with AI. Colours and motion are
- * the app's own (viewer.css, motion.css). */
+ * the app's own (viewer/*.css, motion.css). */
 
 /* ---- the chat: a sheet of the app's glass, the conversation on it, what is written in a card at its foot */
 #ai-chat {

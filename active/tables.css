@@ -1,0 +1,91 @@
+/* mdview active mode, styles — tables and footnotes while they are edited. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- tables */
+/* rows sit directly in <table> here: stripe them as the reading view's body rows */
+.pm table > tr:nth-child(odd) td { background: transparent; } /* (a sheet of lines: no stripes — viewer/*.css) */
+.pm td, .pm th { transition: background-color var(--dur-slow) var(--ease-out); }
+.pm td.fresh, .pm th.fresh { transition-duration: 0s; }
+.pm .selectedCell { background-color: color-mix(in srgb, var(--accent) 16%, transparent) !important; }
+
+/* the handles over a column and beside a row: only while the pointer is in the table */
+.tbl-h {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 0;
+  border: var(--hairline);
+  border-radius: var(--radius-row);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  opacity: 0;
+  visibility: hidden;
+  cursor: default;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out);
+}
+.tbl-h[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-instant) var(--ease-out); }
+.tbl-h:hover, .tbl-h[data-held] { background: color-mix(in srgb, var(--fg) 10%, var(--surface)); }
+.tbl-h i { width: 3px; height: 3px; border-radius: 50%; background: var(--fg2); }
+.tbl-h-col { width: 26px; height: 12px; transform: translate(-50%, -50%); }
+.tbl-h-more { width: 28px; height: 22px; transform: translate(-50%, -50%); }
+.tbl-h-row { width: 12px; height: 26px; flex-direction: column; transform: translate(-50%, -50%); }
+
+.actmenu { position: fixed; z-index: 45; min-width: 200px; max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+#actsub { z-index: 46; }
+/* a callout's title is typed in where it stands */
+.pm .callout-title-text { outline: none; cursor: text; min-width: 1ch; border-radius: var(--radius-chip); transition: box-shadow var(--dur-fast) var(--ease-out); }
+.pm .callout-title-text:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc) 14%, transparent); background: color-mix(in srgb, var(--cc) 14%, transparent); }
+/* the "/" menu: a few entries tall, the rest scrolls (half an entry shows that there is more) */
+.actmenu.steady { max-height: min(calc(var(--menu-item-height, 26px) * 9.5 + var(--menu-pad)), calc(100vh - 16px)); }
+/* a menu that is searched (the "/" menu for blocks that are selected): wider, taller, and what is
+ * typed stands in a line at its top, which stays there while the entries scroll */
+.actmenu.searched { min-width: 320px; scrollbar-width: none; }
+.actmenu.searched::-webkit-scrollbar { display: none; }
+.actmenu.searched.steady { max-height: min(calc(var(--menu-item-height, 26px) * 14.5 + 36px + var(--menu-pad)), calc(100vh - 16px)); }
+/* (the plate's own colour under it: the entries scroll away behind the line, and it is part of the menu) */
+/* the bar over the "/" menu's entries: six buttons in a row, the highlight at once as in the entries */
+.menu-bar { display: flex; gap: 2px; margin-bottom: 3px; }
+.menu-bar-btn { flex: 1; min-width: 0; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: calc(var(--menu-row-radius) + 2px); background: transparent; color: var(--fg2); cursor: default; }
+.menu-bar-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.menu-bar-btn b { font: 650 12px/1 var(--ui); letter-spacing: -0.01em; }
+.menu-bar-btn.on { color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 16%, transparent); }
+.menu-bar-btn.hl { background: var(--accent); color: var(--on-accent, #fff); }
+@media (pointer: coarse) { .menu-bar-btn { height: 38px; } }
+.menu-search { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; box-sizing: border-box; height: 36px; margin: calc(-1 * var(--menu-pad)) calc(-1 * var(--menu-pad)) var(--menu-pad); padding: 0 16px; border-bottom: 1px solid var(--line); background: inherit; font: 500 14px/1.45 var(--ui); color: var(--fg); }
+.menu-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--fg3, var(--fg2)); stroke-width: 2; stroke-linecap: round; }
+.menu-search-q { display: flex; align-items: center; white-space: pre; overflow: hidden; }
+.menu-search-q:empty::before { content: attr(data-ph); color: var(--fg3, var(--fg2)); }
+.menu-search-q::after { content: ""; flex: none; width: 1.5px; height: 1.15em; margin: 0 1px; background: var(--accent); animation: menu-caret 1.1s steps(1) infinite; }
+.menu-search-q:empty::after { order: -1; }
+@keyframes menu-caret { 50% { opacity: 0; } }
+.actmenu .menu-item:disabled { color: var(--fg3); }
+.actmenu .menu-item:disabled .menu-key { opacity: 0.6; }
+/* the tick of what is on stands in a column of its own, left of the names (as in a macOS menu);
+ * the column is only there in a menu that has something to tick */
+.menu-check { display: none; place-items: center; flex: none; width: 12px; height: 12px; margin-left: -2px; }
+.actmenu.has-checks .menu-check { display: grid; }
+.menu-check svg, .menu-more svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.menu-item:not([aria-checked="true"]) > .menu-check svg { visibility: hidden; }
+.menu-more { display: grid; place-items: center; flex: none; width: 12px; height: 12px; margin: 0 -3px 0 16px; color: var(--fg3); }
+.menu-item.hl .menu-more { color: var(--on-accent, #fff); }
+
+/* ------------------------------------------------------------- footnotes */
+.pm .footnotes li.footnote-item { border-radius: var(--radius-row); transition: background-color var(--dur-slow) var(--ease-out); }
+.pm[contenteditable="true"] .footnotes li.footnote-item:hover { background-color: color-mix(in srgb, var(--fg) 4%, transparent); transition-duration: var(--dur-instant); }
+.pm .footnotes li.footnote-item.note-hit { background-color: color-mix(in srgb, var(--accent) 14%, transparent); transition-duration: var(--dur-fast); }
+.pm .isl[data-kind="footnotes"], .pm .isl[data-kind="footnotes"]:hover { background-color: transparent; }
+.pm .isl[data-kind="footnotes"]::after { display: none; }
+#notepop {
+  position: absolute;
+  z-index: 30;
+  box-sizing: border-box;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px 12px;
+  font-size: 0.9em;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--fg) 4%, var(--bg));
+}
+#notepop > :first-child { margin-top: 0; }
+#notepop > :last-child { margin-bottom: 0; }

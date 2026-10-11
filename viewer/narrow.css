@@ -1,0 +1,170 @@
+/* mdview, styles — scrollbars, tooltips, figures, signs set as text (SF Symbols), and narrow windows (a phone, a split screen). (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- scrollbars */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--fg) 35%, transparent); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+@media print {
+  #toolbar, #tabs, #outline, #findbar, #toast, #editor, #sidebar, #ctxmenu, .code-tools { display: none !important; }
+  body { padding-left: 0 !important; }
+  #content { display: block !important; opacity: 1 !important; }
+  #content { max-width: none; padding: 0; }
+  body { font-size: 11pt; }
+  .code-block, .callout, table, img, .mermaid-block, .svg-block { break-inside: avoid; }
+}
+
+/* the app's own tooltips (viewer.js) */
+#apptip {
+  position: fixed;
+  z-index: 60;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 3px 8px;
+  border-radius: var(--radius-row);
+  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 2px 8px rgb(0 0 0 / 0.16);
+  color: var(--fg);
+  font: 400 12px/1.45 var(--ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7);
+}
+#apptip[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+@media print { #apptip { display: none !important; } }
+
+/* figures (SVG pictures) stand centred in the column, in every view */
+#content img[src$=".svg" i], .pm img[src$=".svg" i] { display: block; margin-left: auto; margin-right: auto; }
+.pm .ia:has(> img[src$=".svg" i]) { display: block; }
+
+/* a picture, large (a double click on it) */
+#zoom { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--bg) 94%, transparent); opacity: 0; visibility: hidden; cursor: zoom-out;
+  transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+#zoom[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+#zoom img:not([src]) { display: none; }
+#zoom .zoom-fig { max-width: none; background: var(--bg); box-shadow: 0 0 0 0.5px var(--line); }
+#zoom img, #zoom .zoom-fig { position: absolute; transform-origin: 0 0; border-radius: 4px; transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+#zoom[data-open] img, #zoom[data-open] .zoom-fig { transition: transform var(--spring-gentle-dur, var(--dur-slow)) var(--spring-gentle, var(--ease-out)); }
+#content img, .pm img { cursor: zoom-in; }
+@media (prefers-reduced-motion: reduce) { #zoom img, #zoom .zoom-fig { transition: none !important; } }
+#content .mermaid-block > svg, #content .svg-block > svg { cursor: zoom-in; }
+@media print { #zoom { display: none !important; } }
+
+/* ------------------------------------------------------------- signs set as text (SF Symbols)
+ * A sign is a glyph in the box its drawing had; its size is the type's, its colour the text's. */
+.sf { display: inline-block; font: 400 15px/1 ".SF Symbols Fallback"; font-variation-settings: normal; text-rendering: auto; -webkit-user-select: none; user-select: none; }
+.sf::before { content: attr(data-g); }
+.find-icon .sf, .menu-icon .sf, .rp-search .sf { font-size: 14px; }
+#settings-btn .sf { font-size: 16px; }
+.sb-folder .sf { flex: none; color: var(--accent-text); }
+.sb-chev .sf { font-size: 9px; }
+.callout-fold .sf { font-size: 11px; }
+details.props .callout-fold .sf { font-size: 10px; }
+.empty-icon .sf { font-size: 34px; }
+.ov-sep .sf { font-size: 12px; }
+.ov-opt .sf { font-size: 14px; }
+.ov-folder.ov-tile .ov-icon .sf { font-size: 36px; }
+.ov-row .ov-icon .sf { font-size: 16px; }
+.ov-go .sf { font-size: 11px; }
+
+/* ------------------------------------------------------------- narrow windows: a phone, a split
+ * The sidebar is a drawer over the note (viewer/drawer.js: compact), the toolbar stands at the window's
+ * foot where a thumb reaches it, the tabs have the whole strip. Sizes are layout; a finger's
+ * controls are larger (pointer: coarse) — 44 px, Apple's measure for what is touched. */
+#sb-scrim { position: fixed; inset: 0; z-index: 29; display: none; background: rgb(0 0 0 / 0.28); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+@media (max-width: 760px) {
+  :root { --sb-w: min(86vw, 340px) !important; }
+  #sb-scrim { display: block; }
+  body[data-sidebar="open"] #sb-scrim { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+  body[data-sidebar="open"] { padding-left: 0; }
+  body[data-sidebar="open"] #tabs { left: 0; padding-left: 12px; }
+  body[data-sidebar="open"] #overview, body[data-sidebar="open"] #loading { left: 0; }
+  #sidebar { z-index: 30; top: calc(var(--sb-inset) + env(safe-area-inset-top, 0px)); bottom: calc(var(--sb-inset) + env(safe-area-inset-bottom, 0px)); }
+  body[data-sidebar="open"] #settings-btn { z-index: 31; }
+  body:not([data-sidebar="open"]) #settings-btn { display: none; } /* (the gear is the drawer's foot here: nothing floats over the note's corner) */
+  #sb-grip { display: none !important; }
+  #tabs { padding-right: 12px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); height: calc(var(--tabs-h) + env(safe-area-inset-top, 0px)); }
+  .tab-list { overflow-x: auto; scrollbar-width: none; }
+  .tab-list::-webkit-scrollbar { display: none; }
+  /* the toolbar: at the foot, in the middle */
+  #toolbar { top: auto; right: auto; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100vw - 16px); }
+  #toolbar.hidden { transform: translate(-50%, 6px); }
+  #outline { top: auto; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); right: 8px; left: 8px; width: auto; max-height: 60vh; }
+  #findbar { top: calc(var(--tabs-h) + 4px + env(safe-area-inset-top, 0px)); right: 8px; left: 8px; }
+  body:not([data-tabs]) #findbar { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  :is(#content, #active, #editor) { padding-bottom: max(40vh, 120px); }
+}
+/* a finger for a pointer: what is pressed is as large as a finger, and what a hover would show is there */
+@media (pointer: coarse) {
+  :root { --control-height: 40px; --sb-row: 44px; --tab-h: 40px; --tabs-h: 58px; }
+  .tb svg { width: 20px; height: 20px; }
+  .ui-menu .menu-item, #ctxmenu .menu-item, .actmenu .menu-item { min-height: 40px; }
+  /* (code: its language and Copy stand over it, in a line of their own — no hover brings them) */
+  .code-tools { opacity: 1; }
+  .code-block:not(.code-hidden) > .code-tools + pre { padding-top: 44px; }
+  .sb-row { font-size: 15px; }
+  /* (a finger held on a row or a tab asks for its menu, not for the system's own or a selection) */
+  .sb-row, .ov-item, .tab, .tab-home, #toolbar { -webkit-touch-callout: none; }
+  /* (a tab's cross comes under a pointer that rests on the tab: a finger never does — unseen, it would be hit by
+   * the tap that chooses the tab. A tab is closed from its menu: a finger held on it.) */
+  .tab-x { display: none; }
+}
+
+/* Sync Now, in the sidebar's head: there only where the folder has another side (viewer/base.js: data-linked); it turns once when pressed */
+.sb-sync { display: none; }
+body[data-linked] .sb-sync { display: grid; }
+.sb-sync svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-sync.turning svg { animation: sb-sync-turn var(--dur-slower) var(--ease-in-out); }
+@keyframes sb-sync-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sb-sync.turning svg { animation: none; } }
+
+/* ---- under a finger (a tablet, a phone): what is pulled is wide enough to be met, what is typed in does not make the page
+ * larger (a field under 16 px does, on an iPhone), and a tap is a tap — no grey flash, no wait for a second one */
+@media (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, [role="button"], .sb-row, .tab, .menu-item, .tb { touch-action: manipulation; }
+  input[type="text"], input[type="search"], input[type="url"], input[type="email"], input[type="password"], input:not([type]), textarea, select { font-size: 16px !important; } /* (whatever a field's own rule says) */
+  #sb-grip { width: 22px; touch-action: none; }
+  body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 18px); width: 22px; } /* (over the sidebar's side: the note's margin beside it is where a swipe chooses a block) */
+  .code-tools .btn { min-height: 36px; }
+}
+
+/* ---- under a finger it is an app, not a page: the window is not pinched larger or made larger by a double tap, and only what
+ * is the note's — its text, a field — is selected; a finger resting on a button, a row, a title selects nothing */
+@media (pointer: coarse) {
+  html { touch-action: pan-x pan-y; }
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #content, #active .pm, #editor, .pdf-pages, input, textarea, [contenteditable]:not([contenteditable="false"]), .code-block pre { -webkit-user-select: text; user-select: text; }
+}
+
+/* a note opened by itself: its folder, opened beside it, from the toolbar (gone once a folder is open) */
+body[data-folder] #toolbar [data-act="notefolder"] { display: none; }
+/* nothing open yet: a folder or a file */
+.start-go { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.start-go .btn { margin: 0; }
+
+/* ---- AI (ai.js): the bubble at the lower right that opens the chat — there only where AI is on (the settings), and nothing of
+ * AI anywhere where it is off */
+#ai-bubble { position: fixed; z-index: 43; right: 20px; bottom: 20px; width: 44px; height: 44px; display: none; place-items: center; padding: 0; border: 0; border-radius: 50%;
+  background: var(--glass, var(--bg)); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); color: var(--accent); cursor: default;
+  box-shadow: var(--shadow-capsule, 0 4px 16px rgb(0 0 0 / 0.16)), 0 0 0 0.5px var(--line-strong, var(--line));
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+body[data-ai] #ai-bubble { display: grid; }
+#ai-bubble svg { width: 20px; height: 20px; fill: currentColor; }
+#ai-bubble:hover { transform: scale(1.06); }
+#ai-bubble:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
+body[data-ai-chat] #ai-bubble { background: var(--accent); color: #fff; }
+body:not([data-ai]) [data-needs-ai] { display: none !important; }
+/* (not over what fills the window, nor on paper) */
+body[data-overview] #ai-bubble, body[data-overview] #ai-chat { display: none; }
+@media print { #ai-bubble { display: none !important; } }
+@media (max-width: 640px) { #ai-bubble { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 12px; } }

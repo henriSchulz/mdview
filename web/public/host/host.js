@@ -189,7 +189,7 @@
     if (Object.keys(looks).some((k) => k === a || k.startsWith(a + "/"))) write(C.FOLDERS, C.looksText(C.looksMoved(looks, a, rel(to))));
   }
   function sendFolder() {
-    // (what the sidebar lists or All Notes does: the page shows each its own part — viewer.js, listed)
+    // (what the sidebar lists or All Notes does: the page shows each its own part — viewer/sidebar.js, listed)
     const show = [(prefs.sidebarPdf !== false || prefs.ovPdf) && "pdf", (prefs.sidebarImages || prefs.ovImages) && "image", (prefs.sidebarMedia || prefs.ovMedia) && "media", (prefs.sidebarOther || prefs.ovOther) && "other"].filter(Boolean);
     let titles = null;
     if (here.sidebar.titles) {

@@ -8,12 +8,12 @@ cd dev
 npm install          # esbuild, jsdom, ProseMirror (versions pinned in package.json)
 npm run build        # -> ../vendor/prosemirror.min.js (committed; rebuild after a version bump)
 ./fetch-corpus.sh    # CommonMark + GFM spec examples and ~40 real documents -> corpus/ (not committed)
-npm test
+npm test             # says what fails, and a dot for each test that held (every line: npm run test:all)
 ```
 
 ## Tests (`npm test`)
 
-They load the page's own scripts (the vendored libraries and `viewer.js`) into
+They load the page's own scripts (the vendored libraries, `viewer/*.js` and `viewer.js`) into
 jsdom, so they run against the parser exactly as the app configures it.
 
 | File | What it checks |
@@ -27,6 +27,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/notes.test.mjs` | footnote definitions found and written back, a new note |
 | `tests/clip.test.mjs` | Markdown pasted keeps its spelling, HTML reduced to Markdown, copy |
 | `tests/edges.test.mjs` | the spec's edge cases: byte-exact round trip and local edits for nested structures, fences, dollars, broken Markdown, comments, line endings, BOM, Unicode |
+| `tests/map.test.mjs` | `docs/MAP.md` lists the files as they are (`node dev/map.mjs` writes the list) |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
@@ -39,6 +40,9 @@ state directory, so neither the installed app nor the desktop is touched.
 The shell (`../src-tauri`, built with `cargo build`; another build: `MDVIEW_BIN=…`)
 evaluates a probe script in the page (`MDVIEW_PROBE`) and writes
 what it reports to `MDVIEW_PROBE_OUT`.
+
+A case says what fails and, in one line, how many checks held; `RIG_ALL=1 ./rig.sh …` says
+every check.
 
 ```sh
 ./rig.sh start
@@ -71,7 +75,7 @@ MDVIEW_THEME_DIR=/nonexistent ./rig.sh m5               # any probe in the light
 - `regress` runs the same probe against the page as it is on `main` (or
   `BASE=<ref>`) and against this checkout: rendered HTML, layout, the editor's
   typing helpers, the saved file and screenshots must be identical. Run it
-  whenever `viewer.js` or `viewer.css` changes.
+  whenever `viewer.js` or something in `viewer/` changes.
 
 ## The whiteboard alone (`board-lab.html`)
 

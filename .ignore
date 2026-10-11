@@ -1,0 +1,14 @@
+# What a search (rg) leaves out: what nobody wrote here, and what is kept only to look back at.
+# (rg -u searches it all the same; a file named outright is always read.)
+vendor/
+package-lock.json
+Cargo.lock
+web/public/welcome/
+# the test apps a look was chosen from (the whiteboard's is the touch tests' page: it stays in)
+dev/*-lab*.html
+!dev/board-lab.html
+dev/audit/
+# plans of work that is done (what the app does now: docs/FEATURES.md)
+docs/active-mode-*.md
+docs/Git-Phase-*.md
+docs/Tauri-Umbau.md

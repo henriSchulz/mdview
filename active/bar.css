@@ -1,0 +1,68 @@
+/* mdview active mode, styles — the formatting bar over a selection. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- formatting bar */
+#fmtbar {
+  position: fixed;
+  z-index: 28;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--fg) 4%, var(--bg));
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), transform calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7);
+}
+#fmtbar[data-side="below"] { transform: translateY(-4px); }
+#fmtbar[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out), visibility 0s; }
+.fb { font: 500 14px/1 var(--ui); }
+.fb b { font-weight: 700; }
+.fb i { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 15px; }
+.fb:disabled { opacity: 0.4; pointer-events: none; }
+.fb[data-do="para"] { width: auto; padding: 0 4px 0 7px; display: flex; gap: 1px; align-items: center; }
+.fb[data-do="para"] svg { width: 12px; height: 12px; }
+.fb-rule { width: 1px; height: 16px; margin: 0 3px; background: var(--line); }
+#acttip {
+  position: fixed;
+  z-index: 60;
+  padding: 3px 8px;
+  border-radius: var(--radius-row);
+  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 2px 8px rgb(0 0 0 / 0.16);
+  color: var(--fg);
+  font: 400 12px/1.45 var(--ui);
+  white-space: nowrap;
+  max-width: min(560px, calc(100vw - 16px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7);
+}
+#acttip[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+
+/* the question over a dialog when the window is closed with changes in it */
+.dlg-ask { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; border-radius: inherit; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+.dlg-ask[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+.dlg-ask-box { display: grid; gap: 6px; width: min(380px, 84%); padding: 16px; background: color-mix(in srgb, var(--fg) 4%, var(--bg)); transform: scale(0.96); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+.dlg-ask[data-open] .dlg-ask-box { transform: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.dlg-ask-box b { font-weight: 600; }
+.dlg-ask-text { color: var(--fg2); }
+.dlg-ask-row { display: flex; gap: 8px; margin-top: 10px; }
+.dlg-ask-row span { flex: 1; }
+
+/* more contrast asked for: lines and edges of the active mode's own parts stand out */
+@media (prefers-contrast: more) {
+  #dlg, #fmtbar, #linkpop, #atompop, #notepop, .actmenu, .dlg-ask-box, .tbl-h { box-shadow: 0 0 0 1.5px var(--fg); }
+  .menu-rule, .fb-rule { background: var(--fg2); }
+  .pm[contenteditable="true"] .isl:not(.none):hover, .pm .footnotes li.footnote-item:hover { outline: 1.5px solid var(--fg2); }
+  .actmenu .menu-item:disabled { opacity: 0.75; }
+}
+
+/* Popovers that are not showing rest at the top of the page: left where the flow would put them
+ * (below the document), they would make the page longer by their height. */
+#linkpop, #atompop, #notepop, .tbl-h { top: 0; left: 0; }

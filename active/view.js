@@ -101,8 +101,8 @@
     dom.className = cls;
     dom.dataset.kind = node.attrs.kind;
     dom.innerHTML = node.attrs.html;
-    if (tag === "span" && /^<(br|wbr)\b/i.test(node.attrs.html.trim())) dom.classList.add("ia-br"); // (see active.css)
-    // a picture standing alone (an embedded PDF page too): a block that is its picture — see active.css
+    if (tag === "span" && /^<(br|wbr)\b/i.test(node.attrs.html.trim())) dom.classList.add("ia-br"); // (see active/*.css)
+    // a picture standing alone (an embedded PDF page too): a block that is its picture — see active/*.css
     const para = tag === "div" && dom.children.length === 1 && dom.firstElementChild.tagName === "P" ? dom.firstElementChild : null;
     const pic = para && para.children.length === 1 && para.firstElementChild.matches("img, .pdf-embed") ? para.firstElementChild : null;
     if (pic && [...para.childNodes].every((n) => n === pic || (n.nodeType === 3 && !n.data.trim()))) dom.classList.add("isl-pic");

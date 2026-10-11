@@ -1,0 +1,94 @@
+/* mdview, styles — the window for a new note's name, the copy that goes with the pointer in a drag, menus at a point, a choice among a few. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* a new note or folder: a small window that asks for its name (viewer/drawer.js: openNewNote) */
+#newdlg { position: fixed; inset: 0; z-index: 52; display: grid; place-items: start center; padding-top: 22vh; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#newdlg[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+.new-box { display: grid; gap: 14px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; margin: 0; padding: 18px 18px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg); transform: scale(var(--popover-from-scale, 0.96)); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+#newdlg[data-open] .new-box { transform: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.new-head { display: flex; gap: 12px; align-items: center; }
+.new-sign { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text); }
+.new-sign svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.new-sign .sf { font-size: 17px; }
+.new-words { display: grid; gap: 1px; min-width: 0; }
+.new-words b { font-weight: 600; font-size: 14px; }
+.new-where { margin: 0; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.new-box .sb-field { width: 100%; height: 30px; margin: 0; }
+.new-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.new-box .btn { height: var(--control-height, 28px); min-width: 72px; padding: 0 12px; font-size: 13px; }
+.new-box .btn:disabled { opacity: 0.4; pointer-events: none; }
+.new-box .btn.primary { background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+.new-box .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+@media (prefers-reduced-motion: reduce) { .new-box { transform: none; } }
+@media print { #newdlg { display: none !important; } }
+/* renaming: the field lies over the name; the row's icon stays where it is */
+.sb-item > .sb-in { position: relative; }
+.sb-row.renaming { background: var(--sb-selected); pointer-events: none; }
+.sb-row.renaming .sb-label { visibility: hidden; }
+.sb-rename {
+  position: absolute;
+  top: 3px;
+  left: calc(4px + var(--depth, 0) * var(--sb-step) + 16px + 18px + 1px);
+  width: auto;
+  right: 3px;
+  height: calc(var(--sb-row) - 6px);
+  margin: 0;
+  padding: 0 6px;
+  border-radius: calc(8px - 3px);
+}
+.sb-item.ctx-target > .sb-in > .sb-row:not(.active) { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
+/* the copy that goes with the pointer while a row or a tile is moved (moving.start): the page's own, laid over everything, deaf to the pointer */
+.drag-ghost { position: fixed !important; left: 0; top: 0; z-index: 90; box-sizing: border-box; margin: 0 !important; pointer-events: none; user-select: none; -webkit-user-select: none; opacity: 0.94; will-change: transform; transition: none !important; animation: none !important; }
+/* what is dragged would go into this folder — or, the list itself marked, to the top */
+.sb-item.drop-into > .sb-in > .sb-row { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sb-list.drop-into, #sb-list.drop-into { box-shadow: inset 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 60%, transparent); border-radius: var(--radius-control); }
+
+/* a menu at a point (a file's, a folder's, the + button's) */
+#ctxmenu { position: fixed; z-index: 35; min-width: 200px; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+/* the menu beside it (Show ›): what is listed beside the notes, a tick each */
+#ctxsub { position: fixed; z-index: 36; min-width: 170px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+#ctxsub:not([data-open]) { pointer-events: none; }
+#ctxsub .menu-item { display: flex; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+/* the menu of All Notes' + (a note, a folder): two entries, pressed often — larger than a menu of many */
+#ctxmenu[data-kind="ovnew"] { min-width: 250px; --menu-pad: 7px; --menu-radius: 13px; --menu-row-radius: 7px; }
+#ctxmenu[data-kind="ovnew"] .menu-item { min-height: 36px; padding-left: 12px; padding-right: 12px; gap: 11px; font-size: 15px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon { width: 20px; height: 20px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon svg { width: 19px; height: 19px; }
+#ctxmenu[data-kind="ovnew"] .menu-icon .sf { font-size: 17px; }
+#ctxmenu[data-kind="ovnew"] .menu-key { font-size: 13px; }
+#ctxmenu .menu-go { display: grid; place-items: center; margin-left: auto; }
+#ctxmenu .menu-go svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+#ctxmenu .menu-item.has-sub[aria-expanded="true"]:not(.hl) { background: color-mix(in srgb, var(--fg) 12%, transparent); }
+#ctxmenu .menu-item, .actmenu .menu-item { display: flex; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+#ctxmenu .menu-item[hidden], #ctxmenu .menu-rule[hidden] { display: none; }
+#ctxmenu .menu-item:disabled { color: var(--fg3); }
+#ctxmenu .menu-item:disabled .menu-key { color: var(--fg3); }
+.menu-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.menu-icon { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--fg2); }
+.menu-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.menu-item.danger .menu-icon { color: inherit; }
+.menu-item.hl .menu-icon { color: var(--on-accent, #fff); }
+/* the menu for text where no part has one of its own (viewer.js) */
+#textmenu, #pickmenu { position: fixed; z-index: 62; min-width: 180px; box-sizing: border-box; padding: var(--menu-pad); outline: none; user-select: none; -webkit-user-select: none; }
+#textmenu:not([data-open]), #pickmenu:not([data-open]) { pointer-events: none; }
+/* a choice among a few (viewer.js popup, combo): the button, and the menu with a tick at what is chosen */
+#pickmenu { z-index: 64; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+#pickmenu .menu-check { display: grid; place-items: center; flex: none; width: 12px; height: 12px; margin-left: -2px; }
+#pickmenu.no-checks .menu-check { display: none; }
+#pickmenu .menu-check svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+#pickmenu .menu-item:not([aria-checked="true"]) > .menu-check svg { visibility: hidden; }
+.pop-wrap { display: inline-flex; min-width: 0; }
+.pop { display: flex; align-items: center; justify-content: space-between; gap: 10px; box-sizing: border-box; max-width: 100%; height: var(--control-height, 28px); padding: 0 6px 0 10px; border: 0; border-radius: var(--radius-control); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.06); color: var(--fg); font: 400 13px var(--ui); text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+body[data-mode="dark"] .pop { background: color-mix(in srgb, var(--fg) 12%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.12); }
+.pop:hover { background: color-mix(in srgb, var(--fg) 4%, var(--raised)); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+.pop:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.pop-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-chev { display: grid; place-items: center; flex: none; width: 14px; color: var(--fg2); }
+.pop-chev svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pop-chev .sf { font-size: 11px; }
+#textmenu .menu-item:disabled { color: var(--fg3); }
+#textmenu .menu-item:disabled .menu-key { color: var(--fg3); }
+/* a shortcut, as macOS writes it (⌃⇧V) */
+.menu-key { flex: none; margin-left: 16px; color: var(--fg-quiet); font-size: 13px; font-variant-numeric: tabular-nums; }
+.menu-item.danger { color: var(--c-red); }
+.menu-item.hl .menu-key, .menu-item.danger.hl { color: var(--on-accent, #fff); }
+.menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }
