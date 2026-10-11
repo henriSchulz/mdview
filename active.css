@@ -416,6 +416,14 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .actmenu.searched::-webkit-scrollbar { display: none; }
 .actmenu.searched.steady { max-height: min(calc(var(--menu-item-height, 26px) * 14.5 + 36px + var(--menu-pad)), calc(100vh - 16px)); }
 /* (the plate's own colour under it: the entries scroll away behind the line, and it is part of the menu) */
+/* the bar over the "/" menu's entries: six buttons in a row, the highlight at once as in the entries */
+.menu-bar { display: flex; gap: 2px; margin-bottom: 3px; }
+.menu-bar-btn { flex: 1; min-width: 0; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: calc(var(--menu-row-radius) + 2px); background: transparent; color: var(--fg2); cursor: default; }
+.menu-bar-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.menu-bar-btn b { font: 650 12px/1 var(--ui); letter-spacing: -0.01em; }
+.menu-bar-btn.on { color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 16%, transparent); }
+.menu-bar-btn.hl { background: var(--accent); color: var(--on-accent, #fff); }
+@media (pointer: coarse) { .menu-bar-btn { height: 38px; } }
 .menu-search { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; box-sizing: border-box; height: 36px; margin: calc(-1 * var(--menu-pad)) calc(-1 * var(--menu-pad)) var(--menu-pad); padding: 0 16px; border-bottom: 1px solid var(--line); background: inherit; font: 500 14px/1.45 var(--ui); color: var(--fg); }
 .menu-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--fg3, var(--fg2)); stroke-width: 2; stroke-linecap: round; }
 .menu-search-q { display: flex; align-items: center; white-space: pre; overflow: hidden; }

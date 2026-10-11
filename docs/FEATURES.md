@@ -641,6 +641,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **`/` menu** at the start of an empty line, or in a line with text: text styles, lists, formats,
   decorations, colours, callouts, columns, code block, formula, table, divider, picture, footnote,
   graphic, a page of the note's own, and actions on the block (duplicate, move, select, copy, delete). Typing filters it.
+  Over its entries sits a bar of six buttons — text, the two big headings, a bullet list, a task, a quote — ticked
+  for what the block is; `↑` from the first entry reaches it, `←` `→` move in it, `↓` leaves it, Enter or a click
+  chooses. Typing a letter takes the bar away (the entries are then what is found), deleting it brings it back.
 - **Formatting bar** over a selection: bold, italic, strikethrough, code, link, formula, paragraph style.
 - **Context menu** (right click): cut, copy, paste, paste and match style, add link, format,
   paragraph, insert, settings.

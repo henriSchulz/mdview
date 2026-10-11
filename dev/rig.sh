@@ -8,6 +8,7 @@
 #   dev/rig.sh compare FILE…         reading view vs. active mode: layout report + screenshots per file
 #   dev/rig.sh modes FILE            switching between the modes, find, outline, a task (on a copy of FILE)
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
+#   dev/rig.sh slashbar              the six buttons over the "/" menu: keys, a click, typing takes them away
 #   dev/rig.sh islands               dialogs for code, formulas, properties, raw Markdown; popovers (on a copy)
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
@@ -773,6 +774,15 @@ case "${1:-}" in
     [[ -f $R/out/$name.callout.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.callout.json" | grep -qv '^ok' ;;
+  slashbar)
+    name=slashbar.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Bar\n\nPlain text.\n\nEnd.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
+    app 60 MDVIEW_PROBE="$D/probe-slashbar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 300); do [[ -f $R/out/$name.bar.json || -f $R/out/$name.slashbar.json ]] && break; sleep 0.1; done; sleep 1.5; shot "$R/out/slashbar.png"
+    for _ in $(seq 300); do [[ -f $R/out/$name.slashbar.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.slashbar.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.slashbar.json"
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.slashbar.json" | grep -qv '^ok' ;;
   history)
     rm -rf "$R/work"; mkdir -p "$R/work/notes/sub"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/notes/"; cp "$D/tests/fixtures/footnotes.md" "$R/work/notes/sub/"
     W="$R/work/notes"; rm -f "$R/out"/*.history.json "$R/out"/*.history-ready.json; fail=0

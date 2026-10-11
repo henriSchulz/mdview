@@ -18,7 +18,7 @@
     el.tabIndex = -1;
     el.setAttribute("role", "menu");
     document.body.appendChild(el);
-    return { el, entries: [], hl: -1 };
+    return { el, entries: [], hl: -1, bar: [], bhl: -1 };
   }
   const root = panel("actmenu"), sub = panel("actsub");
   let after = null, subOf = -1, subTimer = 0, keys = root; // keys: the panel the arrow keys move in
@@ -32,6 +32,12 @@
     head.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><span class="menu-search-q"></span>';
     head.lastChild.dataset.ph = window.MdStrings.t("menu.search");
     return head;
+  }
+  /* A bar of a few buttons over the entries (the "/" menu's most used: text, two headings, a list, a task, a
+   * quote): { label, icon | text, checked, run }. ↑ from the first entry reaches it, ← → move in it, ↓ leaves it. */
+  function setBar(i) {
+    root.bhl = i;
+    root.bar.forEach((b, k) => b.el.classList.toggle("hl", k === i));
   }
   const isOpen = (p = root) => p.el.hasAttribute("data-open");
   const usable = (p, i) => p.entries[i] && !p.entries[i].item.disabled;
@@ -47,10 +53,29 @@
       if (usable(p, i)) { setHl(p, i); return reveal(p); }
     }
   }
-  function fill(p, items) {
+  function fill(p, items, bar = []) {
     p.el.textContent = "";
     p.entries = [];
+    p.bar = [];
+    p.bhl = -1;
     if (p === root && search) p.el.appendChild(search.head);
+    if (p === root && bar.length) {
+      const row = document.createElement("div");
+      row.className = "menu-bar";
+      row.setAttribute("role", "group");
+      for (const item of bar) {
+        const b = document.createElement("button");
+        b.className = "menu-bar-btn" + (item.checked ? " on" : "");
+        b.setAttribute("role", "menuitemcheckbox");
+        b.setAttribute("aria-checked", String(!!item.checked));
+        b.setAttribute("aria-label", item.label);
+        b.title = item.label;
+        if (item.text) b.innerHTML = "<b></b>", b.firstChild.textContent = item.text; else b.innerHTML = item.icon || "";
+        row.appendChild(b);
+        p.bar.push({ el: b, item });
+      }
+      p.el.appendChild(row);
+    }
     const icons = items.some((item) => item && item.icon);
     if (!items.length) { const none = document.createElement("div"); none.className = "menu-empty"; none.textContent = window.MdStrings.t("menu.none"); p.el.appendChild(none); }
     for (const item of items) {
@@ -90,14 +115,14 @@
    * steady: no taller than a few entries, and as tall as it opens whatever it is filled with later
    * (a menu filtered while one types does not jump under the eyes).
    * find: the menu is searched — find(q) gives the entries for what was typed ("" at first). */
-  function open({ x, y, items, origin = "top left", closed = null, typing = false, above = null, steady = false, find = null }) {
+  function open({ x, y, items, bar = [], origin = "top left", closed = null, typing = false, above = null, steady = false, find = null }) {
     closeSub();
     search = find ? { find, q: "", head: searchHead() } : null;
     if (find) items = find("");
     root.el.classList.toggle("steady", steady);
     root.el.classList.toggle("searched", !!find);
     root.el.style.height = "";
-    fill(root, items);
+    fill(root, items, bar);
     after = closed;
     passive = typing;
     if (typing) step(root, 1, -1);
@@ -141,6 +166,9 @@
     if (!usable(p, i) || chosen) return;
     const { el: b, item } = p.entries[i];
     if (item.items) return openSub(i, true);
+    choose(b, item);
+  }
+  function choose(b, item) {
     const cs = getComputedStyle(document.documentElement).getPropertyValue("--flash-duration");
     const flash = parseFloat(cs) * (/ms\s*$/.test(cs) ? 1 : 1000) || 70; // blink once, then act — like NSMenu
     b.classList.remove("hl");
@@ -156,13 +184,18 @@
       if (!isOpen()) return; // fading out: the pointer may still be over it
       const i = at(e);
       if (i !== p.hl) setHl(p, usable(p, i) ? i : -1);
+      if (p === root) { const bi = root.bar.findIndex((x) => x.el === e.target.closest(".menu-bar-btn")); if (bi !== root.bhl) setBar(bi); }
       if (p !== root) return;
       clearTimeout(subTimer);
       if (usable(p, i) && p.entries[i].item.items) subTimer = setTimeout(() => openSub(i, false), 120);
       else if (isOpen(sub)) subTimer = setTimeout(closeSub, 200);
     });
-    p.el.addEventListener("mouseleave", (e) => { if (!(p === root && sub.el.contains(e.relatedTarget))) setHl(p, -1); });
-    p.el.addEventListener("click", (e) => { if (isOpen()) run(p, at(e)); });
+    p.el.addEventListener("mouseleave", (e) => { if (!(p === root && sub.el.contains(e.relatedTarget))) { setHl(p, -1); if (p === root) setBar(-1); } });
+    p.el.addEventListener("click", (e) => {
+      if (!isOpen()) return;
+      const bi = p === root ? root.bar.findIndex((x) => x.el === e.target.closest(".menu-bar-btn")) : -1;
+      if (bi >= 0) { if (!chosen) choose(root.bar[bi].el, root.bar[bi].item); } else run(p, at(e));
+    });
   }
   // the keys, while a menu is open (before anything else sees them)
   document.addEventListener("keydown", (e) => {
@@ -170,7 +203,8 @@
     const p = keys === sub && isOpen(sub) ? sub : root;
     if (/^(Shift|Control|Alt|Meta|CapsLock)$/.test(e.key)) return;
     // typed on, into the document — but → into the menu beside an entry and ← out of it are the menu's
-    const side = (e.key === "ArrowRight" && p === root && usable(p, p.hl) && !!p.entries[p.hl].item.items) || (e.key === "ArrowLeft" && p === sub);
+    const inBar = p === root && root.bhl >= 0;
+    const side = (e.key === "ArrowRight" && p === root && usable(p, p.hl) && !!p.entries[p.hl].item.items) || (e.key === "ArrowLeft" && p === sub) || (inBar && /^Arrow(Left|Right)$/.test(e.key));
     if (passive && !side && !/^(Escape|ArrowDown|ArrowUp|Enter|Tab)$/.test(e.key)) return;
     e.stopPropagation();
     e.preventDefault();
@@ -183,6 +217,19 @@
       refill(search.find(q.trim().toLowerCase()));
       if (q.trim()) step(root, 1, -1);
       return;
+    }
+    if (inBar) { // in the bar: ← → between its buttons, ↓ back to the entries, Enter chooses
+      const n = root.bar.length;
+      if (e.key === "ArrowLeft") setBar(Math.max(0, root.bhl - 1));
+      else if (e.key === "ArrowRight") setBar(Math.min(n - 1, root.bhl + 1));
+      else if (e.key === "ArrowDown" || e.key === "Home") { setBar(-1); step(root, 1, -1); }
+      else if (e.key === "Enter" || e.key === " ") { if (!chosen) choose(root.bar[root.bhl].el, root.bar[root.bhl].item); }
+      else if (e.key === "Escape" || e.key === "Tab") close();
+      return;
+    }
+    if (e.key === "ArrowUp" && p === root && root.bar.length) { // up from the first entry: into the bar
+      const first = root.entries.findIndex((x, i) => usable(root, i));
+      if (root.hl <= first) { setHl(root, -1); setBar(0); return; }
     }
     if (e.key === "Escape") { if (p === sub) { closeSub(); setHl(root, root.hl); } else close(); }
     else if (e.key === "ArrowDown") step(p, 1);
@@ -212,10 +259,10 @@
   window.addEventListener("wheel", (e) => { if (!root.el.contains(e.target) && !sub.el.contains(e.target)) close(); }, { passive: true });
 
   // new entries, the menu where it is (the "/" menu while one types)
-  function refill(items) {
+  function refill(items, bar = []) {
     if (!isOpen()) return;
     closeSub();
-    fill(root, items);
+    fill(root, items, bar);
     root.el.scrollTop = 0;
     if (passive) step(root, 1, -1);
     root.el.style.left = Math.max(8, Math.min(parseFloat(root.el.style.left), innerWidth - root.el.offsetWidth - 8)) + "px";
