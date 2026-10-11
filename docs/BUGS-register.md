@@ -1,0 +1,128 @@
+# Bugs that happened — the register
+
+One row for every bug Henri reported: what he saw, why, and the check that guards it. The rules
+that came out of them, and what to do when a new one is reported: [`BUGS.md`](BUGS.md).
+
+Newest first. *Guard* names the check; *no guard* means there is none yet.
+
+### 2026-10-10
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| A note chosen in the sidebar: it and the last one flickered | the chosen row was marked at once, but the list is put in order again while the note loads (the one opened last moves up), and that marked the row of the note still on screen — the last one — again, until the new note arrived | a note on its way is the marked one (`goingTo`): the list marks it, not the one still shown | `rig.sh sbflicker` (fails before: Beta → Alpha → Beta) |
+| Every dialog was 200 px high with a scroll bar in it (the formula's: half the formula in sight) — "does this happen with all modals now?" | his settings held a dialog height of 200: a press on the corner that pulls nowhere kept the size the dialog happened to have — a small one's own — and from then on that was every dialog's | a press without a pull keeps nothing; a kept height under the least the corner pulls to is no size; a sized dialog grows to what is on it before it is seen (rules 46, 47) | `rig.sh islands` (a kept height of 240: the formula whole, nothing to scroll; the press on the corner — both fail before), `rig.sh svgedit` (Henri's 697 × 200: fails before) |
+| Transform with AI: the sheet was cut off under the five buttons, a scroll bar beside the card | with a dialog size kept, a dialog's body takes the room that is left (`flex: 1`) — in this sheet, which is as high as its content, that is none: it fell to the least height and scrolled | the sheet's body is as high as what is on it (rule 46) | `rig.sh ai` (fails before: 140 px to show in 106) |
+| … and it should grow, not jump, when the answer's place comes | the place appeared at once, the sheet with it — to both sides, as it is centred | the sheet's height goes from what it was to what it is with the spring; the answer's place fades in; back the same way when asking is stopped | `rig.sh ai` (the heights on the way are measured) |
+| "In list mode this happens too" | *not understood yet — asked which list and what happens* | — | *no guard* |
+| A tile of All Notes dragged: the picture at the pointer was enormous — the sheet twice its size, the neighbours' text in it | the picture was the browser's own of the tile. In the rig (screen not scaled) it showed the preview's text at full size under the sheet: the preview is made small with `zoom`, which that picture does not keep to. The doubling of the whole picture on Henri's screen (scaled 1.25) *was not reproduced* — the rig's screen could not be scaled | the page draws what goes with the pointer itself, a copy of the tile (of a row, in the sidebar), and hands the browser an empty picture (rule 44) | `rig.sh tiledrag` — a **real pointer** holds a tile, the screen is looked at: the picture at the pointer against the tile where it stood, 0.166 apart before, 0.046 after. **On the scaled screen Henri's try decides** |
+| Blocks dragged (by the handle in the note, or from the panel's tiles): the picture at the pointer far too large | the same cause as the tile above: both handed the browser the element itself (`setDragImage(el)`), whose picture comes out twice as large on a scaled screen. *Not reproduced* — the rig's screen cannot be scaled | `moving.picture` (viewer.js) draws it for every drag: a copy of the block (a card, as for several) or of the tile, held where the pointer took it (rule 44) | *no guard of its own* (a scale cannot be set in the rig); `rig.sh dragreal` and `dnd` still pass on the new path. **On the scaled screen Henri's try decides** |
+| The code dialog of an svg picture was far too small: three lines of code, the picture a stamp | the size kept for dialogs was 697 × 200 and a kept size was applied to every dialog as it is, however little it leaves. Where the 200 came from: a press on the corner that pulls nowhere kept the dialog's height as it was — a small dialog's least, 200 (the row above) | code beside its picture is never smaller than 720 × 480 (or what the window allows), whatever size is kept (rule 43); a double click on the corner gives a dialog its own size again | `rig.sh svgedit` (opened with 697 × 200 kept: fails before — 2 lines in sight — passes after) |
+| Leaving a subpage put one at the top of the page above, not where the subpage's line is | going to a page always scrolled to the top | where one stood on each page is kept; back out of a page the page's line stands where it stood, and is marked for a moment | `rig.sh pagenav` |
+| The chat's Edit mode, asked to write into a subpage: "I cannot do that from here, the page's content is not shown to me" | Claude was given the editor's view of the note — where a page is one line — and its edits were carried out on the editor's blocks | Claude is given the note as its file has it (pages are sections of that text) and told which page is on screen; edits are made in the file's text, as one step of the note's history (rule 41) | `rig.sh pagelook` (a fixed answer writes into a page from outside it; Undo), `rig.sh ai-subpage` (the real Claude, Henri's own sentence) |
+| A subpage's name could not be changed reliably from inside the page | the name was taken only when the field was left (`change`); the bar is drawn anew whenever the note is — a save, a picture that changed — and then the field, with what was typed, was replaced before it was ever left | the name is the page's a moment after the last letter; a field being typed in keeps its text, its caret and the keys when the bar is drawn anew (rule 42) | `rig.sh pagelook` — *the exact moment it failed for Henri was not reproduced; the check covers the redraw under the hand* |
+| A file in a subfolder could not be pulled back into the folder above in the sidebar | only the list took a drop, and only a folder's row named a folder: the folder above had nothing to aim at — in the rail and among the sheets nothing at all, in the list only empty room or a row of the top level | the whole sidebar takes a drop; the folder's name at the head, the rail's signs and the way back stand for their folders, and anywhere else is the folder shown | `rig.sh sidebar` (five checks; they fail on the code before). Made-up drag events, as `rig.sh move` — the app's own handlers, not a real pointer (rule 32) |
+| The new sidebar: numbers stood at the folders ("why?") | each folder's row, its sheet and the rail's head said how many notes it holds — nothing said what the number was, and it was not wanted | a folder says its name only; the smart tiles keep their numbers (they are what a tile is for) | `rig.sh sidebar` |
+| The new sidebar's foot: the settings' gear lay on "New Note" | the gear is no part of the sidebar — it floats over its lower left corner — and the foot was laid out as if that corner were free | the foot leaves the gear's room and the gear stands on the foot's line (`data-sb-layout` on the body) | `rig.sh sidebar` (fails without the fix: the two rectangles meet) |
+| **The cause of "random things selected, the whole block at the bottom blue, the note jumps" — found from a recording on Henri's machine** (`dev/probe-trace.js`), after three fixes that missed it | he drags by the **handle**. A press on the handle let the browser begin a selection of its own (`selectstart`, not refused); with nothing selectable under it the anchor fell on the drop line — the last element in the body — and when the handle's drag began the browser stretched the selection from there to the block under the pointer: every gap from that block to the foot of the window painted blue. And after the drop, focusing the editor made the browser scroll to whatever the page had selected before (a caret far away), `preventScroll` or not | `selectstart` is refused on the handle, the drop line and the rectangle, and they are `user-select: none`; a selection reaching outside the note's text is let go as a drag begins and ends; `view.focus` keeps the scroll position (rules 38–40) | `rig.sh dragreal` (real pointer): the press on the handle begins no selection — fails before, passes after; the note does not jump |
+| **Caused by the fix below:** in the active mode a click on a whiteboard, a picture of svg or a formula opened nothing | the press on a thing was taken from the browser with `preventDefault` in the capture phase — and ProseMirror does not look at an event whose default was prevented before it arrives, so it never saw the click | the default is prevented on the event's way up, after the editor has had it; the editor's own drag of the pressed node is refused in `dragstart` (rule 35) | `rig.sh dragnote` — real clicks on all three in a copy of Henri's note: fails on the released code, passes on the new |
+| The whiteboard's block pulled a little to the lower right: the picture and everything after it turned blue (selected) | *not reproduced* with the real pointer, neither on the released code nor on the new; the rig's window has no keyboard focus and does not paint a selection, only what is selected is measured | the press is handled as above | `rig.sh dragnote` (the pull is in it) — **Henri's try decides** |
+| **Again**, after the fix below was installed: drag and drop in the note still selected random things and scrolled to a random place | the first fix called `preventDefault` on `mousemove` — which does not stop a browser's text selection — and was only ever tested with made-up events, where no browser selection exists; it also scrolled twice (its own loop beside the drag's) | the press on a thing is taken from the browser (`preventDefault` on `mousedown`, `selectstart` refused while it is held); one scroll loop; no `scrollIntoView` after a drop (rules 30–32) | `rig.sh dragreal` — a **real pointer**; it fails on the old code (57 letters selected on the way) and passes on the new. Also `rig.sh dropstay`, `rig.sh cut` |
+| The lasso took a thing only when the loop went all the way round it; of a group only a part | a stroke needed 60 % of its points inside, a thing its middle | a quarter of a stroke is enough, a thing's middle or two of its corners; a stroke merely crossed is not taken | `web/test/board-touch.test.mjs`, `dev/tests/board.test.mjs` |
+| A shape drawn and held could not be sized while the hand was down (as GoodNotes does); the shape tool did not make it clean on a hold at all | only a line followed the hand after it was made clean; the shape tool waited for the lift | held still, any shape is made clean and then pulled larger or smaller from its middle — with a pen and with the shape tool | `web/test/board-touch.test.mjs` |
+| Moving a block such as an svg picture selected random text on the way | pressed on the picture itself (not its handle), the pull was left to the browser, which began a text selection | a pull on a block that is a thing moves the block, with the handle's drag (rule 30) | `rig.sh cut` |
+| The assistant showed the last conversation on whatever document it was opened | one conversation in hand for the whole window | a conversation for each document, a new one the first time | `rig.sh ai` |
+| Scrolling in the AI chat scrolled the note behind it | the chat's log had nothing (more) to scroll; the wheel went on to the page | wheel swallowed where nothing of the chat can scroll (rule 2) | `rig.sh ai` |
+| Editing an svg code block: only 2–3 lines of code in sight, hard to edit | the picture took the dialog's height; code written on one endless line ran out of the box | code and picture side by side in a larger dialog; one-line svg shown a line per element, left as written when nothing is typed | `rig.sh svgedit` |
+| The whiteboard opened at the wrong place and filled in late | it opened at the view saved last (another screen, a far corner), and read its file while the opening animation ran | read first, then open; shown whole as the note's picture shows it (rule 6) | `rig.sh board-enter` |
+| All Notes: the page's width jumped between list and tiles | the list capped head and body at 920 px, the tiles at 1400 px; a scrollbar that came and went took 11 px | one width, scrollbar's room always reserved (rule 7) | `rig.sh overview` |
+| The New Note / New Folder menu of All Notes was too small | it used the size of menus with many entries | larger rows for `#ctxmenu[data-kind="ovnew"]` | *no guard* (looked at, not measured) |
+| "Turn a page into a card": random things got selected, the note jumped | (through the chat's Edit mode) the edit set the caret with `Selection.near` and scrolled to it; a page's line could come back without its id | rules 11, 13 | `rig.sh pagelook` |
+| The circle at "Writing change 1" stuttered | the live message was rebuilt at every piece of the stream, the spinner with it | one sign that stays; redraw only when the HTML changed (rule 4) | `rig.sh ai` |
+| Blocks cut together with an svg picture: only the text arrived | the block clipboard's HTML was not marked as the editor's own (rule 10) | `data-mdview="blocks"` wrapper | `rig.sh cut` |
+| Under a subpage's breadcrumb the page's own name was missing | the way ended at the parent | `.pb-here` after the last `›` | `rig.sh pagenav` |
+
+### 2026-10-09 — AI in the app
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| The chat's text field took no clicks | a press on the chat started the block rectangle (rule 1) | `#ai-chat, #ai-bubble` in `CHROME` | `rig.sh ai` |
+| The app flickered while Claude wrote | the whole conversation was redrawn at every piece (rule 4) | only the live message, throttled | `rig.sh ai` (the spinner check) |
+| One-press buttons put a long prompt into the field and sent it | a preset wrote its instruction into the textarea | a preset is a marked chip; the field is for one's own words | `rig.sh ai` |
+| Formulas in a table did not render in the transform preview | preview used the editor's island kit (rule 8) | `core.mdHtml` | `rig.sh ai` |
+| SVG graphics did not render right in preview and chat | bare `<svg>` torn by empty lines (rule 9); `#ai-chat svg` icon style hit content (rule 3) | `core.fenceSvg`, `button > svg` | `rig.sh ai`, `rig.sh ai draw` (real Claude) |
+| The UI did not look like the app (not Craft-like) | first version was a plain dialog and a plain panel | chat rebuilt after Craft's assistant | screenshots of `rig.sh ai` — *taste, no guard* |
+| "Larger / Smaller does not work" | *not reproduced* — `rig.sh ai real` presses Longer against the real Claude and it works | — | ask what he sees if it comes back |
+| Graphic by Claude showed in the web app's "/" menu | desktop was detected by a property the web host sets later (rule 19) | `DESKTOP` | `web/test/write.test.mjs` |
+| The islands probe died with an exception | `handleClickOn` read `event.target.closest` on a made-up click (rule 23) | guard | `rig.sh islands` |
+
+### 2026-10-08/09 — Windows
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| No folder could be opened; first start offered only a file dialog; a single file had no sidebar | the app started into a file dialog and closed on cancel; no way from a note to its folder | start page with "Open Folder", toolbar button for the note's folder | `rig.sh start-page`; **not** in the Windows gate yet |
+| Inserting pictures failed, colours were missing | path handling and stylesheet loading on Windows (rule 18) | fixed in v0.1.1 | `system-probe.yml` (strict checks) |
+| "The whiteboard cannot be opened on Windows" | *not reproduced*: v0.1.2 opens boards on GitHub's Windows; a first guess (`/C:/…`) was wrong; v0.1.0 has no whiteboard | `refOf` strips the slash before a drive letter all the same | `system-probe.yml` board steps — ask which version and what happens |
+| The release had no Windows installer | it was never uploaded | `windows-tried` job uploads it after trying it (rule 28) | the release workflow itself |
+
+### 2026-10-08 — web app on the iPad
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| Blocks could not be dragged by touch | HTML5 drag needs a mouse | synthetic drag events from the handle | `web/test/ipad.test.mjs` |
+| The keyboard kept opening; it opened on leaving the whiteboard | programmatic focus after a touch (rule 25) | `view.focus` wrapper skips it | `web/test/ipad.test.mjs`, `mobile.test.mjs` |
+| The whiteboard glided off after two-finger pan or zoom | inertia was applied after two fingers (rule 26) | none after two fingers | `web/test/board-touch.test.mjs` |
+| The page could be pinch-zoomed, text got selected at random; LaTeX got selected on long press | browser defaults on a touch screen | `touch-action`, `user-select: none` on chrome, `gesturestart` prevented | `web/test/ipad.test.mjs` |
+| Selecting blocks was impossible by touch | no gesture for it | swipe right in the left margin selects; handle stays | `web/test/ipad.test.mjs` |
+| The whiteboard lagged on pan and zoom | the ink canvas was redrawn at every move | canvas moved as a picture, redrawn after 140 ms | `web/test/board-touch.test.mjs` (behaviour, not speed) |
+| A board changed on the iPad kept its old preview on Linux | the shell did not watch the boards' folder | `board-watch` | `rig.sh board` |
+| No loading animation on the repositories page | the page waited on the server without a sign | `<Suspense>` with the boot ring (a root `loading.tsx` broke sign-in redirects) | web auth tests |
+| A new GitHub repository did not show; the blue button led to a confusing GitHub page | the GitHub App had no access to it; nothing said so | the way is said and linked; an empty repository gets its first commit | web tests against a fake GitHub only |
+
+### 2026-10-08 — whiteboard tools (corrections while building)
+
+Tray at the side, not the bottom · shape colours in a submenu (no room) · pens as small signs,
+not big drawn pens · three favourite colours per pen, each pen its own · eraser and text trays in
+one column · the tray animates when switching and collapsing · bars are not greyed while drawing
+(it read as flicker). Guard: `web/test/board-touch.test.mjs`, `rig.sh board`; the look itself is
+taste.
+
+### Earlier — from `Current Bugs.md` (all ticked there)
+
+Only what was a fault is listed, not the wishes. Causes were not written down at the time. The
+check named is the **nearest one by its subject — it has not been verified that it would catch
+this very bug**. When one of these comes back: write the check that fails on it, and put the
+cause in here.
+
+| What Henri saw | Nearest check (unverified) |
+|---|---|
+| Block selection: could not leave a list with the arrows; from a picture, ↑ landed in the text; all list items got selected at once | `rig.sh blocks`, `rig.sh lists` |
+| Nested blocks: pulling a code block out of a callout made the callout vanish | `rig.sh dnd`, `dev/tests/columns-fuzz.test.mjs` |
+| A picture inserted in the active mode stayed in the repository after it was removed from the note | *no guard known* (attachments record: `~/.local/state/mdview/attachments.json`) |
+| Enter before a heading's text made it no heading any more | `dev/tests/edit.test.mjs` |
+| The hide title field of a code block showed the word "hide" and broke without it | `rig.sh islands` |
+| Closing the last tab closed the whole app | `rig.sh tabs` |
+| Indenting list items failed when the list was interrupted | `rig.sh lists` |
+| Text clipped in the sidebar's note names; stray text at the sidebar's right | `rig.sh shots` (screenshots) — *weak* |
+| Dragging in All Notes: the item jumped away from where it was grabbed | `rig.sh overview` |
+| A formula block closed by the AI stayed as `$…$` | `rig.sh ghostmath` |
+| The code editor in the dialog: selecting text did not work, text could not be removed | `rig.sh islands` |
+| The web app made merge conflicts with itself | `rig.sh sync`, web sync tests |
+| Share dialog: the password field was not focused; typing went into the note behind (rule 1) | `rig.sh share` |
+| Switching tabs sometimes turned the edit mode read-only and did not save (not every time) | `rig.sh tabs` — *weak: it was intermittent* |
+| Checkboxes of properties could not be changed | `rig.sh more` |
+| The size of an embedded PDF was not kept though the source had it | `rig.sh pdf`, `rig.sh adjust` |
+| Pasted files did not go to the assets folder in the web app | web write tests |
+| Context menus of the sidebar offered "Show in Finder" on the web (rule 19) | `web/test/contract.test.mjs` |
+| The link menu took one out of the text; links could not be opened in the active mode | `rig.sh link` |
+| After an install, fixed bugs were "still there" | rule 29 |
+
+### Known to fail, not fixed
+
+- `rig.sh prefs`: three checks expect a "/" menu without the whiteboard entry.
+- `rig.sh graphic`: two checks expect the file beside the note; the app saves under `assets/`.
+- `rig.sh edges`, `rig.sh regress`: failing on main since before 2026-10-08.
+- `web/test/board-touch.test.mjs` "the tray goes where a finger pulls it": fails now and then in
+  a full run, passes alone.
+- A latent one: `dev/tests/edit.test.mjs` found an edit after a hard break (two spaces at a
+  line's end) in `basics.md` that changes more than its place, when the fixture list shifted
+  the random edits. Not looked into.

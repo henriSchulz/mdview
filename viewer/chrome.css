@@ -1,0 +1,238 @@
+/* mdview, styles — what stands around the note: the toolbar, find, the outline, the toast, overlays. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- chrome */
+/* What floats over the document — toolbar, menus, popovers — is one material: the window's
+ * colour, see-through, over a blur of what lies under it (macOS menus). */
+.surface {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border: 0;
+  border-radius: var(--menu-radius);
+  box-shadow: var(--shadow-menu);
+}
+/* The menus at a point — a file's, the text's, the "/" menu and their submenus — are a dark
+ * plate instead: opaque, radius 10, a deeper shadow, the row under the pointer in blue. On the
+ * plate the names the menu rules draw with mean its colours. */
+#ctxmenu, .actmenu {
+  --fg: #fcfcfc;
+  --fg2: #b3b7ba;
+  --fg3: color-mix(in srgb, var(--fg2) 60%, #3b3c40);   /* what cannot be chosen */
+  --line: color-mix(in srgb, var(--fg) 12%, transparent);
+  --accent: #2563eb;        /* the row under the pointer: white on it at 5.2 : 1 */
+  --accent-text: #8ab4ff;   /* … and what is written in blue on the plate */
+  --on-accent: #fff;
+  --menu-radius: 10px;
+  --menu-pad: 6px;
+  --menu-row-radius: 5px;
+  background: #3b3c40;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12), 0 8px 28px rgb(0 0 0 / 0.3);
+  color: var(--fg);
+}
+#ctxmenu .menu-item, .actmenu .menu-item { min-height: 26px; font-size: 14px; font-weight: 500; }
+#ctxmenu .menu-item.current, .actmenu .menu-item.current { color: var(--fg); font-weight: 700; }
+#ctxmenu .menu-item.danger:not(.hl), .actmenu .menu-item.danger:not(.hl) { color: color-mix(in srgb, #f64468 60%, var(--fg)); }
+#ctxmenu .menu-key, .actmenu .menu-key { color: var(--fg2); font-size: 12px; }
+#ctxmenu .menu-item.hl .menu-key, .actmenu .menu-item.hl .menu-key { color: var(--on-accent); }
+@media (prefers-contrast: more) { #ctxmenu, .actmenu { box-shadow: 0 0 0 1.5px var(--fg); } }
+/* SF Pro in its text cut (the optical size for small type: set wider than its display cut) */
+#sidebar, .surface, #toolbar, #toast, #apptip, #acttip, #dlg { font-variation-settings: "opsz" 17; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .surface { background: var(--surface); } }
+@media (prefers-reduced-transparency: reduce) { .surface { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); } }
+@media (prefers-contrast: more) { .surface { box-shadow: 0 0 0 1.5px var(--fg); } }
+
+/* the toolbar: one capsule, its buttons round inside it */
+#toolbar {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-capsule);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+#toolbar.hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition:
+    opacity calc(var(--dur-fast) * 0.7) var(--ease-exit),
+    transform calc(var(--dur-fast) * 0.7) var(--ease-exit);
+}
+.tb {
+  display: grid;
+  place-items: center;
+  width: var(--control-height, 28px);
+  height: var(--control-height, 28px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--fg2);
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.tb svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tb:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+.tb:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.tb.active { color: var(--accent-text); }
+#toolbar .tb { border-radius: var(--radius-pill); }
+/* (the keyboard's ring stands inside the round button: outside it, the capsule's edge cut it off) */
+#toolbar .tb:focus-visible, #toolbar .seg-btn:focus-visible { outline-offset: -2px; }
+
+/* mode switch: source · active · read. The thumb glides to the chosen one. */
+#toolbar [hidden] { display: none; } /* (a host where a note is only read has no modes: viewer/editor.js, READING) */
+.seg {
+  position: relative;
+  display: flex;
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
+}
+.seg-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--control-height, 28px);
+  height: calc(var(--control-height, 28px) - 4px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg2);
+  cursor: default;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.seg-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.seg-btn:hover, .seg-btn[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
+.seg-btn:active { color: var(--fg2); }
+/* the mode being changed to, while the note is laid out for it: its sign gives way to a wheel */
+.seg-btn.busy > * { opacity: 0; }
+.seg-btn.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top-color: var(--fg); animation: seg-spin 0.7s linear infinite; will-change: transform; }
+@keyframes seg-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .seg-btn.busy::after { animation-duration: 2s; } }
+.seg-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--control-height, 28px);
+  height: calc(var(--control-height, 28px) - 4px);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  box-shadow: 0 0 0 0.5px var(--line), 0 1px 2px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.1);
+  transform: translateX(calc(var(--i, 0) * 100%));
+  transition: transform var(--spring-smooth-dur) var(--spring-smooth);
+}
+body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%, var(--bg)); box-shadow: none; }
+
+#outline {
+  position: fixed;
+  top: 50px;
+  right: 12px;
+  z-index: 30;
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--menu-pad);
+  outline: none;
+}
+/* a menu's entry. The highlight is the accent, at once (no glide, no fade) — as NSMenu. */
+.menu-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--menu-item-height, 26px);
+  padding: 3px 10px 3px calc(10px + var(--indent, 0) * 12px);
+  border: 0;
+  border-radius: var(--menu-row-radius);
+  background: transparent;
+  color: var(--fg);
+  font: 400 13px/1.45 var(--ui);
+  text-align: left;
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menu-item.current { color: var(--accent-text); font-weight: 500; }
+.menu-item.hl { background: var(--accent); color: var(--on-accent, #fff); }
+.menu-empty { padding: 8px 10px; font: 400 13px/1.45 var(--ui); color: var(--fg2); }
+
+#findbar {
+  position: fixed;
+  top: 50px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 3px 3px 12px;
+  width: min(380px, calc(100vw - 24px));
+  border-radius: var(--radius-pill);
+}
+#findbar .tb { border-radius: var(--radius-pill); }
+.find-icon { display: inline-flex; color: var(--fg2); }
+.find-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+#find-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-height, 28px);
+  padding: 0 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: 400 13px var(--ui);
+}
+#find-input::placeholder { color: var(--fg-quiet); }
+#find-input::-webkit-search-cancel-button { display: none; }
+#find-count { font: 400 12px var(--ui); color: var(--fg2); white-space: nowrap; padding: 0 4px; font-variant-numeric: tabular-nums; }
+#findbar.no-hits #find-count { color: var(--c-red); transition: color var(--dur-fast) var(--ease-out); }
+::highlight(find) { background-color: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 45%, transparent); }
+::highlight(find-current) { background-color: color-mix(in srgb, var(--c-orange) 55%, transparent); color: var(--fg); }
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 40;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font: 500 13px var(--ui);
+  color: var(--bg);
+  background: color-mix(in srgb, var(--fg) 88%, transparent);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  transition:
+    opacity calc(var(--dur-slow) * 0.7) var(--ease-exit),
+    transform calc(var(--dur-slow) * 0.7) var(--ease-exit);
+}
+/* (with something to take back: a button in it — Undo) */
+#toast[data-action] { display: inline-flex; align-items: center; gap: 14px; padding-right: 8px; }
+#toast[data-action][data-open] { pointer-events: auto; }
+#toast button { height: 24px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: transparent; color: color-mix(in srgb, var(--accent) 50%, var(--bg)); font: 600 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+#toast button:hover { background: color-mix(in srgb, var(--bg) 14%, transparent); transition-duration: var(--dur-instant); }
+#toast button:focus-visible { outline: var(--focus-ring, 2px) solid currentColor; outline-offset: -2px; }
+#toast[data-open] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--spring-gentle-dur) var(--spring-gentle);
+}

@@ -1,0 +1,235 @@
+/* mdview, styles — the tabs of a folder window, and the rows of the sidebar's list. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- tabs (folder windows) */
+/* A strip above the note, as Craft has it: the house (all notes), the tabs — each a rounded field,
+ * the one shown a shade darker — and a plus. It stands on the page's colour, so the note scrolls
+ * away under it; the toolbar's capsule floats at its right end. Sizes are layout; times, curves
+ * and radii are the central ones. */
+:root { --tabs-h: 52px; --tab-h: 36px; --tab-w: 190px; }
+#tabs {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  display: none;
+  box-sizing: border-box;
+  height: var(--tabs-h);
+  padding: 10px calc(var(--tb-w, 230px) + 28px) 0 12px;
+  background: var(--bg);
+  clip-path: inset(0 0 -14px 0);   /* (what glides in from under the sidebar is cut at its edge; the shade below is not) */
+  font: 400 13px/1.2 var(--ui);
+  font-variation-settings: "opsz" 17;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+#tabs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; background: linear-gradient(var(--bg), transparent); pointer-events: none; }
+body[data-tabs] #tabs { display: block; }
+body[data-sidebar="open"] #tabs { left: var(--sb-w); padding-left: 6px; }
+/* the note begins under the strip; what sticks to the window's top sticks under it */
+body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }
+.tab-row { display: flex; align-items: center; gap: 4px; height: var(--tab-h); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+/* the tabs lie in a track; the one in hand is a plate lifted off it (.tab-plate), which glides to the tab chosen */
+.tab-list { position: relative; display: flex; flex: 0 1 auto; gap: 0; min-width: 0; height: 100%; box-sizing: border-box; margin: 0 2px; padding: 3px; border-radius: 12px; background: color-mix(in srgb, var(--fg) 7%, transparent); transition: opacity var(--dur-fast) var(--ease-out); }
+.tab-list[data-none] { opacity: 0; padding-left: 0; padding-right: 0; margin: 0; }
+.tab-plate { position: absolute; z-index: 0; left: 0; top: 3px; height: calc(var(--tab-h) - 6px); border-radius: 9px; background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.12); pointer-events: none; transition: transform var(--spring-smooth-dur) var(--spring-smooth), width var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+body[data-mode="dark"] .tab.pulled { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); }
+body[data-mode="dark"] .tab-plate { background: color-mix(in srgb, var(--fg) 16%, var(--bg)); box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 1px 3px rgb(0 0 0 / 0.3); }
+body[data-overview] .tab-list:not(:has(.tab[aria-selected="true"][data-path=""])) .tab-plate { opacity: 0; } /* (all notes over a note: the house is where one is) */
+.tab, .tab-home, .tab-new {
+  box-sizing: border-box;
+  height: var(--tab-h);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--fg) 4.5%, transparent);
+  color: var(--fg2);
+  font: inherit;
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--spring-smooth-dur) var(--spring-smooth),
+    scale var(--spring-snappy-dur) var(--spring-snappy);
+}
+.tab { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 7px; flex: 0 1 auto; width: var(--tab-w); min-width: 0; height: calc(var(--tab-h) - 6px); padding: 0 28px; border-radius: 9px; background: transparent; outline-offset: -2px; }
+/* (a hairline between two tabs — not beside the one in hand, nor beside the one under the pointer) */
+.tab + .tab::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 0.5px; background: var(--line-strong); transition: opacity var(--dur-fast) var(--ease-out); }
+.tab:is([aria-selected="true"], :hover, .pulled, .landing, .ctx-target)::before, .tab:is([aria-selected="true"], :hover, .pulled, .landing, .ctx-target) + .tab::before { opacity: 0; }
+.tab-home, .tab-new { flex: none; display: grid; place-items: center; width: 40px; padding: 0; background: transparent; outline-offset: -2px; }
+.tab-new { width: var(--tab-h); }
+:is(.tab-home, .tab-new):hover { background: var(--fill-hover); color: var(--fg); }
+.tab:hover, .tab.ctx-target { background: color-mix(in srgb, var(--fg) 5%, transparent); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--spring-snappy-dur); }
+:is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
+.tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: transparent; color: var(--fg); font-weight: 500; }
+.tab-home { color: var(--fg2); }
+.tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent-text); background: color-mix(in srgb, var(--fg) 12%, transparent); }
+/* All notes shown over a note: the house is where one is, and the note's tab is the way back — it
+ * looks like a tab to go to. (An empty tab has nothing but all notes: it stays the one shown.) */
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):not(:hover) { color: var(--fg2); font-weight: 400; }
+body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.tab:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); }
+:is(.tab, .tab-home, .tab-new) svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tab-icon { flex: none; display: grid; place-items: center; width: 16px; height: 16px; transition: opacity var(--dur-fast) var(--ease-out); }
+.tab-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 1.5; }
+/* closing: a ✕ in the icon's place while the pointer is on the tab (or the keyboard in it) */
+.tab-x {
+  position: absolute;
+  left: 5px;
+  top: calc(50% - 10px);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--fg2);
+  cursor: default;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tab-x svg { width: 12px; height: 12px; stroke-width: 2; }
+.tab-x .sf { font-size: 10px; }
+/* A formula's letters are never text to select — in no view, in no block, in a line or by itself: the formula is one thing.
+ * (Neither are the letters in a picture of svg or a diagram. Where a selection passes over them all the same — one made by
+ * the editor around a block — it is not painted on them.) */
+.katex, .katex *, .katex-display, .svg-block, .svg-block *, .mermaid-block, .mermaid-block * { user-select: none; -webkit-user-select: none; }
+:is(.katex, .katex-display, .svg-block, .mermaid-block, .board-block)::selection, :is(.katex, .katex-display, .svg-block, .mermaid-block, .board-block) *::selection { background: transparent; color: inherit; }
+/* (the x stands at the tab's left edge, beside the sign and the name, which stay in the middle) */
+.tab:is(:hover, :focus-visible) .tab-x { opacity: 1; transition-duration: var(--dur-instant); }
+.tab-x:hover { background: var(--fill-pressed); color: var(--fg); }
+.tab-x:active { background: color-mix(in srgb, var(--fg) 20%, transparent); }
+/* a new tab comes in, a closed one fades where it stood (out of the others' way), a pulled one is lifted */
+.tab.enter { opacity: 0; scale: var(--menu-from-scale, 0.96); }
+.tab.leaving { position: absolute; top: 0; opacity: 0; scale: var(--exit-to-scale, 0.98); pointer-events: none; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), scale calc(var(--dur-base) * 0.7) var(--ease-exit); }
+.tab.pulled { z-index: 2; scale: var(--lift-scale); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 14px rgb(0 0 0 / 0.14); transition-property: background-color, color, opacity, scale; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy); }
+.tab.landing { z-index: 2; transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-base), var(--spring-snappy-dur), var(--spring-snappy-dur); transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--spring-snappy), var(--spring-snappy); }
+@media (prefers-reduced-motion: reduce) { .tab, .tab-home, .tab-new, .tab.pulled { scale: 1 !important; } .tab-row { transition: none; } }
+@media (prefers-contrast: more) { .tab, .tab-home { box-shadow: inset 0 0 0 1px var(--fg2); } .tab[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--fg); } }
+@media (max-width: 640px) { .tab-home { width: var(--tab-h); } }
+
+.sb-head { display: flex; align-items: center; gap: 2px; padding: var(--sb-pad) var(--sb-pad) 6px; }
+.sb-head .tb { border-radius: var(--radius-pill); }
+.sb-folder {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-height, 28px);
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: 600 13px var(--ui);
+  text-align: left;
+  cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.sb-folder:hover { background: var(--fill-hover); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+.sb-folder:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.sb-folder svg { flex: none; width: 17px; height: 17px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* (the line is higher than the sidebar's own: what is cut off at the sides must not lose its descenders — a g, a y — in a font with deeper ones) */
+.sb-folder-name, .sb-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; }
+
+.sb-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px var(--sb-pad) 16px;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.sb-list.swap { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.sb-list > .menu-empty { padding: 24px 8px; text-align: center; }
+
+/* Rows, folder contents and the new-note field fold open and shut. */
+.sb-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--spring-smooth-dur) var(--spring-smooth),
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s;
+}
+.sb-fold > .sb-in { min-height: 0; overflow: hidden; }
+.sb-item.enter, .sb-item.leaving, .sb-kids, .sb-new {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows calc(var(--dur-base) * 0.7) var(--ease-exit),
+    opacity calc(var(--dur-base) * 0.7) var(--ease-exit),
+    visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+.sb-item.open:not(.leaving) > .sb-in > .sb-kids, .sb-new.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--spring-smooth-dur) var(--spring-smooth),
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s;
+}
+
+/* a row: [chevron, folders only] [icon] [name]. The note on screen wears the quiet grey of a
+ * macOS sidebar's selection, not the accent. */
+.sb-row {
+  --pad: calc(4px + (var(--depth, 0) - var(--depth-off, 0)) * var(--sb-step));  /* (--depth-off: the folder shown alone — rail, sheets — is the top) */
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--sb-row);
+  padding: 0 8px 0 calc(var(--pad) + 16px);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.sb-row:focus-visible { outline-offset: -2px; }
+.is-dir > .sb-in > .sb-row { padding-left: var(--pad); }
+.sb-row:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+.sb-row:active { background: var(--sb-selected); transition-duration: var(--dur-instant); }
+.sb-row.active { background: var(--sb-selected); font-weight: 500; }
+.sb-chev { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-right: -5px; color: var(--fg3); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.sb-chev svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.sb-item.open > .sb-in > .sb-row .sb-chev { transform: rotate(90deg); }
+.sb-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
+.sb-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.is-dir > .sb-in > .sb-row .sb-icon, .sb-row.active .sb-icon { color: var(--accent-text); }
+/* a note shared under a link: a small sign at the end of its row */
+.sb-shared { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-left: auto; color: var(--fg3); animation: sb-shared-in var(--dur-fast) var(--ease-out); }
+.sb-shared svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-shared .sf { font-size: 11px; }
+@keyframes sb-shared-in { from { opacity: 0; } }
+
+.sb-field {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - var(--sb-pad) * 2);
+  height: var(--control-height, 28px);
+  margin: 2px var(--sb-pad) 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  outline: none;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--fg);
+  font: 400 13px var(--ui);
+  user-select: text;
+  -webkit-user-select: text;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.sb-field:focus { box-shadow: inset 0 0 0 var(--focus-ring, 2px) var(--accent); }
+.sb-field::placeholder { color: var(--fg-quiet); }

@@ -73,7 +73,7 @@
     entry("slash.callout", "callout.error").act(view);
     await sleep(200);
     ok("another kind", md().includes("> [!error]\n> Plain text.\n") && !!title("danger"), md());
-    // the settings' other looks for callouts and Focus (viewer.css, on the root)
+    // the settings' other looks for callouts and Focus (viewer/*.css, on the root)
     const look = async (to) => { window.MdPrefs = { ...(window.MdPrefs || {}), calloutStyle: to }; MdView.prefsChanged(); await sleep(150); };
     const co = () => view.dom.querySelector(".callout"), cs = (el, pseudo) => getComputedStyle(el, pseudo);
     const boxPad = cs(co()).paddingLeft;

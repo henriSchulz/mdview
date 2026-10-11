@@ -1,0 +1,238 @@
+/* mdview active mode, styles — blocks moved, selected and dropped: the handle, the drop line, the rectangle. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- moving blocks */
+.blk-h {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 24;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-row);
+  color: var(--fg2);
+  cursor: grab;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out);
+}
+.blk-h[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-instant) var(--ease-out), visibility 0s, background-color var(--dur-instant) var(--ease-out); }
+.blk-h:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 8%, transparent)); color: var(--fg); }
+.blk-h[data-dragging] { cursor: grabbing; }
+/* the one handle of several selected blocks: beside all of them, its grip at the first */
+/* (The blocks wear a field each; what holds them together is this handle: one bar as tall as all
+ * of them, in the fields' tint and a little stronger, its grip at the top.) */
+.blk-h[data-group], .blk-h[data-group]:hover { place-items: start center; padding-top: 5px; box-sizing: border-box; background: color-mix(in srgb, var(--accent) 14%, var(--bg)); color: var(--accent-text); }
+.blk-h[data-group]:hover { background: color-mix(in srgb, var(--accent) 24%, var(--bg)); color: color-mix(in srgb, var(--accent) 70%, var(--fg)); }
+.blk-h[data-apart], .blk-h[data-apart]:hover { place-items: center; padding-top: 0; background: transparent; } /* (blocks picked one by one: the handle of the one under the pointer) */
+/* what is dragged stands back where it was while its picture is under the pointer */
+.pm .blk-sel { transition: opacity var(--dur-fast) var(--ease-out); }
+body.blk-dragging .pm .blk-sel { opacity: 0.35; }
+/* that picture, for several blocks: as they stand, on a card (made for the drag, off the page) */
+.blk-ghost { position: fixed; top: 0; left: -10000px; z-index: -1; box-sizing: border-box; max-height: 340px; overflow: hidden; padding: 8px 12px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; }
+.blk-ghost > div { margin: 0; padding: 0; min-height: 0; }
+.blk-ghost > div > :first-child { margin-top: 0; }
+.blk-ghost > div > :last-child { margin-bottom: 0; }
+.blk-h svg { width: 10px; height: 16px; fill: currentColor; }
+.drop-line { background: var(--accent); border-radius: 1px; pointer-events: none; animation: none; }
+@media print { .blk-h, .drop-line { display: none !important; } }
+
+/* a row or column dragged by its handle: where it goes */
+.tbl-line { position: absolute; top: 0; left: 0; z-index: 26; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.tbl-line[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+.tbl-h:active, .tbl-h[data-held] { cursor: grabbing; }
+@media print { .tbl-line { display: none !important; } }
+
+/* two buttons that are one choice (the shape of a formula) */
+.dlg-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+#dlg .dlg-seg .btn { height: 24px; padding: 0 10px; font-size: 12px; background: transparent; box-shadow: none; }
+#dlg .dlg-seg .btn[aria-checked="true"] { background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.12); }
+#dlg .dlg-tools .btn { height: 24px; padding: 0 9px; font-size: 12px; }
+
+/* the corner a dialog is pulled larger by */
+.dlg-grip { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; cursor: nwse-resize; opacity: 0.5;
+  background: linear-gradient(135deg, transparent 0 55%, var(--fg2) 55% 60%, transparent 60% 70%, var(--fg2) 70% 75%, transparent 75%); }
+#dlg.sized .dlg-body { flex: 1; }
+#dlg.sized .ce { flex: 1; min-height: 0; }
+#dlg.sizing { transition: none; user-select: none; }
+#dlg.sized .ce { max-height: none; }
+/* (a dialog pulled to a size has no room to give: the picture of what is written yields first, so
+ * the field it is written in is never squeezed away under a tall preview) */
+#dlg.sized .ce { flex: 1 1 0; min-height: 96px; }
+#dlg.sized .dlg-preview { flex: 0 1 auto; min-height: 0; }
+/* a text field of a line or two takes no more than it needs when a picture stands under it */
+.dlg-body:has(> .dlg-preview.doc) > .ce { flex: 0 1 auto; }
+#dlg.sized .dlg-body:has(> .dlg-preview.doc) > .ce { flex: 1 1 0; }
+
+/* properties as a form */
+.fm-form { display: grid; gap: 6px; overflow: auto; padding: 2px; }
+.fm-form[hidden], #dlg .ce[hidden] { display: none; }
+.fm-row { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 8px; }
+.fm-key { color: var(--fg2); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.fm-deep { color: var(--fg2); font-size: 12px; font-style: italic; }
+#dlg .fm-del { width: 24px; height: 24px; padding: 0; font-size: 15px; line-height: 1; }
+#dlg .fm-add { justify-self: start; height: 24px; padding: 0 9px; font-size: 12px; }
+.fm-row .pf-switch { justify-self: start; }
+
+/* in a dialog's editor: the bracket that belongs to the one at the caret, what a search found, LaTeX completion */
+/* (under the text, so what it marks stays readable) */
+.ce-main { z-index: 0; }
+.ce-hl { z-index: -1; }
+.ce-match { border-radius: 2px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ce-hit { border-radius: 2px; background: color-mix(in srgb, #ffcc00 32%, transparent); }
+.ce-hit.now { background: color-mix(in srgb, #ffcc00 42%, transparent); box-shadow: 0 0 0 1px #ffcc00; }
+.ce-find { display: flex; align-items: center; gap: 8px; }
+.ce-find .lp-field { flex: 1; }
+.ce-count { min-width: 64px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.ce-comp {
+  position: fixed; z-index: 62; min-width: 160px; max-width: 320px; padding: 4px;
+  border-radius: var(--radius-control); background: var(--surface); border: var(--hairline); box-shadow: var(--shadow-popover);
+  font: 400 12px/1.5 var(--mono); user-select: none; -webkit-user-select: none;
+}
+.ce-opt { padding: 2px 8px; border-radius: var(--radius-row); white-space: nowrap; }
+.ce-opt.on { background: var(--accent); color: var(--on-accent, #fff); }
+
+/* a task ticked: the check is drawn (a cover in the box's colour shrinks away to the right) */
+.tick-cover { position: absolute; z-index: 5; border-radius: 1px; background: var(--accent); pointer-events: none; transform-origin: right center; transform: scaleX(1);
+  transition: transform calc(var(--dur-base) * 0.75) var(--ease-out); }
+.tick-cover.go { transform: scaleX(0); }
+
+/* A paragraph that ends in a <br> tag: the editor puts a break of its own behind a last atom (so
+ * the caret can stand there). Behind a line break that would be one line more than the reading
+ * view has; the <br> already gives the caret its line. */
+.pm .ia-br + img.ProseMirror-separator, .pm .ia-br + img.ProseMirror-separator + br.ProseMirror-trailingBreak { position: absolute; } /* (out of the line; display: none does not take an img out of it in WebKit) */
+
+/* while the application takes the formula's picture: a plain ground under it */
+.dlg-preview.shooting { background: var(--bg); transition: none; }
+
+/* Markdown at the caret: the marks, set back from the text they belong to */
+.pm .syn { color: var(--fg3, var(--fg2)); font-weight: 400; font-style: normal; text-decoration: none; opacity: 0.75; }
+.pm code .syn, .pm .syn { font-family: var(--mono); font-size: 0.86em; }
+
+/* a menu that is closed (or fading out) takes no pointer */
+.actmenu:not([data-open]) { pointer-events: none; }
+
+/* blocks selected as wholes (a click on a handle, then the keyboard) */
+/* Each selected block wears a field of its own: a light tint with round corners, a little wider
+ * than the block, with the room between two blocks left clear — several selected are several
+ * fields, one under the other (as Craft shows them), not one box around all of them. --blk-out
+ * (how far a field reached out over the block's handle) is none any more: the handle stands
+ * beside the field. */
+.pm { --blk-sel: color-mix(in srgb, var(--accent) 9%, var(--bg)); --blk-out: 0px; }
+/* (a row of columns selected: its blocks wear the fields, each its own — the row itself none) */
+.pm.has-blocksel.ProseMirror-focused .cols.blk-row.ProseMirror-selectednode { outline: none; background-color: transparent; box-shadow: none; }
+.pm .cols.blk-row, .pm .cols.blk-row * { cursor: default; caret-color: transparent; }
+.pm .blk-sel { --blk-box: 0 0 0 5px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
+/* The room between two fields is the same whatever the blocks are: one that follows another
+ * reaches up over what its gap has more than that — the gap is the blocks' margins, which differ
+ * (a heading, a card, an empty line), and is measured (--up: the gap less 8 px, blocks.js). 6 px
+ * stay clear. */
+.pm .blk-sel[style*="--up"] { --blk-box: 0 0 0 5px var(--blk-sel), 0 calc(-1 * var(--up)) 0 5px var(--blk-sel); }
+.pm .blk-sel[style*="--cut"] { clip-path: inset(calc(var(--cut) - 5px) -5px -5px -5px round var(--radius-row)); }
+/* (a rule: its field is a layer of its own — the same reach) */
+.pm hr.blk-sel[style*="--up"]::before { top: calc(-8px - var(--up)); }
+.pm hr.blk-sel[style*="--cut"] { clip-path: none; }
+.pm hr.blk-sel[style*="--cut"]::before { top: calc(-8px + var(--cut)); }
+/* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
+.pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
+.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.6em - var(--blk-out) - 4px); z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (as far out as the box of a block beside the list: the list's indent, 1.6em, and what a block's box reaches out — its handle stands 46 out, inside it) */
+/* (a rule is one pixel high: a shadow shifted up cannot fill the gap above it, and a tint as its
+ * background would be the line gone. Its tint is a layer of its own that reaches up to the block
+ * before it, and the line is drawn over it — the same however the rule came to be selected.) */
+.pm hr.blk-sel, .pm.has-blocksel.ProseMirror-focused hr.blk-sel.ProseMirror-selectednode { position: relative; isolation: isolate; overflow: visible; background-color: transparent; box-shadow: none; }
+.pm hr.blk-sel::before { content: ""; position: absolute; inset: -8px -4px -8px calc(-4px - var(--blk-out)); z-index: -2; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; }
+.pm hr.blk-sel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--rule, var(--line-strong)); pointer-events: none; }
+/* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
+.pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
+/* (… and it reaches back into what stands before the block — the cells of a table lit up — and
+ * fills the room between the blocks, which is painted by what holds them: the note itself, a
+ * callout. Neither shows. Which they are is marked by the editor (blocks.js: sel-before,
+ * sel-holder, and the note's own has-blocksel / has-nodesel) — asked for with :has(), every change
+ * to a long note had the browser look at all of it again.) */
+.pm .sel-before::selection, .pm .sel-before *::selection, .pm .sel-holder::selection, .pm.has-blocksel::selection, .pm.has-nodesel::selection { background: transparent; }
+.pm .blk-sel { caret-color: transparent; }
+/* (a block that is selected is a thing, not text: the pointer over it is the arrow — a click, or Enter, goes into it) */
+.pm .blk-sel, .pm .blk-sel * { cursor: default; }
+.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: var(--blk-box); }
+.pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
+
+/* … or the page of the note it would go into: its line is marked */
+/* … into a column: the column is marked, the line as wide as it (under the row instead: the line as wide as the text, no column marked) */
+.pm .col.drop-col { border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 7%, transparent); box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 7%, transparent); }
+.pm .page-row.drop-into { box-shadow: 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* where a block dragged by its handle will go */
+/* (what the editor lays over the note — the handle, the drop line, the rectangle — is nothing a selection may begin on or pass) */
+.blk-h, .blk-h *, .blk-line, .blk-band { user-select: none; -webkit-user-select: none; }
+.blk-line { position: absolute; top: 0; left: 0; z-index: 26; height: 2px; border-radius: 1px; background: var(--accent); pointer-events: none; opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.blk-line[data-on] { opacity: 1; transition: opacity var(--dur-instant) var(--ease-out); }
+@media print { .blk-line { display: none !important; } }
+/* the place between two blocks (blocks.js): the line shows it — the editor's own caret, which has to be somewhere, does not */
+.pm.has-gap { caret-color: transparent; }
+.pm.has-gap .ProseMirror-gapcursor { display: none; }
+/* columns: the gap between two can be pulled (columns.js). The grip stands in the gap, as tall as the row. */
+.col-grip { position: absolute; top: 0; left: 0; z-index: 23; width: 12px; cursor: col-resize; /* (as wide as the gap: columns.js sets it) */ opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+.col-grip::after { content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; border-radius: 1px; background: var(--accent); opacity: 0.45; transition: opacity var(--dur-fast) var(--ease-out); }
+.col-grip[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+.col-grip:hover::after, .col-grip[data-pulling]::after { opacity: 1; transition-duration: var(--dur-instant); }
+body.col-pulling { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+@media print { .col-grip { display: none !important; } }
+/* a column with nothing in it yet shows where it is */
+.pm .col:has(> p:only-child > br:only-child) { border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 7%, transparent); }
+.pm .col:has(> p:only-child > br:only-child) > p { padding: 4px 10px; }
+/* … and, under the pointer, a cross at its right that takes the column away (columns.js) */
+.col-x { position: absolute; top: 0; left: 0; z-index: 24; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-chip); background: transparent; color: var(--fg2); cursor: default; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.col-x[data-on] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s, background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.col-x svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.col-x .sf { font-size: 10px; }
+.col-x:hover { background: var(--fill-pressed); color: var(--fg); transition-duration: var(--dur-instant); }
+.col-x:active { background: color-mix(in srgb, var(--fg) 20%, transparent); }
+.col-x:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: -2px; }
+@media print { .col-x { display: none !important; } }
+/* the rectangle pulled over blocks: it follows the pointer at once, and fades when it is let go */
+.blk-band { position: absolute; top: 0; left: 0; z-index: 27; box-sizing: border-box; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
+.blk-band[data-on] { opacity: 1; visibility: visible; transition: none; }
+body.blk-pulling { cursor: default; user-select: none; -webkit-user-select: none; }
+@media print { .blk-band { display: none !important; } }
+
+/* the formula dialog: room for the formula and for writing it (a size pulled by hand stays) */
+#dlg[data-kind="math"] { width: min(1040px, 94vw); max-height: 90vh; }
+#dlg[data-kind="math"] .dlg-preview.math { min-height: 7em; font-size: 20px; display: grid; align-items: center; }
+#dlg[data-kind="math"] .ce { min-height: 240px; max-height: 56vh; }
+/* LaTeX Suite: places still to fill in, bracket pairs by depth */
+.ce-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.ce-stop.none { display: inline-block; width: 0; height: 0.5em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+.ce-b0 { color: var(--c-blue, var(--accent)); }
+.ce-b1 { color: var(--c-magenta, var(--accent)); }
+.ce-b2 { color: var(--c-green, var(--accent)); }
+
+/* a continuation offered while writing: there to read, not part of the text */
+/* (a place to break before it: what is offered wraps by itself. Without it a suggestion that goes on in the word
+ * being typed made one word of the two — too long for the line's end, so the typed word went to the next line
+ * with the caret, and back when the suggestion went: the caret jumped about while one wrote.) */
+.pm [data-ghost]::after { content: "\200B" attr(data-ghost); white-space: pre-wrap; color: color-mix(in srgb, var(--fg) 42%, transparent); pointer-events: none; }
+@media print { .pm [data-ghost]::after { content: none; } }
+
+/* LaTeX Suite in the text: the places of a snippet still to fill in */
+.pm .ls-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.pm .ls-stop.none { display: inline-block; width: 0; height: 0.55em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* a figure drawn by Claude: the dialog */
+#dlg[data-kind="graphic"] { width: min(860px, 94vw); max-height: 92vh; }
+.gr-text { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; resize: vertical; font: 400 13px/1.45 var(--ui); user-select: text; -webkit-user-select: text; }
+.gr-ref, .gr-change { display: flex; align-items: center; gap: 6px; }
+.gr-label { color: var(--fg2); font-size: 12px; }
+.gr-space { flex: 1; }
+.gr-thumb { width: 34px; height: 28px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 0.5px var(--line-strong); }
+.gr-thumb[hidden] { display: none; }
+.gr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gr-change-in { flex: 1; height: var(--control-height, 28px); padding: 0 10px; user-select: text; -webkit-user-select: text; }
+.gr-change[hidden] { display: none; }
+.gr-view { position: relative; display: grid; place-items: center; min-height: 260px; max-height: 52vh; padding: 14px; border-radius: var(--radius-control); background: var(--bg); box-shadow: inset 0 0 0 0.5px var(--line-strong); overflow: auto; }
+.gr-empty { color: var(--fg2); font-size: 12px; }
+.gr-img { display: block; max-width: 100%; max-height: 48vh; transition: opacity var(--dur-fast) var(--ease-out); }
+.gr-view.busy .gr-img { opacity: 0.35; }
+.gr-wait { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; animation: gr-in var(--dur-fast) var(--ease-out) var(--loading-delay, 300ms) both; }
+.gr-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 16%, transparent); border-top-color: var(--accent); animation: gr-spin 0.8s linear infinite; }
+@keyframes gr-spin { to { transform: rotate(360deg); } }
+@keyframes gr-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .gr-spin { animation-duration: 2.4s; } }

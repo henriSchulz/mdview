@@ -22,7 +22,7 @@ jobs:
       - working-directory: dev
         run: npm ci
       - working-directory: dev
-        run: npm test
+        run: npm run test:all   # (every line: a run nobody watches should say which test it was)
   shell:
     name: shell (cargo)
     runs-on: ubuntu-22.04

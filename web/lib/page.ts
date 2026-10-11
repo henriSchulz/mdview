@@ -7,8 +7,13 @@ import { randomBytes } from "node:crypto";
 const SCRIPTS = [
   "vendor/markdown-it.min.js", "vendor/footnote.min.js", "vendor/deflist.min.js", "vendor/mark.min.js", "vendor/sub.min.js", "vendor/sup.min.js",
   "vendor/abbr.min.js", "vendor/emoji.min.js", "vendor/js-yaml.min.js", "vendor/highlight.min.js", "vendor/highlight-extra.min.js",
-  "vendor/katex/katex.min.js", "strings.js", "viewer.js", "overview.js",
+  "vendor/katex/katex.min.js", "strings.js",
+  "viewer/base.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
+  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js",
+  "viewer.js", "overview.js",
 ];
+// (and its styles: STYLES in shell.rs)
+const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts"];
 
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.
@@ -95,7 +100,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `<meta name='robots' content='noindex'><title>${attr(o.title)}</title>${icons(here)}` +
     `<base href='${attr(here + o.base)}'>` +
     `<link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
-    `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'><link rel='stylesheet' href='${here}${a}/viewer.css'><link rel='stylesheet' href='${here}${a}/overview.css'>` +
+    `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'>${STYLES.map((s) => `<link rel='stylesheet' href='${here}${a}/viewer/${s}.css'>`).join("")}<link rel='stylesheet' href='${here}${a}/overview.css'>` +
     `<style>${BOOT_CSS}${VEIL_CSS}</style></head><body data-mode='light'>${BOOT}${WAIT}<main id='content'></main>${scripts}</body></html>`;
   return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": o.referrer || "same-origin", "X-Robots-Tag": "noindex" } });
 }

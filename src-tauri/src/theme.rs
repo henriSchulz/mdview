@@ -1,5 +1,5 @@
 //! Colours follow the Omarchy theme. Where there is none (another desktop, another system)
-//! the light fallback holds. Motion and sizes are the app's own (motion.css, viewer.css).
+//! the light fallback holds. Motion and sizes are the app's own (motion.css, viewer/*.css).
 
 use std::fs;
 use std::path::PathBuf;

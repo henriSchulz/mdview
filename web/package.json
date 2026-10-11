@@ -10,8 +10,9 @@
     "prebuild": "node scripts/assets.mjs",
     "build": "next build",
     "start": "next start",
-    "pretest": "npm run build",
-    "test": "node --test test/"
+    "pretest": "out=$(npm run -s build 2>&1) || { echo \"$out\"; exit 1; }",
+    "test": "node --test --test-reporter=dot test/",
+    "test:all": "npm run build && node --test test/"
   },
   "dependencies": {
     "jose": "^6.2.12",

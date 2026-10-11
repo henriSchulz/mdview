@@ -12,11 +12,11 @@
     "active": false,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png", "icons/icon.ico"],
     "resources": {
-      "../viewer.js": "viewer.js", "../viewer.css": "viewer.css",
+      "../viewer.js": "viewer.js", "../viewer/": "viewer/",
       "../overview.js": "overview.js", "../overview.css": "overview.css",
       "../pdfview.js": "pdfview.js", "../pdfview.css": "pdfview.css",
       "../board.js": "board.js", "../board.css": "board.css", "../board/": "board/", "../ai.js": "ai.js", "../ai.css": "ai.css",
-      "../strings.js": "strings.js", "../active.css": "active.css", "../motion.css": "motion.css",
+      "../strings.js": "strings.js", "../motion.css": "motion.css",
       "../active/": "active/", "../vendor/": "vendor/",
       "../docs/FEATURES.md": "docs/FEATURES.md",
       "../LICENSE": "LICENSE"

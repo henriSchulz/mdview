@@ -1,0 +1,205 @@
+/* mdview active mode, styles — the settings' window. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* ------------------------------------------------------------- settings
+ * A window of its own over the note (prefs.js): the groups in a card at the left, the chosen
+ * group's settings at the right in cards of rows. Opaque; sizes are layout, times, curves and
+ * radii the central ones. */
+#settings-scrim, #history-scrim, #conflict-scrim { position: fixed; inset: 0; z-index: 54; background: rgb(0 0 0 / 0.18); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
+body[data-mode="dark"] :is(#settings-scrim, #history-scrim, #conflict-scrim) { background: rgb(0 0 0 / 0.4); }
+:is(#settings-scrim, #history-scrim, #conflict-scrim)[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
+#settings, #history, #conflict {
+  position: fixed; inset: 0; margin: auto; z-index: 55;
+  display: grid; grid-template-columns: 232px minmax(0, 1fr);
+  box-sizing: border-box; width: min(940px, calc(100vw - 48px)); height: min(660px, calc(100vh - 48px));
+  border-radius: calc(var(--radius-panel) + 6px);
+  background: var(--bg); color: var(--fg);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 24px 70px rgb(0 0 0 / 0.28);
+  font: 400 13px/1.4 var(--ui); font-variation-settings: "opsz" 17;
+  outline: none; user-select: none; -webkit-user-select: none; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: scale(0.97);
+  transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), transform calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+:is(#settings, #history, #conflict)[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
+body[data-mode="dark"] :is(#settings, #history, #conflict) { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14), 0 24px 70px rgb(0 0 0 / 0.6); }
+@media (prefers-contrast: more) { #settings, #history, #conflict { box-shadow: 0 0 0 1.5px var(--fg); } }
+@media print { #settings, #settings-scrim, #history, #history-scrim, #conflict, #conflict-scrim { display: none !important; } }
+
+/* the groups: a card set in from the window's edge, as the app's own sidebar */
+.st-side { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 8px 8px; padding: 14px 8px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line); overflow-y: auto; overscroll-behavior: contain; }
+.st-name { padding: 2px 8px 0; font: 700 15px/1.3 var(--ui); }
+.st-group { display: grid; gap: 1px; }
+.st-group:last-child { margin-top: auto; }
+.st-group-title { padding: 0 8px 4px; font: 600 12px/1.3 var(--ui); color: var(--fg); }
+.st-nav { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+.st-nav[hidden], .st-card[hidden], .pf-section[hidden], .pf-row[hidden] { display: none; }
+.st-nav:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
+.st-nav[aria-current] { background: var(--sb-selected); font-weight: 500; }
+.st-nav:focus-visible { outline-offset: -2px; }
+.st-icon { display: grid; place-items: center; flex: none; width: 18px; height: 18px; color: var(--fg2); }
+.st-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.st-icon .sf { font-size: 14px; }
+.st-nav[aria-current] .st-icon { color: var(--accent-text); }
+
+/* the chosen group */
+.st-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.st-head { display: flex; align-items: center; gap: 12px; flex: none; padding: 16px 24px 12px 20px; }
+.st-head h2 { margin: 0; font: 600 15px/1.3 var(--ui); letter-spacing: 0; }
+.st-side > .st-close { align-self: flex-start; margin: -4px 0 -4px 2px; }
+.st-close { display: grid; place-items: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.06); color: var(--fg2); cursor: default; transition: color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.st-close:hover { color: var(--fg); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+.st-close:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.st-close svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.st-close .sf { font-size: 12px; }
+.st-content { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 24px 24px 20px; }
+/* (the pages lie on each other: the one chosen shows, a crossfade) */
+.st-page { display: none; }
+.st-page[data-on] { display: block; animation: fade-in var(--dur-fast) var(--ease-out); }
+.pf-section { margin: 18px 4px 8px; color: var(--fg2); font: 600 12px/1.3 var(--ui); }
+.st-card { border-radius: calc(var(--radius-control) + 2px); background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); }
+body[data-mode="dark"] .st-card { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
+.pf-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; padding: 8px 14px; box-sizing: border-box; }
+.pf-row[hidden] { display: none; }
+.pf-row + .pf-row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; height: 1px; background: var(--line); }
+.pf-sub { padding-left: 30px; }
+.pf-text-col { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.pf-name { font-weight: 500; }
+.pf-hint { color: var(--fg2); font-size: 12px; line-height: 1.4; }
+/* (a choice is the app's button and menu: .pop, viewer/*.css) */
+#settings .pop-wrap, #history .pop-wrap { flex: none; display: flex; justify-content: flex-end; min-width: 0; max-width: 50%; }
+#settings .pop, #history .pop { min-width: 190px; }
+.pf-select { flex: none; width: auto; min-width: 190px; max-width: 46%; }
+.pf-text { flex: none; width: 220px; }
+.pf-value { flex: none; max-width: 60%; color: var(--fg2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
+/* an action in a row: the word itself, in the accent */
+.pf-link { flex: none; height: var(--control-height, 28px); padding: 0 8px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--accent-text); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.pf-link:hover { background: var(--fill-hover); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+.pf-link:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.pf-link:disabled { opacity: 0.4; pointer-events: none; }
+.pf-link.danger { color: var(--c-red); }
+.pf-link[hidden] { display: none; }
+/* the key: what is stored, the field for a new one, its actions */
+/* --- the history's window (history.js): the settings window's shell — the versions at the left,
+ * what one of them changed at the right */
+#history, #conflict { grid-template-columns: 248px minmax(0, 1fr); width: min(1040px, calc(100vw - 48px)); height: min(720px, calc(100vh - 48px)); }
+.hi-note { margin-top: -10px; padding: 0 8px; color: var(--fg2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hi-list { align-content: start; }
+.st-side .hi-list:last-child { margin-top: 0; }
+.hi-row { height: 44px; }
+.hi-row-text { display: grid; gap: 1px; min-width: 0; }
+.hi-when { font-variant-numeric: tabular-nums; }
+.hi-by { color: var(--fg2); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#history .st-head h2, #conflict .st-head h2 { white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+#history .pop { min-width: 0; }
+.hi-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.hi-tools [hidden] { display: none; }
+.hi-body { user-select: text; -webkit-user-select: text; }
+.hi-empty { margin: 80px 0 0; text-align: center; color: var(--fg2); }
+/* the versions, or one's text, on their way: a ring in the middle of the window's right part, after the wait that is no wait */
+#history .st-main { position: relative; }
+.hi-wait { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; display: grid; place-items: center; border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 6px 18px rgb(0 0 0 / 0.14); pointer-events: none; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#history[data-wait] .hi-wait { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out) var(--loading-delay), visibility 0s linear var(--loading-delay); }
+#history:not([data-wait]) .hi-wait .busy-ring { animation: none; }
+.hi-diff { padding: 6px 0; border-radius: calc(var(--radius-control) + 2px); background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); font: 400 12.5px/1.55 var(--mono); animation: fade-in var(--dur-fast) var(--ease-out); }
+body[data-mode="dark"] .hi-diff { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
+.hi-line { display: flex; padding: 0 12px 0 0; }
+.hi-sign { flex: none; width: 26px; text-align: center; color: var(--fg2); user-select: none; -webkit-user-select: none; }
+.hi-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hi-line.add { background: color-mix(in srgb, var(--c-green) 11%, transparent); }
+.hi-line.del { background: color-mix(in srgb, var(--c-red) 9%, transparent); }
+.hi-line.add .hi-sign { color: var(--c-green); }
+.hi-line.del .hi-sign { color: var(--c-red); }
+.hi-text ins { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-green) 26%, transparent); }
+.hi-text del { text-decoration: none; border-radius: 3px; background: color-mix(in srgb, var(--c-red) 22%, transparent); }
+.hi-gap { margin: 4px 0; padding: 2px 26px; color: var(--fg-quiet); font: 400 12px/1.5 var(--ui); user-select: none; -webkit-user-select: none; }
+@media (max-width: 720px) { #history, #conflict { grid-template-columns: 190px minmax(0, 1fr); } }
+/* --- the conflicts' window (conflict.js): the history's frame; a note place by place, each
+ * with this device's lines and the other's, and the choice between them */
+#conflict .hi-note { white-space: normal; }
+.hi-row.cf-done .hi-by { color: var(--c-green); }
+.cf-file { padding: 6px 0 2px; }
+.cf-place { margin: 6px 8px 8px; border-radius: var(--radius-control); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong); overflow: hidden; font: 400 13px/1.4 var(--ui); }
+.hi-body > .cf-place { margin: 0; animation: fade-in var(--dur-fast) var(--ease-out); }
+.cf-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; box-shadow: 0 0.5px 0 var(--line); user-select: none; -webkit-user-select: none; }
+.cf-count { margin-right: auto; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.cf-picks { display: flex; gap: 2px; }
+.cf-pick[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.cf-pick[aria-pressed="true"]:hover { background: var(--accent); }
+.cf-join { font-weight: 600; }
+.cf-side { padding: 6px 0 8px; transition: opacity var(--dur-fast) var(--ease-out); }
+.cf-side + .cf-side { box-shadow: 0 -0.5px 0 var(--line); }
+.cf-side.off { opacity: 0.4; }
+.cf-who { padding: 0 12px 2px; color: var(--fg2); font-size: 12px; user-select: none; -webkit-user-select: none; }
+.cf-lines { font: 400 12.5px/1.55 var(--mono); }
+.cf-lines .hi-sign { width: 12px; }
+.cf-lines mark { border-radius: 3px; background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; }
+.cf-lines i { color: var(--fg-quiet); font: italic 400 12px/1.55 var(--ui); }
+.cf-whole { margin: 0; padding: 0 12px; }
+/* signing in with GitHub: what is so, the code to confirm, and what can be done */
+.pf-github { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: none; max-width: 66%; }
+.pf-github .pf-value { flex: 0 1 auto; max-width: none; white-space: normal; text-align: right; }
+.pf-github [hidden] { display: none; }
+/* --- the chooser for a repository (prefs.js): a small window over the settings, in their look —
+ * a field to search, the list, and what is done with the one picked */
+#repos-scrim { position: fixed; inset: 0; z-index: 56; background: rgb(0 0 0 / 0.12); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+#repos-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+#repos {
+  position: fixed; inset: 0; margin: auto; z-index: 57;
+  display: flex; flex-direction: column; box-sizing: border-box; width: min(460px, calc(100vw - 64px)); height: min(520px, calc(100vh - 96px));
+  border-radius: calc(var(--radius-panel) + 2px); background: var(--bg); color: var(--fg);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 18px 50px rgb(0 0 0 / 0.3);
+  font: 400 13px/1.4 var(--ui); font-variation-settings: "opsz" 17; outline: none; user-select: none; -webkit-user-select: none; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: scale(0.97);
+  transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), transform calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+#repos[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth), visibility 0s; }
+body[data-mode="dark"] #repos { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14), 0 18px 50px rgb(0 0 0 / 0.6); }
+@media print { #repos, #repos-scrim { display: none !important; } }
+#repos .st-head { padding: 14px 16px 10px; }
+.rc-search { flex: none; margin: 0 16px 8px; width: auto; }
+.rc-list { flex: 1; min-height: 0; display: grid; align-content: start; gap: 1px; padding: 0 8px; overflow-y: auto; overscroll-behavior: contain; }
+.rc-row[aria-selected="true"] { background: var(--accent); color: #fff; }
+.rc-row[aria-selected="true"] .hi-by { color: rgb(255 255 255 / 0.8); }
+.rc-row[aria-selected="true"]:hover { background: var(--accent); }
+.rc-empty { flex: 1; margin: 40px 24px 0; text-align: center; color: var(--fg2); }
+.rc-empty[hidden] { display: none; }
+.rc-empty:not([hidden]) + .rc-foot { margin-top: 0; }
+.rc-list:has(+ .rc-empty:not([hidden])) { flex: none; }
+.rc-foot { flex: none; display: flex; justify-content: flex-end; gap: 6px; padding: 10px 12px 12px; box-shadow: 0 -0.5px 0 var(--line); }
+.rc-foot [hidden] { display: none; }
+.rc-foot .pf-link:first-child { margin-right: auto; }
+.rc-go { font-weight: 600; }
+.pf-code { padding: 2px 10px; border-radius: var(--radius-control); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong); font: 600 15px/1.6 var(--mono); letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
+/* the folder's history: what is so, in as many words as it takes, and the button that turns it on */
+.pf-history { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: none; max-width: 62%; }
+.pf-history .pf-value { flex: 0 1 auto; max-width: none; white-space: normal; text-align: right; }
+.pf-key { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: none; max-width: 62%; }
+.pf-state { flex-basis: 100%; text-align: right; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pf-state.on { color: var(--c-green); }
+.pf-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--fill-pressed, color-mix(in srgb, var(--fg) 18%, transparent));
+  transition: background-color var(--dur-fast) var(--ease-out);
+  cursor: default;
+}
+.pf-switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.pf-switch:checked { background: var(--accent); }
+.pf-switch:checked::before { transform: translateX(14px); }
+.pf-switch:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 2px; }
+@media (max-width: 720px) { #settings { grid-template-columns: 180px minmax(0, 1fr); } .pf-select { min-width: 140px; } .pf-text { width: 160px; } }

@@ -1,6 +1,6 @@
 /* mdview — the whiteboard opened over the window (board.js). Colours are the theme's
- * (viewer.css), durations, curves, springs and corners motion.css's; the numbers here are sizes.
- * Every class begins with bd-. The block in the note is viewer.css's (it shows before this
+ * (viewer/*.css), durations, curves, springs and corners motion.css's; the numbers here are sizes.
+ * Every class begins with bd-. The block in the note is viewer/*.css's (it shows before this
  * file is loaded). */
 #board {
   --bd-bar-h: calc(var(--control-height) + 8px);

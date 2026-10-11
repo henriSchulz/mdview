@@ -838,7 +838,7 @@
     replace(view, pos, buildCode({ ...c, rest: " " + ("hide" + (size ? ":" + size : "") + " " + c.rest.trim().replace(HIDE, "")).trim() }));
     view.focus();
   }
-  /* A file shown as code (![[main.c|hide:small The ALU]], viewer.js: fileCode): whether it is put
+  /* A file shown as code (![[main.c|hide:small The ALU]], viewer/markdown.js: fileCode): whether it is put
    * away, its card's size, and how to change either — for its menu. null: not one. */
   const FILE_CODE = /^(\s*!\[\[[^\]|]+)(?:\|([^\]]*))?(\]\]\s*)$/;
   function fileCode(view, pos, node) {

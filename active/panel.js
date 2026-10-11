@@ -96,7 +96,7 @@
     ["panel.media", ["menu.image"], "image picture photo bild foto", PIC.picture, picture],
     ["panel.media", ["menu.board"], "whiteboard board canvas draw sketch zeichnen skizze tafel", PIC.board, (v, at) => A.context.INSERT.board(v, at)],
     ["panel.media", ["menu.file"], "file attachment datei anhang", PIC.file, (v, at) => { if (at != null) lineAt(v, at); A.context.INSERT.file(v); }],
-    // a rule, in its four looks: tiles that show the line itself (viewer.js: ruleLook)
+    // a rule, in its four looks: tiles that show the line itself (viewer/markdown.js: ruleLook)
     ["panel.lines", ["panel.line.dots"], "divider rule line dots separator trennlinie punkte", linePic('<circle cx="34" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="44" cy="12" r="1.6" fill="currentColor" opacity="0.5"/><circle cx="54" cy="12" r="1.6" fill="currentColor" opacity="0.5"/>'), (v, at) => A.context.INSERT.rule(v, at, "***")],
     ["panel.lines", ["panel.line.dotted"], "divider rule line dotted separator trennlinie gepunktet", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.1 4.4"/>'), (v, at) => A.context.INSERT.rule(v, at, "- - -")],
     ["panel.lines", ["panel.line.thin"], "divider rule line thin separator trennlinie dünn", linePic('<path d="M12 12h64" stroke="currentColor" stroke-opacity="0.45" stroke-width="1"/>'), (v, at) => A.context.INSERT.rule(v, at)],

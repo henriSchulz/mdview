@@ -62,7 +62,7 @@
     horizontal_rule: block({
       attrs: { markup: { default: null } },
       parseDOM: [{ tag: "hr" }],
-      toDOM: (n) => { const look = window.MdView.core.ruleLook(n.attrs.markup); return ["hr", { ...(look ? { class: "hr-" + look } : {}), ...lineAttr(n) }]; }, // (its look: how its line is written — viewer.js, ruleLook)
+      toDOM: (n) => { const look = window.MdView.core.ruleLook(n.attrs.markup); return ["hr", { ...(look ? { class: "hr-" + look } : {}), ...lineAttr(n) }]; }, // (its look: how its line is written — viewer/markdown.js, ruleLook)
     }),
     blockquote: block({
       content: "block+",
@@ -124,14 +124,14 @@
     },
     /* A table as GFM has it: the first row is the header, a column has one
      * alignment. Rows sit directly in <table> (the editor needs one element
-     * for them; active.css stripes them as the reading view's <tbody> rows).
+     * for them; active/*.css stripes them as the reading view's <tbody> rows).
      * raw: its Markdown as loaded, for the way it was formatted. */
     table: block({
       content: "table_row+",
       tableRole: "table",
       isolating: true,
       // wide: as wide as the text column (so it stands when nothing is said); head: its head row's colour.
-      // mark: the line before it in the file that said so, kept to be written again as it was (viewer.js: tableLook)
+      // mark: the line before it in the file that said so, kept to be written again as it was (viewer/markdown.js: tableLook)
       attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null } },
       parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !dom.parentElement || !dom.parentElement.classList.contains("table-wrap") || dom.parentElement.classList.contains("wide") }) }],
       toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", 0]]; },

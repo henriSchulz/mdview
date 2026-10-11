@@ -1,0 +1,195 @@
+/* mdview, the page — the sidebar shown and hidden (it slides, the text glides), an empty folder,
+ * the window that asks for a new note's or folder's name. */
+"use strict";
+(() => {
+  const P = window.MdPage;
+  const { DESKTOP, content, post, T, esc, ICON } = P; // viewer/base.js
+  const { captureAnchor, restoreAnchor, reducedMotion } = P; // viewer/render.js
+  const { editor, edBack, READING, captureEditAnchor } = P; // viewer/editor.js
+  const { sidebar, sidebarOpen, closeCtx } = P; // viewer/sidebar.js
+
+  // --- showing / hiding: the sidebar slides, the text column glides to its new
+  // place (transform only; the width change itself is applied at once)
+  /* Under a finger. A browser makes mouse events of a tap, after the fact — a pointer that came to rest where the finger was: what
+   * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
+   * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
+   * the touch is handed on as the mouse's press, moves and release, and the browser's own are left out. */
+  // (an app, not a page: two fingers do not make the window's whole content larger — Safari asks with events of its own, and
+  // does not heed what the page's head says; what is meant to be pinched, a whiteboard, a PDF, takes the fingers itself)
+  if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) for (const type of ["gesturestart", "gesturechange"]) document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  let touchedAt = -1e9;
+  addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
+  const touching = () => performance.now() - touchedAt < 1200;
+  {
+    const GRIPS = "#sb-grip, .col-grip, .tbl-h-col, .tbl-h-row, .dlg-grip, .pa-sheet";
+    let pulled = null;
+    const mouse = (type, t, target, buttons) => target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons, clientX: t.clientX, clientY: t.clientY, screenX: t.screenX, screenY: t.screenY }));
+    const under = (t) => document.elementFromPoint(t.clientX, t.clientY) || document.body;
+    addEventListener("touchstart", (e) => {
+      // (what lies under the finger, not what the browser took the touch for: it hands one that is near a thing made to be met
+      // to that thing, and the note's margin beside the sidebar's edge is a place of its own)
+      const t = e.touches.length === 1 ? e.touches[0] : null, hit = t && document.elementFromPoint(t.clientX, t.clientY);
+      if (!hit || !hit.closest(GRIPS)) { pulled = null; return; }
+      pulled = { id: t.identifier, moved: false };
+      mouse("mousedown", t, hit, 1);
+    }, { capture: true, passive: true });
+    addEventListener("touchmove", (e) => {
+      const t = pulled && [...e.changedTouches].find((x) => x.identifier === pulled.id);
+      if (!t) return;
+      if (e.cancelable) e.preventDefault();
+      pulled.moved = true;
+      mouse("mousemove", t, under(t), 1);
+    }, { capture: true, passive: false });
+    const done = (e) => {
+      const t = pulled && [...e.changedTouches].find((x) => x.identifier === pulled.id);
+      if (!t) return;
+      const was = pulled;
+      pulled = null;
+      mouse("mouseup", t, under(t), 0);
+      if (was.moved && e.cancelable) e.preventDefault(); // (pulled: no tap follows, and none of the browser's mouse events)
+    };
+    addEventListener("touchend", done, { capture: true, passive: false });
+    addEventListener("touchcancel", done, { capture: true, passive: false });
+  }
+  /* A finger held on something for a moment is a right click: the menu of what it rests on. (A
+   * browser on a phone sends no "contextmenu" for it — Safari never, others not everywhere — so
+   * the page makes one, where the browser did not: its own counts and this one is dropped.) The
+   * tap that would follow the lift is swallowed, so nothing under the menu is set off. */
+  {
+    const HOLD = 500, SLACK = 10;
+    let held = null, own = 0, swallow = 0;
+    const drop = () => { if (held) { clearTimeout(held.timer); held = null; } };
+    addEventListener("pointerdown", (e) => {
+      drop();
+      if (e.pointerType !== "touch" || !e.isPrimary) return;
+      if (e.target.closest?.("#board")) return; // (on a whiteboard a finger held still is drawing, or about to)
+      const target = e.target, x = e.clientX, y = e.clientY;
+      held = { x, y, timer: setTimeout(() => {
+        held = null;
+        if (performance.now() - own < HOLD + 200 || !target.isConnected) return; // (the browser said it itself)
+        swallow = performance.now();
+        getSelection()?.removeAllRanges(); // (the word a held finger selects is not what was meant)
+        target.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, composed: true, button: 2, clientX: x, clientY: y }));
+      }, HOLD) };
+    }, true);
+    addEventListener("pointermove", (e) => { if (held && Math.hypot(e.clientX - held.x, e.clientY - held.y) > SLACK) drop(); }, true);
+    for (const type of ["pointerup", "pointercancel", "scroll"]) addEventListener(type, drop, true);
+    addEventListener("contextmenu", (e) => { if (e.isTrusted) { own = performance.now(); drop(); } }, true);
+    addEventListener("click", (e) => { if (swallow && performance.now() - swallow < 900) { swallow = 0; e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+  /* A narrow window — a phone, a tablet held upright in a split: the sidebar is a drawer that lies
+   * over the note (viewer/*.css, the same width), with a shade beside it that shuts it; a note chosen
+   * in it shuts it too. */
+  const narrow = window.matchMedia ? window.matchMedia("(max-width: 760px)") : { matches: false, addEventListener() {} };
+  const compact = () => narrow.matches;
+  const sbScrim = document.createElement("div");
+  sbScrim.id = "sb-scrim";
+  document.body.appendChild(sbScrim);
+  sbScrim.addEventListener("click", () => { if (sidebarOpen()) showSidebar(false, true); });
+  sidebar.addEventListener("click", (e) => { if (compact() && e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row") && !e.ctrlKey && !e.metaKey) showSidebar(false, true); });
+  narrow.addEventListener("change", () => { if (P.folder && compact() && sidebarOpen()) showSidebar(false, false); });
+  function showSidebar(open, animate) {
+    if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
+    const col = P.mode === "edit" ? editor : P.mode === "active" ? MdActive.view.el : content;
+    const anchor = P.mode === "edit" ? captureEditAnchor() : captureAnchor();
+    const before = col.getBoundingClientRect().left, tabsBefore = P.tabRow.getBoundingClientRect().left;
+    sidebar.classList.toggle("no-anim", !animate);
+    document.body.dataset.sidebar = open ? "open" : "closed";
+    if (P.mode === "edit") {
+      const el = anchor.line == null ? null : edBack.children[anchor.line];
+      if (el) window.scrollBy({ top: el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
+    } else if (P.current) restoreAnchor(anchor);
+    const dx = before - col.getBoundingClientRect().left, tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
+    if (!animate || reducedMotion()) return;
+    for (const [el, d] of [[col, dx], [P.tabRow, tdx]]) {
+      if (!d) continue;
+      el.style.transition = "none";
+      el.style.transform = `translateX(${d}px)`;
+      void el.offsetWidth;
+      el.style.transition = "";
+      el.style.transform = "";
+    }
+  }
+
+  /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
+   * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
+  /* Nothing open at all (the app started by itself, on the desktop): what can be opened — a folder of notes, which the
+   * sidebar then shows, or one file. */
+  const startState = () => `<div class="empty-state start-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("start.title"))}</b><p>${esc(T("start.text"))}</p>` +
+    `<div class="start-go"><button class="btn primary" type="button" data-empty="folder">${esc(T("start.folder"))}</button><button class="btn" type="button" data-empty="file">${esc(T("start.file"))}</button></div></div>`;
+  const emptyState = () => !P.folder && !READING && DESKTOP ? startState() : `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
+    (READING || !P.folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
+  document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && P.folder) { e.preventDefault(); openNewNote(); } });
+  document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
+
+  // --- new note
+  /* A new note or folder is asked for in a small window of its own — from the sidebar's +, from All
+   * Notes, from a menu, by Ctrl+N: its name, and where it goes. Enter makes it, Esc (or a click
+   * beside the window) does not. Among the quick notes the name may be left out: the note is then
+   * named after its first line, as ever. */
+  let newKind = "note", newDir = null, newDlg = null, newBack = null;
+  const newOpen = () => !!newDlg && newDlg.hasAttribute("data-open");
+  function buildNewNote() {
+    newDlg = document.createElement("div");
+    newDlg.id = "newdlg";
+    newDlg.innerHTML = `<form class="new-box surface" role="dialog" aria-modal="true" aria-labelledby="new-title" novalidate>` +
+      `<div class="new-head"><span class="new-sign" aria-hidden="true"></span><div class="new-words"><b id="new-title"></b><p class="new-where"></p></div></div>` +
+      `<input id="new-name" class="sb-field" type="text" spellcheck="false" autocomplete="off">` +
+      `<div class="new-foot"><button class="btn" type="button" data-new="cancel">${esc(T("dialog.cancel"))}</button><button class="btn primary" type="submit">${esc(T("new.create"))}</button></div></form>`;
+    document.body.appendChild(newDlg);
+    const input = newDlg.querySelector("#new-name"), go = newDlg.querySelector(".btn.primary");
+    const quick = () => !!(P.folder && P.folder.quick) && newKind !== "folder";
+    input.addEventListener("input", () => { go.disabled = !input.value.trim() && !quick(); });
+    newDlg.addEventListener("mousedown", (e) => { if (e.target === newDlg) { e.preventDefault(); closeNewNote(); } });
+    newDlg.addEventListener("click", (e) => { if (e.target.closest('[data-new="cancel"]')) closeNewNote(); });
+    newDlg.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeNewNote(); return; }
+      if (e.key === "Enter" && !e.isComposing && e.target === input) { e.preventDefault(); newDlg.querySelector("form").requestSubmit(); return; }
+      if (e.key !== "Tab") return; // (the keyboard stays in the window)
+      const stops = [...newDlg.querySelectorAll("input, button:not(:disabled)")], i = stops.indexOf(document.activeElement);
+      e.preventDefault();
+      stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+    });
+    // (… and no key of the window behind it works through it: Ctrl+E, Ctrl+F, Ctrl+W)
+    newDlg.addEventListener("keydown", (e) => { if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) { e.stopPropagation(); if (!/^[acvxz]$/i.test(e.key)) e.preventDefault(); } });
+    newDlg.querySelector("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = input.value.trim(), kind = newKind;
+      if (!name && !quick()) return;
+      // next to the note on screen, if that one lives in this folder
+      const here = newDir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
+      closeNewNote(false);
+      if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
+      if (!name) post("quicknote"); else post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
+    });
+  }
+  function openNewNote(kind = "note", dir = null) {
+    if (!P.folder || newOpen()) return;
+    if (!newDlg) buildNewNote();
+    newKind = kind; newDir = dir;
+    const quick = !!P.folder.quick && kind !== "folder", input = newDlg.querySelector("#new-name");
+    const where = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
+    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : ICON.note;
+    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : "new.note");
+    newDlg.querySelector(".new-where").textContent = quick ? T("new.quickHint") : T("new.in", where === P.folder.root ? P.folder.name : where.slice(P.folder.root.length + 1));
+    input.placeholder = kind === "folder" ? "Folder name" : "Note name";
+    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New note name");
+    input.value = "";
+    newDlg.querySelector(".btn.primary").disabled = !quick;
+    closeCtx(false);
+    newBack = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    newDlg.dataset.open = "";
+    input.focus({ preventScroll: true });
+  }
+  function closeNewNote(back = true) {
+    if (!newOpen()) return false;
+    delete newDlg.dataset.open;
+    newDlg.querySelector("#new-name").blur();
+    if (back && newBack && newBack.isConnected) newBack.focus({ preventScroll: true });
+    newBack = null;
+    return true;
+  }
+
+  // what the page's other files use of this one
+  Object.assign(P, { touching, compact, showSidebar, emptyState, openNewNote, closeNewNote });
+})();

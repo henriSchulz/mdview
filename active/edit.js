@@ -638,7 +638,7 @@
   const atomText = (n) => (n.attrs.kind === "math" ? n.attrs.raw.slice(1, -1)
     : n.attrs.kind === "wikilink" ? n.attrs.raw.slice(2, -2).split("|").pop() : "");
 
-  /* The block being typed in keeps its white space (see active.css); an
+  /* The block being typed in keeps its white space (see active/*.css); an
    * empty document says what to do. */
   /* The rules for what is typed ("$x$", "- ", "**bold**" …) are run by the editor when it is told
    * of typed text. An input method may put its text into the page without that (seen with fcitx:

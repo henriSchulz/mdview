@@ -40,7 +40,7 @@
     return el;
   };
   /* Where the handle stands: close to the left of the block, inside the highlight a selected block
-   * gets (active.css --blk-out is this distance); left
+   * gets (active/*.css --blk-out is this distance); left
    * of its bullet or checkbox for a list item. In a column that is not the first, it stays in the
    * gap before that column (further left is the text of the column beside it). */
   function leftOf(el, r) {
@@ -814,7 +814,7 @@
         const P = pickedOf(state);
         /* The browser's own highlight follows the selection out of the block: into what stands
          * before it, and over the room between blocks (painted by what holds them). Both are
-         * marked, so that the highlight can be taken from them (active.css) — for blocks selected
+         * marked, so that the highlight can be taken from them (active/*.css) — for blocks selected
          * as wholes, and for a thing selected by a click. */
         const around = (list) => {
           const out = [], seen = new Set();
@@ -829,7 +829,7 @@
           const s = state.selection;
           return s instanceof NodeSelection && s.node.isBlock ? DecorationSet.create(state.doc, around([s.from])) : null;
         }
-        // Blocks that follow each other are one box (active.css): each reaches up over the gap to the
+        // Blocks that follow each other are one box (active/*.css): each reaches up over the gap to the
         // one before it. How far is measured — the gap is the blocks' margins, and those differ (a
         // formula, a table, a heading) — and handed over as --up: the gap less the 4 px each of the
         // two reaches into it already.

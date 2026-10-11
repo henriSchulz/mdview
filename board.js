@@ -1,6 +1,6 @@
 /* mdview — the whiteboard: a board that stands in a note as a picture (a file *.board.svg, see
  * board/format.js) is opened over the whole window, drawn on, and kept. Loaded on first use
- * (viewer.js: loadBoard), with board.css and board/*.js before it.
+ * (viewer/modes.js: loadBoard), with board.css and board/*.js before it.
  *
  * The host is asked for the file's text (board-read) and handed it back (board-save); the page
  * may not read files itself. One board is open at a time. */
@@ -1168,7 +1168,23 @@
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
-  B.state = () => (S ? { pens: { ...pens }, tip: !el.querySelector(".bd-tip").hidden, channels: S.model.items.filter((it) => it.k === "ink").map((it) => it.ch), ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", mini: el.dataset.mini || null, crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })), scene: S.scene, snap: !!S.model.board.snap, menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, asking: el.querySelector(".bd-cpop").hasAttribute("data-open"), view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id), things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))), editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length, tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form, chosen: S.pick.filter((it) => it.k === "ink").length, chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null, inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(), kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length), zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length, lost: S.model.lost } : null);
+  B.state = () => (S ? { pens: { ...pens }, tip: !el.querySelector(".bd-tip").hidden,
+    channels: S.model.items.filter((it) => it.k === "ink").map((it) => it.ch),
+    ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", mini: el.dataset.mini || null,
+    crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })),
+    scene: S.scene, snap: !!S.model.board.snap,
+    menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect,
+    asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
+    view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
+    things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
+    editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length,
+    tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form,
+    chosen: S.pick.filter((it) => it.k === "ink").length,
+    chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null,
+    inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(),
+    kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
+    zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
+    lost: S.model.lost } : null);
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
