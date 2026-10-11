@@ -59,7 +59,9 @@
       } else {
         const group = kind === "pdf" ? "pdf" : kind === "image" ? "image" : kind === "audio" || kind === "video" ? "media" : "other";
         if (!show.includes(group)) continue;
-        dir(dirOf(path)).notes.push({ name: nameOf(rel), path, real: path, title: null, pdf: true, kind, opened: opened[path] || 0 });
+        // (a whiteboard — a picture by its ending — by its name alone, as the desktop app lists it)
+        const board = /\.board\.svg$/i.test(rel);
+        dir(dirOf(path)).notes.push({ name: board ? nameOf(rel).slice(0, -".board.svg".length) : nameOf(rel), path, real: path, title: null, pdf: true, kind: board ? "board" : kind, opened: opened[path] || 0 });
       }
       count++;
     }

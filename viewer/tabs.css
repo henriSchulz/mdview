@@ -201,6 +201,10 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 .sb-row:hover { background: var(--sb-hover); transition-duration: var(--dur-instant); }
 .sb-row:active { background: var(--sb-selected); transition-duration: var(--dur-instant); }
 .sb-row.active { background: var(--sb-selected); font-weight: 500; }
+/* several at once (Shift+click): the fill a selected row of All Notes has */
+.sb-row.picked, .sb-row.picked:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* put away — hidden by hand, named with a dot, kept for a note — and shown all the same (Show › Hidden Items) */
+.sb-item.is-hidden > .sb-in > .sb-row > :is(.sb-icon, .sb-label, .sb-tail, .sb-sheet) { opacity: 0.45; }
 .sb-chev { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-right: -5px; color: var(--fg3); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
 .sb-chev svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .sb-item.open > .sb-in > .sb-row .sb-chev { transform: rotate(90deg); }

@@ -190,7 +190,7 @@
   }
   function sendFolder() {
     // (what the sidebar lists or All Notes does: the page shows each its own part — viewer/sidebar.js, listed)
-    const show = [(prefs.sidebarPdf !== false || prefs.ovPdf) && "pdf", (prefs.sidebarImages || prefs.ovImages) && "image", (prefs.sidebarMedia || prefs.ovMedia) && "media", (prefs.sidebarOther || prefs.ovOther) && "other"].filter(Boolean);
+    const show = ["pdf", "image", "media", "other"]; // (everything that lies there: each takes out the kinds it is set not to list)
     let titles = null;
     if (here.sidebar.titles) {
       titles = new Map();

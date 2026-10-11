@@ -19,7 +19,7 @@ const AUDIO_EXT: &[&str] = &["mp3", "wav", "ogg", "m4a", "flac", "opus", "webm"]
 const VIDEO_EXT: &[&str] = &["mp4", "mkv", "mov", "ogv"];
 /// pictures that may be dropped on a note
 pub const IMAGE_EXT: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg", "bmp"];
-const SKIP_DIRS: &[&str] = &["node_modules", "__pycache__", "target", "venv", ".venv", "dist", "build"];
+pub const SKIP_DIRS: &[&str] = &["node_modules", "__pycache__", "target", "venv", ".venv", "dist", "build"];
 const TITLE_SCAN: usize = 16 * 1024; // a note's title (first H1) is looked for this far in
 const NOTE_LIMIT: usize = 5000; // notes listed in the sidebar at most
 
@@ -57,6 +57,11 @@ pub fn is_md(path: &Path) -> bool {
 
 pub fn is_pdf(path: &Path) -> bool {
     ext_of(path) == "pdf"
+}
+
+/// A whiteboard's file, by its name (board/format.js).
+pub fn is_board(path: &Path) -> bool {
+    path.file_name().is_some_and(|n| n.to_string_lossy().to_lowercase().ends_with(".board.svg"))
 }
 
 pub fn file_kind(path: &Path) -> &'static str {
@@ -216,6 +221,8 @@ pub struct Note {
     pub pdf: bool, // (anything that is not a note)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<&'static str>,
+    #[serde(skip_serializing_if = "is_false")]
+    pub hidden: bool, // (put away — by hand, by its name, as something the application keeps for a note: listed only where that is asked for)
     pub opened: i64,
 }
 
@@ -225,6 +232,8 @@ pub struct Node {
     pub path: String,
     pub dirs: Vec<Node>,
     pub notes: Vec<Note>,
+    #[serde(skip_serializing_if = "is_false")]
+    pub hidden: bool,
 }
 
 impl Node {
@@ -251,39 +260,56 @@ struct Scan<'a> {
     cache: &'a mut TitleCache,
     titles: bool,
     keep: &'a HashSet<String>,
-    show: &'a HashSet<&'static str>,
+    put_away: &'a HashSet<String>,
+    all: bool,
     walked: Vec<PathBuf>,
     count: usize,
     deadline: Instant,
 }
 
 impl Scan<'_> {
-    fn walk(&mut self, d: &Path, depth: usize) -> Node {
+    /// → the folder, and whether something in it was left out (a folder left with nothing for
+    /// that is no empty folder).
+    fn walk(&mut self, d: &Path, depth: usize, hidden: bool) -> (Node, bool) {
         let mut node = Node {
             name: d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
             path: s(d),
             dirs: vec![],
             notes: vec![],
+            hidden,
         };
+        let mut left_out = false;
         self.walked.push(d.to_path_buf());
-        let Ok(read) = fs::read_dir(d) else { return node };
+        let Ok(read) = fs::read_dir(d) else { return (node, left_out) };
         let mut entries: Vec<(String, fs::DirEntry)> =
             read.flatten().map(|e| (e.file_name().to_string_lossy().into_owned(), e)).collect();
         entries.sort_by(|a, b| natural_cmp(&a.0, &b.0));
         for (name, e) in entries {
-            if name.starts_with('.') {
-                continue;
-            }
             let path = e.path();
             let Ok(ft) = e.file_type() else { continue };
+            // put away: what begins with a dot, what is built and not written, what was hidden by hand
+            // or is kept for a note — and everything in a folder that is
+            let heavy = ft.is_dir() && (SKIP_DIRS.contains(&name.as_str()) || name == ".git");
+            let away = hidden || heavy || name.starts_with('.') || self.put_away.contains(&s(&path));
+            if away && !self.all {
+                left_out = true;
+                continue;
+            }
             if ft.is_dir() {
-                if SKIP_DIRS.contains(&name.as_str()) || depth >= 12 || self.count >= NOTE_LIMIT || Instant::now() > self.deadline {
+                if depth >= 12 || self.count >= NOTE_LIMIT || Instant::now() > self.deadline {
                     continue;
                 }
-                let sub = self.walk(&path, depth + 1);
-                // (keep: folders made here, still empty)
-                if !sub.dirs.is_empty() || !sub.notes.is_empty() || self.keep.contains(&s(&path)) {
+                if heavy {
+                    // (shown as it is asked for, but not gone into: thousands of files nobody wrote)
+                    node.dirs.push(Node { name, path: s(&path), dirs: vec![], notes: vec![], hidden: true });
+                    continue;
+                }
+                let (sub, less) = self.walk(&path, depth + 1, away);
+                // (a folder with nothing but what is put away is put away with it; keep: folders made here, still empty)
+                if !sub.dirs.is_empty() || !sub.notes.is_empty() || !less || self.keep.contains(&s(&path)) {
                     node.dirs.push(sub);
+                } else {
+                    left_out = true;
                 }
                 continue;
             }
@@ -315,35 +341,31 @@ impl Scan<'_> {
                     mtime: Some(since.as_secs() as i64),
                     pdf: false,
                     kind: None,
+                    hidden: away,
                     opened: 0,
                 });
-                self.count += 1;
             } else {
-                // what the settings ask for beside the notes — with its ending, to tell it
-                // from a note. (PDFs open in the window; the rest in its own application.)
-                let kind = file_kind(&path);
-                let group = match kind {
-                    "pdf" => "pdf",
-                    "image" => "image",
-                    "audio" | "video" => "media",
-                    _ => "other",
-                };
-                if self.show.contains(group) {
-                    node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), opened: 0 });
-                    self.count += 1;
-                }
+                // everything else that lies there — with its ending, to tell it from a note; the
+                // page lists the kinds it is set to. (PDFs and whiteboards open in the window, the
+                // rest in its own application.)
+                let kind = if is_board(&path) { "board" } else { file_kind(&path) };
+                // (a whiteboard by its name alone: its sign says what it is)
+                let name = if kind == "board" { name[..name.len() - ".board.svg".len()].to_string() } else { name };
+                node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), hidden: away, opened: 0 });
             }
+            self.count += 1;
         }
-        node
+        (node, left_out)
     }
 }
 
 /// The notes below root as a tree, plus every directory walked (to watch).
-/// Hidden entries and SKIP_DIRS are left out, as are folders without notes.
-/// Titles are only read when asked for.
-pub fn scan_folder(root: &Path, cache: &mut TitleCache, titles: bool, keep: &HashSet<String>, show: &HashSet<&'static str>) -> (Node, Vec<PathBuf>) {
-    let mut scan = Scan { cache, titles, keep, show, walked: vec![], count: 0, deadline: Instant::now() + Duration::from_millis(1500) };
-    let tree = scan.walk(root, 0);
+/// Everything that lies there is listed but what is put away: names with a dot before them,
+/// SKIP_DIRS, and the paths in `put_away` (hidden by hand, kept for a note by the application).
+/// all: these too, marked as hidden. Titles are only read when asked for.
+pub fn scan_folder(root: &Path, cache: &mut TitleCache, titles: bool, keep: &HashSet<String>, put_away: &HashSet<String>, all: bool) -> (Node, Vec<PathBuf>) {
+    let mut scan = Scan { cache, titles, keep, put_away, all, walked: vec![], count: 0, deadline: Instant::now() + Duration::from_millis(1500) };
+    let (tree, _) = scan.walk(root, 0, false);
     (tree, scan.walked)
 }
 
@@ -512,5 +534,41 @@ impl Resolver {
             return Some(PathBuf::from(best));
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(n: &Node) -> Vec<String> {
+        let mut out: Vec<String> = n.notes.iter().map(|x| format!("{}{}", x.name, if x.hidden { "*" } else { "" })).collect();
+        for d in &n.dirs {
+            out.push(format!("{}/{}", d.name, if d.hidden { "*" } else { "" }));
+            out.extend(names(d).into_iter().map(|x| format!("{}/{x}", d.name)));
+        }
+        out
+    }
+
+    #[test]
+    fn a_folder_lists_everything_but_what_is_put_away() {
+        let d = std::env::temp_dir().join(format!("mdview-scan-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for dir in ["assets", "empty", "node_modules/x", ".git", "sub"] {
+            fs::create_dir_all(d.join(dir)).unwrap();
+        }
+        for f in ["a.md", "b.pdf", "c.board.svg", ".env", "assets/kept.png", "sub/s.txt", "sub/away.zip", "node_modules/x/i.js"] {
+            fs::write(d.join(f), "x").unwrap();
+        }
+        let put_away: HashSet<String> = [s(&d.join("assets/kept.png")), s(&d.join("sub/away.zip"))].into();
+        let (mut cache, keep) = (TitleCache::new(), HashSet::new());
+        let (tree, _) = scan_folder(&d, &mut cache, false, &keep, &put_away, false);
+        // (a folder left with nothing because all in it is put away goes with it; one that is empty stays)
+        assert_eq!(names(&tree), ["a", "b.pdf", "c", "empty/", "sub/", "sub/s.txt"]);
+        assert_eq!(tree.notes.iter().map(|n| n.kind.unwrap_or("md")).collect::<Vec<_>>(), ["md", "pdf", "board"]);
+        let (tree, _) = scan_folder(&d, &mut cache, false, &keep, &put_away, true);
+        // (all: these too, marked — what is built and a repository's own folder are named, not gone into)
+        assert_eq!(names(&tree), [".env*", "a", "b.pdf", "c", ".git/*", "assets/", "assets/kept.png*", "empty/", "node_modules/*", "sub/", "sub/away.zip*", "sub/s.txt"]);
+        let _ = fs::remove_dir_all(&d);
     }
 }

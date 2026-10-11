@@ -68,7 +68,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { delete toastEl.dataset.open; toastAct = null; }, toastAct ? 6000 : 1600);
   }
-  const toastDo = () => { const a = toastAct; if (!a) return false; toastAct = null; clearTimeout(toastTimer); delete toastEl.dataset.open; post(a.type); return true; };
+  const toastDo = () => { const a = toastAct; if (!a) return false; toastAct = null; clearTimeout(toastTimer); delete toastEl.dataset.open; post(a.type, a.data || {}); return true; };
   toastEl.addEventListener("click", (e) => { if (e.target.closest("button")) toastDo(); });
   addEventListener("keydown", (e) => {
     if (!toastAct || e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;

@@ -56,6 +56,7 @@
   let folder = null;        // { root, name, tree } while this window browses a folder
   let sbTitles = false;     // rows show the note title (first H1) instead of the file name
   const sbOpen = new Set(); // expanded directories
+  const sbPicked = new Set(); // the rows selected (Shift+click): what is copied, moved, hidden, trashed together
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const sidebarOpen = () => document.body.dataset.sidebar === "open";
   const byLabel = (a, b) => collator.compare(a.label, b.label);
@@ -86,7 +87,7 @@
     const notes = sortNotes(dir.notes).map((n) => ({ key: n.path, note: n, label: noteLabel(n) }));
     return [...dirs.sort(byLabel), ...notes];
   }
-  const rowIcon = (path) => (/\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf
+  const rowIcon = (path) => (/\.board\.svg$/i.test(path) ? ICON.board : /\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf
     : /\.(png|jpe?g|gif|webp|svg|avif|bmp|tiff?|heic)$/i.test(path) ? ICON.picture : ICON.file);
   function makeItem(e, depth) {
     const item = document.createElement("div");
@@ -117,6 +118,8 @@
       const row = el.firstChild.firstChild, label = row.querySelector(".sb-label"); // (not the row's last child: a shared note has its sign there)
       if (label.textContent !== e.label) label.textContent = e.label;
       row.title = e.note ? e.note.path.slice(folder.root.length + 1) : "";
+      el.classList.toggle("is-hidden", !!(e.note || e.dir).hidden); // (put away, and shown all the same: dimmed)
+      row.classList.toggle("picked", sbPicked.has(e.key));
       dressRow(el, e);
       if (e.dir) {
         el.classList.toggle("open", sbOpen.has(e.key));
@@ -453,7 +456,9 @@
     // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it;
     // also: what goes with it — the others selected in All Notes)
     start(e, path, el, also) {
-      moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("application/x-mdview-move", path);
+      moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "copyMove"; e.dataTransfer.setData("application/x-mdview-move", path);
+      // (… and as files, for whatever else takes them: the note — a link to it, a whiteboard as its picture —, a file manager, another application)
+      if (window.__TAURI_INTERNALS__) e.dataTransfer.setData("text/uri-list", (moving.paths || [path]).map((p) => "file://" + p.split("/").map(encodeURIComponent).join("/")).join("\r\n"));
       moving.picture(e, el);
     },
     // what goes with the pointer in a drag, drawn by the page: a copy of el held where the pointer took it
@@ -493,10 +498,17 @@
   sbList.addEventListener("dragstart", (e) => {
     const item = e.target.closest?.(".sb-item");
     if (!item || e.target.closest(".sb-rename")) { e.preventDefault(); return; }
-    moving.start(e, item.dataset.key, item.firstChild.firstChild);
+    // (one of several that are selected: they all go; any other: it alone, and nothing is selected any more)
+    const all = targetsOf(item);
+    if (all.length === 1) pickRows([]);
+    moving.start(e, item.dataset.key, item.firstChild.firstChild, all);
   });
+  /* Files from elsewhere — a file manager, another application — pulled over the list: they are
+   * copied into the folder they are let go on (the shell: import). */
+  const foreign = (e) => !moving.path && !!folder && !folder.quick && !!window.__TAURI_INTERNALS__ && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
   sidebar.addEventListener("dragover", (e) => {
     const [el, dir] = sbDropDir(e);
+    if (foreign(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDropInto(el); return; }
     if (!moving.can(dir)) { setDropInto(null); return; }
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -506,6 +518,12 @@
   sidebar.addEventListener("drop", (e) => {
     const [, dir] = sbDropDir(e), ok = moving.can(dir);
     setDropInto(null);
+    if (foreign(e)) {
+      e.preventDefault();
+      const uris = (e.dataTransfer.getData("text/uri-list") || "").split(/\r?\n/).map((u) => u.trim()).filter((u) => /^file:/.test(u));
+      if (uris.length) post("import", { uris, dir }); else toast(T("Only files can be dropped here"));
+      return;
+    }
     if (!ok) return;
     e.preventDefault();
     moving.end(dir);
@@ -599,10 +617,13 @@
 
   /* What stands beside the notes — PDFs, pictures, sound and film, anything else — is listed as
    * the settings say, and the sidebar and All Notes each have their own say (sidebarPdf …, ovPdf …).
-   * The application hands over what either wants (folder.all); each shows its part of it. */
-  const GROUPS = [["pdf", "Pdf", "PDFs"], ["image", "Images", "Pictures"], ["media", "Media", "Sound and Video"], ["other", "Other", "Other Files"]];
-  const groupOf = (n) => (n.kind === "pdf" ? "pdf" : n.kind === "image" ? "image" : n.kind === "audio" || n.kind === "video" ? "media" : "other");
-  const groupOn = (where, g) => { const v = (window.MdPrefs || {})[where + GROUPS.find((x) => x[0] === g)[1]]; return where === "sidebar" && g === "pdf" ? v !== false : !!v; };
+   * The application hands over everything that lies there (folder.all) — but what is put away:
+   * hidden by hand, named with a dot, kept for a note; that too, marked `hidden`, where the
+   * settings ask for it (showHidden) —, and each shows its part of it. */
+  const GROUPS = [["pdf", "Pdf", "PDFs"], ["image", "Images", "Pictures"], ["media", "Media", "Sound and Video"], ["board", "Boards", "Whiteboards"], ["other", "Other", "Other Files"]];
+  const groupOf = (n) => (n.kind === "pdf" ? "pdf" : n.kind === "board" ? "board" : n.kind === "image" ? "image" : n.kind === "audio" || n.kind === "video" ? "media" : "other");
+  // (everything is listed, as long as a kind is not taken out)
+  const groupOn = (where, g) => (window.MdPrefs || {})[where + GROUPS.find((x) => x[0] === g)[1]] !== false;
   function listed(node, where) {
     const notes = node.notes.filter((n) => !n.pdf || groupOn(where, groupOf(n)));
     // (a folder that holds only what is not listed here is left out; one that holds nothing at all — made just now — stays)
@@ -689,9 +710,45 @@
     const row = e.target.closest(".sb-row");
     if (!row) return;
     const item = row.closest(".sb-item");
+    // Shift+click: one more selected, or one less — nothing opens (as among the tiles of All Notes)
+    if (e.shiftKey) { const now = new Set(sbPicked); if (!now.delete(item.dataset.key)) now.add(item.dataset.key); pickRows(now); return; }
+    if (sbPicked.size) pickRows([]);
     if (item.classList.contains("is-dir")) { if (sbLayout() === "sheets") setHere(item.dataset.key, false); else toggleDir(item); } // (among the sheets a folder is gone into)
     else if (!row.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(item, e.ctrlKey || e.metaKey);
   });
+  /* Several rows at once. What is done to one of them — by the menu, a key, a pull — is done to all. */
+  function pickRows(keys) {
+    sbPicked.clear();
+    for (const k of keys) sbPicked.add(k);
+    for (const row of sbList.querySelectorAll(".sb-row")) row.classList.toggle("picked", sbPicked.has(row.closest(".sb-item").dataset.key));
+  }
+  const targetsOf = (item) => (sbPicked.size > 1 && sbPicked.has(item.dataset.key) ? [...sbPicked] : [item.dataset.key]);
+  const parentOf = (path) => path.replace(/\/[^/]*$/, "");
+  // where Paste puts things, for a row: the folder itself, or the folder a file lies in
+  const dirFor = (item) => (item.classList.contains("is-dir") ? item.dataset.key : parentOf(item.dataset.key));
+  /* What a folder's list does with files, by name — the menu's entries, the keys, All Notes' tiles
+   * (paths: what it is done to; dir: where to). → whether it was one of them */
+  function fileCmd(cmd, paths, dir) {
+    if (cmd === "copyf" || cmd === "cutf") post("copyfiles", { paths, cut: cmd === "cutf" });
+    else if (cmd === "pastef") post("pastefiles", { dir });
+    else if (cmd === "duplicate") post("duplicate", { paths });
+    else if (cmd === "hide" || cmd === "unhide") post("hide", { paths, on: cmd === "hide" });
+    else if (cmd === "addfiles") post("addfiles", { dir });
+    else if (cmd === "copypath") { post("copy", { text: paths.join("\n") }); toast(T("Copied")); }
+    else if (cmd === "trash") { if (paths.length > 1) post("trash", { paths }); else post("trash", { path: paths[0] }); }
+    else return false;
+    return true;
+  }
+  const hiddenIn = (node, path) => { const n = node.notes.find((x) => x.path === path) || node.dirs.find((d) => d.path === path); return n ? !!n.hidden : node.dirs.some((d) => path.startsWith(d.path + "/") && hiddenIn(d, path)); };
+  const isHidden = (path) => !!folder && hiddenIn(folder.all || folder.tree, path);
+  /* Rows that were just made — pasted, added, a copy — are brought into sight: their folders open, the first one scrolled to. */
+  function revealRows(paths) {
+    if (!folder || !paths || !paths.length) return;
+    for (const p of paths) for (let d = parentOf(p); d.length > folder.root.length; d = parentOf(d)) sbOpen.add(d);
+    syncList(true);
+    const first = [...sbList.querySelectorAll(".sb-item")].find((el) => el.dataset.key === paths[0]);
+    if (first) first.firstChild.firstChild.scrollIntoView({ block: "nearest" });
+  }
   // a note asked for in the list; with Ctrl held or the middle button: in a tab of its own
   function openRow(item, tab) {
     const row = item.firstChild.firstChild;
@@ -707,8 +764,14 @@
   });
   sbList.addEventListener("keydown", (e) => {
     const row = e.target.closest(".sb-row");
-    if (!row || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!row || e.altKey || e.target.closest(".sb-rename")) return;
     const item = row.closest(".sb-item"), isDir = item.classList.contains("is-dir");
+    if (e.ctrlKey || e.metaKey) { // Copy, Cut, Paste, Duplicate — on the row the keyboard is on, or on all that are selected
+      const cmd = e.shiftKey || !window.__TAURI_INTERNALS__ ? null : { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
+      if (cmd) { e.preventDefault(); e.stopPropagation(); fileCmd(cmd, targetsOf(item), dirFor(item)); }
+      return;
+    }
+    if (e.key === "Escape" && sbPicked.size) { e.preventDefault(); e.stopPropagation(); pickRows([]); return; }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       // rows inside a closed (or closing) folder are skipped
       const rows = [...sbList.querySelectorAll(".sb-row")].filter((r) => {
@@ -721,7 +784,7 @@
       e.preventDefault();
       if (next) { next.focus({ preventScroll: true }); next.scrollIntoView({ block: "nearest" }); }
     } else if (e.key === "F2") { e.preventDefault(); P.startRename(item); }
-    else if (e.key === "Delete") { e.preventDefault(); post("trash", { path: item.dataset.key }); }
+    else if (e.key === "Delete") { e.preventDefault(); fileCmd("trash", targetsOf(item)); pickRows([]); }
     else if (e.key === "ArrowRight" && isDir && !item.classList.contains("open")) { e.preventDefault(); toggleDir(item); }
     else if (e.key === "ArrowLeft") {
       e.preventDefault();
@@ -765,6 +828,9 @@
     entry("history:off", "x", T("Turn Off History"), "history", "", "", ' data-state="project"') +
     entry("newnote", "note", T("New Note"), "dir new blank ovnew", "Ctrl+N") +
     entry("newfolder", "folderPlus", T("New Folder"), "dir new blank ovnew") +
+    entry("newboard", "board", T("New Whiteboard"), "dir new blank ovnew") +
+    entry("addfiles", "down", T("Add Files…"), "dir new blank ovnew") +
+    entry("pastef", "clip", T("Paste"), "dir blank ovdir", "Ctrl+V") +
     `<div class="menu-rule" data-for="blank"></div>` +
     entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:name", "check", T("Sort by Name"), "blank") +
@@ -774,11 +840,21 @@
     entry("openwith", "apps", T("Open With…"), "file ovnote") +
     entry("reveal", "reveal", T("Show in Finder"), "file dir ovnote ovdir") +
     entry("download", "down", T("Download"), "file ovnote") +
-    `<div class="menu-rule" data-for="file dir ovnote ovdir"></div>` +
+    entry("embed", "board", T("Embed in This Note"), "file ovnote") +
+    entry("boardnote", "note", T("Show the Note It Is In"), "ovnote") +
+    entry("boardfree", "file", T("Keep as a File of Its Own"), "ovnote") +
+    `<div class="menu-rule" data-for="file dir ovnote ovdir ovmany sbmany"></div>` +
+    entry("copyf", "copy", T("Copy"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+C") +
+    entry("cutf", "cut", T("Cut"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+X") +
+    entry("duplicate", "plus", T("Duplicate"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+D") +
+    entry("copypath", "clip", T("Copy Path"), "file dir ovnote ovdir") +
+    `<div class="menu-rule" data-for="file dir ovnote ovdir ovmany sbmany"></div>` +
     entry("share", "share", T("Share…"), "file ovnote") +
     entry("look", "palette", T("Colour and Icon…"), "dir") +
     entry("rename", "rename", T("Rename"), "file dir ovnote ovdir", "F2") +
-    entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany", "Del", " danger") +
+    entry("hide", "eyeOff", T("Hide"), "file dir ovnote ovdir ovmany sbmany") +
+    entry("unhide", "eye", T("Show Again"), "file dir ovnote ovdir") +
+    entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany sbmany", "Del", " danger") +
     // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
     `<div class="menu-rule" data-for="blank file dir ovnote ovdir"></div>` +
     entry("sub:show", "list", T("Show"), "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
@@ -796,8 +872,10 @@
   function openSub(from, keys) {
     if (subOpen()) { if (keys) setSubHl(0); return; }
     subWhere = ctxFor && ctxFor.closest("#overview") ? "ov" : "sidebar";
-    ctxSub.innerHTML = GROUPS.map(([g, , label]) => { const on = groupOn(subWhere, g); return `<button class="menu-item" role="menuitemcheckbox" aria-checked="${on}" data-group="${g}"><span class="menu-icon"${on ? "" : ' style="visibility:hidden"'}>${ICON.check}</span><span class="menu-label">${label}</span></button>`; }).join("");
-    subItems = [...ctxSub.children];
+    const tick = (on, how, label) => `<button class="menu-item" role="menuitemcheckbox" aria-checked="${on}" ${how}><span class="menu-icon"${on ? "" : ' style="visibility:hidden"'}>${ICON.check}</span><span class="menu-label">${esc(T(label))}</span></button>`;
+    // (each kind that is listed — and, for both lists at once, what is put away: hidden by hand, named with a dot, kept for a note)
+    ctxSub.innerHTML = GROUPS.map(([g, , label]) => tick(groupOn(subWhere, g), `data-group="${g}"`, label)).join("") + `<div class="menu-rule"></div>` + tick(!!(window.MdPrefs || {}).showHidden, `data-pref="showHidden"`, "Hidden Items");
+    subItems = [...ctxSub.querySelectorAll(".menu-item")];
     const r = from.getBoundingClientRect(), w = ctxSub.offsetWidth, right = r.right + 2 + w <= innerWidth - 8;
     ctxSub.style.setProperty("--origin", right ? "top left" : "top right");
     ctxSub.style.left = (right ? r.right + 2 : Math.max(8, r.left - 2 - w)) + "px";
@@ -817,7 +895,7 @@
   function runSub(i) {
     const el = subItems[i];
     if (!el) return;
-    const flash = motionMs("--flash-duration", 70), key = subWhere + GROUPS.find((x) => x[0] === el.dataset.group)[1], on = !groupOn(subWhere, el.dataset.group);
+    const flash = motionMs("--flash-duration", 70), key = el.dataset.pref || subWhere + GROUPS.find((x) => x[0] === el.dataset.group)[1], on = el.dataset.pref ? !(window.MdPrefs || {})[key] : !groupOn(subWhere, el.dataset.group);
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
     setTimeout(() => {
@@ -845,6 +923,21 @@
   let ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
+  /* What of the menu is not for this row or tile: Hide for what is hidden and the other way round, a
+   * whiteboard's entries for anything else — and for a whiteboard a note keeps (All Notes shows those
+   * too) nothing that would take it from its note. */
+  const FILE_CMDS = ["newboard", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote", "boardfree"];
+  function ctxLacks(cmd, item, kind) {
+    if (!FILE_CMDS.includes(cmd) && !(item.dataset && item.dataset.kept != null)) return false;
+    if (FILE_CMDS.includes(cmd) && (!window.__TAURI_INTERNALS__ || (folder && folder.quick))) return true; // (what only the application on a folder of this computer does)
+    const path = item.dataset ? item.dataset.path || item.dataset.key || "" : "", board = /\.board\.svg$/i.test(path), kept = !!item.dataset && item.dataset.kept != null;
+    if (kept) return !["open", "reveal", "embed", "boardnote", "boardfree", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
+    if (cmd === "boardfree") return true;
+    if (cmd === "boardnote") return !(board && item.dataset.note);
+    if (cmd === "embed") return !board || !P.current || P.current.kind === "pdf" || !!P.current.readonly;
+    if (cmd === "hide" || cmd === "unhide") return kind !== "ovmany" && kind !== "sbmany" && (cmd === "unhide") !== isHidden(path);
+    return false;
+  }
   function openCtx(item, x, y, kind = "file", dir = null) {
     if (ctxFor) ctxFor.classList.remove("ctx-target");
     ctxFor = item; ctxDir = dir;
@@ -852,7 +945,8 @@
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState())
       || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed) // (a host whose folders always have their history: nothing to switch off)
       || HOST_LACKS.has(el.dataset.cmd) // (what a host has no way to do — a browser shows nothing in a Finder — is not offered)
-      || (el.dataset.cmd === "download" && !(window.MdHost && window.MdHost.download)); // (… and a file is handed out only where it is not one in a folder already)
+      || (el.dataset.cmd === "download" && !(window.MdHost && window.MdHost.download)) // (… and a file is handed out only where it is not one in a folder already)
+      || ctxLacks(el.dataset.cmd, item, kind);
     // (a rule with nothing above it, nothing below it, or another rule above it divides nothing)
     let above = false, rule = null;
     for (const el of ctx.children) {
@@ -907,8 +1001,14 @@
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
-      if (kind === "ovmany") { MdOverview.many(cmd); return; } // (what is selected in All Notes, all of it)
-      if (cmd === "newnote" || cmd === "newfolder") P.openNewNote(cmd === "newfolder" ? "folder" : "note", kind === "dir" ? item.dataset.key : kind === "blank" || kind === "ovnew" ? dir : null);
+      if (kind === "ovmany") { if (!fileCmd(cmd, MdOverview.picked)) MdOverview.many(cmd); else if (cmd !== "copyf") MdOverview.pick([]); return; } // (what is selected in All Notes, all of it)
+      if (kind === "sbmany") { fileCmd(cmd, [...sbPicked]); if (cmd !== "copyf") pickRows([]); return; } // (… and in the sidebar)
+      const into = kind === "dir" || kind === "ovdir" ? path : kind === "blank" || kind === "ovnew" ? dir : null;
+      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard") P.openNewNote(cmd === "newfolder" ? "folder" : cmd === "newboard" ? "board" : "note", kind === "ovdir" ? null : into);
+      else if (cmd === "embed") P.embedBoard(path);
+      else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
+      else if (cmd === "boardfree") post("board-free", { path });
+      else if (fileCmd(cmd, [path], into || (path ? parentOf(path) : folder.root))) { /* done */ }
       else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
       else if (cmd === "history:show") openHistory();
       else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast(T("Only notes can be shared")); }
@@ -928,7 +1028,10 @@
   sidebar.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     const item = e.target.closest(".sb-row")?.closest(".sb-item");
-    if (item) openCtx(item, e.clientX, e.clientY, item.classList.contains("is-dir") ? "dir" : "file");
+    // (one of several that are selected: the menu is for all of them; any other: for it, and nothing is selected any more)
+    const several = item && sbPicked.size > 1 && sbPicked.has(item.dataset.key);
+    if (item && !several && sbPicked.size) pickRows([]);
+    if (item) openCtx(item, e.clientX, e.clientY, several ? "sbmany" : item.classList.contains("is-dir") ? "dir" : "file");
     else if (folder && !e.target.closest(".sb-head, .sb-field")) openCtx(sidebar, e.clientX, e.clientY, "blank", folder.root); // the empty room: new, in the folder itself
   });
   ctx.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -936,7 +1039,7 @@
   // what the page's other files use of this one
   Object.assign(P, { sidebar, sbHead, sbList, sbTitlesBtn, sbHistoryBtn, sidebarOpen, sortKey, sortNotes,
     resort, rowIcon, syncList, sbLayout, lookOf, colorVar, folderGlyph, sbPreviews, setFolder, moving,
-    markShared, quickWhen, quickPreviews, quickFresh, GROUPS, groupOn, listed, applyFolder, markActiveNote,
+    markShared, quickWhen, quickPreviews, quickFresh, GROUPS, groupOn, listed, applyFolder, markActiveNote, revealRows, fileCmd,
     ctx, ctxSub, subOpen, openSub, closeSub, ctxOpen, setCtxHl, openCtx, closeCtx, runCtx });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

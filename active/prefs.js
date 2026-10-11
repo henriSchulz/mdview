@@ -9,10 +9,10 @@
     images: "assets", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-    sidebarPdf: true, sidebarImages: false, sidebarMedia: false, sidebarOther: false, sidebarSort: "opened", sidebarLayout: "source",
+    sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "opened", sidebarLayout: "source",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", ovPdf: false, ovImages: false, ovMedia: false, ovOther: false, pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
+    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -44,14 +44,15 @@
         ["sidebarLayout", "select", [["source", "prefs.layout.source"], ["rail", "prefs.layout.rail"], ["sheets", "prefs.layout.sheets"], ["tiles", "prefs.layout.tiles"]]],
         ["sidebarSort", "select", [["opened", "prefs.sort.opened"], ["name", "prefs.sort.name"], ["modified", "prefs.sort.modified"]]],
       ]],
-      ["prefs.sidebar", [["sidebarPdf", "switch"], ["sidebarImages", "switch"], ["sidebarMedia", "switch"], ["sidebarOther", "switch"]]],
+      ["prefs.sidebar", [["sidebarPdf", "switch"], ["sidebarImages", "switch"], ["sidebarMedia", "switch"], ["sidebarBoards", "switch"], ["sidebarOther", "switch"]]],
+      [null, [["showHidden", "switch"]]],
     ]],
     ["allNotes", "apps", [
       [null, [
-        ["ovScope", "select", [["all", "prefs.ovScope.all"], ["folders", "prefs.ovScope.folders"]]],
+        ["ovScope", "select", [["all", "prefs.ovScope.all"], ["folders", "prefs.ovScope.folders"], ...(window.__TAURI_INTERNALS__ ? [["boards", "prefs.ovScope.boards"]] : [])]],
         ["ovLayout", "select", [["tiles", "prefs.ovLayout.tiles"], ["list", "prefs.ovLayout.list"]]],
       ]],
-      ["prefs.overview", [["ovPdf", "switch"], ["ovImages", "switch"], ["ovMedia", "switch"], ["ovOther", "switch"]]],
+      ["prefs.overview", [["ovPdf", "switch"], ["ovImages", "switch"], ["ovMedia", "switch"], ["ovBoards", "switch"], ["ovOther", "switch"]]],
     ]],
     ["history", "history", [
       // the folder this window shows: where it stands, and what its repository holds (told by the application)

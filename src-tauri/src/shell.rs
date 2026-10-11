@@ -115,8 +115,10 @@ fn default_prefs() -> Map<String, Value> {
         // the PDF viewer: what a link to a selection is copied as ("callout" | "quote" | "link" |
         // "embed"), and whether selecting text copies at once
         "pdfFormat": "callout", "pdfAuto": false,
-        // what the folder sidebar lists beside the notes: PDFs, pictures, sound and film, everything else
-        "sidebarPdf": true, "sidebarImages": false, "sidebarMedia": false, "sidebarOther": false,
+        // what the folder sidebar lists beside the notes: everything, as long as a kind is not taken out —
+        // PDFs, pictures, sound and film, whiteboards, everything else
+        "sidebarPdf": true, "sidebarImages": true, "sidebarMedia": true, "sidebarBoards": true, "sidebarOther": true,
+        "showHidden": false,      // … and what is put away: hidden by hand, named with a dot, built, kept for a note (shown dimmed)
         "sidebarLayout": "source", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
         "sidebarSort": "opened",  // the notes of a folder, in the sidebar and the tiles: "opened" (last opened first) | "name" | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
@@ -126,7 +128,8 @@ fn default_prefs() -> Map<String, Value> {
         "panel": false, "panelTab": "insert",   // the panel at the window's right (insert, format): open, and its tab
         "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
         // what All Notes lists beside the notes — its own choice, apart from the sidebar's
-        "ovPdf": false, "ovImages": false, "ovMedia": false, "ovOther": false,
+        "ovPdf": true, "ovImages": true, "ovMedia": true, "ovBoards": true, "ovOther": true,
+        "ovBoardsShow": "all",      // the whiteboards shown there: "all" | "embedded" (a note shows them) | "loose" (none does)
         "calloutStyle": "box",    // how callouts and Focus look: "box" (a tinted box, a bar) | "tip" (a large sign beside the text) | "label" (a line, the title on its edge)
         "measure": "normal",      // the text column's width: "narrow" | "normal" | "wide" | "full"
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
@@ -303,7 +306,7 @@ fn readonly_reason(path: &Path, raw: Option<&[u8]>) -> Option<&'static str> {
 /// What a whiteboard's file holds (board/format.js), and how it is named.
 const BOARD_MARK: &str = "<metadata id=\"mdview-board\">";
 fn is_board(path: &Path) -> bool {
-    name_of(path).to_lowercase().ends_with(".board.svg")
+    scan::is_board(path)
 }
 
 /// A new file in folder, named by name(1), name(2), … — the first that is free.
@@ -428,6 +431,7 @@ pub struct Win {
     watcher: Option<notify::RecommendedWatcher>,
     watched: HashSet<PathBuf>,   // every directory the watcher looks at
     dir_watch: HashSet<PathBuf>, // … for the folder's tree
+    board_paths: HashSet<String>, // the folder's whiteboards as last listed for All Notes — those a note keeps too, which the folder's list leaves out
     board_dirs: HashSet<PathBuf>, // … where the whiteboards the note shows are kept (their pictures are made anew when they change)
     ai_files: HashSet<PathBuf>, // files chosen in the system's window for Claude to read (the chat's context): only those are handed to it
     ai_token: String,           // … and what the answer of that window carries, so that nothing else can name files
@@ -486,11 +490,20 @@ pub struct App {
     share_dirty: HashSet<PathBuf>, // projects whose list of shares changed here: the web app is told once that has arrived at GitHub
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
+    file_clip: (Vec<PathBuf>, bool), // files and folders copied in a folder's list, for Paste there (true: cut — they are moved)
 }
 
 pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
-    let state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
+    let mut state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
+    // Since a folder's list shows everything that is not taken out, what was chosen while it showed
+    // only what was put in ("no pictures": said by nobody, kept as a choice) is let go, once.
+    if state.insert("lists_all".into(), json!(true)).is_none() {
+        if let Some(kept) = state.get_mut("active").and_then(Value::as_object_mut) {
+            kept.retain(|k, _| !matches!(k.as_str(), "sidebarPdf" | "sidebarImages" | "sidebarMedia" | "sidebarOther" | "ovPdf" | "ovImages" | "ovMedia" | "ovOther"));
+        }
+    }
     let mut app = App {
+        file_clip: (vec![], false),
         illustrator: Illustrator::new(tx.clone()),
         talker: Talker::new(tx.clone()),
         historian: Historian::new(tx.clone()),
@@ -559,6 +572,7 @@ impl Win {
             watcher,
             watched: HashSet::new(),
             dir_watch: HashSet::new(),
+            board_paths: HashSet::new(),
             board_dirs: HashSet::new(),
             ai_files: HashSet::new(),
             ai_token: nonce(),
@@ -1173,7 +1187,7 @@ impl Win {
     fn file_op(&self, op: &str, path: &str) {
         let p = Path::new(path);
         let inside = !path.is_empty() && self.folder.as_ref().is_some_and(|f| p.is_dir() && resolve(p).starts_with(f));
-        if path.is_empty() || !(self.note_paths.contains(path) || (op == "reveal" && inside)) {
+        if path.is_empty() || !(self.knows(path) || (op == "reveal" && inside)) {
             return;
         }
         match op {
