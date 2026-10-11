@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – Callouts und Focus, sechs Ansätze</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Die Farben des Themes „cupertino“ und die Namen aus viewer.css, damit die Skizzen so aussehen wie die App.
+   * Dunkel: dieselben Namen mit den hellen Systemfarben. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-red: #d70015; --c-orange: #c93400; --c-yellow: #a05a00; --c-green: #248a3d;
+    --c-cyan: #0071a4; --c-blue: #0071e3; --c-magenta: #8944ab;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --raised: color-mix(in srgb, #fff 70%, var(--bg));
+    --paper: #fff;
+    --card-shadow: 0 0 0 0.5px color-mix(in srgb, var(--fg) 12%, transparent), 0 1px 2px rgb(0 0 0 / 0.05), 0 6px 18px rgb(0 0 0 / 0.06);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05);
+    --on-color: #fff;
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --measure: 46rem;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c1e; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-red: #ff453a; --c-orange: #ff9f0a; --c-yellow: #ffd60a; --c-green: #30d158;
+    --c-cyan: #64d2ff; --c-blue: #0a84ff; --c-magenta: #bf5af2;
+    --raised: color-mix(in srgb, var(--fg) 7%, var(--bg));
+    --paper: #2c2c2e;
+    --card-shadow: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent), 0 8px 22px rgb(0 0 0 / 0.35);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent);
+    --on-color: #1c1c1e;
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; }  /* beim Laden gleitet nichts an seinen Platz */
+  html { background: var(--bg); }
+  body { margin: 0; padding: 0 24px 120px; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--ui); -webkit-font-smoothing: antialiased; transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- die Leiste des Labors */
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width: 62rem; margin: 0 auto; padding: 14px 0 10px; }
+  .bar::before { content: ""; position: absolute; inset: 0 -24px; z-index: -1; background: color-mix(in srgb, var(--bg) 78%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-bottom: 0.5px solid var(--line); }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); flex: 1 1 520px; height: 32px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .seg-thumb { position: absolute; top: 2px; left: 2px; width: calc((100% - 4px) / 6); height: 28px; border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+  .seg button { position: relative; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font: 500 13px var(--ui); cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-fast) var(--ease-out); }
+  .seg button[aria-pressed="true"] { color: var(--fg); }
+  .seg button kbd, .mode kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  .seg button:focus-visible, .mode:focus-visible, .cof:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 2px; }
+  .mode { height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy), box-shadow var(--dur-fast) var(--ease-out); }
+  .mode:hover { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+  .mode:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .mode[aria-pressed="true"] { background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); }
+  .idea { max-width: 62rem; margin: 14px auto 0; padding: 12px 16px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 13.5px; line-height: 1.5; color: var(--fg2); }
+  .idea b { color: var(--fg); font-weight: 600; }
+
+  /* ---- die Notiz */
+  .note { max-width: var(--measure); margin: 36px auto 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .note.out { opacity: 0; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+  .note h1 { margin: 0 0 0.5em; font-size: 2em; line-height: 1.25; font-weight: 700; letter-spacing: -0.022em; }
+  .note h2 { margin: 1.8em 0 0.6em; font-size: 1.4em; line-height: 1.3; font-weight: 650; letter-spacing: -0.015em; }
+  .note p, .note ul { margin: 0 0 1em; }
+  .note ul { padding-left: 1.6em; }
+  .note li { margin: 0.25em 0; }
+  .note a { color: color-mix(in srgb, var(--accent) 85%, var(--fg)); text-decoration: none; }
+  .note code { padding: 0.1em 0.35em; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 6%, transparent); font-size: 0.88em; }
+
+  /* was alle Ansätze teilen: der Aufbau, das Auf- und Zuklappen */
+  .co, .deco { --ct: color-mix(in srgb, var(--cc) 85%, var(--fg)); position: relative; margin: 0 0 1em; }
+  .deco { --cc: var(--accent); }
+  .co p:last-child, .deco p:last-child { margin-bottom: 0; }
+  .coh { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .ci { display: inline-flex; flex: none; }
+  .ci svg { width: 17px; height: 17px; }
+  .cof { display: inline-flex; margin-left: auto; padding: 2px; border: 0; border-radius: var(--radius-chip); background: none; color: inherit; cursor: default; }
+  .cof svg { width: 15px; height: 15px; transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .co.open .cof svg { transform: rotate(90deg); }
+  .cow { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+  .cow > .cob { min-height: 0; overflow: hidden; }
+  .co.fold:not(.open) .cow { grid-template-rows: 0fr; opacity: 0; }
+  blockquote.plain { margin: 0 0 1em; padding: 0.1em 0 0.1em 1em; border-left: 3px solid var(--line-strong); color: var(--fg2); }
+
+  /* ---- 0 · Heute (main) */
+  .v0 .co { padding: 12px 16px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cc) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 14%, transparent); }
+  .v0 .coh { color: var(--ct); }
+  .v0 .cob { padding-top: 6px; }
+  .v0 .deco.focus { padding: 0.1em 0 0.1em 1em; border-left: 3px solid var(--cc); }
+  .v0 .deco.block { padding: 10px 14px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cb, var(--fg2)) 10%, transparent); }
+  .deco.block[style] { --cb: var(--cc); }
+
+  /* ---- 1 · Karte: eine erhöhte Fläche wie eine Zeile in den Systemeinstellungen, das Zeichen in einer farbigen Kachel */
+  .v1 .co { padding: 12px 16px 13px 14px; border-radius: var(--radius-panel); background: var(--paper); box-shadow: var(--card-shadow); }
+  .v1 .coh { gap: 10px; }
+  .v1 .ci { width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 7px; background: var(--cc); color: var(--on-color); }
+  .v1 .ci svg { width: 15px; height: 15px; stroke-width: 2.1; }
+  .v1 .cof { color: var(--fg3); }
+  .v1 .cob { padding: 6px 0 0 36px; color: var(--fg2); }
+  .v1 .deco { padding: 11px 16px; border-radius: var(--radius-panel); background: var(--paper); box-shadow: var(--card-shadow); }
+  .v1 .deco.focus { padding-left: 26px; }
+  .v1 .deco.focus::before { content: ""; position: absolute; left: 11px; top: 11px; bottom: 11px; width: 4px; border-radius: var(--radius-pill); background: var(--cc); }
+  .v1 .deco.block[style] { background: color-mix(in srgb, var(--cc) 9%, var(--paper)); }
+
+  /* ---- 2 · Randnotiz: keine Fläche. Art und Titel stehen im Rand neben dem Text, wie eine Marginalie */
+  .v2 .co { padding: 2px 0; }
+  .v2 .coh { position: absolute; right: calc(100% + 18px); top: 3px; width: 9.5rem; flex-direction: row-reverse; text-align: right; color: var(--ct); font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.4; }
+  .v2 .coh .ct { flex: 1; }
+  .v2 .cof { margin-left: 0; }
+  .v2 .co::before { content: ""; position: absolute; left: -10px; top: 6px; bottom: 6px; width: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--cc) 45%, transparent); }
+  .v2 .co.fold:not(.open) .cow { grid-template-rows: 1fr; opacity: 0.5; }
+  .v2 .co.fold:not(.open) .cob { max-height: 1.6em; -webkit-mask: linear-gradient(90deg, #000 40%, transparent 85%); mask: linear-gradient(90deg, #000 40%, transparent 85%); }
+  .v2 .deco.focus { font-weight: 500; }
+  .v2 .deco.focus::before { content: ""; position: absolute; left: -19px; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--cc); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cc) 16%, transparent); }
+  .v2 .deco.block { padding: 10px 14px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cb, var(--fg2)) 9%, transparent); }
+  .v2 .deco.block.focus::before { left: -19px; top: calc(10px + 0.62em); }
+  @media (max-width: 1080px) {
+    .v2 .coh { position: static; width: auto; flex-direction: row; text-align: left; margin-bottom: 2px; }
+    .v2 .co, .v2 .deco.focus:not(.block) { padding-left: 14px; }
+    .v2 .co::before { left: 0; }
+    .v2 .deco.focus::before, .v2 .deco.block.focus::before { left: -3px; }
+  }
+
+  /* ---- 3 · Banner: ein Kopfband in voller Farbe mit weißer Schrift, darunter ruhiger Grund. Focus als Textmarker */
+  .v3 .co { border-radius: var(--radius-popover); background: var(--paper); box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--cc) 40%, var(--line-strong)); overflow: hidden; }
+  .v3 .coh { padding: 6px 12px; background: var(--cc); color: var(--on-color); font-size: 0.86em; letter-spacing: 0.01em; }
+  .v3 .ci svg { width: 15px; height: 15px; stroke-width: 2.1; }
+  .v3 .cob { padding: 0 14px; }
+  .v3 .cob::before, .v3 .cob::after { content: ""; display: block; height: 10px; }  /* (kein Polster am Kasten selbst: zugeklappt bleibt nichts stehen) */
+  .v3 .deco.focus p { display: inline; padding: 0.12em 0.3em; border-radius: 4px; background: color-mix(in srgb, var(--cc) 20%, transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .v3 .deco.block { padding: 10px 14px; border-radius: var(--radius-popover); background: var(--paper); box-shadow: 0 0 0 0.5px var(--line-strong); }
+  .v3 .deco.block[style] { box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--cc) 40%, var(--line-strong)); }
+
+  /* ---- 4 · Leuchtkante: ein Balken, dessen Farbe in die Zeile ausläuft; kein Rahmen, der Titel als fetter Anfang im Text */
+  .v4 .co { padding: 8px 0 9px 16px; border-left: 0.22em solid var(--cc); border-radius: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--cc) 12%, transparent), transparent 82%); }
+  .v4 .coh { color: var(--ct); font-size: 0.95em; font-weight: 650; }
+  .v4 .cob { padding-top: 2px; }
+  .v4 .deco.focus { padding: 0.1em 0 0.1em 0.85em; border-left: 0.22em solid var(--cc); border-radius: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--cc) 7%, transparent), transparent 70%); }
+  .v4 .deco.block { padding: 10px 14px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cb, var(--fg2)) 10%, transparent); }
+  .v4 .deco.block.focus { border-radius: 2px var(--radius-control) var(--radius-control) 2px; background: color-mix(in srgb, var(--cc) 10%, transparent); }
+
+  /* ---- 5 · Etikett: eine feine Linie in der Farbe, der Titel als Kapsel auf der oberen Kante */
+  .v5 .co { margin-top: 1.5em; padding: 16px 16px 12px; border-radius: var(--radius-panel); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); }
+  .v5 .coh { position: absolute; left: 12px; top: -12px; height: 24px; padding: 0 10px 0 8px; gap: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--cc) 14%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); color: var(--ct); font-size: 12.5px; }
+  .v5 .ci svg { width: 14px; height: 14px; stroke-width: 2; }
+  .v5 .cof { margin-left: 2px; }
+  .v5 .co.fold:not(.open) { padding-block: 12px 0; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cc) 38%, transparent); border-radius: 0; }
+  .v5 .co { transition: padding var(--spring-smooth-dur) var(--spring-smooth), box-shadow var(--dur-fast) var(--ease-out); }
+  .v5 .deco.focus { padding: 6px 16px; }
+  .v5 .deco.focus::before, .v5 .deco.focus::after { content: ""; position: absolute; top: 0; bottom: 0; width: 9px; border: 2px solid var(--cc); }
+  .v5 .deco.focus::before { left: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+  .v5 .deco.focus::after { right: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+  .v5 .deco.block { padding: 10px 16px; border-radius: var(--radius-control); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .v5 .deco.block[style] { background: color-mix(in srgb, var(--cc) 7%, transparent); box-shadow: none; }
+
+  /* ---- 6 · Redaktionell: nur Schrift und Linie. Eine farbige Linie oben, der Titel in kleinen Versalien; Focus als herausgehobenes Zitat */
+  .v6 .co { padding: 10px 0 2px; border-top: 2px solid var(--cc); }
+  .v6 .coh { color: var(--ct); font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .v6 .ci svg { width: 14px; height: 14px; stroke-width: 2.1; }
+  .v6 .cob { padding-top: 4px; }
+  .v6 .deco.focus { margin-block: 1.5em; padding: 0 1.5em; text-align: center; font-size: 1.22em; line-height: 1.42; font-weight: 600; letter-spacing: -0.012em; text-wrap: balance; }
+  .v6 .deco.focus::before, .v6 .deco.focus::after { content: ""; display: block; width: 36px; height: 3px; margin: 0 auto 0.6em; border-radius: var(--radius-pill); background: var(--cc); }
+  .v6 .deco.focus::after { margin: 0.6em auto 0; }
+  .v6 .deco.block { padding: 12px 0; border-block: 1px solid var(--line-strong); }
+  .v6 .deco.block[style] { border-color: color-mix(in srgb, var(--cc) 55%, transparent); }
+  .v6 .deco.block.focus { padding: 14px 1.5em; border: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cc) 8%, transparent); }
+
+  @media (prefers-reduced-motion: reduce) { .cow, .cof svg, .seg-thumb, .v5 .co { transition-duration: 0s; } }
+</style>
+
+<div class="bar">
+  <div class="seg" role="group" aria-label="Ansatz"><span class="seg-thumb"></span></div>
+  <button class="mode" id="today" aria-pressed="false"><kbd>0</kbd>Heute</button>
+  <button class="mode" id="mode"><kbd>D</kbd><span>Dunkel</span></button>
+</div>
+<p class="idea" id="idea"></p>
+
+<main class="note" id="note">
+  <h1>Elektrotechnik 2 – Schwingkreise</h1>
+  <p>Zusammenfassung der Vorlesung vom 6. Oktober. Ein Schwingkreis aus Spule und Kondensator tauscht Energie zwischen Magnetfeld und elektrischem Feld aus; die Verluste im Widerstand bestimmen, wie schnell die Schwingung abklingt.</p>
+
+  <div class="co" style="--cc: var(--c-blue)"><div class="coh"><span class="ci" data-i="info"></span><span class="ct">Info</span></div><div class="cow"><div class="cob"><p>Die Resonanzfrequenz hängt nur von <strong>L</strong> und <strong>C</strong> ab, nicht vom Widerstand: <code>f₀ = 1 / (2π·√(LC))</code>. Herleitung im <a href="#">Skript, Kapitel 4</a>.</p></div></div></div>
+
+  <p>Im Resonanzfall heben sich die Blindwiderstände auf, der Kreis verhält sich rein ohmsch.</p>
+
+  <blockquote class="deco focus"><p>Resonanz heißt: Die Energie pendelt, die Quelle deckt nur noch die Verluste.</p></blockquote>
+
+  <h2>Güte und Bandbreite</h2>
+  <div class="co" style="--cc: var(--c-cyan)"><div class="coh"><span class="ci" data-i="tip"></span><span class="ct">Merkhilfe für die Klausur</span></div><div class="cow"><div class="cob"><p>Hohe Güte bedeutet schmale Bandbreite und lange Nachschwingzeit. Wer eins davon kennt, kennt die anderen beiden: <code>B = f₀ / Q</code>.</p><ul><li>Reihenschwingkreis: <code>Q = (1/R)·√(L/C)</code></li><li>Parallelschwingkreis: der Kehrwert</li></ul></div></div></div>
+
+  <div class="co fold" style="--cc: var(--c-orange)"><div class="coh"><span class="ci" data-i="warning"></span><span class="ct">Häufiger Fehler</span><button class="cof" aria-label="Auf- und zuklappen"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div><div class="cow"><div class="cob"><p>Kreisfrequenz ω und Frequenz f verwechselt: In den Formeln der Aufgabensammlung steht fast immer ω, das Messgerät zeigt f.</p></div></div></div>
+
+  <div class="co" style="--cc: var(--c-red)"><div class="coh"><span class="ci" data-i="danger"></span><span class="ct">Gefahr</span></div><div class="cow"><div class="cob"><p>Im Reihenschwingkreis liegt an Spule und Kondensator die Q-fache Quellenspannung. Bei Q = 50 werden aus 10 V schnell 500 V.</p></div></div></div>
+
+  <blockquote class="deco focus" style="--cc: var(--c-red)"><p>Vor dem Laborversuch: Kondensator über den Widerstand entladen, nie kurzschließen.</p></blockquote>
+
+  <h2>Für das Labor</h2>
+  <blockquote class="deco block"><p>Messaufbau: Funktionsgenerator, 100 Ω, 10 mH, 100 nF. Erwartete Resonanz bei rund 5 kHz.</p></blockquote>
+  <blockquote class="deco block focus" style="--cc: var(--c-green)"><p>Ergebnis vom 6. Oktober: 5,03 kHz gemessen, Güte 3,1 – passt zur Rechnung.</p></blockquote>
+  <blockquote class="plain"><p>„Ein Schwingkreis ist ein Pendel für Ladung.“ – aus der Vorlesung</p></blockquote>
+  <p>Nächste Woche: erzwungene Schwingungen und der Phasengang.</p>
+</main>
+
+<script>
+  const IDEAS = [
+    ["Heute", "<b>Heute.</b> So sieht es in der App auf <code>main</code> aus: getönter Kasten mit farbigem Titel, Focus als dünner Balken."],
+    ["Karte", "<b>Karte.</b> Der Hinweis ist eine erhöhte weiße Fläche wie eine Zeile in den Systemeinstellungen; die Farbe steckt nur in der Kachel des Zeichens. Focus ist dieselbe Karte mit einem kurzen farbigen Stab."],
+    ["Randnotiz", "<b>Randnotiz.</b> Keine Fläche: Art und Titel stehen als Marginalie links neben dem Text, der im Lesefluss bleibt. Focus ist ein Punkt im Rand und etwas kräftigere Schrift."],
+    ["Banner", "<b>Banner.</b> Ein Kopfband in voller Farbe mit heller Schrift, darunter ruhiger Grund – die Art ist auf einen Blick zu sehen. Focus ist ein Textmarker über den Zeilen."],
+    ["Leuchtkante", "<b>Leuchtkante.</b> Ein Balken, dessen Farbe in die Zeile ausläuft; kein Rahmen, keine geschlossene Fläche. Callout und Focus sind dieselbe Geste, der Callout hat zusätzlich seinen Titel."],
+    ["Etikett", "<b>Etikett.</b> Eine feine Linie in der Farbe, der Titel sitzt als Kapsel auf der oberen Kante. Focus sind zwei farbige Klammern um den Satz."],
+    ["Redaktionell", "<b>Redaktionell.</b> Nur Schrift und Linie wie in einem Magazin: farbige Linie oben, Titel in kleinen Versalien. Focus ist ein herausgehobenes, zentriertes Zitat."],
+  ];
+  const ICONS = {
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/>',
+    tip: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2.2h5c.1-1 .5-1.700 1.100-2.200A6 6 0 0 0 12 3Z"/>',
+    warning: '<path d="M12 4 2.800 19.500h18.400L12 4ZM12 10v4.500M12 17h.01"/>',
+    danger: '<path d="M13 3 5 13.500h6L10 21l8-10.500h-6L13 3Z"/>',
+  };
+  document.querySelectorAll(".ci").forEach((el) => { el.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[el.dataset.i]}</svg>`; });
+
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  const root = document.documentElement, note = document.getElementById("note"), seg = document.querySelector(".seg"), thumb = seg.querySelector(".seg-thumb");
+  const today = document.getElementById("today"), mode = document.getElementById("mode"), idea = document.getElementById("idea");
+  for (let i = 1; i <= 6; i++) {
+    const b = seg.appendChild(document.createElement("button"));
+    b.innerHTML = `<kbd>${i}</kbd>${IDEAS[i][0]}`; b.dataset.v = i; b.addEventListener("click", () => show(i));
+  }
+  let current = -1, swap = 0;
+  function apply(v) {
+    note.className = "note v" + v; idea.innerHTML = IDEAS[v][1];
+    seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.v === v)));
+    today.setAttribute("aria-pressed", String(v === 0));
+    thumb.style.opacity = v ? 1 : 0; if (v) thumb.style.transform = `translateX(${(v - 1) * 100}%)`;
+  }
+  function show(v, now) {
+    if (v === current) return; current = v; store.set("callout-lab", v); clearTimeout(swap);
+    if (now) return apply(v);
+    note.classList.add("out"); swap = setTimeout(() => apply(v), 110); // (der alte Stand blendet aus, der neue ein)
+  }
+  function setMode(dark) { root.dataset.mode = dark ? "dark" : "light"; mode.querySelector("span").textContent = dark ? "Hell" : "Dunkel"; store.set("callout-lab-mode", dark ? "dark" : "light"); }
+  today.addEventListener("click", () => show(0));
+  mode.addEventListener("click", () => setMode(root.dataset.mode !== "dark"));
+  document.querySelectorAll(".co.fold").forEach((co) => co.querySelector(".coh").addEventListener("click", () => co.classList.toggle("open")));
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^[0-6]$/.test(e.key)) show(+e.key);
+    else if (e.key === "d" || e.key === "D") setMode(root.dataset.mode !== "dark");
+    else if (e.key === "ArrowRight") show(Math.min(6, current + 1));
+    else if (e.key === "ArrowLeft") show(Math.max(0, current - 1));
+  });
+  const asked = new URLSearchParams(location.search); // (?v=3&mode=dark: ein Ansatz direkt, für Bilder)
+  setMode((asked.get("mode") ?? store.get("callout-lab-mode")) === "dark");
+  show(Math.min(6, Math.max(0, +(asked.get("v") ?? store.get("callout-lab") ?? 1) || 0)), true);
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("boot")));
+</script>

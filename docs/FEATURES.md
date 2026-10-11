@@ -981,7 +981,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, width of the text column, sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
 | All Notes | all notes or one folder at a time, tiles or a list |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

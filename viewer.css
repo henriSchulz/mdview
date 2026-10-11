@@ -439,6 +439,32 @@ details[open] > summary .callout-fold { transform: rotate(90deg); }
 .callout-content { margin-top: 6px; }
 .callout-content > :last-child { margin-bottom: 0; }
 .callout-content > :first-child { margin-top: 0; }
+
+/* Callouts and Focus in another look (the settings' calloutStyle, on the root). The box above is the one without a name.
+ * "tip": a hint as an app gives one — the sign large beside the text, the ground a breath of the kind's colour;
+ *        Focus a tinted line in the colour's own text. */
+:root[data-callout="tip"] .callout { position: relative; padding: 13px 16px 14px 54px; border-radius: var(--radius-panel); box-shadow: none; }
+:root[data-callout="tip"] .callout-icon { position: absolute; left: 16px; top: 13px; color: var(--cc); }
+:root[data-callout="tip"] .callout-icon svg { width: 26px; height: 26px; stroke-width: 1.6; }
+:root[data-callout="tip"] .callout-icon .sf { font-size: 22px; line-height: 26px; }
+:root[data-callout="tip"] .callout-content { margin-top: 2px; }
+:root[data-callout="tip"] blockquote.deco-focus { padding: 11px 16px; border-left: 0; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--cc) 11%, transparent); color: color-mix(in srgb, var(--cc) 85%, var(--fg)); font-weight: 500; }
+/* "label": a fine line in the colour, the title a capsule on its upper edge (the page's ground under it hides the line);
+ *          folded, the line alone. Focus stands in two brackets. */
+:root[data-callout="label"] .callout { position: relative; margin-top: 1.5em; padding: 16px 16px 12px; border-radius: var(--radius-panel); background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); }
+:root[data-callout="label"] .callout-content > .callout:first-child { margin-top: 14px; }
+:root[data-callout="label"] .callout-title { position: absolute; left: 12px; top: -12px; height: 24px; max-width: calc(100% - 24px); padding: 0 10px 0 8px; gap: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--cc) 14%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 38%, transparent); font-size: 0.78em; white-space: nowrap; }
+:root[data-callout="label"] .callout-title-text { overflow: hidden; text-overflow: ellipsis; }
+:root[data-callout="label"] .callout-icon svg { width: 14px; height: 14px; stroke-width: 2; }
+:root[data-callout="label"] .callout-icon .sf { font-size: 12px; }
+:root[data-callout="label"] .callout-fold { margin-left: 2px; }
+:root[data-callout="label"] .callout-content { margin-top: 0; }
+:root[data-callout="label"] details.callout:not([open]) { padding-block: 12px 0; border-radius: 0; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cc) 38%, transparent); }
+:root[data-callout="label"] blockquote.deco-focus { position: relative; padding: 6px 16px; border-left: 0; }
+:root[data-callout="label"] blockquote.deco-block.deco-focus { padding: 10px 16px; }
+:root[data-callout="label"] blockquote.deco-focus::before, :root[data-callout="label"] blockquote.deco-focus::after { content: ""; position: absolute; top: 0; bottom: 0; width: 9px; border: 2px solid var(--cc); pointer-events: none; }
+:root[data-callout="label"] blockquote.deco-focus::before { left: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+:root[data-callout="label"] blockquote.deco-focus::after { right: 0; border-left: 0; border-radius: 0 6px 6px 0; }
 .callout-note, .callout-info, .callout-todo { --cc: var(--c-blue); }
 .callout-abstract, .callout-tip { --cc: var(--c-cyan); }
 .callout-success { --cc: var(--c-green); }

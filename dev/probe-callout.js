@@ -73,6 +73,17 @@
     entry("slash.callout", "callout.error").act(view);
     await sleep(200);
     ok("another kind", md().includes("> [!error]\n> Plain text.\n") && !!title("danger"), md());
+    // the settings' other looks for callouts and Focus (viewer.css, on the root)
+    const look = async (to) => { window.MdPrefs = { ...(window.MdPrefs || {}), calloutStyle: to }; MdView.prefsChanged(); await sleep(150); };
+    const co = () => view.dom.querySelector(".callout"), cs = (el, pseudo) => getComputedStyle(el, pseudo);
+    const boxPad = cs(co()).paddingLeft;
+    await look("tip");
+    ok("Tip: the sign stands beside the text, large", document.documentElement.dataset.callout === "tip" && cs(co().querySelector(".callout-icon")).position === "absolute" && parseFloat(cs(co()).paddingLeft) > 40 && cs(co()).boxShadow === "none", cs(co()).paddingLeft);
+    await look("label");
+    const ti = co().querySelector(".callout-title").getBoundingClientRect(), bo = co().getBoundingClientRect();
+    ok("Label: the title is a capsule on the box's upper edge", cs(co()).backgroundColor === "rgba(0, 0, 0, 0)" && ti.top < bo.top && ti.bottom > bo.top && ti.left > bo.left, [ti.top, bo.top].join(" "));
+    await look("box");
+    ok("Box: as it was", !("callout" in document.documentElement.dataset) && cs(co()).paddingLeft === boxPad && cs(co().querySelector(".callout-icon")).position === "static");
     await sleep(1100);
     o.saved = md();
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }

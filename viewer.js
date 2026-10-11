@@ -816,6 +816,7 @@
    * Three more show what is on the page: sheet (a small sheet of paper beside its name and how
    * its text begins), preview (the sheet large, the name under it) and widget (a tile with its
    * tasks, the pages in it, or its text). A link to another note is a row or a card. */
+  const CALLOUT_STYLES = ["tip", "label"]; // (beside the box, which needs no name)
   const PAGE_STYLES = ["row", "card", "sheet", "preview", "widget"], LINK_STYLES = ["row", "card"];
   const PAGE_OPEN = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*-->\s*$/, PAGE_CLOSE = /^ {0,3}<!--\s*\/page\s*-->\s*$/, PAGE_ROW = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*#([a-z]\d+)\s*-->\s*$/;
   const pageLook = (words) => { const [a, b] = String(words || "").split(/\s+/), style = PAGE_STYLES.includes(a) ? a : "row", color = [a, b].find((x) => DECO_COLORS.includes(x)) || ""; return { style, color }; };
@@ -4782,6 +4783,7 @@
       window.dispatchEvent(new Event("resize"));
     }
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer.css)
+    if (CALLOUT_STYLES.includes(window.MdPrefs?.calloutStyle)) document.documentElement.dataset.callout = MdPrefs.calloutStyle; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer.css)
     const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
     // what the sidebar or All Notes lists beside the notes: each shows its part anew (the application
     // sends the folder again only where what both want together changed)

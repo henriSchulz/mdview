@@ -102,6 +102,7 @@ fn default_prefs() -> Map<String, Value> {
         "ovScope": "all", "ovLayout": "tiles",  // all notes: "all" | "folders" (one at a time), as "tiles" | "list"
         // what All Notes lists beside the notes — its own choice, apart from the sidebar's
         "ovPdf": false, "ovImages": false, "ovMedia": false, "ovOther": false,
+        "calloutStyle": "box",    // how callouts and Focus look: "box" (a tinted box, a bar) | "tip" (a large sign beside the text) | "label" (a line, the title on its edge)
         "measure": "normal",      // the text column's width: "narrow" | "normal" | "wide" | "full"
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
         "props": true,            // a note's properties show at its head (false: put away, from the menu of a right click)
