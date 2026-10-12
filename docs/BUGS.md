@@ -53,6 +53,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 7. **A page is as wide with little on it as with much**, and as wide in one layout as in another:
    scroll containers that can be short or long reserve the scrollbar's room
    (`overflow-y: scroll`), and two layouts of the same page share one `max-width`.
+30. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
+    where the folder is linked (`history.linked`), not where the two sides have been reconciled
+    (`history.sync`: nothing until the first answer, half a minute after a start or longer).
 
 ### Markdown that is rendered somewhere new
 
