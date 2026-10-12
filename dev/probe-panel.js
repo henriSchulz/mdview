@@ -10,6 +10,8 @@
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   try {
     await document.fonts.ready; await sleep(700);
+    // (the wide column beside the panel wants a window of 1400 px: in a narrower one the page is made smaller until it has them)
+    if (innerWidth < 1400) { window.MdHost.post(JSON.stringify({ type: "zoom", step: -Math.ceil((1 - innerWidth / 1400) * 10) })); await sleep(600); }
     const btn = document.querySelector('#toolbar [data-act="panel"]');
     ok("the toolbar has the panel's button", !!btn);
     MdView.setMode("read");
