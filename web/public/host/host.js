@@ -450,6 +450,7 @@
       else if (goneAt.has(r) && goneAt.get(r) !== files.get(r).sha) { gone.delete(r); goneAt.delete(r); toast(`“${r.split("/").pop()}” was changed elsewhere after it was deleted here: it stays`); }
     }
     for (const [r, sha] of [...away]) if ((files.get(r) || {}).sha !== sha) away.delete(r); // (deleted there, or another file by now: that one stays)
+    for (const [r, l] of [...links]) if ((files.get(r) || {}).sha === l.sha) links.delete(r); // (there already: a commit of this move whose answer never came — the tab closed over it)
     keepDrafts();
     return found;
   }
@@ -783,6 +784,43 @@
   // a folder of the repository: one with a file in it, or made here and still empty
   const isDir = (path) => typeof path === "string" && path.startsWith(BASE + "/") && !exists(path) && (keptDirs.has(path) || paths().some((p) => p.startsWith(path + "/")));
   const targetDir = (dir) => (isDir(dir) ? dir : BASE);
+  /* A copy of a file, or of a folder with all that is in it, in a folder — under the first name
+   * that is free there (beside: "Name copy.md" next to the thing itself). What the repository has
+   * is named by its blob, as a moved file is: nothing of it is fetched or sent. → its path, or null */
+  function copyTo(src, dir, beside) {
+    const folder = isDir(src), name = C.freeName(C.nameOf(src), folder, beside, (n) => exists(`${dir}/${n}`) || isDir(`${dir}/${n}`));
+    if (!name) { toast(`Couldn't copy “${C.nameOf(src)}”: no free name`); return null; }
+    const to = `${dir}/${name}`;
+    for (const p of folder ? paths().filter((p) => p.startsWith(src + "/")) : [src]) {
+      const r = rel(p), n = rel(to + p.slice(src.length));
+      if (drafts.has(r)) write(n, drafts.get(r).text);
+      else if (blobs.has(r)) blobs.set(n, blobs.get(r));
+      else { const f = blobOf(r); links.set(n, { sha: f.sha, size: f.size }); }
+    }
+    if (folder) for (const k of [...keptDirs, src]) if (k === src || k.startsWith(src + "/")) keptDirs.add(to + k.slice(src.length)); // (a folder is there, also where nothing is in it)
+    return to;
+  }
+  /* Files and folders copied into a folder, under names that are free there ("Name 2.pdf"): shown
+   * at once, one commit behind. how: what is said of it ("Pasted"). */
+  function bringIn(from, into, how) {
+    const made = [];
+    for (const src of from) {
+      if (isDir(src) && (into === src || into.startsWith(src + "/"))) { toast(`“${C.nameOf(src)}” can't be copied into itself`); continue; }
+      const to = copyTo(src, into, false);
+      if (to) made.push(to);
+    }
+    if (!made.length) return;
+    toast(made.length === 1 ? `${how} “${C.nameOf(made[0])}”` : `${how} ${made.length} items`);
+    shown(made);
+  }
+  // what was just made: listed, brought into sight, and a commit at once
+  function shown(made) {
+    keepDrafts();
+    sendFolder();
+    tell("revealRows", made);
+    commit();
+  }
+  let fileClip = { paths: [], cut: false }; // what Copy or Cut took in the list, for Paste
   /* A note, another file or a folder put into another folder (or to the top): the same file under
    * another path — for a folder each file in it. → whether it was done */
   function moveInto(path, dir) {
@@ -1108,6 +1146,36 @@
       keepHidden(hidden);
       if (put !== false && !prefs.showHidden) tell("toast", some.length === 1 ? `“${C.nameOf(some[0])}” is hidden` : `${some.length} items are hidden`, { label: "Undo", type: "hide", data: { paths: some, on: false } });
       sendFolder();
+    },
+    /* Copy or Cut in the list: remembered for Paste — in this tab: a browser hands out its
+     * clipboard only when asked, so what was copied here is what is pasted — and put on the
+     * clipboard as the files' paths, a line each. */
+    copyfiles({ paths: many, cut }) {
+      const some = (Array.isArray(many) ? many : []).filter((p) => typeof p === "string" && (exists(p) || isDir(p)));
+      if (!some.length) return;
+      navigator.clipboard?.writeText(some.map(rel).join("\n")).catch(() => {});
+      fileClip = { paths: some, cut: !!cut && cut !== "false" };
+      const name = C.nameOf(some[0]);
+      toast(some.length === 1 ? (fileClip.cut ? `Cut “${name}”: Paste moves it` : `Copied “${name}”`) : fileClip.cut ? `Cut ${some.length} items: Paste moves them` : `Copied ${some.length} items`);
+    },
+    /* Paste into a folder: what was copied is copied there, what was cut is moved — one commit. */
+    async pastefiles({ dir }) {
+      await landed(...fileClip.paths);
+      if (!mayWrite()) return;
+      const into = targetDir(dir), from = fileClip.paths.filter((p) => exists(p) || isDir(p));
+      if (!from.length) return toast("No files to paste");
+      if (!fileClip.cut) return bringIn(from, into, "Pasted");
+      fileClip = { paths: [], cut: false };
+      if (!from.filter((p) => C.dirOf(p) !== into && moveInto(p, into)).length) return;
+      sendFolder();
+      sendTabs();
+      commit();
+    },
+    // a copy beside the thing itself: "Name copy.md", "Name copy 2.md"
+    duplicate({ paths: many }) {
+      if (!mayWrite()) return;
+      const made = (Array.isArray(many) ? many : []).filter((p) => typeof p === "string" && (exists(p) || isDir(p))).map((p) => copyTo(p, C.dirOf(p), true)).filter(Boolean);
+      if (made.length) shown(made);
     },
     // a colour and a sign for a folder: written into the repository, as a note is
     folderlook({ path, color, icon }) {

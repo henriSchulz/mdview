@@ -283,6 +283,60 @@ test("a commit GitHub will not take: what was moved is put back and said; one th
   assert.deepEqual(gh.commits.at(-1).linked, ["sub/huge.bin"]);
 });
 
+test("files and folders copied, cut, pasted and duplicated — from the menu and with the keys: copies under free names, one commit each, by the blobs the repository has", async () => {
+  put("box/p.png", "a picture, as far as anyone looks");
+  put("box/in/q.md", "# Q\n");
+  await open("Alpha.md");
+  const since = gh.seen.length, said = () => page.evaluate(() => document.querySelector("#toast").textContent);
+  let n = gh.commits.length;
+  const last = () => [gh.commits.length - n, [...(gh.commits.at(-1).linked || [])].sort(), [...gh.commits.at(-1).deleted].sort()];
+  // Duplicate, from a file's menu: a copy beside it
+  await row("Beta.md").click({ button: "right" });
+  await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
+  for (const cmd of ["copyf", "cutf", "duplicate"]) assert.ok((await menu()).includes(cmd), cmd);
+  await choose("duplicate");
+  await until(async () => (await rows()).includes("Beta copy.md"), "the copy's row");
+  await until(() => text("Beta copy.md") !== undefined, "the copy in the repository");
+  assert.deepEqual([text("Beta copy.md"), ...last()], [text("Beta.md"), 1, ["Beta copy.md"], []]);
+  // a folder and a note copied, and pasted into another folder: all that is in the folder, in one commit
+  n = gh.commits.length;
+  await post({ type: "copyfiles", paths: [`${R}/box`, `${R}/Beta.md`, `${R}/Nothing.md`] });
+  await until(async () => (await said()) === "Copied 2 items", "the message");
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "box\nBeta.md");
+  await post({ type: "pastefiles", dir: `${R}/sub` });
+  await until(() => text("sub/box/in/q.md") !== undefined, "the paste in the repository");
+  assert.deepEqual(last(), [1, ["sub/Beta.md", "sub/box/in/q.md", "sub/box/p.png"], []]);
+  assert.deepEqual([text("sub/box/p.png"), text("box/p.png"), await said()], ["a picture, as far as anyone looks", "a picture, as far as anyone looks", "Pasted 2 items"]);
+  // … and once more: the next free names
+  await post({ type: "pastefiles", dir: `${R}/sub` });
+  await until(() => text("sub/box 2/in/q.md") !== undefined && text("sub/Beta 2.md") !== undefined, "the second paste");
+  // not into itself
+  await post({ type: "copyfiles", paths: [`${R}/box`] });
+  await post({ type: "pastefiles", dir: `${R}/box/in` });
+  await until(async () => /can't be copied into itself/.test(await said()), "the refusal");
+  // the keys on a row: Ctrl+X, and Ctrl+V on a folder's row — what was cut is moved, in one commit
+  n = gh.commits.length;
+  await row("Beta copy.md").focus();
+  await page.keyboard.press("Control+x");
+  await until(async () => /^Cut “Beta copy\.md”/.test(await said()), "the cut");
+  await row("box").focus();
+  await page.keyboard.press("Control+v");
+  await until(async () => (await rows()).includes("box/Beta copy.md") && !(await rows()).includes("Beta copy.md"), "the row moved");
+  await until(() => text("box/Beta copy.md") !== undefined && text("Beta copy.md") === undefined, "the move in the repository");
+  assert.deepEqual(last(), [1, ["box/Beta copy.md"], ["Beta copy.md"]]);
+  await page.keyboard.press("Control+v"); // (what was cut is pasted once)
+  await until(async () => (await said()) === "No files to paste", "nothing left to paste");
+  // Ctrl+D on a folder's row: the folder whole
+  await page.keyboard.press("Control+d");
+  await until(() => text("box copy/in/q.md") !== undefined && text("box copy/p.png") !== undefined && text("box copy/Beta copy.md") !== undefined, "the folder's copy");
+  // none of it took a file's bytes over the line
+  assert.deepEqual([transferred(since, "p.png"), transferred(since, "q.md"), transferred(since, "Beta.md")], [[], [], []]);
+  // the empty room's menu has Paste; All Notes' tiles the same entries
+  await blank();
+  assert.ok((await menu()).includes("pastef"));
+  await page.keyboard.press("Escape");
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });

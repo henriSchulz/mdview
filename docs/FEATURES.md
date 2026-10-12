@@ -784,7 +784,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles.
-- **Working with files** (the desktop application; in the sidebar and in All Notes alike):
+- **Working with files** (in the sidebar and in All Notes alike; in the browser too, but for what
+  is said under *In the browser*):
   - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is
     copied is put into the folder Paste is asked for on — a folder's row, the folder a file lies
     in, the empty room — under the next free name (`Name 2.pdf`); what was cut is moved. Files
@@ -1003,6 +1004,12 @@ counts — and has no writing help by a model.
   once, and the commit follows behind it. A file the repository has is not sent again — the
   commit names it where it is to be — so its size does not matter. Should GitHub not take the
   commit (no right to write), the row goes back where it was and a message says which file.
+- **Copy, Cut, Paste, Duplicate** of files and folders, as here (the menu, `Ctrl+C` `Ctrl+X`
+  `Ctrl+V` `Ctrl+D` on a row or a tile): each a commit, at once, that names what the repository
+  has — a copy of a large file or a whole folder sends nothing. What was copied is remembered
+  in the tab it was copied in: files copied in a file manager, or in another tab, are not
+  pasted (a browser hands out its clipboard only when asked). No Copy Path: a file of a
+  repository has no path on a disk.
 - **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
   Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
   is a commit like what is typed; a tile shows the board as the repository has it. What a note
