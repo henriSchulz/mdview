@@ -14,10 +14,13 @@ export function fakeGitHub() {
     past: [], // the repository as every commit seen had it: { oid, message, time, files }, oldest first
     projects: ["octo/alpha-notes"], projectsFail: false, // (which of the listed repositories hold the app's folder; whether that can be told at all)
     appKey: null, installed: true, appToken: "", appTokens: new Set(), appAsked: [], // the app as itself: its public key, whether it is installed on the repository, the token it was given, what it asked for
-    commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by }
+    commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by } — linked: [paths] where blobs it has were named, not sent
+    stall: null, // a promise the next commit waits for before it answers (a GitHub that takes its time over one thing)
+    refuse: 0, // the status the next commit is refused with
+    trees: new Map(), made: new Map(), // the Git database: trees and commits built and not on the branch yet
   };
   const blobSha = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
-  const stateSha = (salt) => createHash("sha1").update(salt + [...gh.repo.files].map(([p, b]) => p + blobSha(b)).sort().join("\n")).digest("hex");
+  const stateSha = (salt, files = gh.repo.files) => createHash("sha1").update(salt + [...files].map(([p, b]) => p + blobSha(b)).sort().join("\n")).digest("hex");
   gh.head = () => stateSha("commit");
   // (the files are also changed behind the app's back, as another device would: whenever the
   // repository is looked at, how it stands is written down as a commit, if it is not one yet)
@@ -35,7 +38,8 @@ export function fakeGitHub() {
   const server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
-    req.on("end", async () => {
+    req.on("end", () => answer().catch((e) => { console.error("fake GitHub:", req.method, req.url, e); if (!res.headersSent) res.writeHead(500); res.end(); })); // (a slip in here is said, not a request left hanging)
+    const answer = async () => {
       if (gh.slow) await new Promise((r) => setTimeout(r, gh.slow)); // (a GitHub that takes its time)
       const url = new URL(req.url, "http://x"), form = new URLSearchParams(body);
       const json = (data, status = 200, headers = {}) => { res.writeHead(status, { "Content-Type": "application/json", ...headers }); res.end(JSON.stringify(data)); };
@@ -110,8 +114,54 @@ export function fakeGitHub() {
         const dirs = new Set(tree.flatMap((e) => e.path.split("/").slice(0, -1).map((_, i, a) => a.slice(0, i + 1).join("/"))));
         return json({ tree: [...tree, ...[...dirs].map((path) => ({ path, type: "tree", sha: "0".repeat(40) }))], truncated: false });
       }
+      // the Git database: a blob kept, a tree on top of another, a commit of it, and the branch moved to that — if it is a step forward
+      if (url.pathname.startsWith(`${at}/git/commits/`) && req.method === "GET") {
+        const c = (note("written elsewhere"), gh.past.find((c) => c.oid === url.pathname.slice(`${at}/git/commits/`.length)));
+        return c ? json({ sha: c.oid, tree: { sha: stateSha("tree", c.files) } }) : json({ message: "Not Found" }, 404);
+      }
+      if (url.pathname === `${at}/git/blobs` && req.method === "POST") {
+        const buf = Buffer.from(JSON.parse(body).content, "base64"), sha = blobSha(buf);
+        gh.blobs.set(sha, buf);
+        return json({ sha }, 201);
+      }
+      if (url.pathname === `${at}/git/trees` && req.method === "POST") {
+        const asked = JSON.parse(body), on = [...gh.past].reverse().find((c) => stateSha("tree", c.files) === asked.base_tree);
+        if (!on) return json({ message: "base_tree is not a valid tree oid" }, 422);
+        for (const buf of gh.repo.files.values()) gh.blobs.set(blobSha(buf), buf);
+        const next = new Map(on.files), changed = { linked: [], deleted: [] };
+        for (const e of asked.tree) {
+          if (e.sha === null) { if (!next.delete(e.path)) return json({ message: "GitRPC::BadObjectState" }, 422); changed.deleted.push(e.path); continue; }
+          if (!gh.blobs.has(e.sha)) return json({ message: "tree.sha " + e.sha + " is not a valid blob" }, 422);
+          next.set(e.path, gh.blobs.get(e.sha));
+          changed.linked.push(e.path);
+        }
+        const sha = stateSha("tree", next);
+        gh.trees.set(sha, { files: next, ...changed });
+        return json({ sha }, 201);
+      }
+      if (url.pathname === `${at}/git/commits` && req.method === "POST") {
+        const asked = JSON.parse(body), tree = gh.trees.get(asked.tree);
+        if (!tree) return json({ message: "Tree SHA is not a tree object" }, 422);
+        const sha = stateSha("commit", tree.files);
+        gh.made.set(sha, { ...tree, message: asked.message, parent: asked.parents[0] });
+        return json({ sha }, 201);
+      }
+      if (url.pathname === `${at}/git/refs/heads/main` && req.method === "PATCH") {
+        const asked = JSON.parse(body), c = gh.made.get(asked.sha);
+        if (gh.stall) { const wait = gh.stall; gh.stall = null; await wait; }
+        if (gh.refuse) { const status = gh.refuse; gh.refuse = 0; return json({ message: "refused" }, status); }
+        if (!c) return json({ message: "Object does not exist" }, 422);
+        if (c.parent !== gh.head()) return json({ message: "Update is not a fast forward" }, 422);
+        files.clear();
+        for (const [p, b] of c.files) files.set(p, b);
+        note(c.message, "Octo Cat");
+        gh.commits.push({ headline: c.message.split("\n")[0], body: c.message.split("\n").slice(2).join("\n"), added: c.linked, deleted: c.deleted, linked: c.linked, by: "octo" });
+        return json({ ref: "refs/heads/main", object: { sha: asked.sha } });
+      }
       if (url.pathname === "/graphql" && JSON.parse(body).query.includes("createCommitOnBranch")) {
         const { input } = JSON.parse(body).variables;
+        if (gh.stall) { const wait = gh.stall; gh.stall = null; await wait; }
+        if (gh.refuse) { const status = gh.refuse; gh.refuse = 0; return json({ message: "refused" }, status); }
         if (input.branch.repositoryNameWithOwner !== `${owner}/${name}` || input.branch.branchName !== "main") return json({ errors: [{ type: "NOT_FOUND", message: "Could not resolve to a Repository" }] });
         if (input.expectedHeadOid !== gh.head()) return json({ errors: [{ type: "STALE_DATA", message: `Expected branch to point to "${gh.head()}" but it did not. Pull and try again.` }] });
         for (const buf of files.values()) gh.blobs.set(blobSha(buf), buf);
@@ -160,7 +210,7 @@ export function fakeGitHub() {
         return res.end(buf);
       }
       json({ message: "Not Found" }, 404);
-    });
+    };
   });
   gh.listen = () => new Promise((r) => server.listen(0, "127.0.0.1", () => r(`http://127.0.0.1:${server.address().port}`)));
   gh.close = () => server.close();

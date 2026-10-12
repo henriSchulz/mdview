@@ -38,6 +38,13 @@
   const drafts = new Map(), gone = new Set(), keptDirs = new Set(); // (filled when the tab knows which are its own: claimTab)
   const goneAt = new Map(); // a file deleted here → the blob it was then (this session's deletions: what is written there since is not deleted with it)
   const blobs = new Map(); // pictures put in here, until they are in a commit: path → their bytes, base64
+  /* Files the repository has, put under another path here — moved, renamed, copied — until that
+   * is in a commit: the new path → { sha, size }. They are named by their blob: nothing of them
+   * is fetched or sent again, whatever their size (the server: lib/github.ts, commitLinked). */
+  const links = new Map();
+  const away = new Map(); // files given another name here, until that is in a commit: the old path → the blob it was
+  const moves = new Map(); // what was written here and then moved, until that is in a commit: its new path → the one the repository knows it by (so that it can be put back)
+  const uploads = new Set(); // files from elsewhere on their way into the repository (their bytes wait in blobs): marked in the list until a commit has them
   /* The drafts are a tab's own. Two tabs on the same repository each write what was typed in
    * them; were the drafts one heap, the second tab would take the first's half-typed text for
    * its own, commit it too, and meet itself as a conflict. A tab has a name that stays with it
@@ -56,13 +63,19 @@
       if (!unkept) { unkept = true; setTimeout(() => { unkept = false; commit(); }, 0); }
     }
     if (gone.size) keep(mineKey("gone"), [...gone]); else forget(mineKey("gone"));
+    // (what was moved or copied and is no commit yet: a reload must not show it where it was)
+    if (links.size || away.size || moves.size) keep(mineKey("moved"), { links: Object.fromEntries(links), away: Object.fromEntries(away), moves: Object.fromEntries(moves) }); else forget(mineKey("moved"));
     // (the pictures and files put in and not committed yet: with the drafts that show them — else a
     // reload before the commit leaves a note that names a picture nobody has. As far as there is room.)
     let size = 0;
     for (const b of blobs.values()) size += b.length;
     if (blobs.size && size < 3000000) keep(mineKey("blobs"), Object.fromEntries(blobs)); else forget(mineKey("blobs"));
   }
-  function adopt(draftsKey, goneKey, blobsKey) {
+  function adopt(draftsKey, goneKey, blobsKey, movedKey) {
+    const moved = movedKey ? load(movedKey, {}) : {};
+    for (const [r, l] of Object.entries(moved.links || {})) if (l && typeof l.sha === "string" && !links.has(r)) links.set(r, l);
+    for (const [r, sha] of Object.entries(moved.away || {})) if (typeof sha === "string" && !away.has(r)) away.set(r, sha);
+    for (const [r, was] of Object.entries(moved.moves || {})) if (typeof was === "string" && !moves.has(r)) moves.set(r, was);
     for (const [r, d] of Object.entries(load(draftsKey, {}))) if (d && typeof d.text === "string" && (!drafts.has(r) || (d.at || 0) > (drafts.get(r).at || 0))) drafts.set(r, d);
     for (const r of load(goneKey, [])) gone.add(r);
     if (blobsKey) for (const [r, b] of Object.entries(load(blobsKey, {}))) if (typeof b === "string" && !blobs.has(r)) blobs.set(r, b);
@@ -79,23 +92,24 @@
       TAB = id;
     }
     try { sessionStorage.setItem("mdview:tab", TAB); } catch { /* (not allowed) */ }
-    adopt(mineKey("drafts"), mineKey("gone"), mineKey("blobs"));
+    adopt(mineKey("drafts"), mineKey("gone"), mineKey("blobs"), mineKey("moved"));
     adopt(KEY + ":drafts", KEY + ":gone"); // (from before drafts were a tab's own)
     forget(KEY + ":drafts"); forget(KEY + ":gone");
     const prefix = KEY + ":drafts:", others = [];
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith(prefix) || k.startsWith(KEY + ":gone:"))) others.push(k.slice(k.lastIndexOf(":") + 1)); } } catch { /* (not allowed) */ }
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith(prefix) || k.startsWith(KEY + ":gone:") || k.startsWith(KEY + ":moved:"))) others.push(k.slice(k.lastIndexOf(":") + 1)); } } catch { /* (not allowed) */ }
     for (const other of new Set(others)) {
       if (other === TAB) continue;
-      const take = () => { adopt(`${KEY}:drafts:${other}`, `${KEY}:gone:${other}`, `${KEY}:blobs:${other}`); forget(`${KEY}:drafts:${other}`); forget(`${KEY}:gone:${other}`); forget(`${KEY}:blobs:${other}`); };
+      const take = () => { adopt(`${KEY}:drafts:${other}`, `${KEY}:gone:${other}`, `${KEY}:blobs:${other}`, `${KEY}:moved:${other}`); for (const what of ["drafts", "gone", "blobs", "moved"]) forget(`${KEY}:${what}:${other}`); };
       // (its lock is free: the tab is gone. Taken over while the lock is held, so that two tabs opened at once do not both take it)
       if (locks) await locks.request(name(other), { ifAvailable: true }, (lock) => { if (lock) take(); }).catch(() => {});
       else take();
     }
     keepDrafts();
   }
-  const away = new Map(); // files given another name here, until that is in a commit: the old path → the blob it was (their bytes wait in blobs, under the new)
-  const has = (r) => drafts.has(r) || blobs.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
-  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r)); // the files as they are here
+  const has = (r) => drafts.has(r) || blobs.has(r) || links.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
+  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys(), ...links.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r) || links.has(r)); // the files as they are here
+  const blobOf = (r) => links.get(r) || (!gone.has(r) && !away.has(r) && files.get(r)) || null; // the blob a file is, as far as the repository has it: { sha, size }
+  const unsaved = () => drafts.size + gone.size + links.size + away.size + blobs.size > 0; // something here is no commit yet
   let tip = { device: "", time: 0 }; // who made the commit the branch stands at
   /* When a file was last changed. Git keeps no date for a file: it is the time of the last commit
    * that changed it, asked for only where the sidebar is ordered by it, and kept by the blob's id
@@ -157,7 +171,7 @@
     }
     const draft = drafts.get(rel(path));
     if (draft) return draft.text;
-    const f = !gone.has(rel(path)) && files.get(rel(path));
+    const f = blobOf(rel(path));
     if (!f) throw new Error(`File not found: ${C.nameOf(path)}`);
     await fetchTexts([f.sha]);
     let text = texts.get(f.sha);
@@ -204,7 +218,7 @@
     let titles = null;
     if (here.sidebar.titles) {
       titles = new Map();
-      for (const p of every()) { const t = drafts.has(p) ? drafts.get(p).text : texts.get((files.get(p) || {}).sha); if (t != null && C.isMd(p)) titles.set(BASE + "/" + p, C.noteTitle(t)); }
+      for (const p of every()) { const t = drafts.has(p) ? drafts.get(p).text : texts.get((blobOf(p) || {}).sha); if (t != null && C.isMd(p)) titles.set(BASE + "/" + p, C.noteTitle(t)); }
     }
     const changed = byDate() ? new Map(every().map((r) => [BASE + "/" + r, changedAt(r)])) : null;
     if (changed) askDates();
@@ -361,7 +375,7 @@
     const f = files.get(r);
     if (f && !gone.has(r) && committed(r) === text) drafts.delete(r); // (as the branch has it: nothing to keep)
     else drafts.set(r, { text, at: Date.now(), base: drafts.has(r) ? drafts.get(r).base : f && !gone.has(r) ? f.sha : null, sent: drafts.has(r) ? drafts.get(r).sent : undefined });
-    if (drafts.has(r)) gone.delete(r);
+    if (drafts.has(r)) { gone.delete(r); links.delete(r); } // (written over what was only named there: the text is the file now)
     keepDrafts();
     later();
   }
@@ -452,13 +466,14 @@
         if (!project() && !drafts.has(MARKER)) return;
         conflicts = await settle();
         if (conflicts.length) { sendFolder(); toast(`${conflicts.length === 1 ? "A file was" : conflicts.length + " files were"} changed here and elsewhere. Resolve from the clock in the sidebar`); return; }
-        const sent = new Map(drafts), pictures = new Map(blobs), deleted = [...gone, ...away.keys()].filter((r) => files.has(r));
+        const sent = new Map(drafts), pictures = new Map(blobs), linked = new Map(links), deleted = [...new Set([...gone, ...away.keys()])].filter((r) => files.has(r));
         const additions = [...[...sent].map(([path, d]) => ({ path, text: d.text })), ...[...pictures].map(([path, base64]) => ({ path, base64 }))];
-        if (!additions.length && !deleted.length) { sendFolder(); return; }
+        if (!additions.length && !deleted.length && !linked.size) { sendFolder(); return; }
+        flying = new Set([...sent.keys(), ...pictures.keys(), ...linked.keys(), ...deleted]);
         // (what each draft is sent as is written down first: should the answer never come, the draft knows its own commit again)
         for (const [, d] of sent) { const sha = await blobId(d.text); if (!(d.sent || []).includes(sha)) d.sent = [...(d.sent || []).slice(-5), sha]; }
         keepDrafts();
-        const body = JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted });
+        const body = JSON.stringify({ branch, expect: head, headline: C.subject([...sent.keys(), ...pictures.keys(), ...linked.keys(), ...deleted]), body: `Device: ${device.name} (${device.id})\nClient: web`, additions, deletions: deleted, links: [...linked].map(([path, l]) => ({ path, sha: l.sha })) });
         // (keepalive — the commit goes on while the tab closes — is for bodies a browser allows it for: 64 KiB, in bytes)
         const res = await ask(API + "/commit", { method: "POST", headers: { "Content-Type": "application/json" }, keepalive: new TextEncoder().encode(body).length < 60000, body });
         if (res.status === 409) { await look(true); continue; } // (someone wrote meanwhile)
@@ -466,7 +481,10 @@
           // (what trying again cannot mend — no right to write, too large, refused: said once, and tried
           // again only when something more is written; anything else — the server, the line — after a while)
           const lasting = [400, 403, 404, 413, 422].includes(res.status);
-          unsent(lasting ? "refused" : "later", lasting
+          // (… and what was moved, copied, hidden, deleted or added here is put back then: nothing stays shown as done that is not)
+          const back = lasting ? putBack() : [];
+          if (back.length) { unsentAs = "refused"; toast(`GitHub did not take the change to “${C.nameOf(back[0])}”${back.length > 1 ? ` and ${back.length - 1} more` : ""}: ${back.length > 1 ? "they are" : "it is"} as the repository has ${back.length > 1 ? "them" : "it"} again`); }
+          else unsent(lasting ? "refused" : "later", lasting
             ? (res.status === 413 ? "What was written is too large to be kept in one piece" : res.status === 403 || res.status === 404 ? "This repository does not let you write: what was written stays in this browser only" : "GitHub did not take what was written: it stays in this browser only")
             : "Couldn't keep what was written. It stays in this browser, and is tried again");
           if (!lasting) later();
@@ -484,17 +502,47 @@
           dates[sha] = Math.floor(Date.now() / 1000); // (the commit is of now)
           if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) { drafts.get(r).base = sha; drafts.get(r).sent = undefined; } // (written on meanwhile: the next commit's)
         }
-        for (const [r, base64] of pictures) { const bytes = bytesOf(base64); files.set(r, { sha: await blobId(bytes), size: bytes.length }); blobs.delete(r); }
-        for (const r of deleted) { files.delete(r); gone.delete(r); away.delete(r); }
+        const made = new Map();
+        for (const [r, base64] of pictures) { const bytes = bytesOf(base64); made.set(r, { sha: await blobId(bytes), size: bytes.length }); }
+        for (const r of deleted) { files.delete(r); gone.delete(r); goneAt.delete(r); away.delete(r); }
+        for (const [r, f] of made) { files.set(r, f); blobs.delete(r); uploads.delete(r); }
+        for (const [r, l] of linked) { files.set(r, { sha: l.sha, size: l.size }); if ((links.get(r) || {}).sha === l.sha) links.delete(r); }
+        for (const r of sent.keys()) moves.delete(r);
         keepDrafts();
         sendFolder();
         tell("historyKept");
-        if (drafts.size || gone.size) later();
+        if (unsaved()) later();
         return;
       }
       later();
-    })().catch((e) => { console.error("mdview host: commit", e); unsent("offline", "No connection: what is written stays in this browser until there is one"); later(); }).finally(() => { busy = null; });
+    })().catch((e) => { console.error("mdview host: commit", e); unsent("offline", "No connection: what is written stays in this browser until there is one"); later(); }).finally(() => { busy = null; flying = new Set(); });
     return busy;
+  }
+  /* A commit on its way knows the files it holds as they were sent. What is done meanwhile to one of
+   * them (or to a folder one of them lies in) waits for its answer — anything else is done at once. */
+  let flying = new Set();
+  const landed = (...some) => (busy && some.some((p) => typeof p === "string" && [...flying].some((r) => BASE + "/" + r === p || (BASE + "/" + r).startsWith(p + "/"))) ? busy : null);
+  /* A commit GitHub will not take: what was moved, copied, hidden, deleted or added here, and is
+   * in no commit, is put back as the repository has it — the page is told, and it is said. What
+   * was typed stays, in this browser. → the files it was about */
+  function putBack() {
+    const names = [], renamed = [];
+    for (const [n, l] of links) { names.push(n); const was = [...away].find(([, sha]) => sha === l.sha); if (was) renamed.push([n, was[0]]); }
+    for (const [n, was] of moves) {
+      const d = drafts.get(n);
+      if (!d || !files.has(was)) continue; // (never in the repository: a draft like any other, under the name it has)
+      drafts.delete(n);
+      if (committed(was) !== d.text) drafts.set(was, { text: d.text, at: d.at, base: files.get(was).sha });
+      names.push(n); renamed.push([n, was]);
+    }
+    for (const r of uploads) { blobs.delete(r); names.push(r); }
+    for (const r of gone) if (files.has(r) && !renamed.some(([, was]) => was === r)) names.push(r);
+    if (drafts.has(C.HIDDEN)) { drafts.delete(C.HIDDEN); names.push(C.HIDDEN); }
+    links.clear(); away.clear(); moves.clear(); uploads.clear(); gone.clear(); goneAt.clear();
+    keepDrafts();
+    for (const [n, was] of renamed) follow(BASE + "/" + n, BASE + "/" + was);
+    if (names.length) { sendFolder(); sendTabs(); if (onScreen && !known(onScreen)) showNothing(); }
+    return names;
   }
   const mayWrite = () => { if (project()) return true; toast("Turn the history on first: the clock in the sidebar"); return false; };
 
@@ -526,9 +574,9 @@
   const owned = async () => C.attachOf(has(C.ATTACH) ? await textOf(BASE + "/" + C.ATTACH) : "");
   async function namedElsewhere(name, note) {
     const notes = every().filter((r) => C.isMd(r) && r !== note);
-    await fetchTexts(notes.filter((r) => !drafts.has(r) && files.has(r)).map((r) => files.get(r).sha)).catch(() => {});
+    await fetchTexts(notes.filter((r) => !drafts.has(r) && blobOf(r)).map((r) => blobOf(r).sha)).catch(() => {});
     for (const r of notes) {
-      const text = drafts.has(r) ? drafts.get(r).text : files.has(r) ? texts.get(files.get(r).sha) : null;
+      const text = drafts.has(r) ? drafts.get(r).text : blobOf(r) ? texts.get(blobOf(r).sha) : null;
       if (text === undefined) return r; // (not known: the file stays)
       if (C.mentions(text, name)) return r;
     }
@@ -686,51 +734,67 @@
     write(C.SHARES, C.sharesText(all));
   }
 
-  /* A file under another path: a note as a draft there and gone here; anything else as its bytes
-   * there, in a commit at once. Tabs, what was opened when, a share's link and the page follow. */
-  /* A folder under another path: each file in it (inside) moved, and the folders made here that
-   * are still empty with it. → whether it was done */
-  async function moveFolder(path, to, inside) {
-    const large = inside.find((p) => !C.isMd(p) && !blobs.has(rel(p)) && (files.get(rel(p)) || {}).size > MOVE_MOST);
-    if (large) { toast(`“${C.nameOf(large)}” is too large to move here (over 14 MB)`); return false; }
-    for (const p of inside) if (!(await relocate(p, to + p.slice(path.length), "move"))) break;
-    for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
-    return true;
-  }
-  async function relocate(path, now, how) {
-    const r = rel(path);
-    if (C.isMd(path) || isBoard(path)) { // (a whiteboard is text too: what was drawn and is no commit yet goes along)
-      const text = await textOf(path);
-      drafts.delete(r);
+  let sharing = Promise.resolve();
+  const sharesFollowSoon = (was, now) => { sharing = sharing.then(() => sharesFollow(was, now)).catch((e) => console.error("mdview host: shares", e)); }; // (the list may have to be read first: nothing waits for that)
+  /* A file under another path. One the repository has is named there by its blob — nothing of it
+   * is fetched or sent, whatever its size —; what was written here and is no commit yet goes as
+   * the draft it is, a file put in here as its bytes. Tabs, what was opened when, a share's link
+   * and the page follow at once; the commit is the caller's to ask for. */
+  function relocate(path, now) {
+    const r = rel(path), n = rel(now);
+    if (drafts.has(r)) {
+      const d = drafts.get(r), was = moves.get(r) || (files.has(r) ? r : null);
+      drafts.delete(r); moves.delete(r);
       if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
-      write(rel(now), text);
-      if (C.isMd(path)) await sharesFollow(r, rel(now)); // (its link goes on showing it)
+      write(n, d.text);
+      if (was && was !== n) moves.set(n, was);
     } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
-      blobs.set(rel(now), blobs.get(r));
+      blobs.set(n, blobs.get(r));
       blobs.delete(r);
+      if (uploads.delete(r)) uploads.add(n);
     } else {
-      const f = files.get(r);
-      if (f.size > MOVE_MOST) { toast(`“${C.nameOf(path)}” is too large to ${how} here (over 14 MB)`); return false; }
-      const res = await ask(fileUrl(path));
-      if (!res.ok) { toast(`Couldn't ${how}: the file could not be read`); return false; }
-      blobs.set(rel(now), base64Of(new Uint8Array(await res.arrayBuffer())));
-      away.set(r, f.sha);
-      commit();
+      const f = blobOf(r);
+      if (links.has(r)) links.delete(r); else away.set(r, f.sha); // (moved here before, and no commit yet: it never was there)
+      if (away.get(n) === f.sha) away.delete(n); else links.set(n, { sha: f.sha, size: f.size }); // (back where the repository has it: nothing to do)
+      later();
     }
+    keepDrafts();
     hiddenFollow(path, now); // (hidden, it stays hidden)
+    follow(path, now);
+  }
+  // … and everything that knew it by the old path: a share's link, the tabs, what was opened when, the page
+  function follow(path, now) {
+    if (C.isMd(path)) sharesFollowSoon(rel(path), rel(now));
     tabs.rename(path, now);
     if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
     if (here.last === path) here.last = now;
     if (onScreen === path) { onScreen = now; address(now); }
     tell("noteRenamed", { old: path, path: now, oldReal: path, real: now, name: C.nameOf(now) });
-    return true;
+  }
+  /* A folder under another path: each file in it (inside) moved, and the folders made here that
+   * are still empty with it. */
+  function moveFolder(path, to, inside) {
+    for (const p of inside) relocate(p, to + p.slice(path.length));
+    for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
   }
 
   // ------------------------------------------------------------ what the page says
   const noteDir = () => (onScreen ? C.dirOf(onScreen) : BASE);
   // a folder of the repository: one with a file in it, or made here and still empty
   const isDir = (path) => typeof path === "string" && path.startsWith(BASE + "/") && !exists(path) && (keptDirs.has(path) || paths().some((p) => p.startsWith(path + "/")));
-  const targetDir = (dir) => (isDir(dir) ? dir : BASE); // where something new goes: the folder asked for, else the repository itself (folder.rs: target_dir)
+  const targetDir = (dir) => (isDir(dir) ? dir : BASE);
+  /* A note, another file or a folder put into another folder (or to the top): the same file under
+   * another path — for a folder each file in it. → whether it was done */
+  function moveInto(path, dir) {
+    if (!path || !path.startsWith(BASE + "/") || !(dir === BASE || (dir || "").startsWith(BASE + "/"))) return false;
+    const name = C.nameOf(path), to = `${dir}/${name}`;
+    if (C.dirOf(path) === dir || dir === path || dir.startsWith(path + "/")) return false; // (where it is already, or into itself)
+    const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
+    if (!exists(path) && !folder) return false;
+    if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) { toast(`“${name}” already exists there`); return false; }
+    if (folder) { moveFolder(path, to, inside); looksFollow(path, to); hiddenFollow(path, to); } else relocate(path, to);
+    return true;
+  } // where something new goes: the folder asked for, else the repository itself (folder.rs: target_dir)
   const on = {
     note({ path, tab }) {
       if (!exists(path)) return;
@@ -776,7 +840,7 @@
     reload() { if (onScreen) render(onScreen, { keepScroll: true }); },
     async previews({ paths: wanted }) {
       const some = (wanted || []).filter((p) => exists(p) && C.isMd(p)).slice(0, PREVIEW_BATCH), out = {};
-      const sha = (p) => (files.get(rel(p)) || {}).sha;
+      const sha = (p) => (blobOf(rel(p)) || {}).sha;
       try { await fetchTexts(some.map(sha).filter(Boolean)); } catch { /* (shown empty) */ }
       // (mtime: what tells the page a tile is another by now — a draft's time, else a number of the blob's id)
       for (const p of some) out[p] = { text: ((drafts.get(rel(p)) || {}).text ?? texts.get(sha(p)) ?? "").slice(0, PREVIEW_BYTES), mtime: drafts.has(rel(p)) ? drafts.get(rel(p)).at || 1 : parseInt((sha(p) || "0").slice(0, 12), 16) };
@@ -823,7 +887,7 @@
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: browserAs.name, deviceId: device.id, home: "",
         hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir", "quickNew", "quickDir", "historyRoot"],
         // (how many versions: told once GitHub has said it — until then the row is not there; the last one: the commit the branch stands at)
-        history: { ...st, branch, ...(versions == null ? {} : { versions }), ...(head && tip.time ? { last: { time: tip.time, device: tip.device } } : {}), changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
+        history: { ...st, branch, ...(versions == null ? {} : { versions }), ...(head && tip.time ? { last: { time: tip.time, device: tip.device } } : {}), changed: new Set([...drafts.keys(), ...gone, ...links.keys(), ...away.keys(), ...blobs.keys()]).size, waiting: unsaved() }, github: { user: W.user, repos: [] } });
       if (versions == null) countVersions();
     },
     help() { if (onScreen === GUIDE) return; const there = tabs.find(GUIDE); apply(there >= 0 ? tabs.selectAt(there) : tabs.add(GUIDE)); }, // (the guide, in a tab of its own)
@@ -978,11 +1042,11 @@
       const boards = every().filter((r) => isBoard(r) && C.shown(r)).sort(C.naturalCmp).slice(0, 2000), notes = every().filter((r) => C.isMd(r) && C.shown(r)).slice(0, 4000);
       const all = await owned();
       // (mtime: what tells the page a picture is another by now, as a tile's — previews)
-      const out = boards.map((r) => ({ path: BASE + "/" + r, name: C.nameOf(r), url: fileUrl(BASE + "/" + r), mtime: drafts.has(r) ? drafts.get(r).at || 1 : parseInt(((files.get(r) || {}).sha || "0").slice(0, 12), 16), kept: Object.hasOwn(all, r), in: [] }));
+      const out = boards.map((r) => ({ path: BASE + "/" + r, name: C.nameOf(r), url: fileUrl(BASE + "/" + r), mtime: drafts.has(r) ? drafts.get(r).at || 1 : parseInt(((blobOf(r) || {}).sha || "0").slice(0, 12), 16), kept: Object.hasOwn(all, r), in: [] }));
       if (out.length) {
         await loadAll(); // (every note's text: which of them names a board)
         for (const n of notes) {
-          const text = drafts.has(n) ? drafts.get(n).text : texts.get((files.get(n) || {}).sha);
+          const text = drafts.has(n) ? drafts.get(n).text : texts.get((blobOf(n) || {}).sha);
           if (typeof text === "string" && text.includes(".board.svg")) for (const b of out) if (C.mentions(text, b.name)) b.in.push(BASE + "/" + n);
         }
       }
@@ -1052,13 +1116,13 @@
       sendFolder();
     },
     async rename({ path, name }) {
-      if (busy) await busy; // (as trash)
+      await landed(path); // (as trash)
       if (!mayWrite()) return;
       if (!exists(path)) { // a folder: each file in it under the new path, as when it is moved
         const inside = paths().filter((p) => p.startsWith(path + "/")), stem = C.cleanName(name), to = `${C.dirOf(path)}/${stem}`;
         if (!path.startsWith(BASE + "/") || !(inside.length || keptDirs.has(path)) || !stem || to === path) return;
         if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${stem}” already exists`);
-        if (!(await moveFolder(path, to, inside))) return;
+        moveFolder(path, to, inside);
         looksFollow(path, to);
         hiddenFollow(path, to);
         sendFolder();
@@ -1072,22 +1136,16 @@
       const now = `${C.dirOf(path)}/${stem}${suffix}`;
       if (!stem || now === path) return;
       if (exists(now)) return toast(`“${C.nameOf(now)}” already exists`);
-      if (!(await relocate(path, now, "rename"))) return;
+      relocate(path, now);
       sendFolder();
       sendTabs();
+      commit();
     },
     /* A note, another file or a folder dragged into another folder (or to the top): the same file
      * under another path — as a renaming is, for a folder each file in it. */
     async move({ path, dir }) {
-      if (busy) await busy;
-      if (!mayWrite() || !path || !path.startsWith(BASE + "/") || !(dir === BASE || (dir || "").startsWith(BASE + "/"))) return;
-      const name = C.nameOf(path), to = `${dir}/${name}`;
-      if (C.dirOf(path) === dir || dir === path || dir.startsWith(path + "/")) return; // (where it is already, or into itself)
-      const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
-      if (!exists(path) && !folder) return;
-      if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${name}” already exists there`);
-      if (folder) { if (!(await moveFolder(path, to, inside))) return; looksFollow(path, to); hiddenFollow(path, to); }
-      else if (!(await relocate(path, to, "move"))) return;
+      await landed(path);
+      if (!mayWrite() || !moveInto(path, dir)) return;
       sendFolder();
       sendTabs();
       commit();
@@ -1109,7 +1167,7 @@
     /* A note, another file or a folder deleted — or several at once (paths: what is selected in
      * All Notes). A folder is the files in it. */
     async trash({ path, paths: many }) {
-      if (busy) await busy; // (a commit on its way knows the file as it was sent: what it has is known first)
+      await landed(path, ...(Array.isArray(many) ? many : [])); // (a commit on its way knows the file as it was sent: what it has is known first)
       if (!mayWrite()) return;
       const all = new Set();
       let emptied = false;
@@ -1126,9 +1184,9 @@
       const next = was && i >= 0 ? (notes.slice(i + 1).find(stays) || notes.slice(0, i).reverse().find(stays) || {}).path : null;
       for (const p of list) {
         const r = rel(p);
-        drafts.delete(r);
-        if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
-        if (C.isMd(p)) await sharesFollow(r, null); // (a link to it shows nothing any more)
+        drafts.delete(r); blobs.delete(r); links.delete(r); moves.delete(r); uploads.delete(r);
+        if (files.has(r) && !away.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
+        if (C.isMd(p)) sharesFollowSoon(r, null); // (a link to it shows nothing any more)
         tabs.drop(p);
       }
       keepDrafts();
@@ -1170,7 +1228,7 @@
     // Sync Now: what was written here is committed, and what others wrote fetched — at once
     async "sync-now"() {
       if (busy) await busy;
-      if (drafts.size || gone.size) await commit();
+      if (unsaved()) await commit();
       await refresh();
       toast(conflicts.length ? "Changed here and elsewhere: resolve from the clock in the sidebar" : "Up to date");
     },
@@ -1236,7 +1294,7 @@
     let moved = false;
     try { moved = await look(); } catch { return; } // (not reached: what is shown stays)
     if (!moved) return;
-    if (drafts.size || gone.size) { conflicts = await settle(); later(); } // (what was written here, against what is there now)
+    if (unsaved()) { conflicts = await settle(); later(); } // (what was written here, against what is there now)
     tabs.forget(known);
     if (here.sidebar.titles) await loadAll();
     sendFolder();
@@ -1271,11 +1329,11 @@
       if (there >= 0 && tabs.current.path !== first) apply(tabs.selectAt(there)); else openPath(first, null, false);
     } else showNothing();
     for (const m of waiting) hear(m);
-    if (drafts.size || gone.size) later(); // (written before the tab was closed, and no commit yet)
+    if (unsaved()) later(); // (written before the tab was closed, and no commit yet)
     setInterval(refresh, LOOK_EVERY);
     // the tab left: what was written is kept now; come back to: what others wrote is looked for
-    document.addEventListener("visibilitychange", () => { if (document.hidden) { if (drafts.size || gone.size) commit(); } else refresh(); });
-    window.addEventListener("pagehide", () => { if (drafts.size || gone.size) commit(); });
+    document.addEventListener("visibilitychange", () => { if (document.hidden) { if (unsaved()) commit(); } else refresh(); });
+    window.addEventListener("pagehide", () => { if (unsaved()) commit(); });
   }
 
   // ------------------------------------------------------------ light and dark, as the system has it

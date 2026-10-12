@@ -999,7 +999,10 @@ counts — and has no writing help by a model.
 - **A picture pasted** is kept in the repository's `assets` (one for the notes of every folder,
   as on the desktop), in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
-- **Renaming** a note, or any other file up to 14 MB, from the sidebar.
+- **Renaming and moving** a note, any other file, a folder: the row stands at its new place at
+  once, and the commit follows behind it. A file the repository has is not sent again — the
+  commit names it where it is to be — so its size does not matter. Should GitHub not take the
+  commit (no right to write), the row goes back where it was and a message says which file.
 - **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
   Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
   is a commit like what is typed; a tile shows the board as the repository has it. What a note

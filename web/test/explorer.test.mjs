@@ -237,6 +237,52 @@ test("a file and a folder are hidden from their menus: kept in .mdview/hidden.js
   await post({ type: "prefs", prefs: { showHidden: false } });
 });
 
+// what GitHub was asked since a point: whether a file's bytes went over the line, down or up
+const transferred = (since, name) => gh.seen.slice(since).map(([path]) => decodeURIComponent(path)).filter((path) => path.endsWith("/git/blobs") || (path.includes("/contents/") && path.endsWith(name)));
+
+test("a large file moved, and a folder renamed: the row stands at its new place at once, and the commit names the blobs the repository has — nothing of them is fetched or sent", async () => {
+  gh.repo.files.set("big.bin", Buffer.alloc(30 * 1024 * 1024, 7)); // (more than a commit takes as contents, twice over)
+  put("stuff/a.png", "a picture, as far as anyone looks");
+  put("stuff/n.md", "# N\n");
+  await open("Alpha.md");
+  const before = gh.commits.length, since = gh.seen.length;
+  let release;
+  gh.stall = new Promise((r) => { release = r; }); // (GitHub takes its time over the commit)
+  await post({ type: "move", path: `${R}/big.bin`, dir: `${R}/sub` });
+  await until(() => gh.stall === null, "the commit on its way");
+  assert.deepEqual([(await rows()).includes("sub/big.bin"), (await rows()).includes("big.bin"), gh.commits.length], [true, false, before]); // (the page first: GitHub has not answered yet)
+  release();
+  await until(() => gh.repo.files.has("sub/big.bin") && !gh.repo.files.has("big.bin"), "the move in the repository");
+  assert.deepEqual([gh.commits.length, gh.commits.at(-1).linked, gh.commits.at(-1).deleted, gh.commits.at(-1).headline], [before + 1, ["sub/big.bin"], ["big.bin"], "2 files: big.bin, big.bin"]);
+  assert.equal(gh.repo.files.get("sub/big.bin").length, 30 * 1024 * 1024);
+  assert.deepEqual(transferred(since, "big.bin"), []);
+  // a folder under another name: every file in it by its blob, in one commit
+  await post({ type: "rename", path: `${R}/stuff`, name: "things" });
+  await until(() => text("things/n.md") !== undefined && text("stuff/n.md") === undefined, "the folder, renamed");
+  assert.deepEqual([gh.commits.length, [...gh.commits.at(-1).linked].sort(), [...gh.commits.at(-1).deleted].sort()], [before + 2, ["things/a.png", "things/n.md"], ["stuff/a.png", "stuff/n.md"]]);
+  assert.deepEqual(transferred(since, "a.png"), []);
+});
+
+test("a commit GitHub will not take: what was moved is put back and said; one that only fails is tried again, and what waits for it survives a reload", async () => {
+  await open("Alpha.md");
+  const before = gh.commits.length;
+  gh.refuse = 403; // (no right to write: trying again mends nothing)
+  await post({ type: "move", path: `${R}/sub/big.bin`, dir: R });
+  await until(async () => (await rows()).includes("big.bin"), "the row at its new place");
+  await until(async () => (await rows()).includes("sub/big.bin") && !(await rows()).includes("big.bin"), "the row back where the repository has the file");
+  assert.match(await page.evaluate(() => document.querySelector("#toast").textContent), /did not take the change to “big\.bin”/);
+  assert.deepEqual([gh.commits.length, gh.repo.files.has("sub/big.bin"), gh.repo.files.has("big.bin")], [before, true, false]);
+  // the line broke, the server stumbled: the row stays where it was put, also in a tab opened anew, and the commit follows
+  gh.refuse = 500;
+  await post({ type: "rename", path: `${R}/sub/big.bin`, name: "huge" });
+  await until(() => gh.refuse === 0, "the commit that failed");
+  assert.equal(gh.repo.files.has("sub/huge.bin"), false);
+  await open("Alpha.md");
+  assert.deepEqual([(await rows()).includes("sub/huge.bin"), (await rows()).includes("sub/big.bin")], [true, false]);
+  await until(() => gh.repo.files.has("sub/huge.bin") && !gh.repo.files.has("sub/big.bin"), "the commit, tried again");
+  assert.deepEqual(gh.commits.at(-1).linked, ["sub/huge.bin"]);
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });

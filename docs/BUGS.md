@@ -207,6 +207,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     window of the application, a folder on a disk) is in the web host's
     `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
     row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
+56. **In the browser the page comes first, and a file the repository has is never sent again.**
+    What is done to a file — moved, renamed, copied, hidden, deleted — changes the host's own
+    tree and is told to the page at once (`noteRenamed`, `setFolder`); the commit follows
+    behind, and nothing waits for GitHub (only for a commit in flight that holds *that* file:
+    `landed`). A file with a blob in the repository goes into a commit by that blob (`links` in
+    `host.js`, `commitLinked` in `web/lib/github.ts`) — never fetched to be sent back, whatever
+    its size. What is shown as done and then refused for good is put back and said by name
+    (`putBack`); what only waits survives a reload (`moved`, beside the drafts).
 55. **A feature of the page is built for both hosts, or its absence in the other is said at
     once.** The page is one, and Henri uses it in both places: what is made for the desktop and
     left `"none"` in `web/host/contract.ts` is, to him, a change that "is not active on the

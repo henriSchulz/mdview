@@ -389,6 +389,7 @@ test("a note's history goes on behind the commit that gave it its name", async (
   await post({ type: "rename", path: "/octo/notes/Alpha.md", name: "Alpha, later" });
   await until(() => text("Alpha, later.md") !== undefined && text("Alpha.md") === undefined, "the renaming");
   await untilNote("Alpha, later.md");
+  await page.waitForFunction(() => !document.querySelector("#history").contains(document.activeElement), null, { timeout: 4000 }); // (the window has gone, and the keyboard is the note's again: the renaming no longer takes the second a commit used to)
   await page.keyboard.press("Control+Alt+h");
   await page.waitForFunction((n) => { const w = document.querySelector("#history"); return w && w.hasAttribute("data-open") && w.querySelectorAll(".hi-row").length >= n; }, had + 1, { timeout: 15000 }); // (the renaming, and all there was before it)
   assert.equal(await count(), had + 1);
