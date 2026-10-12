@@ -47,7 +47,7 @@
         const first = (b) => (b.getAnimations().flatMap((a) => a.effect.getKeyframes()).find((k) => k.translate && /16px/.test(k.translate)) || {}).translate || "";
         const rest = new Map(bars.map((b) => [b, b.style.translate])), firsts = bars.map(first);
         ok("the board's bars come in moving", bars.length >= 3 && firsts.every(Boolean), firsts);
-        ok("… those at the top from above, those at the bottom from below", /0px \+ -16px\)$/.test(first(title)) && /0px \+ 16px\)$/.test(first(zoom)), [first(title), first(zoom)]);
+        ok("… those at the top from above, those at the bottom from below", first(title).endsWith("(-16px)") && first(zoom).endsWith("(16px)"), [first(title), first(zoom)]);
         ok("… and come to rest where they stand", await until(() => bars.every((b) => !b.getAnimations().length), 3000) && bars.every((b) => b.style.translate === rest.get(b)) && Math.abs(title.getBoundingClientRect().top - 12) < 30, bars.map((b) => b.getAnimations().length));
       }
       ok("the viewer's bar goes as the board comes", await until(() => getComputedStyle(V.bar).opacity === "0", 1500), getComputedStyle(V.bar).opacity);
