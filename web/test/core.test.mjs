@@ -212,3 +212,31 @@ test("how folders look: read forgivingly, written in order, and a folder moved k
   assert.deepEqual(C.looksMoved(looks, "b", "x/y"), { a: { color: "red" }, ab: { icon: "star" }, "x/y/c": { color: "green", icon: "flag" } });
   assert.deepEqual(C.looksMoved(looks, "a", "z"), { z: { color: "red" }, ab: { icon: "star" }, "b/c": { color: "green", icon: "flag" } });
 });
+
+test("what is put away: left out of the tree, or listed and marked — as the desktop's scan does it", () => {
+  // (the files and the outcome of scan.rs: a_folder_lists_everything_but_what_is_put_away, but for the empty folder and .git, which a repository does not have)
+  const files = ["a.md", "b.pdf", "c.board.svg", ".env", "assets/kept.png", "sub/s.txt", "sub/away.zip", "node_modules/x/i.js", "arch/x.md", "arch/in/y.md"];
+  const away = new Set(["assets/kept.png", "sub/away.zip", "arch"]), show = ["pdf", "image", "media", "other"];
+  const names = (n, pre = "") => [...n.notes.map((x) => pre + C.nameOf(x.path) + (x.hidden ? "*" : "")), ...n.dirs.flatMap((d) => [pre + d.name + "/" + (d.hidden ? "*" : ""), ...names(d, pre + d.name + "/")])];
+  assert.deepEqual(names(C.buildTree(B, files, { show, away })), ["a.md", "b.pdf", "c.board.svg", "sub/", "sub/s.txt"]); // (a folder left with nothing goes with it)
+  assert.deepEqual(names(C.buildTree(B, files, { show, away, all: true })), [".env*", "a.md", "b.pdf", "c.board.svg", "arch/*", "arch/x.md*", "arch/in/*", "arch/in/y.md*", "assets/", "assets/kept.png*", "node_modules/*", "sub/", "sub/away.zip*", "sub/s.txt"]); // (what tools make: named, not gone into)
+  assert.equal(C.buildTree(B, files, { show }).notes.some((n) => "hidden" in n), false); // (nothing is marked that is not put away)
+});
+
+test("the list of what is hidden is the file the desktop app writes, and follows a move", () => {
+  const text = C.hiddenText(new Set(["x.pdf", "a"]));
+  assert.equal(text, '{\n  "version": 1,\n  "hidden": [\n    "a",\n    "x.pdf"\n  ]\n}\n'); // (hidden.rs: in order, a name a line)
+  assert.deepEqual([...C.hiddenOf(text)], ["a", "x.pdf"]);
+  assert.deepEqual([[...C.hiddenOf("no json")], [...C.hiddenOf('{"hidden":["a","",3]}')]], [[], ["a"]]); // (read forgivingly)
+  // (hidden.rs: what_is_hidden_follows_a_move_and_goes_with_what_is_gone)
+  const moved = C.hiddenMoved(new Set(["a", "a/b/n.md", "ab.md"]), "a", "c");
+  assert.deepEqual([...moved].sort(), ["ab.md", "c", "c/b/n.md"]);
+  assert.deepEqual([...C.hiddenMoved(moved, "c", null)], ["ab.md"]);
+});
+
+test("a copy takes the first free name", () => {
+  // (folder.rs: a_copy_takes_the_first_free_name_and_a_folder_comes_whole)
+  const there = new Set(["a", "b copy.board.svg", "n.md", "n 2.md"]), taken = (n) => there.has(n);
+  assert.deepEqual([C.freeName("a", true, false, taken), C.freeName("b.board.svg", false, true, taken), C.freeName(".env", false, true, taken), C.freeName("n.md", false, false, taken), C.freeName("x.tar.gz", false, true, taken)],
+    ["a 2", "b copy 2.board.svg", ".env copy", "n 3.md", "x.tar copy.gz"]);
+});

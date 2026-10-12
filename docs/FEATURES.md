@@ -1001,6 +1001,10 @@ counts — and has no writing help by a model.
   here; Show › Hidden Items lists it, dimmed, with the names that begin with a dot and the build
   folders (named, not gone into). What the desktop application put into a note it remembers on
   its own computer: in the browser such a file is listed like any other.
+- **Hide** and Show Again, from a file's or a folder's menu, as here: what is hidden is written
+  into the repository (`.mdview/hidden.json`, the file the desktop application keeps), as a
+  commit after the quiet while — so what is hidden in the browser is hidden on the desktop once
+  it has synced, and the other way round. Undo in the message that says so.
 - **The settings** have what there is in a browser: no writing help, no quick notes, no sharper
   text, no settings folder. History shows the repository — its name, its
   branch, how many versions it has, the last one, what is not kept yet — with the quiet while

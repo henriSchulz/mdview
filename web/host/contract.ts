@@ -47,7 +47,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   move: ["write", "a note, another file or a folder put into another folder"],
   folderlook: ["write", "a colour and a sign for a folder: written into the repository (.mdview/folders.json), where the desktop app keeps it too"],
   trash: ["write", "a note, another file or a folder deleted — or several at once (paths)"],
-  hide: ["none", "files and folders put out of sight in the folder's list, or shown again (the desktop app; kept in .mdview/hidden.json)"],
+  hide: ["write", "files and folders put out of sight in the list, or shown again: written into the repository (.mdview/hidden.json), where the desktop app keeps it too"],
   copyfiles: ["none", "files and folders copied or cut in the folder's list (the desktop app)"],
   pastefiles: ["none", "… and put into a folder"],
   duplicate: ["none", "a copy of a file or folder beside it (the desktop app)"],

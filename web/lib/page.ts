@@ -51,7 +51,7 @@ export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\
 // What the page offers and a browser cannot do (commands of its menus: a file of a repository is
 // opened by no other program, lies in no Finder and has no path on a disk), and what is called
 // otherwise here: a file deleted in a repository goes to no Trash, its versions stay.
-const LACKS = ["default", "openwith", "reveal", "copypath", "copyf", "cutf", "pastef", "duplicate", "hide", "unhide", "addfiles"]; // (the last seven: not yet)
+const LACKS = ["default", "openwith", "reveal", "copypath", "copyf", "cutf", "pastef", "duplicate", "addfiles"]; // (the last five: not yet)
 const LABELS = { trash: "Delete" };
 
 // While the page is on its way — its scripts, then the repository or the shared note itself — the

@@ -182,6 +182,61 @@ test("Show › Hidden Items lists what is put away, dimmed: what a note keeps, n
   await until(async () => JSON.stringify(await rows()) === JSON.stringify(usual), "the list as it was");
 });
 
+test("a file and a folder are hidden from their menus: kept in .mdview/hidden.json as the desktop app writes it, taken back from the message, shown again; what is hidden stays so under another name and is named no more once it is deleted", async () => {
+  put("Gamma.md", "# Gamma\n");
+  put("doc.pdf", "%PDF-1.4\n");
+  put("arch/Old.md", "# Old\n");
+  put("arch/in/Older.md", "# Older\n");
+  await open("Alpha.md");
+  const hidden = () => (text(HIDDEN) === undefined ? null : JSON.parse(text(HIDDEN)).hidden);
+  const lists = async (...names) => { const all = await rows(); return names.map((n) => all.includes(n)); };
+  // a file's menu: Hide — a commit of the list alone, and the row is gone
+  await row("Gamma.md").click({ button: "right" });
+  await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
+  assert.deepEqual([(await menu()).includes("hide"), (await menu()).includes("unhide")], [true, false]);
+  await choose("hide");
+  await until(async () => !(await lists("Gamma.md"))[0], "the row gone");
+  await until(() => text(HIDDEN) !== undefined, "the list in the repository");
+  assert.equal(text(HIDDEN), '{\n  "version": 1,\n  "hidden": [\n    "Gamma.md"\n  ]\n}\n'); // (byte for byte what hidden.rs writes)
+  assert.deepEqual([gh.commits.at(-1).added, gh.commits.at(-1).deleted], [[HIDDEN], []]);
+  assert.equal(text("Gamma.md"), "# Gamma\n"); // (out of sight, not gone)
+  // Undo in the message that says so: with nothing hidden there is no file
+  await post({ type: "hide", paths: [`${R}/Gamma.md`] }); // (said once more: the message stands anew)
+  await page.waitForFunction(() => /is hidden/.test(document.querySelector("#toast").textContent) && document.querySelector("#toast button"), null, { timeout: 4000 });
+  await page.click("#toast button");
+  await until(async () => (await lists("Gamma.md"))[0], "the row back");
+  await until(() => text(HIDDEN) === undefined, "no list any more");
+  // several at once, a folder among them: one commit, and all that is in the folder goes with it
+  const before = gh.commits.length;
+  await post({ type: "hide", paths: [`${R}/Gamma.md`, `${R}/arch`, "/elsewhere/x.md", `${R}/Nothing.md`], on: true });
+  await until(() => (hidden() || []).length === 2, "both in the list");
+  assert.deepEqual(hidden(), ["Gamma.md", "arch"]);
+  assert.equal(gh.commits.length, before + 1);
+  assert.deepEqual(await lists("Gamma.md", "arch/", "arch/Old.md", "doc.pdf"), [false, false, false, true]);
+  // what another device hid (the desktop app writes the same file) is hidden here
+  put(HIDDEN, JSON.stringify({ version: 1, hidden: ["Gamma.md", "arch", "doc.pdf"] }, null, 2) + "\n");
+  await post({ type: "sync-now" });
+  await until(async () => !(await lists("doc.pdf"))[0], "what was hidden elsewhere");
+  // Hidden Items: listed dimmed, with Show Again in the menu
+  await post({ type: "prefs", prefs: { showHidden: true } });
+  await until(async () => (await lists("Gamma.md*"))[0], "the hidden rows, dimmed");
+  assert.deepEqual(await lists("arch/*", "arch/Old.md*", "arch/in/*", "doc.pdf*", "Alpha.md"), [true, true, true, true, true]);
+  await row("Gamma.md").click({ button: "right" });
+  await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
+  assert.deepEqual([(await menu()).includes("hide"), (await menu()).includes("unhide")], [false, true]);
+  await choose("unhide");
+  await until(() => JSON.stringify(hidden()) === '["arch","doc.pdf"]', "shown again");
+  assert.deepEqual(await lists("Gamma.md", "Gamma.md*"), [true, false]);
+  // a hidden folder renamed stays hidden; a hidden file deleted is named no more
+  await post({ type: "rename", path: `${R}/arch`, name: "attic" });
+  await until(() => JSON.stringify(hidden()) === '["attic","doc.pdf"]' && text("attic/in/Older.md") !== undefined, "the folder, renamed and still hidden");
+  await post({ type: "trash", path: `${R}/doc.pdf` });
+  await until(() => JSON.stringify(hidden()) === '["attic"]' && text("doc.pdf") === undefined, "the deleted file out of the list");
+  await post({ type: "trash", path: `${R}/attic` });
+  await until(() => text(HIDDEN) === undefined && text("attic/Old.md") === undefined, "the folder gone, and the list with it");
+  await post({ type: "prefs", prefs: { showHidden: false } });
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });

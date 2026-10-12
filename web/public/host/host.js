@@ -187,9 +187,11 @@
   }
   // one of the files the app keeps in the repository about it (.mdview/…), as far as it is read: its text, or null
   const textNow = (r) => (gone.has(r) ? null : drafts.has(r) ? drafts.get(r).text : texts.get((files.get(r) || {}).sha) ?? null);
-  /* What the list leaves out beside the names with a dot: what the app keeps for a note — a picture
-   * pasted, a whiteboard made in it — as the desktop app's list does (folder.rs: rescan). */
-  const putAway = () => new Set(Object.keys(C.attachOf(textNow(C.ATTACH) ?? "")));
+  /* What was put out of sight by hand, as the repository says itself (.mdview/hidden.json) … */
+  const hiddenNow = () => C.hiddenOf(textNow(C.HIDDEN) ?? "");
+  /* … and what the list leaves out beside the names with a dot: that, and what the app keeps for a
+   * note — a picture pasted, a whiteboard made in it — as the desktop app's list does (folder.rs: rescan). */
+  const putAway = () => new Set([...hiddenNow(), ...Object.keys(C.attachOf(textNow(C.ATTACH) ?? ""))]);
   const treeNow = (more) => C.buildTree(BASE, every(), { away: putAway(), ...more });
   // a folder under another path keeps its look
   function looksFollow(was, to) {
@@ -362,6 +364,19 @@
     if (drafts.has(r)) gone.delete(r);
     keepDrafts();
     later();
+  }
+  /* What is hidden, as it is to be: a draft like a note's — and with nothing hidden there is no file (hidden.rs: write). */
+  function keepHidden(hidden) {
+    if (hidden.size) return write(C.HIDDEN, C.hiddenText(hidden));
+    drafts.delete(C.HIDDEN);
+    if (files.has(C.HIDDEN)) { gone.add(C.HIDDEN); goneAt.set(C.HIDDEN, files.get(C.HIDDEN).sha); }
+    keepDrafts();
+    later();
+  }
+  // a file or a folder under another path stays hidden; one that is gone (to: null) is named no more
+  function hiddenFollow(was, to) {
+    const hidden = hiddenNow(), a = rel(was);
+    if ([...hidden].some((k) => k === a || k.startsWith(a + "/"))) keepHidden(C.hiddenMoved(hidden, a, to == null ? null : rel(to)));
   }
   /* How many commits the branch has, for the settings: asked when they are shown, once for each
    * place the branch stands at, and told when the answer is there. */
@@ -702,6 +717,7 @@
       away.set(r, f.sha);
       commit();
     }
+    hiddenFollow(path, now); // (hidden, it stays hidden)
     tabs.rename(path, now);
     if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
     if (here.last === path) here.last = now;
@@ -1017,6 +1033,18 @@
       keptDirs.add(`${into}/${C.cleanName(name) || "New Folder"}`); // (a folder is in the repository once a note is in it)
       sendFolder();
     },
+    /* Files and folders put out of sight, or shown again: written into the repository
+     * (.mdview/hidden.json), where the desktop app keeps it too — what is hidden here is hidden there. */
+    hide({ paths: many, on: put }) {
+      if (!mayWrite()) return;
+      const some = (Array.isArray(many) ? many : []).filter((p) => typeof p === "string" && (exists(p) || isDir(p)));
+      if (!some.length) return;
+      const hidden = hiddenNow();
+      for (const p of some) { if (put !== false) hidden.add(rel(p)); else hidden.delete(rel(p)); }
+      keepHidden(hidden);
+      if (put !== false && !prefs.showHidden) tell("toast", some.length === 1 ? `“${C.nameOf(some[0])}” is hidden` : `${some.length} items are hidden`, { label: "Undo", type: "hide", data: { paths: some, on: false } });
+      sendFolder();
+    },
     // a colour and a sign for a folder: written into the repository, as a note is
     folderlook({ path, color, icon }) {
       if (!mayWrite() || !path || !path.startsWith(BASE + "/") || exists(path)) return;
@@ -1032,6 +1060,7 @@
         if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${stem}” already exists`);
         if (!(await moveFolder(path, to, inside))) return;
         looksFollow(path, to);
+        hiddenFollow(path, to);
         sendFolder();
         sendTabs();
         commit();
@@ -1057,7 +1086,7 @@
       const inside = paths().filter((p) => p.startsWith(path + "/")), folder = !exists(path) && (inside.length > 0 || keptDirs.has(path));
       if (!exists(path) && !folder) return;
       if (exists(to) || paths().some((p) => p.startsWith(to + "/")) || keptDirs.has(to)) return toast(`“${name}” already exists there`);
-      if (folder) { if (!(await moveFolder(path, to, inside))) return; looksFollow(path, to); }
+      if (folder) { if (!(await moveFolder(path, to, inside))) return; looksFollow(path, to); hiddenFollow(path, to); }
       else if (!(await relocate(path, to, "move"))) return;
       sendFolder();
       sendTabs();
@@ -1085,6 +1114,7 @@
       const all = new Set();
       let emptied = false;
       for (const p of (Array.isArray(many) && many.length ? many : [path]).filter((p) => typeof p === "string" && p.startsWith(BASE + "/"))) {
+        hiddenFollow(p, null); // (what is gone is hidden no more)
         if (exists(p)) { all.add(p); continue; }
         for (const q of paths()) if (q.startsWith(p + "/")) all.add(q);
         for (const k of [...keptDirs]) if (k === p || k.startsWith(p + "/")) { keptDirs.delete(k); emptied = true; } // (a folder made here, still empty)
@@ -1196,6 +1226,7 @@
     if (files.has(C.SHARES)) await fetchTexts([files.get(C.SHARES).sha]).catch(() => {}); // (what is shared: the sidebar marks it)
     if (files.has(C.FOLDERS)) await fetchTexts([files.get(C.FOLDERS).sha]).catch(() => {}); // (how the folders look: the sidebar draws them so)
     if (files.has(C.ATTACH)) await fetchTexts([files.get(C.ATTACH).sha]).catch(() => {}); // (what is kept for a note: the list leaves it out)
+    if (files.has(C.HIDDEN)) await fetchTexts([files.get(C.HIDDEN).sha]).catch(() => {}); // (… and what was hidden by hand)
     return true;
   }
   /* Looked at again every minute, and when the tab is come back to: what another device sent is shown. */
