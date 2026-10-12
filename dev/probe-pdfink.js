@@ -31,12 +31,18 @@
       MdPdf.test.go(2);
       await until(() => V.pages[1].state === "done");
       await sleep(200);
-      const before = box(page(2));
+      const before = box(page(2)), next = box(page(3)), first = box(page(1));
+      const seen = [1, 2, 3, 4].filter((n) => { const r = page(n).getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
       draw.click();
+      // (the moment the board is there: its pages are not bare — the viewer's pictures lie on them)
+      await until(() => B.shown && st().pdf && document.querySelectorAll("#board .bd-sheet").length === 6, 4000);
+      ok("the board comes up with the pages on it, none bare", seen.includes(2) && seen.every((n) => { const c = document.querySelectorAll("#board .bd-sheet")[n - 1].querySelector("canvas"); return c && c.width > 100; }), st() && st().pdf);
       ok("the whiteboard comes up over the PDF", await until(() => B.shown && st().pdf && document.querySelector("#board[data-open][data-pdf]")), st());
       const sheet = (n) => document.querySelectorAll("#board .bd-sheet")[n - 1];
       ok("with a sheet for every page", document.querySelectorAll("#board .bd-sheet").length === 6);
       ok("the page stands where it stood in the viewer", close(box(sheet(2)), before), [box(sheet(2)), before]);
+      ok("… and so do the pages before and after it: nothing jumps", close(box(sheet(3)), next) && close(box(sheet(1)), first), [box(sheet(1)), first, box(sheet(3)), next]);
+      ok("the viewer's bar goes as the board comes", await until(() => getComputedStyle(V.bar).opacity === "0", 1500), getComputedStyle(V.bar).opacity);
       ok("the pages in sight are drawn", await until(() => st().pdf.drawn.includes(2) && sheet(2).querySelector("canvas")), st().pdf);
       ok("it is named as the PDF is, and has no dots", document.querySelector("#board .bd-name").textContent === "paper.pdf" && !stage().hasAttribute("data-grid"));
       out("open", {});
@@ -96,6 +102,7 @@
       key("Escape");
       if (B.shown) document.querySelector('#board [data-do="back"]').click();
       ok("back: the board is gone", await until(() => !B.shown && document.querySelector("#board").hidden, 3000));
+      ok("… and the viewer's bar is back", await until(() => getComputedStyle(V.bar).opacity === "1", 1500), getComputedStyle(V.bar).opacity);
       ok("the stroke lies on page 2, and on no other", await until(() => ink(2) && ink(2).querySelectorAll("path").length === 1) && !ink(1) && !ink(3), document.querySelectorAll(".pdf-ink").length);
       ok("the PDF is as large as the board was left", Math.abs(V.scale - zoom * B.pdf.UNIT) < 0.02, [V.scale, zoom * B.pdf.UNIT]);
       ok("… and the page at the height it was", Math.abs(box(page(2))[1] - left[1]) <= 3, [box(page(2)), left]);

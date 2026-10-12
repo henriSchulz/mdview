@@ -57,16 +57,26 @@
    * the screen (a detail): so a page is sharp however large it is shown, and no picture is larger
    * than the window. The pages in sight come first, the nearest of them before the others, one
    * picture at a time. While the view is under the hand (fast) what is there is kept, stretched;
-   * it is drawn anew when the hand rests. drop(): no more is drawn (the sheets stay, for whoever
+   * it is drawn anew when the hand rests. seed: see below. drop(): no more is drawn (the sheets stay, for whoever
    * empties the host). */
   const BASE = 4e6;
-  function paper(host, doc, pages) {
+  function paper(host, doc, pages, seed = null) {
     const sheets = pages.map((p) => {
       const d = document.createElement("div");
       d.className = "bd-sheet";
       d.style.cssText = `left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px`;
       host.appendChild(d);
-      return { p, d, k: 0, base: null, detail: null }; // k: the base's pixels per point; detail: { k, box, el }
+      const s = { p, d, k: 0, base: null, detail: null }; // k: the base's pixels per point; detail: { k, box, el }
+      // seed(n): a picture of the page that is there already (the viewer's) — a copy of it is the sheet's until a better one is drawn
+      const from = seed && seed(p.n);
+      if (from && from.width && from.height) {
+        const c = document.createElement("canvas");
+        c.width = from.width; c.height = from.height;
+        c.getContext("2d").drawImage(from, 0, 0);
+        d.append(c);
+        s.base = c; s.k = (from.width / p.w) * UNIT;
+      }
+      return s;
     });
     let want = [], busy = null, dead = false;
     const same = (a, b) => Math.abs(a - b) / b < 0.04;

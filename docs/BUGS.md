@@ -160,6 +160,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
     inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).
 
+59. **A view that comes over another of the same thing begins as that one stood.** The whiteboard
+    over a PDF: the pages lie where they lay — both lay them out by one rule (the gap between
+    pages grows with the size in both) —, they come up with the pictures the viewer had, never
+    bare, and what belongs to the view below (its bar, its card) goes as the other comes.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or

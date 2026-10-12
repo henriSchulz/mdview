@@ -108,6 +108,28 @@
       T.zoomTo("width"); await sleep(300);
     }
     await until(() => V.outline);
+    // --- the size pulled with the pointer over a place: that place stays under the pointer, down and across
+    {
+      const was = { scale: V.scale, fit: V.fit, y: scrollY };
+      T.zoomTo(1.2); await sleep(120);
+      const pg = V.pages[T.pageNow(true) - 1].div, r = pg.getBoundingClientRect(), px = Math.round(r.left + r.width * 0.8), py = Math.round(Math.max(r.top, 0) + 260);
+      const under = () => { const q = pg.getBoundingClientRect(); return [(px - q.left) / q.width, (py - q.top) / q.height]; }, at = under(), near = (a, b) => Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01;
+      V.root.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: px, clientY: py, pointerType: "mouse" }));
+      for (let i = 0; i < 8; i++) { V.root.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: px, clientY: py, deltaY: -120, ctrlKey: true })); await sleep(40); }
+      await sleep(200);
+      ok("Ctrl and the wheel over a place: larger", V.scale > 3, V.scale);
+      ok("… and that place is still under the pointer, down and across", near(under(), at), [at, under()]);
+      ok("… the page is broader than the window now, and all of it can be reached", V.box.scrollWidth > V.box.clientWidth + 50 && V.box.scrollLeft > 20 && (V.box.scrollLeft = 0, Math.round(pg.getBoundingClientRect().left) >= Math.round(V.box.getBoundingClientRect().left)), [V.box.scrollWidth, V.box.clientWidth, V.box.scrollLeft]);
+      T.zoomTo(1.2); await sleep(120);
+      const qx = Math.round(pg.getBoundingClientRect().left + pg.getBoundingClientRect().width * 0.55), under2 = () => { const q = pg.getBoundingClientRect(); return [(qx - q.left) / q.width, (py - q.top) / q.height]; };
+      V.root.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: qx, clientY: py, pointerType: "mouse" }));
+      const at2 = under2();
+      MdView.pinch("begin", 1); MdView.pinch("move", 1.4); MdView.pinch("move", 2);
+      await sleep(250);
+      ok("a pinch on the touchpad: larger around the pointer too", Math.abs(V.scale - 2.4) < 0.02 && near(under2(), at2), [V.scale, at2, under2()]);
+      was.fit ? T.zoomTo(was.fit) : T.zoomTo(was.scale);
+      await sleep(150); scrollTo(0, was.y); await sleep(150);
+    }
     // --- the bar: a capsule in one row, without the colours and the choice of what is copied (they are the settings')
     {
       const bar = V.bar, card = V.side.querySelector(".pdf-card"), page = () => { const r = V.pages[V.now - 1 || 0].div.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(); };

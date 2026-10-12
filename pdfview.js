@@ -190,6 +190,7 @@
     window.addEventListener("resize", v.onResize);
     document.addEventListener("keydown", v.onKey, true);
     v.root.addEventListener("wheel", onWheel, { passive: false });
+    v.root.addEventListener("pointermove", (e) => { v.aim = { x: e.clientX, y: e.clientY }; }, { passive: true });
     document.addEventListener("selectionchange", v.onSelect);
     window.addEventListener("focus", v.onFocus);
     events();
@@ -241,12 +242,16 @@
       const B = await board(), sizes = await sizesOf(v);
       if (V !== v || B.shown) return;
       const pg = v.pages[pageNow(true) - 1], r = pg.div.getBoundingClientRect();
-      await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, at: { n: pg.n, left: r.left, top: r.top, width: r.width }, done: (now) => drawn(v, now) });
-    } catch (e) { toast(T("Couldn't open the PDF to draw on")); }
+      // (the pages as they are drawn here go under the board at once — none comes up bare and is filled in after)
+      const seed = (n) => { const x = v.pages[n - 1], q = x.state === "done" ? x.div.getBoundingClientRect() : null; return q && q.bottom > -innerHeight && q.top < 2 * innerHeight ? x.div.querySelector(".pdf-canvas") : null; };
+      v.root.setAttribute("data-drawing", ""); // (the bar and the card go as the board comes: pdfview.css)
+      if (!(await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, seed, at: { n: pg.n, left: r.left, top: r.top, width: r.width }, done: (now) => drawn(v, now) }))) v.root.removeAttribute("data-drawing");
+    } catch (e) { v.root.removeAttribute("data-drawing"); toast(T("Couldn't open the PDF to draw on")); }
     v.opening = false;
   }
   /* The board over the PDF was closed: its ink lies on the pages, and the PDF stands where the board was left — as large, the same page at the same height. */
   function drawn(v, now) {
+    v.root.removeAttribute("data-drawing");
     if (V !== v || !v.root.isConnected) return;
     inked(v, now.model);
     if (now.quick) return;
@@ -254,6 +259,7 @@
     if (Math.abs(scale - v.scale) / v.scale > 0.01) zoomTo(scale);
     const p = P.near(now.pages, now.view, { w: innerWidth, h: innerHeight }), r = v.pages[p.n - 1].div.getBoundingClientRect();
     window.scrollBy({ top: r.top - (p.y - now.view.y) * now.view.z, behavior: "instant" });
+    v.box.scrollLeft += v.pages[p.n - 1].div.getBoundingClientRect().left - (p.x - now.view.x) * now.view.z; // (and across, as far as the pages go)
     pageNow();
   }
 
@@ -265,6 +271,7 @@
   };
   function layout() {
     if (V.fit) V.scale = fitScale(V.fit);
+    V.box.style.gap = 12 * V.scale + "px"; // (twelve points between two pages, at any size — as they lie under a whiteboard: board/pdf.js, GAP)
     for (const pg of V.pages) {
       pg.div.style.width = Math.round(pg.w * V.scale) + "px";
       pg.div.style.height = Math.round(pg.h * V.scale) + "px";
@@ -327,8 +334,16 @@
     return n;
   }
   let drawLater = 0;
-  function zoomTo(what, live = false) {
-    const v = V, n = pageNow(true), pg = v.pages[n - 1], r = pg.div.getBoundingClientRect(), into = r.height ? Math.max(0, -r.top) / r.height : 0;
+  /* at: { x, y } in the window — the place that stays where it is while the pages grow or shrink around it: the pointer's, where a
+   * hand pulls the size (the wheel, a pinch); none: the middle of the window's top edge, as the keys and the bar's buttons mean it. */
+  function zoomTo(what, live = false, at = null) {
+    const v = V, box = v.box.getBoundingClientRect(), ax = at ? at.x : box.left + box.width / 2, ay = at ? at.y : topRoom();
+    // (one pull of the hand holds one place: asked anew at every step it would drift wherever the pages cannot follow — a page
+    // narrower than the window stands in its middle — and never come back under the pointer once they can)
+    const now = performance.now(), held = at && v.hold && v.hold.x === ax && v.hold.y === ay && now - v.hold.t < 400 ? v.hold : null;
+    const pg = held ? held.pg : v.pages.find((x) => x.div.getBoundingClientRect().bottom > ay) || v.pages[v.pages.length - 1], r = pg.div.getBoundingClientRect();
+    const fx = held ? held.fx : (ax - r.left) / r.width, fy = held ? held.fy : (ay - r.top) / r.height; // where in the page the place is
+    v.hold = at ? { x: ax, y: ay, pg, fx, fy, t: now } : null;
     if (typeof what === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, what)); } else v.fit = what;
     layout();
     // (while the size is being pulled — a pinch, the wheel — the pages are only stretched; they are drawn anew when it rests)
@@ -336,7 +351,8 @@
     if (live) drawLater = setTimeout(() => { if (V === v) v.pages.forEach((x) => { if (x.near) draw(x); }); }, 140);
     else v.pages.forEach((x) => { if (x.near) draw(x); });
     const r2 = pg.div.getBoundingClientRect();
-    window.scrollBy({ top: r2.top + into * r2.height - Math.min(0, r.top) * 0 - (r.top > 0 ? r.top : 0), behavior: "instant" });
+    window.scrollBy({ top: r2.top - (fy >= 0 ? ay - fy * r2.height : r.top), behavior: "instant" }); // (above the first page: its top stays)
+    v.box.scrollLeft += r2.left - (ax - fx * r2.width); // (pages broader than the window are moved sideways in their own box: pdfview.css)
     v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
   }
   // a place in the PDF: page, and optionally how far down it (in PDF points from the page's top)
@@ -893,22 +909,23 @@
    * fingers have made of it so far), or Ctrl with the wheel. It follows at once, a frame at a time. */
   let pinchBase = 1, zoomWant = 0, zoomFrame = 0;
   const shown = () => V && V.root.isConnected && V.pages && V.pages.length;
-  function pull(scale) {
-    zoomWant = scale;
+  let zoomAt = null;
+  function pull(scale, at) {
+    zoomWant = scale; zoomAt = at || null;
     if (zoomFrame) return;
-    zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; if (shown()) zoomTo(zoomWant, true); });
+    zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; if (shown()) zoomTo(zoomWant, true, zoomAt); });
   }
   function pinch(phase, scale) {
     if (!shown() || (window.MdBoard && window.MdBoard.shown)) return;
     if (phase === "begin") { pinchBase = V.scale; return; }
-    if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale);
+    if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale, V.aim); // (the host says how much, not where: around the pointer, where it was last seen over the PDF)
   }
   // (On the viewer itself, never on the window: a wheel listener that may hold the wheel back makes
   // every scroll of every note wait for the page's scripts.)
   function onWheel(e) {
     if (!e.ctrlKey || !shown()) return;
     e.preventDefault(); e.stopPropagation();
-    pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015));
+    pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX, y: e.clientY });
   }
 
   window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },

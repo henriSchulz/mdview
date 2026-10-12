@@ -381,9 +381,8 @@
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
       zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
-    // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where)
+    // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
     el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);
-    el.addEventListener("pointerleave", () => { aim = null; });
   }
   /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
    * goes only moves where it is going. */
@@ -1126,7 +1125,7 @@
   }
   /* … for whoever shows the PDF (pdfview.js): what stands on its pages, or null. */
   B.pdfInk = async (path) => { const text = await pdfText(path); return text ? B.format.parse(text) : null; };
-  /* A PDF to draw on. pdf: { path, name, doc (pdf.js), sizes: [[w, h]] of its pages in points, at: { n, left, top, width } — where
+  /* A PDF to draw on. pdf: { path, name, doc (pdf.js), sizes: [[w, h]] of its pages in points, seed(n): a picture of page n that is there already, or none, at: { n, left, top, width } — where
    * page n stands in the window now, so that the board comes up with the pages where they were —, done({ model, view, pages }) }. */
   B.openPdf = (pdf) => B.open(null, pdf);
 
@@ -1136,7 +1135,7 @@
     const ref = pdf ? pdfRef(pdf.path) : refOf(img), cur = core.current || {};
     if (!el) build();
     el.querySelector(".bd-paper").replaceChildren();
-    if (pdf) { const pages = B.pdf.layout(pdf.sizes); pdf = { ...pdf, pages, paper: B.pdf.paper(el.querySelector(".bd-paper"), pdf.doc, pages) }; }
+    if (pdf) { const pages = B.pdf.layout(pdf.sizes); pdf = { ...pdf, pages, paper: B.pdf.paper(el.querySelector(".bd-paper"), pdf.doc, pages, pdf.seed) }; }
     const s = (S = { ref, img, pdf, readonly: !!((window.MdHost || {}).reading || (!pdf && cur.readonly)), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
     inkAt = null;
     core.lockScroll(true);

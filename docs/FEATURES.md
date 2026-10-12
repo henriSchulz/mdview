@@ -1100,7 +1100,8 @@ one opens the note. The bar over the pages is a capsule like the window's toolba
 back, the page, the size, fit, a region, the pen. The side card — outline, pages, notes — lies over
 the window's left under the bar; no page moves for it. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
-again. Keys: `+` `−` zoom, `W` fit width,
+again. A pinch and the wheel hold the place under the pointer; pages broader than the window are
+moved sideways (two fingers, `Shift` with the wheel). Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
 
 **Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the
