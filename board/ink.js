@@ -60,27 +60,32 @@
       },
     };
   }
-  /* The strokes a round eraser of radius r at (x, y) touches. */
   /* Is (x, y) inside the closed line poly ([[x, y], …])? */
-  function within(poly, x, y) {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const a = poly[i], b = poly[j];
-      if (a[1] > y !== b[1] > y && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
-    }
-    return inside;
-  }
-  /* The strokes a loop drawn around them takes: those with a fair part of themselves inside it — a loop need not go all the
-   * way round a thing, nor be shut, to mean it (a quarter of a stroke's points is enough; a stroke merely crossed is not). */
-  const SHARE = 0.25;
+  const within = (poly, x, y) => B.items.within(poly, x, y);
+  const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  const cross = (a, b, c, d) => side(a, b, c) !== side(a, b, d) && side(c, d, a) !== side(c, d, b); // do the pieces a–b and c–d cross?
+  /* The strokes a loop drawn around them takes: every stroke of which any part lies in it — the whole stroke, however little of
+   * it the loop holds; and a loop need not be shut to mean what is in it. (A stroke made clean has few points, far apart: its
+   * pieces are looked at too, where none of its points is inside.) */
   function circled(items, poly) {
-    return items.filter((it) => it.k === "ink" && it.pts.filter((p) => within(poly, p[0], p[1])).length >= Math.max(1, it.pts.length * SHARE));
+    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]), box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    return items.filter((it) => {
+      if (it.k !== "ink") return false;
+      const b = B.format.boundsOf(it), pts = it.pts;
+      if (b[2] < box[0] || b[0] > box[2] || b[3] < box[1] || b[1] > box[3]) return false;
+      if (pts.some((p) => within(poly, p[0], p[1]))) return true;
+      for (let i = 1; i < pts.length; i++) {
+        if (Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) < 8) continue; // (a short piece with neither end inside goes through nothing worth the name)
+        for (let j = 0, k = poly.length - 1; j < poly.length; k = j++) if (cross(pts[i - 1], pts[i], poly[k], poly[j])) return true;
+      }
+      return false;
+    });
   }
-  /* … and whether it takes a thing with this box (a shape, a text, a picture): its middle inside, or two of its corners. */
-  function holds(poly, box) {
-    const [x0, y0, x1, y1] = box;
-    if (within(poly, (x0 + x1) / 2, (y0 + y1) / 2)) return true;
-    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].filter(([x, y]) => within(poly, x, y)).length >= 2;
+  /* … and whether it takes a thing (a shape, a text, a picture, a line) with this middle and these corners of its outline: its
+   * middle inside, or two of its corners (of many corners a quarter). */
+  function holds(poly, mid, corners) {
+    if (within(poly, mid[0], mid[1])) return true;
+    return corners.filter(([x, y]) => within(poly, x, y)).length >= Math.max(2, Math.ceil(corners.length / 4));
   }
   /* The same stroke somewhere else, or larger: every point through f([x, y]) → [x, y]; its width times k. */
   function moved(it, f, k = 1) {
@@ -89,6 +94,7 @@
     it.w = Math.max(0.5, Math.min(200, Math.round(it.w * k * 100) / 100));
     it.path = null; it.box = null;
   }
+  /* The strokes a round eraser of radius r at (x, y) touches. */
   function touched(items, x, y, r) {
     const out = [];
     for (const it of items) {

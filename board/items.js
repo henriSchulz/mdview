@@ -110,20 +110,90 @@
     const [cx, cy] = mid(it), c = Math.cos(-rad(it)), s = Math.sin(-rad(it));
     return [(x - cx) * c - (y - cy) * s, (x - cx) * s + (y - cy) * c];
   }
-  /* Does (x, y) hit it? slack: how far beside it still counts (a line is thin). */
-  function hit(it, x, y, slack = 0) {
-    if (it.k === "ink") return B.ink.touched([it], x, y, Math.max(slack, 4)).length > 0;
-    if (it.k === "line") {
-      const pts = way(it), near = it.stroke.w / 2 + Math.max(slack, 5);
-      for (let i = 1; i < pts.length; i++) {
-        const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], dx = x2 - x1, dy = y2 - y1, len = dx * dx + dy * dy;
-        const t = len ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len)) : 0;
-        if (Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)) <= near) return true;
-      }
-      return false;
+  // ---------------------------------------------------------------- its real shape
+  // A thing is met where it is drawn, not anywhere in the box around it: a line near its way, a shape within its own form (a
+  // diamond's frame has four empty corners), a shape that is only an outline at that outline, a text where its lines stand.
+  const FRAME = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  const FORMS = { // a shape's corners in its frame, from −1 to 1 each way (as shapePath draws them)
+    ellipse: () => Array.from({ length: 24 }, (_v, i) => [Math.cos((i * Math.PI) / 12), Math.sin((i * Math.PI) / 12)]),
+    triangle: () => [[0, -1], [1, 1], [-1, 1]],
+    diamond: () => [[0, -1], [1, 0], [0, 1], [-1, 0]],
+    hexagon: () => [[-0.5, -1], [0.5, -1], [1, 0], [0.5, 1], [-0.5, 1], [-1, 0]],
+    star: () => Array.from({ length: 10 }, (_v, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, k = i % 2 ? 0.4 : 1; return [Math.cos(a) * k, Math.sin(a) * k]; }),
+  };
+  /* A shape of which only the outline is drawn: no fill, no text. */
+  const hollow = (it) => it.k === "shape" && it.fill === "none" && !it.text;
+  /* Its outline on the board, corner after corner: a line's way, a shape's form, a text's lines, any other thing's frame — turned
+   * as the item is. whole: a text by its frame too. */
+  function outline(it, whole = false) {
+    if (it.k === "line") return way(it);
+    const [cx, cy] = mid(it), c = Math.cos(rad(it)), s = Math.sin(rad(it));
+    let pts = FRAME;
+    if (it.k === "shape" && FORMS[it.shape]) pts = FORMS[it.shape]();
+    else if (it.k === "text" && it.text && !whole) { // (a text box is as wide as it was made, however short its text)
+      const share = Math.min(1, (Math.max(4, ...lines(it).map((l) => wide(it, l))) + 2 * PAD) / it.w), [a, b] = it.ts.align === "left" ? [-1, 2 * share - 1] : it.ts.align === "right" ? [1 - 2 * share, 1] : [-share, share];
+      pts = [[a, -1], [b, -1], [b, 1], [a, 1]];
     }
-    const [lx, ly] = local(it, x, y);
-    return Math.abs(lx) <= it.w / 2 + slack && Math.abs(ly) <= it.h / 2 + slack;
+    return pts.map(([a, b]) => [cx + (a * it.w * c) / 2 - (b * it.h * s) / 2, cy + (a * it.w * s) / 2 + (b * it.h * c) / 2]);
+  }
+  /* Is (x, y) inside the closed line poly ([[x, y], …])? */
+  function within(poly, x, y) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if (a[1] > y !== b[1] > y && x < ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+  /* How far (x, y) is from the line through pts (closed: back to its first point too). */
+  function off(pts, x, y, closed) {
+    let best = Infinity;
+    for (let i = closed ? 0 : 1; i < pts.length; i++) {
+      const [x1, y1] = pts[(i + pts.length - 1) % pts.length], [x2, y2] = pts[i], dx = x2 - x1, dy = y2 - y1, len = dx * dx + dy * dy;
+      const t = len ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / len)) : 0;
+      best = Math.min(best, Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy)));
+    }
+    return best;
+  }
+  /* Does (x, y) hit it? slack: how far beside it still counts; thin: how far beside what is only a line — a line, a stroke, a
+   * shape's bare outline (those are thin, and hard to meet). */
+  function hit(it, x, y, slack = 0, thin = Math.max(slack, 4)) {
+    if (it.k === "ink") return B.ink.touched([it], x, y, thin).length > 0;
+    const pts = outline(it);
+    if (it.k === "line" || hollow(it)) return off(pts, x, y, it.k !== "line") <= it.stroke.w / 2 + thin;
+    return within(pts, x, y) || (slack > 0 && off(pts, x, y, true) <= slack);
+  }
+  /* Is (x, y) on it or within it, filled or not, its whole frame where it is a text? (Where a line's end may join it.) */
+  const inside = (it, x, y, slack = 0) => { if (it.k === "line" || it.k === "ink" || it.foreign) return false; const pts = outline(it, true); return within(pts, x, y) || off(pts, x, y, true) <= slack; };
+  /* Does the piece from a to b reach into the box [x0, y0, x1, y1]? */
+  function cuts(a, b, [x0, y0, x1, y1]) {
+    let t0 = 0, t1 = 1;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    for (const [p, q] of [[-dx, a[0] - x0], [dx, x1 - a[0]], [-dy, a[1] - y0], [dy, y1 - a[1]]]) {
+      if (p === 0) { if (q < 0) return false; continue; }
+      const t = q / p;
+      if (p < 0) { if (t > t1) return false; t0 = Math.max(t0, t); } else { if (t < t0) return false; t1 = Math.min(t1, t); }
+    }
+    return true;
+  }
+  /* Does the box [x0, y0, x1, y1] touch it — any part of a stroke or a line, a thing's outline, or what is filled of it? (The box
+   * that is pulled over things to choose them: one that only reaches into the empty box around a slanting line touches nothing.) */
+  function crosses(it, box) {
+    if (it.foreign) return false;
+    const c = bounds(it);
+    if (c[0] > box[2] || c[2] < box[0] || c[1] > box[3] || c[3] < box[1]) return false;
+    const open = it.k === "ink" || it.k === "line", bare = open || hollow(it), pts = it.k === "ink" ? it.pts : outline(it), n = pts.length;
+    const grow = it.k === "ink" ? it.w / 2 : bare ? it.stroke.w / 2 : 0, b = [box[0] - grow, box[1] - grow, box[2] + grow, box[3] + grow];
+    for (let i = 0; i < n; i++) if ((i || !open || n === 1) && cuts(pts[(i + n - 1) % n], pts[i], b)) return true;
+    return !bare && within(pts, box[0], box[1]); // (the box lies on it, and reaches none of its edges)
+  }
+  /* The point halfway along a line's way (any other thing's middle). */
+  function middle(it) {
+    if (it.k !== "line" || !it.route) return mid(it);
+    const pts = way(it), lens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]));
+    let left = lens.reduce((a, b) => a + b, 0) / 2;
+    for (let i = 0; i < lens.length; i++) { if (left <= lens[i] && lens[i]) return [pts[i][0] + ((pts[i + 1][0] - pts[i][0]) * left) / lens[i], pts[i][1] + ((pts[i + 1][1] - pts[i][1]) * left) / lens[i]]; left -= lens[i]; }
+    return mid(it);
   }
   function moveBy(it, dx, dy) {
     if (it.k === "ink") return B.ink.moved(it, (p) => [p[0] + dx, p[1] + dy]);
@@ -225,17 +295,17 @@
   /* Its text in lines that fit its width. measure(text, font) → pixels; without one (no canvas:
    * the tests) a letter is taken to be about half its size wide. */
   let measure = null;
+  const wide = (it, s) => (measure ? measure(s, `${it.ts.italic ? "italic " : ""}${it.ts.bold ? "600" : "400"} ${it.ts.size}px ${FONT}`) : s.length * it.ts.size * 0.52);
   function lines(it) {
-    const font = `${it.ts.italic ? "italic " : ""}${it.ts.bold ? "600" : "400"} ${it.ts.size}px ${FONT}`, room = Math.max(8, it.w - 2 * PAD);
-    const wide = (s) => (measure ? measure(s, font) : s.length * it.ts.size * 0.52);
+    const room = Math.max(8, it.w - 2 * PAD), wideOf = (s) => wide(it, s);
     const out = [];
     for (const para of String(it.text).split("\n")) {
       let line = "";
       for (const word of para.split(/(?<=\s)/)) {
-        if (line && wide((line + word).trimEnd()) > room) { out.push(line.trimEnd()); line = word; } else line += word;
-        while (wide(line.trimEnd()) > room && line.length > 1) { // (a word longer than the box: broken where it must be)
+        if (line && wideOf((line + word).trimEnd()) > room) { out.push(line.trimEnd()); line = word; } else line += word;
+        while (wideOf(line.trimEnd()) > room && line.length > 1) { // (a word longer than the box: broken where it must be)
           let k = line.length - 1;
-          while (k > 1 && wide(line.slice(0, k)) > room) k--;
+          while (k > 1 && wideOf(line.slice(0, k)) > room) k--;
           out.push(line.slice(0, k)); line = line.slice(k);
         }
       }
@@ -332,5 +402,5 @@
     }
   }
 
-  B.items = { PICTURE, card, CELL, cellAt, tableFit, SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, corners, bounds, local, hit, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
+  B.items = { PICTURE, card, CELL, cellAt, tableFit, SIDES, ROUTES, sidePoint, joint, relink, way, lineDraw, texty, thumbs, missing, thumbsFrom, KINDS, SHAPES, PAPERS, FILLS, SIZES, WIDTHS, FONT, LEAD, PAD, INK, fresh, norm, data, mid, middle, corners, bounds, local, outline, within, hollow, hit, inside, crosses, moveBy, shapePath, head, textColor, lines, svg, set measure(f) { measure = f; } };
 })();

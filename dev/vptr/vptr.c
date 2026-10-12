@@ -2,7 +2,7 @@
  * WAYLAND_DISPLAY — the nested one the rig runs the app in — so that what the browser itself does with a held button
  * (selecting text, dragging, scrolling after it) is part of a check. Made-up DOM events prove none of that.
  *   vptr W H  m X Y | d | u | s MS | g X Y STEPS MS   …
- * W H: the output's size; m: move to; d/u: left button down/up; s: sleep; g: glide to X Y in STEPS, MS between them. */
+ * W H: the output's size; m: move to; d/u: left button down/up (rd/ru: the right one); s: sleep; g: glide to X Y in STEPS, MS between them. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +41,7 @@ int main(int argc, char **argv) {
       i += 4;
     }
     else if (!strcmp(c, "d") || !strcmp(c, "u")) { zwlr_virtual_pointer_v1_button(p, now(), 0x110, c[0] == 'd'); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(dpy); }
+    else if (!strcmp(c, "rd") || !strcmp(c, "ru")) { zwlr_virtual_pointer_v1_button(p, now(), 0x111, c[1] == 'd'); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(dpy); }
     else if (!strcmp(c, "s") && i + 1 < argc) { usleep(atoi(argv[++i]) * 1000); }
     else { fprintf(stderr, "vptr: what is %s?\n", c); return 2; }
   }

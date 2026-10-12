@@ -53,7 +53,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 7. **A page is as wide with little on it as with much**, and as wide in one layout as in another:
    scroll containers that can be short or long reserve the scrollbar's room
    (`overflow-y: scroll`), and two layouts of the same page share one `max-width`.
-30. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
+52. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
     where the folder is linked (`history.linked`), not where the two sides have been reconciled
     (`history.sync`: nothing until the first answer, half a minute after a start or longer).
 
@@ -139,6 +139,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
+51. **A thing on the whiteboard is met where it is drawn, never by the box around it.** Whatever
+    asks "is this under the pointer, in the box, in the loop" asks `items.js` (`hit`, `crosses`,
+    `outline`, `inside`) — `bounds` is for what must fit on the screen or in the picture, not for
+    choosing. How far beside a thing still counts is said in screen pixels (divided by the zoom),
+    not in the board's units.
 
 ### The clipboard
 

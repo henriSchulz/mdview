@@ -191,15 +191,20 @@
       const shown = window.MdPrefs?.props !== false;
       rows.push(null, [window.MdStrings.t(shown ? "menu.propsHide" : "menu.propsShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), props: !shown }; post("prefs", { prefs: { props: !shown } }); P.prefsChanged(); }]);
     }
+    menuAt(e.clientX, e.clientY, rows);
+  });
+  /* The same menu for another part of the page (a whiteboard's right click): rows of [name, keys, whether it can be chosen
+   * now, what it does, a class of its own ("danger")], null for a rule; at a point of the window. */
+  function menuAt(x, y, rows) {
     tDo = {};
-    tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}><span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
+    tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item${r[4] ? " " + r[4] : ""}" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}><span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
     rows.forEach((r, i) => { if (r) tDo[i] = r[3]; });
     tItems = [...tmenu.querySelectorAll(".menu-item")];
     tSetHl(-1);
-    tmenu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - tmenu.offsetWidth - 8)) + "px";
-    tmenu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - tmenu.offsetHeight - 8)) + "px";
+    tmenu.style.left = Math.max(8, Math.min(x, innerWidth - tmenu.offsetWidth - 8)) + "px";
+    tmenu.style.top = Math.max(8, Math.min(y, innerHeight - tmenu.offsetHeight - 8)) + "px";
     tmenu.dataset.open = "";
-  });
+  }
   tmenu.addEventListener("contextmenu", (e) => e.preventDefault());
   tmenu.addEventListener("mousedown", (e) => e.preventDefault()); // (the focus, and with it the selection, stays where it is)
   tmenu.addEventListener("mousemove", (e) => { const b = e.target.closest(".menu-item"), i = b && !b.disabled ? tItems.indexOf(b) : -1; if (i !== tHl) tSetHl(i); });
@@ -307,7 +312,7 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { closePick, popup, combo, startRename, noteRenamed, setTitles });
+  Object.assign(P, { closePick, popup, combo, menuAt, startRename, noteRenamed, setTitles });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     titlesTimer: [() => titlesTimer, (v) => { titlesTimer = v; }],
