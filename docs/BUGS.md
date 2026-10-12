@@ -185,6 +185,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     there with seeded random edits; one more file changes every edit of the run.
 23. **A click made up by a key or a test has no target** — handlers that look at `event.target`
     check that it is an element.
+49. **A settings row is there where the host does what it sets**: what only the desktop has (a
+    window of the application, a folder on a disk, what is put out of sight) is in the web host's
+    `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
+    row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
 
 ### Touch (iPad)
 

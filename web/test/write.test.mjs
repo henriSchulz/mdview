@@ -698,27 +698,61 @@ test("a file that is no note has another name: its bytes under the new, none und
 });
 
 test("the settings show what there is here, not the desktop's own", async () => {
+  gh.note("as it was"); put("Past.md", "once"); gh.note("a note more"); gh.repo.files.delete("Past.md"); // (a repository with a past: more than one commit)
   await open("Beta.md");
   await page.keyboard.press("Control+,");
   await page.waitForFunction(() => { const s = document.querySelector("#settings"); return s && s.hasAttribute("data-open"); }, null, { timeout: 15000 });
   await page.click('#settings .st-nav[data-page="history"]');
   await page.waitForFunction(() => /^On/.test((document.querySelector('.pf-row[data-key="historyState"] .pf-value') || {}).textContent || ""), null, { timeout: 8000 });
+  await page.waitForFunction(() => !document.querySelector('.pf-row[data-key="historyCount"]').hidden, null, { timeout: 8000 }); // (asked of GitHub: there when it has answered)
   const seen = await page.evaluate(() => {
     const vis = (e) => !!e && e.offsetParent !== null;
     const row = (k) => document.querySelector(`.st-page[data-page="history"] .pf-row[data-key="${k}"]`);
     return {
       nav: [...document.querySelectorAll("#settings .st-nav")].filter(vis).map((b) => b.dataset.page),
-      rows: ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId", "githubAccount", "githubGet"].filter((k) => vis(row(k))),
+      rows: ["historyState", "historyName", "historyRoot", "historyBranch", "historyCount", "historyLast", "historyLink", "historyQuiet", "deviceName", "deviceId", "githubAccount", "githubGet"].filter((k) => vis(row(k))),
+      count: row("historyCount").querySelector(".pf-value").textContent, last: row("historyLast").querySelector(".pf-value").textContent,
       link: row("historyLink").querySelector(".pf-value").textContent,
       buttons: [...document.querySelectorAll('.st-page[data-page="history"] .pf-link')].filter(vis).map((b) => b.textContent),
       device: row("deviceName").querySelector("input").placeholder,
     };
   });
   assert.ok(!seen.nav.includes("ai") && seen.nav.includes("history") && seen.nav.includes("editing"), String(seen.nav)); // (no model here)
-  assert.deepEqual(seen.rows, ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId"]); // (signing in is before any page)
+  assert.deepEqual(seen.rows, ["historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyLink", "historyQuiet", "deviceName", "deviceId"]); // (signing in is before any page; a repository lies in no folder)
+  assert.ok(gh.past.length > 1, String(gh.past.length));
+  assert.equal(seen.count, String(gh.past.length)); // (the branch's commits, not a nought)
+  assert.match(seen.last, /\d{4}.* · \S/); // (when, and by whom)
   assert.match(seen.link, /^octo\/notes · /);
   assert.deepEqual(seen.buttons, []); // (nothing to switch off or unlink: the repository is the project)
   assert.match(seen.device, /^Chrome on /);
+  // what is the desktop's alone is on no page: the quick notes (a window of the application, a folder on its disk), what a folder has put out of sight
+  const all = await page.evaluate(() => {
+    const out = {};
+    for (const b of [...document.querySelectorAll("#settings .st-nav")].filter((b) => !b.hidden)) {
+      b.click();
+      const on = document.querySelector(`.st-page[data-page="${b.dataset.page}"]`);
+      out[b.dataset.page] = [...on.querySelectorAll(".pf-row, .pf-section")].filter((e) => e.offsetParent !== null).map((e) => e.dataset.key || "# " + e.textContent);
+    }
+    return out;
+  });
+  assert.deepEqual(all, {
+    general: ["lang", "startMode"],
+    appearance: ["docZoom", "measure", "calloutStyle"],
+    sidebarPage: ["sidebarLayout", "sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther"],
+    allNotes: ["ovScope", "ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
+    history: ["# This folder", "historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyChanged", "historyLink", "historyQuiet", "# This device", "deviceName", "deviceId"],
+    editing: ["bar", "slash", "syntax", "quotes", "# Paragraphs", "wrap", "# Pictures", "images"],
+    newMarkdown: ["style"],
+    latex: ["latexSnippets", "latexFraction", "latexMatrix", "latexTabout", "latexEnlarge", "latexBrackets", "latexText"],
+    pdf: ["pdfFormat", "pdfAuto"],
+    about: ["version", "guide"],
+  });
+  await page.keyboard.press("Escape");
+  // … nor in the sidebar's Show: the kinds of files, and no Hidden Items
+  await page.click(".sb-row", { button: "right" });
+  await page.click('[data-cmd="sub:show"]');
+  await page.waitForSelector("#ctxsub[data-open]", { timeout: 4000 });
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#ctxsub .menu-item")].map((b) => b.dataset.group || b.dataset.pref)), ["pdf", "image", "media", "board", "other"]);
   await page.keyboard.press("Escape");
 });
 

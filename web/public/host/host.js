@@ -355,6 +355,21 @@
     keepDrafts();
     later();
   }
+  /* How many commits the branch has, for the settings: asked when they are shown, once for each
+   * place the branch stands at, and told when the answer is there. */
+  let counted = { head: null, n: 0 }, counting = null;
+  function countVersions() {
+    const at = head;
+    if (counting === at) return;
+    counting = at;
+    ask(API + "/history").then(async (res) => {
+      const n = res.ok ? (await res.json()).count : null;
+      counting = null;
+      if (typeof n !== "number") return;
+      counted = { head: at, n };
+      on["settings-info"]();
+    }).catch(() => { counting = null; }); // (not told: the row stays away)
+  }
   const quiet = () => Math.max(1, Number(prefs.historyQuiet) || 30) * 1000;
   function later() { clearTimeout(timer); timer = setTimeout(() => commit(), quiet()); }
   const bytesOf = (base64) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -436,6 +451,7 @@
         }
         unsent("", "");
         { const kept = await res.json(); head = kept.head; if (kept.branch) branch = kept.branch; } // (branch: told with a repository's first commit)
+        tip = { device: `${device.name} (${device.id})`, time: Math.floor(Date.now() / 1000) }; // (the branch stands at a commit of this browser's)
         // (what is shared changed: the server is told, so that a link finds its repository and the overview is right)
         if (sent.has(C.SHARES)) ask(API + "/shares", { method: "POST" }).catch(() => {});
         for (const [r, d] of sent) {
@@ -768,11 +784,14 @@
       sendFolder();
     },
     "settings-info"() {
-      const st = standing();
-      // (hide: what the settings have for the desktop alone — the model, signing in, linking, what cannot be here)
+      const st = standing(), versions = !head ? 0 : counted.head === head ? counted.n : null;
+      // (hide: what the settings have for the desktop alone — the model, signing in, linking, the quick notes
+      // and their folder on a disk, what is put out of sight in a folder, where the folder lies: what cannot be here)
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: browserAs.name, deviceId: device.id, home: "",
-        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir"],
-        history: { ...st, branch, changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
+        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir", "quickNew", "quickDir", "showHidden", "historyRoot"],
+        // (how many versions: told once GitHub has said it — until then the row is not there; the last one: the commit the branch stands at)
+        history: { ...st, branch, ...(versions == null ? {} : { versions }), ...(head && tip.time ? { last: { time: tip.time, device: tip.device } } : {}), changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
+      if (versions == null) countVersions();
     },
     help() { if (onScreen === GUIDE) return; const there = tabs.find(GUIDE); apply(there >= 0 ? tabs.selectAt(there) : tabs.add(GUIDE)); }, // (the guide, in a tab of its own)
     external() {

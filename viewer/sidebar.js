@@ -874,7 +874,7 @@
     subWhere = ctxFor && ctxFor.closest("#overview") ? "ov" : "sidebar";
     const tick = (on, how, label) => `<button class="menu-item" role="menuitemcheckbox" aria-checked="${on}" ${how}><span class="menu-icon"${on ? "" : ' style="visibility:hidden"'}>${ICON.check}</span><span class="menu-label">${esc(T(label))}</span></button>`;
     // (each kind that is listed — and, for both lists at once, what is put away: hidden by hand, named with a dot, kept for a note)
-    ctxSub.innerHTML = GROUPS.map(([g, , label]) => tick(groupOn(subWhere, g), `data-group="${g}"`, label)).join("") + `<div class="menu-rule"></div>` + tick(!!(window.MdPrefs || {}).showHidden, `data-pref="showHidden"`, "Hidden Items");
+    ctxSub.innerHTML = GROUPS.map(([g, , label]) => tick(groupOn(subWhere, g), `data-group="${g}"`, label)).join("") + (window.__TAURI_INTERNALS__ ? `<div class="menu-rule"></div>` + tick(!!(window.MdPrefs || {}).showHidden, `data-pref="showHidden"`, "Hidden Items") : ""); // (put away is a folder's on this computer: nothing of it in a browser)
     subItems = [...ctxSub.querySelectorAll(".menu-item")];
     const r = from.getBoundingClientRect(), w = ctxSub.offsetWidth, right = r.right + 2 + w <= innerWidth - 8;
     ctxSub.style.setProperty("--origin", right ? "top left" : "top right");

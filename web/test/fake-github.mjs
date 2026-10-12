@@ -92,6 +92,10 @@ export function fakeGitHub() {
       if (url.pathname === `${at}/commits/main`) return files.size ? json(asCommit(note("written elsewhere"))) : json({ message: "Git Repository is empty." }, 409);
       if (url.pathname === `${at}/commits`) { // (the commits in which a file is not what it was before)
         note("written elsewhere");
+        if (!url.searchParams.has("path")) { // (all of them, a page at a time: the header names the last page)
+          const per = Number(url.searchParams.get("per_page")) || 30, at = Number(url.searchParams.get("page")) || 1, pages = Math.ceil(gh.past.length / per);
+          return json([...gh.past].reverse().slice((at - 1) * per, at * per).map(asCommit), 200, pages > 1 && at < pages ? { Link: `<http://x${url.pathname}?per_page=${per}&page=${at + 1}>; rel="next", <http://x${url.pathname}?per_page=${per}&page=${pages}>; rel="last"` } : {});
+        }
         const path = url.searchParams.get("path"), id = (c) => { const b = c.files.get(path); return b ? blobSha(b) : null; };
         const from = url.searchParams.get("sha"), upTo = from ? gh.past.findIndex((c) => c.oid === from) + 1 : gh.past.length;
         return json(gh.past.slice(0, upTo).filter((c, i) => id(c) && id(c) !== (i ? id(gh.past[i - 1]) : null)).reverse().map(asCommit));

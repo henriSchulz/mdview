@@ -236,6 +236,16 @@ export async function versions(access: string, owner: string, repo: string, path
   return out;
 }
 
+/** How many commits the default branch has: one commit is asked for, a page each, and GitHub
+ * names the last page. null where that cannot be told. */
+export async function count(access: string, owner: string, repo: string): Promise<number | null> {
+  const res = await ask(access, `${repoPath(owner, repo)}/commits?per_page=1`);
+  if (res.status === 409) return 0; // (GitHub: "Git Repository is empty")
+  if (!res.ok) return null;
+  const last = /[?&]page=(\d+)[^>]*>;\s*rel="last"/.exec(res.headers.get("link") || "");
+  return last ? Number(last[1]) : ((await res.json()) as unknown[]).length; // (no further page: what is here is all)
+}
+
 /** The branch a repository's commits go to by default (a repository begun with its first commit says so only then). */
 export async function defaultBranch(access: string, owner: string, repo: string): Promise<string | null> {
   const about = await ask(access, repoPath(owner, repo));
