@@ -52,6 +52,7 @@ every check.
 ./rig.sh tabs                                           # the tabs of a folder window
 ./rig.sh overview                                       # all notes of a folder as tiles
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
+./rig.sh board-hand                                     # a whiteboard under a mouse: hit areas, arrows joined as drawn, joints, the right button (a real pointer)
 ./rig.sh panel                                          # the panel at the right: Insert and Format
 ./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others
 ./rig.sh callout                                        # callouts made from the / menu, their titles typed in place

@@ -508,9 +508,14 @@ and shut back into it — or a file of the folder, of its own.
   arrow at its end shrinks it too.
 - **The lasso** chooses and moves whatever is on the board, strokes of ink included: a click,
   `Shift` and a click for more, `Ctrl+A` for all; a pen draws a loop around what it wants (it need
-  not go all the way round, nor be shut: a stroke with a quarter of itself in the loop is taken,
-  a thing with its middle or two of its corners; what the loop only crosses is not), a
-  mouse pulls a box from the bare board. What is chosen is pulled to another place — several
+  not go all the way round, nor be shut: a stroke is taken whole with any part of itself in the
+  loop, a thing with its middle or two corners of its outline), a mouse pulls a box from the
+  bare board, which takes what it touches — any part of a stroke or a line, a thing's outline
+  or what is filled of it. A thing is met where it is drawn, not in the box around it: a line
+  or an arrow within a few pixels of its way, a shape in its own form, a text where its lines
+  stand. A shape that is only an outline is met at its outline: a click within it still
+  chooses it, a pull within it is a box over what stands in it, and once chosen it is moved
+  from anywhere within. What is chosen is pulled to another place — several
   things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
   with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
   corners of their frame, and take another colour in the small bar beside them. `Esc`, or a
@@ -523,7 +528,9 @@ and shut back into it — or a file of the folder, of its own.
   the usual size there. With the first thing in the tray — drawn by hand — a shape is drawn
   freely and made clean when the hand lets go: a straight line, a circle or an ellipse and a
   rectangle become things of the board, a triangle a clean stroke. What was just made is
-  chosen: pulled at its dots at once, it is sized.
+  chosen: pulled at its dots at once, it is sized. A line or an arrow drawn with an end on a
+  thing is joined to it at once, as if the end had been pulled there (both ends on the same
+  thing: joined to nothing).
 - **Text**: with the text tool a click or tap on the bare board begins a text there, and one
   click on a text types in it. Its tray sets the size, bold, italic, underlined, where the
   text stands and its colour — for the text being typed or chosen, and for every text begun
@@ -579,8 +586,12 @@ and shut back into it — or a file of the folder, of its own.
   runs on and comes to rest (a finger put down holds it); two fingers leave it where they left it. Two fingers tapped together take the last
   step back, three bring it again. On a narrow screen the bar of tools stands under the top
   row and the tray above the bottom row.
+- **Joints**: the one thing chosen, and the thing a mouse rests over, has a small dot a little
+  off the middle of each side. Pulled onto another thing, a line with an arrow joins the two
+  at both ends; let go over the bare board, a choice of shapes asks what is to stand at its
+  end. (The knob for turning stands above the dot on top.)
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
-  sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
+  sides instead, larger, which does the same. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
   shapes asks what is to stand at its end — it has the first one's size and look. A joined line
   goes where its items go. An end pulled off its item lets go of it; let go over an item it
   joins that, at the side it was dropped near. Line Ends in a line's bar also sets its way:
@@ -593,8 +604,13 @@ and shut back into it — or a file of the folder, of its own.
   board's picture alone on the page (or keeps it as a PDF, from the system's print window);
   Snap to Grid makes what is moved come to rest on the dots. With three or more chosen,
   Arrange also spreads them at equal distances.
+- **The right button** of a mouse, clicked: the menu of what is there — on something chosen for
+  all that is chosen, on another thing for that (it is chosen first), with Cut, Copy, Paste,
+  Duplicate, Bring to Front, Send to Back, Add Connection Line (two things), Group or Ungroup,
+  Lock or Unlock, Copy Style, Paste Style and Delete; on the bare board Paste and Select All.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
-  drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
+  drag too, as do the middle button and the right one held and pulled (no menu then); the
+  arrow keys step. Larger and smaller: a pinch,
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
   The dots of the grid are switched at the bottom right.
 - **Kept by itself**, a moment after the last stroke and whenever the board or the note is left.

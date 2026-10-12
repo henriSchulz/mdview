@@ -448,7 +448,7 @@ test("a shape drawn and held is made clean under the hand and pulled to its size
   await drawHold(ring(cx + 220, 980, 40), [[cx + 280, 980], [cx + 300, 980]]);
   s = await st();
   assert.equal(s.items, inks + 1, "a pen's circle, held and pulled, is one stroke of ink");
-  // ---- the lasso: a loop that goes round only a part of a stroke takes it; one that only crosses it does not
+  // ---- the lasso: a loop that goes round only a part of a stroke takes it, however small the part; one beside it does not
   const line = Array.from({ length: 30 }, (_v, i) => [120 + i * 12, 1090]);
   await pen("mousePressed", ...line[0]); for (const p of line.slice(1)) { await pen("mouseMoved", ...p, { down: true }); await sleep(6); } await pen("mouseReleased", ...line[29]); await sleep(120);
   await kind("lasso");
@@ -458,7 +458,11 @@ test("a shape drawn and held is made clean under the hand and pulled to its size
   await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
   await sleep(100);
   await loop(200, 235); // (a narrow loop across it: a tenth of it)
-  assert.equal((await st()).chosen, 0, "a loop that only crosses a stroke does not take it");
+  assert.equal((await st()).chosen, 1, "a loop round a small part of a stroke takes the whole stroke");
+  await page.evaluate(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  await sleep(100);
+  await loop(520, 560); // (beside its end)
+  assert.equal((await st()).chosen, 0, "a loop beside a stroke does not take it");
   await context.close();
 });
 

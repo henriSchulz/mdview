@@ -68,7 +68,7 @@
     ok("with Shift its proportions stay", Math.abs(thing(0).w / thing(0).h - was.w / was.h) < 0.01 && thing(0).w > was.w + 60, [was, thing(0)]);
     key("z", { ctrlKey: true });
     was = thing(0);
-    const knob = at(midOf(was)[0], was.y - 26), c = at(...midOf(was));
+    const knob = at(midOf(was)[0], was.y - 44), c = at(...midOf(was)); // (above the joint on top)
     await drag(steps(knob, [c[0] + 100, c[1] - 58], 10));
     ok("pulled at the knob, it turns about its middle", Math.abs(thing(0).r - 60) < 2 && thing(0).x === was.x && thing(0).w === was.w, [was.r, thing(0).r]);
     await drag(steps(at(...midOf(was)), at(midOf(was)[0] + 30, midOf(was)[1])), {});
@@ -132,7 +132,7 @@
     key("z", { ctrlKey: true }); key("z", { ctrlKey: true }); key("z", { ctrlKey: true });
     ok("… taken back", st().things.length === 3, st().things.map((t) => t.k));
     key("v");
-    await click(...at(...midOf(thing(2))));
+    await click(...at(thing(2).x + 20, thing(2).y + thing(2).h / 2)); // (on its text: a text box is met where its lines stand, not across its whole width)
     q('.bd-fbar [data-f="text"]').click();
     await sleep(300);
     q('.bd-fpop [data-size="1"]').click(); q('.bd-fpop [data-style="bold"]').click(); q('.bd-fpop [data-align="center"]').click();

@@ -134,6 +134,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 45. **The rig's screenshot is of the rig's own window** (`shot` asks for the nested compositor's
     pid): with several rigs side by side the first window found is another session's.
 
+51. **A thing on the whiteboard is met where it is drawn, never by the box around it.** Whatever
+    asks "is this under the pointer, in the box, in the loop" asks `items.js` (`hit`, `crosses`,
+    `outline`, `inside`) — `bounds` is for what must fit on the screen or in the picture, not for
+    choosing. How far beside a thing still counts is said in screen pixels (divided by the zoom),
+    not in the board's units.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
