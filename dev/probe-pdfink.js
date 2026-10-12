@@ -42,6 +42,14 @@
       ok("with a sheet for every page", document.querySelectorAll("#board .bd-sheet").length === 6);
       ok("the page stands where it stood in the viewer", close(box(sheet(2)), before), [box(sheet(2)), before]);
       ok("… and so do the pages before and after it: nothing jumps", close(box(sheet(3)), next) && close(box(sheet(1)), first), [box(sheet(1)), first, box(sheet(3)), next]);
+      { // the board's bars come in moving, each from its edge — and come to rest where they belong
+        const bars = [...document.querySelectorAll("#board .bd-bar")].filter((b) => b.getBoundingClientRect().width), title = document.querySelector("#board .bd-title"), zoom = document.querySelector("#board .bd-zoom");
+        const first = (b) => (b.getAnimations().flatMap((a) => a.effect.getKeyframes()).find((k) => k.translate && /16px/.test(k.translate)) || {}).translate || "";
+        const rest = new Map(bars.map((b) => [b, b.style.translate])), firsts = bars.map(first);
+        ok("the board's bars come in moving", bars.length >= 3 && firsts.every(Boolean), firsts);
+        ok("… those at the top from above, those at the bottom from below", /0px \+ -16px\)$/.test(first(title)) && /0px \+ 16px\)$/.test(first(zoom)), [first(title), first(zoom)]);
+        ok("… and come to rest where they stand", await until(() => bars.every((b) => !b.getAnimations().length), 3000) && bars.every((b) => b.style.translate === rest.get(b)) && Math.abs(title.getBoundingClientRect().top - 12) < 30, bars.map((b) => b.getAnimations().length));
+      }
       ok("the viewer's bar goes as the board comes", await until(() => getComputedStyle(V.bar).opacity === "0", 1500), getComputedStyle(V.bar).opacity);
       ok("the pages in sight are drawn", await until(() => st().pdf.drawn.includes(2) && sheet(2).querySelector("canvas")), st().pdf);
       ok("it is named as the PDF is, and has no dots", document.querySelector("#board .bd-name").textContent === "paper.pdf" && !stage().hasAttribute("data-grid"));

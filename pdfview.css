@@ -15,8 +15,10 @@
 }
 .pdf-bar::-webkit-scrollbar { display: none; }
 /* a whiteboard comes up over the PDF (pdfview.js: drawOn): the bar and the card go as it comes, and come as it goes */
-.pdf-bar { transition: opacity var(--dur-fast) var(--ease-out); }
-.pdfv[data-drawing] .pdf-bar, .pdfv[data-drawing] .pdf-card { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+.pdf-bar { transition: opacity var(--dur-slow) var(--ease-out), translate var(--spring-gentle-dur) var(--spring-gentle); }
+.pdfv[data-drawing] .pdf-bar { opacity: 0; translate: 0 -16px; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), translate calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+.pdfv[data-drawing] .pdf-card { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+@media (prefers-reduced-motion: reduce) { .pdfv[data-drawing] .pdf-bar { translate: none; } }
 .pdf-bar .tb { flex: none; border-radius: var(--radius-pill); }
 .pdf-bar .tb:focus-visible { outline-offset: -2px; }
 .pdf-b:disabled { opacity: 0.4; pointer-events: none; }

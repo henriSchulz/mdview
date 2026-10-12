@@ -1115,6 +1115,23 @@
   }
   const place = (r) => (r ? `translate(${r.left}px, ${r.top}px) scale(${r.width / (el.clientWidth || innerWidth)}, ${r.height / (el.clientHeight || innerHeight)})` : "scale(0.97)");
 
+  /* The board coming up over a PDF: the pages lie where they lay, so what one sees come is the board's own — its bars, each from
+   * the edge it stands at (those at the top from above, those at the bottom from below, an upright one from its side), one a
+   * moment after the other. (An animation, beside any transition of their own, and of `translate` alone: where they stand by `transform` is theirs.) */
+  function barsIn() {
+    if (!el.animate) return;
+    const cs = getComputedStyle(el), ms = (name, d) => { const t = cs.getPropertyValue(name).trim(), n = parseFloat(t); return Number.isFinite(n) ? (t.endsWith("ms") ? n : n * 1000) : d; };
+    const fade = ms("--dur-slow", 270), glide = ms("--spring-gentle-dur", 526), out = cs.getPropertyValue("--ease-out").trim() || "ease-out", spring = cs.getPropertyValue("--spring-gentle").trim() || out, box = el.getBoundingClientRect();
+    [...el.querySelectorAll(".bd-bar, .bd-shrunk")].filter((b) => b.getBoundingClientRect().width).forEach((b, i) => {
+      const r = b.getBoundingClientRect(), upright = r.height > r.width * 1.5, delay = Math.min(i, 10) * 15, opacity = getComputedStyle(b).opacity;
+      const from = upright ? [r.left + r.width / 2 < box.left + box.width / 2 ? -16 : 16, 0] : [0, r.top + r.height / 2 < box.top + box.height / 2 ? -16 : 16];
+      b.animate([{ opacity: 0 }, { opacity }], { duration: fade, delay, easing: out, fill: "backwards" });
+      if (calm.matches) return; // (reduced motion: they fade in, and nothing moves)
+      const own = getComputedStyle(b).translate, [x, y = "0px"] = own && own !== "none" ? own.split(" ") : ["0px"]; // (a bar may stand by a translate of its own — the tray in the middle of its edge: it moves from beside that)
+      const steps = [{ translate: `calc(${x} + ${from[0]}px) calc(${y} + ${from[1]}px)` }, { translate: `${x} ${y}` }];
+      try { b.animate(steps, { duration: glide, delay, easing: spring, fill: "backwards" }); } catch (e) { b.animate(steps, { duration: fade, delay, easing: out, fill: "backwards" }); }
+    });
+  }
   /* What was drawn on a PDF, as the host keeps it: a whiteboard's text, or null where nothing was drawn yet. */
   const pdfRef = (path) => "pdf:" + path;
   async function pdfText(path) {
@@ -1181,6 +1198,7 @@
     void el.offsetWidth;
     el.style.transition = el.style.transform = el.style.opacity = "";
     el.dataset.open = "";
+    if (pdf) barsIn();
     addEventListener("keydown", keydown, true);
     addEventListener("keyup", keyup, true);
     document.addEventListener("visibilitychange", hidden);
