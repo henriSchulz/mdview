@@ -169,6 +169,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     not kept.
 17. **A message from the page that makes the shell read a file names only files the shell
     already knows** (the folder's notes, files picked in the system's own window).
+50. **A file a note names is looked up by the one function that knows where such files are**
+    (`scan::found`; in the web host `foundIn`, `where`): where the link says, else the base
+    folder's `assets`. Whatever takes a path that came out of a note — the file server, a link,
+    a whiteboard, a PDF, a copy, a share — asks it and never the disk directly; whatever puts a
+    file into a note asks `attachment_dir` where and `way_to` how it is named. A note's place is
+    not part of how it names its pictures: it is moved, and its blocks are pasted elsewhere.
 18. **A path from Windows is not a path from Linux**: `C:\…`, `/C:/…` in a URL. Whatever builds
     or parses a file address is checked by the Windows probe (`system-probe.yml`), not by eye.
 

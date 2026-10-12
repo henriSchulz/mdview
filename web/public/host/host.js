@@ -125,6 +125,8 @@
     } catch { /* (not reached: ordered by name until it is) */ } finally { dating = false; }
   }
   const exists = (path) => path.startsWith(BASE + "/") && has(rel(path));
+  // (a file a note names: where the link says, else in the repository's assets — core.js, foundIn)
+  const where = (path) => (typeof path !== "string" || !path.startsWith(BASE + "/") || exists(path) ? path : BASE + "/" + C.foundIn(rel(path), every()));
   const paths = () => every().map((f) => BASE + "/" + f);
   // the guide: no file of the repository — the app's own, shown as a note that cannot be written
   const GUIDE = "/~guide/FEATURES.md", known = (path) => path === GUIDE || exists(path);
@@ -475,12 +477,13 @@
   }
   const mayWrite = () => { if (project()) return true; toast("Turn the history on first: the clock in the sidebar"); return false; };
 
-  /* A picture put in: where the settings say (beside the note, else a folder under it), under a
-   * name not taken; its bytes wait for the next commit. → its path */
+  /* A picture put in: where the settings say (the repository's assets — one place for the notes
+   * of every folder —, beside the note, or a folder under it), under a name not taken; its bytes
+   * wait for the next commit. → its path */
   const PICTURE_MOST = 10 * 1024 * 1024, MOVE_MOST = 14 * 1024 * 1024; // (a commit takes 20 MB, as base64)
   function placeFor(note, stem, ext) {
     const dir = C.dirOf(note), wanted = String(prefs.images || "assets").trim().replace(/^\/+|\/+$/g, "");
-    const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : `${dir}/${wanted}`;
+    const into = !wanted || wanted === "beside" || wanted === "." || wanted.split("/").includes("..") ? dir : wanted === C.KEPT ? `${BASE}/${C.KEPT}` : `${dir}/${wanted}`;
     let target = `${into}/${stem}${ext}`;
     for (let n = 2; exists(target); n++) target = `${into}/${stem}-${n}${ext}`;
     return target;
@@ -565,14 +568,16 @@
   }
   let tidying = Promise.resolve();
   const tidyLater = (note, text) => { tidying = tidying.then(() => tidyFiles(note, text)).catch((e) => console.error("mdview host: attachments", e)); };
-  const markupOf = (note, target) => `![](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
+  // (how a note names a file: the way from its folder — what lies in the repository's assets is `assets/…` in a note of any folder, files.rs: way)
+  const wayTo = (note, target) => (C.dirOf(target) === `${BASE}/${C.KEPT}` ? target.slice(BASE.length + 1) : target.slice(C.dirOf(note).length + 1)).split("/").map(encodeURIComponent).join("/");
+  const markupOf = (note, target) => `![](${wayTo(note, target)})`;
   /* Files handed over by the page as they are (MdHost.drop): dropped on the note, or on the
    * clipboard when something was pasted — in a browser a pasted picture is in the paste event,
    * and nowhere else without asking the user for the clipboard. Each is kept where pasted
    * pictures go, under its own name (a pasted picture: under the time), in a commit at once.
    * A picture is put in as a picture, any other file as a block that names it — where they
    * were dropped or pasted; in the reading view (append) at the note's end. */
-  const fileLink = (note, target) => `[${C.nameOf(target).replace(/([\\\[\]])/g, "\\$1")}](${target.slice(C.dirOf(note).length + 1).split("/").map(encodeURIComponent).join("/")})`;
+  const fileLink = (note, target) => `[${C.nameOf(target).replace(/([\\\[\]])/g, "\\$1")}](${wayTo(note, target)})`;
   const TYPE_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
   async function drop(dropped, path, { pasted = false, append = false } = {}) {
     if (!path || path !== onScreen || path === GUIDE || !mayWrite()) return;
@@ -714,6 +719,7 @@
       if (!to) { if (/^(https?:|mailto:)/i.test(href) && !href.startsWith(location.origin + "/")) window.open(href, "_blank", "noopener"); return; }
       let p = to.path;
       if (!exists(p) && !C.isMd(p) && exists(p + ".md")) p += ".md";
+      p = where(p);
       if (onScreen === p && (!tab || tab === "own")) { if (to.fragment) tell("scrollToFragment", to.fragment, true); return; }
       if (!exists(p)) return toast(`Not found: ${C.nameOf(p)}`);
       if (!["md", "pdf"].includes(C.kindOf(p))) return openFile(p);
@@ -753,6 +759,7 @@
     pdfnote({ path, line }) { if (exists(path) && C.isMd(path)) openPath(path, `^line=${Math.trunc(Number(line) || 0)}`, true); },
     async pdfdata({ path, id }) {
       try {
+        path = where(path);
         if (!exists(path) || C.kindOf(path) !== "pdf") throw new Error("not a PDF file");
         const res = await ask(fileUrl(path));
         if (!res.ok) throw new Error("Can't read file");
@@ -892,6 +899,7 @@
     },
     async "board-read"({ path, id }) {
       try {
+        path = where(path);
         if (typeof path !== "string" || !exists(path) || !isBoard(path)) throw new Error("not a whiteboard");
         tell("boardText", id, await textOf(path), null);
       } catch (e) { tell("boardText", id, null, String(e.message || e)); }
@@ -899,6 +907,7 @@
     // a picture or another file for a whiteboard, handed over as it is: a file beside the board's own, the note's from now on, in a commit at once
     async "board-put"({ path, name, base64, id }) {
       const failed = (error) => tell("boardPut", id, [], error);
+      path = where(path);
       if (typeof path !== "string" || typeof base64 !== "string" || !exists(path) || !isBoard(path) || !onScreen || onScreen === GUIDE) return failed("not a whiteboard");
       if (!mayWrite()) return failed(NOT_YET);
       if (base64.length > PICTURE_MOST * 1.37) return failed("too large to keep here (over 10 MB)");
@@ -916,6 +925,7 @@
       tell("boardPut", id, [C.nameOf(target)], null);
     },
     "board-save"({ path, text, id }) {
+      path = where(path);
       if (typeof path !== "string" || typeof text !== "string" || !exists(path) || !isBoard(path) || !text.includes(BOARD_MARK)) return tell("boardSaved", id, "not a whiteboard");
       if (!project()) return tell("boardSaved", id, NOT_YET);
       write(rel(path), text);

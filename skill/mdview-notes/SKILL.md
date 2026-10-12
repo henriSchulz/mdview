@@ -39,7 +39,7 @@ the note better. The full reference, with every example rendered, is
 | hidden comment | `%% not shown %%` |
 | link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]` |
 | a note shown in place | `![[Note]]` |
-| picture | `![alt](file.png)` or `![[file.png]]` (relative to the note) |
+| picture | `![alt](file.png)` or `![[file.png]]` (relative to the note). What the app itself put in lies in `assets` of the notes' base folder and is named `assets/name.png` in a note of any subfolder — keep such a line as it is, also when the note is moved |
 | picture at a width | `![alt\|400](file.png)`, `![[file.png\|400]]`; `\|full` for the column's whole width (PDF embeds too) |
 | formula in the line | `$a^2 + b^2 = c^2$` |
 | formula as a block | `$$` on its own line, the LaTeX, `$$` on its own line |

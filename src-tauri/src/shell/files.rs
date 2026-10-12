@@ -3,13 +3,42 @@
 
 use super::*;
 
+fn base_folder(note: &Path, folder: Option<&Path>) -> PathBuf {
+    if let Place::Project(root) = history::place_of(note) {
+        return root;
+    }
+    folder.filter(|f| note.starts_with(f)).map(Path::to_path_buf).unwrap_or_else(|| dir_of(note))
+}
+
+/// Where the settings put what is pasted into a note (`images`), outside a vault.
+fn kept_in(note: &Path, base: &Path, wanted: &str) -> PathBuf {
+    let (beside, wanted) = (dir_of(note), wanted.trim());
+    if matches!(wanted, "" | "beside" | ".") {
+        return beside;
+    }
+    if wanted == scan::ASSETS {
+        return base.join(scan::ASSETS);
+    }
+    let d = normalize(&beside.join(wanted.trim_start_matches('/')));
+    if d.starts_with(&beside) { d } else { beside }
+}
+
+fn way(target: &Path, note: &Path, base: &Path) -> String {
+    if target.parent() == Some(base.join(scan::ASSETS).as_path()) {
+        return format!("{}/{}", scan::ASSETS, name_of(target));
+    }
+    relative(target, &dir_of(note))
+}
+
 impl Win {
     /// After a save from the active mode: a picture or file the application put beside the
     /// note, which the note no longer names (nor any other note), goes to the trash; one that
     /// is named again is put back, and the page shows it again (attach.rs).
     pub(super) fn tidy_attachments(&mut self, text: Option<&str>) {
         let (Some(note), Some(text)) = (self.path.clone().filter(|p| !is_pdf(p)), text) else { return };
-        let root = self.vault().or_else(|| self.folder.clone().filter(|f| note.starts_with(f))).unwrap_or_else(|| dir_of(&note));
+        // (whose notes may name the file too: the base folder's — what is put into them lies in one place)
+        let base = self.base_of(&note);
+        let root = self.vault().or_else(|| self.folder.clone().filter(|f| base.starts_with(f))).unwrap_or(base);
         // (how long a file stays after the note stopped naming it; another time: for tests)
         let grace = env("MDVIEW_ATTACH_GRACE").and_then(|g| g.parse().ok()).unwrap_or(crate::attach::GRACE_SECS);
         // What a whiteboard of the note names — the pictures put on it — the note names too: the
@@ -30,8 +59,18 @@ impl Win {
         }
     }
 
-    /// Where a pasted image goes: next to the note (or where the settings say, relative to
-    /// it), or wherever the Obsidian vault keeps its attachments (default: the vault root).
+    /// A note's base folder: the one folder whose `assets` holds what is put into its notes,
+    /// whatever subfolder they are in — the root of the project the note is in (history.rs), else
+    /// the window's folder, else (a note opened by itself) the folder the note lies in.
+    pub(super) fn base_of(&self, note: &Path) -> PathBuf {
+        base_folder(note, self.folder.as_deref())
+    }
+
+    /// Where a pasted image goes: the base folder's `assets` — one place for the notes of every
+    /// subfolder, so that a note moved to another one names its pictures as before (it had an
+    /// `assets` of its own in each subfolder, and a note moved lost its pictures) —, or beside
+    /// the note, or in a folder relative to it, as the settings say; or wherever the Obsidian
+    /// vault keeps its attachments (default: the vault root).
     pub(super) fn attachment_dir(&self, app: &App, note: &Path, vault: Option<&Path>) -> PathBuf {
         let beside = dir_of(note);
         // A folder of notes of its own that lies inside a vault (the window shows a folder below the
@@ -42,12 +81,7 @@ impl Win {
         let vault = vault.filter(|v| !self.folder.as_ref().is_some_and(|f| f.as_path() != *v && f.starts_with(v)));
         let Some(vault) = vault else {
             let prefs = app.prefs();
-            let wanted = prefs["images"].as_str().unwrap_or("assets").trim();
-            if matches!(wanted, "" | "beside" | ".") {
-                return beside;
-            }
-            let d = normalize(&beside.join(if wanted == "assets" { "assets" } else { wanted.trim_start_matches('/') }));
-            return if d.starts_with(&beside) { d } else { beside };
+            return kept_in(note, &self.base_of(note), prefs["images"].as_str().unwrap_or(scan::ASSETS));
         };
         let conf = fs::read_to_string(vault.join(".obsidian/app.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok());
         let conf = conf.as_ref().and_then(|c| c["attachmentFolderPath"].as_str()).filter(|c| !c.trim_matches('/').is_empty());
@@ -63,7 +97,14 @@ impl Win {
         if vault {
             return format!("![[{}]]", name_of(target));
         }
-        format!("![]({})", quote(&relative(target, &dir_of(note))))
+        format!("![]({})", quote(&self.way_to(target, note)))
+    }
+
+    /// How a note names a file: the way to it from the note's folder — but what lies in the base
+    /// folder's `assets` is `assets/x.png` in a note of any subfolder: the same words wherever
+    /// the note is moved and wherever the block is pasted, found from there (scan::found).
+    pub(super) fn way_to(&self, target: &Path, note: &Path) -> String {
+        way(target, note, &self.base_of(note))
     }
 
     /// Save the clipboard image as a file and embed it: the page inserts the Markdown at the
@@ -129,7 +170,7 @@ impl Win {
             }
             let picture = scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str());
             // (a picture as a picture; any other file as a link alone in its paragraph: a file block)
-            let markup = |target: &Path| if picture { self.image_markup(target, &note, vault.is_some()) } else { format!("[{}]({})", name_of(target).replace('[', "\\[").replace(']', "\\]"), quote(&relative(target, &dir_of(&note)))) };
+            let markup = |target: &Path| if picture { self.image_markup(target, &note, vault.is_some()) } else { format!("[{}]({})", name_of(target).replace('[', "\\[").replace(']', "\\]"), quote(&self.way_to(target, &note))) };
             // (… as is a file of the window's folder, wherever in it: a row pulled from its list into the note)
             if resolve(&src).starts_with(&beside) || self.folder.as_ref().is_some_and(|f| resolve(&src).starts_with(f)) {
                 markups.push(markup(&resolve(&src)));
@@ -221,7 +262,7 @@ impl Win {
 
     /// A whiteboard's text for the page (it may not read files itself).
     pub(super) fn board_read(&self, path: &str, id: &Value) {
-        let p = resolve(Path::new(path));
+        let p = scan::found(&resolve(Path::new(path))); // (named as `assets/…` by a note of a subfolder: the base folder's)
         let read = || -> Result<String, String> {
             if !is_board(&p) || !p.is_file() {
                 return Err("not a whiteboard".into());
@@ -240,7 +281,7 @@ impl Win {
     /// … and the board as it is to be. Only into a whiteboard that is there, and only a
     /// whiteboard's text: this is no way to write any file.
     pub(super) fn board_save(&mut self, path: &str, text: &str, id: &Value) {
-        let p = resolve(Path::new(path));
+        let p = scan::found(&resolve(Path::new(path)));
         let done = if !is_board(&p) || !p.is_file() || !text.contains(BOARD_MARK) {
             Err("not a whiteboard".to_string())
         } else {
@@ -254,7 +295,7 @@ impl Win {
     /// one. The page is told its name (none: the clipboard holds no picture).
     pub(super) fn board_paste(&mut self, app: &mut App, board: &str, id: &Value) {
         let done = |w: &Self, names: Vec<String>, e: Option<String>| w.js("MdView.boardPut", &[id.clone(), json!(names), e.map(|e| json!(e)).unwrap_or(Value::Null)]);
-        let p = resolve(Path::new(board));
+        let p = scan::found(&resolve(Path::new(board)));
         if !is_board(&p) || !p.is_file() {
             return done(self, vec![], Some("not a whiteboard".into()));
         }
@@ -288,7 +329,7 @@ impl Win {
     /// is, any other is copied there (a picture stands on the board as itself, any other file
     /// as a card). Notes and whiteboards are left out.
     pub(super) fn board_drop(&mut self, board: &str, uris: &Value, id: &Value) {
-        let p = resolve(Path::new(board));
+        let p = scan::found(&resolve(Path::new(board)));
         if !is_board(&p) || !p.is_file() {
             return self.js("MdView.boardPut", &[id.clone(), json!([]), json!("not a whiteboard")]);
         }
@@ -315,5 +356,47 @@ impl Win {
             }
         }
         self.js("MdView.boardPut", &[id.clone(), json!(names), failed.map(|e| json!(e)).unwrap_or(Value::Null)]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn what_is_put_into_a_note_of_any_subfolder_goes_to_the_base_folders_assets() {
+        let d = resolve(&std::env::temp_dir()).join(format!("mdview-files-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for dir in ["plain/Sub/Deep", "project/.git", "project/.mdview", "project/Sub"] {
+            fs::create_dir_all(d.join(dir)).unwrap();
+        }
+        fs::write(d.join("project/.mdview/project.json"), "{}").unwrap();
+        let (plain, project) = (d.join("plain"), d.join("project"));
+        // the window's folder is the base of every note in it; a project's root is, whatever the window shows
+        assert_eq!(base_folder(&plain.join("Sub/Deep/n.md"), Some(&plain)), plain);
+        assert_eq!(base_folder(&project.join("Sub/n.md"), Some(&project.join("Sub"))), project);
+        assert_eq!(base_folder(&project.join("Sub/n.md"), None), project);
+        // (a note opened by itself, or one outside the window's folder: the folder it lies in)
+        assert_eq!(base_folder(&plain.join("Sub/n.md"), None), plain.join("Sub"));
+        assert_eq!(base_folder(&plain.join("Sub/n.md"), Some(&project)), plain.join("Sub"));
+        // one assets for all of them — not one in each subfolder
+        let (top, deep) = (plain.join("n.md"), plain.join("Sub/Deep/n.md"));
+        assert_eq!(kept_in(&top, &plain, "assets"), plain.join("assets"));
+        assert_eq!(kept_in(&deep, &plain, "assets"), plain.join("assets"));
+        assert_eq!(kept_in(&deep, &plain, "beside"), plain.join("Sub/Deep"));
+        assert_eq!(kept_in(&deep, &plain, "media"), plain.join("Sub/Deep/media"));
+        assert_eq!(kept_in(&deep, &plain, "../../.."), plain.join("Sub/Deep"));
+        // … named the same in every note, wherever it lies; any other file by the way to it
+        let pic = plain.join("assets/x y.png");
+        assert_eq!(way(&pic, &top, &plain), "assets/x y.png");
+        assert_eq!(way(&pic, &deep, &plain), "assets/x y.png");
+        assert_eq!(way(&plain.join("Sub/Deep/x.png"), &deep, &plain), "x.png");
+        assert_eq!(way(&plain.join("Sub/other.pdf"), &deep, &plain), "../other.pdf");
+        // and what a note of a subfolder names so is found there (scan::found; the folder is a window's)
+        scan::shown(&plain);
+        fs::create_dir_all(plain.join("assets")).unwrap();
+        fs::write(&pic, b"png").unwrap();
+        assert_eq!(scan::found(&dir_of(&deep).join(way(&pic, &deep, &plain))), pic);
+        let _ = fs::remove_dir_all(d);
     }
 }

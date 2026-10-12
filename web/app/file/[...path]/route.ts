@@ -5,7 +5,8 @@
 // What comes from a repository is someone's content, served from the app's own address. It is
 // therefore sent sandboxed: a page or picture opened from here can run no script, and so cannot
 // act as the signed-in user.
-import { Refused, raw } from "@/lib/github";
+import { Refused, raw, state } from "@/lib/github";
+import { foundIn } from "@/lib/share";
 import { fresh } from "@/lib/session";
 import { TYPES } from "@/lib/types";
 
@@ -19,7 +20,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ path
   try {
     const session = await fresh();
     if (!session) return said(401, "Not signed in");
-    const res = await raw(session.access, owner, repo, rest.join("/"), request.headers.get("if-none-match"));
+    let res = await raw(session.access, owner, repo, rest.join("/"), request.headers.get("if-none-match"));
+    if (res.status === 404) {
+      // not where the link says: what is put into notes lies in the repository's assets, and a
+      // note of any folder names it `assets/…` (core.js, foundIn) — looked up among what is there
+      const now = await state(session.access, owner, repo);
+      const at = now && !now.empty ? foundIn(rest.join("/"), now.tree.map((e) => e.path)) : rest.join("/");
+      if (at !== rest.join("/")) res = await raw(session.access, owner, repo, at, request.headers.get("if-none-match"));
+    }
     const headers: Record<string, string> = {
       "Cache-Control": "private, no-cache", // (asked again each time, answered "as it was" where it is)
       "X-Content-Type-Options": "nosniff",
