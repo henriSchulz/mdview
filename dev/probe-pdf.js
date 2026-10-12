@@ -108,6 +108,27 @@
       T.zoomTo("width"); await sleep(300);
     }
     await until(() => V.outline);
+    // --- the bar: a capsule in one row, without the colours and the choice of what is copied (they are the settings')
+    {
+      const bar = V.bar, card = V.side.querySelector(".pdf-card"), page = () => { const r = V.pages[V.now - 1 || 0].div.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(); };
+      ok("the bar is one row of round buttons", bar.getBoundingClientRect().height <= 40 && [...bar.querySelectorAll("button")].every((b) => b.classList.contains("tb") && b.getAttribute("aria-label")), bar.getBoundingClientRect().height);
+      ok("… with no colours and no choice of format in it", !bar.querySelector(".pdf-color, select, .pop, [data-do='auto']"));
+      // --- outline, pages, notes: a card over the window — the pages do not move for it and are not drawn anew
+      const was = page(), scale = V.scale, canvases = [...V.box.querySelectorAll(".pdf-canvas")];
+      ok("the card is out of sight at first", getComputedStyle(card).visibility === "hidden");
+      bar.querySelector('[data-do="side"]').click();
+      ok("the bar's first button brings it", await until(() => getComputedStyle(card).visibility === "visible" && getComputedStyle(card).opacity === "1" && getComputedStyle(card).transform === "none", 2000) && bar.querySelector('[data-do="side"]').getAttribute("aria-pressed") === "true", getComputedStyle(card).opacity);
+      ok("… over the pages: none moved, none was sized or drawn anew", page() === was && V.scale === scale && canvases.every((c) => c.isConnected), [was, page()]);
+      ok("… and it ends above the window's lower edge", card.getBoundingClientRect().bottom <= innerHeight - 8 && card.getBoundingClientRect().bottom >= innerHeight - 40, [card.getBoundingClientRect().bottom, innerHeight]);
+      ok("… as a card of the app's: its own ground, round corners", parseFloat(getComputedStyle(card).borderRadius) >= 14 && card.getBoundingClientRect().width > 200);
+      const tabs = V.side.querySelector(".pdf-tabs");
+      V.side.querySelector('[data-tab="pages"]').click();
+      ok("a tab chosen: the mark goes to it, the tabs are not built anew", tabs.isConnected && tabs.style.getPropertyValue("--i") === "1" && V.side.querySelector('[data-tab="pages"]').getAttribute("aria-selected") === "true", tabs.style.cssText);
+      await sleep(150);
+      ok("… and the window under the card stays where it is", page() === was, [was, page()]);
+      bar.querySelector('[data-do="side"]').click();
+      ok("the button again: it goes", await until(() => getComputedStyle(card).visibility === "hidden", 2000) && page() === was);
+    }
     T.sidePanel("outline"); await sleep(200);
     const items = [...V.side.querySelectorAll(".pdf-out")];
     ok("the outline lists the chapters", items.length === 6 && items[3].textContent === "Chapter 4", items.map((i) => i.textContent));

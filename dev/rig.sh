@@ -535,7 +535,7 @@ case "${1:-}" in
     }
     check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi; }
     app 90 MDVIEW_PROBE="$D/probe-pdfink.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/paper.pdf"
-    for v in open large; do for _ in $(seq 300); do [[ -f $R/out/paper.pdf.$v.json || -f $R/out/paper.pdf.drawn.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pdfink-$v.png"; done
+    for v in open far large; do for _ in $(seq 300); do [[ -f $R/out/paper.pdf.$v.json || -f $R/out/paper.pdf.drawn.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pdfink-$v.png"; done
     report drawn
     f=$(ls "$R/work/.mdview/pdf/"*.board.svg 2>/dev/null | head -1)
     check "what was drawn is a whiteboard's file in the folder's .mdview/pdf" '[[ -n $f ]] && grep -q "mdview-board" "$f"'

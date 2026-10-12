@@ -50,11 +50,40 @@
       ok("it is kept", await until(() => !st().dirty && !document.querySelector("#board .bd-chip[data-bad]"), 3000), st().dirty);
       // --- larger under the hand: the sheet is stretched at once, and drawn sharper when the hand rests
       const w0 = sheet(2).querySelector("canvas").width, z0 = st().zoom, r0 = sheet(2).getBoundingClientRect();
-      for (let i = 0; i < 2; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: r0.left + 100, clientY: y0, deltaY: -60, ctrlKey: true })); await sleep(16); }
+      for (let i = 0; i < 4; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: r0.left + 100, clientY: y0, deltaY: -40, ctrlKey: true })); await sleep(16); }
       await sleep(60);
       ok("Ctrl and the wheel: larger", st().zoom > z0 * 1.3, [z0, st().zoom]);
       ok("… the sheet with it at once", sheet(2).getBoundingClientRect().width > r0.width * 1.3);
       ok("… and sharper once it rests", await until(() => sheet(2).querySelector("canvas").width > w0 * 1.2, 5000), [w0, sheet(2).querySelector("canvas").width]);
+      // --- the size pulled on a touchpad (the host says how much, not where): what is under the pointer stays under it
+      {
+        const px = Math.round(r0.left + 140), py = 420, c = stage().getBoundingClientRect(), wheel = (dy) => stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: px, clientY: py, deltaY: dy, ctrlKey: true }));
+        stage().dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: px, clientY: py, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+        const under = () => { const v = st().view; return [v.x + (px - c.left) / v.z, v.y + (py - c.top) / v.z]; }, was = under(), zw = st().zoom;
+        MdView.pinch("begin", 1); MdView.pinch("move", 1.2); MdView.pinch("move", 1.5);
+        await sleep(60);
+        ok("a pinch on the touchpad: larger", Math.abs(st().zoom - zw * 1.5) < 0.01, [zw, st().zoom]);
+        ok("… around what is under the pointer, not the window's middle", close(under(), was, 1), [was, under()]);
+        // --- a notch of a mouse's wheel: the size glides there
+        const z1 = st().zoom;
+        wheel(-120);
+        await sleep(30);
+        const soon = st().zoom;
+        ok("a notch of the wheel is a glide, not a jump", soon > z1 && soon < z1 * 1.2 && await until(() => Math.abs(st().zoom - z1 * Math.exp(0.3)) < 0.01, 1500), [z1, soon, st().zoom]);
+        ok("… around the pointer", close(under(), was, 1), [was, under()]);
+        // --- far in: closer than a board goes, and sharp there
+        for (let i = 0; i < 9; i++) { wheel(-120); await sleep(30); }
+        ok("far in: more than four times", await until(() => st().zoom > 6, 3000), st().zoom);
+        ok("… still around the pointer", close(under(), was, 1), [was, under()]);
+        const dpr = window.devicePixelRatio || 1, detail = () => document.querySelector("#board .bd-sheet .bd-detail");
+        ok("… and what is in sight is drawn as sharp as the screen shows it", await until(() => detail() && detail().width / detail().getBoundingClientRect().width > dpr * 0.95, 8000), [st().pdf, detail() && detail().width / detail().getBoundingClientRect().width]);
+        ok("… with no picture much larger than the window", [...document.querySelectorAll("#board .bd-sheet canvas")].every((cv) => cv.width * cv.height <= Math.max(4.2e6, innerWidth * innerHeight * dpr * dpr * 2.4)), [...document.querySelectorAll("#board .bd-sheet canvas")].map((cv) => cv.width * cv.height));
+        out("far", {});
+        await sleep(700);
+        for (let i = 0; i < 30 && st().zoom > 1.7; i++) { wheel(120); await sleep(120); }
+        await sleep(400);
+        ok("and out again: the page's own picture, no detail over it", await until(() => !detail(), 3000), st().pdf);
+      }
       // the wheel alone moves down the pages; pages come into sight and are drawn
       for (let i = 0; i < 30; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: 300, clientY: 300, deltaY: 120 })); await sleep(8); }
       ok("the wheel moves down the pages, and they are drawn as they come", await until(() => st().pdf.drawn.some((n) => n >= 4), 5000), st().pdf);

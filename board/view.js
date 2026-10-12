@@ -4,17 +4,18 @@
 (() => {
   const B = (window.MdBoard = window.MdBoard || {});
   const MIN = 0.1, MAX = 4, STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4];
-  const clamp = (z) => Math.max(MIN, Math.min(MAX, z));
+  const clamp = (z, v) => Math.max(v.min, Math.min(v.max, z));
 
   function make(size, changed) {
     const v = {
       x: 0, y: 0, z: 1,
+      min: MIN, max: MAX, // how small and how large (a board over a PDF goes further in: board.js)
       toBoard: (cx, cy) => [v.x + cx / v.z, v.y + cy / v.z],
-      set(x, y, z) { v.x = x; v.y = y; v.z = clamp(z); changed(); },
+      set(x, y, z) { v.x = x; v.y = y; v.z = clamp(z, v); changed(); },
       panBy(dx, dy) { v.x -= dx / v.z; v.y -= dy / v.z; changed(); },
       // the point under (cx, cy) stays under it
       zoomAt(cx, cy, z) {
-        z = clamp(z);
+        z = clamp(z, v);
         const [bx, by] = v.toBoard(cx, cy);
         v.z = z; v.x = bx - cx / z; v.y = by - cy / z;
         changed();
@@ -29,7 +30,7 @@
         const { w, h } = size();
         if (!box) return v.set(-w / 2, -h / 2, 1);
         const bw = Math.max(1, box[2] - box[0]), bh = Math.max(1, box[3] - box[1]);
-        const z = clamp(Math.min(most, (w - 2 * pad) / bw, (h - 2 * pad) / bh));
+        const z = clamp(Math.min(most, (w - 2 * pad) / bw, (h - 2 * pad) / bh), v);
         v.set((box[0] + box[2]) / 2 - w / 2 / z, (box[1] + box[3]) / 2 - h / 2 / z, z);
       },
     };

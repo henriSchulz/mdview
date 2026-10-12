@@ -1093,9 +1093,12 @@ its dialog; **Adjust Region** there (or right click → Adjust Region…) shows 
 edges and corners, pull anywhere else for a new one, step to another page — `page=` and `rect=` in the
 text follow. **Show Result** shows the embed as the note will; Done writes it.
 
-In the viewer: select text, then a colour or `Ctrl+Shift+C` copies a link to it (as a callout, a
-quote, a link or an embed). Every such link in the notes shows as a highlight in the PDF; a double
-click on one opens the note. Side panel: outline, pages, notes. Larger and smaller: two fingers on
+In the viewer: select text, then `Ctrl+Shift+C` copies a link to it — as a callout, a quote, a
+link or an embed, as the settings say (there too: copy as soon as text is selected). Every such
+link in the notes shows as a highlight in the PDF, in the colour the link names; a double click on
+one opens the note. The bar over the pages is a capsule like the window's toolbar: the side card,
+back, the page, the size, fit, a region, the pen. The side card — outline, pages, notes — lies over
+the window's left under the bar; no page moves for it. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
 again. Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
@@ -1104,8 +1107,9 @@ again. Keys: `+` `−` zoom, `W` fit width,
 whiteboard over the PDF: its pages lie under it as sheets of paper, where they stood, and everything
 a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and
 arrows, the ruler, undo. Two fingers or the wheel move down the pages, a pinch or `Ctrl` with the
-wheel makes them larger and smaller (10 % to 400 % of the board, the pages drawn sharp again as soon
-as the hand rests); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at
+wheel makes them larger and smaller around what is under the pointer, freely from 10 % to 1600 %
+(a notch of a mouse's wheel glides there; what is in sight is drawn as sharp as the screen as soon
+as the hand rests, however far in); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at
 the same place and size, with what was drawn lying on the pages — there whenever the PDF is opened,
 and text under it can still be selected.
 

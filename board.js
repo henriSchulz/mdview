@@ -380,7 +380,27 @@
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
-      zoom: (f, cx, cy) => { if (S) { fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } } });
+      zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
+    // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where)
+    el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);
+    el.addEventListener("pointerleave", () => { aim = null; });
+  }
+  /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
+   * goes only moves where it is going. */
+  let aim = null, gliding = null;
+  function glideTo(f, cx, cy) {
+    const s = S, v = s.view, g = gliding || (gliding = { want: v.z, last: performance.now(), on: false });
+    g.want = Math.max(v.min, Math.min(v.max, g.want * f)); g.cx = cx; g.cy = cy;
+    if (g.on) return;
+    g.on = true; g.last = performance.now();
+    const frame = (now) => {
+      if (S !== s || gliding !== g) return;
+      const k = 1 - Math.exp(-Math.min(40, now - g.last) / 55), done = Math.abs(Math.log(g.want / v.z)) < 0.004;
+      g.last = now;
+      fast = true; v.zoomAt(g.cx, g.cy, done ? g.want : v.z * Math.pow(g.want / v.z, k)); fast = false;
+      if (done) gliding = null; else requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }
   function boundsOf(items) {
     let b = null;
@@ -1137,6 +1157,7 @@
       s.model = model;
       if (pdf) { // (the pages where they stood in the window: one goes on where one was)
         model.board.grid = false;
+        s.view.max = 16; // (a page is read and written on far closer than a board is looked at: sixteen times, sharp all the way — board/pdf.js)
         const p = pdf.pages[Math.max(0, Math.min(pdf.pages.length - 1, (pdf.at.n || 1) - 1))], z = pdf.at.width / p.w;
         s.view.set(p.x - pdf.at.left / z, p.y - pdf.at.top / z, z);
       } else s.view.fit(bounds()); // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever was last looked at, on whatever screen)
@@ -1209,7 +1230,7 @@
   B.pinch = (phase, scale) => {
     if (!S) return;
     if (phase === "begin") S.pinch = S.view.z;
-    else if (S.pinch) { const s = size(); fast = true; S.view.zoomAt(s.w / 2, s.h / 2, S.pinch * scale); fast = false; }
+    else if (S.pinch) { const s = size(), p = aim || { x: s.w / 2, y: s.h / 2 }; gliding = null; fast = true; S.view.zoomAt(p.x, p.y, S.pinch * scale); fast = false; } // (around what is under the pointer; none over the board: its middle)
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
@@ -1222,7 +1243,7 @@
     asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
-    editing: sel.editing, ref: S.ref, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
+    editing: sel.editing, ref: S.ref, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
     tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form,
     chosen: S.pick.filter((it) => it.k === "ink").length,
     chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null,

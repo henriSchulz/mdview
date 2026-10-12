@@ -27,7 +27,6 @@
     embed: { label: "Embed", text: "!{{link}}" },
   };
   const prefs = () => ({ pdfFormat: "callout", pdfAuto: false, ...(window.MdPrefs || {}) });
-  const setPref = (o) => { window.MdPrefs = { ...(window.MdPrefs || {}), ...o }; post("prefs", { prefs: o }); };
   const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.innerHTML = html; return e; };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const basename = (path) => path.split("/").pop();
@@ -157,7 +156,7 @@
     }
     leave();
     document.body.classList.add("pdf-open");
-    container.innerHTML = `<div class="pdfv"><div class="pdf-bar surface" role="toolbar" aria-label="${esc(T("PDF"))}"></div><div class="pdf-main"><aside class="pdf-side" hidden></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
+    container.innerHTML = `<div class="pdfv"><div class="pdf-bar" role="toolbar" aria-label="${esc(T("PDF"))}"></div><div class="pdf-main"><aside class="pdf-side" aria-hidden="true"><div class="pdf-card"><div class="pdf-tabs" role="tablist">${[["outline", T("Outline")], ["pages", T("Pages")], ["notes", T("Notes")]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="false">${esc(l)}</button>`).join("")}</div><div class="pdf-side-body"></div></div></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
     const root = container.firstChild;
     const v = (V = { p, root, bar: root.querySelector(".pdf-bar"), side: root.querySelector(".pdf-side"), box: root.querySelector(".pdf-pages"), pages: [], scale: 1, fit: "width", history: [], color: DEFAULT_COLOR, rectTool: false,
       backlinks: (p.backlinks || []).map((b) => ({ ...b, at: parseFrag(b.frag) })) });
@@ -182,8 +181,8 @@
     if (was) v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
     layout();
     v.pages.forEach((pg) => v.io.observe(pg.div));
-    v.onScroll = () => { tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); };
-    v.onResize = () => { if (v.fit) { clearTimeout(v.resizeTimer); v.resizeTimer = setTimeout(() => zoomTo(v.fit), 120); } };
+    v.onScroll = () => { tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); if (v.sideOpen && !v.placing) v.placing = requestAnimationFrame(() => { v.placing = 0; if (V === v) sidePlaced(); }); };
+    v.onResize = () => { if (v.sideOpen) sidePlaced(); if (v.fit) { clearTimeout(v.resizeTimer); v.resizeTimer = setTimeout(() => zoomTo(v.fit), 120); } };
     v.onKey = keys;
     v.onSelect = () => { clearTimeout(v.selTimer); v.selTimer = setTimeout(selected, 250); };
     v.onFocus = () => post("reload"); // links pasted into a note meanwhile show as highlights
@@ -505,41 +504,48 @@
     page: '<svg viewBox="0 0 16 16"><rect x="3.5" y="1.5" width="9" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
     rect: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.2 1.6"/></svg>',
     draw: '<svg viewBox="0 0 24 24"><path d="m5 19 1.2-4.6L16.5 4.1a1.6 1.6 0 0 1 2.3 0l1.1 1.1a1.6 1.6 0 0 1 0 2.3L9.6 17.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="m14.5 6.1 3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>',
-    auto: '<svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h6M3 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="m10.5 11 1.6 1.6 2.6-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>', plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
   };
+  /* The bar over the pages: a capsule as the window's own toolbar is one — where one is, how large, and the two things done to a
+   * page: a region of it taken for a note, and drawing on it. (How a link to a selection is copied — as a callout, a quote, a
+   * link — and whether at once is the settings'; Ctrl+Shift+C copies it.) */
   function toolbar() {
-    const v = V, p = prefs();
+    const v = V;
+    const b = (attr, label, tip, icon, more = "") => `<button type="button" class="tb pdf-b" ${attr} data-tip="${esc(T(tip))}" aria-label="${esc(T(label))}"${more}>${icon}</button>`;
     v.bar.innerHTML =
-      `<button class="pdf-b" data-do="side" data-tip="${esc(T("Outline, pages and notes (O)"))}" aria-label="${esc(T("Outline, pages and notes"))}">${I.side}</button>` +
-      `<button class="pdf-b" data-do="back" data-tip="${esc(T("Back to where you were (Alt+←)"))}" aria-label="${esc(T("Back to where you were"))}" disabled>${I.back}</button>` +
+      b('data-do="side"', "Outline, pages and notes", "Outline, pages and notes (O)", I.side, ' aria-pressed="false"') +
+      b('data-do="back"', "Back to where you were", "Back to where you were (Alt+←)", I.back, " disabled") +
       `<span class="pdf-sep"></span>` +
       `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="${esc(T("Page"))}" data-tip="${esc(T("Go to page (G)"))}"><span class="pdf-of">/ ${v.pages.length}</span>` +
       `<span class="pdf-sep"></span>` +
-      `<button class="pdf-b" data-do="out" data-tip="${esc(T("Zoom out (−)"))}" aria-label="${esc(T("Zoom out"))}">−</button><span class="pdf-zoom">100%</span><button class="pdf-b" data-do="in" data-tip="${esc(T("Zoom in (+)"))}" aria-label="${esc(T("Zoom in"))}">+</button>` +
-      `<button class="pdf-b" data-fit="width" data-tip="${esc(T("Fit width (W)"))}" aria-label="${esc(T("Fit width"))}" aria-pressed="true">${I.width}</button><button class="pdf-b" data-fit="page" data-tip="${esc(T("Fit page (H)"))}" aria-label="${esc(T("Fit page"))}" aria-pressed="false">${I.page}</button>` +
+      b('data-do="out"', "Zoom out", "Zoom out (−)", I.minus) + `<span class="pdf-zoom">100%</span>` + b('data-do="in"', "Zoom in", "Zoom in (+)", I.plus) +
+      b('data-fit="width"', "Fit width", "Fit width (W)", I.width, ' aria-pressed="true"') + b('data-fit="page"', "Fit page", "Fit page (H)", I.page, ' aria-pressed="false"') +
       `<span class="pdf-sep"></span>` +
-      Object.entries(COLORS).map(([name, c]) => `<button class="pdf-color" data-color="${name}" style="--hl:${c}" data-tip="Copy a link to the selection: ${name}" aria-pressed="${name === v.color}"></button>`).join("") +
-      `<select class="pdf-format lp-field" aria-label="${esc(T("What is copied"))}" data-tip="${esc(T("What is copied"))}">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}"${k === p.pdfFormat ? " selected" : ""}>${esc(f.label)}</option>`).join("")}</select>` +
-      `<button class="pdf-b" data-do="auto" data-tip="${esc(T("Copy as soon as text is selected"))}" aria-label="${esc(T("Copy as soon as text is selected"))}" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
-      `<button class="pdf-b" data-do="rect" data-tip="${esc(T("Select a region to embed (R)"))}" aria-label="${esc(T("Select a region to embed"))}" aria-pressed="false">${I.rect}</button>` +
-      (reading() ? "" : `<span class="pdf-sep"></span><button class="pdf-b" data-do="draw" data-tip="${esc(T("Draw on the PDF (D)"))}" aria-label="${esc(T("Draw on the PDF"))}">${I.draw}</button>`);
+      b('data-do="rect"', "Select a region to embed", "Select a region to embed (R)", I.rect, ' aria-pressed="false"') +
+      (reading() ? "" : b('data-do="draw"', "Draw on the PDF", "Draw on the PDF (D)", I.draw));
   }
   function act(what) {
     const v = V;
-    if (what === "side") { v.side.hidden ? sidePanel(v.tab || "outline") : (v.side.hidden = true); layout(); v.pages.forEach((x) => { if (x.near) draw(x); }); }
+    if (what === "side") v.sideOpen ? sideShut() : sidePanel(v.tab || "outline");
     else if (what === "back") back();
     else if (what === "in") zoomTo(v.scale * 1.15);
     else if (what === "out") zoomTo(v.scale / 1.15);
-    else if (what === "auto") { const on = !prefs().pdfAuto; setPref({ pdfAuto: on }); v.bar.querySelector('[data-do="auto"]').setAttribute("aria-pressed", String(on)); toast(on ? T("Selecting text copies a link to it") : T("Copy on select is off")); }
     else if (what === "draw") drawOn();
     else if (what === "rect") { v.rectTool = !v.rectTool; v.root.classList.toggle("rect-tool", v.rectTool); v.bar.querySelector('[data-do="rect"]').setAttribute("aria-pressed", String(v.rectTool)); }
   }
+  /* Outline, pages, notes: a card that comes out from under the bar's first button and lies over the window's left — nothing
+   * makes room for it and no page moves or is drawn anew (as the panel at the right lies over a note: active/panel.css). */
   function sidePanel(tab) {
-    const v = V;
+    const v = V, fresh = !v.sideOpen || v.tab !== tab;
     v.tab = tab;
-    v.side.hidden = false;
-    v.side.innerHTML = `<div class="pdf-tabs">${[["outline", T("Outline")], ["pages", T("Pages")], ["notes", T("Notes")]].map(([k, l]) => `<button data-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join("")}</div><div class="pdf-side-body"></div>`;
-    const body = v.side.lastChild;
+    v.sideOpen = true;
+    sidePlaced();
+    v.side.setAttribute("data-open", "");
+    v.side.setAttribute("aria-hidden", "false");
+    v.bar.querySelector('[data-do="side"]').setAttribute("aria-pressed", "true");
+    const tabs = v.side.querySelector(".pdf-tabs"), body = v.side.querySelector(".pdf-side-body");
+    [...tabs.children].forEach((t, i) => { t.setAttribute("aria-selected", String(t.dataset.tab === tab)); if (t.dataset.tab === tab) tabs.style.setProperty("--i", i); }); // (the mark glides to the chosen one: pdfview.css)
+    if (fresh) { body.style.transition = "none"; body.style.opacity = "0"; void body.offsetWidth; body.style.transition = body.style.opacity = ""; body.scrollTop = 0; } // (what the tab holds fades in)
     if (tab === "outline") {
       const list = (items, depth) => items.map((it, i) => `<div class="pdf-out" style="--depth:${depth}" draggable="true" data-path="${esc(depth + ":" + i)}">${esc(it.title || "")}</div>` + (it.items && it.items.length ? list(it.items, depth + 1) : "")).join("");
       v.flat = [];
@@ -552,8 +558,18 @@
       const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { io.unobserve(e.target); thumb(e.target); } }, { root: body, rootMargin: "300px 0px" });
       body.querySelectorAll(".pdf-thumb").forEach((t) => io.observe(t));
       const on = body.querySelector(".pdf-thumb.on");
-      if (on) on.scrollIntoView({ block: "center" });
+      if (on) body.scrollTop = on.offsetTop - body.offsetTop - (body.clientHeight - on.offsetHeight) / 2; // (the list alone: the window under the card stays where it is)
     } else notesTab();
+  }
+  /* The card ends a little above the window's lower edge, wherever it begins: under the bar — which stands lower before the
+   * window is scrolled than once it sticks. */
+  function sidePlaced() { V.side.style.setProperty("--at", Math.round(V.side.getBoundingClientRect().top) + "px"); }
+  function sideShut() {
+    const v = V;
+    v.sideOpen = false;
+    v.side.removeAttribute("data-open");
+    v.side.setAttribute("aria-hidden", "true");
+    v.bar.querySelector('[data-do="side"]').setAttribute("aria-pressed", "false");
   }
   async function thumb(t) {
     const v = V, page = await v.doc.getPage(+t.dataset.page);
@@ -567,7 +583,7 @@
   // the notes that link here: those of the page on screen first
   function notesTab() {
     const v = V;
-    if (!v || v.side.hidden || v.tab !== "notes") return;
+    if (!v || !v.sideOpen || v.tab !== "notes") return;
     const body = v.side.querySelector(".pdf-side-body"), now = pageNow(true);
     const rows = v.backlinks.map((b, i) => ({ b, i })).sort((x, y) => (x.b.at.page === now ? 0 : 1) - (y.b.at.page === now ? 0 : 1) || x.b.at.page - y.b.at.page);
     body.innerHTML = rows.length ? rows.map(({ b, i }) => `<div class="pdf-note${b.at.page === now ? " here" : ""}" data-bl="${i}"><span class="pdf-note-dot" style="--hl:${colorOf(b.at.color)}"></span><b>${esc(b.name.replace(/\.md$/i, ""))}</b><i>p. ${b.at.page}</i><span>${esc(b.text)}</span></div>`).join("")
@@ -585,11 +601,8 @@
       if (!b) return;
       if (b.dataset.do) act(b.dataset.do);
       else if (b.dataset.fit) zoomTo(b.dataset.fit);
-      else if (b.dataset.color) { v.color = b.dataset.color; v.bar.querySelectorAll(".pdf-color").forEach((c) => c.setAttribute("aria-pressed", String(c === b))); if (selectionNow()) copySelection(v.color); }
     });
     v.bar.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // the selection stays
-    v.bar.querySelector(".pdf-format").addEventListener("change", (e) => setPref({ pdfFormat: e.target.value }));
-    window.MdView.core.popup(v.bar.querySelector(".pdf-format")); // (a button with the app's own menu)
     const inp = v.bar.querySelector(".pdf-page-in");
     inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { const n = parseInt(inp.value, 10); if (n >= 1) go(n, null, true); inp.blur(); } else if (e.key === "Escape") { inp.value = pageNow(true); inp.blur(); } });
     inp.addEventListener("focus", () => inp.select());
@@ -717,13 +730,13 @@
     else if (k === "w") { stop(); zoomTo("width"); }
     else if (k === "h") { stop(); zoomTo("page"); }
     else if (k === "g") { stop(); V.bar.querySelector(".pdf-page-in").focus(); }
-    else if (k === "o") { stop(); V.side.hidden || V.tab !== "outline" ? (sidePanel("outline"), layout()) : act("side"); }
-    else if (k === "t") { stop(); V.side.hidden || V.tab !== "pages" ? (sidePanel("pages"), layout()) : act("side"); }
-    else if (k === "n") { stop(); V.side.hidden || V.tab !== "notes" ? (sidePanel("notes"), layout()) : act("side"); }
+    else if (k === "o") { stop(); !V.sideOpen || V.tab !== "outline" ? sidePanel("outline") : act("side"); }
+    else if (k === "t") { stop(); !V.sideOpen || V.tab !== "pages" ? sidePanel("pages") : act("side"); }
+    else if (k === "n") { stop(); !V.sideOpen || V.tab !== "notes" ? sidePanel("notes") : act("side"); }
     else if (k === "r") { stop(); act("rect"); }
     else if (k === "d") { stop(); act("draw"); }
     else if (k === "Escape" && V.rectTool) { stop(); act("rect"); }
-    else if (k === "Escape" && !V.side.hidden) { stop(); act("side"); }
+    else if (k === "Escape" && V.sideOpen) { stop(); act("side"); }
     else if (k === "PageDown" || k === "PageUp") { stop(); go(pageNow(true) + (k === "PageDown" ? 1 : -1)); }
   }
 

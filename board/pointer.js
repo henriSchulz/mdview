@@ -189,7 +189,8 @@
       e.preventDefault();
       halt();
       const p = at(e), unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1;
-      if (e.ctrlKey || e.metaKey) on.zoom(Math.exp((-e.deltaY * unit) / 240), p.x, p.y);
+      // (a mouse's wheel turns in notches, each a large step: said so, for whoever makes a glide of it; a touchpad says every small step itself)
+      if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= 50; on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); }
       else if (e.shiftKey && !e.deltaX) on.pan(-e.deltaY * unit, 0);
       else on.pan(-e.deltaX * unit, -e.deltaY * unit);
     }, { passive: false });
