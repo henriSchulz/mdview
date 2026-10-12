@@ -271,6 +271,7 @@
   };
   function layout() {
     if (V.fit) V.scale = fitScale(V.fit);
+    V.box.toggleAttribute("data-wide", V.base.width * V.scale > V.box.clientWidth); // (only then is the box one that is moved sideways: pdfview.css)
     V.box.style.gap = 12 * V.scale + "px"; // (twelve points between two pages, at any size — as they lie under a whiteboard: board/pdf.js, GAP)
     for (const pg of V.pages) {
       pg.div.style.width = Math.round(pg.w * V.scale) + "px";

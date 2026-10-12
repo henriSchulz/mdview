@@ -1107,7 +1107,8 @@ moved sideways (two fingers, `Shift` with the wheel). Keys: `+` `−` zoom, `W` 
 **Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the
 whiteboard over the PDF: its pages lie under it as sheets of paper, where they stood, and everything
 a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and
-arrows, the ruler, undo. Two fingers or the wheel move down the pages, a pinch or `Ctrl` with the
+arrows, the ruler, undo. Two fingers or the wheel move down the pages (a notch of a mouse's wheel as a
+glide, a push on the touchpad running on after the fingers leave), a pinch or `Ctrl` with the
 wheel makes them larger and smaller around what is under the pointer, freely from 10 % to 1600 %
 (a notch of a mouse's wheel glides there; what is in sight is drawn as sharp as the screen as soon
 as the hand rests, however far in); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at

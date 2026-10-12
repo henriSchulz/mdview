@@ -28,7 +28,24 @@
     let glide = 0;
     const calm = matchMedia("(prefers-reduced-motion: reduce)");
     const pushed = (dx, dy, t) => { const dt = Math.max(1, t - speed.t); if (dt > 120) { speed.x = speed.y = 0; } else { speed.x += (dx / dt - speed.x) * 0.5; speed.y += (dy / dt - speed.y) * 0.5; } speed.t = t; };
-    const halt = () => { cancelAnimationFrame(glide); glide = 0; };
+    const halt = () => { cancelAnimationFrame(glide); glide = 0; slide = null; clearTimeout(lifted); };
+    // A wheel's large step — a mouse's notch, a hard push on a touchpad — is not taken at once: the board goes there as a glide,
+    // and a step more while it goes only adds to the way. (Small steps, a touchpad's stream of them, are taken as they come.)
+    const BIG = 30;
+    let slide = null, lifted = 0;
+    function slideBy(dx, dy) {
+      if (calm.matches) return on.pan(dx, dy);
+      if (slide) { slide.x += dx; slide.y += dy; return; }
+      const sl = (slide = { x: dx, y: dy, last: performance.now() });
+      const frame = (now) => {
+        if (slide !== sl) return;
+        const k = 1 - Math.exp(-Math.min(40, now - sl.last) / 55), done = Math.hypot(sl.x, sl.y) < 0.75, mx = done ? sl.x : sl.x * k, my = done ? sl.y : sl.y * k;
+        sl.last = now; sl.x -= mx; sl.y -= my;
+        on.pan(mx, my);
+        if (done) slide = null; else requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    }
     function coast(t) {
       halt();
       if (calm.matches || t - speed.t > 80 || Math.hypot(speed.x, speed.y) < 0.2) return; // (it stood still when it was let go)
@@ -187,12 +204,20 @@
     // two fingers on a touchpad, or a wheel: the board moves; with Ctrl (and a touchpad's pinch, where the browser passes it on so): larger and smaller
     stage.addEventListener("wheel", (e) => {
       e.preventDefault();
-      halt();
+      cancelAnimationFrame(glide); glide = 0; clearTimeout(lifted); // (a run of its own ends where the wheel takes over; a glide to where it leads goes on)
       const p = at(e), unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? 400 : 1;
-      // (a mouse's wheel turns in notches, each a large step: said so, for whoever makes a glide of it; a touchpad says every small step itself)
-      if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= 50; on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); }
-      else if (e.shiftKey && !e.deltaX) on.pan(-e.deltaY * unit, 0);
-      else on.pan(-e.deltaX * unit, -e.deltaY * unit);
+      // (a large step said so, for whoever makes a glide of the size too)
+      if (e.ctrlKey || e.metaKey) { const notch = Math.abs(e.deltaY * unit) >= BIG; return on.zoom(Math.exp((-e.deltaY * unit) / (notch ? 400 : 240)), p.x, p.y, notch); }
+      const dx = e.shiftKey && !e.deltaX ? -e.deltaY * unit : -e.deltaX * unit, dy = e.shiftKey && !e.deltaX ? 0 : -e.deltaY * unit;
+      if (Math.hypot(dx, dy) >= BIG) return slideBy(dx, dy);
+      if (slide) { slide.x += dx; slide.y += dy; } else on.pan(dx, dy);
+      // Two fingers lifted off a touchpad while the board was moving: where the host says so (coasts — pages are read by pushing them
+      // on) it runs on, ever slower, as under a finger. The steps just stop coming; had the system run them out itself they would
+      // have slowed to nothing first, and nothing is added.
+      if (!on.coasts || !on.coasts()) return;
+      const now = performance.now();
+      pushed(dx, dy, now);
+      lifted = setTimeout(() => coast(performance.now()), 45);
     }, { passive: false });
     stage.addEventListener("contextmenu", (e) => e.preventDefault());
     return { busy: () => tool != null || drag != null || fingers.size > 0 };
