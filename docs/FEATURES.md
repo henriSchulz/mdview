@@ -806,7 +806,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   - **List** (the default): the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
   - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
-    beside it what is in the one chosen — its own folders open in place.
+    beside it what is in the one chosen — its own folders open in place. A right click on a
+    folder's sign opens the folder's own menu, as on its row: Colour and Icon…, new notes and
+    folders in it, copy, cut, hide, delete (its name is changed on its row, in another layout).
   - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
     pictures, formulas, tasks), a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
@@ -1098,8 +1100,8 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), sharper text (letters on whole pixels; at the next start) |
-| Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
+| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |

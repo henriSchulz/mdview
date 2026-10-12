@@ -333,7 +333,7 @@ case "${1:-}" in
     ls "$R/out"/*.sidebar.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json
     looks=$(jq -c '.folders' "$R/work/notes/.mdview/folders.json" 2>/dev/null)
-    [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] && echo "ok   the look stands in the folder, under the folder's new name" || echo "FAIL the look in the folder: $looks"
+    [[ $looks == '{"Projekte":{"color":"red","icon":"star"},"Uni":{"color":"green","icon":"book"}}' ]] && echo "ok   the looks stand in the folder: the one chosen in the rail, and the other under its folder's new name" || echo "FAIL the look in the folder: $looks"
     ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json; [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] || echo FAIL; } | grep -qv '^ok' ;;
   sbflicker)
     # a note chosen in the sidebar: its row stays marked, the last one's does not flicker back

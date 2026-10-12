@@ -350,10 +350,10 @@
     sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
       + `<div class="sl-cap">${esc(T("Icon"))}</div><div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}>` + ["", ...Object.keys(FOLDER_ICONS)].map((i) => `<button type="button" class="sl-icon${(FOLDER_ICONS[look.icon] ? look.icon : "") === i ? " on" : ""}" data-icon="${i}" aria-label="${i || "folder"}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] : ICON.folder}</button>`).join("") + `</div>`;
   }
-  function openLook(item) {
+  function openLook(item, from = null) { // (from: the folder's sign in the rail, where the menu was opened there — its row is not on screen)
     sbLookFor = item.dataset.key;
     paintLook();
-    const r = item.firstChild.firstChild.getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
+    const r = (from || item.firstChild.firstChild).getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
     sbLook.style.setProperty("--origin", "top left");
     sbLook.style.left = Math.max(8, Math.min(r.left + 24, innerWidth - w - 8)) + "px";
     sbLook.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - h - 8)) + "px";
@@ -920,7 +920,7 @@
   const HOST_LACKS = new Set((window.MdHost && window.MdHost.lacks) || []);
   for (const [cmd, label] of Object.entries((window.MdHost && window.MdHost.labels) || {})) for (const el of ctx.querySelectorAll(`[data-cmd="${cmd}"] .menu-label`)) el.textContent = label;
   let ctxItems = [];
-  let ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
+  let ctxFrom = null, ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
   /* What of the menu is not for this row or tile: Hide for what is hidden and the other way round, a
@@ -932,15 +932,18 @@
     if (FILE_CMDS.includes(cmd) && (!window.__TAURI_INTERNALS__ || (folder && folder.quick))) return true; // (what only the application on a folder of this computer does)
     const path = item.dataset ? item.dataset.path || item.dataset.key || "" : "", board = /\.board\.svg$/i.test(path), kept = !!item.dataset && item.dataset.kept != null;
     if (kept) return !["open", "reveal", "embed", "boardnote", "boardfree", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
+    if (cmd === "rename" && ctxFrom) return true; // (a name is changed in its row, and a folder met in the rail has none on screen)
     if (cmd === "boardfree") return true;
     if (cmd === "boardnote") return !(board && item.dataset.note);
     if (cmd === "embed") return !board || !P.current || P.current.kind === "pdf" || !!P.current.readonly;
     if (cmd === "hide" || cmd === "unhide") return kind !== "ovmany" && kind !== "sbmany" && (cmd === "unhide") !== isHidden(path);
     return false;
   }
-  function openCtx(item, x, y, kind = "file", dir = null) {
+  function openCtx(item, x, y, kind = "file", dir = null, from = null) {
     if (ctxFor) ctxFor.classList.remove("ctx-target");
-    ctxFor = item; ctxDir = dir;
+    if (ctxFrom) ctxFrom.classList.remove("ctx-target");
+    ctxFor = item; ctxDir = dir; ctxFrom = from;
+    if (from) from.classList.add("ctx-target");
     ctxKind = ctx.dataset.kind = kind;
     for (const el of ctx.children) el.hidden = !el.dataset.for.split(" ").includes(kind) || (!!el.dataset.state && !el.dataset.state.split(" ").includes(historyState())) || (!!el.dataset.sync && el.dataset.sync !== syncState())
       || (el.dataset.cmd === "history:off" && !!((folder && folder.history) || {}).fixed) // (a host whose folders always have their history: nothing to switch off)
@@ -986,7 +989,8 @@
     closeSub(false);
     delete ctx.dataset.open;
     ctxFor.classList.remove("ctx-target");
-    if (refocus && ctxKind !== "new" && ctxKind !== "history" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor).focus({ preventScroll: true });
+    if (ctxFrom) ctxFrom.classList.remove("ctx-target");
+    if (refocus && ctxKind !== "new" && ctxKind !== "history" && ctxKind !== "blank" && ctxKind !== "tab") (ctxFrom || (ctxFor.classList.contains("sb-item") ? ctxFor.firstChild.firstChild : ctxFor)).focus({ preventScroll: true });
     return true;
   }
   function runCtx(i) {
@@ -997,7 +1001,7 @@
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
     setTimeout(() => {
-      const kind = ctxKind, dir = ctxDir;
+      const kind = ctxKind, dir = ctxDir, from = ctxFrom;
       closeCtx(false);
       if (!item.isConnected) return;
       const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
@@ -1019,7 +1023,7 @@
       else if (cmd === "opentab") post("note", { path, tab: true });
       else if (cmd === "download") post("download", { path });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
-      else if (cmd === "look") openLook(item);
+      else if (cmd === "look") openLook(item, from);
       else if (cmd === "rename") tile ? MdOverview.rename(item) : P.startRename(item);
       else if (cmd === "trash") post("trash", { path });
       else post("fileop", { op: cmd, path });
@@ -1027,6 +1031,13 @@
   }
   sidebar.addEventListener("contextmenu", (e) => {
     e.preventDefault();
+    // (a folder's sign in the rail: the folder's own menu — its row in the list is the one the menu is for, on screen or not)
+    const sign = e.target.closest(".sb-rt[data-go]");
+    if (sign) {
+      const row = sign.dataset.go && [...sbList.querySelectorAll(".sb-item.is-dir")].find((el) => el.dataset.key === sign.dataset.go);
+      if (row) { if (sbPicked.size) pickRows([]); openCtx(row, e.clientX, e.clientY, "dir", null, sign); }
+      return;
+    }
     const item = e.target.closest(".sb-row")?.closest(".sb-item");
     // (one of several that are selected: the menu is for all of them; any other: for it, and nothing is selected any more)
     const several = item && sbPicked.size > 1 && sbPicked.has(item.dataset.key);

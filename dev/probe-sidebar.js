@@ -46,13 +46,28 @@
     await layout("rail");
     const rail = qa(".sb-rail .sb-rt");
     ok("rail: everything, then the folder's folders as signs — the chosen colour and sign among them", sb.dataset.layout === "rail" && rail.map((b) => b.title).join("|") === "All Notes|Projekte|Studium" && /--c-green/.test(rail[2].getAttribute("style") || "") && rail[0].classList.contains("on"), rail.map((b) => b.title + (b.getAttribute("style") || "")));
-    rail[1].click(); await sleep(500);
+    // a folder's sign in the rail has the folder's own menu: its colour and sign are changed from there too
+    const signOf = (name) => qa(".sb-rail .sb-rt").find((b) => b.title === name);
+    signOf("Projekte").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: signOf("Projekte").getBoundingClientRect().top + 8, button: 2 }));
+    await sleep(400);
+    const offered = [...document.querySelectorAll("#ctxmenu > [data-cmd]")].filter((b) => !b.hidden).map((b) => b.dataset.cmd);
+    ok("rail: a right click on a folder's sign opens the folder's menu, Colour and Icon… in it", document.getElementById("ctxmenu").hasAttribute("data-open") && document.getElementById("ctxmenu").dataset.kind === "dir" && offered.includes("look") && offered.includes("newnote"), offered);
+    document.querySelector('#ctxmenu [data-cmd="look"]').click(); await sleep(700);
+    const look2 = document.getElementById("sblook"), lr = look2.getBoundingClientRect(), sr = signOf("Projekte").getBoundingClientRect();
+    ok("… its small window opens beside that sign", look2.hasAttribute("data-open") && lr.top >= sr.top && lr.top - sr.bottom < 40 && lr.left < 120, [lr.left, lr.top, sr.bottom]);
+    look2.querySelector('[data-color="red"]').click(); await sleep(150);
+    look2.querySelector('[data-icon="star"]') && look2.querySelector('[data-icon="star"]').click(); await sleep(600);
+    ok("… and the colour chosen there shows on the sign", /--c-red/.test(signOf("Projekte").getAttribute("style") || ""), signOf("Projekte").getAttribute("style"));
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+    signOf("All Notes").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: 30, button: 2 })); await sleep(300);
+    ok("All Notes is no folder: its sign has no menu", !document.getElementById("ctxmenu").hasAttribute("data-open"), "");
+    signOf("Projekte").click(); await sleep(500);
     const pad = (r) => parseFloat(getComputedStyle(r).paddingLeft);
     ok("a folder chosen: what is in it, at the top — its folders still to open", JSON.stringify(names(".sb-list .sb-row")) === '["Deep","Plan"]' && q(".sb-crumb-name").textContent === "Projekte" && !q(".sb-crumb-count"), names(".sb-list .sb-row"));
     rowOf("Deep").click(); await sleep(600);
     ok("… a folder in it opens in place, a level deeper", JSON.stringify(names(".sb-list .sb-row")) === '["Deep","Inner","Plan"]' && pad(rowOf("Inner")) > pad(rowOf("Plan")), [names(".sb-list .sb-row"), pad(rowOf("Inner")), pad(rowOf("Plan"))]);
     await shot("rail");
-    rail[0].click(); await sleep(500);
+    signOf("All Notes").click(); await sleep(500);
     ok("All Notes: the whole tree again", names(".sb-list .sb-row").includes("Alpha") && names(".sb-list .sb-row").includes("Studium"), names(".sb-list .sb-row"));
 
     // ---- sheets
