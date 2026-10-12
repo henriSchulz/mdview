@@ -859,5 +859,22 @@
     replace(view, pos, raw);
     return true;
   }
-  A.islands = { propClicked, codeIsHidden, toggleHidden, codeSize, setCodeSize, fileCode, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  /* A property set from the panel at the right (viewer.js: docSet): the properties at the note's
+   * head say it now — they are made where the note has none, and go when nothing is left in them.
+   * One step of the history; the caret, the selection and the place in the note stay. */
+  function setProp(view, key, value) {
+    const first = view.state.doc.firstChild, has = !!first && first.type === N.island && first.attrs.kind === "frontmatter";
+    const was = has ? String(first.attrs.raw || "") : "", raw = window.MdView.core.setProp(was, key, value);
+    if (!view.editable || raw == null || raw === was) return false;
+    const tr = view.state.tr;
+    if (!raw.trim()) tr.delete(0, first.nodeSize);
+    else {
+      const nodes = blocksOf(raw.replace(/\n+$/, ""), A.view.store).map((n, i) => n.type.create({ ...n.attrs, bid: i === 0 && has ? first.attrs.bid : null, line: null }, n.content, n.marks));
+      if (nodes.length !== 1 || nodes[0].type !== N.island) return false;
+      tr.replaceWith(0, has ? first.nodeSize : 0, N.island.create({ ...nodes[0].attrs, raw: raw.replace(/\n+$/, "") }));
+    }
+    view.dispatch(tr.setMeta("step", true));
+    return true;
+  }
+  A.islands = { propClicked, setProp, codeIsHidden, toggleHidden, codeSize, setCodeSize, fileCode, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

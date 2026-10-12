@@ -285,6 +285,7 @@
       p.error = null;
       P.trailPush(p.path, p.text);
       post("save", { text: p.raw, path: p.path, exact: true, seq: ++saveSeq });
+      P.docSync(); // (its properties may say another ground or width now, and the panel counts anew)
       verifySoon();
       return;
     }
@@ -292,6 +293,7 @@
     savedText = edInput.value;
     if (P.current && P.current.path === edPath) { sourceIs(P.current, savedText); P.current.error = null; P.trailPush(edPath, savedText); }
     post("save", { text: savedText, path: edPath, seq: ++saveSeq });
+    P.docSync();
   }
   function flush(thenClose) {
     // the window is closing over a dialog with changes in it: they are not the document's yet — ask

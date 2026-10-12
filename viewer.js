@@ -13,8 +13,9 @@
     codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW, pageLook,
     pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageFileLine, viewOf, pageAppend,
-    pageOpen, pagebar, pageName, toggleProp, pageFacts, renderProps } = P; // viewer/prep.js
-  const { going, render, clear, scrollToFragment, renderMermaid, mermaidSvg, setTheme } = P; // viewer/render.js
+    pageOpen, pagebar, pageName, toggleProp, setProp, BACKGROUNDS, docLook, docFacts, pageFacts,
+    renderProps } = P; // viewer/prep.js
+  const { going, render, clear, scrollToFragment, renderMermaid, mermaidSvg, setTheme, draw, captureAnchor } = P; // viewer/render.js
   const { toast } = P; // viewer/chrome.js
   const { edInput, READING, flushSave, flush } = P; // viewer/editor.js
   const { trailPush, trailShow, trailStep, saveFailed, setMode } = P; // viewer/trail.js
@@ -30,6 +31,60 @@
 
   const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
+  /* The text column's width: as the settings say — and wide for a note that says so itself (its
+   * property "wide"), where the settings do not make it wider still. */
+  function measureSync() {
+    const set = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
+    const measure = docShown.wide && set !== "full" ? "wide" : set;
+    if (measure === measured) return;
+    measured = measure;
+    if (measure === "normal") document.documentElement.style.removeProperty("--measure"); else document.documentElement.style.setProperty("--measure", MEASURES[measure]);
+    window.dispatchEvent(new Event("resize")); // (what fits itself to the column's width does so again)
+  }
+  /* How the note on screen says it wants to be shown (prep.js: docLook) — its ground and its
+   * width — taken from its properties as the file has them now: after it is drawn, in any mode,
+   * and after every save. A page of a note is shown as its note is. The panel's Document tab
+   * (active/panel.js) hears of it, and counts anew. */
+  let docShown = { background: "", wide: false };
+  function docSync() {
+    const p = P.current, note = p && !p.error && p.kind !== "pdf" && typeof p.text === "string";
+    const head = note ? (/^---[ \t]*\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(p.text) || [""])[0] : "";
+    if (note && (!p._look || p._look.head !== head)) p._look = { head, look: docLook(head ? stripFrontmatter(head).props : null) }; // (read once for properties as they stand)
+    docShown = note ? p._look.look : { background: "", wide: false };
+    if (docShown.background) document.documentElement.dataset.docBg = docShown.background; else delete document.documentElement.dataset.docBg; // (viewer/page.css)
+    measureSync();
+    if (window.MdActive && MdActive.panel) MdActive.panel.doc();
+  }
+  /* A property of the note set from the panel (null: taken away). In the active mode it is an edit
+   * like any other — one step of its history, saved at once, the caret where it was; a page of a
+   * note is not where the properties stand: there the file's text is put anew. In the reading view
+   * the file is written and the note drawn again where it stands; the step is in the note's
+   * history for the active mode to take back. → whether it was done */
+  function docSet(key, value) {
+    const p = P.current;
+    if (!p || p.readonly || p.error || p.kind === "pdf" || READING || (P.mode !== "active" && P.mode !== "read")) return false;
+    if (P.mode === "active") {
+      const view = window.MdActive && MdActive.view, shown = view && view.pm && viewOf(p);
+      if (!shown) return false;
+      if (!shown.pageOf) { if (!MdActive.islands.setProp(view.pm, key, value)) return false; flushSave(); return true; }
+      const text = setProp(aiFileText(), key, value), caret = view.pm.hasFocus() ? view.caretOffset() : null, y = scrollY;
+      if (text == null || !aiSetFileText(text)) return false;
+      if (caret != null) view.caretAt(caret);
+      if (scrollY !== y) scrollTo({ top: y, behavior: "instant" });
+      post("save", { text: p.raw, path: p.path, exact: true, seq: ++P.saveSeq });
+      docSync();
+      return true;
+    }
+    const before = p.raw != null ? p.raw : p.text, text = setProp(before, key, value);
+    if (text == null || text === before) return false;
+    trailPush(p.path, p.text);
+    p.raw = text;
+    p.text = text.replace(/\r\n?/g, "\n");
+    trailPush(p.path, p.text);
+    post("save", { text, path: p.path, exact: true, seq: ++P.saveSeq });
+    draw(p, captureAnchor());
+    return true;
+  }
   // ---------------------------------------------------------------- AI (ai.js, loaded when it is first asked for)
   /* Claude, asked through the claude command on this computer: to work on blocks of the note (Transform with AI, the menus of a
    * right click), and to talk about the whole note (the bubble at the lower right). The desktop only — and nowhere at all,
@@ -108,18 +163,15 @@
     }
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer/*.css)
     if (CALLOUT_STYLES.includes(window.MdPrefs?.calloutStyle)) document.documentElement.dataset.callout = MdPrefs.calloutStyle; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer/*.css)
-    const sort = sortKey(), measure = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
+    const sort = sortKey();
     // what the sidebar or All Notes lists beside the notes: each shows its part anew (the application
     // sends the folder again only where what both want together changed)
     const lists = ["sidebar", "ov"].map((w) => GROUPS.map(([g]) => (groupOn(w, g) ? 1 : 0)).join("")).join("/");
     if (lists !== listedAs) { listedAs = lists; if (P.folder && P.folder.all) { P.folder.tree = P.folder.all; P.folder.visible = document.body.dataset.sidebar === "open"; applyFolder(P.folder, true); markShared(); } }
     if (sort !== sortedBy) { sortedBy = sort; resort(); }
     if (P.folder && sidebar.dataset.layout !== sbLayout()) syncList(false); // (the sidebar laid out another way)
-    if (measure !== measured) {
-      measured = measure;
-      if (measure === "normal") document.documentElement.style.removeProperty("--measure"); else document.documentElement.style.setProperty("--measure", MEASURES[measure]);
-      window.dispatchEvent(new Event("resize")); // (what fits itself to the column's width does so again)
-    }
+    measureSync();
+    if (window.MdActive && MdActive.panel) MdActive.panel.sync(); // (the panel at the right, if the settings have it open now)
   }
   // pictures dropped on the document, saved or found by the application
   function insertDropped(r) {
@@ -204,7 +256,7 @@
     setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
     setBoards: (list) => window.MdOverview && MdOverview.boards(list), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
+    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, setProp, doc: { BACKGROUNDS, look: () => docShown, facts: docFacts, set: docSet }, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
       // a link to a note as a block of its own: [[inner]] and how it looks
       link: { STYLES: LINK_STYLES, isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },
@@ -230,7 +282,7 @@
     setPreviews: (p) => { const rest = sbPreviews(p); if (!Object.keys(rest).length && Object.keys(p || {}).length) return; quickPreviews(rest); if (window.MdOverview) MdOverview.previews(rest); } };
 
   // what the page's other files use of this one
-  Object.assign(P, { prefsChanged, hideTip });
+  Object.assign(P, { prefsChanged, hideTip, docSync });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     sortedBy: [() => sortedBy, (v) => { sortedBy = v; }],

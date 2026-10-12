@@ -797,16 +797,18 @@ case "${1:-}" in
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
   panel)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
-    app 60 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
-    for v in insert format; do
-      for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
+    app 90 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in document document-dark insert format; do
+      for _ in $(seq 400); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
     done
-    for _ in $(seq 300); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
-    pkill -f "^$APP" 2>/dev/null
+    for _ in $(seq 400); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
+    sleep 1; pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"
-    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json" | grep -qv '^ok' ;;
+    # (what the Document tab chose last stands in the file itself)
+    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|wide: true|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
+    { jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"; echo "$filed"; } | tee "$R/out/panel.txt"
+    ! grep -qv '^ok' "$R/out/panel.txt" ;;
   columns)
     name=columns.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Columns\n\nAlpha paragraph.\n\nBeta paragraph.\n\nGamma paragraph.\n\nDelta paragraph.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 90 MDVIEW_PROBE="$D/probe-columns.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
