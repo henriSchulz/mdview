@@ -375,12 +375,80 @@
     if (!line.test(m[2])) return null;
     return m[1] + m[2].replace(line, (_all, head, tail) => head + (on ? "true" : "false") + tail) + m[3] + text.slice(m[0].length);
   }
+  /* A property set by the app (the panel's Document tab): its line in the properties at the head
+   * of the text (a note, or the properties alone) says value — written anew, or added, and the
+   * properties with it where the text has none. With null it is taken away, and the properties
+   * too when nothing else stands in them. Everything else stays as written.
+   * -> the text, or null where the head is not properties that can be read. */
+  function setProp(text, key, value) {
+    text = String(text || "");
+    const bom = text.startsWith("﻿") ? "﻿" : "", rest = text.slice(bom.length);
+    const m = /^(---[ \t]*\r?\n)(?:([\s\S]*?)\r?\n)?((?:---|\.\.\.)[ \t]*(?:\r?\n|$))/.exec(rest);
+    const nl = /\r\n/.test(m ? m[1] : rest) ? "\r\n" : "\n";
+    if (!m) return value == null ? text : `${bom}---${nl}${key}: ${value}${nl}---${nl}${rest && !/^\r?\n/.test(rest) ? nl : ""}${rest}`;
+    if (!stripFrontmatter(m[0].replace(/\r\n?/g, "\n")).props) return null;
+    const lines = m[2] ? m[2].split(/\r?\n/) : [], k = String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const at = lines.findIndex((l) => new RegExp(`^(?:${k}|"${k}"|'${k}')[ \\t]*:`).test(l));
+    let end = at + 1;
+    while (at >= 0 && end < lines.length && /^(?:[ \t]+\S|-(?: |$))/.test(lines[end])) end++; // (a value over several lines goes with its key)
+    if (at < 0 && value == null) return text;
+    lines.splice(at < 0 ? lines.length : at, at < 0 ? 0 : end - at, ...(value == null ? [] : [`${key}: ${value}`]));
+    if (value == null && !lines.some((l) => l.trim())) return bom + rest.slice(m[0].length).replace(/^\r?\n/, "");
+    return bom + m[1] + lines.join(nl) + (lines.length ? nl : "") + m[3] + rest.slice(m[0].length);
+  }
+  /* How a note says it wants to be shown, in its properties (viewer.js: docSync):
+   *   background: gray | red … magenta | dots | grid | lines   the page's ground — a quiet tint of
+   *               one of the theme's colours, or paper (viewer/page.css)
+   *   wide: true  the text column wide, whatever the settings say for the others
+   * -> { background ("" for the theme's own), wide } */
+  const BACKGROUNDS = ["gray", ...DECO_COLORS, "dots", "grid", "lines"];
+  const docLook = (props) => {
+    const bg = props && typeof props.background === "string" ? props.background.trim().toLowerCase().replace(/^grey$/, "gray") : "";
+    return { background: BACKGROUNDS.includes(bg) ? bg : "", wide: !!props && props.wide === true };
+  };
+  // a line's text as it is read: no marks of Markdown, pictures and comments gone, a link its words
+  const plainText = (s) => s.replace(/<!--.*?-->/g, "").replace(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`~$]|==/g, "").replace(/\s+/g, " ").trim();
+  /* What a note's text holds, counted (the panel's Document tab) — the file's whole text, the pages
+   * in it too; properties and comments are not the document's. Line by line, without parsing it:
+   * a block is a heading, a list entry, a rule, a page, code or a formula between its fences, and
+   * the lines of a paragraph, a table or a quote together. Words and characters are the text's as
+   * it is read (code and formulas are not read); a minute of reading is 220 words.
+   * -> { words, chars, blocks, minutes, headings, pictures, links, tasks, done, pages } */
+  function docFacts(text) {
+    const f = { words: 0, chars: 0, blocks: 0, minutes: 0, headings: 0, pictures: 0, links: 0, tasks: 0, done: 0, pages: 0 };
+    let fence = null, math = false, run = "";
+    for (const raw of stripComments(stripFrontmatter(String(text || "").replace(/\r\n?/g, "\n")).body).split("\n")) {
+      const fm = /^ {0,3}(`{3,}|~{3,})/.exec(raw);
+      if (fence) { if (fm && fm[1][0] === fence[0] && fm[1].length >= fence.length) fence = null; continue; }
+      if (fm) { fence = fm[1]; f.blocks++; run = ""; continue; }
+      if (math) { if (/\$\$\s*$/.test(raw)) math = false; continue; }
+      if (/^\s*\$\$/.test(raw)) { f.blocks++; run = ""; math = !/^\s*\$\$.+\$\$\s*$/.test(raw); continue; }
+      if (!raw.trim()) { run = ""; continue; }
+      if (PAGE_OPEN.test(raw)) { f.pages++; f.blocks++; run = ""; continue; }
+      if (/^\s*<!--.*-->\s*$/.test(raw)) continue; // (a page's end, how a table looks: nothing of its own)
+      if (/^ {0,3}([-*_])( *\1){2,} *$/.test(raw)) { f.blocks++; run = ""; continue; }
+      f.pictures += (raw.match(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)|<img\b/g) || []).length;
+      f.links += (raw.match(/(?<!!)\[\[[^\]]+\]\]|(?<!!)\[[^\]]*\]\([^)]*\)|<https?:\/\/[^>\s]+>|(?<![(<\w])https?:\/\/[^\s)>\]]+/g) || []).length;
+      const head = /^ {0,3}#{1,6}(?:\s+|$)/.exec(raw), item = !head && /^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+(?:\[([ xX])\]\s+)?/.exec(raw);
+      const kind = head ? "" : item ? "i" : /^\s*\|/.test(raw) ? "t" : /^\s*>/.test(raw) ? "q" : "p";
+      if (head) f.headings++;
+      if (item && item[1]) { f.tasks++; if (item[1] !== " ") f.done++; }
+      if (!kind || kind === "i" || kind !== run) f.blocks++;
+      run = kind === "i" ? "p" : kind; // (what follows an entry without an empty line is the entry's)
+      if (kind === "t" && /^[\s|:-]+$/.test(raw)) continue; // (the line under a table's head)
+      const t = plainText(raw.slice((head || item || [""])[0].length).replace(kind === "t" ? /\|/g : /^\s*(?:>\s*)*(?:\[![^\]]*\][+-]?)?/, " "));
+      f.words += (t.match(/[\p{L}\p{N}]+(?:['’.-][\p{L}\p{N}]+)*/gu) || []).length;
+      f.chars += t.length;
+    }
+    f.minutes = Math.ceil(f.words / 220);
+    return f;
+  }
   /* What a page says about itself on its line (the looks sheet, preview and widget): how its own
    * text begins, its tasks, the pages in it, the words in all of it — and its shape, a letter a
    * line: h a heading, t text, i a picture, f a formula or code, c a task. */
   function pageFacts(page) {
     const text = [], subs = [], tasks = [], shape = [];
-    const plain = (s) => s.replace(/<!--.*?-->/g, "").replace(/!\[\[[^\]]*\]\]|!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`~$]|==/g, "").replace(/\s+/g, " ").trim();
+    const plain = plainText;
     const wordsOf = (pg) => pg.items.reduce((n, x) => n + (typeof x === "string" ? (plain(x).match(/[\p{L}\p{N}]+/gu) || []).length : wordsOf(x)), 0);
     let fence = null, math = false;
     for (const x of page.items) {
@@ -455,7 +523,8 @@
   // what the page's other files use of this one
   Object.assign(P, { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW,
     pageLook, pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageFileLine, viewOf, viewPut,
-    pageStep, pageAppend, pageOpen, pagebar, pageBar, pageName, toggleProp, pageFacts, renderProps });
+    pageStep, pageAppend, pageOpen, pagebar, pageBar, pageName, toggleProp, setProp, BACKGROUNDS, docLook,
+    docFacts, pageFacts, renderProps });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     pageFresh: [() => pageFresh, (v) => { pageFresh = v; }],

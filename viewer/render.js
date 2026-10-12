@@ -131,6 +131,7 @@
     content.classList.remove("pdf");
     current = null;
     drawn = null;
+    if (P.docSync) P.docSync();
     outline = [];
     document.title = P.folder ? P.folder.name : "Markdown Notes";
     content.innerHTML = P.emptyState();
@@ -143,6 +144,7 @@
   function draw(p, anchor, quiet = false) {
     const gen = ++generation;
     drawn = { p, text: p.text };
+    if (P.docSync) P.docSync(); // (the note's own ground and width: there with its first frame)
     // (a PDF that makes way is let go as it stands — it keeps its place — before the column is the note's again)
     if (window.MdPdf && !(p.kind === "pdf" && !p.error)) MdPdf.leave();
     content.classList.toggle("pdf", p.kind === "pdf" && !p.error);
@@ -189,7 +191,11 @@
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
     // (the active mode's scripts are fetched in a quiet moment after the first note is on screen:
     // the first change into that mode then only has to build the note)
-    if (!P.preloadTimer && !P.activeLoad) P.preloadTimer = setTimeout(() => { if (!P.activeLoad && current && current.kind !== "pdf") P.loadActive().catch(() => {}); }, 1500);
+    // (… and at once where the panel at the right stands beside the reading view, which is theirs:
+    // its room is kept from the first frame, so the note does not move over when it comes)
+    const panel = !P.activeLoad && mode === "read" && !!current && current.kind !== "pdf" && !(window.MdHost && window.MdHost.reading) && !!window.MdPrefs && !!MdPrefs.panel && MdPrefs.panelTab === "document";
+    if (panel && !P.preloadTimer) document.body.dataset.panel = "";
+    if (!P.preloadTimer && !P.activeLoad) P.preloadTimer = setTimeout(() => { if (!P.activeLoad && current && current.kind !== "pdf") P.loadActive().catch(() => { delete document.body.dataset.panel; }); }, panel ? 0 : 1500);
   }
 
   // the rendered document on screen: the reading view, or the active mode's

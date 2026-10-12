@@ -22,6 +22,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/roundtrip.test.mjs` | load → active mode → serialize gives the file back byte for byte: fixtures, spec examples, real documents, each with LF, CRLF, CR, mixed endings, a BOM, with and without a final newline, in and outside a vault |
 | `tests/edit.test.mjs` | tests B and C: a word typed at a random place changes the file only there, and the file then says what the editor shows |
 | `tests/commands.test.mjs` | keys and commands with the Markdown expected afterwards; escaping; random sequences of edits (`MDVIEW_FUZZ=200` for more rounds) |
+| `tests/docpanel.test.mjs` | the panel's Document tab: a note counted (words, characters, blocks …), a property written into the frontmatter with the rest of the file as it was, a note's own ground and width read |
 | `tests/islands.test.mjs` | code blocks, formulas and frontmatter taken apart for their dialogs and put together again |
 | `tests/tables.test.mjs` | cells edited in place, the table's own formatting kept, keys, rows and columns |
 | `tests/notes.test.mjs` | footnote definitions found and written back, a new note |
@@ -52,7 +53,7 @@ every check.
 ./rig.sh tabs                                           # the tabs of a folder window
 ./rig.sh overview                                       # all notes of a folder as tiles
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
-./rig.sh panel                                          # the panel at the right: Insert and Format
+./rig.sh panel                                          # the panel at the right: Insert, Format and Document (a ground and a wide page written into the note)
 ./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others
 ./rig.sh callout                                        # callouts made from the / menu, their titles typed in place
 ./rig.sh edit                                           # typing: rules, keys, lists, undo, saving

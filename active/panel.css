@@ -1,8 +1,9 @@
 /* mdview active mode, styles — the panel at the right. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 /* ------------------------------------------------------------- the panel at the right (panel.js)
- * A card beside the text like the sidebar on the left, with two tabs: what can be put in (tiles
- * with a small picture each), and the formats of the block the caret is in. Sizes are layout;
- * times, curves and radii are the central ones. */
+ * A card beside the text like the sidebar on the left, with three tabs: what can be put in (tiles
+ * with a small picture each), the formats of the block the caret is in, and what is the
+ * document's — what it holds, its ground, its width. Sizes are layout; times, curves and radii are
+ * the central ones. */
 :root { --rp-w: 320px; }
 #rpanel {
   position: fixed;
@@ -27,31 +28,32 @@
   visibility: hidden;
   transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
 }
-body[data-view="active"][data-panel] #rpanel { transform: none; visibility: visible; transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
+body[data-panel] #rpanel { transform: none; visibility: visible; transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s; }
 #rpanel.no-anim { transition: none; }
 @media (prefers-contrast: more) { #rpanel { box-shadow: 0 0 0 1.5px var(--fg2); } }
 @media print { #rpanel { display: none !important; } }
 /* the text column makes room (panel.js glides it over); what floats at the top right moves beside the panel */
-body[data-view="active"][data-panel] { padding-right: var(--rp-w); }
-body[data-view="active"][data-panel] #toolbar { transform: translateX(calc(-1 * var(--rp-w))); }
-body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(calc(-1 * var(--rp-w)), -6px); }
+body[data-panel] { padding-right: var(--rp-w); }
+body[data-panel] #toolbar { transform: translateX(calc(-1 * var(--rp-w))); }
+body[data-panel] #toolbar.hidden { transform: translate(calc(-1 * var(--rp-w)), -6px); }
 @media (max-width: 640px) { /* (a narrow window: the toolbar stands at the foot, in the middle — viewer/*.css — and stays there) */
-  body[data-view="active"][data-panel] #toolbar { transform: translateX(-50%); }
-  body[data-view="active"][data-panel] #toolbar.hidden { transform: translate(-50%, 6px); }
+  body[data-panel] #toolbar { transform: translateX(-50%); }
+  body[data-panel] #toolbar.hidden { transform: translate(-50%, 6px); }
 }
-body[data-view="active"][data-panel] #outline, body[data-view="active"][data-panel] #findbar { right: calc(12px + var(--rp-w)); }
-body[data-view="active"][data-panel] #tabs { right: var(--rp-w); }
+body[data-panel] #outline, body[data-panel] #findbar { right: calc(12px + var(--rp-w)); }
+body[data-panel] #tabs { right: var(--rp-w); }
 #toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent-text); }
-@media (max-width: 760px) { body[data-view="active"][data-panel] { padding-right: 0; } }
+@media (max-width: 760px) { body[data-panel] { padding-right: 0; } }
 
 .rp-tabs { display: flex; gap: 14px; margin: 0 16px; padding: 14px 0 10px; border-bottom: 1px solid var(--line); flex: none; }
 .rp-tab { padding: 0; border: 0; background: none; font: 500 13px/1.3 var(--ui); color: var(--fg-quiet); cursor: default; transition: color var(--dur-fast) var(--ease-out); }
 .rp-tab:hover { color: var(--fg2); transition-duration: var(--dur-instant); }
 .rp-tab[aria-selected="true"] { color: var(--fg); font-weight: 600; }
+.rp-tab:disabled { opacity: 0.4; pointer-events: none; } /* (beside the reading view: nothing is put in or formatted there) */
 .rp-tab:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 3px; border-radius: var(--radius-chip); }
 /* the two tabs lie on each other: the one chosen shows (a crossfade) */
 .rp-pane { position: absolute; inset: 44px 0 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 24px; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
-#rpanel[data-tab="insert"] [data-pane="insert"], #rpanel[data-tab="format"] [data-pane="format"] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+#rpanel[data-tab="insert"] [data-pane="insert"], #rpanel[data-tab="format"] [data-pane="format"], #rpanel[data-tab="document"] [data-pane="document"] { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
 .rp-hint { margin: 0 0 10px; font-size: 12px; color: var(--fg-quiet); }
 .rp-none { margin: 24px 0; text-align: center; color: var(--fg2); }
 .rp-search { display: flex; align-items: center; gap: 6px; height: var(--control-height, 28px); padding: 0 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg2); transition: box-shadow var(--dur-fast) var(--ease-out); }
@@ -121,6 +123,35 @@ body[data-mode="dark"] .rp-card { --tile: color-mix(in srgb, var(--fg) 9%, var(-
 .rp-kind:hover { background: color-mix(in srgb, var(--cc) 20%, transparent); }
 .rp-kind[aria-pressed="true"] { background: color-mix(in srgb, var(--cc) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 60%, transparent); }
 .rp-kind svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Document: what the note holds, in numbers — four of them large, the rest a list — the grounds
+   it can stand on, and its width */
+.rp-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rp-stat { display: grid; gap: 3px; min-width: 0; padding: 9px 10px 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.rp-stat b { font: 600 17px/1.15 var(--ui); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-stat > span { font-size: 11px; color: var(--fg-quiet); }
+.rp-facts { margin: 6px 0 0; padding: 0 10px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.rp-facts > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 30px; }
+.rp-facts > div[hidden] { display: none; }
+.rp-facts > div + div { box-shadow: 0 -1px 0 var(--line); }
+.rp-fact { color: var(--fg2); font-variant-numeric: tabular-nums; }
+/* (a number that changed fades in: it never jumps) */
+.rp-fresh { animation: rp-fresh var(--dur-fast) var(--ease-out); }
+@keyframes rp-fresh { from { opacity: 0; } }
+/* the grounds: each a small sheet of what it is (viewer/page.css has them; here stronger, and in small — "none" is the theme's own), the one chosen ringed */
+.rp-grounds { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.rp-ground { display: block; min-width: 0; aspect-ratio: 1; padding: 0; border: 0; border-radius: var(--radius-control); background: none; cursor: default; outline: none; transition: box-shadow var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.rp-ground > i { --doc-by: 26%; --doc-ink-by: 22%; --doc-cell: 7px; display: block; width: 100%; height: 100%; box-sizing: border-box; border-radius: inherit; background-color: var(--doc-ground); background-image: var(--doc-paper, none); background-size: var(--doc-paper-size, auto); background-position: center; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 16%, transparent); }
+body[data-mode="dark"] .rp-ground > i { --doc-by: 34%; --doc-ink-by: 30%; }
+.rp-ground > i[data-doc-bg="dots"], body[data-mode="dark"] .rp-ground > i[data-doc-bg="dots"] { --doc-ink-by: 14%; }
+.rp-ground:hover { box-shadow: 0 0 0 2px var(--fill-pressed); transition-duration: var(--dur-instant); }
+.rp-ground:active { transform: scale(var(--press-scale)); transition: transform var(--dur-instant) var(--ease-out); }
+.rp-ground[aria-checked="true"], .rp-ground:focus-visible { box-shadow: 0 0 0 2px var(--raised), 0 0 0 4px var(--accent); }
+.rp-ground:disabled { opacity: 0.4; pointer-events: none; }
+.rp-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.rp-line .pf-switch:disabled { opacity: 0.4; }
+.rp-say { margin: 10px 2px 0; }
+@media (prefers-reduced-motion: reduce) { .rp-ground:active { transform: none; } }
 
 /* --- sharing a note (share.js): a small window over the page — a head that says how it stands,
    a card with the link and, folded away, the password, and what can be done at the foot */

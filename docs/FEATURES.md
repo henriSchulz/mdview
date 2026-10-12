@@ -639,10 +639,20 @@ tags: [one, two]
 draft: true
 date: 2026-10-04
 color: green
+background: blue
+wide: true
 ---
 ```
 
 `color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
+
+Two properties say how the note itself is shown — in the reading view, the active mode and the
+web app, a shared note too. They can be chosen in the panel's Document tab:
+
+- `background`: the ground the note stands on. `gray`, `red`, `orange`, `yellow`, `green`, `cyan`,
+  `blue`, `magenta` — a quiet tint of that colour of the theme — or paper: `dots`, `grid`,
+  `lines`. Anything else, or nothing: the theme's own ground.
+- `wide: true`: the text column wide (58rem) for this note.
 
 ### HTML
 
@@ -686,7 +696,23 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`): *Insert* — tiles for everything that can be put in, click
-  or drag; *Format* — the styles of the block the caret is in.
+  or drag; *Format* — the styles of the block the caret is in; *Document* — what is the note's as
+  a whole:
+  - *Information*: words, characters, reading time (220 words a minute) and blocks, and under
+    them headings, pictures, links, tasks (done of all) and the pages in the note. The whole file
+    is counted, its pages too; properties, comments, code and formulas are not read as words. A
+    block is a heading, a list entry, a rule, a page, a code block or formula, and a paragraph, a
+    table or a quote as one. The numbers follow what is typed after a short pause.
+  - *Background*: the ground the note stands on — the theme's own, a quiet tint (gray, or one of
+    the seven colours), or paper (dots, a grid, lines). It follows the light and the dark theme.
+  - *Wide Page*: the text column wide for this note, whatever the settings' text width is for the
+    others (where the settings already have it wide or as wide as the window, it stays so).
+
+  Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
+  chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
+  caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
+  last of them. Insert and Format are the active mode's; with Document chosen the panel stands
+  beside the reading view as well, its other two tabs dimmed. Not beside the source.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
 - **Undo** follows across the three modes.
@@ -997,7 +1023,7 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
-| `Ctrl+Alt+P` | panel (active mode) |
+| `Ctrl+Alt+P` | panel (active mode; its Document tab in the reading view too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
 | `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |

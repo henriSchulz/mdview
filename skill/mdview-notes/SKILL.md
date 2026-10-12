@@ -15,7 +15,10 @@ the note better. The full reference, with every example rendered, is
 1. **One `# Title`** as the first line after the properties; the file name is the title in the
    sidebar, so name the file like the title (`Fourier Transform.md`, spaces are fine).
 2. **Properties** only when they say something: `tags`, `date`, and `color` (red, orange, yellow,
-   green, cyan, blue, magenta) to mark the note with a dot in that colour in All Notes.
+   green, cyan, blue, magenta) to mark the note with a dot in that colour in All Notes. Two more
+   say how the note is shown: `background` (gray, red, orange, yellow, green, cyan, blue, magenta:
+   a quiet tint of the page; dots, grid, lines: paper) and `wide: true` (a wide text column — for
+   a note of wide tables, columns or figures). Leave both out unless the note gains by them.
 3. **Write the note, not a demo.** Use an extra only where it carries content: a callout for the
    one thing not to miss, columns for a real side-by-side, a diagram where structure matters.
 4. **Language**: the language Henri asked in (usually German) for the text; keep technical terms.

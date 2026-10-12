@@ -41,6 +41,34 @@ body[data-mode="dark"] {
   --sb-selected: color-mix(in srgb, var(--fg) 12%, transparent);
 }
 
+/* A note's own ground — its property "background" (prep.js: docLook; viewer.js sets data-doc-bg at
+ * the root): a quiet tint of one of the theme's colours, and the window's ground is that colour
+ * then, with all that is made from it; or paper — dots, a grid, lines — drawn on the root, behind a
+ * body that lets it through. Not under All Notes. The panel's swatches (active/panel.css) show the
+ * same grounds in small: the strengths and the cell are theirs to say. */
+:root { --doc-by: 9%; --doc-ink-by: 7%; --doc-cell: 24px; }
+:root:has(> body[data-mode="dark"]) { --doc-by: 13%; --doc-ink-by: 9%; }
+[data-doc-bg] {
+  --doc-tint: var(--c-background);
+  --doc-ground: color-mix(in srgb, var(--doc-tint) var(--doc-by), var(--c-background));
+  --doc-ink: color-mix(in srgb, var(--c-foreground) var(--doc-ink-by), transparent);
+}
+[data-doc-bg="gray"] { --doc-tint: color-mix(in srgb, var(--c-foreground) 55%, var(--c-background)); }
+[data-doc-bg="red"] { --doc-tint: var(--c-red); }
+[data-doc-bg="orange"] { --doc-tint: var(--c-orange); }
+[data-doc-bg="yellow"] { --doc-tint: var(--c-yellow); }
+[data-doc-bg="green"] { --doc-tint: var(--c-green); }
+[data-doc-bg="cyan"] { --doc-tint: var(--c-cyan); }
+[data-doc-bg="blue"] { --doc-tint: var(--c-blue); }
+[data-doc-bg="magenta"] { --doc-tint: var(--c-magenta); }
+[data-doc-bg="dots"] { --doc-ink: color-mix(in srgb, var(--c-foreground) calc(var(--doc-ink-by) * 3), transparent); --doc-paper: radial-gradient(circle at center, var(--doc-ink) 1px, transparent 1.6px); --doc-paper-size: var(--doc-cell) var(--doc-cell); }
+[data-doc-bg="grid"] { --doc-paper: linear-gradient(var(--doc-ink) 1px, transparent 1px), linear-gradient(90deg, var(--doc-ink) 1px, transparent 1px); --doc-paper-size: var(--doc-cell) var(--doc-cell); }
+[data-doc-bg="lines"] { --doc-paper: linear-gradient(var(--doc-ink) 1px, transparent 1px); --doc-paper-size: 100% var(--doc-cell); }
+:root[data-doc-bg]:not(:has(> body[data-overview])) { --bg: var(--doc-ground); background-image: var(--doc-paper, none); background-size: var(--doc-paper-size, auto); }
+:root:is([data-doc-bg="dots"], [data-doc-bg="grid"], [data-doc-bg="lines"]) > body:not([data-overview]) { background-color: transparent; }
+:root[data-doc-bg] #board { --bg: var(--c-background); } /* (a whiteboard opened over the note keeps the theme's ground) */
+@media print { :root[data-doc-bg] { --bg: var(--c-background); background-image: none; } }
+
 html { background: var(--bg); scroll-padding-top: calc(24px + var(--top, 0px)); } /* (--top: what the tabs take of the window's top) */
 body {
   margin: 0;

@@ -1,15 +1,22 @@
 /* mdview active mode — the panel at the window's right (the toolbar's last
- * button, Ctrl+Alt+P), as Craft has one: two tabs.
+ * button, Ctrl+Alt+P), as Craft has one: three tabs.
  *
- *   Insert   what can be put into the document, as tiles with a small picture
- *            of each, in sections, with a field to search them. A click puts
- *            the thing below the block the caret is in; dragged, it goes
- *            between the blocks where it is dropped (a line shows where).
- *   Format   what the block the caret is in can be: a text style, a list, a
- *            decoration, a colour, a callout — and bold, italic and the like.
- *            It shows what is on, and follows the caret.
+ *   Insert    what can be put into the document, as tiles with a small picture
+ *             of each, in sections, with a field to search them. A click puts
+ *             the thing below the block the caret is in; dragged, it goes
+ *             between the blocks where it is dropped (a line shows where).
+ *   Format    what the block the caret is in can be: a text style, a list, a
+ *             decoration, a colour, a callout — and bold, italic and the like.
+ *             It shows what is on, and follows the caret.
+ *   Document  what is the note's as a whole: what it holds, counted (words,
+ *             characters, blocks …), the ground it stands on and whether its
+ *             page is wide. The last two are properties of the note: chosen
+ *             here, they are written into it (viewer.js: docSet).
  *
- * It can only be opened in the active mode (the button is dimmed in the others).
+ * Insert and Format are the active mode's. Document stands beside the reading
+ * view too: there the panel shows when that tab is the chosen one, and its
+ * other tabs are dimmed. Beside the source it does not show (the button is
+ * dimmed).
  *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
@@ -20,7 +27,7 @@
   const A = window.MdActive, T = window.MdStrings.t;
   const { Plugin, PluginKey, Selection, TextSelection } = PM.state;
   const N = A.schema.nodes;
-  const { ICON, esc, callout: CALLOUT } = window.MdView.core;
+  const core = window.MdView.core, { ICON, esc, callout: CALLOUT } = core;
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const pref = () => ({ panel: false, panelTab: "insert", ...(window.MdPrefs || {}) });
   const view = () => (A.view && A.view.pm) || null;
@@ -105,20 +112,34 @@
   const TILED = new Set(["panel.lines"]); // (sections whose entries are tiles that show the thing itself, without a name)
 
   // ------------------------------------------------------------ the panel
+  const TABS = ["insert", "format", "document"];
+  // Document: the numbers shown large, the ones in the list under them, and the grounds a note can stand on ("" the theme's own)
+  const STATS = [["words", "panel.words"], ["chars", "panel.chars"], ["minutes", "panel.reading"], ["blocks", "panel.blocks"]];
+  const FACTS = [["headings", "panel.headings"], ["pictures", "panel.pictures"], ["links", "panel.links"], ["tasks", "panel.tasks"], ["pages", "panel.pages"]];
+  const GROUNDS = ["", ...core.doc.BACKGROUNDS];
+  const groundName = (g) => T(!g ? "panel.bg.none" : /^(gray|dots|grid|lines)$/.test(g) ? "panel.bg." + g : "color." + g);
   const el = document.createElement("aside");
   el.id = "rpanel";
   el.setAttribute("aria-label", T("panel.label"));
   el.innerHTML =
     `<div class="rp-tabs" role="tablist">` +
-    ["insert", "format"].map((t) => `<button class="rp-tab" type="button" role="tab" data-tab="${t}" aria-selected="false">${esc(T("panel." + t))}</button>`).join("") +
+    TABS.map((t) => `<button class="rp-tab" type="button" role="tab" data-tab="${t}" aria-selected="false">${esc(T("panel." + t))}</button>`).join("") +
     `</div>` +
     `<div class="rp-pane" data-pane="insert" role="tabpanel"><p class="rp-hint">${esc(T("panel.hint"))}</p>` +
     `<label class="rp-search">${ICON.search}<input type="search" placeholder="${esc(T("panel.search"))}" aria-label="${esc(T("panel.search"))}" spellcheck="false"></label>` +
     `<div class="rp-items"></div><p class="rp-none" hidden>${esc(T("menu.none"))}</p></div>` +
-    `<div class="rp-pane" data-pane="format" role="tabpanel"></div>`;
+    `<div class="rp-pane" data-pane="format" role="tabpanel"></div>` +
+    `<div class="rp-pane" data-pane="document" role="tabpanel"><h3 class="rp-sec">${esc(T("panel.info"))}</h3>` +
+    `<div class="rp-stats">${STATS.map(([k, name]) => `<div class="rp-stat"><b data-fact="${k}">–</b><span>${esc(T(name))}</span></div>`).join("")}</div>` +
+    `<div class="rp-facts">${FACTS.map(([k, name]) => `<div><span>${esc(T(name))}</span><span class="rp-fact" data-fact="${k}">–</span></div>`).join("")}</div>` +
+    `<h3 class="rp-sec">${esc(T("panel.background"))}</h3><div class="rp-grounds" role="radiogroup" aria-label="${esc(T("panel.background"))}">` +
+    GROUNDS.map((g) => `<button class="rp-ground" type="button" role="radio" aria-checked="false" data-bg="${g}" title="${esc(groundName(g))}" aria-label="${esc(groundName(g))}"><i data-doc-bg="${g || "none"}"></i></button>`).join("") +
+    `</div><h3 class="rp-sec">${esc(T("panel.layout"))}</h3><label class="rp-line"><span>${esc(T("panel.wide"))}</span><input type="checkbox" class="pf-switch" data-prop="wide"></label>` +
+    `<p class="rp-hint rp-say">${esc(T("panel.docHint"))}</p></div>`;
   document.body.appendChild(el);
   const search = el.querySelector(".rp-search input"), itemsEl = el.querySelector(".rp-items"), none = el.querySelector(".rp-none");
-  const formatEl = el.querySelector('[data-pane="format"]');
+  const formatEl = el.querySelector('[data-pane="format"]'), docEl = el.querySelector('[data-pane="document"]');
+  const mode = () => document.body.dataset.view || "read";
   const button = () => document.querySelector('#toolbar [data-act="panel"]');
   const isOpen = () => document.body.hasAttribute("data-panel");
 
@@ -328,25 +349,71 @@
   // (… and a row that can be pulled into the text: held back, its press would never become a pull — none ever did)
   el.addEventListener("mousedown", (e) => { if (!e.target.closest('.rp-search, .rp-tile[draggable="true"]')) e.preventDefault(); });
 
+  // --- Document: what the note holds, and how it says it wants to be shown
+  const wideBox = docEl.querySelector(".pf-switch");
+  const say = (k, text) => {
+    const at = docEl.querySelector(`[data-fact="${k}"]`);
+    if (at.textContent === text) return;
+    const fresh = at.textContent !== "–"; // (what was not there yet stands at once; a number that changed fades in)
+    at.textContent = "";
+    at.appendChild(Object.assign(document.createElement("span"), { className: fresh ? "rp-fresh" : "", textContent: text }));
+  };
+  let counted = null, counting = 0; // the text the numbers are of
+  function count() {
+    counting = 0;
+    const p = core.current, text = p && !p.error && p.kind !== "pdf" && typeof p.text === "string" ? p.text : null;
+    if (text === counted) return;
+    counted = text;
+    const f = text == null ? null : core.doc.facts(text), n = (x) => x.toLocaleString();
+    for (const [k] of [...STATS, ...FACTS]) say(k, !f ? "–" : k === "minutes" ? T("panel.minutes", n(f.minutes)) : k === "tasks" ? T("panel.tasksOf", n(f.done), n(f.tasks)) : n(f[k]));
+    docEl.querySelector('[data-fact="tasks"]').parentNode.hidden = !f || !f.tasks;
+    docEl.querySelector('[data-fact="pages"]').parentNode.hidden = !f || !f.pages;
+  }
+  /* The note changed, or another is shown (viewer.js: docSync, after a note is drawn and after every
+   * save): what is chosen shows at once; the numbers are counted in a quiet moment — at once only
+   * where none stand yet, and for another note. */
+  let countedFor = null;
+  function doc() {
+    if (!isOpen() || el.dataset.tab !== "document") return;
+    const p = core.current, look = core.doc.look();
+    const can = !!p && !p.error && p.kind !== "pdf" && !p.readonly;
+    for (const b of docEl.querySelectorAll(".rp-ground")) { b.setAttribute("aria-checked", String(b.dataset.bg === look.background)); b.disabled = !can; }
+    wideBox.checked = look.wide;
+    wideBox.disabled = !can;
+    clearTimeout(counting);
+    if (countedFor !== (p && p.path) || counted == null) { countedFor = p && p.path; count(); }
+    else counting = setTimeout(count, 150);
+  }
+  // (what was chosen shows by what the note says afterwards — where nothing could be written, as it was)
+  docEl.addEventListener("click", (e) => { const b = e.target.closest(".rp-ground"); if (b && !b.disabled) { core.doc.set("background", b.dataset.bg || null); doc(); } });
+  wideBox.addEventListener("change", () => { core.doc.set("wide", wideBox.checked ? true : null); doc(); });
+  docEl.addEventListener("keydown", (e) => e.stopPropagation()); // (Space on a ground or the switch is not the note's)
+
   // --- tabs, opening and closing
+  /* Where it stands: beside the text that is edited — and beside the reading view for what is the
+   * document's, its third tab. Not beside the source, and not where a note is only shown. */
+  const reading = () => mode() === "read";
+  const wanted = () => !!pref().panel && !!button() && !button().hidden && (mode() === "active" || (reading() && pref().panelTab === "document"));
+  const keep = (prefs) => { window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs }; post("prefs", { prefs }); };
   function setTab(tab, save = true) {
-    for (const b of el.querySelectorAll(".rp-tab")) b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+    if (reading() || !TABS.includes(tab)) tab = "document";
+    for (const b of el.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(b.dataset.tab === tab)); b.disabled = reading() && b.dataset.tab !== "document"; }
     el.dataset.tab = tab;
-    if (save && pref().panelTab !== tab) { window.MdPrefs = { ...(window.MdPrefs || {}), panelTab: tab }; post("prefs", { prefs: { panelTab: tab } }); }
+    if (save && pref().panelTab !== tab) keep({ panelTab: tab });
     shape = tab === "format" ? shape : null;
     refresh();
+    doc();
   }
-  el.querySelector(".rp-tabs").addEventListener("click", (e) => { const b = e.target.closest(".rp-tab"); if (b) setTab(b.dataset.tab); });
+  el.querySelector(".rp-tabs").addEventListener("click", (e) => { const b = e.target.closest(".rp-tab"); if (b && !b.disabled) setTab(b.dataset.tab); });
   /* The text column makes room at once and glides to its new place (transform only), as it does
    * for the sidebar on the left. */
-  function show(open, animate = true, save = true) {
-    if (isOpen() === !!open) return;
-    const col = A.view && A.view.el, before = col ? col.getBoundingClientRect().left : 0;
+  function lay(open, animate) {
+    if (open) setTab(pref().panelTab, false);
+    if (isOpen() === !!open && button()?.getAttribute("aria-pressed") === String(!!open)) return;
+    const col = mode() === "active" ? A.view && A.view.el : document.getElementById("content"), before = col ? col.getBoundingClientRect().left : 0;
     el.classList.toggle("no-anim", !animate);
     if (open) document.body.dataset.panel = ""; else delete document.body.dataset.panel;
     button()?.setAttribute("aria-pressed", String(!!open));
-    if (save && pref().panel !== !!open) { window.MdPrefs = { ...(window.MdPrefs || {}), panel: !!open }; post("prefs", { prefs: { panel: !!open } }); }
-    if (open) setTab(pref().panelTab === "format" ? "format" : "insert", false);
     const dx = col ? before - col.getBoundingClientRect().left : 0;
     if (!animate || !dx || !col || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     col.style.transition = "none";
@@ -355,14 +422,19 @@
     col.style.transition = "";
     col.style.transform = "";
   }
-  const toggle = () => show(!isOpen());
+  function show(open, animate = true, save = true) {
+    // (opened beside the reading view, it is opened for what stands there: the document)
+    if (save && (pref().panel !== !!open || (open && reading() && pref().panelTab !== "document"))) keep({ panel: !!open, ...(open && reading() ? { panelTab: "document" } : {}) });
+    lay(save ? wanted() : !!open, animate);
+  }
+  const toggle = () => { if (mode() !== "edit") show(!wanted()); };
 
   const plugin = new Plugin({
     key: new PluginKey("panel"),
     view: () => ({ update: later }),
   });
-  // as the settings have it (a window that opens, a mode that comes back)
-  const sync = () => show(!!pref().panel, false, false);
+  // as the settings have it, and the mode (a window that opens, a mode that comes or goes)
+  const sync = () => lay(wanted(), false);
 
-  A.panel = { plugin, show, toggle, sync, setTab, refresh, el, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem };
+  A.panel = { plugin, show, toggle, sync, setTab, refresh, doc, el, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem };
 })();

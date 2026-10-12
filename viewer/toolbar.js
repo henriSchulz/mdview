@@ -9,7 +9,7 @@
   const { shownRoot, scrollToFragment } = P; // viewer/render.js
   const { toolbar, outlinePop, findBar, toast, outlineOpen, findOpen, openOutline, closeOutline, focusHit,
     openFind, closeFind } = P; // viewer/chrome.js
-  const { MODES, switchMode, flushSave, flush } = P; // viewer/editor.js
+  const { MODES, READING, switchMode, flushSave, flush } = P; // viewer/editor.js
   const { isBoardImg, openBoard, codeBox, openCode, closeCode, openHistory, openShare, openSettings,
     printDoc } = P; // viewer/modes.js
   const { sidebar, sbHead, sbHistoryBtn, sidebarOpen, ctx, ctxSub, ctxOpen, openCtx, closeCtx } = P; // viewer/sidebar.js
@@ -26,9 +26,9 @@
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (P.folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
     overview: () => { if (P.folder && window.MdOverview) MdOverview.open(); }, // (the house: always to all notes — back to the note by its tab, or Esc)
-    // the panel at the right — what can be put in, and the formats (active/panel.js). It belongs to the
-    // active mode: in the others its button is dimmed and does nothing
-    panel: () => { if (P.mode === "active" && window.MdActive && MdActive.panel) MdActive.panel.toggle(); }, // all notes of the folder as tiles (overview.js)
+    // the panel at the right — what can be put in, the formats, and what is the document's
+    // (active/panel.js: loaded with the active mode). Beside the source its button is dimmed and does nothing
+    panel: () => { if (P.mode !== "edit" && P.current && !READING) P.loadActive().then(() => MdActive.panel.toggle(), () => toast(T("active.loadFailed"))); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!P.sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder — among the quick notes a new one
@@ -103,6 +103,7 @@
       P.current.raw = text;
       P.current.text = text.replace(/\r\n?/g, "\n");
       post("save", { text, path: P.current.path, exact: true, seq: ++P.saveSeq });
+      P.docSync(); // ("wide" is such a property)
       return;
     }
     if (box) {
