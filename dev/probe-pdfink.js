@@ -52,6 +52,7 @@
       }
       ok("the viewer's bar goes as the board comes", await until(() => getComputedStyle(V.bar).opacity === "0", 1500), getComputedStyle(V.bar).opacity);
       ok("the pages in sight are drawn", await until(() => st().pdf.drawn.includes(2) && sheet(2).querySelector("canvas")), st().pdf);
+      ok("no bar at the lower right over a PDF (joining, the dots)", !document.querySelector("#board .bd-viewbar").getBoundingClientRect().width);
       ok("it is named as the PDF is, and has no dots", document.querySelector("#board .bd-name").textContent === "paper.pdf" && !stage().hasAttribute("data-grid"));
       out("open", {});
       await sleep(700);

@@ -128,6 +128,7 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 #board[data-pdf] .bd-world { --fg: #1d1d1f; color: #1d1d1f; }
 #board[data-pdf] :is([data-do="image"], [data-do="grid"], [data-do="scenes"], [data-do="prev"], [data-do="next"]) { display: none; }
 #board[data-pdf] .bd-zoom .bd-sep { display: none; }
+#board[data-pdf] .bd-viewbar { display: none; } /* (joining things with lines, the dots: a whiteboard's, not a page's) */
 .bd-item { position: absolute; box-sizing: border-box; }
 .bd-item[data-k="sticky"] { border-radius: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.10), 0 4px 10px rgb(0 0 0 / 0.08); }
 .bd-draw { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
