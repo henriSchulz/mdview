@@ -530,7 +530,9 @@ and shut back into it — or a file of the folder, of its own.
   not go all the way round, nor be shut: a stroke is taken whole with any part of itself in the
   loop, a thing with its middle or two corners of its outline), a mouse pulls a box from the
   bare board, which takes what it touches — any part of a stroke or a line, a thing's outline
-  or what is filled of it. A thing is met where it is drawn, not in the box around it: a line
+  or what is filled of it. What is chosen shows where it is drawn: strokes, or several things,
+  are each marked along their own way or outline, and the frame around them all is a faint dashed
+  one — it says how far the choice reaches, not what in it was chosen. A thing is met where it is drawn, not in the box around it: a line
   or an arrow within a few pixels of its way, a shape in its own form, a text where its lines
   stand. A shape that is only an outline is met at its outline: a click within it still
   chooses it, a pull within it is a box over what stands in it, and once chosen it is moved

@@ -352,6 +352,14 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-stage[data-tool="shape"] { cursor: crosshair; }
 #board[data-mode="select"] .bd-stage[data-tool="text"] { cursor: text; }
 #board[data-mode="select"] .bd-stage[data-tool="shape"] { cursor: crosshair; }
+/* what is chosen, marked where it is drawn (several things, or strokes): the frame around them is the fainter of the two.
+ * (An SVG of no size draws nothing: it is one pixel, and what is in it runs over.) */
+.bd-marks { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.bd-marks[hidden] { display: none; }
+.bd-marks path { fill: none; stroke: var(--accent); stroke-linejoin: round; }
+.bd-mark-ink { opacity: 0.4; }
+.bd-mark-ink[data-shape] { fill: var(--accent); }
+.bd-pick[data-kind="many"], .bd-pick[data-kind="ink"] { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 2px; }
 /* strokes alone, chosen: dots at the four corners of their frame */
 .bd-pick[data-kind="ink"] { border-style: dashed; border-radius: 2px; }
 .bd-pick[data-kind="ink"] .bd-knob, .bd-pick[data-kind="ink"] .bd-dot[data-dot="n"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="e"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="s"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="w"] { display: none; }

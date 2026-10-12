@@ -732,6 +732,26 @@
     }
 
     // ------------------------------------------------------------ what the window shows of all this
+    /* Each thing chosen is marked where it is drawn — a stroke along its way, a shape at its outline — wherever the frame is
+     * one around several things or around strokes: the frame says how far the choice reaches, not what in it was chosen.
+     * (Drawn in the board's own measures and moved with the view; made anew only when what is chosen changed. Not while the
+     * choice is being moved: the frame has no dots then either.) */
+    let marked = "";
+    function marks(p, frame) {
+      const svg = q(root(), ".bd-marks"), g = svg.firstChild, kind = frame.dataset.kind;
+      const none = !p.length || (kind !== "ink" && kind !== "many") || frame.hasAttribute("data-busy");
+      svg.toggleAttribute("hidden", none); // (an SVG element has no `hidden` of its own to set)
+      if (none) return;
+      const v = S().view, zz = z(), r = (n) => Math.round(n * 10) / 10;
+      g.setAttribute("transform", `matrix(${zz} 0 0 ${zz} ${-v.x * zz} ${-v.y * zz})`);
+      const sig = zz + "|" + p.map((it) => it.k === "ink" ? `${it.id}:${it.pts.length}:${it.pts[0][0]},${it.pts[0][1]},${it.pts[it.pts.length - 1][0]},${it.pts[it.pts.length - 1][1]}:${it.w}` : `${it.id}:${I.outline(it).flat().map(r).join(",")}`).join("|");
+      if (sig === marked) return;
+      marked = sig;
+      g.innerHTML = p.map((it) => {
+        if (it.k === "ink") { const o = B.render.outline(it); return `<path class="bd-mark-ink"${o.stroke ? "" : " data-shape"} stroke-width="${r(o.stroke + 6 / zz)}" stroke-linecap="${o.cap}" d="${o.d}"/>`; } // (the way the ink itself is drawn, a little wider)
+        return `<path class="bd-mark" stroke-width="${r(1.5 / zz)}" d="M${I.outline(it).map((pt) => r(pt[0]) + " " + r(pt[1])).join("L")}${it.k === "line" ? "" : "Z"}"/>`;
+      }).join("");
+    }
     function paint() {
       const st = S(), el = root(), frame = q(el, ".bd-pick"), band = q(el, ".bd-band"), gv = q(el, ".bd-guide-v"), gh = q(el, ".bd-guide-h"), tip = q(el, ".bd-angle");
       const p = st.mode === "select" ? st.pick : [];
@@ -759,6 +779,7 @@
           frame.style.cssText = `width:${x1 - x0}px;height:${y1 - y0}px;transform:translate(${x0}px, ${y0}px)`;
         }
       }
+      marks(p, frame);
       band.hidden = !(act && act.kind === "box" && act.rect);
       if (!band.hidden) { const [x0, y0] = toScreen(act.rect[0], act.rect[1]), [x1, y1] = toScreen(act.rect[2], act.rect[3]); band.style.cssText = `width:${x1 - x0}px;height:${y1 - y0}px;transform:translate(${x0}px, ${y0}px)`; }
       const g = act && act.kind === "move" ? act.guide : null;

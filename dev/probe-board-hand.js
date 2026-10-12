@@ -182,6 +182,15 @@
       ok("a real click beside the menu puts it away and does nothing else", !menuOpen() && picked().length === 1 && picked()[0] === e, [menuOpen(), picked(), beside]);
     } else key("Escape");
 
+    // what is chosen is marked where it is drawn: several things each at their outline, one thing by its frame alone
+    key("Escape"); await sleep(80);
+    key("a", { ctrlKey: true }); await sleep(150);
+    const marksOf = () => { const m = q(".bd-marks"); return [m.hasAttribute("hidden"), m.querySelectorAll("path").length, getComputedStyle(q(".bd-pick")).borderTopStyle]; };
+    ok("everything chosen: each thing is marked at its own outline, the frame around them all is the fainter, dashed one", picked().length > 1 && !marksOf()[0] && marksOf()[1] === picked().length && marksOf()[2] === "dashed", [picked().length, marksOf()]);
+    key("Escape"); await sleep(80);
+    await click(...at(...(() => { const l = of("line")[0]; return [(l.p[0] + l.p[2]) / 2, (l.p[1] + l.p[3]) / 2]; })()));
+    ok("one thing chosen: its own frame says it, nothing more is marked", picked().length === 1 && marksOf()[0], [picked(), marksOf()]);
+    key("Escape"); await sleep(80);
     ok("kept by itself", await until(() => st() && !st().dirty, 3000), st().dirty);
     key("Escape"); key("Escape");
     await until(() => el().hidden, 2000);
