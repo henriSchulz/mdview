@@ -212,7 +212,11 @@
     btn.click(); MdView.setMode("active"); await sleep(600);
     // the rail: a press on another sign changes the part, a press on the open part's sign closes the panel
     const sign = (t) => document.querySelector(`#rrail .rp-tab[data-tab="${t}"]`);
+    const places = () => [view.dom, document.getElementById("toolbar"), document.getElementById("tabs")].map((x) => (x ? Math.round(x.getBoundingClientRect().left) + ":" + Math.round(x.getBoundingClientRect().width) : "")).join(" ");
+    const closedAt = places();
     sign("info").click(); await sleep(500);
+    ok("the panel lies over the window: the text column, the toolbar and the tabs stand where they stood", places() === closedAt && getComputedStyle(document.body).paddingRight === "0px", [closedAt, places()]);
+    ok("… under the toolbar and beside the rail, covering neither", (() => { const p = panel0.getBoundingClientRect(), t = document.getElementById("toolbar").getBoundingClientRect(), r = document.getElementById("rrail").getBoundingClientRect(); return p.top >= t.bottom && p.right <= r.left; })(), [panel0.getBoundingClientRect().top, document.getElementById("toolbar").getBoundingClientRect().bottom]);
     ok("the rail's sign opens the panel at its part, and the part's name stands at its head", document.body.hasAttribute("data-rail") && document.body.hasAttribute("data-panel") && panel0.dataset.tab === "info" && panel0.querySelector(".rp-title").textContent === "Information" && sign("info").getAttribute("aria-selected") === "true", [panel0.dataset.tab, tabs()]);
     sign("format").click(); await sleep(300);
     ok("another sign: the panel stays and shows that part", document.body.hasAttribute("data-panel") && panel0.dataset.tab === "format" && sign("format").getAttribute("aria-selected") === "true" && sign("info").getAttribute("aria-selected") === "false", tabs());

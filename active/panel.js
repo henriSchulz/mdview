@@ -427,23 +427,14 @@
     keep({ panelTab: b.dataset.tab });
     if (isOpen()) setTab(b.dataset.tab); else show(true);
   });
-  /* The text column makes room at once and glides to its new place (transform only), as it does
-   * for the sidebar on the left. */
+  /* It comes and goes over the window: nothing makes room for it, so nothing else moves. */
   function lay(open, animate) {
     if (open) setTab(pref().panelTab, false);
     if (isOpen() === !!open && button()?.getAttribute("aria-pressed") === String(!!open)) return marks();
-    const col = mode() === "active" ? A.view && A.view.el : document.getElementById("content"), before = col ? col.getBoundingClientRect().left : 0;
     el.classList.toggle("no-anim", !animate);
     if (open) document.body.dataset.panel = ""; else delete document.body.dataset.panel;
     button()?.setAttribute("aria-pressed", String(!!open));
     marks();
-    const dx = col ? before - col.getBoundingClientRect().left : 0;
-    if (!animate || !dx || !col || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    col.style.transition = "none";
-    col.style.transform = `translateX(${dx}px)`;
-    void col.offsetWidth;
-    col.style.transition = "";
-    col.style.transform = "";
   }
   function show(open, animate = true, save = true) {
     // (opened beside the reading view, it is opened for what stands there: the document)

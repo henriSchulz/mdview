@@ -191,11 +191,9 @@
     if (!content.classList.contains("ready")) requestAnimationFrame(() => content.classList.add("ready"));
     // (the active mode's scripts are fetched in a quiet moment after the first note is on screen:
     // the first change into that mode then only has to build the note)
-    // (… and at once where the panel at the right stands beside the reading view, which is theirs:
-    // its room is kept from the first frame, so the note does not move over when it comes)
+    // (… and at once where the panel at the right is open beside the reading view, which is theirs)
     const panel = !P.activeLoad && mode === "read" && !!current && current.kind !== "pdf" && !(window.MdHost && window.MdHost.reading) && !!window.MdPrefs && !!MdPrefs.panel && ["style", "info", "document"].includes(MdPrefs.panelTab);
-    if (panel && !P.preloadTimer) document.body.dataset.panel = "";
-    if (!P.preloadTimer && !P.activeLoad) P.preloadTimer = setTimeout(() => { if (!P.activeLoad && current && current.kind !== "pdf") P.loadActive().catch(() => { delete document.body.dataset.panel; }); }, panel ? 0 : 1500);
+    if (!P.preloadTimer && !P.activeLoad) P.preloadTimer = setTimeout(() => { if (!P.activeLoad && current && current.kind !== "pdf") P.loadActive().catch(() => {}); }, panel ? 0 : 1500);
   }
 
   // the rendered document on screen: the reading view, or the active mode's
