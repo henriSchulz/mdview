@@ -134,6 +134,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 45. **The rig's screenshot is of the rig's own window** (`shot` asks for the nested compositor's
     pid): with several rigs side by side the first window found is another session's.
 
+48. **What a pull or a click takes of a block follows the same rules wherever the block stands.**
+    The document and a column both hold lists; a rule written into the code that walks the
+    document's own blocks ("of a list the items it reaches, not the list") does not hold in a
+    column, which is walked by other code. Such a rule is a function both call, and its check
+    pulls over the same kind of block in each place (`rig.sh colsel`).
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
