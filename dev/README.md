@@ -61,6 +61,7 @@ every check.
 ./rig.sh islands                                        # dialogs and popovers for code, formulas, properties, raw Markdown
 ./rig.sh m4                                             # tables, footnotes, paste and copy
 ./rig.sh clip                                           # Ctrl+Shift+V, a pasted picture, 1 MB pasted (nested clipboard)
+./rig.sh assets                                         # a note of a subfolder: what is pasted and dropped goes to the base folder's assets, and shows after the note is moved
 ./rig.sh edges                                          # empty document, one island, file changed under a dialog, narrow window, keyboard only
 ./rig.sh perf FILE…                                     # the spec's performance figures (node gen-big.mjs LINES > file for large ones)
 MDVIEW_THEME_DIR=/nonexistent ./rig.sh m5               # any probe in the light fallback theme

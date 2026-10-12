@@ -370,13 +370,32 @@ In the active mode the size is a choice — its own size, Small (240), Medium (4
 width — in the menu of a picture or an embed (right click → Size), in a picture's popover (double
 click or Enter on it) and in the dialog of an embed.
 
-Paths are relative to the note. A picture alone in its paragraph is a block of its own: it has the
+Paths are relative to the note — and one that leads nowhere from there is looked for by its file's
+name in `assets` (below). A picture alone in its paragraph is a block of its own: it has the
 line to itself and stands in its middle, as embedded PDF pages do. A double click shows a picture large.
 A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
 whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
 a picture stays part of the line.
-`Ctrl+V` with a picture on the clipboard saves it beside the note (or in `./assets`, a setting) and
-embeds it; picture files dropped on the note do the same.
+`Ctrl+V` with a picture on the clipboard saves it and embeds it; picture files dropped on the note
+do the same.
+
+**One `assets` for the whole folder.** What is put into a note — a picture pasted, a file dropped,
+a figure drawn, a whiteboard — goes into `assets` of the *base folder*: the project's root (in the
+web app: the repository's), else the folder the window shows, else — a note opened by itself —
+the folder the note lies in. Notes of every subfolder share that one folder; none gets an `assets`
+of its own. The note names such a file `assets/name.png`, the same words in a note of any
+subfolder, so that a note moved to another folder (in the app or by any other means) and a block
+pasted into another note go on showing their pictures. A name that is taken is never written
+over: the new file is `name-2.png`. (Other programs follow `assets/…` only from a note at the
+top of the folder.) A setting puts them beside the note instead (**Settings → Pictures**); in an
+Obsidian vault they go where the vault keeps its attachments, as before.
+
+A file a note names is shown from where the link says, when it is there — an `assets` beside a note
+of a subfolder, as the app made them before, goes on being used, and nothing in it is moved. Only
+what is not there is looked for by its name: in the `assets` of the folders above, up to the base
+folder's, and last in any `assets` of the base folder (a note moved away from pictures that
+stayed beside its old place finds them there). That holds wherever a note's file is asked for: a
+picture shown, a PDF or a whiteboard opened, a link clicked, a picture copied, a note shared.
 
 **Any file** can be dropped on a note in the active mode. It is kept where pictures go, and stands
 in the note as a *file block*: a card that names it, and a click opens it or hands it out. In
@@ -918,7 +937,8 @@ counts — and has no writing help by a model.
 - **A note's history** (`Ctrl+Alt+H`): the commits that changed it, what each changed, one put
   back. A note that was renamed has its versions from before as well, where GitHub knows the
   renaming as one.
-- **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
+- **A picture pasted** is kept in the repository's `assets` (one for the notes of every folder,
+  as on the desktop), in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.
 - **Help** opens this guide in a tab of its own.

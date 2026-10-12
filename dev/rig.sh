@@ -33,6 +33,7 @@
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
 #   dev/rig.sh edges                 edge cases: empty document, one island, file changed under a dialog, narrow window, keyboard only
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
+#   dev/rig.sh assets                what is put into a note of a subfolder: in the base folder's assets, named assets/…, shown — also once the note is moved
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
@@ -618,6 +619,29 @@ case "${1:-}" in
     [[ $files == "./m5.md ./notes.txt " ]] && echo "ok   what the note still names is beside it; the pictures that were dropped and taken back are gone with them" || echo "FAIL files beside the note: $files"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./m5.md ./notes.txt " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+  assets)
+    # the real clipboard (the nested session's own) holds a picture; the folder is a window's, with a note in a subfolder
+    rm -rf "$R/work"; A="$R/work/a"; mkdir -p "$A/Sub" "$A/shelf" "$A/Old/assets"; rm -f "$R/out"/*.assets.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -6 | tr '\n' ' '))}"; fail=1; fi; }
+    printf '# Note\n\nPaste here.\n\nDrop here.\n' > "$A/Sub/Note.md"; echo '# Other' > "$A/shelf/Other.md"
+    printf '# Legacy\n\n![](assets/kept.png)\n' > "$A/Old/Legacy.md"; magick -size 12x12 xc:'#30a46c' "$A/Old/assets/kept.png"
+    magick -size 20x20 xc:'#e5484d' "$R/drop.png"; python3 "$D/gen-pdf.py" "$R/paper.pdf" 1
+    magick -size 40x30 xc:'#3b82f6' "$R/out/clip.png" && WAYLAND_DISPLAY="$(wl)" wl-copy -t image/png < "$R/out/clip.png"
+    mkdir -p "$R/state/mdview"; st="$R/state/mdview/state.json"; [[ -f $st ]] || echo '{}' > "$st"
+    jq --arg f "$A" --arg n "$A/Sub/Note.md" 'del(.active, .opened, .tabs) | .folder = $f | .last_notes = {($f): $n}' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 80 MDVIEW_PROBE="$D/probe-assets.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    for _ in $(seq 500); do ls "$R/out"/*.assets.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
+    [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    J=$(ls "$R/out"/*.assets.json 2>/dev/null | head -1); [[ -n $J ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$J"; jq -r '.steps[], (.error // "ok")' "$J" | grep -qv '^ok' && fail=1
+    img=$(ls "$A"/assets/pasted-*.png 2>/dev/null | head -1)
+    ok "the pasted picture is a file in the base folder's assets" '[[ -n $img ]] && cmp -s "$img" "$R/out/clip.png"' 'find "$A" -type f | sort'
+    ok "… and so are the picture and the file that were dropped" '[[ -f $A/assets/drop.png && -f $A/assets/paper.pdf ]]' 'find "$A" -type f | sort'
+    ok "no subfolder got an assets of its own" '[[ ! -e $A/Sub/assets && ! -e $A/shelf/assets ]]' 'find "$A" -type d | sort'
+    ok "the note that was moved names its pictures with the same words" 'grep -q "](assets/pasted-" "$A/shelf/Note.md" && grep -q "](assets/drop.png)" "$A/shelf/Note.md" && ! grep -q "\.\./" "$A/shelf/Note.md"' 'cat "$A/shelf/Note.md"'
+    ok "what lay beside a note before stays where it was" '[[ -f $A/Old/assets/kept.png && ! -e $A/assets/kept.png ]]' 'find "$A" -type f | sort'
+    exit $fail ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
     # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)

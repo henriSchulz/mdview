@@ -186,6 +186,28 @@
     try { const all = JSON.parse(text || "{}"); return all && typeof all === "object" && !Array.isArray(all) ? Object.fromEntries(Object.entries(all).filter(([k, v]) => typeof k === "string" && typeof v === "string")) : {}; } catch { return {}; }
   }
   const attachText = (all) => JSON.stringify(Object.fromEntries(Object.entries(all).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, 2) + "\n";
+  /* What is put into a note — of whatever folder — lies in one place: the assets of the base
+   * folder (here: of the repository), and a note names it `assets/x.png` wherever it is itself
+   * (scan.rs: found; shell/files.rs). The file a note names, then, where it is: where the link
+   * says — else, by its name, in the assets of a folder above, up to the base folder's; and last
+   * in an assets anywhere (a note moved away from pictures that were kept beside it, before there
+   * was one place for them): the one nearest the top. r: the path below the base; all: the paths
+   * there are (a Set, a Map by path, a list). → the path, or r as it came */
+  const KEPT = "assets";
+  function foundIn(r, all) {
+    const there = all instanceof Set || all instanceof Map ? all : new Set(all);
+    if (there.has(r)) return r;
+    const name = nameOf(r);
+    for (let d = dirOf(r); ; d = dirOf(d)) {
+      const up = (d ? d + "/" : "") + KEPT + "/" + name;
+      if (up !== r && there.has(up)) return up;
+      if (!d) break;
+    }
+    let best = null;
+    const depth = (p) => p.split("/").length;
+    for (const p of there.keys()) if (p.endsWith("/" + KEPT + "/" + name) && (!best || depth(p) < depth(best) || (depth(p) === depth(best) && p < best))) best = p;
+    return best || r;
+  }
   // does a note's text name the file? (as it is, or as an address writes it: %20 for a space)
   function mentions(text, name) {
     if (!name || typeof text !== "string") return false;
@@ -398,5 +420,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, ATTACH, attachOf, attachText, mentions, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -104,7 +104,7 @@ fn default_prefs() -> Map<String, Value> {
         "syntax": false,        // the Markdown of the formatting at the caret shows
         "quotes": false,        // typed quotes become typographic ones
         "wrap": 0,              // paragraphs written anew are wrapped at this many characters (0: not)
-        "images": "assets",     // pasted and dropped pictures and files: in "assets" beside the note | "beside" the note itself | a folder relative to the note
+        "images": "assets",     // pasted and dropped pictures and files: in the base folder's "assets" (files.rs: base_of) | "beside" the note itself | a folder relative to the note
         "style": "auto",        // new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
         "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
         "dialogWidth": 0, "dialogHeight": 0,  // a dialog's size, once one was pulled to another (0: its own)
@@ -810,6 +810,7 @@ impl Win {
         let folder = resolve(folder);
         app.touch(&folder);
         self.folder = Some(folder.clone());
+        scan::shown(&folder); // (the base folder of its notes: where a picture one of them names is looked for)
         self.tree_json = None;
         self.title_cache.clear();
         self.quick = folder == resolve(&quick_dir(&app.prefs()));
@@ -999,7 +1000,7 @@ impl Win {
     /// The bytes of a PDF for the page (it may not read files itself), in pieces.
     fn send_pdf(&self, path: &str, id: &str) {
         let read = || -> Result<Vec<u8>, String> {
-            let p = resolve(Path::new(path));
+            let p = scan::found(&resolve(Path::new(path)));
             if !is_pdf(&p) || !p.is_file() {
                 return Err("not a PDF file".into());
             }
@@ -1060,7 +1061,7 @@ impl Win {
         match url_file(src) {
             None => self.toast("Only pictures in files can be copied"),
             Some((path, _)) => {
-                if !host::copy_image_file(&app.handle, &path) {
+                if !host::copy_image_file(&app.handle, &scan::found(&path)) {
                     self.toast("Couldn't copy the picture");
                 }
             }
@@ -1093,6 +1094,9 @@ impl Win {
             if alt.exists() {
                 p = alt;
             }
+        }
+        if !p.exists() {
+            p = scan::found(&p); // (a file kept in the base folder's assets, named from a subfolder)
         }
         let tab = tab && !self.tabs.is_empty();
         if self.path.as_ref() == Some(&p) && (!tab || own) {

@@ -208,7 +208,8 @@ fn serve(path: &str, range: Option<&str>) -> Response<Vec<u8>> {
         return plain(StatusCode::FORBIDDEN);
     }
     if let Some(rest) = path.strip_prefix("/file") {
-        return file(Path::new(if cfg!(windows) { rest.trim_start_matches('/') } else { rest }), range);
+        // (a picture a note names that is not where the link says: in the base folder's assets — scan::found)
+        return file(&scan::found(Path::new(if cfg!(windows) { rest.trim_start_matches('/') } else { rest })), range);
     }
     plain(StatusCode::NOT_FOUND)
 }
