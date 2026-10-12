@@ -26,6 +26,7 @@
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
+#   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -276,6 +277,27 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.pagelook.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.pagelook.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  explorer)
+    # the folder's list as a place to work with files, and whiteboards that are files of their own
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub" "$N/empty" "$N/node_modules" "$R/work/outside/pack"
+    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore.\n' > "$N/Beta.md"; printf '# Inner\n' > "$N/sub/Inner.md"
+    python3 "$D/gen-pdf.py" "$N/paper.pdf" 1; magick -size 8x8 xc:red "$N/photo.png"; printf 'a,b\n1,2\n' > "$N/data.csv"; echo s > "$N/.secret"; echo x > "$N/node_modules/x.js"
+    echo ext > "$R/work/outside/ext.txt"; printf '# In\n' > "$R/work/outside/pack/in.md"
+    rm -f "$R/out"/*.explorer.json "$R/out"/*.shot-boards.json
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run set is not this one's)
+    app 120 MDVIEW_PROBE="$D/probe-explorer.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 900); do [[ -n $(ls "$R/out"/*.shot-boards.json "$R/out"/*.explorer.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.8; shot "$R/out/explorer-boards.png"
+    for _ in $(seq 400); do ls "$R/out"/*.explorer.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    ls "$R/out"/*.explorer.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    fail=0; ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.explorer.json
+    ok "what is hidden stands in the folder (.mdview/hidden.json)" '[[ $(jq -c .hidden "$N/.mdview/hidden.json") == "[\"photo.png\"]" ]]' 'cat "$N/.mdview/hidden.json"'
+    ok "the copies and what was brought in are files of the folder" '[[ -f $N/sub/Beta.md && -f $N/Beta.md && -f $N/empty/data.csv && ! -e $N/data.csv && -f $N/sub/ext.txt && -f $N/sub/pack/in.md && -f $R/work/outside/ext.txt ]]' 'find "$N" -not -path "*/node_modules*" | sort'
+    ok "the whiteboard is a file of the folder, with what was put on it" 'grep -q "mdview-board" "$N/Skizze.board.svg" && grep -q "k.:.sticky" "$N/Skizze.board.svg"' 'head -c 600 "$N/Skizze.board.svg"'
+    ok "the note shows it by its name" 'grep -q "!\[\](Skizze.board.svg)" "$N/Alpha.md"' 'cat "$N/Alpha.md"'
+    ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.explorer.json; (( fail )) && echo FAIL; } | grep -qv '^ok' ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"

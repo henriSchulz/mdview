@@ -450,11 +450,27 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
 
 ### Whiteboards
 
-A whiteboard is a block in a note: a board without edges to draw on, opened from the note and
-shut back into it.
+A whiteboard is a board without edges to draw on. It is a block in a note, opened from the note
+and shut back into it — or a file of the folder, of its own.
 
-- **Making one**: `/whiteboard` in the active mode, or the Whiteboard tile of the panel's Insert
-  tab, or Insert in the menu of a right click. The board opens at once.
+- **Making one in a note**: `/whiteboard` in the active mode, or the Whiteboard tile of the
+  panel's Insert tab, or Insert in the menu of a right click. The board opens at once. Its file
+  is the note's: kept where the note's pictures go, in no list of the folder, and gone when the
+  note no longer shows it.
+- **Making one as a file** (the desktop application): New Whiteboard — the sidebar's `+`, a right
+  click on a folder or the empty room, the `+` of All Notes. It is asked for its name, made in
+  that folder (`Name.board.svg`) and opened. It is listed like any file, under its name with a
+  sign of its own; a click opens it over the window, and it is renamed, moved, copied, hidden
+  and trashed like any file.
+- **A whiteboard file shown in a note**: its menu › Embed in This Note puts it in at the caret
+  (active mode; in the other two its link is copied, to be pasted) — or its row is pulled onto
+  the note. It stands there as a board made in the note does (`![](Name.board.svg)`), and stays
+  a file of its own: several notes can show the same board.
+- **All of the folder's whiteboards**: All Notes › *Whiteboards* shows them and nothing else —
+  those that are files and those a note keeps — each with the note it stands in, or "In no
+  note". Above them: *All*, *Embedded* (a note shows it), *Not Embedded*. A click opens the
+  board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
+  menu (from then on it is listed in the folder, and stays when the note lets it go).
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
   its handle or with `Esc`, like any block, and can be moved, copied and deleted like one).
@@ -691,10 +707,30 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
-- **Sidebar** (`Ctrl+Alt+S`): the folder's notes and folders. The clock is the folder's history (below). `+` makes a note or folder, a right
-  click on a file has Open in New Tab, Open in Default App, Open With…, Show in Finder, Rename (`F2`), Move to Trash
-  (`Del`); a right click on the empty room has New Note, New Folder and the order of the notes. Its
-  edge can be pulled wider or away. `Aa` switches between file names and the notes' titles.
+- **Sidebar** (`Ctrl+Alt+S`): everything that lies in the folder — notes, folders, and every other
+  file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
+  adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
+  Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
+  click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
+  order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
+  the notes' titles.
+- **Working with files** (the desktop application; in the sidebar and in All Notes alike):
+  - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is
+    copied is put into the folder Paste is asked for on — a folder's row, the folder a file lies
+    in, the empty room — under the next free name (`Name 2.pdf`); what was cut is moved. Files
+    copied in a file manager are pasted the same way.
+  - **Duplicate** (`Ctrl+D`): a copy beside the thing itself (`Name copy.md`). A folder is copied
+    with all that is in it.
+  - **Add Files…**: files chosen in the system's own window are copied into the folder.
+  - **Files pulled in** from a file manager or another application, onto the sidebar or the
+    tiles: copied into the folder they are let go on (marked while they are over it). A row
+    pulled out goes as a file — onto a note it becomes a link to it (a picture or a whiteboard:
+    shown in the note), into a file manager the file.
+  - **Several rows at once**: `Shift`+click takes one more or lets it go, `Esc` none. What is
+    selected is copied, cut, duplicated, hidden, trashed (`Del`) and dragged together.
+  - **Hide**: a file or a folder (with all in it) is put out of sight; Undo in the message that
+    says so. What is hidden is kept in the folder itself (`.mdview/hidden.json`), so another
+    device hides the same.
 - **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
   does on them, are the same in all four:
   - **List** (the default): the folders as a tree; above it
@@ -714,16 +750,21 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
 - **Order of the notes**: Last Opened (the default), Name, Date Modified.
-- **Beside notes** the sidebar can list PDFs (on by default), pictures, sound and video, and other
-  files — in the settings, or at once from a right click in the sidebar › Show. All Notes has
-  its own choice of the same four (settings, or a right click there › Show), apart from the
-  sidebar's. A folder's menu has Rename and Move to Trash as a file's has.
+- **What is listed**: everything, as long as it is not taken out. A kind can be taken out — PDFs,
+  pictures, sound and video, whiteboards, other files — in the settings, or at once from a right
+  click in the sidebar › Show. All Notes has its own choice of the same five (settings, or a
+  right click there › Show), apart from the sidebar's. **Put away from the start** are files and
+  folders whose name begins with a dot, build folders (`node_modules`, `target`, `dist` …), and
+  what the application keeps for a note — pictures pasted or dropped into it, whiteboards made in
+  it, figures drawn for it. Show › Hidden Items (settings: Sidebar › Hidden items) lists all
+  that, and what was hidden by hand, dimmed; a hidden file's menu then has Show Again. A folder's
+  menu has Rename and Move to Trash as a file's has.
 - **All Notes** (`Ctrl+Alt+G`): every note as a tile — a small sheet of paper showing its
   beginning, under it its name and when it was changed; a folder is a stack of sheets in its
   colour, with its sign — or as a list: a row per note with its sheet in small, its name, its
   first words and when it was changed. Two
-  switches at the head: *All Notes* (grouped by folder) or *Folders* (one folder at a time, click
-  into its folders, `Backspace` goes up), and tiles or list. It opens in the folder of the note on
+  switches at the head: *All Notes* (grouped by folder), *Folders* (one folder at a time, click
+  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens in the folder of the note on
   screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
@@ -982,8 +1023,8 @@ the right. A change takes effect at once.
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
 | Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), sharper text (letters on whole pixels; at the next start) |
-| Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, what it lists beside notes (PDFs, pictures, sound and video, other files) |
-| All Notes | all notes or one folder at a time, tiles or a list |
+| Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
+| All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |

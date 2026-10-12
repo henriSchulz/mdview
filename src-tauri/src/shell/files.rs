@@ -130,7 +130,8 @@ impl Win {
             let picture = scan::IMAGE_EXT.contains(&scan::ext_of(&src).as_str());
             // (a picture as a picture; any other file as a link alone in its paragraph: a file block)
             let markup = |target: &Path| if picture { self.image_markup(target, &note, vault.is_some()) } else { format!("[{}]({})", name_of(target).replace('[', "\\[").replace(']', "\\]"), quote(&relative(target, &dir_of(&note)))) };
-            if resolve(&src).starts_with(&beside) {
+            // (… as is a file of the window's folder, wherever in it: a row pulled from its list into the note)
+            if resolve(&src).starts_with(&beside) || self.folder.as_ref().is_some_and(|f| resolve(&src).starts_with(f)) {
                 markups.push(markup(&resolve(&src)));
                 continue;
             }
@@ -248,17 +249,23 @@ impl Win {
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
     }
 
-    /// A picture from the clipboard for a whiteboard: a file beside the board's own, the note's
-    /// from now on. The page is told its name (none: the clipboard holds no picture).
+    /// A picture from the clipboard for a whiteboard: a file beside the board's own — the note's
+    /// from now on where the board is a note's, a file of the folder like the board where it is
+    /// one. The page is told its name (none: the clipboard holds no picture).
     pub(super) fn board_paste(&mut self, app: &mut App, board: &str, id: &Value) {
         let done = |w: &Self, names: Vec<String>, e: Option<String>| w.js("MdView.boardPut", &[id.clone(), json!(names), e.map(|e| json!(e)).unwrap_or(Value::Null)]);
         let p = resolve(Path::new(board));
-        let Some(note) = self.path.clone().filter(|n| !is_pdf(n) && is_board(&p) && p.is_file()) else { return done(self, vec![], Some("not a whiteboard".into())) };
+        if !is_board(&p) || !p.is_file() {
+            return done(self, vec![], Some("not a whiteboard".into()));
+        }
+        let note = attachments().owner(&p);
         let Some((data, ext)) = host::clipboard_image(&app.handle) else { return done(self, vec![], None) };
         let stem = chrono::Local::now().format("pasted-%Y%m%d-%H%M%S").to_string();
         match write_new(&dir_of(&p), |n| if n == 1 { format!("{stem}{ext}") } else { format!("{stem}-{n}{ext}") }, &data, 100) {
             Ok(target) => {
-                attachments().own(&target, &note);
+                if let Some(note) = &note {
+                    attachments().own(&target, note);
+                }
                 done(self, vec![name_of(&target)], None)
             }
             Err(e) => done(self, vec![], Some(strerror(&e))),
@@ -282,9 +289,10 @@ impl Win {
     /// as a card). Notes and whiteboards are left out.
     pub(super) fn board_drop(&mut self, board: &str, uris: &Value, id: &Value) {
         let p = resolve(Path::new(board));
-        let Some(note) = self.path.clone().filter(|n| !is_pdf(n) && is_board(&p) && p.is_file()) else {
+        if !is_board(&p) || !p.is_file() {
             return self.js("MdView.boardPut", &[id.clone(), json!([]), json!("not a whiteboard")]);
-        };
+        }
+        let note = attachments().owner(&p); // (none: a whiteboard that is a file of its own — what is put on it is the folder's too)
         let (beside, mut names, mut failed) = (dir_of(&p), Vec::new(), None);
         for uri in uris.as_array().map(Vec::as_slice).unwrap_or_default() {
             let src = uri.as_str().and_then(url_file).map(|(p, _)| p).unwrap_or_default();
@@ -298,7 +306,9 @@ impl Win {
             let (stem, dot) = (src.file_stem().unwrap_or_default().to_string_lossy().into_owned(), src.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default());
             match fs::read(&src).and_then(|data| write_new(&beside, |n| if n == 1 { name_of(&src) } else { format!("{stem}-{n}{dot}") }, &data, 100)) {
                 Ok(target) => {
-                    attachments().own(&target, &note);
+                    if let Some(note) = &note {
+                        attachments().own(&target, note);
+                    }
                     names.push(name_of(&target));
                 }
                 Err(e) => failed = Some(strerror(&e)),

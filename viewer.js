@@ -201,7 +201,8 @@
     completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved,
     pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast,
     setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip,
-    setPrefs, insertDropped,
+    setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
+    setBoards: (list) => window.MdOverview && MdOverview.boards(list), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
@@ -221,7 +222,7 @@
         // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
         fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
         where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, folderLook: (path) => ({ color: colorVar(lookOf(path).color),
-          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a),
+          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), fileCmd: (...a) => P.fileCmd(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); } },

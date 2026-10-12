@@ -24,6 +24,13 @@
  * takes one more or lets it go, Ctrl+A takes all. What is selected is moved together (dragged
  * onto a folder), trashed together (Delete), or opened in tabs (the menu of a right click).
  *
+ * A third choice at the head shows the folder's whiteboards and nothing else — those that are files
+ * of their own and those a note keeps (which no list of the folder shows): all of them, those a
+ * note shows, or those none does. The application is asked for them (boards) when they are shown.
+ *
+ * Copy, Cut, Paste and Duplicate (Ctrl+C, X, V, D) work on the tile the keyboard is on, or on
+ * all that are selected; files pulled in from elsewhere are copied into the folder shown.
+ *
  * Keys: arrows move among the tiles, Enter or Space opens one, Backspace goes
  * up a folder, F2 renames, Delete moves to the trash, Ctrl+A selects all, Esc lets the
  * selection go and then closes. */
@@ -33,6 +40,7 @@
   const T = window.MdStrings.t;
   const { md, stripFrontmatter, stripComments, esc, post, DECO_COLORS, UI: ICON } = core;
   const BATCH = 40;
+  const DESKTOP = !!window.__TAURI_INTERNALS__; // (the application on a folder of this computer: what works with files as files is its alone)
 
   const el = document.createElement("section");
   el.id = "overview";
@@ -44,7 +52,7 @@
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
-    seg("scope", "Show", [["all", "All Notes"], ["folders", "Folders"]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(DESKTOP ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
@@ -59,8 +67,11 @@
   let at = [];               // scope "folders": the names of the folders gone into, from the root
   const isOpen = () => el.hasAttribute("data-open");
   const picked = new Set();  // the paths of what is selected
+  let boardList = null;      // scope "boards": the folder's whiteboards as the application last told them (null: not yet)
+  let boardShow = "all";     // … and which of them: "all" | "embedded" (a note shows them) | "loose" (settings: ovBoardsShow)
   // the folder as All Notes lists it: the notes, and the other files its own settings ask for
   const tree = () => core.listed(core.folder.all || core.folder.tree, "ov");
+  const here = () => (scope === "folders" ? place(tree()).path : core.folder.root); // the folder shown: where something new goes
   // notes first, in the sidebar's order; then the other files, by name
   const ordered = (notes) => [...core.sortNotes(notes.filter((n) => !n.pdf)), ...notes.filter((n) => n.pdf)];
 
@@ -80,7 +91,7 @@
   const count = (node) => node.dirs.reduce((n, d) => { const c = count(d); return [n[0] + c[0], n[1] + c[1]]; }, [node.notes.filter((n) => !n.pdf).length, node.notes.filter((n) => n.pdf).length]);
   const plural = (n, one) => T(n === 1 ? "1 " + one : "{0} " + one + "s", n); // ("1 note", "{0} notes": the strings' own keys)
   const says = ([notes, files]) => [notes || !files ? T(notes === 1 ? "1 note" : "{0} notes", notes) : "", files ? T(files === 1 ? "1 file" : "{0} files", files) : ""].filter(Boolean).join(", ");
-  const KIND = { pdf: "PDF", image: "Picture", audio: "Sound", video: "Video" };
+  const KIND = { pdf: "PDF", image: "Picture", audio: "Sound", video: "Video", board: "Whiteboard" };
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   // when a note was changed, as the sidebar says it — today's with the word before the time
   const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
@@ -98,8 +109,10 @@
     return node;
   }
   function setSegs() {
-    for (const [name, v] of [["scope", scope], ["layout", layout]]) {
-      const box = el.querySelector(`[data-seg="${name}"]`), opts = [...box.querySelectorAll(".ov-opt")];
+    for (const [name, v] of [["scope", scope], ["layout", layout], ["boards", boardShow]]) {
+      const box = el.querySelector(`[data-seg="${name}"]`);
+      if (!box) continue;
+      const opts = [...box.querySelectorAll(".ov-opt")];
       opts.forEach((o) => o.setAttribute("aria-checked", String(o.dataset.v === v)));
       box.style.setProperty("--i", Math.max(0, opts.findIndex((o) => o.dataset.v === v)));
     }
@@ -117,11 +130,14 @@
     const file = !dir && n.pdf; // (not a note: a PDF, a picture, any other file)
     if (file) { t.classList.add("ov-file"); t.dataset.kind = n.kind || "file"; }
     if (picked.has(n.path)) t.classList.add("picked");
-    const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : file ? esc(kindOf(n)) : "";
+    if (n.hidden) t.classList.add("is-hidden"); // (put away, and shown all the same: dimmed)
+    if (n.kept) t.dataset.kept = ""; // (a whiteboard a note keeps: the note's, not a file to move or trash)
+    if (n.note) t.dataset.note = n.note;
+    const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : n.says != null ? esc(n.says) : file ? esc(kindOf(n)) : "";
     const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
     if (look && look.color) t.style.setProperty("--c", look.color);
     const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
-    const pic = file && n.kind === "image" ? `<img src="${esc(urlOf(n.path))}" alt="" loading="lazy" draggable="false">` : "";
+    const pic = file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
     // a row: the note's sheet in small, its name, under it its first words, at the end when it was changed
     if (list) t.innerHTML = `<span class="ov-mini">${dir || file ? pic || sign : `<span class="ov-prev" inert></span>`}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>` +
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
@@ -138,6 +154,29 @@
     const here = core.current && core.current.path;
     const title = el.querySelector(".ov-title");
     let gs, total;
+    el.dataset.scope = scope;
+    if (scope === "boards") {
+      // the folder's whiteboards: asked for when they are shown, drawn when they come
+      const all = boardList || [], name = (p) => p.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
+      const shown = all.filter((b) => boardShow === "all" || (boardShow === "embedded") === b.in.length > 0);
+      const notes = shown.map((b) => ({ path: b.path, real: b.path, name: b.name.replace(/\.board\.svg$/i, ""), pdf: true, kind: "board", v: Math.round(b.mtime), kept: b.kept, note: b.in[0] || "",
+        says: b.in.length ? T("In “{0}”", name(b.in[0])) + (b.in.length > 1 ? " +" + (b.in.length - 1) : "") : T("In no note") }));
+      title.textContent = folder.name;
+      el.querySelector(".ov-count").textContent = boardList ? T(shown.length === 1 ? "1 whiteboard" : "{0} whiteboards", shown.length) : "";
+      body.textContent = "";
+      tiles.clear();
+      items = [];
+      body.insertAdjacentHTML("beforeend", `<div class="ov-filter">` + seg("boards", T("Whiteboards"), [["all", T("All")], ["embedded", T("Embedded")], ["loose", T("Not Embedded")]]) + `</div>`);
+      setSegs();
+      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); return; }
+      const grid = document.createElement("div");
+      grid.className = layout === "list" ? "ov-list" : "ov-grid";
+      notes.forEach((n, i) => { const t = item(n, i, false); grid.appendChild(t); items.push(t); });
+      body.appendChild(grid);
+      const there = new Set(items.map((t) => t.dataset.path));
+      for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
+      return;
+    }
     if (scope === "folders") {
       const node = place(tree());
       // the way here, to click back along
@@ -189,8 +228,10 @@
     if (had && to) to.focus({ preventScroll: true });
   }
   function choose(name, v) {
-    if (name === "scope") { if (scope === v) return; scope = v; at = []; picked.clear(); } else { if (layout === v) return; layout = v; }
-    const key = name === "scope" ? "ovScope" : "ovLayout";
+    if (name === "scope") { if (scope === v) return; scope = v; at = []; picked.clear(); if (v === "boards") askBoards(); }
+    else if (name === "boards") { if (boardShow === v) return; boardShow = v; picked.clear(); }
+    else { if (layout === v) return; layout = v; }
+    const key = name === "scope" ? "ovScope" : name === "boards" ? "ovBoardsShow" : "ovLayout";
     window.MdPrefs = { ...(window.MdPrefs || {}), [key]: v };
     post("prefs", { prefs: { [key]: v } });
     rebuild();
@@ -204,6 +245,18 @@
     return true;
   }
 
+  /* The folder's whiteboards, asked of the application — and asked again a moment after something
+   * may have changed them (one drawn on and shut, a file of the folder changed). */
+  let boardsTimer = 0;
+  function askBoards(soon) {
+    clearTimeout(boardsTimer);
+    if (!isOpen() || scope !== "boards") return;
+    if (soon) boardsTimer = setTimeout(() => askBoards(), 700); else post("boards");
+  }
+  function boards(list) {
+    boardList = Array.isArray(list) ? list : [];
+    if (isOpen() && scope === "boards") { const had = el.contains(document.activeElement), y = el.scrollTop; build(); el.scrollTop = y; if (had) (items[0] || el).focus?.({ preventScroll: true }); }
+  }
   function ask() {
     if (waiting || !queue.length || !isOpen()) return;
     waiting = true;
@@ -254,7 +307,9 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = prefs.ovScope === "folders" ? "folders" : "all";
+    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && DESKTOP ? "boards" : "all";
+    boardShow = ["embedded", "loose"].includes(prefs.ovBoardsShow) ? prefs.ovBoardsShow : "all";
+    boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
     // it opens where the note on screen lies (place() drops what the tree does not have)
     const root = core.folder.root, shown = core.current && core.current.path;
@@ -271,6 +326,7 @@
     const cur = body.querySelector('.ov-item[aria-current]') || items[0];
     if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); }
     ask();
+    askBoards();
   }
   function close(refocus = true) {
     if (!isOpen()) return false;
@@ -297,7 +353,8 @@
 
   // ------------------------------------------------------------ several at once
   const mark = () => { for (const t of items) t.classList.toggle("picked", picked.has(t.dataset.path)); el.toggleAttribute("data-picked", picked.size > 0); };
-  const pick = (paths) => { picked.clear(); for (const p of paths) picked.add(p); mark(); };
+  // (a whiteboard a note keeps is the note's: never among what is moved, copied or trashed together)
+  const pick = (paths) => { const kept = new Set(items.filter((t) => t.dataset.kept != null).map((t) => t.dataset.path)); picked.clear(); for (const p of paths) if (!kept.has(p)) picked.add(p); mark(); };
   /* A rectangle pulled from the empty room: what it touches is selected (with Shift or Ctrl held:
    * as well as what was). It is drawn in the tiles' own room, so it stays with them when the
    * pulling scrolls them. */
@@ -362,14 +419,25 @@
   });
   body.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".ov-item")) e.preventDefault(); });
   body.addEventListener("auxclick", (e) => { const t = e.target.closest(".ov-item"); if (t && e.button === 1 && !e.target.closest(".ov-rename")) { e.preventDefault(); go(t, true); } });
+  body.addEventListener("click", (e) => { const opt = e.target.closest(".ov-filter .ov-opt"); if (opt) choose("boards", opt.dataset.v); });
   el.querySelector(".ov-head").addEventListener("click", (e) => {
     const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb"), add = e.target.closest(".ov-add"), more = e.target.closest(".ov-more");
-    const here = () => (scope === "folders" ? place(tree()).path : core.folder.root);
     // the + : a new note or folder, in the folder shown; "…": the order, and what is listed (the menu the empty room has)
     if (add && core.folder) { const r = add.getBoundingClientRect(); core.fileMenu(add, r.left, r.bottom + 6, "ovnew", here()); }
     else if (more && core.folder) { const r = more.getBoundingClientRect(); core.fileMenu(more, r.right - 200, r.bottom + 6, "blank", here()); }
     else if (opt) choose(opt.parentNode.dataset.seg, opt.dataset.v);
     else if (crumb) up(Number(crumb.dataset.up));
+  });
+  /* Files from elsewhere — a file manager, another application — pulled over the tiles: copied into
+   * the folder shown, or the folder whose tile they are let go on (the shell: import). */
+  const foreign = (e) => DESKTOP && !core.moving.path && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
+  el.addEventListener("dragover", (e) => { if (isOpen() && foreign(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setInto(e.target.closest?.(".ov-item[data-dir]") || null); } });
+  el.addEventListener("drop", (e) => {
+    if (!isOpen() || !foreign(e)) return;
+    e.preventDefault();
+    const t = e.target.closest?.(".ov-item[data-dir]"), uris = (e.dataTransfer.getData("text/uri-list") || "").split(/\r?\n/).map((u) => u.trim()).filter((u) => /^file:/.test(u));
+    setInto(null);
+    if (uris.length) post("import", { uris, dir: t ? t.dataset.path : here() });
   });
   // a tile dragged onto a folder's tile: moved into that folder (the sidebar's rows do the same: core.moving)
   let into = null;
@@ -377,16 +445,16 @@
   const folderAt = (e) => { const t = e.target.closest?.(".ov-item[data-dir]"); return t && core.moving.can(t.dataset.path) ? t : null; };
   body.addEventListener("dragstart", (e) => {
     const t = e.target.closest?.(".ov-item");
-    if (!t || e.target.closest(".ov-rename")) { e.preventDefault(); return; }
+    if (!t || e.target.closest(".ov-rename") || t.dataset.kept != null) { e.preventDefault(); return; }
     // (one of several that are selected: they all go; any other: it alone, and nothing is selected any more)
     const all = picked.has(t.dataset.path) && picked.size > 1 ? items.filter((x) => picked.has(x.dataset.path)) : [t];
     if (all.length === 1 && picked.size) pick([]);
     for (const x of all) x.classList.add("dragged");
     core.moving.start(e, t.dataset.path, t, all.map((x) => x.dataset.path));
   });
-  body.addEventListener("dragover", (e) => { const t = folderAt(e); setInto(t); if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } });
+  body.addEventListener("dragover", (e) => { if (foreign(e)) return; const t = folderAt(e); setInto(t); if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } });
   body.addEventListener("dragleave", (e) => { if (!body.contains(e.relatedTarget)) setInto(null); });
-  body.addEventListener("drop", (e) => { const t = folderAt(e); setInto(null); if (t) { e.preventDefault(); core.moving.end(t.dataset.path); } });
+  body.addEventListener("drop", (e) => { if (foreign(e)) return; const t = folderAt(e); setInto(null); if (t) { e.preventDefault(); core.moving.end(t.dataset.path); } });
   document.addEventListener("dragend", () => { setInto(null); for (const t of body.querySelectorAll(".ov-item.dragged")) t.classList.remove("dragged"); });
   // the file menu the sidebar has, for a note or a folder here
   el.addEventListener("contextmenu", (e) => {
@@ -405,7 +473,7 @@
   function rename(t) {
     const label = t.querySelector(".ov-name");
     if (t.querySelector(".ov-rename")) return;
-    const stem = t.dataset.dir ? t.dataset.dir : t.dataset.path.replace(/^.*\//, "").replace(/\.[^.]+$/, ""); // (a folder has no ending to keep)
+    const stem = t.dataset.dir ? t.dataset.dir : t.dataset.path.replace(/^.*\//, "").replace(/(\.board)?\.[^.]+$/i, ""); // (a folder has no ending to keep; a whiteboard has two)
     const input = document.createElement("input");
     input.className = "sb-field ov-rename";
     input.type = "text"; input.value = stem; input.spellcheck = false; input.autocomplete = "off";
@@ -447,12 +515,23 @@
   }
   el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a" && !e.target.closest("input")) { e.preventDefault(); e.stopPropagation(); pick(items.map((t) => t.dataset.path)); return; }
+    // Copy, Cut, Paste, Duplicate — on the tile the keyboard is on, or on all that are selected; Paste: into the folder shown, or the folder the keyboard is on
+    const fileKey = DESKTOP && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !e.target.closest("input") && { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
+    if (fileKey) {
+      const on = e.target.closest?.(".ov-item"), paths = on && picked.has(on.dataset.path) && picked.size > 1 ? [...picked] : on && on.dataset.kept == null ? [on.dataset.path] : [];
+      if (fileKey !== "pastef" && !paths.length) return;
+      e.preventDefault(); e.stopPropagation();
+      core.fileCmd(fileKey, paths, on && on.dataset.dir ? on.dataset.path : here());
+      if (fileKey === "cutf") pick([]);
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const tile = e.target.closest?.(".ov-item");
     if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); if (picked.size) pick([]); else if (core.current) close(); return; }
     if (e.key === "Backspace" && up()) { e.preventDefault(); return; }
     if (e.key === "Delete" && picked.size > 1) { e.preventDefault(); many("trash"); return; }
     if (!tile) return;
+    if ((e.key === "F2" || e.key === "Delete") && tile.dataset.kept != null) return; // (a whiteboard a note keeps is the note's)
     if (e.key === "F2") { e.preventDefault(); rename(tile); return; }
     if (e.key === "Delete") { e.preventDefault(); post("trash", { path: tile.dataset.path }); pick([]); return; }
     if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
@@ -473,5 +552,5 @@
   // a note chosen in the sidebar while the tiles show: the note
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
-  window.MdOverview = { open, close, toggle, previews, go, rename, many, get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) build(); }, get isOpen() { return isOpen(); } };
+  window.MdOverview = { open, close, toggle, previews, go, rename, many, boards, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } }, get isOpen() { return isOpen(); } };
 })();

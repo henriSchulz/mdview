@@ -179,6 +179,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `src-tauri/src/ai.rs` | The two things asked of a model: the next words while typing (Gemini, over HTTPS) and a figure drawn as SVG … |
 | `src-tauri/src/attach.rs` | Files the application itself put beside a note — a picture pasted, a file dropped in, a figure drawn — are … |
 | `src-tauri/src/github.rs` | Signing in with GitHub, for a linked project's other side. |
+| `src-tauri/src/hidden.rs` | What of a folder was put out of sight by hand — a file, a folder with all that is in it — as the folder says … |
 | `src-tauri/src/history.rs` | A folder's history: a project is a folder that holds both the app's marker (.mdview/project.json) and a Git … |
 | `src-tauri/src/host.rs` | What the shell asks of the system it runs on: the clipboard, the web view's own settings, other applications. |
 | `src-tauri/src/looks.rs` | How the folders of a folder look in the sidebar — a colour, a sign — as the folder says itself, in … |

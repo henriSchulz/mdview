@@ -105,6 +105,26 @@ impl Store {
         self.save(&all);
     }
 
+    /// Every file the application made for a note and that is still there (a folder's list
+    /// leaves them out: they are part of their note).
+    pub fn owned(&self) -> std::collections::HashSet<String> {
+        self.load().iter().filter(|(_, v)| v.get("gone").is_none()).map(|(file, _)| file.clone()).collect()
+    }
+
+    /// The note the application made this file for, if it did.
+    pub fn owner(&self, file: &Path) -> Option<PathBuf> {
+        self.load().get(&s(file)).filter(|v| v.get("gone").is_none()).and_then(|v| v["note"].as_str()).map(PathBuf::from)
+    }
+
+    /// The file is its own from now on — a file of the folder like any other: nothing takes it
+    /// away with a note.
+    pub fn disown(&self, file: &Path) {
+        let mut all = self.load();
+        if all.remove(&s(file)).is_some() {
+            self.save(&all);
+        }
+    }
+
     /// The files the application made for that note, as far as they are still there.
     pub fn owned_by(&self, note: &Path) -> Vec<PathBuf> {
         let note = s(note);

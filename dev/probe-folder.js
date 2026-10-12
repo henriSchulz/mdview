@@ -44,14 +44,14 @@
       const menu = document.getElementById("ctxmenu");
       const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
       const cmds = () => shown().map((b) => b.dataset.cmd).join();
-      ok("right click on a file: open in a new tab, in the default app, with another one, show in Finder, share, rename, trash", menu.hasAttribute("data-open") && cmds() === "opentab,default,openwith,reveal,share,rename,trash,sub:show", cmds());
+      ok("right click on a file: open in a new tab, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "opentab,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
       ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon :is(svg, .sf)"); return i && i.getBoundingClientRect().width > 10; }));
       const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
       await shut();
       // the + button: a note or a folder
       document.querySelector('#sidebar [data-act="newmenu"]').click();
       await sleep(200);
-      ok("the + button offers a note or a folder", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder", cmds());
+      ok("the + button offers a note, a folder, a whiteboard, files to add", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,newboard,addfiles", cmds());
       shown()[1].click();
       await sleep(400);
       const input = document.getElementById("new-name");
@@ -64,7 +64,7 @@
       const dr = dirRow().getBoundingClientRect();
       dirRow().dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: dr.left + 30, clientY: dr.top + 8 }));
       await sleep(200);
-      ok("right click on a folder: new note, new folder, show in Finder, colour and icon, rename, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,reveal,look,rename,trash,sub:show", cmds());
+      ok("right click on a folder: new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,rename,hide,trash,sub:show", cmds());
       shown()[0].click();
       await sleep(400);
       ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);
@@ -77,11 +77,12 @@
     {
       const names = () => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim());
       const set = async (o) => { window.MdHost.post(JSON.stringify({ type: "prefs", prefs: o })); await sleep(900); };
-      ok("as it comes: notes and PDFs, no pictures or other files", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv"), names());
+      ok("as it comes: everything that lies there — notes, PDFs, pictures, other files", names().includes("paper.pdf") && names().includes("photo.png") && names().includes("data.csv"), names());
+      await set({ sidebarImages: false, sidebarOther: false });
+      ok("pictures and other files taken out: the list follows at once", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv") && names().includes("basics"), names());
       await set({ sidebarImages: true, sidebarOther: true, sidebarPdf: false });
-      ok("pictures and other files on, PDFs off: the list follows at once", !names().includes("paper.pdf") && names().includes("photo.png") && names().includes("data.csv") && names().includes("basics"), names());
-      await set({ sidebarImages: false, sidebarOther: false, sidebarPdf: true });
-      ok("and back", names().includes("paper.pdf") && !names().includes("photo.png") && !names().includes("data.csv"), names());
+      ok("and back, PDFs taken out instead", !names().includes("paper.pdf") && names().includes("photo.png") && names().includes("data.csv"), names());
+      await set({ sidebarPdf: true });
       // the dialog itself, from the reading mode
       MdView.setMode("read"); await sleep(400);
       window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", code: "Comma", ctrlKey: true, bubbles: true, cancelable: true }));

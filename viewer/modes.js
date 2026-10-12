@@ -40,6 +40,25 @@
     loadBoard().then(() => window.MdBoard.open(img)).catch(() => toast("Couldn't open the whiteboard"));
     return true;
   }
+  /* A whiteboard that is a file of the folder (its row in the sidebar, its tile in All Notes): opened
+   * over the window as one in a note is — a picture that stands nowhere says which file it is. */
+  function openBoardFile(path) {
+    const img = new Image();
+    img.dataset.board = path;
+    loadBoard().then(() => { if (window.MdBoard.shown) window.MdBoard.close(true); return window.MdBoard.open(img); }).then((ok) => { if (ok && window.MdOverview) MdOverview.boardsStale(); }).catch(() => toast("Couldn't open the whiteboard"));
+  }
+  /* … and shown in the note on screen, as a picture is: put in at the caret in the active mode; in
+   * the other two its link goes to the clipboard, to be put where it belongs. */
+  function embedBoard(path) {
+    if (!P.current || !P.current.path) return;
+    const from = P.current.path.split("/").slice(0, -1), to = path.split("/");
+    let same = 0;
+    while (same < from.length && same < to.length - 1 && from[same] === to[same]) same++;
+    const rel = [...from.slice(same).map(() => ".."), ...to.slice(same)].map(encodeURIComponent).join("/");
+    if (P.mode === "active" && window.MdActive && MdActive.view.pm) { MdActive.clip.insertDropped(MdActive.view.pm, [`![](${rel})`]); return; }
+    post("copy", { text: `![](${rel})` });
+    toast(T("Link copied: paste it where the whiteboard is to stand"));
+  }
   /* A new board in the note (the / menu, the panel; context.js): the host makes its file where
    * the note's pictures go and says how it is written; then it stands at the caret and is opened. */
   let boardWanted = null;
@@ -521,7 +540,7 @@
   });
 
   // what the page's other files use of this one
-  Object.assign(P, { isBoardImg, loadBoard, openBoard, newBoard, boardMade, loadPdf, resolveSoon,
+  Object.assign(P, { isBoardImg, loadBoard, openBoard, openBoardFile, embedBoard, newBoard, boardMade, loadPdf, resolveSoon,
     linkResolved, pdfEmbedsSoon, codeBox, openCode, closeCode, busy, zoomImage, zoomFigure, zoomFigureAt,
     openHistory, openShare, openConflicts, openSettings, loadActive, showActive, activeChanged,
     leaveActiveNow, leaveEditNow, printDoc, edReplace, insertImage });

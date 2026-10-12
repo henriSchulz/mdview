@@ -19,6 +19,7 @@
 mod ai;
 mod attach;
 mod github;
+mod hidden;
 mod history;
 mod host;
 mod looks;

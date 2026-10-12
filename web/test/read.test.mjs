@@ -68,7 +68,7 @@ test("a repository opens as the desktop app shows a folder", async () => {
   const now = await shown();
   assert.match(now.text, /Home/);
   assert.match(now.text, /Embedded text with a link/); // (a note embedded with ![[…]] is there, with its own text)
-  assert.deepEqual((await rows()).sort(), ["Deep", "Embedded", "Home", "paper.pdf", "Second note"].sort()); // (nothing hidden, nothing of tools)
+  assert.deepEqual((await rows()).sort(), ["Deep", "Embedded", "Home", "paper.pdf", "pic.png", "Second note"].sort()); // (everything that lies there — nothing hidden, nothing of tools)
   assert.equal(await page.evaluate(() => document.querySelector(".sb-folder-name").textContent), "notes");
   assert.deepEqual(await tabNames(), ["Home"]);
   assert.equal(await page.title(), "Home.md");
@@ -221,18 +221,18 @@ test("what another device sent appears without reloading", async () => {
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); // (as when the tab is come back to)
   await page.waitForFunction(() => /Changed on another device/.test(document.querySelector("#content").innerText), null, { timeout: 10000 });
   await page.waitForFunction(() => ![...document.querySelectorAll(".sb-row[data-real]")].some((r) => r.textContent.trim() === "Embedded"), null, { timeout: 5000 }); // (a row that goes fades out first)
-  assert.deepEqual((await rows()).sort(), ["Deep", "Home", "New here", "paper.pdf", "Second note"].sort());
+  assert.deepEqual((await rows()).sort(), ["Deep", "Home", "New here", "paper.pdf", "pic.png", "Second note"].sort());
 });
 
 test("ordered by when a note was last changed: the time of the commit that changed it", async () => {
   const top = async () => (await rows()).filter((r) => r !== "Deep"); // (the folder's own note apart)
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "modified" } })));
   // what the other device wrote last comes first; the rest, of one commit, by name
-  for (let t = 0; t < 8000 && JSON.stringify(await top()) !== JSON.stringify(["New here", "Second note", "Home", "paper.pdf"]); t += 100) await page.waitForTimeout(100);
-  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf"]);
+  for (let t = 0; t < 8000 && JSON.stringify(await top()) !== JSON.stringify(["New here", "Second note", "Home", "paper.pdf", "pic.png"]); t += 100) await page.waitForTimeout(100);
+  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf", "pic.png"]);
   await page.reload(); // (the dates are kept in the browser, by the blobs' ids)
   await untilNote("Second note.md");
-  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf"]);
+  assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf", "pic.png"]);
   assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("mdview:octo/notes:dates"))).length > 3), true);
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "name" } })));
 });

@@ -8,7 +8,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash" | "pastefiles" | "duplicate" | "import" | "newboard" | "hide") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -42,7 +42,7 @@ impl Win {
             "prefs" => {
                 let new = msg["prefs"].as_object().cloned().unwrap_or_default();
                 let prefs = Value::Object(app.store_prefs(&new));
-                let lists = new.keys().any(|k| k.starts_with("sidebar") || matches!(k.as_str(), "ovPdf" | "ovImages" | "ovMedia" | "ovOther")); // (what the sidebar or All Notes lists may have changed)
+                let lists = new.keys().any(|k| k.starts_with("sidebar") || k == "showHidden"); // (what the sidebar or All Notes lists may have changed)
                 let told = |w: &mut Win, app: &mut App| {
                     w.js("MdView.setPrefs", &[prefs.clone()]);
                     if lists && w.folder.is_some() {
@@ -154,6 +154,17 @@ impl Win {
                 None => self.trash_note(app, text_of("path")),
             },
             "untrash" => self.untrash(app),
+            // a folder's list as a place to work with files: put out of sight, copied, put in, brought in from elsewhere
+            "hide" => self.hide(app, &msg["paths"], msg["on"].as_bool().unwrap_or(true)),
+            "copyfiles" => self.copy_files(app, &msg["paths"], truthy(&msg["cut"])),
+            "pastefiles" => self.paste_files(app, msg["dir"].as_str()),
+            "duplicate" => self.duplicate(app, &msg["paths"]),
+            "import" => self.import(app, &msg["uris"], msg["dir"].as_str()),
+            "addfiles" => self.add_files(app, msg["dir"].as_str()),
+            // whiteboards that are files of their own, and all of the folder's for All Notes
+            "newboard" => self.new_board(app, text_of("name"), msg["dir"].as_str(), text_of("text")),
+            "boards" => self.send_boards(),
+            "board-free" => self.board_free(app, text_of("path")),
             "sidebar" => self.sidebar_pref(app, msg),
             "previews" => self.send_previews(&msg["paths"]),
             // a folder chosen in the system's window — or, here: the folder the note on screen lies in, opened beside it
