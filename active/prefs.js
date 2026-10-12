@@ -506,7 +506,7 @@
       historyName: h.name ?? null,
       historyRoot: short(h.root) ?? null,
       historyBranch: h.root ? h.branch || T("prefs.history.noBranch") : null,
-      historyCount: h.root ? String(h.versions ?? 0) : null,
+      historyCount: h.root && h.versions != null ? String(h.versions) : null, // (a host that has not counted them yet says nothing)
       historyLast: h.last ? when(h.last.time) + " · " + h.last.device.replace(/ \([0-9a-f-]{36}\)$/, "") : null,
       historyChanged: !kept ? null : !h.changed ? T("prefs.history.allKept") : T((h.waiting ? "prefs.history.waiting" : "prefs.history.changed") + (h.changed === 1 ? ".one" : "")).replace("%s", h.changed),
     };

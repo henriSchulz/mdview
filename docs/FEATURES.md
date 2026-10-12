@@ -921,6 +921,11 @@ counts — and has no writing help by a model.
 - **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.
+- **The settings** have what there is in a browser: no writing help, no quick notes, no hidden
+  items, no sharper text, no settings folder. History shows the repository — its name, its
+  branch, how many versions it has, the last one, what is not kept yet — with the quiet while
+  before a commit and the name this browser has in a version; signing in and choosing a
+  repository are before any page.
 - **Help** opens this guide in a tab of its own.
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
@@ -1026,7 +1031,7 @@ the right. A change takes effect at once.
 | Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
-| Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
+| Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
 | PDFs | what a link to selected text is copied as, copy on select |
