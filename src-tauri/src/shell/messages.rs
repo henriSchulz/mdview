@@ -8,7 +8,7 @@ impl Win {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         // (what writes into the folder: its project's snapshot follows — the watcher sees only
         // the directories a window shows)
-        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash" | "pastefiles" | "duplicate" | "import" | "newboard" | "hide") {
+        if matches!(text_of("type"), "save" | "toggle" | "pasteimage" | "dropfiles" | "graphic-save" | "board-new" | "board-save" | "pdfink-save" | "board-paste" | "board-drop" | "newnote" | "quicknote" | "newfolder" | "rename" | "move" | "trash" | "untrash" | "pastefiles" | "duplicate" | "import" | "newboard" | "hide") {
             if let Some(p) = self.path.clone().or_else(|| self.folder.clone()) {
                 app.touch(&p);
             }
@@ -109,6 +109,9 @@ impl Win {
             "board-new" => self.board_new(app, text_of("path"), text_of("text"), &msg["id"]),
             "board-read" => self.board_read(text_of("path"), &msg["id"]),
             "board-save" => self.board_save(text_of("path"), text_of("text"), &msg["id"]),
+            // what was drawn on a PDF (board/pdf.js): a whiteboard's file in the folder's .mdview, never the PDF
+            "pdfink-read" => self.pdfink_read(text_of("path"), &msg["id"]),
+            "pdfink-save" => self.pdfink_save(text_of("path"), text_of("text"), msg["empty"].as_bool().unwrap_or(false), &msg["id"]),
             "board-open" => self.board_open = msg["on"].as_bool().unwrap_or(false),
             "board-paste" => self.board_paste(app, text_of("path"), &msg["id"]),
             "board-drop" => self.board_drop(text_of("path"), &msg["uris"], &msg["id"]),

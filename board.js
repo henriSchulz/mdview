@@ -84,6 +84,7 @@
   const TYPE_EXT = { "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif", "image/svg+xml": ".svg", "image/bmp": ".bmp" };
   /* Files the browser handed over: the pictures among them are kept beside the board, then put on it. */
   async function put(files, at = null) {
+    if (S.pdf) return; // (over a PDF: no pictures yet — what is drawn there has no folder of its own to keep them in)
     const s = S, names = [];
     let failed = null;
     for (const f of files.filter((f) => f && typeof f.size === "number" && (f.name || TYPE_EXT[f.type]))) {
@@ -110,6 +111,7 @@
   /* Ctrl+V on the desktop: a picture on the clipboard is put on the board; else what was copied on the board is. */
   function pasteHere() {
     const s = S;
+    if (s.pdf) { if (S.mode === "select") sel.paste(); return; }
     ask("board-paste", { path: s.ref }).then(([names, error]) => { if (S !== s) return; if ((names || []).length || error) placed(names, error); else if (S.mode === "select") sel.paste(); });
   }
   function pasted(e) {
@@ -188,7 +190,7 @@
     said.t = setTimeout(() => { delete hud.dataset.on; }, 900);
   }
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
-  const auto = () => getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f";
+  const auto = () => (S && S.pdf ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on a PDF's pages: ink for paper, whatever the theme)
   const button = (name, key, more = "") => `<button type="button" class="bd-btn" data-do="${name}" title="${esc(T(key))}" aria-label="${esc(T(key))}"${more}>${I[name] || ""}</button>`;
   const DRAWS = ["pen", "mono", "marker", "pencil"], ALL = [...DRAWS, "eraser"];
   /* What the hand does on the board, chosen in the bar at the top: choose and move (lasso), draw (pen), rub out (eraser), put a
@@ -206,7 +208,7 @@
     el.tabIndex = -1;
     el.hidden = true;
     el.innerHTML =
-      `<div class="bd-stage"><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-tip" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
+      `<div class="bd-stage"><div class="bd-paper"></div><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-tip" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
         `<div class="bd-band" hidden></div><div class="bd-guide bd-guide-v" hidden></div><div class="bd-guide bd-guide-h" hidden></div>` +
         `<svg class="bd-marks" hidden><g></g></svg><div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i>${["t", "r", "b", "l"].map((d) => `<i class="bd-conn" data-side="${d}"></i>`).join("")}</div><div class="bd-joints" hidden>${["t", "r", "b", "l"].map((d) => `<i class="bd-joint" data-side="${d}"></i>`).join("")}</div><div class="bd-target" hidden></div><div class="bd-angle" hidden></div></div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
@@ -337,6 +339,7 @@
       if (!S || S.readonly) return;
       e.preventDefault(); e.stopPropagation();
       const r = el.getBoundingClientRect(), at = S.view.toBoard(e.clientX - r.left, e.clientY - r.top);
+      if (S.pdf) return;
       if (BROWSER) return void put([...(e.dataTransfer?.files || [])], at);
       const uris = (e.dataTransfer?.getData("text/uri-list") || "").split(/\r?\n/).filter((u) => u && !u.startsWith("#"));
       if (uris.length) ask("board-drop", { path: S.ref, uris }).then(([names, error]) => placed(names, error, at));
@@ -377,7 +380,26 @@
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
-      zoom: (f, cx, cy) => { if (S) { fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } } });
+      zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
+    // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
+    el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);
+  }
+  /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
+   * goes only moves where it is going. */
+  let aim = null, gliding = null;
+  function glideTo(f, cx, cy) {
+    const s = S, v = s.view, g = gliding || (gliding = { want: v.z, last: performance.now(), on: false });
+    g.want = Math.max(v.min, Math.min(v.max, g.want * f)); g.cx = cx; g.cy = cy;
+    if (g.on) return;
+    g.on = true; g.last = performance.now();
+    const frame = (now) => {
+      if (S !== s || gliding !== g) return;
+      const k = 1 - Math.exp(-Math.min(40, now - g.last) / 55), done = Math.abs(Math.log(g.want / v.z)) < 0.004;
+      g.last = now;
+      fast = true; v.zoomAt(g.cx, g.cy, done ? g.want : v.z * Math.pow(g.want / v.z, k)); fast = false;
+      if (done) gliding = null; else requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }
   function boundsOf(items) {
     let b = null;
@@ -387,7 +409,13 @@
     }
     return b;
   }
-  const bounds = () => boundsOf(S.model.items);
+  const bounds = () => (S.pdf ? B.pdf.boxOf(B.pdf.near(S.pdf.pages, S.view, size())) : boundsOf(S.model.items)); // (over a PDF: the page in sight)
+  /* The PDF's pages under the board: moved and sized with it, drawn anew where the view asks for more (board/pdf.js). */
+  function sheets(v, moving = false) {
+    if (!S.pdf) return;
+    el.querySelector(".bd-paper").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
+    S.pdf.paper.show(v, size(), moving);
+  }
   /* The board moved or sized under the hand (fingers, a wheel): drawing all its ink anew for every step of the way is what a
    * tablet cannot keep up with. So the ink as it was drawn last is moved and sized as a picture, once a frame, with the things on
    * the board and the dots; it is drawn anew when the hand has come to rest. (Anything else that changes the view draws at once.) */
@@ -410,6 +438,7 @@
     const v = S.view;
     el.querySelector(".bd-ink").style.transform = `translate(${(inkAt.x - v.x) * v.z}px, ${(inkAt.y - v.y) * v.z}px) scale(${v.z / inkAt.z})`;
     el.querySelector(".bd-world").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
+    sheets(v, true);
     grid(v, stage());
     el.querySelector('[data-do="zoom"]').textContent = Math.round(v.z * 100) + " %";
     if (S.pick.length || sel.joints) sel.paint();
@@ -427,6 +456,7 @@
     const world = el.querySelector(".bd-world");
     world.style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
     B.layer.sync(world, S.model.items, sel.editing, sel.cell);
+    sheets(v);
     el.dataset.mode = S.readonly ? "look" : S.mode;
     sel.paint();
     st.toggleAttribute("data-grid", S.model.board.grid);
@@ -674,7 +704,7 @@
     const row = (attr, label, on = false, more = "") => `<button type="button" ${attr} role="menuitem"${on ? ' aria-checked="true"' : ""}${more}>${esc(label)}</button>`;
     let html = "";
     if (kind === "zoom") html = `<div class="bd-list">${B.view.STEPS.map((z) => row(`data-zoom="${z}"`, Math.round(z * 100) + " %", Math.abs(S.view.z - z) < 0.005)).join("")}<hr>${row('data-m="fit"', T("board.fit"))}${row('data-m="actual"', T("board.actual"))}</div>`;
-    else if (kind === "more") html = `<div class="bd-list">${row('data-m="copy"', T("board.copyPicture"))}${row('data-m="print"', T("board.print"))}${S.readonly ? "" : "<hr>" + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
+    else if (kind === "more") html = `<div class="bd-list">${S.pdf ? "" : row('data-m="copy"', T("board.copyPicture")) + row('data-m="print"', T("board.print"))}${S.readonly ? "" : (S.pdf ? "" : "<hr>") + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
     else if (kind === "plus") html = `<div class="bd-list">${row('data-m="sticky"', T("board.insert.sticky"))}${row('data-m="table"', T("board.insert.table"))}${row('data-m="linkask"', T("board.insert.link"))}</div>`;
     else if (kind === "scenes") {
       html = (S.model.scenes.length ? `<div class="bd-scenes">${S.model.scenes.map((sc, i) => `<div class="bd-scene"${i === S.scene ? " data-now" : ""}><button type="button" class="bd-scene-go" data-scene="${sc.id}">${esc(sc.name || T("board.scene"))}</button>` +
@@ -818,8 +848,9 @@
     B.items.missing.clear();
     const text = B.format.write(s.model);
     s.lacked = new Set(B.items.missing); // (pictures whose small copies were not made yet: the board is kept again when they are)
-    remember(s.ref, text);
-    ask("board-save", { path: s.ref, text }).then(([error]) => {
+    if (s.pdf) kept.set(s.ref, text); else remember(s.ref, text);
+    // (over a PDF: the host keeps it under the PDF's name, in the folder's .mdview — and keeps nothing where nothing is drawn)
+    (s.pdf ? ask("pdfink-save", { path: s.pdf.path, text, empty: !s.model.items.length }) : ask("board-save", { path: s.ref, text })).then(([error]) => {
       if (S !== s) { if (error) core.toast(T("board.notSaved")); return; }
       chip(error ? T("board.notSaved") : s.model.lost ? T("board.lost", s.model.lost) : "", !!error);
       if (error) s.failed = text;
@@ -1084,40 +1115,79 @@
   }
   const place = (r) => (r ? `translate(${r.left}px, ${r.top}px) scale(${r.width / (el.clientWidth || innerWidth)}, ${r.height / (el.clientHeight || innerHeight)})` : "scale(0.97)");
 
+  /* The board coming up over a PDF: the pages lie where they lay, so what one sees come is the board's own — its bars, each from
+   * the edge it stands at (those at the top from above, those at the bottom from below, an upright one from its side), one a
+   * moment after the other. (An animation, beside any transition of their own, and of `translate` alone: where they stand by `transform` is theirs.) */
+  function barsIn() {
+    if (!el.animate) return;
+    const cs = getComputedStyle(el), ms = (name, d) => { const t = cs.getPropertyValue(name).trim(), n = parseFloat(t); return Number.isFinite(n) ? (t.endsWith("ms") ? n : n * 1000) : d; };
+    const fade = ms("--dur-slow", 270), glide = ms("--spring-gentle-dur", 526), out = cs.getPropertyValue("--ease-out").trim() || "ease-out", spring = cs.getPropertyValue("--spring-gentle").trim() || out, box = el.getBoundingClientRect();
+    [...el.querySelectorAll(".bd-bar, .bd-shrunk")].filter((b) => b.getBoundingClientRect().width).forEach((b, i) => {
+      const r = b.getBoundingClientRect(), upright = r.height > r.width * 1.5, delay = Math.min(i, 10) * 15, opacity = getComputedStyle(b).opacity;
+      const from = upright ? [r.left + r.width / 2 < box.left + box.width / 2 ? -16 : 16, 0] : [0, r.top + r.height / 2 < box.top + box.height / 2 ? -16 : 16];
+      b.animate([{ opacity: 0 }, { opacity }], { duration: fade, delay, easing: out, fill: "backwards" });
+      if (calm.matches) return; // (reduced motion: they fade in, and nothing moves)
+      const own = getComputedStyle(b).translate, [x, y = "0px"] = own && own !== "none" ? own.split(" ") : ["0px"]; // (a bar may stand by a translate of its own — the tray in the middle of its edge: it moves from beside that)
+      const steps = [{ translate: `calc(${x} + ${from[0]}px) calc(${y} + ${from[1]}px)` }, { translate: `${x} ${y}` }];
+      try { b.animate(steps, { duration: glide, delay, easing: spring, fill: "backwards" }); } catch (e) { b.animate(steps, { duration: fade, delay, easing: out, fill: "backwards" }); }
+    });
+  }
+  /* What was drawn on a PDF, as the host keeps it: a whiteboard's text, or null where nothing was drawn yet. */
+  const pdfRef = (path) => "pdf:" + path;
+  async function pdfText(path) {
+    if (kept.has(pdfRef(path))) return kept.get(pdfRef(path));
+    const [text, error] = await ask("pdfink-read", { path });
+    if (error) throw new Error(error);
+    return typeof text === "string" ? text : null;
+  }
+  /* … for whoever shows the PDF (pdfview.js): what stands on its pages, or null. */
+  B.pdfInk = async (path) => { const text = await pdfText(path); return text ? B.format.parse(text) : null; };
+  /* A PDF to draw on. pdf: { path, name, doc (pdf.js), sizes: [[w, h]] of its pages in points, seed(n): a picture of page n that is there already, or none, at: { n, left, top, width } — where
+   * page n stands in the window now, so that the board comes up with the pages where they were —, done({ model, view, pages }) }. */
+  B.openPdf = (pdf) => B.open(null, pdf);
+
   /* img: the board's picture in the note. */
-  B.open = async (img) => {
-    if (S || !B.isBoard(img)) return false;
-    const ref = refOf(img), cur = core.current || {};
+  B.open = async (img, pdf = null) => {
+    if (S || (!pdf && !B.isBoard(img))) return false;
+    const ref = pdf ? pdfRef(pdf.path) : refOf(img), cur = core.current || {};
     if (!el) build();
-    const s = (S = { ref, img, readonly: !!((window.MdHost || {}).reading || cur.readonly), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
+    el.querySelector(".bd-paper").replaceChildren();
+    if (pdf) { const pages = B.pdf.layout(pdf.sizes); pdf = { ...pdf, pages, paper: B.pdf.paper(el.querySelector(".bd-paper"), pdf.doc, pages, pdf.seed) }; }
+    const s = (S = { ref, img, pdf, readonly: !!((window.MdHost || {}).reading || (!pdf && cur.readonly)), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
     inkAt = null;
     core.lockScroll(true);
     post("board-open", { on: true });
     el.setAttribute("aria-label", T("board.name"));
-    el.querySelector(".bd-name").textContent = T("board.name");
+    el.querySelector(".bd-name").textContent = pdf ? pdf.name : T("board.name");
     el.toggleAttribute("data-readonly", s.readonly);
+    el.toggleAttribute("data-pdf", !!pdf);
+    { const back = el.querySelector('[data-do="back"]'), name = T(pdf ? "board.back.pdf" : "board.back"); back.title = name; back.setAttribute("aria-label", name); }
     chip("");
     options(null);
     // what is on the board is read first (a moment — not waited for longer than that): the board comes up with it on,
     // not empty and filled in after
     const take = (text) => {
-      B.items.thumbsFrom(text);
-      const model = B.format.parse(text);
+      if (text != null) B.items.thumbsFrom(text);
+      const model = text != null ? B.format.parse(text) : B.format.fresh();
       if (S !== s) return false;
       s.model = model;
-      // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever
-      // was last looked at, on whatever screen)
-      s.view.fit(bounds());
+      if (pdf) { // (the pages where they stood in the window: one goes on where one was)
+        model.board.grid = false;
+        s.view.max = 16; // (a page is read and written on far closer than a board is looked at: sixteen times, sharp all the way — board/pdf.js)
+        const p = pdf.pages[Math.max(0, Math.min(pdf.pages.length - 1, (pdf.at.n || 1) - 1))], z = pdf.at.width / p.w;
+        s.view.set(p.x - pdf.at.left / z, p.y - pdf.at.top / z, z);
+      } else s.view.fit(bounds()); // (shown as the picture in the note shows it — the whole of it, in the middle: one steps into what one saw, whatever was last looked at, on whatever screen)
       if (model.lost) chip(T("board.lost", model.lost));
       el.dataset.ready = "";
       return true;
     };
     const fail = () => { if (S === s) { s.readonly = true; B.close(); } core.toast(T("board.cantOpen")); return false; };
-    const reading = read(ref, img.src).then((text) => ({ text }), (error) => ({ error }));
+    const from = () => (pdf ? "none" : place(fromRect(img))); // (a PDF's pages lie where they lay: the board fades in over them)
+    const reading = (pdf ? pdfText(pdf.path) : read(ref, img.src)).then((text) => ({ text }), (error) => ({ error }));
     // from the picture's place to the whole window
     el.hidden = false;
     el.style.transition = "none";
-    el.style.transform = place(fromRect(img));
+    el.style.transform = from();
     el.style.opacity = "0";
     void el.offsetWidth;
     const early = await Promise.race([reading, new Promise((r) => setTimeout(() => r(null), 260))]);
@@ -1128,6 +1198,7 @@
     void el.offsetWidth;
     el.style.transition = el.style.transform = el.style.opacity = "";
     el.dataset.open = "";
+    if (pdf) barsIn();
     addEventListener("keydown", keydown, true);
     addEventListener("keyup", keyup, true);
     document.addEventListener("visibilitychange", hidden);
@@ -1160,8 +1231,10 @@
     core.lockScroll(false);
     post("board-open", { on: false });
     delete el.dataset.open; delete el.dataset.ready;
-    const done = () => { if (!S) { el.hidden = true; el.style.transform = ""; } };
+    const done = () => { if (!S) { el.hidden = true; el.style.transform = ""; el.querySelector(".bd-paper").replaceChildren(); } };
+    if (s.pdf) { s.pdf.paper.drop(); s.pdf.done?.({ model: s.model, view: { x: s.view.x, y: s.view.y, z: s.view.z }, pages: s.pdf.pages, quick }); } // (whoever shows the PDF: what is on it now, and where one was)
     if (quick) return done();
+    if (s.pdf) { el.style.transform = "none"; setTimeout(done, 400); return el.blur(); }
     const img = [...document.querySelectorAll("#content img, #active img")].find((i) => i.offsetParent && refOf(i) === s.ref) || s.img;
     el.style.transform = place(fromRect(img));
     setTimeout(done, 400);
@@ -1174,7 +1247,7 @@
   B.pinch = (phase, scale) => {
     if (!S) return;
     if (phase === "begin") S.pinch = S.view.z;
-    else if (S.pinch) { const s = size(); fast = true; S.view.zoomAt(s.w / 2, s.h / 2, S.pinch * scale); fast = false; }
+    else if (S.pinch) { const s = size(), p = aim || { x: s.w / 2, y: s.h / 2 }; gliding = null; fast = true; S.view.zoomAt(p.x, p.y, S.pinch * scale); fast = false; } // (around what is under the pointer; none over the board: its middle)
   };
   Object.defineProperty(B, "shown", { get: () => !!S });
   /* For the tests: what is open, as it is. */
@@ -1187,7 +1260,7 @@
     asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
-    editing: sel.editing, ref: S.ref, items: S.model.items.filter((it) => it.k === "ink").length,
+    editing: sel.editing, ref: S.ref, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
     tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form,
     chosen: S.pick.filter((it) => it.k === "ink").length,
     chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null,

@@ -30,6 +30,51 @@ fn way(target: &Path, note: &Path, base: &Path) -> String {
     relative(target, &dir_of(note))
 }
 
+/// Where what was drawn on a PDF is kept (board/pdf.js): a whiteboard's file in the base
+/// folder's `.mdview/pdf`, named by what the PDF holds — Git's name for the file's bytes, the one
+/// the web app knows the file by too. So a PDF that is moved or renamed keeps what was drawn on
+/// it, a copy of it shows the same, and the PDF itself is never written to.
+const PDF_INK: &str = ".mdview/pdf";
+fn ink_of(pdf: &Path, base: &Path) -> Result<PathBuf, String> {
+    // (a file's name is asked for at every save: worked out once for the file as it is)
+    static KNOWN: LazyLock<std::sync::Mutex<HashMap<PathBuf, (u64, SystemTime, String)>>> = LazyLock::new(Default::default);
+    let meta = fs::metadata(pdf).map_err(|e| strerror(&e))?;
+    let (len, at) = (meta.len(), meta.modified().unwrap_or(UNIX_EPOCH));
+    let mut known = KNOWN.lock().unwrap_or_else(|e| e.into_inner());
+    let name = match known.get(pdf) {
+        Some((l, t, name)) if *l == len && *t == at => name.clone(),
+        _ => {
+            let name = git2::Oid::hash_file(git2::ObjectType::Blob, pdf).map_err(|e| e.message().to_string())?.to_string();
+            known.insert(pdf.to_path_buf(), (len, at, name.clone()));
+            name
+        }
+    };
+    Ok(base.join(PDF_INK).join(format!("{name}.board.svg")))
+}
+fn ink_read(pdf: &Path, base: &Path) -> Result<Option<String>, String> {
+    let file = ink_of(pdf, base)?;
+    if !file.is_file() {
+        return Ok(None);
+    }
+    fs::read_to_string(&file).map(Some).map_err(|e| strerror(&e))
+}
+/// empty: nothing is drawn on the PDF (any more) — then nothing is kept, and no folder for it.
+fn ink_save(pdf: &Path, base: &Path, text: &str, empty: bool) -> Result<(), String> {
+    let file = ink_of(pdf, base)?;
+    if empty {
+        if file.is_file() {
+            fs::remove_file(&file).map_err(|e| strerror(&e))?;
+        }
+        let _ = fs::remove_dir(base.join(PDF_INK)); // (if nothing else is in them)
+        let _ = fs::remove_dir(base.join(".mdview"));
+        return Ok(());
+    }
+    if !text.contains(BOARD_MARK) {
+        return Err("not a whiteboard".into());
+    }
+    fs::create_dir_all(dir_of(&file)).and_then(|()| fs::write(&file, text.as_bytes())).map_err(|e| strerror(&e))
+}
+
 impl Win {
     /// After a save from the active mode: a picture or file the application put beside the
     /// note, which the note no longer names (nor any other note), goes to the trash; one that
@@ -290,6 +335,24 @@ impl Win {
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
     }
 
+    /// What was drawn on a PDF, for the page: a whiteboard's text, or nothing where nothing was
+    /// drawn yet …
+    pub(super) fn pdfink_read(&self, path: &str, id: &Value) {
+        let p = scan::found(&resolve(Path::new(path)));
+        let read = if is_pdf(&p) && p.is_file() { ink_read(&p, &self.base_of(&p)) } else { Err("not a PDF file".into()) };
+        match read {
+            Ok(text) => self.js("MdView.boardText", &[id.clone(), json!(text), Value::Null]),
+            Err(e) => self.js("MdView.boardText", &[id.clone(), Value::Null, json!(e)]),
+        }
+    }
+
+    /// … and as it is to be. The PDF is not touched.
+    pub(super) fn pdfink_save(&mut self, path: &str, text: &str, empty: bool, id: &Value) {
+        let p = scan::found(&resolve(Path::new(path)));
+        let done = if is_pdf(&p) && p.is_file() { ink_save(&p, &self.base_of(&p), text, empty) } else { Err("not a PDF file".into()) };
+        self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
+    }
+
     /// A picture from the clipboard for a whiteboard: a file beside the board's own — the note's
     /// from now on where the board is a note's, a file of the folder like the board where it is
     /// one. The page is told its name (none: the clipboard holds no picture).
@@ -362,6 +425,38 @@ impl Win {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn what_is_drawn_on_a_pdf_is_kept_in_the_folder_under_what_the_pdf_holds() {
+        let d = resolve(&std::env::temp_dir()).join(format!("mdview-pdfink-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("Sub")).unwrap();
+        let (pdf, bytes) = (d.join("Sub/paper.pdf"), b"%PDF-1.4 a paper".to_vec());
+        fs::write(&pdf, &bytes).unwrap();
+        assert_eq!(ink_read(&pdf, &d), Ok(None));
+        // nothing drawn: nothing kept, and no folder made for it
+        ink_save(&pdf, &d, "", true).unwrap();
+        assert!(!d.join(".mdview").exists());
+        let board = format!("<svg>{BOARD_MARK}<![CDATA[\n{{\"board\":1}}\n]]></metadata></svg>");
+        assert!(ink_save(&pdf, &d, "<svg/>", false).is_err());
+        ink_save(&pdf, &d, &board, false).unwrap();
+        // named as Git names the PDF's bytes (`git hash-object`): the web app finds the same file
+        let file = d.join(".mdview/pdf").join(format!("{}.board.svg", git2::Oid::hash_object(git2::ObjectType::Blob, &bytes).unwrap()));
+        assert_eq!(fs::read_to_string(&file).unwrap(), board);
+        assert_eq!(ink_read(&pdf, &d), Ok(Some(board.clone())));
+        assert_eq!(fs::read(&pdf).unwrap(), bytes); // the PDF is as it was
+        // moved and renamed: still its own
+        let moved = d.join("renamed.pdf");
+        fs::rename(&pdf, &moved).unwrap();
+        assert_eq!(ink_read(&moved, &d), Ok(Some(board)));
+        // another PDF has nothing on it
+        fs::write(&pdf, b"%PDF-1.4 another").unwrap();
+        assert_eq!(ink_read(&pdf, &d), Ok(None));
+        // all of it rubbed out: the file goes, and the folders made for it
+        ink_save(&moved, &d, "", true).unwrap();
+        assert!(!file.exists() && !d.join(".mdview").exists());
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn what_is_put_into_a_note_of_any_subfolder_goes_to_the_base_folders_assets() {

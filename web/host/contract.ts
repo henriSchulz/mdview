@@ -100,6 +100,8 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "board-new": ["write", "a new whiteboard: its file where the note's pictures go, in a commit at once"],
   "board-read": ["answer", "a whiteboard's text: the draft kept here, else the branch's"],
   "board-save": ["write", "a whiteboard as it is to be: a draft, in the next commit"],
+  "pdfink-read": ["answer", "what was drawn on a PDF: a whiteboard's text from .mdview/pdf, named by the PDF's blob — or nothing"],
+  "pdfink-save": ["write", "what is drawn on a PDF, as it is to be: a draft, in the next commit (none where nothing is drawn); the PDF is not written to"],
   "board-put": ["write", "a picture for a whiteboard, as the browser has it: a file beside the board's, in a commit at once — the note's where the board is a note's"],
   "board-paste": ["none", "the desktop's way to a pasted picture (the shell reads the clipboard); a browser has it in the paste itself: board-put"],
   "board-drop": ["none", "the desktop's way to dropped files (it is told their addresses); a browser has the files: board-put"],

@@ -152,6 +152,19 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     choosing. How far beside a thing still counts is said in screen pixels (divided by the zoom),
     not in the board's units.
 
+57. **What a gesture makes larger is what lies under the pointer** — a pinch, a wheel, on a
+    whiteboard and over a PDF. Where the host says only how much (a touchpad's pinch on the
+    desktop), the page remembers where the pointer is. A step that comes in notches (a mouse's
+    wheel) is a glide to where it leads, never a jump.
+58. **A panel lies over the window; it does not push it.** Outline, pages and notes of a PDF, the
+    panel at the right: nothing makes room, no page moves or is drawn anew, and what scrolls
+    inside it never scrolls the window (`scrollIntoView` does — set the list's `scrollTop`).
+
+59. **A view that comes over another of the same thing begins as that one stood.** The whiteboard
+    over a PDF: the pages lie where they lay — both lay them out by one rule (the gap between
+    pages grows with the size in both) —, they come up with the pictures the viewer had, never
+    bare, and what belongs to the view below (its bar, its card) goes as the other comes.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or

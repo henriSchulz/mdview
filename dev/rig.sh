@@ -17,6 +17,7 @@
 #   dev/rig.sh ghostmath             a continuation that closes a formula: taken, it is one
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
+#   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
@@ -521,6 +522,32 @@ case "${1:-}" in
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
+  pdfink)
+    # a PDF by itself, drawn on; then the app anew, and what was drawn rubbed out
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.*.json
+    python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
+    was=$(sha256sum < "$R/work/paper.pdf"); fail=0
+    report() { # report NAME: the probe's steps, or that there are none
+      for _ in $(seq 400); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
+      sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
+      [[ -f $R/out/paper.pdf.$1.json ]] || { echo "FAIL no report ($1)"; tail -5 "$R/app.log"; fail=1; return; }
+      jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.$1.json"
+    }
+    check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi; }
+    app 90 MDVIEW_PROBE="$D/probe-pdfink.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/paper.pdf"
+    for v in open far large; do for _ in $(seq 300); do [[ -f $R/out/paper.pdf.$v.json || -f $R/out/paper.pdf.drawn.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pdfink-$v.png"; done
+    report drawn
+    f=$(ls "$R/work/.mdview/pdf/"*.board.svg 2>/dev/null | head -1)
+    check "what was drawn is a whiteboard's file in the folder's .mdview/pdf" '[[ -n $f ]] && grep -q "mdview-board" "$f"'
+    check "… named as Git names the PDF's bytes" '[[ $(basename "${f:-x}") == "$(git hash-object "$R/work/paper.pdf").board.svg" ]]'
+    check "the PDF itself is as it was" '[[ $(sha256sum < "$R/work/paper.pdf") == "$was" ]]'
+    app 90 MDVIEW_PROBE="$D/probe-pdfink.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/paper.pdf"
+    for _ in $(seq 300); do [[ -f $R/out/paper.pdf.shown.json || -f $R/out/paper.pdf.again.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/pdfink-shown.png"
+    report again
+    check "rubbed out: no file is kept, and no folder for it" '[[ ! -e $R/work/.mdview ]]'
+    check "the PDF itself is still as it was" '[[ $(sha256sum < "$R/work/paper.pdf") == "$was" ]]'
+    grep -q '^FAIL' <(jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/paper.pdf.{drawn,again}.json 2>/dev/null) && fail=1
+    exit $fail ;;
   pdf)
     # a note with links into a PDF and embeds of it, and the PDF itself in the window
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json "$R/out"/paper.pdf.*.json

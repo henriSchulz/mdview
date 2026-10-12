@@ -143,6 +143,13 @@
   // (a file a note names: where the link says, else in the repository's assets — core.js, foundIn)
   const where = (path) => (typeof path !== "string" || !path.startsWith(BASE + "/") || exists(path) ? path : BASE + "/" + C.foundIn(rel(path), every()));
   const paths = () => every().map((f) => BASE + "/" + f);
+  // where what was drawn on a PDF is kept: by the blob the PDF is (one not in a commit yet has none)
+  const inkOf = (path) => {
+    path = where(path);
+    const f = typeof path === "string" && exists(path) && C.kindOf(path) === "pdf" ? blobOf(rel(path)) : null;
+    if (!f || !f.sha) throw new Error("not a PDF of the repository yet");
+    return `.mdview/pdf/${f.sha}.board.svg`;
+  };
   // the guide: no file of the repository — the app's own, shown as a note that cannot be written
   const GUIDE = "/~guide/FEATURES.md", known = (path) => path === GUIDE || exists(path);
   let guide = null;
@@ -1126,6 +1133,28 @@
       try { await commit(); } finally { tell("busy", null); }
       if (blobs.has(rel(target))) return failed("Couldn't keep the picture");
       tell("boardPut", id, [C.nameOf(target)], null);
+    },
+    /* What was drawn on a PDF (board/pdf.js): a whiteboard's file in the repository's .mdview/pdf, named by the blob the PDF is —
+     * the name the desktop app works out for the same file (files.rs: ink_of), so what is drawn here is on the PDF there. The PDF
+     * is not written to; where nothing is drawn (any more) there is no file. */
+    async "pdfink-read"({ path, id }) {
+      try {
+        const r = inkOf(path);
+        tell("boardText", id, has(r) ? await textOf(BASE + "/" + r) : null, null);
+      } catch (e) { tell("boardText", id, null, String(e.message || e)); }
+    },
+    "pdfink-save"({ path, text, empty, id }) {
+      let r;
+      try { r = inkOf(path); } catch (e) { return tell("boardSaved", id, String(e.message || e)); }
+      if (!project()) return tell("boardSaved", id, NOT_YET);
+      if (empty) {
+        drafts.delete(r);
+        if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
+        keepDrafts();
+        later();
+      } else if (typeof text !== "string" || !text.includes(BOARD_MARK)) return tell("boardSaved", id, "not a whiteboard");
+      else write(r, text);
+      tell("boardSaved", id, null);
     },
     "board-save"({ path, text, id }) {
       path = where(path);
