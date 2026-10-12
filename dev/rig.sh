@@ -944,6 +944,11 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out"/*.sync-conflict.json; jq -e .pass "$R/out"/*.sync-conflict.json >/dev/null || fail=1
     ok "the folder is what was picked, and as its last commit says" 'cmp -s <(jq -j .raw "$R/out"/*.sync-conflict.json) "$A/$note" && [[ $(head -1 "$A/$note") == "written there" && -z $(git -C "$A" status --porcelain) ]]' 'head -2 "$A/$note"; git -C "$A" status --porcelain'
     ok "joined in a commit of its own, and the other side has it" '[[ $(git -C "$A" rev-list --merges --count HEAD) == 2 && $(git -C "$HUB" rev-parse main) == $(git -C "$A" rev-parse HEAD) ]]' 'git -C "$A" log --oneline --graph | head -6'
+    # opened anew, linked already: Sync Now is there before the two sides were first looked at (a minute, as the app runs)
+    rm -f "$R/out"/*.sync-button.json
+    app 30 MDVIEW_PROBE="$D/probe-sync-button.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    wait_for sync-button 150; pkill -f "^$APP" 2>/dev/null
+    ok "a linked project opened anew: Sync Now is in the sidebar's head at once" '[[ $(jq -c "[.linked, .display]" "$R/out"/*.sync-button.json) == "[true,\"grid\"]" ]]' 'jq -c . "$R/out"/*.sync-button.json'
     exit $fail ;;
   github)
     rm -rf "$R/work"; mkdir -p "$R/work/notes"; cp "$D"/tests/fixtures/basics.md "$R/work/notes/"; W="$R/work/notes"; rm -f "$R/out"/*.github*.json; fail=0

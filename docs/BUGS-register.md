@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-12
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| No Sync Now in the sidebar's head on the desktop, in a folder linked to GitHub (reproduced for the first half minute after a start, and for as long as nothing was reconciled; "always" was not reproduced) | the button was shown by whether the two sides had been reconciled since the app started (`history.sync`), not by whether the folder is linked: at a start that is nothing until the first snapshot's quiet while is over — and nothing is reconciled on the minute while a change waits | shown where the folder is linked (`history.linked`) | `rig.sh sync` (a linked project opened anew) |
+
 ### 2026-10-10
 
 | What Henri saw | Why | Fixed by | Guard |

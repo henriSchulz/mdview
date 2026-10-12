@@ -634,7 +634,7 @@
     f.all = f.tree;
     f.tree = listed(f.all, "sidebar");
     // (is there another side to sync with: a linked project — or, in the browser, always: the repository itself)
-    document.body.toggleAttribute("data-linked", !!(window.MdWeb || ((f.history || {}).sync)));
+    document.body.toggleAttribute("data-linked", !!(window.MdWeb || ((f.history || {}).linked)));
     if (f.width && !sbDragging) document.documentElement.style.setProperty("--sb-w", f.width + "px");
     if (f.quick && !sbDragging && !(f.width >= 340)) document.documentElement.style.setProperty("--sb-w", "360px"); // (a list of notes wants room)
     document.body.toggleAttribute("data-quick", !!f.quick);
