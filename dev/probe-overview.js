@@ -90,7 +90,7 @@
     ov.querySelector(".ov-tile").focus(); key("Backspace"); await sleep(600);
     ok("Backspace goes up, onto the folder left", document.activeElement.dataset.dir === "Projekte" && !ov.querySelector(".ov-crumb"), document.activeElement.className);
     ov.querySelector(".ov-folder").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a folder's menu: Open, Paste, Show in Finder, Copy, Cut, Duplicate, Copy Path, Rename, Hide, Move to Trash, Show", shown() === "Open|Paste|Show in Finder|Copy|Cut|Duplicate|Copy Path|Rename|Hide|Move to Trash|Show", shown());
+    ok("a folder's menu is the one its row in the sidebar has: Open, the four new things, Paste, Show in Finder, Copy, Cut, Duplicate, Copy Path, Colour and Icon…, Rename, Hide, Move to Trash, Show", shown() === "Open|New Note|New Folder|New Whiteboard|Add Files…|Paste|Show in Finder|Copy|Cut|Duplicate|Copy Path|Colour and Icon…|Rename|Hide|Move to Trash|Show", shown());
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(300);
     key("Escape"); await sleep(500);
     btn.click(); await sleep(700);

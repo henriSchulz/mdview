@@ -807,8 +807,14 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
   - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
     beside it what is in the one chosen — its own folders open in place. A right click on a
-    folder's sign opens the folder's own menu, as on its row: Colour and Icon…, new notes and
-    folders in it, copy, cut, hide, delete (its name is changed on its row, in another layout).
+    folder's sign opens the folder's own menu.
+  A folder has one menu wherever it is met — on its row, on its sign in the rail, on its tile in
+  All Notes: Open, New Note, New Folder, New Whiteboard, Add Files…, Paste, Show in Finder, Copy,
+  Cut, Duplicate, Copy Path, Colour and Icon…, Rename, Hide, Move to Trash, Show. So has a note on
+  its row and on its tile, and several things selected in the sidebar or in All Notes. What is
+  chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
+  tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
+  folder's row, and the name is changed there).
   - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
     pictures, formulas, tasks), a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.

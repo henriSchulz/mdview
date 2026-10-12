@@ -41,6 +41,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
 
+54. **One menu for a thing, wherever it is met.** The file menu's entries say for *what* they are
+    (`data-for`: a file, a folder, many, the empty room) — never *where* (a row, the rail, a tile).
+    A place that opens the menu names the thing; what an entry does differently in a place is
+    said where it is carried out (`runCtx`). `rig.sh sidebar` holds a folder's row, its sign in the
+    rail and its tile, and a note's row and tile, to the same entries: an entry added for one is
+    there for all.
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
@@ -200,7 +207,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     window of the application, a folder on a disk) is in the web host's
     `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
     row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
-53. **A feature of the page is built for both hosts, or its absence in the other is said at
+55. **A feature of the page is built for both hosts, or its absence in the other is said at
     once.** The page is one, and Henri uses it in both places: what is made for the desktop and
     left `"none"` in `web/host/contract.ts` is, to him, a change that "is not active on the
     website". With a new message: either the web host answers it too (and a web test says so),
