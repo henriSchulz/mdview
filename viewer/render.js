@@ -193,7 +193,7 @@
     // the first change into that mode then only has to build the note)
     // (… and at once where the panel at the right stands beside the reading view, which is theirs:
     // its room is kept from the first frame, so the note does not move over when it comes)
-    const panel = !P.activeLoad && mode === "read" && !!current && current.kind !== "pdf" && !(window.MdHost && window.MdHost.reading) && !!window.MdPrefs && !!MdPrefs.panel && MdPrefs.panelTab === "document";
+    const panel = !P.activeLoad && mode === "read" && !!current && current.kind !== "pdf" && !(window.MdHost && window.MdHost.reading) && !!window.MdPrefs && !!MdPrefs.panel && ["style", "info", "document"].includes(MdPrefs.panelTab);
     if (panel && !P.preloadTimer) document.body.dataset.panel = "";
     if (!P.preloadTimer && !P.activeLoad) P.preloadTimer = setTimeout(() => { if (!P.activeLoad && current && current.kind !== "pdf") P.loadActive().catch(() => { delete document.body.dataset.panel; }); }, panel ? 0 : 1500);
   }
