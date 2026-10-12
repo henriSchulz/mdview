@@ -11,6 +11,9 @@
 
   const NONCE = document.currentScript.nonce;
   const DESKTOP = !!window.__TAURI_INTERNALS__; // the desktop application's window (not a browser, whose host is the web app's)
+  // the host works with the folder's files as files — copies them, hides them, takes new ones in, keeps a whiteboard as a file of
+  // its own: the application, and a host that says so before the page is there (the web app on a repository: web/lib/page.ts)
+  const FILEWORK = DESKTOP || !!(window.MdHost && window.MdHost.filework);
   const ASSETS = document.currentScript.src.replace(/\/viewer\/[^/]*$/, ""); // (this file is in viewer/)
   const content = document.getElementById("content");
   const baseEl = document.querySelector("base");
@@ -162,7 +165,7 @@
   }).join("");
 
   // what the page's other files use of this one
-  Object.assign(P, { NONCE, DESKTOP, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
+  Object.assign(P, { NONCE, DESKTOP, FILEWORK, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
     ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, slugify,
     inlineText });
   // … and what changes while the page runs (set from elsewhere where a second function is given)

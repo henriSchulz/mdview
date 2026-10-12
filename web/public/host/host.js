@@ -185,6 +185,12 @@
     const text = drafts.has(C.FOLDERS) ? drafts.get(C.FOLDERS).text : texts.get((files.get(C.FOLDERS) || {}).sha);
     return gone.has(C.FOLDERS) || text == null ? {} : C.looksOf(text);
   }
+  // one of the files the app keeps in the repository about it (.mdview/…), as far as it is read: its text, or null
+  const textNow = (r) => (gone.has(r) ? null : drafts.has(r) ? drafts.get(r).text : texts.get((files.get(r) || {}).sha) ?? null);
+  /* What the list leaves out beside the names with a dot: what the app keeps for a note — a picture
+   * pasted, a whiteboard made in it — as the desktop app's list does (folder.rs: rescan). */
+  const putAway = () => new Set(Object.keys(C.attachOf(textNow(C.ATTACH) ?? "")));
+  const treeNow = (more) => C.buildTree(BASE, every(), { away: putAway(), ...more });
   // a folder under another path keeps its look
   function looksFollow(was, to) {
     const looks = looksNow(), a = rel(was);
@@ -201,7 +207,7 @@
     const changed = byDate() ? new Map(every().map((r) => [BASE + "/" + r, changedAt(r)])) : null;
     if (changed) askDates();
     const payload = {
-      root: BASE, name: W.repo, tree: C.buildTree(BASE, every(), { show, titles, changed, opened: here.opened, keep: [...keptDirs] }),
+      root: BASE, name: W.repo, tree: treeNow({ show, titles, changed, opened: here.opened, keep: [...keptDirs], all: !!prefs.showHidden }), // (all: what is put away too, dimmed — where the settings ask for it)
       titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(), looks: looksNow(),
     };
     const blob = JSON.stringify(payload);
@@ -678,12 +684,12 @@
   }
   async function relocate(path, now, how) {
     const r = rel(path);
-    if (C.isMd(path)) {
+    if (C.isMd(path) || isBoard(path)) { // (a whiteboard is text too: what was drawn and is no commit yet goes along)
       const text = await textOf(path);
       drafts.delete(r);
       if (files.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
       write(rel(now), text);
-      await sharesFollow(r, rel(now)); // (its link goes on showing it)
+      if (C.isMd(path)) await sharesFollow(r, rel(now)); // (its link goes on showing it)
     } else if (blobs.has(r)) { // (put in here and in no commit yet: only its name is another)
       blobs.set(rel(now), blobs.get(r));
       blobs.delete(r);
@@ -706,9 +712,13 @@
 
   // ------------------------------------------------------------ what the page says
   const noteDir = () => (onScreen ? C.dirOf(onScreen) : BASE);
+  // a folder of the repository: one with a file in it, or made here and still empty
+  const isDir = (path) => typeof path === "string" && path.startsWith(BASE + "/") && !exists(path) && (keptDirs.has(path) || paths().some((p) => p.startsWith(path + "/")));
+  const targetDir = (dir) => (isDir(dir) ? dir : BASE); // where something new goes: the folder asked for, else the repository itself (folder.rs: target_dir)
   const on = {
     note({ path, tab }) {
       if (!exists(path)) return;
+      if (isBoard(path)) return tell("openBoardFile", path); // (a whiteboard: over the window, as one in a note opens)
       if (!["md", "pdf"].includes(C.kindOf(path))) return openFile(path);
       const there = tabs.find(path);
       if (tab) apply(tabs.add(path)); else if (there >= 0) apply(tabs.selectAt(there)); else openPath(path, null, true);
@@ -778,7 +788,7 @@
       prefs = { ...prefs, ...(changed || {}) };
       keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); // (what was chosen, not the defaults beside it: lib/page.ts)
       tell("setPrefs", prefs);
-      if (Object.keys(changed || {}).some((k) => k.startsWith("sidebar") || ["ovPdf", "ovImages", "ovMedia", "ovOther"].includes(k))) sendFolder();
+      if (Object.keys(changed || {}).some((k) => k.startsWith("sidebar") || ["ovPdf", "ovImages", "ovMedia", "ovOther", "showHidden"].includes(k))) sendFolder();
     },
     sidebar({ width, visible, titles }) {
       const n = Number(width);
@@ -793,9 +803,9 @@
     "settings-info"() {
       const st = standing(), versions = !head ? 0 : counted.head === head ? counted.n : null;
       // (hide: what the settings have for the desktop alone — the model, signing in, linking, the quick notes
-      // and their folder on a disk, what is put out of sight in a folder, where the folder lies: what cannot be here)
+      // and their folder on a disk, where the folder lies: what cannot be here)
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: browserAs.name, deviceId: device.id, home: "",
-        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir", "quickNew", "quickDir", "showHidden", "historyRoot"],
+        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir", "quickNew", "quickDir", "historyRoot"],
         // (how many versions: told once GitHub has said it — until then the row is not there; the last one: the commit the branch stands at)
         history: { ...st, branch, ...(versions == null ? {} : { versions }), ...(head && tip.time ? { last: { time: tip.time, device: tip.device } } : {}), changed: drafts.size + gone.size, waiting: drafts.size + gone.size > 0 }, github: { user: W.user, repos: [] } });
       if (versions == null) countVersions();
@@ -904,11 +914,12 @@
         tell("boardText", id, await textOf(path), null);
       } catch (e) { tell("boardText", id, null, String(e.message || e)); }
     },
-    // a picture or another file for a whiteboard, handed over as it is: a file beside the board's own, the note's from now on, in a commit at once
+    // a picture or another file for a whiteboard, handed over as it is: a file beside the board's own, in a commit at once — the note's
+    // from now on where the board is a note's, a file of the repository like the board where it is one (files.rs: board_drop)
     async "board-put"({ path, name, base64, id }) {
       const failed = (error) => tell("boardPut", id, [], error);
       path = where(path);
-      if (typeof path !== "string" || typeof base64 !== "string" || !exists(path) || !isBoard(path) || !onScreen || onScreen === GUIDE) return failed("not a whiteboard");
+      if (typeof path !== "string" || typeof base64 !== "string" || !exists(path) || !isBoard(path)) return failed("not a whiteboard");
       if (!mayWrite()) return failed(NOT_YET);
       if (base64.length > PICTURE_MOST * 1.37) return failed("too large to keep here (over 10 MB)");
       const clean = C.cleanName(String(name || "")) || "picture.png", dot = clean.lastIndexOf(".") > 0 ? clean.lastIndexOf(".") : clean.length, dir = C.dirOf(path);
@@ -916,9 +927,8 @@
       for (let n = 2; exists(target); n++) target = `${dir}/${clean.slice(0, dot)}-${n}${clean.slice(dot)}`;
       if (C.isMd(target) || isBoard(target)) return failed("not a file for a whiteboard");
       blobs.set(rel(target), base64);
-      const all = await owned();
-      all[rel(target)] = rel(onScreen);
-      write(C.ATTACH, C.attachText(all));
+      const all = await owned(), note = all[rel(path)];
+      if (note) { all[rel(target)] = note; write(C.ATTACH, C.attachText(all)); }
       tell("busy", "Adding the picture…");
       try { await commit(); } finally { tell("busy", null); }
       if (blobs.has(rel(target))) return failed("Couldn't keep the picture");
@@ -930,6 +940,46 @@
       if (!project()) return tell("boardSaved", id, NOT_YET);
       write(rel(path), text);
       tell("boardSaved", id, null);
+    },
+    /* A whiteboard as a file of the repository — its own, in no note (one can show it all the
+     * same: it is linked there as a picture is). The page wrote what an empty one holds; it is a
+     * commit at once, so that its picture is there for a tile and for a note. */
+    newboard({ name, dir, text }) {
+      if (typeof text !== "string" || !text.includes(BOARD_MARK) || !mayWrite()) return;
+      let stem = C.cleanName(name);
+      for (const ending of [".board.svg", ".svg", ".board"]) if (stem.toLowerCase().endsWith(ending)) stem = stem.slice(0, -ending.length).trimEnd();
+      const path = `${targetDir(dir)}/${stem || "Whiteboard"}.board.svg`;
+      if (exists(path)) toast(`“${C.nameOf(path)}” already exists`); else { write(rel(path), text); commit(); }
+      sendFolder();
+      tell("revealRows", [path]);
+      tell("openBoardFile", path);
+    },
+    /* Every whiteboard of the repository, for All Notes: those that are files of their own and
+     * those a note keeps (which the list leaves out), each with the notes that show it
+     * (folder.rs: send_boards). */
+    async boards() {
+      if (project() && [...drafts.keys()].some(isBoard)) await commit(); // (drawn on and shut: a tile shows the repository's picture, so that is kept first)
+      const boards = every().filter((r) => isBoard(r) && C.shown(r)).sort(C.naturalCmp).slice(0, 2000), notes = every().filter((r) => C.isMd(r) && C.shown(r)).slice(0, 4000);
+      const all = await owned();
+      // (mtime: what tells the page a picture is another by now, as a tile's — previews)
+      const out = boards.map((r) => ({ path: BASE + "/" + r, name: C.nameOf(r), url: fileUrl(BASE + "/" + r), mtime: drafts.has(r) ? drafts.get(r).at || 1 : parseInt(((files.get(r) || {}).sha || "0").slice(0, 12), 16), kept: Object.hasOwn(all, r), in: [] }));
+      if (out.length) {
+        await loadAll(); // (every note's text: which of them names a board)
+        for (const n of notes) {
+          const text = drafts.has(n) ? drafts.get(n).text : texts.get((files.get(n) || {}).sha);
+          if (typeof text === "string" && text.includes(".board.svg")) for (const b of out) if (C.mentions(text, b.name)) b.in.push(BASE + "/" + n);
+        }
+      }
+      tell("setBoards", out);
+    },
+    /* A whiteboard a note keeps becomes a file of its own: listed in the repository, and no
+     * longer taken away with what the note no longer shows. */
+    async "board-free"({ path }) {
+      if (!exists(path) || !isBoard(path) || !mayWrite()) return;
+      const all = await owned();
+      if (Object.hasOwn(all, rel(path))) { delete all[rel(path)]; write(C.ATTACH, C.attachText(all)); }
+      sendFolder();
+      return on.boards();
     },
 
     // writing
@@ -1041,7 +1091,7 @@
       }
       const list = [...all];
       if (!list.length) { if (emptied) sendFolder(); return; }
-      const was = all.has(onScreen), notes = C.notesOf(C.buildTree(BASE, every(), { show: [] })), i = notes.findIndex((n) => n.path === onScreen);
+      const was = all.has(onScreen), notes = C.notesOf(treeNow({ show: [] })), i = notes.findIndex((n) => n.path === onScreen);
       const stays = (n) => !all.has(n.path);
       const next = was && i >= 0 ? (notes.slice(i + 1).find(stays) || notes.slice(0, i).reverse().find(stays) || {}).path : null;
       for (const p of list) {
@@ -1145,6 +1195,7 @@
     everything = null;
     if (files.has(C.SHARES)) await fetchTexts([files.get(C.SHARES).sha]).catch(() => {}); // (what is shared: the sidebar marks it)
     if (files.has(C.FOLDERS)) await fetchTexts([files.get(C.FOLDERS).sha]).catch(() => {}); // (how the folders look: the sidebar draws them so)
+    if (files.has(C.ATTACH)) await fetchTexts([files.get(C.ATTACH).sha]).catch(() => {}); // (what is kept for a note: the list leaves it out)
     return true;
   }
   /* Looked at again every minute, and when the tab is come back to: what another device sent is shown. */
@@ -1183,7 +1234,7 @@
     if (here.sidebar.titles) await loadAll();
     sendFolder();
     const first = (wanted && good(BASE + "/" + wanted) && BASE + "/" + wanted) || (good(tabs.current.path) && tabs.current.path)
-      || (kept ? null : (good(here.last) && here.last) || (C.notesOf(C.buildTree(BASE, every(), { show: [] }))[0] || {}).path || null);
+      || (kept ? null : (good(here.last) && here.last) || (C.notesOf(treeNow({ show: [] }))[0] || {}).path || null);
     if (first) {
       const there = tabs.find(first);
       if (there >= 0 && tabs.current.path !== first) apply(tabs.selectAt(there)); else openPath(first, null, false);

@@ -4,7 +4,7 @@
 "use strict";
 (() => {
   const P = window.MdPage;
-  const { post, T, esc, motionMs, keys, svg, ICON, DECO_COLORS } = P; // viewer/base.js
+  const { FILEWORK, post, T, esc, motionMs, keys, svg, ICON, DECO_COLORS } = P; // viewer/base.js
   const { stripFrontmatter, pageFacts } = P; // viewer/prep.js
   const { going, clear } = P; // viewer/render.js
   const { toolbar, toast } = P; // viewer/chrome.js
@@ -504,8 +504,10 @@
     moving.start(e, item.dataset.key, item.firstChild.firstChild, all);
   });
   /* Files from elsewhere — a file manager, another application — pulled over the list: they are
-   * copied into the folder they are let go on (the shell: import). */
-  const foreign = (e) => !moving.path && !!folder && !folder.quick && !!window.__TAURI_INTERNALS__ && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
+   * copied into the folder they are let go on (the shell: import). A browser's host is handed
+   * what was dropped as it is — it has the files themselves, not their addresses. → whether it took them */
+  const addFiles = (transfer, dir) => { const add = window.MdHost && window.MdHost.addFiles; if (add) add(transfer, dir); return !!add; };
+  const foreign = (e) => !moving.path && !!folder && !folder.quick && FILEWORK && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
   sidebar.addEventListener("dragover", (e) => {
     const [el, dir] = sbDropDir(e);
     if (foreign(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDropInto(el); return; }
@@ -520,6 +522,7 @@
     setDropInto(null);
     if (foreign(e)) {
       e.preventDefault();
+      if (addFiles(e.dataTransfer, dir)) return;
       const uris = (e.dataTransfer.getData("text/uri-list") || "").split(/\r?\n/).map((u) => u.trim()).filter((u) => /^file:/.test(u));
       if (uris.length) post("import", { uris, dir }); else toast(T("Only files can be dropped here"));
       return;
@@ -767,7 +770,7 @@
     if (!row || e.altKey || e.target.closest(".sb-rename")) return;
     const item = row.closest(".sb-item"), isDir = item.classList.contains("is-dir");
     if (e.ctrlKey || e.metaKey) { // Copy, Cut, Paste, Duplicate — on the row the keyboard is on, or on all that are selected
-      const cmd = e.shiftKey || !window.__TAURI_INTERNALS__ ? null : { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
+      const cmd = e.shiftKey || !FILEWORK ? null : { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
       if (cmd) { e.preventDefault(); e.stopPropagation(); fileCmd(cmd, targetsOf(item), dirFor(item)); }
       return;
     }
@@ -874,7 +877,7 @@
     subWhere = ctxFor && ctxFor.closest("#overview") ? "ov" : "sidebar";
     const tick = (on, how, label) => `<button class="menu-item" role="menuitemcheckbox" aria-checked="${on}" ${how}><span class="menu-icon"${on ? "" : ' style="visibility:hidden"'}>${ICON.check}</span><span class="menu-label">${esc(T(label))}</span></button>`;
     // (each kind that is listed — and, for both lists at once, what is put away: hidden by hand, named with a dot, kept for a note)
-    ctxSub.innerHTML = GROUPS.map(([g, , label]) => tick(groupOn(subWhere, g), `data-group="${g}"`, label)).join("") + (window.__TAURI_INTERNALS__ ? `<div class="menu-rule"></div>` + tick(!!(window.MdPrefs || {}).showHidden, `data-pref="showHidden"`, "Hidden Items") : ""); // (put away is a folder's on this computer: nothing of it in a browser)
+    ctxSub.innerHTML = GROUPS.map(([g, , label]) => tick(groupOn(subWhere, g), `data-group="${g}"`, label)).join("") + (FILEWORK ? `<div class="menu-rule"></div>` + tick(!!(window.MdPrefs || {}).showHidden, `data-pref="showHidden"`, "Hidden Items") : ""); // (where the host puts things away: not among the welcome page's notes)
     subItems = [...ctxSub.querySelectorAll(".menu-item")];
     const r = from.getBoundingClientRect(), w = ctxSub.offsetWidth, right = r.right + 2 + w <= innerWidth - 8;
     ctxSub.style.setProperty("--origin", right ? "top left" : "top right");
@@ -929,7 +932,7 @@
   const FILE_CMDS = ["newboard", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote", "boardfree"];
   function ctxLacks(cmd, item, kind) {
     if (!FILE_CMDS.includes(cmd) && !(item.dataset && item.dataset.kept != null)) return false;
-    if (FILE_CMDS.includes(cmd) && (!window.__TAURI_INTERNALS__ || (folder && folder.quick))) return true; // (what only the application on a folder of this computer does)
+    if (FILE_CMDS.includes(cmd) && (!FILEWORK || (folder && folder.quick))) return true; // (what only a host that works with files as files does: viewer/base.js)
     const path = item.dataset ? item.dataset.path || item.dataset.key || "" : "", board = /\.board\.svg$/i.test(path), kept = !!item.dataset && item.dataset.kept != null;
     if (kept) return !["open", "reveal", "embed", "boardnote", "boardfree", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
     if (cmd === "rename" && ctxFrom) return true; // (a name is changed in its row, and a folder met in the rail has none on screen)
@@ -1050,7 +1053,7 @@
   // what the page's other files use of this one
   Object.assign(P, { sidebar, sbHead, sbList, sbTitlesBtn, sbHistoryBtn, sidebarOpen, sortKey, sortNotes,
     resort, rowIcon, syncList, sbLayout, lookOf, colorVar, folderGlyph, sbPreviews, setFolder, moving,
-    markShared, quickWhen, quickPreviews, quickFresh, GROUPS, groupOn, listed, applyFolder, markActiveNote, revealRows, fileCmd,
+    markShared, quickWhen, quickPreviews, quickFresh, GROUPS, groupOn, listed, applyFolder, markActiveNote, revealRows, fileCmd, addFiles,
     ctx, ctxSub, subOpen, openSub, closeSub, ctxOpen, setCtxHl, openCtx, closeCtx, runCtx });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

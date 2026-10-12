@@ -48,9 +48,10 @@ const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
 export const inline = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c").split(LS).join("\\u2028").split(PS).join("\\u2029"); // (never closes the script it stands in)
 
 
-// What the page offers and a browser cannot do (commands of its menus), and what is called
+// What the page offers and a browser cannot do (commands of its menus: a file of a repository is
+// opened by no other program, lies in no Finder and has no path on a disk), and what is called
 // otherwise here: a file deleted in a repository goes to no Trash, its versions stay.
-const LACKS = ["default", "openwith", "reveal"];
+const LACKS = ["default", "openwith", "reveal", "copypath", "copyf", "cutf", "pastef", "duplicate", "hide", "unhide", "addfiles"]; // (the last seven: not yet)
 const LABELS = { trash: "Delete" };
 
 // While the page is on its way — its scripts, then the repository or the shared note itself — the
@@ -75,10 +76,12 @@ const BOOTED = `(function(){var b=document.getElementById("boot"),c=document.get
 
 /** The document. web: what the host is told (window.MdWeb, with the themes added). files: where
  * the page finds files beside a note. base: what relative addresses in the page start from.
- * reading: the note is only read here (no modes to switch between). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
+ * reading: the note is only read here (no modes to switch between). filework: the host works with
+ * the files as files — copies and hides them, takes new ones in, keeps whiteboards as files of
+ * their own (host.js on a repository; the page offers that only where it is said: viewer/base.js). hosts: the scripts that are the host, after the page's own. referrer: what other sites are told
  * of this address when a link is followed. framed: this server's own pages may show it in a frame
  * (the welcome page's sample notes); nothing else ever may. */
-export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string; reading?: boolean; framed?: boolean }): Response {
+export function pageDocument(o: { here: string; title: string; web: object; files: string; base: string; hosts: string[]; prefs?: object; referrer?: string; reading?: boolean; filework?: boolean; framed?: boolean }): Response {
   const nonce = randomBytes(16).toString("base64"), a = "/app", here = o.here;
   // Scripts only with this document's nonce — so nothing a note brings (HTML in Markdown, a file
   // of the repository) can run as one. Everything else from here or as data.
@@ -88,7 +91,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
   // yet is kept for it), the settings, and the theme the system has
   const before =
     `window.MdWeb=${inline(web)};` +
-    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}${o.reading ? "" : ",download:true"}};` +
+    `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""}${o.filework ? ",filework:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}${o.reading ? "" : ",download:true"}};` +
     `window.MdPrefs=${CHOSEN}(${inline({ ...PREFS, ...(o.prefs || {}) })});` +
     `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");

@@ -41,10 +41,15 @@
    * base: the path the repository stands at ("/owner/repo"). show: which kinds beside notes
    * ("pdf", "image", "media", "other"). titles: path → a note's title, where they are wanted.
    * opened: path → when it was last opened. changed: path → when it was last changed (a Map),
-   * where that is known. A folder with nothing to show is left out. */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [] } = {}) {
-    const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [] });
-    const top = node(base), dirs = new Map([[base, top]]);
+   * where that is known. A folder with nothing to show is left out.
+   * away: what is put away beside the names with a dot and the folders tools make — hidden by
+   * hand, kept for a note (paths below the base; a folder's: all that is in it). all: these too,
+   * each marked `hidden`; what tools make is named then and not gone into. (scan.rs: walk) */
+  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false } = {}) {
+    const put = away instanceof Set ? away : new Set(away || []);
+    const isAway = (rel) => { const parts = rel.split("/"); return parts.some((p, i) => p.startsWith(".") || (put.size > 0 && put.has(parts.slice(0, i + 1).join("/")))); };
+    const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [], ...(path !== base && isAway(path.slice(base.length + 1)) ? { hidden: true } : {}) });
+    const top = node(base), dirs = new Map([[base, top]]), heavy = new Set();
     const dir = (path) => {
       let d = dirs.get(path);
       if (!d) { d = node(path); dirs.set(path, d); dir(dirOf(path)).dirs.push(d); }
@@ -52,22 +57,24 @@
     };
     let count = 0;
     for (const rel of [...files].sort(naturalCmp)) {
-      if (!shown(rel) || count >= NOTE_LIMIT) continue;
-      const path = base + "/" + rel, kind = kindOf(rel);
+      const parts = rel.split("/"), built = parts.slice(0, -1).findIndex((p) => SKIP_DIRS.includes(p)), hidden = built >= 0 || isAway(rel);
+      if (parts.length > DEPTH + 1 || count >= NOTE_LIMIT || (hidden && !all)) continue;
+      if (built >= 0) { const d = dir(base + "/" + parts.slice(0, built + 1).join("/")); d.hidden = true; heavy.add(d.path); continue; } // (thousands of files nobody wrote)
+      const path = base + "/" + rel, kind = kindOf(rel), mark = hidden ? { hidden: true } : {};
       if (kind === "md") {
-        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, opened: opened[path] || 0 });
+        dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, ...mark, opened: opened[path] || 0 });
       } else {
         const group = kind === "pdf" ? "pdf" : kind === "image" ? "image" : kind === "audio" || kind === "video" ? "media" : "other";
         if (!show.includes(group)) continue;
         // (a whiteboard — a picture by its ending — by its name alone, as the desktop app lists it)
         const board = /\.board\.svg$/i.test(rel);
-        dir(dirOf(path)).notes.push({ name: board ? nameOf(rel).slice(0, -".board.svg".length) : nameOf(rel), path, real: path, title: null, pdf: true, kind: board ? "board" : kind, opened: opened[path] || 0 });
+        dir(dirOf(path)).notes.push({ name: board ? nameOf(rel).slice(0, -".board.svg".length) : nameOf(rel), path, real: path, title: null, pdf: true, kind: board ? "board" : kind, ...mark, opened: opened[path] || 0 });
       }
       count++;
     }
     for (const k of keep) if (k.startsWith(base + "/") && shown(k.slice(base.length + 1) + "/x")) dir(k); // (folders made here, still empty)
     const kept = new Set(keep);
-    const prune = (n) => { n.dirs = n.dirs.filter((d) => { prune(d); return d.dirs.length || d.notes.length || kept.has(d.path); }); n.dirs.sort((a, b) => naturalCmp(a.name, b.name)); };
+    const prune = (n) => { n.dirs = n.dirs.filter((d) => { prune(d); return d.dirs.length || d.notes.length || kept.has(d.path) || heavy.has(d.path); }); n.dirs.sort((a, b) => naturalCmp(a.name, b.name)); };
     prune(top);
     return top;
   }
@@ -240,6 +247,32 @@
     if (lookWord(icon)) entry.icon = lookWord(icon);
     if (Object.keys(entry).length) next[rel] = entry; else delete next[rel];
     return next;
+  }
+  /* What of a repository was put out of sight by hand — a file, a folder with all that is in it
+   * — as it says itself, in .mdview/hidden.json: { version, hidden: [path] } (the desktop app
+   * writes the same file: src-tauri/src/hidden.rs). Read forgivingly; written in order, a name a
+   * line: two devices that each hide something change different lines. */
+  const HIDDEN = ".mdview/hidden.json";
+  function hiddenOf(text) {
+    let all = null;
+    try { all = JSON.parse(text || "{}"); } catch { /* (not to be read: as if empty) */ }
+    return new Set((all && Array.isArray(all.hidden) ? all.hidden : []).filter((p) => typeof p === "string" && p));
+  }
+  const hiddenText = (hidden) => JSON.stringify({ version: 1, hidden: [...hidden].sort() }, null, 2) + "\n";
+  // a file or a folder under another path — or gone (now: null): what was hidden of it stays hidden, what is gone is named no more
+  const hiddenMoved = (hidden, was, now) => new Set([...hidden].flatMap((k) => (k !== was && !k.startsWith(was + "/") ? [k] : now == null ? [] : [now + k.slice(was.length)])));
+  /* A file's name in two: what is kept when a number is put in, and its ending — a whiteboard's
+   * both ("a.board.svg": "a", ".board.svg"); a folder's name is whole. (folder.rs: name_parts) */
+  function nameParts(name, folder) {
+    const at = folder ? -1 : /\.board\.svg$/i.test(name) ? name.length - ".board.svg".length : name.lastIndexOf(".");
+    return at > 0 ? [name.slice(0, at), name.slice(at)] : [name, ""];
+  }
+  /* The first name that is free where a copy goes: its own, then "Name 2.x" (copy: "Name copy.x",
+   * "Name copy 2.x"). taken: says whether a name is. null: none found. (folder.rs: copy_free) */
+  function freeName(name, folder, copy, taken) {
+    const [own, ending] = nameParts(name, folder), stem = copy ? own + " copy" : own;
+    for (let n = 1; n < 1000; n++) { const free = n === 1 ? stem + ending : `${stem} ${n}${ending}`; if (!taken(free)) return free; }
+    return null;
   }
   // a folder under another path: its look, and that of the folders in it, go along
   const looksMoved = (looks, was, now) => Object.fromEntries(Object.entries(looks).map(([k, v]) => [k === was ? now : k.startsWith(was + "/") ? now + k.slice(was.length) : k, v]));
@@ -420,5 +453,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

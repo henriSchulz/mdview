@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ owne
   const session = await fresh().catch(() => null);
   if (!session) return Response.redirect(`${here}/signin?next=${encodeURIComponent(`/r/${owner}/${repo}`)}`, 307);
   return pageDocument({
-    here, title: repo, files: "/file", base: `/file/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/`, hosts: ["/host/core.js", "/host/host.js"],
+    here, title: repo, files: "/file", base: `/file/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/`, hosts: ["/host/core.js", "/host/host.js"], filework: true,
     web: { owner, repo, user: { login: session.login, name: session.name }, sharing: sharing() }, // (sharing: whether notes can be shared from this server)
   });
 }

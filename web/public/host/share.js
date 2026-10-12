@@ -66,7 +66,7 @@
     prefs({ prefs: changed }) { prefs = { ...prefs, ...(changed || {}) }; keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); tell("setPrefs", prefs); },
     "settings-info"() {
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: "", deviceId: "", home: "",
-        hide: ["page:ai", "page:history", "githubAccount", "githubGet", "hinting", "configDir"], history: { state: "none" }, github: { user: null, repos: [] } });
+        hide: ["page:ai", "page:history", "githubAccount", "githubGet", "hinting", "configDir", "showHidden"], history: { state: "none" }, github: { user: null, repos: [] } });
     },
     copy({ text }) { navigator.clipboard?.writeText(text || "").catch(() => {}); },
     print() { window.print(); },

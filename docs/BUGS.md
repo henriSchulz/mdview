@@ -197,9 +197,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 23. **A click made up by a key or a test has no target** — handlers that look at `event.target`
     check that it is an element.
 49. **A settings row is there where the host does what it sets**: what only the desktop has (a
-    window of the application, a folder on a disk, what is put out of sight) is in the web host's
+    window of the application, a folder on a disk) is in the web host's
     `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
     row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
+53. **A feature of the page is built for both hosts, or its absence in the other is said at
+    once.** The page is one, and Henri uses it in both places: what is made for the desktop and
+    left `"none"` in `web/host/contract.ts` is, to him, a change that "is not active on the
+    website". With a new message: either the web host answers it too (and a web test says so),
+    or the commit says that the browser does not have it, and why. What the page offers only
+    where the host works with files as files is behind one gate, `FILEWORK` (`viewer/base.js`:
+    the desktop, or a host that says `MdHost.filework` before the page is there) — never behind
+    `__TAURI_INTERNALS__` alone, which is for what a browser cannot do at all (rule 19).
 
 ### Touch (iPad)
 

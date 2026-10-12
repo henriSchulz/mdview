@@ -476,11 +476,11 @@ and shut back into it — or a file of the folder, of its own.
   panel's Insert tab, or Insert in the menu of a right click. The board opens at once. Its file
   is the note's: kept where the note's pictures go, in no list of the folder, and gone when the
   note no longer shows it.
-- **Making one as a file** (the desktop application): New Whiteboard — the sidebar's `+`, a right
+- **Making one as a file**: New Whiteboard — the sidebar's `+`, a right
   click on a folder or the empty room, the `+` of All Notes. It is asked for its name, made in
   that folder (`Name.board.svg`) and opened. It is listed like any file, under its name with a
   sign of its own; a click opens it over the window, and it is renamed, moved, copied, hidden
-  and trashed like any file.
+  and trashed like any file. (In the browser too: there it is a commit at once.)
 - **A whiteboard file shown in a note**: its menu › Embed in This Note puts it in at the caret
   (active mode; in the other two its link is copied, to be pasted) — or its row is pulled onto
   the note. It stands there as a board made in the note does (`![](Name.board.svg)`), and stays
@@ -994,8 +994,15 @@ counts — and has no writing help by a model.
   as on the desktop), in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.
-- **The settings** have what there is in a browser: no writing help, no quick notes, no hidden
-  items, no sharper text, no settings folder. History shows the repository — its name, its
+- **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
+  Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
+  is a commit like what is typed; a tile shows the board as the repository has it. What a note
+  keeps — a whiteboard made in it, a picture put into it *in the browser* — is in no list, as
+  here; Show › Hidden Items lists it, dimmed, with the names that begin with a dot and the build
+  folders (named, not gone into). What the desktop application put into a note it remembers on
+  its own computer: in the browser such a file is listed like any other.
+- **The settings** have what there is in a browser: no writing help, no quick notes, no sharper
+  text, no settings folder. History shows the repository — its name, its
   branch, how many versions it has, the last one, what is not kept yet — with the quiet while
   before a commit and the name this browser has in a version; signing in and choosing a
   repository are before any page.
