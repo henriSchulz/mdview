@@ -208,7 +208,7 @@
     el.innerHTML =
       `<div class="bd-stage"><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-tip" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
         `<div class="bd-band" hidden></div><div class="bd-guide bd-guide-v" hidden></div><div class="bd-guide bd-guide-h" hidden></div>` +
-        `<div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i>${["t", "r", "b", "l"].map((d) => `<i class="bd-conn" data-side="${d}"></i>`).join("")}</div><div class="bd-target" hidden></div><div class="bd-angle" hidden></div></div>` +
+        `<svg class="bd-marks" hidden><g></g></svg><div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i>${["t", "r", "b", "l"].map((d) => `<i class="bd-conn" data-side="${d}"></i>`).join("")}</div><div class="bd-joints" hidden>${["t", "r", "b", "l"].map((d) => `<i class="bd-joint" data-side="${d}"></i>`).join("")}</div><div class="bd-target" hidden></div><div class="bd-angle" hidden></div></div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
@@ -321,6 +321,8 @@
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
     sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, kind: () => (S ? S.kind : null), loop: (pts) => live(null, pts), inks: INKS.map(([, c]) => c), onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
+      // what the right button's menu shares with the keys: Ctrl+V (a picture on the clipboard first, on the desktop), Ctrl+A
+      canPaste: () => !BROWSER || sel.clip > 0, paste: () => { if (S.mode !== "select") setMode("select"); if (BROWSER) sel.paste(); else pasteHere(); }, all: () => { setKind("lasso"); sel.pick(S.model.items.filter((it) => !it.foreign)); },
       // a card's file or address, opened: by the host, as a link in a note is (a file in the program for its kind, an address in the browser)
       // (said to the host itself, the board kept first: said the page's own way, a link followed counts as leaving the note, which shuts the board)
       open: (it) => { if (!it || (it.k !== "link" && it.k !== "file")) return; save(); window.MdHost.post(JSON.stringify({ type: "link", href: it.k === "link" ? it.url : fileUrl(S.ref.slice(0, S.ref.lastIndexOf("/") + 1) + it.src), tab: "own" })); },
@@ -365,6 +367,13 @@
         const it = sel.itemAt(pt);
         if (it) { setKind("lasso", S.kind); sel.pick([it]); }
       }, twist: (points) => mine() && sel.twist(points), twisting: (deg) => sel.twisting(deg), twisted: () => sel.twisted(),
+      // The right button of a mouse, let go where it came down (pulled, it moved the board: pointer.js): the menu of what is there.
+      // A thing under it is chosen first, whatever tool is in hand — and the tool stays in hand, as after a finger's tap.
+      menu: (pt, e) => {
+        if (!S || S.readonly || sel.busy || !core.menuAt) return;
+        if (S.mode !== "select") { if (sel.thingAt(pt)) setKind("lasso", S.kind); else sel.pick([]); }
+        core.menuAt(e.clientX, e.clientY, sel.context(pt));
+      },
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
@@ -403,7 +412,7 @@
     el.querySelector(".bd-world").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
     grid(v, stage());
     el.querySelector('[data-do="zoom"]').textContent = Math.round(v.z * 100) + " %";
-    if (S.pick.length) sel.paint();
+    if (S.pick.length || sel.joints) sel.paint();
   }
   /* Everything the window shows, from what is so. */
   function paint() {
@@ -1000,6 +1009,7 @@
   function hover(pt) {
     if (!S) return;
     ring(pt);
+    if (!S.readonly) sel.hover(pt);
     const tip = el.querySelector(".bd-tip"), set = S.tools[S.tool], on = !!pt && pt.type === "pen" && !S.readonly && S.mode === "draw" && DRAWS.includes(S.tool);
     tip.hidden = !on;
     if (on) { const d = Math.max(3, set.w * S.view.z); tip.style.cssText = `width:${d}px;height:${d}px;transform:translate(${pt.x - d / 2}px, ${pt.y - d / 2}px);background:${set.c === "auto" ? "var(--fg)" : set.c};opacity:${Math.min(0.7, set.o)}`; }
@@ -1009,7 +1019,7 @@
 
   // ---------------------------------------------------------------- keys
   function keydown(e) {
-    if (!S) return;
+    if (!S || e.defaultPrevented) return; // (a key the page's menu took — the right button's, open over the board — is not the board's)
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
     if (mod && k === "q") return; // (the application's: it asks the page for what is unsaved, which leave() hands over)
     if (e.target.matches?.("input[type=text]")) return; // (a scene's name being typed: its own keys, and its field keeps them from the note)
@@ -1173,7 +1183,7 @@
     ruler: S.ruler && { ...S.ruler }, palette: el.dataset.palette || "bottom", mini: el.dataset.mini || null,
     crop: S.crop, insert: S.model.board.insert || null, scenes: S.model.scenes.map((sc) => ({ ...sc })),
     scene: S.scene, snap: !!S.model.board.snap,
-    menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect,
+    menu: vpop().dataset.open != null ? vpop().dataset.kind : null, connect: !!S.connect, joints: sel.joints,
     asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),

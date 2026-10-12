@@ -92,6 +92,53 @@ pub fn s(path: &Path) -> String {
     text
 }
 
+/// The one folder of a base folder that holds what is put into its notes (shell/files.rs).
+pub const ASSETS: &str = "assets";
+/// The folders the windows show: each the base folder of its notes, though nothing in it says so.
+static SHOWN: LazyLock<std::sync::Mutex<HashSet<PathBuf>>> = LazyLock::new(Default::default);
+pub fn shown(folder: &Path) {
+    SHOWN.lock().unwrap().insert(folder.to_path_buf());
+}
+
+/// The base folder a path lies in, as far as can be told without its window (shell/files.rs,
+/// base_of): the project's root, else the folder a window shows, else a repository's or a vault's.
+fn top_of(path: &Path) -> Option<PathBuf> {
+    if let crate::history::Place::Project(root) = crate::history::place_of(path) {
+        return Some(root);
+    }
+    let shown = SHOWN.lock().unwrap();
+    let above = || path.ancestors().skip(1).take(32);
+    above().find(|d| shown.contains(*d)).or_else(|| above().find(|d| d.join(".git").exists() || d.join(".obsidian").is_dir())).map(Path::to_path_buf)
+}
+
+/// The file a note names, where it is: where the link says — else, by its name, in the `assets`
+/// of a folder above, up to the base folder's (a note of a subfolder names what lies there as
+/// `assets/x.png`, and goes on naming it so wherever it is moved), and last in an `assets`
+/// anywhere in the base folder (a note moved away from pictures that were kept beside it, before
+/// there was one place for them). Nothing found: the path as it came.
+pub fn found(path: &Path) -> PathBuf {
+    if path.is_file() {
+        return path.to_path_buf();
+    }
+    let (Some(name), Some(top)) = (path.file_name(), top_of(path)) else { return path.to_path_buf() };
+    for dir in path.ancestors().skip(1).take_while(|d| d.starts_with(&top)) {
+        let there = dir.join(ASSETS).join(name);
+        if there != path && there.is_file() {
+            return there;
+        }
+    }
+    // (the one nearest the top; of two as near, the first by name — the same one every time)
+    let (name, deadline) = (name.to_string_lossy().into_owned(), Instant::now() + Duration::from_millis(200));
+    let mut hits: Vec<PathBuf> = vec![];
+    walk_files(&top, |dir, files| {
+        if dir.file_name().is_some_and(|d| d == ASSETS) && files.contains(&name) {
+            hits.push(dir.join(&name));
+        }
+        Instant::now() <= deadline
+    });
+    hits.into_iter().min_by_key(|h| (h.components().count(), h.clone())).unwrap_or_else(|| path.to_path_buf())
+}
+
 /// The path made absolute, links followed where the file exists.
 pub fn resolve(path: &Path) -> PathBuf {
     canon(path).unwrap_or_else(|_| std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()))
@@ -548,6 +595,43 @@ mod tests {
             out.extend(names(d).into_iter().map(|x| format!("{}/{x}", d.name)));
         }
         out
+    }
+
+    #[test]
+    fn a_file_a_note_names_is_found_in_the_base_folders_assets() {
+        let d = std::env::temp_dir().join(format!("mdview-found-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for dir in ["assets", "Sub/Deep", "Old/assets", "Other"] {
+            fs::create_dir_all(d.join(dir)).unwrap();
+        }
+        // (no window shows the folder, and nothing in it says where its top is: only where the link says)
+        fs::write(d.join("assets/one.png"), "").unwrap();
+        assert_eq!(found(&d.join("Sub/assets/one.png")), d.join("Sub/assets/one.png"));
+        shown(&d);
+        for f in ["assets/one.png", "Old/assets/kept.png", "Old/assets/one.png", "Sub/beside.png"] {
+            fs::write(d.join(f), f).unwrap();
+        }
+        // where the link says, when it is there: a folder's own assets go before the base folder's
+        assert_eq!(found(&d.join("Old/assets/one.png")), d.join("Old/assets/one.png"));
+        assert_eq!(found(&d.join("Sub/beside.png")), d.join("Sub/beside.png"));
+        // a note of a subfolder, however deep, names what is in the base folder's assets
+        assert_eq!(found(&d.join("Sub/assets/one.png")), d.join("assets/one.png"));
+        assert_eq!(found(&d.join("Sub/Deep/assets/one.png")), d.join("assets/one.png"));
+        // a note moved away from the pictures kept beside it: found where they stayed
+        assert_eq!(found(&d.join("Other/assets/kept.png")), d.join("Old/assets/kept.png"));
+        assert_eq!(found(&d.join("assets/kept.png")), d.join("Old/assets/kept.png"));
+        // nothing of that name: the path as it came — and nothing from above the folder's top
+        assert_eq!(found(&d.join("Sub/assets/none.png")), d.join("Sub/assets/none.png"));
+        // (a project is a base folder of its own, in whatever folder it lies)
+        let inner = d.join("Sub/Deep");
+        fs::create_dir_all(inner.join(".git")).unwrap();
+        fs::create_dir_all(inner.join(".mdview")).unwrap();
+        fs::write(inner.join(".mdview/project.json"), "{}").unwrap();
+        assert_eq!(found(&inner.join("assets/one.png")), inner.join("assets/one.png"));
+        fs::create_dir_all(inner.join("assets")).unwrap();
+        fs::write(inner.join("assets/own.png"), "").unwrap();
+        assert_eq!(found(&inner.join("Below/assets/own.png")), inner.join("assets/own.png"));
+        let _ = fs::remove_dir_all(d);
     }
 
     #[test]

@@ -146,7 +146,7 @@
   }
   /* The selection for these blocks (positions), `head` the one the keyboard goes on from: a range
    * where they stand one after the other in the same place, else one of them and the others beside it. */
-  // the columns of the row a block stands in that are picked whole (every block of theirs): { colsPos, cols, full: [column index…] } or null
+  // the columns of the row a block stands in that are picked whole (every block of theirs — a list's items all picked are the list): { colsPos, cols, full: [column index…] } or null
   function fullColumns(doc, list, pos) {
     const c = A.columns.around(doc.resolve(pos));
     if (!c) return null;
@@ -154,7 +154,8 @@
     let colPos = c.colsPos + 1;
     c.cols.forEach((col, _o, i) => {
       let p = colPos + 1, all = true, any = false;
-      col.forEach((b) => { if (usable(b)) { any = true; if (!list.includes(p)) all = false; } p += b.nodeSize; });
+      const items = (b, at) => { let q = at + 1, every = isList(b); b.forEach((it) => { if (!list.includes(q)) every = false; q += it.nodeSize; }); return every; };
+      col.forEach((b) => { if (usable(b)) { any = true; if (!list.includes(p) && !items(b, p)) all = false; } p += b.nodeSize; });
       if (all && any) full.push(i);
       colPos += col.nodeSize;
     });
@@ -878,7 +879,7 @@
   /* ---------------------------------------------------------------- a rectangle pulled over blocks
    * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;
    * the blocks of the document it reaches are selected as wholes (not the text in them), and stay
-   * so when it is let go: the keyboard works on them. Inside one list it takes the items it reaches. Near the window's upper and lower edge the
+   * so when it is let go: the keyboard works on them. Inside one list it takes the items it reaches (a list in a column as well). Near the window's upper and lower edge the
    * page scrolls along. A press let go where it was is a click: the blocks are let go, and below
    * the last block an empty line is made. */
   const band = document.createElement("div");
@@ -907,16 +908,22 @@
     return first == null ? null : [first, last];
   }
   /* Only a row of columns reached: the blocks in its columns the rectangle touches (they are picked
-   * one by one, column by column). -> their positions, or null */
+   * one by one, column by column) — in each column as in the document: of a list the items it
+   * reaches, not all of it. -> their positions, or null */
   function reachedIn(pos, x0, y0, x1, y1) {
     const row = view.nodeDOM(pos);
     if (!row || !row.classList || !row.classList.contains("cols")) return null;
     const L = Math.min(x0, x1) - scrollX, R = Math.max(x0, x1) - scrollX, T = Math.min(y0, y1) - scrollY, B = Math.max(y0, y1) - scrollY, out = [];
-    for (const col of row.children) for (const c of col.children) {
-      const d = c.pmViewDesc;
-      if (!d || !d.node || d.dom !== c || !usable(d.node)) continue;
-      const r = c.getBoundingClientRect();
-      if (r.height && r.right >= L && r.left <= R && r.bottom >= T && r.top <= B) out.push(d.posBefore);
+    for (const col of row.children) {
+      const hit = [];
+      for (const c of col.children) {
+        const d = c.pmViewDesc;
+        if (!d || !d.node || d.dom !== c || !usable(d.node)) continue;
+        const r = c.getBoundingClientRect();
+        if (r.height && r.right >= L && r.left <= R && r.bottom >= T && r.top <= B) hit.push(d.posBefore);
+      }
+      if (hit.length === 1) out.push(...(reachedItems(hit[0], y0, y1) || hit));
+      else hit.forEach((p, i) => out.push(...((!i || i === hit.length - 1) && endItems(p, T, B) || [p])));
     }
     return out.length ? out : null;
   }
@@ -936,6 +943,15 @@
     }
     return out;
   }
+  /* A list the first or the last of several blocks reached: its items between T and B (the
+   * window's coordinates), where those are not all of them. -> their positions, or null */
+  function endItems(pos, T, B) {
+    const el = view.nodeDOM(pos);
+    if (!el || !el.matches || !el.matches("ul, ol")) return null;
+    const items = [...el.children].filter((li) => li.matches("li") && li.pmViewDesc && li.pmViewDesc.dom === li && usable(li.pmViewDesc.node));
+    const hit = items.filter((li) => { const b = li.getBoundingClientRect(); return b.height && b.bottom >= T && b.top <= B; });
+    return hit.length && hit.length < items.length ? hit.map((li) => li.pmViewDesc.posBefore) : null;
+  }
   function pull() {
     const r = rubber, x = r.cx + scrollX, y = r.cy + scrollY;
     band.style.left = Math.min(r.x, x) + "px";
@@ -950,16 +966,9 @@
     // several blocks, a list the first or the last of them: of that list the items it reaches, not all of it
     if (!inner && got[0] !== got[1]) {
       const doc = view.state.doc, T = Math.min(r.y, y) - scrollY, B = Math.max(r.y, y) - scrollY, all = [];
-      const itemsOf = (pos) => {
-        const el = view.nodeDOM(pos);
-        if (!el || !el.matches || !el.matches("ul, ol")) return null;
-        const items = [...el.children].filter((li) => li.matches("li") && li.pmViewDesc && li.pmViewDesc.dom === li && usable(li.pmViewDesc.node));
-        const hit = items.filter((li) => { const b = li.getBoundingClientRect(); return b.height && b.bottom >= T && b.top <= B; });
-        return hit.length && hit.length < items.length ? hit.map((li) => li.pmViewDesc.posBefore) : null;
-      };
       for (let p = got[0]; p <= got[1]; p += doc.nodeAt(p).nodeSize) {
         if (!usable(doc.nodeAt(p))) continue;
-        const items = p === got[0] || p === got[1] ? itemsOf(p) : null;
+        const items = p === got[0] || p === got[1] ? endItems(p, T, B) : null;
         if (items) all.push(...items); else all.push(p);
       }
       if (all.length && (all[0] !== got[0] || all[all.length - 1] !== got[1] || all.some((p) => doc.resolve(p).depth > 0))) inner = all;

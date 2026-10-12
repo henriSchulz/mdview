@@ -179,6 +179,7 @@
         // links were resolved for the text as it was before editing
         if (from === "edit" && P.current.text.includes("[[")) post("reload");
       }
+      if (window.MdActive && MdActive.panel) MdActive.panel.sync(); // (the panel at the right: where it stands depends on the mode)
       if (findOpen()) runFind(findInput.value);
     }
     void body.offsetWidth;

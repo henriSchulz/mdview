@@ -53,7 +53,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 7. **A page is as wide with little on it as with much**, and as wide in one layout as in another:
    scroll containers that can be short or long reserve the scrollbar's room
    (`overflow-y: scroll`), and two layouts of the same page share one `max-width`.
-30. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
+52. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
     where the folder is linked (`history.linked`), not where the two sides have been reconciled
     (`history.sync`: nothing until the first answer, half a minute after a start or longer).
 
@@ -134,6 +134,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 45. **The rig's screenshot is of the rig's own window** (`shot` asks for the nested compositor's
     pid): with several rigs side by side the first window found is another session's.
 
+48. **What a pull or a click takes of a block follows the same rules wherever the block stands.**
+    The document and a column both hold lists; a rule written into the code that walks the
+    document's own blocks ("of a list the items it reaches, not the list") does not hold in a
+    column, which is walked by other code. Such a rule is a function both call, and its check
+    pulls over the same kind of block in each place (`rig.sh colsel`).
+51. **A thing on the whiteboard is met where it is drawn, never by the box around it.** Whatever
+    asks "is this under the pointer, in the box, in the loop" asks `items.js` (`hit`, `crosses`,
+    `outline`, `inside`) — `bounds` is for what must fit on the screen or in the picture, not for
+    choosing. How far beside a thing still counts is said in screen pixels (divided by the zoom),
+    not in the board's units.
+
 ### The clipboard
 
 10. **HTML the editor puts on the clipboard is marked as its own** (`data-pm-slice` or
@@ -163,6 +174,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     not kept.
 17. **A message from the page that makes the shell read a file names only files the shell
     already knows** (the folder's notes, files picked in the system's own window).
+50. **A file a note names is looked up by the one function that knows where such files are**
+    (`scan::found`; in the web host `foundIn`, `where`): where the link says, else the base
+    folder's `assets`. Whatever takes a path that came out of a note — the file server, a link,
+    a whiteboard, a PDF, a copy, a share — asks it and never the disk directly; whatever puts a
+    file into a note asks `attachment_dir` where and `way_to` how it is named. A note's place is
+    not part of how it names its pictures: it is moved, and its blocks are pasted elsewhere.
 18. **A path from Windows is not a path from Linux**: `C:\…`, `/C:/…` in a URL. Whatever builds
     or parses a file address is checked by the Windows probe (`system-probe.yml`), not by eye.
 
@@ -179,6 +196,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     there with seeded random edits; one more file changes every edit of the run.
 23. **A click made up by a key or a test has no target** — handlers that look at `event.target`
     check that it is an element.
+49. **A settings row is there where the host does what it sets**: what only the desktop has (a
+    window of the application, a folder on a disk, what is put out of sight) is in the web host's
+    `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
+    row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
 
 ### Touch (iPad)
 

@@ -200,6 +200,19 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-conn[data-side="r"] { left: calc(100% + 24px); top: 50%; } .bd-conn[data-side="r"]::after { rotate: 45deg; translate: -70% -50%; }
 .bd-conn[data-side="b"] { left: 50%; top: calc(100% + 24px); } .bd-conn[data-side="b"]::after { rotate: 135deg; translate: -50% -70%; }
 .bd-conn[data-side="l"] { left: -24px; top: 50%; } .bd-conn[data-side="l"]::after { rotate: -135deg; translate: -30% -50%; }
+/* Joints: a dot a little off the middle of each side of the thing the pointer rests over, and of the one thing chosen; pulled,
+ * a line grows out of it to another thing (select.js). The knob stands above the one on top. */
+.bd-joints { position: absolute; left: 0; top: 0; box-sizing: border-box; pointer-events: none; }
+.bd-joints[hidden] { display: none; }
+.bd-joint { position: absolute; width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg); translate: -50% -50%; opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-out), scale var(--dur-fast) var(--ease-out); }
+.bd-joint[data-on] { opacity: 1; scale: 1.5; transition-duration: var(--dur-instant); }
+.bd-joint[data-side="t"] { left: 50%; top: -18px; } .bd-joint[data-side="r"] { left: calc(100% + 18px); top: 50%; }
+.bd-joint[data-side="b"] { left: 50%; top: calc(100% + 18px); } .bd-joint[data-side="l"] { left: -18px; top: 50%; }
+.bd-pick[data-joints] .bd-knob { top: -44px; }
+.bd-pick[data-joints] .bd-knob::after { height: calc(18px - var(--bd-handle)); }
+#board[data-mode="select"] .bd-stage[data-joint] { cursor: crosshair; }
+@media (prefers-reduced-motion: no-preference) { .bd-joints:not([hidden]) .bd-joint { animation: bd-in var(--dur-fast) var(--ease-out); } }
+@media (prefers-reduced-motion: reduce) { .bd-joint { transition: none; } }
 .bd-target { position: absolute; left: 0; top: 0; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 4px; pointer-events: none; }
 .bd-target[hidden] { display: none; }
 .bd-cpop { position: absolute; box-sizing: border-box; display: grid; grid-template-columns: repeat(4, 40px); gap: 6px; padding: 8px; border-radius: var(--menu-radius); background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); --origin: center left; }
@@ -339,6 +352,14 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-stage[data-tool="shape"] { cursor: crosshair; }
 #board[data-mode="select"] .bd-stage[data-tool="text"] { cursor: text; }
 #board[data-mode="select"] .bd-stage[data-tool="shape"] { cursor: crosshair; }
+/* what is chosen, marked where it is drawn (several things, or strokes): the frame around them is the fainter of the two.
+ * (An SVG of no size draws nothing: it is one pixel, and what is in it runs over.) */
+.bd-marks { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.bd-marks[hidden] { display: none; }
+.bd-marks path { fill: none; stroke: var(--accent); stroke-linejoin: round; }
+.bd-mark-ink { opacity: 0.4; }
+.bd-mark-ink[data-shape] { fill: var(--accent); }
+.bd-pick[data-kind="many"], .bd-pick[data-kind="ink"] { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 2px; }
 /* strokes alone, chosen: dots at the four corners of their frame */
 .bd-pick[data-kind="ink"] { border-style: dashed; border-radius: 2px; }
 .bd-pick[data-kind="ink"] .bd-knob, .bd-pick[data-kind="ink"] .bd-dot[data-dot="n"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="e"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="s"], .bd-pick[data-kind="ink"] .bd-dot[data-dot="w"] { display: none; }

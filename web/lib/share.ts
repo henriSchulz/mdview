@@ -22,7 +22,11 @@ type Core = {
   isMd(p: string): boolean; kindOf(p: string): string; dirOf(p: string): string; nameOf(p: string): string;
   wikiTargets(text: string): { target: string; embed: boolean }[];
   resolver(base: string, paths: string[], noteDir: string): { vault: string | null; resolve(target: string): string | null };
+  foundIn(r: string, all: Set<string> | Map<string, unknown> | string[]): string;
 };
+/** A file a note names, where it is among these: where the link says, else in the repository's
+ * assets (core.js, foundIn) — the routes that hand files out ask as the host in the browser does. */
+export const foundIn = (r: string, all: Set<string> | Map<string, unknown> | string[]) => C.foundIn(r, all);
 const C = (globalThis as unknown as { MdWebCore: Core }).MdWebCore;
 
 export const SHARES = ".mdview/shares.json";
@@ -110,7 +114,9 @@ async function read(owner: string, repo: string, id: string, at: string): Promis
       const out = dir.split("/");
       for (const part of name.split("/")) { if (part === "..") out.pop(); else if (part && part !== ".") out.push(part); }
       const to = out.join("/");
-      if (to.startsWith(base + "/") && sha.has(rel(to)) && files.size < FILES_MOST) files.add(rel(to));
+      if (!to.startsWith(base + "/")) continue;
+      const at = C.foundIn(rel(to), sha); // (named `assets/…` from a subfolder: the repository's assets)
+      if (sha.has(at) && files.size < FILES_MOST) files.add(at);
     }
   }
   void noted(owner, repo, id, entry).catch(() => {}); // (as it stands now: where it is, whether it has a password)

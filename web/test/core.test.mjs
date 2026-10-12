@@ -65,6 +65,23 @@ test("wikilinks lead where Obsidian finds them", () => {
   assert.deepEqual(C.wikiTargets("see [[A]] and [[B c|shown]], ![[pic.png|300]] but not [[\nbroken]]"), [{ target: "A", embed: false }, { target: "B c", embed: false }, { target: "pic.png", embed: true }]);
 });
 
+test("a file a note names is found in the repository's assets, from whatever folder", () => {
+  const all = ["assets/one.png", "Old/assets/kept.png", "Old/assets/one.png", "Sub/beside.png", "Sub/Deep/n.md", "A/B/assets/far.png", "Z/assets/far.png"];
+  // where the link says, when it is there: a folder's own assets go before the repository's
+  assert.equal(C.foundIn("Old/assets/one.png", all), "Old/assets/one.png");
+  assert.equal(C.foundIn("Sub/beside.png", new Set(all)), "Sub/beside.png");
+  // a note of a subfolder, however deep, names what is in the repository's assets
+  assert.equal(C.foundIn("Sub/assets/one.png", all), "assets/one.png");
+  assert.equal(C.foundIn("Sub/Deep/assets/one.png", new Map(all.map((p) => [p, 1]))), "assets/one.png");
+  // a note moved away from the pictures kept beside it: found where they stayed (the one nearest the top)
+  assert.equal(C.foundIn("Other/assets/kept.png", all), "Old/assets/kept.png");
+  assert.equal(C.foundIn("assets/kept.png", all), "Old/assets/kept.png");
+  assert.equal(C.foundIn("Sub/assets/far.png", all), "Z/assets/far.png");
+  // nothing of that name: the path as it came
+  assert.equal(C.foundIn("Sub/assets/none.png", all), "Sub/assets/none.png");
+  assert.equal(C.foundIn("Sub/kept.png", all), "Old/assets/kept.png");
+});
+
 test("an address the page goes to is a file here, or elsewhere", () => {
   const files = "https://app.example/file";
   assert.deepEqual(C.linkPath("https://app.example/file/octo/notes/sub/A%20note.md#Some%20heading", files), { path: "/octo/notes/sub/A note.md", fragment: "Some heading" });

@@ -25,11 +25,11 @@ before(async () => {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   gh.appKey = publicKey;
   const put = (p, t) => gh.repo.files.set(p, Buffer.from(t));
-  put("docs/Shown.md", "# Shown\n\nA picture: ![one](img/pic.png)\n\n![[Inside]]\n\nSee [[Secret]] and [the other](../Private.md), and [[paper.pdf#page=1|a paper]].\n\n[handout.zip](img/handout.zip)\n\n<script>window.__ran = 1</script>\n");
+  put("docs/Shown.md", "# Shown\n\nA picture: ![one](img/pic.png)\n\n![[Inside]]\n\nSee [[Secret]] and [the other](../Private.md), and [[paper.pdf#page=1|a paper]].\n\n[handout.zip](img/handout.zip)\n\n![kept](assets/kept.png)\n\n<script>window.__ran = 1</script>\n");
   put("docs/Inside.md", "Embedded text, with ![its own](img/inner.png).\n");
   put("docs/Secret.md", "# Secret\n\nnot for anyone\n");
   put("Private.md", "# Private\n\nbehind a password\n");
-  for (const p of ["docs/img/pic.png", "docs/img/inner.png", "docs/img/unused.png"]) gh.repo.files.set(p, readFileSync(join(fixtures, "bild.png")));
+  for (const p of ["docs/img/pic.png", "docs/img/inner.png", "docs/img/unused.png", "assets/kept.png", "assets/other.png"]) gh.repo.files.set(p, readFileSync(join(fixtures, "bild.png")));
   gh.repo.files.set("paper.pdf", readFileSync(join(fixtures, "paper.pdf")));
   put("docs/img/handout.zip", "PK zip");
   put(".mdview/project.json", '{"id":"x","version":1}\n');
@@ -65,6 +65,8 @@ test("with the note go the files it shows, and no other file of the repository",
   const file = (p) => get(`/s/octo/notes/${OPEN}/file/${p}`).then((r) => r.status);
   assert.deepEqual(await Promise.all(["docs/img/pic.png", "docs/img/inner.png", "docs/Inside.md", "docs/Shown.md", "docs/img/handout.zip"].map(file)), [200, 200, 200, 200, 200]); // (a file block's file is handed out with the note)
   for (const p of ["docs/Secret.md", "Private.md", "docs/img/unused.png", "paper.pdf", ".mdview/shares.json", ".mdview/project.json", "docs/img/../Secret.md", "docs/img/%2e%2e/Secret.md", "nothing.md"]) assert.equal(await file(p), 404, p);
+  // what was put into the note lies in the repository's assets, named `assets/…` from the note's folder: handed out as the page asks for it — and nothing else from there
+  assert.deepEqual(await Promise.all(["docs/assets/kept.png", "assets/kept.png", "docs/assets/other.png", "assets/other.png"].map(file)), [200, 200, 404, 404]);
   const pic = await get(`/s/octo/notes/${OPEN}/file/docs/img/pic.png`);
   assert.match(pic.headers.get("content-security-policy"), /^sandbox/);
   // the app's own routes stay behind signing in

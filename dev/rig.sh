@@ -21,11 +21,13 @@
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
+#   dev/rig.sh colsel                the rectangle over blocks in a column: the items, paragraphs and headings it reaches, not the list or the column
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
+#   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -33,6 +35,7 @@
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
 #   dev/rig.sh edges                 edge cases: empty document, one island, file changed under a dialog, narrow window, keyboard only
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
+#   dev/rig.sh assets                what is put into a note of a subfolder: in the base folder's assets, named assets/…, shown — also once the note is moved
 #   dev/rig.sh link                  the link popover: show, edit, reference links, new link, remove (on a copy)
 #   dev/rig.sh typing FILE…          time per keystroke and per save in the active mode (on a copy)
 #   dev/rig.sh native                the browser's own typing path: spaces, deleting, hard break (on a copy)
@@ -239,6 +242,22 @@ case "${1:-}" in
     f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
     [[ -n $f ]] && grep -q '"from":{"id"' "$f" && ! grep -q '"sides"' "$f" && echo "ok   the file says what each line is joined to, and nothing that is worked out" || echo "FAIL the file's lines"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-connect.json"; } | grep -qv '^ok' ;;
+  board-hand)
+    # what a mouse meets on a whiteboard (a thing where it is drawn, not the box around it), arrows joined as they are drawn, joints, the right button's menu, the board moved with it — the last with a real pointer (dev/vptr)
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".plan*.json "$R/out/$name".{joints,menu,realmenu,board-hand}.json "$R/out"/board-hand-*.png
+    app 120 MDVIEW_PROBE="$D/probe-board-hand.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1; shots=(joints menu realmenu)
+    for _ in $(seq 1100); do
+      [[ -f $R/out/$name.board-hand.json ]] && break
+      for v in "${shots[@]}"; do [[ -f $R/out/$name.$v.json && ! -f $R/out/board-hand-$v.png ]] && { sleep 0.3; shot "$R/out/board-hand-$v.png"; }; done
+      if [[ -f $R/out/$name.plan$n.json ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$R/out/$name.plan$n.json"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-hand.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.board-hand.json"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-hand.json"; } | grep -qv '^ok' ;;
   board-scenes)
     # the whiteboard's small menus: size, scenes, the grid, spreading, printing
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{scenes,list,board-scenes}.json
@@ -618,6 +637,29 @@ case "${1:-}" in
     [[ $files == "./m5.md ./notes.txt " ]] && echo "ok   what the note still names is beside it; the pictures that were dropped and taken back are gone with them" || echo "FAIL files beside the note: $files"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.dnd.json"; [[ $files == "./m5.md ./notes.txt " ]] || echo FAIL; cmp -s <(jq -j '.saved // ""' "$R/out/$name.dnd.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+  assets)
+    # the real clipboard (the nested session's own) holds a picture; the folder is a window's, with a note in a subfolder
+    rm -rf "$R/work"; A="$R/work/a"; mkdir -p "$A/Sub" "$A/shelf" "$A/Old/assets"; rm -f "$R/out"/*.assets.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -6 | tr '\n' ' '))}"; fail=1; fi; }
+    printf '# Note\n\nPaste here.\n\nDrop here.\n' > "$A/Sub/Note.md"; echo '# Other' > "$A/shelf/Other.md"
+    printf '# Legacy\n\n![](assets/kept.png)\n' > "$A/Old/Legacy.md"; magick -size 12x12 xc:'#30a46c' "$A/Old/assets/kept.png"
+    magick -size 20x20 xc:'#e5484d' "$R/drop.png"; python3 "$D/gen-pdf.py" "$R/paper.pdf" 1
+    magick -size 40x30 xc:'#3b82f6' "$R/out/clip.png" && WAYLAND_DISPLAY="$(wl)" wl-copy -t image/png < "$R/out/clip.png"
+    mkdir -p "$R/state/mdview"; st="$R/state/mdview/state.json"; [[ -f $st ]] || echo '{}' > "$st"
+    jq --arg f "$A" --arg n "$A/Sub/Note.md" 'del(.active, .opened, .tabs) | .folder = $f | .last_notes = {($f): $n}' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 80 MDVIEW_PROBE="$D/probe-assets.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    for _ in $(seq 500); do ls "$R/out"/*.assets.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    WAYLAND_DISPLAY="$(wl)" wl-copy --clear 2>/dev/null
+    [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    J=$(ls "$R/out"/*.assets.json 2>/dev/null | head -1); [[ -n $J ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$J"; jq -r '.steps[], (.error // "ok")' "$J" | grep -qv '^ok' && fail=1
+    img=$(ls "$A"/assets/pasted-*.png 2>/dev/null | head -1)
+    ok "the pasted picture is a file in the base folder's assets" '[[ -n $img ]] && cmp -s "$img" "$R/out/clip.png"' 'find "$A" -type f | sort'
+    ok "… and so are the picture and the file that were dropped" '[[ -f $A/assets/drop.png && -f $A/assets/paper.pdf ]]' 'find "$A" -type f | sort'
+    ok "no subfolder got an assets of its own" '[[ ! -e $A/Sub/assets && ! -e $A/shelf/assets ]]' 'find "$A" -type d | sort'
+    ok "the note that was moved names its pictures with the same words" 'grep -q "](assets/pasted-" "$A/shelf/Note.md" && grep -q "](assets/drop.png)" "$A/shelf/Note.md" && ! grep -q "\.\./" "$A/shelf/Note.md"' 'cat "$A/shelf/Note.md"'
+    ok "what lay beside a note before stays where it was" '[[ -f $A/Old/assets/kept.png && ! -e $A/assets/kept.png ]]' 'find "$A" -type f | sort'
+    exit $fail ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
     # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)
@@ -772,16 +814,18 @@ case "${1:-}" in
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
   panel)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
-    app 60 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
-    for v in insert format; do
-      for _ in $(seq 300); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
+    app 90 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for v in document document-dark insert format; do
+      for _ in $(seq 400); do [[ -f $R/out/$name.shot-$v.json || -f $R/out/$name.panel.json ]] && break; sleep 0.1; done; sleep 0.6; shot "$R/out/panel-$v.png"
     done
-    for _ in $(seq 300); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
-    pkill -f "^$APP" 2>/dev/null
+    for _ in $(seq 400); do [[ -f $R/out/$name.panel.json ]] && break; sleep 0.1; done
+    sleep 1; pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
-    jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"
-    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json" | grep -qv '^ok' ;;
+    # (what the Document tab chose last stands in the file itself)
+    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|wide: true|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
+    { jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"; echo "$filed"; } | tee "$R/out/panel.txt"
+    ! grep -qv '^ok' "$R/out/panel.txt" ;;
   columns)
     name=columns.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Columns\n\nAlpha paragraph.\n\nBeta paragraph.\n\nGamma paragraph.\n\nDelta paragraph.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 90 MDVIEW_PROBE="$D/probe-columns.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
@@ -792,6 +836,16 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out/$name.columns.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.columns.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.columns.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.columns.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+  colsel)
+    name=colsel.md; rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out/$name".*.json
+    printf '%s\n' '# Rectangle' '' 'Before the row.' '' '<!-- columns -->' '' '## Left' '' '- [ ] L one' '- [ ] L two' '- [ ] L three' '' 'Left paragraph.' '' '- outer A' '  - nested A1' '  - nested A2' '- outer B' '' '<!-- column -->' '' '## Right' '' '- [x] R one' '- [x] R two' '' '> [!info] Note' '> - C one' '> - C two' '' '<!-- /columns -->' '' 'After the row.' > "$R/work/$name"
+    app 90 MDVIEW_PROBE="$D/probe-colsel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 500); do [[ -f $R/out/$name.colsel.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.colsel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.colsel.json"
+    cmp -s <(jq -j '.saved // ""' "$R/out/$name.colsel.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.colsel.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.colsel.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   callout)
     name=callout.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Callouts\n\n> [!info]\n> An info.\n\nPlain text.\n\nEnd.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 60 MDVIEW_PROBE="$D/probe-callout.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

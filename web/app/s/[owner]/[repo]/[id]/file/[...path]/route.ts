@@ -2,6 +2,7 @@
 // file of the repository: /s/<owner>/<repo>/<id>/file/<path in the repository>. Sent sandboxed,
 // as every file of a repository is (app/file).
 import { raw } from "@/lib/github";
+import { foundIn } from "@/lib/share";
 import { TYPES } from "@/lib/types";
 import { gate } from "@/lib/sharegate";
 
@@ -13,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ owne
   const g = await gate(owner, repo, id);
   if (!g.shared) return said(g.why === "unreachable" ? 502 : 404, "Not found");
   if (!g.open) return said(401, "A password is needed");
-  const rel = path.join("/");
+  const rel = foundIn(path.join("/"), g.shared.files); // (as the note names it, or where it is — among what was shared)
   if (!g.shared.files.has(rel)) return said(404, "Not found"); // (not what was shared)
   const res = await raw(g.shared.token, owner, repo, rel, request.headers.get("if-none-match")).catch(() => null);
   const headers: Record<string, string> = { "Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:", "X-Robots-Tag": "noindex" };

@@ -572,6 +572,45 @@ test("where nothing else is set, what is pasted goes into a folder of its own be
   await page.evaluate(() => { const p = JSON.parse(localStorage.getItem("mdview:set") || "{}"); p.images = "beside"; localStorage.setItem("mdview:set", JSON.stringify(p)); });
 });
 
+test("what is put into a note of a subfolder goes to the repository's assets, and the note shows it wherever it is moved", async () => {
+  put("Sub/Deep.md", "# Deep\n\ntext\n");
+  put("Old/Legacy.md", "# Legacy\n\n![](assets/kept.png)\n");
+  gh.repo.files.set("Old/assets/kept.png", Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGMwWJLzH4QZYAwATIQI/ZuGsIgAAAAASUVORK5CYII=", "base64")); // (kept beside a note, before there was one place)
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem("mdview:set") || "{}"); delete p.images; localStorage.setItem("mdview:set", JSON.stringify(p)); });
+  const openAt = async (path) => { await page.evaluate(() => localStorage.setItem("mdview:mode", '"read"')); await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(path)}`); await untilNote(path.split("/").pop()); }; // (open: by a name at the top)
+  await openAt("Sub/Deep.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.view.pm.editable, null, { timeout: 15000 });
+  await page.evaluate(() => { const v = MdActive.view.pm; v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.Selection.atEnd(v.state.doc))); });
+  await page.evaluate(async () => {
+    const dt = new DataTransfer(), c = document.createElement("canvas");
+    c.width = c.height = 3; c.getContext("2d").fillRect(0, 0, 3, 3);
+    dt.items.add(new File([await new Promise((r) => c.toBlob(r, "image/png"))], "image.png", { type: "image/png" }));
+    document.querySelector(".pm").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await until(() => /!\[\]\(assets\/pasted-\d{8}-\d{6}\.png\)/.test(text("Sub/Deep.md") || ""), "the picture's markup names the repository's assets");
+  const name = /\((assets\/pasted-[^)]+)\)/.exec(text("Sub/Deep.md"))[1], shows = (sel, n, w) => page.waitForFunction(([sel, n, w]) => { const i = [...document.querySelectorAll(sel)].find((i) => i.src.includes(n)); return i && i.complete && i.naturalWidth === w; }, [sel, n, w], { timeout: 10000 });
+  assert.ok(gh.repo.files.has(name)); // (one place for the notes of every folder …)
+  assert.deepEqual([...gh.repo.files.keys()].filter((p) => p.startsWith("Sub/assets/")), []); // (… and none of the subfolder's own)
+  await shows(".pm img", name.split("/").pop(), 3);
+  // moved to another folder: the same words in the note, the same picture
+  await page.evaluate(() => MdView.setMode("read"));
+  await until(() => /pasted-/.test(text("Sub/Deep.md") || ""), "the note is saved");
+  await post({ type: "move", path: "/octo/notes/Sub/Deep.md", dir: "/octo/notes/Old" });
+  await until(() => (text("Old/Deep.md") || "").includes(`![](${name})`) && !gh.repo.files.has("Sub/Deep.md"), "the note is in the other folder, as it was written");
+  await openAt("Old/Deep.md");
+  await shows("#content img", name.split("/").pop(), 3);
+  // a folder's own assets go on being used; a note moved away from them finds them where they stayed
+  await openAt("Old/Legacy.md");
+  await shows("#content img", "kept.png", 2);
+  await post({ type: "move", path: "/octo/notes/Old/Legacy.md", dir: "/octo/notes" });
+  await until(() => gh.repo.files.has("Legacy.md") && !gh.repo.files.has("Old/Legacy.md"), "the older note is at the top");
+  await open("Legacy.md");
+  await shows("#content img", "kept.png", 2);
+  assert.ok(gh.repo.files.has("Old/assets/kept.png") && !gh.repo.files.has("assets/kept.png")); // (nothing of what was there is moved)
+  await page.evaluate(() => { const p = JSON.parse(localStorage.getItem("mdview:set") || "{}"); p.images = "beside"; localStorage.setItem("mdview:set", JSON.stringify(p)); });
+});
+
 test("a file block: a click hands the file out, and a file that can be shown is embedded on request", async () => {
   put("Files.md", "# Files\n\n[paper.pdf](paper.pdf)\n\n[data.zip](data.zip)\n\nA [link in a line](data.zip) is a link.\n");
   gh.repo.files.set("paper.pdf", Buffer.from("%PDF-1.4 not really"));
@@ -698,27 +737,61 @@ test("a file that is no note has another name: its bytes under the new, none und
 });
 
 test("the settings show what there is here, not the desktop's own", async () => {
+  gh.note("as it was"); put("Past.md", "once"); gh.note("a note more"); gh.repo.files.delete("Past.md"); // (a repository with a past: more than one commit)
   await open("Beta.md");
   await page.keyboard.press("Control+,");
   await page.waitForFunction(() => { const s = document.querySelector("#settings"); return s && s.hasAttribute("data-open"); }, null, { timeout: 15000 });
   await page.click('#settings .st-nav[data-page="history"]');
   await page.waitForFunction(() => /^On/.test((document.querySelector('.pf-row[data-key="historyState"] .pf-value') || {}).textContent || ""), null, { timeout: 8000 });
+  await page.waitForFunction(() => !document.querySelector('.pf-row[data-key="historyCount"]').hidden, null, { timeout: 8000 }); // (asked of GitHub: there when it has answered)
   const seen = await page.evaluate(() => {
     const vis = (e) => !!e && e.offsetParent !== null;
     const row = (k) => document.querySelector(`.st-page[data-page="history"] .pf-row[data-key="${k}"]`);
     return {
       nav: [...document.querySelectorAll("#settings .st-nav")].filter(vis).map((b) => b.dataset.page),
-      rows: ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId", "githubAccount", "githubGet"].filter((k) => vis(row(k))),
+      rows: ["historyState", "historyName", "historyRoot", "historyBranch", "historyCount", "historyLast", "historyLink", "historyQuiet", "deviceName", "deviceId", "githubAccount", "githubGet"].filter((k) => vis(row(k))),
+      count: row("historyCount").querySelector(".pf-value").textContent, last: row("historyLast").querySelector(".pf-value").textContent,
       link: row("historyLink").querySelector(".pf-value").textContent,
       buttons: [...document.querySelectorAll('.st-page[data-page="history"] .pf-link')].filter(vis).map((b) => b.textContent),
       device: row("deviceName").querySelector("input").placeholder,
     };
   });
   assert.ok(!seen.nav.includes("ai") && seen.nav.includes("history") && seen.nav.includes("editing"), String(seen.nav)); // (no model here)
-  assert.deepEqual(seen.rows, ["historyState", "historyName", "historyBranch", "historyLink", "historyQuiet", "deviceName", "deviceId"]); // (signing in is before any page)
+  assert.deepEqual(seen.rows, ["historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyLink", "historyQuiet", "deviceName", "deviceId"]); // (signing in is before any page; a repository lies in no folder)
+  assert.ok(gh.past.length > 1, String(gh.past.length));
+  assert.equal(seen.count, String(gh.past.length)); // (the branch's commits, not a nought)
+  assert.match(seen.last, /\d{4}.* · \S/); // (when, and by whom)
   assert.match(seen.link, /^octo\/notes · /);
   assert.deepEqual(seen.buttons, []); // (nothing to switch off or unlink: the repository is the project)
   assert.match(seen.device, /^Chrome on /);
+  // what is the desktop's alone is on no page: the quick notes (a window of the application, a folder on its disk), what a folder has put out of sight
+  const all = await page.evaluate(() => {
+    const out = {};
+    for (const b of [...document.querySelectorAll("#settings .st-nav")].filter((b) => !b.hidden)) {
+      b.click();
+      const on = document.querySelector(`.st-page[data-page="${b.dataset.page}"]`);
+      out[b.dataset.page] = [...on.querySelectorAll(".pf-row, .pf-section")].filter((e) => e.offsetParent !== null).map((e) => e.dataset.key || "# " + e.textContent);
+    }
+    return out;
+  });
+  assert.deepEqual(all, {
+    general: ["lang", "startMode"],
+    appearance: ["docZoom", "measure", "calloutStyle"],
+    sidebarPage: ["sidebarLayout", "sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther"],
+    allNotes: ["ovScope", "ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
+    history: ["# This folder", "historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyChanged", "historyLink", "historyQuiet", "# This device", "deviceName", "deviceId"],
+    editing: ["bar", "slash", "syntax", "quotes", "# Paragraphs", "wrap", "# Pictures", "images"],
+    newMarkdown: ["style"],
+    latex: ["latexSnippets", "latexFraction", "latexMatrix", "latexTabout", "latexEnlarge", "latexBrackets", "latexText"],
+    pdf: ["pdfFormat", "pdfAuto"],
+    about: ["version", "guide"],
+  });
+  await page.keyboard.press("Escape");
+  // … nor in the sidebar's Show: the kinds of files, and no Hidden Items
+  await page.click(".sb-row", { button: "right" });
+  await page.click('[data-cmd="sub:show"]');
+  await page.waitForSelector("#ctxsub[data-open]", { timeout: 4000 });
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#ctxsub .menu-item")].map((b) => b.dataset.group || b.dataset.pref)), ["pdf", "image", "media", "board", "other"]);
   await page.keyboard.press("Escape");
 });
 

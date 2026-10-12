@@ -1,5 +1,6 @@
 /* mdview — a whiteboard's hands: the one place that listens to pointers. A mouse or a pen works
- * the tool (the middle button, or the left one with Space held, moves the board); one finger works
+ * the tool (the middle button, the right one, or the left one with Space held, moves the board; the
+ * right one let go where it came down asks for the menu of what is there); one finger works
  * the tool too, two fingers move the board and pull it larger or smaller. Everything is pointer
  * events — pressure, tilt and the kind of pointer come with them, so a pen needs no second way in. */
 "use strict";
@@ -9,6 +10,7 @@
   /* on: { start(pt, e) → false to refuse, "pan": this pointer moves the board instead (and, held still first, hold(pt, e) is asked
    *       whether it begins something after all); move(pts, e), end(e), cancel(), pan(dx, dy), zoom(factor, cx, cy), hover(pt, e),
    *       tap(pt, e): such a pointer went up again without having moved;
+   *       menu(pt, e): a mouse's right button went up again without having moved;
    *       taps(n): n fingers (two, three) touched the board together and went up again at once;
    *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted() }
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
@@ -19,6 +21,7 @@
     // short: the other hand moves the board right after a stroke — at half a second its first try was lost every time.)
     const pen = { down: false, last: -1e9, press: null }, PALM = 120;
     const HOLD = 350, SLACK = 8; // a finger resting this long, within this many pixels: held
+    const CLICK = 4; // the right button of a mouse, let go within this many pixels of where it came down: a click (the menu), not a pull (the board moved)
     // The board let go while it was moving under one finger goes on by itself, ever slower, as anything does that is pushed on a
     // tablet: how fast it went (pixels a millisecond, smoothed), and the run after the fingers left.
     const speed = { x: 0, y: 0, t: 0 };
@@ -96,6 +99,12 @@
         stage.dataset.panning = "";
         return;
       }
+      // the right button: pulled, it moves the board; let go where it came down, it asks for the menu (up, below)
+      if (e.pointerType === "mouse" && e.button === 2 && !tool && !drag) {
+        drag = { id: e.pointerId, ...at(e), right: true, far: false };
+        capture(e); e.preventDefault();
+        return;
+      }
       if (e.button !== 0 || tool) return;
       const began = on.start(point(e), e);
       if (began === false) return;
@@ -130,6 +139,8 @@
       if (drag && e.pointerId === drag.id) {
         const p = at(e);
         if (drag.hold && !drag.far && Math.hypot(p.x - drag.x, p.y - drag.y) < SLACK) return; // (still resting: not moved yet)
+        if (drag.right && !drag.far && Math.hypot(p.x - drag.x, p.y - drag.y) < CLICK) return; // (… nor the right button's unsteady click)
+        if (drag.right && !drag.far) stage.dataset.panning = "";
         drag.far = true; clearTimeout(drag.hold);
         on.pan(p.x - drag.x, p.y - drag.y);
         if (e.pointerType === "touch") pushed(p.x - drag.x, p.y - drag.y, e.timeStamp);
@@ -162,9 +173,10 @@
         if (!cancelled && was.n >= 2 && was.n <= 3 && !was.moved && e.timeStamp - was.t < 320 && on.taps) on.taps(was.n);
       }
       if (drag && e.pointerId === drag.id) {
-        const tapped = !cancelled && drag.hold && !drag.far, flung = !cancelled && drag.far && e.pointerType === "touch"; // (a finger that came down to move the board and went up again without having moved: a tap)
+        const tapped = !cancelled && drag.hold && !drag.far, asked = !cancelled && drag.right && !drag.far, flung = !cancelled && drag.far && e.pointerType === "touch"; // (a finger that came down to move the board and went up again without having moved: a tap)
         clearTimeout(drag.hold); drag = null; delete stage.dataset.panning;
         if (tapped && on.tap) on.tap(point(e), e);
+        if (asked && on.menu) on.menu(point(e), e);
         if (flung) coast(e.timeStamp);
       }
       if (tool === e.pointerId) { tool = null; if (cancelled) on.cancel(); else on.end(e); }

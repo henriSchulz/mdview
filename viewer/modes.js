@@ -353,6 +353,7 @@
         "active/view.js"].map(script)); // (asked for at once, run in this order — see the PDF viewer's scripts)
       await css;
       MdActive.view.onChange = activeChanged; MdActive.view.onHistory = trailStep;
+      MdActive.panel.sync(); // (the panel at the right, where the settings have it open beside the reading view)
     })().catch((e) => { activeLoad = null; throw e; }));
   }
   function showActive(p, anchor) {
@@ -361,6 +362,7 @@
     P.pagesShown = v.root || null;
     const fresh = MdActive.view.payload !== v && !(MdActive.view.payload && MdActive.view.payload.path === p.path && MdActive.view.edited);
     const store = MdActive.view.show(v);
+    P.docSync();
     pageBar(v, MdActive.view.dom.parentNode);
     // a document built anew starts its own undo history here; older steps are the trail's
     if (MdActive.view.built !== P.activeBuilt) { P.activeBuilt = MdActive.view.built; trailPush(p.path, p.text); P.trailFloor = P.trail.at; }
@@ -395,6 +397,7 @@
     document.body.dataset.view = "read";
     document.body.classList.remove("swapping");
     showMode();
+    MdActive.panel.sync();
   }
   // Another file took over the window: back to reading, without the fade.
   function leaveEditNow() {
@@ -406,6 +409,7 @@
     document.body.dataset.view = "read";
     document.body.classList.remove("swapping");
     showMode();
+    if (window.MdActive && MdActive.panel) MdActive.panel.sync();
     post("mode", { edit: false });
   }
   function printDoc() {

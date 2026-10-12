@@ -126,7 +126,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `active/mathtext.js` | LaTeX Suite while a formula is still being typed in the text: with the caret between dollars ("$x\|$", "$x\|", … |
 | `active/menu.js` | a menu at a point (the app's menu look and behaviour: highlight follows at once, a chosen entry blinks, then … |
 | `active/notes.js` | footnotes. A reference is an atom in the text; the notes themselves show in the section at the end, as in the … |
-| `active/panel.js` | the panel at the window's right (the toolbar's last button, Ctrl+Alt+P), as Craft has one: two tabs. |
+| `active/panel.js` | the panel at the window's right (the toolbar's last button, Ctrl+Alt+P), as Craft has one: three tabs. |
 | `active/prefs.js` | its settings: a window of their own in the app's look, kept by the application (state.json, "active") and … |
 | `active/schema.js` | ProseMirror schema and the builder that turns the store's markdown-it tokens into a document. |
 | `active/share.js` | sharing a note: a link under which anyone can read it, with a password if one is set, and nothing else of the … |

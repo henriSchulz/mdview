@@ -322,15 +322,69 @@ test("in a note a board alone in its paragraph is a block of its own, by both wa
   assert.doesNotMatch(md.render("text ![](a.board.svg) text\n", {}), /board-block/);
 });
 
-test("the lasso takes a stroke with a fair part of itself in the loop, and a thing by its middle or two of its corners", () => {
-  const vmB = (() => { const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity }; w.window = w; vm.createContext(w); for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js"]) { try { vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f }); } catch (e) { if (f !== "board/ink.js") throw e; } } return w.MdBoard; })();
-  if (!vmB.ink) return; // (ink.js needs a page: covered by web/test/board-touch.test.mjs)
-  const stroke = { k: "ink", pts: Array.from({ length: 40 }, (_v, i) => [i * 10, 0, 0.5, 0]) }, box = (x0, x1) => [[x0, -20], [x1, -20], [x1, 20], [x0, 20]];
+const withInk = () => { const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity }; w.window = w; vm.createContext(w); for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f }); return w.MdBoard; };
+
+test("the lasso takes the whole of a stroke of which it holds any part, and a thing by its middle or two corners of its outline", () => {
+  const vmB = withInk(), I = vmB.items;
+  const stroke = { k: "ink", w: 3, pts: Array.from({ length: 40 }, (_v, i) => [i * 10, 0, 0.5, 0]) }, box = (x0, x1, y0 = -20, y1 = 20) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
   assert.equal(vmB.ink.circled([stroke], box(-5, 195)).length, 1, "half of it inside");
-  assert.equal(vmB.ink.circled([stroke], box(-5, 105)).length, 1, "a good quarter of it inside");
-  assert.equal(vmB.ink.circled([stroke], box(100, 135)).length, 0, "only crossed");
-  assert.equal(vmB.ink.holds(box(0, 100), [90, -30, 190, 30]), false, "a thing with neither its middle nor a corner inside");
-  assert.equal(vmB.ink.holds(box(0, 100), [20, -10, 160, 10]), true, "two of its corners inside");
-  assert.equal(vmB.ink.holds(box(0, 100), [40, -60, 140, 60]), true, "larger than the loop, its middle inside");
+  assert.equal(vmB.ink.circled([stroke], box(100, 135)).length, 1, "a small part of it inside: the whole stroke");
+  assert.equal(vmB.ink.circled([stroke], box(100, 135, 30, 70)).length, 0, "a loop beside it");
+  const clean = { k: "ink", w: 3, pts: [[0, 0, 0.5, 0], [400, 0, 0.5, 0]] }; // (a line made clean: two points, far apart)
+  assert.equal(vmB.ink.circled([clean], box(100, 135)).length, 1, "a stroke of two points, its middle in the loop and neither point");
+  assert.equal(vmB.ink.circled([clean], box(100, 135, 30, 70)).length, 0);
+  const frame = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], mid = (x0, y0, x1, y1) => [(x0 + x1) / 2, (y0 + y1) / 2];
+  assert.equal(vmB.ink.holds(box(0, 100), mid(90, -30, 190, 30), frame(90, -30, 190, 30)), false, "a thing with neither its middle nor a corner inside");
+  assert.equal(vmB.ink.holds(box(0, 100), mid(20, -10, 160, 10), frame(20, -10, 160, 10)), true, "two of its corners inside");
+  assert.equal(vmB.ink.holds(box(0, 100), mid(40, -60, 140, 60), frame(40, -60, 140, 60)), true, "larger than the loop, its middle inside");
+  // a slanting line: the box around it is mostly empty — a loop that holds two corners of that box and one end of the line does not hold the line
+  const line = I.norm({ id: "l1", k: "line", p: [0, 0, 300, 300] }), strip = box(280, 320, -20, 320);
+  assert.equal(strip.filter(() => true).length === 4 && [[300, 0], [300, 300]].every(([x, y]) => I.within(strip, x, y)), true, "(two corners of the line's box are in the loop)");
+  assert.equal(vmB.ink.holds(strip, I.middle(line), I.outline(line)), false);
+  assert.equal(vmB.ink.holds(box(100, 320, 100, 320), I.middle(line), I.outline(line)), true, "its middle inside");
+  const bent = I.norm({ id: "l2", k: "line", p: [0, 0, 300, 200], route: "corner" });
+  bent.sides = ["r", "t"]; // (leaves to the right, arrives from above: one corner, at 300, 0)
+  assert.deepEqual(plain(I.middle(bent)), [250, 0], "the middle of a cornered line is on the line");
+});
+
+test("a thing is hit where it is drawn: a line near its way, a shape in its own form, a bare outline at the outline, a text where its lines stand", () => {
+  const I = withInk().items;
+  const line = I.norm({ id: "l1", k: "line", p: [0, 0, 200, 200], ends: ["none", "arrow"] });
+  assert.deepEqual([I.hit(line, 100, 100, 1, 5), I.hit(line, 100, 106, 1, 5), I.hit(line, 100, 112, 1, 5), I.hit(line, 150, 50, 1, 5), I.hit(line, 40, 170, 1, 5)], [true, true, false, false, false], "in the box around a slanting line, away from the line: nothing");
+  const corner = I.norm({ id: "l2", k: "line", p: [0, 0, 200, 200], route: "corner" }); // (unjoined, as wide as high: along, then down in the middle, then along)
+  assert.deepEqual([I.hit(corner, 100, 100, 1, 5), I.hit(corner, 50, 2, 1, 5), I.hit(corner, 50, 100, 1, 5), I.hit(corner, 160, 60, 1, 5)], [true, true, false, false]);
+  const at = (shape, more = {}) => I.norm({ id: "s1", k: "shape", x: 0, y: 0, w: 200, h: 100, r: 0, shape, fill: "#1f6fe5", ...more });
+  assert.deepEqual([I.hit(at("rect"), 4, 4, 1), I.hit(at("diamond"), 4, 4, 1), I.hit(at("ellipse"), 4, 4, 1), I.hit(at("triangle"), 4, 4, 1), I.hit(at("star"), 30, 90, 1)], [true, false, false, false, false], "the empty corners of a shape's frame are not the shape");
+  assert.deepEqual([I.hit(at("diamond"), 100, 50), I.hit(at("ellipse"), 100, 50), I.hit(at("triangle"), 100, 60), I.hit(at("star"), 100, 50), I.hit(at("hexagon"), 100, 50)], [true, true, true, true, true]);
+  assert.deepEqual([I.hit(at("rect"), 201, 50, 1), I.hit(at("rect"), 204, 50, 1), I.hit(at("rect"), 100, -3, 1)], [true, false, false], "a box by its rectangle, and no further than a pixel beside it");
+  const bare = at("rect", { fill: "none", stroke: { c: "auto", w: 2 } });
+  assert.deepEqual([I.hit(bare, 100, 50, 1, 5), I.hit(bare, 100, 3, 1, 5), I.hit(bare, 0, 50, 1, 5), I.hit(bare, 100, 9, 1, 5)], [false, true, true, false], "a shape that is only an outline: at the outline");
+  assert.deepEqual([I.inside(bare, 100, 50), I.inside(bare, 230, 50), I.inside(bare, 204, 50, 6), I.inside(line, 100, 100)], [true, false, true, false], "… but a line's end joins it anywhere within");
+  assert.equal(I.hit(at("rect", { fill: "none", text: "Label" }), 100, 50, 1, 5), true, "with text in it, it is hit within");
+  const text = I.norm({ id: "t1", k: "text", x: 0, y: 0, w: 220, h: 44, text: "Hi" });
+  assert.deepEqual([I.hit(text, 12, 22, 1), I.hit(text, 180, 22, 1), I.inside(text, 180, 22)], [true, false, true], "a text box wider than its text is not hit beside the text");
+  const turned = at("rect", { r: 45 });
+  assert.deepEqual([I.hit(turned, 100, 50, 1), I.hit(turned, 10, -40, 1)], [true, false], "turned: the corner of the box around it is empty");
+});
+
+test("the box pulled over things takes what it touches of them — not what the boxes around them touch — and a stroke whole by any part", () => {
+  const I = withInk().items, over = (it, b) => { const c = I.bounds(it); return c[0] <= b[2] && c[2] >= b[0] && c[1] <= b[3] && c[3] >= b[1]; }; // (how it was decided before: by the boxes)
+  const line = I.norm({ id: "l1", k: "line", p: [0, 0, 300, 300], ends: ["none", "arrow"] });
+  assert.deepEqual([over(line, [200, 20, 280, 100]), I.crosses(line, [200, 20, 280, 100])], [true, false], "a box in the empty corner beside a slanting arrow");
+  assert.deepEqual([I.crosses(line, [100, 80, 160, 140]), I.crosses(line, [290, 290, 400, 400]), I.crosses(line, [-50, -50, 400, 400])], [true, true, true]);
+  const bent = I.norm({ id: "l2", k: "line", p: [0, 0, 300, 300], route: "corner" });
+  assert.deepEqual([I.crosses(bent, [20, 60, 120, 280]), I.crosses(bent, [140, 100, 160, 120]), I.crosses(bent, [180, 20, 280, 280])], [false, true, false], "a cornered connector: its three pieces, not the square they span");
+  // a stroke shaped like an L: down, then along
+  const stroke = ink("k1", [...Array.from({ length: 30 }, (_v, i) => [0, i * 10, 0.5, 0]), ...Array.from({ length: 30 }, (_v, i) => [i * 10, 300, 0.5, 0])]);
+  assert.deepEqual([over(stroke, [100, 50, 250, 200]), I.crosses(stroke, [100, 50, 250, 200])], [true, false], "a box in the empty part of the box around a stroke");
+  assert.equal(I.crosses(stroke, [-20, 100, 20, 130]), true, "a box over a small part of the stroke: the stroke");
+  assert.equal(I.crosses(ink("k2", [[50, 50, 0.5, 0]]), [40, 40, 60, 60]), true, "a dot");
+  const rect = (more = {}) => I.norm({ id: "s1", k: "shape", x: 0, y: 0, w: 200, h: 100, r: 0, shape: "rect", fill: "#1f6fe5", ...more });
+  assert.deepEqual([I.crosses(rect(), [80, 40, 120, 60]), I.crosses(rect(), [190, 90, 260, 160]), I.crosses(rect(), [203, 0, 260, 100])], [true, true, false], "a filled box: on it, across its edge, beside it");
+  const bare = rect({ fill: "none", stroke: { c: "auto", w: 2 } });
+  assert.deepEqual([I.crosses(bare, [80, 40, 120, 60]), I.crosses(bare, [190, 90, 260, 160]), I.crosses(bare, [-10, -10, 210, 110])], [false, true, true], "an outline: a box pulled within it is for what stands in it");
+  const turned = rect({ r: 45 });
+  assert.deepEqual([over(turned, [0, -50, 20, -30]), I.crosses(turned, [0, -50, 20, -30]), I.crosses(turned, [90, 40, 110, 60])], [true, false, true], "turned: by its own corners");
+  assert.deepEqual([I.crosses(rect({ shape: "diamond" }), [2, 2, 30, 20]), I.crosses(rect({ shape: "ellipse" }), [2, 2, 20, 10])], [false, false], "a diamond, an ellipse: by their form");
 });
 

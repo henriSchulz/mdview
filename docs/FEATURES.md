@@ -370,13 +370,32 @@ In the active mode the size is a choice — its own size, Small (240), Medium (4
 width — in the menu of a picture or an embed (right click → Size), in a picture's popover (double
 click or Enter on it) and in the dialog of an embed.
 
-Paths are relative to the note. A picture alone in its paragraph is a block of its own: it has the
+Paths are relative to the note — and one that leads nowhere from there is looked for by its file's
+name in `assets` (below). A picture alone in its paragraph is a block of its own: it has the
 line to itself and stands in its middle, as embedded PDF pages do. A double click shows a picture large.
 A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
 whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
 a picture stays part of the line.
-`Ctrl+V` with a picture on the clipboard saves it beside the note (or in `./assets`, a setting) and
-embeds it; picture files dropped on the note do the same.
+`Ctrl+V` with a picture on the clipboard saves it and embeds it; picture files dropped on the note
+do the same.
+
+**One `assets` for the whole folder.** What is put into a note — a picture pasted, a file dropped,
+a figure drawn, a whiteboard — goes into `assets` of the *base folder*: the project's root (in the
+web app: the repository's), else the folder the window shows, else — a note opened by itself —
+the folder the note lies in. Notes of every subfolder share that one folder; none gets an `assets`
+of its own. The note names such a file `assets/name.png`, the same words in a note of any
+subfolder, so that a note moved to another folder (in the app or by any other means) and a block
+pasted into another note go on showing their pictures. A name that is taken is never written
+over: the new file is `name-2.png`. (Other programs follow `assets/…` only from a note at the
+top of the folder.) A setting puts them beside the note instead (**Settings → Pictures**); in an
+Obsidian vault they go where the vault keeps its attachments, as before.
+
+A file a note names is shown from where the link says, when it is there — an `assets` beside a note
+of a subfolder, as the app made them before, goes on being used, and nothing in it is moved. Only
+what is not there is looked for by its name: in the `assets` of the folders above, up to the base
+folder's, and last in any `assets` of the base folder (a note moved away from pictures that
+stayed beside its old place finds them there). That holds wherever a note's file is asked for: a
+picture shown, a PDF or a whiteboard opened, a link clicked, a picture copied, a note shared.
 
 **Any file** can be dropped on a note in the active mode. It is kept where pictures go, and stands
 in the note as a *file block*: a card that names it, and a click opens it or hands it out. In
@@ -508,9 +527,16 @@ and shut back into it — or a file of the folder, of its own.
   arrow at its end shrinks it too.
 - **The lasso** chooses and moves whatever is on the board, strokes of ink included: a click,
   `Shift` and a click for more, `Ctrl+A` for all; a pen draws a loop around what it wants (it need
-  not go all the way round, nor be shut: a stroke with a quarter of itself in the loop is taken,
-  a thing with its middle or two of its corners; what the loop only crosses is not), a
-  mouse pulls a box from the bare board. What is chosen is pulled to another place — several
+  not go all the way round, nor be shut: a stroke is taken whole with any part of itself in the
+  loop, a thing with its middle or two corners of its outline), a mouse pulls a box from the
+  bare board, which takes what it touches — any part of a stroke or a line, a thing's outline
+  or what is filled of it. What is chosen shows where it is drawn: strokes, or several things,
+  are each marked along their own way or outline, and the frame around them all is a faint dashed
+  one — it says how far the choice reaches, not what in it was chosen. A thing is met where it is drawn, not in the box around it: a line
+  or an arrow within a few pixels of its way, a shape in its own form, a text where its lines
+  stand. A shape that is only an outline is met at its outline: a click within it still
+  chooses it, a pull within it is a box over what stands in it, and once chosen it is moved
+  from anywhere within. What is chosen is pulled to another place — several
   things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
   with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
   corners of their frame, and take another colour in the small bar beside them. `Esc`, or a
@@ -523,7 +549,9 @@ and shut back into it — or a file of the folder, of its own.
   the usual size there. With the first thing in the tray — drawn by hand — a shape is drawn
   freely and made clean when the hand lets go: a straight line, a circle or an ellipse and a
   rectangle become things of the board, a triangle a clean stroke. What was just made is
-  chosen: pulled at its dots at once, it is sized.
+  chosen: pulled at its dots at once, it is sized. A line or an arrow drawn with an end on a
+  thing is joined to it at once, as if the end had been pulled there (both ends on the same
+  thing: joined to nothing).
 - **Text**: with the text tool a click or tap on the bare board begins a text there, and one
   click on a text types in it. Its tray sets the size, bold, italic, underlined, where the
   text stands and its colour — for the text being typed or chosen, and for every text begun
@@ -579,8 +607,12 @@ and shut back into it — or a file of the folder, of its own.
   runs on and comes to rest (a finger put down holds it); two fingers leave it where they left it. Two fingers tapped together take the last
   step back, three bring it again. On a narrow screen the bar of tools stands under the top
   row and the tray above the bottom row.
+- **Joints**: the one thing chosen, and the thing a mouse rests over, has a small dot a little
+  off the middle of each side. Pulled onto another thing, a line with an arrow joins the two
+  at both ends; let go over the bare board, a choice of shapes asks what is to stand at its
+  end. (The knob for turning stands above the dot on top.)
 - **Connectors** (the button at the bottom right): the chosen item has an arrow off each of its
-  sides. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
+  sides instead, larger, which does the same. Pulled onto another item, a line joins the two; let go over the bare board, a choice of
   shapes asks what is to stand at its end — it has the first one's size and look. A joined line
   goes where its items go. An end pulled off its item lets go of it; let go over an item it
   joins that, at the side it was dropped near. Line Ends in a line's bar also sets its way:
@@ -593,8 +625,13 @@ and shut back into it — or a file of the folder, of its own.
   board's picture alone on the page (or keeps it as a PDF, from the system's print window);
   Snap to Grid makes what is moved come to rest on the dots. With three or more chosen,
   Arrange also spreads them at equal distances.
+- **The right button** of a mouse, clicked: the menu of what is there — on something chosen for
+  all that is chosen, on another thing for that (it is chosen first), with Cut, Copy, Paste,
+  Duplicate, Bring to Front, Send to Back, Add Connection Line (two things), Group or Ungroup,
+  Lock or Unlock, Copy Style, Paste Style and Delete; on the bare board Paste and Select All.
 - **Moving about**: two fingers on the touchpad or the wheel move the board, `Space` held and a
-  drag too, as does the middle button; the arrow keys step. Larger and smaller: a pinch,
+  drag too, as do the middle button and the right one held and pulled (no menu then); the
+  arrow keys step. Larger and smaller: a pinch,
   `Ctrl` and the wheel, `Ctrl +` / `Ctrl −`; `Ctrl+0` shows everything, `Ctrl+1` the true size.
   The dots of the grid are switched at the bottom right.
 - **Kept by itself**, a moment after the last stroke and whenever the board or the note is left.
@@ -639,10 +676,20 @@ tags: [one, two]
 draft: true
 date: 2026-10-04
 color: green
+background: blue
+wide: true
 ---
 ```
 
 `color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
+
+Two properties say how the note itself is shown — in the reading view, the active mode and the
+web app, a shared note too. They can be chosen in the panel's Document tab:
+
+- `background`: the ground the note stands on. `gray`, `red`, `orange`, `yellow`, `green`, `cyan`,
+  `blue`, `magenta` — a quiet tint of that colour of the theme — or paper: `dots`, `grid`,
+  `lines`. Anything else, or nothing: the theme's own ground.
+- `wide: true`: the text column wide (58rem) for this note.
 
 ### HTML
 
@@ -686,7 +733,23 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`): *Insert* — tiles for everything that can be put in, click
-  or drag; *Format* — the styles of the block the caret is in.
+  or drag; *Format* — the styles of the block the caret is in; *Document* — what is the note's as
+  a whole:
+  - *Information*: words, characters, reading time (220 words a minute) and blocks, and under
+    them headings, pictures, links, tasks (done of all) and the pages in the note. The whole file
+    is counted, its pages too; properties, comments, code and formulas are not read as words. A
+    block is a heading, a list entry, a rule, a page, a code block or formula, and a paragraph, a
+    table or a quote as one. The numbers follow what is typed after a short pause.
+  - *Background*: the ground the note stands on — the theme's own, a quiet tint (gray, or one of
+    the seven colours), or paper (dots, a grid, lines). It follows the light and the dark theme.
+  - *Wide Page*: the text column wide for this note, whatever the settings' text width is for the
+    others (where the settings already have it wide or as wide as the window, it stays so).
+
+  Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
+  chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
+  caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
+  last of them. Insert and Format are the active mode's; with Document chosen the panel stands
+  beside the reading view as well, its other two tabs dimmed. Not beside the source.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
 - **Undo** follows across the three modes.
@@ -918,9 +981,15 @@ counts — and has no writing help by a model.
 - **A note's history** (`Ctrl+Alt+H`): the commits that changed it, what each changed, one put
   back. A note that was renamed has its versions from before as well, where GitHub knows the
   renaming as one.
-- **A picture pasted** is kept beside the note, in a commit at once; pictures dropped on the note
+- **A picture pasted** is kept in the repository's `assets` (one for the notes of every folder,
+  as on the desktop), in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
 - **Renaming** a note, or any other file up to 14 MB, from the sidebar.
+- **The settings** have what there is in a browser: no writing help, no quick notes, no hidden
+  items, no sharper text, no settings folder. History shows the repository — its name, its
+  branch, how many versions it has, the last one, what is not kept yet — with the quiet while
+  before a commit and the name this browser has in a version; signing in and choosing a
+  repository are before any page.
 - **Help** opens this guide in a tab of its own.
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
@@ -997,7 +1066,7 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
-| `Ctrl+Alt+P` | panel (active mode) |
+| `Ctrl+Alt+P` | panel (active mode; its Document tab in the reading view too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
 | `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |
@@ -1026,7 +1095,7 @@ the right. A change takes effect at once.
 | Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
-| Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go |
+| Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
 | PDFs | what a link to selected text is copied as, copy on select |

@@ -20,7 +20,7 @@
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
     `</div>` +
-    `<button class="tb" data-act="panel" title="${esc(T("Insert and Format (Ctrl+Alt+P)"))}" aria-label="${esc(T("Insert and Format"))}" aria-pressed="false">${ICON.panel}</button>`;
+    `<button class="tb" data-act="panel" title="${esc(T("Insert, Format and Document (Ctrl+Alt+P)"))}" aria-label="${esc(T("Insert, Format and Document"))}" aria-pressed="false">${ICON.panel}</button>`;
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
