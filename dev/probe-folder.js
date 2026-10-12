@@ -44,7 +44,7 @@
       const menu = document.getElementById("ctxmenu");
       const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
       const cmds = () => shown().map((b) => b.dataset.cmd).join();
-      ok("right click on a file: open in a new tab, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "opentab,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
+      ok("right click on a file: open, open in a new tab, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "open,opentab,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
       ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon :is(svg, .sf)"); return i && i.getBoundingClientRect().width > 10; }));
       const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
       await shut();
@@ -64,8 +64,8 @@
       const dr = dirRow().getBoundingClientRect();
       dirRow().dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: dr.left + 30, clientY: dr.top + 8 }));
       await sleep(200);
-      ok("right click on a folder: new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,rename,hide,trash,sub:show", cmds());
-      shown()[0].click();
+      ok("right click on a folder: open, new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "open,newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,rename,hide,trash,sub:show", cmds());
+      shown().find((b) => b.dataset.cmd === "newnote").click();
       await sleep(400);
       ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);
       await enter("Idea");

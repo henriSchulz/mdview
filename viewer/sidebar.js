@@ -350,10 +350,10 @@
     sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
       + `<div class="sl-cap">${esc(T("Icon"))}</div><div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}>` + ["", ...Object.keys(FOLDER_ICONS)].map((i) => `<button type="button" class="sl-icon${(FOLDER_ICONS[look.icon] ? look.icon : "") === i ? " on" : ""}" data-icon="${i}" aria-label="${i || "folder"}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] : ICON.folder}</button>`).join("") + `</div>`;
   }
-  function openLook(item, from = null) { // (from: the folder's sign in the rail, where the menu was opened there — its row is not on screen)
-    sbLookFor = item.dataset.key;
+  function openLook(key, beside) { // (beside: what stands for the folder where its menu was opened — its row, its sign in the rail, its tile)
+    sbLookFor = key;
     paintLook();
-    const r = (from || item.firstChild.firstChild).getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
+    const r = beside.getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
     sbLook.style.setProperty("--origin", "top left");
     sbLook.style.left = Math.max(8, Math.min(r.left + 24, innerWidth - w - 8)) + "px";
     sbLook.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - h - 8)) + "px";
@@ -800,16 +800,19 @@
   ctx.style.setProperty("--origin", "top left");
   ctx.tabIndex = -1;
   ctx.setAttribute("role", "menu");
-  // one menu for a file, a folder, the + button ("new"), and a note or folder among the tiles
-  // ("ovnote", "ovdir": overview.js), and the empty room beside them ("blank": a new note or folder
-  // in the folder `dir`); data-for says where an entry shows
+  // One menu, wherever a thing is met. data-for says for WHAT an entry is — a "file", a "dir", "many" of them selected, the
+  // empty room beside them ("blank": the folder `dir` itself), the + button ("new") — never WHERE: a folder has the same
+  // entries on its row in the sidebar, on its sign in the rail and on its tile in All Notes, and a note on its row and its
+  // tile. (KINDS takes the names the places used to have. Where an entry is carried out differently — a name changed in a
+  // row or on a tile — is said where it is carried out: runCtx, by ctxTile and ctxFrom. dev/rig.sh sidebar holds the three
+  // places to the same entries.)
   const entry = (cmd, icon, label, on, key = "", cls = "", more = "") =>
     `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
-    entry("open", "note", T("Open"), "ovnote ovdir") +
-    entry("opentab", "plus", T("Open in New Tab"), "file ovnote") +
-    entry("opentab", "plus", T("Open in New Tabs"), "ovmany") +
-    `<div class="menu-rule" data-for="file ovnote ovdir ovmany"></div>` +
+    entry("open", "note", T("Open"), "file dir") +
+    entry("opentab", "plus", T("Open in New Tab"), "file") +
+    entry("opentab", "plus", T("Open in New Tabs"), "many") +
+    `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("tab:new", "plus", T("New Tab"), "tab", "Ctrl+T") +
     entry("tab:reopen", "note", T("Reopen Closed Tab"), "tab", "Ctrl+Shift+T") +
     `<div class="menu-rule" data-for="tab"></div>` +
@@ -826,38 +829,38 @@
     entry("history:is", "check", "", "history", "", "", ' data-state="inside" disabled') +
     entry("history:is", "info", "", "history", "", "", ' data-state="foreign" disabled') +
     entry("history:off", "x", T("Turn Off History"), "history", "", "", ' data-state="project"') +
-    entry("newnote", "note", T("New Note"), "dir new blank ovnew", "Ctrl+N") +
-    entry("newfolder", "folderPlus", T("New Folder"), "dir new blank ovnew") +
-    entry("newboard", "board", T("New Whiteboard"), "dir new blank ovnew") +
-    entry("addfiles", "down", T("Add Files…"), "dir new blank ovnew") +
-    entry("pastef", "clip", T("Paste"), "dir blank ovdir", "Ctrl+V") +
+    entry("newnote", "note", T("New Note"), "dir new blank", "Ctrl+N") +
+    entry("newfolder", "folderPlus", T("New Folder"), "dir new blank") +
+    entry("newboard", "board", T("New Whiteboard"), "dir new blank") +
+    entry("addfiles", "down", T("Add Files…"), "dir new blank") +
+    entry("pastef", "clip", T("Paste"), "dir blank", "Ctrl+V") +
     `<div class="menu-rule" data-for="blank"></div>` +
     entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:name", "check", T("Sort by Name"), "blank") +
     entry("sort:modified", "check", T("Sort by Date Modified"), "blank") +
     `<div class="menu-rule" data-for="dir"></div>` +
-    entry("default", "external", T("Open in Default App"), "file ovnote") +
-    entry("openwith", "apps", T("Open With…"), "file ovnote") +
-    entry("reveal", "reveal", T("Show in Finder"), "file dir ovnote ovdir") +
-    entry("download", "down", T("Download"), "file ovnote") +
-    entry("embed", "board", T("Embed in This Note"), "file ovnote") +
-    entry("boardnote", "note", T("Show the Note It Is In"), "ovnote") +
-    entry("boardfree", "file", T("Keep as a File of Its Own"), "ovnote") +
-    `<div class="menu-rule" data-for="file dir ovnote ovdir ovmany sbmany"></div>` +
-    entry("copyf", "copy", T("Copy"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+C") +
-    entry("cutf", "cut", T("Cut"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+X") +
-    entry("duplicate", "plus", T("Duplicate"), "file dir ovnote ovdir ovmany sbmany", "Ctrl+D") +
-    entry("copypath", "clip", T("Copy Path"), "file dir ovnote ovdir") +
-    `<div class="menu-rule" data-for="file dir ovnote ovdir ovmany sbmany"></div>` +
-    entry("share", "share", T("Share…"), "file ovnote") +
+    entry("default", "external", T("Open in Default App"), "file") +
+    entry("openwith", "apps", T("Open With…"), "file") +
+    entry("reveal", "reveal", T("Show in Finder"), "file dir") +
+    entry("download", "down", T("Download"), "file") +
+    entry("embed", "board", T("Embed in This Note"), "file") +
+    entry("boardnote", "note", T("Show the Note It Is In"), "file") +
+    entry("boardfree", "file", T("Keep as a File of Its Own"), "file") +
+    `<div class="menu-rule" data-for="file dir many"></div>` +
+    entry("copyf", "copy", T("Copy"), "file dir many", "Ctrl+C") +
+    entry("cutf", "cut", T("Cut"), "file dir many", "Ctrl+X") +
+    entry("duplicate", "plus", T("Duplicate"), "file dir many", "Ctrl+D") +
+    entry("copypath", "clip", T("Copy Path"), "file dir") +
+    `<div class="menu-rule" data-for="file dir many"></div>` +
+    entry("share", "share", T("Share…"), "file") +
     entry("look", "palette", T("Colour and Icon…"), "dir") +
-    entry("rename", "rename", T("Rename"), "file dir ovnote ovdir", "F2") +
-    entry("hide", "eyeOff", T("Hide"), "file dir ovnote ovdir ovmany sbmany") +
-    entry("unhide", "eye", T("Show Again"), "file dir ovnote ovdir") +
-    entry("trash", "trash", T("Move to Trash"), "file dir ovnote ovdir ovmany sbmany", "Del", " danger") +
+    entry("rename", "rename", T("Rename"), "file dir", "F2") +
+    entry("hide", "eyeOff", T("Hide"), "file dir many") +
+    entry("unhide", "eye", T("Show Again"), "file dir") +
+    entry("trash", "trash", T("Move to Trash"), "file dir many", "Del", " danger") +
     // what is listed beside the notes: a menu of its own beside this one (the sidebar's, or All Notes' — where the click was)
-    `<div class="menu-rule" data-for="blank file dir ovnote ovdir"></div>` +
-    entry("sub:show", "list", T("Show"), "blank file dir ovnote ovdir", "", " has-sub", ' aria-haspopup="menu"');
+    `<div class="menu-rule" data-for="blank file dir"></div>` +
+    entry("sub:show", "list", T("Show"), "blank file dir", "", " has-sub", ' aria-haspopup="menu"');
   for (const el of ctx.querySelectorAll(".has-sub")) el.insertAdjacentHTML("beforeend", `<span class="menu-key menu-go">${ICON.chevron}</span>`);
   // the menu beside it: what "Show" leads to — a tick for each kind that is listed
   const ctxSub = document.createElement("div");
@@ -920,7 +923,8 @@
   const HOST_LACKS = new Set((window.MdHost && window.MdHost.lacks) || []);
   for (const [cmd, label] of Object.entries((window.MdHost && window.MdHost.labels) || {})) for (const el of ctx.querySelectorAll(`[data-cmd="${cmd}"] .menu-label`)) el.textContent = label;
   let ctxItems = [];
-  let ctxFrom = null, ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
+  const KINDS = { ovnote: "file", ovdir: "dir", ovmany: "many", sbmany: "many", ovnew: "new" };
+  let ctxTile = false, ctxFrom = null, ctxFor = null, ctxHl = -1, ctxKind = "file", ctxDir = null;
   const ctxOpen = () => ctx.hasAttribute("data-open");
   const setCtxHl = (i) => { ctxHl = i; ctxItems.forEach((el, k) => el.classList.toggle("hl", k === i)); };
   /* What of the menu is not for this row or tile: Hide for what is hidden and the other way round, a
@@ -932,16 +936,17 @@
     if (FILE_CMDS.includes(cmd) && (!window.__TAURI_INTERNALS__ || (folder && folder.quick))) return true; // (what only the application on a folder of this computer does)
     const path = item.dataset ? item.dataset.path || item.dataset.key || "" : "", board = /\.board\.svg$/i.test(path), kept = !!item.dataset && item.dataset.kept != null;
     if (kept) return !["open", "reveal", "embed", "boardnote", "boardfree", "copypath", "sub:show"].includes(cmd) || (cmd === "boardnote" && !item.dataset.note);
-    if (cmd === "rename" && ctxFrom) return true; // (a name is changed in its row, and a folder met in the rail has none on screen)
     if (cmd === "boardfree") return true;
     if (cmd === "boardnote") return !(board && item.dataset.note);
     if (cmd === "embed") return !board || !P.current || P.current.kind === "pdf" || !!P.current.readonly;
-    if (cmd === "hide" || cmd === "unhide") return kind !== "ovmany" && kind !== "sbmany" && (cmd === "unhide") !== isHidden(path);
+    if (cmd === "hide" || cmd === "unhide") return kind !== "many" && (cmd === "unhide") !== isHidden(path);
     return false;
   }
   function openCtx(item, x, y, kind = "file", dir = null, from = null) {
     if (ctxFor) ctxFor.classList.remove("ctx-target");
     if (ctxFrom) ctxFrom.classList.remove("ctx-target");
+    ctxTile = !!(item.classList && item.classList.contains("ov-item")) || kind === "ovmany"; // (met among All Notes' tiles)
+    kind = KINDS[kind] || kind;
     ctxFor = item; ctxDir = dir; ctxFrom = from;
     if (from) from.classList.add("ctx-target");
     ctxKind = ctx.dataset.kind = kind;
@@ -1004,11 +1009,16 @@
       const kind = ctxKind, dir = ctxDir, from = ctxFrom;
       closeCtx(false);
       if (!item.isConnected) return;
-      const cmd = el.dataset.cmd, tile = kind === "ovnote" || kind === "ovdir", path = tile ? item.dataset.path : item.dataset.key;
-      if (kind === "ovmany") { if (!fileCmd(cmd, MdOverview.picked)) MdOverview.many(cmd); else if (cmd !== "copyf") MdOverview.pick([]); return; } // (what is selected in All Notes, all of it)
-      if (kind === "sbmany") { fileCmd(cmd, [...sbPicked]); if (cmd !== "copyf") pickRows([]); return; } // (… and in the sidebar)
-      const into = kind === "dir" || kind === "ovdir" ? path : kind === "blank" || kind === "ovnew" ? dir : null;
-      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard") P.openNewNote(cmd === "newfolder" ? "folder" : cmd === "newboard" ? "board" : "note", kind === "ovdir" ? null : into);
+      const cmd = el.dataset.cmd, tile = ctxTile && (kind === "file" || kind === "dir"), path = tile ? item.dataset.path : item.dataset.key;
+      if (kind === "many" && ctxTile) { if (!fileCmd(cmd, MdOverview.picked)) MdOverview.many(cmd); else if (cmd !== "copyf") MdOverview.pick([]); return; } // (what is selected in All Notes, all of it)
+      if (kind === "many") { // (… and in the sidebar)
+        if (cmd === "opentab") { for (const p of sbPicked) if (/\.(md|markdown)$/i.test(p)) post("note", { path: p, tab: true }); }
+        else fileCmd(cmd, [...sbPicked]);
+        if (cmd !== "copyf") pickRows([]);
+        return;
+      }
+      const into = kind === "dir" ? path : kind === "blank" || kind === "new" ? dir : null;
+      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard") P.openNewNote(cmd === "newfolder" ? "folder" : cmd === "newboard" ? "board" : "note", into);
       else if (cmd === "embed") P.embedBoard(path);
       else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
       else if (cmd === "boardfree") post("board-free", { path });
@@ -1019,12 +1029,18 @@
       else if (cmd === "history:conflicts") openConflicts();
       else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
-      else if (cmd === "open") MdOverview.go(item);
+      else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
       else if (cmd === "opentab") post("note", { path, tab: true });
       else if (cmd === "download") post("download", { path });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
-      else if (cmd === "look") openLook(item, from);
-      else if (cmd === "rename") tile ? MdOverview.rename(item) : P.startRename(item);
+      else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
+      else if (cmd === "rename") {
+        if (tile) MdOverview.rename(item);
+        else if (from) { // (met in the rail, it has no row on screen: All Notes shows every folder's row, and the name is changed there)
+          sbRail.querySelector('.sb-rt[data-go=""]')?.click();
+          requestAnimationFrame(() => { const row = [...sbList.querySelectorAll(".sb-item.is-dir")].find((x) => x.dataset.key === path); if (row) { row.scrollIntoView({ block: "nearest" }); P.startRename(row); } });
+        } else P.startRename(item);
+      }
       else if (cmd === "trash") post("trash", { path });
       else post("fileop", { op: cmd, path });
     }, flash * 2);
