@@ -112,6 +112,16 @@
     await sleep(2500);
     if (window.MdBoard.shown) { MdBoard.close(); await sleep(500); }
     ok("a whiteboard made in a note is not listed in the sidebar", !rows().some((r) => /board-\d+/.test(r)), rows());
+    // --- a PDF among All Notes: its first page on its tile, as a note shows its beginning
+    {
+      MdOverview.open();
+      const tile = () => document.querySelector('#overview .ov-item[data-kind="pdf"]'), img = () => tile() && tile().querySelector("img.ov-shot.on");
+      ok("All Notes: a PDF's tile shows its first page", await until(() => img() && img().naturalHeight > img().naturalWidth && getComputedStyle(img()).opacity === "1", 10000), tile() ? tile().innerHTML.slice(0, 200) : "no PDF among the tiles");
+      MdOverview.close(); await sleep(300);
+      MdOverview.open();
+      ok("… at once when All Notes is opened again (kept, not drawn anew)", await until(() => tile(), 3000) && !!tile().querySelector("img") && !tile().dataset.shot, tile() && tile().innerHTML.slice(0, 200));
+      MdOverview.close(); await sleep(300);
+    }
     MdOverview.open(); await sleep(500);
     document.querySelector('#overview [data-seg="scope"] [data-v="boards"]').click();
     const tiles = () => [...document.querySelectorAll("#overview .ov-item")];

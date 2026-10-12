@@ -784,6 +784,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles.
+- **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
+  small, in the list. It is drawn when the tile comes near the window and kept while the window
+  is open; until then the tile has the PDF's sign.
 - **Working with files** (in the sidebar and in All Notes alike; in the browser too, but for what
   is said under *In the browser*):
   - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is
