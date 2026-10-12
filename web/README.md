@@ -7,6 +7,8 @@ So far: signing in with GitHub, choosing a repository, reading its notes and wri
 the desktop app's page, with a host in the browser in the Rust shell's place. What is written
 is a draft in the browser at once and a commit a little later; what another device wrote
 meanwhile is joined in, or asked about. A note's history, and pictures pasted in or dropped on a note.
+Working with files as the desktop app's list does: whiteboards as files, hiding, copies, files
+from elsewhere — a file the repository has goes into a commit by its blob, never by its bytes.
 
 ## Running it
 

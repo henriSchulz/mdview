@@ -119,6 +119,7 @@
       if (label.textContent !== e.label) label.textContent = e.label;
       row.title = e.note ? e.note.path.slice(folder.root.length + 1) : "";
       el.classList.toggle("is-hidden", !!(e.note || e.dir).hidden); // (put away, and shown all the same: dimmed)
+      el.classList.toggle("is-coming", !!(e.note && e.note.coming)); // (on its way into the repository: a file added in the browser, until a commit has it)
       row.classList.toggle("picked", sbPicked.has(e.key));
       dressRow(el, e);
       if (e.dir) {

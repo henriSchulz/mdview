@@ -44,8 +44,9 @@
    * where that is known. A folder with nothing to show is left out.
    * away: what is put away beside the names with a dot and the folders tools make — hidden by
    * hand, kept for a note (paths below the base; a folder's: all that is in it). all: these too,
-   * each marked `hidden`; what tools make is named then and not gone into. (scan.rs: walk) */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false } = {}) {
+   * each marked `hidden`; what tools make is named then and not gone into. (scan.rs: walk)
+   * coming: files on their way into the repository (paths below the base), each marked so. */
+  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false, coming = null } = {}) {
     const put = away instanceof Set ? away : new Set(away || []);
     const isAway = (rel) => { const parts = rel.split("/"); return parts.some((p, i) => p.startsWith(".") || (put.size > 0 && put.has(parts.slice(0, i + 1).join("/")))); };
     const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [], ...(path !== base && isAway(path.slice(base.length + 1)) ? { hidden: true } : {}) });
@@ -60,7 +61,7 @@
       const parts = rel.split("/"), built = parts.slice(0, -1).findIndex((p) => SKIP_DIRS.includes(p)), hidden = built >= 0 || isAway(rel);
       if (parts.length > DEPTH + 1 || count >= NOTE_LIMIT || (hidden && !all)) continue;
       if (built >= 0) { const d = dir(base + "/" + parts.slice(0, built + 1).join("/")); d.hidden = true; heavy.add(d.path); continue; } // (thousands of files nobody wrote)
-      const path = base + "/" + rel, kind = kindOf(rel), mark = hidden ? { hidden: true } : {};
+      const path = base + "/" + rel, kind = kindOf(rel), mark = { ...(hidden ? { hidden: true } : {}), ...(coming && coming.has(rel) ? { coming: true } : {}) };
       if (kind === "md") {
         dir(dirOf(path)).notes.push({ name: stemOf(rel), path, real: path, title: titles ? titles.get(path) ?? null : null, mtime: (changed && changed.get(path)) || 0, ...mark, opened: opened[path] || 0 });
       } else {

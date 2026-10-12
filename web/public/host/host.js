@@ -45,6 +45,7 @@
   const away = new Map(); // files given another name here, until that is in a commit: the old path → the blob it was
   const moves = new Map(); // what was written here and then moved, until that is in a commit: its new path → the one the repository knows it by (so that it can be put back)
   const uploads = new Set(); // files from elsewhere on their way into the repository (their bytes wait in blobs): marked in the list until a commit has them
+  const queued = new Map(); // … and those whose turn has not come: path → the file as the browser has it (listed at once, read when the commit before is made)
   /* The drafts are a tab's own. Two tabs on the same repository each write what was typed in
    * them; were the drafts one heap, the second tab would take the first's half-typed text for
    * its own, commit it too, and meet itself as a conflict. A tab has a name that stays with it
@@ -106,8 +107,8 @@
     }
     keepDrafts();
   }
-  const has = (r) => drafts.has(r) || blobs.has(r) || links.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
-  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys(), ...links.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r) || links.has(r)); // the files as they are here
+  const has = (r) => drafts.has(r) || blobs.has(r) || links.has(r) || queued.has(r) || (files.has(r) && !gone.has(r) && !away.has(r));
+  const every = () => [...new Set([...files.keys(), ...drafts.keys(), ...blobs.keys(), ...links.keys(), ...queued.keys()])].filter((r) => (!gone.has(r) && !away.has(r)) || drafts.has(r) || blobs.has(r) || links.has(r) || queued.has(r)); // the files as they are here
   const blobOf = (r) => links.get(r) || (!gone.has(r) && !away.has(r) && files.get(r)) || null; // the blob a file is, as far as the repository has it: { sha, size }
   const unsaved = () => drafts.size + gone.size + links.size + away.size + blobs.size > 0; // something here is no commit yet
   let tip = { device: "", time: 0 }; // who made the commit the branch stands at
@@ -223,7 +224,7 @@
     const changed = byDate() ? new Map(every().map((r) => [BASE + "/" + r, changedAt(r)])) : null;
     if (changed) askDates();
     const payload = {
-      root: BASE, name: W.repo, tree: treeNow({ show, titles, changed, opened: here.opened, keep: [...keptDirs], all: !!prefs.showHidden }), // (all: what is put away too, dimmed — where the settings ask for it)
+      root: BASE, name: W.repo, tree: treeNow({ show, titles, changed, opened: here.opened, keep: [...keptDirs], all: !!prefs.showHidden, coming: new Set([...uploads, ...queued.keys()]) }), // (all: what is put away too, dimmed — where the settings ask for it)
       titles: !!here.sidebar.titles, visible: here.sidebar.visible !== false, width: here.sidebar.width || 0, history: standing(), shared: sharedNow(), looks: looksNow(),
     };
     const blob = JSON.stringify(payload);
@@ -501,6 +502,7 @@
           files.set(r, { sha, size: d.text.length });
           texts.set(sha, d.text);
           dates[sha] = Math.floor(Date.now() / 1000); // (the commit is of now)
+          if (gone.has(r)) goneAt.set(r, sha); // (deleted here while the commit was on its way: it is this text that is deleted)
           if (drafts.get(r) && drafts.get(r).text === d.text) drafts.delete(r); else if (drafts.get(r)) { drafts.get(r).base = sha; drafts.get(r).sent = undefined; } // (written on meanwhile: the next commit's)
         }
         const made = new Map();
@@ -536,7 +538,8 @@
       if (committed(was) !== d.text) drafts.set(was, { text: d.text, at: d.at, base: files.get(was).sha });
       names.push(n); renamed.push([n, was]);
     }
-    for (const r of uploads) { blobs.delete(r); names.push(r); }
+    for (const r of [...uploads, ...queued.keys()]) { blobs.delete(r); names.push(r); }
+    queued.clear();
     for (const r of gone) if (files.has(r) && !renamed.some(([, was]) => was === r)) names.push(r);
     if (drafts.has(C.HIDDEN)) { drafts.delete(C.HIDDEN); names.push(C.HIDDEN); }
     links.clear(); away.clear(); moves.clear(); uploads.clear(); gone.clear(); goneAt.clear();
@@ -821,6 +824,78 @@
     commit();
   }
   let fileClip = { paths: [], cut: false }; // what Copy or Cut took in the list, for Paste
+  /* What was dropped, as files with the way to each below what was dropped (a folder comes with
+   * all that is in it). A drop's entries are asked for while the drop is still being handled —
+   * afterwards the browser hands out nothing —, the files themselves read later. transfer: a
+   * drop's DataTransfer, or the files chosen in the browser's own window. → [{ file, way }] */
+  function droppedFiles(transfer) {
+    if (Array.isArray(transfer)) return Promise.resolve(transfer.map((file) => ({ file, way: file.name })));
+    const items = [...(transfer.items || [])].filter((i) => i.kind === "file");
+    const tops = items.map((i) => [typeof i.webkitGetAsEntry === "function" ? i.webkitGetAsEntry() : null, i.getAsFile()]);
+    if (!items.length) return Promise.resolve([...(transfer.files || [])].map((file) => ({ file, way: file.name })));
+    const fileOf = (e) => new Promise((ok, no) => e.file(ok, no));
+    const inside = (dir) => new Promise((ok) => { const reader = dir.createReader(), all = []; const more = () => reader.readEntries((some) => { if (!some.length) return ok(all); all.push(...some); more(); }, () => ok(all)); more(); });
+    const walk = async (e, way, out, depth) => {
+      if (out.length >= ADD_FILES + 1 || depth > 32) return;
+      if (e.isDirectory) { for (const c of await inside(e)) await walk(c, way + "/" + c.name, out, depth + 1); }
+      else { try { out.push({ file: await fileOf(e), way }); } catch { /* (not to be read: left out) */ } }
+    };
+    return (async () => {
+      const out = [];
+      for (const [entry, file] of tops) { if (entry && entry.isDirectory) await walk(entry, entry.name, out, 0); else if (file) out.push({ file, way: file.name }); }
+      return out;
+    })();
+  }
+  /* Files from elsewhere — dropped on the list or the tiles, or chosen with Add Files… — put into
+   * a folder of the repository, under names that are free there. Their rows are there at once,
+   * marked as on their way; their bytes follow in a commit — or, where they are more than a
+   * commit takes, in several, one after the other. What is too large for a commit is said and
+   * left out; a commit GitHub will not take takes the rows away again (putBack). */
+  const ADD_MOST = MOVE_MOST, ADD_FILES = 400;
+  let adding = Promise.resolve();
+  async function addFiles(transfer, dir) {
+    if (!mayWrite()) return;
+    const into = targetDir(dir), found = await droppedFiles(transfer), tops = new Map(), list = [], large = [];
+    if (found.length > ADD_FILES) return toast(`Too many files to add at once (over ${ADD_FILES})`);
+    for (const { file, way } of found) {
+      const parts = way.split("/").map((p) => C.cleanName(p) || "file");
+      if (file.size > ADD_MOST) { large.push(parts.at(-1)); continue; }
+      if (!tops.has(parts[0])) tops.set(parts[0], C.freeName(parts[0], parts.length > 1, false, (n) => exists(`${into}/${n}`) || isDir(`${into}/${n}`) || [...tops.values()].includes(n)));
+      if (!tops.get(parts[0])) continue;
+      const target = [into, tops.get(parts[0]), ...parts.slice(1)].join("/");
+      if (queued.has(rel(target))) continue; // (two of a name in one folder that was dropped: the first)
+      queued.set(rel(target), file);
+      list.push(target);
+    }
+    if (large.length) toast(large.length === 1 ? `“${large[0]}” is too large to add here (over 14 MB)` : `${large.length} files are too large to add here (over 14 MB): ${large.slice(0, 3).join(", ")}${large.length > 3 ? ", …" : ""}`);
+    if (!list.length) { if (!large.length) toast("Only files can be dropped here"); return; }
+    sendFolder();
+    tell("revealRows", [...new Set(list.map((t) => `${into}/${t.slice(into.length + 1).split("/")[0]}`))]);
+    // (one lot after the other: a second drop waits for the first's commits)
+    adding = adding.then(() => sendOff(list)).catch((e) => { console.error("mdview host: add", e); for (const t of list) queued.delete(rel(t)); sendFolder(); });
+    return adding;
+  }
+  async function sendOff(list) {
+    let room = ADD_MOST, sent = 0;
+    for (const target of list) {
+      const r = rel(target), file = queued.get(r);
+      if (!file) continue; // (taken away meanwhile: deleted, or put back with a commit that was refused)
+      if (sent && file.size > room) { // (more than a commit takes: what is read so far goes first)
+        await commit();
+        if (blobs.size) break; // (it did not go: no more is heaped on it)
+        room = ADD_MOST; sent = 0;
+      }
+      const bytes = base64Of(new Uint8Array(await file.arrayBuffer()));
+      if (!queued.delete(r)) continue;
+      blobs.set(r, bytes); uploads.add(r);
+      room -= file.size; sent++;
+    }
+    const left = list.filter((t) => queued.delete(rel(t)));
+    if (left.length) { toast(left.length === 1 ? `“${C.nameOf(left[0])}” was not added: what is before it could not be kept yet` : `${left.length} files were not added: what is before them could not be kept yet`); sendFolder(); }
+    keepDrafts();
+    await commit();
+  }
+
   /* A note, another file or a folder put into another folder (or to the top): the same file under
    * another path — for a folder each file in it. → whether it was done */
   function moveInto(path, dir) {
@@ -1252,7 +1327,7 @@
       const next = was && i >= 0 ? (notes.slice(i + 1).find(stays) || notes.slice(0, i).reverse().find(stays) || {}).path : null;
       for (const p of list) {
         const r = rel(p);
-        drafts.delete(r); blobs.delete(r); links.delete(r); moves.delete(r); uploads.delete(r);
+        drafts.delete(r); blobs.delete(r); links.delete(r); moves.delete(r); uploads.delete(r); queued.delete(r);
         if (files.has(r) && !away.has(r)) { gone.add(r); goneAt.set(r, files.get(r).sha); }
         if (C.isMd(p)) sharesFollowSoon(r, null); // (a link to it shows nothing any more)
         tabs.drop(p);
@@ -1289,6 +1364,15 @@
       input.type = "file"; input.multiple = true; input.hidden = true;
       if (kind === "image") input.accept = "image/*";
       input.addEventListener("change", () => { const files = [...input.files]; input.remove(); if (files.length) drop(files, path).catch((e) => console.error("mdview host: pick", e)); });
+      input.addEventListener("cancel", () => input.remove());
+      document.body.appendChild(input);
+      input.click();
+    },
+    /* Add Files…: chosen in the browser's own window for files, then as files dropped on the list. */
+    addfiles({ dir }) {
+      const input = document.createElement("input");
+      input.type = "file"; input.multiple = true; input.hidden = true;
+      input.addEventListener("change", () => { const chosen = [...input.files]; input.remove(); if (chosen.length) addFiles(chosen, dir).catch((e) => console.error("mdview host: add", e)); });
       input.addEventListener("cancel", () => input.remove());
       document.body.appendChild(input);
       input.click();
@@ -1378,6 +1462,7 @@
     const waiting = window.MdHost.said || [];
     window.MdHost.post = hear;
     window.MdHost.drop = (dropped, path, how) => { drop(dropped, path, how).catch((e) => console.error("mdview host: drop", e)); };
+    window.MdHost.addFiles = (transfer, dir) => { addFiles(transfer, dir).catch((e) => console.error("mdview host: add", e)); }; // (files dropped on the list or the tiles, as they are)
     try { await look(); } catch (e) {
       tell("render", { name: W.repo, path: BASE, base: fileUrl(BASE) + "/", text: "", links: {}, error: String(e.message || e), readonly: "not read", canBack: false });
       booted();

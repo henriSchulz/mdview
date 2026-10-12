@@ -205,6 +205,12 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 .sb-row.picked, .sb-row.picked:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 /* put away — hidden by hand, named with a dot, kept for a note — and shown all the same (Show › Hidden Items) */
 .sb-item.is-hidden > .sb-in > .sb-row > :is(.sb-icon, .sb-label, .sb-tail, .sb-sheet) { opacity: 0.45; }
+/* on its way into the repository (a file added in the browser): the row is there at once, and a small wheel at its end
+   once the wait is one (--loading-delay) — the wheel a mode's button has while the note is laid out (chrome.css) */
+.sb-item.is-coming > .sb-in > .sb-row::after, .ov-item.is-coming :is(.ov-sub, .ov-snip)::after { content: ""; flex: none; width: 11px; height: 11px; margin-left: auto; box-sizing: border-box; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top-color: var(--fg); opacity: 0; animation: coming-in var(--dur-fast) var(--ease-out) var(--loading-delay) forwards, seg-spin 0.7s linear infinite; }
+.ov-item.is-coming :is(.ov-sub, .ov-snip)::after { display: inline-block; margin-left: 6px; vertical-align: -1px; }
+@keyframes coming-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sb-item.is-coming > .sb-in > .sb-row::after, .ov-item.is-coming :is(.ov-sub, .ov-snip)::after { animation-duration: var(--dur-fast), 2s; } }
 .sb-chev { display: grid; place-items: center; flex: none; width: 14px; height: 14px; margin-right: -5px; color: var(--fg3); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
 .sb-chev svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .sb-item.open > .sb-in > .sb-row .sb-chev { transform: rotate(90deg); }

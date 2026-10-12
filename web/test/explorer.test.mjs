@@ -337,6 +337,52 @@ test("files and folders copied, cut, pasted and duplicated — from the menu and
   await page.keyboard.press("Escape");
 });
 
+// files let go on a row of the list, as a browser hands them over: [name, size or text]
+const dropOn = (r, files) => page.evaluate(([key, files]) => {
+  const dt = new DataTransfer();
+  for (const [name, what] of files) dt.items.add(new File([typeof what === "number" ? new Uint8Array(what).fill(65) : what], name));
+  const on = key ? [...document.querySelectorAll("#sidebar .sb-list .sb-item")].find((el) => el.dataset.key === key).querySelector(".sb-row") : MdPage.sbList;
+  for (const type of ["dragover", "drop"]) on.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+}, [r == null ? null : `${R}/${r}`, files]);
+const coming = () => page.evaluate((R) => [...document.querySelectorAll("#sidebar .sb-list .sb-item.is-coming")].map((el) => el.dataset.key.slice(R.length + 1)).sort(), R);
+
+test("files from elsewhere, dropped on the list or chosen with Add Files…: listed at once and marked as on their way, kept in a commit, under a free name; too large is said, and a refused commit takes the row away again", async () => {
+  await open("Alpha.md");
+  const said = () => page.evaluate(() => document.querySelector("#toast").textContent);
+  let n = gh.commits.length, release;
+  gh.stall = new Promise((r) => { release = r; });
+  await dropOn("box", [["new.txt", "from elsewhere\n"], ["p.png", "another picture"]]);
+  await until(() => gh.stall === null, "the commit on its way");
+  assert.deepEqual([await coming(), gh.commits.length - n, (await rows()).includes("box/new.txt")], [["box/new.txt", "box/p 2.png"], 0, true]); // (there, marked, before GitHub has them; a name that is taken gets a number)
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#sidebar .sb-item.is-coming .sb-row"), "::after").animationDelay.split(",")[0].trim()), "0.3s"); // (the wheel only once the wait is one)
+  release();
+  await until(() => text("box/new.txt") !== undefined && text("box/p 2.png") !== undefined, "the files in the repository");
+  assert.deepEqual([text("box/new.txt"), text("box/p 2.png"), text("box/p.png"), gh.commits.length - n, [...gh.commits.at(-1).added].sort()], ["from elsewhere\n", "another picture", "a picture, as far as anyone looks", 1, ["box/new.txt", "box/p 2.png"]]);
+  await until(async () => (await coming()).length === 0, "the marks gone");
+  // Add Files…, from the empty room's menu: the browser's own window for files
+  await blank();
+  assert.ok((await menu()).includes("addfiles"));
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 8000 }), choose("addfiles")]);
+  await chooser.setFiles([{ name: "chosen.csv", mimeType: "text/csv", buffer: Buffer.from("a,b\n") }]);
+  await until(() => text("chosen.csv") === "a,b\n", "the chosen file in the repository");
+  // too large for a commit: said, and not listed
+  await dropOn(null, [["huge.iso", 15 * 1024 * 1024]]);
+  await until(async () => /“huge\.iso” is too large to add here \(over 14 MB\)/.test(await said()), "the refusal");
+  assert.equal((await rows()).includes("huge.iso"), false);
+  // more than one commit takes: two, one after the other
+  n = gh.commits.length;
+  await dropOn("box", [["one.bin", 9 * 1024 * 1024], ["two.bin", 9 * 1024 * 1024]]);
+  await until(() => gh.repo.files.has("box/one.bin") && gh.repo.files.has("box/two.bin"), "both in the repository", 30000);
+  assert.deepEqual([gh.commits.length - n, gh.repo.files.get("box/two.bin").length], [2, 9 * 1024 * 1024]);
+  // a commit GitHub will not take: the row goes again, and it is said which file
+  n = gh.commits.length;
+  gh.refuse = 403;
+  await dropOn(null, [["lost.txt", "never there"]]);
+  await until(async () => /did not take the change to “lost\.txt”/.test(await said()), "the message");
+  await until(async () => !(await rows()).includes("lost.txt"), "the row gone again");
+  assert.deepEqual([gh.repo.files.has("lost.txt"), gh.commits.length - n], [false, 0]);
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });

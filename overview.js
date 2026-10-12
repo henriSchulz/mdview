@@ -131,6 +131,7 @@
     if (file) { t.classList.add("ov-file"); t.dataset.kind = n.kind || "file"; }
     if (picked.has(n.path)) t.classList.add("picked");
     if (n.hidden) t.classList.add("is-hidden"); // (put away, and shown all the same: dimmed)
+    if (n.coming) t.classList.add("is-coming"); // (on its way into the repository)
     if (n.kept) t.dataset.kept = ""; // (a whiteboard a note keeps: the note's, not a file to move or trash)
     if (n.note) t.dataset.note = n.note;
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : n.says != null ? esc(n.says) : file ? esc(kindOf(n)) : "";

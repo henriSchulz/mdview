@@ -1010,6 +1010,12 @@ counts — and has no writing help by a model.
   in the tab it was copied in: files copied in a file manager, or in another tab, are not
   pasted (a browser hands out its clipboard only when asked). No Copy Path: a file of a
   repository has no path on a disk.
+- **Files from elsewhere**: pulled from a file manager onto the sidebar or the tiles (a folder
+  with all that is in it), or chosen with Add Files… in the browser's own window. Their rows are
+  there at once, with a small wheel at the end while they are on their way (only once that
+  takes longer than a moment), and are a commit — several, one after the other, where they are
+  more than a commit takes. A file over 14 MB is not taken, and a message says which; nor more
+  than 400 files at once. Files still on their way when the tab is closed are not added.
 - **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
   Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
   is a commit like what is typed; a tile shows the board as the repository has it. What a note
@@ -1029,7 +1035,9 @@ counts — and has no writing help by a model.
 - **Help** opens this guide in a tab of its own.
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
-- **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder, the Omarchy theme.
+- **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder,
+  Copy Path, a row pulled out into a file manager, Undo after a file was deleted (its versions
+  stay in the repository), quick notes, the Omarchy theme.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
   a repository is shown sandboxed.
 

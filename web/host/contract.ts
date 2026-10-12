@@ -2,9 +2,12 @@
 // hosts it. The page says things with MdHost.post(JSON) and is told things by MdView.…(…). The
 // desktop's host is the Rust shell (src-tauri/src/shell.rs); the web's will be host.ts, against
 // GitHub. This is the whole list, as of the checkout it stands in, and what the web host does
-// with each — so that nothing is missing without having been decided. One thing is no message:
+// with each — so that nothing is missing without having been decided. Two things are no message:
 // files dropped on a note are handed over as they are, MdHost.drop(files, path), where a host
-// has that (the web's; the desktop's is told their addresses, dropfiles).
+// has that (the web's; the desktop's is told their addresses, dropfiles) — and so are files
+// dropped on the folder's list or on All Notes' tiles, MdHost.addFiles(transfer, dir) (the
+// desktop's: import). And one thing is said before the page is there: MdHost.filework — the host
+// works with the files as files (viewer/base.js: FILEWORK), which the page's menus go by.
 //
 //   answer   the web host does what the shell does, against the repository
 //   write    as answer, but it changes the repository: refused while the web app only reads
@@ -51,8 +54,8 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   copyfiles: ["local", "files and folders copied or cut in the list: remembered in the tab for Paste, their paths put on the clipboard"],
   pastefiles: ["write", "… and put into a folder: copies under free names, or what was cut moved — one commit that names the blobs the repository has"],
   duplicate: ["write", "a copy of a file or folder beside it: as pastefiles"],
-  import: ["none", "files from elsewhere copied into the folder: dropped on its list, or chosen (the desktop app)"],
-  addfiles: ["none", "Add Files…: the system's own window to choose them in (the desktop app)"],
+  import: ["none", "the desktop's way to files from elsewhere (it is told their addresses); a browser has the files themselves: MdHost.addFiles"],
+  addfiles: ["write", "Add Files…: chosen in the browser's own window for files, listed at once and marked as on their way, kept in a commit (or several, where they are more than one takes)"],
   newboard: ["write", "a whiteboard made as a file of the repository, in no note: a commit at once, and it opens"],
   boards: ["answer", "every whiteboard of the repository, for All Notes: those that are files and those a note keeps, each with the notes that show it"],
   "board-free": ["write", "a whiteboard a note keeps becomes a file of its own: taken out of .mdview/attachments.json, listed from then on"],
