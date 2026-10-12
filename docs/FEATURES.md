@@ -476,11 +476,11 @@ and shut back into it — or a file of the folder, of its own.
   panel's Insert tab, or Insert in the menu of a right click. The board opens at once. Its file
   is the note's: kept where the note's pictures go, in no list of the folder, and gone when the
   note no longer shows it.
-- **Making one as a file** (the desktop application): New Whiteboard — the sidebar's `+`, a right
+- **Making one as a file**: New Whiteboard — the sidebar's `+`, a right
   click on a folder or the empty room, the `+` of All Notes. It is asked for its name, made in
   that folder (`Name.board.svg`) and opened. It is listed like any file, under its name with a
   sign of its own; a click opens it over the window, and it is renamed, moved, copied, hidden
-  and trashed like any file.
+  and trashed like any file. (In the browser too: there it is a commit at once.)
 - **A whiteboard file shown in a note**: its menu › Embed in This Note puts it in at the caret
   (active mode; in the other two its link is copied, to be pasted) — or its row is pulled onto
   the note. It stands there as a board made in the note does (`![](Name.board.svg)`), and stays
@@ -684,11 +684,12 @@ wide: true
 `color` (one of the seven colours above) marks the note in All Notes: a dot in that colour before its name, on the tile and in the list.
 
 Two properties say how the note itself is shown — in the reading view, the active mode and the
-web app, a shared note too. They can be chosen in the panel's Document tab:
+web app, a shared note too. They can be chosen in the panel's Style part:
 
-- `background`: the ground the note stands on. `gray`, `red`, `orange`, `yellow`, `green`, `cyan`,
-  `blue`, `magenta` — a quiet tint of that colour of the theme — or paper: `dots`, `grid`,
-  `lines`. Anything else, or nothing: the theme's own ground.
+- `background`: what lies around the note. The note is then a sheet with round corners, on the
+  theme's own ground, and around it the window shows `gray`, or a soft run from one of the
+  theme's colours into another — `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta` —
+  or paper: `dots`, `grid`, `lines`. Anything else, or nothing: no sheet, the theme's own ground.
 - `wide: true`: the text column wide (58rem) for this note.
 
 ### HTML
@@ -732,24 +733,30 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work
   in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
-- **Panel at the right** (`Ctrl+Alt+P`): *Insert* — tiles for everything that can be put in, click
-  or drag; *Format* — the styles of the block the caret is in; *Document* — what is the note's as
-  a whole:
+- **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
+  right edge — a press on a sign opens the panel at that part, a press on the sign of the part
+  that is open closes it. The panel lies over the window, under the toolbar and beside the rail:
+  nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
+  window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
+  or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and
+  *Information* (`ⓘ`) — what is the note's as a whole:
   - *Information*: words, characters, reading time (220 words a minute) and blocks, and under
     them headings, pictures, links, tasks (done of all) and the pages in the note. The whole file
     is counted, its pages too; properties, comments, code and formulas are not read as words. A
     block is a heading, a list entry, a rule, a page, a code block or formula, and a paragraph, a
     table or a quote as one. The numbers follow what is typed after a short pause.
-  - *Background*: the ground the note stands on — the theme's own, a quiet tint (gray, or one of
-    the seven colours), or paper (dots, a grid, lines). It follows the light and the dark theme.
-  - *Wide Page*: the text column wide for this note, whatever the settings' text width is for the
+  - *Background* (Style): what lies around the note, which is a sheet on it — nothing (the
+    theme's own ground, no sheet), gray, a soft run of two of the theme's colours, or paper (dots,
+    a grid, lines). It follows the light and the dark theme, and stays with the window while the
+    note is scrolled.
+  - *Wide Page* (Style): the text column wide for this note, whatever the settings' text width is for the
     others (where the settings already have it wide or as wide as the window, it stays so).
 
   Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
   caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
-  last of them. Insert and Format are the active mode's; with Document chosen the panel stands
-  beside the reading view as well, its other two tabs dimmed. Not beside the source.
+  last of them. Insert and Format are the active mode's; Style and Information stand beside the
+  reading view as well, the other two signs dimmed there. The rail is not beside the source.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
 - **Undo** follows across the three modes.
@@ -777,7 +784,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles.
-- **Working with files** (the desktop application; in the sidebar and in All Notes alike):
+- **Working with files** (in the sidebar and in All Notes alike; in the browser too, but for what
+  is said under *In the browser*):
   - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is
     copied is put into the folder Paste is asked for on — a folder's row, the folder a file lies
     in, the empty room — under the next free name (`Name 2.pdf`); what was cut is moved. Files
@@ -799,7 +807,15 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   - **List** (the default): the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
   - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
-    beside it what is in the one chosen — its own folders open in place.
+    beside it what is in the one chosen — its own folders open in place. A right click on a
+    folder's sign opens the folder's own menu.
+  A folder has one menu wherever it is met — on its row, on its sign in the rail, on its tile in
+  All Notes: Open, New Note, New Folder, New Whiteboard, Add Files…, Paste, Show in Finder, Copy,
+  Cut, Duplicate, Copy Path, Colour and Icon…, Rename, Hide, Move to Trash, Show. So has a note on
+  its row and on its tile, and several things selected in the sidebar or in All Notes. What is
+  chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
+  tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
+  folder's row, and the name is changed there).
   - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
     pictures, formulas, tasks), a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
@@ -984,16 +1000,44 @@ counts — and has no writing help by a model.
 - **A picture pasted** is kept in the repository's `assets` (one for the notes of every folder,
   as on the desktop), in a commit at once; pictures dropped on the note
   in the active mode likewise, under their own names.
-- **Renaming** a note, or any other file up to 14 MB, from the sidebar.
-- **The settings** have what there is in a browser: no writing help, no quick notes, no hidden
-  items, no sharper text, no settings folder. History shows the repository — its name, its
+- **Renaming and moving** a note, any other file, a folder: the row stands at its new place at
+  once, and the commit follows behind it. A file the repository has is not sent again — the
+  commit names it where it is to be — so its size does not matter. Should GitHub not take the
+  commit (no right to write), the row goes back where it was and a message says which file.
+- **Copy, Cut, Paste, Duplicate** of files and folders, as here (the menu, `Ctrl+C` `Ctrl+X`
+  `Ctrl+V` `Ctrl+D` on a row or a tile): each a commit, at once, that names what the repository
+  has — a copy of a large file or a whole folder sends nothing. What was copied is remembered
+  in the tab it was copied in: files copied in a file manager, or in another tab, are not
+  pasted (a browser hands out its clipboard only when asked). No Copy Path: a file of a
+  repository has no path on a disk.
+- **Files from elsewhere**: pulled from a file manager onto the sidebar or the tiles (a folder
+  with all that is in it), or chosen with Add Files… in the browser's own window. Their rows are
+  there at once, with a small wheel at the end while they are on their way (only once that
+  takes longer than a moment), and are a commit — several, one after the other, where they are
+  more than a commit takes. A file over 14 MB is not taken, and a message says which; nor more
+  than 400 files at once. Files still on their way when the tab is closed are not added.
+- **Whiteboards as files**, as here: New Whiteboard, a board's row and its menu (Embed in This
+  Note), All Notes › *Whiteboards* with its three views, Keep as a File of Its Own. What is drawn
+  is a commit like what is typed; a tile shows the board as the repository has it. What a note
+  keeps — a whiteboard made in it, a picture put into it *in the browser* — is in no list, as
+  here; Show › Hidden Items lists it, dimmed, with the names that begin with a dot and the build
+  folders (named, not gone into). What the desktop application put into a note it remembers on
+  its own computer: in the browser such a file is listed like any other.
+- **Hide** and Show Again, from a file's or a folder's menu, as here: what is hidden is written
+  into the repository (`.mdview/hidden.json`, the file the desktop application keeps), as a
+  commit after the quiet while — so what is hidden in the browser is hidden on the desktop once
+  it has synced, and the other way round. Undo in the message that says so.
+- **The settings** have what there is in a browser: no writing help, no quick notes, no sharper
+  text, no settings folder. History shows the repository — its name, its
   branch, how many versions it has, the last one, what is not kept yet — with the quiet while
   before a commit and the name this browser has in a version; signing in and choosing a
   repository are before any page.
 - **Help** opens this guide in a tab of its own.
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
-- **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder, the Omarchy theme.
+- **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder,
+  Copy Path, a row pulled out into a file manager, Undo after a file was deleted (its versions
+  stay in the repository), quick notes, the Omarchy theme.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
   a repository is shown sandboxed.
 
@@ -1066,7 +1110,7 @@ again. Keys: `+` `−` zoom, `W` fit width,
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
-| `Ctrl+Alt+P` | panel (active mode; its Document tab in the reading view too) |
+| `Ctrl+Alt+P` | panel (active mode; Style and Information in the reading view too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
 | `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |
@@ -1091,8 +1135,8 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), sharper text (letters on whole pixels; at the next start) |
-| Sidebar | its layout (List, Rail, Sheets, Tiles), order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
+| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |

@@ -21,18 +21,20 @@
     const core = MdView.core, root = document.documentElement, content = document.getElementById("content");
     const text = () => core.current.text, fact = (k) => document.querySelector(`#rpanel [data-fact="${k}"]`).textContent;
     const ground = (name) => [...document.querySelectorAll("#rpanel .rp-ground")].find((b) => b.getAttribute("aria-label") === name);
-    const tabs = () => [...document.querySelectorAll("#rpanel .rp-tab")].map((b) => b.textContent + (b.disabled ? "-" : "") + (b.getAttribute("aria-selected") === "true" ? "*" : "")).join(" ");
+    const tabs = () => [...document.querySelectorAll("#rrail .rp-tab")].map((b) => b.getAttribute("aria-label") + (b.disabled ? "-" : "") + (b.getAttribute("aria-selected") === "true" ? "*" : "")).join(" ");
     // (a colour as the screen has it, whatever way the browser writes it; the text column: as wide as the note's title)
     const rgb = (c) => { const x = Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d"); x.fillStyle = c; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data]; };
     const bgOf = (el) => rgb(getComputedStyle(el).backgroundColor).join(), wideBox = () => document.querySelector("#rpanel .pf-switch");
     const colW = (el) => el.querySelector("h1").getBoundingClientRect().width;
     const plain = bgOf(document.body), narrow = colW(content);
+    // (a ground lies around the note: the window shows it, and the note is a sheet of the theme's own ground on it)
+    const sheet = () => document.querySelector(document.body.dataset.view === "active" ? "#active" : "#content"), around = () => getComputedStyle(root).backgroundImage;
     ok("in the reading view the button is not dimmed", getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(btn).opacity === "1", [getComputedStyle(btn).pointerEvents, getComputedStyle(btn).opacity]);
     btn.click();
     for (let i = 0; i < 400 && !document.getElementById("rpanel"); i++) await sleep(10);
     await sleep(500);
     const panel0 = document.getElementById("rpanel");
-    ok("in the reading view the button opens it on Document, the other tabs dimmed, the mode stays", document.body.dataset.view !== "active" && document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && panel0.dataset.tab === "document" && tabs() === "Insert- Format- Document*" && window.MdPrefs.panel === true && window.MdPrefs.panelTab === "document", [document.body.dataset.view, tabs(), window.MdPrefs.panelTab]);
+    ok("in the reading view the button opens it on Document, the other tabs dimmed, the mode stays", document.body.dataset.view !== "active" && document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && panel0.dataset.tab === "style" && tabs() === "Insert- Format- Style* Information" && window.MdPrefs.panel === true && window.MdPrefs.panelTab === "style", [document.body.dataset.view, tabs(), window.MdPrefs.panelTab]);
     ok("the note made room", content.getBoundingClientRect().right <= panel0.getBoundingClientRect().left + 1 && getComputedStyle(panel0).visibility === "visible", [content.getBoundingClientRect().right, panel0.getBoundingClientRect().left]);
     ok("the note counted: words, characters, reading time, blocks, headings", fact("words") === "582" && fact("chars") === (3108).toLocaleString() && fact("minutes") === "3 min" && fact("blocks") === "46" && fact("headings") === "1", ["words", "chars", "minutes", "blocks", "headings"].map(fact));
     ok("what the note has none of is not listed", document.querySelector('#rpanel [data-fact="tasks"]').parentNode.offsetHeight === 0 && document.querySelector('#rpanel [data-fact="pages"]').parentNode.offsetHeight === 0);
@@ -42,9 +44,9 @@
     ground("Blue").click();
     await sleep(500);
     ok("a ground chosen beside the reading view: written into the note's properties", text().startsWith("---\nbackground: blue\n---\n\n# Polish") && core.current.raw === text(), text().slice(0, 50));
-    ok("… the page stands on it, and its properties show", root.dataset.docBg === "blue" && bgOf(document.body) !== plain && ground("Blue").getAttribute("aria-checked") === "true" && ground("None").getAttribute("aria-checked") === "false" && !!content.querySelector("details.props"), [root.dataset.docBg, bgOf(document.body), plain]);
+    ok("… it lies around the note, which is a sheet of the theme's own ground with round corners, and its properties show", root.dataset.docBg === "blue" && around().includes("linear-gradient") && bgOf(document.body) === "0,0,0,0" && bgOf(sheet()) === plain && parseFloat(getComputedStyle(sheet()).borderTopLeftRadius) > 8 && ground("Blue").getAttribute("aria-checked") === "true" && ground("None").getAttribute("aria-checked") === "false" && !!content.querySelector("details.props"), [root.dataset.docBg, bgOf(document.body), plain]);
     ok("… the note stays where it was (but for the properties' own height)", Math.abs(scrollY - y0) < 140 && scrollY > 100, [scrollY, y0]);
-    ok("… the text is still read on it", (() => { const c = (s) => rgb(s).slice(0, 3), lum = (v) => { const [r, g, b] = v.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const a = lum(c(getComputedStyle(document.body).color)), b2 = lum(c(getComputedStyle(document.body).backgroundColor)); return (Math.max(a, b2) + 0.05) / (Math.min(a, b2) + 0.05) >= 7; })(), [getComputedStyle(document.body).color, bgOf(document.body)]);
+    ok("… the text is still read on it", (() => { const c = (s) => rgb(s).slice(0, 3), lum = (v) => { const [r, g, b] = v.map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const a = lum(c(getComputedStyle(document.body).color)), b2 = lum(c(getComputedStyle(sheet()).backgroundColor)); return (Math.max(a, b2) + 0.05) / (Math.min(a, b2) + 0.05) >= 7; })(), [getComputedStyle(document.body).color, bgOf(sheet())]);
     wideBox().click();
     await sleep(400);
     ok("Wide Page: a property too, and the column is the wide one", /^---\nbackground: blue\nwide: true\n---\n/.test(text()) && wideBox().checked && colW(content) > narrow + 100 && getComputedStyle(content).maxWidth === 58 * 16 + "px", [text().slice(0, 40), narrow, colW(content), getComputedStyle(content).maxWidth]);
@@ -69,14 +71,14 @@
     const before = md().replace(/^---\n[\s\S]*?\n---\n\n/, "");
     // --- Document, in the active mode
     const first = () => view.state.doc.firstChild, keyz = () => view.dom.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true }));
-    ok("into the active mode: the panel stays, its tabs can all be chosen, the ground and the width are the same", document.body.hasAttribute("data-panel") && tabs() === "Insert Format Document*" && root.dataset.docBg === "blue" && Math.abs(colW(view.dom) - wideRead) < 1 && first().attrs.kind === "frontmatter", [tabs(), root.dataset.docBg, colW(view.dom), wideRead]);
+    ok("into the active mode: the panel stays, its tabs can all be chosen, the ground and the width are the same", document.body.hasAttribute("data-panel") && tabs() === "Insert Format Style* Information" && root.dataset.docBg === "blue" && Math.abs(colW(view.dom) - wideRead) < 1 && first().attrs.kind === "frontmatter", [tabs(), root.dataset.docBg, colW(view.dom), wideRead]);
     caret("Second paragraph");
     scrollTo(0, 260); await sleep(150);
     const y1 = scrollY, sel = () => view.state.selection.$from.parent.textContent + "@" + view.state.selection.$from.parentOffset, sel1 = sel();
     press(ground("Dots"));
     await sleep(300);
     ok("a ground chosen in the active mode: the properties say it, saved at once", /^---\nbackground: dots\nwide: true\n---\n\n# Polish/.test(text()) && md().startsWith("---\nbackground: dots\nwide: true\n---\n\n# Polish") && !A.view.dirty, text().slice(0, 60));
-    ok("… paper: drawn on the window's ground, the body lets it through", root.dataset.docBg === "dots" && getComputedStyle(root).backgroundImage.includes("radial-gradient") && bgOf(document.body) === "0,0,0,0" && bgOf(root) === plain, [getComputedStyle(root).backgroundImage.slice(0, 40), bgOf(document.body), bgOf(root)]);
+    ok("… paper: drawn around the note, the body lets it through, the sheet stays plain", root.dataset.docBg === "dots" && around().includes("radial-gradient") && bgOf(document.body) === "0,0,0,0" && bgOf(sheet()) === plain && getComputedStyle(sheet()).backgroundImage === "none", [around().slice(0, 40), bgOf(document.body), bgOf(sheet())]);
     ok("… the caret, the focus and the place in the note stay", sel() === sel1 && view.hasFocus() && scrollY === y1, [sel(), sel1, scrollY, y1]);
     keyz();
     await sleep(1300);
@@ -102,17 +104,17 @@
       const css = document.getElementById("theme").textContent, mode = document.body.dataset.mode, c = (n) => getComputedStyle(root).getPropertyValue("--c-" + n).trim();
       press(ground("Green"));
       await sleep(300);
-      const light = bgOf(document.body);
+      const light = around();
       MdView.setTheme(css + `\n:root { --c-background: ${mode === "dark" ? "#f5f5f7" : "#1c1c1e"}; --c-foreground: ${mode === "dark" ? "#1d1d1f" : "#f2f2f7"}; }`, mode === "dark" ? "light" : "dark");
       await sleep(500);
-      ok("in the other theme the ground is that theme's, tinted", bgOf(document.body) !== light && bgOf(document.body) !== rgb(c("background")).join() && root.dataset.docBg === "green", [light, bgOf(document.body)]);
+      ok("in the other theme the ground is made of that theme's colours, and the sheet is its own ground", around() !== light && around().includes("linear-gradient") && bgOf(sheet()) === rgb(c("background")).join() && root.dataset.docBg === "green", [light.slice(0, 60), around().slice(0, 60), bgOf(sheet())]);
       out("shot-document-dark", {});
       await sleep(1500); // screenshot
       MdView.setTheme(css, mode);
       press(ground("None"));
       await sleep(300);
     }
-    panel.querySelector('.rp-tab[data-tab="insert"]').click();
+    document.querySelector('#rrail .rp-tab[data-tab="insert"]').click();
     btn.click();
     await sleep(500);
     for (let i = 0; i < 12 && md() !== before; i++) keyz();
@@ -154,7 +156,7 @@
     await sleep(1500); // screenshot
 
     // --- Format
-    panel.querySelector('.rp-tab[data-tab="format"]').click();
+    document.querySelector('#rrail .rp-tab[data-tab="format"]').click();
     caret("Polish");
     await sleep(120);
     ok("Format shows what the block is", panel.dataset.tab === "format" && fbtn("Heading 1")?.getAttribute("aria-pressed") === "true" && fbtn("Text")?.getAttribute("aria-pressed") === "false" && window.MdPrefs.panelTab === "format");
@@ -201,14 +203,26 @@
     MdView.setMode("active");
     await sleep(700);
     ok("… and back in the active mode it is there again", document.body.hasAttribute("data-panel") && panel.dataset.tab === "format");
-    panel.querySelector('.rp-tab[data-tab="document"]').click();
+    document.querySelector('#rrail .rp-tab[data-tab="style"]').click();
     press(ground("Green")); wideBox().click();
     await sleep(400);
     MdView.setMode("read");
     await sleep(700);
-    ok("on Document it stays beside the reading view; the page there as the note says", document.body.hasAttribute("data-panel") && tabs() === "Insert- Format- Document*" && root.dataset.docBg === "green" && getComputedStyle(content).maxWidth === 58 * 16 + "px" && /^---\nbackground: green\nwide: true\n---\n/.test(text()), [tabs(), root.dataset.docBg, text().slice(0, 50)]);
+    ok("on Document it stays beside the reading view; the page there as the note says", document.body.hasAttribute("data-panel") && tabs() === "Insert- Format- Style* Information" && root.dataset.docBg === "green" && getComputedStyle(content).maxWidth === 58 * 16 + "px" && /^---\nbackground: green\nwide: true\n---\n/.test(text()), [tabs(), root.dataset.docBg, text().slice(0, 50)]);
     btn.click(); MdView.setMode("active"); await sleep(600);
-    panel.querySelector('.rp-tab[data-tab="insert"]').click(); btn.click();
+    // the rail: a press on another sign changes the part, a press on the open part's sign closes the panel
+    const sign = (t) => document.querySelector(`#rrail .rp-tab[data-tab="${t}"]`);
+    const places = () => [view.dom, document.getElementById("toolbar"), document.getElementById("tabs")].map((x) => (x ? Math.round(x.getBoundingClientRect().left) + ":" + Math.round(x.getBoundingClientRect().width) : "")).join(" ");
+    const closedAt = places();
+    sign("info").click(); await sleep(500);
+    ok("the panel lies over the window: the text column, the toolbar and the tabs stand where they stood", places() === closedAt && getComputedStyle(document.body).paddingRight === "0px", [closedAt, places()]);
+    ok("… under the toolbar and beside the rail, covering neither", (() => { const p = panel0.getBoundingClientRect(), t = document.getElementById("toolbar").getBoundingClientRect(), r = document.getElementById("rrail").getBoundingClientRect(); return p.top >= t.bottom && p.right <= r.left; })(), [panel0.getBoundingClientRect().top, document.getElementById("toolbar").getBoundingClientRect().bottom]);
+    ok("the rail's sign opens the panel at its part, and the part's name stands at its head", document.body.hasAttribute("data-rail") && document.body.hasAttribute("data-panel") && panel0.dataset.tab === "info" && panel0.querySelector(".rp-title").textContent === "Information" && sign("info").getAttribute("aria-selected") === "true", [panel0.dataset.tab, tabs()]);
+    sign("format").click(); await sleep(300);
+    ok("another sign: the panel stays and shows that part", document.body.hasAttribute("data-panel") && panel0.dataset.tab === "format" && sign("format").getAttribute("aria-selected") === "true" && sign("info").getAttribute("aria-selected") === "false", tabs());
+    sign("format").click(); await sleep(500);
+    ok("the open part's sign closes the panel; the rail stays, nothing marked", !document.body.hasAttribute("data-panel") && document.body.hasAttribute("data-rail") && !tabs().includes("*") && window.MdPrefs.panel === false, [tabs(), window.MdPrefs.panel]);
+    sign("insert").click(); await sleep(300); btn.click();
     await sleep(900);
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
   out("panel", o);

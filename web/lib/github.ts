@@ -255,10 +255,63 @@ export async function defaultBranch(access: string, owner: string, repo: string)
 /** The branch stands elsewhere than the commit was made for: someone wrote meanwhile. */
 export class Moved extends Error {}
 
-export type Change = { additions: { path: string; contents: string }[]; deletions: string[] }; // (contents: base64)
+/** contents: base64. links: files the repository has already, under another path — moved, copied —
+ * named by their blob: nothing of them is fetched or sent again, whatever their size. */
+export type Change = { additions: { path: string; contents: string }[]; deletions: string[]; links?: { path: string; sha: string }[] };
+
+/** Asked of the repository's Git database (blobs, trees, commits, the branch) — what a commit that names blobs it has needs. */
+async function git<T>(access: string, owner: string, repo: string, method: string, path: string, body?: unknown): Promise<{ status: number; said: T }> {
+  const res = await fetch(`${API}${repoPath(owner, repo)}/git/${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", Accept: "application/vnd.github+json", "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+  if (denied(res)) throw new Denied("GitHub does not let this account write to the repository");
+  return { status: res.status, said: (await res.json().catch(() => ({}))) as T };
+}
+
+/** A commit whose tree names blobs the repository has (links) beside what is new: built by hand —
+ * the new contents as blobs, a tree on top of `expect`'s, the commit, and the branch moved to it
+ * only if that is a step forward from where it stands (it is not, once someone wrote meanwhile).
+ * createCommitOnBranch cannot do this: it takes contents and nothing else. Unlike its commits,
+ * one made this way is not signed by GitHub (it shows as "Unverified" where signatures are shown). */
+async function commitLinked(access: string, owner: string, repo: string, branch: string, expect: string, message: string, change: Change): Promise<string> {
+  const need = <T>(r: { status: number; said: T }, what: string): T => { if (r.status < 200 || r.status > 299) throw new Error(`GitHub: ${r.status} for ${what}`); return r.said; };
+  const on = need(await git<{ tree?: { sha?: string } }>(access, owner, repo, "GET", `commits/${expect}`), "the commit to build on").tree?.sha;
+  if (!on) throw new Error("GitHub did not say what the commit holds");
+  const entry = (path: string, sha: string | null) => ({ path, mode: "100644", type: "blob", sha });
+  const made: { path: string; sha: string }[] = [];
+  for (const a of change.additions) {
+    const sha = need(await git<{ sha?: string }>(access, owner, repo, "POST", "blobs", { content: a.contents, encoding: "base64" }), "a file's contents").sha;
+    if (!sha) throw new Error("GitHub did not keep a file's contents");
+    made.push({ path: a.path, sha });
+  }
+  // (a path that goes away and comes again in the same commit — a file put where another was — is the new one's)
+  const written = new Set(made.map((m) => m.path)), links = (change.links || []).filter((l) => !written.has(l.path)), named = new Set([...written, ...links.map((l) => l.path)]);
+  const tree = [...change.deletions.filter((p) => !named.has(p)).map((p) => entry(p, null)), ...links.map((l) => entry(l.path, l.sha)), ...made.map((m) => entry(m.path, m.sha))];
+  const grown = await git<{ sha?: string }>(access, owner, repo, "POST", "trees", { base_tree: on, tree });
+  if (grown.status === 422 || grown.status === 404) throw new Gone("a file to be moved or copied is not in the repository any more"); // (a blob it does not have, a path to delete that is not there)
+  const treeSha = need(grown, "the tree").sha;
+  const sha = need(await git<{ sha?: string }>(access, owner, repo, "POST", "commits", { message, tree: treeSha, parents: [expect] }), "the commit").sha;
+  if (!sha) throw new Error("GitHub did not make the commit");
+  const moved = await git<unknown>(access, owner, repo, "PATCH", `refs/heads/${branch.split("/").map(encodeURIComponent).join("/")}`, { sha, force: false });
+  if (moved.status === 422 || moved.status === 409) throw new Moved("the branch moved"); // (not a step forward: someone wrote meanwhile)
+  need(moved, "the branch");
+  return sha;
+}
+
+/** What a commit names is not there (any more): nothing that trying again would mend. */
+export class Gone extends Error {}
+/** The repository does not take a commit from this account — no right to write, or it is not there: trying again mends nothing. */
+export class Denied extends Error {}
+// (403 is also how GitHub says "too many requests": that one passes, and is tried again)
+const denied = (res: Response) => (res.status === 403 || res.status === 404) && !res.headers.get("retry-after") && res.headers.get("x-ratelimit-remaining") !== "0";
 
 /** One commit on a branch, with files added (or replaced) and deleted — only if the branch still
- * stands at `expect`. The author is whom the token belongs to; GitHub signs it. → the new commit. */
+ * stands at `expect`. The author is whom the token belongs to; GitHub signs it — but for a commit
+ * that names blobs the repository has already (links: commitLinked). → the new commit. */
 export async function commit(access: string, owner: string, repo: string, branch: string, expect: string, headline: string, body: string, change: Change): Promise<string> {
   // A repository nothing was ever pushed to has no branch a commit could be made on: its first file is put there by itself
   // (which makes the branch), the rest follows as the commit on top of it.
@@ -281,6 +334,7 @@ export async function commit(access: string, owner: string, repo: string, branch
     const on = about.ok ? ((await about.json()) as { default_branch?: string }).default_branch || branch : branch;
     return commit(access, owner, repo, on, made, headline, body, { additions: rest, deletions: [] });
   }
+  if (change.links?.length) return commitLinked(access, owner, repo, branch, expect, body ? `${headline}\n\n${body}` : headline, change);
   const input = {
     branch: { repositoryNameWithOwner: `${owner}/${repo}`, branchName: branch },
     expectedHeadOid: expect,
@@ -294,12 +348,14 @@ export async function commit(access: string, owner: string, repo: string, branch
     cache: "no-store",
   });
   if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+  if (denied(res)) throw new Denied("GitHub does not let this account write to the repository");
   if (!res.ok) throw new Error(`GitHub: ${res.status} for the commit`);
   const said = (await res.json()) as { data?: { createCommitOnBranch?: { commit?: { oid?: string } } }; errors?: { type?: string; message?: string }[] };
   const oid = said.data?.createCommitOnBranch?.commit?.oid;
   if (oid) return oid;
   const why = said.errors?.[0];
   if (why?.type === "STALE_DATA" || /expected (branch|head)|did not match|but it did not/i.test(why?.message || "")) throw new Moved(why?.message || "the branch moved");
+  if (why?.type === "FORBIDDEN" || why?.type === "NOT_FOUND") throw new Denied(why.message || "GitHub does not let this account write to the repository");
   throw new Error(why?.message || "GitHub did not make the commit");
 }
 

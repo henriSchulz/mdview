@@ -46,13 +46,28 @@
     await layout("rail");
     const rail = qa(".sb-rail .sb-rt");
     ok("rail: everything, then the folder's folders as signs — the chosen colour and sign among them", sb.dataset.layout === "rail" && rail.map((b) => b.title).join("|") === "All Notes|Projekte|Studium" && /--c-green/.test(rail[2].getAttribute("style") || "") && rail[0].classList.contains("on"), rail.map((b) => b.title + (b.getAttribute("style") || "")));
-    rail[1].click(); await sleep(500);
+    // a folder's sign in the rail has the folder's own menu: its colour and sign are changed from there too
+    const signOf = (name) => qa(".sb-rail .sb-rt").find((b) => b.title === name);
+    signOf("Projekte").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: signOf("Projekte").getBoundingClientRect().top + 8, button: 2 }));
+    await sleep(400);
+    const offered = [...document.querySelectorAll("#ctxmenu > [data-cmd]")].filter((b) => !b.hidden).map((b) => b.dataset.cmd);
+    ok("rail: a right click on a folder's sign opens the folder's menu, Colour and Icon… in it", document.getElementById("ctxmenu").hasAttribute("data-open") && document.getElementById("ctxmenu").dataset.kind === "dir" && offered.includes("look") && offered.includes("newnote"), offered);
+    document.querySelector('#ctxmenu [data-cmd="look"]').click(); await sleep(700);
+    const look2 = document.getElementById("sblook"), lr = look2.getBoundingClientRect(), sr = signOf("Projekte").getBoundingClientRect();
+    ok("… its small window opens beside that sign", look2.hasAttribute("data-open") && lr.top >= sr.top && lr.top - sr.bottom < 40 && lr.left < 120, [lr.left, lr.top, sr.bottom]);
+    look2.querySelector('[data-color="red"]').click(); await sleep(150);
+    look2.querySelector('[data-icon="star"]') && look2.querySelector('[data-icon="star"]').click(); await sleep(600);
+    ok("… and the colour chosen there shows on the sign", /--c-red/.test(signOf("Projekte").getAttribute("style") || ""), signOf("Projekte").getAttribute("style"));
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+    signOf("All Notes").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: 30, button: 2 })); await sleep(300);
+    ok("All Notes is no folder: its sign has no menu", !document.getElementById("ctxmenu").hasAttribute("data-open"), "");
+    signOf("Projekte").click(); await sleep(500);
     const pad = (r) => parseFloat(getComputedStyle(r).paddingLeft);
     ok("a folder chosen: what is in it, at the top — its folders still to open", JSON.stringify(names(".sb-list .sb-row")) === '["Deep","Plan"]' && q(".sb-crumb-name").textContent === "Projekte" && !q(".sb-crumb-count"), names(".sb-list .sb-row"));
     rowOf("Deep").click(); await sleep(600);
     ok("… a folder in it opens in place, a level deeper", JSON.stringify(names(".sb-list .sb-row")) === '["Deep","Inner","Plan"]' && pad(rowOf("Inner")) > pad(rowOf("Plan")), [names(".sb-list .sb-row"), pad(rowOf("Inner")), pad(rowOf("Plan"))]);
     await shot("rail");
-    rail[0].click(); await sleep(500);
+    signOf("All Notes").click(); await sleep(500);
     ok("All Notes: the whole tree again", names(".sb-list .sb-row").includes("Alpha") && names(".sb-list .sb-row").includes("Studium"), names(".sb-list .sb-row"));
 
     // ---- sheets
@@ -124,6 +139,44 @@
     await sleep(1500);
     const uni = rowOf("Uni");
     ok("a folder renamed keeps its colour and its sign", !!uni && /--c-green/.test(uni.style.getPropertyValue("--fc")) && uni.dataset.icon === "book", uni && [uni.getAttribute("style"), uni.dataset.icon]);
+    // ---- one menu, wherever a thing is met: a folder's row, its sign in the rail and its tile in All Notes offer the same
+    // entries, and so do a note's row and its tile
+    const menu = document.getElementById("ctxmenu");
+    const menuOf = async (el) => {
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 8, button: 2 }));
+      await sleep(350);
+      const list = menu.hasAttribute("data-open") ? [...menu.children].filter((b) => !b.hidden && b.dataset.cmd).map((b) => b.dataset.cmd).join(" ") : "(no menu)";
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(250);
+      return list;
+    };
+    const dirRow = await menuOf(rowOf("Projekte")), noteRow = await menuOf(rowOf("Alpha"));
+    await layout("rail");
+    const dirSign = await menuOf(signOf("Projekte"));
+    await layout("source");
+    MdOverview.open(); await sleep(700);
+    document.querySelector('#overview [data-seg="scope"] [data-v="folders"]').click(); await sleep(500);
+    const tileOf = (name) => [...document.querySelectorAll("#overview .ov-item")].find((t) => t.querySelector(".ov-name").textContent === name);
+    const dirTile = tileOf("Projekte") ? await menuOf(tileOf("Projekte")) : "(no tile)", noteTile = tileOf("Alpha") ? await menuOf(tileOf("Alpha")) : "(no tile)";
+    ok("a folder has the same menu on its row, on its sign in the rail and on its tile in All Notes", dirRow.includes("look") && dirRow.includes("rename") && dirRow === dirSign && dirRow === dirTile, { row: dirRow, sign: dirSign, tile: dirTile });
+    ok("a note has the same menu on its row and on its tile", noteRow.includes("rename") && noteRow === noteTile, { row: noteRow, tile: noteTile });
+    // … and what is chosen there is done there: a folder's colour from its tile
+    const pt = tileOf("Projekte"), pr = pt.getBoundingClientRect();
+    pt.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: pr.left + 10, clientY: pr.top + 8, button: 2 })); await sleep(350);
+    menu.querySelector('[data-cmd="look"]').click(); await sleep(700);
+    const look3 = document.getElementById("sblook"), l3 = look3.getBoundingClientRect();
+    ok("All Notes: Colour and Icon… opens its small window at the tile, over All Notes", look3.hasAttribute("data-open") && l3.left >= pr.left - 4 && l3.top >= pr.top && document.elementFromPoint(l3.left + 20, l3.top + 20) && look3.contains(document.elementFromPoint(l3.left + 20, l3.top + 20)), [l3.left, l3.top, pr.left, pr.top]);
+    look3.querySelector('[data-color="blue"]').click(); await sleep(700);
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+    MdOverview.close(); await sleep(400);
+    ok("… and the colour chosen there is the folder's", /--c-blue/.test(rowOf("Projekte").style.getPropertyValue("--fc")), rowOf("Projekte").getAttribute("style"));
+    // the rail: Rename shows the folder's row among All Notes and the name is changed there
+    await layout("rail");
+    signOf("Projekte").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: signOf("Projekte").getBoundingClientRect().top + 8, button: 2 })); await sleep(350);
+    menu.querySelector('[data-cmd="rename"]').click(); await sleep(800);
+    ok("rail: Rename brings the folder's row and a field for its name", !!q(".sb-list .sb-rename") && q(".sb-list .sb-rename").value === "Projekte" && document.activeElement === q(".sb-list .sb-rename"), [!!q(".sb-list .sb-rename"), document.activeElement && document.activeElement.className]);
+    q(".sb-list .sb-rename") && q(".sb-list .sb-rename").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+    await layout("source");
   } catch (e) { o.error = String(e && e.stack || e); }
   out("sidebar", o);
 })();

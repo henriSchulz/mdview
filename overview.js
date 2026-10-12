@@ -40,7 +40,7 @@
   const T = window.MdStrings.t;
   const { md, stripFrontmatter, stripComments, esc, post, DECO_COLORS, UI: ICON } = core;
   const BATCH = 40;
-  const DESKTOP = !!window.__TAURI_INTERNALS__; // (the application on a folder of this computer: what works with files as files is its alone)
+  const FILEWORK = core.filework; // (the host works with files as files: the application on a folder of this computer, the web app on a repository — viewer/base.js)
 
   const el = document.createElement("section");
   el.id = "overview";
@@ -52,7 +52,7 @@
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
-    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(DESKTOP ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
@@ -131,6 +131,7 @@
     if (file) { t.classList.add("ov-file"); t.dataset.kind = n.kind || "file"; }
     if (picked.has(n.path)) t.classList.add("picked");
     if (n.hidden) t.classList.add("is-hidden"); // (put away, and shown all the same: dimmed)
+    if (n.coming) t.classList.add("is-coming"); // (on its way into the repository)
     if (n.kept) t.dataset.kept = ""; // (a whiteboard a note keeps: the note's, not a file to move or trash)
     if (n.note) t.dataset.note = n.note;
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : n.says != null ? esc(n.says) : file ? esc(kindOf(n)) : "";
@@ -307,7 +308,7 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && DESKTOP ? "boards" : "all";
+    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && FILEWORK ? "boards" : "all";
     boardShow = ["embedded", "loose"].includes(prefs.ovBoardsShow) ? prefs.ovBoardsShow : "all";
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
@@ -430,13 +431,14 @@
   });
   /* Files from elsewhere — a file manager, another application — pulled over the tiles: copied into
    * the folder shown, or the folder whose tile they are let go on (the shell: import). */
-  const foreign = (e) => DESKTOP && !core.moving.path && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
+  const foreign = (e) => FILEWORK && !core.moving.path && [...(e.dataTransfer?.types || [])].some((t) => t === "text/uri-list" || t === "Files");
   el.addEventListener("dragover", (e) => { if (isOpen() && foreign(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setInto(e.target.closest?.(".ov-item[data-dir]") || null); } });
   el.addEventListener("drop", (e) => {
     if (!isOpen() || !foreign(e)) return;
     e.preventDefault();
     const t = e.target.closest?.(".ov-item[data-dir]"), uris = (e.dataTransfer.getData("text/uri-list") || "").split(/\r?\n/).map((u) => u.trim()).filter((u) => /^file:/.test(u));
     setInto(null);
+    if (core.addFiles(e.dataTransfer, t ? t.dataset.path : here())) return; // (a browser has the files themselves)
     if (uris.length) post("import", { uris, dir: t ? t.dataset.path : here() });
   });
   // a tile dragged onto a folder's tile: moved into that folder (the sidebar's rows do the same: core.moving)
@@ -516,7 +518,7 @@
   el.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a" && !e.target.closest("input")) { e.preventDefault(); e.stopPropagation(); pick(items.map((t) => t.dataset.path)); return; }
     // Copy, Cut, Paste, Duplicate — on the tile the keyboard is on, or on all that are selected; Paste: into the folder shown, or the folder the keyboard is on
-    const fileKey = DESKTOP && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !e.target.closest("input") && { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
+    const fileKey = FILEWORK && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !e.target.closest("input") && { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
     if (fileKey) {
       const on = e.target.closest?.(".ov-item"), paths = on && picked.has(on.dataset.path) && picked.size > 1 ? [...picked] : on && on.dataset.kept == null ? [on.dataset.path] : [];
       if (fileKey !== "pastef" && !paths.length) return;

@@ -41,6 +41,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
 
+54. **One menu for a thing, wherever it is met.** The file menu's entries say for *what* they are
+    (`data-for`: a file, a folder, many, the empty room) — never *where* (a row, the rail, a tile).
+    A place that opens the menu names the thing; what an entry does differently in a place is
+    said where it is carried out (`runCtx`). `rig.sh sidebar` holds a folder's row, its sign in the
+    rail and its tile, and a note's row and tile, to the same entries: an entry added for one is
+    there for all.
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
@@ -197,9 +204,25 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 23. **A click made up by a key or a test has no target** — handlers that look at `event.target`
     check that it is an element.
 49. **A settings row is there where the host does what it sets**: what only the desktop has (a
-    window of the application, a folder on a disk, what is put out of sight) is in the web host's
+    window of the application, a folder on a disk) is in the web host's
     `hide` (`settings-info` in `web/public/host/host.js`), and a value the host was not told is a
     row not shown — never a nought or a placeholder in its place. A new row: decide it for both.
+56. **In the browser the page comes first, and a file the repository has is never sent again.**
+    What is done to a file — moved, renamed, copied, hidden, deleted — changes the host's own
+    tree and is told to the page at once (`noteRenamed`, `setFolder`); the commit follows
+    behind, and nothing waits for GitHub (only for a commit in flight that holds *that* file:
+    `landed`). A file with a blob in the repository goes into a commit by that blob (`links` in
+    `host.js`, `commitLinked` in `web/lib/github.ts`) — never fetched to be sent back, whatever
+    its size. What is shown as done and then refused for good is put back and said by name
+    (`putBack`); what only waits survives a reload (`moved`, beside the drafts).
+55. **A feature of the page is built for both hosts, or its absence in the other is said at
+    once.** The page is one, and Henri uses it in both places: what is made for the desktop and
+    left `"none"` in `web/host/contract.ts` is, to him, a change that "is not active on the
+    website". With a new message: either the web host answers it too (and a web test says so),
+    or the commit says that the browser does not have it, and why. What the page offers only
+    where the host works with files as files is behind one gate, `FILEWORK` (`viewer/base.js`:
+    the desktop, or a host that says `MdHost.filework` before the page is there) — never behind
+    `__TAURI_INTERNALS__` alone, which is for what a browser cannot do at all (rule 19).
 
 ### Touch (iPad)
 

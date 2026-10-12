@@ -2,9 +2,12 @@
 // hosts it. The page says things with MdHost.post(JSON) and is told things by MdView.…(…). The
 // desktop's host is the Rust shell (src-tauri/src/shell.rs); the web's will be host.ts, against
 // GitHub. This is the whole list, as of the checkout it stands in, and what the web host does
-// with each — so that nothing is missing without having been decided. One thing is no message:
+// with each — so that nothing is missing without having been decided. Two things are no message:
 // files dropped on a note are handed over as they are, MdHost.drop(files, path), where a host
-// has that (the web's; the desktop's is told their addresses, dropfiles).
+// has that (the web's; the desktop's is told their addresses, dropfiles) — and so are files
+// dropped on the folder's list or on All Notes' tiles, MdHost.addFiles(transfer, dir) (the
+// desktop's: import). And one thing is said before the page is there: MdHost.filework — the host
+// works with the files as files (viewer/base.js: FILEWORK), which the page's menus go by.
 //
 //   answer   the web host does what the shell does, against the repository
 //   write    as answer, but it changes the repository: refused while the web app only reads
@@ -43,19 +46,19 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   newnote: ["write", "a note made"],
   quicknote: ["none", "a quick note made at once (the desktop app's window of quick notes: mdview --quick)"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
-  rename: ["write", "a note, another file or a folder renamed"],
-  move: ["write", "a note, another file or a folder put into another folder"],
+  rename: ["write", "a note, another file or a folder renamed: the page is told at once, the commit follows — one that names the file by its blob, with nothing of it fetched or sent"],
+  move: ["write", "a note, another file or a folder put into another folder: as rename"],
   folderlook: ["write", "a colour and a sign for a folder: written into the repository (.mdview/folders.json), where the desktop app keeps it too"],
   trash: ["write", "a note, another file or a folder deleted — or several at once (paths)"],
-  hide: ["none", "files and folders put out of sight in the folder's list, or shown again (the desktop app; kept in .mdview/hidden.json)"],
-  copyfiles: ["none", "files and folders copied or cut in the folder's list (the desktop app)"],
-  pastefiles: ["none", "… and put into a folder"],
-  duplicate: ["none", "a copy of a file or folder beside it (the desktop app)"],
-  import: ["none", "files from elsewhere copied into the folder: dropped on its list, or chosen (the desktop app)"],
-  addfiles: ["none", "Add Files…: the system's own window to choose them in (the desktop app)"],
-  newboard: ["none", "a whiteboard made as a file of the folder, in no note (the desktop app)"],
-  boards: ["none", "every whiteboard of the folder, for All Notes (the desktop app)"],
-  "board-free": ["none", "a whiteboard a note keeps becomes a file of its own (the desktop app)"],
+  hide: ["write", "files and folders put out of sight in the list, or shown again: written into the repository (.mdview/hidden.json), where the desktop app keeps it too"],
+  copyfiles: ["local", "files and folders copied or cut in the list: remembered in the tab for Paste, their paths put on the clipboard"],
+  pastefiles: ["write", "… and put into a folder: copies under free names, or what was cut moved — one commit that names the blobs the repository has"],
+  duplicate: ["write", "a copy of a file or folder beside it: as pastefiles"],
+  import: ["none", "the desktop's way to files from elsewhere (it is told their addresses); a browser has the files themselves: MdHost.addFiles"],
+  addfiles: ["write", "Add Files…: chosen in the browser's own window for files, listed at once and marked as on their way, kept in a commit (or several, where they are more than one takes)"],
+  newboard: ["write", "a whiteboard made as a file of the repository, in no note: a commit at once, and it opens"],
+  boards: ["answer", "every whiteboard of the repository, for All Notes: those that are files and those a note keeps, each with the notes that show it"],
+  "board-free": ["write", "a whiteboard a note keeps becomes a file of its own: taken out of .mdview/attachments.json, listed from then on"],
   untrash: ["none", "the last move to the trash taken back (the desktop app: Undo in its message; a repository has its history for that)"],
   download: ["answer", "a note or another file handed out: the browser saves it (the share window, a file's menu)"],
   pasteimage: ["write", "a picture from the clipboard, kept beside the note"],
@@ -97,7 +100,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "board-new": ["write", "a new whiteboard: its file where the note's pictures go, in a commit at once"],
   "board-read": ["answer", "a whiteboard's text: the draft kept here, else the branch's"],
   "board-save": ["write", "a whiteboard as it is to be: a draft, in the next commit"],
-  "board-put": ["write", "a picture for a whiteboard, as the browser has it: a file beside the board's, in a commit at once"],
+  "board-put": ["write", "a picture for a whiteboard, as the browser has it: a file beside the board's, in a commit at once — the note's where the board is a note's"],
   "board-paste": ["none", "the desktop's way to a pasted picture (the shell reads the clipboard); a browser has it in the paste itself: board-put"],
   "board-drop": ["none", "the desktop's way to dropped files (it is told their addresses); a browser has the files: board-put"],
   "board-watch": ["none", "the desktop looks at the folders of the whiteboards a note shows; a browser has no files to look at"],
@@ -153,9 +156,9 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   boardText: ["answer", "a whiteboard's text"],
   boardPut: ["write", "the pictures kept for a whiteboard, by their names beside it"],
   boardSaved: ["write", "the whiteboard was kept, or why not"],
-  openBoardFile: ["none", "a whiteboard that is a file of the folder, opened over the window (the desktop app)"],
-  revealRows: ["none", "rows just made — pasted, added, a copy — brought into sight (the desktop app)"],
-  setBoards: ["none", "the folder's whiteboards, for All Notes (the desktop app)"],
+  openBoardFile: ["answer", "a whiteboard that is a file of the repository, opened over the window: its row or tile was chosen, or it was just made"],
+  revealRows: ["write", "rows just made — a whiteboard, what was pasted or added, a copy — brought into sight"],
+  setBoards: ["answer", "the repository's whiteboards, for All Notes"],
   completion: ["none", "no AI in the web app"],
   graphic: ["none", "as completion"],
   graphicImage: ["none", "as completion"],

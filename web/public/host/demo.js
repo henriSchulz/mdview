@@ -87,7 +87,7 @@
     },
     "settings-info"() {
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: "", deviceId: "", home: "",
-        hide: ["page:ai", "page:history", "githubAccount", "githubGet", "hinting", "configDir"], history: { state: "none" }, github: { user: null, repos: [] } });
+        hide: ["page:ai", "page:history", "githubAccount", "githubGet", "hinting", "configDir", "showHidden"], history: { state: "none" }, github: { user: null, repos: [] } });
     },
     // what would write: kept in this window, and nowhere else
     save({ text, path, seq }) { const p = path || onScreen; if (exists(p) && typeof text === "string") notes.set(p, text); void seq; },

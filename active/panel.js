@@ -112,7 +112,8 @@
   const TILED = new Set(["panel.lines"]); // (sections whose entries are tiles that show the thing itself, without a name)
 
   // ------------------------------------------------------------ the panel
-  const TABS = ["insert", "format", "document"];
+  const TABS = ["insert", "format", "style", "info"], DOCS = ["style", "info"]; // (DOCS: what is the document's — these stand beside the reading view too)
+  const tabOf = (t) => (t === "document" ? "style" : t); // ("document": the two were one tab once, and a setting may still say so)
   // Document: the numbers shown large, the ones in the list under them, and the grounds a note can stand on ("" the theme's own)
   const STATS = [["words", "panel.words"], ["chars", "panel.chars"], ["minutes", "panel.reading"], ["blocks", "panel.blocks"]];
   const FACTS = [["headings", "panel.headings"], ["pictures", "panel.pictures"], ["links", "panel.links"], ["tasks", "panel.tasks"], ["pages", "panel.pages"]];
@@ -122,23 +123,30 @@
   el.id = "rpanel";
   el.setAttribute("aria-label", T("panel.label"));
   el.innerHTML =
-    `<div class="rp-tabs" role="tablist">` +
-    TABS.map((t) => `<button class="rp-tab" type="button" role="tab" data-tab="${t}" aria-selected="false">${esc(T("panel." + t))}</button>`).join("") +
-    `</div>` +
+    `<h2 class="rp-title"></h2>` +
     `<div class="rp-pane" data-pane="insert" role="tabpanel"><p class="rp-hint">${esc(T("panel.hint"))}</p>` +
     `<label class="rp-search">${ICON.search}<input type="search" placeholder="${esc(T("panel.search"))}" aria-label="${esc(T("panel.search"))}" spellcheck="false"></label>` +
     `<div class="rp-items"></div><p class="rp-none" hidden>${esc(T("menu.none"))}</p></div>` +
     `<div class="rp-pane" data-pane="format" role="tabpanel"></div>` +
-    `<div class="rp-pane" data-pane="document" role="tabpanel"><h3 class="rp-sec">${esc(T("panel.info"))}</h3>` +
+    `<div class="rp-pane" data-pane="info" role="tabpanel">` +
     `<div class="rp-stats">${STATS.map(([k, name]) => `<div class="rp-stat"><b data-fact="${k}">–</b><span>${esc(T(name))}</span></div>`).join("")}</div>` +
     `<div class="rp-facts">${FACTS.map(([k, name]) => `<div><span>${esc(T(name))}</span><span class="rp-fact" data-fact="${k}">–</span></div>`).join("")}</div>` +
-    `<h3 class="rp-sec">${esc(T("panel.background"))}</h3><div class="rp-grounds" role="radiogroup" aria-label="${esc(T("panel.background"))}">` +
+    `</div><div class="rp-pane" data-pane="style" role="tabpanel"><h3 class="rp-sec">${esc(T("panel.background"))}</h3><div class="rp-grounds" role="radiogroup" aria-label="${esc(T("panel.background"))}">` +
     GROUNDS.map((g) => `<button class="rp-ground" type="button" role="radio" aria-checked="false" data-bg="${g}" title="${esc(groundName(g))}" aria-label="${esc(groundName(g))}"><i data-doc-bg="${g || "none"}"></i></button>`).join("") +
     `</div><h3 class="rp-sec">${esc(T("panel.layout"))}</h3><label class="rp-line"><span>${esc(T("panel.wide"))}</span><input type="checkbox" class="pf-switch" data-prop="wide"></label>` +
     `<p class="rp-hint rp-say">${esc(T("panel.docHint"))}</p></div>`;
   document.body.appendChild(el);
+  /* The rail at the window's right edge: one sign for each of the panel's parts. A press opens the panel at that part,
+   * a press on the part that is open closes it. */
+  const RAIL = { insert: ICON.plus, format: `<span class="rr-aa" aria-hidden="true">Aa</span>`, info: ICON.info,
+    style: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.6 3.4c.8.8.8 2 0 2.8l-7.4 7.4-2.8-2.8 7.4-7.4c.8-.8 2-.8 2.8 0z"/><path d="M8.3 12.9c-1.7 0-3 1.3-3 3 0 1.2-.7 2.3-1.8 2.9 3 .9 7.6.3 7.6-3.1 0-1.5-1.3-2.8-2.8-2.8z"/></svg>` };
+  const rail = document.createElement("nav");
+  rail.id = "rrail";
+  rail.setAttribute("aria-label", T("panel.label"));
+  rail.innerHTML = `<div class="rp-tabs" role="tablist" aria-orientation="vertical">` + TABS.map((t) => `<button class="rp-tab" type="button" role="tab" data-tab="${t}" aria-selected="false" title="${esc(T("panel." + t))}" aria-label="${esc(T("panel." + t))}">${RAIL[t]}</button>`).join("") + `</div>`;
+  document.body.appendChild(rail);
   const search = el.querySelector(".rp-search input"), itemsEl = el.querySelector(".rp-items"), none = el.querySelector(".rp-none");
-  const formatEl = el.querySelector('[data-pane="format"]'), docEl = el.querySelector('[data-pane="document"]');
+  const formatEl = el.querySelector('[data-pane="format"]'), docEl = el.querySelector('[data-pane="style"]'), infoEl = el.querySelector('[data-pane="info"]');
   const mode = () => document.body.dataset.view || "read";
   const button = () => document.querySelector('#toolbar [data-act="panel"]');
   const isOpen = () => document.body.hasAttribute("data-panel");
@@ -352,7 +360,7 @@
   // --- Document: what the note holds, and how it says it wants to be shown
   const wideBox = docEl.querySelector(".pf-switch");
   const say = (k, text) => {
-    const at = docEl.querySelector(`[data-fact="${k}"]`);
+    const at = infoEl.querySelector(`[data-fact="${k}"]`);
     if (at.textContent === text) return;
     const fresh = at.textContent !== "–"; // (what was not there yet stands at once; a number that changed fades in)
     at.textContent = "";
@@ -366,15 +374,15 @@
     counted = text;
     const f = text == null ? null : core.doc.facts(text), n = (x) => x.toLocaleString();
     for (const [k] of [...STATS, ...FACTS]) say(k, !f ? "–" : k === "minutes" ? T("panel.minutes", n(f.minutes)) : k === "tasks" ? T("panel.tasksOf", n(f.done), n(f.tasks)) : n(f[k]));
-    docEl.querySelector('[data-fact="tasks"]').parentNode.hidden = !f || !f.tasks;
-    docEl.querySelector('[data-fact="pages"]').parentNode.hidden = !f || !f.pages;
+    infoEl.querySelector('[data-fact="tasks"]').parentNode.hidden = !f || !f.tasks;
+    infoEl.querySelector('[data-fact="pages"]').parentNode.hidden = !f || !f.pages;
   }
   /* The note changed, or another is shown (viewer.js: docSync, after a note is drawn and after every
    * save): what is chosen shows at once; the numbers are counted in a quiet moment — at once only
    * where none stand yet, and for another note. */
   let countedFor = null;
   function doc() {
-    if (!isOpen() || el.dataset.tab !== "document") return;
+    if (!isOpen() || !DOCS.includes(el.dataset.tab)) return;
     const p = core.current, look = core.doc.look();
     const can = !!p && !p.error && p.kind !== "pdf" && !p.readonly;
     for (const b of docEl.querySelectorAll(".rp-ground")) { b.setAttribute("aria-checked", String(b.dataset.bg === look.background)); b.disabled = !can; }
@@ -393,38 +401,44 @@
   /* Where it stands: beside the text that is edited — and beside the reading view for what is the
    * document's, its third tab. Not beside the source, and not where a note is only shown. */
   const reading = () => mode() === "read";
-  const wanted = () => !!pref().panel && !!button() && !button().hidden && (mode() === "active" || (reading() && pref().panelTab === "document"));
+  const wanted = () => !!pref().panel && !!button() && !button().hidden && (mode() === "active" || (reading() && DOCS.includes(tabOf(pref().panelTab))));
   const keep = (prefs) => { window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs }; post("prefs", { prefs }); };
   function setTab(tab, save = true) {
-    if (reading() || !TABS.includes(tab)) tab = "document";
-    for (const b of el.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(b.dataset.tab === tab)); b.disabled = reading() && b.dataset.tab !== "document"; }
+    tab = tabOf(tab);
+    if (!TABS.includes(tab) || (reading() && !DOCS.includes(tab))) tab = reading() ? "style" : "insert";
     el.dataset.tab = tab;
+    el.querySelector(".rp-title").textContent = T("panel." + tab);
+    marks();
     if (save && pref().panelTab !== tab) keep({ panelTab: tab });
     shape = tab === "format" ? shape : null;
     refresh();
     doc();
   }
-  el.querySelector(".rp-tabs").addEventListener("click", (e) => { const b = e.target.closest(".rp-tab"); if (b && !b.disabled) setTab(b.dataset.tab); });
-  /* The text column makes room at once and glides to its new place (transform only), as it does
-   * for the sidebar on the left. */
+  /* The rail's signs: the one whose part is open is marked; beside the reading view only the document's can be pressed. The
+   * rail is there wherever the panel can be — not beside the source, not where a note is only shown. */
+  function marks() {
+    for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
+    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit");
+  }
+  rail.addEventListener("click", (e) => {
+    const b = e.target.closest(".rp-tab");
+    if (!b || b.disabled) return;
+    if (isOpen() && el.dataset.tab === b.dataset.tab) return show(false);
+    keep({ panelTab: b.dataset.tab });
+    if (isOpen()) setTab(b.dataset.tab); else show(true);
+  });
+  /* It comes and goes over the window: nothing makes room for it, so nothing else moves. */
   function lay(open, animate) {
     if (open) setTab(pref().panelTab, false);
-    if (isOpen() === !!open && button()?.getAttribute("aria-pressed") === String(!!open)) return;
-    const col = mode() === "active" ? A.view && A.view.el : document.getElementById("content"), before = col ? col.getBoundingClientRect().left : 0;
+    if (isOpen() === !!open && button()?.getAttribute("aria-pressed") === String(!!open)) return marks();
     el.classList.toggle("no-anim", !animate);
     if (open) document.body.dataset.panel = ""; else delete document.body.dataset.panel;
     button()?.setAttribute("aria-pressed", String(!!open));
-    const dx = col ? before - col.getBoundingClientRect().left : 0;
-    if (!animate || !dx || !col || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    col.style.transition = "none";
-    col.style.transform = `translateX(${dx}px)`;
-    void col.offsetWidth;
-    col.style.transition = "";
-    col.style.transform = "";
+    marks();
   }
   function show(open, animate = true, save = true) {
     // (opened beside the reading view, it is opened for what stands there: the document)
-    if (save && (pref().panel !== !!open || (open && reading() && pref().panelTab !== "document"))) keep({ panel: !!open, ...(open && reading() ? { panelTab: "document" } : {}) });
+    if (save && (pref().panel !== !!open || (open && reading() && !DOCS.includes(tabOf(pref().panelTab))))) keep({ panel: !!open, ...(open && reading() && !DOCS.includes(tabOf(pref().panelTab)) ? { panelTab: "style" } : {}) });
     lay(save ? wanted() : !!open, animate);
   }
   const toggle = () => { if (mode() !== "edit") show(!wanted()); };
@@ -436,5 +450,5 @@
   // as the settings have it, and the mode (a window that opens, a mode that comes or goes)
   const sync = () => lay(wanted(), false);
 
-  A.panel = { plugin, show, toggle, sync, setTab, refresh, doc, el, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem };
+  A.panel = { plugin, show, toggle, sync, setTab, refresh, doc, el, rail, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem };
 })();

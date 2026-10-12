@@ -389,6 +389,7 @@ test("a note's history goes on behind the commit that gave it its name", async (
   await post({ type: "rename", path: "/octo/notes/Alpha.md", name: "Alpha, later" });
   await until(() => text("Alpha, later.md") !== undefined && text("Alpha.md") === undefined, "the renaming");
   await untilNote("Alpha, later.md");
+  await page.waitForFunction(() => !document.querySelector("#history").contains(document.activeElement), null, { timeout: 4000 }); // (the window has gone, and the keyboard is the note's again: the renaming no longer takes the second a commit used to)
   await page.keyboard.press("Control+Alt+h");
   await page.waitForFunction((n) => { const w = document.querySelector("#history"); return w && w.hasAttribute("data-open") && w.querySelectorAll(".hi-row").length >= n; }, had + 1, { timeout: 15000 }); // (the renaming, and all there was before it)
   assert.equal(await count(), had + 1);
@@ -764,7 +765,7 @@ test("the settings show what there is here, not the desktop's own", async () => 
   assert.match(seen.link, /^octo\/notes · /);
   assert.deepEqual(seen.buttons, []); // (nothing to switch off or unlink: the repository is the project)
   assert.match(seen.device, /^Chrome on /);
-  // what is the desktop's alone is on no page: the quick notes (a window of the application, a folder on its disk), what a folder has put out of sight
+  // what is the desktop's alone is on no page: the quick notes (a window of the application, a folder on its disk)
   const all = await page.evaluate(() => {
     const out = {};
     for (const b of [...document.querySelectorAll("#settings .st-nav")].filter((b) => !b.hidden)) {
@@ -776,8 +777,8 @@ test("the settings show what there is here, not the desktop's own", async () => 
   });
   assert.deepEqual(all, {
     general: ["lang", "startMode"],
-    appearance: ["docZoom", "measure", "calloutStyle"],
-    sidebarPage: ["sidebarLayout", "sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther"],
+    appearance: ["docZoom", "measure", "calloutStyle", "sidebarLayout"],
+    sidebarPage: ["sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther", "showHidden"],
     allNotes: ["ovScope", "ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
     history: ["# This folder", "historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyChanged", "historyLink", "historyQuiet", "# This device", "deviceName", "deviceId"],
     editing: ["bar", "slash", "syntax", "quotes", "# Paragraphs", "wrap", "# Pictures", "images"],
@@ -787,11 +788,11 @@ test("the settings show what there is here, not the desktop's own", async () => 
     about: ["version", "guide"],
   });
   await page.keyboard.press("Escape");
-  // … nor in the sidebar's Show: the kinds of files, and no Hidden Items
+  // the sidebar's Show: the kinds of files, and what is put away
   await page.click(".sb-row", { button: "right" });
   await page.click('[data-cmd="sub:show"]');
   await page.waitForSelector("#ctxsub[data-open]", { timeout: 4000 });
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#ctxsub .menu-item")].map((b) => b.dataset.group || b.dataset.pref)), ["pdf", "image", "media", "board", "other"]);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#ctxsub .menu-item")].map((b) => b.dataset.group || b.dataset.pref)), ["pdf", "image", "media", "board", "other", "showHidden"]);
   await page.keyboard.press("Escape");
 });
 

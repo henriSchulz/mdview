@@ -17,7 +17,7 @@ the note better. The full reference, with every example rendered, is
 2. **Properties** only when they say something: `tags`, `date`, and `color` (red, orange, yellow,
    green, cyan, blue, magenta) to mark the note with a dot in that colour in All Notes. Two more
    say how the note is shown: `background` (gray, red, orange, yellow, green, cyan, blue, magenta:
-   a quiet tint of the page; dots, grid, lines: paper) and `wide: true` (a wide text column — for
+   a soft run of colour around the note, which is a sheet on it; dots, grid, lines: paper around it) and `wide: true` (a wide text column — for
    a note of wide tables, columns or figures). Leave both out unless the note gains by them.
 3. **Write the note, not a demo.** Use an extra only where it carries content: a callout for the
    one thing not to miss, columns for a real side-by-side, a diagram where structure matters.
