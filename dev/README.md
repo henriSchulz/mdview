@@ -54,6 +54,7 @@ every check.
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
 ./rig.sh panel                                          # the panel at the right: Insert and Format
 ./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others
+./rig.sh colsel                                         # the rectangle over blocks in a column: items, paragraphs, headings — not the list or the column
 ./rig.sh callout                                        # callouts made from the / menu, their titles typed in place
 ./rig.sh edit                                           # typing: rules, keys, lists, undo, saving
 ./rig.sh native                                         # the browser's own typing path: spaces, deleting, hard break

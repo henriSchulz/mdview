@@ -107,3 +107,13 @@ test("every block of every column of a row picked: the row itself", () => {
   v.click("para"); // together with another block
   assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns,paragraph");
 });
+
+test("a list in a column: its items picked are items, and all a row holds is the row", () => {
+  const v = open("<!-- columns -->\n\n- a\n- b\n\n<!-- column -->\n\n- only\n\nright\n\n<!-- /columns -->\n\nend\n");
+  A.blocks.toggle(v, v.item("a"));
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name + ":" + x.node.textContent).join(), "list_item:a"); // not the list, not the column
+  A.blocks.toggle(v, v.item("only")); // one in each column
+  assert.equal(v.picked(), "a|only");
+  A.blocks.toggle(v, v.item("b")); v.click("right"); // every item of every list, and the paragraph: nothing of the row is left out
+  assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns");
+});

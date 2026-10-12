@@ -21,6 +21,7 @@
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
+#   dev/rig.sh colsel                the rectangle over blocks in a column: the items, paragraphs and headings it reaches, not the list or the column
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
@@ -792,6 +793,16 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out/$name.columns.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.columns.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.columns.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.columns.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
+  colsel)
+    name=colsel.md; rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out/$name".*.json
+    printf '%s\n' '# Rectangle' '' 'Before the row.' '' '<!-- columns -->' '' '## Left' '' '- [ ] L one' '- [ ] L two' '- [ ] L three' '' 'Left paragraph.' '' '- outer A' '  - nested A1' '  - nested A2' '- outer B' '' '<!-- column -->' '' '## Right' '' '- [x] R one' '- [x] R two' '' '> [!info] Note' '> - C one' '> - C two' '' '<!-- /columns -->' '' 'After the row.' > "$R/work/$name"
+    app 90 MDVIEW_PROBE="$D/probe-colsel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 500); do [[ -f $R/out/$name.colsel.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.colsel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.colsel.json"
+    cmp -s <(jq -j '.saved // ""' "$R/out/$name.colsel.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.colsel.json"; cmp -s <(jq -j '.saved // ""' "$R/out/$name.colsel.json") "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   callout)
     name=callout.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Callouts\n\n> [!info]\n> An info.\n\nPlain text.\n\nEnd.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 60 MDVIEW_PROBE="$D/probe-callout.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
