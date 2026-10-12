@@ -120,6 +120,13 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 
 /* ---- what stands on the board beside the ink (layer.js): text boxes, sticky notes, shapes, lines */
 .bd-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; pointer-events: none; }
+/* over a PDF (board/pdf.js): its pages as sheets under everything, and ink for paper whatever the theme */
+.bd-paper { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; pointer-events: none; }
+.bd-sheet { position: absolute; background: #fff; border-radius: 2px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
+.bd-sheet canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#board[data-pdf] .bd-world { --fg: #1d1d1f; color: #1d1d1f; }
+#board[data-pdf] :is([data-do="image"], [data-do="grid"], [data-do="scenes"], [data-do="prev"], [data-do="next"]) { display: none; }
+#board[data-pdf] .bd-zoom .bd-sep { display: none; }
 .bd-item { position: absolute; box-sizing: border-box; }
 .bd-item[data-k="sticky"] { border-radius: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.10), 0 4px 10px rgb(0 0 0 / 0.08); }
 .bd-draw { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }

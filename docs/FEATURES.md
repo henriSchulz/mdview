@@ -1098,7 +1098,23 @@ quote, a link or an embed). Every such link in the notes shows as a highlight in
 click on one opens the note. Side panel: outline, pages, notes. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
 again. Keys: `+` `−` zoom, `W` fit width,
-`H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `Alt+←` back.
+`H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
+
+**Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the
+whiteboard over the PDF: its pages lie under it as sheets of paper, where they stood, and everything
+a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and
+arrows, the ruler, undo. Two fingers or the wheel move down the pages, a pinch or `Ctrl` with the
+wheel makes them larger and smaller (10 % to 400 % of the board, the pages drawn sharp again as soon
+as the hand rests); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at
+the same place and size, with what was drawn lying on the pages — there whenever the PDF is opened,
+and text under it can still be selected.
+
+What is drawn is no part of the PDF: the file is never written to. It is kept as a whiteboard's
+file of its own in the folder's `.mdview/pdf` (the project's root, else the window's folder, else
+the folder the PDF lies in), named by what the PDF holds — so a PDF that is moved or renamed keeps
+what was drawn on it, the web app and the desktop app find the same file, and it goes with the
+project's history. A PDF whose content changes is another PDF: it starts bare. Where everything is
+rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 
 ## Keys
 

@@ -194,6 +194,7 @@
     document.addEventListener("selectionchange", v.onSelect);
     window.addEventListener("focus", v.onFocus);
     events();
+    inked(v);
     if (p.fragment) goFrag(p.fragment, true);
     else if (was && v.pages[was.n - 1]) {
       const place = () => { const r = v.pages[was.n - 1].div.getBoundingClientRect(); window.scrollTo({ top: window.scrollY + r.top + was.into * r.height, behavior: "instant" }); pageNow(); };
@@ -206,6 +207,55 @@
       });
     } else window.scrollTo(0, 0);
     doc.getOutline().then((o) => { if (V === v) { v.outline = o || []; } }, () => {});
+  }
+
+  // ---------------------------------------------------------------- what was drawn on the pages
+  /* A PDF is drawn on as a whiteboard is, with the whiteboard's own tools: it opens over the window
+   * with the PDF's pages under it (board.js, board/pdf.js). What was drawn is no part of the PDF —
+   * the host keeps it as a file of its own, in the folder's .mdview — and lies over the pages here
+   * as a picture, whenever the PDF is shown. */
+  const reading = () => !!(window.MdHost || {}).reading; // (a shared note: nothing is asked of a host)
+  const board = () => window.MdPage.loadBoard().then(() => window.MdBoard);
+  const sizesOf = (v) => v.sizes || (v.sizes = Promise.all(v.pages.map(async (pg) => { const b = (pg.page || (pg.page = await v.doc.getPage(pg.n))).getViewport({ scale: 1 }); return [b.width, b.height]; })));
+  /* model: what is on the pages now (a board's, just closed); none given: as the host has it. */
+  async function inked(v, model) {
+    if (reading()) return;
+    try {
+      const B = await board();
+      if (model === undefined) model = await B.pdfInk(v.p.path);
+      const pages = model && model.items.length ? B.pdf.layout(await sizesOf(v)) : null;
+      if (V !== v) return;
+      v.ink = pages && { pages, by: B.pdf.onPages(pages, model.items) };
+      v.pages.forEach((pg) => { if (pg.state === "done") inkOn(pg); });
+    } catch (e) { console.warn("pdf ink", e); }
+  }
+  function inkOn(pg) {
+    const old = pg.div.querySelector(".pdf-ink"), html = V.ink ? window.MdBoard.pdf.picture(V.ink.pages[pg.n - 1], V.ink.by.get(pg.n)) : "";
+    if (old) old.remove();
+    if (html) pg.div.querySelector(".pdf-marks").insertAdjacentHTML("afterend", html);
+  }
+  async function drawOn() {
+    const v = V;
+    if (v.opening || reading()) return;
+    v.opening = true;
+    try {
+      const B = await board(), sizes = await sizesOf(v);
+      if (V !== v || B.shown) return;
+      const pg = v.pages[pageNow(true) - 1], r = pg.div.getBoundingClientRect();
+      await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, at: { n: pg.n, left: r.left, top: r.top, width: r.width }, done: (now) => drawn(v, now) });
+    } catch (e) { toast(T("Couldn't open the PDF to draw on")); }
+    v.opening = false;
+  }
+  /* The board over the PDF was closed: its ink lies on the pages, and the PDF stands where the board was left — as large, the same page at the same height. */
+  function drawn(v, now) {
+    if (V !== v || !v.root.isConnected) return;
+    inked(v, now.model);
+    if (now.quick) return;
+    const P = window.MdBoard.pdf, scale = now.view.z * P.UNIT;
+    if (Math.abs(scale - v.scale) / v.scale > 0.01) zoomTo(scale);
+    const p = P.near(now.pages, now.view, { w: innerWidth, h: innerHeight }), r = v.pages[p.n - 1].div.getBoundingClientRect();
+    window.scrollBy({ top: r.top - (p.y - now.view.y) * now.view.z, behavior: "instant" });
+    pageNow();
   }
 
   // ---------------------------------------------------------------- pages
@@ -249,6 +299,7 @@
       pg.div.replaceChildren(canvas, hl, layer, links);
       pg.vp = vp; pg.scale = scale; pg.state = "done";
       marks(pg);
+      inkOn(pg);
       annotations(pg, page, vp, links);
       if (v.flash && v.flash.page === pg.n) flash(pg);
     } catch (e) { pg.state = "none"; console.warn("pdf page", pg.n, e); }
@@ -453,6 +504,7 @@
     width: '<svg viewBox="0 0 16 16"><path d="M2 8h12M4.5 5.5 2 8l2.5 2.5M11.5 5.5 14 8l-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     page: '<svg viewBox="0 0 16 16"><rect x="3.5" y="1.5" width="9" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
     rect: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.2 1.6"/></svg>',
+    draw: '<svg viewBox="0 0 24 24"><path d="m5 19 1.2-4.6L16.5 4.1a1.6 1.6 0 0 1 2.3 0l1.1 1.1a1.6 1.6 0 0 1 0 2.3L9.6 17.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="m14.5 6.1 3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>',
     auto: '<svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h6M3 12h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="m10.5 11 1.6 1.6 2.6-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
   function toolbar() {
@@ -469,7 +521,8 @@
       Object.entries(COLORS).map(([name, c]) => `<button class="pdf-color" data-color="${name}" style="--hl:${c}" data-tip="Copy a link to the selection: ${name}" aria-pressed="${name === v.color}"></button>`).join("") +
       `<select class="pdf-format lp-field" aria-label="${esc(T("What is copied"))}" data-tip="${esc(T("What is copied"))}">${Object.entries(FORMATS).map(([k, f]) => `<option value="${k}"${k === p.pdfFormat ? " selected" : ""}>${esc(f.label)}</option>`).join("")}</select>` +
       `<button class="pdf-b" data-do="auto" data-tip="${esc(T("Copy as soon as text is selected"))}" aria-label="${esc(T("Copy as soon as text is selected"))}" aria-pressed="${!!p.pdfAuto}">${I.auto}</button>` +
-      `<button class="pdf-b" data-do="rect" data-tip="${esc(T("Select a region to embed (R)"))}" aria-label="${esc(T("Select a region to embed"))}" aria-pressed="false">${I.rect}</button>`;
+      `<button class="pdf-b" data-do="rect" data-tip="${esc(T("Select a region to embed (R)"))}" aria-label="${esc(T("Select a region to embed"))}" aria-pressed="false">${I.rect}</button>` +
+      (reading() ? "" : `<span class="pdf-sep"></span><button class="pdf-b" data-do="draw" data-tip="${esc(T("Draw on the PDF (D)"))}" aria-label="${esc(T("Draw on the PDF"))}">${I.draw}</button>`);
   }
   function act(what) {
     const v = V;
@@ -478,6 +531,7 @@
     else if (what === "in") zoomTo(v.scale * 1.15);
     else if (what === "out") zoomTo(v.scale / 1.15);
     else if (what === "auto") { const on = !prefs().pdfAuto; setPref({ pdfAuto: on }); v.bar.querySelector('[data-do="auto"]').setAttribute("aria-pressed", String(on)); toast(on ? T("Selecting text copies a link to it") : T("Copy on select is off")); }
+    else if (what === "draw") drawOn();
     else if (what === "rect") { v.rectTool = !v.rectTool; v.root.classList.toggle("rect-tool", v.rectTool); v.bar.querySelector('[data-do="rect"]').setAttribute("aria-pressed", String(v.rectTool)); }
   }
   function sidePanel(tab) {
@@ -524,6 +578,8 @@
 
   function events() {
     const v = V;
+    // a pen set on a page: it is there to draw (a finger and a mouse read and select, as before)
+    v.box.addEventListener("pointerdown", (e) => { if (e.pointerType === "pen" && !v.rectTool && e.target.closest(".pdf-page")) { e.preventDefault(); drawOn(); } });
     v.bar.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
@@ -640,7 +696,7 @@
     tipEl.style.top = Math.min(e.clientY + 16, innerHeight - tipEl.offsetHeight - 8) + "px";
   }
   function keys(e) {
-    if (!V || !V.root.isConnected) return;
+    if (!V || !V.root.isConnected || (window.MdBoard && window.MdBoard.shown)) return; // (a board over the PDF has the keys)
     // (single keys are the PDF's only while the PDF has them: not while a name is typed, the keyboard
     // is in the sidebar or the tabs, or a menu or a window stands open — there Esc closes that)
     const typing = (e.target.closest && e.target.closest("input, textarea, select, [contenteditable], #sidebar, #tabs, .ui-menu")) || document.querySelector("#ctxmenu[data-open], .actmenu[data-open], #newdlg[data-open], #settings[data-open], #share[data-open]");
@@ -665,6 +721,7 @@
     else if (k === "t") { stop(); V.side.hidden || V.tab !== "pages" ? (sidePanel("pages"), layout()) : act("side"); }
     else if (k === "n") { stop(); V.side.hidden || V.tab !== "notes" ? (sidePanel("notes"), layout()) : act("side"); }
     else if (k === "r") { stop(); act("rect"); }
+    else if (k === "d") { stop(); act("draw"); }
     else if (k === "Escape" && V.rectTool) { stop(); act("rect"); }
     else if (k === "Escape" && !V.side.hidden) { stop(); act("side"); }
     else if (k === "PageDown" || k === "PageUp") { stop(); go(pageNow(true) + (k === "PageDown" ? 1 : -1)); }
@@ -829,7 +886,7 @@
     zoomFrame = requestAnimationFrame(() => { zoomFrame = 0; if (shown()) zoomTo(zoomWant, true); });
   }
   function pinch(phase, scale) {
-    if (!shown()) return;
+    if (!shown() || (window.MdBoard && window.MdBoard.shown)) return;
     if (phase === "begin") { pinchBase = V.scale; return; }
     if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale);
   }
@@ -843,5 +900,5 @@
 
   window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },
     // for the tests
-    test: { selectionNow, copySelection, copyView, go, goFrag, zoomTo, act, sidePanel, boxesOf, joined, textOf, linkText, pageNow, placeOf } };
+    test: { drawOn, selectionNow, copySelection, copyView, go, goFrag, zoomTo, act, sidePanel, boxesOf, joined, textOf, linkText, pageNow, placeOf } };
 })();

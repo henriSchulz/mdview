@@ -157,6 +157,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `board/ink.js` | a whiteboard's ink: strokes drawn on a canvas from the same paths the file's picture is made of (render.js), … |
 | `board/items.js` | what stands on a whiteboard beside the ink: text boxes, sticky notes, shapes, lines and arrows. |
 | `board/layer.js` | a whiteboard's items on the screen: one element each in a layer that is moved and scaled with the view (the … |
+| `board/pdf.js` | a whiteboard over a PDF: the PDF's pages lie on the board as sheets of paper, one under the other, and what … |
 | `board/pointer.js` | a whiteboard's hands: the one place that listens to pointers. |
 | `board/render.js` | a whiteboard as a picture: the outline of a stroke, and the whole board as SVG. |
 | `board/select.js` | a whiteboard's items in hand: choosing them (a click, Shift and a click, a box pulled over them), moving them … |

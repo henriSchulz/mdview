@@ -388,3 +388,31 @@ test("the box pulled over things takes what it touches of them — not what the 
   assert.deepEqual([I.crosses(rect({ shape: "diamond" }), [2, 2, 30, 20]), I.crosses(rect({ shape: "ellipse" }), [2, 2, 20, 10])], [false, false], "a diamond, an ellipse: by their form");
 });
 
+
+// A whiteboard over a PDF (board/pdf.js): where the pages lie follows from the PDF alone, and what
+// is drawn is laid over the page it is on.
+test("a PDF's pages on the board: one under the other, and what is drawn is on its page", () => {
+  const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
+  w.window = w;
+  vm.createContext(w);
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/pdf.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  const P = w.MdBoard.pdf, pages = plain(P.layout([[595, 842], [842, 595], [595, 842]]));
+  // points → the board's pixels (4/3), each page's middle at x = 0, 16 between two
+  assert.deepEqual(pages[0], { n: 1, x: -396.7, y: 0, w: 793.3, h: 1122.7 });
+  assert.deepEqual(pages[1], { n: 2, x: -561.3, y: 1138.7, w: 1122.7, h: 793.3 });
+  assert.equal(pages[2].y, 1948);
+  assert.deepEqual(plain(P.layout([[595, 842], [842, 595], [595, 842]])), pages); // (the same PDF: the same places, every time)
+  assert.equal(P.near(pages, { x: 0, y: 1500, z: 1 }, { w: 800, h: 600 }).n, 2);
+  const first = ink("a1", [[-100, 50, 0.5, 0], [100, 80, 0.5, 8]]), across = ink("b2", [[0, 1100, 0.5, 0], [0, 1160, 0.5, 8]]), third = ink("c3", [[10, 2000, 0.5, 0], [60, 2100, 0.5, 8]]);
+  const beside = ink("d4", [[900, 50, 0.5, 0], [950, 80, 0.5, 8]]); // (beside the first page: on none)
+  const by = P.onPages(pages, [first, across, third, beside]);
+  assert.deepEqual([...by.keys()].sort(), [1, 2, 3]);
+  assert.deepEqual(plain(by.get(1).map((it) => it.id)), ["a1", "b2"]);
+  assert.deepEqual(plain(by.get(2).map((it) => it.id)), ["b2"]);
+  // the picture over a page: the page's own box, stretched with it; nothing drawn, no picture
+  const pic = P.picture(pages[0], by.get(1));
+  assert.match(pic, /^<svg [^>]*class="pdf-ink" viewBox="-396\.7 0 793\.3 1122\.7" preserveAspectRatio="none"/);
+  assert.equal((pic.match(/<path /g) || []).length, 2);
+  assert.doesNotThrow(() => new JSDOM(pic, { contentType: "image/svg+xml" }));
+  assert.equal(P.picture(pages[0], by.get(9)), "");
+});
