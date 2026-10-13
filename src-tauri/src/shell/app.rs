@@ -74,6 +74,9 @@ impl App {
         if path.components().any(|c| c.as_os_str() == ".git") {
             return; // (the history's own writing)
         }
+        if crate::paste::is_copy(path) {
+            return; // (the pasteboard's copy: in no version)
+        }
         let Place::Project(root) = history::place_of(path) else { return };
         self.snap_turn += 1;
         self.unsnapped.insert(root.clone(), self.snap_turn);

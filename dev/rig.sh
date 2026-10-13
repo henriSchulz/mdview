@@ -1045,10 +1045,12 @@ case "${1:-}" in
     wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null; exit 1; }
     for _ in $(seq 400); do [[ -n $(compgen -G "$R/out/*.paste-typed.json" || compgen -G "$R/out/*.paste.json") ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/paste.png"
     ok "what was typed here is at the server, signed with this device" '[[ $(curl "${as[@]}" "$at" | jq -r .text) == "typed at the desk" && -n $(curl "${as[@]}" "$at" | jq -r .by) ]]' 'curl "${as[@]}" "$at"'
+    ok "and in the project, as a copy for who reads the folder" '[[ $(cat "$A/.mdview/pasteboard.md") == "typed at the desk" ]]' 'ls -la "$A/.mdview"'
     rev=$(curl "${as[@]}" "$at" | jq .rev)
     curl "${as[@]}" -X PUT -d "{\"text\":\"typed at the desk\\nand on the laptop\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
     wait_for paste 200; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
     jq -r '.steps[], (.error // empty)' "$R/out"/*.paste.json; jq -e .pass "$R/out"/*.paste.json >/dev/null || fail=1
+    ok "the copy followed: cleared, and no change of the project" '[[ -f "$A/.mdview/pasteboard.md" && ! -s "$A/.mdview/pasteboard.md" && -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'cat "$A/.mdview/pasteboard.md"; git -C "$A" status --porcelain'
     ok "Clear emptied it at the server too" '[[ $(jq -r .cleared "$R/out"/*.paste.json) == true ]]' 'jq -c . "$R/out"/*.paste.json'
     exit $fail ;;
   github)
