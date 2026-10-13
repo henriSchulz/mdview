@@ -99,13 +99,33 @@
         await sleep(400);
         ok("and out again: the page's own picture, no detail over it", await until(() => !detail(), 3000), st().pdf);
       }
+      // --- down the pages, smoothly: a notch is a glide, and a push on the touchpad runs on when the fingers leave
+      {
+        const roll = (dy) => stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: 300, clientY: 300, deltaY: dy })), y = () => st().view.y * st().zoom;
+        const y0 = y();
+        roll(120);
+        const at = y();
+        await sleep(30);
+        const soon = y();
+        ok("a notch of the wheel: the pages glide down, they do not jump", at === y0 && soon > y0 && soon < y0 + 100 && await until(() => Math.abs(y() - (y0 + 120)) < 1.5, 1500), [y0, at, soon, y()]);
+        for (let i = 0; i < 8; i++) { roll(18); await sleep(10); }
+        const left = y();
+        await sleep(450);
+        ok("two fingers lifted while the pages move: they run on, slower and slower", y() > left + 40, [left, y()]);
+        await until(() => { const a = y(); return new Promise((r) => setTimeout(() => r(Math.abs(y() - a) < 0.5), 120)); }, 3000);
+        await sleep(300);
+        for (const d of [18, 14, 10, 7, 5, 3, 2, 1, 1]) { roll(d); await sleep(16); }
+        const rest = y();
+        await sleep(350);
+        ok("… brought to rest by the hand, they stay", Math.abs(y() - rest) < 2, [rest, y()]);
+      }
       // the wheel alone moves down the pages; pages come into sight and are drawn
       for (let i = 0; i < 30; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: 300, clientY: 300, deltaY: 120 })); await sleep(8); }
       ok("the wheel moves down the pages, and they are drawn as they come", await until(() => st().pdf.drawn.some((n) => n >= 4), 5000), st().pdf);
       out("large", {});
       await sleep(700);
       for (let i = 0; i < 30; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: 300, clientY: 300, deltaY: -120 })); await sleep(8); }
-      await sleep(300);
+      await sleep(900);
       const left = box(sheet(2)), zoom = st().zoom;
       // --- back to the PDF
       key("Escape");

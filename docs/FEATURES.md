@@ -784,6 +784,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles.
+- **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
+  small, in the list. It is drawn when the tile comes near the window and kept while the window
+  is open; until then the tile has the PDF's sign.
 - **Working with files** (in the sidebar and in All Notes alike; in the browser too, but for what
   is said under *In the browser*):
   - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is
@@ -1107,7 +1110,8 @@ moved sideways (two fingers, `Shift` with the wheel). Keys: `+` `−` zoom, `W` 
 **Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the
 whiteboard over the PDF: its pages lie under it as sheets of paper, where they stood, and everything
 a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and
-arrows, the ruler, undo. Two fingers or the wheel move down the pages, a pinch or `Ctrl` with the
+arrows, the ruler, undo. Two fingers or the wheel move down the pages (a notch of a mouse's wheel as a
+glide, a push on the touchpad running on after the fingers leave), a pinch or `Ctrl` with the
 wheel makes them larger and smaller around what is under the pointer, freely from 10 % to 1600 %
 (a notch of a mouse's wheel glides there; what is in sight is drawn as sharp as the screen as soon
 as the hand rests, however far in); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at

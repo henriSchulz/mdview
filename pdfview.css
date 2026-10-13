@@ -33,7 +33,10 @@
 .pdf-main { display: flex; align-items: flex-start; }
 /* (pages broader than the window: the box is moved sideways, so every part of a page can be reached — a page with room stands in
  * the middle, one without begins at the left; the room above and below is for the pages' shadows, which the box would cut) */
-.pdf-pages { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; overflow-x: auto; scrollbar-width: none; padding: 24px 0; margin: -24px 0; }
+.pdf-pages { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+/* (… and only while a page is broader: a box that can be moved is one the window's own scrolling has to ask at every step —
+ * down the pages it is the window that moves, as smoothly as it does anywhere) */
+.pdf-pages[data-wide] { overflow-x: auto; scrollbar-width: none; padding: 24px 0; margin: -24px 0; }
 .pdf-pages::-webkit-scrollbar { display: none; }
 .pdf-page, .pdf-wait { margin-inline: auto; }
 .pdf-wait { padding: 30vh 0; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); }

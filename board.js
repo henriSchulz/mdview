@@ -380,6 +380,7 @@
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
+      coasts: () => !!(S && S.pdf), // (over a PDF the wheel's push runs on: rule 26 keeps a whiteboard where two fingers left it)
       zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
     // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
     el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);

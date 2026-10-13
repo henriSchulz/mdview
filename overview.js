@@ -95,6 +95,36 @@
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   // when a note was changed, as the sidebar says it — today's with the word before the time
   const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
+  /* A PDF shows its first page, as a note shows its beginning: drawn when its tile comes near the window, one PDF after the other
+   * (each has to be read whole for it), and kept for as long as the window is — by the file and when it was changed. Until then,
+   * and where a PDF cannot be read, the tile has the PDF's sign. */
+  const shots = new Map(), shotKey = (n) => (n.real || n.path) + "@" + (n.mtime || n.v || 0), wanted = [];
+  let shooting = false;
+  async function shoot() {
+    if (shooting) return;
+    shooting = true;
+    try {
+      await window.MdPage.loadPdf();
+      for (let t; (t = wanted.shift()); ) {
+        const key = t.dataset.shot;
+        if (!t.isConnected || !key) continue;
+        if (!shots.has(key)) { try { shots.set(key, (await window.MdPdf.pageShot(t.dataset.file, 1, 280)).img.src); } catch (e) { shots.set(key, ""); } }
+        const src = shots.get(key), box = t.querySelector(".ov-pic, .ov-mini");
+        delete t.dataset.shot;
+        if (!src || !box || !t.isConnected) continue;
+        const img = new Image();
+        img.alt = ""; img.draggable = false; img.className = "ov-shot"; img.src = src;
+        await img.decode().catch(() => {});
+        box.replaceChildren(img);
+        requestAnimationFrame(() => img.classList.add("on")); // (it fades in over the sheet: overview.css)
+      }
+    } catch (e) { /* (the viewer could not be loaded: the signs stay) */ }
+    shooting = false;
+  }
+  const shotNear = typeof IntersectionObserver === "function" ? new IntersectionObserver((list) => {
+    for (const e of list) if (e.isIntersecting) { shotNear.unobserve(e.target); wanted.push(e.target); }
+    if (wanted.length) shoot();
+  }, { rootMargin: "300px 0px" }) : null;
   const urlOf = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
   // the folder shown (scope "folders"): as far down `at` as the tree still goes
   function place(tree) {
@@ -138,7 +168,9 @@
     const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
     if (look && look.color) t.style.setProperty("--c", look.color);
     const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
-    const pic = file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
+    const shot = file && n.kind === "pdf" ? shots.get(shotKey(n)) : null; // (a PDF's first page, where it was drawn before)
+    const pic = shot ? `<img src="${esc(shot)}" alt="" draggable="false">` : file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
+    if (file && n.kind === "pdf" && !shot) { t.dataset.shot = shotKey(n); t.dataset.file = n.real || n.path; }
     // a row: the note's sheet in small, its name, under it its first words, at the end when it was changed
     if (list) t.innerHTML = `<span class="ov-mini">${dir || file ? pic || sign : `<span class="ov-prev" inert></span>`}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>` +
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
@@ -209,6 +241,7 @@
         const known = !n.pdf && cache.get(n.path);
         if (known) paint(t, known);
         grid.appendChild(t);
+        if (t.dataset.shot && shotNear) shotNear.observe(t);
         if (!n.pdf) tiles.set(n.path, t); // (a note: its beginning is asked for)
         items.push(t);
       }
