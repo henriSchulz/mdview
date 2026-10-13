@@ -14,10 +14,20 @@
     if (window.MdOverview && MdOverview.shown) MdOverview.close();
     open("Alpha.md");
     ok("the note is in the window", await until(() => MdView.core.current && /Alpha\.md$/.test(MdView.core.current.path) && document.getElementById("content").textContent.includes("Some text")));
-    const wide = innerWidth > 760, button = document.querySelector("#toolbar .tb-split"), pane = () => document.getElementById("split"), sheet = () => pane().querySelector(".split-doc");
+    // (the rig's window can be half as wide as a window is: the page is told it has room, and what is seen of the two halves is
+    // checked only where it has — `wide`)
+    const real = innerWidth; let said = real;
+    Object.defineProperty(window, "innerWidth", { configurable: true, get: () => said });
+    const wide = real >= 760, button = document.querySelector("#toolbar .tb-split"), pane = () => document.getElementById("split"), sheet = () => pane().querySelector(".split-doc");
     const seen = () => { const c = getComputedStyle(pane()); return c.display !== "none" && c.visibility === "visible" && c.opacity === "1"; };
     ok("the toolbar has the button for two things side by side", !!button && !button.hidden && button.getAttribute("aria-pressed") === "false");
     const was = document.getElementById("content").getBoundingClientRect();
+    // a window with no room for two: said, and nothing half shown
+    said = 480;
+    button.click();
+    await sleep(200);
+    ok("a window too narrow for two: nothing is opened, and it says why", !P.splitState() && !document.body.dataset.split && /narrow|schmal/.test((document.querySelector("#toast, .toast") || {}).textContent || ""), [P.splitState(), (document.querySelector("#toast, .toast") || {}).textContent]);
+    said = Math.max(real, 1200);
     button.click();
     ok("pressed: the note as it reads, in a sheet at the window's right", await until(() => pane() && P.splitState().kind === "self" && /Some text/.test(sheet().textContent) && !!sheet().querySelector("h1") && (!wide || seen())), pane() && sheet().innerHTML.slice(0, 120));
     if (wide) ok("… the note keeps the room at the left of it: neither lies on the other", document.getElementById("content").getBoundingClientRect().right <= pane().getBoundingClientRect().left + 1 && pane().getBoundingClientRect().width > 200, [document.getElementById("content").getBoundingClientRect().right, pane().getBoundingClientRect().left]);

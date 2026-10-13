@@ -889,7 +889,7 @@
       "Page": "Seite",
       "Select a region to embed": "Bereich zum Einbetten auswählen",
       "Select a region to embed (R)": "Bereich zum Einbetten auswählen (R)",
-      "Side by Side": "Nebeneinander", "Open Beside": "Daneben öffnen", "Open at the Left": "Links öffnen", "This file can't be shown here": "Diese Datei lässt sich hier nicht zeigen", "This PDF can't be opened": "Dieses PDF lässt sich nicht öffnen",
+      "Side by Side": "Nebeneinander", "Open Beside": "Daneben öffnen", "Open at the Left": "Links öffnen", "The window is too narrow for two side by side": "Das Fenster ist zu schmal für zwei nebeneinander", "This file can't be shown here": "Diese Datei lässt sich hier nicht zeigen", "This PDF can't be opened": "Dieses PDF lässt sich nicht öffnen",
       "Draw on the PDF": "Auf dem PDF zeichnen",
       "Draw on the PDF (D)": "Auf dem PDF zeichnen (D)",
       "Couldn't open the PDF to draw on": "Das PDF ließ sich nicht zum Zeichnen öffnen",

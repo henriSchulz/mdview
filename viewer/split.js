@@ -145,10 +145,19 @@
   }
 
   // ---------------------------------------------------------------- opening and closing
+  /* Two things want room: 300 px each at the least. Where the window has less beside the sidebar, the sidebar makes way; where it
+   * has less even so, there is one thing to show — said, when two are asked for, and the sheet is out of sight for as long. */
+  const ROOM = 600;
+  const sideW = () => (document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0);
+  const fits = () => innerWidth - sideW() >= ROOM;
+  const narrow = () => document.body.toggleAttribute("data-split-narrow", !!S && !fits());
+  addEventListener("resize", narrow);
   /* what: null — the note at the left, as it reads; { path } — that file. */
   function open(what) {
     const kind = what ? kindOf(what.path) : "self";
     if (!kind) return P.toast && P.toast(T("This file can't be shown here"));
+    if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
+    if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
     if (!pane) build();
     if (S && S.near) S.near.disconnect();
     const s = (S = { kind, path: what ? what.path : null, links: {}, shown: undefined, of: null });
@@ -157,6 +166,7 @@
     named(what ? nameOf(what.path) : "");
     pane.querySelector('[data-do="over"]').hidden = kind === "self";
     document.body.dataset.split = kind;
+    narrow();
     button.setAttribute("aria-pressed", "true");
     clearInterval(watch);
     if (kind === "self") { follow(); watch = setInterval(follow, 400); }
@@ -171,6 +181,7 @@
     S = null;
     clearInterval(watch);
     delete document.body.dataset.split;
+    narrow();
     button.setAttribute("aria-pressed", "false");
   }
   /* What is beside the note becomes the window's own: opened at the left, where it can be written. */

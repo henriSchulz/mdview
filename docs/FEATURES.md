@@ -1122,7 +1122,7 @@ the left is the window's as ever, in any of its modes.
 - The two are halves of one kind: the same column, the same type, each scrolled by itself. The
   line between them can be pulled (a double click on it: halves again; how the window is shared
   is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
-  A window narrower than 760 px shows the note alone. What is beside a note is not kept when the
+  Two things want 600 px beside the sidebar: where the window has less, the sidebar makes way; where it has less even so, it says so and shows the note alone. What is beside a note is not kept when the
   window is closed.
 - Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
   the right (the PDF's own viewer is the window's left).

@@ -64,5 +64,8 @@ body[data-split]:not([data-overview]) #rrail { right: calc(var(--sb-inset) + var
 body[data-split]:not([data-overview]) #rpanel { right: calc(var(--sb-inset) + var(--rail-w) + var(--split-w)); }
 body[data-split]:not([data-overview]) #ai-bubble, body[data-split]:not([data-overview]) #ai-chat { margin-right: var(--split-w); }
 /* a window too narrow for two things shows one */
-@media (max-width: 760px) { body[data-split] { padding-right: 0 !important; } #split { display: none; } :root:has(> body[data-split]) { scrollbar-width: auto; } }
+body[data-split-narrow] { padding-right: 0 !important; }
+body[data-split-narrow] #split { display: none; }
+:root:has(> body[data-split-narrow]) { scrollbar-width: auto; }
+:root:has(> body[data-split-narrow])::-webkit-scrollbar { display: block; }
 @media print { body[data-split] { padding-right: 0 !important; } #split { display: none !important; } }
