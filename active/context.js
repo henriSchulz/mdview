@@ -335,6 +335,7 @@
       ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && window.MdView.core.ai.on() ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
       ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
+        ...(pic.turnBy ? [item("menu.turnLeft", () => pic.turnBy(-90)), item("menu.turnRight", () => pic.turnBy(90))] : []),
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),
       ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),

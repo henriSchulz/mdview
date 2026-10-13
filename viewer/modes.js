@@ -549,6 +549,47 @@
     openHistory, openShare, openConflicts, openSettings, loadActive, showActive, activeChanged,
     leaveActiveNow, leaveEditNow, printDoc, edReplace, insertImage });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
+  // ---------------------------------------------------------------- pictures turned
+  /* A picture written with a turn (|r90, |r180, |r270: viewer/markdown.js) is drawn turned once and shown as that drawing — a
+   * picture like any other from then on: as large as it then is, with the text around it where a picture of that shape belongs
+   * (a turn by CSS would leave the room of the upright one). The address it was written with is kept beside it (data-src). One
+   * that cannot be drawn so — from another site, which a canvas may not hand back — is turned where it stands. */
+  const turnedUrl = new Map(); // address + "@" + turn → the turned picture's address ("": cannot be drawn)
+  function turnPic(img) {
+    const turn = img.dataset.turn;
+    if (!/^(90|180|270)$/.test(turn || "") || img.dataset.turned === turn) return;
+    const src = img.dataset.src || img.getAttribute("src") || "", key = src + "@" + turn;
+    if (!src) return;
+    img.dataset.src = src;
+    const put = (url) => { if (img.dataset.turn !== turn) return; img.dataset.turned = turn; if (url) { img.src = url; img.style.rotate = ""; } else img.style.rotate = turn + "deg"; };
+    if (turnedUrl.has(key)) return put(turnedUrl.get(key));
+    const raw = new Image();
+    raw.onload = () => {
+      if (turnedUrl.has(key)) return put(turnedUrl.get(key));
+      try {
+        const w = raw.naturalWidth || 300, h = raw.naturalHeight || 150, k = Math.min(1, 4096 / Math.max(w, h)), side = turn !== "180";
+        const c = document.createElement("canvas"), ctx = c.getContext("2d");
+        c.width = Math.round((side ? h : w) * k); c.height = Math.round((side ? w : h) * k);
+        ctx.translate(c.width / 2, c.height / 2);
+        ctx.rotate((Number(turn) * Math.PI) / 180);
+        ctx.drawImage(raw, (-w * k) / 2, (-h * k) / 2, w * k, h * k);
+        c.toBlob((blob) => { turnedUrl.set(key, blob ? URL.createObjectURL(blob) : ""); put(turnedUrl.get(key)); }, "image/png");
+      } catch (e) { turnedUrl.set(key, ""); put(""); }
+    };
+    raw.onerror = () => {}; // (no picture there: nothing to turn)
+    raw.src = src;
+  }
+  if (typeof MutationObserver === "function") new MutationObserver((list) => {
+    for (const m of list) {
+      if (m.type === "attributes") { if (m.target.tagName === "IMG") turnPic(m.target); continue; }
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.tagName === "IMG") turnPic(node);
+        else if (node.firstElementChild) for (const img of node.querySelectorAll("img[data-turn]")) turnPic(img);
+      }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-turn"] });
+
   P.live({
     activeLoad: [() => activeLoad],
     preloadTimer: [() => preloadTimer, (v) => { preloadTimer = v; }],

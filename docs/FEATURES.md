@@ -366,6 +366,18 @@ How large a picture shows is written at the end of its description, as Obsidian 
 ![[paper.pdf#page=3|full]]     an embedded PDF page, likewise
 ```
 
+A picture can be turned by quarters. The turn is written before the size:
+
+```markdown
+![a tree|r90](tree.png)        a quarter to the right (r180: upside down, r270: a quarter to the left)
+![a tree|r90|400](tree.png)    turned, and 400 px wide
+![[tree.png|r270]]             the same, for an embed
+```
+
+It shows as a picture of the turned shape — the text around it stands where a picture of that
+shape belongs. In the active mode: right click → **Rotate Left** / **Rotate Right**, or Rotation in
+a picture's popover. (A PDF's page is not turned.)
+
 In the active mode the size is a choice — its own size, Small (240), Medium (400), Large (640), Full
 width — in the menu of a picture or an embed (right click → Size), in a picture's popover (double
 click or Enter on it) and in the dialog of an embed.

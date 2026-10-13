@@ -18,6 +18,7 @@
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
@@ -522,6 +523,17 @@ case "${1:-}" in
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
+  turn)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
+    magick -size 120x40 gradient:red-blue "$R/work/wide.png"
+    printf '%s\n' '# Turned' '' 'A picture in the text ![wide](wide.png) here.' '' '![own|r90](wide.png)' '' '![sized|r180|240](wide.png)' '' '![[wide.png|r270]]' > "$R/work/note.md"
+    app 90 MDVIEW_PROBE="$D/probe-turn.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
+    for v in read active; do for _ in $(seq 300); do [[ -f $R/out/note.md.$v.json || -f $R/out/note.md.turn.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/turn-$v.png"; done
+    for _ in $(seq 400); do [[ -f $R/out/note.md.turn.json ]] && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/note.md.turn.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.turn.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.turn.json" | grep -q '^FAIL' ;;
   pdfink)
     # a PDF by itself, drawn on; then the app anew, and what was drawn rubbed out
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.*.json

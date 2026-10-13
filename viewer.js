@@ -9,7 +9,7 @@
   const P = window.MdPage;
   const { NONCE, DESKTOP, ASSETS, post, T, esc, keys, SVG_ICON, ICON, fileHref, fileSize, fileExt,
     DECO_COLORS, CALLOUT_ICON, slugify, inlineText } = P; // viewer/base.js
-  const { md, tex, imageSize, calloutKind, calloutTitle, LINK_ROW, linkMark, svgPicture, codeHidden,
+  const { md, tex, imageSize, picText, calloutKind, calloutTitle, LINK_ROW, linkMark, svgPicture, codeHidden,
     codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW, pageLook,
     pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageFileLine, viewOf, pageAppend,
@@ -273,7 +273,7 @@
       ai: {
         // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
         fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
-        where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, folderLook: (path) => ({ color: colorVar(lookOf(path).color),
+        where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, picText, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, folderLook: (path) => ({ color: colorVar(lookOf(path).color),
           sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },

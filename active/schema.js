@@ -170,11 +170,12 @@
       group: "inline", inline: true, atom: true,
       attrs: { src: { default: "" }, alt: { default: "" }, title: { default: null } },
       // (its size is the end of the description — "a tree|300", "a tree|full" — and shows as the reading view shows it)
-      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("src"), title: dom.getAttribute("title"),
-        alt: (dom.getAttribute("alt") || "") + (dom.classList.contains("full") ? "|full" : /^\d+$/.test(dom.getAttribute("width") || "") ? "|" + dom.getAttribute("width") : "") }) }],
+      // (… and its turn, before the size: "a tree|r90|300". A picture shown turned has another address meanwhile — the one it was written with is kept beside it: viewer/modes.js)
+      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("data-src") || dom.getAttribute("src"), title: dom.getAttribute("title"),
+        alt: window.MdView.core.picText(dom.getAttribute("alt") || "", /^(90|180|270)$/.test(dom.getAttribute("data-turn") || "") ? dom.getAttribute("data-turn") : "", dom.classList.contains("full") ? "full" : /^\d+$/.test(dom.getAttribute("width") || "") ? dom.getAttribute("width") : "") }) }],
       toDOM: (n) => {
-        const { alt, size } = window.MdView.core.imageSize(n.attrs.alt);
-        return ["img", { src: n.attrs.src, alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }), ...(size === "full" ? { class: "full" } : size ? { width: size } : {}) }];
+        const { alt, size, turn } = window.MdView.core.imageSize(n.attrs.alt);
+        return ["img", { src: n.attrs.src, alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }), ...(size === "full" ? { class: "full" } : size ? { width: size } : {}), ...(turn ? { "data-turn": turn } : {}) }];
       },
     },
     hard_break: {
