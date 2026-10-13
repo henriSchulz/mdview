@@ -31,6 +31,7 @@
     pane.setAttribute("aria-label", T("Side by Side"));
     pane.innerHTML = `<div class="split-grip" role="separator" aria-orientation="vertical" aria-label="${esc(T("Side by Side"))}"></div>` +
       `<div class="split-body" tabindex="-1"><div class="split-doc"></div></div>` +
+      `<div class="split-bar pdf-bar" role="toolbar" aria-label="PDF" hidden></div>` +
       `<div class="split-cap" role="toolbar"><span class="split-name"></span>` +
       `<button class="tb" type="button" data-do="over" title="${esc(T("Open at the Left"))}" aria-label="${esc(T("Open at the Left"))}">${I.over}</button>` +
       `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></div>`;
@@ -113,27 +114,82 @@
     doc().innerHTML = html(S.path, String(data.text || ""), S.links);
     body().scrollTop = 0;
   }
-  /* A PDF beside a note: its pages as pictures, each drawn when it comes near. */
+  /* A PDF beside a note: its pages as pictures, each drawn when it comes near — and over them the viewer's plain controls, as its
+   * own bar has them (pdfview.js, whose looks these are): the page one is on and the way to another, larger and smaller, the
+   * page's width or the whole page fitted. (What the viewer does beyond reading — its side card, a region for a note, drawing —
+   * is the window's left.) */
+  const PI = {
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>', plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    width: '<svg viewBox="0 0 16 16"><path d="M2 8h12M4.5 5.5 2 8l2.5 2.5M11.5 5.5 14 8l-2.5 2.5"/></svg>',
+    page: '<svg viewBox="0 0 16 16"><rect x="3.5" y="1.5" width="9" height="13" rx="1.5"/></svg>',
+  };
   async function pages(s) {
-    const d = doc(), wide = Math.min(1400, Math.max(400, Math.round(body().clientWidth - 64)));
+    const d = doc(), b = body(), bar = pane.querySelector(".split-bar");
     d.innerHTML = `<div class="split-page" data-page="1"></div>`;
     try {
       await P.loadPdf();
-      const first = await window.MdPdf.pageShot(s.path, 1, wide);
+      const first = await window.MdPdf.pageShot(s.path, 1, Math.max(400, b.clientWidth - 48));
       if (S !== s) return;
-      const ratio = first.img.width / first.img.height;
-      d.innerHTML = Array.from({ length: first.pages }, (_v, i) => `<div class="split-page" data-page="${i + 1}" style="aspect-ratio:${ratio}"></div>`).join("");
-      d.firstChild.replaceChildren(first.img);
-      const near = new IntersectionObserver((list) => {
-        for (const e of list) {
-          if (!e.isIntersecting) continue;
-          near.unobserve(e.target);
-          window.MdPdf.pageShot(s.path, Number(e.target.dataset.page), wide).then((shot) => { if (S === s && e.target.isConnected) { e.target.style.aspectRatio = ""; e.target.replaceChildren(shot.img); } }, () => {});
-        }
-      }, { root: body(), rootMargin: "600px 0px" });
-      for (const el of [...d.children].slice(1)) near.observe(el);
-      s.near = near;
+      const box = first.rect(0, 0, 1, 1), pts = Math.max(1, box[2] - box[0]), ratio = first.img.width / first.img.height;
+      const v = (s.pdf = { n: first.pages, pts, ratio, fit: "width", scale: 1, wide: 0, later: 0 });
+      const btn = (attr, label, icon, more = "") => `<button type="button" class="tb pdf-b" ${attr} title="${esc(T(label))}" aria-label="${esc(T(label))}"${more}>${icon}</button>`;
+      bar.innerHTML = `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="${esc(T("Page"))}"><span class="pdf-of">/ ${v.n}</span><span class="pdf-sep"></span>` +
+        btn('data-pdf="out"', "Zoom out", PI.minus) + `<span class="pdf-zoom"></span>` + btn('data-pdf="in"', "Zoom in", PI.plus) +
+        btn('data-pdf="width"', "Fit width", PI.width, ' aria-pressed="true"') + btn('data-pdf="page"', "Fit page", PI.page, ' aria-pressed="false"');
+      bar.hidden = false;
+      d.innerHTML = Array.from({ length: v.n }, (_x, i) => `<div class="split-page" data-page="${i + 1}" style="aspect-ratio:${ratio}"></div>`).join("");
+      const els = [...d.children];
+      const put = (el, shot, wide) => { if (S !== s || !el.isConnected) return; el.dataset.wide = wide; el.replaceChildren(shot.img); };
+      put(els[0], first, 0);
+      // a page in sight that is not drawn as large as it is shown is drawn anew (the one it has stays until then)
+      const near = (s.near = new IntersectionObserver((list) => {
+        for (const e of list) { e.target.near = e.isIntersecting; if (e.isIntersecting) draw(e.target); }
+      }, { root: b, rootMargin: "600px 0px" }));
+      function draw(el) {
+        const wide = v.wide;
+        if (!el.near || Number(el.dataset.wide) === wide || el.dataset.busy === String(wide)) return;
+        el.dataset.busy = wide;
+        window.MdPdf.pageShot(s.path, Number(el.dataset.page), wide).then((shot) => { if (v.wide === wide) put(el, shot, wide); else draw(el); }, () => {});
+      }
+      const fitted = (how) => { const room = Math.max(120, b.clientWidth - 48); return how === "page" ? Math.min(room / pts, Math.max(120, b.clientHeight - 72) / (pts / ratio)) : room / pts; };
+      /* how: "width", "page", or a number (the page's points to pixels); at: the place in the sheet that stays where it is */
+      function zoom(how, at = null) {
+        const high = b.scrollHeight || 1, y = at ? at.y : 0, into = (b.scrollTop + y) / high, x = at ? at.x : b.clientWidth / 2, across = (b.scrollLeft + x) / (b.scrollWidth || 1);
+        if (typeof how === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, how)); } else { v.fit = how; v.scale = fitted(how); }
+        v.wide = Math.round(pts * v.scale);
+        d.style.setProperty("--pw", v.wide + "px");
+        bar.querySelector(".pdf-zoom").textContent = Math.round(v.scale * 100) + "%";
+        for (const k of ["width", "page"]) bar.querySelector(`[data-pdf="${k}"]`).setAttribute("aria-pressed", String(v.fit === k));
+        b.scrollTop = into * b.scrollHeight - y;
+        b.scrollLeft = across * b.scrollWidth - x;
+        clearTimeout(v.later);
+        v.later = setTimeout(() => { if (S === s) els.forEach(draw); }, 160); // (while the size is pulled the pages are stretched; drawn when it rests)
+      }
+      const now = () => { const mid = b.scrollTop + b.clientHeight * 0.4; let n = 1; for (const el of els) { if (el.offsetTop <= mid) n = Number(el.dataset.page); else break; } return n; };
+      const go = (n) => { n = Math.max(1, Math.min(v.n, Math.floor(n) || 1)); b.scrollTop = els[n - 1].offsetTop - 12; };
+      const input = bar.querySelector(".pdf-page-in");
+      s.gone = [];
+      const on = (el, type, f, more) => { el.addEventListener(type, f, more); s.gone.push(() => el.removeEventListener(type, f, more)); };
+      on(bar, "click", (e) => { const k = (e.target.closest("[data-pdf]") || { dataset: {} }).dataset.pdf; if (k === "in") zoom(v.scale * 1.15); else if (k === "out") zoom(v.scale / 1.15); else if (k) zoom(k); });
+      on(input, "keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { go(Number(input.value)); input.blur(); } else if (e.key === "Escape") { input.value = now(); input.blur(); } });
+      on(input, "focus", () => input.select());
+      on(b, "scroll", () => { if (document.activeElement !== input) input.value = now(); }, { passive: true });
+      on(b, "wheel", (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = b.getBoundingClientRect(); zoom(v.scale * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top }); }, { passive: false });
+      const sized = new ResizeObserver(() => { if (S === s && v.fit) zoom(v.fit); });
+      sized.observe(b);
+      s.gone.push(() => sized.disconnect());
+      zoom("width");
+      for (const el of els) near.observe(el);
+      s.pdfDo = { zoom, go, now, state: () => ({ scale: v.scale, fit: v.fit, wide: v.wide, pages: v.n }) }; // (for the tests)
     } catch (e) { if (S === s) d.innerHTML = `<p class="split-empty">${esc(T("This PDF can't be opened"))}</p>`; }
+  }
+  /* What a sheet set up for itself is taken away with it. */
+  function leave(s) {
+    if (!s) return;
+    if (s.near) s.near.disconnect();
+    for (const f of s.gone || []) f();
+    if (s.pdf) clearTimeout(s.pdf.later);
+    if (pane) { const bar = pane.querySelector(".split-bar"); bar.hidden = true; bar.innerHTML = ""; doc().style.removeProperty("--pw"); }
   }
 
   // ---------------------------------------------------------------- opening and closing
@@ -165,13 +221,14 @@
     if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
     if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
     if (!pane) build();
-    if (S && S.near) S.near.disconnect();
+    leave(S);
     const s = (S = { kind, path: what ? what.path : null, links: {}, shown: undefined, of: null });
     doc().className = "split-doc" + (kind === "pdf" ? " is-pdf" : kind === "image" ? " is-image" : "");
     doc().innerHTML = "";
     named(what ? nameOf(what.path) : "");
     pane.querySelector('[data-do="over"]').hidden = kind === "self";
     document.body.dataset.split = kind;
+    pane.dataset.kind = kind;
     narrow();
     clearInterval(watch);
     if (kind === "self") { follow(); watch = setInterval(follow, 400); }
@@ -182,7 +239,7 @@
   }
   function close() {
     if (!S) return;
-    if (S.near) S.near.disconnect();
+    leave(S);
     S = null;
     clearInterval(watch);
     delete document.body.dataset.split;
@@ -196,5 +253,5 @@
     post("note", { path });
   }
 
-  Object.assign(P, { splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of } : null) });
+  Object.assign(P, { splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
 })();

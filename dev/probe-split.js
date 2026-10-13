@@ -92,6 +92,26 @@
     ok("a PDF beside the note: a place for each page, the first drawn", await until(() => sheet().querySelectorAll(".split-page").length === 3 && sheet().querySelector(".split-page img") && sheet().querySelector(".split-page img").naturalHeight > 0, 10000), sheet().innerHTML.slice(0, 160));
     out("pdf", {});
     await sleep(900);
+    // the viewer's plain controls over the pages: the page, larger and smaller, fitted — and neither the side card nor the pen
+    {
+      const bar = pane().querySelector(".split-bar"), D = P.splitPdf(), st = () => P.splitState().pdf, b = pane().querySelector(".split-body");
+      await until(() => D || P.splitPdf(), 3000);
+      const doIt = P.splitPdf(), names = [...bar.querySelectorAll("button")].map((x) => x.getAttribute("aria-label"));
+      ok("the PDF beside a note has the viewer's plain controls", !bar.hidden && !!bar.querySelector(".pdf-page-in") && bar.querySelector(".pdf-of").textContent.trim() === "/ 3" && names.join() === "Zoom out,Zoom in,Fit width,Fit page", names);
+      ok("… and neither the side card nor the pen", !bar.querySelector('[data-do="side"], [data-do="draw"], [data-do="rect"]'));
+      const w0 = st().wide;
+      bar.querySelector('[data-pdf="in"]').click();
+      ok("larger: the pages are broader, and no longer fitted", st().wide > w0 * 1.1 && st().fit === null && bar.querySelector('[data-pdf="width"]').getAttribute("aria-pressed") === "false" && /%$/.test(bar.querySelector(".pdf-zoom").textContent), st());
+      ok("… and drawn as large as they are shown, once it rests", await until(() => Number(sheet().querySelector(".split-page").dataset.wide) === st().wide, 6000), [sheet().querySelector(".split-page").dataset.wide, st().wide]);
+      bar.querySelector('[data-pdf="width"]').click();
+      ok("Fit width: as broad as the half lets them be", st().fit === "width" && Math.abs(st().wide - (b.clientWidth - 48)) <= 2, [st(), b.clientWidth]);
+      bar.querySelector('[data-pdf="page"]').click();
+      ok("Fit page: a whole page in sight", st().fit === "page" && sheet().querySelector(".split-page").getBoundingClientRect().height <= b.clientHeight, [st(), sheet().querySelector(".split-page").getBoundingClientRect().height, b.clientHeight]);
+      bar.querySelector('[data-pdf="width"]').click();
+      const input = bar.querySelector(".pdf-page-in");
+      input.value = "3"; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      ok("a page's number and Enter: there", await until(() => doIt.now() === 3 && input.value === "3", 2000), [doIt.now(), input.value]);
+    }
     ok("a PDF's pages beside a note have round corners, as a sheet has", parseFloat(getComputedStyle(sheet().querySelector(".split-page")).borderRadius) >= 10, getComputedStyle(sheet().querySelector(".split-page")).borderRadius);
     // a note with a ground of its own: the rail at its right stands on its sheet, not across the sheet's edge
     open("Ground.md");

@@ -1116,6 +1116,10 @@ the left is the window's as ever, in any of its modes.
   side, any tab's menu has **Close Split View**.
 - **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
   **Open Beside**.
+- **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
+  one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
+  around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.
+  The side card, a region for a note and drawing are the viewer's own, at the left.
 - A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
   left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
   the window's own — there it can be written; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.

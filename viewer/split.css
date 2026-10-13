@@ -47,8 +47,16 @@ body:not([data-tabs]) .split-cap { top: 52px; } /* (under the window's toolbar, 
 .split-cap .tb { flex: none; border-radius: var(--radius-pill); }
 .split-cap .tb[hidden] { display: none; }
 
-/* a PDF's pages, a picture: as broad as the half lets them be */
-.split-doc.is-pdf, .split-doc.is-image { max-width: 900px; padding-left: 24px; padding-right: 24px; }
+/* a PDF's pages: as broad as they are set (--pw: viewer/split.js, zoom) — broader than the half, the sheet is moved sideways */
+.split-doc.is-pdf { box-sizing: border-box; max-width: none; width: max-content; min-width: 100%; padding: 56px 24px 40vh; }
+.split-doc.is-pdf .split-page { width: var(--pw, 100%); }
+.split-doc.is-image { max-width: 900px; padding-left: 24px; padding-right: 24px; }
+/* … and over them the viewer's plain controls, in the viewer's own capsule (pdfview.css: .pdf-bar), in the middle of the half's top */
+#split .split-bar { position: absolute; z-index: 2; top: 8px; left: 50%; translate: -50% 0; margin: 0; max-width: calc(100% - 120px); }
+#split .split-bar[hidden] { display: none; }
+body:not([data-tabs]) #split .split-bar { top: 52px; }
+#split[data-kind="pdf"] .split-name { display: none; } /* (the bar has the room: the capsule keeps its two buttons) */
+#split[data-kind="pdf"] .split-cap { padding-left: 3px; }
 .split-page { margin: 0 auto 14px; background: #fff; border-radius: var(--radius-panel); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
 .split-page img { display: block; width: 100%; height: auto; }
 .split-doc.is-image img { display: block; max-width: 100%; margin: 0 auto; border-radius: 4px; }
@@ -60,7 +68,8 @@ body:not([data-tabs]) .split-cap { top: 52px; } /* (under the window's toolbar, 
 :root[data-doc-bg] .split-doc:not(.is-pdf, .is-image) { margin: var(--doc-gap) auto; padding: 40px 40px 40vh; min-height: calc(100% - 2 * var(--doc-gap) - 80px); border: solid transparent; border-width: 0 var(--doc-gap); border-radius: calc(var(--radius-panel) + var(--doc-gap)); background: var(--c-background) padding-box; }
 
 /* (… and a PDF's pages lie on the ground themselves, the first as high as the note's sheet begins) */
-:root[data-doc-bg] .split-doc:is(.is-pdf, .is-image) { padding: var(--doc-gap) var(--doc-gap) 40vh; }
+:root[data-doc-bg] .split-doc.is-image { padding: var(--doc-gap) var(--doc-gap) 40vh; }
+:root[data-doc-bg] .split-doc.is-pdf { padding-left: var(--doc-gap); padding-right: var(--doc-gap); }
 /* what floats at the window's right stands at the note's right — on the note's sheet where the note has a ground, not across
  * its edge */
 /* (--split-in: how far the sheet's edge is from the line between the halves — measured: viewer/split.js, placed) */
