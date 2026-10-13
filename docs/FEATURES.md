@@ -1110,15 +1110,15 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 Beside the note, at the window's right, a second sheet can stand that is only read. The note at
 the left is the window's as ever, in any of its modes.
 
-- **This note, as it reads**: the toolbar's last button (two halves). Beside the source it shows
-  what the Markdown becomes, and follows what is typed a moment later, at the place one was.
-- **Another file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
-  **Open Beside**. A note is shown as it reads (its links found from where it lies); a PDF as its
-  pages, each drawn when it comes near; a picture as itself.
+- **A tab beside the one in the window**: right click on a tab that is not the one shown ›
+  **Show in Split View**. Its note is shown as it reads (its links found from where it lies), a
+  PDF as its pages, each drawn when it comes near, a picture as itself. While two are side by
+  side, any tab's menu has **Close Split View**.
+- **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
+  **Open Beside**.
 - A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
   left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
-  the window's own — there it can be written; the cross, the button again, or `Esc` in the sheet
-  closes it. Both stand in a small capsule in the sheet's corner, with its name.
+  the window's own — there it can be written; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
 - The two are halves of one kind: the same column, the same type, each scrolled by itself. The
   line between them can be pulled (a double click on it: halves again; how the window is shared
   is kept). A note beside its own reading runs with it: as far down the one is, so far the other.

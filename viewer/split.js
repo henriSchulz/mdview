@@ -1,7 +1,8 @@
 /* mdview — two things side by side: beside the note, at the window's right, a second sheet that is only read — the note itself as it
  * reads (while its source is written at the left: it follows what is typed), another note, a PDF's pages, a picture. The note at
- * the left is the window's as ever, in any of its modes; what is beside it is chosen with the toolbar's button (this note, as it
- * reads) or with Open Beside in a file's menu. A link to a note or a PDF in the sheet at the right leads on there.
+ * the left is the window's as ever, in any of its modes; what is beside it is chosen where the thing is: Show in Split View in the menu
+ * of a tab that is not the one in the window, Open Beside in a file's menu. (The note beside its own reading: splitOpen(null) —
+ * nothing in the window asks for it yet.) A link to a note or a PDF in the sheet at the right leads on there.
  *
  * Another note's text is the host's to read (note-read: the page may not read files); a PDF's pages are drawn by the viewer's
  * own means (pdfview.js: pageShot), as pictures. */
@@ -10,7 +11,6 @@
   const P = window.MdPage;
   const { post, T, esc, svg, READING } = P; // viewer/base.js, viewer/editor.js
   const I = {
-    split: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M12 5v14"/>'),
     close: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
     over: svg('<path d="M14 6 8 12l6 6"/><path d="M20 12H9"/>'),
   };
@@ -24,15 +24,7 @@
   const waiting = new Map();
   const body = () => pane.querySelector(".split-body"), doc = () => pane.querySelector(".split-doc");
 
-  // ---------------------------------------------------------------- the button, the sheet
-  const button = document.createElement("button");
-  button.className = "tb tb-split"; button.type = "button"; // (not one of the toolbar's own acts: it is carried out here)
-  button.title = T("Side by Side"); button.setAttribute("aria-label", T("Side by Side")); button.setAttribute("aria-pressed", "false");
-  button.innerHTML = I.split;
-  button.hidden = !!READING; // (where a note is only shown there is one thing to read)
-  if (P.toolbar) P.toolbar.appendChild(button);
-  button.addEventListener("click", () => (S ? close() : open(null)));
-
+  // ---------------------------------------------------------------- the sheet
   function build() {
     pane = document.createElement("section");
     pane.id = "split";
@@ -167,7 +159,6 @@
     pane.querySelector('[data-do="over"]').hidden = kind === "self";
     document.body.dataset.split = kind;
     narrow();
-    button.setAttribute("aria-pressed", "true");
     clearInterval(watch);
     if (kind === "self") { follow(); watch = setInterval(follow, 400); }
     else if (kind === "note") { const id = "s" + ++seq; waiting.set(id, s); post("note-read", { path: s.path, id }); }
@@ -182,7 +173,6 @@
     clearInterval(watch);
     delete document.body.dataset.split;
     narrow();
-    button.setAttribute("aria-pressed", "false");
   }
   /* What is beside the note becomes the window's own: opened at the left, where it can be written. */
   function over() {
@@ -192,5 +182,5 @@
     post("note", { path });
   }
 
-  Object.assign(P, { splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of } : null) });
+  Object.assign(P, { splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of } : null) });
 })();

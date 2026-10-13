@@ -18,18 +18,38 @@
     // checked only where it has — `wide`)
     const real = innerWidth; let said = real;
     Object.defineProperty(window, "innerWidth", { configurable: true, get: () => said });
-    const wide = real >= 760, button = document.querySelector("#toolbar .tb-split"), pane = () => document.getElementById("split"), sheet = () => pane().querySelector(".split-doc");
+    const wide = real >= 760, pane = () => document.getElementById("split"), sheet = () => pane().querySelector(".split-doc");
     const seen = () => { const c = getComputedStyle(pane()); return c.display !== "none" && c.visibility === "visible" && c.opacity === "1"; };
-    ok("the toolbar has the button for two things side by side", !!button && !button.hidden && button.getAttribute("aria-pressed") === "false");
+    ok("the toolbar has no button for it: it is asked for where the thing is", !document.querySelector("#toolbar .tb-split, #toolbar [data-act='split']"));
+    // a second tab, and its menu
+    window.MdHost.post(JSON.stringify({ type: "note", path: root() + "/sub/Beta.md", tab: true }));
+    await until(() => document.querySelectorAll("#tabs .tab[data-path]").length >= 2 && /Beta\.md$/.test(MdView.core.current.path), 4000);
+    const tabOf = (name) => [...document.querySelectorAll("#tabs .tab")].find((t) => (t.dataset.path || "").endsWith(name));
+    const menu = async (tab) => { tab.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: tab.getBoundingClientRect().left + 20, clientY: tab.getBoundingClientRect().top + 10 })); await sleep(250); return (cmd) => document.querySelector(`#ctxmenu [data-cmd="${cmd}"]`); };
+    window.MdHost.post(JSON.stringify({ type: "tab", op: "select", id: Number(tabOf("Alpha.md").dataset.id) }));
+    await until(() => /Alpha\.md$/.test(MdView.core.current.path), 4000);
+    let entry = await menu(tabOf("Alpha.md"));
+    ok("the menu of the tab in the window: Show in Split View is there, and cannot be chosen (it is in the window)", !!entry("tab:split") && entry("tab:split").disabled && entry("tab:unsplit").hidden, entry("tab:split") && [entry("tab:split").disabled, entry("tab:split").hidden]);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(200);
     const was = document.getElementById("content").getBoundingClientRect();
     // a window with no room for two: said, and nothing half shown
     said = 480;
-    button.click();
+    entry = await menu(tabOf("Beta.md"));
+    ok("the menu of a tab that is not in the window: Show in Split View", !entry("tab:split").disabled && !entry("tab:split").hidden && /Split View/.test(entry("tab:split").textContent), entry("tab:split").outerHTML.slice(0, 160));
+    entry("tab:split").click();
     await sleep(200);
     ok("a window too narrow for two: nothing is opened, and it says why", !P.splitState() && !document.body.dataset.split && /narrow|schmal/.test((document.querySelector("#toast, .toast") || {}).textContent || ""), [P.splitState(), (document.querySelector("#toast, .toast") || {}).textContent]);
     said = Math.max(real, 1200);
-    button.click();
-    ok("pressed: the note as it reads, in a sheet at the window's right", await until(() => pane() && P.splitState().kind === "self" && /Some text/.test(sheet().textContent) && !!sheet().querySelector("h1") && (!wide || seen())), pane() && sheet().innerHTML.slice(0, 120));
+    entry = await menu(tabOf("Beta.md"));
+    entry("tab:split").click();
+    ok("chosen: that tab's note beside the one in the window, which stays", await until(() => pane() && P.splitState() && P.splitState().kind === "note" && /More about it/.test(sheet().textContent) && (!wide || seen()), 4000) && /Alpha\.md$/.test(MdView.core.current.path), [P.splitState(), MdView.core.current.path]);
+    entry = await menu(tabOf("Beta.md"));
+    ok("while two are side by side a tab's menu closes the split view", !entry("tab:unsplit").hidden);
+    entry("tab:unsplit").click(); await sleep(200);
+    ok("… closed from there", !P.splitState() && !document.body.dataset.split);
+    // the note beside its own reading (nothing in the window asks for it yet: the page's own way in)
+    P.splitOpen(null);
+    ok("the note as it reads, in a sheet at the window's right", await until(() => pane() && P.splitState().kind === "self" && /Some text/.test(sheet().textContent) && !!sheet().querySelector("h1") && (!wide || seen())), pane() && sheet().innerHTML.slice(0, 120));
     if (wide) ok("… the note keeps the room at the left of it: neither lies on the other", document.getElementById("content").getBoundingClientRect().right <= pane().getBoundingClientRect().left + 1 && pane().getBoundingClientRect().width > 200, [document.getElementById("content").getBoundingClientRect().right, pane().getBoundingClientRect().left]);
     // two halves of one kind: the same type, the first line at the same height, each with a run of its own, a line between them to pull
     {
@@ -77,7 +97,7 @@
     await until(() => /More about it/.test(sheet().textContent), 4000);
     pane().querySelector('[data-do="over"]').click();
     ok("Open at the Left: the note beside is the window's, and the sheet is gone", await until(() => /Beta\.md$/.test(MdView.core.current.path) && !P.splitState() && !document.body.dataset.split, 4000), [MdView.core.current.path, P.splitState()]);
-    ok("… the note has the window's whole width again", await until(() => getComputedStyle(document.body).paddingRight === "0px" && button.getAttribute("aria-pressed") === "false", 2000), getComputedStyle(document.body).paddingRight);
+    ok("… the note has the window's whole width again", await until(() => getComputedStyle(document.body).paddingRight === "0px", 2000), getComputedStyle(document.body).paddingRight);
     void was;
     if (errs.length) ok("no script errors", false, errs);
   } catch (e) { o.error = String(e && e.stack || e); }
