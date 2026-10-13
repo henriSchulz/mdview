@@ -1118,9 +1118,12 @@ the left is the window's as ever, in any of its modes.
 - A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
   left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
   the window's own — there it can be written; the cross, the button again, or `Esc` in the sheet
-  closes it.
-- The two share the window half and half beside the sidebar; a window narrower than 760 px shows
-  the note alone. What is beside a note is not kept when the window is closed.
+  closes it. Both stand in a small capsule in the sheet's corner, with its name.
+- The two are halves of one kind: the same column, the same type, each scrolled by itself. The
+  line between them can be pulled (a double click on it: halves again; how the window is shared
+  is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
+  A window narrower than 760 px shows the note alone. What is beside a note is not kept when the
+  window is closed.
 - Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
   the right (the PDF's own viewer is the window's left).
 

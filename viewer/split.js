@@ -37,11 +37,13 @@
     pane = document.createElement("section");
     pane.id = "split";
     pane.setAttribute("aria-label", T("Side by Side"));
-    pane.innerHTML = `<header class="split-head"><span class="split-name"></span>` +
+    pane.innerHTML = `<div class="split-grip" role="separator" aria-orientation="vertical" aria-label="${esc(T("Side by Side"))}"></div>` +
+      `<div class="split-body" tabindex="-1"><div class="split-doc"></div></div>` +
+      `<div class="split-cap" role="toolbar"><span class="split-name"></span>` +
       `<button class="tb" type="button" data-do="over" title="${esc(T("Open at the Left"))}" aria-label="${esc(T("Open at the Left"))}">${I.over}</button>` +
-      `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></header>` +
-      `<div class="split-body" tabindex="-1"><div class="split-doc"></div></div>`;
+      `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></div>`;
     document.body.appendChild(pane);
+    sizing(pane.querySelector(".split-grip"));
     pane.addEventListener("click", (e) => {
       const b = e.target.closest("[data-do]"), a = e.target.closest("a");
       if (b) return b.dataset.do === "close" ? close() : over();
@@ -53,6 +55,39 @@
     pane.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
   }
   const named = (name) => { pane.querySelector(".split-name").textContent = name; };
+
+  /* How the window is shared: half and half at first, and as the hairline between the halves is pulled — each keeps room to be
+   * read in (a third of what there is at least). Kept in this browser; a double click on the line makes it halves again. */
+  const KEEP = "mdview:split";
+  const share = (r) => { r = Math.max(0.3, Math.min(0.7, r)); document.documentElement.style.setProperty("--split-r", String(r)); return r; };
+  try { const r = Number(localStorage.getItem(KEEP)); if (r > 0) share(r); } catch (e) { /* (not kept) */ }
+  function sizing(grip) {
+    let room = null;
+    const kept = (r) => { try { localStorage.setItem(KEEP, String(r)); } catch (e) { /* (not kept) */ } };
+    grip.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const left = document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0;
+      room = { left, wide: innerWidth - left, r: null };
+      grip.setPointerCapture(e.pointerId);
+      pane.dataset.sizing = ""; document.body.dataset.splitSizing = "";
+    });
+    grip.addEventListener("pointermove", (e) => { if (room) room.r = share((innerWidth - e.clientX) / room.wide); });
+    const done = () => { if (!room) return; if (room.r) kept(room.r); room = null; delete pane.dataset.sizing; delete document.body.dataset.splitSizing; };
+    grip.addEventListener("pointerup", done);
+    grip.addEventListener("pointercancel", done);
+    grip.addEventListener("dblclick", () => kept(share(0.5)));
+  }
+  /* The note beside its own reading runs with it: as far down the note at the left is, so far is the sheet at the right (the
+   * two are one text, of two lengths). */
+  let runFrame = 0;
+  function run() {
+    runFrame = 0;
+    if (!S || S.kind !== "self") return;
+    const el = document.scrollingElement, far = el.scrollHeight - innerHeight, b = body();
+    if (far > 0) b.scrollTop = (el.scrollTop / far) * (b.scrollHeight - b.clientHeight);
+  }
+  addEventListener("scroll", () => { if (S && S.kind === "self" && !runFrame) runFrame = requestAnimationFrame(run); }, { passive: true });
 
   // ---------------------------------------------------------------- what it shows
   /* The note at the left as it stands now, in whatever mode it is written. */
@@ -75,6 +110,7 @@
     doc().innerHTML = html(cur.path, text, S.links);
     named(cur.title || nameOf(cur.path));
     body().scrollTop = same ? at : 0;
+    if (same) run();
   }
   function got(id, data, error) {
     const w = waiting.get(id);

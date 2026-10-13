@@ -21,6 +21,24 @@
     button.click();
     ok("pressed: the note as it reads, in a sheet at the window's right", await until(() => pane() && P.splitState().kind === "self" && /Some text/.test(sheet().textContent) && !!sheet().querySelector("h1") && (!wide || seen())), pane() && sheet().innerHTML.slice(0, 120));
     if (wide) ok("… the note keeps the room at the left of it: neither lies on the other", document.getElementById("content").getBoundingClientRect().right <= pane().getBoundingClientRect().left + 1 && pane().getBoundingClientRect().width > 200, [document.getElementById("content").getBoundingClientRect().right, pane().getBoundingClientRect().left]);
+    // two halves of one kind: the same type, the first line at the same height, each with a run of its own, a line between them to pull
+    {
+      const l = document.querySelector("#content h1"), r = sheet().querySelector("h1"), grip = pane().querySelector(".split-grip");
+      ok("the same type in both halves", getComputedStyle(document.querySelector("#content p")).fontSize === getComputedStyle(sheet().querySelector("p")).fontSize && getComputedStyle(l).fontSize === getComputedStyle(r).fontSize, [getComputedStyle(l).fontSize, getComputedStyle(r).fontSize]);
+      if (wide) ok("… and their first lines at one height", Math.abs(l.getBoundingClientRect().top - r.getBoundingClientRect().top) <= 2, [l.getBoundingClientRect().top, r.getBoundingClientRect().top]);
+      ok("the window's own scrollbar is put away: each half has its run", ["none"].includes(getComputedStyle(document.documentElement).scrollbarWidth) || !wide, getComputedStyle(document.documentElement).scrollbarWidth);
+      ok("what the sheet is stands in a capsule in its corner, with what is done with it", !!pane().querySelector(".split-cap .split-name") && pane().querySelectorAll(".split-cap button").length === 2 && !pane().querySelector(".split-head"));
+      // the line between the halves, pulled: the sheet's share follows, within what both need; a double click halves again
+      const share = () => Number(getComputedStyle(document.documentElement).getPropertyValue("--split-r"));
+      const at = (type, x) => grip.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: 300, pointerId: 5, button: 0, isPrimary: true }));
+      grip.setPointerCapture = () => {}; // (a made-up pointer cannot be held)
+      at("pointerdown", innerWidth / 2); at("pointermove", innerWidth * 0.4); at("pointerup", innerWidth * 0.4);
+      ok("the line pulled to the left: the sheet has more of the window", Math.abs(share() - 0.6) < 0.02, share());
+      at("pointerdown", innerWidth * 0.4); at("pointermove", innerWidth * 0.98); at("pointerup", innerWidth * 0.98);
+      ok("… pulled far to the right: it keeps room to be read in", Math.abs(share() - 0.3) < 0.01, share());
+      grip.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+      ok("a double click on the line: halves again", share() === 0.5, share());
+    }
     // the source written at the left, read at the right
     MdView.setMode("edit");
     await until(() => document.body.dataset.view === "edit");
@@ -34,7 +52,7 @@
     // another note beside it
     P.splitOpen({ path: root() + "/sub/Beta.md" });
     ok("another note beside it: its text, read from where it lies", await until(() => P.splitState().kind === "note" && /Beta/.test((sheet().querySelector("h1") || {}).textContent || "") && /More about it/.test(sheet().textContent), 4000), sheet().textContent.slice(0, 80));
-    ok("… named in the sheet's head, and the note at the left is the same as before", pane().querySelector(".split-name").textContent === "Beta" && /Alpha\.md$/.test(MdView.core.current.path));
+    ok("… named in the sheet's head, and the note at the left is the same as before", pane().querySelector(".split-cap .split-name").textContent === "Beta" && /Alpha\.md$/.test(MdView.core.current.path));
     const link = sheet().querySelector('a.wikilink[data-wiki]');
     ok("its links are found from its own place", !!link && link.dataset.wiki === "Gamma", sheet().innerHTML.slice(0, 200));
     link.click();
