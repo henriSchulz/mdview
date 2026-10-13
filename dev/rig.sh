@@ -27,7 +27,7 @@
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
-#   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, typed here and at the server, written there and here, cleared
+#   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, typed here and at the server, written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
@@ -1048,9 +1048,19 @@ case "${1:-}" in
     ok "and in the project, as a copy for who reads the folder" '[[ $(cat "$A/.mdview/pasteboard.md") == "typed at the desk" ]]' 'ls -la "$A/.mdview"'
     rev=$(curl "${as[@]}" "$at" | jq .rev)
     curl "${as[@]}" -X PUT -d "{\"text\":\"typed at the desk\\nand on the laptop\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
-    wait_for paste 200; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
-    jq -r '.steps[], (.error // empty)' "$R/out"/*.paste.json; jq -e .pass "$R/out"/*.paste.json >/dev/null || fail=1
+    wait_for paste 200
     ok "the copy followed: cleared, and no change of the project" '[[ -f "$A/.mdview/pasteboard.md" && ! -s "$A/.mdview/pasteboard.md" && -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'cat "$A/.mdview/pasteboard.md"; git -C "$A" status --porcelain'
+    # `mdview paste` from a command line, as an agent would: handed to the running application (in its session), which is signed in
+    cli() { local pid; pid=$(pgrep -f "^$APP" | head -1); env $(tr '\0' '\n' <"/proc/$pid/environ" | grep -E '^(DBUS_SESSION_BUS_ADDRESS|WAYLAND_DISPLAY|GDK_BACKEND|XDG_STATE_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|MDVIEW_[A-Z_]+)=') timeout 30 "$APP" paste "$@"; }
+    said=$(cd "$A" && cli from an agent 2>&1); wrote=$?
+    ok "mdview paste TEXT, run in the project: on the pasteboard, and in the copy" '[[ $wrote == 0 && $(curl "${as[@]}" "$at" | jq -r .text) == "from an agent" && $(cat "$A/.mdview/pasteboard.md") == "from an agent" ]]' 'echo "$wrote $said"; curl "${as[@]}" "$at"'
+    (cd / && cli --in "$A" --append "and more" 2>/dev/null); printf 'a third line' | (cd "$A" && cli -a - 2>/dev/null)
+    ok "--append adds a line, - reads the text from standard input, and bare it says what stands there" '[[ $(cd "$A" && cli) == $'"'"'from an agent\nand more\na third line'"'"' && $(curl "${as[@]}" "$at" | jq -r .text) == $'"'"'from an agent\nand more\na third line'"'"' ]]' '(cd "$A" && cli); curl "${as[@]}" "$at"'
+    said=$(cd "$R/out" && cli nowhere 2>&1); wrote=$?
+    ok "outside a linked project it says so, and writes nothing" '[[ $wrote == 1 && $said == *"no project"* && $(curl "${as[@]}" "$at" | jq -r .text) != nowhere ]]' 'echo "$wrote $said"'
+    ok "the copy is no change of the project, whatever was written" '[[ -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'git -C "$A" status --porcelain'
+    pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.paste.json; jq -e .pass "$R/out"/*.paste.json >/dev/null || fail=1
     ok "Clear emptied it at the server too" '[[ $(jq -r .cleared "$R/out"/*.paste.json) == true ]]' 'jq -c . "$R/out"/*.paste.json'
     exit $fail ;;
   github)

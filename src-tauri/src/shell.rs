@@ -537,6 +537,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     }
     app.watch_theme();
     app.after(app.sync_ms(), Event::SyncTick);
+    std::sync::LazyLock::force(&crate::paste::STARTED);
     github::resume(app.tx.clone(), app.keyring_place()); // (a sign-in kept from before)
     for event in rx {
         app.on_event(event);
