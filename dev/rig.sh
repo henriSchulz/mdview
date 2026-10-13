@@ -336,7 +336,7 @@ case "${1:-}" in
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   split)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
-    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3
+    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
     app 90 MDVIEW_PROBE="$D/probe-split.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
     for v in self pdf; do for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.$v.json "$R/out"/*.split.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/split-$v.png"; done

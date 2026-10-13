@@ -92,6 +92,17 @@
     ok("a PDF beside the note: a place for each page, the first drawn", await until(() => sheet().querySelectorAll(".split-page").length === 3 && sheet().querySelector(".split-page img") && sheet().querySelector(".split-page img").naturalHeight > 0, 10000), sheet().innerHTML.slice(0, 160));
     out("pdf", {});
     await sleep(900);
+    ok("a PDF's pages beside a note have round corners, as a sheet has", parseFloat(getComputedStyle(sheet().querySelector(".split-page")).borderRadius) >= 10, getComputedStyle(sheet().querySelector(".split-page")).borderRadius);
+    // a note with a ground of its own: the rail at its right stands on its sheet, not across the sheet's edge
+    open("Ground.md");
+    await until(() => document.documentElement.dataset.docBg === "cyan" && /Ground\.md$/.test(MdView.core.current.path), 4000);
+    await sleep(300);
+    {
+      const el = document.getElementById("content"), r = el.getBoundingClientRect(), edge = parseFloat(getComputedStyle(el).borderRightWidth), inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--split-in"));
+      ok("the sheet's edge is measured for what floats beside the note", Math.abs(inset - (pane().getBoundingClientRect().left - (r.right - edge))) <= 1 && inset >= 10, [inset, pane().getBoundingClientRect().left, r.right, edge]);
+      const rail = document.getElementById("rrail");
+      if (rail && wide && getComputedStyle(rail).display !== "none") ok("… the rail stands on the sheet, within its edge", rail.getBoundingClientRect().right <= r.right - edge + 1, [rail.getBoundingClientRect().right, r.right - edge]);
+    }
     // what is beside the note, opened at the left
     P.splitOpen({ path: root() + "/sub/Beta.md" });
     await until(() => /More about it/.test(sheet().textContent), 4000);

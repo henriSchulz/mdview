@@ -64,11 +64,11 @@
       grip.setPointerCapture(e.pointerId);
       pane.dataset.sizing = ""; document.body.dataset.splitSizing = "";
     });
-    grip.addEventListener("pointermove", (e) => { if (room) room.r = share((innerWidth - e.clientX) / room.wide); });
+    grip.addEventListener("pointermove", (e) => { if (room) { room.r = share((innerWidth - e.clientX) / room.wide); placed(); } });
     const done = () => { if (!room) return; if (room.r) kept(room.r); room = null; delete pane.dataset.sizing; delete document.body.dataset.splitSizing; };
     grip.addEventListener("pointerup", done);
     grip.addEventListener("pointercancel", done);
-    grip.addEventListener("dblclick", () => kept(share(0.5)));
+    grip.addEventListener("dblclick", () => { kept(share(0.5)); placed(); });
   }
   /* The note beside its own reading runs with it: as far down the note at the left is, so far is the sheet at the right (the
    * two are one text, of two lengths). */
@@ -142,8 +142,22 @@
   const ROOM = 600;
   const sideW = () => (document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0);
   const fits = () => innerWidth - sideW() >= ROOM;
-  const narrow = () => document.body.toggleAttribute("data-split-narrow", !!S && !fits());
+  const narrow = () => { document.body.toggleAttribute("data-split-narrow", !!S && !fits()); placed(); };
   addEventListener("resize", narrow);
+  /* Where the note is a sheet on a ground of its own, what floats at the note's right — the rail, the panel — stands on that sheet,
+   * not across its edge: how far the sheet's edge is from the line between the halves is measured, and said to the stylesheet. */
+  function placed() {
+    const root = document.documentElement;
+    const el = S && pane && root.dataset.docBg ? ["content", "active", "editor"].map((id) => document.getElementById(id)).find((x) => x && x.getClientRects().length) : null;
+    if (!el) return root.style.removeProperty("--split-in");
+    const r = el.getBoundingClientRect(), edge = parseFloat(getComputedStyle(el).borderRightWidth) || 0;
+    root.style.setProperty("--split-in", Math.max(0, Math.round(pane.getBoundingClientRect().left - (r.right - edge))) + "px");
+  }
+  if (typeof MutationObserver === "function") { // (another note, another mode, the sidebar: the sheet may stand elsewhere)
+    const again = new MutationObserver(() => { if (S) requestAnimationFrame(placed); });
+    again.observe(document.documentElement, { attributes: true, attributeFilter: ["data-doc-bg"] });
+    again.observe(document.body, { attributes: true, attributeFilter: ["data-view", "data-sidebar", "data-going"] });
+  }
   /* what: null — the note at the left, as it reads; { path } — that file. */
   function open(what) {
     const kind = what ? kindOf(what.path) : "self";
