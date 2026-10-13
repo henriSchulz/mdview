@@ -1,0 +1,38 @@
+/* mdview, styles — two things side by side (viewer/split.js): beside the note, at the window's right, a second sheet that is only
+ * read. The note keeps the room at the left of it; the sheet comes in from the right edge and goes faster than it came.
+ * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+:root { --split-w: 50vw; }
+body[data-sidebar="open"] { --split-w: calc((100vw - var(--sb-w)) / 2); }
+body[data-split] { padding-right: var(--split-w); }
+#split {
+  position: fixed; z-index: 14; top: 0; right: 0; bottom: 0; width: var(--split-w); box-sizing: border-box;
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--fg);
+  box-shadow: -0.5px 0 0 var(--line-strong);
+  transform: translateX(24px); opacity: 0; visibility: hidden;
+  transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit), opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
+}
+body[data-split] #split { transform: none; opacity: 1; visibility: visible; transition: transform var(--spring-gentle-dur) var(--spring-gentle), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+@media (prefers-reduced-motion: reduce) { #split { transform: none; } }
+body[data-tabs] #split { top: var(--tabs-h); }
+body:not([data-tabs]) .split-head { margin-top: 52px; } /* (under the window's toolbar, which floats at the top right) */
+.split-head { flex: none; display: flex; align-items: center; gap: 2px; height: 40px; padding: 0 10px 0 24px; font: 500 12.5px/1 var(--ui); color: var(--fg2); user-select: none; -webkit-user-select: none; }
+.split-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-head .tb { border-radius: var(--radius-pill); }
+.split-head .tb[hidden] { display: none; }
+.split-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 12px 40px 30vh; outline: none; }
+.split-doc { max-width: var(--measure); margin: 0 auto; }
+.split-doc > :first-child { margin-top: 0; }
+.split-doc a { cursor: pointer; }
+.split-empty { color: var(--fg3); }
+/* a PDF's pages, a picture */
+.split-doc.is-pdf, .split-doc.is-image { max-width: none; }
+.split-page { margin: 0 auto 14px; background: #fff; border-radius: 3px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
+.split-page img { display: block; width: 100%; height: auto; }
+.split-doc.is-image img { display: block; max-width: 100%; margin: 0 auto; }
+/* what floats at the window's right stands at the note's right */
+body[data-split] #rrail { right: calc(var(--sb-inset) + var(--split-w)); }
+body[data-split] #rpanel { right: calc(var(--sb-inset) + var(--rail-w) + var(--split-w)); }
+/* a window too narrow for two things shows one */
+@media (max-width: 760px) { body[data-split] { padding-right: 0; } #split { display: none; } }
+@media print { body[data-split] { padding-right: 0; } #split { display: none !important; } }

@@ -109,6 +109,8 @@ impl Win {
             "board-new" => self.board_new(app, text_of("path"), text_of("text"), &msg["id"]),
             "board-read" => self.board_read(text_of("path"), &msg["id"]),
             "board-save" => self.board_save(text_of("path"), text_of("text"), &msg["id"]),
+            // a note's text and what its links lead to, for the sheet beside the note (viewer/split.js): read, and nothing else
+            "note-read" => self.note_read(text_of("path"), &msg["id"]),
             // what was drawn on a PDF (board/pdf.js): a whiteboard's file in the folder's .mdview, never the PDF
             "pdfink-read" => self.pdfink_read(text_of("path"), &msg["id"]),
             "pdfink-save" => self.pdfink_save(text_of("path"), text_of("text"), msg["empty"].as_bool().unwrap_or(false), &msg["id"]),

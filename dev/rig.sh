@@ -33,6 +33,7 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -331,6 +332,17 @@ case "${1:-}" in
     for _ in $(seq 300); do ls "$R/out"/*.ground.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  split)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
+    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-split.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for v in self pdf; do for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.$v.json "$R/out"/*.split.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/split-$v.png"; done
+    for _ in $(seq 400); do ls "$R/out"/*.split.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.split.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   sheets)

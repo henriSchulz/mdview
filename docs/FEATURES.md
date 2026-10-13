@@ -1105,6 +1105,25 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
 - **Outline**: `Ctrl+Shift+O` — the note's headings, a click goes there.
 
+## Side by side
+
+Beside the note, at the window's right, a second sheet can stand that is only read. The note at
+the left is the window's as ever, in any of its modes.
+
+- **This note, as it reads**: the toolbar's last button (two halves). Beside the source it shows
+  what the Markdown becomes, and follows what is typed a moment later, at the place one was.
+- **Another file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
+  **Open Beside**. A note is shown as it reads (its links found from where it lies); a PDF as its
+  pages, each drawn when it comes near; a picture as itself.
+- A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
+  left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
+  the window's own — there it can be written; the cross, the button again, or `Esc` in the sheet
+  closes it.
+- The two share the window half and half beside the sidebar; a window narrower than 760 px shows
+  the note alone. What is beside a note is not kept when the window is closed.
+- Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
+  the right (the PDF's own viewer is the window's left).
+
 ## PDFs
 
 A link to a PDF opens it in the window; nothing is ever written into the PDF. An embedded page or

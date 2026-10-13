@@ -335,6 +335,26 @@ impl Win {
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
     }
 
+    /// A note beside the one in the window (viewer/split.js): its text, and what its links lead
+    /// to — worked out from where that note lies, not from the one on screen.
+    pub(super) fn note_read(&mut self, path: &str, id: &Value) {
+        let p = scan::found(&resolve(Path::new(path)));
+        if !is_md(&p) || !p.is_file() {
+            return self.js("MdView.noteRead", &[id.clone(), Value::Null, json!("not a note")]);
+        }
+        match fs::read(&p) {
+            Ok(raw) => {
+                let text = String::from_utf8_lossy(&raw).into_owned();
+                let own = self.resolver.take();
+                self.resolver = Some(Resolver::new(&dir_of(&p), &home()));
+                let links = if text.contains("[[") { self.build_links(&text) } else { json!({}) };
+                self.resolver = own;
+                self.js("MdView.noteRead", &[id.clone(), json!({ "path": s(&p), "text": text, "links": links }), Value::Null]);
+            }
+            Err(e) => self.js("MdView.noteRead", &[id.clone(), Value::Null, json!(strerror(&e))]),
+        }
+    }
+
     /// What was drawn on a PDF, for the page: a whiteboard's text, or nothing where nothing was
     /// drawn yet …
     pub(super) fn pdfink_read(&self, path: &str, id: &Value) {

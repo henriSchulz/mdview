@@ -1137,6 +1137,15 @@
     /* What was drawn on a PDF (board/pdf.js): a whiteboard's file in the repository's .mdview/pdf, named by the blob the PDF is —
      * the name the desktop app works out for the same file (files.rs: ink_of), so what is drawn here is on the PDF there. The PDF
      * is not written to; where nothing is drawn (any more) there is no file. */
+    /* A note beside the one in the window (viewer/split.js): its text, and what its links lead to from where it lies. */
+    async "note-read"({ path, id }) {
+      try {
+        path = where(path);
+        if (typeof path !== "string" || !exists(path) || !C.isMd(path)) throw new Error("not a note");
+        const text = await textOf(path);
+        tell("noteRead", id, { path, text, links: {}, ...(text.includes("[[") ? await buildLinks(text, C.dirOf(path)) : {}) }, null);
+      } catch (e) { tell("noteRead", id, null, String(e.message || e)); }
+    },
     async "pdfink-read"({ path, id }) {
       try {
         const r = inkOf(path);

@@ -553,10 +553,10 @@
   // ---------------------------------------------------------------- what a file shows of itself, small
   /* All Notes' tiles and the sidebar's sheets show a note by its beginning and a PDF by its first page. */
   // the beginning of a note as the reading view would show it — without what only works in a note on screen
-  function previewOf(path, text) {
+  function previewOf(path, text, more = {}) { // more: { whole: the note as it reads, its name too; links: what its links lead to }
     const fm = stripFrontmatter(text.replace(/\r\n?/g, "\n"));
     let html = "";
-    try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
+    try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: more.links || {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
     const box = document.createElement("template");
     box.innerHTML = html;
     const dir = (window.MdHost?.files || "file://") + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
@@ -570,7 +570,7 @@
     }
     for (const a of box.content.querySelectorAll("a")) a.removeAttribute("href");
     const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : null;
-    for (const x of box.content.querySelectorAll("h1:first-child, .katex-mathml")) x.remove(); // (a row's words: without the name again)
+    for (const x of box.content.querySelectorAll(more.whole ? ".katex-mathml" : "h1:first-child, .katex-mathml")) x.remove(); // (a row's words: without the name again)
     return { html: box.innerHTML.trim(), color, text: box.content.textContent.replace(/\s+/g, " ").trim().slice(0, 240) };
   }
   /* A PDF's first page as a picture: pdfShot(path, v) → its address ("": the PDF cannot be read). One PDF after the other — each

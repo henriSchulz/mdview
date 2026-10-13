@@ -832,6 +832,7 @@
   ctx.innerHTML =
     entry("open", "note", T("Open"), "file dir") +
     entry("opentab", "plus", T("Open in New Tab"), "file") +
+    entry("openbeside", "panel", T("Open Beside"), "file") +
     entry("opentab", "plus", T("Open in New Tabs"), "many") +
     `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("tab:new", "plus", T("New Tab"), "tab", "Ctrl+T") +
@@ -1052,6 +1053,7 @@
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
       else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
       else if (cmd === "download") post("download", { path });
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
