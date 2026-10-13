@@ -158,6 +158,8 @@ const HELP: &str = "mdview paste                 what stands on the project's pa
 mdview paste TEXT…           TEXT put there, in place of what stands there
 mdview paste -               the same, the text read from standard input
 mdview paste --append TEXT…  TEXT added as a new line at its end (-a)
+mdview paste --wait [SECS]   waits until something else stands there, and says that (-w; 300 seconds
+                             without a number, 540 at most; ends with 3 where nothing came)
 mdview paste --in FOLDER …   the pasteboard of the project FOLDER is in (without: the folder this is run in)
 
 The project has to be linked to a repository on GitHub, and Markdown Notes signed in with it
@@ -165,19 +167,21 @@ The project has to be linked to a repository on GitHub, and Markdown Notes signe
 project as well: .mdview/pasteboard.md.";
 
 /// What a command line asked for, as the application is handed it:
-/// `paste-for REPLY FOLDER read|write|append [TEXTFILE]`.
+/// `paste-for REPLY FOLDER read|write|append|wait [TEXTFILE|SECONDS]`.
 pub struct Asked {
     pub reply: PathBuf,
     pub folder: PathBuf,
     text: Option<PathBuf>,
     append: bool,
+    wait: Option<u64>,
 }
 
 impl Asked {
     pub fn of(args: &[String]) -> Option<Asked> {
         let [reply, folder, what, rest @ ..] = args else { return None };
-        let text = rest.first().map(PathBuf::from);
-        (what == "read" || text.is_some()).then(|| Asked { reply: reply.into(), folder: folder.into(), text: text.filter(|_| what != "read"), append: what == "append" })
+        let text = rest.first().map(PathBuf::from).filter(|_| what == "write" || what == "append");
+        let wait = rest.first().and_then(|secs| secs.parse().ok()).filter(|_| what == "wait");
+        (what == "read" || text.is_some() || wait.is_some()).then(|| Asked { reply: reply.into(), folder: folder.into(), text, append: what == "append", wait })
     }
 }
 
@@ -189,6 +193,33 @@ pub fn answer(reply: &Path, said: &Value) {
 
 fn joined(now: &str, more: &str) -> String {
     format!("{now}{}{more}", if now.is_empty() || now.ends_with('\n') { "" } else { "\n" })
+}
+
+/// Waited until another text stands on the pasteboard than `now`, and for that one to stand still
+/// (typed, it changes with every few letters): what stands there then — or that nothing came.
+fn waited(root: &Path, at: &(String, String), token: &str, mut now: Value, secs: u64) -> Value {
+    let (until, Some(base)) = (Instant::now() + Duration::from_secs(secs), now["rev"].as_u64()) else { return now };
+    while now["rev"].as_u64() == Some(base) {
+        if Instant::now() >= until {
+            return json!({ "error": "waited" });
+        }
+        let next = read(at, token, base, true);
+        match next["error"].as_str() {
+            None => now = next,
+            // (the connection gone for a moment is no end of the waiting)
+            Some("unreachable") => std::thread::sleep(Duration::from_secs(2)),
+            Some(_) => return next,
+        }
+    }
+    loop {
+        copy(root, &now, None);
+        std::thread::sleep(Duration::from_millis(1500));
+        let next = read(at, token, 0, false);
+        if next["rev"].as_u64().is_none_or(|rev| Some(rev) == now["rev"].as_u64()) {
+            return now;
+        }
+        now = next;
+    }
 }
 
 /// What a command line asked for, done: the pasteboard read — and written, from what was read;
@@ -203,7 +234,10 @@ pub fn command(asked: Asked, root: PathBuf, at: (String, String), token: String,
             text
         });
         let said = match new {
-            None => now,
+            None => match asked.wait {
+                Some(secs) => waited(&root, &at, &token, now, secs),
+                None => now,
+            },
             Some(Err(_)) => json!({ "error": "unreachable" }),
             Some(Ok(new)) => {
                 let mut said = json!({ "error": "unreachable" });
@@ -230,10 +264,10 @@ pub fn command(asked: Asked, root: PathBuf, at: (String, String), token: String,
 }
 
 /// `mdview paste …`: the running application is asked, and what it answers is said. The code
-/// the program ends with: 0 done, 1 not done, 2 not understood.
+/// the program ends with: 0 done, 1 not done, 2 not understood, 3 waited and nothing came.
 pub fn cli(args: &[String]) -> i32 {
-    let (mut append, mut stdin, mut folder, mut words, mut plain) = (false, false, None::<PathBuf>, vec![], false);
-    let mut args = args.iter();
+    let (mut append, mut stdin, mut folder, mut words, mut plain, mut wait) = (false, false, None::<PathBuf>, vec![], false, None::<u64>);
+    let mut args = args.iter().peekable();
     while let Some(a) = args.next() {
         match a.as_str() {
             _ if plain => words.push(a.as_str()),
@@ -244,6 +278,7 @@ pub fn cli(args: &[String]) -> i32 {
             }
             "-a" | "--append" => append = true,
             "-" => stdin = true,
+            "-w" | "--wait" => wait = Some(args.next_if(|n| n.parse::<u64>().is_ok()).and_then(|n| n.parse().ok()).unwrap_or(300).clamp(1, 540)),
             "--in" => match args.next() {
                 Some(dir) => folder = Some(dir.into()),
                 None => {
@@ -270,6 +305,10 @@ pub fn cli(args: &[String]) -> i32 {
         eprintln!("mdview paste: --append needs a text");
         return 2;
     }
+    if wait.is_some() && text.is_some() {
+        eprintln!("mdview paste: --wait reads, it takes no text");
+        return 2;
+    }
     let folder = folder.or_else(|| std::env::current_dir().ok()).and_then(|d| fs::canonicalize(d).ok());
     let Some(folder) = folder.filter(|d| d.is_dir()) else {
         eprintln!("mdview paste: no such folder");
@@ -278,7 +317,10 @@ pub fn cli(args: &[String]) -> i32 {
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).filter(|d| d.is_dir()).unwrap_or_else(std::env::temp_dir);
     let reply = dir.join(format!("mdview-paste-{}.json", uuid::Uuid::new_v4()));
     let file = reply.with_extension("text");
-    let mut hand = vec!["paste-for".to_string(), crate::scan::s(&reply), crate::scan::s(&folder), if text.is_none() { "read" } else if append { "append" } else { "write" }.to_string()];
+    let mut hand = vec!["paste-for".to_string(), crate::scan::s(&reply), crate::scan::s(&folder), if wait.is_some() { "wait" } else if text.is_none() { "read" } else if append { "append" } else { "write" }.to_string()];
+    if let Some(secs) = wait {
+        hand.push(secs.to_string());
+    }
     if let Some(text) = &text {
         if fs::write(&file, text).is_err() {
             eprintln!("mdview paste: could not write {}", file.display());
@@ -291,7 +333,7 @@ pub fn cli(args: &[String]) -> i32 {
         let mut app = std::process::Command::new(exe).args(&hand).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().map_err(|e| e.to_string())?;
         // (handed to the running application, that start is gone at once; with none running it
         // is the application — which ends by itself after a while)
-        let until = Instant::now() + Duration::from_secs(60);
+        let until = Instant::now() + Duration::from_secs(60 + wait.map_or(0, |secs| secs + 60));
         loop {
             if let Ok(said) = fs::read_to_string(&reply) {
                 return serde_json::from_str::<Value>(&said).map_err(|e| e.to_string());
@@ -313,6 +355,10 @@ pub fn cli(args: &[String]) -> i32 {
             return 1;
         }
     };
+    if said["error"] == "waited" {
+        eprintln!("mdview paste: nothing new on the pasteboard in {} seconds", wait.unwrap_or(0));
+        return 3;
+    }
     if let Some(why) = said["error"].as_str() {
         eprintln!(
             "mdview paste: {}",
@@ -368,6 +414,9 @@ mod tests {
         let add = Asked::of(&args(&["/run/r.json", "/notes", "append", "/run/r.text"])).unwrap();
         assert!(add.append && add.text.as_deref() == Some(Path::new("/run/r.text")));
         assert!(!Asked::of(&args(&["/run/r.json", "/notes", "write", "/run/r.text"])).unwrap().append);
+        let wait = Asked::of(&args(&["/run/r.json", "/notes", "wait", "120"])).unwrap();
+        assert!(wait.wait == Some(120) && wait.text.is_none() && read.wait.is_none() && add.wait.is_none());
+        assert!(Asked::of(&args(&["/run/r.json", "/notes", "wait"])).is_none());
         assert!(Asked::of(&args(&["/run/r.json", "/notes", "write"])).is_none() && Asked::of(&args(&["/run/r.json"])).is_none());
         assert_eq!((joined("", "b"), joined("a", "b"), joined("a\n", "b")), ("b".to_string(), "a\nb".to_string(), "a\nb".to_string()));
     }

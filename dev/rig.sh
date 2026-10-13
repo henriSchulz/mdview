@@ -1041,7 +1041,7 @@ case "${1:-}" in
     git -C "$A" remote add origin https://github.com/octo/mdview-rig-not-there.git   # (linked to GitHub, as far as the shell can tell: nothing arrives there)
     port=$((20000 + RANDOM % 20000)); python3 "$D/fake-github.py" "$port" "$R/work/none.git" >"$R/fake-github.log" 2>&1 & hub=$!
     at="http://127.0.0.1:$port/paste/octo/mdview-rig-not-there"; as=(-s -H "Authorization: Bearer ghu_fake" -H "Content-Type: application/json")
-    app 60 MDVIEW_PROBE="$D/probe-paste.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" MDVIEW_WEB="http://127.0.0.1:$port" -- "$A"
+    app 120 MDVIEW_PROBE="$D/probe-paste.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" MDVIEW_WEB="http://127.0.0.1:$port" -- "$A"
     wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null; exit 1; }
     for _ in $(seq 400); do [[ -n $(compgen -G "$R/out/*.paste-typed.json" || compgen -G "$R/out/*.paste.json") ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/paste.png"
     ok "what was typed here is at the server, signed with this device" '[[ $(curl "${as[@]}" "$at" | jq -r .text) == "typed at the desk" && -n $(curl "${as[@]}" "$at" | jq -r .by) ]]' 'curl "${as[@]}" "$at"'
@@ -1056,6 +1056,12 @@ case "${1:-}" in
     ok "mdview paste TEXT, run in the project: on the pasteboard, and in the copy" '[[ $wrote == 0 && $(curl "${as[@]}" "$at" | jq -r .text) == "from an agent" && $(cat "$A/.mdview/pasteboard.md") == "from an agent" ]]' 'echo "$wrote $said"; curl "${as[@]}" "$at"'
     (cd / && cli --in "$A" --append "and more" 2>/dev/null); printf 'a third line' | (cd "$A" && cli -a - 2>/dev/null)
     ok "--append adds a line, - reads the text from standard input, and bare it says what stands there" '[[ $(cd "$A" && cli) == $'"'"'from an agent\nand more\na third line'"'"' && $(curl "${as[@]}" "$at" | jq -r .text) == $'"'"'from an agent\nand more\na third line'"'"' ]]' '(cd "$A" && cli); curl "${as[@]}" "$at"'
+    (cd "$A" && cli --wait 20 >"$R/out/paste-waited.txt" 2>/dev/null; echo $? >"$R/out/paste-waited.code") & waiter=$!
+    sleep 1.5; rev=$(curl "${as[@]}" "$at" | jq .rev); curl "${as[@]}" -X PUT -d "{\"text\":\"put there\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
+    sleep 0.5; curl "${as[@]}" -X PUT -d "{\"text\":\"put there for the agent\",\"base\":$((rev + 1)),\"by\":\"laptop\"}" "$at" >/dev/null; wait $waiter
+    ok "--wait says what was put there by another device, once it stands still" '[[ $(cat "$R/out/paste-waited.code") == 0 && $(cat "$R/out/paste-waited.txt") == "put there for the agent" ]]' 'cat "$R/out/paste-waited.code" "$R/out/paste-waited.txt"'
+    (cd "$A" && cli --wait 2 >/dev/null 2>&1); wrote=$?
+    ok "--wait ends with 3 where nothing came" '[[ $wrote == 3 ]]' 'echo "$wrote"'
     said=$(cd "$R/out" && cli nowhere 2>&1); wrote=$?
     ok "outside a linked project it says so, and writes nothing" '[[ $wrote == 1 && $said == *"no project"* && $(curl "${as[@]}" "$at" | jq -r .text) != nowhere ]]' 'echo "$wrote $said"'
     ok "the copy is no change of the project, whatever was written" '[[ -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'git -C "$A" status --porcelain'

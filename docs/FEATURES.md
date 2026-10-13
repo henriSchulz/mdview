@@ -975,7 +975,9 @@ no note, in no version and in no commit; the web app's server keeps it.
   pasteboard of the project it is run in, `mdview paste TEXT…` puts TEXT there in place of it,
   `mdview paste -` takes the text from standard input, `--append` (`-a`) adds it as a new line
   at the end, `--in FOLDER` names the project. What is written is on every device at once, as if
-  typed. The application does it, with its sign-in: the one that runs, or — with none running —
+  typed. `mdview paste --wait` (`-w`, with a number of seconds: 300 without, 540 at most) waits
+  until something else stands there and has stood still for a moment, and says that — so an agent
+  can ask for something and take it when it comes; nothing came: it ends with 3. The application does it, with its sign-in: the one that runs, or — with none running —
   one started for it, without a window. Where it cannot be done the command says why and ends
   with 1: no linked project, nobody signed in, the server not reached.
 
