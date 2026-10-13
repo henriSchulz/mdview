@@ -201,7 +201,19 @@ move the row, those above a column the column. A table selected as a whole wears
 (`<!-- wide -->`, the line of before, is still read.)
 
 A rule has four looks, by how its line is written: `---` a thin line, `***` three dots, `___` a
-heavy line, `- - -` a dotted one. The panel's Insert Line puts each in.
+heavy line, `- - -` a dotted one. The panel's Insert Line puts each in, and so does the `/` menu
+(Divider › the four of them).
+
+A paragraph or a heading stands at the left, in the middle or at the right of its line. A comment
+at its end says so — no other program shows it:
+
+```markdown
+A line in the middle <!-- center -->
+## A heading at the right <!-- right -->
+```
+
+In the active mode: `/` › **Align** (Left, Centre, Right), the same three in the panel's Format
+part, and for several blocks at once where they are selected.
 
 ### Columns
 

@@ -303,6 +303,29 @@
   md.renderer.rules.callout_body_open = () => '<div class="callout-content">';
   md.renderer.rules.callout_body_close = () => "</div>";
 
+  /* Where a paragraph or a heading stands in its line: a comment at its end says so — "A line <!-- center -->", "<!-- right -->";
+   * none: at the left, as text stands. Any other program shows the text and nothing of the comment. The comment is taken out of
+   * what the block holds; the block has the class (ta-center, ta-right: viewer/text.css) and says it in its meta (align). */
+  const ALIGN = /^<!--\s*(center|right)\s*-->$/;
+  const alignMark = (align) => (align === "center" || align === "right" ? ` <!-- ${align} -->` : "");
+  md.core.ruler.after("inline", "block_align", (state) => {
+    const toks = state.tokens;
+    for (let i = 0; i + 1 < toks.length; i++) {
+      const t = toks[i], inl = toks[i + 1];
+      if ((t.type !== "paragraph_open" && t.type !== "heading_open") || inl.type !== "inline" || !inl.children) continue;
+      const kids = inl.children;
+      let last = kids.length - 1;
+      while (last >= 0 && kids[last].type === "text" && !kids[last].content.trim()) last--;
+      const m = last > 0 && kids[last].type === "html_inline" ? ALIGN.exec(kids[last].content) : null; // (a comment alone in its line is a comment, and no line)
+      if (!m) continue;
+      kids.splice(last);
+      if (kids.length && kids[kids.length - 1].type === "text") kids[kids.length - 1].content = kids[kids.length - 1].content.replace(/[ \t]+$/, "");
+      inl.content = inl.content.replace(/[ \t]*<!--\s*(?:center|right)\s*-->[ \t]*$/, "");
+      t.attrJoin("class", "ta-" + m[1]);
+      t.meta = { ...(t.meta || {}), align: m[1] };
+    }
+  });
+
   /* A link to a note that stands alone in its paragraph, with a comment behind it that says how it
    * looks — [[Name]] <!-- link row -->, <!-- link card -->, one of the theme's colours after that —
    * is a block of its own: drawn as the line of a page is, opened by a click. Any other program
@@ -614,6 +637,6 @@
   };
 
   // what the page's other files use of this one
-  Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, calloutKind, calloutTitle, LINK_ROW, linkMark,
+  Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
     svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal });
 })();

@@ -41,23 +41,26 @@
     content.className = "callout-content";
     return { dom, contentDOM: content };
   }
+  const alignOf = (dom) => (dom.classList.contains("ta-center") ? "center" : dom.classList.contains("ta-right") ? "right" : null);
   const block = (spec) => ({ group: "block", ...spec, attrs: { bid: { default: null }, line, ...spec.attrs } });
 
   const nodes = {
     doc: { content: "(block | columns)+" },
+    // align: where the text stands in its line — null (left), "center", "right": a comment at the block's end says so (viewer/markdown.js: block_align)
     paragraph: block({
       content: "inline*",
-      parseDOM: [{ tag: "p" }],
-      toDOM: (n) => ["p", lineAttr(n), 0],
+      attrs: { align: { default: null } },
+      parseDOM: [{ tag: "p", getAttrs: (dom) => ({ align: alignOf(dom) }) }],
+      toDOM: (n) => ["p", { ...lineAttr(n), ...(n.attrs.align ? { class: "ta-" + n.attrs.align } : {}) }, 0],
     }),
     heading: block({
       content: "inline*",
       defining: true,
       // markup: "#", or "=" / "-" for a heading underlined in the source.
       // slug: what its id is made from, as long as its text is `slugOf` (the id itself is a decoration, see edit.js)
-      attrs: { level: { default: 1 }, markup: { default: null }, slug: { default: null }, slugOf: { default: null } },
-      parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: "h" + level, attrs: { level } })),
-      toDOM: (n) => ["h" + n.attrs.level, lineAttr(n), 0],
+      attrs: { level: { default: 1 }, markup: { default: null }, slug: { default: null }, slugOf: { default: null }, align: { default: null } },
+      parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: "h" + level, getAttrs: (dom) => ({ level, align: alignOf(dom) }) })),
+      toDOM: (n) => ["h" + n.attrs.level, { ...lineAttr(n), ...(n.attrs.align ? { class: "ta-" + n.attrs.align } : {}) }, 0],
     }),
     horizontal_rule: block({
       attrs: { markup: { default: null } },
@@ -404,7 +407,7 @@
               // happens to hold a picture, with a caret before and behind it.
               const kids = ((inner[0] && inner[0].children) || []).filter((c) => !(c.type === "text" && !c.content.trim()));
               if (kids.length === 1 && kids[0].type === "image") throw new Unsupported("a picture alone");
-              out.push({ type: "paragraph", attrs, content: inlineOf(inner[0]) });
+              out.push({ type: "paragraph", attrs: { ...attrs, align: (t.meta && t.meta.align) || null }, content: inlineOf(inner[0]) });
               break;
             }
             case "heading_open":
@@ -474,7 +477,7 @@
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);
       const node = Node.fromJSON(schema, { type: "heading", content });
-      return { type: "heading", content, attrs: { ...attrs, level: Number(t.tag.slice(1)), markup: t.markup,
+      return { type: "heading", content, attrs: { ...attrs, align: (t.meta && t.meta.align) || null, level: Number(t.tag.slice(1)), markup: t.markup,
         slug: slugify(inlineText(inl.children)) || "section", slugOf: node.textContent } };
     }
     const orParagraph = (blocks) => (blocks.length ? blocks : [{ type: "paragraph" }]);

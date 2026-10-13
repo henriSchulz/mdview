@@ -203,8 +203,8 @@ test("the / menu for selected blocks: for all of them at once", () => {
   pick(v, "slash.actions", "slash.moveDown");
   assert.equal(v.md(), "one\n\nfour\n\ntwo\n\nthree\n");
   assert.equal(v.blocks().b - v.blocks().a, 1);
-  menu(v, "").find((e) => e && e.label === w.MdStrings.t("menu.rule")).run();
-  assert.match(v.md(), /^one\n\nfour\n\ntwo\n\nthree\n\n(---|\*\*\*|___)\n/);
+  menu(v, "").find((e) => e && e.label === w.MdStrings.t("menu.rule")).items.find((e) => e.label === w.MdStrings.t("panel.line.dots")).run(); // (a rule: one of its four looks)
+  assert.match(v.md(), /^one\n\nfour\n\ntwo\n\nthree\n\n\*\*\*\n/);
 });
 
 test("the place between two blocks: a stop beside a block one cannot type next to", () => {

@@ -136,3 +136,7 @@ li.task-item > p { margin: 0; }
 li.is-checked { color: var(--fg2); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--fg) 35%, transparent); transition: color var(--dur-fast) var(--ease-out); }
 li.is-checked li { text-decoration: none; }
 li[data-task] > input.task:checked { background-image: none; }
+
+/* where a paragraph or a heading stands in its line (a comment at its end says so: viewer/markdown.js, block_align) */
+.ta-center { text-align: center; }
+.ta-right { text-align: right; }
