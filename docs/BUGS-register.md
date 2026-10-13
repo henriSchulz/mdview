@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-13
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "On whiteboards and when drawing on a PDF: rubbing out shapes does not work" | the eraser asked only the ink what it touches (`B.ink.touched`): a shape, a line, an arrow was never under it | `erase` in `board.js` takes shapes and lines too, whole, in both of its ways — met where they are drawn (`items.hit`: a hollow shape by its outline); a text, a note, a picture, a table is not a thing to rub out | `dev/rig.sh pdfink`: "the eraser over a shape's outline: the shape is gone", "… and Ctrl+Z brings it back", "set to parts it takes a shape whole as well" (fail without the fix), "the eraser over a note: it stays" |
+
 ### 2026-10-12
 
 | What Henri saw | Why | Fixed by | Guard |

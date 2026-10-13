@@ -394,13 +394,13 @@
     if (g.on) return;
     g.on = true; g.last = performance.now();
     const frame = (now) => {
-      if (S !== s || gliding !== g) return;
-      const k = 1 - Math.exp(-Math.min(40, now - g.last) / 55), done = Math.abs(Math.log(g.want / v.z)) < 0.004;
+      if (S !== s || gliding !== g) { if (gliding === g) gliding = null; return; } // (another board by now, or a hand took over: this glide is over)
+      const k = 1 - Math.exp(-Math.max(0, now - g.last) / 55), done = Math.abs(Math.log(g.want / v.z)) < 0.004;
       g.last = now;
       fast = true; v.zoomAt(g.cx, g.cy, done ? g.want : v.z * Math.pow(g.want / v.z, k)); fast = false;
-      if (done) gliding = null; else requestAnimationFrame(frame);
+      if (done) gliding = null; else B.pointer.frame(frame);
     };
-    requestAnimationFrame(frame);
+    B.pointer.frame(frame);
   }
   function boundsOf(items) {
     let b = null;
@@ -984,8 +984,11 @@
   }
   function erase(pt) {
     const p = onBoard(pt), r = S.tools.eraser.w / 2 / S.view.z, items = S.model.items;
+    // what is drawn goes under it — strokes, and shapes, lines and arrows too, whole (met where they are drawn: a hollow shape by
+    // its outline); what is put on the board — a text, a note, a picture, a table — is not a thing to rub out
+    const drawn = items.filter((it) => (it.k === "shape" || it.k === "line") && B.items.hit(it, p.x, p.y, r, r));
     if (S.tools.eraser.mode === "object") {
-      const hit = new Set(B.ink.touched(items, p.x, p.y, r));
+      const hit = new Set([...B.ink.touched(items, p.x, p.y, r), ...drawn]);
       if (!hit.size) return;
       S.model.items = items.filter((it) => !hit.has(it));
       return paint();
@@ -994,6 +997,7 @@
     let any = false;
     const next = [];
     for (const it of items) {
+      if (drawn.includes(it)) { any = true; continue; } // (a shape has no part to take alone)
       const b = it.k === "ink" ? B.format.boundsOf(it) : null;
       const pieces = b && p.x >= b[0] - r && p.x <= b[2] + r && p.y >= b[1] - r && p.y <= b[3] + r ? B.shape.cut(it.pts, p.x, p.y, r) : null;
       if (!pieces) { next.push(it); continue; }

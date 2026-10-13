@@ -522,7 +522,8 @@ and shut back into it — or a file of the folder, of its own.
   hand. The colour in use, pressed again, opens all the colours; the one chosen there takes
   its place among the three. Each pen keeps its own width, its own colour and its own three.
 - **The eraser**'s tray: whether it takes whole strokes or the parts it passes over, and how
-  large it is.
+  large it is. A shape, a line or an
+  arrow under it goes whole, either way; a text, a note, a picture and a table are not rubbed out.
 - **Pulled to its size while the hand is down**: once a stroke is made clean (below), the hand
   still down moves on — away from the shape's middle and it grows, toward it and it shrinks; a
   line's end follows the hand. With a pen, and with the shape tool, where a hold makes the shape

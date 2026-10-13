@@ -14,6 +14,14 @@
    *       taps(n): n fingers (two, three) touched the board together and went up again at once;
    *       space() → held?; twist(points) → true: two fingers on one thing turn it — twisting(degrees), twisted() }
    * A point is { x, y } in the stage's pixels plus pressure, tilt, azimuth, time, type. */
+  /* The next step of a glide: with the next frame — or, where the window draws none (it is out of sight), a moment later all the
+   * same: a glide is where the board is going, and it gets there whether or not anyone watches. */
+  function nextFrame(f) {
+    let ran = false;
+    const run = () => { if (!ran) { ran = true; f(performance.now()); } };
+    requestAnimationFrame(run);
+    setTimeout(run, 80);
+  }
   function attach(stage, on) {
     const fingers = new Map(); // touches down: id → { x, y }
     let tool = null, drag = null, pinch = null, twist = null, toolType = "";
@@ -39,12 +47,12 @@
       const sl = (slide = { x: dx, y: dy, last: performance.now() });
       const frame = (now) => {
         if (slide !== sl) return;
-        const k = 1 - Math.exp(-Math.min(40, now - sl.last) / 55), done = Math.hypot(sl.x, sl.y) < 0.75, mx = done ? sl.x : sl.x * k, my = done ? sl.y : sl.y * k;
+        const k = 1 - Math.exp(-Math.max(0, now - sl.last) / 55), done = Math.hypot(sl.x, sl.y) < 0.75, mx = done ? sl.x : sl.x * k, my = done ? sl.y : sl.y * k;
         sl.last = now; sl.x -= mx; sl.y -= my;
         on.pan(mx, my);
-        if (done) slide = null; else requestAnimationFrame(frame);
+        if (done) slide = null; else nextFrame(frame);
       };
-      requestAnimationFrame(frame);
+      nextFrame(frame);
     }
     function coast(t) {
       halt();
@@ -222,5 +230,5 @@
     stage.addEventListener("contextmenu", (e) => e.preventDefault());
     return { busy: () => tool != null || drag != null || fingers.size > 0 };
   }
-  B.pointer = { attach };
+  B.pointer = { attach, frame: nextFrame };
 })();
