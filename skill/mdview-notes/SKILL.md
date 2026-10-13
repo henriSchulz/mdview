@@ -21,12 +21,38 @@ the note better. The full reference, with every example rendered, is
    a note of wide tables, columns or figures). Leave both out unless the note gains by them.
 3. **Write the note, not a demo.** Use an extra only where it carries content: a callout for the
    one thing not to miss, columns for a real side-by-side, a diagram where structure matters.
+   How it should read — formal, and not like something generated: *How a note reads* below.
 4. **Language**: the language Henri asked in (usually German) for the text; keep technical terms.
 5. **Blank line** before and after every block (lists, fences, callouts, tables, column markers).
 6. **Save** where Henri says; without a place, ask or use the folder he has open. Open it for him
    only if he asks: `mdview "FILE.md"`.
 7. **Keep and send** what you wrote when the folder is a project with its history on — see
    *Keeping a version and sending it* below. Elsewhere, write the files and leave Git alone.
+
+## How a note reads
+
+A note is a document Henri keeps: written to the standard of a textbook, a lecture script or a
+technical report, and still easy to follow. It must not read as something a chatbot produced.
+
+- **Begin with the matter.** No opening that announces the note ("Diese Notiz erklärt …", "Im
+  Folgenden …", "Worum geht es?"), no overview of what follows, no closing "Zusammenfassung",
+  "Fazit", "Das Wichtigste in Kürze" or "Nächste Schritte" that says it all again.
+- **Headings name their subject**, as a noun phrase: "Faltungssatz", "Herleitung",
+  "Randbedingungen", "Messaufbau". Not a question, not a teaser, not a remark to the reader:
+  no "Was passiert hier?", "Warum ist das wichtig?", "Schritt für Schritt erklärt", "Merke".
+- **No sections nobody asked for**: no "Selbsttest", quiz, "Kontrollfragen", "Eselsbrücken",
+  "Tipps", "Häufige Fehler". Henri gets them when he asks for them.
+- **Formal, complete sentences** in the third person. No address to the reader, no rhetorical
+  questions, no exclamation marks, no emoji, no "ganz einfach", "kurz gesagt", "spannend".
+- **Understandable all the same**: a term is defined where it first appears, the steps of a
+  derivation are all there, one worked example stands where the general statement is hard to
+  see. Formal does not mean terse.
+- **Prose where there is an argument, a list where there is an enumeration.** No paragraph
+  chopped into bullets, no bold scattered over a sentence — bold marks a term being defined.
+- **The app's extras with restraint**: a definition list or a callout for a definition or a
+  theorem, a table for values, a formula as a block, a diagram where structure matters. One
+  callout a section at most, with a plain title ("Definition", "Satz", "Hinweis") — none that
+  only decorates.
 
 ## What the app renders
 
@@ -212,16 +238,35 @@ Say afterwards what was kept and whether it went over (the commit, and "pushed" 
 
 ## The pasteboard
 
-A project linked to GitHub has a pasteboard: one text, the same on every device that shows the
-project — where Henri puts a line, an address, a piece of code for another device, or for you.
-It is no note and in no version.
+A project linked to GitHub has a pasteboard (All Notes › Pasteboard): one text, the same on every
+device that shows the project. It is no note and in no version. Between Henri and you it is the
+way to hand over what is awkward in the chat — a long log, several addresses, a piece of code,
+text from his phone or another computer — in both directions. Use it without being asked to when
+the work calls for it.
 
-- **Read** it: `mdview paste` in the project's folder (or `mdview paste --in FOLDER`). While the
-  app shows the pasteboard, the same text is in `.mdview/pasteboard.md` — a copy, never written to.
-- **Write** it: `mdview paste TEXT…` puts TEXT in place of what stands there, `mdview paste -`
-  takes it from standard input, `--append` adds it as a new line at the end. Prefer `--append`
-  unless asked to replace: what stands there may be Henri's.
-- It ends with 1 and says why where it cannot: no linked project, nobody signed in, no connection.
+| Want | Run, in the project's folder (or with `--in FOLDER`) |
+|---|---|
+| what stands there | `mdview paste` |
+| wait for Henri to put something there | `mdview paste --wait` (300 s; `--wait 540` at most) |
+| add a line at the end | `mdview paste --append TEXT…` |
+| put a text in place of what stands there | `mdview paste TEXT…`, or `… \| mdview paste -` for many lines |
+
+- **Taking something from Henri.** When you need material from him — more than a line, or
+  several things — ask for it in one sentence that names what you need and says "put it on the
+  pasteboard", and run `mdview paste --wait` in the same turn. It returns the text once it has
+  stood still for a moment, so something typed arrives whole. It ends with 3 when nothing came:
+  wait once more, then say that you are waiting and stop. An empty answer means he cleared it;
+  wait again. Take what you need out of the text and go on with the work — do not repeat it back.
+- **Giving something to Henri.** What he will copy elsewhere — a command, an address, a
+  configuration, a list of results — goes on the pasteboard, and you tell him in one line that it
+  is there and what it is. Read first: if something of his stands there, `--append`; replace only
+  what you put there yourself or what he said may go.
+- While the app shows the pasteboard the same text is in `.mdview/pasteboard.md` — a copy for
+  reading; writing to that file changes nothing.
+- The command ends with 1 and says why where it cannot: no linked project, nobody signed in, no
+  connection. Then ask for the material in the chat instead.
+- Nothing secret goes there unasked: the text is kept on the web app's server for everyone who
+  may write to the repository.
 
 ## Do not
 
