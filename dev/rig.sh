@@ -27,6 +27,7 @@
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
+#   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, typed here and at the server, written there and here, cleared
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
@@ -1030,6 +1031,25 @@ case "${1:-}" in
     app 30 MDVIEW_PROBE="$D/probe-sync-button.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
     wait_for sync-button 150; pkill -f "^$APP" 2>/dev/null
     ok "a linked project opened anew: Sync Now is in the sidebar's head at once" '[[ $(jq -c "[.linked, .display]" "$R/out"/*.sync-button.json) == "[true,\"grid\"]" ]]' 'jq -c . "$R/out"/*.sync-button.json'
+    exit $fail ;;
+  paste)
+    # A project's pasteboard in the application: none without a sign-in, then typed here and at the server, written there and here.
+    rm -rf "$R/work"; mkdir -p "$R/work/a/.mdview"; cp "$D"/tests/fixtures/basics.md "$R/work/a/Note.md"; A="$R/work/a"; rm -f "$R/out"/*.paste*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    echo '{"id":"rig","version":1}' > "$A/.mdview/project.json"
+    git -C "$A" init -q -b main; git -C "$A" -c user.name=Rig -c user.email=rig@example.invalid add -A; git -C "$A" -c user.name=Rig -c user.email=rig@example.invalid commit -q -m first
+    git -C "$A" remote add origin https://github.com/octo/mdview-rig-not-there.git   # (linked to GitHub, as far as the shell can tell: nothing arrives there)
+    port=$((20000 + RANDOM % 20000)); python3 "$D/fake-github.py" "$port" "$R/work/none.git" >"$R/fake-github.log" 2>&1 & hub=$!
+    at="http://127.0.0.1:$port/paste/octo/mdview-rig-not-there"; as=(-s -H "Authorization: Bearer ghu_fake" -H "Content-Type: application/json")
+    app 60 MDVIEW_PROBE="$D/probe-paste.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" MDVIEW_WEB="http://127.0.0.1:$port" -- "$A"
+    wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null; exit 1; }
+    for _ in $(seq 400); do [[ -n $(compgen -G "$R/out/*.paste-typed.json" || compgen -G "$R/out/*.paste.json") ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/paste.png"
+    ok "what was typed here is at the server, signed with this device" '[[ $(curl "${as[@]}" "$at" | jq -r .text) == "typed at the desk" && -n $(curl "${as[@]}" "$at" | jq -r .by) ]]' 'curl "${as[@]}" "$at"'
+    rev=$(curl "${as[@]}" "$at" | jq .rev)
+    curl "${as[@]}" -X PUT -d "{\"text\":\"typed at the desk\\nand on the laptop\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
+    wait_for paste 200; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.paste.json; jq -e .pass "$R/out"/*.paste.json >/dev/null || fail=1
+    ok "Clear emptied it at the server too" '[[ $(jq -r .cleared "$R/out"/*.paste.json) == true ]]' 'jq -c . "$R/out"/*.paste.json'
     exit $fail ;;
   github)
     rm -rf "$R/work"; mkdir -p "$R/work/notes"; cp "$D"/tests/fixtures/basics.md "$R/work/notes/"; W="$R/work/notes"; rm -f "$R/out"/*.github*.json; fail=0

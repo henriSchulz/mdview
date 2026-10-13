@@ -246,6 +246,12 @@ export async function count(access: string, owner: string, repo: string): Promis
   return last ? Number(last[1]) : ((await res.json()) as unknown[]).length; // (no further page: what is here is all)
 }
 
+/** Whether the user may write to a repository — who may, has its pasteboard (lib/paste.ts). */
+export async function writes(access: string, owner: string, repo: string): Promise<boolean> {
+  const about = await ask(access, repoPath(owner, repo));
+  return about.ok && ((await about.json()) as { permissions?: { push?: boolean } }).permissions?.push !== false;
+}
+
 /** The branch a repository's commits go to by default (a repository begun with its first commit says so only then). */
 export async function defaultBranch(access: string, owner: string, repo: string): Promise<string | null> {
   const about = await ask(access, repoPath(owner, repo));

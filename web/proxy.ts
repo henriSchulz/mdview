@@ -4,7 +4,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const OPEN = ["/signin", "/auth/login", "/auth/callback"];
-const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "app", "host", "welcome"]; // the app's own names at the top: never a shared note's id
+const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "paste", "app", "host", "welcome"]; // the app's own names at the top: never a shared note's id
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -22,6 +22,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   // (not the framework's own files, nor the page's scripts and styles: they hold no notes — and
   // not a shared note, /s/…, nor the id for a new one, /share/…: those are for whoever has the
-  // link, and guard themselves)
-  matcher: ["/((?!_next/|app/|host/|s/|share/|favicon.ico).*)"],
+  // link, and guard themselves — as does a project's pasteboard, /paste/…, which the desktop app
+  // asks for too, with its own sign-in and no session here)
+  matcher: ["/((?!_next/|app/|host/|s/|share/|paste/|favicon.ico).*)"],
 };

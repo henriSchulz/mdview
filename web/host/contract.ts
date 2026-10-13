@@ -69,6 +69,8 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "share-stop": ["write", "a note shared no more"],
   "history-now": ["write", "Ctrl+S: kept now"],
   "sync-resolve": ["write", "the conflicts' window: joined as picked"],
+  "paste-get": ["answer", "the project's pasteboard, as the server has it — or, with wait, once it has another text than the page"],
+  "paste-put": ["answer", "the pasteboard written: taken if the page began from what stands there, else told what does (no commit: the server keeps it, for a project or not)"],
   // the history
   "history-log": ["answer", "a note's versions: the commits of its path"],
   "history-text": ["answer", "a note as a version has it"],
@@ -161,6 +163,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   openBoardFile: ["answer", "a whiteboard that is a file of the repository, opened over the window: its row or tile was chosen, or it was just made"],
   revealRows: ["write", "rows just made — a whiteboard, what was pasted or added, a copy — brought into sight"],
   setBoards: ["answer", "the repository's whiteboards, for All Notes"],
+  pasteboard: ["answer", "the pasteboard's text and its count, a writing taken or not, or why there is none"],
   completion: ["none", "no AI in the web app"],
   graphic: ["none", "as completion"],
   graphicImage: ["none", "as completion"],

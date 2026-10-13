@@ -14,7 +14,7 @@
 "use strict";
 (() => {
   const C = window.MdWebCore, W = window.MdWeb; // { owner, repo, user: { login, name } }
-  const BASE = `/${W.owner}/${W.repo}`, FILES = location.origin + "/file", API = `/api/r/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`;
+  const BASE = `/${W.owner}/${W.repo}`, FILES = location.origin + "/file", API = `/api/r/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`, PASTE = `/paste/${encodeURIComponent(W.owner)}/${encodeURIComponent(W.repo)}`;
   const tell = (name, ...args) => { const f = window.MdView && window.MdView[name]; if (f) return f(...args); };
   const toast = (text) => tell("toast", text);
   const fileUrl = (path) => FILES + path.split("/").map(encodeURIComponent).join("/");
@@ -1069,6 +1069,25 @@
       tell("historyRestored", { path, id });
       if (onScreen === path) render(path, { keepScroll: true });
       commit();
+    },
+
+    /* The project's pasteboard (overview.js), kept by the server (lib/paste.ts): what stands there
+     * — with wait, answered only once it is another text than the page has — and a writing. */
+    async "paste-get"({ n, rev, wait }) {
+      try {
+        const res = await ask(`${PASTE}?rev=${Number(rev) || 0}${wait ? "&wait=1" : ""}`);
+        if (!res.ok) return tell("pasteboard", { n, error: res.status === 404 ? "missing" : "unreachable" });
+        const now = await res.json();
+        tell("pasteboard", { n, text: now.text, rev: now.rev });
+      } catch { tell("pasteboard", { n, error: "unreachable" }); }
+    },
+    async "paste-put"({ n, text, base }) {
+      try {
+        const res = await ask(PASTE, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, base, by: device.name }) });
+        if (!res.ok && res.status !== 409) return tell("pasteboard", { put: true, n, error: res.status === 413 ? "large" : "unreachable" });
+        const now = await res.json();
+        tell("pasteboard", res.ok ? { put: true, n, rev: now.rev } : { put: true, n, text: now.text, rev: now.rev });
+      } catch { tell("pasteboard", { put: true, n, error: "unreachable" }); }
     },
 
     // sharing (active/share.js)

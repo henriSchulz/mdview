@@ -52,6 +52,24 @@ export async function get(collection: string, id: string): Promise<Plain | null>
   if (!res.ok) throw new Error(`firestore get: ${res.status}`);
   return plain(await res.json());
 }
+/** A document with the time it was last written (what `swap` goes by), or null. */
+export async function getAt(collection: string, id: string): Promise<{ data: Plain; at: string } | null> {
+  const res = await call("GET", at(collection, id));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`firestore get: ${res.status}`);
+  const doc = (await res.json()) as { fields?: Record<string, Value>; updateTime: string };
+  return { data: plain(doc), at: doc.updateTime };
+}
+/** A document written whole — only if it still is as it was read (`at`: its time then; null: not
+ * there). → whether it was written: false, and someone else wrote it meanwhile. */
+export async function swap(collection: string, id: string, data: Plain, was: string | null): Promise<boolean> {
+  const only = was === null ? "currentDocument.exists=false" : `currentDocument.updateTime=${encodeURIComponent(was)}`;
+  const res = await call("PATCH", `${at(collection, id)}?${only}`, { fields: fields(data) });
+  // (not as it was: FAILED_PRECONDITION, a 400 — or, for one that was not to be there, a 409)
+  if (res.status === 409 || res.status === 412 || (res.status === 400 && /FAILED_PRECONDITION/.test(await res.text()))) return false;
+  if (!res.ok) throw new Error(`firestore swap: ${res.status}`);
+  return true;
+}
 /** These fields of a document set (the others stay); the document is made if it is not there. */
 export async function set(collection: string, id: string, data: Plain): Promise<void> {
   const mask = Object.keys(data).map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");

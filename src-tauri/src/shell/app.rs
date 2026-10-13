@@ -383,6 +383,11 @@ impl App {
                 }
             }
             Event::GitHub(news) => self.on_github(news),
+            Event::Paste { label, said } => {
+                if let Some(w) = self.wins.get(&label) {
+                    w.js("MdView.pasteboard", &[said]);
+                }
+            }
             Event::Fetched { label, done } => match done {
                 Ok(folder) => self.open_folder(&folder),
                 Err(e) => {

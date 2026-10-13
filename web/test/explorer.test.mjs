@@ -124,7 +124,7 @@ test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in 
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all, embedded or not; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].map((o) => o.dataset.v)), ["all", "folders", "boards"]);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].map((o) => o.dataset.v)), ["all", "folders", "boards", "paste"]);
   await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
   await page.waitForFunction(() => document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
   assert.deepEqual(await tiles(), [["assets/kept.board.svg", "In “Beta”", true], ["Plan.board.svg", "In “Alpha”", false], ["sub/Loose.board.svg", "In no note", false]]);

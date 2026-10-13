@@ -15,7 +15,7 @@ impl Win {
         }
         match text_of("type") {
             // (a project's history, its other side, sharing: project.rs — what Claude is asked: claude.rs)
-            t if t.starts_with("history-") || t.starts_with("sync-") || t.starts_with("github-") || t.starts_with("share-") => self.on_project_message(app, msg),
+            t if t.starts_with("history-") || t.starts_with("sync-") || t.starts_with("github-") || t.starts_with("share-") || t.starts_with("paste-") => self.on_project_message(app, msg),
             "graphic" | "graphic-cancel" | "ai-ask" | "ai-pick" | "ai-stop" | "graphic-image" | "graphic-save" | "complete" => self.on_claude_message(app, msg),
             // (tab: true — a tab of its own, always; "own" — the tab the file has already, else a new one)
             "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"]), msg["tab"] == "own"),

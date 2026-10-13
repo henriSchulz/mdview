@@ -945,6 +945,28 @@ Without a link, and without GitHub, everything above works as it does.
 - **Nothing is ever overwritten**: the app does not force a push and does not rewrite versions;
   a file changed since it was last kept is never replaced by what comes from the other side.
 
+### The pasteboard
+
+A linked project has a pasteboard: one large field of text, the same on every device that shows
+the project — to carry a line, an address, a piece of code from one computer to another. It is
+no note, in no version and in no commit; the web app's server keeps it.
+
+- **Where**: All Notes › *Pasteboard*, beside All Notes, Folders and Whiteboards (the choice is
+  remembered, like the others; Settings › All Notes has it too). The field is ready to be typed
+  into as it shows.
+- **Live**: what is typed or pasted is on the other devices within a moment, without anything
+  done — in the application and in the browser alike, for as long as the pasteboard is on
+  screen. The line above the field says how it stands: Sending…, or On every device.
+- **Two at once**: what two devices wrote in different places is both there. In the same place,
+  the one who wrote last has it.
+- **Paste** puts the clipboard's text in at the caret, **Copy** takes the whole field onto the
+  clipboard, **Clear** empties it — everywhere. `Ctrl+Z` in the field takes Paste and Clear back.
+- **Whose it is**: the repository's. Whoever may write to it has the pasteboard; signed in with
+  GitHub, in the application (Settings › History) as in the browser. A folder that is not linked
+  has none, and the page says so. It takes 200 000 characters.
+- **Without a connection** the field keeps what is typed and sends it once the server is reached
+  again; nothing of the pasteboard is kept on the computer itself.
+
 ### In the browser
 
 The same notes, on any device with a browser: a web app that shows a repository on GitHub
@@ -988,7 +1010,7 @@ counts — and has no writing help by a model.
   are, by themselves), and only the note's text and fields are selected — a finger resting on
   a button, a row or a title selects nothing.
 - **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
-  and All Notes, as here. An address names the note it shows, to keep or send.
+  and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
   and becomes a commit after the quiet while, with `Ctrl+S`, and when the tab is left. A commit
   names the GitHub account and the browser it was made in.

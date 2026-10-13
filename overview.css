@@ -221,6 +221,31 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-item.is-hidden > :is(.ov-sheet, .ov-stack, .ov-mini, .ov-text, .ov-name, .ov-sub, .ov-when) { opacity: 0.45; }
 /* the whiteboards: which of them, above the tiles */
 .ov-filter { display: flex; margin: 0 0 24px; }
+/* the pasteboard: one field as large as the window leaves room for, its buttons above it */
+#overview[data-scope="paste"] :is(.ov-add, .ov-more, .ov-seg[data-seg="layout"]) { display: none; }
+.ov-paste { display: grid; gap: 12px; }
+.ov-paste-bar { display: flex; align-items: center; gap: 8px; min-height: var(--control-height, 28px); }
+.ov-paste-bar .ov-space { flex: 1; }
+.ov-paste-bar .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
+.ov-paste-said { font: 400 13px/1.2 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); }
+.ov-paste-said[data-warn] { color: var(--c-red, var(--fg)); }
+.ov-paste-text {
+  box-sizing: border-box; width: 100%; height: calc(100dvh - 250px); min-height: 240px; resize: none; margin: 0; padding: 16px 18px;
+  border: var(--hairline); border-radius: var(--radius-panel); outline: 0;
+  background: color-mix(in srgb, var(--fg) 3%, var(--bg)); color: var(--fg);
+  font: 400 14px/1.55 var(--mono); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere;
+  user-select: text; -webkit-user-select: text;
+  transition: border-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+/* (a narrow window has the toolbar at its foot: the field ends above it) */
+@media (max-width: 760px) { .ov-paste-text { height: calc(100dvh - 330px - env(safe-area-inset-bottom, 0px)); } }
+.ov-paste-text:focus { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.ov-paste-text::placeholder { color: var(--fg2); font-family: var(--ui); }
+/* (not read yet: the field waits, and nothing is typed into it) */
+.ov-paste:not([data-state="ok"]) :is(.ov-paste-text, .ov-paste-bar .btn) { opacity: 0.5; }
+.ov-paste-none { display: none; }
+.ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > :not(.ov-paste-none) { display: none; }
+.ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > .ov-paste-none { display: grid; }
 /* several at once: what is selected — a tile wears a ring, a row the fill a chosen row has */
 #overview { user-select: none; -webkit-user-select: none; }
 .ov-tile.picked { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 5px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
