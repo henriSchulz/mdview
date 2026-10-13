@@ -231,6 +231,10 @@ fn main() {
     }
     let (tx, rx) = std::sync::mpsc::channel::<Event>();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // (`mdview paste …`: a command, no window — the running application is asked, paste.rs)
+    if args.first().is_some_and(|a| a == "paste") {
+        std::process::exit(paste::cli(&args[1..]));
+    }
     let cwd = std::env::current_dir().map(|d| scan::s(&d)).unwrap_or_default();
     let _ = tx.send(Event::Open { args, cwd });
 

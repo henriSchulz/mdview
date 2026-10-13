@@ -210,6 +210,19 @@ app itself would. The app's rules are in `docs/FEATURES.md` under *History*; the
 
 Say afterwards what was kept and whether it went over (the commit, and "pushed" or why not).
 
+## The pasteboard
+
+A project linked to GitHub has a pasteboard: one text, the same on every device that shows the
+project — where Henri puts a line, an address, a piece of code for another device, or for you.
+It is no note and in no version.
+
+- **Read** it: `mdview paste` in the project's folder (or `mdview paste --in FOLDER`). While the
+  app shows the pasteboard, the same text is in `.mdview/pasteboard.md` — a copy, never written to.
+- **Write** it: `mdview paste TEXT…` puts TEXT in place of what stands there, `mdview paste -`
+  takes it from standard input, `--append` adds it as a new line at the end. Prefer `--append`
+  unless asked to replace: what stands there may be Henri's.
+- It ends with 1 and says why where it cannot: no linked project, nobody signed in, no connection.
+
 ## Do not
 
 - No HTML for what Markdown can do; no inline styles. (`<br>`, `<kbd>`, `<details>` are fine.)

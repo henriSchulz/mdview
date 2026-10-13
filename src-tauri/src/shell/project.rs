@@ -142,13 +142,13 @@ impl Win {
                 let why = match (self.here().and_then(|h| paste::place(&h)), app.session.as_ref().map(|s| s.access.clone())) {
                     (None, _) => "off",
                     (_, None) => "signin",
-                    (Some(at), Some(token)) => {
+                    (Some((root, at)), Some(token)) => {
                         let (tx, label, n) = (app.tx.clone(), self.label.clone(), msg["n"].clone());
                         if put {
                             let by = app.stamp().device;
-                            paste::put(tx, label, n, at, token, text_of("text").to_string(), msg["base"].as_u64().unwrap_or(0), by);
+                            paste::put(tx, label, n, root, at, token, text_of("text").to_string(), msg["base"].as_u64().unwrap_or(0), by);
                         } else {
-                            paste::get(tx, label, n, at, token, msg["rev"].as_u64().unwrap_or(0), msg["wait"] == true);
+                            paste::get(tx, label, n, root, at, token, msg["rev"].as_u64().unwrap_or(0), msg["wait"] == true);
                         }
                         return;
                     }

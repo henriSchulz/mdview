@@ -965,7 +965,19 @@ no note, in no version and in no commit; the web app's server keeps it.
   GitHub, in the application (Settings › History) as in the browser. A folder that is not linked
   has none, and the page says so. It takes 200 000 characters.
 - **Without a connection** the field keeps what is typed and sends it once the server is reached
-  again; nothing of the pasteboard is kept on the computer itself.
+  again.
+- **A copy in the folder**: while the application shows the pasteboard, what stands on it is
+  written into the project as `.mdview/pasteboard.md` — as it is typed, here or elsewhere — for
+  who reads the folder and not the window: an agent at work in it. It is only a copy: what is
+  written into the file goes nowhere, it is in no version and never sent to the repository, and
+  with the pasteboard off screen it stays as it last stood. The browser keeps none.
+- **From a command line** — for an agent, or a script: `mdview paste` says what stands on the
+  pasteboard of the project it is run in, `mdview paste TEXT…` puts TEXT there in place of it,
+  `mdview paste -` takes the text from standard input, `--append` (`-a`) adds it as a new line
+  at the end, `--in FOLDER` names the project. What is written is on every device at once, as if
+  typed. The application does it, with its sign-in: the one that runs, or — with none running —
+  one started for it, without a window. Where it cannot be done the command says why and ends
+  with 1: no linked project, nobody signed in, the server not reached.
 
 ### In the browser
 

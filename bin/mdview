@@ -2,6 +2,7 @@
 # mdview launcher: starts the program built in this checkout (~/.local/bin/mdview is a link
 # to here). A start while it is running hands its files or folders to the running instance
 # and is gone at once; started bare, the running instance reopens the last folder.
+# `mdview paste …` reads and writes a project's pasteboard (mdview paste --help).
 root="$(dirname "$(readlink -f "$0")")/.."
 for app in "$root/src-tauri/target/release/mdview" "$root/src-tauri/target/debug/mdview"; do
   [[ -x $app ]] && exec "$app" "$@"

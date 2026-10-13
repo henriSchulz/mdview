@@ -74,6 +74,9 @@ impl App {
         if path.components().any(|c| c.as_os_str() == ".git") {
             return; // (the history's own writing)
         }
+        if paste::is_copy(path) {
+            return; // (the pasteboard's copy: in no version)
+        }
         let Place::Project(root) = history::place_of(path) else { return };
         self.snap_turn += 1;
         self.unsnapped.insert(root.clone(), self.snap_turn);
@@ -548,7 +551,29 @@ impl App {
         }
     }
 
+    /// `mdview paste` (paste.rs: cli) asks for a project's pasteboard, read or written: done with
+    /// this instance's sign-in, and answered in the file the command waits for. Started by the
+    /// command itself, the sign-in kept from before is waited for a moment.
+    fn paste_for(&mut self, args: Vec<String>, cwd: &str) {
+        let Some(asked) = paste::Asked::of(&args[1..]) else { return self.rest() };
+        let why = match (paste::place(&asked.folder), self.session.as_ref().map(|s| s.access.clone())) {
+            (None, _) => "off",
+            (_, None) if paste::STARTED.elapsed() < std::time::Duration::from_secs(10) => return self.after(300, Event::Open { args, cwd: cwd.to_string() }),
+            (_, None) => "signin",
+            (Some((root, at)), Some(token)) => {
+                let by = self.stamp().device;
+                paste::command(asked, root, at, token, by);
+                return self.rest();
+            }
+        };
+        paste::answer(&asked.reply, &json!({ "error": why }));
+        self.rest();
+    }
+
     pub(super) fn open(&mut self, args: Vec<String>, cwd: &str) {
+        if args.first().is_some_and(|a| a == "paste-for") {
+            return self.paste_for(args, cwd);
+        }
         let quick = args.iter().any(|a| a == "--quick");
         let files: Vec<String> = args.into_iter().filter(|a| !a.starts_with('-')).collect();
         self.restart_if_stale(&if quick { vec!["--quick".to_string()] } else { files.clone() });
