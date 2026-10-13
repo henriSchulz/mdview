@@ -88,6 +88,14 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 .sb-sheet-in i.i { width: 100%; height: 22px; background: color-mix(in srgb, var(--fc-own) 26%, transparent); }
 .sb-sheet-in i.f { width: 46%; margin: 1px auto; background: color-mix(in srgb, var(--fc-own) 60%, transparent); }
 .sb-sheet-in i.c { width: 100%; height: 4px; border-radius: 1px; background: linear-gradient(90deg, var(--fc-own) 0 4px, transparent 4px 8px, color-mix(in srgb, var(--fg) 20%, transparent) 8px 82%, transparent 82%); }
+/* a sheet that shows the file itself: a note's beginning made small (as All Notes' tiles: overview.css, .ov-prev), a PDF's first page, a whiteboard, a picture */
+.sb-sheet-in.is-real { display: block; padding: 0; }
+.sb-prev { zoom: 1; width: 217px; box-sizing: border-box; padding: 20px 18px; font-size: 22px; line-height: 1.35; transform: scale(0.36); transform-origin: 0 0; }
+.sb-sheet-in.is-pic { padding: 0; }
+.sb-sheet-in.is-pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; background: #fff; }
+.sb-sheet-in.is-pic[data-kind="board"] img { box-sizing: border-box; padding: 6px; object-fit: contain; }
+.sb-sheet-in.is-sign { align-items: center; justify-content: center; color: var(--fg3); }
+.sb-sheet-in.is-sign svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .sb-sheet.is-folder .sb-sheet-in { align-items: center; justify-content: center; gap: 6px; background: linear-gradient(180deg, color-mix(in srgb, var(--fc-own) 46%, var(--sb-paper)), color-mix(in srgb, var(--fc-own) 64%, var(--sb-paper))); color: #fff; }
 .sb-sheet.is-folder .sb-sheet-in svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .sb-sheet.is-folder .sb-sheet-in .sf { font-size: 20px; }

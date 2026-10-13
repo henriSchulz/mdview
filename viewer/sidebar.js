@@ -206,7 +206,24 @@
   const folderGlyph = (look) => FOLDER_ICONS[look.icon] || ICON.folder;
   const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
   const everyNote = (dir = folder.tree, out = []) => { out.push(...dir.notes); for (const d of dir.dirs) everyNote(d, out); return out; };
-  const sheetOf = (n) => { const s = sbSeen.get(n.path); return `<b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : ""); };
+  /* A sheet shows what the file is (the sheets' layout): a note its beginning, as All Notes' tiles show it; a PDF its first page; a
+   * whiteboard and a picture themselves. Until that is known — and where it cannot be — a note is its name over the shape of its
+   * lines, any other file its sign. */
+  const fileUrl = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
+  let shotSoon = 0;
+  function sheetOf(n) {
+    const s = sbSeen.get(n.path), pic = (src, kind) => `<span class="sb-sheet-in is-pic" data-kind="${kind}"><img src="${esc(src)}" alt="" draggable="false"></span>`;
+    if (n.kind === "image" || n.kind === "board") return pic(fileUrl(n.path) + (n.mtime ? "?v=" + Math.round(n.mtime) : ""), n.kind);
+    if (n.kind === "pdf") {
+      const shot = P.pdfShot.now(n.path, n.mtime);
+      if (shot) return pic(shot, "pdf");
+      // (asked for once; when it is there the sheets are dressed again)
+      if (!P.pdfShot.known(n.path, n.mtime)) P.pdfShot(n.path, n.mtime).then((src) => { if (!src || sbLayout() !== "sheets") return; clearTimeout(shotSoon); shotSoon = setTimeout(() => { if (folder && !folder.quick) syncList(false); }, 60); });
+    }
+    if (n.pdf) return `<span class="sb-sheet-in is-sign">${rowIcon(n.path)}</span>`;
+    if (s && s.html) return `<span class="sb-sheet-in is-real"><span class="ov-prev sb-prev" inert>${s.html}</span></span>`;
+    return `<span class="sb-sheet-in"><b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : "") + "</span>";
+  }
   // what a row shows beyond its name: how a folder looks; when a note was changed; its sheet
   function dressRow(el, e) {
     const row = el.firstChild.firstChild, lay = sbLayout();
@@ -222,7 +239,7 @@
     let sheet = row.querySelector(":scope > .sb-sheet");
     if (lay !== "sheets") { if (sheet) sheet.remove(); return; }
     if (!sheet) { sheet = document.createElement("span"); sheet.className = e.dir ? "sb-sheet is-folder" : "sb-sheet"; sheet.setAttribute("aria-hidden", "true"); row.insertBefore(sheet, row.firstChild); }
-    const html = e.dir ? `<span class="sb-sheet-tab"></span><span class="sb-sheet-in">${folderGlyph(look)}</span>` : `<span class="sb-sheet-in">${sheetOf(e.note)}</span>`;
+    const html = e.dir ? `<span class="sb-sheet-tab"></span><span class="sb-sheet-in">${folderGlyph(look)}</span>` : sheetOf(e.note);
     if (sheet.dataset.html !== html) { sheet.dataset.html = html; sheet.innerHTML = html; }
   }
   // a row that stands outside the tree (opened last, a smart list, what was searched for): the same row, its place said under its name
@@ -296,7 +313,7 @@
   function sbAsk(lay, here) {
     if (sbAsking.size || (lay !== "sheets" && lay !== "tiles")) return;
     const notes = lay === "tiles" ? everyNote() : (here || folder.tree).notes;
-    const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && (sbSeen.get(n.path) || {}).mtime !== n.mtime).slice(0, 40);
+    const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && ((sbSeen.get(n.path) || {}).mtime !== n.mtime || (lay === "sheets" && (sbSeen.get(n.path) || {}).html === undefined))).slice(0, 40); // (the sheets want its beginning too, where only its shape was read)
     if (!want.length) return;
     for (const n of want) { sbAsking.add(n.path); sbSeen.set(n.path, { ...(sbSeen.get(n.path) || { shape: "", open: 0, color: "" }), mtime: n.mtime }); } // (asked once for what it is now, whatever comes back)
     post("previews", { paths: want.map((n) => n.path) });
@@ -310,7 +327,7 @@
       mine = true;
       const fm = stripFrontmatter(String(p.text || "").replace(/\r\n?/g, "\n")), f = pageFacts({ items: fm.body.split("\n") });
       const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : "";
-      sbSeen.set(path, { mtime: (sbSeen.get(path) || {}).mtime, shape: f.shape, open: f.tasks.length - f.done, color });
+      sbSeen.set(path, { mtime: (sbSeen.get(path) || {}).mtime, shape: f.shape, open: f.tasks.length - f.done, color, html: sbLayout() === "sheets" ? P.previewOf(path, String(p.text || "")).html : undefined }); // (html: its beginning, for its sheet)
     }
     if (mine || (sbAsking.size && !Object.keys(got || {}).length)) { sbAsking.clear(); if (folder && !folder.quick) syncList(false); } // (an answer with nothing in it: what was asked for is not to be had)
     return rest;

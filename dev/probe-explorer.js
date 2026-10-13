@@ -116,6 +116,9 @@
     {
       MdOverview.open();
       const tile = () => document.querySelector('#overview .ov-item[data-kind="pdf"]'), img = () => tile() && tile().querySelector("img.ov-shot.on");
+      // (the rail at the right is a note's: over All Notes it is not there — in a window wide enough to have one at all)
+      const rail = document.getElementById("rrail"), seen = () => !!rail && getComputedStyle(rail).display !== "none" && getComputedStyle(rail).visibility !== "hidden" && getComputedStyle(rail).opacity !== "0";
+      ok("over All Notes the rail at the right is not there", await until(() => !seen(), 2000), rail && [getComputedStyle(rail).visibility, getComputedStyle(rail).opacity]);
       ok("All Notes: a PDF's tile shows its first page", await until(() => img() && img().naturalHeight > img().naturalWidth && getComputedStyle(img()).opacity === "1", 10000), tile() ? tile().innerHTML.slice(0, 200) : "no PDF among the tiles");
       MdOverview.close(); await sleep(300);
       MdOverview.open();

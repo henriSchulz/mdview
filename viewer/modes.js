@@ -7,7 +7,8 @@
   const P = window.MdPage;
   const { NONCE, ASSETS, content, post, T, esc, motionMs, ICON } = P; // viewer/base.js
   const { md } = P; // viewer/markdown.js
-  const { viewOf, pageBar } = P; // viewer/prep.js
+  const { viewOf, pageBar, stripFrontmatter, stripComments } = P; // viewer/prep.js
+  const { DECO_COLORS } = P; // viewer/base.js
   const { placeOf, draw, shownRoot, restoreAnchor, scrollToFragment, reducedMotion, scrollToEnd,
     renderMermaid } = P; // viewer/render.js
   const { findInput, toast, outlineOpen, findOpen, buildOutline, runFind } = P; // viewer/chrome.js
@@ -544,11 +545,54 @@
   });
 
   // what the page's other files use of this one
-  Object.assign(P, { isBoardImg, loadBoard, openBoard, openBoardFile, embedBoard, newBoard, boardMade, loadPdf, resolveSoon,
+  Object.assign(P, { previewOf, pdfShot, isBoardImg, loadBoard, openBoard, openBoardFile, embedBoard, newBoard, boardMade, loadPdf, resolveSoon,
     linkResolved, pdfEmbedsSoon, codeBox, openCode, closeCode, busy, zoomImage, zoomFigure, zoomFigureAt,
     openHistory, openShare, openConflicts, openSettings, loadActive, showActive, activeChanged,
     leaveActiveNow, leaveEditNow, printDoc, edReplace, insertImage });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
+  // ---------------------------------------------------------------- what a file shows of itself, small
+  /* All Notes' tiles and the sidebar's sheets show a note by its beginning and a PDF by its first page. */
+  // the beginning of a note as the reading view would show it — without what only works in a note on screen
+  function previewOf(path, text) {
+    const fm = stripFrontmatter(text.replace(/\r\n?/g, "\n"));
+    let html = "";
+    try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
+    const box = document.createElement("template");
+    box.innerHTML = html;
+    const dir = (window.MdHost?.files || "file://") + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
+    for (const x of box.content.querySelectorAll("[id], [data-line]")) { x.removeAttribute("id"); x.removeAttribute("data-line"); }
+    for (const x of box.content.querySelectorAll("script, iframe, video, audio, .code-tools")) x.remove();
+    for (const img of box.content.querySelectorAll("img")) {
+      const src = img.getAttribute("src") || "";
+      if (src && !/^[a-z][a-z0-9+.-]*:/i.test(src) && !src.startsWith("/")) img.setAttribute("src", dir + src); // beside the note, not beside the one on screen
+      img.setAttribute("loading", "lazy");
+      img.removeAttribute("title");
+    }
+    for (const a of box.content.querySelectorAll("a")) a.removeAttribute("href");
+    const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : null;
+    for (const x of box.content.querySelectorAll("h1:first-child, .katex-mathml")) x.remove(); // (a row's words: without the name again)
+    return { html: box.innerHTML.trim(), color, text: box.content.textContent.replace(/\s+/g, " ").trim().slice(0, 240) };
+  }
+  /* A PDF's first page as a picture: pdfShot(path, v) → its address ("": the PDF cannot be read). One PDF after the other — each
+   * has to be read whole for it — and kept for as long as the window is, by the file and v (when it was changed).
+   * pdfShot.now: what is known already; pdfShot.known: whether it was asked for at all. */
+  const shots = new Map();
+  let shotLine = Promise.resolve();
+  const shotKey = (path, v) => path + "@" + (v || 0);
+  function pdfShot(path, v) {
+    const key = shotKey(path, v);
+    if (shots.has(key)) return Promise.resolve(shots.get(key));
+    return (shotLine = shotLine.then(async () => {
+      if (shots.has(key)) return shots.get(key);
+      let src = "";
+      try { await loadPdf(); src = (await window.MdPdf.pageShot(path, 1, 280)).img.src; } catch (e) { src = ""; }
+      shots.set(key, src);
+      return src;
+    }));
+  }
+  pdfShot.now = (path, v) => shots.get(shotKey(path, v)) || "";
+  pdfShot.known = (path, v) => shots.has(shotKey(path, v));
+
   // ---------------------------------------------------------------- pictures turned
   /* A picture written with a turn (|r90, |r180, |r270: viewer/markdown.js) is drawn turned once and shown as that drawing — a
    * picture like any other from then on: as large as it then is, with the text around it where a picture of that shape belongs

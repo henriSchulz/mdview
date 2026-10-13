@@ -832,8 +832,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
   folder's row, and the name is changed there).
-  - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
-    pictures, formulas, tasks), a folder for each folder. One
+  - **Sheets**: a sheet of paper for each file that shows what it is — a note its beginning, small,
+    as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves; any
+    other file its sign — and a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
   - **Tiles**: four smart lists as tiles — All, Today (changed today), Shared, With Tasks (something
     left to do) — each with how many notes it holds; a click shows its notes in one list. Under

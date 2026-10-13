@@ -418,7 +418,8 @@
    * rail is there wherever the panel can be — not beside the source, not where a note is only shown. */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
-    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit");
+    const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
+    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit" && !!cur && cur.kind !== "pdf");
   }
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".rp-tab");

@@ -95,35 +95,22 @@
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   // when a note was changed, as the sidebar says it — today's with the word before the time
   const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
-  /* A PDF shows its first page, as a note shows its beginning: drawn when its tile comes near the window, one PDF after the other
-   * (each has to be read whole for it), and kept for as long as the window is — by the file and when it was changed. Until then,
-   * and where a PDF cannot be read, the tile has the PDF's sign. */
-  const shots = new Map(), shotKey = (n) => (n.real || n.path) + "@" + (n.mtime || n.v || 0), wanted = [];
-  let shooting = false;
-  async function shoot() {
-    if (shooting) return;
-    shooting = true;
-    try {
-      await window.MdPage.loadPdf();
-      for (let t; (t = wanted.shift()); ) {
-        const key = t.dataset.shot;
-        if (!t.isConnected || !key) continue;
-        if (!shots.has(key)) { try { shots.set(key, (await window.MdPdf.pageShot(t.dataset.file, 1, 280)).img.src); } catch (e) { shots.set(key, ""); } }
-        const src = shots.get(key), box = t.querySelector(".ov-pic, .ov-mini");
-        delete t.dataset.shot;
-        if (!src || !box || !t.isConnected) continue;
-        const img = new Image();
-        img.alt = ""; img.draggable = false; img.className = "ov-shot"; img.src = src;
-        await img.decode().catch(() => {});
-        box.replaceChildren(img);
-        requestAnimationFrame(() => img.classList.add("on")); // (it fades in over the sheet: overview.css)
-      }
-    } catch (e) { /* (the viewer could not be loaded: the signs stay) */ }
-    shooting = false;
+  /* A PDF shows its first page, as a note shows its beginning: drawn when its tile comes near the window (viewer/modes.js: pdfShot
+   * — one PDF after the other, kept for as long as the window is). Until then, and where a PDF cannot be read, the tile has the
+   * PDF's sign. */
+  const pdfShot = window.MdPage.pdfShot, shotOf = (n) => pdfShot.now(n.real || n.path, n.mtime || n.v);
+  async function shoot(t) {
+    const src = await pdfShot(t.dataset.file, t.dataset.shot), box = t.querySelector(".ov-pic, .ov-mini");
+    delete t.dataset.shot;
+    if (!src || !box || !t.isConnected) return;
+    const img = new Image();
+    img.alt = ""; img.draggable = false; img.className = "ov-shot"; img.src = src;
+    await img.decode().catch(() => {});
+    box.replaceChildren(img);
+    requestAnimationFrame(() => img.classList.add("on")); // (it fades in over the sheet: overview.css)
   }
   const shotNear = typeof IntersectionObserver === "function" ? new IntersectionObserver((list) => {
-    for (const e of list) if (e.isIntersecting) { shotNear.unobserve(e.target); wanted.push(e.target); }
-    if (wanted.length) shoot();
+    for (const e of list) if (e.isIntersecting) { shotNear.unobserve(e.target); shoot(e.target); }
   }, { rootMargin: "300px 0px" }) : null;
   const urlOf = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
   // the folder shown (scope "folders"): as far down `at` as the tree still goes
@@ -168,9 +155,9 @@
     const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
     if (look && look.color) t.style.setProperty("--c", look.color);
     const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
-    const shot = file && n.kind === "pdf" ? shots.get(shotKey(n)) : null; // (a PDF's first page, where it was drawn before)
+    const shot = file && n.kind === "pdf" ? shotOf(n) : null; // (a PDF's first page, where it was drawn before)
     const pic = shot ? `<img src="${esc(shot)}" alt="" draggable="false">` : file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
-    if (file && n.kind === "pdf" && !shot) { t.dataset.shot = shotKey(n); t.dataset.file = n.real || n.path; }
+    if (file && n.kind === "pdf" && !shot) { t.dataset.shot = String(n.mtime || n.v || 0); t.dataset.file = n.real || n.path; }
     // a row: the note's sheet in small, its name, under it its first words, at the end when it was changed
     if (list) t.innerHTML = `<span class="ov-mini">${dir || file ? pic || sign : `<span class="ov-prev" inert></span>`}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>` +
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
@@ -303,33 +290,12 @@
     for (const c of DECO_COLORS) tile.classList.toggle("ov-" + c, p.color === c);
     tile.classList.toggle("ov-empty", !p.html);
   }
-  // the beginning of a note as the reading view would show it — without what only works in a note on screen
-  function htmlOf(path, text) {
-    const fm = stripFrontmatter(text.replace(/\r\n?/g, "\n"));
-    let html = "";
-    try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
-    const box = document.createElement("template");
-    box.innerHTML = html;
-    const dir = (window.MdHost?.files || "file://") + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
-    for (const x of box.content.querySelectorAll("[id], [data-line]")) { x.removeAttribute("id"); x.removeAttribute("data-line"); }
-    for (const x of box.content.querySelectorAll("script, iframe, video, audio, .code-tools")) x.remove();
-    for (const img of box.content.querySelectorAll("img")) {
-      const src = img.getAttribute("src") || "";
-      if (src && !/^[a-z][a-z0-9+.-]*:/i.test(src) && !src.startsWith("/")) img.setAttribute("src", dir + src); // beside the note, not beside the one on screen
-      img.setAttribute("loading", "lazy");
-      img.removeAttribute("title");
-    }
-    for (const a of box.content.querySelectorAll("a")) a.removeAttribute("href");
-    const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : null;
-    for (const x of box.content.querySelectorAll("h1:first-child, .katex-mathml")) x.remove(); // (a row's words: without the name again)
-    return { html: box.innerHTML.trim(), color, text: box.content.textContent.replace(/\s+/g, " ").trim().slice(0, 240) };
-  }
   function previews(got) {
     waiting = false;
     for (const [path, p] of Object.entries(got || {})) {
       const known = cache.get(path);
       if (known && known.mtime === p.mtime) continue; // unchanged: as it is
-      const made = { mtime: p.mtime, ...htmlOf(path, p.text || "") };
+      const made = { mtime: p.mtime, ...window.MdPage.previewOf(path, p.text || "") };
       cache.set(path, made);
       const tile = tiles.get(path);
       if (tile) paint(tile, made);
