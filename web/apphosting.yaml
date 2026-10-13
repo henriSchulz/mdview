@@ -1,6 +1,7 @@
 # Firebase App Hosting: how the app runs. It sleeps when nobody uses it (the first request after a
 # pause takes a few seconds), and runs as one instance: the token that renews a sign-in changes
-# with every use, and must be renewed in one place.
+# with every use, and must be renewed in one place. A project's pasteboard counts on it too: who
+# waits for the next text is told by the instance it was written through (lib/paste.ts).
 runConfig:
   minInstances: 0
   maxInstances: 1

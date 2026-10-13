@@ -28,6 +28,11 @@
  * of their own and those a note keeps (which no list of the folder shows): all of them, those a
  * note shows, or those none does. The application is asked for them (boards) when they are shown.
  *
+ * A fourth choice is no list at all: the project's pasteboard — one large field of text, the
+ * same on every device that shows the project, to carry something from one to another. What is
+ * typed or pasted is there on the others within a moment; what two wrote at once is joined. The
+ * host keeps it (the web app's server: web/lib/paste.ts) and is asked for it while it shows.
+ *
  * Copy, Cut, Paste and Duplicate (Ctrl+C, X, V, D) work on the tile the keyboard is on, or on
  * all that are selected; files pulled in from elsewhere are copied into the folder shown.
  *
@@ -52,7 +57,7 @@
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
-    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : []), ["paste", T("Pasteboard")]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
@@ -188,6 +193,16 @@
     const title = el.querySelector(".ov-title");
     let gs, total;
     el.dataset.scope = scope;
+    pasteWatch(); // (asked for while it shows, and no longer than that)
+    if (scope === "paste") {
+      // the pasteboard: one field, the same element for as long as it shows (what is typed, and where, stays)
+      title.textContent = folder.name;
+      el.querySelector(".ov-count").textContent = "";
+      tiles.clear();
+      items = [];
+      if (pasteEl.parentNode !== body) { body.textContent = ""; body.appendChild(pasteEl); }
+      return;
+    }
     if (scope === "boards") {
       // the folder's whiteboards: asked for when they are shown, drawn when they come
       const all = boardList || [], name = (p) => p.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
@@ -268,7 +283,9 @@
     const key = name === "scope" ? "ovScope" : name === "boards" ? "ovBoardsShow" : "ovLayout";
     window.MdPrefs = { ...(window.MdPrefs || {}), [key]: v };
     post("prefs", { prefs: { [key]: v } });
+    if (name === "scope" && v !== "paste") pasteSend();
     rebuild();
+    if (name === "scope" && v === "paste") pasteText.focus({ preventScroll: true });
   }
   function up(levels = 1) {
     if (scope !== "folders" || !at.length) return false;
@@ -341,7 +358,7 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && FILEWORK ? "boards" : "all";
+    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && FILEWORK ? "boards" : prefs.ovScope === "paste" ? "paste" : "all";
     boardShow = ["embedded", "loose"].includes(prefs.ovBoardsShow) ? prefs.ovBoardsShow : "all";
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
@@ -361,15 +378,19 @@
     if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); }
     ask();
     askBoards();
+    pasteWatch();
+    if (scope === "paste") pasteText.focus({ preventScroll: true });
   }
   function close(refocus = true) {
     if (!isOpen()) return false;
     delete el.dataset.open;
+    pasteSend(); // (what was typed last goes before the field is out of sight)
     core.lockScroll(false);
     delete document.body.dataset.overview;
     pressed(false);
     if (refocus && focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true });
     focusBack = null;
+    pasteWatch();
     return true;
   }
   // (an empty tab has nothing under the tiles: they stay until a note is chosen)
@@ -385,6 +406,166 @@
     post("note", { path, tab });
   }
 
+  // ------------------------------------------------------------ the pasteboard
+  /* One text for the project, kept by the host and the same wherever the project shows. The page
+   * knows three things of it: `base`, the text as the host last had it, `rev`, the host's count
+   * for that text, and what the field says. What the field says beyond `base` is sent a moment
+   * after the last key, naming `rev`; if the host has another rev by then it says so, with its
+   * text, and the two are joined (pasteJoin) and sent again. While the field shows, the host is
+   * asked for the next rev and answers when there is one (paste-get with wait) — so another
+   * device's writing is here as it is made. */
+  const PASTE_MAX = 200000, PASTE_QUIET = 250, PASTE_AGAIN = 3000;
+  const pasteEl = document.createElement("div");
+  pasteEl.className = "ov-paste";
+  pasteEl.innerHTML = `<div class="ov-paste-bar"><span class="ov-paste-said" role="status"></span><span class="ov-space"></span>` +
+    [["paste", "Paste"], ["copy", "Copy"], ["clear", "Clear"]].map(([d, l]) => `<button class="btn" type="button" data-do="${d}">${esc(T(l))}</button>`).join("") + `</div>` +
+    `<textarea class="ov-paste-text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="${esc(T("Pasteboard"))}" placeholder="${esc(T("Type or paste here. It shows on every device that has this project open."))}"></textarea>` +
+    `<div class="empty-state ov-paste-none"><div class="empty-icon">${ICON.copy || ""}</div><b></b><p></p></div>`;
+  const pasteText = pasteEl.querySelector("textarea"), pasteSaid = pasteEl.querySelector(".ov-paste-said");
+  const paste = { root: null, base: "", rev: -1, sent: null, gets: 0, puts: 0, timer: 0, again: 0, state: null, wants: false };
+  // where two texts differ, as one stretch: `a` from `from` to `to` is `text` in `b`
+  const pasteDiff = (a, b) => {
+    const n = Math.min(a.length, b.length);
+    let p = 0, q = 0;
+    while (p < n && a[p] === b[p]) p++;
+    while (q < n - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+    return { from: p, to: a.length - q, text: b.slice(p, b.length - q) };
+  };
+  /* What was written here (mine) and elsewhere (theirs) since the text both began from: both, where
+   * they changed different places — else what was written here, which is sent next and so is what
+   * stands (a pasteboard has one writer at a time, nearly always: the last one has it). */
+  function pasteJoin(base, mine, theirs) {
+    if (mine === base || mine === theirs) return theirs;
+    if (theirs === base) return mine;
+    const m = pasteDiff(base, mine), t = pasteDiff(base, theirs);
+    const [a, b] = m.to <= t.from ? [m, t] : t.to <= m.from ? [t, m] : [];
+    return a ? base.slice(0, a.from) + a.text + base.slice(a.to, b.from) + b.text + base.slice(b.to) : mine;
+  }
+  // the field says something else: the caret and the selection stay with the text they were in
+  function pasteShow(text) {
+    const was = pasteText.value;
+    if (was === text) return;
+    const d = pasteDiff(was, text), move = (c) => (c <= d.from ? c : c >= d.to ? c + text.length - was.length : d.from + d.text.length);
+    const from = move(pasteText.selectionStart), to = move(pasteText.selectionEnd), y = pasteText.scrollTop;
+    pasteText.value = text;
+    if (document.activeElement === pasteText) pasteText.setSelectionRange(from, to);
+    pasteText.scrollTop = y;
+  }
+  const PASTE_WHY = {
+    off: ["No Pasteboard Yet", "A pasteboard belongs to a project that is linked to a repository on GitHub: Settings › History."],
+    signin: ["Sign In for the Pasteboard", window.__TAURI_INTERNALS__ ? "Sign in with GitHub: Settings › History." : "A pasteboard belongs to a notebook of the account that is signed in."],
+    missing: ["No Pasteboard Here", "The pasteboard is for those who may write to this project's repository."],
+    unreachable: ["Pasteboard Not Reached", "It is tried again by itself."],
+  };
+  function pasteState(state) {
+    if (paste.state !== state) {
+      paste.state = state;
+      pasteEl.dataset.state = state;
+      const why = PASTE_WHY[state];
+      if (why) { pasteEl.querySelector(".ov-paste-none b").textContent = T(why[0]); pasteEl.querySelector(".ov-paste-none p").textContent = T(why[1]); }
+      pasteText.readOnly = state !== "ok";
+      // (there now: ready to be typed into, unless the keyboard is somewhere else in the window)
+      if (state === "ok" && pasteShown() && (document.activeElement === document.body || el.contains(document.activeElement))) pasteText.focus({ preventScroll: true });
+    }
+    pasteTell();
+  }
+  function pasteTell() {
+    const large = pasteText.value.length > PASTE_MAX;
+    pasteSaid.textContent = paste.state !== "ok" ? "" : large ? T("Too long to send: a pasteboard takes {0} characters", PASTE_MAX.toLocaleString()) : paste.sent != null || pasteText.value !== paste.base ? T("Sending…") : T("On every device");
+    pasteSaid.toggleAttribute("data-warn", large);
+  }
+  const pasteShown = () => isOpen() && scope === "paste" && !document.hidden && !!core.folder;
+  function pasteAsk() {
+    clearTimeout(paste.again);
+    if (!paste.wants) return;
+    post("paste-get", { n: ++paste.gets, rev: paste.rev, wait: paste.rev >= 0 });
+  }
+  /* Whether the pasteboard shows is looked at whenever that may have changed: it is asked for
+   * while it does, and for another folder everything known is forgotten first. */
+  function pasteWatch() {
+    const root = core.folder ? core.folder.root : null;
+    if (paste.root !== root) {
+      clearTimeout(paste.timer);
+      Object.assign(paste, { root, base: "", rev: -1, sent: null, wants: false });
+      paste.gets++; paste.puts++; // (answers still on their way are another folder's)
+      pasteText.value = "";
+      pasteState("");
+    }
+    const wants = pasteShown();
+    if (wants === paste.wants) return;
+    paste.wants = wants;
+    if (wants) pasteAsk(); else { clearTimeout(paste.again); paste.gets++; }
+  }
+  function pasteSend() {
+    clearTimeout(paste.timer);
+    const text = pasteText.value;
+    if (paste.sent != null || paste.rev < 0 || paste.state !== "ok" || text === paste.base || text.length > PASTE_MAX) return pasteTell();
+    paste.sent = text;
+    post("paste-put", { n: ++paste.puts, text, base: paste.rev });
+    pasteTell();
+  }
+  const pasteSoon = (ms = PASTE_QUIET) => { clearTimeout(paste.timer); paste.timer = setTimeout(pasteSend, ms); pasteTell(); };
+  // the host's text is another: joined with what the field says, and what the field then says beyond it is sent
+  function pasteTake(m) {
+    const theirs = String(m.text ?? ""), joined = pasteJoin(paste.base, pasteText.value, theirs);
+    paste.base = theirs;
+    paste.rev = m.rev;
+    pasteShow(joined);
+    if (joined !== theirs) pasteSoon(0); else pasteTell();
+  }
+  /* The host's answer — to a writing (put: taken as rev, or not, with what stands there instead),
+   * or to the asking: the text, or why there is none (error). */
+  function pasteboard(m) {
+    if (!m) return;
+    if (m.put) {
+      if (m.n !== paste.puts || paste.sent == null) return;
+      const sent = paste.sent;
+      paste.sent = null;
+      if (m.error === "large") { core.toast(T("Too long for the pasteboard")); return pasteTell(); }
+      if (m.error) { pasteSoon(PASTE_AGAIN); return; } // (not reached: again in a while — the asking says so if it stays that way)
+      if (typeof m.text === "string") pasteTake(m);
+      else { paste.base = sent; paste.rev = m.rev; if (pasteText.value !== sent) pasteSoon(); else pasteTell(); }
+      pasteAsk(); // (from the rev that stands now)
+      return;
+    }
+    if (m.n !== paste.gets || !paste.wants) return;
+    if (m.error) {
+      // (what was read once stays to be read and written on: only the first asking shows why not)
+      if (paste.rev < 0 || m.error !== "unreachable") pasteState(m.error);
+      if (m.error === "unreachable") paste.again = setTimeout(pasteAsk, PASTE_AGAIN);
+      return;
+    }
+    pasteState("ok");
+    if (paste.sent != null) return; // (a writing is on its way: its answer says how things stand, and asks again)
+    if (m.rev !== paste.rev) pasteTake(m);
+    pasteAsk();
+  }
+  // typed text put where the caret is, as if typed (so that Undo takes it back)
+  function pasteType(text) {
+    pasteText.focus({ preventScroll: true });
+    let done = false;
+    try { done = text ? document.execCommand("insertText", false, text) : document.execCommand("delete"); } catch { /* (not here) */ }
+    if (!done) { pasteText.setRangeText(text, pasteText.selectionStart, pasteText.selectionEnd, "end"); pasteSoon(); }
+  }
+  let pasteAsked = false;
+  /* The clipboard's text, asked of the host for the Paste button (viewer.js: pasteText). → whether it was the pasteboard's. */
+  function pasted(r) {
+    if (!pasteAsked) return false;
+    pasteAsked = false;
+    if (pasteShown() && paste.state === "ok" && typeof r.text === "string" && r.text) pasteType(r.text);
+    return true;
+  }
+  pasteText.addEventListener("input", () => pasteSoon());
+  pasteText.addEventListener("blur", pasteSend);
+  pasteEl.querySelector(".ov-paste-bar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-do]");
+    if (!b || paste.state !== "ok") return;
+    if (b.dataset.do === "copy") { core.copy(pasteText.value); core.toast(T("Copied")); }
+    else if (b.dataset.do === "paste") { pasteAsked = true; post("pastetext"); }
+    else if (pasteText.value) { pasteText.select(); pasteType(""); pasteSend(); }
+  });
+  document.addEventListener("visibilitychange", pasteWatch);
+
   // ------------------------------------------------------------ several at once
   const mark = () => { for (const t of items) t.classList.toggle("picked", picked.has(t.dataset.path)); el.toggleAttribute("data-picked", picked.size > 0); };
   // (a whiteboard a note keeps is the note's: never among what is moved, copied or trashed together)
@@ -394,7 +575,7 @@
    * pulling scrolls them. */
   let band = null, banded = false;
   el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !isOpen() || e.target.closest(".ov-item, .ov-head button, .ov-rename, input")) return;
+    if (e.button !== 0 || !isOpen() || e.target.closest(".ov-item, .ov-head button, .ov-rename, .ov-paste, input")) return;
     if (e.target === el && e.offsetX >= el.clientWidth) return; // (the scroll bar)
     band = { x: e.clientX, y: e.clientY + el.scrollTop, id: e.pointerId, box: null, was: e.shiftKey || e.ctrlKey || e.metaKey ? new Set(picked) : new Set() };
   });
@@ -493,6 +674,7 @@
   document.addEventListener("dragend", () => { setInto(null); for (const t of body.querySelectorAll(".ov-item.dragged")) t.classList.remove("dragged"); });
   // the file menu the sidebar has, for a note or a folder here
   el.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".ov-paste")) return; // (the pasteboard's field has the menu a field has)
     e.preventDefault();
     const t = e.target.closest(".ov-item");
     if (t && !e.target.closest(".ov-rename")) {
@@ -549,6 +731,7 @@
     return best;
   }
   el.addEventListener("keydown", (e) => {
+    if (e.target.closest(".ov-paste") && e.key !== "Escape") return; // (the pasteboard's field: its keys are its own)
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a" && !e.target.closest("input")) { e.preventDefault(); e.stopPropagation(); pick(items.map((t) => t.dataset.path)); return; }
     // Copy, Cut, Paste, Duplicate — on the tile the keyboard is on, or on all that are selected; Paste: into the folder shown, or the folder the keyboard is on
     const fileKey = FILEWORK && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !e.target.closest("input") && { c: "copyf", x: "cutf", v: "pastef", d: "duplicate" }[e.key.toLowerCase()];
@@ -587,5 +770,5 @@
   // a note chosen in the sidebar while the tiles show: the note
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
-  window.MdOverview = { open, close, toggle, previews, go, rename, many, boards, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } }, get isOpen() { return isOpen(); } };
+  window.MdOverview = { open, close, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();

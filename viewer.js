@@ -188,6 +188,7 @@
     }
   }
   function pasteText(r) {
+    if (window.MdOverview && MdOverview.pasted(r)) return; // (the pasteboard's Paste button asked)
     if (P.mode === "active" && window.MdActive?.view?.editable && typeof r.text === "string") MdActive.clip.insertPlain(MdActive.view.pm, r.text);
   }
   /* Tooltips of the app's own (after 700 ms, in the app's look) for everything that has a
@@ -254,7 +255,7 @@
     pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast,
     setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip,
     setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
-    setBoards: (list) => window.MdOverview && MdOverview.boards(list), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
+    setBoards: (list) => window.MdOverview && MdOverview.boards(list), pasteboard: (m) => window.MdOverview && MdOverview.pasteboard(m), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
     // what the active mode (active/*.js, loaded on demand) builds on
     core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, setProp, doc: { BACKGROUNDS, look: () => docShown, facts: docFacts, set: docSet }, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way

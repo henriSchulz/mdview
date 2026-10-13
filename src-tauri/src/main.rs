@@ -23,6 +23,7 @@ mod hidden;
 mod history;
 mod host;
 mod looks;
+mod paste;
 mod scan;
 mod share;
 mod shell;
@@ -74,6 +75,8 @@ pub enum Event {
     GitHubRenew { turn: u64 },
     /// asked: the user's joining (the conflicts' window): if it did not go, that is said
     Reconciled { root: PathBuf, standing: Value, asked: bool },
+    /// the web app's answer about a project's pasteboard (paste.rs), for the window that asked
+    Paste { label: String, said: Value },
     /// time to look whether the other side of a linked project has something new
     SyncTick,
     /// asked: the page's doing (projects taken in), so what went wrong is said, and the folder told anew

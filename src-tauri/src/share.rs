@@ -54,7 +54,7 @@ fn find(shares: &BTreeMap<String, Value>, rel: &str) -> Option<String> {
     shares.iter().find(|(_, e)| e["path"] == rel).map(|(id, _)| id.clone())
 }
 
-fn web() -> String {
+pub(crate) fn web() -> String {
     std::env::var("MDVIEW_WEB").ok().filter(|w| !w.is_empty()).unwrap_or_else(|| WEB.to_string()).trim_end_matches('/').to_string()
 }
 
@@ -67,10 +67,15 @@ pub fn free_id() -> Option<String> {
     said["id"].as_str().filter(|id| !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric())).map(String::from)
 }
 
+/// The repository on GitHub a project is linked to: its owner and its name.
+pub(crate) fn repo(root: &Path) -> Option<(String, String)> {
+    sync::linked(root).and_then(|url| GITHUB_RE.captures(&url).map(|m| (m[1].to_string(), m[2].to_string())))
+}
+
 /// The web app is told that this project's list of shares has changed (it reads the list itself,
 /// from the repository: nothing is handed over but the repository's name). Not waited for.
 pub fn tell(root: &Path) {
-    let Some((owner, repo)) = sync::linked(root).and_then(|url| GITHUB_RE.captures(&url).map(|m| (m[1].to_string(), m[2].to_string()))) else { return };
+    let Some((owner, repo)) = repo(root) else { return };
     let url = format!("{}/share/sync/{}/{}", web(), crate::scan::quote(&owner), crate::scan::quote(&repo));
     std::thread::spawn(move || {
         let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(15)).build();

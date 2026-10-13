@@ -4,7 +4,7 @@
 use super::*;
 
 impl Win {
-    /// The messages that begin with history-, sync-, github- and share- (messages.rs hands them over).
+    /// The messages that begin with history-, sync-, github-, share- and paste- (messages.rs hands them over).
     pub(super) fn on_project_message(&mut self, app: &mut App, msg: &Value) {
         let text_of = |key: &str| msg[key].as_str().unwrap_or("");
         match text_of("type") {
@@ -133,6 +133,27 @@ impl Win {
                         self.settings_info(app);
                     }
                 }
+            }
+            // the project's pasteboard (overview.js): asked for, or written — by the web app's server,
+            // which keeps it (paste.rs); the answer comes as an event. Without a repository to name
+            // it by, or anyone signed in, there is none, and the page says why.
+            "paste-get" | "paste-put" => {
+                let put = text_of("type") == "paste-put";
+                let why = match (self.here().and_then(|h| paste::place(&h)), app.session.as_ref().map(|s| s.access.clone())) {
+                    (None, _) => "off",
+                    (_, None) => "signin",
+                    (Some(at), Some(token)) => {
+                        let (tx, label, n) = (app.tx.clone(), self.label.clone(), msg["n"].clone());
+                        if put {
+                            let by = app.stamp().device;
+                            paste::put(tx, label, n, at, token, text_of("text").to_string(), msg["base"].as_u64().unwrap_or(0), by);
+                        } else {
+                            paste::get(tx, label, n, at, token, msg["rev"].as_u64().unwrap_or(0), msg["wait"] == true);
+                        }
+                        return;
+                    }
+                };
+                self.js("MdView.pasteboard", &[json!({ "n": msg["n"], "put": put, "error": why })]);
             }
             // sharing a note (active/share.js): how it stands, shared or its password set, shared no
             // more — written into the project (share.rs), kept and sent on at once

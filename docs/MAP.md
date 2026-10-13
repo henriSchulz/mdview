@@ -184,6 +184,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `src-tauri/src/history.rs` | A folder's history: a project is a folder that holds both the app's marker (.mdview/project.json) and a Git … |
 | `src-tauri/src/host.rs` | What the shell asks of the system it runs on: the clipboard, the web view's own settings, other applications. |
 | `src-tauri/src/looks.rs` | How the folders of a folder look in the sidebar — a colour, a sign — as the folder says itself, in … |
+| `src-tauri/src/paste.rs` | A project's pasteboard: one text for a project that is linked to a repository on GitHub, the same on every … |
 | `src-tauri/src/scan.rs` | What is read off the disk without a window: a folder's notes as a tree, a note's title, where a wikilink … |
 | `src-tauri/src/share.rs` | Sharing a note: a link under which anyone can read it in the web app, with a password if one is set — and … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
@@ -197,6 +198,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `web/lib/firestore.ts` | Firestore, as far as the app needs it, spoken to over its REST interface: no library, and nothing to bundle. |
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
+| `web/lib/paste.ts` | A project's pasteboard: one text for a repository, to carry something from one device to another — typed or … |
 | `web/lib/session.ts` | Who is signed in, kept in a cookie the page's scripts cannot read: the tokens and the user, sealed (encrypted … |
 | `web/lib/share.ts` | A note that was shared: read by anyone who has its link, signed in or not — and never anything else of the … |
 | `web/lib/sharegate.ts` | Who may see a shared note: anyone with its link — and, where a password was set, only a browser that gave it … |
