@@ -96,7 +96,7 @@ The installed app loads the files it was built to load: after such a change, `bi
 | `viewer/page.css` | reading and editing styles. Colors come from the Omarchy theme (--c-*), durations, curves, radii and sizes … |
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |
 | `viewer/sidebar.css` | the sidebar of a folder window (its layouts: layouts.css). |
-| `viewer/split.css` | two things side by side (viewer/split.js): beside the note, at the window's right, a second sheet that is … |
+| `viewer/split.css` | two things side by side (viewer/split.js). The window is two halves of one kind, as an editor's split is: the … |
 | `viewer/tabs.css` | the tabs of a folder window, and the rows of the sidebar's list. |
 | `viewer/text.css` | the note's text (headings, lists, quotes, links, rules) and tasks. |
 | `overview.css` | all notes of the folder as sheets of paper, or as a list (overview.js). Sizes are layout; |
