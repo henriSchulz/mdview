@@ -1725,5 +1725,20 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  /* Blocks are selected, and something is pasted: it goes below them as blocks of its own — the selected ones stay — and what was
+   * pasted is selected in their place, so that the next paste goes below that. nodes: the blocks to put in. → false where none
+   * is selected, or they do not fit there (then the paste is the caret's). */
+  function pasteBelow(v, nodes) {
+    const sel = selOf(v.state), r = sel && rangeOf(v.state, sel);
+    if (!r || !nodes.length || !v.editable) return false;
+    const P = sel.more && sel.more.length ? pickedOf(v.state, sel) : null, at = P ? P[P.length - 1].pos + P[P.length - 1].node.nodeSize : r.to, $at = v.state.doc.resolve(at), all = Fragment.from(nodes);
+    if (!$at.parent.canReplace($at.index(), $at.index(), all)) return false;
+    const tr = v.state.tr.insert(at, all).setMeta("step", true).setMeta("paste", true);
+    let last = at;
+    for (let i = 0, p = at; i < all.childCount; p += all.child(i).nodeSize, i++) last = p;
+    tr.setMeta(selKey, { anchor: at, head: last });
+    v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
+    return true;
+  }
+  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

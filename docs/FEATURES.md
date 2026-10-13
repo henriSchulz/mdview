@@ -763,7 +763,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
   - *Wide Page* (Style): the text column wide for this note, whatever the settings' text width is for the
-    others (where the settings already have it wide or as wide as the window, it stays so).
+    others (where the settings already have it wide or as wide as the window, it stays so). What is pasted while blocks are selected (`Ctrl+V`) is not put in
+their place: it goes below them as blocks of its own and is selected there, so the next paste
+goes below that.
 
   Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the

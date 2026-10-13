@@ -23,6 +23,7 @@
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
+#   dev/rig.sh blockpaste            Ctrl+D puts a block's copy right below it; what is pasted while blocks are selected goes below them (real keys)
 #   dev/rig.sh colsel                the rectangle over blocks in a column: the items, paragraphs and headings it reaches, not the list or the column
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
@@ -643,6 +644,16 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out/$name.lists.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.lists.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.lists.json"; } | grep -qv '^ok' ;;
+  blockpaste)
+    rm -rf "$R/work"; mkdir -p "$R/work"; printf 'Alpha\n\nBravo\n\nCharlie\n\n- one\n- two\n' > "$R/work/t.md"; rm -f "$R/out"/t.md.*.json
+    app 60 MDVIEW_PROBE="$D/probe-blockpaste.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/t.md"
+    w() { for _ in $(seq 200); do [[ -f $R/out/t.md.$1.json || -f $R/out/t.md.blockpaste.json ]] && break; sleep 0.1; done; sleep 0.5; }; k() { WAYLAND_DISPLAY="$(wl)" wtype -d 45 "$@"; }
+    w s1; k -M ctrl -k d -m ctrl; w s2; k -M ctrl -k d -m ctrl
+    for _ in $(seq 300); do [[ -f $R/out/t.md.blockpaste.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/t.md.blockpaste.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json" | grep -q '^FAIL' ;;
   blocks)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{selected,heading,blocks}.json
     app 90 MDVIEW_PROBE="$D/probe-blocks.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
