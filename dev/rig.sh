@@ -32,6 +32,7 @@
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
+#   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -321,6 +322,17 @@ case "${1:-}" in
     ok "the whiteboard is a file of the folder, with what was put on it" 'grep -q "mdview-board" "$N/Skizze.board.svg" && grep -q "k.:.sticky" "$N/Skizze.board.svg"' 'head -c 600 "$N/Skizze.board.svg"'
     ok "the note shows it by its name" 'grep -q "!\[\](Skizze.board.svg)" "$N/Alpha.md"' 'cat "$N/Alpha.md"'
     ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.explorer.json; (( fail )) && echo FAIL; } | grep -qv '^ok' ;;
+  ground)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.ground.json "$R/out"/*.shown.json
+    printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'A note on a ground of its own.' > "$N/Ground.md"; printf '# Plain\n\nNo ground.\n' > "$N/Plain.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-ground.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.ground.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/ground.png"
+    for _ in $(seq 300); do ls "$R/out"/*.ground.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   sheets)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.sheets.json "$R/out"/*.shown.json
     printf '# Alpha\n\nSome text here.\n\n## Part\n\n- one\n- two\n' > "$N/Alpha.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 1; node "$D/make-board.mjs" > "$N/Skizze.board.svg"; magick -size 8x8 xc:red "$N/photo.png"; printf 'a,b\n1,2\n' > "$N/data.csv"
