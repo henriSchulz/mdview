@@ -194,6 +194,7 @@
       tiles.clear();
       items = [];
       if (pasteEl.parentNode !== body) { body.textContent = ""; body.appendChild(pasteEl); }
+      saidWhere();
       return;
     }
     if (scope === "boards") {
@@ -208,13 +209,14 @@
       tiles.clear();
       items = [];
       setSegs();
-      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); return; }
+      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); saidWhere(); return; }
       const grid = document.createElement("div");
       grid.className = layout === "list" ? "ov-list" : "ov-grid";
       notes.forEach((n, i) => { const t = item(n, i, false); grid.appendChild(t); items.push(t); });
       body.appendChild(grid);
       const there = new Set(items.map((t) => t.dataset.path));
       for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
+      saidWhere();
       return;
     }
     if (scope === "folders") {
@@ -235,7 +237,7 @@
     body.textContent = "";
     tiles.clear();
     items = [];
-    if (!total) { body.innerHTML = core.emptyState(); return; }
+    if (!total) { body.innerHTML = core.emptyState(); saidWhere(); return; }
     let i = 0;
     const later = [];
     for (const g of gs) {
@@ -261,6 +263,7 @@
     for (const img of body.querySelectorAll(":is(.ov-pic, .ov-mini) > img")) if (img.complete) img.classList.add("on");
     queue = [...tiles.keys()];
     paintLater(later);
+    saidWhere();
     ask();
   }
   /* The beginnings already known, put into their sheets a few at a time after the first ones — so that the tiles come at once
@@ -769,5 +772,16 @@
   // a note chosen in the sidebar while the tiles show: the note
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
-  window.MdOverview = { open, close, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
+  // where one is, for back and forward (viewer/tabs.js): this choice, in this folder
+  const saidWhere = () => { core.navHere({ all: true, at: scope === "folders" ? [...at] : [], scope }); }; // (built: open, or opening)
+  /* Back or forward to All Notes as it stood: that choice, in that folder (viewer/tabs.js) */
+  function showAt(where, sc = "folders") {
+    if (!core.folder) return;
+    if (!isOpen()) open(sc === "paste" ? "paste" : null);
+    scope = ["folders", "all", "boards", "paste"].includes(sc) ? sc : "folders";
+    at = [...where];
+    picked.clear();
+    rebuild();
+  }
+  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();

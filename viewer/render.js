@@ -75,6 +75,7 @@
       p.text = p.raw = "";
       current = p;
       document.title = p.name;
+      if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path });
       if (!prev || prev.path !== p.path) P.markActiveNote(true);
       draw(p, null);
       return;
@@ -89,6 +90,7 @@
     p.text = p.text.replace(/\r\n?/g, "\n");
     current = p;
     if (!p.error) P.trailPush(p.path, p.text);
+    if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path }); // (back and forward: viewer/tabs.js)
     // the mode the app was last used in (once, for the window's first note)
     // back from a PDF, or from a tab with no note in it: the mode the note before it was in (neither
     // has modes; it only looked like a change to reading)

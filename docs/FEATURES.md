@@ -711,6 +711,11 @@ Not there yet: a table's single rows and columns pulled to size or put in betwee
 
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
+**Back and forward**, as a browser has them: each tab has one way back through what was shown in
+it — the notes, and All Notes in the folder (and the choice) it stood at — so from a note one goes
+back into the folder one came from, and from folder to folder. The arrows beside the house in the
+strip of tabs (faint where there is nowhere to go), `Alt+←` / `Alt+→`, the mouse's side buttons.
+
 In the active mode `[[` brings its closing brackets, the caret between them, and the folder's notes
 are offered under the caret while the name is typed — in the text itself (the one opened last
 first). `Enter` or a click takes the one marked and the link stands, complete; `]` ends it with the
@@ -1293,7 +1298,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 | `Ctrl+Shift+X` | strikethrough |
 | `Ctrl+Shift+V` | paste and match style |
 | `Ctrl+D` | duplicate the block |
-| `Alt+←` / `Alt+→` | back / forward |
+| `Alt+←` / `Alt+→` | back / forward — notes and All Notes' folders, in the tab |
 | `Ctrl` or `Super` + `+` / `−` | the note's text larger / smaller (50 % to 250 %); in a PDF: its pages |
 | `Ctrl+0` | the note at 100 % again; in a PDF: fit the width |
 

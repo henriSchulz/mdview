@@ -43,6 +43,7 @@
 #   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
+#   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -525,6 +526,16 @@ case "${1:-}" in
     for _ in $(seq 300); do ls "$R/out"/*.switching.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.switching.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  navigate)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Projects"; rm -f "$R/out"/*.navigate.json
+    printf '# Inbox\n\nSome text.\n' > "$N/Inbox.md"; printf '# Plan\n\nThe plan.\n' > "$N/Projects/Plan.md"; printf '# Other\n\nMore.\n' > "$N/Projects/Other.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-navigate.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 400); do ls "$R/out"/*.navigate.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.navigate.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   railfav)

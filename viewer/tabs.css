@@ -69,6 +69,10 @@ body[data-overview] .tab-list:not(:has(.tab[aria-selected="true"][data-path=""])
 :is(.tab-home, .tab-new):active, .tab:active:not(:has(.tab-x:active)) { scale: var(--press-scale); transition-duration: var(--dur-instant), var(--dur-instant), var(--dur-base), var(--spring-smooth-dur), var(--dur-instant); }
 .tab[aria-selected="true"], .tab[aria-selected="true"]:hover { background: transparent; color: var(--fg); font-weight: 500; }
 .tab-home { color: var(--fg2); }
+/* back and forward: beside the house, faint where there is nowhere to go */
+.tab-nav { width: 34px; }
+.tab-nav > svg { width: 17px; height: 17px; }
+.tab-nav:disabled { opacity: 0.32; pointer-events: none; }
 .tab-home[aria-pressed="true"], .tab-home[aria-pressed="true"]:hover { color: var(--accent-text); background: color-mix(in srgb, var(--fg) 12%, transparent); }
 /* All notes shown over a note: the house is where one is, and the note's tab is the way back — it
  * looks like a tab to go to. (An empty tab has nothing but all notes: it stays the one shown.) */

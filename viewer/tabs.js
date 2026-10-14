@@ -22,6 +22,8 @@
   // sidebar's edge while that is open, at the window's while it is closed)
   tabbar.innerHTML = `<div class="tab-row">` +
     `<button class="tab-home tab-side" data-act="sidebar" title="${esc(T("Sidebar (Ctrl+Alt+S)"))}" aria-label="${esc(T("Sidebar"))}">${ICON.sidebar}</button>` +
+    `<button class="tab-home tab-nav" data-act="navback" title="${esc(T("Back (Alt+←)"))}" aria-label="${esc(T("Back"))}" disabled>${ICON.back}</button>` +
+    `<button class="tab-home tab-nav" data-act="navfwd" title="${esc(T("Forward (Alt+→)"))}" aria-label="${esc(T("Forward"))}" disabled>${ICON.forward}</button>` +
     `<button class="tab-home" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.home}</button>` +
     `<div class="tab-list" role="tablist"></div>` +
     `<button class="tab-new" data-act="newtab" title="${esc(T("New tab (Ctrl+T)"))}" aria-label="${esc(T("New tab"))}">${ICON.plus}</button></div>`;
@@ -261,7 +263,55 @@
   if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tb-w", toolbar.offsetWidth + "px")).observe(toolbar);
 
   // what the page's other files use of this one
-  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, pasteTab });
+  /* Back and forward (Henri, 2026-10-14), as a browser has them: one way back for each tab through what was shown in it — the
+   * notes, and All Notes in the folder it stood in — so that from a note one goes back to the folder one came from, and from
+   * folder to folder. The arrows beside the house, Alt+← and Alt+→, the mouse's side buttons (viewer/toolbar.js). What is
+   * shown says where it is: a note drawn (render.js), All Notes built (overview.js), All Notes closed over a note. */
+  const NAV_MOST = 60, navs = new Map();
+  let navTo = null, navUntil = 0; // (a step back or forward on its way: what is reported meanwhile and is not it is passed by)
+  const navOf = () => { const id = String(tabShown ?? "-"); if (!navs.has(id)) navs.set(id, { back: [], fwd: [], here: null }); return navs.get(id); };
+  const placeKey = (pl) => (!pl ? "" : pl.note ? "n:" + pl.note : "a:" + (pl.scope || "folders") + ":" + (pl.at || []).join("/"));
+  function navHere(place) {
+    if (!place || !tabsOn()) return;
+    const n = navOf(), key = placeKey(place);
+    if (navTo) {
+      if (key === navTo || performance.now() > navUntil) navTo = null;
+      else return;
+    }
+    if (placeKey(n.here) === key) return;
+    if (n.here) { n.back.push(n.here); if (n.back.length > NAV_MOST) n.back.shift(); n.fwd = []; }
+    n.here = place;
+    navPaint();
+  }
+  function navGo(dir) {
+    const n = navOf(), from = dir < 0 ? n.back : n.fwd, onto = dir < 0 ? n.fwd : n.back;
+    const place = from.pop();
+    if (!place) return false;
+    if (n.here) onto.push(n.here);
+    n.here = place;
+    navTo = placeKey(place); navUntil = performance.now() + 2500;
+    navPaint();
+    if (place.note) {
+      if (window.MdOverview && MdOverview.isOpen) MdOverview.close(false);
+      if (!P.current || P.current.path !== place.note) post("note", { path: place.note });
+      else navTo = null;
+    } else if (window.MdOverview) MdOverview.showAt(place.at || [], place.scope);
+    return true;
+  }
+  function navPaint() {
+    const n = navOf();
+    tabbar.querySelector('[data-act="navback"]').disabled = !n.back.length;
+    tabbar.querySelector('[data-act="navfwd"]').disabled = !n.fwd.length;
+  }
+  // (All Notes closed over a note — Esc, the note's tab: the note is where one is; a note chosen from the tiles says so itself)
+  let navClosed = 0;
+  new MutationObserver(() => {
+    if (document.body.hasAttribute("data-overview")) return;
+    clearTimeout(navClosed);
+    navClosed = setTimeout(() => { if (!document.body.hasAttribute("data-overview") && P.current && P.current.path) navHere({ note: P.current.path }); }, 400);
+  }).observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
+
+  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, pasteTab, navHere, navGo, navPaint });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     tabs: [() => tabs],

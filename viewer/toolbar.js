@@ -19,6 +19,8 @@
 
   // --- toolbar + find buttons
   const actions = {
+    navback: () => P.navGo(-1),
+    navfwd: () => P.navGo(1),
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
     share: () => { if (P.current && P.current.kind !== "pdf" && !P.current.error) openShare(); else toast(T("Only notes can be shared")); },
@@ -159,8 +161,8 @@
     else if (href && !href.startsWith("#")) post("link", { href: a.href, tab: true });
   });
   addEventListener("mouseup", (e) => {
-    if (e.button === 3) post("back");
-    else if (e.button === 4) post("forward");
+    if (e.button === 3) { if (!P.navGo(-1)) post("back"); }
+    else if (e.button === 4) { if (!P.navGo(1)) post("forward"); }
   });
 
   /* --- A note larger and smaller: Ctrl or Super with + and −, Ctrl+0 for its own size. Only the
@@ -226,8 +228,8 @@
     }
     if (mod && e.shiftKey && k === "g") { e.preventDefault(); focusHit(P.hitIdx - 1); return; }
     // (among the pages of the note first; then among the notes)
-    if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); if (!pageStep(-1)) post("back"); return; }
-    if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); if (!pageStep(1)) post("forward"); return; }
+    if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); if (!pageStep(-1) && !P.navGo(-1)) post("back"); return; }
+    if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); if (!pageStep(1) && !P.navGo(1)) post("forward"); return; }
     if (!typing && !mod && !e.altKey && e.key === "/") { e.preventDefault(); openFind(); }
   });
 
