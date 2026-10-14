@@ -1249,6 +1249,9 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 
 ## Settings (`Ctrl+,`)
 
+Opened from the gear, with `Ctrl+,`, and from a right click beside the note's text or in the
+sidebar's empty room (**Settings…**).
+
 A window of its own (also the gear at the lower left): the groups at the left, their settings at
 the right. A change takes effect at once.
 

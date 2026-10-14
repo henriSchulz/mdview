@@ -860,9 +860,11 @@
     entry("addfiles", "down", T("Add Files…"), "dir new blank") +
     entry("pastef", "clip", T("Paste"), "dir blank", "Ctrl+V") +
     `<div class="menu-rule" data-for="blank"></div>` +
-    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:name", "check", T("Sort by Name"), "blank") +
+    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:modified", "check", T("Sort by Date Modified"), "blank") +
+    `<div class="menu-rule" data-for="blank"></div>` +
+    entry("settings", "gear", T("prefs.open"), "blank", "Ctrl+,") +
     `<div class="menu-rule" data-for="dir"></div>` +
     entry("default", "external", T("Open in Default App"), "file") +
     entry("openwith", "apps", T("Open With…"), "file") +
@@ -1059,6 +1061,7 @@
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
       else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd === "settings") P.openSettings();
       else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
       else if (cmd === "download") post("download", { path });
       else if (cmd === "tab:split") P.splitOpen(item.dataset.path === (P.current && P.current.path) ? null : { path: item.dataset.path });

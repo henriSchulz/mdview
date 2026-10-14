@@ -177,6 +177,16 @@
     menu.querySelector('[data-cmd="rename"]').click(); await sleep(800);
     ok("rail: Rename brings the folder's row and a field for its name", !!q(".sb-list .sb-rename") && q(".sb-list .sb-rename").value === "Projekte" && document.activeElement === q(".sb-list .sb-rename"), [!!q(".sb-list .sb-rename"), document.activeElement && document.activeElement.className]);
     q(".sb-list .sb-rename") && q(".sb-list .sb-rename").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+    // ---- a right click in the sidebar's empty room: new things, the order — and the settings
+    await layout("source");
+    await up();
+    { const r = list.getBoundingClientRect();
+      list.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 40, clientY: r.bottom - 20 })); await sleep(400);
+      const cmds = [...document.querySelectorAll("#ctxmenu .menu-item:not([hidden])")].map((b) => b.dataset.cmd);
+      ok("the sidebar's empty room: its menu has Settings…, after the orders (by name first)", cmds.indexOf("settings") > cmds.indexOf("sort:modified") && cmds.indexOf("sort:name") < cmds.indexOf("sort:opened"), cmds);
+      document.querySelector('#ctxmenu .menu-item[data-cmd="settings"]').click();
+      ok("… chosen: the settings open", await until(() => document.getElementById("settings") && document.getElementById("settings").hasAttribute("data-open"), 3000));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(500); }
     await layout("source");
   } catch (e) { o.error = String(e && e.stack || e); }
   out("sidebar", o);
