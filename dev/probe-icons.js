@@ -17,6 +17,7 @@
     const looks = () => (MdView.core.folder.looks || {}).Finanzen || {};
     if (looks().icon) {
       phase = "again";
+      ok("opened anew: its colour of the more as it was", looks().color === "#7c3aed" && getComputedStyle(row().querySelector(".sb-icon")).color === "rgb(124, 58, 237)", looks());
       ok("opened anew: the folder has the sign it was given — Lucide's, loaded for it", await until(() => row() && row().dataset.icon === "piggy-bank" && /<path|<rect|<circle/.test(row().querySelector(".sb-icon").innerHTML) && !!window.MdIcons, 6000), row() && row().dataset.icon);
     } else {
       const r = row().getBoundingClientRect();
@@ -36,6 +37,17 @@
       look.querySelector('.sl-icon[data-icon="piggy-bank"]').click();
       ok("chosen: it stands on the folder's row, and the search stays", await until(() => row().dataset.icon === "piggy-bank") && find().value === "geld" && look.querySelector('.sl-icon[data-icon="piggy-bank"]').classList.contains("on"), [row().dataset.icon, find().value]);
       ok("… kept in the folder", looks().icon === "piggy-bank", looks());
+      // more colours: behind the plus — 48 more, and any as #rrggbb
+      ok("the colours: the theme's seven, none, and a button for more", look.querySelectorAll(".sl-colors .sl-color").length === 9 && !!look.querySelector("[data-more]") && !look.querySelector(".sl-more-colors"));
+      look.querySelector("[data-more]").click();
+      ok("… opened: 48 more and a field for any colour", await until(() => look.querySelectorAll(".sl-more-colors .sl-color").length === 48 && !!look.querySelector(".sl-hex-in")));
+      look.querySelector('.sl-more-colors [data-color="#0d9488"]').click();
+      ok("one chosen: the folder's row in it, the plus wearing it", await until(() => looks().color === "#0d9488") && getComputedStyle(row().querySelector(".sb-icon")).color === "rgb(13, 148, 136)" && look.querySelector("[data-more]").classList.contains("on"), [looks(), getComputedStyle(row().querySelector(".sb-icon")).color]);
+      const hex = look.querySelector(".sl-hex-in"); hex.focus(); hex.value = "c0ffee";
+      hex.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      ok("any colour written in the field, taken with Enter", await until(() => looks().color === "#c0ffee") && look.querySelector(".sl-hex-in").value === "#c0ffee", looks());
+      look.querySelector('.sl-more-colors [data-color="#7c3aed"]').click();
+      await until(() => looks().color === "#7c3aed");
       out("shown", {});
       await sleep(900);
     }

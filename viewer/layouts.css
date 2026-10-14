@@ -127,11 +127,24 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 /* a folder's colour and its sign, chosen */
 #sblook { position: fixed; z-index: 40; box-sizing: border-box; width: 300px; padding: 10px 12px 12px; font: 400 13px/1.3 var(--ui); user-select: none; -webkit-user-select: none; outline: none; }
 .sl-cap { margin: 2px 0 7px; font: 600 11px/1.3 var(--ui); color: var(--fg-quiet); }
-.sl-colors + .sl-cap { margin-top: 12px; }
+.sl-cap:not(:first-child) { margin-top: 12px; }
 .sl-colors { display: flex; gap: 7px; }
 .sl-color { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--fc, color-mix(in srgb, var(--fg) 28%, transparent)); box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.15); cursor: default; transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
 .sl-color:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .sl-color.on { outline: 2px solid var(--fc, var(--fg2)); outline-offset: 2px; }
+/* the more colours: a button of their own (a plus, or the colour chosen among them), and under the row 48 more and a field for any */
+.sl-more { display: grid; place-items: center; background: var(--fc, var(--fill-hover)); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 18%, transparent); color: var(--fg2); }
+.sl-more > svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
+.sl-more[aria-expanded="true"] > svg { transform: rotate(45deg); }
+.sl-more-colors { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin-top: 10px; animation: sl-more-in var(--dur-fast) var(--ease-out); }
+.sl-more-colors .sl-color { width: 18px; height: 18px; }
+.sl-more-colors .sl-color.on { outline-width: 1.5px; outline-offset: 1.5px; }
+@keyframes sl-more-in { from { opacity: 0; transform: translateY(-3px); } }
+.sl-hex { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--fg2); font-size: 12px; }
+.sl-hex > span { flex: none; }
+.sl-hex-in { flex: 1; min-width: 0; height: 24px; box-sizing: border-box; padding: 0 8px; border: 0; border-radius: var(--radius-control); background: var(--fill-hover); color: var(--fg); font: 12px/1 var(--mono, ui-monospace, monospace); outline: none; }
+.sl-hex-in:focus { box-shadow: 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 55%, transparent); }
+.sl-hex > i { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--fc); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 25%, transparent); }
 .sl-icons { --fc-own: var(--fc, var(--accent)); display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; margin: 0 -4px; max-height: 236px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; align-content: start; }
 /* the search over every sign (Lucide's: vendor/icons.js), and what it says where none is called so */
 .sl-find { display: block; box-sizing: border-box; width: 100%; height: 28px; margin: 0 0 8px; padding: 0 10px; border: 0; border-radius: var(--radius-control); background: var(--fill-hover); color: var(--fg); font: inherit; outline: none; }
@@ -145,4 +158,5 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 @media (prefers-reduced-motion: reduce) {
   .sb-list.sb-push, .sb-list.sb-push-back { animation: none; }
   .sb-rt:active, .sb-tile:active, .sb-new-note:active, .sl-color:active { transform: none; }
+  .sl-more-colors { animation: none; }
 }
