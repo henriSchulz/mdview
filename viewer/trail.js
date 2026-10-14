@@ -1,4 +1,4 @@
-/* mdview, the page — one history for a note across the three modes (undo and redo beyond what
+/* mdview, the page — one history for a note across the modes (undo and redo beyond what
  * a mode did itself). */
 "use strict";
 (() => {
@@ -100,14 +100,14 @@
         return;
       }
     }
-    if (next === "edit" && P.current.readonly) { toast(T("Can't edit: {0}", P.current.readonly)); return; }
-    edCaret = P.mode === "active" && next === "edit" && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
+    if (P.inSource(next) && P.current.readonly) { toast(T("Can't edit: {0}", P.current.readonly)); return; }
+    edCaret = P.mode === "active" && P.inSource(next) && MdActive.view.pm?.hasFocus() ? MdActive.view.caretOffset() : null;
     if (P.mode === "active") { P.leaving = true; flushSave(); P.leaving = false; } // current.text is what the active mode holds
     if (next === "active" && !P.current.toldLarge && P.current.text.length > 400000 && P.current.text.split("\n").length > LARGE_LINES) {
       P.current.toldLarge = true;
       toast(T("active.large"));
     }
-    if (next === "edit") {
+    if (P.inSource(next)) {
       if (P.edPath !== P.current.path || (!dirty() && edInput.value !== P.current.text)) {
         // What was done in the active mode since the source editor last had the note goes into
         // its undo history step by step (once it is on screen: swapView).
@@ -133,17 +133,18 @@
     post("mode", { edit: P.mode !== "read", name: P.mode });
     showMode();
     closeOutline();
-    // Reading <-> active: the same document in the same place, nothing to fade.
-    if (prev !== "edit" && next !== "edit") { clearTimeout(P.swapTimer); swapView(); return; }
+    // Reading <-> active: the same document in the same place, nothing to fade; the source alone <-> the source beside its
+    // reading: the same source, which makes room (viewer/twin.js).
+    if (P.inSource(prev) === P.inSource(next)) { clearTimeout(P.swapTimer); swapView(); return; }
     document.body.classList.add("swapping", "swapped");
     clearTimeout(P.swapTimer);
     P.swapTimer = setTimeout(swapView, motionMs("--dur-fast", 160) * 0.7);
   }
   function swapView() {
     P.swapTimer = 0;
-    const body = document.body, from = body.dataset.view || "read";
-    if (from !== P.mode) {
-      if (P.mode === "edit") {
+    const body = document.body, from = body.dataset.view || "read", to = P.inSource() ? "edit" : P.mode; // (the view: the source's in both its modes)
+    if (from !== to) {
+      if (to === "edit") {
         const a = window.scrollY < 4 ? { line: null } : captureAnchor(undefined, from === "active");
         body.dataset.view = "edit";
         if (edReplay) { for (const text of edReplay) edStep(text); edReplay = null; P.savedText = edInput.value; }
@@ -184,9 +185,9 @@
     }
     void body.offsetWidth;
     body.classList.remove("swapping");
-    if (P.mode === "edit" && !findOpen()) edInput.focus({ preventScroll: true });
+    if (P.inSource() && !findOpen()) edInput.focus({ preventScroll: true });
     if (P.mode === "active" && !findOpen()) { MdActive.view.caretHere(); MdActive.view.focus(); }
-    if (P.mode === "edit" && P.edReveal) revealCaret();
+    if (P.inSource() && P.edReveal) revealCaret();
     P.edReveal = false;
   }
 

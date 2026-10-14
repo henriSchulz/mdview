@@ -24,17 +24,26 @@ an address that names a note (`?n=…`) opens that note, and a reload shows what
 The app stays resident for a while after its last window closes, so the next one opens at once.
 A file changed by another program is read again as it changes.
 
-## Three modes
+## Four modes
 
-The switch at the top right, or `Ctrl+Alt+1` / `2` / `3`.
+The switch at the top right — active, source and reading, source, reading, in that order — or `Ctrl+Alt+1` / `2` / `3` / `4`.
 
 | Mode | Key | What it is |
 |---|---|---|
-| Source | `Ctrl+Alt+1`, `Ctrl+E` | the Markdown itself, highlighted, edited in place |
-| Active | `Ctrl+Alt+2` | the rendered note, written in directly; the file changes only where it was edited |
-| Reading | `Ctrl+Alt+3` | the rendered note, read only (tasks can still be ticked) |
+| Active | `Ctrl+Alt+1` | the rendered note, written in directly; the file changes only where it was edited |
+| Source and reading | `Ctrl+Alt+2` | the source at the left, the note as it reads at the right |
+| Source | `Ctrl+Alt+3`, `Ctrl+E` | the Markdown itself, highlighted, edited in place |
+| Reading | `Ctrl+Alt+4` | the rendered note, read only (tasks can still be ticked) |
 
 Edits are saved by themselves. The settings (`Ctrl+,`) choose the mode a new window starts in.
+
+**Source and reading.** The source editor at the left, as in the source mode (find, the outline, undo, saving are its),
+and at the right the note as it reads, drawn anew a moment after each key. The two halves stay at the same place in
+the text: scrolled at the left, the right follows; scrolled at the right, the source follows. A click on a block at the
+right puts the caret at its line; a link there leads where it leads in reading. Tasks are ticked in the source here. With
+the sidebar open the halves share what it leaves; a window too narrow for two (less than 600 px beside the sidebar) shows
+the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
+sheet changes to the source alone, and this mode closes the sheet.
 
 ## Markdown that is rendered
 
@@ -831,7 +840,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   reading view as well, the other two signs dimmed there. The rail is not beside the source.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
-- **Undo** follows across the three modes.
+- **Undo** follows across the modes.
 
 ## A folder of notes
 
@@ -1106,7 +1115,7 @@ counts — and has no writing help by a model.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on
   a button, a row or a title selects nothing.
-- **Reading**: the sidebar, tabs, the three modes, wikilinks, pictures, formulas, PDFs, finding
+- **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
   and becomes a commit after the quiet while, with `Ctrl+S`, and when the tab is left. A commit
@@ -1283,7 +1292,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 
 | Key | Does |
 |---|---|
-| `Ctrl+Alt+1` / `2` / `3` | source / active / reading |
+| `Ctrl+Alt+1` / `2` / `3` / `4` | active / source and reading / source / reading |
 | `Ctrl+E` | reading ↔ source |
 | `Ctrl+F`, `/` | find |
 | `Ctrl+Shift+O` | outline |

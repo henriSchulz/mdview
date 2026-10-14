@@ -9,11 +9,11 @@ const SCRIPTS = [
   "vendor/abbr.min.js", "vendor/emoji.min.js", "vendor/js-yaml.min.js", "vendor/highlight.min.js", "vendor/highlight-extra.min.js",
   "vendor/katex/katex.min.js", "strings.js",
   "viewer/base.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
-  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js",
+  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js",
   "viewer.js", "overview.js",
 ];
 // (and its styles: STYLES in shell.rs)
-const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split"];
+const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin"];
 
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.

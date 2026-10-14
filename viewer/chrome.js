@@ -15,8 +15,8 @@
     `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
     `<button class="tb" data-act="share" title="${esc(T("Share…"))}" aria-label="${esc(T("Share"))}">${ICON.share}</button>` +
-    `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:2"><span class="seg-thumb"></span>` +
-    [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
+    `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:3"><span class="seg-thumb"></span>` +
+    [["active", ICON.pencil], ["split", ICON.split], ["edit", ICON.source], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
     `</div>`; // (the panel at the right: from its rail at the window's edge, or Ctrl+Alt+P — no button of its own here)
@@ -101,7 +101,7 @@
     outlinePop.innerHTML = P.outline.map((o, i) =>
       `<button class="menu-item" role="menuitem" data-i="${i}" style="--indent:${o.level - minLevel}">${esc(o.text)}</button>`).join("");
   }
-  const headingEl = (o) => (P.mode === "edit" ? P.edBack.children[o.line] : elementById(o.slug));
+  const headingEl = (o) => (P.inSource() ? P.edBack.children[o.line] : elementById(o.slug));
   function currentSection() {
     let idx = -1;
     P.outline.forEach((o, i) => {
@@ -118,7 +118,7 @@
   }
   function openOutline() {
     closeFind(false);
-    if (P.mode === "edit") P.outline = P.outlineOf(P.edInput.value);
+    if (P.inSource()) P.outline = P.outlineOf(P.edInput.value);
     else if (P.mode === "active" && MdActive.view.edited) P.outline = P.outlineOf(MdActive.view.serialize(false));
     buildOutline();
     const cur = currentSection();
@@ -145,7 +145,7 @@
     setTimeout(() => item.classList.add("hl"), flash);
     setTimeout(() => {
       closeOutline();
-      if (P.mode === "edit") P.goToLine(P.outline[i].line);
+      if (P.inSource()) P.goToLine(P.outline[i].line);
       else scrollToFragment(P.outline[i].slug, true);
     }, flash * 2);
   }
@@ -177,7 +177,7 @@
     findBar.classList.remove("no-hits");
     if (!q) { findCount.textContent = ""; return; }
     const needle = q.toLocaleLowerCase();
-    if (P.mode === "edit") {
+    if (P.inSource()) {
       const hay = P.edInput.value.toLocaleLowerCase();
       for (let i = hay.indexOf(needle); i !== -1 && hits.length < 5000; i = hay.indexOf(needle, i + needle.length)) {
         const r = P.rangeOf(i, i + q.length);
@@ -224,7 +224,7 @@
     closeOutline();
     showToolbar(true);
     findBar.dataset.open = "";
-    const sel = P.mode === "edit" ? P.edInput.value.slice(P.edInput.selectionStart, P.edInput.selectionEnd) : String(getSelection());
+    const sel = P.inSource() ? P.edInput.value.slice(P.edInput.selectionStart, P.edInput.selectionEnd) : String(getSelection());
     if (sel && !sel.includes("\n") && sel.length < 80) findInput.value = sel;
     findInput.focus();
     findInput.select();
@@ -238,7 +238,7 @@
     hits = [];
     if (refocus) {
       findInput.blur();
-      if (P.mode === "edit") {
+      if (P.inSource()) {
         P.edInput.focus({ preventScroll: true });
         if (r) P.edInput.setSelectionRange(r.at, r.at + String(r).length);
       } else if (r) { const s = getSelection(); s.removeAllRanges(); s.addRange(r); }

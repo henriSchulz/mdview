@@ -88,7 +88,7 @@
   // ---------------------------------------------------------------- what it shows
   /* The note at the left as it stands now, in whatever mode it is written. */
   function textNow() {
-    if (P.mode === "edit" && P.edInput) return P.edInput.value;
+    if (P.inSource() && P.edInput) return P.edInput.value;
     if (P.mode === "active" && window.MdActive && MdActive.view && MdActive.view.pm) { try { return MdActive.view.serialize(false); } catch (e) { /* (not ready) */ } }
     return (P.current && P.current.raw) || "";
   }
@@ -293,6 +293,7 @@
     if (!kind) return P.toast && P.toast(T("This file can't be shown here"));
     if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
     if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
+    if (P.mode === "split") P.setMode("edit"); // (the source beside its reading makes way: one thing beside the note at a time — viewer/twin.js)
     if (!pane) build();
     if (S && S.src) keep(S);
     leave(S);

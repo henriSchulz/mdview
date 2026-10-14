@@ -28,7 +28,7 @@
     ["general", "gear", [
       [null, [
         ["lang", "select", [["en", "English"], ["de", "Deutsch"]]],
-        ["startMode", "select", [["last", "prefs.start.last"], ["read", "mode.read"], ["active", "mode.active"], ["edit", "mode.edit"]]],
+        ["startMode", "select", [["last", "prefs.start.last"], ["read", "mode.read"], ["active", "mode.active"], ["split", "mode.split"], ["edit", "mode.edit"]]],
       ]],
     ]],
     ["appearance", "title", [

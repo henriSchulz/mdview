@@ -32,7 +32,7 @@ impl Win {
             "copy" => host::copy_text(&app.handle, text_of("text").to_string()),
             "mode" => {
                 self.editing = truthy(&msg["edit"]);
-                if let name @ ("read" | "edit" | "active") = text_of("name") {
+                if let name @ ("read" | "edit" | "active" | "split") = text_of("name") {
                     if app.state.get("mode").and_then(Value::as_str) != Some(name) {
                         app.state.insert("mode".into(), json!(name)); // the next window starts in it
                         app.save_state();

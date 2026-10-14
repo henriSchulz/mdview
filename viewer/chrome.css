@@ -92,7 +92,7 @@
 /* (the keyboard's ring stands inside the round button: outside it, the capsule's edge cut it off) */
 #toolbar .tb:focus-visible, #toolbar .seg-btn:focus-visible { outline-offset: -2px; }
 
-/* mode switch: source · active · read. The thumb glides to the chosen one. */
+/* mode switch: active · source beside its reading · source · read. The thumb glides to the chosen one. */
 #toolbar [hidden] { display: none; } /* (a host where a note is only read has no modes: viewer/editor.js, READING) */
 .seg {
   position: relative;

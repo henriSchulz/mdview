@@ -28,10 +28,11 @@
   // to switch between, and nothing to insert or format.
   const READING = !!(window.MdHost && window.MdHost.reading);
   if (READING) { modeSeg.hidden = true; for (const act of ["share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
-  const MODES = ["edit", "active", "read"]; // as in the toolbar
+  const MODES = ["active", "split", "edit", "read"]; // as in the toolbar (and Ctrl+Alt+1 … 4)
   function showMode() {
     modeSeg.style.setProperty("--i", MODES.indexOf(P.mode));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === P.mode));
+    if (P.twinSync) P.twinSync(); // (the source beside its reading: there in its mode, and only there — viewer/twin.js)
   }
 
   /* A change of mode asked for by hand. In a long note it lays the whole note out anew, and the
@@ -42,7 +43,7 @@
   let switching = 0;
   function switchMode(next) {
     if (next === P.mode || !P.current || switching) return;
-    if (P.current.kind === "pdf" || !P.current.text || P.current.text.length < HEAVY || (next === "active" && P.current.error) || (next === "edit" && P.current.readonly)) { P.setMode(next); return; }
+    if (P.current.kind === "pdf" || !P.current.text || P.current.text.length < HEAVY || (next === "active" && P.current.error) || (P.inSource(next) && P.current.readonly)) { P.setMode(next); return; }
     const btn = modeSeg.querySelector(`.seg-btn[data-mode="${next}"]`);
     modeSeg.style.setProperty("--i", MODES.indexOf(next));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b === btn));
@@ -216,7 +217,7 @@
     return r;
   }
   function revealCaret() {
-    if (P.mode !== "edit") return;
+    if (!P.inSource()) return;
     const pos = edInput.selectionDirection === "backward" ? edInput.selectionStart : edInput.selectionEnd;
     const r = rangeOf(pos, pos).getClientRects()[0] || edBack.children[lineOf(pos)].getBoundingClientRect();
     const top = 64 + P.topRoom(), bottom = innerHeight - 48;

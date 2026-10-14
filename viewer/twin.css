@@ -1,0 +1,28 @@
+/* mdview, styles — the source beside its reading (viewer/twin.js): the source at the left, as the source mode has it, the note
+ * as it reads at the right, in the reading view's measure and type. Each half has its own run (the window's scrollbar is put
+ * away, as it is for the sheet beside the note: it would seem to be the right half's); a hairline between them.
+ * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+:root { --twin-room: 100vw; --twin-w: calc(var(--twin-room) / 2); }
+:root:has(> body[data-sidebar="open"]) { --twin-room: calc(100vw - var(--sb-w)); }
+body[data-twin]:not([data-overview]) { padding-right: var(--twin-w); }
+:root:has(> body[data-twin]:not([data-overview])) { scrollbar-width: none; }
+:root:has(> body[data-twin]:not([data-overview]))::-webkit-scrollbar { display: none; }
+
+#twin {
+  position: fixed; z-index: 13; top: 0; right: 0; bottom: 0; width: var(--twin-w); box-sizing: border-box;
+  background: var(--bg); color: var(--fg);
+  opacity: 0; visibility: hidden;
+  transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+body[data-twin] #twin { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+body[data-overview] #twin, body[data-going] #twin .twin-doc { visibility: hidden; } /* (All Notes has the window; on the way to another note, as the note) */
+body[data-tabs] #twin { top: var(--tabs-h); }
+#twin::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line-strong); }
+
+.twin-body { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; outline: none; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--fg) 22%, transparent) transparent; }
+.twin-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px 40px 40vh; zoom: var(--doc-zoom, 1); cursor: default; }
+body:not([data-tabs]) .twin-doc { padding-top: 56px; }
+.twin-doc > :first-child { margin-top: 0; }
+.twin-doc a { cursor: pointer; }
+.twin-doc input:disabled { cursor: default; }
+.twin-empty { color: var(--fg3); }

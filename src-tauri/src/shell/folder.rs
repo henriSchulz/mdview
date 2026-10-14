@@ -164,11 +164,12 @@ impl Win {
         }
         self.rescan(app);
         self.open_path(app, &path, None, true);
-        // written at once, in the mode that is worked in: the active one where that is it, else the source
-        if app.state.get("mode").and_then(Value::as_str) == Some("active") {
-            self.js("MdView.setMode", &[json!("active")]);
-        } else {
-            self.js("MdView.setMode", &[json!("edit"), json!("end")]);
+        // written at once, in the mode that is worked in: the active one where that is it, the source beside its reading
+        // where that is it, else the source
+        match app.state.get("mode").and_then(Value::as_str) {
+            Some("active") => self.js("MdView.setMode", &[json!("active")]),
+            Some("split") => self.js("MdView.setMode", &[json!("split"), json!("end")]),
+            _ => self.js("MdView.setMode", &[json!("edit"), json!("end")]),
         }
     }
 

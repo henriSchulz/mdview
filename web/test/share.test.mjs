@@ -252,6 +252,7 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   await page.waitForTimeout(400);
   assert.equal(await page.evaluate(() => !!document.querySelector("#settings[data-open]")), false);
   await page.keyboard.press("Control+e");
+  await page.keyboard.press("Control+Alt+1");
   await page.keyboard.press("Control+Alt+2");
   await page.evaluate(() => MdView.setMode("active"));
   await page.waitForTimeout(400);

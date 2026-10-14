@@ -8,7 +8,7 @@
   const { stripFrontmatter, stripComments, pagePut, viewOf, pageBar, renderProps } = P; // viewer/prep.js
 
   let current = null, outline = [], generation = 0;
-  let mode = "read"; // "read" | "edit" | "active"
+  let mode = "read"; // "read" | "edit" | "active" | "split" (the source beside its reading: viewer/twin.js)
   let drawn = null;  // what #content shows: { p, text }
 
   /* Another note asked for by hand (the sidebar, a tile): the window answers at once — the row is
@@ -70,7 +70,7 @@
     clearTimeout(placeTimer); // (a place still to be kept is the note's that is leaving — it was kept as it was scrolled)
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
       if (mode !== "read") modeBeforePdf = mode; // (the note after the PDF is in this mode again)
-      if (mode === "edit") { P.flushSave(); P.leaveEditNow(); }
+      if (P.inSource(mode)) { P.flushSave(); P.leaveEditNow(); }
       if (mode === "active") P.leaveActiveNow();
       p.text = p.raw = "";
       current = p;
@@ -97,13 +97,13 @@
     if (!prev || prev.kind === "pdf") {
       const back = modeBeforePdf;
       modeBeforePdf = null;
-      if (back && !p.error && !(back === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(back); }, 0);
+      if (back && !p.error && !(P.inSource(back) && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(back); }, 0);
     }
-    if (p.startMode && p.startMode !== "read" && !p.error && !(p.startMode === "edit" && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(p.startMode); }, 0);
+    if (p.startMode && p.startMode !== "read" && !p.error && !(P.inSource(p.startMode) && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(p.startMode); }, 0);
     document.title = p.name || "Markdown Notes";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images
     if (!prev || prev.path !== p.path) P.markActiveNote(true);
-    if (mode === "edit") {
+    if (P.inSource(mode)) {
       if (prev && prev.path === p.path) { P.adoptDisk(p); return; }
       P.leaveEditNow();
     }
@@ -127,7 +127,7 @@
   // A folder window with nothing to show (no notes yet).
   function clear() {
     if (mode !== "read") modeBeforePdf = mode; // (the note that comes next is in this mode again)
-    if (mode === "edit") { P.flushSave(); P.leaveEditNow(); }
+    if (P.inSource(mode)) { P.flushSave(); P.leaveEditNow(); }
     if (mode === "active") P.leaveActiveNow();
     if (window.MdPdf) MdPdf.leave();
     content.classList.remove("pdf");
@@ -164,15 +164,10 @@
     }
     const v = viewOf(p); // (a note with pages: the page it is at)
     P.pagesShown = v.root || null;
-    const fm = stripFrontmatter(v.text);
-    md.set({ breaks: !!p.vault });
-    const env = { lineOffset: fm.offset, links: p.links || {}, outline: [], depth: 0 };
-    let html = md.render(stripComments(fm.body), env);
-    if (fm.props) html = renderProps(fm.props, { links: env.links, depth: 1 }) + html;
-    if (!html.trim()) html = `<div class="empty-state"><p>This file is empty.</p></div>`;
-    content.innerHTML = html;
+    const r = noteHtml(p, v.text);
+    content.innerHTML = r.html || `<div class="empty-state"><p>This file is empty.</p></div>`;
     pageBar(v, content);
-    outline = env.outline;
+    outline = r.outline;
     reveal();
     if (quiet) { renderMermaid(gen, null); return; }
     if (P.outlineOpen()) P.buildOutline();
@@ -183,6 +178,17 @@
     p.toEnd = false;
     if (P.findOpen()) P.runFind(P.findInput.value, true);
     renderMermaid(gen, anchor);
+  }
+
+  /* A note's text as the reading view has it: its properties, then the Markdown — every block with the source line it
+   * begins at (data-line). The reading view's, and the source's reading beside it (viewer/twin.js). */
+  function noteHtml(p, text) {
+    const fm = stripFrontmatter(text);
+    md.set({ breaks: !!p.vault });
+    const env = { lineOffset: fm.offset, links: p.links || {}, outline: [], depth: 0 };
+    let html = md.render(stripComments(fm.body), env);
+    if (fm.props) html = renderProps(fm.props, { links: env.links, depth: 1 }) + html;
+    return { html: html.trim() ? html : "", outline: env.outline };
   }
 
   let painted = false;
@@ -413,10 +419,11 @@
     document.body.dataset.mode = mode;
     setOnAccent();
     if (current && mode === "read" && content.querySelector(".mermaid-block")) draw(current, captureAnchor());
+    if (P.twinRedraw) P.twinRedraw(); // (the source's reading beside it: its diagrams in the new colours)
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { markNote, placeOf, going, render, clear, draw, shownRoot, captureAnchor, restoreAnchor,
+  Object.assign(P, { markNote, placeOf, going, render, clear, draw, noteHtml, shownRoot, captureAnchor, restoreAnchor,
     elementById, scrollToFragment, reducedMotion, scrollToEnd, renderMermaid, mermaidSvg, setTheme });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

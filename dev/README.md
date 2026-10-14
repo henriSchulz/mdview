@@ -30,6 +30,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/edges.test.mjs` | the spec's edge cases: byte-exact round trip and local edits for nested structures, fences, dollars, broken Markdown, comments, line endings, BOM, Unicode |
 | `tests/map.test.mjs` | `docs/MAP.md` lists the files as they are (`node dev/map.mjs` writes the list) |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
+| `tests/twin.test.mjs` | the fourth mode, the source beside its reading: its place in the switch, its keys, the right half following what is typed (layout and scrolling: `web/test/write.test.mjs`) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
 must not be committed can be added per run: `MDVIEW_CORPUS=~/Documents/Notes npm test`.

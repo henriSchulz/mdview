@@ -135,11 +135,11 @@
   const aiShown = () => { document.body.toggleAttribute("data-ai", aiOn()); if (!aiOn() && window.MdAi) window.MdAi.off(); };
   aiShown();
   // (the note as it is written now, whatever the mode; and Markdown as the page shows it, for what Claude answers)
-  const noteText = () => (P.mode === "active" && window.MdActive?.view?.pm ? MdActive.view.serialize(false) : P.mode === "edit" ? edInput.value : P.current ? P.current.text || "" : "");
+  const noteText = () => (P.mode === "active" && window.MdActive?.view?.pm ? MdActive.view.serialize(false) : P.inSource() ? edInput.value : P.current ? P.current.text || "" : "");
   /* The note's whole text as its file has it (what is typed is in it first). */
   function aiFileText() {
     if (P.mode === "active" && window.MdActive && MdActive.view.pm && MdActive.view.dirty) { P.leaving = true; flushSave(); P.leaving = false; }
-    return P.mode === "edit" ? edInput.value : P.current ? P.current.text || "" : "";
+    return P.inSource() ? edInput.value : P.current ? P.current.text || "" : "";
   }
   /* … and that text put anew (the active mode): shown, kept, and one step of the note's history — back with Ctrl+Z, or
    * undoFileText. The page on screen stays the page on screen. → whether it was done */
