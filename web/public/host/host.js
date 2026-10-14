@@ -1541,8 +1541,15 @@
     tabs = C.tabs(kept && kept.paths.length ? kept : null);
     if (here.sidebar.titles) await loadAll();
     sendFolder();
-    const first = (wanted && good(BASE + "/" + wanted) && BASE + "/" + wanted) || (good(tabs.current.path) && tabs.current.path)
-      || (kept ? null : (good(here.last) && here.last) || (C.notesOf(treeNow({ show: [] }))[0] || {}).path || null);
+    // a start opens on All Notes, in the repository itself (Henri, 2026-10-14) — not on the note last shown: the tabs as they
+    // were, an empty one shown (the page shows All Notes in it). Only an address that names a note opens that note — and a
+    // reload shows what was shown (the tab it was on).
+    const reload = ((performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || {}).type === "reload";
+    const first = wanted && good(BASE + "/" + wanted) ? BASE + "/" + wanted : reload && good(tabs.current.path) ? tabs.current.path : null;
+    if (!first && !(reload && !tabs.current.path)) {
+      const blank = tabs.kept().paths.indexOf("");
+      if (blank >= 0) tabs.selectAt(blank); else if (tabs.current.path) tabs.add(null, null, Infinity);
+    }
     if (first) {
       const there = tabs.find(first);
       if (there >= 0 && tabs.current.path !== first) apply(tabs.selectAt(there)); else openPath(first, null, false);

@@ -12,6 +12,22 @@
   const until = async (f, ms = 4000) => { for (let t = 0; t < ms; t += 50) { if (f()) return true; await sleep(50); } return !!f(); };
   const done = (error) => { post({ type: "probe", name: "explorer", text: JSON.stringify({ steps, error }) }); post({ type: "close" }); };
   try {
+    // (how the folder opened: All Notes over an empty tab — looked at before the note below is opened)
+    for (let i = 0; i < 200 && !(window.MdOverview && MdOverview.isOpen && document.querySelector("#overview .ov-tile, #overview .ov-row")); i++) await new Promise((r) => setTimeout(r, 50));
+    window.__start = { open: !!(window.MdOverview && MdOverview.isOpen), note: (MdView.core.current && MdView.core.current.path) || null, tabs: document.querySelectorAll("#tabs .tab").length };
+    // (a folder opens on All Notes now — Henri, 2026-10-14: the note this probe is about is opened from there, the first by name)
+    for (let i = 0; i < 200 && !(MdView.core.folder && MdView.core.folder.tree); i++) await new Promise((r) => setTimeout(r, 50));
+    if (!(MdView.core.current && MdView.core.current.path)) {
+      const t = MdView.core.folder.tree, all = (d) => [...d.notes, ...d.dirs.flatMap(all)], md = (n) => !/\.(pdf|board\.svg)$/i.test(n.path);
+      const n = t.notes.filter(md).sort((a, b) => a.name.localeCompare(b.name))[0] || all(t).filter(md)[0];
+      window.MdHost.post(JSON.stringify({ type: "note", path: n.path }));
+      for (let i = 0; i < 200 && !(MdView.core.current && MdView.core.current.path === n.path); i++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 900));
+    }
+    ok("a folder opens on All Notes, in the folder itself — an empty tab shown, the note last shown not opened", (() => { const st = window.__start; return st && st.open && !st.note; })(), window.__start);
+    // (… and a note given to that tab from the sidebar: All Notes goes, the note is there)
+    ok("… a note opened into that tab: All Notes goes", !(window.MdOverview && MdOverview.isOpen) && !!(MdView.core.current && MdView.core.current.path), [window.MdOverview && MdOverview.isOpen]);
     await until(() => MdView.core.folder && MdView.core.current, 8000);
     await sleep(600);
     const root = MdView.core.folder.root, list = document.querySelector("#sidebar .sb-list");

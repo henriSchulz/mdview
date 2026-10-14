@@ -149,7 +149,7 @@
     const now = tabs.find((t) => t.id === tabShown);
     if (window.MdOverview && now) {
       if (!now.path && (was !== tabShown || wasPath)) { if (MdOverview.isOpen) MdOverview.close(false); MdOverview.open(pasteTabs.has(now.id) ? "paste" : null); } // (from one empty tab to another: All Notes, or the pasteboard)
-      else if (now.path && was !== tabShown) MdOverview.close(false);
+      else if (now.path && (was !== tabShown || !wasPath)) MdOverview.close(false); // (… and an empty tab given a note — a start's, from the sidebar: the note, not the tiles over it)
     }
   }
   function selectTab(id) {

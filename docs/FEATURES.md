@@ -14,9 +14,12 @@ itself: every example below is drawn as it would be in a note.
 | Command | What opens |
 |---|---|
 | `mdview FILE.md` | the note, in a window of its own |
-| `mdview FOLDER` | the folder: a sidebar with its notes, the note opened last |
-| `mdview` | the folder opened last |
+| `mdview FOLDER` | the folder: a sidebar with its notes, All Notes in the folder itself (its tabs as they were, an empty one shown) |
+| `mdview` | the folder opened last, the same way |
 | `mdview FILE.pdf` | the PDF, in the built-in viewer |
+
+In the browser the same: a repository's address opens on All Notes, in the repository itself;
+an address that names a note (`?n=…`) opens that note, and a reload shows what was shown.
 
 The app stays resident for a while after its last window closes, so the next one opens at once.
 A file changed by another program is read again as it changes.

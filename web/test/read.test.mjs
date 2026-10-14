@@ -62,7 +62,9 @@ const untilNote = (name) => page.waitForFunction((n) => window.MdView && MdView.
 
 test("a repository opens as the desktop app shows a folder", async () => {
   await page.goto(`${base}/r/octo/notes`);
-  await untilNote("Embedded.md"); // (opened for the first time: its first note, by name — as the desktop does)
+  // (opened without a note named: All Notes, in the repository itself — no note on screen, an empty tab shown; as the desktop does)
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen && document.querySelector("#overview .ov-tile, #overview .ov-row") && !(MdView.core.current && MdView.core.current.path), null, { timeout: 15000 });
+  assert.equal(new URL(page.url()).searchParams.get("n"), null);
   await page.goto(`${base}/r/octo/notes?n=Home.md`); // (an address names a note)
   await untilNote("Home.md");
   const now = await shown();
