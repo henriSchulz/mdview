@@ -27,7 +27,7 @@
   // A host where a note is only read (a shared one, in the browser: MdHost.reading) has no modes
   // to switch between, and nothing to insert or format.
   const READING = !!(window.MdHost && window.MdHost.reading);
-  if (READING) { modeSeg.hidden = true; for (const act of ["panel", "share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
+  if (READING) { modeSeg.hidden = true; for (const act of ["share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
   const MODES = ["edit", "active", "read"]; // as in the toolbar
   function showMode() {
     modeSeg.style.setProperty("--i", MODES.indexOf(P.mode));

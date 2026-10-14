@@ -788,7 +788,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
-  that is open closes it. The panel lies over the window, under the toolbar and beside the rail:
+  that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
+  slides in from the edge with that mode and out again when the view changes, and the reading
+  view and the source have none (beside the reading view the panel comes only with `Ctrl+Alt+P`,
+  at Document). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and

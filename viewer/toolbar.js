@@ -57,8 +57,6 @@
     next: () => focusHit(P.hitIdx + 1),
     closefind: () => closeFind(),
   };
-  // the panel's button leaves the focus where it is (in the text one goes on typing in)
-  toolbar.addEventListener("mousedown", (e) => { if (e.target.closest('[data-act="panel"]')) e.preventDefault(); });
   for (const root of [toolbar, findBar, sbHead, tabbar]) {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");

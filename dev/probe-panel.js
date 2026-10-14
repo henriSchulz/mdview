@@ -12,8 +12,9 @@
     await document.fonts.ready; await sleep(700);
     // (the wide column beside the panel wants a window of 1400 px: in a narrower one the page is made smaller until it has them)
     if (innerWidth < 1400) { window.MdHost.post(JSON.stringify({ type: "zoom", step: -Math.ceil((1 - innerWidth / 1400) * 10) })); await sleep(600); }
-    const btn = document.querySelector('#toolbar [data-act="panel"]');
-    ok("the toolbar has the panel's button", !!btn);
+    // (no button of its own in the toolbar any more — the rail at the window's edge, and Ctrl+Alt+P: that key stands in for it here)
+    ok("the toolbar has no button for the panel", !document.querySelector('#toolbar [data-act="panel"]'));
+    const btn = { click: () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, altKey: true, bubbles: true, cancelable: true })) };
     MdView.setMode("read");
     for (let i = 0; i < 300 && document.body.dataset.view === "active"; i++) await sleep(10);
     await sleep(400);
@@ -29,12 +30,11 @@
     const plain = bgOf(document.body), narrow = colW(content);
     // (a ground lies around the note: the window shows it, and the note is a sheet of the theme's own ground on it)
     const sheet = () => document.querySelector(document.body.dataset.view === "active" ? "#active" : "#content"), around = () => getComputedStyle(root).backgroundImage;
-    ok("in the reading view the button is not dimmed", getComputedStyle(btn).pointerEvents !== "none" && getComputedStyle(btn).opacity === "1", [getComputedStyle(btn).pointerEvents, getComputedStyle(btn).opacity]);
     btn.click();
     for (let i = 0; i < 400 && !document.getElementById("rpanel"); i++) await sleep(10);
     await sleep(500);
     const panel0 = document.getElementById("rpanel");
-    ok("in the reading view the button opens it on Document, the other tabs dimmed, the mode stays", document.body.dataset.view !== "active" && document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && panel0.dataset.tab === "style" && tabs() === "Insert- Format- Style* Information" && window.MdPrefs.panel === true && window.MdPrefs.panelTab === "style", [document.body.dataset.view, tabs(), window.MdPrefs.panelTab]);
+    ok("in the reading view the key opens it on Document, the other tabs dimmed, the mode stays", document.body.dataset.view !== "active" && document.body.hasAttribute("data-panel") && panel0.dataset.tab === "style" && tabs() === "Insert- Format- Style* Information" && window.MdPrefs.panel === true && window.MdPrefs.panelTab === "style", [document.body.dataset.view, tabs(), window.MdPrefs.panelTab]);
     ok("the note made room", content.getBoundingClientRect().right <= panel0.getBoundingClientRect().left + 1 && getComputedStyle(panel0).visibility === "visible", [content.getBoundingClientRect().right, panel0.getBoundingClientRect().left]);
     ok("the note counted: words, characters, reading time, blocks, headings", fact("words") === "582" && fact("chars") === (3108).toLocaleString() && fact("minutes") === "3 min" && fact("blocks") === "46" && fact("headings") === "1", ["words", "chars", "minutes", "blocks", "headings"].map(fact));
     ok("what the note has none of is not listed", document.querySelector('#rpanel [data-fact="tasks"]').parentNode.offsetHeight === 0 && document.querySelector('#rpanel [data-fact="pages"]').parentNode.offsetHeight === 0);
@@ -126,7 +126,7 @@
 
         btn.click();
     await sleep(400);
-    ok("in the active mode the button opens it", document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "true" && window.MdPrefs.panel === true);
+    ok("in the active mode the key opens it", document.body.hasAttribute("data-panel") && window.MdPrefs.panel === true);
     ok("the Insert tab shows, with its tiles in sections", panel.dataset.tab === "insert" && panel.querySelectorAll(".rp-tile").length === 34 && [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent).join("|") === "Blocks|Lists|Decorations|Callout|Columns|Media|Insert Line|Insert Table", [...panel.querySelectorAll('[data-pane="insert"] .rp-sec')].map((h) => h.textContent));
     ok("every tile has its picture", [...panel.querySelectorAll(".rp-tile")].every((t) => t.querySelector(".rp-card svg")));
     ok("the text column made room", view.dom.getBoundingClientRect().right <= panel.getBoundingClientRect().left + 1, [view.dom.getBoundingClientRect().right, panel.getBoundingClientRect().left]);
@@ -193,16 +193,16 @@
 
     btn.click();
     await sleep(300);
-    ok("the button closes it, and the settings know", !document.body.hasAttribute("data-panel") && window.MdPrefs.panel === false && btn.getAttribute("aria-pressed") === "false");
+    ok("the key closes it, and the settings know", !document.body.hasAttribute("data-panel") && window.MdPrefs.panel === false);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(300);
     ok("Ctrl+Alt+P opens it again, on the tab it had", document.body.hasAttribute("data-panel") && panel.dataset.tab === "format");
     MdView.setMode("edit");
     await sleep(600);
-    ok("beside the source it is not shown, and its button is dimmed", !document.body.hasAttribute("data-panel") && getComputedStyle(btn).pointerEvents === "none" && getComputedStyle(panel).visibility === "hidden" && window.MdPrefs.panel === true, [document.body.hasAttribute("data-panel"), getComputedStyle(btn).pointerEvents]);
+    ok("beside the source it is not shown, nor its rail", !document.body.hasAttribute("data-panel") && !document.body.hasAttribute("data-rail") && getComputedStyle(panel).visibility === "hidden" && window.MdPrefs.panel === true, [document.body.hasAttribute("data-panel"), document.body.hasAttribute("data-rail")]);
     MdView.setMode("read");
     await sleep(600);
-    ok("… nor beside the reading view while its tab is Format", !document.body.hasAttribute("data-panel") && btn.getAttribute("aria-pressed") === "false");
+    ok("… nor beside the reading view while its tab is Format", !document.body.hasAttribute("data-panel"));
     MdView.setMode("active");
     await sleep(700);
     ok("… and back in the active mode it is there again", document.body.hasAttribute("data-panel") && panel.dataset.tab === "format");
@@ -227,6 +227,18 @@
     ok("the open part's sign closes the panel; the rail stays, nothing marked", !document.body.hasAttribute("data-panel") && document.body.hasAttribute("data-rail") && !tabs().includes("*") && window.MdPrefs.panel === false, [tabs(), window.MdPrefs.panel]);
     sign("insert").click(); await sleep(300); btn.click();
     await sleep(900);
+    // the rail is the active mode's: away beside the reading view, sliding out to the window's edge — and in again with the active mode
+    const rr = document.getElementById("rrail"), railAt = () => [Number(getComputedStyle(rr).opacity).toFixed(2), getComputedStyle(rr).translate];
+    if (document.body.dataset.view !== "active") { MdView.setMode("active"); await sleep(900); }
+    const shownAt = railAt();
+    MdView.setMode("read"); await sleep(70);
+    const going = railAt();
+    await sleep(700);
+    ok("in the reading view no rail at all — it goes out sliding to the edge", !document.body.hasAttribute("data-rail") && getComputedStyle(rr).visibility === "hidden" && shownAt[0] === "1.00" && Number(going[0]) < 1 && going[1] !== "0px" && going[1] !== "none", [shownAt, going, railAt()]);
+    MdView.setMode("active"); await sleep(90);
+    const coming = railAt();
+    await sleep(800);
+    ok("… and comes in with the active mode", document.body.hasAttribute("data-rail") && Number(coming[0]) < 1 && /^\d/.test(coming[1]) && coming[1] !== "0px" && railAt()[0] === "1.00", [coming, railAt()]);
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
   out("panel", o);
 })();

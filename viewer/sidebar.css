@@ -57,8 +57,6 @@ body[data-sidebar="open"] { padding-left: var(--sb-w); }
 #toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
 /* the panel at the right is not the source's: there its button stands dimmed and takes no click
  * (beside the reading view it shows what is the document's — its third tab; active/panel.js) */
-#toolbar [data-act="panel"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-body[data-view="edit"] #toolbar [data-act="panel"] { opacity: 0.4; pointer-events: none; }
 /* the history's button where this app keeps none: dimmed, and still to be clicked */
 .sb-head [data-act="historymenu"] { transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 /* (not dimmed — it is there to be clicked: a stroke through it says that nothing is kept) */

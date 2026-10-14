@@ -820,8 +820,6 @@
       "History Is On": "Verlauf ist an",
       "Insert and Format": "Einfügen und Formatieren",
       "Insert and Format (Ctrl+Alt+P)": "Einfügen und Formatieren (Ctrl+Alt+P)",
-      "Insert, Format and Document": "Einfügen, Formatieren und Dokument",
-      "Insert, Format and Document (Ctrl+Alt+P)": "Einfügen, Formatieren und Dokument (Ctrl+Alt+P)",
       "Move to Trash": "In den Papierkorb legen",
       "New Folder": "Neuer Ordner",
       "New Note": "Neue Notiz",
