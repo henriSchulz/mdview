@@ -1,0 +1,304 @@
+/* mdview — two things side by side: beside the note, at the window's right, a second sheet that is only read — the note itself as it
+ * reads (while its source is written at the left: it follows what is typed), another note, a PDF's pages, a picture. The note at
+ * the left is the window's as ever, in any of its modes; what is beside it is chosen where the thing is: Show in Split View in the menu
+ * of a tab that is not the one in the window, Open Beside in a file's menu. (The note beside its own reading: splitOpen(null) —
+ * nothing in the window asks for it yet.) A link to a note or a PDF in the sheet at the right leads on there.
+ *
+ * Another note's text is the host's to read (note-read: the page may not read files); a PDF's pages are drawn by the viewer's
+ * own means (pdfview.js: pageShot), as pictures. */
+"use strict";
+(() => {
+  const P = window.MdPage;
+  const { post, T, esc, svg, READING } = P; // viewer/base.js, viewer/editor.js
+  const I = {
+    close: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
+    over: svg('<path d="M14 6 8 12l6 6"/><path d="M20 12H9"/>'),
+    write: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+    read: svg('<path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H10a2 2 0 0 1 2 2v14a1.6 1.6 0 0 0-1.6-1.6H4.5A1.5 1.5 0 0 1 3 16.9z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H14a2 2 0 0 0-2 2v14a1.6 1.6 0 0 1 1.6-1.6h5.9a1.5 1.5 0 0 0 1.5-1.5z"/>'),
+  };
+  const KINDS = [[/\.(md|markdown|mdown|txt)$/i, "note"], [/\.pdf$/i, "pdf"], [/\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i, "image"]];
+  const kindOf = (path) => (KINDS.find(([re]) => re.test(path)) || [])[1] || null;
+  const nameOf = (path) => path.split("/").pop().replace(/\.(md|markdown|mdown)$/i, "");
+  const fileUrl = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
+
+  let S = null;        // what is beside the note: { kind: "self" | "note" | "pdf" | "image", path, links, shown, of }
+  let pane = null, watch = 0, seq = 0;
+  const waiting = new Map();
+  const body = () => pane.querySelector(".split-body"), doc = () => pane.querySelector(".split-doc");
+
+  // ---------------------------------------------------------------- the sheet
+  function build() {
+    pane = document.createElement("section");
+    pane.id = "split";
+    pane.setAttribute("aria-label", T("Side by Side"));
+    pane.innerHTML = `<div class="split-grip" role="separator" aria-orientation="vertical" aria-label="${esc(T("Side by Side"))}"></div>` +
+      `<div class="split-body" tabindex="-1"><div class="split-doc"></div></div>` +
+      `<div class="split-bar pdf-bar" role="toolbar" aria-label="PDF" hidden></div>` +
+      `<div class="split-cap" role="toolbar"><span class="split-name"></span>` +
+      `<button class="tb" type="button" data-do="write" aria-pressed="false" title="${esc(T("Edit Here"))}" aria-label="${esc(T("Edit Here"))}">${I.write}</button>` +
+      `<button class="tb" type="button" data-do="over" title="${esc(T("Open at the Left"))}" aria-label="${esc(T("Open at the Left"))}">${I.over}</button>` +
+      `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></div>`;
+    document.body.appendChild(pane);
+    sizing(pane.querySelector(".split-grip"));
+    pane.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-do]"), a = e.target.closest("a");
+      if (b) return b.dataset.do === "close" ? close() : b.dataset.do === "write" ? writing(!S.src) : over();
+      if (!a) return;
+      e.preventDefault(); e.stopPropagation(); // (the window's own links lead on at the left: these are the sheet's)
+      const info = a.dataset.wiki && S && S.links ? S.links[a.dataset.wiki] : null;
+      if (info && info.path && kindOf(info.path)) open({ path: info.path });
+    }, true);
+    pane.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+  }
+  const named = (name) => { pane.querySelector(".split-name").textContent = name; };
+
+  /* How the window is shared: half and half at first, and as the hairline between the halves is pulled — each keeps room to be
+   * read in (a third of what there is at least). Kept in this browser; a double click on the line makes it halves again. */
+  const KEEP = "mdview:split";
+  const share = (r) => { r = Math.max(0.3, Math.min(0.7, r)); document.documentElement.style.setProperty("--split-r", String(r)); return r; };
+  try { const r = Number(localStorage.getItem(KEEP)); if (r > 0) share(r); } catch (e) { /* (not kept) */ }
+  function sizing(grip) {
+    let room = null;
+    const kept = (r) => { try { localStorage.setItem(KEEP, String(r)); } catch (e) { /* (not kept) */ } };
+    grip.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const left = document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0;
+      room = { left, wide: innerWidth - left, r: null };
+      grip.setPointerCapture(e.pointerId);
+      pane.dataset.sizing = ""; document.body.dataset.splitSizing = "";
+    });
+    grip.addEventListener("pointermove", (e) => { if (room) { room.r = share((innerWidth - e.clientX) / room.wide); placed(); } });
+    const done = () => { if (!room) return; if (room.r) kept(room.r); room = null; delete pane.dataset.sizing; delete document.body.dataset.splitSizing; };
+    grip.addEventListener("pointerup", done);
+    grip.addEventListener("pointercancel", done);
+    grip.addEventListener("dblclick", () => { kept(share(0.5)); placed(); });
+  }
+  /* The note beside its own reading runs with it: as far down the note at the left is, so far is the sheet at the right (the
+   * two are one text, of two lengths). */
+  let runFrame = 0;
+  function run() {
+    runFrame = 0;
+    if (!S || S.kind !== "self") return;
+    const el = document.scrollingElement, far = el.scrollHeight - innerHeight, b = body();
+    if (far > 0) b.scrollTop = (el.scrollTop / far) * (b.scrollHeight - b.clientHeight);
+  }
+  addEventListener("scroll", () => { if (S && S.kind === "self" && !runFrame) runFrame = requestAnimationFrame(run); }, { passive: true });
+
+  // ---------------------------------------------------------------- what it shows
+  /* The note at the left as it stands now, in whatever mode it is written. */
+  function textNow() {
+    if (P.mode === "edit" && P.edInput) return P.edInput.value;
+    if (P.mode === "active" && window.MdActive && MdActive.view && MdActive.view.pm) { try { return MdActive.view.serialize(false); } catch (e) { /* (not ready) */ } }
+    return (P.current && P.current.raw) || "";
+  }
+  const html = (path, text, links) => P.previewOf(path, text, { whole: true, links: links || {} }).html || `<p class="split-empty">${esc(T("Empty"))}</p>`;
+  /* … drawn again when it is another: what is typed at the left is read at the right a moment later, at the place one was. */
+  function follow() {
+    if (!S || S.kind !== "self") return;
+    const cur = P.current;
+    if (!cur || cur.kind === "pdf" || cur.error) { if (S.shown !== null) { S.shown = null; S.of = null; doc().innerHTML = ""; named(""); } return; }
+    const text = textNow();
+    if (text === S.shown && S.of === cur.path) return;
+    const same = S.of === cur.path, at = body().scrollTop;
+    S.shown = text; S.of = cur.path; S.path = cur.path; S.links = cur.links || {};
+    doc().className = "split-doc";
+    doc().innerHTML = html(cur.path, text, S.links);
+    named(cur.title || nameOf(cur.path));
+    body().scrollTop = same ? at : 0;
+    if (same) run();
+  }
+  /* A note beside the one in the window is written in too: its source, in the sheet, kept a moment after the last key (note-save)
+   * — as the window's own source is, in the same type. Not the note that is in the window as well: one note is written in one
+   * place. */
+  const SAVE_MS = 800;
+  function writing(on) {
+    const s = S;
+    if (!s || s.kind !== "note" || !s.text && s.text !== "") return;
+    const b = pane.querySelector('[data-do="write"]');
+    if (on && P.current && P.current.path === s.path) return P.toast && P.toast(T("This note is open at the left: it is written there"));
+    if (!on) { keep(s); s.src = null; doc().classList.remove("is-src"); doc().innerHTML = html(s.path, s.text, s.links); }
+    else {
+      doc().classList.add("is-src");
+      doc().innerHTML = `<textarea class="split-src" spellcheck="false" aria-label="${esc(T("Edit Here"))}"></textarea>`;
+      const ta = (s.src = doc().firstChild);
+      ta.value = s.text;
+      const fit = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+      ta.addEventListener("input", () => { s.text = ta.value; s.dirty = true; fit(); clearTimeout(s.saving); s.saving = setTimeout(() => keep(s), SAVE_MS); });
+      ta.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); writing(false); } }); // (the keys are the text's, not the window's)
+      ta.addEventListener("blur", () => keep(s));
+      requestAnimationFrame(fit);
+      ta.focus({ preventScroll: true });
+    }
+    b.setAttribute("aria-pressed", String(!!s.src));
+    b.innerHTML = s.src ? I.read : I.write;
+    b.title = T(s.src ? "Read Here" : "Edit Here"); b.setAttribute("aria-label", b.title);
+  }
+  function keep(s) {
+    clearTimeout(s.saving);
+    if (!s.dirty) return;
+    s.dirty = false;
+    const id = "w" + ++seq;
+    waiting.set(id, s);
+    post("note-save", { path: s.path, text: s.text, id });
+  }
+  function saved(id, error) {
+    waiting.delete(id);
+    if (error && P.toast) P.toast(T("Couldn't save: {0}", error));
+  }
+  function got(id, data, error) {
+    const w = waiting.get(id);
+    waiting.delete(id);
+    if (!w || S !== w) return;
+    if (!data) { doc().innerHTML = `<p class="split-empty">${esc(error || T("This file can't be shown here"))}</p>`; return; }
+    S.links = data.links || {};
+    S.text = String(data.text || "");
+    doc().innerHTML = html(S.path, S.text, S.links);
+    body().scrollTop = 0;
+  }
+  /* A PDF beside a note: its pages as pictures, each drawn when it comes near — and over them the viewer's plain controls, as its
+   * own bar has them (pdfview.js, whose looks these are): the page one is on and the way to another, larger and smaller, the
+   * page's width or the whole page fitted. (What the viewer does beyond reading — its side card, a region for a note, drawing —
+   * is the window's left.) */
+  const PI = {
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>', plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    width: '<svg viewBox="0 0 16 16"><path d="M2 8h12M4.5 5.5 2 8l2.5 2.5M11.5 5.5 14 8l-2.5 2.5"/></svg>',
+    page: '<svg viewBox="0 0 16 16"><rect x="3.5" y="1.5" width="9" height="13" rx="1.5"/></svg>',
+  };
+  async function pages(s) {
+    const d = doc(), b = body(), bar = pane.querySelector(".split-bar");
+    d.innerHTML = `<div class="split-page" data-page="1"></div>`;
+    try {
+      await P.loadPdf();
+      const first = await window.MdPdf.pageShot(s.path, 1, Math.max(400, b.clientWidth - 48));
+      if (S !== s) return;
+      const box = first.rect(0, 0, 1, 1), pts = Math.max(1, box[2] - box[0]), ratio = first.img.width / first.img.height;
+      const v = (s.pdf = { n: first.pages, pts, ratio, fit: "width", scale: 1, wide: 0, later: 0 });
+      const btn = (attr, label, icon, more = "") => `<button type="button" class="tb pdf-b" ${attr} title="${esc(T(label))}" aria-label="${esc(T(label))}"${more}>${icon}</button>`;
+      bar.innerHTML = `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="${esc(T("Page"))}"><span class="pdf-of">/ ${v.n}</span><span class="pdf-sep"></span>` +
+        btn('data-pdf="out"', "Zoom out", PI.minus) + `<span class="pdf-zoom"></span>` + btn('data-pdf="in"', "Zoom in", PI.plus) +
+        btn('data-pdf="width"', "Fit width", PI.width, ' aria-pressed="true"') + btn('data-pdf="page"', "Fit page", PI.page, ' aria-pressed="false"');
+      bar.hidden = false;
+      d.innerHTML = Array.from({ length: v.n }, (_x, i) => `<div class="split-page" data-page="${i + 1}" style="aspect-ratio:${ratio}"></div>`).join("");
+      const els = [...d.children];
+      const put = (el, shot, wide) => { if (S !== s || !el.isConnected) return; el.dataset.wide = wide; el.replaceChildren(shot.img); };
+      put(els[0], first, 0);
+      // a page in sight that is not drawn as large as it is shown is drawn anew (the one it has stays until then)
+      const near = (s.near = new IntersectionObserver((list) => {
+        for (const e of list) { e.target.near = e.isIntersecting; if (e.isIntersecting) draw(e.target); }
+      }, { root: b, rootMargin: "600px 0px" }));
+      function draw(el) {
+        const wide = v.wide;
+        if (!el.near || Number(el.dataset.wide) === wide || el.dataset.busy === String(wide)) return;
+        el.dataset.busy = wide;
+        window.MdPdf.pageShot(s.path, Number(el.dataset.page), wide).then((shot) => { if (v.wide === wide) put(el, shot, wide); else draw(el); }, () => {});
+      }
+      const fitted = (how) => { const room = Math.max(120, b.clientWidth - 48); return how === "page" ? Math.min(room / pts, Math.max(120, b.clientHeight - 72) / (pts / ratio)) : room / pts; };
+      /* how: "width", "page", or a number (the page's points to pixels); at: the place in the sheet that stays where it is */
+      function zoom(how, at = null) {
+        const high = b.scrollHeight || 1, y = at ? at.y : 0, into = (b.scrollTop + y) / high, x = at ? at.x : b.clientWidth / 2, across = (b.scrollLeft + x) / (b.scrollWidth || 1);
+        if (typeof how === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, how)); } else { v.fit = how; v.scale = fitted(how); }
+        v.wide = Math.round(pts * v.scale);
+        d.style.setProperty("--pw", v.wide + "px");
+        bar.querySelector(".pdf-zoom").textContent = Math.round(v.scale * 100) + "%";
+        for (const k of ["width", "page"]) bar.querySelector(`[data-pdf="${k}"]`).setAttribute("aria-pressed", String(v.fit === k));
+        b.scrollTop = into * b.scrollHeight - y;
+        b.scrollLeft = across * b.scrollWidth - x;
+        clearTimeout(v.later);
+        v.later = setTimeout(() => { if (S === s) els.forEach(draw); }, 160); // (while the size is pulled the pages are stretched; drawn when it rests)
+      }
+      const now = () => { const mid = b.scrollTop + b.clientHeight * 0.4; let n = 1; for (const el of els) { if (el.offsetTop <= mid) n = Number(el.dataset.page); else break; } return n; };
+      const go = (n) => { n = Math.max(1, Math.min(v.n, Math.floor(n) || 1)); b.scrollTop = els[n - 1].offsetTop - 12; };
+      const input = bar.querySelector(".pdf-page-in");
+      s.gone = [];
+      const on = (el, type, f, more) => { el.addEventListener(type, f, more); s.gone.push(() => el.removeEventListener(type, f, more)); };
+      on(bar, "click", (e) => { const k = (e.target.closest("[data-pdf]") || { dataset: {} }).dataset.pdf; if (k === "in") zoom(v.scale * 1.15); else if (k === "out") zoom(v.scale / 1.15); else if (k) zoom(k); });
+      on(input, "keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { go(Number(input.value)); input.blur(); } else if (e.key === "Escape") { input.value = now(); input.blur(); } });
+      on(input, "focus", () => input.select());
+      on(b, "scroll", () => { if (document.activeElement !== input) input.value = now(); }, { passive: true });
+      on(b, "wheel", (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = b.getBoundingClientRect(); zoom(v.scale * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top }); }, { passive: false });
+      const sized = new ResizeObserver(() => { if (S === s && v.fit) zoom(v.fit); });
+      sized.observe(b);
+      s.gone.push(() => sized.disconnect());
+      zoom("width");
+      for (const el of els) near.observe(el);
+      s.pdfDo = { zoom, go, now, state: () => ({ scale: v.scale, fit: v.fit, wide: v.wide, pages: v.n }) }; // (for the tests)
+    } catch (e) { if (S === s) d.innerHTML = `<p class="split-empty">${esc(T("This PDF can't be opened"))}</p>`; }
+  }
+  /* What a sheet set up for itself is taken away with it. */
+  function leave(s) {
+    if (!s) return;
+    if (s.near) s.near.disconnect();
+    for (const f of s.gone || []) f();
+    if (s.pdf) clearTimeout(s.pdf.later);
+    if (pane) { const bar = pane.querySelector(".split-bar"); bar.hidden = true; bar.innerHTML = ""; doc().style.removeProperty("--pw"); }
+  }
+
+  // ---------------------------------------------------------------- opening and closing
+  /* Two things want room: 300 px each at the least. Where the window has less beside the sidebar, the sidebar makes way; where it
+   * has less even so, there is one thing to show — said, when two are asked for, and the sheet is out of sight for as long. */
+  const ROOM = 600;
+  const sideW = () => (document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0);
+  const fits = () => innerWidth - sideW() >= ROOM;
+  const narrow = () => { document.body.toggleAttribute("data-split-narrow", !!S && !fits()); placed(); };
+  addEventListener("resize", narrow);
+  /* Where the note is a sheet on a ground of its own, what floats at the note's right — the rail, the panel — stands on that sheet,
+   * not across its edge: how far the sheet's edge is from the line between the halves is measured, and said to the stylesheet. */
+  function placed() {
+    const root = document.documentElement;
+    const el = S && pane && root.dataset.docBg ? ["content", "active", "editor"].map((id) => document.getElementById(id)).find((x) => x && x.getClientRects().length) : null;
+    if (!el) return root.style.removeProperty("--split-in");
+    const r = el.getBoundingClientRect(), edge = parseFloat(getComputedStyle(el).borderRightWidth) || 0;
+    root.style.setProperty("--split-in", Math.max(0, Math.round(pane.getBoundingClientRect().left - (r.right - edge))) + "px");
+  }
+  if (typeof MutationObserver === "function") { // (another note, another mode, the sidebar: the sheet may stand elsewhere)
+    const again = new MutationObserver(() => { if (S) requestAnimationFrame(placed); });
+    again.observe(document.documentElement, { attributes: true, attributeFilter: ["data-doc-bg"] });
+    again.observe(document.body, { attributes: true, attributeFilter: ["data-view", "data-sidebar", "data-going"] });
+  }
+  /* what: null — the note at the left, as it reads; { path } — that file. */
+  function open(what) {
+    const kind = what ? kindOf(what.path) : "self";
+    if (!kind) return P.toast && P.toast(T("This file can't be shown here"));
+    if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
+    if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
+    if (!pane) build();
+    if (S && S.src) keep(S);
+    leave(S);
+    const s = (S = { kind, path: what ? what.path : null, links: {}, shown: undefined, of: null });
+    doc().className = "split-doc" + (kind === "pdf" ? " is-pdf" : kind === "image" ? " is-image" : "");
+    doc().innerHTML = "";
+    named(what ? nameOf(what.path) : "");
+    pane.querySelector('[data-do="over"]').hidden = kind === "self";
+    const w = pane.querySelector('[data-do="write"]');
+    w.hidden = kind !== "note"; w.setAttribute("aria-pressed", "false"); w.innerHTML = I.write; w.title = T("Edit Here"); w.setAttribute("aria-label", w.title);
+    document.body.dataset.split = kind;
+    pane.dataset.kind = kind;
+    narrow();
+    clearInterval(watch);
+    if (kind === "self") { follow(); watch = setInterval(follow, 400); }
+    else if (kind === "note") { const id = "s" + ++seq; waiting.set(id, s); post("note-read", { path: s.path, id }); }
+    else if (kind === "pdf") pages(s);
+    else doc().innerHTML = `<img src="${esc(fileUrl(s.path))}" alt="${esc(nameOf(s.path))}" draggable="false">`;
+    body().scrollTop = 0;
+  }
+  function close() {
+    if (!S) return;
+    if (S.src) keep(S);
+    leave(S);
+    S = null;
+    clearInterval(watch);
+    delete document.body.dataset.split;
+    narrow();
+  }
+  /* What is beside the note becomes the window's own: opened at the left, where it can be written. */
+  function over() {
+    if (!S || !S.path || S.kind === "self") return;
+    if (S.src) keep(S);
+    const path = S.path;
+    close();
+    post("note", { path });
+  }
+
+  Object.assign(P, { splitSaved: saved, splitWrite: (on) => writing(on), splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
+})();

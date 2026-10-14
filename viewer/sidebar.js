@@ -206,7 +206,24 @@
   const folderGlyph = (look) => FOLDER_ICONS[look.icon] || ICON.folder;
   const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
   const everyNote = (dir = folder.tree, out = []) => { out.push(...dir.notes); for (const d of dir.dirs) everyNote(d, out); return out; };
-  const sheetOf = (n) => { const s = sbSeen.get(n.path); return `<b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : ""); };
+  /* A sheet shows what the file is (the sheets' layout): a note its beginning, as All Notes' tiles show it; a PDF its first page; a
+   * whiteboard and a picture themselves. Until that is known — and where it cannot be — a note is its name over the shape of its
+   * lines, any other file its sign. */
+  const fileUrl = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
+  let shotSoon = 0;
+  function sheetOf(n) {
+    const s = sbSeen.get(n.path), pic = (src, kind) => `<span class="sb-sheet-in is-pic" data-kind="${kind}"><img src="${esc(src)}" alt="" draggable="false"></span>`;
+    if (n.kind === "image" || n.kind === "board") return pic(fileUrl(n.path) + (n.mtime ? "?v=" + Math.round(n.mtime) : ""), n.kind);
+    if (n.kind === "pdf") {
+      const shot = P.pdfShot.now(n.path, n.mtime);
+      if (shot) return pic(shot, "pdf");
+      // (asked for once; when it is there the sheets are dressed again)
+      if (!P.pdfShot.known(n.path, n.mtime)) P.pdfShot(n.path, n.mtime).then((src) => { if (!src || sbLayout() !== "sheets") return; clearTimeout(shotSoon); shotSoon = setTimeout(() => { if (folder && !folder.quick) syncList(false); }, 60); });
+    }
+    if (n.pdf) return `<span class="sb-sheet-in is-sign">${rowIcon(n.path)}</span>`;
+    if (s && s.html) return `<span class="sb-sheet-in is-real"><span class="ov-prev sb-prev" inert>${s.html}</span></span>`;
+    return `<span class="sb-sheet-in"><b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : "") + "</span>";
+  }
   // what a row shows beyond its name: how a folder looks; when a note was changed; its sheet
   function dressRow(el, e) {
     const row = el.firstChild.firstChild, lay = sbLayout();
@@ -222,7 +239,7 @@
     let sheet = row.querySelector(":scope > .sb-sheet");
     if (lay !== "sheets") { if (sheet) sheet.remove(); return; }
     if (!sheet) { sheet = document.createElement("span"); sheet.className = e.dir ? "sb-sheet is-folder" : "sb-sheet"; sheet.setAttribute("aria-hidden", "true"); row.insertBefore(sheet, row.firstChild); }
-    const html = e.dir ? `<span class="sb-sheet-tab"></span><span class="sb-sheet-in">${folderGlyph(look)}</span>` : `<span class="sb-sheet-in">${sheetOf(e.note)}</span>`;
+    const html = e.dir ? `<span class="sb-sheet-tab"></span><span class="sb-sheet-in">${folderGlyph(look)}</span>` : sheetOf(e.note);
     if (sheet.dataset.html !== html) { sheet.dataset.html = html; sheet.innerHTML = html; }
   }
   // a row that stands outside the tree (opened last, a smart list, what was searched for): the same row, its place said under its name
@@ -296,7 +313,7 @@
   function sbAsk(lay, here) {
     if (sbAsking.size || (lay !== "sheets" && lay !== "tiles")) return;
     const notes = lay === "tiles" ? everyNote() : (here || folder.tree).notes;
-    const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && (sbSeen.get(n.path) || {}).mtime !== n.mtime).slice(0, 40);
+    const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && ((sbSeen.get(n.path) || {}).mtime !== n.mtime || (lay === "sheets" && (sbSeen.get(n.path) || {}).html === undefined))).slice(0, 40); // (the sheets want its beginning too, where only its shape was read)
     if (!want.length) return;
     for (const n of want) { sbAsking.add(n.path); sbSeen.set(n.path, { ...(sbSeen.get(n.path) || { shape: "", open: 0, color: "" }), mtime: n.mtime }); } // (asked once for what it is now, whatever comes back)
     post("previews", { paths: want.map((n) => n.path) });
@@ -310,7 +327,7 @@
       mine = true;
       const fm = stripFrontmatter(String(p.text || "").replace(/\r\n?/g, "\n")), f = pageFacts({ items: fm.body.split("\n") });
       const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : "";
-      sbSeen.set(path, { mtime: (sbSeen.get(path) || {}).mtime, shape: f.shape, open: f.tasks.length - f.done, color });
+      sbSeen.set(path, { mtime: (sbSeen.get(path) || {}).mtime, shape: f.shape, open: f.tasks.length - f.done, color, html: sbLayout() === "sheets" ? P.previewOf(path, String(p.text || "")).html : undefined }); // (html: its beginning, for its sheet)
     }
     if (mine || (sbAsking.size && !Object.keys(got || {}).length)) { sbAsking.clear(); if (folder && !folder.quick) syncList(false); } // (an answer with nothing in it: what was asked for is not to be had)
     return rest;
@@ -815,10 +832,14 @@
   ctx.innerHTML =
     entry("open", "note", T("Open"), "file dir") +
     entry("opentab", "plus", T("Open in New Tab"), "file") +
+    entry("openbeside", "panel", T("Open Beside"), "file") +
     entry("opentab", "plus", T("Open in New Tabs"), "many") +
     `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("tab:new", "plus", T("New Tab"), "tab", "Ctrl+T") +
     entry("tab:reopen", "note", T("Reopen Closed Tab"), "tab", "Ctrl+Shift+T") +
+    `<div class="menu-rule" data-for="tab"></div>` +
+    entry("tab:split", "panel", T("Show in Split View"), "tab") +
+    entry("tab:unsplit", "x", T("Close Split View"), "tab") +
     `<div class="menu-rule" data-for="tab"></div>` +
     entry("tab:close", "x", T("Close Tab"), "tab", "Ctrl+W") +
     entry("tab:others", "x", T("Close Other Tabs"), "tab") +
@@ -979,10 +1000,13 @@
       el.querySelector(".menu-icon").style.visibility = on ? "" : "hidden";
     }
     if (kind === "tab") for (const el of ctxItems) { // what there is nothing to do for stands dimmed
-      const off = (el.dataset.cmd === "tab:reopen" && !P.tabClosed) || (el.dataset.cmd === "tab:others" && P.tabs.length < 2);
+      // (beside the note: a tab that is not the one in the window, and holds something that can be read there — viewer/split.js)
+      const split = P.splitState && P.splitState(), beside = !!item.dataset.path && P.splitFor(item.dataset.path); // (the tab in the window too: the note as it reads, beside its source)
+      const off = (el.dataset.cmd === "tab:reopen" && !P.tabClosed) || (el.dataset.cmd === "tab:others" && P.tabs.length < 2) || (el.dataset.cmd === "tab:split" && !beside);
       el.disabled = off; el.classList.toggle("off", off);
+      if (el.dataset.cmd === "tab:unsplit") el.hidden = !split; // (only while two are side by side)
     }
-    ctxItems = ctxItems.filter((el) => !el.disabled);
+    ctxItems = ctxItems.filter((el) => !el.disabled && !el.hidden);
     const hangs = kind === "new" || kind === "history"; // (from a button of the sidebar's head)
     ctx.style.setProperty("--origin", hangs ? "top right" : "top left");
     if (!hangs && kind !== "blank" || item.matches(".ov-more")) item.classList.add("ctx-target");
@@ -1035,7 +1059,10 @@
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
       else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
       else if (cmd === "download") post("download", { path });
+      else if (cmd === "tab:split") P.splitOpen(item.dataset.path === (P.current && P.current.path) ? null : { path: item.dataset.path });
+      else if (cmd === "tab:unsplit") P.splitClose();
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
       else if (cmd === "rename") {

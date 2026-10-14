@@ -162,11 +162,13 @@
       return `<span class="embed-missing" data-wiki="${esc(target)}">${esc(wikiLabel(target))}</span>`;
     }
     // how large: |300 or |300x200 (as Obsidian), |full for the column's whole width; nothing: its own size
-    const size = alias && /^(\d+)(?:x(\d+))?$/.exec(alias), full = !!alias && /^full$/i.test(alias);
+    // … and turned: |r90, |r180, |r270 before the size (picTail, below)
+    const tail = alias ? picTail("|" + alias) : null, said = tail && !tail.alt ? tail : { size: "", turn: "" };
+    const size = /^(\d+)(?:x(\d+))?$/.exec(said.size), full = said.size === "full", turn = said.turn;
     const dims = size ? ` width="${size[1]}"${size[2] ? ` height="${size[2]}"` : ""}` : "";
     const url = esc(info.url);
     switch (info.kind) {
-      case "image": return `<img class="embed${full ? " full" : ""}" src="${url}" alt="${esc(size || full ? wikiLabel(target) : alias || wikiLabel(target))}"${dims}>`;
+      case "image": return `<img class="embed${full ? " full" : ""}" src="${url}" alt="${esc(size || full || turn ? wikiLabel(target) : alias || wikiLabel(target))}"${dims}${turn ? ` data-turn="${turn}"` : ""}>`;
       case "audio": return `<audio controls src="${url}"></audio>`;
       case "video": return `<video controls src="${url}"${dims}></video>`;
       case "pdf": { // the page, or the part of it the link points to (pdfview.js draws it)
@@ -190,14 +192,26 @@
 
   // A Markdown picture says how large it is at the end of its description, as in Obsidian:
   // ![a tree|300](tree.png), ![a tree|full](tree.png). (imageSize: the same, for the active mode's node.)
-  const imageSize = (alt) => { const m = /^(.*)\|(\d+|full)$/i.exec(alt || ""); return m ? { alt: m[1], size: m[2].toLowerCase() } : { alt: alt || "", size: "" }; };
+  // It may be turned too, by quarters, said before the size: ![a tree|r90|300](tree.png), ![[tree.png|r90]] — r90 a quarter to the
+  // right, r180 upside down, r270 a quarter to the left. (A reader that knows only the width still finds it at the end.)
+  // picTail: "a tree|r90|300" → { alt: "a tree", turn: "90", size: "300" }; picText: the way back.
+  const PIC_TAIL = /(?:\|(?:r(?:90|180|270)|\d+(?:x\d+)?|full))+$/i;
+  const picTail = (text) => {
+    const m = PIC_TAIL.exec(text || ""), out = { alt: m ? text.slice(0, m.index) : text || "", size: "", turn: "" };
+    if (m) for (const p of m[0].slice(1).split("|")) { if (/^r/i.test(p)) out.turn = p.slice(1); else out.size = p.toLowerCase(); }
+    return out;
+  };
+  const picText = (alt, turn, size) => (alt || "") + (turn ? "|r" + turn : "") + (size ? "|" + size : "");
+  const imageSize = picTail;
   const plainImage = md.renderer.rules.image;
   md.renderer.rules.image = (toks, idx, opts, env, self) => {
     const t = toks[idx], last = t.children && t.children[t.children.length - 1];
-    const m = last && last.type === "text" ? /\|(\d+|full)$/i.exec(last.content) : null;
-    if (m) {
-      last.content = last.content.slice(0, m.index);
-      if (m[1].toLowerCase() === "full") t.attrJoin("class", "full"); else t.attrSet("width", m[1]);
+    const said = last && last.type === "text" ? picTail(last.content) : null;
+    if (said && (said.size || said.turn)) {
+      last.content = said.alt;
+      const dims = /^(\d+)(?:x(\d+))?$/.exec(said.size);
+      if (said.size === "full") t.attrJoin("class", "full"); else if (dims) { t.attrSet("width", dims[1]); if (dims[2]) t.attrSet("height", dims[2]); }
+      if (said.turn) t.attrSet("data-turn", said.turn);
     }
     return plainImage(toks, idx, opts, env, self);
   };
@@ -288,6 +302,29 @@
     `</span>${t[i].meta.fold ? `<span class="callout-fold">${ICON.chevron}</span>` : ""}</${t[i].tag}>`;
   md.renderer.rules.callout_body_open = () => '<div class="callout-content">';
   md.renderer.rules.callout_body_close = () => "</div>";
+
+  /* Where a paragraph or a heading stands in its line: a comment at its end says so — "A line <!-- center -->", "<!-- right -->";
+   * none: at the left, as text stands. Any other program shows the text and nothing of the comment. The comment is taken out of
+   * what the block holds; the block has the class (ta-center, ta-right: viewer/text.css) and says it in its meta (align). */
+  const ALIGN = /^<!--\s*(center|right)\s*-->$/;
+  const alignMark = (align) => (align === "center" || align === "right" ? ` <!-- ${align} -->` : "");
+  md.core.ruler.after("inline", "block_align", (state) => {
+    const toks = state.tokens;
+    for (let i = 0; i + 1 < toks.length; i++) {
+      const t = toks[i], inl = toks[i + 1];
+      if ((t.type !== "paragraph_open" && t.type !== "heading_open") || inl.type !== "inline" || !inl.children) continue;
+      const kids = inl.children;
+      let last = kids.length - 1;
+      while (last >= 0 && kids[last].type === "text" && !kids[last].content.trim()) last--;
+      const m = last > 0 && kids[last].type === "html_inline" ? ALIGN.exec(kids[last].content) : null; // (a comment alone in its line is a comment, and no line)
+      if (!m) continue;
+      kids.splice(last);
+      if (kids.length && kids[kids.length - 1].type === "text") kids[kids.length - 1].content = kids[kids.length - 1].content.replace(/[ \t]+$/, "");
+      inl.content = inl.content.replace(/[ \t]*<!--\s*(?:center|right)\s*-->[ \t]*$/, "");
+      t.attrJoin("class", "ta-" + m[1]);
+      t.meta = { ...(t.meta || {}), align: m[1] };
+    }
+  });
 
   /* A link to a note that stands alone in its paragraph, with a comment behind it that says how it
    * looks — [[Name]] <!-- link row -->, <!-- link card -->, one of the theme's colours after that —
@@ -600,6 +637,6 @@
   };
 
   // what the page's other files use of this one
-  Object.assign(P, { md, safeHtml, tex, imageSize, calloutKind, calloutTitle, LINK_ROW, linkMark,
+  Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
     svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal });
 })();

@@ -23,6 +23,7 @@
     let kind = $from.parent.type === N.heading ? "h" + $from.parent.attrs.level : "text";
     if (item && list) kind = item.node.attrs.task != null ? "task" : list.node.type === N.ordered_list ? "ordered" : "bullet";
     return { kind, quote, deco: q ? (q.node.attrs.callout ? "callout" : q.node.attrs.deco || "quote") : null, color: q ? q.node.attrs.color : null,
+      align: ($from.parent.type === N.paragraph || $from.parent.type === N.heading) && $from.parent.attrs.align || null,
       callout: q && q.node.attrs.callout ? q.node.attrs.callout.toLowerCase() : null, fold: q && q.node.attrs.callout ? q.node.attrs.fold : null, cell: !!A.tableui.cellAt($from), textblock: $from.parent.isTextblock };
   }
   /* A quote around what the caret is in. In a list that is the list as a whole (a quote around one
@@ -50,6 +51,21 @@
   const toggleQuote = (state, dispatch) => (A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote) ? unwrapQuote(state, dispatch) : wrapQuote(null)(state, dispatch));
   /* A decoration around the block: a quote (deco null), a tinted block, a focus bar — in a colour.
    * In a quote already, that quote becomes it. */
+  /* Where the text stands in its line — null (left), "center", "right": the paragraphs and headings the selection reaches, or
+   * the blocks selected as wholes. */
+  const setAlign = (align) => (state, dispatch) => {
+    const r = A.blocks.selection(state), from = r ? r.from : state.selection.from, to = r ? r.to : state.selection.to, tr = state.tr;
+    let any = false;
+    state.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.type !== N.paragraph && node.type !== N.heading) return true;
+      any = true;
+      if ((node.attrs.align || null) !== (align || null)) tr.setNodeMarkup(pos, null, { ...node.attrs, align: align || null });
+      return false;
+    });
+    if (!any) return false;
+    if (dispatch) dispatch(tr.setMeta("step", true).scrollIntoView());
+    return true;
+  };
   const setDeco = (deco, color = null) => (state, dispatch) => {
     const q = A.edit.ancestor(state.selection.$from, (n) => n.type === N.blockquote);
     if (!q) return wrapQuote({ deco, color: deco ? color : null })(state, dispatch);
@@ -335,6 +351,7 @@
       ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && window.MdView.core.ai.on() ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
       ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
       ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
+        ...(pic.turnBy ? [item("menu.turnLeft", () => pic.turnBy(-90)), item("menu.turnRight", () => pic.turnBy(90))] : []),
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),
       ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),
@@ -479,5 +496,5 @@
     },
   });
 
-  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setDeco, setCallout, setFold, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setAlign, setDeco, setCallout, setFold, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
 })();

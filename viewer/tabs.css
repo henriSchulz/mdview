@@ -25,6 +25,12 @@
 }
 #tabs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 12px; background: linear-gradient(var(--bg), transparent); pointer-events: none; }
 body[data-tabs] #tabs { display: block; }
+/* A note with a ground of its own (page.css: data-doc-bg): the strip is of that ground — the same picture, held at the window as
+ * the ground is, so the two are one — and not a band of the window's colour across it; its shade below is the ground thinning
+ * out. The sheet begins a little under the strip, with the ground between them. */
+:root[data-doc-bg] > body:not([data-overview]) #tabs, :root[data-doc-bg] > body:not([data-overview]) #tabs::after { background: var(--doc-ground) var(--doc-image) 0 0 / var(--doc-size) fixed; }
+:root[data-doc-bg] > body:not([data-overview]) #tabs::after { -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
+:root[data-doc-bg] > body[data-tabs]:not([data-overview]) :is(#content, #editor, #active) { margin-top: calc(var(--tabs-h) + var(--doc-gap)); min-height: calc(100vh - var(--tabs-h) - 2 * var(--doc-gap)); }
 body[data-sidebar="open"] #tabs { left: var(--sb-w); padding-left: 6px; }
 /* the note begins under the strip; what sticks to the window's top sticks under it */
 body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }

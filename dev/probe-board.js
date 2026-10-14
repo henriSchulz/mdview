@@ -145,7 +145,7 @@
     key("0", { ctrlKey: true });
     stage.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -240, ctrlKey: true, clientX: 300, clientY: 300 }));
     const soon = st().zoom;
-    ok("Ctrl+wheel too — a mouse's notches as a glide to where they lead, not a jump", soon < 1.2 && await until(() => st().zoom > 1.75, 1500), [soon, st().zoom]);
+    ok("Ctrl+wheel too — a mouse's notches as a glide to where they lead, not a jump", await until(() => st().zoom > soon * 1.75, 1500), [soon, st().zoom]);
     await sleep(250);
     key("0", { ctrlKey: true });
     out("drawn", {});

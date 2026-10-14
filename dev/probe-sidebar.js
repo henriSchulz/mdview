@@ -17,6 +17,7 @@
     const layout = async (to) => { window.MdPrefs = { ...(window.MdPrefs || {}), sidebarLayout: to }; MdView.prefsChanged(); await sleep(500); };
     const up = async () => { if (document.body.dataset.sidebar !== "open") { document.querySelector('[data-act="sidebar"]').click(); await sleep(700); } }; // (in a narrow window a note chosen shuts the drawer)
     const shot = async (name) => { out(name, {}); await sleep(900); };
+    const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
 
     // ---- source (what a folder opens in)
     ok("a folder opens with the list: the tree, and new and order at its foot", sb.dataset.layout === "source" && shown(q(".sb-foot")) && !shown(q('.sb-head [data-act="newmenu"]')) && !shown(q(".sb-rail")) && !shown(q(".sb-smart")), sb.dataset.layout);
@@ -75,7 +76,7 @@
     await sleep(900); // (the notes' beginnings are read)
     const tiles = () => names(".sb-list .sb-row");
     ok("sheets: the folder's folders and notes, a tile each", sb.dataset.layout === "sheets" && JSON.stringify(tiles().slice(0, 2)) === '["Projekte","Studium"]' && JSON.stringify(tiles().slice(2).sort()) === '["Alpha","Beta","Gamma"]' && getComputedStyle(list).display === "grid", tiles());
-    ok("a note's sheet is drawn as the note is built; a folder is a folder with its sign, and no number", rowOf("Beta").querySelectorAll(".sb-sheet i.c").length === 2 && rowOf("Alpha").querySelector(".sb-sheet b").textContent === "Alpha" && !rowOf("Studium").querySelector(".sb-sheet.is-folder b") && !!rowOf("Studium").querySelector(".sb-sheet.is-folder svg, .sb-sheet.is-folder .sf"), rowOf("Beta").querySelector(".sb-sheet").innerHTML);
+    ok("a note's sheet shows the note's beginning, small; a folder is a folder with its sign, and no number", await until(() => rowOf("Alpha").querySelector(".sb-sheet .sb-prev")) && /Some text\./.test(rowOf("Alpha").querySelector(".sb-sheet .sb-prev").textContent) && rowOf("Beta").querySelectorAll(".sb-sheet .sb-prev li").length === 2 && rowOf("Alpha").querySelector(".sb-sheet .sb-prev").getBoundingClientRect().width < 90 && !rowOf("Studium").querySelector(".sb-sheet.is-folder b") && !!rowOf("Studium").querySelector(".sb-sheet.is-folder svg, .sb-sheet.is-folder .sf"), rowOf("Beta").querySelector(".sb-sheet").innerHTML);
     const a = rowOf("Projekte").getBoundingClientRect(), b = rowOf("Studium").getBoundingClientRect();
     ok("the tiles stand side by side", Math.abs(a.top - b.top) < 2 && b.left > a.right - 2, [a.top, b.top, a.right, b.left]);
     await shot("sheets");

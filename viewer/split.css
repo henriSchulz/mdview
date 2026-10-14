@@ -1,0 +1,87 @@
+/* mdview, styles — two things side by side (viewer/split.js). The window is two halves of one kind, as an editor's split is: the
+ * note at the left, a second sheet at the right that is only read. Each has its own run — the window's scrollbar is put away, so
+ * that neither half seems to own the other's — the same measure, the same room above its first line, the same type; between them
+ * a hairline that can be pulled. What floats over a note (the rail, the panel, the bubble) keeps to the note's half; what belongs
+ * to the sheet at the right is a small capsule in its corner, as the window's toolbar is one.
+ * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+:root { --split-r: 0.5; --split-room: 100vw; --split-w: calc(var(--split-room) * var(--split-r)); }
+:root:has(> body[data-sidebar="open"]) { --split-room: calc(100vw - var(--sb-w)); }
+body[data-split]:not([data-overview]) { padding-right: var(--split-w); }
+:root:has(> body[data-split]:not([data-overview])) { scrollbar-width: none; }
+:root:has(> body[data-split]:not([data-overview]))::-webkit-scrollbar { display: none; }
+
+#split {
+  position: fixed; z-index: 14; top: 0; right: 0; bottom: 0; width: var(--split-w); box-sizing: border-box;
+  background: var(--bg); color: var(--fg);
+  opacity: 0; visibility: hidden;
+  transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+body[data-split] #split { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+body[data-overview] #split { display: none; } /* (All Notes has the window) */
+body[data-tabs] #split { top: var(--tabs-h); }
+/* the hairline between the halves, and the hand's hold on it */
+#split::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 1px; background: var(--line-strong); transition: background-color var(--dur-fast) var(--ease-out), width var(--dur-fast) var(--ease-out); }
+.split-grip { position: absolute; z-index: 3; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; touch-action: none; }
+#split:has(.split-grip:hover)::before, #split[data-sizing]::before { background: var(--accent); width: 2px; transition-duration: var(--dur-instant); }
+body[data-split-sizing] { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+body[data-split-sizing] :is(#content, #active, #editor, .split-body) { pointer-events: none; }
+
+/* the sheet's own run: as the note's column at the left — its measure, the room above the first line, the type */
+.split-body { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; outline: none; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--fg) 22%, transparent) transparent; }
+.split-doc { box-sizing: content-box; max-width: var(--measure); margin: 0 auto; padding: 28px 40px 40vh; zoom: var(--doc-zoom, 1); }
+body:not([data-tabs]) .split-doc { padding-top: 56px; }
+.split-doc > :first-child { margin-top: 0; }
+.split-doc a { cursor: pointer; }
+.split-empty { color: var(--fg3); }
+/* a note beside the one in the window, written in: its source, in the window's own source's type (viewer/editor.css: #ed-wrap) */
+.split-doc.is-src { padding-top: 56px; }
+.split-src { display: block; box-sizing: border-box; width: 100%; min-height: 40vh; margin: 0; padding: 0; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--fg); caret-color: var(--accent); font: 400 14px/24px var(--mono); font-variant-ligatures: none; tab-size: 4; white-space: pre-wrap; overflow-wrap: break-word; }
+
+/* what the sheet is, and what is done with it: a capsule in its corner */
+.split-cap {
+  position: absolute; z-index: 2; top: 8px; right: 14px; display: flex; align-items: center; gap: 2px; max-width: calc(100% - 28px); box-sizing: border-box; padding: 3px 3px 3px 12px;
+  border-radius: var(--radius-pill); background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule);
+  font: 500 12.5px/1 var(--ui); color: var(--fg2); user-select: none; -webkit-user-select: none;
+  opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-out);
+}
+#split:hover .split-cap, .split-cap:focus-within { opacity: 1; transition-duration: var(--dur-instant); }
+body:not([data-tabs]) .split-cap { top: 52px; } /* (under the window's toolbar, which floats at the top right) */
+.split-name { min-width: 0; max-width: 220px; margin-right: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-cap .tb { flex: none; border-radius: var(--radius-pill); }
+.split-cap .tb[hidden] { display: none; }
+
+/* a PDF's pages: as broad as they are set (--pw: viewer/split.js, zoom) — broader than the half, the sheet is moved sideways */
+.split-doc.is-pdf { box-sizing: border-box; max-width: none; width: max-content; min-width: 100%; padding: 56px 24px 40vh; }
+.split-doc.is-pdf .split-page { width: var(--pw, 100%); }
+.split-doc.is-image { max-width: 900px; padding-left: 24px; padding-right: 24px; }
+/* … and over them the viewer's plain controls, in the viewer's own capsule (pdfview.css: .pdf-bar), in the middle of the half's top */
+#split .split-bar { position: absolute; z-index: 2; top: 8px; left: 50%; translate: -50% 0; margin: 0; max-width: calc(100% - 120px); }
+#split .split-bar[hidden] { display: none; }
+body:not([data-tabs]) #split .split-bar { top: 52px; }
+#split[data-kind="pdf"] .split-name { display: none; } /* (the bar has the room: the capsule keeps its two buttons) */
+#split[data-kind="pdf"] .split-cap { padding-left: 3px; }
+.split-page { margin: 0 auto 14px; background: #fff; border-radius: var(--radius-panel); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
+.split-page img { display: block; width: 100%; height: auto; }
+.split-doc.is-image img { display: block; max-width: 100%; margin: 0 auto; border-radius: 4px; }
+
+/* a note with a ground of its own (page.css: data-doc-bg): the ground runs under both halves, and the sheet at the right is a
+ * sheet on it as the note is — no wall of the window's colour beside a coloured half */
+:root[data-doc-bg] #split { background: none; }
+:root[data-doc-bg] #split::before { opacity: 0; }
+:root[data-doc-bg] .split-doc:not(.is-pdf, .is-image) { margin: var(--doc-gap) auto; padding: 40px 40px 40vh; min-height: calc(100% - 2 * var(--doc-gap) - 80px); border: solid transparent; border-width: 0 var(--doc-gap); border-radius: calc(var(--radius-panel) + var(--doc-gap)); background: var(--c-background) padding-box; }
+
+/* (… and a PDF's pages lie on the ground themselves, the first as high as the note's sheet begins) */
+:root[data-doc-bg] .split-doc.is-image { padding: var(--doc-gap) var(--doc-gap) 40vh; }
+:root[data-doc-bg] .split-doc.is-pdf { padding-left: var(--doc-gap); padding-right: var(--doc-gap); }
+/* what floats at the window's right stands at the note's right — on the note's sheet where the note has a ground, not across
+ * its edge */
+/* (--split-in: how far the sheet's edge is from the line between the halves — measured: viewer/split.js, placed) */
+body[data-split]:not([data-overview]) #rrail { right: calc(var(--sb-inset) + var(--split-w) + var(--split-in, 0px)); }
+body[data-split]:not([data-overview]) #rpanel { right: calc(var(--sb-inset) + var(--rail-w) + var(--split-w) + var(--split-in, 0px)); }
+body[data-split]:not([data-overview]) #ai-bubble, body[data-split]:not([data-overview]) #ai-chat { margin-right: var(--split-w); }
+/* a window too narrow for two things shows one */
+body[data-split-narrow] { padding-right: 0 !important; }
+body[data-split-narrow] #split { display: none; }
+:root:has(> body[data-split-narrow]) { scrollbar-width: auto; }
+:root:has(> body[data-split-narrow])::-webkit-scrollbar { display: block; }
+@media print { body[data-split] { padding-right: 0 !important; } #split { display: none !important; } }

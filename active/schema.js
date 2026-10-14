@@ -41,23 +41,26 @@
     content.className = "callout-content";
     return { dom, contentDOM: content };
   }
+  const alignOf = (dom) => (dom.classList.contains("ta-center") ? "center" : dom.classList.contains("ta-right") ? "right" : null);
   const block = (spec) => ({ group: "block", ...spec, attrs: { bid: { default: null }, line, ...spec.attrs } });
 
   const nodes = {
     doc: { content: "(block | columns)+" },
+    // align: where the text stands in its line — null (left), "center", "right": a comment at the block's end says so (viewer/markdown.js: block_align)
     paragraph: block({
       content: "inline*",
-      parseDOM: [{ tag: "p" }],
-      toDOM: (n) => ["p", lineAttr(n), 0],
+      attrs: { align: { default: null } },
+      parseDOM: [{ tag: "p", getAttrs: (dom) => ({ align: alignOf(dom) }) }],
+      toDOM: (n) => ["p", { ...lineAttr(n), ...(n.attrs.align ? { class: "ta-" + n.attrs.align } : {}) }, 0],
     }),
     heading: block({
       content: "inline*",
       defining: true,
       // markup: "#", or "=" / "-" for a heading underlined in the source.
       // slug: what its id is made from, as long as its text is `slugOf` (the id itself is a decoration, see edit.js)
-      attrs: { level: { default: 1 }, markup: { default: null }, slug: { default: null }, slugOf: { default: null } },
-      parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: "h" + level, attrs: { level } })),
-      toDOM: (n) => ["h" + n.attrs.level, lineAttr(n), 0],
+      attrs: { level: { default: 1 }, markup: { default: null }, slug: { default: null }, slugOf: { default: null }, align: { default: null } },
+      parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: "h" + level, getAttrs: (dom) => ({ level, align: alignOf(dom) }) })),
+      toDOM: (n) => ["h" + n.attrs.level, { ...lineAttr(n), ...(n.attrs.align ? { class: "ta-" + n.attrs.align } : {}) }, 0],
     }),
     horizontal_rule: block({
       attrs: { markup: { default: null } },
@@ -170,11 +173,12 @@
       group: "inline", inline: true, atom: true,
       attrs: { src: { default: "" }, alt: { default: "" }, title: { default: null } },
       // (its size is the end of the description — "a tree|300", "a tree|full" — and shows as the reading view shows it)
-      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("src"), title: dom.getAttribute("title"),
-        alt: (dom.getAttribute("alt") || "") + (dom.classList.contains("full") ? "|full" : /^\d+$/.test(dom.getAttribute("width") || "") ? "|" + dom.getAttribute("width") : "") }) }],
+      // (… and its turn, before the size: "a tree|r90|300". A picture shown turned has another address meanwhile — the one it was written with is kept beside it: viewer/modes.js)
+      parseDOM: [{ tag: "img[src]", getAttrs: (dom) => ({ src: dom.getAttribute("data-src") || dom.getAttribute("src"), title: dom.getAttribute("title"),
+        alt: window.MdView.core.picText(dom.getAttribute("alt") || "", /^(90|180|270)$/.test(dom.getAttribute("data-turn") || "") ? dom.getAttribute("data-turn") : "", dom.classList.contains("full") ? "full" : /^\d+$/.test(dom.getAttribute("width") || "") ? dom.getAttribute("width") : "") }) }],
       toDOM: (n) => {
-        const { alt, size } = window.MdView.core.imageSize(n.attrs.alt);
-        return ["img", { src: n.attrs.src, alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }), ...(size === "full" ? { class: "full" } : size ? { width: size } : {}) }];
+        const { alt, size, turn } = window.MdView.core.imageSize(n.attrs.alt);
+        return ["img", { src: n.attrs.src, alt, ...(n.attrs.title == null ? {} : { title: n.attrs.title }), ...(size === "full" ? { class: "full" } : size ? { width: size } : {}), ...(turn ? { "data-turn": turn } : {}) }];
       },
     },
     hard_break: {
@@ -403,7 +407,7 @@
               // happens to hold a picture, with a caret before and behind it.
               const kids = ((inner[0] && inner[0].children) || []).filter((c) => !(c.type === "text" && !c.content.trim()));
               if (kids.length === 1 && kids[0].type === "image") throw new Unsupported("a picture alone");
-              out.push({ type: "paragraph", attrs, content: inlineOf(inner[0]) });
+              out.push({ type: "paragraph", attrs: { ...attrs, align: (t.meta && t.meta.align) || null }, content: inlineOf(inner[0]) });
               break;
             }
             case "heading_open":
@@ -473,7 +477,7 @@
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);
       const node = Node.fromJSON(schema, { type: "heading", content });
-      return { type: "heading", content, attrs: { ...attrs, level: Number(t.tag.slice(1)), markup: t.markup,
+      return { type: "heading", content, attrs: { ...attrs, align: (t.meta && t.meta.align) || null, level: Number(t.tag.slice(1)), markup: t.markup,
         slug: slugify(inlineText(inl.children)) || "section", slugOf: node.textContent } };
     }
     const orParagraph = (blocks) => (blocks.length ? blocks : [{ type: "paragraph" }]);

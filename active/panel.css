@@ -45,6 +45,9 @@ body[data-panel] #rpanel { transform: none; opacity: 1; visibility: visible; tra
 #rrail { position: fixed; top: calc(var(--sb-inset) + var(--rail-top)); right: var(--sb-inset); z-index: 14; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 body[data-rail] #rrail { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
 @media print { #rrail { display: none !important; } }
+/* Outside a note there is nothing to put in, to format or to say about a document: over All Notes and beside a PDF neither the
+ * rail nor the panel is there. */
+body:is([data-overview], .pdf-open) :is(#rrail, #rpanel) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
 .rp-tabs { display: flex; flex-direction: column; gap: 2px; padding: 4px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04); }
 .rp-tab { display: grid; place-items: center; width: 32px; height: 36px; padding: 0; border: 0; border-radius: calc(var(--radius-panel) - 4px); background: none; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 .rp-tab svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }

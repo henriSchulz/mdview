@@ -127,6 +127,31 @@
       for (let i = 0; i < 30; i++) { stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: 300, clientY: 300, deltaY: -120 })); await sleep(8); }
       await sleep(900);
       const left = box(sheet(2)), zoom = st().zoom;
+      // --- the eraser takes what is drawn: a shape and a line too, met where they are drawn — and a text is not rubbed out
+      {
+        const things = () => st().things, at = (t) => { const v = st().view; return [(t.x - v.x) * v.z, (t.y - v.y) * v.z, t.w * v.z, t.h * v.z]; };
+        const eraser = async () => { document.querySelector('#board [data-kind="eraser"]').click(); await sleep(80); };
+        B.put("sticky"); await sleep(120); key("Escape"); await sleep(60);
+        const note = things().find((t) => t.k === "sticky"), [tx, ty, tw, th] = at(note);
+        await eraser();
+        await stroke([[tx + tw / 2 - 30, ty + th / 2], [tx + tw / 2, ty + th / 2], [tx + tw / 2 + 30, ty + th / 2]]);
+        ok("the eraser over a note: it stays", things().some((t) => t.k === "sticky"), things().map((t) => t.k));
+        B.pick([note.id]); await sleep(60); key("Delete"); await sleep(80); // (taken away by hand)
+        B.put("shape"); await sleep(120); key("Escape"); await sleep(60);
+        const shape = things().find((t) => t.k === "shape"), [sx, sy, sw, sh] = at(shape);
+        ok("a shape is on the page", !!shape && sw > 20, things().map((t) => t.k));
+        await eraser();
+        await stroke([[sx - 30, sy + sh / 2], [sx - 10, sy + sh / 2], [sx + 2, sy + sh / 2], [sx + 12, sy + sh / 2]]);
+        ok("the eraser over a shape's outline: the shape is gone", !things().some((t) => t.k === "shape") && st().items === 1, things().map((t) => t.k));
+        key("z", { ctrlKey: true }); await sleep(80);
+        ok("… and Ctrl+Z brings it back", things().some((t) => t.k === "shape"));
+        document.querySelector('#board .bd-palette [data-mode="pixel"]').click(); await sleep(60);
+        await stroke([[sx - 30, sy + sh / 2], [sx - 10, sy + sh / 2], [sx + 2, sy + sh / 2], [sx + 12, sy + sh / 2]]);
+        ok("set to parts it takes a shape whole as well", !things().some((t) => t.k === "shape"), things().map((t) => t.k));
+        document.querySelector('#board .bd-palette [data-mode="object"]').click();
+        ok("the page holds the stroke alone again", st().items === 1 && !things().length, things().map((t) => t.k));
+        await until(() => !st().dirty, 3000);
+      }
       // --- back to the PDF
       key("Escape");
       if (B.shown) document.querySelector('#board [data-do="back"]').click();

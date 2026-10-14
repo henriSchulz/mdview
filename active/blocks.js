@@ -498,7 +498,7 @@
    * says whether an entry is ticked, and so whether choosing it puts it on or takes it off. */
   const PLAIN = ["menu.text", "slash.colorDefault"]; // (what a block is without anything chosen: no tick on its group for that)
   const WRAPS = ["slash.deco", "slash.color", "slash.callout"]; // (what puts a quote around the blocks)
-  const SLASH_GROUPS = ["slash.style", "slash.list", "slash.deco", "slash.color", "slash.callout"];
+  const SLASH_GROUPS = ["slash.style", "slash.list", "slash.align", "slash.deco", "slash.color", "slash.callout"];
   /* full: all the "/" menu has — the formats, columns, what can be put in (below the last of
    * them) and what can be done with the blocks; q: only what is found for it, in one list. */
   function slashItems(v, full = false, q = "") {
@@ -596,10 +596,10 @@
       setTimeout(() => P.open(id), 0); // (to be named, as a page just made is)
     };
     // put in: once, below the last of them
-    const insert = (e) => () => {
+    const insert = (e, group = undefined) => () => { // (group: where the entry stands among others of its kind — a rule's four looks)
       const last = runs[runs.length - 1];
       v.dispatch(v.state.tr.setMeta(selKey, null).setSelection(Selection.near(v.state.doc.resolve(last.to - 1), -1)));
-      const now = find(v, undefined, e);
+      const now = find(v, group, e);
       if (now && !now.disabled) now.act(v);
       v.focus();
     };
@@ -609,7 +609,7 @@
     // (… but what is around them: with the quote that is selected, or none)
     const own = A.slash.entries(plainFor(quoteAt(v.state, runs[0])));
     const all = (A.slash.entries(first).some((g) => g && g.key === "slash.style") ? A.slash.entries(first) : own).map((g) => (g && WRAPS.includes(g.key) ? own.find((x) => x && x.key === g.key) || g : g)), text = A.slash.entries(first).some((g) => g && g.key === "slash.style"); // (in a table the "/" menu is the table's own: of it only what goes around blocks is for them)
-    const leaf = (group) => (e) => e && { label: label(e), icon: e.icon, words: e.words || "", run: group === undefined && e.key === "menu.page" ? toPage : group === undefined && e.key.startsWith("menu.") ? insert(e) : WRAPS.includes(group) ? around(group, e) : choose(group, e), disabled: e.disabled, checked: e.checked, danger: e.danger };
+    const leaf = (group) => (e) => e && { label: label(e), icon: e.icon, words: e.words || "", run: group === undefined && e.key === "menu.page" ? toPage : group === undefined && e.key.startsWith("menu.") ? insert(e) : group === "menu.rule" ? insert(e, group) : WRAPS.includes(group) ? around(group, e) : choose(group, e), disabled: e.disabled, checked: e.checked, danger: e.danger };
     const shown = (g) => g && g.key !== "slash.actions" && (full || SLASH_GROUPS.includes(g.key));
     const list = all.filter((g) => !g || (shown(g) && (text || WRAPS.includes(g.key)))).map((g) => g && (g.items ? { label: label(g), icon: g.icon, items: g.items.filter((e) => !e || e.key !== "callout.title").map(leaf(g.key)), ...(full ? { checked: g.items.some((e) => e && e.checked && !PLAIN.includes(e.key)) } : null) } : leaf(undefined)(g)));
     if (full) {
@@ -1725,5 +1725,20 @@
   }
   const hookBelow = () => {}; // (a click below the text is the rectangle's business now: a press let go where it was)
 
-  A.blocks = { selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  /* Blocks are selected, and something is pasted: it goes below them as blocks of its own — the selected ones stay — and what was
+   * pasted is selected in their place, so that the next paste goes below that. nodes: the blocks to put in. → false where none
+   * is selected, or they do not fit there (then the paste is the caret's). */
+  function pasteBelow(v, nodes) {
+    const sel = selOf(v.state), r = sel && rangeOf(v.state, sel);
+    if (!r || !nodes.length || !v.editable) return false;
+    const P = sel.more && sel.more.length ? pickedOf(v.state, sel) : null, at = P ? P[P.length - 1].pos + P[P.length - 1].node.nodeSize : r.to, $at = v.state.doc.resolve(at), all = Fragment.from(nodes);
+    if (!$at.parent.canReplace($at.index(), $at.index(), all)) return false;
+    const tr = v.state.tr.insert(at, all).setMeta("step", true).setMeta("paste", true);
+    let last = at;
+    for (let i = 0, p = at; i < all.childCount; p += all.child(i).nodeSize, i++) last = p;
+    tr.setMeta(selKey, { anchor: at, head: last });
+    v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
+    return true;
+  }
+  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

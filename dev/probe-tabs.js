@@ -125,7 +125,7 @@
       const menu = document.getElementById("ctxmenu"), t = els()[0], r = t.getBoundingClientRect();
       t.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 40, clientY: r.top + 10 })); await sleep(300);
       const cmds = [...menu.querySelectorAll(".menu-item:not([hidden])")].map((b) => b.dataset.cmd).join();
-      ok("right click on a tab: new, reopen, close, close the others", menu.hasAttribute("data-open") && cmds === "tab:new,tab:reopen,tab:close,tab:others", cmds);
+      ok("right click on a tab: new, reopen, show in split view, close, close the others", menu.hasAttribute("data-open") && cmds === "tab:new,tab:reopen,tab:split,tab:close,tab:others", cmds);
       out("shot-menu", {}); await sleep(1300);
       menu.querySelector('[data-cmd="tab:others"]').click(); await sleep(900);
       ok("Close Other Tabs: one is left, the window shows it", els().length === 1 && shown() === 0 && cur() === els()[0].dataset.path.replace(/^.*\//, ""), [labels(), cur()]);

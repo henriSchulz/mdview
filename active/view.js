@@ -201,7 +201,8 @@
     image(node) {
       const dom = document.createElement("span"), img = document.createElement("img");
       dom.className = "im";
-      const { alt, size } = window.MdView.core.imageSize(node.attrs.alt); // (its size is the end of its description)
+      const { alt, size, turn } = window.MdView.core.imageSize(node.attrs.alt); // (its size is the end of its description, its turn before that)
+      if (turn) img.dataset.turn = turn;
       img.src = node.attrs.src;
       img.alt = alt;
       if (size === "full") img.className = "full"; else if (size) img.setAttribute("width", size);

@@ -18,10 +18,12 @@
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
+#   dev/rig.sh blockpaste            Ctrl+D puts a block's copy right below it; what is pasted while blocks are selected goes below them (real keys)
 #   dev/rig.sh colsel                the rectangle over blocks in a column: the items, paragraphs and headings it reaches, not the list or the column
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
@@ -31,6 +33,9 @@
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
+#   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
+#   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -319,6 +324,39 @@ case "${1:-}" in
     ok "the whiteboard is a file of the folder, with what was put on it" 'grep -q "mdview-board" "$N/Skizze.board.svg" && grep -q "k.:.sticky" "$N/Skizze.board.svg"' 'head -c 600 "$N/Skizze.board.svg"'
     ok "the note shows it by its name" 'grep -q "!\[\](Skizze.board.svg)" "$N/Alpha.md"' 'cat "$N/Alpha.md"'
     ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.explorer.json; (( fail )) && echo FAIL; } | grep -qv '^ok' ;;
+  ground)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.ground.json "$R/out"/*.shown.json
+    printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'A note on a ground of its own.' > "$N/Ground.md"; printf '# Plain\n\nNo ground.\n' > "$N/Plain.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-ground.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.ground.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/ground.png"
+    for _ in $(seq 300); do ls "$R/out"/*.ground.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  split)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
+    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-split.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for v in self pdf; do for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.$v.json "$R/out"/*.split.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/split-$v.png"; done
+    for _ in $(seq 400); do ls "$R/out"/*.split.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.split.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  sheets)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.sheets.json "$R/out"/*.shown.json
+    printf '# Alpha\n\nSome text here.\n\n## Part\n\n- one\n- two\n' > "$N/Alpha.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 1; node "$D/make-board.mjs" > "$N/Skizze.board.svg"; magick -size 8x8 xc:red "$N/photo.png"; printf 'a,b\n1,2\n' > "$N/data.csv"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-sheets.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.sheets.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/sheets.png"
+    for _ in $(seq 300); do ls "$R/out"/*.sheets.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.sheets.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"
@@ -523,6 +561,17 @@ case "${1:-}" in
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
+  turn)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
+    magick -size 120x40 gradient:red-blue "$R/work/wide.png"
+    printf '%s\n' '# Turned' '' 'A picture in the text ![wide](wide.png) here.' '' '![own|r90](wide.png)' '' '![sized|r180|240](wide.png)' '' '![[wide.png|r270]]' > "$R/work/note.md"
+    app 90 MDVIEW_PROBE="$D/probe-turn.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
+    for v in read active; do for _ in $(seq 300); do [[ -f $R/out/note.md.$v.json || -f $R/out/note.md.turn.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/turn-$v.png"; done
+    for _ in $(seq 400); do [[ -f $R/out/note.md.turn.json ]] && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/note.md.turn.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.turn.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.turn.json" | grep -q '^FAIL' ;;
   pdfink)
     # a PDF by itself, drawn on; then the app anew, and what was drawn rubbed out
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.*.json
@@ -620,6 +669,16 @@ case "${1:-}" in
     jq -r '.steps[], (.error // empty)' "$R/out/$name.lists.json"
     cmp -s <(jq -j '.saved // ""' "$R/out/$name.lists.json") "$R/work/$name" && echo "ok   the file on disk is the saved document" || echo "FAIL the file on disk differs from the saved document"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.lists.json"; } | grep -qv '^ok' ;;
+  blockpaste)
+    rm -rf "$R/work"; mkdir -p "$R/work"; printf 'Alpha\n\nBravo\n\nCharlie\n\n- one\n- two\n' > "$R/work/t.md"; rm -f "$R/out"/t.md.*.json
+    app 60 MDVIEW_PROBE="$D/probe-blockpaste.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/t.md"
+    w() { for _ in $(seq 200); do [[ -f $R/out/t.md.$1.json || -f $R/out/t.md.blockpaste.json ]] && break; sleep 0.1; done; sleep 0.5; }; k() { WAYLAND_DISPLAY="$(wl)" wtype -d 45 "$@"; }
+    w s1; k -M ctrl -k d -m ctrl; w s2; k -M ctrl -k d -m ctrl
+    for _ in $(seq 300); do [[ -f $R/out/t.md.blockpaste.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/t.md.blockpaste.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json" | grep -q '^FAIL' ;;
   blocks)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{selected,heading,blocks}.json
     app 90 MDVIEW_PROBE="$D/probe-blocks.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

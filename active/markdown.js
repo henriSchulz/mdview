@@ -269,17 +269,21 @@
     switch (node.type.name) {
       case "paragraph": {
         const ls = inline(node, cx).split("\n");
-        return (cx.wrap > 0 ? ls.flatMap((l) => wrapLine(l, cx.wrap)) : ls).map((l, i) => guardLine(l, i === 0));
+        const out = (cx.wrap > 0 ? ls.flatMap((l) => wrapLine(l, cx.wrap)) : ls).map((l, i) => guardLine(l, i === 0));
+        if (node.attrs.align && node.content.size) out[out.length - 1] += window.MdView.core.alignMark(node.attrs.align); // (where it stands in its line: a comment at its end)
+        return out;
       }
       case "heading": {
         const text = inline(node, cx);
         const { level, markup } = node.attrs;
+        const mark = text ? window.MdView.core.alignMark(node.attrs.align) : "";
         if ((markup === "=" || markup === "-") && level <= 2 && text) {
           const ls = text.split("\n").map((l, i) => guardLine(l, i === 0));
+          ls[ls.length - 1] += mark;
           return ls.concat((level === 1 ? "=" : "-").repeat(3)); // the underline keeps the length it has (see merge3)
         }
         const one = text.replace(/\\?\n/g, " ").replace(/(^|[ \t])(#+)$/, "$1\\$2");
-        return ["#".repeat(level) + (one ? " " + one : "")];
+        return ["#".repeat(level) + (one ? " " + one : "") + mark];
       }
       case "horizontal_rule": return [node.attrs.markup || cx.profile.rule];
       case "blockquote": {

@@ -43,6 +43,10 @@
     formula: svg('<path d="M17 6V5H7l6 7-6 7h10v-1"/>'),
     table: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M3 14.5h18M10 5v14"/>'),
     rule: svg('<path d="M3 12h18M8 6.5h8M8 17.5h8"/>'),
+    ruleDots: svg('<circle cx="7" cy="12" r="1.1" fill="currentColor"/><circle cx="12" cy="12" r="1.1" fill="currentColor"/><circle cx="17" cy="12" r="1.1" fill="currentColor"/>'),
+    ruleHeavy: svg('<path d="M3 12h18" stroke-width="3.2"/>'),
+    ruleDotted: svg('<path d="M3.5 12h17" stroke-dasharray="0.1 3.4"/>'),
+    alignL: svg('<path d="M5 7h14M5 12h9M5 17h12"/>'), alignC: svg('<path d="M5 7h14M7.5 12h9M6 17h12"/>'), alignR: svg('<path d="M5 7h14M10 12h9M7 17h12"/>'),
     image: svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-4.5-4.5L8 19"/>'),
     board: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M7 15c2-5 4 1 6-3s3-2 4-1"/>'),
     graphic: svg('<path d="m11 4 1.9 4.9 4.9 1.9-4.9 1.9L11 17.6l-1.9-4.9-4.9-1.9 4.9-1.9ZM18.5 15.5v4M16.5 17.5h4"/>'),
@@ -159,6 +163,12 @@
         leaf("menu.task", "task todo checkbox aufgabe", I.task, para("task"), { checked: k.kind === "task" }),
       ] },
       format,
+      // where the text stands in its line
+      { key: "slash.align", icon: I.alignC, items: [
+        leaf("align.left", "align left links linksbündig ausrichten", I.alignL, (v) => A.context.run(v, A.context.setAlign(null)), { checked: !k.align }),
+        leaf("align.center", "align center centre zentrieren mitte mittig ausrichten", I.alignC, (v) => A.context.run(v, A.context.setAlign("center")), { checked: k.align === "center" }),
+        leaf("align.right", "align right rechts rechtsbündig ausrichten", I.alignR, (v) => A.context.run(v, A.context.setAlign("right")), { checked: k.align === "right" }),
+      ] },
       { key: "slash.deco", icon: I.quote, items: [
         leaf("menu.quote", "quote blockquote zitat", I.quote, deco("quote"), { checked: k.deco === "quote" }),
         leaf("slash.block", "block box callout kasten", I.block, deco("block"), { checked: has("block") }),
@@ -190,7 +200,13 @@
       leaf("menu.codeBlock", "code codeblock", I.codeBlock, (v) => A.context.INSERT.code(v)),
       leaf("menu.formula", "formula math latex equation formel", I.formula, (v) => A.context.INSERT.math(v)),
       leaf("menu.table", "table tabelle", I.table, (v) => A.context.INSERT.table(v)),
-      leaf("menu.rule", "divider rule line hr separator trennlinie", I.rule, (v) => A.context.INSERT.rule(v)),
+      // a rule, in its four looks (viewer/markdown.js: ruleLook)
+      { key: "menu.rule", icon: I.rule, items: [
+        leaf("panel.line.thin", "divider rule line thin hr separator trennlinie dünn", I.rule, (v) => A.context.INSERT.rule(v)),
+        leaf("panel.line.dots", "divider rule line dots hr separator trennlinie punkte", I.ruleDots, (v) => A.context.INSERT.rule(v, undefined, "***")),
+        leaf("panel.line.heavy", "divider rule line heavy thick hr separator trennlinie dick", I.ruleHeavy, (v) => A.context.INSERT.rule(v, undefined, "___")),
+        leaf("panel.line.dotted", "divider rule line dotted hr separator trennlinie gepunktet", I.ruleDotted, (v) => A.context.INSERT.rule(v, undefined, "- - -")),
+      ] },
       leaf("menu.image", "image picture bild", I.image, (v) => A.context.INSERT.image(v)),
       leaf("menu.file", "file attachment datei anhang", window.MdView.core.UI.file || I.image, (v) => A.context.INSERT.file(v)),
       ...(window.MdView.core.ai.on() ? [leaf("menu.graphic", "graphic figure diagram svg ai claude circuit schematic logic rtl grafik schaltung schaltplan zeichnung ki", I.graphic, (v) => A.context.INSERT.graphic(v))] : []),

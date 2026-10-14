@@ -299,6 +299,9 @@
     if (lists) html += `<div class="rp-segs"><div class="rp-seg">${leaves(lists).map((e) => signed("slash.list", e)).join("")}</div><div class="rp-seg">` +
       `<button class="rp-btn rp-sign" type="button" data-do="outdent" title="${esc(T("panel.outdent"))}" aria-label="${esc(T("panel.outdent"))}">${ICON_OUT}</button>` +
       `<button class="rp-btn rp-sign" type="button" data-do="indent" title="${esc(T("panel.indent"))}" aria-label="${esc(T("panel.indent"))}">${ICON_IN}</button></div></div>`;
+    // where the text stands in its line
+    const align = by("slash.align");
+    if (align) html += `<div class="rp-segs"><div class="rp-seg">${leaves(align).map((e) => signed("slash.align", e)).join("")}</div></div>`;
     if (deco) html += sec("slash.deco") + `<div class="rp-row rp-${Math.min(3, leaves(deco).length)} rp-decos">${leaves(deco).map((e) => named("slash.deco", e)).join("")}</div>`;
     if (color) html += sec("slash.color") + `<div class="rp-colors">${leaves(color).map((e) => btn("slash.color", e, `<i style="--sw: ${/^color\./.test(e.key) ? `var(--c-${e.key.slice(6)})` : "transparent"}"></i>`, "rp-swatch")).join("")}</div>`;
     if (callout) {
@@ -418,7 +421,8 @@
    * rail is there wherever the panel can be — not beside the source, not where a note is only shown. */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
-    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit");
+    const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
+    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit" && !!cur && cur.kind !== "pdf");
   }
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".rp-tab");

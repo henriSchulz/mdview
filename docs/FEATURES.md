@@ -201,7 +201,19 @@ move the row, those above a column the column. A table selected as a whole wears
 (`<!-- wide -->`, the line of before, is still read.)
 
 A rule has four looks, by how its line is written: `---` a thin line, `***` three dots, `___` a
-heavy line, `- - -` a dotted one. The panel's Insert Line puts each in.
+heavy line, `- - -` a dotted one. The panel's Insert Line puts each in, and so does the `/` menu
+(Divider › the four of them).
+
+A paragraph or a heading stands at the left, in the middle or at the right of its line. A comment
+at its end says so — no other program shows it:
+
+```markdown
+A line in the middle <!-- center -->
+## A heading at the right <!-- right -->
+```
+
+In the active mode: `/` › **Align** (Left, Centre, Right), the same three in the panel's Format
+part, and for several blocks at once where they are selected.
 
 ### Columns
 
@@ -366,6 +378,18 @@ How large a picture shows is written at the end of its description, as Obsidian 
 ![[paper.pdf#page=3|full]]     an embedded PDF page, likewise
 ```
 
+A picture can be turned by quarters. The turn is written before the size:
+
+```markdown
+![a tree|r90](tree.png)        a quarter to the right (r180: upside down, r270: a quarter to the left)
+![a tree|r90|400](tree.png)    turned, and 400 px wide
+![[tree.png|r270]]             the same, for an embed
+```
+
+It shows as a picture of the turned shape — the text around it stands where a picture of that
+shape belongs. In the active mode: right click → **Rotate Left** / **Rotate Right**, or Rotation in
+a picture's popover. (A PDF's page is not turned.)
+
 In the active mode the size is a choice — its own size, Small (240), Medium (400), Large (640), Full
 width — in the menu of a picture or an embed (right click → Size), in a picture's popover (double
 click or Enter on it) and in the dialog of an embed.
@@ -510,7 +534,8 @@ and shut back into it — or a file of the folder, of its own.
   hand. The colour in use, pressed again, opens all the colours; the one chosen there takes
   its place among the three. Each pen keeps its own width, its own colour and its own three.
 - **The eraser**'s tray: whether it takes whole strokes or the parts it passes over, and how
-  large it is.
+  large it is. A shape, a line or an
+  arrow under it goes whole, either way; a text, a note, a picture and a table are not rubbed out.
 - **Pulled to its size while the hand is down**: once a stroke is made clean (below), the hand
   still down moves on — away from the shape's middle and it grows, toward it and it shrinks; a
   line's end follows the hand. With a pen, and with the shape tool, where a hold makes the shape
@@ -750,7 +775,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
   - *Wide Page* (Style): the text column wide for this note, whatever the settings' text width is for the
-    others (where the settings already have it wide or as wide as the window, it stays so).
+    others (where the settings already have it wide or as wide as the window, it stays so). What is pasted while blocks are selected (`Ctrl+V`) is not put in
+their place: it goes below them as blocks of its own and is selected there, so the next paste
+goes below that.
 
   Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
@@ -819,8 +846,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
   folder's row, and the name is changed there).
-  - **Sheets**: a sheet of paper for each note, drawn as the note is built (headings, text,
-    pictures, formulas, tasks), a folder for each folder. One
+  - **Sheets**: a sheet of paper for each file that shows what it is — a note its beginning, small,
+    as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves; any
+    other file its sign — and a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
   - **Tiles**: four smart lists as tiles — All, Today (changed today), Shared, With Tasks (something
     left to do) — each with how many notes it holds; a click shows its notes in one list. Under
@@ -1112,6 +1140,37 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
 - **Outline**: `Ctrl+Shift+O` — the note's headings, a click goes there.
+
+## Side by side
+
+Beside the note, at the window's right, a second sheet can stand that is only read. The note at
+the left is the window's as ever, in any of its modes.
+
+- **A tab beside the one in the window**: right click on a tab that is not the one shown ›
+  **Show in Split View**. Its note is shown as it reads (its links found from where it lies), a
+  PDF as its pages, each drawn when it comes near, a picture as itself. While two are side by
+  side, any tab's menu has **Close Split View**.
+- **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
+  **Open Beside**.
+- **A note at the right is written in too**: the pencil in the sheet's capsule shows its source,
+  in the type of the window's own source, kept a moment after the last key (the book, or `Esc`,
+  reads it again). Not the note that is in the window as well: that one is written at the left.
+- **The tab in the window** › Show in Split View: the note beside its own reading — written at the
+  left (in any mode), read at the right a moment later.
+- **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
+  one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
+  around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.
+  The side card, a region for a note and drawing are the viewer's own, at the left.
+- A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
+  left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
+  the window's own — there it can be written; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
+- The two are halves of one kind: the same column, the same type, each scrolled by itself. The
+  line between them can be pulled (a double click on it: halves again; how the window is shared
+  is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
+  Two things want 600 px beside the sidebar: where the window has less, the sidebar makes way; where it has less even so, it says so and shows the note alone. What is beside a note is not kept when the
+  window is closed.
+- Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
+  the right (the PDF's own viewer is the window's left).
 
 ## PDFs
 

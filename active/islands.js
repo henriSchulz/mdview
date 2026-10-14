@@ -611,43 +611,53 @@
   const SIZES = [["", "size.auto"], ["240", "size.small"], ["400", "size.medium"], ["640", "size.large"], ["full", "size.full"]];
   const sizeOptions = (now) => [...SIZES.map(([v, k]) => [v, T(k)]), ...(now && !SIZES.some(([v]) => v === now) ? [[now, /^\d+$/.test(now) ? now + " px" : now]] : [])];
   // what is written is one picture or one embed of a picture or a PDF: [before, size, after] of its size
-  const WIKI_PIC = /^(\s*!\[\[[^\]|]+\.(?:png|jpe?g|gif|webp|svg|avif|bmp|pdf)(?:#[^\]|]*)?)(?:\|([^\]]*))?(\]\]\s*)$/i, MD_PIC = /^(\s*!\[[^\]]*?)(?:\|(\d+|full))?(\]\([^)]*\)\s*)$/i;
+  const WIKI_PIC = /^(\s*!\[\[[^\]|]+\.(?:png|jpe?g|gif|webp|svg|avif|bmp|pdf)(?:#[^\]|]*)?)(?:\|([^\]]*))?(\]\]\s*)$/i, MD_PIC = /^(\s*!\[[^\]]*?)((?:\|(?:r(?:90|180|270)|\d+|full))*)(\]\([^)]*\)\s*)$/i;
+  /* … and how it is turned, by quarters, written before the size: ![[tree.png|r90|400]] (viewer/markdown.js: picTail). What is
+   * written, taken apart: { head, size, turn, end } — null where it is no picture, or says something of its own in the size's place. */
+  function picParts(raw) {
+    const w = WIKI_PIC.exec(raw), m = w || MD_PIC.exec(raw);
+    if (!m) return null;
+    const said = window.MdView.core.imageSize(w ? (m[2] ? "|" + m[2] : "") : m[2] || "");
+    return said.alt ? null : { head: m[1], size: said.size, turn: said.turn, end: m[3] };
+  }
+  const picRaw = (p, size, turn) => window.MdView.core.picText(p.head, turn, size) + p.end;
+  const turned = (now, by) => { const t = ((Number(now) || 0) + by + 360) % 360; return t ? String(t) : ""; };
   /* The same for the menu of a picture or an embed in the text (context.js): what it is, the size
    * it has, and how to give it another. null: not a picture. */
   function picture(view, pos, node) {
     if (node.type === N.image) {
       const was = window.MdView.core.imageSize(node.attrs.alt);
-      return { size: was.size, pdf: false, sizes: sizeOptions(was.size),
-        setSize(v) { view.dispatch(view.state.tr.setNodeMarkup(pos, null, { ...node.attrs, alt: was.alt + (v ? "|" + v : "") })); view.focus(); } };
+      const write = (size, turn) => { view.dispatch(view.state.tr.setNodeMarkup(pos, null, { ...node.attrs, alt: window.MdView.core.picText(was.alt, turn, size) })); view.focus(); };
+      return { size: was.size, turn: was.turn, pdf: false, sizes: sizeOptions(was.size), setSize: (v) => write(v, was.turn), turnBy: (by) => write(was.size, turned(was.turn, by)) };
     }
     if (node.type !== N.island || node.attrs.virtual || typeof node.attrs.raw !== "string") return null;
-    const m = WIKI_PIC.exec(node.attrs.raw) || MD_PIC.exec(node.attrs.raw), now = m ? (m[2] || "").toLowerCase() : "";
-    if (!m || (now && !/^(\d+(x\d+)?|full)$/.test(now))) return null;
-    const pdf = PDF_EMBED.exec(node.attrs.raw);
-    return { size: now, sizes: sizeOptions(now), pdf: !!pdf && !/(^|&)selection=/.test(pdf[3]),
+    const p = picParts(node.attrs.raw), now = p ? p.size : "";
+    if (!p) return null;
+    const pdf = PDF_EMBED.exec(node.attrs.raw), write = (size, turn) => { target = null; replace(view, pos, picRaw(p, size, turn)); view.focus(); }; // (no dialog is open: the block is the one at pos)
+    return { size: now, turn: p.turn, sizes: sizeOptions(now), pdf: !!pdf && !/(^|&)selection=/.test(pdf[3]),
       target: pdf ? (pdf[2] + "#" + pdf[3]).trim() : null, // (a PDF: where a click on it leads)
-      setSize(v) { target = null; replace(view, pos, m[1] + (v ? "|" + v : "") + m[3]); view.focus(); } }; // (no dialog is open: the block is the one at pos)
+      setSize: (v) => write(v, p.turn), ...(pdf ? {} : { turnBy: (by) => write(now, turned(p.turn, by)) }) }; // (a PDF's page is not turned)
   }
   // the dialog of a PDF embed, opened with its region to be adjusted at once
   let adjustSoon = false;
   function adjust(view, pos) { adjustSoon = true; open(view, pos); setTimeout(() => { adjustSoon = false; }, 4000); }
 
   function sizeChoice(ed, tools) {
-    const select = el("select", { "aria-label": T("dialog.size") }), parts = (t) => WIKI_PIC.exec(t) || MD_PIC.exec(t);
+    const select = el("select", { "aria-label": T("dialog.size") });
     tools.append(select);
     const wrap = window.MdView.core.popup(select);
     const look = (text) => {
-      const m = parts(text), now = m ? (m[2] || "").toLowerCase() : "";
-      wrap.hidden = !m || (!!now && !/^(\d+(x\d+)?|full)$/.test(now)); // (a description of one's own in the size's place: left alone)
+      const m = picParts(text), now = m ? m.size : "";
+      wrap.hidden = !m; // (a description of one's own in the size's place: left alone)
       if (wrap.hidden) return;
       select.innerHTML = sizeOptions(now).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
       select.value = now;
       wrap.sync();
     };
     select.addEventListener("change", () => {
-      const m = parts(ed.value);
+      const m = picParts(ed.value);
       if (!m) return;
-      ed.value = m[1] + (select.value ? "|" + select.value : "") + m[3];
+      ed.value = picRaw(m, select.value, m.turn);
       ed.input.dispatchEvent(new Event("input"));
     });
     return { look };
@@ -755,11 +765,12 @@
     A.dialog.fields({
       rect: dom.getBoundingClientRect(), label: T("dialog.image"),
       fields: [{ key: "alt", label: T("dialog.alt"), value: was.alt }, { key: "src", label: T("link.url"), value: node.attrs.src }, { key: "title", label: T("dialog.imgtitle"), value: node.attrs.title || "" },
-        { key: "size", label: T("dialog.size"), value: was.size, options: sizeOptions(was.size) }],
+        { key: "size", label: T("dialog.size"), value: was.size, options: sizeOptions(was.size) },
+        { key: "turn", label: T("dialog.turn"), value: was.turn, options: [["", T("turn.none")], ["90", T("turn.right")], ["180", T("turn.half")], ["270", T("turn.left")]] }],
       apply(v) {
         const src = v.src.trim(), tr = view.state.tr;
         if (!src) tr.delete(pos, pos + node.nodeSize);
-        else tr.setNodeMarkup(pos, null, { src, alt: v.alt.replace(/\|(\d+|full)$/i, "") + (v.size ? "|" + v.size : ""), title: v.title.trim() || null });
+        else tr.setNodeMarkup(pos, null, { src, alt: window.MdView.core.picText(window.MdView.core.imageSize(v.alt).alt, v.turn, v.size), title: v.title.trim() || null });
         view.dispatch(tr);
         view.focus();
       },
