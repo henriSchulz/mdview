@@ -140,3 +140,7 @@ figure.fig { margin: 0 0 1em; }
 figure.fig > :is(p, pre, .code-block, .math-block, .table-wrap) { margin-bottom: 0; }
 figure.fig > figcaption { margin: 0.55em auto 0; max-width: 46em; color: var(--fg2); font-size: 0.88em; line-height: 1.45; text-align: center; }
 figure.fig > figcaption > :first-child { margin-top: 0; }
+
+/* a table whose columns are as wide as it says (cols=…: viewer/markdown.js), and the line between two that is pulled (active/tableui.js) */
+table.has-cols { table-layout: fixed; width: 100%; }
+table.has-cols :is(td, th) { overflow-wrap: anywhere; }

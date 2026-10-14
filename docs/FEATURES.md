@@ -198,6 +198,11 @@ colour written as `#rrggbb`:
 In the active mode: the table's `…` beside its upper right corner (or a right click) has Full
 Width and Header Color (the theme's colours, or Custom… for any other); the three dots in a row
 move the row, those above a column the column. A table selected as a whole wears a thin line.
+The line between two columns is pulled with the pointer (it shows it can be, near the line): the
+two beside it share what they had, each keeps a little, and let go the table's columns are as
+wide as that — written as shares of the table in the same line, `<!-- table cols=40,25,35 -->`,
+one step that `Ctrl+Z` takes back. A table with them is as wide as the text column, its columns
+as said in both views.
 (`<!-- wide -->`, the line of before, is still read.)
 
 A rule has four looks, by how its line is written: `---` a thin line, `***` three dots, `___` a

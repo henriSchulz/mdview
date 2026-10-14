@@ -569,7 +569,9 @@
    * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
    * when nothing is said); head=…: its head row in a colour — one of the theme's by name (blue,
    * green …) or any colour written as #rgb / #rrggbb. (<!-- wide -->, the line of before, is read
-   * as it was: a table as wide as the column.) tableLook: that line, read → { wide, head };
+   * as it was: a table as wide as the column.) cols=30,20,50: how wide its columns are, as shares of the table in percent — set by
+   * pulling the line between two columns in the active mode (active/tableui.js); a table with them is as wide as the column.
+   * tableLook: that line, read → { wide, head, cols };
    * tableMark: the line for a look, or "" where none is needed; tableStyle: a head colour as CSS. */
   const TABLE_MARK = /^<!--\s*(wide|table(?:\s+[^>]*?)?)\s*-->\s*$/;
   const headColor = (v) => { v = String(v || "").trim().toLowerCase(); return DECO_COLORS.includes(v) || /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/.test(v) ? v : ""; };
@@ -577,9 +579,12 @@
     const m = TABLE_MARK.exec(String(line || "").trim());
     if (!m) return null;
     const words = m[1].split(/\s+/).slice(1), head = words.map((w) => /^head=(.+)$/i.exec(w)).find(Boolean);
-    return { wide: !words.some((w) => /^narrow$/i.test(w)), head: head ? headColor(head[1]) : "" };
+    const cols = colsOf((words.map((w) => /^cols=(.+)$/i.exec(w)).find(Boolean) || [])[1]);
+    return { wide: !cols && !words.some((w) => /^narrow$/i.test(w)) || !!cols, head: head ? headColor(head[1]) : "", cols };
   }
-  const tableMark = (look) => (look.wide !== false && !look.head ? "" : `<!-- table${look.wide === false ? " narrow" : ""}${look.head ? " head=" + look.head : ""} -->`);
+  // "30,20,50" → [30, 20, 50]: two or more shares, each a whole number from 1 to 100 (anything else: none)
+  const colsOf = (v) => { const a = String(v || "").split(",").map((x) => Number(x.trim())); return a.length > 1 && a.every((x) => Number.isInteger(x) && x >= 1 && x <= 100) ? a : null; };
+  const tableMark = (look) => (look.wide !== false && !look.head && !look.cols ? "" : `<!-- table${look.wide === false && !look.cols ? " narrow" : ""}${look.head ? " head=" + look.head : ""}${look.cols ? " cols=" + look.cols.join(",") : ""} -->`);
   function tableStyle(head) {
     head = headColor(head);
     if (!head) return "";
@@ -588,7 +593,11 @@
     const h = head.length === 4 ? [...head.slice(1)].map((c) => c + c).join("") : head.slice(1), [r, g, b] = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
     return `--th: ${head}; --th-ink: ${0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1d1d1f" : "#fff"};`;
   }
-  md.renderer.rules.table_open = (t, i, o, _e, self) => { const look = t[i].meta || {}, style = tableStyle(look.head); return `<div class="table-wrap${look.wide === false ? "" : " wide"}"${style ? ` style="${style}"` : ""}>` + self.renderToken(t, i, o); };
+  md.renderer.rules.table_open = (t, i, o, _e, self) => {
+    const look = t[i].meta || {}, style = tableStyle(look.head);
+    if (look.cols) t[i].attrSet("class", "has-cols"); // (its columns as wide as said: a table of fixed layout, as wide as the column)
+    return `<div class="table-wrap${look.wide === false ? "" : " wide"}"${style ? ` style="${style}"` : ""}>` + self.renderToken(t, i, o) + (look.cols ? `<colgroup>${look.cols.map((c) => `<col style="width:${c}%">`).join("")}</colgroup>` : "");
+  };
   /* Columns: blocks side by side. In the file they stand one under the other, between comment
    * lines no renderer shows — elsewhere the text simply reads top to bottom:
    *     <!-- columns 2:1 -->      (the widths, as a ratio; without it all are alike)
@@ -678,5 +687,5 @@
 
   // what the page's other files use of this one
   Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
-    svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal });
+    svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
 })();

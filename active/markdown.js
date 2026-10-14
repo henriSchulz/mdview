@@ -357,7 +357,8 @@
     const lines = A.tables.write(rows, aligns, style);
     // the line that says how it looks: as it was written, where it still says so; else written anew, or none
     const core = window.MdView.core, was = node.attrs.mark ? core.tableLook(node.attrs.mark) : null;
-    const mark = was && was.wide === !!node.attrs.wide && was.head === (node.attrs.head || "") ? node.attrs.mark : core.tableMark({ wide: !!node.attrs.wide, head: node.attrs.head || "" });
+    const cols = node.attrs.cols && node.attrs.cols.length === (node.firstChild ? node.firstChild.childCount : 0) ? node.attrs.cols : null; // (as many as it has columns: else they are not said)
+    const mark = was && was.wide === !!node.attrs.wide && was.head === (node.attrs.head || "") && String(was.cols || "") === String(cols || "") ? node.attrs.mark : core.tableMark({ wide: !!node.attrs.wide, head: node.attrs.head || "", cols });
     return mark ? [style.indent + mark].concat(lines) : lines;
   }
   // -> the lines of every item of a list

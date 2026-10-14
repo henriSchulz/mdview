@@ -323,9 +323,65 @@
     change(d.view, d.cell.tablePos, d.kind === "row" ? ops.rowMove(from, d.to - from, d.cell.c) : ops.colMove(from, d.to - from, d.cell.r));
   });
 
+  /* A column's width pulled with the pointer: the line between two columns, met within a few pixels — the pointer shows it can
+   * be pulled. The two beside it share what they had between them, as the pointer goes (each keeps a little); let go, the
+   * table's columns are as wide as that, as shares of the table (cols, in percent: the line before the table says so —
+   * viewer/markdown.js), one step. While it is pulled the widths are the plugin's (live), not yet the document's. */
+  const EDGE = 5, LEAST = 40;
+  let sizing = null;
+  function edgeAt(view, e) {
+    const td = e.target.closest?.("td, th");
+    if (!td || td.closest(".pm") !== view.dom || td.closest(".isl") || !view.editable) return null;
+    const cells = [...td.parentElement.children], i = cells.indexOf(td), r = td.getBoundingClientRect();
+    if (r.right - e.clientX <= EDGE && i < cells.length - 1) return { td, i };
+    if (e.clientX - r.left <= EDGE && i > 0) return { td: cells[i - 1], i: i - 1 };
+    return null;
+  }
+  function sizeStart(view, e, edge) {
+    const cell = cellOfDom(view, edge.td);
+    if (!cell) return false;
+    const first = edge.td.closest("table").rows[0], widths = [...first.cells].map((c) => c.getBoundingClientRect().width), total = widths.reduce((a, b) => a + b, 0);
+    sizing = { view, tablePos: cell.tablePos, i: edge.i, x0: e.clientX, widths, total, now: widths.slice() };
+    document.body.dataset.tblSizing = "";
+    hide();
+    const whole = total, shares = (w) => { const p = w.map((x) => Math.max(1, Math.round((x / whole) * 100))); p[p.length - 1] += 100 - p.reduce((a, b) => a + b, 0); return p; };
+    const moveTo = (ev) => {
+      const { i, widths: w, x0 } = sizing, pair = w[i] + w[i + 1], left = Math.max(LEAST, Math.min(pair - LEAST, w[i] + ev.clientX - x0));
+      sizing.now = w.slice(); sizing.now[i] = left; sizing.now[i + 1] = pair - left;
+      view.dispatch(view.state.tr.setMeta(key, { live: { pos: sizing.tablePos, cols: shares(sizing.now) } }));
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", moveTo, true);
+      document.removeEventListener("mouseup", up, true);
+      delete document.body.dataset.tblSizing;
+      const s = sizing; sizing = null;
+      const node = view.state.doc.nodeAt(s.tablePos), cols = shares(s.now);
+      const tr = view.state.tr.setMeta(key, { live: null });
+      if (node && node.type === N.table && String(cols) !== String(node.attrs.cols || "") && s.now.some((x, k) => Math.abs(x - s.widths[k]) > 1)) tr.setNodeMarkup(s.tablePos, null, { ...node.attrs, cols, wide: true }).setMeta("step", true);
+      view.dispatch(tr);
+    };
+    document.addEventListener("mousemove", moveTo, true);
+    document.addEventListener("mouseup", up, true);
+    return true;
+  }
+  // the first row's cells as wide as the table says (or as the pointer pulls them, while it does)
+  function widths(state) {
+    const live = key.getState(state), out = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type !== N.table) return !node.isTextblock;
+      const cols = live && live.pos === pos ? live.cols : node.attrs.cols, row = node.firstChild;
+      if (!cols || !row || cols.length !== row.childCount) return false;
+      let at = pos + 2;
+      row.forEach((cell, _o, c) => { out.push(PM.view.Decoration.node(at, at + cell.nodeSize, { style: `width:${cols[c]}%` })); at += cell.nodeSize; });
+      if (live && live.pos === pos && !node.attrs.cols) out.push(PM.view.Decoration.node(pos, pos + node.nodeSize, { class: "sizing-cols" }));
+      return false;
+    });
+    return PM.view.DecorationSet.create(state.doc, out);
+  }
   const key = new PluginKey("tables");
   const plugin = new Plugin({
     key,
+    state: { init: () => null, apply: (tr, live) => { const m = tr.getMeta(key); return m && "live" in m ? m.live : live && tr.docChanged ? null : live; } },
     // a table stays what GFM can write: a header row, one alignment per column, one line per cell
     appendTransaction(trs, _old, state) {
       if (!trs.some((tr) => tr.docChanged)) return null;
@@ -345,8 +401,17 @@
       return tr;
     },
     props: {
+      decorations: widths,
       handleDOMEvents: {
+        mousedown(view, e) {
+          if (e.button !== 0 || sizing) return false;
+          const edge = edgeAt(view, e);
+          if (!edge) return false;
+          e.preventDefault(); // (no caret, no selection: the line is taken)
+          return sizeStart(view, e, edge);
+        },
         mousemove(view, e) {
+          view.dom.classList.toggle("tbl-edge", !sizing && !!edgeAt(view, e));
           if (!view.editable || A.menu.isOpen || window.MdView.core.touching()) return false; // (a finger: its tap shows the handles)
           const td = e.target.closest?.("td, th");
           // (not at once: the pointer rests on a cell a moment before its handles come)
