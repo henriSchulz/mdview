@@ -133,7 +133,7 @@
     `<div class="rp-facts">${FACTS.map(([k, name]) => `<div><span>${esc(T(name))}</span><span class="rp-fact" data-fact="${k}">–</span></div>`).join("")}</div>` +
     `</div><div class="rp-pane" data-pane="style" role="tabpanel"><h3 class="rp-sec">${esc(T("panel.background"))}</h3><div class="rp-grounds" role="radiogroup" aria-label="${esc(T("panel.background"))}">` +
     GROUNDS.map((g) => `<button class="rp-ground" type="button" role="radio" aria-checked="false" data-bg="${g}" title="${esc(groundName(g))}" aria-label="${esc(groundName(g))}"><i data-doc-bg="${g || "none"}"></i></button>`).join("") +
-    `</div><h3 class="rp-sec">${esc(T("panel.layout"))}</h3><label class="rp-line"><span>${esc(T("panel.wide"))}</span><input type="checkbox" class="pf-switch" data-prop="wide"></label>` +
+    `</div><h3 class="rp-sec">${esc(T("panel.layout"))}</h3><label class="rp-line"><span>${esc(T("panel.width"))}</span><select class="rp-width" data-prop="width" aria-label="${esc(T("panel.width"))}">${["narrow", "normal", "wide", "full"].map((w) => `<option value="${w}">${esc(T("panel.width." + w))}</option>`).join("")}</select></label>` +
     `<p class="rp-hint rp-say">${esc(T("panel.docHint"))}</p></div>`;
   document.body.appendChild(el);
   /* The rail at the window's right edge: one sign for each of the panel's parts. A press opens the panel at that part,
@@ -361,7 +361,7 @@
   el.addEventListener("mousedown", (e) => { if (!e.target.closest('.rp-search, .rp-tile[draggable="true"]')) e.preventDefault(); });
 
   // --- Document: what the note holds, and how it says it wants to be shown
-  const wideBox = docEl.querySelector(".pf-switch");
+  const widthBox = docEl.querySelector(".rp-width"), widthWrap = window.MdView.core.popup ? window.MdView.core.popup(widthBox) : null; // (a button with the app's own menu)
   const say = (k, text) => {
     const at = infoEl.querySelector(`[data-fact="${k}"]`);
     if (at.textContent === text) return;
@@ -389,15 +389,17 @@
     const p = core.current, look = core.doc.look();
     const can = !!p && !p.error && p.kind !== "pdf" && !p.readonly;
     for (const b of docEl.querySelectorAll(".rp-ground")) { b.setAttribute("aria-checked", String(b.dataset.bg === look.background)); b.disabled = !can; }
-    wideBox.checked = look.wide;
-    wideBox.disabled = !can;
+    widthBox.value = look.width || "normal";
+    widthBox.disabled = !can;
+    if (widthWrap && widthWrap.sync) widthWrap.sync();
     clearTimeout(counting);
     if (countedFor !== (p && p.path) || counted == null) { countedFor = p && p.path; count(); }
     else counting = setTimeout(count, 150);
   }
   // (what was chosen shows by what the note says afterwards — where nothing could be written, as it was)
   docEl.addEventListener("click", (e) => { const b = e.target.closest(".rp-ground"); if (b && !b.disabled) { core.doc.set("background", b.dataset.bg || null); doc(); } });
-  wideBox.addEventListener("change", () => { core.doc.set("wide", wideBox.checked ? true : null); doc(); });
+  // how wide the text column is: a share of the window, said by the note (normal: nothing said; an old "wide: true" goes)
+  widthBox.addEventListener("change", () => { core.doc.set("width", widthBox.value === "normal" ? null : widthBox.value); if (/^---[ \t]*\n(?:[^\n]*\n)*?wide:/.test(String((core.current || {}).text || ""))) core.doc.set("wide", null); doc(); });
   docEl.addEventListener("keydown", (e) => e.stopPropagation()); // (Space on a ground or the switch is not the note's)
 
   // --- tabs, opening and closing

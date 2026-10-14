@@ -719,7 +719,7 @@ draft: true
 date: 2026-10-04
 color: green
 background: blue
-wide: true
+width: wide
 ---
 ```
 
@@ -732,7 +732,8 @@ web app, a shared note too. They can be chosen in the panel's Style part:
   theme's own ground, and around it the window shows `gray`, or a soft run from one of the
   theme's colours into another — `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta` —
   or paper: `dots`, `grid`, `lines`. Anything else, or nothing: no sheet, the theme's own ground.
-- `wide: true`: the text column wide (58rem) for this note.
+- `width`: how much of the window the text column takes — `narrow`, `wide` or `full` (`normal`,
+  where it says nothing). `wide: true`, as it was written before, is `wide`.
 
 ### HTML
 
@@ -763,6 +764,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   blocks as wholes. Each selected block has a field of its own, with the same room between two
   of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
   the page along.
+  What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
+  them as blocks of its own and is selected there, so the next paste goes below that.
 - **Tab stands any block further in**, `Shift+Tab` takes it out again. Right below a list — also
   across an empty line — a paragraph, a code block or a table goes into that list's last item,
   and the first item of a list under the list above it. Where no list is above, the block goes
@@ -791,12 +794,13 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     theme's own ground, no sheet), gray, a soft run of two of the theme's colours, or paper (dots,
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
-  - *Wide Page* (Style): the text column wide for this note, whatever the settings' text width is for the
-    others (where the settings already have it wide or as wide as the window, it stays so). What is pasted while blocks are selected (`Ctrl+V`) is not put in
-their place: it goes below them as blocks of its own and is selected there, so the next paste
-goes below that.
+  - *Page width* (Style): how much of the window the text column takes in this note — Narrow,
+    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (half,
+    two thirds, four fifths of it, all of it; in a narrow window the whole room, at least 30rem), so
+    a large screen gives a note a broad column too. It is the note's alone: the settings have no
+    width of their own.
 
-  Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
+  Background and Page width are properties of the note (`background`, `width` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
   caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
   last of them. Insert and Format are the active mode's; Style and Information stand beside the
@@ -1278,7 +1282,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

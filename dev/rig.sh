@@ -953,7 +953,7 @@ case "${1:-}" in
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     # (what the Document tab chose last stands in the file itself)
-    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|wide: true|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
+    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|width: wide|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
     { jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"; echo "$filed"; } | tee "$R/out/panel.txt"
     ! grep -qv '^ok' "$R/out/panel.txt" ;;
   columns)

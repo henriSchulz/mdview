@@ -29,13 +29,13 @@
   const { topRoom, setTabs } = P; // viewer/tabs.js
   const { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll } = P; // viewer/toolbar.js
 
-  const MEASURES = { narrow: "38rem", normal: "46rem", wide: "58rem", full: "none" };
+  /* The text column's width, as a share of the room the note has (the window beside the sidebar, a half of a split): the note
+   * says which (its property "width" — the panel's Document part); in a narrow window it is the whole room at least 30rem. */
+  const share = (p) => `max(${p}%, min(100%, 30rem))`;
+  const MEASURES = { narrow: share(50), normal: share(66), wide: share(82), full: "none" };
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
-  /* The text column's width: as the settings say — and wide for a note that says so itself (its
-   * property "wide"), where the settings do not make it wider still. */
   function measureSync() {
-    const set = MEASURES[window.MdPrefs?.measure] ? MdPrefs.measure : "normal";
-    const measure = docShown.wide && set !== "full" ? "wide" : set;
+    const measure = MEASURES[docShown.width] ? docShown.width : "normal";
     if (measure === measured) return;
     measured = measure;
     if (measure === "normal") document.documentElement.style.removeProperty("--measure"); else document.documentElement.style.setProperty("--measure", MEASURES[measure]);
@@ -45,12 +45,12 @@
    * width — taken from its properties as the file has them now: after it is drawn, in any mode,
    * and after every save. A page of a note is shown as its note is. The panel's Document tab
    * (active/panel.js) hears of it, and counts anew. */
-  let docShown = { background: "", wide: false };
+  let docShown = { background: "", width: "normal" };
   function docSync() {
     const p = P.current, note = p && !p.error && p.kind !== "pdf" && typeof p.text === "string";
     const head = note ? (/^---[ \t]*\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(p.text) || [""])[0] : "";
     if (note && (!p._look || p._look.head !== head)) p._look = { head, look: docLook(head ? stripFrontmatter(head).props : null) }; // (read once for properties as they stand)
-    docShown = note ? p._look.look : { background: "", wide: false };
+    docShown = note ? p._look.look : { background: "", width: "normal" };
     if (docShown.background) document.documentElement.dataset.docBg = docShown.background; else delete document.documentElement.dataset.docBg; // (viewer/page.css)
     measureSync();
     if (window.MdActive && MdActive.panel) MdActive.panel.doc();

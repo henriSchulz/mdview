@@ -34,7 +34,6 @@
     ["appearance", "title", [
       [null, [
         ["docZoom", "select", [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250].map((z) => [z, z + " %"])],
-        ["measure", "select", [["narrow", "prefs.measure.narrow"], ["normal", "prefs.measure.normal"], ["wide", "prefs.measure.wide"], ["full", "prefs.measure.full"]]],
         ["calloutStyle", "select", [["box", "prefs.calloutStyle.box"], ["tip", "prefs.calloutStyle.tip"], ["label", "prefs.calloutStyle.label"]]],
         ["sidebarLayout", "select", [["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["sheets", "prefs.layout.sheets"], ["tiles", "prefs.layout.tiles"]]],
         ["hinting", "switch"],
