@@ -1138,6 +1138,15 @@
      * the name the desktop app works out for the same file (files.rs: ink_of), so what is drawn here is on the PDF there. The PDF
      * is not written to; where nothing is drawn (any more) there is no file. */
     /* A note beside the one in the window (viewer/split.js): its text, and what its links lead to from where it lies. */
+    // … written in there (the one in the window is written in the window)
+    "note-save"({ path, text, id }) {
+      path = where(path);
+      if (typeof path !== "string" || typeof text !== "string" || !exists(path) || !C.isMd(path) || path === onScreen) return tell("noteSaved", id, "not a note to write here");
+      if (!project()) return tell("noteSaved", id, NOT_YET);
+      const r = rel(path), was = drafts.has(r) ? drafts.get(r).text : committed(r);
+      write(r, typeof was === "string" && was.includes("\r\n") ? text.replace(/\r?\n/g, "\r\n") : text);
+      tell("noteSaved", id, null);
+    },
     async "note-read"({ path, id }) {
       try {
         path = where(path);

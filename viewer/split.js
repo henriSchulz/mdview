@@ -13,6 +13,8 @@
   const I = {
     close: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
     over: svg('<path d="M14 6 8 12l6 6"/><path d="M20 12H9"/>'),
+    write: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+    read: svg('<path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H10a2 2 0 0 1 2 2v14a1.6 1.6 0 0 0-1.6-1.6H4.5A1.5 1.5 0 0 1 3 16.9z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H14a2 2 0 0 0-2 2v14a1.6 1.6 0 0 1 1.6-1.6h5.9a1.5 1.5 0 0 0 1.5-1.5z"/>'),
   };
   const KINDS = [[/\.(md|markdown|mdown|txt)$/i, "note"], [/\.pdf$/i, "pdf"], [/\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i, "image"]];
   const kindOf = (path) => (KINDS.find(([re]) => re.test(path)) || [])[1] || null;
@@ -33,13 +35,14 @@
       `<div class="split-body" tabindex="-1"><div class="split-doc"></div></div>` +
       `<div class="split-bar pdf-bar" role="toolbar" aria-label="PDF" hidden></div>` +
       `<div class="split-cap" role="toolbar"><span class="split-name"></span>` +
+      `<button class="tb" type="button" data-do="write" aria-pressed="false" title="${esc(T("Edit Here"))}" aria-label="${esc(T("Edit Here"))}">${I.write}</button>` +
       `<button class="tb" type="button" data-do="over" title="${esc(T("Open at the Left"))}" aria-label="${esc(T("Open at the Left"))}">${I.over}</button>` +
       `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></div>`;
     document.body.appendChild(pane);
     sizing(pane.querySelector(".split-grip"));
     pane.addEventListener("click", (e) => {
       const b = e.target.closest("[data-do]"), a = e.target.closest("a");
-      if (b) return b.dataset.do === "close" ? close() : over();
+      if (b) return b.dataset.do === "close" ? close() : b.dataset.do === "write" ? writing(!S.src) : over();
       if (!a) return;
       e.preventDefault(); e.stopPropagation(); // (the window's own links lead on at the left: these are the sheet's)
       const info = a.dataset.wiki && S && S.links ? S.links[a.dataset.wiki] : null;
@@ -105,13 +108,52 @@
     body().scrollTop = same ? at : 0;
     if (same) run();
   }
+  /* A note beside the one in the window is written in too: its source, in the sheet, kept a moment after the last key (note-save)
+   * — as the window's own source is, in the same type. Not the note that is in the window as well: one note is written in one
+   * place. */
+  const SAVE_MS = 800;
+  function writing(on) {
+    const s = S;
+    if (!s || s.kind !== "note" || !s.text && s.text !== "") return;
+    const b = pane.querySelector('[data-do="write"]');
+    if (on && P.current && P.current.path === s.path) return P.toast && P.toast(T("This note is open at the left: it is written there"));
+    if (!on) { keep(s); s.src = null; doc().classList.remove("is-src"); doc().innerHTML = html(s.path, s.text, s.links); }
+    else {
+      doc().classList.add("is-src");
+      doc().innerHTML = `<textarea class="split-src" spellcheck="false" aria-label="${esc(T("Edit Here"))}"></textarea>`;
+      const ta = (s.src = doc().firstChild);
+      ta.value = s.text;
+      const fit = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+      ta.addEventListener("input", () => { s.text = ta.value; s.dirty = true; fit(); clearTimeout(s.saving); s.saving = setTimeout(() => keep(s), SAVE_MS); });
+      ta.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); writing(false); } }); // (the keys are the text's, not the window's)
+      ta.addEventListener("blur", () => keep(s));
+      requestAnimationFrame(fit);
+      ta.focus({ preventScroll: true });
+    }
+    b.setAttribute("aria-pressed", String(!!s.src));
+    b.innerHTML = s.src ? I.read : I.write;
+    b.title = T(s.src ? "Read Here" : "Edit Here"); b.setAttribute("aria-label", b.title);
+  }
+  function keep(s) {
+    clearTimeout(s.saving);
+    if (!s.dirty) return;
+    s.dirty = false;
+    const id = "w" + ++seq;
+    waiting.set(id, s);
+    post("note-save", { path: s.path, text: s.text, id });
+  }
+  function saved(id, error) {
+    waiting.delete(id);
+    if (error && P.toast) P.toast(T("Couldn't save: {0}", error));
+  }
   function got(id, data, error) {
     const w = waiting.get(id);
     waiting.delete(id);
     if (!w || S !== w) return;
     if (!data) { doc().innerHTML = `<p class="split-empty">${esc(error || T("This file can't be shown here"))}</p>`; return; }
     S.links = data.links || {};
-    doc().innerHTML = html(S.path, String(data.text || ""), S.links);
+    S.text = String(data.text || "");
+    doc().innerHTML = html(S.path, S.text, S.links);
     body().scrollTop = 0;
   }
   /* A PDF beside a note: its pages as pictures, each drawn when it comes near — and over them the viewer's plain controls, as its
@@ -221,12 +263,15 @@
     if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
     if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
     if (!pane) build();
+    if (S && S.src) keep(S);
     leave(S);
     const s = (S = { kind, path: what ? what.path : null, links: {}, shown: undefined, of: null });
     doc().className = "split-doc" + (kind === "pdf" ? " is-pdf" : kind === "image" ? " is-image" : "");
     doc().innerHTML = "";
     named(what ? nameOf(what.path) : "");
     pane.querySelector('[data-do="over"]').hidden = kind === "self";
+    const w = pane.querySelector('[data-do="write"]');
+    w.hidden = kind !== "note"; w.setAttribute("aria-pressed", "false"); w.innerHTML = I.write; w.title = T("Edit Here"); w.setAttribute("aria-label", w.title);
     document.body.dataset.split = kind;
     pane.dataset.kind = kind;
     narrow();
@@ -239,6 +284,7 @@
   }
   function close() {
     if (!S) return;
+    if (S.src) keep(S);
     leave(S);
     S = null;
     clearInterval(watch);
@@ -248,10 +294,11 @@
   /* What is beside the note becomes the window's own: opened at the left, where it can be written. */
   function over() {
     if (!S || !S.path || S.kind === "self") return;
+    if (S.src) keep(S);
     const path = S.path;
     close();
     post("note", { path });
   }
 
-  Object.assign(P, { splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
+  Object.assign(P, { splitSaved: saved, splitWrite: (on) => writing(on), splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
 })();

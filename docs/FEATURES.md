@@ -1116,6 +1116,11 @@ the left is the window's as ever, in any of its modes.
   side, any tab's menu has **Close Split View**.
 - **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
   **Open Beside**.
+- **A note at the right is written in too**: the pencil in the sheet's capsule shows its source,
+  in the type of the window's own source, kept a moment after the last key (the book, or `Esc`,
+  reads it again). Not the note that is in the window as well: that one is written at the left.
+- **The tab in the window** › Show in Split View: the note beside its own reading — written at the
+  left (in any mode), read at the right a moment later.
 - **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
   one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
   around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.

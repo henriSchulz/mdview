@@ -1001,7 +1001,7 @@
     }
     if (kind === "tab") for (const el of ctxItems) { // what there is nothing to do for stands dimmed
       // (beside the note: a tab that is not the one in the window, and holds something that can be read there — viewer/split.js)
-      const split = P.splitState && P.splitState(), here = !!item.dataset.path && item.dataset.path === (P.current && P.current.path), beside = !!item.dataset.path && !here && P.splitFor(item.dataset.path);
+      const split = P.splitState && P.splitState(), beside = !!item.dataset.path && P.splitFor(item.dataset.path); // (the tab in the window too: the note as it reads, beside its source)
       const off = (el.dataset.cmd === "tab:reopen" && !P.tabClosed) || (el.dataset.cmd === "tab:others" && P.tabs.length < 2) || (el.dataset.cmd === "tab:split" && !beside);
       el.disabled = off; el.classList.toggle("off", off);
       if (el.dataset.cmd === "tab:unsplit") el.hidden = !split; // (only while two are side by side)
@@ -1061,7 +1061,7 @@
       else if (cmd === "opentab") post("note", { path, tab: true });
       else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
       else if (cmd === "download") post("download", { path });
-      else if (cmd === "tab:split") P.splitOpen({ path: item.dataset.path });
+      else if (cmd === "tab:split") P.splitOpen(item.dataset.path === (P.current && P.current.path) ? null : { path: item.dataset.path });
       else if (cmd === "tab:unsplit") P.splitClose();
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));

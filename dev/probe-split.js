@@ -29,8 +29,12 @@
     window.MdHost.post(JSON.stringify({ type: "tab", op: "select", id: Number(tabOf("Alpha.md").dataset.id) }));
     await until(() => /Alpha\.md$/.test(MdView.core.current.path), 4000);
     let entry = await menu(tabOf("Alpha.md"));
-    ok("the menu of the tab in the window: Show in Split View is there, and cannot be chosen (it is in the window)", !!entry("tab:split") && entry("tab:split").disabled && entry("tab:unsplit").hidden, entry("tab:split") && [entry("tab:split").disabled, entry("tab:split").hidden]);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(200);
+    ok("the menu of the tab in the window: Show in Split View — the note as it reads, beside itself", !!entry("tab:split") && !entry("tab:split").disabled && entry("tab:unsplit").hidden, entry("tab:split") && [entry("tab:split").disabled, entry("tab:split").hidden]);
+    said = Math.max(real, 1200);
+    entry("tab:split").click();
+    ok("… chosen: the sheet at the right is the note in the window, as it reads", await until(() => P.splitState() && P.splitState().kind === "self" && /Some text/.test(sheet().textContent), 3000), P.splitState());
+    P.splitClose(); await sleep(200);
+    said = real;
     const was = document.getElementById("content").getBoundingClientRect();
     // a window with no room for two: said, and nothing half shown
     said = 480;
@@ -57,7 +61,7 @@
       ok("the same type in both halves", getComputedStyle(document.querySelector("#content p")).fontSize === getComputedStyle(sheet().querySelector("p")).fontSize && getComputedStyle(l).fontSize === getComputedStyle(r).fontSize, [getComputedStyle(l).fontSize, getComputedStyle(r).fontSize]);
       if (wide) ok("… and their first lines at one height", Math.abs(l.getBoundingClientRect().top - r.getBoundingClientRect().top) <= 2, [l.getBoundingClientRect().top, r.getBoundingClientRect().top]);
       ok("the window's own scrollbar is put away: each half has its run", ["none"].includes(getComputedStyle(document.documentElement).scrollbarWidth) || !wide, getComputedStyle(document.documentElement).scrollbarWidth);
-      ok("what the sheet is stands in a capsule in its corner, with what is done with it", !!pane().querySelector(".split-cap .split-name") && pane().querySelectorAll(".split-cap button").length === 2 && !pane().querySelector(".split-head"));
+      ok("what the sheet is stands in a capsule in its corner, with what is done with it", !!pane().querySelector(".split-cap .split-name") && pane().querySelectorAll(".split-cap button").length === 3 && !pane().querySelector(".split-head"));
       // the line between the halves, pulled: the sheet's share follows, within what both need; a double click halves again
       const share = () => Number(getComputedStyle(document.documentElement).getPropertyValue("--split-r"));
       const at = (type, x) => grip.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: 300, pointerId: 5, button: 0, isPrimary: true }));
@@ -83,6 +87,22 @@
     P.splitOpen({ path: root() + "/sub/Beta.md" });
     ok("another note beside it: its text, read from where it lies", await until(() => P.splitState().kind === "note" && /Beta/.test((sheet().querySelector("h1") || {}).textContent || "") && /More about it/.test(sheet().textContent), 4000), sheet().textContent.slice(0, 80));
     ok("… named in the sheet's head, and the note at the left is the same as before", pane().querySelector(".split-cap .split-name").textContent === "Beta" && /Alpha\.md$/.test(MdView.core.current.path));
+    // written in, beside the note in the window: its source, kept a moment after the last key
+    {
+      const w = pane().querySelector('[data-do="write"]');
+      ok("a note beside can be written in", !!w && !w.hidden);
+      w.click();
+      const ta = () => sheet().querySelector("textarea.split-src");
+      ok("… its source, in the sheet", await until(() => ta() && ta().value.startsWith("# Beta"), 2000) && w.getAttribute("aria-pressed") === "true", sheet().innerHTML.slice(0, 120));
+      ta().value = ta().value.replace("More about it", "More about it, written beside");
+      ta().dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(1300);
+      ta().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      ok("Esc: read again, as it was written", await until(() => !ta() && /written beside/.test(sheet().textContent), 2000), sheet().textContent.slice(0, 80));
+      P.splitOpen({ path: root() + "/sub/Beta.md" });
+      ok("… and kept: read anew from the file, it says so", await until(() => /written beside/.test(sheet().textContent), 4000), sheet().textContent.slice(0, 80));
+      ok("the note in the window was left alone", /Alpha\.md$/.test(MdView.core.current.path) && /Some text/.test(document.getElementById("content").textContent));
+    }
     const link = sheet().querySelector('a.wikilink[data-wiki]');
     ok("its links are found from its own place", !!link && link.dataset.wiki === "Gamma", sheet().innerHTML.slice(0, 200));
     link.click();

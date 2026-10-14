@@ -355,6 +355,31 @@ impl Win {
         }
     }
 
+    /// … and written in there: kept as the window's own note is (save_text) — its line endings as
+    /// they were, a link followed. Only a note, only one that is there, and not the one in the
+    /// window (that one is written in the window).
+    pub(super) fn note_save(&mut self, path: &str, text: Option<&str>, id: &Value) {
+        let p = scan::found(&resolve(Path::new(path)));
+        let done = || -> Result<(), String> {
+            let text = text.ok_or("no text")?;
+            if !is_md(&p) || !p.is_file() {
+                return Err("not a note".into());
+            }
+            if self.path.as_deref().map(resolve).as_deref() == Some(p.as_path()) {
+                return Err("open in the window".into());
+            }
+            let old = fs::read(&p).map_err(|e| strerror(&e))?;
+            let crlf = old.windows(2).any(|w| w == b"\r\n");
+            let data = if crlf { text.replace('\n', "\r\n").into_bytes() } else { text.as_bytes().to_vec() };
+            if data != old {
+                write_whole(&p, &data).map_err(|e| strerror(&e))?;
+            }
+            Ok(())
+        };
+        let r = done();
+        self.js("MdView.noteSaved", &[id.clone(), r.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
+    }
+
     /// What was drawn on a PDF, for the page: a whiteboard's text, or nothing where nothing was
     /// drawn yet …
     pub(super) fn pdfink_read(&self, path: &str, id: &Value) {
