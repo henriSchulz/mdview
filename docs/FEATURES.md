@@ -835,12 +835,15 @@ goes below that.
   does on them, are the same in all four:
   - **List** (the default): the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
-  - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
-    beside it what is in the one chosen — its own folders open in place. A right click on a
-    folder's sign opens the folder's own menu.
+  - **Rail**: the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
+    it what is in the one chosen. A folder is a favourite by its menu (**Add to Favourites**, a star —
+    filled where it is one; **Remove from Favourites**) or by pulling it onto the rail. Favourites
+    are kept with the folder's colour and sign, in the folder (`.mdview/folders.json`): every device
+    has the same. Its own folders open in place beside it; a right click on a folder's sign opens the
+    folder's own menu.
   A folder has one menu wherever it is met — on its row, on its sign in the rail, on its tile in
   All Notes: Open, New Note, New Folder, New Whiteboard, Add Files…, Paste, Show in Finder, Copy,
-  Cut, Duplicate, Copy Path, Colour and Icon…, Rename, Hide, Move to Trash, Show. So has a note on
+  Cut, Duplicate, Copy Path, Colour and Icon…, Add to Favourites, Rename, Hide, Move to Trash, Show. So has a note on
   its row and on its tile, and several things selected in the sidebar or in All Notes. What is
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the

@@ -242,10 +242,11 @@
   }
   const looksText = (looks) => JSON.stringify({ version: 1, folders: Object.fromEntries(Object.keys(looks).sort().map((k) => [k, looks[k]])) }, null, 2) + "\n";
   // a colour and a sign chosen for a folder ("" for either: none; neither: no entry)
-  function lookSet(looks, rel, color, icon) {
+  function lookSet(looks, rel, color, icon, fav = false) { // fav: a favourite — its sign stands in the sidebar's rail
     const next = { ...looks }, entry = {};
     if (lookWord(color)) entry.color = lookWord(color);
     if (lookWord(icon)) entry.icon = lookWord(icon);
+    if (fav === true) entry.fav = true;
     if (Object.keys(entry).length) next[rel] = entry; else delete next[rel];
     return next;
   }

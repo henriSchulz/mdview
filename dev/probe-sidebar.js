@@ -45,8 +45,28 @@
 
     // ---- rail
     await layout("rail");
+    // the rail holds the favourites, not every folder: at first everything alone, and a faint star where they will stand
+    ok("rail: at first everything alone — no folder is a favourite yet", qa(".sb-rail .sb-rt").map((b) => b.title).join("|") === "All Notes" && !!q(".sb-rail .sb-rail-hint"), qa(".sb-rail .sb-rt").map((b) => b.title));
+    { // a favourite made from a folder's menu: the star
+      const menuOn = async (row) => { const r = row.getBoundingClientRect(); row.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: r.top + 8, button: 2 })); await sleep(350); return document.querySelector('#ctxmenu [data-cmd="fav"]'); };
+      if (!rowOf("Studium")) { qa(".sb-rail .sb-rt")[0].click(); await sleep(400); }
+      const fav = await menuOn(rowOf("Studium"));
+      ok("a folder's menu: Add to Favourites, with a hollow star", !!fav && !fav.hidden && fav.querySelector(".menu-label").textContent === "Add to Favourites" && !fav.querySelector(".menu-icon path[fill]"), fav && fav.textContent);
+      fav.click(); await sleep(500);
+      ok("… chosen: its sign stands in the rail", qa(".sb-rail .sb-rt").map((b) => b.title).join("|") === "All Notes|Studium" && !q(".sb-rail .sb-rail-hint"), qa(".sb-rail .sb-rt").map((b) => b.title));
+      const again = await menuOn(rowOf("Studium"));
+      ok("… and its menu says so, the star filled: Remove from Favourites", again.querySelector(".menu-label").textContent === "Remove from Favourites" && !!again.querySelector(".menu-icon path[fill]"), again.textContent);
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(300);
+      // a favourite made by pulling the folder onto the rail
+      const dt = new DataTransfer(), ev = (type, el, x, y) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: y }));
+      const railEl = q(".sb-rail"), rr = railEl.getBoundingClientRect();
+      ev("dragstart", rowOf("Projekte")); ev("dragover", railEl, rr.left + 20, rr.bottom - 20); const lit = railEl.hasAttribute("data-drop"); ev("drop", railEl, rr.left + 20, rr.bottom - 20); ev("dragend", rowOf("Projekte"));
+      await sleep(600);
+      ok("a folder pulled onto the rail: a favourite from then on (the rail lit while it was over it)", lit && qa(".sb-rail .sb-rt").map((b) => b.title).join("|") === "All Notes|Projekte|Studium", [lit, qa(".sb-rail .sb-rt").map((b) => b.title)]);
+      ok("… kept with the folder's look, as the folder says itself", !!(MdView.core.folder.looks || {}).Projekte && MdView.core.folder.looks.Projekte.fav === true && MdView.core.folder.looks.Studium.fav === true && MdView.core.folder.looks.Studium.color === "green", MdView.core.folder.looks);
+    }
     const rail = qa(".sb-rail .sb-rt");
-    ok("rail: everything, then the folder's folders as signs — the chosen colour and sign among them", sb.dataset.layout === "rail" && rail.map((b) => b.title).join("|") === "All Notes|Projekte|Studium" && /--c-green/.test(rail[2].getAttribute("style") || "") && rail[0].classList.contains("on"), rail.map((b) => b.title + (b.getAttribute("style") || "")));
+    ok("rail: everything, then the favourites as signs — the chosen colour and sign among them", sb.dataset.layout === "rail" && rail.map((b) => b.title).join("|") === "All Notes|Projekte|Studium" && /--c-green/.test(rail[2].getAttribute("style") || "") && rail[0].classList.contains("on"), rail.map((b) => b.title + (b.getAttribute("style") || "")));
     // a folder's sign in the rail has the folder's own menu: its colour and sign are changed from there too
     const signOf = (name) => qa(".sb-rail .sb-rt").find((b) => b.title === name);
     signOf("Projekte").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 26, clientY: signOf("Projekte").getBoundingClientRect().top + 8, button: 2 }));
@@ -156,7 +176,7 @@
     const dirSign = await menuOf(signOf("Projekte"));
     await layout("source");
     MdOverview.open(); await sleep(700);
-    document.querySelector('#overview [data-seg="scope"] [data-v="folders"]').click(); await sleep(500);
+    while (document.querySelector("#overview .ov-crumb")) { document.querySelector("#overview .ov-crumb").click(); await sleep(400); } // (All Notes opens in the folder of the note on screen: up to the folder itself)
     const tileOf = (name) => [...document.querySelectorAll("#overview .ov-item")].find((t) => t.querySelector(".ov-name").textContent === name);
     const dirTile = tileOf("Projekte") ? await menuOf(tileOf("Projekte")) : "(no tile)", noteTile = tileOf("Alpha") ? await menuOf(tileOf("Alpha")) : "(no tile)";
     ok("a folder has the same menu on its row, on its sign in the rail and on its tile in All Notes", dirRow.includes("look") && dirRow.includes("rename") && dirRow === dirSign && dirRow === dirTile, { row: dirRow, sign: dirSign, tile: dirTile });

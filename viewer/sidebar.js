@@ -194,6 +194,7 @@
     music: svg('<path d="M9 18V5l11-2v13"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="17.500" cy="16" r="2.500"/>'),
     camera: svg('<path d="M4 8h3l1.500-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.500"/>'),
   };
+  const STAR_FULL = svg('<path fill="currentColor" d="m12 3 2.700 5.600 6.100.8-4.500 4.300 1.100 6.100L12 17l-5.400 2.800 1.100-6.100L3.200 9.400l6.100-.8z"/>'); // (a favourite: the star filled)
   const SMART_ICONS = { all: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'), today: FOLDER_ICONS.calendar, shared: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'), tasks: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>') };
   const sbRail = sidebar.querySelector(".sb-rail"), sbCrumb = sidebar.querySelector(".sb-crumb"), sbSmartBox = sidebar.querySelector(".sb-smart"), sbRecent = sidebar.querySelector(".sb-recent"), sbFlat = sidebar.querySelector(".sb-flat");
   let sbHere = null;     // rail, sheets: the folder whose notes are shown (its path; null: the folder itself)
@@ -282,10 +283,13 @@
     }
     const all = everyNote(), here = sbHere ? dirAt(sbHere) : null;
     // the rail: everything, and the folder's folders
-    const rail = lay === "rail" ? [["", T("All Notes"), SMART_ICONS.all, "var(--c-gray, var(--fg2))"], ...[...folder.tree.dirs].sort((a, b) => collator.compare(a.name, b.name)).map((d) => [d.path, d.name, folderGlyph(lookOf(d.path)), colorVar(lookOf(d.path).color)])] : [];
+    // the rail: everything, and the favourites — not every folder: those one goes to (a star in a folder's menu, or pulled onto the rail)
+    const rail = lay === "rail" ? [["", T("All Notes"), SMART_ICONS.all, "var(--c-gray, var(--fg2))"], ...favs().map((d) => [d.path, d.name, folderGlyph(lookOf(d.path)), colorVar(lookOf(d.path).color)])] : [];
     const railKey = JSON.stringify(rail.map(([p, n, , c]) => [p, n, c, (lookOf(p || folder.root + "/") || {}).icon]));
-    if (sbRail.dataset.key !== railKey) { sbRail.dataset.key = railKey; sbRail.innerHTML = rail.map(([p, n, glyph, c]) => `<button class="sb-rt" type="button" data-go="${esc(p)}" title="${esc(n)}" aria-label="${esc(n)}"${c ? ` style="--fc: ${c}"` : ""}>${glyph}</button>`).join(""); }
-    for (const b of sbRail.children) { const on = (b.dataset.go || null) === (sbHere ? folder.root + "/" + relOf(sbHere).split("/")[0] : null); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    if (sbRail.dataset.key !== railKey) { sbRail.dataset.key = railKey; sbRail.innerHTML = rail.map(([p, n, glyph, c]) => `<button class="sb-rt" type="button" data-go="${esc(p)}" title="${esc(n)}" aria-label="${esc(n)}"${c ? ` style="--fc: ${c}"` : ""}>${glyph}</button>`).join("") + (rail.length < 2 ? `<span class="sb-rail-hint" title="${esc(T("Favourite folders stand here: pull one onto the rail, or right click it › Add to Favourites"))}">${FOLDER_ICONS.star}</span>` : ""); }
+    // (the sign of the favourite one is in, the nearest where one is inside another)
+    const inFav = sbHere ? rail.map(([p]) => p).filter((p) => p && (sbHere === p || sbHere.startsWith(p + "/"))).sort((a, b) => b.length - a.length)[0] || null : null;
+    for (const b of sbRail.querySelectorAll(".sb-rt")) { const on = (b.dataset.go || null) === inFav; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
     // where one is: in the rail's pane its name and how much is in it; among the sheets the way back
     const up = here && sbHere.replace(/\/[^/]*$/, "");
     const crumb = lay === "rail" ? `<span class="sb-crumb-name">${esc(here ? here.name : T("All Notes"))}</span>`
@@ -382,14 +386,31 @@
   sbLook.addEventListener("click", (e) => {
     const b = e.target instanceof Element && e.target.closest("[data-color], [data-icon]");
     if (!b || !sbLookFor || !folder) return;
-    const was = lookOf(sbLookFor), next = { color: b.dataset.color != null ? b.dataset.color : was.color || "", icon: b.dataset.icon != null ? b.dataset.icon : was.icon || "" };
-    const looks = { ...(folder.looks || {}) };
-    if (next.color || next.icon) looks[relOf(sbLookFor)] = next; else delete looks[relOf(sbLookFor)];
-    folder.looks = looks; // (shown at once; the application says the same when it has written it)
-    post("folderlook", { path: sbLookFor, color: next.color, icon: next.icon });
-    syncList(false);
+    const was = lookOf(sbLookFor);
+    setLook(sbLookFor, { color: b.dataset.color != null ? b.dataset.color : was.color || "", icon: b.dataset.icon != null ? b.dataset.icon : was.icon || "", fav: !!was.fav });
     paintLook();
   });
+  /* A folder's look as it is to be — its colour, its sign, whether it is a favourite: shown at once, kept by the application
+   * (the folder's .mdview/folders.json), which says the same when it has written it. */
+  function setLook(path, next) {
+    const looks = { ...(folder.looks || {}) }, entry = {};
+    if (next.color) entry.color = next.color;
+    if (next.icon) entry.icon = next.icon;
+    if (next.fav) entry.fav = true;
+    if (Object.keys(entry).length) looks[relOf(path)] = entry; else delete looks[relOf(path)];
+    folder.looks = looks;
+    post("folderlook", { path, color: next.color || "", icon: next.icon || "", fav: !!next.fav });
+    syncList(false);
+  }
+  /* The rail holds the favourites: a folder is made one with its menu (a star) or by pulling it onto the rail. */
+  const favs = () => Object.entries((folder && folder.looks) || {}).filter(([rel, l]) => l.fav && dirAt(folder.root + "/" + rel)).map(([rel]) => dirAt(folder.root + "/" + rel)).sort((a, b) => collator.compare(a.name, b.name));
+  const favour = (path, on) => { const was = lookOf(path); if (!!was.fav !== on) setLook(path, { ...was, fav: on }); };
+  // a folder of the list pulled onto the rail: a favourite from then on
+  const pulledDir = () => moving.path && !moving.paths && dirAt(moving.path);
+  // (onto a sign: into that folder, as ever)
+  sbRail.addEventListener("dragover", (e) => { if (!pulledDir() || e.target.closest(".sb-rt")) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; sbRail.dataset.drop = ""; });
+  sbRail.addEventListener("dragleave", (e) => { if (!sbRail.contains(e.relatedTarget)) delete sbRail.dataset.drop; });
+  sbRail.addEventListener("drop", (e) => { delete sbRail.dataset.drop; const d = pulledDir(); if (!d || e.target.closest(".sb-rt")) return; e.preventDefault(); e.stopPropagation(); favour(d.path, true); });
   sbLook.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); closeLook(); } });
   sbLook.addEventListener("contextmenu", (e) => e.preventDefault());
   document.addEventListener("mousedown", (e) => { if (sbLook.hasAttribute("data-open") && !(e.target instanceof Element && e.target.closest("#sblook"))) closeLook(); }, true);
@@ -881,6 +902,7 @@
     `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("share", "share", T("Share…"), "file") +
     entry("look", "palette", T("Colour and Icon…"), "dir") +
+    entry("fav", "palette", T("Add to Favourites"), "dir") +
     entry("rename", "rename", T("Rename"), "file dir", "F2") +
     entry("hide", "eyeOff", T("Hide"), "file dir many") +
     entry("unhide", "eye", T("Show Again"), "file dir") +
@@ -996,6 +1018,8 @@
       ctx.querySelector('[data-cmd="history:is"][data-state="foreign"] .menu-label').textContent = `Kept by the Repository “${name}”`;
     }
     ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
+    { const fav = ctx.querySelector('[data-cmd="fav"]'); // a favourite or not: the star full or hollow, and what choosing does
+      if (fav && !fav.hidden) { const on = !!lookOf((ctxTile ? item.dataset.path : item.dataset.key) || "").fav; fav.querySelector(".menu-label").textContent = T(on ? "Remove from Favourites" : "Add to Favourites"); fav.querySelector(".menu-icon").innerHTML = on ? STAR_FULL : FOLDER_ICONS.star; fav.setAttribute("aria-checked", String(on)); } }
     for (const el of ctxItems) if (el.dataset.cmd.startsWith("sort:")) { // the order in use is ticked
       const on = el.dataset.cmd.slice(5) === sortKey();
       el.setAttribute("role", "menuitemradio"); el.setAttribute("aria-checked", String(on));
@@ -1068,6 +1092,7 @@
       else if (cmd === "tab:unsplit") P.splitClose();
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
+      else if (cmd === "fav") favour(path, !lookOf(path).fav);
       else if (cmd === "rename") {
         if (tile) MdOverview.rename(item);
         else if (from) { // (met in the rail, it has no row on screen: All Notes shows every folder's row, and the name is changed there)
