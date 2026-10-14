@@ -63,7 +63,7 @@
   // the order of a folder's notes (the settings' sidebarSort): the one opened last first, by name,
   // or the one changed last first — by name where that does not tell them apart. Folders: by name.
   const SORTS = ["opened", "name", "modified"];
-  const sortKey = () => (folder && folder.quick ? "modified" : SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "opened"); // (quick notes: what was written last is first)
+  const sortKey = () => (folder && folder.quick ? "modified" : SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "name"); // (quick notes: what was written last is first)
   const noteLabel = (n) => (folder && folder.quick ? quickOf(n).title : (sbTitles && n.title) || n.name);
   function sortNotes(notes) {
     const key = sortKey(), by = key === "opened" ? "opened" : key === "modified" ? "mtime" : null;

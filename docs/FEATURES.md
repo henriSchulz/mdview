@@ -859,7 +859,7 @@ goes below that.
   colours and one of twenty signs, shown in every layout. They are kept in the folder itself
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
-- **Order of the notes**: Last Opened (the default), Name, Date Modified.
+- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified.
 - **What is listed**: everything, as long as it is not taken out. A kind can be taken out — PDFs,
   pictures, sound and video, whiteboards, other files — in the settings, or at once from a right
   click in the sidebar › Show. All Notes has its own choice of the same five (settings, or a
