@@ -5,6 +5,13 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-14
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The sidebar's order should always stand on by name" (reported from another device) | the default was Last Opened — in the page, the shell's settings and the web app's; a device on which no order had been chosen (the browser, a new install) showed the notes in the order they were opened | Name is the default everywhere (`viewer/sidebar.js` sortKey, `active/prefs.js`, `shell.rs`, `web/lib/page.ts`); the settings and the empty room's menu list it first | `dev/tests/sortdefault.test.mjs` |
+| The pasteboard as a fourth choice in All Notes' head (All Notes · Folders · Whiteboards · Pasteboard): "should go from this menu — opened from another button, in a new tab"; All Notes "should always stand on Folders", and among the whiteboards the menu with Embedded and so on should go: "all whiteboards, simply" | the pasteboard had been made a way of showing the notes (scope `paste` in `overview.js`), and the choice among the ways was remembered (ovScope), so All Notes opened on whatever was shown last — the pasteboard too | the pasteboard has a tab of its own (`viewer/tabs.js`: pasteTab — an empty tab marked as its, named Pasteboard), opened from a button in All Notes' head, one at most; All Notes opens on Folders; the whiteboards are listed without a choice among them; the setting for the choice is gone | `dev/rig.sh pastetab` (eight checks), `dev/rig.sh paste` (the pasteboard in its tab), `web/test/paste.test.mjs`, `web/test/explorer.test.mjs` |
+
 ### 2026-10-13
 
 | What Henri saw | Why | Fixed by | Guard |

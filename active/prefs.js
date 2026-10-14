@@ -49,7 +49,6 @@
     ]],
     ["allNotes", "apps", [
       [null, [
-        ["ovScope", "select", [["all", "prefs.ovScope.all"], ["folders", "prefs.ovScope.folders"], ...(MdView.core.filework ? [["boards", "prefs.ovScope.boards"]] : []), ["paste", "prefs.ovScope.paste"]]],
         ["ovLayout", "select", [["tiles", "prefs.ovLayout.tiles"], ["list", "prefs.ovLayout.list"]]],
       ]],
       ["prefs.overview", [["ovPdf", "switch"], ["ovImages", "switch"], ["ovMedia", "switch"], ["ovBoards", "switch"], ["ovOther", "switch"]]],

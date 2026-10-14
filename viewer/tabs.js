@@ -54,8 +54,18 @@
   new MutationObserver(plateSoon).observe(tabList, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-selected", "class"] });
   if (window.ResizeObserver) new ResizeObserver(plateSoon).observe(tabList);
   addEventListener("resize", plateSoon);
+  /* The pasteboard has a tab of its own: an empty tab (one that shows All Notes) marked as the pasteboard's — made with pasteTab,
+   * kept for as long as the window is open. */
+  const pasteTabs = new Set();
+  let pasteWanted = false;
+  function pasteTab() {
+    const had = tabs.find((t) => pasteTabs.has(t.id));
+    if (had) return selectTab(had.id); // (one pasteboard: its tab, where there is one)
+    pasteWanted = true;
+    post("tab", { op: "new" });
+  }
   function tabLabel(t) {
-    if (!t.path) return T("All Notes");
+    if (!t.path) return T(pasteTabs.has(t.id) ? "Pasteboard" : "All Notes");
     let title = "";
     if (P.sbTitles && P.folder) { // as the sidebar names it
       const find = (dir) => dir.notes.find((n) => n.real === t.path) || dir.dirs.reduce((hit, d) => hit || find(d), null);
@@ -67,7 +77,7 @@
     const label = tabLabel(t), text = el.lastChild;
     if (el.dataset.path !== (t.path || "")) {
       el.dataset.path = t.path || "";
-      el.firstChild.innerHTML = t.path ? rowIcon(t.path) : ICON.apps;
+      el.firstChild.innerHTML = t.path ? rowIcon(t.path) : pasteTabs.has(t.id) ? ICON.clip || ICON.apps : ICON.apps;
       if (t.path) el.dataset.tip = P.folder && t.path.startsWith(P.folder.root + "/") ? t.path.slice(P.folder.root.length + 1) : t.path; else delete el.dataset.tip;
     }
     if (text.textContent !== label) {
@@ -104,6 +114,8 @@
     for (const el of tabEls()) { stood.set(el, el.getBoundingClientRect().left); have.set(el.dataset.id, el); }
     const box = tabList.getBoundingClientRect();
     let prev = null;
+    if (pasteWanted && d.active !== tabShown && !(d.tabs.find((t) => t.id === d.active) || {}).path) { pasteWanted = false; pasteTabs.add(d.active); } // (the new empty tab is the pasteboard's)
+    for (const id of [...pasteTabs]) if (!d.tabs.some((t) => t.id === id)) pasteTabs.delete(id);
     for (const t of d.tabs) {
       let el = have.get(String(t.id));
       if (el) have.delete(String(t.id));
@@ -136,7 +148,7 @@
     // an empty tab shows all notes; a tab come to shows its note, not the tiles
     const now = tabs.find((t) => t.id === tabShown);
     if (window.MdOverview && now) {
-      if (!now.path && (was !== tabShown || wasPath)) MdOverview.open();
+      if (!now.path && (was !== tabShown || wasPath)) { if (MdOverview.isOpen) MdOverview.close(false); MdOverview.open(pasteTabs.has(now.id) ? "paste" : null); } // (from one empty tab to another: All Notes, or the pasteboard)
       else if (now.path && was !== tabShown) MdOverview.close(false);
     }
   }
@@ -249,7 +261,7 @@
   if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tb-w", toolbar.offsetWidth + "px")).observe(toolbar);
 
   // what the page's other files use of this one
-  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs });
+  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, pasteTab });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     tabs: [() => tabs],

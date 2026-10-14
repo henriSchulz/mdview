@@ -15,12 +15,14 @@
     await until(() => window.MdOverview && MdOverview.isOpen);
     const opt = (v) => document.querySelector(`#overview [data-seg="scope"] .ov-opt[data-v="${v}"]`);
     const box = () => document.querySelector(".ov-paste"), field = () => document.querySelector(".ov-paste-text"), state = () => box() && box().dataset.state;
-    ok("All Notes has the pasteboard as a fourth choice", !!opt("paste"), document.querySelector('#overview [data-seg="scope"]').textContent);
-    opt("paste").click();
+    const btn = () => document.querySelector("#overview .ov-pastebtn");
+    ok("All Notes has a button for the pasteboard, which is no way of showing the notes", !!btn() && !opt("paste"), document.querySelector('#overview [data-seg="scope"]').textContent);
+    btn().click();
+    ok("… pressed: it opens in a tab of its own", await until(() => document.querySelector("#overview").dataset.scope === "paste" && [...document.querySelectorAll("#tabs .tab .tab-label")].some((l) => l.textContent === "Pasteboard")));
     ok("nobody signed in: it says so, and there is no field to type in", await until(() => state() === "signin") && getComputedStyle(field()).display === "none" && /Sign In/.test(box().querySelector(".ov-paste-none b").textContent), [state(), box() && box().textContent]);
     post({ type: "github-signin" });
     // (signed in once the code is confirmed at the rig's GitHub: shown again, the pasteboard is asked for again)
-    ok("signed in, it is there: empty, and ready to be typed into", await (async () => { for (let i = 0; i < 25 && state() !== "ok"; i++) { opt("all").click(); opt("paste").click(); await until(() => state() === "ok", 10); } return state() === "ok"; })() && field().value === "" && !field().readOnly && document.activeElement === field(), [state(), document.activeElement && document.activeElement.className]);
+    ok("signed in, it is there: empty, and ready to be typed into", await (async () => { for (let i = 0; i < 25 && state() !== "ok"; i++) { MdOverview.close(false); MdOverview.open("paste"); await until(() => state() === "ok", 10); } return state() === "ok"; })() && field().value === "" && !field().readOnly && document.activeElement === field(), [state(), document.activeElement && document.activeElement.className]);
     if (state() !== "ok") throw new Error("no pasteboard: " + state());
     field().focus(); field().setRangeText("typed at the desk", 0, 0, "end"); field().dispatchEvent(new Event("input", { bubbles: true }));
     const said = () => box().querySelector(".ov-paste-said").textContent;
@@ -32,10 +34,10 @@
     ok("Clear empties the field", field().value === "", field().value);
     await until(() => said() === "On every device");
     o.cleared = said() === "On every device" && field().value === "";
-    post({ type: "prefs", prefs: { ovScope: "all" } }); // (the choice is remembered: left as the other cases expect it)
-    // Esc in the field closes All Notes, as anywhere in it
+    // the pasteboard is a tab: Esc in the field does not take it away (another tab, or closing its tab, does)
     field().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    ok("Esc leaves All Notes", await until(() => !MdOverview.isOpen));
+    await sleep(400);
+    ok("Esc: the pasteboard stays, in its tab", MdOverview.isOpen && document.querySelector("#overview").dataset.scope === "paste");
   } catch (e) { o.error = String(e && e.stack || e); }
   o.pass = !o.error && o.steps.every((s) => s.startsWith("ok"));
   post({ type: "probe", name: "paste", text: JSON.stringify(o) });

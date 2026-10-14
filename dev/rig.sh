@@ -36,6 +36,7 @@
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
+#   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -355,6 +356,17 @@ case "${1:-}" in
     for _ in $(seq 300); do ls "$R/out"/*.sheets.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.sheets.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  pastetab)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.pastetab.json "$R/out"/*.paste.json
+    printf '# Alpha\n\nText.\n\n![](Skizze.board.svg)\n' > "$N/Alpha.md"; node "$D/make-board.mjs" > "$N/Skizze.board.svg"; node "$D/make-board.mjs" > "$N/Lose.board.svg"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-pastetab.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.paste.json "$R/out"/*.pastetab.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pastetab.png"
+    for _ in $(seq 300); do ls "$R/out"/*.pastetab.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.pastetab.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   sidebar)

@@ -80,7 +80,7 @@ test("who waits for the next text has it as it is written — and is answered af
   assert.equal(idle.rev, rev + 1);
 });
 
-test("in All Notes: typed in one window, it stands in the other — and what both wrote is both there", async () => {
+test("in its tab: typed in one window, it stands in the other — and what both wrote is both there", async () => {
   const show = async () => {
     const page = await context.newPage();
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) problems.push(m.text()); });
@@ -88,7 +88,7 @@ test("in All Notes: typed in one window, it stands in the other — and what bot
     await page.goto(`${base}/r/octo/notes?n=Alpha.md`);
     await page.waitForFunction(() => window.MdView && MdView.core.current && document.querySelector("#content").innerText.length > 0, null, { timeout: 15000 });
     await page.click('.tab-home[data-act="overview"]');
-    await page.click('#overview .ov-opt[data-v="paste"]');
+    await page.click("#overview .ov-pastebtn"); // (its own tab)
     await page.waitForSelector('.ov-paste[data-state="ok"]');
     return page;
   };
@@ -112,16 +112,18 @@ test("in All Notes: typed in one window, it stands in the other — and what bot
   await put("from the desk", (await now()).rev);
   await until(async () => (await text(a)) === "from the desk" && (await text(b)) === "from the desk", "the desktop's text");
   // out of sight, it is not asked for: nothing waits at the server
-  await a.keyboard.press("Escape");
-  await b.click('#overview .ov-opt[data-v="all"]');
-  await new Promise((r) => setTimeout(r, 200));
+  await a.click('#tabs .tab[data-path$="Alpha.md"]');
+  await a.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
+  await b.click('#tabs .tab[data-path$="Alpha.md"]'); // (out of sight: another tab — gone once the note is there)
+  await b.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
+  await new Promise((r) => setTimeout(r, 300));
   const asked = [];
   for (const p of [a, b]) p.on("request", (r) => { if (r.url().includes("/paste/")) asked.push(r.method()); });
   await put("unseen", (await now()).rev);
   await new Promise((r) => setTimeout(r, 600));
   assert.deepEqual(asked, []); // (whoever waited when it went out of sight has its answer now, and does not ask again)
-  assert.equal(await b.locator(".ov-paste-text").count(), 0);
-  await b.click('#overview .ov-opt[data-v="paste"]');
+  assert.equal(await b.evaluate(() => MdOverview.isOpen), false); // (its tab is not the one shown)
+  await b.click("#tabs .tab >> text=Pasteboard"); // (its tab again)
   await until(async () => (await text(b)) === "unseen", "read again when shown again");
   assert.deepEqual(problems, []);
 });

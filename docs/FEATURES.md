@@ -511,8 +511,7 @@ and shut back into it — or a file of the folder, of its own.
   a file of its own: several notes can show the same board.
 - **All of the folder's whiteboards**: All Notes › *Whiteboards* shows them and nothing else —
   those that are files and those a note keeps — each with the note it stands in, or "In no
-  note". Above them: *All*, *Embedded* (a note shows it), *Not Embedded*. A click opens the
-  board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
+  note" — all of them alike, with no choice among them. A click opens the board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
   menu (from then on it is listed in the folder, and stays when the note lets it go).
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
@@ -874,8 +873,8 @@ goes below that.
   colour, with its sign — or as a list: a row per note with its sheet in small, its name, its
   first words and when it was changed. Two
   switches at the head: *All Notes* (grouped by folder), *Folders* (one folder at a time, click
-  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens in the folder of the note on
-  screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
+  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens on
+  *Folders*, in the folder of the note on screen, whatever was shown last. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
@@ -979,9 +978,9 @@ A linked project has a pasteboard: one large field of text, the same on every de
 the project — to carry a line, an address, a piece of code from one computer to another. It is
 no note, in no version and in no commit; the web app's server keeps it.
 
-- **Where**: All Notes › *Pasteboard*, beside All Notes, Folders and Whiteboards (the choice is
-  remembered, like the others; Settings › All Notes has it too). The field is ready to be typed
-  into as it shows.
+- **Where**: a tab of its own — the clipboard's button in All Notes' head opens it (or goes to
+  it, where it is open already), named *Pasteboard*. The field is ready to be typed into as it
+  shows; another tab takes it out of sight, its tab brings it back.
 - **Live**: what is typed or pasted is on the other devices within a moment, without anything
   done — in the application and in the browser alike, for as long as the pasteboard is on
   screen. The line above the field says how it stands: Sending…, or On every device.

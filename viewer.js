@@ -275,7 +275,7 @@
         // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
         fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
         where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, picText, alignMark, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, folderLook: (path) => ({ color: colorVar(lookOf(path).color),
-          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
+          sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), pasteTab: () => P.pasteTab(), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       filework: P.FILEWORK, get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); } },

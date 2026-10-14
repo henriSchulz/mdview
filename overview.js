@@ -57,7 +57,9 @@
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
-    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : []), ["paste", T("Pasteboard")]]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    // the pasteboard is no way of showing the notes: a tab of its own (viewer/tabs.js: pasteTab), opened from its button
+    `<button class="ov-pastebtn" type="button" title="${esc(T("Pasteboard"))}" aria-label="${esc(T("Pasteboard"))}">${ICON.clip || ICON.copy || ""}</button>` +
     `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
@@ -182,8 +184,9 @@
     el.dataset.scope = scope;
     pasteWatch(); // (asked for while it shows, and no longer than that)
     if (scope === "paste") {
-      // the pasteboard: one field, the same element for as long as it shows (what is typed, and where, stays)
-      title.textContent = folder.name;
+      // the pasteboard: one field, the same element for as long as it shows (what is typed, and where, stays) — in a tab of its own, named so
+      title.textContent = T("Pasteboard");
+      pressed(false); // (the house is All Notes', and this is not)
       el.querySelector(".ov-count").textContent = "";
       tiles.clear();
       items = [];
@@ -201,7 +204,6 @@
       body.textContent = "";
       tiles.clear();
       items = [];
-      body.insertAdjacentHTML("beforeend", `<div class="ov-filter">` + seg("boards", T("Whiteboards"), [["all", T("All")], ["embedded", T("Embedded")], ["loose", T("Not Embedded")]]) + `</div>`);
       setSegs();
       if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); return; }
       const grid = document.createElement("div");
@@ -320,12 +322,13 @@
     ask();
   }
 
-  function open() {
+  /* want: "paste" — the tab is the pasteboard's (viewer/tabs.js); else All Notes opens on the folders, whatever was shown last. */
+  function open(want = null) {
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = prefs.ovScope === "folders" ? "folders" : prefs.ovScope === "boards" && FILEWORK ? "boards" : prefs.ovScope === "paste" ? "paste" : "all";
-    boardShow = ["embedded", "loose"].includes(prefs.ovBoardsShow) ? prefs.ovBoardsShow : "all";
+    scope = want === "paste" ? "paste" : "folders";
+    boardShow = "all"; // (every whiteboard of the folder: in a note or not, they are listed alike)
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
     // it opens where the note on screen lies (place() drops what the tree does not have)
@@ -338,7 +341,7 @@
     delete el.dataset.keys;
     core.lockScroll(true); // (the note under the tiles holds still)
     document.body.dataset.overview = "";
-    pressed(true);
+    pressed(scope !== "paste"); // (the house is All Notes', not the pasteboard's)
     el.scrollTop = 0;
     const cur = body.querySelector('.ov-item[aria-current]') || items[0];
     if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); }
@@ -603,6 +606,7 @@
   body.addEventListener("click", (e) => { const opt = e.target.closest(".ov-filter .ov-opt"); if (opt) choose("boards", opt.dataset.v); });
   el.querySelector(".ov-head").addEventListener("click", (e) => {
     const opt = e.target.closest(".ov-opt"), crumb = e.target.closest(".ov-crumb"), add = e.target.closest(".ov-add"), more = e.target.closest(".ov-more");
+    if (e.target.closest(".ov-pastebtn")) return void core.pasteTab();
     // the + : a new note or folder, in the folder shown; "…": the order, and what is listed (the menu the empty room has)
     if (add && core.folder) { const r = add.getBoundingClientRect(); core.fileMenu(add, r.left, r.bottom + 6, "ovnew", here()); }
     else if (more && core.folder) { const r = more.getBoundingClientRect(); core.fileMenu(more, r.right - 200, r.bottom + 6, "blank", here()); }

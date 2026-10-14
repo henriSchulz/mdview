@@ -130,15 +130,12 @@
     const tiles = () => [...document.querySelectorAll("#overview .ov-item")];
     ok("All Notes › Whiteboards: both, each with where it stands", await until(() => tiles().length === 2, 6000) && tiles().some((t) => t.querySelector(".ov-name").textContent === "Skizze" && /Alpha/.test(t.querySelector(".ov-sub").textContent)) && tiles().some((t) => t.dataset.kept != null), tiles().map((t) => t.textContent));
     post({ type: "probe", name: "shot-boards", text: "{}" }); await sleep(1500);
-    document.querySelector('#overview .ov-filter [data-v="embedded"]').click(); await sleep(300);
-    ok("… Embedded: the one a note shows", tiles().length === 1 && tiles()[0].querySelector(".ov-name").textContent === "Skizze", tiles().map((t) => t.textContent));
-    document.querySelector('#overview .ov-filter [data-v="loose"]').click(); await sleep(300);
-    ok("… Not Embedded: the other", tiles().length === 1 && tiles()[0].dataset.kept != null, tiles().map((t) => t.textContent));
-    const kept = menu(tiles()[0]);
+    ok("… all of them, with no choice among them", !document.querySelector("#overview .ov-filter"));
+    const kept = menu(tiles().find((t) => t.dataset.kept != null));
     ok("a whiteboard a note keeps: nothing in its menu takes it from the note", kept.includes("open") && kept.includes("boardfree") && !kept.includes("trash") && !kept.includes("rename") && !kept.includes("cutf"), kept);
     await choose("boardfree");
     ok("Keep as a File of Its Own: listed in the sidebar from then on", await until(() => rows().some((r) => /board-\d+/.test(r)), 5000), rows());
-    document.querySelector('#overview .ov-filter [data-v="all"]').click(); await sleep(300);
+    await sleep(300);
     tiles().find((t) => t.querySelector(".ov-name").textContent === "Skizze").click();
     ok("a click on a whiteboard's tile opens the board", await until(() => MdBoard.shown, 6000));
     MdBoard.close(); await sleep(600);

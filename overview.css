@@ -222,7 +222,11 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 /* the whiteboards: which of them, above the tiles */
 .ov-filter { display: flex; margin: 0 0 24px; }
 /* the pasteboard: one field as large as the window leaves room for, its buttons above it */
-#overview[data-scope="paste"] :is(.ov-add, .ov-more, .ov-seg[data-seg="layout"]) { display: none; }
+#overview[data-scope="paste"] :is(.ov-add, .ov-more, .ov-seg, .ov-pastebtn) { display: none; } /* (a tab of its own: nothing of All Notes about it) */
+.ov-pastebtn { flex: none; align-self: center; display: grid; place-items: center; width: var(--control-height, 30px); height: var(--control-height, 30px); padding: 0; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.ov-pastebtn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ov-pastebtn:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.ov-pastebtn:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); }
 .ov-paste { display: grid; gap: 12px; }
 .ov-paste-bar { display: flex; align-items: center; gap: 8px; min-height: var(--control-height, 28px); }
 .ov-paste-bar .ov-space { flex: 1; }
