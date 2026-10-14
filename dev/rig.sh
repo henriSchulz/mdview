@@ -41,6 +41,7 @@
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
 #   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
+#   dev/rig.sh scrollup              a long note scrolled with a real wheel down and up again: what stands around it does not change meanwhile
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
 #   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
@@ -505,6 +506,49 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.splitscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  scrollup)
+    # (the page cannot see this one: WebKit painted the controls a frame late. So the screen is filmed while the wheel turns up, and
+    # each frame of a control's place is held to the same place at rest, after it)
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" -lwayland-client) || exit 1; }
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.plan*.json "$R/out"/*.scrollup.json "$R"/film-*.mp4
+    { echo '# Long'; for i in $(seq 200); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold** and a [link](https://example.com)."; [[ $((i % 20)) == 0 ]] && { echo; echo "## Section $i"; }; done; } > "$N/Long.md"
+    { printf '%s\n' '---' 'background: cyan' '---' '' '# Ground'; for i in $(seq 200); do echo; echo "Paragraph $i of a long note on a ground, long enough to wrap a little in the window."; done; } > "$N/Ground.md"
+    echo '# Other' > "$N/Other.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 150 MDVIEW_PROBE="$D/probe-scrollup.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1; films=()
+    for _ in $(seq 1500); do
+      [[ -n $(ls "$R/out"/*.scrollup.json 2>/dev/null) ]] && break
+      P=$(ls "$R/out"/*.plan$n.json 2>/dev/null | head -1)
+      if [[ -n $P ]]; then
+        sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$P")
+        if [[ $(jq -r '.film // empty' "$P") ]]; then
+          F="$R/film-$n.mp4"; WAYLAND_DISPLAY="$(wl)" wf-recorder -f "$F" -r 60 >/dev/null 2>&1 & rec=$!; sleep 1.2
+          WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; sleep 1; kill -INT $rec; wait $rec; films+=("$P|$F")
+        else WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; fi
+        n=$((n + 1))
+      else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.scrollup.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    fail=0
+    for pf in "${films[@]}"; do
+      P=${pf%%|*}; F=${pf#*|}; label=$(jq -r '.film' "$P"); bad=()
+      IFS=, read -r FW FH < <(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$F")
+      while read -r name x y w h; do
+        (( w = x + w > FW ? FW - x : w, h = y + h > FH ? FH - y : h ))
+        mapfile -t ys < <(ffmpeg -v error -i "$F" -vf "crop=$w:$h:$x:$y,format=gray,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-" -f null - | sed -n 's/.*YAVG=//p')
+        (( ${#ys[@]} > 30 )) || { bad+=("$name: no film"); continue; }
+        k=$(printf '%s\n' "${ys[@]}" | awk -v r="${ys[-1]}" '{ d = $1 - r; if (d < 0) d = -d; if (d > 3) n++ } END { print n + 0 }')
+        (( k == 0 )) || bad+=("$name: $k of ${#ys[@]} frames not as at rest")
+      done < <(jq -r '.regions[] | "\(.name) \(.box | map(tostring) | join(" "))"' "$P")
+      if (( ${#bad[@]} )); then echo "FAIL $label, the wheel up: the controls stay in every frame  ${bad[*]}"; fail=1; else echo "ok   $label, the wheel up: the controls stay in every frame ($(jq '.regions | length' "$P") of them)"; fi
+    done
+    (( ${#films[@]} == 4 )) || { echo "FAIL four films, not ${#films[@]}"; fail=1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1
+    exit $fail ;;
   ovswitch)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.ovswitch.json "$R/out"/*.skel.json
     for d in $(seq 12); do mkdir -p "$N/Folder $d"; for i in $(seq 22); do { echo "# Note $d.$i"; echo; for k in $(seq 6); do echo "Some words of note $d.$i, paragraph $k, with **bold** and a [link](https://example.com)."; echo; done; echo '$$x^2 + y^2 = z^2$$'; } > "$N/Folder $d/Note $i.md"; done; done
