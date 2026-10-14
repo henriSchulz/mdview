@@ -885,7 +885,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Search**: the field under the head narrows the folder's notes to those whose name (or the
   folder they lie in) has what is typed; `Esc` empties it.
 - **A folder's colour and sign**: right click on a folder › Colour and Icon… — one of the theme's
-  colours and one of twenty signs, shown in every layout. They are kept in the folder itself
+  colours and a sign — the app's twenty, or any of Lucide's 1,900 (lucide.dev): a search above
+  them finds a sign by its name or its words, in English and, for the common things, in German
+  (Geld, Reise, Schule, Mathe …); without one, a choice of those notes are often about. Shown in
+  every layout. They are kept in the folder itself
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
 - **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified.

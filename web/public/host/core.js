@@ -233,7 +233,7 @@
    * .mdview/folders.json: { version, folders: { path → { color, icon } } } (the desktop app writes
    * the same file: src-tauri/src/looks.rs). Read forgivingly, written with the paths in order. */
   const FOLDERS = ".mdview/folders.json";
-  const lookWord = (v) => (typeof v === "string" && /^[a-z-]{1,24}$/.test(v.trim()) ? v.trim() : "");
+  const lookWord = (v) => (typeof v === "string" && /^[a-z0-9-]{1,40}$/.test(v.trim()) ? v.trim() : "");
   function looksOf(text) {
     let all = null;
     try { all = JSON.parse(text || "{}"); } catch { /* (not to be read: as if empty) */ }

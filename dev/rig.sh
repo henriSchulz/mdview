@@ -39,6 +39,7 @@
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
+#   dev/rig.sh icons                 a folder's sign chosen from Lucide's many: searched in English and German, kept, there again after a restart
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -466,6 +467,21 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.colwidth.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  icons)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Finanzen"; rm -f "$R/out"/*.chosen.json "$R/out"/*.again.json "$R/out"/*.shown.json
+    printf '# Alpha\n' > "$N/Alpha.md"; printf '# Konto\n' > "$N/Finanzen/Konto.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    fail=0
+    app 60 MDVIEW_PROBE="$D/probe-icons.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.chosen.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/icons.png"
+    for _ in $(seq 300); do ls "$R/out"/*.chosen.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
+    grep -q '"icon": "piggy-bank"' "$N/.mdview/folders.json" 2>/dev/null && echo "ok   the folder's file names the sign" || { echo "FAIL the folder's file names the sign"; fail=1; }
+    app 60 MDVIEW_PROBE="$D/probe-icons.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do ls "$R/out"/*.again.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null
+    for f in "$R/out"/*.chosen.json "$R/out"/*.again.json; do [[ -f $f ]] || { echo "FAIL no report ($f)"; fail=1; continue; }; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1; done
+    exit $fail ;;
   railfav)
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Studium" "$N/Projekte"; rm -f "$R/out"/*.plan*.json "$R/out"/*.railfav.json

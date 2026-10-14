@@ -204,7 +204,18 @@
   const relOf = (path) => path.slice(folder.root.length + 1);
   const lookOf = (path) => ((folder && folder.looks) || {})[relOf(path)] || {};
   const colorVar = (c) => (DECO_COLORS.includes(c) ? `var(--c-${c})` : "");
-  const folderGlyph = (look) => FOLDER_ICONS[look.icon] || ICON.folder;
+  /* A folder's sign: one of the app's own (FOLDER_ICONS), or any of Lucide's (vendor/icons.js — loaded when a folder has one;
+   * until then the folder's own sign, and the list is drawn again when they are there). */
+  let iconsAsked = false;
+  const lucide = (name) => (window.MdIcons && MdIcons.names[name] ? svg(MdIcons.names[name]) : null);
+  const signKnown = (name) => !!name && (!!FOLDER_ICONS[name] || !!lucide(name));
+  function folderGlyph(look) {
+    if (FOLDER_ICONS[look.icon]) return FOLDER_ICONS[look.icon];
+    const l = look.icon && lucide(look.icon);
+    if (l) return l;
+    if (look.icon && !window.MdIcons && !iconsAsked) { iconsAsked = true; P.loadIcons().then(() => { if (folder && !folder.quick) { sbRail.dataset.key = ""; syncList(false); } }, () => {}); }
+    return ICON.folder;
+  }
   const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
   const everyNote = (dir = folder.tree, out = []) => { out.push(...dir.notes); for (const d of dir.dirs) everyNote(d, out); return out; };
   /* A sheet shows what the file is (the sheets' layout): a note its beginning, as All Notes' tiles show it; a PDF its first page; a
@@ -236,7 +247,9 @@
     const look = e.dir ? lookOf(e.key) : {}, seen = e.note ? sbSeen.get(e.note.path) : null, color = e.dir ? look.color : seen && seen.color;
     row.style.setProperty("--fc", colorVar(color) || "");
     if (!colorVar(color)) row.style.removeProperty("--fc");
-    if (e.dir && (row.dataset.icon || "") !== (FOLDER_ICONS[look.icon] ? look.icon : "")) { row.dataset.icon = FOLDER_ICONS[look.icon] ? look.icon : ""; row.querySelector(".sb-icon").innerHTML = folderGlyph(look); }
+    // (a sign not to be drawn yet — Lucide's, not loaded — stands as "?name" until it can be: folderGlyph asks for them)
+    const sign = !look.icon ? "" : signKnown(look.icon) ? look.icon : "?" + look.icon;
+    if (e.dir && (row.dataset.icon || "") !== sign) { row.dataset.icon = sign; row.querySelector(".sb-icon").innerHTML = folderGlyph(look); }
     let sheet = row.querySelector(":scope > .sb-sheet");
     if (lay !== "sheets") { if (sheet) sheet.remove(); return; }
     if (!sheet) { sheet = document.createElement("span"); sheet.className = e.dir ? "sb-sheet is-folder" : "sb-sheet"; sheet.setAttribute("aria-hidden", "true"); row.insertBefore(sheet, row.firstChild); }
@@ -368,10 +381,56 @@
   document.body.appendChild(sbLook);
   let sbLookFor = null;
   function paintLook() {
-    const look = lookOf(sbLookFor);
+    const look = lookOf(sbLookFor), was = sbLook.querySelector(".sl-find"), query = was ? was.value : "", typing = was && document.activeElement === was; // (a colour or a sign chosen: what was searched for stays)
     sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
-      + `<div class="sl-cap">${esc(T("Icon"))}</div><div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}>` + ["", ...Object.keys(FOLDER_ICONS)].map((i) => `<button type="button" class="sl-icon${(FOLDER_ICONS[look.icon] ? look.icon : "") === i ? " on" : ""}" data-icon="${i}" aria-label="${i || "folder"}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] : ICON.folder}</button>`).join("") + `</div>`;
+      + `<div class="sl-cap">${esc(T("Icon"))}</div><input type="search" class="sl-find" placeholder="${esc(T("Search 1,900 icons"))}" aria-label="${esc(T("Search icons"))}" spellcheck="false" autocomplete="off">` +
+      `<div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}></div>`;
+    const find = sbLook.querySelector(".sl-find");
+    find.value = query;
+    if (typing) find.focus({ preventScroll: true });
+    paintSigns();
+    if (!window.MdIcons) P.loadIcons().then(() => { if (sbLook.hasAttribute("data-open")) paintSigns(); }, () => {});
   }
+  /* The signs to choose from: without a search, the app's own and those that notes are often about; with one, every sign of
+   * Lucide's whose name or words it is found by — in English, and the German words for the common things (FIND_DE). */
+  const SUGGESTED = ["graduation-cap", "school", "book-open", "notebook-pen", "library", "pencil", "calculator", "sigma", "atom", "flask-conical", "microscope", "dna", "brain", "languages", "scale",
+    "briefcase", "building-2", "presentation", "chart-line", "folder-kanban", "list-todo", "calendar-days", "clock", "target", "trophy", "rocket", "lightbulb", "puzzle",
+    "code", "terminal", "cpu", "server", "database", "cloud", "git-branch", "bug", "shield", "lock", "key", "wrench", "settings",
+    "wallet", "piggy-bank", "receipt", "landmark", "shopping-cart", "gift", "package", "truck",
+    "house", "users", "baby", "dog", "cat", "paw-print", "heart", "heart-pulse", "stethoscope", "pill", "dumbbell", "bike", "utensils", "chef-hat", "coffee",
+    "plane", "map", "compass", "globe", "mountain", "tree-pine", "leaf", "flower", "sun", "moon", "cloud-sun", "car", "train-front",
+    "music", "headphones", "guitar", "camera", "image", "film", "video", "mic", "palette", "brush", "pen-tool", "gamepad-2", "newspaper", "mail", "message-circle", "phone",
+    "archive", "inbox", "bookmark", "tag", "flag", "star", "crown", "gem", "sparkles", "zap", "flame"];
+  const FIND_DE = { schule: "school", uni: "graduation-cap university", studium: "graduation-cap book", vorlesung: "presentation book", arbeit: "briefcase work", job: "briefcase", büro: "building briefcase",
+    firma: "building", geld: "wallet money banknote coins", finanz: "wallet piggy-bank chart", bank: "landmark piggy-bank", steuer: "receipt calculator", rechnung: "receipt", reise: "plane luggage travel map",
+    urlaub: "palm-tree plane sun", haus: "house home", wohnung: "house home", musik: "music", foto: "camera image", bild: "image picture", buch: "book", bücher: "library book", lesen: "book-open", notiz: "notebook sticky-note",
+    projekt: "folder-kanban kanban project", mathe: "calculator sigma math", physik: "atom", chemie: "flask", biolog: "dna leaf microscope", medizin: "stethoscope pill", gesund: "heart-pulse", sport: "dumbbell bike trophy",
+    essen: "utensils food", kochen: "chef-hat cooking-pot", rezept: "chef-hat", natur: "leaf tree", garten: "flower sprout", tier: "paw-print dog cat", hund: "dog", katze: "cat", auto: "car", familie: "users home",
+    freund: "users", spiel: "gamepad", film: "film clapperboard", kunst: "palette brush", design: "pen-tool palette", sprache: "languages", recht: "scale gavel", gesetz: "scale gavel", kalender: "calendar", zeit: "clock",
+    ziel: "target", idee: "lightbulb", wichtig: "star flag", archiv: "archive", daten: "database", wolke: "cloud", sicher: "shield lock", einstellung: "settings", werkzeug: "wrench hammer", karte: "map", welt: "globe",
+    einkauf: "shopping-cart shopping-bag", geschenk: "gift", post: "mail", nachricht: "message-circle", telefon: "phone", elektronik: "cpu circuit-board", computer: "monitor laptop", programm: "code terminal",
+    technik: "cpu wrench", wissenschaft: "flask microscope atom", geschicht: "landmark scroll", kirche: "church", liebe: "heart", kind: "baby", schreib: "pen notebook-pen", tagebuch: "book-heart notebook",
+    aufgabe: "list-checks list-todo", papierkorb: "trash", wetter: "cloud-sun sun", nacht: "moon", stern: "star", berg: "mountain", meer: "waves anchor", zug: "train", flug: "plane", team: "users", besprechung: "presentation",
+    präsentation: "presentation", statistik: "chart-bar", bericht: "file-text", vertrag: "file-signature", lernen: "graduation-cap book-open", prüfung: "clipboard-check", klausur: "clipboard-check" };
+  function signsFor(query) {
+    const q = query.trim().toLowerCase();
+    const I = window.MdIcons;
+    if (!q) return ["", ...Object.keys(FOLDER_ICONS), ...(I ? SUGGESTED.filter((n) => I.names[n] && !FOLDER_ICONS[n]) : [])];
+    const own = Object.keys(FOLDER_ICONS).filter((n) => n.includes(q));
+    if (!I) return own;
+    const terms = [q, ...Object.entries(FIND_DE).filter(([de]) => de.startsWith(q) || q.startsWith(de)).flatMap(([, en]) => en.split(" "))];
+    const rank = (name) => { let best = 0; for (const t of terms) { const w = I.words[name] || ""; const r = name === t ? 4 : name.startsWith(t) ? 3 : name.includes(t) ? 2 : (" " + w).includes(" " + t) ? 1 : 0; if (r > best) best = r; } return best; };
+    return [...own, ...Object.keys(I.names).map((n) => [n, rank(n)]).filter(([, r]) => r > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n]) => n)].slice(0, 160);
+  }
+  function paintSigns() {
+    const look = lookOf(sbLookFor), box = sbLook.querySelector(".sl-icons"), find = sbLook.querySelector(".sl-find");
+    if (!box) return;
+    const list = signsFor(find ? find.value : "");
+    box.innerHTML = list.length ? list.map((i) => `<button type="button" class="sl-icon${(look.icon || "") === i ? " on" : ""}" data-icon="${esc(i)}" title="${esc(i || "folder")}" aria-label="${esc(i || "folder")}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] || lucide(i) || "" : ICON.folder}</button>`).join("")
+      : `<p class="sl-none">${esc(window.MdIcons ? T("No icon is called so") : T("Looking for icons…"))}</p>`;
+  }
+  sbLook.addEventListener("input", (e) => { if (e.target.closest(".sl-find")) paintSigns(); });
+  sbLook.addEventListener("keydown", (e) => { if (e.target.closest(".sl-find") && e.key !== "Escape") e.stopPropagation(); }); // (the keys are the search's)
   function openLook(key, beside) { // (beside: what stands for the folder where its menu was opened — its row, its sign in the rail, its tile)
     sbLookFor = key;
     paintLook();

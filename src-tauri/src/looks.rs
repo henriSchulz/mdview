@@ -21,7 +21,7 @@ pub const FILE: &str = ".mdview/folders.json";
 /// page's to know — a name it does not know draws as none).
 fn word(v: &str) -> Option<String> {
     let w = v.trim();
-    (!w.is_empty() && w.len() <= 24 && w.bytes().all(|b| b.is_ascii_lowercase() || b == b'-')).then(|| w.to_string())
+    (!w.is_empty() && w.len() <= 40 && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')).then(|| w.to_string()) // (a sign of Lucide's may hold a digit: gamepad-2)
 }
 
 /// `path` below `root`, with "/" (None: not below it, or the folder itself).
@@ -109,6 +109,11 @@ mod tests {
         assert_eq!(listed(r), json!({ "a": { "color": "blue", "icon": "book" } }));
         assert!(set(r, r, "red", "", false).is_err() && set(r, Path::new("/elsewhere"), "red", "", false).is_err());
         set(r, &r.join("a"), "", "", false).unwrap();
+        // a sign of Lucide's, with a digit in its name
+        set(r, &r.join("c"), "", "gamepad-2", false).unwrap();
+        assert_eq!(listed(r)["c"], json!({ "icon": "gamepad-2" }));
+        set(r, &r.join("c"), "", "Gamepad 2", false).unwrap(); // (not a name: none)
+        assert_eq!(listed(r)["c"], Value::Null);
         // a favourite: kept with the look, and on its own as well
         set(r, &r.join("c"), "", "", true).unwrap();
         assert_eq!(listed(r)["c"], json!({ "fav": true }));
