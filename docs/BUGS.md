@@ -208,6 +208,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     not part of how it names its pictures: it is moved, and its blocks are pasted elsewhere.
 18. **A path from Windows is not a path from Linux**: `C:\…`, `/C:/…` in a URL. Whatever builds
     or parses a file address is checked by the Windows probe (`system-probe.yml`), not by eye.
+61. **What flickers while nothing of the page changes is WebKit's, and is filmed, not probed.** A
+    probe sees the page's state, not the frames the window gets: `rig.sh scrollup` records the
+    nested screen (`wf-recorder`) and looks at each frame. The renderer is chosen in `main.rs`
+    (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed back, that case runs several times —
+    the torn frame comes one to four times a film, not in each.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 

@@ -241,6 +241,15 @@ fn main() {
     // (what the desktop knows the app's windows by: the desktop entry's StartupWMClass)
     #[cfg(target_os = "linux")]
     gtk::glib::set_prgname(Some("dev.henri.MdView"));
+    // (WebKit's DMA-BUF renderer hands the window a frame now and then that is half the last one moved
+    // by the wheel's step: scrolled up, the toolbar, the tabs and the sidebar jumped down for a frame
+    // — Henri, 2026-10-14, "the controls flicker when scrolling up"; `dev/rig.sh scrollup`. Its other
+    // way of handing frames over has none of that. Set before the first web view; a value given
+    // from outside wins — `=0` brings the renderer back)
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
 
     let again = tx.clone();
     let events = tx.clone();
