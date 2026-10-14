@@ -52,6 +52,8 @@
     down: svg('<path d="m6 9 6 6 6-6"/>'),
     x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
     chevron: svg('<path d="m9 18 6-6-6-6"/>'),
+    back: svg('<path d="M19 12H5"/><path d="m11 18-6-6 6-6"/>'),
+    forward: svg('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>'),
     sidebar: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
     panel: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/>'),
     plus: svg('<path d="M12 5v14M5 12h14"/>'),

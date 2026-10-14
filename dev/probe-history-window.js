@@ -8,6 +8,16 @@
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   try {
+    // (a folder opens on All Notes now — Henri, 2026-10-14: the note this probe is about is opened from there, the first by name)
+    for (let i = 0; i < 200 && !(MdView.core.folder && MdView.core.folder.tree); i++) await new Promise((r) => setTimeout(r, 50));
+    if (!(MdView.core.current && MdView.core.current.path)) {
+      const t = MdView.core.folder.tree, all = (d) => [...d.notes, ...d.dirs.flatMap(all)], md = (n) => !/\.(pdf|board\.svg)$/i.test(n.path);
+      const n = t.notes.filter(md).sort((a, b) => a.name.localeCompare(b.name))[0] || all(t).filter(md)[0];
+      window.MdHost.post(JSON.stringify({ type: "note", path: n.path }));
+      for (let i = 0; i < 200 && !(MdView.core.current && MdView.core.current.path === n.path); i++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 900));
+    }
     await sleep(1200);
     const now = MdView.core.current.raw;
     const btn = document.querySelector('[data-act="historymenu"]');

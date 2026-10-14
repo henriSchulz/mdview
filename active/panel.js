@@ -1,5 +1,5 @@
-/* mdview active mode — the panel at the window's right (the toolbar's last
- * button, Ctrl+Alt+P), as Craft has one: three tabs.
+/* mdview active mode — the panel at the window's right (its rail at the window's
+ * edge, Ctrl+Alt+P), as Craft has one: three tabs.
  *
  *   Insert    what can be put into the document, as tiles with a small picture
  *             of each, in sections, with a field to search them. A click puts
@@ -15,8 +15,7 @@
  *
  * Insert and Format are the active mode's. Document stands beside the reading
  * view too: there the panel shows when that tab is the chosen one, and its
- * other tabs are dimmed. Beside the source it does not show (the button is
- * dimmed).
+ * other tabs are dimmed. Beside the source it does not show (nor its rail).
  *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
@@ -148,7 +147,7 @@
   const search = el.querySelector(".rp-search input"), itemsEl = el.querySelector(".rp-items"), none = el.querySelector(".rp-none");
   const formatEl = el.querySelector('[data-pane="format"]'), docEl = el.querySelector('[data-pane="style"]'), infoEl = el.querySelector('[data-pane="info"]');
   const mode = () => document.body.dataset.view || "read";
-  const button = () => document.querySelector('#toolbar [data-act="panel"]');
+  const can = () => !(window.MdHost && window.MdHost.reading); // (where a note is only shown — a shared link: no panel)
   const isOpen = () => document.body.hasAttribute("data-panel");
 
   // --- Insert: its tiles, section by section
@@ -406,7 +405,7 @@
   /* Where it stands: beside the text that is edited — and beside the reading view for what is the
    * document's, its third tab. Not beside the source, and not where a note is only shown. */
   const reading = () => mode() === "read";
-  const wanted = () => !!pref().panel && !!button() && !button().hidden && (mode() === "active" || (reading() && DOCS.includes(tabOf(pref().panelTab))));
+  const wanted = () => !!pref().panel && can() && (mode() === "active" || (reading() && DOCS.includes(tabOf(pref().panelTab))));
   const keep = (prefs) => { window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs }; post("prefs", { prefs }); };
   function setTab(tab, save = true) {
     tab = tabOf(tab);
@@ -420,11 +419,12 @@
     doc();
   }
   /* The rail's signs: the one whose part is open is marked; beside the reading view only the document's can be pressed. The
-   * rail is there wherever the panel can be — not beside the source, not where a note is only shown. */
+   * rail is the active mode's: not beside the reading view (Henri, 2026-10-14 — there the panel comes only with Ctrl+Alt+P),
+   * not beside the source, not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
     const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
-    document.body.toggleAttribute("data-rail", !!button() && !button().hidden && mode() !== "edit" && !!cur && cur.kind !== "pdf");
+    document.body.toggleAttribute("data-rail", can() && mode() === "active" && !!cur && cur.kind !== "pdf");
   }
   rail.addEventListener("click", (e) => {
     const b = e.target.closest(".rp-tab");
@@ -434,12 +434,13 @@
     if (isOpen()) setTab(b.dataset.tab); else show(true);
   });
   /* It comes and goes over the window: nothing makes room for it, so nothing else moves. */
+  let laid = null; // (what was last laid: the first time it is laid in any case)
   function lay(open, animate) {
     if (open) setTab(pref().panelTab, false);
-    if (isOpen() === !!open && button()?.getAttribute("aria-pressed") === String(!!open)) return marks();
+    if (isOpen() === !!open && laid === !!open) return marks();
     el.classList.toggle("no-anim", !animate);
     if (open) document.body.dataset.panel = ""; else delete document.body.dataset.panel;
-    button()?.setAttribute("aria-pressed", String(!!open));
+    laid = !!open;
     marks();
   }
   function show(open, animate = true, save = true) {

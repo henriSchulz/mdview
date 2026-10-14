@@ -1,7 +1,7 @@
 /* A real pointer for the test rig (dev/rig.sh): moves and presses a virtual pointer in the compositor named by
  * WAYLAND_DISPLAY — the nested one the rig runs the app in — so that what the browser itself does with a held button
  * (selecting text, dragging, scrolling after it) is part of a check. Made-up DOM events prove none of that.
- *   vptr W H  m X Y | d | u | s MS | g X Y STEPS MS   …
+ *   vptr W H  m X Y | d | u | s MS | g X Y STEPS MS | w ±1 N MS   …
  * W H: the output's size; m: move to; d/u: left button down/up (rd/ru: the right one); s: sleep; g: glide to X Y in STEPS, MS between them. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +43,15 @@ int main(int argc, char **argv) {
     else if (!strcmp(c, "d") || !strcmp(c, "u")) { zwlr_virtual_pointer_v1_button(p, now(), 0x110, c[0] == 'd'); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(dpy); }
     else if (!strcmp(c, "rd") || !strcmp(c, "ru")) { zwlr_virtual_pointer_v1_button(p, now(), 0x111, c[1] == 'd'); zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(dpy); }
     else if (!strcmp(c, "s") && i + 1 < argc) { usleep(atoi(argv[++i]) * 1000); }
+    else if (!strcmp(c, "w") && i + 3 < argc) { // w STEPS N MS: the wheel turned N notches (STEPS > 0: down, < 0: up), MS apart
+      int dir = atoi(argv[i + 1]) < 0 ? -1 : 1, n = atoi(argv[i + 2]), ms = atoi(argv[i + 3]);
+      for (int k = 0; k < n; k++) {
+        zwlr_virtual_pointer_v1_axis_source(p, WL_POINTER_AXIS_SOURCE_WHEEL);
+        zwlr_virtual_pointer_v1_axis_discrete(p, now(), WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(15.0 * dir), dir);
+        zwlr_virtual_pointer_v1_frame(p); wl_display_roundtrip(dpy); usleep(ms * 1000);
+      }
+      i += 3;
+    }
     else { fprintf(stderr, "vptr: what is %s?\n", c); return 2; }
   }
   zwlr_virtual_pointer_v1_destroy(p);

@@ -138,9 +138,11 @@
     view.someProp("handleClickOn", (f) => f(view, refPos, view.state.doc.nodeAt(refPos), refPos, { button: 0 }, true));
     await sleep(120);
     const li = view.dom.querySelector('.footnotes li[id="fn1"]');
-    ok("a click on it goes to the note, which lights up", li.classList.contains("note-hit") && !pop.hasAttribute("data-open"));
-    await sleep(1100);
-    ok("… for a second", !li.classList.contains("note-hit"));
+    ok("a click on it goes to the note, which is laid under", li.classList.contains("fn-here") && !pop.hasAttribute("data-open"));
+    await sleep(1500);
+    ok("… and stays so after the page has moved (Henri, 2026-10-14: which note was meant could not be told)", li.classList.contains("fn-here") && getComputedStyle(li).backgroundColor !== "rgba(0, 0, 0, 0)", getComputedStyle(li).backgroundColor);
+    window.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    ok("… until the next click", !li.classList.contains("fn-here"));
     const sectionPos = view.state.doc.content.size - view.state.doc.lastChild.nodeSize;
     view.someProp("handleClickOn", (f) => f(view, sectionPos, view.state.doc.lastChild, sectionPos, { button: 0, target: li.querySelector("p") }, true));
     await sleep(500);
@@ -236,6 +238,16 @@
     caret(after("Typed here."));
     await sleep(1200);
     o.saved = md();
+    // the reading view: a click on a reference — the note in the middle of the window, laid under until the next click
+    MdView.setMode("read");
+    for (let i = 0; i < 100 && (document.body.dataset.view || "read") !== "read"; i++) await sleep(30);
+    await sleep(700);
+    const ref = document.querySelector("#content sup.footnote-ref a"), rli = document.querySelector('#content li.footnote-item[id="fn1"]');
+    ref.click(); await sleep(1500);
+    const rr = rli.getBoundingClientRect();
+    ok("reading view: a reference clicked — its note in the window, laid under, and so still after the page has moved", rli.classList.contains("fn-here") && rr.top > 0 && rr.bottom < innerHeight && getComputedStyle(rli).backgroundColor !== "rgba(0, 0, 0, 0)", [rli.className, Math.round(rr.top), getComputedStyle(rli).backgroundColor]);
+    document.querySelector("#content h1, #content p").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    ok("… gone with the next click", !rli.classList.contains("fn-here"));
   } catch (e) { o.error = String(e && e.stack || e); }
   out("m4", o);
 })();

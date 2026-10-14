@@ -40,7 +40,6 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 /* rail: the folder's folders as signs at the left, beside it what is in the one chosen */
 #sidebar[data-layout="rail"] { padding-left: 52px; }
 #sidebar[data-layout="rail"] .sb-rail { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; box-sizing: border-box; width: 52px; padding: 12px 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; background: color-mix(in srgb, var(--fg) 4%, transparent); border-right: 0.5px solid var(--line); }
-#sidebar[data-layout="rail"] .sb-folder-name { display: none; }
 .sb-rt { --fc: var(--accent); display: grid; place-items: center; flex: none; width: 34px; height: 34px; padding: 0; border: 0; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fc) 16%, transparent); color: var(--fc); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
 /* no favourite yet: a faint star where they will stand; a folder pulled over the rail: the rail is where it goes */
 .sb-rail-hint { display: grid; place-items: center; width: 40px; height: 40px; color: var(--fg3); opacity: 0.6; }
@@ -145,7 +144,7 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 .sl-hex-in { flex: 1; min-width: 0; height: 24px; box-sizing: border-box; padding: 0 8px; border: 0; border-radius: var(--radius-control); background: var(--fill-hover); color: var(--fg); font: 12px/1 var(--mono, ui-monospace, monospace); outline: none; }
 .sl-hex-in:focus { box-shadow: 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 55%, transparent); }
 .sl-hex > i { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--fc); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--fg) 25%, transparent); }
-.sl-icons { --fc-own: var(--fc, var(--accent)); display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; margin: 0 -4px; max-height: 236px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; align-content: start; }
+.sl-icons { --fc-own: var(--fc, var(--accent)); display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; margin: 0 -4px; max-height: max(64px, min(236px, 100vh - 250px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; align-content: start; } /* (in a low window: fewer rows, the window still fits) */
 /* the search over every sign (Lucide's: vendor/icons.js), and what it says where none is called so */
 .sl-find { display: block; box-sizing: border-box; width: 100%; height: 28px; margin: 0 0 8px; padding: 0 10px; border: 0; border-radius: var(--radius-control); background: var(--fill-hover); color: var(--fg); font: inherit; outline: none; }
 .sl-find:focus { box-shadow: 0 0 0 var(--focus-ring, 2px) color-mix(in srgb, var(--accent) 55%, transparent); }

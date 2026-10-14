@@ -62,7 +62,9 @@ const untilNote = (name) => page.waitForFunction((n) => window.MdView && MdView.
 
 test("a repository opens as the desktop app shows a folder", async () => {
   await page.goto(`${base}/r/octo/notes`);
-  await untilNote("Embedded.md"); // (opened for the first time: its first note, by name — as the desktop does)
+  // (opened without a note named: All Notes, in the repository itself — no note on screen, an empty tab shown; as the desktop does)
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen && document.querySelector("#overview .ov-tile, #overview .ov-row") && !(MdView.core.current && MdView.core.current.path), null, { timeout: 15000 });
+  assert.equal(new URL(page.url()).searchParams.get("n"), null);
   await page.goto(`${base}/r/octo/notes?n=Home.md`); // (an address names a note)
   await untilNote("Home.md");
   const now = await shown();
@@ -194,6 +196,35 @@ test("a PDF opens in the viewer", async () => {
   await page.screenshot({ path: join(web, ".next", "read-pdf.png") });
   await page.keyboard.press("Alt+ArrowLeft");
   await untilNote("Second note.md");
+});
+
+test("a reload shows the note it was on, nothing between the wheel and it", async () => {
+  // (Henri, 2026-10-14: the wheel, then for a moment the window with New Note and the blue button, then the note)
+  await page.goto(`${base}/r/octo/notes?n=Home.md`);
+  await untilNote("Home.md");
+  await page.evaluate(() => localStorage.setItem("mdview:mode", '"active"')); // (left in the active mode, as Henri's notes mostly are)
+  await page.addInitScript(() => {
+    const seen = (window.__seen = []);
+    const tick = () => {
+      const b = document.getElementById("boot"), c = document.body && document.body.dataset.view === "active" ? document.getElementById("active") : document.getElementById("content");
+      seen.push({ cover: !!b && b.dataset.done == null, text: !!(c && c.offsetParent !== null && c.innerText.trim() && !c.querySelector(".empty-state")), empty: !!document.querySelector("#content .empty-state"), view: document.body && document.body.dataset.view, all: !!document.body && document.body.hasAttribute("data-overview"), t: Math.round(performance.now()) });
+      if (seen.length < 900) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  // (a slow line: every question to the server a while in coming back)
+  const slow = async (route) => { await new Promise((r) => setTimeout(r, 900)); await route.continue().catch(() => {}); };
+  await page.route(/\/api\/|\/file\//, slow);
+  const cdp = await page.context().newCDPSession(page).catch(() => null); // (and a slow machine: Chromium only)
+  if (cdp) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+  await page.reload();
+  await untilNote("Home.md");
+  if (cdp) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  await page.unroute(/\/api\/|\/file\//, slow);
+  await page.waitForTimeout(300);
+  const seen = await page.evaluate(() => window.__seen), bare = seen.filter((f) => !f.cover && !f.text && !f.all);
+  await page.evaluate(() => localStorage.setItem("mdview:mode", '"read"'));
+  assert.equal(bare.length, 0, `frames with neither the wheel nor the note: ${bare.length} of ${seen.length}, from ${bare[0] && bare[0].t} ms to ${bare[bare.length - 1] && bare[bare.length - 1].t} ms (${JSON.stringify(bare[0])})`);
 });
 
 test("Help shows the guide in a tab of its own, not to be written", async () => {

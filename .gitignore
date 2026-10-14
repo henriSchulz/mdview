@@ -1,2 +1,4 @@
 __pycache__/
 .env
+# (packages: a folder, or a link to one in a worktree — never kept)
+node_modules

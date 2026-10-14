@@ -824,8 +824,6 @@ impl Win {
         self.rescan(app);
         let notes: Vec<(String, bool)> = self.tree.as_ref().map(|t| t.notes().iter().map(|n| (n.real.clone(), n.pdf)).collect()).unwrap_or_default();
         let known = |p: &str| notes.iter().any(|(real, _)| real == p);
-        let last = app.state.get("last_notes").and_then(|l| l.get(s(&folder))).and_then(Value::as_str).map(String::from);
-        let first = last.filter(|l| known(l)).or_else(|| notes.iter().find(|(_, pdf)| !pdf).map(|(real, _)| real.clone())); // (a note, not a PDF)
         // the tabs this folder was left with (an empty one only where it was the one shown)
         self.tabs.clear();
         self.tab = 0;
@@ -857,9 +855,15 @@ impl Win {
             };
             return self.send_tabs(app);
         }
-        if self.tabs.is_empty() {
-            let tab = self.make_tab(first.as_deref().map(Path::new));
-            self.tabs.push(tab);
+        // a folder opens on All Notes, in the folder itself (Henri, 2026-10-14) — not on the note last shown: its tabs as they
+        // were, an empty one shown (the page shows All Notes in it). Only a note named at the start opens that note (above).
+        match self.tabs.iter().position(|t| t.path.is_none()) {
+            Some(i) => self.tab = i,
+            None => {
+                let tab = self.make_tab(None);
+                self.tabs.push(tab);
+                self.tab = self.tabs.len() - 1;
+            }
         }
         self.back.clear();
         self.fwd.clear();

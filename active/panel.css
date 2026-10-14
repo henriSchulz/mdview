@@ -39,11 +39,14 @@ body[data-panel] #rpanel { transform: none; opacity: 1; visibility: visible; tra
  * tabs. It stands under the toolbar, beside the rail. A window too narrow to hold it beside some of the note shows neither it
  * nor the rail. */
 @media (max-width: 760px) { #rpanel, #rrail { display: none !important; } }
-#toolbar [data-act="panel"][aria-pressed="true"] { color: var(--accent-text); }
 
 /* the rail: a capsule of signs at the window's right edge, under the toolbar — the one whose part is open is marked */
-#rrail { position: fixed; top: calc(var(--sb-inset) + var(--rail-top)); right: var(--sb-inset); z-index: 14; opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.7); }
-body[data-rail] #rrail { opacity: 1; visibility: visible; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+/* (it comes in from the window's edge with the active mode, and goes out to it with the view changed: a spring in, a quick ease out) */
+#rrail { position: fixed; top: calc(var(--sb-inset) + var(--rail-top)); right: var(--sb-inset); z-index: 14; opacity: 0; visibility: hidden; translate: 18px 0; scale: 0.94; transform-origin: right center;
+  transition: opacity calc(var(--dur-fast) * 0.8) var(--ease-exit), translate calc(var(--dur-fast) * 0.9) var(--ease-exit), scale calc(var(--dur-fast) * 0.9) var(--ease-exit), visibility 0s linear calc(var(--dur-fast) * 0.9); }
+body[data-rail] #rrail { opacity: 1; visibility: visible; translate: 0 0; scale: 1;
+  transition: opacity var(--dur-fast) var(--ease-out), translate var(--spring-snappy-dur) var(--spring-snappy), scale var(--spring-snappy-dur) var(--spring-snappy), visibility 0s; }
+@media (prefers-reduced-motion: reduce) { #rrail, body[data-rail] #rrail { translate: none; scale: none; } }
 @media print { #rrail { display: none !important; } }
 /* Outside a note there is nothing to put in, to format or to say about a document: over All Notes and beside a PDF neither the
  * rail nor the panel is there. */

@@ -116,6 +116,9 @@
     box.replaceChildren(img);
     requestAnimationFrame(() => img.classList.add("on")); // (it fades in over the sheet: overview.css)
   }
+  // a file's picture: shown when it has come (overview.css), also one that was there before the tile was
+  el.addEventListener("load", (e) => { if (e.target.tagName === "IMG" && e.target.closest(".ov-pic, .ov-mini")) e.target.classList.add("on"); }, true);
+  el.addEventListener("error", (e) => { if (e.target.tagName === "IMG" && e.target.closest(".ov-pic, .ov-mini")) e.target.classList.add("on"); }, true);
   const shotNear = typeof IntersectionObserver === "function" ? new IntersectionObserver((list) => {
     for (const e of list) if (e.isIntersecting) { shotNear.unobserve(e.target); shoot(e.target); }
   }, { rootMargin: "300px 0px" }) : null;
@@ -191,6 +194,7 @@
       tiles.clear();
       items = [];
       if (pasteEl.parentNode !== body) { body.textContent = ""; body.appendChild(pasteEl); }
+      saidWhere();
       return;
     }
     if (scope === "boards") {
@@ -205,13 +209,14 @@
       tiles.clear();
       items = [];
       setSegs();
-      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); return; }
+      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); saidWhere(); return; }
       const grid = document.createElement("div");
       grid.className = layout === "list" ? "ov-list" : "ov-grid";
       notes.forEach((n, i) => { const t = item(n, i, false); grid.appendChild(t); items.push(t); });
       body.appendChild(grid);
       const there = new Set(items.map((t) => t.dataset.path));
       for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
+      saidWhere();
       return;
     }
     if (scope === "folders") {
@@ -232,8 +237,9 @@
     body.textContent = "";
     tiles.clear();
     items = [];
-    if (!total) { body.innerHTML = core.emptyState(); return; }
+    if (!total) { body.innerHTML = core.emptyState(); saidWhere(); return; }
     let i = 0;
+    const later = [];
     for (const g of gs) {
       if (g.label) { const h = document.createElement("h2"); h.className = "ov-dir"; h.textContent = g.label; body.appendChild(h); }
       const grid = document.createElement("div");
@@ -243,7 +249,7 @@
         const t = item(n, i++, false);
         if (n.real === here || n.path === here) t.setAttribute("aria-current", "page");
         const known = !n.pdf && cache.get(n.path);
-        if (known) paint(t, known);
+        if (known) { if (i <= FIRST) paint(t, known); else later.push([t, known]); } // (the first at once, the rest a few at a time: paintLater)
         grid.appendChild(t);
         if (t.dataset.shot && shotNear) shotNear.observe(t);
         if (!n.pdf) tiles.set(n.path, t); // (a note: its beginning is asked for)
@@ -254,8 +260,25 @@
     // (what is selected and no longer there is selected no more)
     const there = new Set(items.map((t) => t.dataset.path));
     for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
+    for (const img of body.querySelectorAll(":is(.ov-pic, .ov-mini) > img")) if (img.complete) img.classList.add("on");
     queue = [...tiles.keys()];
+    paintLater(later);
+    saidWhere();
     ask();
+  }
+  /* The beginnings already known, put into their sheets a few at a time after the first ones — so that the tiles come at once
+   * (Henri, 2026-10-14: switching to All Notes "always lags"); the ones under the window are not wanted yet anyway. A build anew
+   * stops what the last one had left. */
+  const FIRST = 36, EACH = 24;
+  let paintRun = 0;
+  function paintLater(list) {
+    const run = ++paintRun;
+    const step = () => {
+      if (run !== paintRun) return;
+      for (const [t, known] of list.splice(0, EACH)) if (t.isConnected && !t.querySelector(".ov-prev")?.innerHTML) paint(t, known);
+      if (list.length) requestAnimationFrame(step);
+    };
+    if (list.length) requestAnimationFrame(step);
   }
   // a choice at the head, or a folder gone into or left: built anew, the keyboard's place kept in it
   function rebuild(focus) {
@@ -265,6 +288,7 @@
     const to = (focus && items.find(focus)) || body.querySelector(".ov-item[aria-current]") || items[0];
     if (had && to) to.focus({ preventScroll: true });
   }
+  let chosenAt = 0;
   function choose(name, v) {
     if (name === "scope") { if (scope === v) return; scope = v; at = []; picked.clear(); if (v === "boards") askBoards(); }
     else if (name === "boards") { if (boardShow === v) return; boardShow = v; picked.clear(); }
@@ -273,8 +297,11 @@
     window.MdPrefs = { ...(window.MdPrefs || {}), [key]: v };
     post("prefs", { prefs: { [key]: v } });
     if (name === "scope" && v !== "paste") pasteSend();
-    rebuild();
-    if (name === "scope" && v === "paste") pasteText.focus({ preventScroll: true });
+    // the choice answers at once — its thumb goes there, what was shown dims — and the tiles come a frame later
+    setSegs();
+    body.classList.add("ov-going");
+    const mine = ++chosenAt;
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (mine !== chosenAt || !isOpen()) return; body.classList.remove("ov-going"); rebuild(); if (name === "scope" && v === "paste") pasteText.focus({ preventScroll: true }); }));
   }
   function up(levels = 1) {
     if (scope !== "folders" || !at.length) return false;
@@ -302,9 +329,14 @@
     waiting = true;
     post("previews", { paths: queue.splice(0, BATCH) });
   }
-  function paint(tile, p) {
+  function paint(tile, p, fade = false) {
     const prev = tile.querySelector(".ov-prev"), snip = tile.querySelector(".ov-snip");
-    if (prev) prev.innerHTML = p.html;
+    if (prev) {
+      const was = prev.innerHTML;
+      prev.innerHTML = p.html;
+      // (a beginning that comes while the tile is there fades in over its skeleton: overview.css)
+      if (fade && !was && p.html) { prev.classList.remove("ov-in"); void prev.offsetWidth; prev.classList.add("ov-in"); }
+    }
     if (snip) snip.textContent = p.text;
     for (const c of DECO_COLORS) tile.classList.toggle("ov-" + c, p.color === c);
     tile.classList.toggle("ov-empty", !p.html);
@@ -317,7 +349,7 @@
       const made = { mtime: p.mtime, ...window.MdPage.previewOf(path, p.text || "") };
       cache.set(path, made);
       const tile = tiles.get(path);
-      if (tile) paint(tile, made);
+      if (tile) paint(tile, made, true);
     }
     ask();
   }
@@ -740,5 +772,16 @@
   // a note chosen in the sidebar while the tiles show: the note
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
-  window.MdOverview = { open, close, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
+  // where one is, for back and forward (viewer/tabs.js): this choice, in this folder
+  const saidWhere = () => { core.navHere({ all: true, at: scope === "folders" ? [...at] : [], scope }); }; // (built: open, or opening)
+  /* Back or forward to All Notes as it stood: that choice, in that folder (viewer/tabs.js) */
+  function showAt(where, sc = "folders") {
+    if (!core.folder) return;
+    if (!isOpen()) open(sc === "paste" ? "paste" : null);
+    scope = ["folders", "all", "boards", "paste"].includes(sc) ? sc : "folders";
+    at = [...where];
+    picked.clear();
+    rebuild();
+  }
+  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();

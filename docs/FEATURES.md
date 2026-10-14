@@ -14,9 +14,12 @@ itself: every example below is drawn as it would be in a note.
 | Command | What opens |
 |---|---|
 | `mdview FILE.md` | the note, in a window of its own |
-| `mdview FOLDER` | the folder: a sidebar with its notes, the note opened last |
-| `mdview` | the folder opened last |
+| `mdview FOLDER` | the folder: a sidebar with its notes, All Notes in the folder itself (its tabs as they were, an empty one shown) |
+| `mdview` | the folder opened last, the same way |
 | `mdview FILE.pdf` | the PDF, in the built-in viewer |
+
+In the browser the same: a repository's address opens on All Notes, in the repository itself;
+an address that names a note (`?n=…`) opens that note, and a reload shows what was shown.
 
 The app stays resident for a while after its last window closes, so the next one opens at once.
 A file changed by another program is read again as it changes.
@@ -47,7 +50,9 @@ a bare address https://example.com, a key <kbd>Ctrl</kbd>, an emoji :tada:, a fo
 [^1]: The footnote's text.
 ```
 
-[^1]: Footnotes are collected at the end of the note, numbered in reading order.
+[^1]: Footnotes are collected at the end of the note, numbered in reading order. A click on a
+    reference goes to its note, in the middle of the window, and the note stays lightly laid under
+    until the next click or key — so which one was meant can be told (both views).
 
 Comments are not shown: `%% Obsidian's %%` and `<!-- HTML's -->`.
 
@@ -706,6 +711,11 @@ Not there yet: a table's single rows and columns pulled to size or put in betwee
 
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
+**Back and forward**, as a browser has them: each tab has one way back through what was shown in
+it — the notes, and All Notes in the folder (and the choice) it stood at — so from a note one goes
+back into the folder one came from, and from folder to folder. The arrows beside the house in the
+strip of tabs (faint where there is nowhere to go), `Alt+←` / `Alt+→`, the mouse's side buttons.
+
 In the active mode `[[` brings its closing brackets, the caret between them, and the folder's notes
 are offered under the caret while the name is typed — in the text itself (the one opened last
 first). `Enter` or a click takes the one marked and the link stands, complete; `]` ends it with the
@@ -740,6 +750,9 @@ web app, a shared note too. They can be chosen in the panel's Style part:
   theme's own ground, and around it the window shows `gray`, or a soft run from one of the
   theme's colours into another — `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta` —
   or paper: `dots`, `grid`, `lines`. Anything else, or nothing: no sheet, the theme's own ground.
+  From one note to another the ground that was fades into the next (the strip of tabs with it);
+  while a note is on its way the sheet stays, empty, with one wheel on it — the mode's button turns
+  none of its own meanwhile.
 - `width`: how much of the window the text column takes — `narrow`, `wide` or `full` (`normal`,
   where it says nothing). `wide: true`, as it was written before, is `wide`.
 
@@ -788,7 +801,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
-  that is open closes it. The panel lies over the window, under the toolbar and beside the rail:
+  that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
+  slides in from the edge with that mode and out again when the view changes, and the reading
+  view and the source have none (beside the reading view the panel comes only with `Ctrl+Alt+P`,
+  at Document). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and
@@ -803,8 +819,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
   - *Page width* (Style): how much of the window the text column takes in this note — Narrow,
-    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (half,
-    two thirds, four fifths of it, all of it; in a narrow window the whole room, at least 30rem), so
+    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (two fifths,
+    half, two thirds of it, all of it; in a narrow window the whole room, at least 30rem), so
     a large screen gives a note a broad column too. It is the note's alone: the settings have no
     width of their own.
 
@@ -915,6 +931,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
+  A choice at the head answers at once: its thumb goes there and what was shown dims, the tiles come
+  a frame later. A sheet whose beginning is still coming shows grey lines with a light running over
+  them, and the beginning fades in when it is there; a picture fades in when it has come.
   **Several at once**: a rectangle pulled from the empty room takes what it touches, `Shift`+click
   takes one more or lets it go, `Ctrl+A` takes all, `Esc` or a click beside them none. What is
   selected is dragged onto a folder together, trashed together (`Del`), or opened in tabs (right
@@ -1279,7 +1298,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 | `Ctrl+Shift+X` | strikethrough |
 | `Ctrl+Shift+V` | paste and match style |
 | `Ctrl+D` | duplicate the block |
-| `Alt+←` / `Alt+→` | back / forward |
+| `Alt+←` / `Alt+→` | back / forward — notes and All Notes' folders, in the tab |
 | `Ctrl` or `Super` + `+` / `−` | the note's text larger / smaller (50 % to 250 %); in a PDF: its pages |
 | `Ctrl+0` | the note at 100 % again; in a PDF: fit the width |
 

@@ -21,6 +21,8 @@
 
     // ---- what a folder opens in: the rail
     ok("a folder opens with the rail", sb.dataset.layout === "rail", sb.dataset.layout);
+    // (the folder's name at the head, beside the button that opens another — in the rail's layout too: it was hidden there, Henri 2026-10-14)
+    { const nm = q(".sb-folder-name"); ok("… the folder's name at the head, beside Open Another Folder", !!nm && nm.textContent.trim() !== "" && nm.offsetWidth > 20 && getComputedStyle(nm).display !== "none", nm && [nm.textContent, nm.offsetWidth, getComputedStyle(nm).display]); }
     await layout("source");
     // ---- source
     ok("the list: the tree, and new and order at its foot", sb.dataset.layout === "source" && shown(q(".sb-foot")) && !shown(q('.sb-head [data-act="newmenu"]')) && !shown(q(".sb-rail")) && !shown(q(".sb-smart")), sb.dataset.layout);
@@ -78,7 +80,7 @@
     ok("rail: a right click on a folder's sign opens the folder's menu, Colour and Icon… in it", document.getElementById("ctxmenu").hasAttribute("data-open") && document.getElementById("ctxmenu").dataset.kind === "dir" && offered.includes("look") && offered.includes("newnote"), offered);
     document.querySelector('#ctxmenu [data-cmd="look"]').click(); await sleep(700);
     const look2 = document.getElementById("sblook"), lr = look2.getBoundingClientRect(), sr = signOf("Projekte").getBoundingClientRect();
-    ok("… its small window opens beside that sign", look2.hasAttribute("data-open") && lr.top >= sr.top && lr.top - sr.bottom < 40 && lr.left < 120, [lr.left, lr.top, sr.bottom]);
+    ok("… its small window opens beside that sign", look2.hasAttribute("data-open") && lr.top >= sr.top && lr.top - sr.bottom < 40 && lr.left < 120, [lr.left, lr.top, sr.bottom, lr.height, innerHeight]);
     look2.querySelector('[data-color="red"]').click(); await sleep(150);
     look2.querySelector('[data-icon="star"]') && look2.querySelector('[data-icon="star"]').click(); await sleep(600);
     ok("… and the colour chosen there shows on the sign", /--c-red/.test(signOf("Projekte").getAttribute("style") || ""), signOf("Projekte").getAttribute("style"));

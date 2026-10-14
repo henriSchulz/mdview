@@ -245,7 +245,7 @@ test("in a browser: the note with its picture and what it embeds, read only, and
   assert.notEqual(seen.sidebar, "open"); // (no repository to look about in)
   // nothing but reading: no modes to switch between, by button or by key
   const vis = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); return !!e && e.offsetParent !== null; }, sel);
-  assert.deepEqual([await vis("#toolbar .seg"), await vis('#toolbar [data-act="panel"]'), await vis('#toolbar [data-act="share"]'), await vis('#toolbar [data-act="find"]')], [false, false, false, true]);
+  assert.deepEqual([await vis("#toolbar .seg"), await vis("#rrail"), await vis('#toolbar [data-act="share"]'), await vis('#toolbar [data-act="find"]')], [false, false, false, true]);
   // … and no settings, by the gear or by the key
   assert.equal(await page.evaluate(() => [...document.querySelectorAll("button")].some((b) => b.getAttribute("aria-label") === "Settings" && b.offsetParent !== null)), false);
   await page.keyboard.press("Control+,");

@@ -32,7 +32,7 @@
   /* The text column's width, as a share of the room the note has (the window beside the sidebar, a half of a split): the note
    * says which (its property "width" — the panel's Document part); in a narrow window it is the whole room at least 30rem. */
   const share = (p) => `max(${p}%, min(100%, 30rem))`;
-  const MEASURES = { narrow: share(50), normal: share(66), wide: share(82), full: "none" };
+  const MEASURES = { narrow: share(40), normal: share(50), wide: share(66), full: "none" }; // (Henri, 2026-10-14: what was narrow is normal now)
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
   function measureSync() {
     const measure = MEASURES[docShown.width] ? docShown.width : "normal";
@@ -46,12 +46,39 @@
    * and after every save. A page of a note is shown as its note is. The panel's Document tab
    * (active/panel.js) hears of it, and counts anew. */
   let docShown = { background: "", width: "normal" };
+  /* Another ground (or none) for the next note: the one that was is laid over it as it stood and fades away, so that one goes
+   * into the other instead of jumping (Henri, 2026-10-14). Not over All Notes, which has the window's own colour. */
+  function groundGoes() {
+    const root = document.documentElement;
+    if (document.body.hasAttribute("data-overview") || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cs = getComputedStyle(root), plain = !root.dataset.docBg, from = plain ? getComputedStyle(document.body) : cs;
+    for (const x of document.querySelectorAll(".ground-was")) x.remove();
+    // (one over the window, and one in the strip of tabs, which has the ground of its own: viewer/tabs.css)
+    const tabs = document.getElementById("tabs"), strip = tabs && getComputedStyle(tabs).display !== "none" ? getComputedStyle(tabs) : null;
+    const lay = (parent, of) => {
+      const was = document.createElement("div");
+      was.className = "ground-was";
+      was.setAttribute("aria-hidden", "true");
+      was.style.backgroundColor = of.backgroundColor !== "rgba(0, 0, 0, 0)" ? of.backgroundColor : cs.backgroundColor;
+      if (!plain) Object.assign(was.style, { backgroundImage: cs.backgroundImage, backgroundSize: cs.backgroundSize, backgroundPosition: cs.backgroundPosition, backgroundRepeat: cs.backgroundRepeat, backgroundAttachment: "fixed" });
+      parent.appendChild(was);
+      return was;
+    };
+    const all = [lay(document.body, from), ...(strip ? [lay(tabs, plain ? strip : cs)] : [])];
+    void all[0].offsetWidth;
+    requestAnimationFrame(() => {
+      for (const was of all) was.classList.add("gone");
+      setTimeout(() => all.forEach((was) => was.remove()), 900);
+    });
+  }
   function docSync() {
     const p = P.current, note = p && !p.error && p.kind !== "pdf" && typeof p.text === "string";
     const head = note ? (/^---[ \t]*\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(p.text) || [""])[0] : "";
     if (note && (!p._look || p._look.head !== head)) p._look = { head, look: docLook(head ? stripFrontmatter(head).props : null) }; // (read once for properties as they stand)
     docShown = note ? p._look.look : { background: "", width: "normal" };
-    if (docShown.background) document.documentElement.dataset.docBg = docShown.background; else delete document.documentElement.dataset.docBg; // (viewer/page.css)
+    const root = document.documentElement;
+    if ((root.dataset.docBg || "") !== (docShown.background || "")) groundGoes();
+    if (docShown.background) root.dataset.docBg = docShown.background; else delete root.dataset.docBg; // (viewer/page.css)
     measureSync();
     if (window.MdActive && MdActive.panel) MdActive.panel.doc();
   }
@@ -274,7 +301,7 @@
       ai: {
         // (the note as its file has it — its pages are sections of that text — and that text put anew, as one step back)
         fileText: aiFileText, setFileText: aiSetFileText, undoFileText: () => trailStep(-1),
-        where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, picText, alignMark, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, folderLook: (path) => ({ color: colorVar(lookOf(path).color),
+        where: () => { const v = P.current && viewOf(P.current), out = []; for (let pg = v && v.page; pg && pg.id != null; pg = pg.parent) out.unshift(pg.title || "Untitled"); return out; }, on: aiOn, load: loadAi, transform: (view, range) => loadAi().then((ai) => ai.transform(view, range)).catch(() => {}) }, emptyState, zoomImage, zoomFigure, zoomFigureAt, going, sortNotes, svgPicture, lockScroll, imageSize, picText, alignMark, popup, combo, closePick: () => closePick(false), moving, fileHref, fileSize, fileExt, codeHidden, codeLang, listed, rowIcon, when: quickWhen, markNote: (el) => P.markNote(el), navHere: (pl) => P.navHere(pl), folderLook: (path) => ({ color: colorVar(lookOf(path).color),
           sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), pasteTab: () => P.pasteTab(), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },

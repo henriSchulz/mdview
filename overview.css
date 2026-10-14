@@ -91,6 +91,25 @@ body[data-mode="dark"] #overview[data-open] .ov-tile:hover { --edge: rgb(255 255
 .ov-prev h1:first-child { display: none; }  /* (the name stands under the sheet already) */
 .ov-prev img { max-height: 220px; object-fit: cover; }
 .ov-empty .ov-prev::before { content: "Empty"; color: var(--fg-quiet); }
+/* a beginning still coming: a skeleton — lines, and a light running over them — instead of a blank sheet; it fades in when it is
+   there (overview.js: paint). (The sheet's text is drawn at half its size: the lines are twice as large as they look.) */
+.ov-tile:not(.ov-empty) .ov-prev:empty { --skel: color-mix(in srgb, var(--fg) 7%, transparent); --shine: color-mix(in srgb, var(--bg) 70%, transparent);
+  height: 300px; border-radius: 6px;
+  background-image: linear-gradient(100deg, transparent 30%, var(--shine) 50%, transparent 70%),
+    linear-gradient(var(--skel), var(--skel)), linear-gradient(var(--skel), var(--skel)), linear-gradient(var(--skel), var(--skel)), linear-gradient(var(--skel), var(--skel)), linear-gradient(var(--skel), var(--skel)), linear-gradient(var(--skel), var(--skel));
+  background-repeat: no-repeat;
+  background-size: 250% 100%, 92% 18px, 100% 18px, 78% 18px, 96% 18px, 64% 18px, 86% 18px;
+  background-position: 120% 0, 0 4px, 0 46px, 0 88px, 0 150px, 0 192px, 0 234px;
+  animation: ov-skel 1.4s ease-in-out infinite; }
+@keyframes ov-skel { from { background-position: 120% 0, 0 4px, 0 46px, 0 88px, 0 150px, 0 192px, 0 234px; } to { background-position: -20% 0, 0 4px, 0 46px, 0 88px, 0 150px, 0 192px, 0 234px; } }
+.ov-prev.ov-in { animation: ov-in var(--dur-base) var(--ease-out); }
+@keyframes ov-in { from { opacity: 0; } }
+/* a picture of a file fades in when it is there, not line by line */
+:is(.ov-pic, .ov-mini) > img:not(.ov-shot) { opacity: 0; transition: opacity var(--dur-base) var(--ease-out); }
+:is(.ov-pic, .ov-mini) > img.on { opacity: 1; }
+/* a choice made at the head: what was shown dims at once, until the new tiles are there (a frame later) */
+.ov-going { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .ov-tile .ov-prev:empty, .ov-prev.ov-in { animation: none; } }
 
 .ov-red { --c: var(--c-red); }
 .ov-orange { --c: var(--c-orange); }

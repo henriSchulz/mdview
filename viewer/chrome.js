@@ -19,8 +19,7 @@
     [["edit", ICON.source], ["active", ICON.pencil], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
-    `</div>` +
-    `<button class="tb" data-act="panel" title="${esc(T("Insert, Format and Document (Ctrl+Alt+P)"))}" aria-label="${esc(T("Insert, Format and Document"))}" aria-pressed="false">${ICON.panel}</button>`;
+    `</div>`; // (the panel at the right: from its rail at the window's edge, or Ctrl+Alt+P — no button of its own here)
   document.body.appendChild(toolbar);
 
   const outlinePop = document.createElement("div");
