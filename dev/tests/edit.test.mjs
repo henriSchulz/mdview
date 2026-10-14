@@ -31,6 +31,9 @@ function probe(name, src, perDoc, random) {
   for (let k = 0; k < perDoc && spots.length; k++) {
     const [start, len] = spots[Math.floor(random() * spots.length)];
     const pos = start + Math.floor(random() * (len + 1));
+    // (not in a paragraph with a picture beside its text: typed in, the picture goes to a block of its own — tests/pictureblocks)
+    const $at = d.doc.resolve(pos);
+    if ($at.parent.type.name === "paragraph" && $at.parent.childCount > 1 && $at.parent.content.content.some((c) => c.type.name === "image")) continue;
     // typed as in the editor: with its plugins, which keep a bare address linking to what its text says
     const state = base.apply(base.tr.insert(pos, d.doc.type.schema.text(WORD, d.doc.resolve(pos).marks())));
     const tr = { doc: state.doc };

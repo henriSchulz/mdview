@@ -203,7 +203,13 @@
   const sbAsking = new Set();
   const relOf = (path) => path.slice(folder.root.length + 1);
   const lookOf = (path) => ((folder && folder.looks) || {})[relOf(path)] || {};
-  const colorVar = (c) => (DECO_COLORS.includes(c) ? `var(--c-${c})` : "");
+  // (a folder's colour: one of the theme's by name, or one of the more (MORE_COLORS) or any other, as #rrggbb)
+  const colorVar = (c) => (DECO_COLORS.includes(c) ? `var(--c-${c})` : /^#[0-9a-f]{6}$/.test(c || "") ? c : "");
+  const MORE_COLORS = [
+    "#f87171", "#fb923c", "#fbbf24", "#a3e635", "#4ade80", "#2dd4bf", "#22d3ee", "#38bdf8", "#818cf8", "#a78bfa", "#e879f9", "#f472b6",
+    "#dc2626", "#ea580c", "#d97706", "#65a30d", "#16a34a", "#0d9488", "#0891b2", "#0284c7", "#4f46e5", "#7c3aed", "#c026d3", "#db2777",
+    "#991b1b", "#9a3412", "#92400e", "#3f6212", "#166534", "#115e59", "#155e75", "#075985", "#3730a3", "#5b21b6", "#86198f", "#9d174d",
+    "#a8a29e", "#78716c", "#57534e", "#44403c", "#94a3b8", "#64748b", "#475569", "#334155", "#a16207", "#854d0e", "#713f12", "#422006"];
   /* A folder's sign: one of the app's own (FOLDER_ICONS), or any of Lucide's (vendor/icons.js — loaded when a folder has one;
    * until then the folder's own sign, and the list is drawn again when they are there). */
   let iconsAsked = false;
@@ -380,9 +386,17 @@
   sbLook.tabIndex = -1;
   document.body.appendChild(sbLook);
   let sbLookFor = null;
+  let moreColors = false; // (the more colours shown: until the window is opened for another folder)
   function paintLook() {
     const look = lookOf(sbLookFor), was = sbLook.querySelector(".sl-find"), query = was ? was.value : "", typing = was && document.activeElement === was; // (a colour or a sign chosen: what was searched for stays)
-    sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
+    const own = colorVar(look.color) && !DECO_COLORS.includes(look.color) ? look.color : ""; // (one of the more, or any other)
+    if (own) moreColors = true;
+    const dot = (c, label) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: ${colorVar(c)}"` : ""}></button>`;
+    sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => dot(c, c ? T("color." + c) : T("slash.colorDefault"))).join("")
+      // the more: behind a button of their own, that wears the colour chosen among them
+      + `<button type="button" class="sl-color sl-more${own ? " on" : ""}" data-more aria-expanded="${moreColors}" title="${esc(T("More Colours"))}" aria-label="${esc(T("More Colours"))}"${own ? ` style="--fc: ${own}"` : ""}>${own ? "" : ICON.plus || "+"}</button></div>`
+      + (moreColors ? `<div class="sl-more-colors">` + MORE_COLORS.map((c) => dot(c, c)).join("") + `</div>`
+        + `<label class="sl-hex"><span>${esc(T("Own colour"))}</span><input type="text" class="sl-hex-in" value="${esc(own)}" placeholder="#5b8def" maxlength="7" spellcheck="false" autocomplete="off" aria-label="${esc(T("Own colour"))}"><i style="--fc: ${own || "transparent"}"></i></label>` : "")
       + `<div class="sl-cap">${esc(T("Icon"))}</div><input type="search" class="sl-find" placeholder="${esc(T("Search 1,900 icons"))}" aria-label="${esc(T("Search icons"))}" spellcheck="false" autocomplete="off">` +
       `<div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}></div>`;
     const find = sbLook.querySelector(".sl-find");
@@ -429,9 +443,27 @@
     box.innerHTML = list.length ? list.map((i) => `<button type="button" class="sl-icon${(look.icon || "") === i ? " on" : ""}" data-icon="${esc(i)}" title="${esc(i || "folder")}" aria-label="${esc(i || "folder")}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] || lucide(i) || "" : ICON.folder}</button>`).join("")
       : `<p class="sl-none">${esc(window.MdIcons ? T("No icon is called so") : T("Looking for icons…"))}</p>`;
   }
-  sbLook.addEventListener("input", (e) => { if (e.target.closest(".sl-find")) paintSigns(); });
-  sbLook.addEventListener("keydown", (e) => { if (e.target.closest(".sl-find") && e.key !== "Escape") e.stopPropagation(); }); // (the keys are the search's)
+  sbLook.addEventListener("input", (e) => {
+    if (e.target.closest(".sl-find")) paintSigns();
+    if (e.target.closest(".sl-hex-in")) { const c = hexOf(e.target.value); e.target.nextElementSibling.style.setProperty("--fc", c || "transparent"); }
+  });
+  // any colour: written as web pages write one, taken with Enter (or when the field is left)
+  const hexOf = (v) => { const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec((v || "").trim()); return m ? "#" + (m[1].length === 3 ? m[1].replace(/./g, "$&$&") : m[1]).toLowerCase() : ""; };
+  function takeHex(field) {
+    const c = hexOf(field.value);
+    if (!c || !sbLookFor || !folder || lookOf(sbLookFor).color === c) return;
+    const was = lookOf(sbLookFor);
+    setLook(sbLookFor, { color: c, icon: was.icon || "", fav: !!was.fav });
+    paintLook();
+  }
+  sbLook.addEventListener("change", (e) => { if (e.target.closest(".sl-hex-in")) takeHex(e.target); });
+  sbLook.addEventListener("keydown", (e) => {
+    if (!e.target.closest(".sl-find, .sl-hex-in") || e.key === "Escape") return;
+    e.stopPropagation(); // (the keys are the field's)
+    if (e.key === "Enter" && e.target.closest(".sl-hex-in")) { e.preventDefault(); takeHex(e.target); }
+  });
   function openLook(key, beside) { // (beside: what stands for the folder where its menu was opened — its row, its sign in the rail, its tile)
+    if (sbLookFor !== key) moreColors = false;
     sbLookFor = key;
     paintLook();
     const r = beside.getBoundingClientRect(), w = sbLook.offsetWidth, h = sbLook.offsetHeight;
@@ -443,6 +475,7 @@
   }
   const closeLook = () => { if (!sbLook.hasAttribute("data-open")) return false; delete sbLook.dataset.open; sbLookFor = null; return true; };
   sbLook.addEventListener("click", (e) => {
+    if (e.target instanceof Element && e.target.closest("[data-more]")) { moreColors = !moreColors; paintLook(); return; }
     const b = e.target instanceof Element && e.target.closest("[data-color], [data-icon]");
     if (!b || !sbLookFor || !folder) return;
     const was = lookOf(sbLookFor);

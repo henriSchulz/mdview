@@ -24,6 +24,13 @@ fn word(v: &str) -> Option<String> {
     (!w.is_empty() && w.len() <= 40 && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')).then(|| w.to_string()) // (a sign of Lucide's may hold a digit: gamepad-2)
 }
 
+/// A colour as the page gives it: a theme colour's name, or any as `#rrggbb`.
+fn colour(v: &str) -> Option<String> {
+    let w = v.trim().to_ascii_lowercase();
+    if w.len() == 7 && w.starts_with('#') && w[1..].bytes().all(|b| b.is_ascii_hexdigit()) { return Some(w); }
+    word(&w)
+}
+
 /// `path` below `root`, with "/" (None: not below it, or the folder itself).
 fn below(root: &Path, path: &Path) -> Option<String> {
     let rel = path.strip_prefix(root).ok()?;
@@ -59,7 +66,7 @@ pub fn set(root: &Path, dir: &Path, color: &str, icon: &str, fav: bool) -> Resul
     let Some(rel) = below(root, dir) else { return Err("not a folder of this folder".into()) };
     let mut looks = read(root);
     let mut entry = Map::new();
-    if let Some(c) = word(color) { entry.insert("color".into(), json!(c)); }
+    if let Some(c) = colour(color) { entry.insert("color".into(), json!(c)); }
     if let Some(i) = word(icon) { entry.insert("icon".into(), json!(i)); }
     if fav { entry.insert("fav".into(), json!(true)); }
     if entry.is_empty() { looks.remove(&rel); } else { looks.insert(rel, Value::Object(entry)); }
@@ -109,6 +116,11 @@ mod tests {
         assert_eq!(listed(r), json!({ "a": { "color": "blue", "icon": "book" } }));
         assert!(set(r, r, "red", "", false).is_err() && set(r, Path::new("/elsewhere"), "red", "", false).is_err());
         set(r, &r.join("a"), "", "", false).unwrap();
+        // a colour of the more, or any other: #rrggbb
+        set(r, &r.join("c"), "#5B8DEF", "", false).unwrap();
+        assert_eq!(listed(r)["c"], json!({ "color": "#5b8def" }));
+        set(r, &r.join("c"), "#5b8de", "", false).unwrap(); // (not a colour: none)
+        assert_eq!(listed(r)["c"], Value::Null);
         // a sign of Lucide's, with a digit in its name
         set(r, &r.join("c"), "", "gamepad-2", false).unwrap();
         assert_eq!(listed(r)["c"], json!({ "icon": "gamepad-2" }));

@@ -244,7 +244,8 @@
   // a colour and a sign chosen for a folder ("" for either: none; neither: no entry)
   function lookSet(looks, rel, color, icon, fav = false) { // fav: a favourite — its sign stands in the sidebar's rail
     const next = { ...looks }, entry = {};
-    if (lookWord(color)) entry.color = lookWord(color);
+    const hex = typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color.trim()) ? color.trim().toLowerCase() : ""; // (any colour, as #rrggbb)
+    if (hex || lookWord(color)) entry.color = hex || lookWord(color);
     if (lookWord(icon)) entry.icon = lookWord(icon);
     if (fav === true) entry.fav = true;
     if (Object.keys(entry).length) next[rel] = entry; else delete next[rel];

@@ -38,7 +38,7 @@
     document.querySelector('#ctxmenu [data-cmd="look"]').click();
     await sleep(700);
     const look = document.getElementById("sblook");
-    ok("a folder's menu has Colour and Icon…, and it opens a small window beside the row — the colours, a search, many signs", look.hasAttribute("data-open") && look.querySelectorAll(".sl-color").length === 8 && look.querySelectorAll(".sl-icon").length > 80 && !!look.querySelector(".sl-find"), look.querySelectorAll(".sl-icon").length); // (the app's twenty, the folder's own, and Lucide's that notes are often about: dev/rig.sh icons)
+    ok("a folder's menu has Colour and Icon…, and it opens a small window beside the row — the colours, a search, many signs", look.hasAttribute("data-open") && look.querySelectorAll(".sl-color").length === 9 && !!look.querySelector("[data-more]") && look.querySelectorAll(".sl-icon").length > 80 && !!look.querySelector(".sl-find"), look.querySelectorAll(".sl-icon").length); // (the app's twenty, the folder's own, and Lucide's that notes are often about: dev/rig.sh icons)
     look.querySelector('[data-color="green"]').click(); await sleep(150);
     look.querySelector('[data-icon="book"]').click(); await sleep(600);
     ok("a colour and a sign chosen show on the row at once", /--c-green/.test(studium.style.getPropertyValue("--fc")) && studium.dataset.icon === "book" && look.querySelector('[data-icon="book"]').classList.contains("on"), [studium.getAttribute("style"), studium.dataset.icon]);

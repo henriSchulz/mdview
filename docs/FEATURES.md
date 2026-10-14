@@ -421,8 +421,11 @@ Paths are relative to the note — and one that leads nowhere from there is look
 name in `assets` (below). A picture alone in its paragraph is a block of its own: it has the
 line to itself and stands in its middle, as embedded PDF pages do. A double click shows a picture large.
 A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
-whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
-a picture stays part of the line.
+whole, the handle moves it, right click has its size and Edit… (its Markdown). A picture is never
+part of a line: one that is pasted, dropped or put in mid-line — or that has text written beside
+it, or another picture — goes to a paragraph of its own, the text before and after it in theirs
+(the spaces and line breaks at the cut go). A note written with a picture in a line elsewhere stays
+so until that line is edited; a table's cell keeps its picture in its text.
 `Ctrl+V` with a picture on the clipboard saves it and embeds it; picture files dropped on the note
 do the same.
 
@@ -885,7 +888,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Search**: the field under the head narrows the folder's notes to those whose name (or the
   folder they lie in) has what is typed; `Esc` empties it.
 - **A folder's colour and sign**: right click on a folder › Colour and Icon… — one of the theme's
-  colours and a sign — the app's twenty, or any of Lucide's 1,900 (lucide.dev): a search above
+  colours, or behind the plus beside them 48 more and a field for any colour (`#rrggbb`, kept so),
+  and a sign — the app's twenty, or any of Lucide's 1,900 (lucide.dev): a search above
   them finds a sign by its name or its words, in English and, for the common things, in German
   (Geld, Reise, Schule, Mathe …); without one, a choice of those notes are often about. Shown in
   every layout. They are kept in the folder itself

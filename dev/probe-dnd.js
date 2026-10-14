@@ -72,7 +72,7 @@
     post("prefs", { prefs: { images: "beside" } }); await sleep(150); // (first beside the note; what the settings have by themselves — ./assets — comes next)
     atLast(files([pic]));
     for (let i = 0; i < 40 && !md().includes("drop.png"); i++) await sleep(50);
-    ok("a picture file dropped: copied beside the note, embedded where it was dropped", md().includes("Last paragraph.![](drop.png)") || md().includes("Last paragraph![](drop.png)."), md().slice(-60));
+    ok("a picture file dropped: copied beside the note, embedded where it was dropped — a block of its own", md().includes("Last paragraph.\n\n![](drop.png)\n") || md().includes("Last paragraph\n\n![](drop.png)\n\n."), md().slice(-60));
     for (let i = 0; i < 40 && !view.dom.querySelector('img[src*="drop.png"]')?.complete; i++) await sleep(50);
     ok("… and shows", view.dom.querySelector('img[src*="drop.png"]')?.naturalWidth === 20);
     key("z", { ctrlKey: true });

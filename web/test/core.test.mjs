@@ -211,6 +211,9 @@ test("how folders look: read forgivingly, written in order, and a folder moved k
   assert.deepEqual(C.lookSet(looks, "a", "", ""), { ab: { icon: "star" }, "b/c": { color: "green", icon: "flag" } });
   assert.deepEqual(C.looksMoved(looks, "b", "x/y"), { a: { color: "red" }, ab: { icon: "star" }, "x/y/c": { color: "green", icon: "flag" } });
   assert.deepEqual(C.looksMoved(looks, "a", "z"), { z: { color: "red" }, ab: { icon: "star" }, "b/c": { color: "green", icon: "flag" } });
+  // any colour as #rrggbb (the more colours), a sign of Lucide's with a digit
+  assert.deepEqual(C.lookSet({}, "d", "#5B8DEF", "gamepad-2"), { d: { color: "#5b8def", icon: "gamepad-2" } });
+  assert.deepEqual(C.lookSet({}, "d", "#5b8de", ""), {});
 });
 
 test("what is put away: left out of the tree, or listed and marked — as the desktop's scan does it", () => {

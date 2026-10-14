@@ -25,14 +25,14 @@
     // --- the active mode: turned from the menu
     MdView.setMode("active");
     await until(() => window.MdActive && MdActive.view && MdActive.view.pm && document.body.dataset.view === "active");
-    const view = MdActive.view.pm, pm = () => [...view.dom.querySelectorAll("img")], text = () => MdActive.view.serialize(false);
+    const view = MdActive.view.pm, pm = () => [...view.dom.querySelectorAll("img:not(.ProseMirror-separator)")], text = () => MdActive.view.serialize(false);
     ok("active mode: the same pictures, turned the same", await until(() => pm().length === 4 && pm()[1].naturalWidth === 40 && pm()[3].naturalHeight === 120), pm().map(shape));
     const picAt = (i) => { const found = []; view.state.doc.descendants((n, p) => { if (n.type.name === "image" || (n.type.name === "island" && /!\[/.test(String(n.attrs.raw)))) found.push({ n, p }); }); return { ...found[i], pic: MdActive.islands.picture(view, found[i].p, found[i].n) }; };
     picAt(0).pic.turnBy(90);
-    ok("a picture in the text, Rotate Right: written |r90", /in the text !\[wide\|r90\]\(wide\.png\)/.test(text()), text());
+    ok("a picture in the text, Rotate Right: written |r90 — and, changed, a block of its own", /in the text\n\n!\[wide\|r90\]\(wide\.png\)\n\nhere/.test(text()), text());
     ok("… and shown so", await until(() => pm()[0].naturalWidth === 40 && pm()[0].naturalHeight === 120), shape(pm()[0]));
     picAt(0).pic.turnBy(-90);
-    ok("Rotate Left: upright again, and nothing written of it", /in the text !\[wide\]\(wide\.png\)/.test(text()) && await until(() => pm()[0].naturalWidth === 120), [text(), shape(pm()[0])]);
+    ok("Rotate Left: upright again, and nothing written of it", /in the text\n\n!\[wide\]\(wide\.png\)\n\nhere/.test(text()) && await until(() => pm()[0].naturalWidth === 120), [text(), shape(pm()[0])]);
     picAt(1).pic.turnBy(90);
     ok("a picture on a line of its own: r90 → r180", /^!\[own\|r180\]\(wide\.png\)$/m.test(text()), text());
     ok("… shown upside down, as large as before", await until(() => pm()[1].dataset.turned === "180" && pm()[1].naturalWidth === 120), shape(pm()[1]));
