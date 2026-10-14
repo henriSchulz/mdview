@@ -263,6 +263,8 @@
     if (ln) { for (const x of shownRoot().querySelectorAll("[data-line]")) { if (Number(x.dataset.line) <= Number(ln[1])) el = x; else break; } }
     else el = findTarget(frag);
     if (!el) { if (smooth) P.toast(T("Section not found")); return; }
+    const note = el.matches("li.footnote-item") ? el : null; // (a footnote: in the middle of the window, and it stays marked)
+    if (note) { note.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "instant", block: "center" }); markNote(note); return; }
     el.scrollIntoView({ behavior: smooth && !reducedMotion() ? "smooth" : "instant", block: "start" });
     el.classList.remove("flash");
     void el.offsetWidth;
@@ -270,6 +272,21 @@
     setTimeout(() => el.classList.remove("flash"), 1200);
   }
   const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* The footnote a reference led to stays lightly laid under (Henri, 2026-10-14: which one was meant could not be told once
+   * the page had moved) — until the next click or key, which it fades out on; only one at a time. Both modes (active/notes.js). */
+  let noteHere = null, noteSince = 0;
+  function markNote(el) {
+    if (noteHere && noteHere !== el) noteHere.classList.remove("fn-here");
+    noteHere = el; noteSince = performance.now();
+    el.classList.add("fn-here");
+  }
+  const unmarkNote = (e) => {
+    if (!noteHere || performance.now() - noteSince < 500) return; // (the click that led there, and its smooth run, are not the next one)
+    if (e && e.target && e.target.closest && e.target.closest("li.footnote-item") === noteHere && e.type === "pointerdown") return;
+    noteHere.classList.remove("fn-here"); noteHere = null;
+  };
+  addEventListener("pointerdown", unmarkNote, true);
+  addEventListener("keydown", unmarkNote, true);
   // An image was just added at the end: go there, again once it has its height.
   function scrollToEnd() {
     const go = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: reducedMotion() ? "instant" : "smooth" });
@@ -397,7 +414,7 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { placeOf, going, render, clear, draw, shownRoot, captureAnchor, restoreAnchor,
+  Object.assign(P, { markNote, placeOf, going, render, clear, draw, shownRoot, captureAnchor, restoreAnchor,
     elementById, scrollToFragment, reducedMotion, scrollToEnd, renderMermaid, mermaidSvg, setTheme });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

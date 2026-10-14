@@ -50,7 +50,9 @@ a bare address https://example.com, a key <kbd>Ctrl</kbd>, an emoji :tada:, a fo
 [^1]: The footnote's text.
 ```
 
-[^1]: Footnotes are collected at the end of the note, numbered in reading order.
+[^1]: Footnotes are collected at the end of the note, numbered in reading order. A click on a
+    reference goes to its note, in the middle of the window, and the note stays lightly laid under
+    until the next click or key — so which one was meant can be told (both views).
 
 Comments are not shown: `%% Obsidian's %%` and `<!-- HTML's -->`.
 

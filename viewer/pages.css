@@ -181,6 +181,10 @@ details.props th { width: 28%; font-weight: 500; color: var(--fg2); white-space:
 /* ------------------------------------------------------------- footnotes */
 .footnotes-sep { margin: 3em 0 1em; }
 .footnotes { font-size: 0.9em; color: var(--fg2); }
+/* the footnote a reference led to: lightly laid under, until the next click or key (viewer/render.js: markNote) — it comes in
+   quickly and goes slowly */
+.footnotes li.footnote-item { border-radius: var(--radius-row); box-shadow: 0 0 0 0 transparent; transition: background-color var(--dur-slow) var(--ease-out), box-shadow var(--dur-slow) var(--ease-out); }
+.footnotes li.footnote-item.fn-here { background-color: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent); transition-duration: var(--dur-base); }
 .footnote-ref a, a.footnote-backref { font-size: 0.85em; }
 
 /* ------------------------------------------------------------- empty / error */

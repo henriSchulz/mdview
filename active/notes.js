@@ -211,8 +211,7 @@
     if (!li) return false;
     hidePop();
     li.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
-    li.classList.add("note-hit");
-    setTimeout(() => li.classList.remove("note-hit"), 1000);
+    window.MdView.core.markNote(li); // (it stays lightly laid under until the next click or key: viewer/render.js)
     return true;
   }
   // a click in the section: on a note, its dialog
