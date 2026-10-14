@@ -156,13 +156,13 @@
     ok("autosave handed the document over", !V.dirty);
     const saved = md();
     ok("what was saved is the document", MdView.core.current.raw === saved);
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "3", code: "Digit3", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "4", code: "Digit4", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(300);
     ok("reading shows the edit", document.body.dataset.view === "read" && [...document.querySelectorAll("#content li")].some((li) => li.textContent.includes("pear")));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", code: "Digit1", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "3", code: "Digit3", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(700);
     ok("the source editor has the same text", document.getElementById("ed-input").value === saved);
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "2", code: "Digit2", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", code: "Digit1", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(700);
     ok("back in the active mode with the same document", document.body.dataset.view === "active" && md() === saved);
     const before = md();

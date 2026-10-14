@@ -423,7 +423,7 @@
     post("mode", { edit: false });
   }
   function printDoc() {
-    if (P.mode === "edit") { // print the rendered page, not the source
+    if (P.inSource()) { // print the rendered page, not the source
       flushSave();
       draw({ ...P.current, text: edInput.value }, null, true);
     } else if (P.mode === "active" && (!P.drawn || P.drawn.p !== P.current || P.drawn.text !== P.current.text)) {
@@ -541,7 +541,7 @@
   });
   function insertImage(r) {
     if (P.mode === "active" && P.current && P.current.path === r.path) { window.MdActive?.clip.insertMarkdown(MdActive.view.pm, r.markup); return; }
-    if (P.mode !== "edit" || P.edPath !== r.path) return;
+    if (!P.inSource() || P.edPath !== r.path) return;
     edReplace(edInput.selectionStart, edInput.selectionEnd, r.markup);
   }
   // the textarea never scrolls on its own; the page does

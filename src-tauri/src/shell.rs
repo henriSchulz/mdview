@@ -89,18 +89,19 @@ const SCRIPTS: &[&str] = &[
     "viewer/tabs.js",
     "viewer/toolbar.js",
     "viewer/split.js",
+    "viewer/twin.js",
     "viewer.js",
     "overview.js",
 ];
 
 /// The page's styles, in the order they are linked (later ones win): viewer/*.css.
-const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split"];
+const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin"];
 
 /// Settings of the active mode (state.json "active"), with what they are when nothing is set.
 fn default_prefs() -> Map<String, Value> {
     let prefs = json!({
         "lang": "en",           // the active mode's own texts: "en" | "de"
-        "startMode": "last",    // a new window: "last" (the mode used last) | "read" | "active" | "edit"
+        "startMode": "last",    // a new window: "last" (the mode used last) | "read" | "active" | "split" | "edit"
         "bar": true,            // the formatting bar over a selection
         "slash": true,          // "/" at the start of an empty line opens the insert menu
         "syntax": false,        // the Markdown of the formatting at the caret shows

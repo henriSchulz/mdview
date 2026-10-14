@@ -24,13 +24,13 @@
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
     find: () => (findOpen() ? closeFind() : openFind()),
     share: () => { if (P.current && P.current.kind !== "pdf" && !P.current.error) openShare(); else toast(T("Only notes can be shared")); },
-    edit: () => switchMode(P.mode === "edit" ? "read" : "edit"),
+    edit: () => switchMode(P.inSource() ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
     sidebar: () => { if (P.folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
     overview: () => { if (P.folder && window.MdOverview) MdOverview.open(); }, // (the house: always to all notes — back to the note by its tab, or Esc)
     // the panel at the right — what can be put in, the formats, and what is the document's
     // (active/panel.js: loaded with the active mode). Beside the source its button is dimmed and does nothing
-    panel: () => { if (P.mode !== "edit" && P.current && !READING) P.loadActive().then(() => MdActive.panel.toggle(), () => toast(T("active.loadFailed"))); }, // all notes of the folder as tiles (overview.js)
+    panel: () => { if (!P.inSource() && P.current && !READING) P.loadActive().then(() => MdActive.panel.toggle(), () => toast(T("active.loadFailed"))); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!P.sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder — among the quick notes a new one
@@ -206,7 +206,7 @@
     if (mod && e.altKey && !e.shiftKey && k === "h") { e.preventDefault(); openHistory(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "p") { e.preventDefault(); actions.panel(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "o") { e.preventDefault(); post("folder"); return; }
-    if (mod && e.altKey && !e.shiftKey && /^Digit[123]$/.test(e.code)) { e.preventDefault(); switchMode(MODES[e.code.slice(5) - 1]); return; }
+    if (mod && e.altKey && !e.shiftKey && /^Digit[1-4]$/.test(e.code)) { e.preventDefault(); switchMode(MODES[e.code.slice(5) - 1]); return; }
     if (mod && !e.shiftKey && !e.altKey && k === "v") {
       // reading: an image on the clipboard goes to the end of the note
       if (!typing && P.mode === "read" && P.current && !P.current.error && !(window.MdHost && window.MdHost.drop)) post("pasteimage", { path: P.current.path, append: true }); // (a host that takes files: the paste event, above)

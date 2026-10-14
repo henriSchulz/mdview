@@ -90,12 +90,12 @@
   narrow.addEventListener("change", () => { if (P.folder && compact() && sidebarOpen()) showSidebar(false, false); });
   function showSidebar(open, animate) {
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
-    const col = P.mode === "edit" ? editor : P.mode === "active" ? MdActive.view.el : content;
-    const anchor = P.mode === "edit" ? captureEditAnchor() : captureAnchor();
+    const col = P.inSource() ? editor : P.mode === "active" ? MdActive.view.el : content;
+    const anchor = P.inSource() ? captureEditAnchor() : captureAnchor();
     const before = col.getBoundingClientRect().left, tabsBefore = P.tabRow.getBoundingClientRect().left;
     sidebar.classList.toggle("no-anim", !animate);
     document.body.dataset.sidebar = open ? "open" : "closed";
-    if (P.mode === "edit") {
+    if (P.inSource()) {
       const el = anchor.line == null ? null : edBack.children[anchor.line];
       if (el) window.scrollBy({ top: el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
     } else if (P.current) restoreAnchor(anchor);

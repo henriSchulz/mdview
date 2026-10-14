@@ -916,6 +916,55 @@ test("a repository nothing was ever pushed to becomes a notebook from here: its 
   }
 });
 
+test("the source beside its reading: the source at the left, the note as it reads at the right, at the same place in the text", async () => {
+  const LONG = Array.from({ length: 40 }, (_, i) => `## Part ${i + 1}\n\nA paragraph of part ${i + 1}, long enough to wrap once or twice in a half of the window: ${"words ".repeat(18)}\n\n- one\n- two\n`).join("\n");
+  put("Long.md", "# Long\n\n" + LONG);
+  await open("Long.md");
+  await page.keyboard.press("Control+Alt+2");
+  await until(() => page.evaluate(() => MdPage.mode === "split" && document.body.hasAttribute("data-twin")), "the mode");
+  await page.waitForTimeout(700); // (the source glides to its half)
+  const box = await page.evaluate(() => { const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON(); return { ed: r("editor"), twin: r("twin"), w: innerWidth, side: document.body.dataset.sidebar === "open" ? r("sidebar").right : 0 }; });
+  assert.ok(box.ed.left >= box.side - 1 && box.ed.right <= box.twin.left + 1, `the source in the left half: ${JSON.stringify(box)}`);
+  assert.ok(Math.abs(box.twin.width - (box.w - box.side) / 2) < 2 && box.twin.right >= box.w - 1, `the reading in the right half of what the sidebar leaves: ${JSON.stringify(box)}`);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".seg-btn")].map((b) => b.dataset.mode)), ["active", "split", "edit", "read"]);
+  // the line both halves are at, a little under the top: the source's line, and the block at the right around it
+  const at = () => page.evaluate(() => {
+    const y = document.getElementById("twin").getBoundingClientRect().top + 64;
+    const ed = [...document.getElementById("ed-back").children].findIndex((el) => el.getBoundingClientRect().bottom > y);
+    const blocks = [...document.querySelectorAll("#twin .twin-doc > [data-line]")];
+    let i = -1; blocks.forEach((el, k) => { if (el.getBoundingClientRect().top <= y) i = k; });
+    return { ed, from: i < 0 ? null : Number(blocks[i].dataset.line), to: i + 1 < blocks.length ? Number(blocks[i + 1].dataset.line) : Infinity };
+  });
+  // scrolled at the left: the right follows
+  await page.mouse.move(box.w / 4, 400);
+  await page.mouse.wheel(0, 2400);
+  await page.waitForTimeout(500);
+  let a = await at();
+  assert.ok(a.ed > 20 && a.from != null && a.from <= a.ed && a.ed < a.to, `scrolled at the left: ${JSON.stringify(a)}`);
+  // scrolled at the right: the left follows
+  await page.mouse.move(box.w * 0.75, 400);
+  await page.mouse.wheel(0, 1600);
+  await page.waitForTimeout(500);
+  const b = await at();
+  assert.ok(b.ed > a.ed + 10 && b.from <= b.ed && b.ed < b.to, `scrolled at the right: ${JSON.stringify(b)}`);
+  // what is typed at the left is read at the right a moment later — and written as in the source
+  await page.evaluate(() => { const ta = document.getElementById("ed-input"); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
+  await page.keyboard.type("\nWritten beside its reading.\n");
+  await until(() => page.evaluate(() => document.querySelector("#twin .twin-doc").textContent.includes("Written beside its reading.")), "the reading follows");
+  await until(() => (text("Long.md") || "").includes("Written beside its reading."), "the commit", 15000);
+  // a click on a block at the right: the caret at its line
+  const line = await page.evaluate(() => { const p = [...document.querySelectorAll("#twin .twin-doc > p")].find((x) => { const r = x.getBoundingClientRect(); return r.top > 100 && r.bottom < innerHeight - 100; }); const r = p.getBoundingClientRect(); window.__at = [r.left + 10, r.top + 5]; return Number(p.dataset.line); });
+  const [x, y] = await page.evaluate(() => window.__at);
+  await page.mouse.click(x, y);
+  assert.equal(await page.evaluate(() => { const ta = document.getElementById("ed-input"); return ta.value.slice(0, ta.selectionStart).split("\n").length - 1; }), line);
+  // the source alone: the right half goes, the source has the middle again
+  await page.keyboard.press("Control+Alt+3");
+  await page.waitForTimeout(800);
+  const alone = await page.evaluate(() => { const r = document.getElementById("editor").getBoundingClientRect(); return { mode: MdPage.mode, twin: document.body.hasAttribute("data-twin"), mid: (r.left + r.right) / 2, w: innerWidth, side: document.body.dataset.sidebar === "open" ? document.getElementById("sidebar").getBoundingClientRect().right : 0 }; });
+  assert.ok(alone.mode === "edit" && !alone.twin && Math.abs(alone.mid - (alone.side + alone.w) / 2) < 30, JSON.stringify(alone));
+  await page.keyboard.press("Control+Alt+4");
+});
+
 test("nothing was refused or thrown along the way", () => {
   // (but the answers that were cut off on purpose above: a commit that could not be sent is said, and tried again)
   assert.deepEqual(problems.filter((p) => !/Failed to load resource|mdview host: commit TypeError: Failed to fetch/i.test(p)), []);

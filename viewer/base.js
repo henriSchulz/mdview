@@ -56,6 +56,7 @@
     forward: svg('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>'),
     sidebar: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
     panel: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/>'),
+    split: svg('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/>'),
     plus: svg('<path d="M12 5v14M5 12h14"/>'),
     palette: svg('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.9 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.800-1.800H17a4 4 0 0 0 4-4c0-4.400-4-7.900-9-7.900z"/><path d="M7.500 12h.01M9.500 8h.01M14.500 7.500h.01"/>'),
     title: svg('<path d="M5 7V5h14v2M12 5v14M9 19h6"/>'),
@@ -104,7 +105,7 @@
   // What stands in the document (callouts) and in the "/" menu keeps the drawings.
   const SF = {
     list: 0x1002f2, search: 0x1002ab, pencil: 0x10020a, source: 0x100246, book: 0x10025a, up: 0x100187, down: 0x100188,
-    x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, plus: 0x10017c, title: 0x100151, folder: 0x100215,
+    x: 0x100184, chevron: 0x10018a, sidebar: 0x1003da, panel: 0x1003db, split: 0x1003e0, plus: 0x10017c, title: 0x100151, folder: 0x100215,
     note: 0x10023f, folderPlus: 0x100219, external: 0x100114, apps: 0x1001f7, reveal: 0x1002ab, rename: 0x10016b,
     gear: 0x1008cb, pdf: 0x100245, picture: 0x1003c5, file: 0x100237, trash: 0x100211,
     info: 0x100174, sigma: 0x10016d, spark: 0x1001bf, updown: 0x10018f, home: 0x10039e, history: 0x10042b,
@@ -166,10 +167,13 @@
     return "";
   }).join("");
 
+  // the modes in which the source editor holds the note: the source alone, and the source beside its reading (viewer/twin.js)
+  const inSource = (m = P.mode) => m === "edit" || m === "split";
+
   // what the page's other files use of this one
   Object.assign(P, { NONCE, DESKTOP, FILEWORK, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
     ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, slugify,
-    inlineText });
+    inlineText, inSource });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     leaving: [() => leaving, (v) => { leaving = v; }],

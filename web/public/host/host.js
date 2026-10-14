@@ -983,7 +983,7 @@
       } catch (e) { tell("pdfChunk", id, 0, 1, "", String(e.message || e)); }
     },
     // what the user set: kept in this browser
-    mode({ name }) { if (["read", "edit", "active"].includes(name)) keep("mdview:mode", name); },
+    mode({ name }) { if (["read", "edit", "active", "split"].includes(name)) keep("mdview:mode", name); },
     prefs({ prefs: changed }) {
       prefs = { ...prefs, ...(changed || {}) };
       keep("mdview:set", { ...load("mdview:set", {}), ...(changed || {}) }); // (what was chosen, not the defaults beside it: lib/page.ts)

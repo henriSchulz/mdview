@@ -1,4 +1,4 @@
-/* Development probe (dev/rig.sh modes): switching between the three modes in
+/* Development probe (dev/rig.sh modes): switching between the four modes in
  * the running app — shortcuts, the mode control, scroll position, find and
  * outline in the active mode, a task ticked there. Works on a copy of the
  * file (it gets changed). Evaluated by mdview.py (MDVIEW_PROBE). */
@@ -30,30 +30,76 @@
     await sleep(100);
     const y0 = window.scrollY, line0 = topLine(content);
     const first = content.firstElementChild;
-    modeKey(2);
+    modeKey(1);
     await waitView("active");
     const pm = MdActive.view.dom;
-    ok("Ctrl+Alt+2 enters the active mode", view() === "active");
-    ok("mode control shows active", seg() === "false,true,false", seg());
+    ok("Ctrl+Alt+1 enters the active mode", view() === "active");
+    ok("mode control shows active", seg() === "true,false,false,false", seg());
     ok("scroll position kept (read -> active)", window.scrollY === y0, [y0, window.scrollY]);
     ok("same block at the top", topLine(pm) === line0, [line0, topLine(pm)]);
     ok("active document is editable", pm.getAttribute("contenteditable") === "true");
 
     // active -> reading: nothing is redrawn
-    modeKey(3);
+    modeKey(4);
     await waitView("read");
-    ok("Ctrl+Alt+3 back to reading", view() === "read" && seg() === "false,false,true", seg());
+    ok("Ctrl+Alt+4 back to reading", view() === "read" && seg() === "false,false,false,true", seg());
     ok("scroll position kept (active -> read)", window.scrollY === y0, [y0, window.scrollY]);
     ok("reading view was not rebuilt", content.firstElementChild === first);
 
     // active -> source -> active keeps the place by source line
-    modeKey(2);
-    await waitView("active");
     modeKey(1);
+    await waitView("active");
+    modeKey(3);
     await waitView("edit");
-    ok("Ctrl+Alt+1 enters the source editor", view() === "edit" && seg() === "true,false,false", seg());
+    ok("Ctrl+Alt+3 enters the source editor", view() === "edit" && seg() === "false,false,true,false", seg());
     ok("source editor is near the same line", Math.abs(topEditLine() - line0) <= 3, [line0, topEditLine()]);
-    modeKey(2);
+
+    // the source beside its reading: the same source, which makes room — at the same line — for the note as it reads
+    {
+      const ed = document.getElementById("editor"), twin = document.getElementById("twin"), tb = twin.querySelector(".twin-body");
+      const lineBefore = topEditLine();
+      modeKey(2);
+      await waitView("edit"); await sleep(400);
+      const room = innerWidth - (document.body.dataset.sidebar === "open" ? document.getElementById("sidebar").getBoundingClientRect().right : 0) >= 600;
+      ok("Ctrl+Alt+2 enters the source beside its reading", MdPage.mode === "split" && seg() === "false,true,false,false" && document.body.hasAttribute("data-twin") === room, [seg(), room]);
+      if (!room) { // (a window too narrow for two — the rig's, beside another rig: the source has it alone; the rest is web/test/write.test.mjs's)
+        ok("too narrow for two: the source alone, at its line", MdPage.mode === "split" && Math.abs(topEditLine() - lineBefore) <= 2, [lineBefore, topEditLine()]);
+      } else {
+        const er = ed.getBoundingClientRect(), tr = twin.getBoundingClientRect();
+        ok("the source at the left, the reading at the right", er.right <= tr.left + 1 && tr.left > innerWidth / 3 && tr.width > 200, [er.left, er.right, tr.left, tr.width]);
+        ok("… the reading is there", getComputedStyle(twin).visibility === "visible" && twin.querySelectorAll("[data-line]").length > 3);
+        ok("the source stays at its line", Math.abs(topEditLine() - lineBefore) <= 2, [lineBefore, topEditLine()]);
+        const block = () => { const top = tr.top + 64; let at = null; for (const el of twin.querySelectorAll(".twin-doc > [data-line]")) { if (el.getBoundingClientRect().top <= top) at = Number(el.dataset.line); else break; } return at; };
+        const edAt = () => { const top = tr.top + 64; return [...document.getElementById("ed-back").children].findIndex((el) => el.getBoundingClientRect().bottom > top); };
+        // the source scrolled: the reading follows
+        window.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+        window.scrollTo(0, Math.round((document.documentElement.scrollHeight - innerHeight) * 0.55));
+        await sleep(250);
+        const e1 = edAt(), b1 = block(), next1 = [...twin.querySelectorAll(".twin-doc > [data-line]")].map((x) => Number(x.dataset.line)).find((l) => l > b1);
+        ok("scrolled at the left: the reading is at the same place", b1 != null && b1 <= e1 && (next1 == null || next1 > e1 - 1), [e1, b1, next1]);
+        // the reading scrolled: the source follows
+        tb.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+        tb.scrollTop = Math.round((tb.scrollHeight - tb.clientHeight) * 0.25);
+        await sleep(250);
+        const e2 = edAt(), b2 = block();
+        ok("scrolled at the right: the source is at the same place", b2 != null && Math.abs(e2 - b2) <= 6, [e2, b2]);
+        // what is typed is read at the right
+        const ta = document.getElementById("ed-input"), mark = "Zwillingsprobe";
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        document.execCommand("insertText", false, "\n\n" + mark + "\n");
+        await sleep(400);
+        ok("what is typed at the left is read at the right", twin.textContent.includes(mark));
+        document.execCommand("undo");
+        await sleep(900);
+        ok("… and undone there too", !twin.textContent.includes(mark));
+        // the source alone again: the room is the source's
+        modeKey(3);
+        await sleep(500);
+        ok("Ctrl+Alt+3: the source alone", MdPage.mode === "edit" && !document.body.hasAttribute("data-twin") && getComputedStyle(twin).visibility === "hidden");
+        ok("… the source in the middle again", Math.abs(ed.getBoundingClientRect().left + ed.getBoundingClientRect().width / 2 - (document.body.getBoundingClientRect().left + document.body.getBoundingClientRect().width / 2)) < 40);
+      }
+    }
+    modeKey(1);
     await waitView("active");
     ok("source -> active", view() === "active");
     ok("active is near the same line", Math.abs(topLine(MdActive.view.dom) - line0) <= 3, [line0, topLine(MdActive.view.dom)]);
@@ -86,7 +132,7 @@
     // clicking the mode control
     document.querySelector('.seg-btn[data-mode="active"]').click();
     await waitView("active");
-    ok("click on the control enters active", view() === "active" && seg() === "false,true,false");
+    ok("click on the control enters active", view() === "active" && seg() === "true,false,false,false");
 
     // find in the active mode
     key({ key: "f", code: "KeyF", ctrlKey: true });

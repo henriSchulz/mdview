@@ -81,7 +81,8 @@ or the tests see the old ones.
 | `viewer/split.js` | two things side by side: beside the note, at the window's right, a second sheet that is only read — the note … |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
-| `viewer/trail.js` | one history for a note across the three modes (undo and redo beyond what a mode did itself). |
+| `viewer/trail.js` | one history for a note across the modes (undo and redo beyond what a mode did itself). |
+| `viewer/twin.js` | the source beside its reading: the fourth mode ("split"). |
 | `viewer.js` | renderer, source editor, folder sidebar + UI inside the web view. |
 | `strings.js` | user-facing strings of the active mode, in one place so they can be translated. |
 
@@ -103,6 +104,7 @@ or the tests see the old ones.
 | `viewer/split.css` | two things side by side (viewer/split.js). The window is two halves of one kind, as an editor's split is: the … |
 | `viewer/tabs.css` | the tabs of a folder window, and the rows of the sidebar's list. |
 | `viewer/text.css` | the note's text (headings, lists, quotes, links, rules) and tasks. |
+| `viewer/twin.css` | the source beside its reading (viewer/twin.js): the source at the left, as the source mode has it, the note … |
 | `overview.css` | all notes of the folder as sheets of paper, or as a list (overview.js). Sizes are layout; |
 | `pdfview.css` | the PDF viewer and PDFs embedded in notes (pdfview.js). |
 | `board.css` | the whiteboard opened over the window (board.js). Colours are the theme's (viewer/*.css), durations, curves, … |

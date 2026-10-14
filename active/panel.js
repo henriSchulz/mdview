@@ -448,7 +448,7 @@
     if (save && (pref().panel !== !!open || (open && reading() && !DOCS.includes(tabOf(pref().panelTab))))) keep({ panel: !!open, ...(open && reading() && !DOCS.includes(tabOf(pref().panelTab)) ? { panelTab: "style" } : {}) });
     lay(save ? wanted() : !!open, animate);
   }
-  const toggle = () => { if (mode() !== "edit") show(!wanted()); };
+  const toggle = () => { if (mode() !== "edit" && mode() !== "split") show(!wanted()); };
 
   const plugin = new Plugin({
     key: new PluginKey("panel"),

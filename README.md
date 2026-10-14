@@ -9,8 +9,9 @@ beside the notes. The command and the repository are still called `mdview`;
   callouts, properties, `==highlight==`, `%%comments%%`, `#tags`), KaTeX math,
   Mermaid diagrams, SVG drawn from a ```svg block and highlighted code. Works on any file, no vault needed.
 - `Ctrl+E` switches between reading and editing the source in place; edits
-  are saved automatically. A third, active mode (`Ctrl+Alt+2`) edits the
-  rendered document itself and changes the file only where it was edited. `Ctrl+V` with an image on the clipboard saves it as
+  are saved automatically. A third, active mode (`Ctrl+Alt+1`) edits the
+  rendered document itself and changes the file only where it was edited; a fourth (`Ctrl+Alt+2`)
+  shows the source and the note as it reads side by side. `Ctrl+V` with an image on the clipboard saves it as
   a file and embeds it.
 - Opened on a folder (or started bare, which reopens the last folder) the
   window gets a sidebar with the folder's notes: create, rename, trash —

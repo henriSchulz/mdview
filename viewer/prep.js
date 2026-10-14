@@ -214,7 +214,7 @@
    * the way over a page, Alt+← and Alt+→). Going to a page from anywhere else cuts off what lay ahead. */
   let pageWalk = { path: null, list: [[]], at: 0 };
   const walkOf = () => { if (P.current && pageWalk.path !== P.current.path) pageWalk = { path: P.current.path, list: [pageAt.path === P.current.path ? pageAt.ids : []], at: 0 }; return pageWalk; };
-  const pageCan = (by) => { if (!P.current || P.current.kind === "pdf" || P.mode === "edit") return false; const w = walkOf(); return w.at + by >= 0 && w.at + by < w.list.length; };
+  const pageCan = (by) => { if (!P.current || P.current.kind === "pdf" || P.inSource()) return false; const w = walkOf(); return w.at + by >= 0 && w.at + by < w.list.length; };
   function pageStep(by) {
     if (!pageCan(by)) return false;
     const w = walkOf(), v = viewOf(P.current), root = v && v.root;
@@ -231,7 +231,7 @@
   const pageStood = new Map();
   const stoodKey = (path, ids) => path + "\n" + ids.join("/");
   function pageGo(ids, then = null, walked = false) {
-    if (!P.current || P.current.kind === "pdf" || P.mode === "edit") return;
+    if (!P.current || P.current.kind === "pdf" || P.inSource()) return;
     const from = pageAt.path === P.current.path ? pageAt.ids : [];
     { // (… and, going into a page, where that page's line stood on screen: it is put back there exactly)
       const into = ids.length > from.length ? String(ids[from.length]) : null, row = into && [...document.querySelectorAll("#content .page-row[data-page], #active .page-row[data-page]")].find((r) => r.offsetParent && r.dataset.page === into);
@@ -321,7 +321,7 @@
     const here = pagebar.querySelector(".pb-here"), named = () => { here.textContent = title.value.trim() || T("page.untitled"); };
     named();
     title.addEventListener("input", named);
-    title.readOnly = !!v.readonly || P.mode === "edit"; // (typed here in the reading view as well: written at once, as a ticked task is)
+    title.readOnly = !!v.readonly || P.inSource(); // (typed here in the reading view as well: written at once, as a ticked task is)
     if (pagebar.parentNode !== host || host.firstChild !== pagebar) host.prepend(pagebar);
     if (typing) { title.focus({ preventScroll: true }); try { title.setSelectionRange(typing.a, typing.b); } catch (e) { /* (as it stands) */ } }
   }
