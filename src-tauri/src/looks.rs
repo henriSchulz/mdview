@@ -2,12 +2,13 @@
 //! itself, in .mdview/folders.json:
 //!
 //! ```json
-//! { "version": 1, "folders": { "Studium": { "color": "blue", "icon": "book" } } }
+//! { "version": 1, "folders": { "Studium": { "color": "blue", "icon": "book", "fav": true } } }
 //! ```
 //!
 //! The names are paths below the folder, with "/". The file lies in the folder (not in this
 //! computer's state), so that the look goes where the folder goes: another device, the web app.
-//! A folder with nothing chosen has no entry; with no entry left there is no file.
+//! A folder with nothing chosen has no entry; with no entry left there is no file. "fav": the
+//! folder is a favourite — its sign stands in the sidebar's rail.
 
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -20,7 +21,7 @@ pub const FILE: &str = ".mdview/folders.json";
 /// page's to know — a name it does not know draws as none).
 fn word(v: &str) -> Option<String> {
     let w = v.trim();
-    (!w.is_empty() && w.len() <= 24 && w.bytes().all(|b| b.is_ascii_lowercase() || b == b'-')).then(|| w.to_string())
+    (!w.is_empty() && w.len() <= 40 && w.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')).then(|| w.to_string()) // (a sign of Lucide's may hold a digit: gamepad-2)
 }
 
 /// `path` below `root`, with "/" (None: not below it, or the folder itself).
@@ -54,12 +55,13 @@ pub fn listed(root: &Path) -> Value {
 }
 
 /// A colour and a sign chosen for a folder ("" for either: none).
-pub fn set(root: &Path, dir: &Path, color: &str, icon: &str) -> Result<(), String> {
+pub fn set(root: &Path, dir: &Path, color: &str, icon: &str, fav: bool) -> Result<(), String> {
     let Some(rel) = below(root, dir) else { return Err("not a folder of this folder".into()) };
     let mut looks = read(root);
     let mut entry = Map::new();
     if let Some(c) = word(color) { entry.insert("color".into(), json!(c)); }
     if let Some(i) = word(icon) { entry.insert("icon".into(), json!(i)); }
+    if fav { entry.insert("fav".into(), json!(true)); }
     if entry.is_empty() { looks.remove(&rel); } else { looks.insert(rel, Value::Object(entry)); }
     write(root, &looks)
 }
@@ -98,15 +100,26 @@ mod tests {
         let d = Dir::new("set");
         let r = &d.0;
         assert_eq!(listed(r), json!({}));
-        set(r, &r.join("a"), "blue", "book").unwrap();
-        set(r, &r.join("a/b"), "", "star").unwrap();
+        set(r, &r.join("a"), "blue", "book", false).unwrap();
+        set(r, &r.join("a/b"), "", "star", false).unwrap();
         assert_eq!(listed(r), json!({ "a": { "color": "blue", "icon": "book" }, "a/b": { "icon": "star" } }));
         assert!(fs::read_to_string(r.join(FILE)).unwrap().ends_with("}\n"));
         // what is no word is no look; the folder itself and what lies outside have none
-        set(r, &r.join("a/b"), "<script>", "").unwrap();
+        set(r, &r.join("a/b"), "<script>", "", false).unwrap();
         assert_eq!(listed(r), json!({ "a": { "color": "blue", "icon": "book" } }));
-        assert!(set(r, r, "red", "").is_err() && set(r, Path::new("/elsewhere"), "red", "").is_err());
-        set(r, &r.join("a"), "", "").unwrap();
+        assert!(set(r, r, "red", "", false).is_err() && set(r, Path::new("/elsewhere"), "red", "", false).is_err());
+        set(r, &r.join("a"), "", "", false).unwrap();
+        // a sign of Lucide's, with a digit in its name
+        set(r, &r.join("c"), "", "gamepad-2", false).unwrap();
+        assert_eq!(listed(r)["c"], json!({ "icon": "gamepad-2" }));
+        set(r, &r.join("c"), "", "Gamepad 2", false).unwrap(); // (not a name: none)
+        assert_eq!(listed(r)["c"], Value::Null);
+        // a favourite: kept with the look, and on its own as well
+        set(r, &r.join("c"), "", "", true).unwrap();
+        assert_eq!(listed(r)["c"], json!({ "fav": true }));
+        set(r, &r.join("c"), "red", "", true).unwrap();
+        assert_eq!(listed(r)["c"], json!({ "color": "red", "fav": true }));
+        set(r, &r.join("c"), "", "", false).unwrap();
         assert!(!r.join(FILE).exists() && !r.join(".mdview").exists());
     }
 
@@ -114,9 +127,9 @@ mod tests {
     fn a_folder_renamed_or_moved_keeps_its_look_and_so_do_the_folders_in_it() {
         let d = Dir::new("moved");
         let r = &d.0;
-        set(r, &r.join("a"), "red", "").unwrap();
-        set(r, &r.join("a/b"), "green", "flag").unwrap();
-        set(r, &r.join("ab"), "blue", "").unwrap(); // (a name that only begins the same: left alone)
+        set(r, &r.join("a"), "red", "", false).unwrap();
+        set(r, &r.join("a/b"), "green", "flag", false).unwrap();
+        set(r, &r.join("ab"), "blue", "", false).unwrap(); // (a name that only begins the same: left alone)
         moved(r, &r.join("a"), &r.join("x/y"));
         assert_eq!(listed(r), json!({ "ab": { "color": "blue" }, "x/y": { "color": "red" }, "x/y/b": { "color": "green", "icon": "flag" } }));
     }

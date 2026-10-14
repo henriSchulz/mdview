@@ -391,6 +391,46 @@
       if (BOARD.test(k.type === "image" ? k.attrGet("src") || "" : k.type === "wiki_embed" ? String(k.meta.target || "").split(/[#|]/)[0].trim() : "")) toks[i].attrJoin("class", "board-block");
     }
   });
+  /* A caption: a line that begins with ": " right under a picture that stands alone (an embed, a whiteboard, a PDF's page or
+   * region), a code block or a formula block — as Pandoc writes a table's caption:
+   *
+   *   ![](tree.png)            ```js              $$
+   *   : A tree in winter       const a = 1;       e^{i\pi} + 1 = 0
+   *                            ```                $$
+   *                            : The first line   : Euler
+   *
+   * The two are one figure (<figure>, the caption a <figcaption>, in Markdown of its own). Under a picture the line makes a
+   * definition list of the two (markdown-it-deflist: a term, ": " its definition) — that is read as the figure too. Any other
+   * program shows the line under the thing. */
+  const CAPTION = /^:[ \t]+(?=\S)/;
+  md.core.ruler.after("inline", "captions", (state) => {
+    const toks = state.tokens, T = state.Token;
+    const loneIn = (inl) => { const kids = ((inl && inl.children) || []).filter((k) => !((k.type === "text" && !k.content.trim()) || k.type === "softbreak")); return kids.length === 1 && (kids[0].type === "image" || kids[0].type === "wiki_embed") ? kids[0] : null; };
+    const open = (type, tag, map, cls) => { const t = new T(type, tag, 1); t.block = true; t.map = map; if (cls) t.attrSet("class", cls); return t; };
+    const close = (type, tag) => { const t = new T(type, tag, -1); t.block = true; return t; };
+    const figure = (map, inner, cap) => [open("figure_open", "figure", map, "fig"), ...inner, open("figcaption_open", "figcaption", null), cap, close("figcaption_close", "figcaption"), close("figure_close", "figure")];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      // a definition list of one term, a picture alone, and one definition: the picture and its caption
+      if (t.type === "dl_open" && toks[i + 1] && toks[i + 1].type === "dt_open" && toks[i + 3] && toks[i + 3].type === "dt_close" && toks[i + 4] && toks[i + 4].type === "dd_open") {
+        const pic = loneIn(toks[i + 2]), p = i + 5, end = p + 4;
+        if (!pic || !toks[p] || toks[p].type !== "paragraph_open" || !toks[p + 1] || toks[p + 1].type !== "inline" || !toks[end - 1] || toks[end - 1].type !== "dd_close" || !toks[end] || toks[end].type !== "dl_close") continue;
+        const para = open("paragraph_open", "p", t.map); // (a picture's block, a whiteboard's: picture_blocks says which)
+        toks.splice(i, end - i + 1, ...figure(t.map, [para, toks[i + 2], close("paragraph_close", "p")], toks[p + 1]));
+        continue;
+      }
+      // a code block, a formula block, a picture alone — and under it a paragraph that begins with ": "
+      const lone = t.type === "paragraph_open" && toks[i + 1] && toks[i + 1].type === "inline" && loneIn(toks[i + 1]);
+      if (t.type !== "fence" && t.type !== "math_block" && !lone) continue;
+      const end = lone ? i + 2 : i, c = end + 1, inl = toks[c + 1];
+      if (!toks[c] || toks[c].type !== "paragraph_open" || toks[c].level !== t.level || !inl || inl.type !== "inline" || !CAPTION.test(inl.content)) continue;
+      inl.content = inl.content.replace(CAPTION, "");
+      const first = (inl.children || [])[0];
+      if (first && first.type === "text") first.content = first.content.replace(CAPTION, "");
+      const map = t.map && toks[c].map ? [t.map[0], toks[c].map[1]] : t.map;
+      toks.splice(i, c + 3 - i, ...figure(map, toks.slice(i, end + 1), inl));
+    }
+  });
   md.core.ruler.after("inline", "tasks", (state) => {
     const toks = state.tokens, env = state.env;
     for (let i = 2; i < toks.length; i++) {
@@ -529,7 +569,9 @@
    * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
    * when nothing is said); head=…: its head row in a colour — one of the theme's by name (blue,
    * green …) or any colour written as #rgb / #rrggbb. (<!-- wide -->, the line of before, is read
-   * as it was: a table as wide as the column.) tableLook: that line, read → { wide, head };
+   * as it was: a table as wide as the column.) cols=30,20,50: how wide its columns are, as shares of the table in percent — set by
+   * pulling the line between two columns in the active mode (active/tableui.js); a table with them is as wide as the column.
+   * tableLook: that line, read → { wide, head, cols };
    * tableMark: the line for a look, or "" where none is needed; tableStyle: a head colour as CSS. */
   const TABLE_MARK = /^<!--\s*(wide|table(?:\s+[^>]*?)?)\s*-->\s*$/;
   const headColor = (v) => { v = String(v || "").trim().toLowerCase(); return DECO_COLORS.includes(v) || /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/.test(v) ? v : ""; };
@@ -537,9 +579,12 @@
     const m = TABLE_MARK.exec(String(line || "").trim());
     if (!m) return null;
     const words = m[1].split(/\s+/).slice(1), head = words.map((w) => /^head=(.+)$/i.exec(w)).find(Boolean);
-    return { wide: !words.some((w) => /^narrow$/i.test(w)), head: head ? headColor(head[1]) : "" };
+    const cols = colsOf((words.map((w) => /^cols=(.+)$/i.exec(w)).find(Boolean) || [])[1]);
+    return { wide: !cols && !words.some((w) => /^narrow$/i.test(w)) || !!cols, head: head ? headColor(head[1]) : "", cols };
   }
-  const tableMark = (look) => (look.wide !== false && !look.head ? "" : `<!-- table${look.wide === false ? " narrow" : ""}${look.head ? " head=" + look.head : ""} -->`);
+  // "30,20,50" → [30, 20, 50]: two or more shares, each a whole number from 1 to 100 (anything else: none)
+  const colsOf = (v) => { const a = String(v || "").split(",").map((x) => Number(x.trim())); return a.length > 1 && a.every((x) => Number.isInteger(x) && x >= 1 && x <= 100) ? a : null; };
+  const tableMark = (look) => (look.wide !== false && !look.head && !look.cols ? "" : `<!-- table${look.wide === false && !look.cols ? " narrow" : ""}${look.head ? " head=" + look.head : ""}${look.cols ? " cols=" + look.cols.join(",") : ""} -->`);
   function tableStyle(head) {
     head = headColor(head);
     if (!head) return "";
@@ -548,7 +593,11 @@
     const h = head.length === 4 ? [...head.slice(1)].map((c) => c + c).join("") : head.slice(1), [r, g, b] = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
     return `--th: ${head}; --th-ink: ${0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1d1d1f" : "#fff"};`;
   }
-  md.renderer.rules.table_open = (t, i, o, _e, self) => { const look = t[i].meta || {}, style = tableStyle(look.head); return `<div class="table-wrap${look.wide === false ? "" : " wide"}"${style ? ` style="${style}"` : ""}>` + self.renderToken(t, i, o); };
+  md.renderer.rules.table_open = (t, i, o, _e, self) => {
+    const look = t[i].meta || {}, style = tableStyle(look.head);
+    if (look.cols) t[i].attrSet("class", "has-cols"); // (its columns as wide as said: a table of fixed layout, as wide as the column)
+    return `<div class="table-wrap${look.wide === false ? "" : " wide"}"${style ? ` style="${style}"` : ""}>` + self.renderToken(t, i, o) + (look.cols ? `<colgroup>${look.cols.map((c) => `<col style="width:${c}%">`).join("")}</colgroup>` : "");
+  };
   /* Columns: blocks side by side. In the file they stand one under the other, between comment
    * lines no renderer shows — elsewhere the text simply reads top to bottom:
    *     <!-- columns 2:1 -->      (the widths, as a ratio; without it all are alike)
@@ -638,5 +687,5 @@
 
   // what the page's other files use of this one
   Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
-    svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal });
+    svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
 })();

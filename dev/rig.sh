@@ -19,6 +19,7 @@
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
+#   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
@@ -36,6 +37,10 @@
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
+#   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
+#   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
+#   dev/rig.sh icons                 a folder's sign chosen from Lucide's many: searched in English and German, kept, there again after a restart
+#   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -357,6 +362,17 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.sheets.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  pastetab)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.pastetab.json "$R/out"/*.paste.json
+    printf '# Alpha\n\nText.\n\n![](Skizze.board.svg)\n' > "$N/Alpha.md"; node "$D/make-board.mjs" > "$N/Skizze.board.svg"; node "$D/make-board.mjs" > "$N/Lose.board.svg"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-pastetab.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.paste.json "$R/out"/*.pastetab.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pastetab.png"
+    for _ in $(seq 300); do ls "$R/out"/*.pastetab.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.pastetab.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"
@@ -373,7 +389,7 @@ case "${1:-}" in
     ls "$R/out"/*.sidebar.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json
     looks=$(jq -c '.folders' "$R/work/notes/.mdview/folders.json" 2>/dev/null)
-    [[ $looks == '{"Projekte":{"color":"blue","icon":"star"},"Uni":{"color":"green","icon":"book"}}' ]] && echo "ok   the looks stand in the folder: the one chosen in the rail, and the other under its folder's new name" || echo "FAIL the look in the folder: $looks"
+    [[ $looks == '{"Projekte":{"color":"blue","icon":"star","fav":true},"Uni":{"color":"green","icon":"book","fav":true}}' ]] && echo "ok   the looks stand in the folder — the favourites with them: the one chosen in the rail, and the other under its folder's new name" || echo "FAIL the look in the folder: $looks"
     ! { jq -r '.steps[], (.error // empty)' "$R/out"/*.sidebar.json; [[ $looks == '{"Uni":{"color":"green","icon":"book"}}' ]] || echo FAIL; } | grep -qv '^ok' ;;
   sbflicker)
     # a note chosen in the sidebar: its row stays marked, the last one's does not flicker back
@@ -435,6 +451,55 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  colwidth)
+    V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh railfav or dragreal once (it builds vptr)"; exit 1; }
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.plan*.json "$R/out"/*.colwidth.json
+    printf '%s\n' '# Table' '' 'Some text.' '' '| Name | Qty | Note |' '|------|-----|------|' '| apple | 3 | red and round |' '| pear | 5 | green |' '' 'End.' > "$R/work/t.md"
+    app 60 MDVIEW_PROBE="$D/probe-colwidth.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/t.md"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 600); do
+      [[ -n $(ls "$R/out"/*.colwidth.json 2>/dev/null) ]] && break
+      P=$(ls "$R/out"/*.plan$n.json 2>/dev/null | head -1)
+      if [[ -n $P ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.colwidth.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  icons)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Finanzen"; rm -f "$R/out"/*.chosen.json "$R/out"/*.again.json "$R/out"/*.shown.json
+    printf '# Alpha\n' > "$N/Alpha.md"; printf '# Konto\n' > "$N/Finanzen/Konto.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    fail=0
+    app 60 MDVIEW_PROBE="$D/probe-icons.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.chosen.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/icons.png"
+    for _ in $(seq 300); do ls "$R/out"/*.chosen.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
+    grep -q '"icon": "piggy-bank"' "$N/.mdview/folders.json" 2>/dev/null && echo "ok   the folder's file names the sign" || { echo "FAIL the folder's file names the sign"; fail=1; }
+    app 60 MDVIEW_PROBE="$D/probe-icons.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do ls "$R/out"/*.again.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null
+    for f in "$R/out"/*.chosen.json "$R/out"/*.again.json; do [[ -f $f ]] || { echo "FAIL no report ($f)"; fail=1; continue; }; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1; done
+    exit $fail ;;
+  railfav)
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Studium" "$N/Projekte"; rm -f "$R/out"/*.plan*.json "$R/out"/*.railfav.json
+    printf '# Alpha\n\nText.\n' > "$N/Alpha.md"; printf '# Thermo\n' > "$N/Studium/Thermo.md"; printf '# Plan\n' > "$N/Projekte/Plan.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-railfav.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 600); do
+      [[ -n $(ls "$R/out"/*.railfav.json 2>/dev/null) ]] && break
+      P=$(ls "$R/out"/*.plan$n.json 2>/dev/null | head -1)
+      if [[ -n $P ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    shot "$R/out/railfav.png"
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.railfav.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   tiledrag)
     # a tile of All Notes held by a real pointer (dev/vptr): the picture that goes with the pointer is the tile's, at the tile's size
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }
@@ -561,6 +626,17 @@ case "${1:-}" in
     [[ -f $R/out/$name.ghost.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty), (if .real then "the model said: \(.real.suggestion|tojson) after \(.real.ms) ms (incl. the 75 ms pause)" else empty end)' "$R/out/$name.ghost.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.ghost.json"; } | grep -qv '^ok' ;;
+  captions)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
+    magick -size 240x80 gradient:red-blue "$R/work/pic.png"
+    printf '%s\n' '# Captions' '' 'A paragraph.' '' '![](pic.png)' ': A gradient' '' '```js' 'const a = 1;' '```' ': The first line' '' '$$' 'e^{i\pi} + 1 = 0' '$$' '' 'End' > "$R/work/note.md"
+    app 60 MDVIEW_PROBE="$D/probe-captions.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/note.md"
+    for v in read active; do for _ in $(seq 300); do [[ -f $R/out/note.md.$v.json || -f $R/out/note.md.captions.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/captions-$v.png"; done
+    for _ in $(seq 300); do [[ -f $R/out/note.md.captions.json ]] && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/note.md.captions.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.captions.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/note.md.captions.json" | grep -q '^FAIL' ;;
   turn)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json
     magick -size 120x40 gradient:red-blue "$R/work/wide.png"
@@ -910,7 +986,7 @@ case "${1:-}" in
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     [[ -f $R/out/$name.panel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     # (what the Document tab chose last stands in the file itself)
-    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|wide: true|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
+    filed=$([[ $(head -4 "$R/work/$name" | tr '\n' '|') == '---|background: green|width: wide|---|' ]] && echo 'ok   ' || echo 'FAIL ')"the file on the disk has the properties the panel wrote  $(head -4 "$R/work/$name" | tr '\n' '|')"
     { jq -r '.steps[], (.error // empty)' "$R/out/$name.panel.json"; echo "$filed"; } | tee "$R/out/panel.txt"
     ! grep -qv '^ok' "$R/out/panel.txt" ;;
   columns)

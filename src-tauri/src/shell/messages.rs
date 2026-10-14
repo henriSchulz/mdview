@@ -148,7 +148,7 @@ impl Win {
             "folderlook" => {
                 let dir = PathBuf::from(text_of("path"));
                 if let Some(folder) = self.folder.clone().filter(|f| dir.is_dir() && dir.starts_with(f) && dir != *f) {
-                    match crate::looks::set(&folder, &dir, text_of("color"), text_of("icon")) {
+                    match crate::looks::set(&folder, &dir, text_of("color"), text_of("icon"), msg["fav"].as_bool().unwrap_or(false)) {
                         Ok(()) => self.send_folder(app),
                         Err(e) => self.toast(format!("Couldn't keep the folder's look: {e}")),
                     }

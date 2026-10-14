@@ -198,6 +198,11 @@ colour written as `#rrggbb`:
 In the active mode: the table's `…` beside its upper right corner (or a right click) has Full
 Width and Header Color (the theme's colours, or Custom… for any other); the three dots in a row
 move the row, those above a column the column. A table selected as a whole wears a thin line.
+The line between two columns is pulled with the pointer (it shows it can be, near the line): the
+two beside it share what they had, each keeps a little, and let go the table's columns are as
+wide as that — written as shares of the table in the same line, `<!-- table cols=40,25,35 -->`,
+one step that `Ctrl+Z` takes back. A table with them is as wide as the text column, its columns
+as said in both views.
 (`<!-- wide -->`, the line of before, is still read.)
 
 A rule has four looks, by how its line is written: `---` a thin line, `***` three dots, `___` a
@@ -378,6 +383,24 @@ How large a picture shows is written at the end of its description, as Obsidian 
 ![[paper.pdf#page=3|full]]     an embedded PDF page, likewise
 ```
 
+A picture alone, a code block and a formula block can have a caption: a line right under it that
+begins with `: ` (as Pandoc writes a table's caption). The two are one figure, the caption under
+the thing, smaller, in the middle — in Markdown of its own:
+
+```markdown
+![](tree.png)
+: A tree in *winter*
+
+$$
+e^{i\pi} + 1 = 0
+$$
+: Euler's identity
+```
+
+A whiteboard and an embedded PDF page or region are pictures here too. In the active mode the
+block's menu has **Add Caption** (the line is put under it and its dialog opens, to write it in)
+and **Remove Caption**. Under a paragraph of text the line stays a definition, as Markdown has it.
+
 A picture can be turned by quarters. The turn is written before the size:
 
 ```markdown
@@ -511,8 +534,7 @@ and shut back into it — or a file of the folder, of its own.
   a file of its own: several notes can show the same board.
 - **All of the folder's whiteboards**: All Notes › *Whiteboards* shows them and nothing else —
   those that are files and those a note keeps — each with the note it stands in, or "In no
-  note". Above them: *All*, *Embedded* (a note shows it), *Not Embedded*. A click opens the
-  board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
+  note" — all of them alike, with no choice among them. A click opens the board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
   menu (from then on it is listed in the folder, and stays when the note lets it go).
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
@@ -702,7 +724,7 @@ draft: true
 date: 2026-10-04
 color: green
 background: blue
-wide: true
+width: wide
 ---
 ```
 
@@ -715,7 +737,8 @@ web app, a shared note too. They can be chosen in the panel's Style part:
   theme's own ground, and around it the window shows `gray`, or a soft run from one of the
   theme's colours into another — `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta` —
   or paper: `dots`, `grid`, `lines`. Anything else, or nothing: no sheet, the theme's own ground.
-- `wide: true`: the text column wide (58rem) for this note.
+- `width`: how much of the window the text column takes — `narrow`, `wide` or `full` (`normal`,
+  where it says nothing). `wide: true`, as it was written before, is `wide`.
 
 ### HTML
 
@@ -746,6 +769,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   blocks as wholes. Each selected block has a field of its own, with the same room between two
   of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
   the page along.
+  What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
+  them as blocks of its own and is selected there, so the next paste goes below that.
 - **Tab stands any block further in**, `Shift+Tab` takes it out again. Right below a list — also
   across an empty line — a paragraph, a code block or a table goes into that list's last item,
   and the first item of a list under the list above it. Where no list is above, the block goes
@@ -774,12 +799,13 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     theme's own ground, no sheet), gray, a soft run of two of the theme's colours, or paper (dots,
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
-  - *Wide Page* (Style): the text column wide for this note, whatever the settings' text width is for the
-    others (where the settings already have it wide or as wide as the window, it stays so). What is pasted while blocks are selected (`Ctrl+V`) is not put in
-their place: it goes below them as blocks of its own and is selected there, so the next paste
-goes below that.
+  - *Page width* (Style): how much of the window the text column takes in this note — Narrow,
+    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (half,
+    two thirds, four fifths of it, all of it; in a narrow window the whole room, at least 30rem), so
+    a large screen gives a note a broad column too. It is the note's alone: the settings have no
+    width of their own.
 
-  Background and Wide Page are properties of the note (`background`, `wide` — see Properties):
+  Background and Page width are properties of the note (`background`, `width` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
   caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
   last of them. Insert and Format are the active mode's; Style and Information stand beside the
@@ -834,14 +860,17 @@ goes below that.
     device hides the same.
 - **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
   does on them, are the same in all four:
-  - **List** (the default): the folders as a tree; above it
+  - **List**: the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
-  - **Rail**: the folder's folders as signs in a narrow rail at the left (All Notes above them);
-    beside it what is in the one chosen — its own folders open in place. A right click on a
-    folder's sign opens the folder's own menu.
+  - **Rail** (the default, on every device until another is chosen): the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
+    it what is in the one chosen. A folder is a favourite by its menu (**Add to Favourites**, a star —
+    filled where it is one; **Remove from Favourites**) or by pulling it onto the rail. Favourites
+    are kept with the folder's colour and sign, in the folder (`.mdview/folders.json`): every device
+    has the same. Its own folders open in place beside it; a right click on a folder's sign opens the
+    folder's own menu.
   A folder has one menu wherever it is met — on its row, on its sign in the rail, on its tile in
   All Notes: Open, New Note, New Folder, New Whiteboard, Add Files…, Paste, Show in Finder, Copy,
-  Cut, Duplicate, Copy Path, Colour and Icon…, Rename, Hide, Move to Trash, Show. So has a note on
+  Cut, Duplicate, Copy Path, Colour and Icon…, Add to Favourites, Rename, Hide, Move to Trash, Show. So has a note on
   its row and on its tile, and several things selected in the sidebar or in All Notes. What is
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
@@ -856,10 +885,13 @@ goes below that.
 - **Search**: the field under the head narrows the folder's notes to those whose name (or the
   folder they lie in) has what is typed; `Esc` empties it.
 - **A folder's colour and sign**: right click on a folder › Colour and Icon… — one of the theme's
-  colours and one of twenty signs, shown in every layout. They are kept in the folder itself
+  colours and a sign — the app's twenty, or any of Lucide's 1,900 (lucide.dev): a search above
+  them finds a sign by its name or its words, in English and, for the common things, in German
+  (Geld, Reise, Schule, Mathe …); without one, a choice of those notes are often about. Shown in
+  every layout. They are kept in the folder itself
   (`.mdview/folders.json`), so another device and the web app show the same; a folder renamed or
   moved keeps them.
-- **Order of the notes**: Last Opened (the default), Name, Date Modified.
+- **Order of the notes**: Name (the default, on every device until another is chosen), Last Opened, Date Modified.
 - **What is listed**: everything, as long as it is not taken out. A kind can be taken out — PDFs,
   pictures, sound and video, whiteboards, other files — in the settings, or at once from a right
   click in the sidebar › Show. All Notes has its own choice of the same five (settings, or a
@@ -874,8 +906,8 @@ goes below that.
   colour, with its sign — or as a list: a row per note with its sheet in small, its name, its
   first words and when it was changed. Two
   switches at the head: *All Notes* (grouped by folder), *Folders* (one folder at a time, click
-  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens in the folder of the note on
-  screen. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
+  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens on
+  *Folders*, in the folder of the note on screen, whatever was shown last. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
@@ -979,9 +1011,9 @@ A linked project has a pasteboard: one large field of text, the same on every de
 the project — to carry a line, an address, a piece of code from one computer to another. It is
 no note, in no version and in no commit; the web app's server keeps it.
 
-- **Where**: All Notes › *Pasteboard*, beside All Notes, Folders and Whiteboards (the choice is
-  remembered, like the others; Settings › All Notes has it too). The field is ready to be typed
-  into as it shows.
+- **Where**: a tab of its own — the clipboard's button in All Notes' head opens it (or goes to
+  it, where it is open already), named *Pasteboard*. The field is ready to be typed into as it
+  shows; another tab takes it out of sight, its tab brings it back.
 - **Live**: what is typed or pasted is on the other devices within a moment, without anything
   done — in the application and in the browser alike, for as long as the pasteboard is on
   screen. The line above the field says how it stands: Sending…, or On every device.
@@ -1249,13 +1281,16 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 
 ## Settings (`Ctrl+,`)
 
+Opened from the gear, with `Ctrl+,`, and from a right click beside the note's text or in the
+sidebar's empty room (**Settings…**).
+
 A window of its own (also the gear at the lower left): the groups at the left, their settings at
 the right. A change takes effect at once.
 
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, width of the text column, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

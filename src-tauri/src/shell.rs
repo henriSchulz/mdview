@@ -121,8 +121,8 @@ fn default_prefs() -> Map<String, Value> {
         // PDFs, pictures, sound and film, whiteboards, everything else
         "sidebarPdf": true, "sidebarImages": true, "sidebarMedia": true, "sidebarBoards": true, "sidebarOther": true,
         "showHidden": false,      // … and what is put away: hidden by hand, named with a dot, built, kept for a note (shown dimmed)
-        "sidebarLayout": "source", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
-        "sidebarSort": "opened",  // the notes of a folder, in the sidebar and the tiles: "opened" (last opened first) | "name" | "modified"
+        "sidebarLayout": "rail", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
+        "sidebarSort": "name",  // the notes of a folder, in the sidebar and the tiles: "name" (at first) | "opened" (last opened first) | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
         "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
         "aiClaude": "",           // the model the claude command is asked for ("": its own)
@@ -133,7 +133,6 @@ fn default_prefs() -> Map<String, Value> {
         "ovPdf": true, "ovImages": true, "ovMedia": true, "ovBoards": true, "ovOther": true,
         "ovBoardsShow": "all",      // the whiteboards shown there: "all" | "embedded" (a note shows them) | "loose" (none does)
         "calloutStyle": "box",    // how callouts and Focus look: "box" (a tinted box, a bar) | "tip" (a large sign beside the text) | "label" (a line, the title on its edge)
-        "measure": "normal",      // the text column's width: "narrow" | "normal" | "wide" | "full"
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
         "props": true,            // a note's properties show at its head (false: put away, from the menu of a right click)
         "hinting": false,         // text drawn on whole pixels (sharper on a screen of ordinary resolution); at the next start

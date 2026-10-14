@@ -121,24 +121,21 @@ test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in 
   assert.equal(JSON.parse(text(ATTACH))["Plan.board.svg"], undefined);
 });
 
-test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all, embedded or not; one a note keeps becomes a file of its own", async () => {
+test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].map((o) => o.dataset.v)), ["all", "folders", "boards", "paste"]);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].map((o) => o.dataset.v)), ["all", "folders", "boards"]); // (the pasteboard: a tab of its own — paste.test.mjs)
   await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
   await page.waitForFunction(() => document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
   assert.deepEqual(await tiles(), [["assets/kept.board.svg", "In “Beta”", true], ["Plan.board.svg", "In “Alpha”", false], ["sub/Loose.board.svg", "In no note", false]]);
   assert.equal(await page.evaluate(() => document.querySelector("#overview .ov-count").textContent), "3 whiteboards");
-  await page.click('#overview [data-seg="boards"] .ov-opt[data-v="embedded"]');
-  assert.deepEqual((await tiles()).map((t) => t[0]), ["assets/kept.board.svg", "Plan.board.svg"]);
-  await page.click('#overview [data-seg="boards"] .ov-opt[data-v="loose"]');
-  assert.deepEqual((await tiles()).map((t) => t[0]), ["sub/Loose.board.svg"]);
-  await page.click('#overview [data-seg="boards"] .ov-opt[data-v="all"]');
-  // the view is the setting's (ovScope): All Notes opens in it the next time
-  assert.equal(await page.evaluate(() => MdPrefs.ovScope), "boards");
+  assert.equal(await page.evaluate(() => !!document.querySelector('#overview [data-seg="boards"]')), false); // (no choice among them: all of them)
+  // All Notes opens on the folders the next time, whatever was shown last
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
   await allNotes();
+  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "folders", null, { timeout: 8000 });
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
   await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "boards" && document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
   // a tile's picture is the board's, from the repository
   await page.waitForFunction(() => { const i = document.querySelector('#overview .ov-item[data-path$="Plan.board.svg"] img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 8000 });

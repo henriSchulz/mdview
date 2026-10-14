@@ -18,6 +18,7 @@ const GROUPS = [
   ["mermaid.min.js", ["mermaid@11.12.0"]],
   ["prosemirror.min.js", [...Object.keys(pm).filter((n) => n.startsWith("prosemirror-")).map(pinned), "orderedmap", "rope-sequence", "w3c-keyname"]],
   ["diff.min.js", [pinned("diff")]],
+  ["icons.js", ["lucide-static@1.57.0"]], // (made by build-icons.mjs)
 ];
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mdview-licenses-"));
 function licenseOf(spec) {

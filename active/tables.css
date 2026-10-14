@@ -89,3 +89,8 @@
 }
 #notepop > :first-child { margin-top: 0; }
 #notepop > :last-child { margin-bottom: 0; }
+
+/* the line between two columns: pulled to make one wider and the other narrower (active/tableui.js) */
+.pm.tbl-edge :is(td, th), body[data-tbl-sizing], body[data-tbl-sizing] * { cursor: col-resize !important; }
+body[data-tbl-sizing] .pm { user-select: none; -webkit-user-select: none; }
+.pm .sizing-cols table, .pm table.has-cols { table-layout: fixed; width: 100%; }

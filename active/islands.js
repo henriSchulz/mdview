@@ -615,10 +615,26 @@
   /* … and how it is turned, by quarters, written before the size: ![[tree.png|r90|400]] (viewer/markdown.js: picTail). What is
    * written, taken apart: { head, size, turn, end } — null where it is no picture, or says something of its own in the size's place. */
   function picParts(raw) {
-    const w = WIKI_PIC.exec(raw), m = w || MD_PIC.exec(raw);
+    const cap = CAPTIONED.exec(raw), pic = cap ? raw.slice(0, cap.index) : raw; // (a caption under it stays as it is: viewer/markdown.js, captions)
+    const w = WIKI_PIC.exec(pic), m = w || MD_PIC.exec(pic);
     if (!m) return null;
     const said = window.MdView.core.imageSize(w ? (m[2] ? "|" + m[2] : "") : m[2] || "");
-    return said.alt ? null : { head: m[1], size: said.size, turn: said.turn, end: m[3] };
+    return said.alt ? null : { head: m[1], size: said.size, turn: said.turn, end: m[3] + (cap ? cap[0] : "") };
+  }
+  /* A block with its caption under it — a line that begins with ": " — and the way to give one, or take it away. */
+  const CAPTIONED = /\n[ \t]*\n?:[ \t]+\S[\s\S]*$/;
+  function caption(view, pos, node) {
+    const raw = typeof node.attrs.raw === "string" ? node.attrs.raw : null;
+    if (node.type !== N.island || node.attrs.virtual || raw == null) return null;
+    const has = CAPTIONED.exec(raw), bare = has ? raw.slice(0, has.index) : raw;
+    // what can have one: a code block, a formula block, a picture alone (a whiteboard, a PDF's page or region)
+    const can = /^\s*(`{3,}|~{3,})[\s\S]*\1\s*$/.test(bare) || /^\s*\$\$[\s\S]*\$\$\s*$/.test(bare) || WIKI_PIC.test(bare) || MD_PIC.test(bare) || /^\s*!\[[^\]]*\]\([^)]*\.board\.svg[^)]*\)\s*$|^\s*!\[\[[^\]]+\.board\.svg[^\]]*\]\]\s*$/i.test(bare);
+    if (!can) return null;
+    return {
+      has: !!has,
+      add() { replace(view, pos, bare.replace(/\s+$/, "") + "\n: " + T("caption.new")); setTimeout(() => open(view, pos), 0); }, // (then written in the dialog)
+      remove() { replace(view, pos, bare.replace(/\s+$/, "")); view.focus(); },
+    };
   }
   const picRaw = (p, size, turn) => window.MdView.core.picText(p.head, turn, size) + p.end;
   const turned = (now, by) => { const t = ((Number(now) || 0) + by + 360) % 360; return t ? String(t) : ""; };
@@ -887,5 +903,5 @@
     view.dispatch(tr.setMeta("step", true));
     return true;
   }
-  A.islands = { propClicked, setProp, codeIsHidden, toggleHidden, codeSize, setCodeSize, fileCode, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
+  A.islands = { caption, propClicked, setProp, codeIsHidden, toggleHidden, codeSize, setCodeSize, fileCode, picture, adjust, applyForm, open, newMath, onEnter, replace, blocksOf, parseCode, buildCode, parseMath, buildMath, parseFront, buildFront, mathPreview, kit: { infoBar, follow, html: htmlOf } };
 })();

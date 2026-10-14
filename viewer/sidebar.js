@@ -63,7 +63,7 @@
   // the order of a folder's notes (the settings' sidebarSort): the one opened last first, by name,
   // or the one changed last first — by name where that does not tell them apart. Folders: by name.
   const SORTS = ["opened", "name", "modified"];
-  const sortKey = () => (folder && folder.quick ? "modified" : SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "opened"); // (quick notes: what was written last is first)
+  const sortKey = () => (folder && folder.quick ? "modified" : SORTS.includes(window.MdPrefs?.sidebarSort) ? MdPrefs.sidebarSort : "name"); // (quick notes: what was written last is first)
   const noteLabel = (n) => (folder && folder.quick ? quickOf(n).title : (sbTitles && n.title) || n.name);
   function sortNotes(notes) {
     const key = sortKey(), by = key === "opened" ? "opened" : key === "modified" ? "mtime" : null;
@@ -171,7 +171,7 @@
    * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
    * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
   const SB_LAYOUTS = ["source", "rail", "sheets", "tiles"];
-  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "source");
+  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "rail");
   const FOLDER_ICONS = {
     book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
     cap: svg('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>'),
@@ -194,6 +194,7 @@
     music: svg('<path d="M9 18V5l11-2v13"/><circle cx="6.500" cy="18" r="2.500"/><circle cx="17.500" cy="16" r="2.500"/>'),
     camera: svg('<path d="M4 8h3l1.500-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.500"/>'),
   };
+  const STAR_FULL = svg('<path fill="currentColor" d="m12 3 2.700 5.600 6.100.8-4.500 4.300 1.100 6.100L12 17l-5.400 2.800 1.100-6.100L3.200 9.400l6.100-.8z"/>'); // (a favourite: the star filled)
   const SMART_ICONS = { all: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'), today: FOLDER_ICONS.calendar, shared: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'), tasks: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>') };
   const sbRail = sidebar.querySelector(".sb-rail"), sbCrumb = sidebar.querySelector(".sb-crumb"), sbSmartBox = sidebar.querySelector(".sb-smart"), sbRecent = sidebar.querySelector(".sb-recent"), sbFlat = sidebar.querySelector(".sb-flat");
   let sbHere = null;     // rail, sheets: the folder whose notes are shown (its path; null: the folder itself)
@@ -203,7 +204,18 @@
   const relOf = (path) => path.slice(folder.root.length + 1);
   const lookOf = (path) => ((folder && folder.looks) || {})[relOf(path)] || {};
   const colorVar = (c) => (DECO_COLORS.includes(c) ? `var(--c-${c})` : "");
-  const folderGlyph = (look) => FOLDER_ICONS[look.icon] || ICON.folder;
+  /* A folder's sign: one of the app's own (FOLDER_ICONS), or any of Lucide's (vendor/icons.js — loaded when a folder has one;
+   * until then the folder's own sign, and the list is drawn again when they are there). */
+  let iconsAsked = false;
+  const lucide = (name) => (window.MdIcons && MdIcons.names[name] ? svg(MdIcons.names[name]) : null);
+  const signKnown = (name) => !!name && (!!FOLDER_ICONS[name] || !!lucide(name));
+  function folderGlyph(look) {
+    if (FOLDER_ICONS[look.icon]) return FOLDER_ICONS[look.icon];
+    const l = look.icon && lucide(look.icon);
+    if (l) return l;
+    if (look.icon && !window.MdIcons && !iconsAsked) { iconsAsked = true; P.loadIcons().then(() => { if (folder && !folder.quick) { sbRail.dataset.key = ""; syncList(false); } }, () => {}); }
+    return ICON.folder;
+  }
   const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
   const everyNote = (dir = folder.tree, out = []) => { out.push(...dir.notes); for (const d of dir.dirs) everyNote(d, out); return out; };
   /* A sheet shows what the file is (the sheets' layout): a note its beginning, as All Notes' tiles show it; a PDF its first page; a
@@ -235,7 +247,9 @@
     const look = e.dir ? lookOf(e.key) : {}, seen = e.note ? sbSeen.get(e.note.path) : null, color = e.dir ? look.color : seen && seen.color;
     row.style.setProperty("--fc", colorVar(color) || "");
     if (!colorVar(color)) row.style.removeProperty("--fc");
-    if (e.dir && (row.dataset.icon || "") !== (FOLDER_ICONS[look.icon] ? look.icon : "")) { row.dataset.icon = FOLDER_ICONS[look.icon] ? look.icon : ""; row.querySelector(".sb-icon").innerHTML = folderGlyph(look); }
+    // (a sign not to be drawn yet — Lucide's, not loaded — stands as "?name" until it can be: folderGlyph asks for them)
+    const sign = !look.icon ? "" : signKnown(look.icon) ? look.icon : "?" + look.icon;
+    if (e.dir && (row.dataset.icon || "") !== sign) { row.dataset.icon = sign; row.querySelector(".sb-icon").innerHTML = folderGlyph(look); }
     let sheet = row.querySelector(":scope > .sb-sheet");
     if (lay !== "sheets") { if (sheet) sheet.remove(); return; }
     if (!sheet) { sheet = document.createElement("span"); sheet.className = e.dir ? "sb-sheet is-folder" : "sb-sheet"; sheet.setAttribute("aria-hidden", "true"); row.insertBefore(sheet, row.firstChild); }
@@ -282,10 +296,13 @@
     }
     const all = everyNote(), here = sbHere ? dirAt(sbHere) : null;
     // the rail: everything, and the folder's folders
-    const rail = lay === "rail" ? [["", T("All Notes"), SMART_ICONS.all, "var(--c-gray, var(--fg2))"], ...[...folder.tree.dirs].sort((a, b) => collator.compare(a.name, b.name)).map((d) => [d.path, d.name, folderGlyph(lookOf(d.path)), colorVar(lookOf(d.path).color)])] : [];
+    // the rail: everything, and the favourites — not every folder: those one goes to (a star in a folder's menu, or pulled onto the rail)
+    const rail = lay === "rail" ? [["", T("All Notes"), SMART_ICONS.all, "var(--c-gray, var(--fg2))"], ...favs().map((d) => [d.path, d.name, folderGlyph(lookOf(d.path)), colorVar(lookOf(d.path).color)])] : [];
     const railKey = JSON.stringify(rail.map(([p, n, , c]) => [p, n, c, (lookOf(p || folder.root + "/") || {}).icon]));
-    if (sbRail.dataset.key !== railKey) { sbRail.dataset.key = railKey; sbRail.innerHTML = rail.map(([p, n, glyph, c]) => `<button class="sb-rt" type="button" data-go="${esc(p)}" title="${esc(n)}" aria-label="${esc(n)}"${c ? ` style="--fc: ${c}"` : ""}>${glyph}</button>`).join(""); }
-    for (const b of sbRail.children) { const on = (b.dataset.go || null) === (sbHere ? folder.root + "/" + relOf(sbHere).split("/")[0] : null); b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    if (sbRail.dataset.key !== railKey) { sbRail.dataset.key = railKey; sbRail.innerHTML = rail.map(([p, n, glyph, c]) => `<button class="sb-rt" type="button" data-go="${esc(p)}" title="${esc(n)}" aria-label="${esc(n)}"${c ? ` style="--fc: ${c}"` : ""}>${glyph}</button>`).join("") + (rail.length < 2 ? `<span class="sb-rail-hint" title="${esc(T("Favourite folders stand here: pull one onto the rail, or right click it › Add to Favourites"))}">${FOLDER_ICONS.star}</span>` : ""); }
+    // (the sign of the favourite one is in, the nearest where one is inside another)
+    const inFav = sbHere ? rail.map(([p]) => p).filter((p) => p && (sbHere === p || sbHere.startsWith(p + "/"))).sort((a, b) => b.length - a.length)[0] || null : null;
+    for (const b of sbRail.querySelectorAll(".sb-rt")) { const on = (b.dataset.go || null) === inFav; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
     // where one is: in the rail's pane its name and how much is in it; among the sheets the way back
     const up = here && sbHere.replace(/\/[^/]*$/, "");
     const crumb = lay === "rail" ? `<span class="sb-crumb-name">${esc(here ? here.name : T("All Notes"))}</span>`
@@ -364,10 +381,56 @@
   document.body.appendChild(sbLook);
   let sbLookFor = null;
   function paintLook() {
-    const look = lookOf(sbLookFor);
+    const look = lookOf(sbLookFor), was = sbLook.querySelector(".sl-find"), query = was ? was.value : "", typing = was && document.activeElement === was; // (a colour or a sign chosen: what was searched for stays)
     sbLook.innerHTML = `<div class="sl-cap">${esc(T("Colour"))}</div><div class="sl-colors">` + ["", ...DECO_COLORS].map((c) => `<button type="button" class="sl-color${(look.color || "") === c ? " on" : ""}" data-color="${c}" title="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-label="${esc(c ? T("color." + c) : T("slash.colorDefault"))}" aria-pressed="${(look.color || "") === c}"${c ? ` style="--fc: var(--c-${c})"` : ""}></button>`).join("") + `</div>`
-      + `<div class="sl-cap">${esc(T("Icon"))}</div><div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}>` + ["", ...Object.keys(FOLDER_ICONS)].map((i) => `<button type="button" class="sl-icon${(FOLDER_ICONS[look.icon] ? look.icon : "") === i ? " on" : ""}" data-icon="${i}" aria-label="${i || "folder"}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] : ICON.folder}</button>`).join("") + `</div>`;
+      + `<div class="sl-cap">${esc(T("Icon"))}</div><input type="search" class="sl-find" placeholder="${esc(T("Search 1,900 icons"))}" aria-label="${esc(T("Search icons"))}" spellcheck="false" autocomplete="off">` +
+      `<div class="sl-icons"${colorVar(look.color) ? ` style="--fc: ${colorVar(look.color)}"` : ""}></div>`;
+    const find = sbLook.querySelector(".sl-find");
+    find.value = query;
+    if (typing) find.focus({ preventScroll: true });
+    paintSigns();
+    if (!window.MdIcons) P.loadIcons().then(() => { if (sbLook.hasAttribute("data-open")) paintSigns(); }, () => {});
   }
+  /* The signs to choose from: without a search, the app's own and those that notes are often about; with one, every sign of
+   * Lucide's whose name or words it is found by — in English, and the German words for the common things (FIND_DE). */
+  const SUGGESTED = ["graduation-cap", "school", "book-open", "notebook-pen", "library", "pencil", "calculator", "sigma", "atom", "flask-conical", "microscope", "dna", "brain", "languages", "scale",
+    "briefcase", "building-2", "presentation", "chart-line", "folder-kanban", "list-todo", "calendar-days", "clock", "target", "trophy", "rocket", "lightbulb", "puzzle",
+    "code", "terminal", "cpu", "server", "database", "cloud", "git-branch", "bug", "shield", "lock", "key", "wrench", "settings",
+    "wallet", "piggy-bank", "receipt", "landmark", "shopping-cart", "gift", "package", "truck",
+    "house", "users", "baby", "dog", "cat", "paw-print", "heart", "heart-pulse", "stethoscope", "pill", "dumbbell", "bike", "utensils", "chef-hat", "coffee",
+    "plane", "map", "compass", "globe", "mountain", "tree-pine", "leaf", "flower", "sun", "moon", "cloud-sun", "car", "train-front",
+    "music", "headphones", "guitar", "camera", "image", "film", "video", "mic", "palette", "brush", "pen-tool", "gamepad-2", "newspaper", "mail", "message-circle", "phone",
+    "archive", "inbox", "bookmark", "tag", "flag", "star", "crown", "gem", "sparkles", "zap", "flame"];
+  const FIND_DE = { schule: "school", uni: "graduation-cap university", studium: "graduation-cap book", vorlesung: "presentation book", arbeit: "briefcase work", job: "briefcase", büro: "building briefcase",
+    firma: "building", geld: "wallet money banknote coins", finanz: "wallet piggy-bank chart", bank: "landmark piggy-bank", steuer: "receipt calculator", rechnung: "receipt", reise: "plane luggage travel map",
+    urlaub: "palm-tree plane sun", haus: "house home", wohnung: "house home", musik: "music", foto: "camera image", bild: "image picture", buch: "book", bücher: "library book", lesen: "book-open", notiz: "notebook sticky-note",
+    projekt: "folder-kanban kanban project", mathe: "calculator sigma math", physik: "atom", chemie: "flask", biolog: "dna leaf microscope", medizin: "stethoscope pill", gesund: "heart-pulse", sport: "dumbbell bike trophy",
+    essen: "utensils food", kochen: "chef-hat cooking-pot", rezept: "chef-hat", natur: "leaf tree", garten: "flower sprout", tier: "paw-print dog cat", hund: "dog", katze: "cat", auto: "car", familie: "users home",
+    freund: "users", spiel: "gamepad", film: "film clapperboard", kunst: "palette brush", design: "pen-tool palette", sprache: "languages", recht: "scale gavel", gesetz: "scale gavel", kalender: "calendar", zeit: "clock",
+    ziel: "target", idee: "lightbulb", wichtig: "star flag", archiv: "archive", daten: "database", wolke: "cloud", sicher: "shield lock", einstellung: "settings", werkzeug: "wrench hammer", karte: "map", welt: "globe",
+    einkauf: "shopping-cart shopping-bag", geschenk: "gift", post: "mail", nachricht: "message-circle", telefon: "phone", elektronik: "cpu circuit-board", computer: "monitor laptop", programm: "code terminal",
+    technik: "cpu wrench", wissenschaft: "flask microscope atom", geschicht: "landmark scroll", kirche: "church", liebe: "heart", kind: "baby", schreib: "pen notebook-pen", tagebuch: "book-heart notebook",
+    aufgabe: "list-checks list-todo", papierkorb: "trash", wetter: "cloud-sun sun", nacht: "moon", stern: "star", berg: "mountain", meer: "waves anchor", zug: "train", flug: "plane", team: "users", besprechung: "presentation",
+    präsentation: "presentation", statistik: "chart-bar", bericht: "file-text", vertrag: "file-signature", lernen: "graduation-cap book-open", prüfung: "clipboard-check", klausur: "clipboard-check" };
+  function signsFor(query) {
+    const q = query.trim().toLowerCase();
+    const I = window.MdIcons;
+    if (!q) return ["", ...Object.keys(FOLDER_ICONS), ...(I ? SUGGESTED.filter((n) => I.names[n] && !FOLDER_ICONS[n]) : [])];
+    const own = Object.keys(FOLDER_ICONS).filter((n) => n.includes(q));
+    if (!I) return own;
+    const terms = [q, ...Object.entries(FIND_DE).filter(([de]) => de.startsWith(q) || q.startsWith(de)).flatMap(([, en]) => en.split(" "))];
+    const rank = (name) => { let best = 0; for (const t of terms) { const w = I.words[name] || ""; const r = name === t ? 4 : name.startsWith(t) ? 3 : name.includes(t) ? 2 : (" " + w).includes(" " + t) ? 1 : 0; if (r > best) best = r; } return best; };
+    return [...own, ...Object.keys(I.names).map((n) => [n, rank(n)]).filter(([, r]) => r > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n]) => n)].slice(0, 160);
+  }
+  function paintSigns() {
+    const look = lookOf(sbLookFor), box = sbLook.querySelector(".sl-icons"), find = sbLook.querySelector(".sl-find");
+    if (!box) return;
+    const list = signsFor(find ? find.value : "");
+    box.innerHTML = list.length ? list.map((i) => `<button type="button" class="sl-icon${(look.icon || "") === i ? " on" : ""}" data-icon="${esc(i)}" title="${esc(i || "folder")}" aria-label="${esc(i || "folder")}" aria-pressed="${(look.icon || "") === i}">${i ? FOLDER_ICONS[i] || lucide(i) || "" : ICON.folder}</button>`).join("")
+      : `<p class="sl-none">${esc(window.MdIcons ? T("No icon is called so") : T("Looking for icons…"))}</p>`;
+  }
+  sbLook.addEventListener("input", (e) => { if (e.target.closest(".sl-find")) paintSigns(); });
+  sbLook.addEventListener("keydown", (e) => { if (e.target.closest(".sl-find") && e.key !== "Escape") e.stopPropagation(); }); // (the keys are the search's)
   function openLook(key, beside) { // (beside: what stands for the folder where its menu was opened — its row, its sign in the rail, its tile)
     sbLookFor = key;
     paintLook();
@@ -382,14 +445,31 @@
   sbLook.addEventListener("click", (e) => {
     const b = e.target instanceof Element && e.target.closest("[data-color], [data-icon]");
     if (!b || !sbLookFor || !folder) return;
-    const was = lookOf(sbLookFor), next = { color: b.dataset.color != null ? b.dataset.color : was.color || "", icon: b.dataset.icon != null ? b.dataset.icon : was.icon || "" };
-    const looks = { ...(folder.looks || {}) };
-    if (next.color || next.icon) looks[relOf(sbLookFor)] = next; else delete looks[relOf(sbLookFor)];
-    folder.looks = looks; // (shown at once; the application says the same when it has written it)
-    post("folderlook", { path: sbLookFor, color: next.color, icon: next.icon });
-    syncList(false);
+    const was = lookOf(sbLookFor);
+    setLook(sbLookFor, { color: b.dataset.color != null ? b.dataset.color : was.color || "", icon: b.dataset.icon != null ? b.dataset.icon : was.icon || "", fav: !!was.fav });
     paintLook();
   });
+  /* A folder's look as it is to be — its colour, its sign, whether it is a favourite: shown at once, kept by the application
+   * (the folder's .mdview/folders.json), which says the same when it has written it. */
+  function setLook(path, next) {
+    const looks = { ...(folder.looks || {}) }, entry = {};
+    if (next.color) entry.color = next.color;
+    if (next.icon) entry.icon = next.icon;
+    if (next.fav) entry.fav = true;
+    if (Object.keys(entry).length) looks[relOf(path)] = entry; else delete looks[relOf(path)];
+    folder.looks = looks;
+    post("folderlook", { path, color: next.color || "", icon: next.icon || "", fav: !!next.fav });
+    syncList(false);
+  }
+  /* The rail holds the favourites: a folder is made one with its menu (a star) or by pulling it onto the rail. */
+  const favs = () => Object.entries((folder && folder.looks) || {}).filter(([rel, l]) => l.fav && dirAt(folder.root + "/" + rel)).map(([rel]) => dirAt(folder.root + "/" + rel)).sort((a, b) => collator.compare(a.name, b.name));
+  const favour = (path, on) => { const was = lookOf(path); if (!!was.fav !== on) setLook(path, { ...was, fav: on }); };
+  // a folder of the list pulled onto the rail: a favourite from then on
+  const pulledDir = () => moving.path && !moving.paths && dirAt(moving.path);
+  // (onto a sign: into that folder, as ever)
+  sbRail.addEventListener("dragover", (e) => { if (!pulledDir() || e.target.closest(".sb-rt")) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; sbRail.dataset.drop = ""; setDropInto(null); }); // ("copy": one of what the pull allows — copyMove, moving.start —, or the drop is refused; and not the list's way, which would move it)
+  sbRail.addEventListener("dragleave", (e) => { if (!sbRail.contains(e.relatedTarget)) delete sbRail.dataset.drop; });
+  sbRail.addEventListener("drop", (e) => { delete sbRail.dataset.drop; const d = pulledDir(); if (!d || e.target.closest(".sb-rt")) return; e.preventDefault(); e.stopPropagation(); favour(d.path, true); });
   sbLook.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); closeLook(); } });
   sbLook.addEventListener("contextmenu", (e) => e.preventDefault());
   document.addEventListener("mousedown", (e) => { if (sbLook.hasAttribute("data-open") && !(e.target instanceof Element && e.target.closest("#sblook"))) closeLook(); }, true);
@@ -860,9 +940,11 @@
     entry("addfiles", "down", T("Add Files…"), "dir new blank") +
     entry("pastef", "clip", T("Paste"), "dir blank", "Ctrl+V") +
     `<div class="menu-rule" data-for="blank"></div>` +
-    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:name", "check", T("Sort by Name"), "blank") +
+    entry("sort:opened", "check", T("Sort by Last Opened"), "blank") +
     entry("sort:modified", "check", T("Sort by Date Modified"), "blank") +
+    `<div class="menu-rule" data-for="blank"></div>` +
+    entry("settings", "gear", T("prefs.open"), "blank", "Ctrl+,") +
     `<div class="menu-rule" data-for="dir"></div>` +
     entry("default", "external", T("Open in Default App"), "file") +
     entry("openwith", "apps", T("Open With…"), "file") +
@@ -879,6 +961,7 @@
     `<div class="menu-rule" data-for="file dir many"></div>` +
     entry("share", "share", T("Share…"), "file") +
     entry("look", "palette", T("Colour and Icon…"), "dir") +
+    entry("fav", "palette", T("Add to Favourites"), "dir") +
     entry("rename", "rename", T("Rename"), "file dir", "F2") +
     entry("hide", "eyeOff", T("Hide"), "file dir many") +
     entry("unhide", "eye", T("Show Again"), "file dir") +
@@ -994,6 +1077,8 @@
       ctx.querySelector('[data-cmd="history:is"][data-state="foreign"] .menu-label').textContent = `Kept by the Repository “${name}”`;
     }
     ctxItems = [...ctx.querySelectorAll(".menu-item:not([hidden])")];
+    { const fav = ctx.querySelector('[data-cmd="fav"]'); // a favourite or not: the star full or hollow, and what choosing does
+      if (fav && !fav.hidden) { const on = !!lookOf((ctxTile ? item.dataset.path : item.dataset.key) || "").fav; fav.querySelector(".menu-label").textContent = T(on ? "Remove from Favourites" : "Add to Favourites"); fav.querySelector(".menu-icon").innerHTML = on ? STAR_FULL : FOLDER_ICONS.star; fav.setAttribute("aria-checked", String(on)); } }
     for (const el of ctxItems) if (el.dataset.cmd.startsWith("sort:")) { // the order in use is ticked
       const on = el.dataset.cmd.slice(5) === sortKey();
       el.setAttribute("role", "menuitemradio"); el.setAttribute("aria-checked", String(on));
@@ -1059,12 +1144,14 @@
       else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
       else if (cmd === "opentab") post("note", { path, tab: true });
+      else if (cmd === "settings") P.openSettings();
       else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
       else if (cmd === "download") post("download", { path });
       else if (cmd === "tab:split") P.splitOpen(item.dataset.path === (P.current && P.current.path) ? null : { path: item.dataset.path });
       else if (cmd === "tab:unsplit") P.splitClose();
       else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
       else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
+      else if (cmd === "fav") favour(path, !lookOf(path).fav);
       else if (cmd === "rename") {
         if (tile) MdOverview.rename(item);
         else if (from) { // (met in the rail, it has no row on screen: All Notes shows every folder's row, and the name is changed there)

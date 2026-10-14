@@ -135,9 +135,10 @@
       isolating: true,
       // wide: as wide as the text column (so it stands when nothing is said); head: its head row's colour.
       // mark: the line before it in the file that said so, kept to be written again as it was (viewer/markdown.js: tableLook)
-      attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null } },
+      // cols: how wide its columns are, as shares in percent ([30, 20, 50]; null: as their text has them — active/tableui.js)
+      attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null }, cols: { default: null } },
       parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !dom.parentElement || !dom.parentElement.classList.contains("table-wrap") || dom.parentElement.classList.contains("wide") }) }],
-      toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", 0]]; },
+      toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide || n.attrs.cols ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", n.attrs.cols ? { class: "has-cols" } : {}, 0]]; },
     }),
     table_row: { content: "table_cell+", tableRole: "row", parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
     table_cell: {
@@ -472,7 +473,7 @@
       const width = rows.length ? rows[0].content.length : 0;
       if (!width || rows.some((r) => r.content.length !== width)) throw new Unsupported("ragged table");
       const meta = group[0].meta || {}, raw = sourceOf(group, ctx);
-      return { type: "table", attrs: { ...attrs, wide: meta.wide !== false, head: meta.head || "", mark: meta.mark || null, raw: meta.mark ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
+      return { type: "table", attrs: { ...attrs, wide: meta.wide !== false, head: meta.head || "", mark: meta.mark || null, cols: meta.cols || null, raw: meta.mark ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
     }
     function headingOf(t, inl, attrs) {
       const content = inlineOf(inl);

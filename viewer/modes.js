@@ -17,6 +17,15 @@
 
   // --- active mode: the rendered document, editable in place (active/*.js).
   // Loaded on first use, so reading and editing start as fast as without it.
+  // --- the folders' signs to choose from (vendor/icons.js: Lucide), loaded when first wanted
+  let iconLoad = null;
+  function loadIcons() {
+    return iconLoad || (iconLoad = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.nonce = NONCE; s.src = `${ASSETS}/vendor/icons.js`; s.onload = () => resolve(window.MdIcons); s.onerror = () => { iconLoad = null; reject(new Error("vendor/icons.js missing")); };
+      document.head.appendChild(s);
+    }));
+  }
   // --- whiteboards: a board stands in the note as a picture (*.board.svg) and is opened over the
   // window (board.js, board/*.js), loaded on first use
   let boardLoad = null;
@@ -545,7 +554,7 @@
   });
 
   // what the page's other files use of this one
-  Object.assign(P, { previewOf, pdfShot, isBoardImg, loadBoard, openBoard, openBoardFile, embedBoard, newBoard, boardMade, loadPdf, resolveSoon,
+  Object.assign(P, { loadIcons, previewOf, pdfShot, isBoardImg, loadBoard, openBoard, openBoardFile, embedBoard, newBoard, boardMade, loadPdf, resolveSoon,
     linkResolved, pdfEmbedsSoon, codeBox, openCode, closeCode, busy, zoomImage, zoomFigure, zoomFigureAt,
     openHistory, openShare, openConflicts, openSettings, loadActive, showActive, activeChanged,
     leaveActiveNow, leaveEditNow, printDoc, edReplace, insertImage });

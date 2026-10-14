@@ -63,12 +63,16 @@ test("what was written is read again", () => {
   assert.equal(stripFrontmatter(text).body, "\n# T\n");
 });
 
-test("how a note says it wants to be shown: one of the grounds, and wide only when it says true", () => {
+test("how a note says it wants to be shown: one of the grounds, and one of four widths", () => {
   const P = w.MdPage, look = (props) => ({ ...P.docLook(props) });
-  assert.deepEqual(look(null), { background: "", wide: false });
-  assert.deepEqual(look({ background: "Blue ", wide: true }), { background: "blue", wide: true });
-  assert.deepEqual(look({ background: "grey", wide: "yes" }), { background: "gray", wide: false });
-  assert.deepEqual(look({ background: "#ff0000" }), { background: "", wide: false });
-  assert.deepEqual(look({ background: ["dots"], wide: 1 }), { background: "", wide: false });
+  assert.deepEqual(look(null), { background: "", width: "normal" });
+  assert.deepEqual(look({ background: "Blue ", width: "Wide" }), { background: "blue", width: "wide" });
+  assert.deepEqual(look({ width: "narrow" }), { background: "", width: "narrow" });
+  assert.deepEqual(look({ width: "full" }), { background: "", width: "full" });
+  assert.deepEqual(look({ width: "huge" }), { background: "", width: "normal" });
+  assert.deepEqual(look({ background: "Blue ", wide: true }), { background: "blue", width: "wide" }); // (as it was written before)
+  assert.deepEqual(look({ background: "grey", wide: "yes" }), { background: "gray", width: "normal" });
+  assert.deepEqual(look({ background: "#ff0000" }), { background: "", width: "normal" });
+  assert.deepEqual(look({ background: ["dots"], wide: 1 }), { background: "", width: "normal" });
   assert.deepEqual([...doc.BACKGROUNDS], ["gray", "red", "orange", "yellow", "green", "cyan", "blue", "magenta", "dots", "grid", "lines"]);
 });

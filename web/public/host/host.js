@@ -1319,9 +1319,9 @@
       if (made.length) shown(made);
     },
     // a colour and a sign for a folder: written into the repository, as a note is
-    folderlook({ path, color, icon }) {
+    folderlook({ path, color, icon, fav }) {
       if (!mayWrite() || !path || !path.startsWith(BASE + "/") || exists(path)) return;
-      write(C.FOLDERS, C.looksText(C.lookSet(looksNow(), rel(path), color, icon)));
+      write(C.FOLDERS, C.looksText(C.lookSet(looksNow(), rel(path), color, icon, fav === true)));
       sendFolder();
     },
     async rename({ path, name }) {

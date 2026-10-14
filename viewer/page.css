@@ -17,7 +17,7 @@
   --code-bg: color-mix(in srgb, var(--fg) 4.5%, var(--bg));
   --surface: color-mix(in srgb, var(--bg) 97%, transparent);
   --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
-  --measure: 46rem;
+  --measure: max(66%, min(100%, 30rem)); /* (the text column: a share of the room the note has — viewer.js, MEASURES) */
   /* the app's own parts (sidebar, toolbar, menus) are laid out as macOS lays them out, in sizes
    * measured there. The colours stay the theme's, at the strengths of macOS's fills. */
   --ui: "SF Pro", "Inter", system-ui, sans-serif;
