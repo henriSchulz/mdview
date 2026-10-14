@@ -120,6 +120,16 @@ body {
  * taken out, so nothing is laid out for it — and a wheel turns where the new one will stand. It
  * shows only after a moment: a short note is there before it would. */
 body[data-going] :is(#content, #active, #editor) { visibility: hidden; }
+/* … on a ground the sheet stays, empty, and the wheel turns on it — not on the ground alone (Henri, 2026-10-14) */
+:root[data-doc-bg] > body[data-going]:not([data-overview]) :is(#content, #active, #editor):not([hidden]) { visibility: visible; }
+:root[data-doc-bg] > body[data-going]:not([data-overview]) :is(#content, #active, #editor) > * { visibility: hidden; }
+/* one wheel at a time: while the note is on its way, the mode's button keeps its sign (chrome.css: .seg-btn.busy) */
+body[data-going] .seg-btn.busy > * { opacity: 1; }
+body[data-going] .seg-btn.busy::after { display: none; }
+/* the ground that was, laid over the new one and fading away (viewer.js: docSync) — one ground goes into the next */
+.ground-was { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 1; transition: opacity var(--dur-slow) var(--ease-out); }
+#tabs > .ground-was { position: absolute; } /* (in the strip: over its ground, under its tabs) */
+.ground-was.gone { opacity: 0; }
 #loading { position: fixed; top: 34vh; left: 0; right: 0; margin: 0 auto; width: 22px; height: 22px; box-sizing: border-box; z-index: 13; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 14%, transparent); border-top-color: color-mix(in srgb, var(--fg) 55%, transparent); opacity: 0; visibility: hidden; pointer-events: none; }
 body[data-sidebar="open"] #loading { left: var(--sb-w); }
 body[data-going] #loading { visibility: visible; animation: loading-in var(--dur-fast) var(--ease-out) 140ms both, loading-spin 0.75s linear infinite; will-change: transform, opacity; }

@@ -745,6 +745,9 @@ web app, a shared note too. They can be chosen in the panel's Style part:
   theme's own ground, and around it the window shows `gray`, or a soft run from one of the
   theme's colours into another — `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `magenta` —
   or paper: `dots`, `grid`, `lines`. Anything else, or nothing: no sheet, the theme's own ground.
+  From one note to another the ground that was fades into the next (the strip of tabs with it);
+  while a note is on its way the sheet stays, empty, with one wheel on it — the mode's button turns
+  none of its own meanwhile.
 - `width`: how much of the window the text column takes — `narrow`, `wide` or `full` (`normal`,
   where it says nothing). `wide: true`, as it was written before, is `wide`.
 

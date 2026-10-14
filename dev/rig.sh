@@ -42,6 +42,7 @@
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
 #   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
+#   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -513,6 +514,18 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.ovswitch.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .), "times " + (.times | tostring)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  switching)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.switching.json "$R/out"/*.fade?.json
+    for c in Cyan Magenta; do { printf '%s\n' '---' "background: ${c,,}" '---' '' "# $c"; for i in $(seq 30); do echo; echo "Paragraph $i of a note on a ${c,,} ground."; done; } > "$N/$c.md"; done
+    { echo '# Plain'; for i in $(seq 30); do echo; echo "Paragraph $i of a note without a ground."; done; } > "$N/Plain.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-switching.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for k in 1 2 3; do for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.fade$k.json "$R/out"/*.switching.json 2>/dev/null) ]] && break; sleep 0.03; done; shot "$R/out/switching-$k.png"; done
+    for _ in $(seq 300); do ls "$R/out"/*.switching.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.switching.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   railfav)
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
