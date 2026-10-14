@@ -40,6 +40,7 @@
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
+#   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -482,6 +483,25 @@ case "${1:-}" in
     sleep 0.3; pkill -f "^$APP" 2>/dev/null
     for f in "$R/out"/*.chosen.json "$R/out"/*.again.json; do [[ -f $f ]] || { echo "FAIL no report ($f)"; fail=1; continue; }; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1; done
     exit $fail ;;
+  splitscroll)
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" -lwayland-client) || exit 1; }
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.plan*.json "$R/out"/*.splitscroll.json
+    { echo '# Main'; for i in $(seq 80); do echo; echo "Paragraph $i of the note in the window, long enough to wrap a little in a half of the window."; done; } > "$N/Main.md"
+    { echo '# Beside'; for i in $(seq 80); do echo; echo "Paragraph $i of the note beside it, long enough to wrap a little in a half of the window."; done; } > "$N/Beside.md"
+    { printf '%s\n' '---' 'background: cyan' '---' '' '# Ground'; for i in $(seq 80); do echo; echo "Paragraph $i of a note on a ground, long enough to wrap a little in a half of the window."; done; } > "$N/Ground.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-splitscroll.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 900); do
+      [[ -n $(ls "$R/out"/*.splitscroll.json 2>/dev/null) ]] && break
+      P=$(ls "$R/out"/*.plan$n.json 2>/dev/null | head -1)
+      if [[ -n $P ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.splitscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   railfav)
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Studium" "$N/Projekte"; rm -f "$R/out"/*.plan*.json "$R/out"/*.railfav.json
