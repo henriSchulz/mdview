@@ -691,7 +691,7 @@
   });
 
   // the ranges the transactions changed, in the last one's document
-  function changed(trs) {
+  function changed(trs, around = true) { // (around: and where the selection is — what setNodeMarkup and marks changed)
     const out = [];
     trs.forEach((t, i) => t.mapping.maps.forEach((map, k) => map.forEach((_a, _b, from, to) => {
       for (let j = k + 1; j < t.mapping.maps.length; j++) { from = t.mapping.maps[j].map(from, -1); to = t.mapping.maps[j].map(to, 1); }
@@ -700,7 +700,7 @@
     })));
     // setNodeMarkup and marks change no positions: take the selection's surroundings as well
     const last = trs[trs.length - 1];
-    if (last.steps.length) out.push([last.selection.from, last.selection.to]);
+    if (around && last.steps.length) out.push([last.selection.from, last.selection.to]);
     for (const t of trs) for (const step of t.steps) {
       const json = step.toJSON();
       if (json.from != null) out.push([Math.min(json.from, t.doc.content.size), Math.min(json.to ?? json.from, t.doc.content.size)]);
@@ -813,6 +813,57 @@
     },
   });
 
+  /* A picture is a block of its own: one that comes into a paragraph with text or with another picture — pasted, dropped,
+   * inserted, written beside it — is split off into a paragraph of its own, the text before it and after it in theirs (line
+   * breaks and spaces at the cut go). Only where the change was: a note written so elsewhere stays as it is until it is
+   * edited there. (Not in a table's cell or a heading: they hold no blocks.) */
+  const blank = (n) => n.type === N.hard_break || (n.isText && !n.text.trim());
+  function pictureOff(tr, at) {
+    const para = () => tr.doc.nodeAt(at);
+    for (let i = para().childCount - 1; i >= 0; i--) {
+      let p = para();
+      if (i >= p.childCount || p.child(i).type !== N.image) continue;
+      let start = at + 1;
+      for (let k = 0; k < i; k++) start += p.child(k).nodeSize;
+      const end = start + p.child(i).nodeSize, own = [{ type: N.paragraph, attrs: { align: p.attrs.align } }];
+      let cut = end;
+      for (let j = i + 1; j < p.childCount && blank(p.child(j)); j++) cut += p.child(j).nodeSize;
+      if (cut > end) tr.delete(end, cut);
+      const after = para().maybeChild(i + 1);
+      if (after && after.isText && /^\s/.test(after.text)) tr.delete(end, end + (after.text.length - after.text.trimStart().length));
+      if (i + 1 < para().childCount && PM.transform.canSplit(tr.doc, end, 1, own)) tr.split(end, 1, own);
+      p = para();
+      let from = start, k = i - 1;
+      for (; k >= 0 && blank(p.child(k)); k--) from -= p.child(k).nodeSize;
+      if (from < start) tr.delete(from, start);
+      const before = k >= 0 ? p.child(k) : null; // (and one at the end of what is before)
+      if (before && before.isText && /\s$/.test(before.text)) { const n = before.text.length - before.text.trimEnd().length; tr.delete(from - n, from); from -= n; }
+      if (k >= 0 && PM.transform.canSplit(tr.doc, from, 1, own)) tr.split(from, 1, own);
+      i = k + 1;
+    }
+  }
+  const pictures = new Plugin({
+    key: new PluginKey("pictures"),
+    appendTransaction(trs, _old, state) {
+      if (!trs.some((t) => t.docChanged)) return null;
+      const size = state.doc.content.size, found = new Set();
+      for (const [from, to] of changed(trs, false)) {
+        state.doc.nodesBetween(Math.max(0, Math.min(size, from) - 1), Math.min(size, to + 1), (node, pos) => {
+          if (node.type === N.paragraph && node.childCount > 1) {
+            let pics = 0, other = false;
+            node.forEach((c) => { if (c.type === N.image) pics++; else if (!blank(c)) other = true; });
+            if (pics && (pics > 1 || other)) found.add(pos);
+          }
+          return !node.isTextblock;
+        });
+      }
+      if (!found.size) return null;
+      const tr = state.tr;
+      for (const pos of [...found].sort((x, y) => y - x)) pictureOff(tr, pos); // (from the end: what is before stays where it is)
+      return tr.docChanged ? tr : null;
+    },
+  });
+
   /* A click on a task's box ticks it; Ctrl+click on a link follows it (the
    * page's own click handler does that, a plain click only places the caret). */
   /* A task ticked: its check is drawn from left to right. A cover in the box's colour lies over
@@ -895,7 +946,7 @@
       keymap(C.baseKeymap),
       H.history({ newGroupDelay: 500 }),
       PM.gapcursor.gapCursor(),
-      ids, typing, order, A.notes.plugin, A.clip.plugin, A.context.plugin, A.columns.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.wikilink.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
+      ids, typing, order, pictures, A.notes.plugin, A.clip.plugin, A.context.plugin, A.columns.plugin, ...(A.panel ? [A.panel.plugin] : []), A.bar.plugin, A.slash.plugin, A.wikilink.plugin, A.syntax.plugin, ...A.blocks.plugins(), clicks, A.link.plugin, ...A.tableui.plugins(),
     ],
     keys, storeOf, docOf,
     commands: { setHeading, setParagraph: keepBid(setParagraph), toggleList, toggleTaskList, toggleTask, hardBreak },

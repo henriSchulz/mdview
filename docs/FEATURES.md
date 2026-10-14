@@ -421,8 +421,11 @@ Paths are relative to the note — and one that leads nowhere from there is look
 name in `assets` (below). A picture alone in its paragraph is a block of its own: it has the
 line to itself and stands in its middle, as embedded PDF pages do. A double click shows a picture large.
 A picture alone in its paragraph is a block of its own in the active mode: a click selects it as a
-whole, the handle moves it, right click has its size and Edit… (its Markdown). In a line with text
-a picture stays part of the line.
+whole, the handle moves it, right click has its size and Edit… (its Markdown). A picture is never
+part of a line: one that is pasted, dropped or put in mid-line — or that has text written beside
+it, or another picture — goes to a paragraph of its own, the text before and after it in theirs
+(the spaces and line breaks at the cut go). A note written with a picture in a line elsewhere stays
+so until that line is edited; a table's cell keeps its picture in its text.
 `Ctrl+V` with a picture on the clipboard saves it and embeds it; picture files dropped on the note
 do the same.
 

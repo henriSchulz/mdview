@@ -38,16 +38,16 @@ test("the reader: the turn is the picture's, the description is clean, the size 
 test("the active mode: turned from the picture's menu, a quarter at a time, the size kept — and written so", () => {
   const v = open("before ![a tree|300](tree.png) after\n");
   assert.equal(v.pic().turn, "");
+  v.pic().turnBy(90); // (and, changed, the picture is a block of its own: tests/pictureblocks)
+  assert.equal(v.md(), "before\n\n![a tree|r90|300](tree.png)\n\nafter\n");
   v.pic().turnBy(90);
-  assert.equal(v.md(), "before ![a tree|r90|300](tree.png) after\n");
-  v.pic().turnBy(90);
-  assert.equal(v.md(), "before ![a tree|r180|300](tree.png) after\n");
+  assert.equal(v.md(), "before\n\n![a tree|r180|300](tree.png)\n\nafter\n");
   v.pic().turnBy(-90); v.pic().turnBy(-90); v.pic().turnBy(-90);
-  assert.equal(v.md(), "before ![a tree|r270|300](tree.png) after\n");
+  assert.equal(v.md(), "before\n\n![a tree|r270|300](tree.png)\n\nafter\n");
   v.pic().setSize("full");
-  assert.equal(v.md(), "before ![a tree|r270|full](tree.png) after\n");
+  assert.equal(v.md(), "before\n\n![a tree|r270|full](tree.png)\n\nafter\n");
   v.pic().turnBy(90);
-  assert.equal(v.md(), "before ![a tree|full](tree.png) after\n"); // (upright again: nothing is written)
+  assert.equal(v.md(), "before\n\n![a tree|full](tree.png)\n\nafter\n"); // (upright again: nothing is written)
 });
 
 test("a picture on a line of its own, and an embed: the same, in what is written", () => {
