@@ -806,8 +806,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     a grid, lines). It follows the light and the dark theme, and stays with the window while the
     note is scrolled.
   - *Page width* (Style): how much of the window the text column takes in this note — Narrow,
-    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (half,
-    two thirds, four fifths of it, all of it; in a narrow window the whole room, at least 30rem), so
+    Normal, Wide or Full Width, a choice of four. Each is a share of the room the note has (two fifths,
+    half, two thirds of it, all of it; in a narrow window the whole room, at least 30rem), so
     a large screen gives a note a broad column too. It is the note's alone: the settings have no
     width of their own.
 

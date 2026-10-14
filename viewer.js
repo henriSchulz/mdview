@@ -32,7 +32,7 @@
   /* The text column's width, as a share of the room the note has (the window beside the sidebar, a half of a split): the note
    * says which (its property "width" — the panel's Document part); in a narrow window it is the whole room at least 30rem. */
   const share = (p) => `max(${p}%, min(100%, 30rem))`;
-  const MEASURES = { narrow: share(50), normal: share(66), wide: share(82), full: "none" };
+  const MEASURES = { narrow: share(40), normal: share(50), wide: share(66), full: "none" }; // (Henri, 2026-10-14: what was narrow is normal now)
   let sortedBy = "opened", measured = "normal", zoomed = 100, listedAs = "";
   function measureSync() {
     const measure = MEASURES[docShown.width] ? docShown.width : "normal";
