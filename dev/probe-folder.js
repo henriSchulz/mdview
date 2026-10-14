@@ -44,7 +44,7 @@
       const menu = document.getElementById("ctxmenu");
       const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
       const cmds = () => shown().map((b) => b.dataset.cmd).join();
-      ok("right click on a file: open, open in a new tab, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "open,opentab,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
+      ok("right click on a file: open, open in a new tab, beside the note, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "open,opentab,openbeside,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
       ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon :is(svg, .sf)"); return i && i.getBoundingClientRect().width > 10; }));
       const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
       await shut();
@@ -64,7 +64,7 @@
       const dr = dirRow().getBoundingClientRect();
       dirRow().dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: dr.left + 30, clientY: dr.top + 8 }));
       await sleep(200);
-      ok("right click on a folder: open, new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "open,newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,rename,hide,trash,sub:show", cmds());
+      ok("right click on a folder: open, new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, a favourite, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "open,newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,fav,rename,hide,trash,sub:show", cmds());
       shown().find((b) => b.dataset.cmd === "newnote").click();
       await sleep(400);
       ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);
@@ -134,8 +134,9 @@
       ok("and a click on a note shows the note again", MdView.core.current.name === "footnotes.md" && !document.querySelector(".pdfv") && /\S/.test(document.getElementById("content").textContent), MdView.core.current.name);
       await sleep(300);
     }
-    // the order of the notes: the one opened last first; the empty room's menu changes it
+    // the order of the notes: by name at first; chosen, the one opened last first; the empty room's menu changes it
     {
+      window.MdPrefs = { ...(window.MdPrefs || {}), sidebarSort: "opened" }; MdView.prefsChanged(); await sleep(300); // (Last Opened chosen: by name is the default)
       const top = () => [...document.querySelectorAll("#sidebar .sb-list > .sb-item:not(.is-dir) > .sb-in > .sb-row")].map((r) => r.textContent.trim());
       const menu = document.getElementById("ctxmenu"), pick = (cmd) => [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === cmd);
       const row = (name) => [...document.querySelectorAll(".sb-row[data-real]")].find((r) => r.textContent.trim() === name);

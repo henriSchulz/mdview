@@ -38,6 +38,7 @@
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
+#   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -448,6 +449,24 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  railfav)
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Studium" "$N/Projekte"; rm -f "$R/out"/*.plan*.json "$R/out"/*.railfav.json
+    printf '# Alpha\n\nText.\n' > "$N/Alpha.md"; printf '# Thermo\n' > "$N/Studium/Thermo.md"; printf '# Plan\n' > "$N/Projekte/Plan.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-railfav.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 600); do
+      [[ -n $(ls "$R/out"/*.railfav.json 2>/dev/null) ]] && break
+      P=$(ls "$R/out"/*.plan$n.json 2>/dev/null | head -1)
+      if [[ -n $P ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    shot "$R/out/railfav.png"
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.railfav.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   tiledrag)
     # a tile of All Notes held by a real pointer (dev/vptr): the picture that goes with the pointer is the tile's, at the tile's size
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }

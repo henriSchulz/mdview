@@ -171,7 +171,7 @@
    * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
    * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
   const SB_LAYOUTS = ["source", "rail", "sheets", "tiles"];
-  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "source");
+  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "rail");
   const FOLDER_ICONS = {
     book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
     cap: svg('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>'),
@@ -408,7 +408,7 @@
   // a folder of the list pulled onto the rail: a favourite from then on
   const pulledDir = () => moving.path && !moving.paths && dirAt(moving.path);
   // (onto a sign: into that folder, as ever)
-  sbRail.addEventListener("dragover", (e) => { if (!pulledDir() || e.target.closest(".sb-rt")) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; sbRail.dataset.drop = ""; });
+  sbRail.addEventListener("dragover", (e) => { if (!pulledDir() || e.target.closest(".sb-rt")) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; sbRail.dataset.drop = ""; setDropInto(null); }); // ("copy": one of what the pull allows — copyMove, moving.start —, or the drop is refused; and not the list's way, which would move it)
   sbRail.addEventListener("dragleave", (e) => { if (!sbRail.contains(e.relatedTarget)) delete sbRail.dataset.drop; });
   sbRail.addEventListener("drop", (e) => { delete sbRail.dataset.drop; const d = pulledDir(); if (!d || e.target.closest(".sb-rt")) return; e.preventDefault(); e.stopPropagation(); favour(d.path, true); });
   sbLook.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); closeLook(); } });

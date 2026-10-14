@@ -851,9 +851,9 @@ goes below that.
     device hides the same.
 - **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
   does on them, are the same in all four:
-  - **List** (the default): the folders as a tree; above it
+  - **List**: the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
-  - **Rail**: the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
+  - **Rail** (the default, on every device until another is chosen): the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
     it what is in the one chosen. A folder is a favourite by its menu (**Add to Favourites**, a star —
     filled where it is one; **Remove from Favourites**) or by pulling it onto the rail. Favourites
     are kept with the folder's colour and sign, in the folder (`.mdview/folders.json`): every device

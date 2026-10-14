@@ -21,7 +21,7 @@ export const PREFS = {
   lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0, images: "assets", style: "auto",
   bullet: "-", emphasis: "*", strongMark: "**", ordered: ".", dialogWidth: 0, dialogHeight: 0,
   latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-  pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "source",
+  pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "rail",
   aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", measure: "normal", calloutStyle: "box", docZoom: 100, hinting: false, aiModel: "",
 };
 

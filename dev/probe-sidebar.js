@@ -19,8 +19,11 @@
     const shot = async (name) => { out(name, {}); await sleep(900); };
     const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
 
-    // ---- source (what a folder opens in)
-    ok("a folder opens with the list: the tree, and new and order at its foot", sb.dataset.layout === "source" && shown(q(".sb-foot")) && !shown(q('.sb-head [data-act="newmenu"]')) && !shown(q(".sb-rail")) && !shown(q(".sb-smart")), sb.dataset.layout);
+    // ---- what a folder opens in: the rail
+    ok("a folder opens with the rail", sb.dataset.layout === "rail", sb.dataset.layout);
+    await layout("source");
+    // ---- source
+    ok("the list: the tree, and new and order at its foot", sb.dataset.layout === "source" && shown(q(".sb-foot")) && !shown(q('.sb-head [data-act="newmenu"]')) && !shown(q(".sb-rail")) && !shown(q(".sb-smart")), sb.dataset.layout);
     const hits = (a, b) => { const x = a.getBoundingClientRect(), y = b.getBoundingClientRect(); return x.left < y.right - 1 && y.left < x.right - 1 && x.top < y.bottom - 1 && y.top < x.bottom - 1; };
     const gear = document.getElementById("settings-btn");
     ok("the settings' gear at the sidebar's foot stands beside New Note, not on it", shown(gear) && !hits(gear, q(".sb-new-note")) && !hits(gear, q('.sb-foot [data-sb="more"]')) && Math.abs(gear.getBoundingClientRect().top - q(".sb-new-note").getBoundingClientRect().top) <= 1, [gear.getBoundingClientRect().toJSON(), q(".sb-new-note").getBoundingClientRect().toJSON()]);

@@ -121,7 +121,7 @@ fn default_prefs() -> Map<String, Value> {
         // PDFs, pictures, sound and film, whiteboards, everything else
         "sidebarPdf": true, "sidebarImages": true, "sidebarMedia": true, "sidebarBoards": true, "sidebarOther": true,
         "showHidden": false,      // … and what is put away: hidden by hand, named with a dot, built, kept for a note (shown dimmed)
-        "sidebarLayout": "source", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
+        "sidebarLayout": "rail", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
         "sidebarSort": "name",  // the notes of a folder, in the sidebar and the tiles: "name" (at first) | "opened" (last opened first) | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
         "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
