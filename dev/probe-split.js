@@ -132,6 +132,22 @@
       input.value = "3"; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       ok("a page's number and Enter: there", await until(() => doIt.now() === 3 && input.value === "3", 2000), [doIt.now(), input.value]);
     }
+    // over the pages, as in the viewer: their text to select and copy, a link to it, the PDF's own links (Henri, 2026-10-14)
+    {
+      const b = pane().querySelector(".split-body"), doIt = P.splitPdf();
+      doIt.go(1);
+      const first = () => sheet().querySelector('.split-page[data-page="1"]');
+      ok("a page beside a note has its text over it, to be selected", await until(() => first().querySelectorAll(".textLayer [data-i]").length > 3, 6000), first().innerHTML.slice(0, 120));
+      const span = [...first().querySelectorAll(".textLayer [data-i]")].find((x) => /Line 1 of page 1/.test(x.textContent)) || first().querySelector(".textLayer [data-i]");
+      const r = document.createRange(); r.selectNodeContents(span); const sel = document.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      ok("… selected, it is the page's text", /\S/.test(sel.toString()), sel.toString());
+      document.getElementById("toast").textContent = "";
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "C", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+      ok("Ctrl+Shift+C: a link to the selection copied, as from the viewer", await until(() => /Link to the selection copied/.test(document.getElementById("toast").textContent), 2000), document.getElementById("toast").textContent);
+      const link = sheet().querySelector(".split-page .pdf-link");
+      ok("the PDF's own links lie over its pages", !!link);
+      if (link) { link.click(); ok("… one to another page goes there, beside the note", await until(() => doIt.now() === 3, 3000), doIt.now()); }
+    }
     ok("a PDF's pages beside a note have round corners, as a sheet has", parseFloat(getComputedStyle(sheet().querySelector(".split-page")).borderRadius) >= 10, getComputedStyle(sheet().querySelector(".split-page")).borderRadius);
     // a note with a ground of its own: the rail at its right stands on its sheet, not across the sheet's edge
     open("Ground.md");
@@ -146,9 +162,12 @@
     // what is beside the note, opened at the left
     P.splitOpen({ path: root() + "/sub/Beta.md" });
     await until(() => /More about it/.test(sheet().textContent), 4000);
+    const left = MdView.core.current.path;
     pane().querySelector('[data-do="over"]').click();
-    ok("Open at the Left: the note beside is the window's, and the sheet is gone", await until(() => /Beta\.md$/.test(MdView.core.current.path) && !P.splitState() && !document.body.dataset.split, 4000), [MdView.core.current.path, P.splitState()]);
-    ok("… the note has the window's whole width again", await until(() => getComputedStyle(document.body).paddingRight === "0px", 2000), getComputedStyle(document.body).paddingRight);
+    ok("Swap Sides: the note beside is the window's, and the window's note beside it", await until(() => /Beta\.md$/.test(MdView.core.current.path) && P.splitState() && P.splitState().path === left, 5000), [MdView.core.current.path, P.splitState() && P.splitState().path, left]);
+    MdView.setMode("active");
+    ok("… where it is written in any mode, the active one too", await until(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm.editable && /More about it/.test(MdActive.view.pm.dom.textContent), 5000));
+    MdView.setMode("read");
     void was;
     if (errs.length) ok("no script errors", false, errs);
   } catch (e) { o.error = String(e && e.stack || e); }

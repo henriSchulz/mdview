@@ -454,14 +454,17 @@
 
   // ---------------------------------------------------------------- copying links
   // the selection as a place in the PDF: { page, selection, text } or null
-  function selectionNow() {
+  const selectionNow = () => (V ? selectionIn(V.root, (n) => V.pages[n - 1]) : null);
+  // (… within `root`, whose pages say their number — data-page — and have their text: pageOf(n) -> { n, text: { items } })
+  function selectionIn(root, pageOf) {
     const s = document.getSelection();
     if (!s || !s.rangeCount || s.isCollapsed) return null;
     const r = s.getRangeAt(0);
     const spanOf = (node) => { const e = node.nodeType === 1 ? node : node.parentElement; return e && e.closest(".textLayer [data-i]"); };
     const layer = (r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement).closest(".textLayer");
-    if (!layer || !V || !V.root.contains(layer)) return null;
-    const pg = V.pages[layer.parentElement.dataset.page - 1];
+    if (!layer || !root.contains(layer)) return null;
+    const pg = pageOf(Number(layer.parentElement.dataset.page));
+    if (!pg || !pg.text) return null;
     const spans = [...layer.querySelectorAll("[data-i]")].filter((sp) => r.intersectsNode(sp));
     if (!spans.length) return null;
     const a = spanOf(r.startContainer) || spans[0], b = layer.contains(r.endContainer) ? spanOf(r.endContainer) || spans[spans.length - 1] : spans[spans.length - 1];
@@ -472,24 +475,24 @@
     const selection = [bi, bo, ei, eo];
     return { page: pg.n, selection, text: textOf(pg.text.items, selection) };
   }
-  function linkText(at, color) {
-    const name = basename(V.p.path);
+  function linkText(at, color, path = V.p.path) {
+    const name = basename(path);
     let frag = "page=" + at.page;
     if (at.selection) frag += "&selection=" + at.selection.join(",");
     if (at.rect) frag += "&rect=" + at.rect.map((n) => Math.round(n)).join(",");
     if (at.offset) frag += "&offset=" + at.offset.join(",");
     if (color && color !== DEFAULT_COLOR && (at.selection || at.rect)) frag += "&color=" + color;
-    const link = `[[${name}#${frag}]]`, display = `${stem(V.p.path)}, page ${at.page}`;
+    const link = `[[${name}#${frag}]]`, display = `${stem(path)}, page ${at.page}`;
     return { link, linkWithDisplay: `[[${name}#${frag}|${display}]]`, display };
   }
-  function copyLink(at, color = V.color, format = prefs().pdfFormat) {
-    const t = linkText(at, color);
+  function copyLink(at, color = V.color, format = prefs().pdfFormat, path = V.p.path) {
+    const t = linkText(at, color, path);
     const f = at.rect ? FORMATS.embed : !at.selection ? FORMATS.link : FORMATS[format] || FORMATS.callout;
-    const text = f.text.replace(/\{\{(\w+)\}\}/g, (_m, k) => ({ link: t.link, linkWithDisplay: t.linkWithDisplay, text: at.text || "", colorName: color, page: String(at.page), file: stem(V.p.path) })[k] ?? "");
+    const text = f.text.replace(/\{\{(\w+)\}\}/g, (_m, k) => ({ link: t.link, linkWithDisplay: t.linkWithDisplay, text: at.text || "", colorName: color, page: String(at.page), file: stem(path) })[k] ?? "");
     copy(text);
     toast(at.rect ? T("Embed of the region copied") : at.selection ? T("Link to the selection copied") : T("Link to page {0} copied", at.page));
     // shown at once, as it will be once the link stands in a note
-    if (at.selection || at.rect) {
+    if ((at.selection || at.rect) && V && V.p.path === path) {
       const pg = V.pages[at.page - 1], layer = pg.div.querySelector(".pdf-marks");
       if (layer) for (const b of at.selection ? joined(boxesOf(pg.text.items, at.selection, pg.vp)) : [rectBox(pg, at.rect)]) { const m = mark(b, pg, "pdf-backlink fresh" + (at.rect ? " rect" : "")); m.style.setProperty("--hl", colorOf(color)); layer.appendChild(m); }
     }
@@ -929,7 +932,41 @@
     pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX, y: e.clientY });
   }
 
-  window.MdPdf = { show, leave, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },
+  /* A PDF's page shown elsewhere — beside a note (viewer/split.js), as a picture `width` wide: what lies over it here too — its
+   * text to select and copy, its links — and what was drawn on its pages. */
+  async function overlays(path, n, width) {
+    const doc = await docOf(path), page = await doc.getPage(n), base = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: width / base.width });
+    const text = await page.getTextContent();
+    const layer = el("div", { class: "textLayer" });
+    layer.style.setProperty("--scale-factor", vp.scale);
+    const divs = [];
+    await lib.renderTextLayer({ textContentSource: text, container: layer, viewport: vp, textDivs: divs }).promise;
+    divs.forEach((d, i) => { d.dataset.i = i; });
+    const links = el("div", { class: "pdf-links" });
+    await annotations(null, page, vp, links);
+    return { layer, links, page: { n, text, vp, h: base.height } };
+  }
+  async function inkOf(path) { // -> { pages, by } or null
+    if (reading()) return null;
+    const B = await board(), model = await B.pdfInk(path);
+    if (!model || !model.items.length) return null;
+    const doc = await docOf(path), sizes = await Promise.all(Array.from({ length: doc.numPages }, async (_x, i) => { const b = (await doc.getPage(i + 1)).getViewport({ scale: 1 }); return [b.width, b.height]; }));
+    const pages = B.pdf.layout(sizes);
+    return { pages, by: B.pdf.onPages(pages, model.items) };
+  }
+  const inkPicture = (ink, n) => (ink ? window.MdBoard.pdf.picture(ink.pages[n - 1], ink.by.get(n)) : "");
+  async function placeIn(path, dest) { // a link's place in that PDF -> { n, top }
+    const doc = await docOf(path), d = typeof dest === "string" ? await doc.getDestination(dest) : dest;
+    if (!Array.isArray(d) || d[0] == null) return null;
+    const idx = typeof d[0] === "object" ? await doc.getPageIndex(d[0]) : d[0];
+    const h = (await doc.getPage(idx + 1)).getViewport({ scale: 1 }).height;
+    const kind = d[1] && d[1].name, y = kind === "XYZ" ? d[3] : kind === "FitH" || kind === "FitBH" ? d[2] : null;
+    return { n: idx + 1, top: y == null ? null : Math.max(0, h - y) };
+  }
+  const sheet = { overlays, inkOf, inkPicture, placeIn, selectionIn, copyLink: (path, at) => copyLink(at, (V && V.color) || DEFAULT_COLOR, prefs().pdfFormat, path), auto: () => !!prefs().pdfAuto };
+
+  window.MdPdf = { show, leave, sheet, hydrate, chunk, parseFrag, pinch, pageShot, get shown() { return V; },
     // for the tests
     test: { drawOn, selectionNow, copySelection, copyView, go, goFrag, zoomTo, act, sidePanel, boxesOf, joined, textOf, linkText, pageNow, placeOf } };
 })();
