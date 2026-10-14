@@ -1215,10 +1215,14 @@ the left is the window's as ever, in any of its modes.
 - **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
   one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
   around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.
+  Over its pages, as in the viewer: their text, to select (`Ctrl+C` copies it, `Ctrl+Shift+C` — or
+  letting go, where the settings copy at once — a link to it, in the settings' form), the PDF's own
+  links (one to another page goes there, one out opens outside), and what was drawn on the pages.
   The side card, a region for a note and drawing are the viewer's own, at the left.
 - A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
-  left alone. The arrow in the sheet's head (**Open at the Left**) makes what is beside the note
-  the window's own — there it can be written; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
+  left alone. The arrows in the sheet's head (**Swap Sides**) change the two places: what is
+  beside goes into the window — written there in any mode, the active one too — and the
+  window's note beside it; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
 - The two are halves of one kind: the same column, the same type, each scrolled by itself. The
   line between them can be pulled (a double click on it: halves again; how the window is shared
   is kept). A note beside its own reading runs with it: as far down the one is, so far the other.

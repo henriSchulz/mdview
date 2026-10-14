@@ -36,7 +36,7 @@
       `<div class="split-bar pdf-bar" role="toolbar" aria-label="PDF" hidden></div>` +
       `<div class="split-cap" role="toolbar"><span class="split-name"></span>` +
       `<button class="tb" type="button" data-do="write" aria-pressed="false" title="${esc(T("Edit Here"))}" aria-label="${esc(T("Edit Here"))}">${I.write}</button>` +
-      `<button class="tb" type="button" data-do="over" title="${esc(T("Open at the Left"))}" aria-label="${esc(T("Open at the Left"))}">${I.over}</button>` +
+      `<button class="tb" type="button" data-do="over" title="${esc(T("Swap Sides"))}" aria-label="${esc(T("Swap Sides"))}">${I.over}</button>` +
       `<button class="tb" type="button" data-do="close" title="${esc(T("Close"))}" aria-label="${esc(T("Close"))}">${I.close}</button></div>`;
     document.body.appendChild(pane);
     sizing(pane.querySelector(".split-grip"));
@@ -180,8 +180,21 @@
         btn('data-pdf="width"', "Fit width", PI.width, ' aria-pressed="true"') + btn('data-pdf="page"', "Fit page", PI.page, ' aria-pressed="false"');
       bar.hidden = false;
       d.innerHTML = Array.from({ length: v.n }, (_x, i) => `<div class="split-page" data-page="${i + 1}" style="aspect-ratio:${ratio}"></div>`).join("");
-      const els = [...d.children];
-      const put = (el, shot, wide) => { if (S !== s || !el.isConnected) return; el.dataset.wide = wide; el.replaceChildren(shot.img); };
+      const els = [...d.children], sheet = window.MdPdf.sheet;
+      /* over each page as the viewer has it (pdfview.js: sheet): its text, to select — Ctrl+C copies it, Ctrl+Shift+C (or letting go,
+       * where the settings copy at once) a link to it, as from the viewer —, its links, and what was drawn on it */
+      const ink = (s.ink = sheet.inkOf(s.path).catch(() => null));
+      async function layered(el, wide) {
+        try {
+          const n = Number(el.dataset.page), o = await sheet.overlays(s.path, n, wide), drawn = await ink;
+          if (S !== s || Number(el.dataset.wide) !== wide) return;
+          el.pg = o.page;
+          el.querySelectorAll(":scope > :not(img)").forEach((x) => x.remove());
+          if (drawn) el.insertAdjacentHTML("beforeend", sheet.inkPicture(drawn, n));
+          el.append(o.layer, o.links);
+        } catch (_e) { /* (the picture alone) */ }
+      }
+      const put = (el, shot, wide) => { if (S !== s || !el.isConnected) return; el.dataset.wide = wide; el.replaceChildren(shot.img); if (wide) layered(el, wide); };
       put(els[0], first, 0);
       // a page in sight that is not drawn as large as it is shown is drawn anew (the one it has stays until then)
       const near = (s.near = new IntersectionObserver((list) => {
@@ -216,6 +229,24 @@
       on(input, "keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") { go(Number(input.value)); input.blur(); } else if (e.key === "Escape") { input.value = now(); input.blur(); } });
       on(input, "focus", () => input.select());
       on(b, "scroll", () => { if (document.activeElement !== input) input.value = now(); }, { passive: true });
+      // a link inside the PDF: to its place here, or out; the selection's link (pdfview.js: copyLink — a callout, a quote, a link)
+      const selected = () => sheet.selectionIn(d, (n) => els[n - 1] && els[n - 1].pg);
+      // (taken before the page's own handling of links, which would follow the "#" — viewer/toolbar.js)
+      on(window, "click", async (e) => {
+        const a = e.target instanceof Element && e.target.closest(".pdf-link");
+        if (!a || !d.contains(a)) return;
+        e.preventDefault(); e.stopPropagation();
+        if (a.pdfDest) { const pl = await sheet.placeIn(s.path, a.pdfDest); if (pl && S === s) { const el = els[pl.n - 1]; b.scrollTop = el.offsetTop - 12 + (pl.top != null && el.pg ? pl.top * el.pg.vp.scale : 0); } }
+        else if (a.dataset.url) post("link", { href: a.dataset.url });
+      }, true);
+      on(document, "keydown", (e) => {
+        if (!((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c")) return;
+        const at = selected();
+        if (!at) return;
+        e.preventDefault(); e.stopPropagation();
+        sheet.copyLink(s.path, at); document.getSelection().removeAllRanges();
+      }, true);
+      on(d, "mouseup", () => setTimeout(() => { if (S !== s || !sheet.auto()) return; const at = selected(); if (at && at.text) { sheet.copyLink(s.path, at); document.getSelection().removeAllRanges(); } }, 30));
       on(b, "wheel", (e) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = b.getBoundingClientRect(); zoom(v.scale * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top }); }, { passive: false });
       const sized = new ResizeObserver(() => { if (S === s && v.fit) zoom(v.fit); });
       sized.observe(b);
@@ -292,12 +323,17 @@
     narrow();
   }
   /* What is beside the note becomes the window's own: opened at the left, where it can be written. */
-  function over() {
+  /* The two sides change places: what is beside goes into the window — the note to be edited there in any mode, the active one
+   * too — and the note of the window goes beside it (Henri, 2026-10-14: the right side had only its source). A PDF or a picture
+   * beside a PDF: the same. */
+  async function over() {
     if (!S || !S.path || S.kind === "self") return;
     if (S.src) keep(S);
-    const path = S.path;
-    close();
+    const path = S.path, was = P.current && P.current.path;
     post("note", { path });
+    if (!was || was === path) return close();
+    for (let t = 0; t < 4000 && !(P.current && P.current.path === path); t += 50) await new Promise((r) => setTimeout(r, 50));
+    if (P.current && P.current.path === path) open({ path: was }); else close();
   }
 
   Object.assign(P, { splitSaved: saved, splitWrite: (on) => writing(on), splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
