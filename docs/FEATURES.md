@@ -378,6 +378,24 @@ How large a picture shows is written at the end of its description, as Obsidian 
 ![[paper.pdf#page=3|full]]     an embedded PDF page, likewise
 ```
 
+A picture alone, a code block and a formula block can have a caption: a line right under it that
+begins with `: ` (as Pandoc writes a table's caption). The two are one figure, the caption under
+the thing, smaller, in the middle — in Markdown of its own:
+
+```markdown
+![](tree.png)
+: A tree in *winter*
+
+$$
+e^{i\pi} + 1 = 0
+$$
+: Euler's identity
+```
+
+A whiteboard and an embedded PDF page or region are pictures here too. In the active mode the
+block's menu has **Add Caption** (the line is put under it and its dialog opens, to write it in)
+and **Remove Caption**. Under a paragraph of text the line stays a definition, as Markdown has it.
+
 A picture can be turned by quarters. The turn is written before the size:
 
 ```markdown

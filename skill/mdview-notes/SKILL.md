@@ -70,6 +70,9 @@ technical report, and still easy to follow. It must not read as something a chat
 | a note shown in place | `![[Note]]` |
 | picture | `![alt](file.png)` or `![[file.png]]` (relative to the note). What the app itself put in lies in `assets` of the notes' base folder and is named `assets/name.png` in a note of any subfolder — keep such a line as it is, also when the note is moved |
 | picture at a width | `![alt\|400](file.png)`, `![[file.png\|400]]`; `\|full` for the column's whole width (PDF embeds too) |
+| picture turned | `![alt\|r90\|400](file.png)`, `![[file.png\|r270]]` — `r90` a quarter right, `r180` upside down, `r270` a quarter left; before the width |
+| caption | a line that begins with `: ` right under a picture alone (an embed, a PDF region, a whiteboard), a code block or a `$$` formula block: `![](tree.png)` then `: A tree in winter` — shown as a figure, the caption under it |
+| text centred / at the right | a comment at the end of a paragraph or heading: `A line <!-- center -->`, `## Title <!-- right -->` |
 | formula in the line | `$a^2 + b^2 = c^2$` |
 | formula as a block | `$$` on its own line, the LaTeX, `$$` on its own line |
 | diagram | a fence named `mermaid` |

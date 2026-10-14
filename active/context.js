@@ -341,6 +341,7 @@
     const wiki = node.type === N.iatom && node.attrs.kind === "wikilink";
     // a diagram or a drawing (a fence of Mermaid or SVG): large, as a picture is by a double click
     const sizes = (now, set) => ({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => set(v), { checked: now === v })) });
+    const cap = editable ? A.islands.caption(view, pos, node) : null; // a picture, a code block, a formula: a caption under it
     const fc = editable ? A.islands.fileCode(view, pos, node) : null; // a file shown as code: put away like a code block, its card as large
     const dom = node.type === N.island ? view.nodeDOM(pos) : null, figure = dom && dom.querySelector ? window.MdView.core.zoomFigureAt(dom.querySelector(".mermaid-block > svg, .svg-block > svg")) : null;
     return [
@@ -354,6 +355,7 @@
         ...(pic.turnBy ? [item("menu.turnLeft", () => pic.turnBy(-90)), item("menu.turnRight", () => pic.turnBy(90))] : []),
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),
+      ...(cap ? [null, cap.has ? item("menu.caption.remove", cap.remove) : item("menu.caption.add", cap.add)] : []),
       ...(embedded(node) ? [item("menu.asFile", () => asFile(view, pos, node))] : []),
       ...(fc ? [item("menu.hideCode", fc.toggle, { checked: fc.hidden }), ...(fc.hidden ? [sizes(fc.size, fc.setSize)] : [])] : []),
       ...(node.type === N.island && node.attrs.kind === "code" && !A.islands.parseCode(String(node.attrs.raw || "")).indented ? [item("menu.hideCode", () => A.islands.toggleHidden(view, pos), { checked: A.islands.codeIsHidden(node) }),

@@ -391,6 +391,46 @@
       if (BOARD.test(k.type === "image" ? k.attrGet("src") || "" : k.type === "wiki_embed" ? String(k.meta.target || "").split(/[#|]/)[0].trim() : "")) toks[i].attrJoin("class", "board-block");
     }
   });
+  /* A caption: a line that begins with ": " right under a picture that stands alone (an embed, a whiteboard, a PDF's page or
+   * region), a code block or a formula block — as Pandoc writes a table's caption:
+   *
+   *   ![](tree.png)            ```js              $$
+   *   : A tree in winter       const a = 1;       e^{i\pi} + 1 = 0
+   *                            ```                $$
+   *                            : The first line   : Euler
+   *
+   * The two are one figure (<figure>, the caption a <figcaption>, in Markdown of its own). Under a picture the line makes a
+   * definition list of the two (markdown-it-deflist: a term, ": " its definition) — that is read as the figure too. Any other
+   * program shows the line under the thing. */
+  const CAPTION = /^:[ \t]+(?=\S)/;
+  md.core.ruler.after("inline", "captions", (state) => {
+    const toks = state.tokens, T = state.Token;
+    const loneIn = (inl) => { const kids = ((inl && inl.children) || []).filter((k) => !((k.type === "text" && !k.content.trim()) || k.type === "softbreak")); return kids.length === 1 && (kids[0].type === "image" || kids[0].type === "wiki_embed") ? kids[0] : null; };
+    const open = (type, tag, map, cls) => { const t = new T(type, tag, 1); t.block = true; t.map = map; if (cls) t.attrSet("class", cls); return t; };
+    const close = (type, tag) => { const t = new T(type, tag, -1); t.block = true; return t; };
+    const figure = (map, inner, cap) => [open("figure_open", "figure", map, "fig"), ...inner, open("figcaption_open", "figcaption", null), cap, close("figcaption_close", "figcaption"), close("figure_close", "figure")];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      // a definition list of one term, a picture alone, and one definition: the picture and its caption
+      if (t.type === "dl_open" && toks[i + 1] && toks[i + 1].type === "dt_open" && toks[i + 3] && toks[i + 3].type === "dt_close" && toks[i + 4] && toks[i + 4].type === "dd_open") {
+        const pic = loneIn(toks[i + 2]), p = i + 5, end = p + 4;
+        if (!pic || !toks[p] || toks[p].type !== "paragraph_open" || !toks[p + 1] || toks[p + 1].type !== "inline" || !toks[end - 1] || toks[end - 1].type !== "dd_close" || !toks[end] || toks[end].type !== "dl_close") continue;
+        const para = open("paragraph_open", "p", t.map); // (a picture's block, a whiteboard's: picture_blocks says which)
+        toks.splice(i, end - i + 1, ...figure(t.map, [para, toks[i + 2], close("paragraph_close", "p")], toks[p + 1]));
+        continue;
+      }
+      // a code block, a formula block, a picture alone — and under it a paragraph that begins with ": "
+      const lone = t.type === "paragraph_open" && toks[i + 1] && toks[i + 1].type === "inline" && loneIn(toks[i + 1]);
+      if (t.type !== "fence" && t.type !== "math_block" && !lone) continue;
+      const end = lone ? i + 2 : i, c = end + 1, inl = toks[c + 1];
+      if (!toks[c] || toks[c].type !== "paragraph_open" || toks[c].level !== t.level || !inl || inl.type !== "inline" || !CAPTION.test(inl.content)) continue;
+      inl.content = inl.content.replace(CAPTION, "");
+      const first = (inl.children || [])[0];
+      if (first && first.type === "text") first.content = first.content.replace(CAPTION, "");
+      const map = t.map && toks[c].map ? [t.map[0], toks[c].map[1]] : t.map;
+      toks.splice(i, c + 3 - i, ...figure(map, toks.slice(i, end + 1), inl));
+    }
+  });
   md.core.ruler.after("inline", "tasks", (state) => {
     const toks = state.tokens, env = state.env;
     for (let i = 2; i < toks.length; i++) {
