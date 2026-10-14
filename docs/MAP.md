@@ -46,6 +46,10 @@ The installed app loads the files it was built to load: after such a change, `bi
 
 ## Which check for which change
 
+`cd web && npm test` runs against the web app's last build: the page's files (`viewer/`, `active/` …) are copied into it
+when it is built — after a change to them, `npm run build` first (or `node scripts/assets.mjs` for the page's files alone),
+or the tests see the old ones.
+
 | Changed | Run |
 |---|---|
 | `viewer.js`, `viewer/*`, `active/*`, `strings.js` | `cd dev && npm test`; `dev/rig.sh regress dev/tests/fixtures/basics.md`; the rig cases of the part (`dev/rig.sh` lists them at its head: `sidebar`, `tabs`, `edit`, …) |
