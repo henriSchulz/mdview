@@ -923,6 +923,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
+  A choice at the head answers at once: its thumb goes there and what was shown dims, the tiles come
+  a frame later. A sheet whose beginning is still coming shows grey lines with a light running over
+  them, and the beginning fades in when it is there; a picture fades in when it has come.
   **Several at once**: a rectangle pulled from the empty room takes what it touches, `Shift`+click
   takes one more or lets it go, `Ctrl+A` takes all, `Esc` or a click beside them none. What is
   selected is dragged onto a folder together, trashed together (`Del`), or opened in tabs (right

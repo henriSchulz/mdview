@@ -41,6 +41,7 @@
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
 #   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
+#   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -501,6 +502,17 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.splitscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  ovswitch)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.ovswitch.json "$R/out"/*.skel.json
+    for d in $(seq 12); do mkdir -p "$N/Folder $d"; for i in $(seq 22); do { echo "# Note $d.$i"; echo; for k in $(seq 6); do echo "Some words of note $d.$i, paragraph $k, with **bold** and a [link](https://example.com)."; echo; done; echo '$$x^2 + y^2 = z^2$$'; } > "$N/Folder $d/Note $i.md"; done; done
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 90 MDVIEW_PROBE="$D/probe-ovswitch.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.skel.json "$R/out"/*.ovswitch.json 2>/dev/null) ]] && break; sleep 0.05; done; ls "$R/out"/*.skel.json >/dev/null 2>&1 && shot "$R/out/ovswitch-skeleton.png"
+    for _ in $(seq 600); do ls "$R/out"/*.ovswitch.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.ovswitch.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "times " + (.times | tostring)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   railfav)
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
