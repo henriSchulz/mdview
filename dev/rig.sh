@@ -35,6 +35,7 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
 #   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
@@ -347,6 +348,16 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  switchlag)
+    # (a long note, changed from mode to mode by the switch: the page's long hold comes when nothing on the screen moves)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.switchlag.json
+    { printf '%s\n' '# Long' '' '> [!note] A callout' '> In it.'; for i in $(seq 120); do printf '\n## Part %s\n\nParagraph %s with $a_%s^2 + b^2 = c^2$ and **bold** and [[Link %s]]: A sentence long enough to wrap in half a window. A sentence long enough to wrap in half a window. A sentence long enough to wrap in half a window.\n\n| A | B |\n|---|---|\n| %s | %s |\n\n```python\ndef f(x):\n    return x * %s\n```\n\n- one\n- two\n' $i $i $i $i $i $((i * i)) $i; done; } > "$R/work/long.md"
+    app 120 MDVIEW_PROBE="$D/probe-switchlag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/long.md"
+    for _ in $(seq 1100); do ls "$R/out"/*.switchlag.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.switchlag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$f"
+    jq -e .pass "$f" >/dev/null ;;
   idle)
     # (a window that only stands there does next to nothing: what it costs is read off the processes, the app and its web
     # process, over five seconds of rest — an animation turning out of sight was a page drawn anew every frame, for good)

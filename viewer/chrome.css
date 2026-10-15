@@ -119,11 +119,7 @@
 .seg-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .seg-btn:hover, .seg-btn[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
 .seg-btn:active { color: var(--fg2); }
-/* the mode being changed to, while the note is laid out for it: its sign gives way to a wheel */
-.seg-btn.busy > * { opacity: 0; }
-.seg-btn.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 13px; height: 13px; box-sizing: border-box; border-radius: 50%; border: 1.6px solid color-mix(in srgb, var(--fg) 22%, transparent); border-top-color: var(--fg); animation: seg-spin 0.7s linear infinite; will-change: transform; }
-@keyframes seg-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .seg-btn.busy::after { animation-duration: 2s; } }
+@keyframes seg-spin { to { transform: rotate(360deg); } } /* (the wheel of a row on its way: tabs.css) */
 .seg-thumb {
   position: absolute;
   top: 2px;

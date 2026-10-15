@@ -44,7 +44,8 @@
       const by = before - ed.getBoundingClientRect().left, css = getComputedStyle(document.documentElement);
       if (Math.abs(by) > 1) try { ed.animate([{ transform: `translateX(${by}px)` }, { transform: "none" }], { duration: motionMs("--spring-smooth-dur", 510), easing: css.getPropertyValue("--spring-smooth").trim() || "ease-out" }); } catch (e) { /* (a curve this engine does not know: no glide) */ }
     }
-    if (on) { shown = null; follow(); lead = "ed"; place(); }
+    // (the right half is drawn a frame after the source stands: in a long note, two short holds of the page, not one long one)
+    if (on) { shown = null; lead = "ed"; requestAnimationFrame(() => setTimeout(() => { follow(); place(); }, 0)); }
     clearInterval(watch);
     watch = on ? setInterval(() => follow(), 400) : 0; // (what changes the source without a key: undo, a paste from the host, the disk)
   }
