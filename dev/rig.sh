@@ -35,6 +35,7 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
@@ -345,6 +346,32 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  glass)
+    # (whether WebKit draws backdrop-filter is not to be seen from the page: the screen is taken, and the empty right part of the
+    # outline — its rows are short — is looked at. Lines of text behind it, drawn through blur, leave hardly an edge; seen through
+    # plain glass they are sharp)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.glass.json "$R/out/glass.png"
+    { printf '%s\n' '---' 'width: full' '---' '# Glass'; for i in $(seq 40); do echo; echo "## Part $i"; echo; echo "Line $i: MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII."; done; } > "$R/work/glass.md"
+    app 40 MDVIEW_PROBE="$D/probe-glass.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/glass.md"
+    for _ in $(seq 200); do ls "$R/out"/*.glass.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; shot "$R/out/glass.png"; hyprctl -i "$(sig)" clients -j | jq -c '[.[] | select(.class != "")][0] | [.at[0], .at[1], .size[0], .size[1]]' > "$R/out/glass.at"; hyprctl -i "$(sig)" monitors -j | jq -c '.[0] | [.width, .scale]' >> "$R/out/glass.at"; pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.glass.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -e .open "$f" >/dev/null || { echo "FAIL the outline did not open  $(cat "$f")"; exit 1; }
+    python3 - "$R/out/glass.png" "$f" "$R/out/glass.at" <<'PY'
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("L"); o = json.load(open(sys.argv[2])); at, mon = [json.loads(l) for l in open(sys.argv[3])]; ax, ay, aw, ah = at
+x, y, w, h = o["menu"]
+# the window where the nested compositor put it, the screen taken at its own scale; the page fills the window
+k = im.width / (mon[0] / mon[1]); sx = k * aw / o["w"]; ox, oy = ax * k, ay * k + (ah * k - o["h"] * sx)
+box = (int(ox + (x + w * 0.62) * sx), int(oy + (y + 50) * sx), int(ox + (x + w - 18) * sx), int(oy + (y + h - 12) * sx))
+px = im.crop(box).load(); W, H = box[2] - box[0], box[3] - box[1]
+edge = sum(abs(px[i + 1, j] - px[i, j]) for j in range(H) for i in range(W - 1)) / max(1, (W - 1) * H)
+ok = edge < 0.25
+print(("ok   " if ok else "FAIL ") + f"what is behind a menu is not read through: blurred, or covered (edges {edge:.2f}, at most 0.25 — plain glass: 0.5)")
+sys.exit(0 if ok else 1)
+PY
+    ;;
   split)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
     printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3

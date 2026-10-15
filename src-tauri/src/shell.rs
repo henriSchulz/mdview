@@ -679,11 +679,14 @@ impl Win {
              <link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>\
              {styles}\
              <link rel='stylesheet' href='{a}/overview.css'>\
-             </head><body data-mode='{mode}'{sf}><main id='content'></main>{scripts}</body></html>",
+             </head><body data-mode='{mode}'{sf}{flat}><main id='content'></main>{scripts}</body></html>",
             theme = theme::theme_css(&app.theme),
             styles = STYLES.iter().map(|s| format!("<link rel='stylesheet' href='{a}/viewer/{s}.css'>")).collect::<String>(),
             mode = app.theme.mode,
             sf = if app.sf_symbols { " data-sf" } else { "" },
+            // (WebKit without its DMA-BUF renderer draws no backdrop-filter: the menus are then of a ground that
+            // covers, not glass that only lets the text behind it through — viewer/page.css, main.rs)
+            flat = if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_ok_and(|v| v != "0") { " data-flat" } else { "" },
         );
         self.shell_n += 1;
         SHARED.pages.lock().unwrap().insert(self.label.clone(), page);

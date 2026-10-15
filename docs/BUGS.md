@@ -213,6 +213,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     nested screen (`wf-recorder`) and looks at each frame. The renderer is chosen in `main.rs`
     (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed back, that case runs several times —
     the torn frame comes one to four times a film, not in each.
+62. **Without WebKit's DMA-BUF renderer there is no blur.** `backdrop-filter` is drawn on its way
+    only: off (rule 61), glass is a pale film the text behind it is read through. What is glass
+    takes `--glass` and `--glass-filter` — never a colour and a blur of its own — so that
+    `body[data-flat]` makes all of it a ground that covers. `rig.sh glass` looks at the screen; the
+    page's computed style says blur either way.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 

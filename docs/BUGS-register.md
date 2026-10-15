@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-15
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "Some menus are far too see-through, the blur glass does not work, it looks odd" (the PDF's bar, the sidebar's colour and sign) | the fix of the day before for the flicker (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) takes WebKit off the way that draws `backdrop-filter`: the menus stayed a film at 72 %, and the text behind them was read through. Turning the renderer on again brought the flicker back (Henri: "the flicker is very bad too"); no other switch of WebKit's or GTK's kept both (the damage features, `FORCE_VBLANK_TIMER`, `DISABLE_GBM`, `FORCE_SHM`, `GDK_GL`) | the shell says so to the page (`body[data-flat]`, `shell.rs`), and glass is then a ground that covers (`--glass`, `--glass-filter`: `viewer/page.css`); rule 62 | `rig.sh glass` takes the screen and measures the edges behind a menu's empty part |
+
 ### 2026-10-14
 
 | What Henri saw | Why | Fixed by | Guard |
