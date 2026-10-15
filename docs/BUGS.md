@@ -227,6 +227,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     click (a thumb, a fade) runs to its end first, and only then does the heavy work begin. No
     wheel that would turn through it, and nothing page-wide that changes meanwhile (dimming the
     note is the page drawn anew each frame). `rig.sh switchlag`.
+65. **What a scroll draws anew at every step is little.** Without the DMA-BUF renderer the whole
+    window is painted at each step; a layer of thousands of elements (a PDF's words to select) is
+    then put out of sight while the pages move — `visibility`, not `display`, so that nothing is
+    laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
+    the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
