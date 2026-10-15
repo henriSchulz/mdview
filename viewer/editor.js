@@ -3,7 +3,7 @@
 "use strict";
 (() => {
   const P = window.MdPage;
-  const { content, post, esc } = P; // viewer/base.js
+  const { content, post, esc, motionMs } = P; // viewer/base.js
   const { md } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, viewPut } = P; // viewer/prep.js
   const { reducedMotion } = P; // viewer/render.js
@@ -36,26 +36,32 @@
   }
 
   /* A change of mode asked for by hand. In a long note it lays the whole note out anew, and the
-   * page stands still for that long (0.2 s and more): so the switch answers first — its thumb is on
-   * its way, the chosen mode's sign turns into a wheel (it turns on the compositor, also while the
-   * page is busy) — and the change itself begins two frames later. A short note changes at once. */
+   * page stands still for that long (0.2 s and more) — and without WebKit's DMA-BUF renderer (main.rs)
+   * nothing moves meanwhile, a wheel no more than the thumb. So the switch answers first and the
+   * work waits for it: the thumb glides to the chosen mode, and only when it is there does the
+   * change begin — the page stands still with nothing on its way, then the mode comes. Nothing
+   * over the note changes while the thumb glides (a note dimmed is the whole page drawn anew, each
+   * frame). A short note changes at once. (Henri, 2026-10-15: "switching lags, the spinner too —
+   * put a loading in between"; dev/rig.sh switchlag.) */
   const HEAVY = 6000; // characters of Markdown from which the change is felt
   let switching = 0;
+  const still = () => !!window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   function switchMode(next) {
     if (next === P.mode || !P.current || switching) return;
     if (P.current.kind === "pdf" || !P.current.text || P.current.text.length < HEAVY || (next === "active" && P.current.error) || (P.inSource(next) && P.current.readonly)) { P.setMode(next); return; }
     const btn = modeSeg.querySelector(`.seg-btn[data-mode="${next}"]`);
     modeSeg.style.setProperty("--i", MODES.indexOf(next));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b === btn));
-    btn.classList.add("busy");
-    const done = () => { cancelAnimationFrame(switching); switching = 0; requestAnimationFrame(() => requestAnimationFrame(() => { btn.classList.remove("busy"); showMode(); })); };
-    switching = requestAnimationFrame(() => { switching = requestAnimationFrame(() => {
+    document.body.classList.add("mode-wait");
+    const done = () => { clearTimeout(switching); switching = 0; document.body.classList.remove("mode-wait"); showMode(); };
+    // (the thumb is where it goes, to a pixel, at three quarters of its spring)
+    switching = setTimeout(() => {
       try { P.setMode(next); } finally {
-        // (the active mode's first use fetches its scripts: the wheel turns until the mode is there)
+        // (the active mode's first use fetches its scripts: the switch waits for them)
         if (P.mode === next) done();
-        else { const t0 = performance.now(), wait = () => { if (P.mode === next || performance.now() - t0 > 6000) done(); else switching = requestAnimationFrame(wait); }; wait(); }
+        else { const t0 = performance.now(), wait = () => { if (P.mode === next || performance.now() - t0 > 6000) done(); else switching = setTimeout(wait, 30); }; wait(); }
       }
-    }); });
+    }, still() ? 30 : Math.round(motionMs("--spring-smooth-dur", 510) * 0.75));
   }
 
   let edPath = null;     // file the editor holds; null = nothing loaded

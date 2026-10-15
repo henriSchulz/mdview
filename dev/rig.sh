@@ -35,6 +35,9 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
+#   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
+#   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
@@ -345,6 +348,54 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  switchlag)
+    # (a long note, changed from mode to mode by the switch: the page's long hold comes when nothing on the screen moves)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.switchlag.json
+    { printf '%s\n' '# Long' '' '> [!note] A callout' '> In it.'; for i in $(seq 120); do printf '\n## Part %s\n\nParagraph %s with $a_%s^2 + b^2 = c^2$ and **bold** and [[Link %s]]: A sentence long enough to wrap in half a window. A sentence long enough to wrap in half a window. A sentence long enough to wrap in half a window.\n\n| A | B |\n|---|---|\n| %s | %s |\n\n```python\ndef f(x):\n    return x * %s\n```\n\n- one\n- two\n' $i $i $i $i $i $((i * i)) $i; done; } > "$R/work/long.md"
+    app 120 MDVIEW_PROBE="$D/probe-switchlag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/long.md"
+    for _ in $(seq 1100); do ls "$R/out"/*.switchlag.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.switchlag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$f"
+    jq -e .pass "$f" >/dev/null ;;
+  idle)
+    # (a window that only stands there does next to nothing: what it costs is read off the processes, the app and its web
+    # process, over five seconds of rest — an animation turning out of sight was a page drawn anew every frame, for good)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; printf '# Idle\n\nA note, and nothing happening.\n' > "$N/Idle.md"; printf '# Other\n' > "$N/Other.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 40 -- "$N"; sleep 12
+    root=$(pgrep -f "^$APP" | head -1); [[ -n $root ]] || { echo "FAIL the app did not start"; tail -5 "$R/app.log"; exit 1; }
+    tree() { echo "$1"; local c; for c in $(pgrep -P "$1"); do tree "$c"; done; }
+    pids=$(tree "$root"); tick() { local s=0 p f; for p in $pids; do read -r -a f < "/proc/$p/stat" 2>/dev/null && s=$((s + f[13] + f[14])); done; echo $s; }
+    a=$(tick); sleep 5; b=$(tick); pkill -f "^$APP" 2>/dev/null
+    ms=$(( (b - a) * 1000 / $(getconf CLK_TCK) ))
+    if (( ms <= 250 )); then echo "ok   a window at rest: $ms ms of CPU in 5 s (at most 250)"; else echo "FAIL a window at rest: $ms ms of CPU in 5 s (at most 250)"; exit 1; fi ;;
+  glass)
+    # (whether WebKit draws backdrop-filter is not to be seen from the page: the screen is taken, and the empty right part of the
+    # outline — its rows are short — is looked at. Lines of text behind it, drawn through blur, leave hardly an edge; seen through
+    # plain glass they are sharp)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.glass.json "$R/out/glass.png"
+    { printf '%s\n' '---' 'width: full' '---' '# Glass'; for i in $(seq 40); do echo; echo "## Part $i"; echo; echo "Line $i: MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII MMMM WWWW HHHH IIII."; done; } > "$R/work/glass.md"
+    app 40 MDVIEW_PROBE="$D/probe-glass.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/glass.md"
+    for _ in $(seq 200); do ls "$R/out"/*.glass.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; shot "$R/out/glass.png"; hyprctl -i "$(sig)" clients -j | jq -c '[.[] | select(.class != "")][0] | [.at[0], .at[1], .size[0], .size[1]]' > "$R/out/glass.at"; hyprctl -i "$(sig)" monitors -j | jq -c '.[0] | [.width, .scale]' >> "$R/out/glass.at"; pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.glass.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -e .open "$f" >/dev/null || { echo "FAIL the outline did not open  $(cat "$f")"; exit 1; }
+    python3 - "$R/out/glass.png" "$f" "$R/out/glass.at" <<'PY'
+import json, sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("L"); o = json.load(open(sys.argv[2])); at, mon = [json.loads(l) for l in open(sys.argv[3])]; ax, ay, aw, ah = at
+x, y, w, h = o["menu"]
+# the window where the nested compositor put it, the screen taken at its own scale; the page fills the window
+k = im.width / (mon[0] / mon[1]); sx = k * aw / o["w"]; ox, oy = ax * k, ay * k + (ah * k - o["h"] * sx)
+box = (int(ox + (x + w * 0.62) * sx), int(oy + (y + 50) * sx), int(ox + (x + w - 18) * sx), int(oy + (y + h - 12) * sx))
+px = im.crop(box).load(); W, H = box[2] - box[0], box[3] - box[1]
+edge = sum(abs(px[i + 1, j] - px[i, j]) for j in range(H) for i in range(W - 1)) / max(1, (W - 1) * H)
+ok = edge < 0.25
+print(("ok   " if ok else "FAIL ") + f"what is behind a menu is not read through: blurred, or covered (edges {edge:.2f}, at most 0.25 — plain glass: 0.5)")
+sys.exit(0 if ok else 1)
+PY
+    ;;
   split)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
     printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3

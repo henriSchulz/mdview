@@ -5,6 +5,14 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-15
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "Some menus are far too see-through, the blur glass does not work, it looks odd" (the PDF's bar, the sidebar's colour and sign) | the fix of the day before for the flicker (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) takes WebKit off the way that draws `backdrop-filter`: the menus stayed a film at 72 %, and the text behind them was read through. Turning the renderer on again brought the flicker back (Henri: "the flicker is very bad too"); no other switch of WebKit's or GTK's kept both (the damage features, `FORCE_VBLANK_TIMER`, `DISABLE_GBM`, `FORCE_SHM`, `GDK_GL`) | the shell says so to the page (`body[data-flat]`, `shell.rs`), and glass is then a ground that covers (`--glass`, `--glass-filter`: `viewer/page.css`); rule 62 | `rig.sh glass` takes the screen and measures the edges behind a menu's empty part |
+| "The app has extreme performance problems when some PDFs are open … the whole app lags, the sidebar too" | the window that says a file is on its way (`#busy`, `viewer/modes.js`) stands in every page out of sight, and its ring turned there for good: without WebKit's DMA-BUF renderer every turn is the page drawn anew — a window at rest cost a seventh of a core in the rig (670 ms of CPU in 5 s), more on a larger screen. Scrolling a heavy PDF itself was not changed by it (45 ms a frame in the rig, drawing a page new to the screen) | the ring turns only while the window is open (`viewer/code.css`); rule 63 | `rig.sh idle`: a window at rest, 5 s, at most 250 ms of CPU (40 now) |
+| "Switching between the modes lags a lot, the spinner too — maybe put a loading in between so the app does not hang" | a change of mode in a long note holds the page 150–300 ms (the mode's document laid out anew; in the rig, 44 KB). It began two frames after the click, while the switch's thumb glided and a wheel turned in the button — and without the DMA-BUF renderer (rule 61) nothing moves while the page is held: the thumb stuck half way, the wheel stood still. Tried and of no use: `content-visibility` on the hidden view and on the blocks, dimming the note while it loads (a page-wide fade is the page drawn anew each frame) | the work waits until the thumb is there, to a pixel (three quarters of its spring); no wheel; the reading beside the source is drawn a frame after the source (`viewer/editor.js`: switchMode, `viewer/twin.js`); rule 64 | `rig.sh switchlag`: thirteen changes among the four modes, no gap over 70 ms while the thumb moves (before: 13 of 13 failed, up to 250 ms) |
+
 ### 2026-10-14
 
 | What Henri saw | Why | Fixed by | Guard |

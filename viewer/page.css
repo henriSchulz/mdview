@@ -32,6 +32,10 @@
   --sb-selected: color-mix(in srgb, var(--fg) 7.8%, transparent);  /* the fill of a selected sidebar row (macOS: secondarySystemFill) */
   --sb-hover: color-mix(in srgb, var(--fg) calc(var(--hover-alpha, 8%) / 2), transparent);
 }
+/* Where WebKit draws no blur (the shell says so: body[data-flat], main.rs), glass is a ground that covers — as macOS
+ * draws its menus with Reduce Transparency — not a pale film the text behind it is read through. */
+body[data-flat] { --glass: color-mix(in srgb, #fff 70%, var(--bg)); --glass-filter: none; }
+body[data-flat][data-mode="dark"] { --glass: color-mix(in srgb, var(--fg) 7%, var(--bg)); }
 body[data-mode="dark"] {
   --code-bg: color-mix(in srgb, var(--fg) 7%, var(--bg));
   --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.45), 0 0 0 0.5px rgb(255 255 255 / 0.1);
@@ -123,9 +127,6 @@ body[data-going] :is(#content, #active, #editor) { visibility: hidden; }
 /* … on a ground the sheet stays, empty, and the wheel turns on it — not on the ground alone (Henri, 2026-10-14) */
 :root[data-doc-bg] > body[data-going]:not([data-overview]) :is(#content, #active, #editor):not([hidden]) { visibility: visible; }
 :root[data-doc-bg] > body[data-going]:not([data-overview]) :is(#content, #active, #editor) > * { visibility: hidden; }
-/* one wheel at a time: while the note is on its way, the mode's button keeps its sign (chrome.css: .seg-btn.busy) */
-body[data-going] .seg-btn.busy > * { opacity: 1; }
-body[data-going] .seg-btn.busy::after { display: none; }
 /* the ground that was, laid over the new one and fading away (viewer.js: docSync) — one ground goes into the next */
 .ground-was { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 1; transition: opacity var(--dur-slow) var(--ease-out); }
 #tabs > .ground-was { position: absolute; } /* (in the strip: over its ground, under its tabs) */
