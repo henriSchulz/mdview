@@ -35,6 +35,7 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
 #   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
@@ -348,6 +349,15 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  pdfscroll)
+    # (a PDF full of words: what lies over its pages to be selected is not drawn while they move, and is back when they rest)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.pdfscroll.json; python3 "$D/gen-pdf.py" "$R/work/dense.pdf" 8 dense
+    app 60 MDVIEW_PROBE="$D/probe-pdfscroll.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/dense.pdf"
+    for _ in $(seq 500); do ls "$R/out"/*.pdfscroll.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.pdfscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty), "  (a frame: scrolled \(.scroll) ms, zoomed \(.zoom) ms)"' "$f"
+    jq -e .pass "$f" >/dev/null ;;
   switchlag)
     # (a long note, changed from mode to mode by the switch: the page's long hold comes when nothing on the screen moves)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.switchlag.json

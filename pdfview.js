@@ -18,6 +18,8 @@
   const { esc, toast, copy, post } = window.MdView.core;
   const T = window.MdStrings.t;
   const lib = window.pdfjsLib;
+  let pressed = false; // (a button held: a selection being pulled, the page's scrollbar — the text stays: v.moving)
+  for (const [type, down] of [["pointerdown", true], ["pointerup", false], ["pointercancel", false]]) addEventListener(type, () => { pressed = down; }, { capture: true, passive: true });
   const COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" };
   const DEFAULT_COLOR = "yellow";
   const FORMATS = {
@@ -181,7 +183,18 @@
     if (was) v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
     layout();
     v.pages.forEach((pg) => v.io.observe(pg.div));
-    v.onScroll = () => { tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); if (v.sideOpen && !v.placing) v.placing = requestAnimationFrame(() => { v.placing = 0; if (V === v) sidePlaced(); }); };
+    /* Scrolled or zoomed: the text to select over the pages (thousands of words a page, transparent) is not drawn meanwhile.
+     * Where WebKit draws without its GPU way (main.rs) the window is drawn anew at each step, those words with it, and they
+     * halved the rate (Henri, 2026-10-15: "the PDF lags when scrolling and zooming"; dev/rig.sh pdfscroll). Back as soon as
+     * the hand rests — and never while it holds a button or text in the PDF is chosen. */
+    v.moving = () => {
+      const sel = getSelection();
+      if (pressed || (sel && !sel.isCollapsed && sel.anchorNode && v.root.contains(sel.anchorNode))) return;
+      if (!v.root.hasAttribute("data-moving")) v.root.setAttribute("data-moving", "");
+      clearTimeout(v.movingTimer);
+      v.movingTimer = setTimeout(() => v.root.removeAttribute("data-moving"), 150);
+    };
+    v.onScroll = () => { v.moving(); tip(null); clearTimeout(v.scrollTimer); v.scrollTimer = setTimeout(pageNow, 60); if (v.sideOpen && !v.placing) v.placing = requestAnimationFrame(() => { v.placing = 0; if (V === v) sidePlaced(); }); };
     v.onResize = () => { if (v.sideOpen) sidePlaced(); if (v.fit) { clearTimeout(v.resizeTimer); v.resizeTimer = setTimeout(() => zoomTo(v.fit), 120); } };
     v.onKey = keys;
     v.onSelect = () => { clearTimeout(v.selTimer); v.selTimer = setTimeout(selected, 250); };
@@ -295,6 +308,8 @@
       const canvas = el("canvas", { class: "pdf-canvas" });
       canvas.width = Math.floor(vp.width * ratio); canvas.height = Math.floor(vp.height * ratio);
       await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp, transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null }).promise;
+      // (its text to select is laid out when the hand rests: while the pages move it is not drawn anyway — v.moving)
+      if (v.root.hasAttribute("data-moving")) { pg.div.replaceChildren(canvas); await new Promise((ok) => { const wait = () => (V !== v || !v.root.hasAttribute("data-moving") ? ok() : setTimeout(wait, 60)); wait(); }); }
       const text = pg.text || (pg.text = await page.getTextContent());
       if (V !== v || v.scale !== scale) { pg.state = "none"; if (V === v && pg.near) draw(pg); return; }
       const layer = el("div", { class: "textLayer" });
@@ -346,6 +361,7 @@
     const fx = held ? held.fx : (ax - r.left) / r.width, fy = held ? held.fy : (ay - r.top) / r.height; // where in the page the place is
     v.hold = at ? { x: ax, y: ay, pg, fx, fy, t: now } : null;
     if (typeof what === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, what)); } else v.fit = what;
+    if (live) v.moving();
     layout();
     // (while the size is being pulled — a pinch, the wheel — the pages are only stretched; they are drawn anew when it rests)
     clearTimeout(drawLater);

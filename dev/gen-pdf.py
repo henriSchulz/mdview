@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """A small PDF for the tests (dev/rig.sh pdf): pages of text with an outline and a link
-inside it. dev/gen-pdf.py OUT.pdf [PAGES]"""
+inside it. dev/gen-pdf.py OUT.pdf [PAGES] [dense] — dense: small type, a page full of words (as a datasheet or a
+schematic is: thousands of them, rig.sh pdfscroll)"""
 import sys
 import cairo
 
 out, pages = sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 5
+dense = len(sys.argv) > 3 and sys.argv[3] == "dense"
 W, H = 595, 842
 surface = cairo.PDFSurface(out, W, H)
 c = cairo.Context(surface)
@@ -18,6 +20,14 @@ for n in range(1, pages + 1):
     c.tag_end(cairo.TAG_DEST)
     surface.add_outline(cairo.PDF_OUTLINE_ROOT, f"Chapter {n}", f"dest='ch{n}'", 0)
     c.select_font_face("DejaVu Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    if dense:
+        c.set_font_size(5)
+        for col in range(3):
+            for i in range(110):
+                c.move_to(40 + col * 180, 130 + i * 6.4)
+                c.show_text(" ".join(words[(i * 7 + col + k) % len(words)] for k in range(6)))
+        c.show_page()
+        continue
     c.set_font_size(12)
     for i in range(24):
         c.move_to(72, 140 + i * 22)
