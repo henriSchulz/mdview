@@ -65,6 +65,7 @@ code, pre { font-family: var(--mono); }
 .busy-card { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); color: var(--fg); font: 500 13px var(--ui); }
 .busy-ring { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 16%, transparent); border-top-color: var(--accent); animation: busy-turn 0.9s linear infinite; }
 @keyframes busy-turn { to { transform: rotate(360deg); } }
+#busy:not([data-open]) .busy-ring { animation: none; } /* (out of sight it does not turn: without WebKit's DMA-BUF renderer every turn is the page drawn anew, for good — rule 63) */
 @media (prefers-reduced-motion: reduce) { .busy-ring { animation: none; border-color: var(--accent); } }
 /* … and the window it is shown in */
 #codeview { position: fixed; inset: 0; z-index: 68; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }

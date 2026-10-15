@@ -218,6 +218,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     takes `--glass` and `--glass-filter` — never a colour and a blur of its own — so that
     `body[data-flat]` makes all of it a ground that covers. `rig.sh glass` looks at the screen; the
     page's computed style says blur either way.
+63. **Nothing moves out of sight.** An animation that turns for good (`infinite`) runs only while
+    what it stands in is shown — `animation: none` otherwise, as `#busy` and `#history` have it.
+    Without the DMA-BUF renderer (rule 61) each of its frames is the page drawn anew, whether it
+    can be seen or not. `rig.sh idle` reads what a window at rest costs.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
