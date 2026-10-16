@@ -122,7 +122,8 @@
     if (e.target.closest("[data-codeview-close]") || e.target === codeBox) { closeCode(); return; }
     const copy = e.target.closest(".code-copy");
     if (copy) {
-      post("copy", { text: copy.closest(".code-block").querySelector("code").textContent });
+      // (the window of code put away has its Copy in its head: the code is the window's, not a block's it stands in)
+      post("copy", { text: (copy.closest(".code-block") || copy.closest(".codeview-box").querySelector(".code-block")).querySelector("code").textContent });
       copy.textContent = T("Copied");
       copy.classList.add("done");
       setTimeout(() => { copy.textContent = T("Copy"); copy.classList.remove("done"); }, 1400);

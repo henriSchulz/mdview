@@ -65,6 +65,16 @@ export async function sessionFor(path: string): Promise<Session> {
   return s;
 }
 
+/** For a page that can show something while the token is renewed: the session, or "renew" where
+ * the token is about to end. Not signed in → the sign-in page. (`sessionFor` sends the browser
+ * to the renewing at once, and until that is done it sees nothing: a window opened after hours
+ * — an installed app — stood grey for the renewing, and the wait for GitHub's answer.) */
+export async function sessionOrRenew(): Promise<Session | "renew"> {
+  const s = await read();
+  if (!s) redirect("/signin");
+  return due(s) ? "renew" : s;
+}
+
 // The token that renews changes with every use, and the one before is void then: two requests at
 // once must not both renew. One renewal per token at a time; the others wait for it.
 const renewing = new Map<string, Promise<Session | null>>();

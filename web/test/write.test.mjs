@@ -674,6 +674,11 @@ test("code put away behind a card: a click shows it in a window, the menu puts i
   await page.click("#content .code-card");
   await page.waitForFunction(() => document.querySelector("#codeview").hasAttribute("data-open"), null, { timeout: 8000 });
   assert.deepEqual(await page.evaluate(() => [document.querySelector("#codeview-title").textContent, document.querySelector("#codeview .code-lang").textContent, document.querySelector("#codeview pre code").textContent, !!document.querySelector("#codeview pre code .hljs-keyword")]), ["The helper", "js", "const answer = 42;\nexport default answer;\n", true]);
+  // its Copy (in the window's head, not in the code block) copies the code, and says so; the window has room for code, however short it is
+  await page.click("#codeview .code-copy");
+  assert.equal(await page.evaluate(() => document.querySelector("#codeview .code-copy").textContent), "Copied");
+  const room = await page.evaluate(() => [document.querySelector("#codeview .codeview-box").getBoundingClientRect().height, innerHeight]);
+  assert.ok(room[0] >= Math.min(520, room[1] * 0.86) - 1, "the window is not as small as its two lines: " + room);
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(web, ".next", "codeview.png") });
   await page.keyboard.press("Escape");

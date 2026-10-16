@@ -5,6 +5,14 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-16
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| The web app installed as an app, signed in, opens on the repositories page: "a very long grey screen, nothing says what is going on" | a window opened after hours has a token about to end, and the page answered with a redirect to the route that renews it: nothing was drawn until GitHub had answered the renewing (the ring of the list stands behind that, in a `<Suspense>`). Part of the wait is the server itself, asleep without a request (`minInstances: 0` in `apphosting.yaml`): no page can show anything before the server answers — not changed, his to decide (it costs) | the page shows the ring and sends the browser on to the renewing with a `<meta http-equiv="refresh">` (`sessionOrRenew`, `web/app/page.tsx`) | `web/test/auth.test.mjs` (a token about to end) |
+| "The code block modal is too small, and its copy button does not work in read-only mode" | the window of code put away has its Copy in its head, outside the `.code-block`; the click handler looked for the code in the block around the button, found none and threw — in every mode, not read-only only. The window was as tall as its code (two lines: a strip) | the handler takes the window's own code; the window is 1120 wide and at least 520 tall | `web/test/write.test.mjs` (code put away) |
+| "I do not like the grey edge above and below the top tile of a folder's stack in All Notes — and it flickers for a moment when I right-click it" | the two sheets behind the front one were as tall as it and turned, so their corners stood out above and below as a grey rim. The flicker: the menu opens under the pointer, the tile loses `:hover`, and its raised pose (sheet up, stack fanned out) fell back and rose again; only the sheet's shadow was kept for `.ctx-target` | the sheets behind lie inside the front one's height (`inset: 17% 8% 11%`); the pose of `:hover` is the pose of `.ctx-target` too (and `:active` is not, with a menu open) | `web/test/explorer.test.mjs` (keeps the pose) |
+
 ### 2026-10-15
 
 | What Henri saw | Why | Fixed by | Guard |

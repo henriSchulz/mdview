@@ -70,7 +70,7 @@ code, pre { font-family: var(--mono); }
 /* … and the window it is shown in */
 #codeview { position: fixed; inset: 0; z-index: 68; display: grid; place-items: center; padding: 24px; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7); }
 #codeview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
-.codeview-box { display: flex; flex-direction: column; width: min(980px, 100%); max-height: min(86vh, 100%); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); overflow: hidden; outline: none; transform: scale(0.97); transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+.codeview-box { display: flex; flex-direction: column; width: min(1120px, 100%); min-height: min(520px, 86vh, 100%); max-height: min(86vh, 100%); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); overflow: hidden; outline: none; transform: scale(0.97); transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit); }
 #codeview[data-open] .codeview-box { transform: none; transition: transform var(--spring-gentle-dur) var(--spring-gentle); }
 .codeview-head { display: flex; align-items: center; gap: 10px; flex: none; padding: 10px 10px 10px 16px; font: 400 13px var(--ui); color: var(--fg); }
 .codeview-head b { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
