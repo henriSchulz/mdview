@@ -124,3 +124,17 @@ test("the looks that show what is on a page: what the page says about itself, an
   assert.deepEqual(j(P.link.STYLES), ["row", "card"]);
   assert.match(w.MdView.core.md.render("[[Plan]] <!-- link widget -->\n", { links: { Plan: {} } }), /^<div class="page-row link-row" data-style="card"/);
 });
+
+test("a page's line cut and pasted (Ctrl+X, Ctrl+V): the page is saved without it in between, and comes back with all that was on it", () => {
+  const root = P.parse(FILE), view = P.view(root), row = "<!-- page: Meeting notes #p1 -->\n\n";
+  assert.ok(view.includes(row));
+  // cut: the view without the line is saved (the page is out of the file for a moment) …
+  const without = P.put(root, root, view.replace(row, ""));
+  assert.ok(!without.includes("Meeting notes") && !without.includes("Agenda"));
+  // … and pasted: the same line is in the view again — the page with its text and the page in it
+  assert.equal(P.put(root, root, view), FILE);
+  assert.equal(P.view(root.byId.get("p1")), "## Agenda\n\n- one\n\n<!-- page: Inner #p2 -->\n\nafter inner\n");
+  // a line that stands for a page nothing ever had is an empty page, as before
+  const fresh = P.put(root, root, view + "\n<!-- page: New #q9 -->\n");
+  assert.ok(fresh.endsWith("<!-- page: New -->\n\n<!-- /page -->\n") || /<!-- page: New -->/.test(fresh));
+});

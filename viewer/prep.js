@@ -124,13 +124,13 @@
   }
   // … and the view, as it was edited, put back: the page's lines are these now
   function pagePut(root, page, view) {
-    const lines = view.split("\n"), eol = eolOf(page), seen = new Set();
+    const lines = view.split("\n"), eol = eolOf(page), seen = new Set(), was = new Map(root.byId);
     if (page.id != null && lines[lines.length - 1] === "") lines.pop();
     const clone = (x) => { const c = { ...x, id: "x" + ++pageFresh, items: x.items.map((y) => (typeof y === "string" ? y : clone(y))) }; return c; };
     page.items = lines.map((line) => {
       const m = PAGE_ROW.exec(line.replace(/\r$/, ""));
       if (!m) return line;
-      let sub = root.byId.get(m[3]);
+      let sub = root.byId.get(m[3]) || (root.gone && root.gone.get(m[3])); // (a line cut a moment ago and put in again: its page, with what was on it)
       const words = pageWords(pageLook(m[1]));
       if (!sub) sub = { id: m[3], title: m[2], look: words, open: null, close: `<!-- /page -->${eol}`, lead: [eol], trail: [eol], items: [] }; // (a page made here: nothing in it yet)
       else if (seen.has(sub.id)) sub = clone(sub); // (its line once more — copied, duplicated: a page of its own with the same in it)
@@ -142,6 +142,10 @@
     root.byId = new Map();
     const index = (pg) => { for (const x of pg.items) if (typeof x !== "string") { root.byId.set(x.id, x); x.parent = pg; index(x); } };
     index(root);
+    // a page whose line is gone (cut, deleted) is out of the file, but not lost yet: its line may come back — pasted, or undone — and then it has its text
+    root.gone = root.gone || new Map();
+    for (const [id, x] of was) if (!root.byId.has(id)) root.gone.set(id, x);
+    for (const id of root.byId.keys()) root.gone.delete(id);
     return pagesText(root);
   }
   // the line of the file a line of the view is (0-based both)

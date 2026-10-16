@@ -57,6 +57,50 @@ const open = async (note) => {
   await untilNote(note);
 };
 
+test("two notes side by side: the one in the window scrolls down and all the way up again, in each mode", async () => {
+  const para = (n) => Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1} of ${n}, long enough to wrap a little in a half of the window: ${"words ".repeat(14)}`).join("\n\n");
+  put("Main.md", "# Main\n\n" + para("Main"));
+  put("Beside.md", "# Beside\n\n" + para("Beside"));
+  await open("Main.md");
+  await page.evaluate(() => MdPage.splitOpen({ path: MdView.core.current.path.replace(/Main\.md$/, "Beside.md") }));
+  await page.waitForFunction(() => document.body.hasAttribute("data-split") && /Beside/.test(document.querySelector("#split .split-doc")?.textContent || ""), null, { timeout: 8000 });
+  await page.waitForTimeout(900);
+  for (const mode of ["read", "active", "edit"]) {
+    await page.evaluate((m) => MdView.setMode(m), mode);
+    await page.waitForTimeout(900);
+    await page.mouse.move(300, 450);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.mouse.wheel(0, 2400);
+    await page.waitForTimeout(500);
+    const down = await page.evaluate(() => scrollY);
+    for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, -400); await page.waitForTimeout(60); }
+    await page.waitForTimeout(600);
+    assert.ok(down > 500, `${mode}: down ${down}`);
+    assert.equal(await page.evaluate(() => scrollY), 0, `${mode}: all the way up again`);
+  }
+});
+
+test("a page's line cut and pasted in the active mode: the page keeps what was on it", async () => {
+  const FILE = "# Pages\n\nintro\n\n<!-- page: Meeting -->\n\nAgenda item one\n\n<!-- /page -->\n\noutro\n";
+  put("Pages.md", FILE);
+  await open("Pages.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await page.click("#active p"); // (the intro: a click on the line of the page would open the page)
+  await page.evaluate(() => { // the line of the page, selected as a block (Esc and the arrows do it by hand)
+    const v = MdActive.view.pm; let at = -1;
+    v.state.doc.descendants((n, pos) => { if (at < 0 && /<!-- page:/.test(n.attrs && n.attrs.raw || "")) at = pos; });
+    MdActive.blocks.select(v, at);
+  });
+  assert.match(await page.evaluate(() => document.querySelector(".blk-sel")?.textContent || ""), /Meeting/);
+  await page.keyboard.press("Control+x");
+  await page.waitForTimeout(800);
+  await until(() => !/Meeting|Agenda/.test(text("Pages.md") || ""), "saved without it: the page is out of the file for a moment");
+  await page.keyboard.press("Control+v");
+  await until(() => /Agenda item one/.test(text("Pages.md") || "") && /<!-- page: Meeting -->/.test(text("Pages.md")), "the page is back, with its text");
+  assert.match(text("Pages.md"), /<!-- page: Meeting -->\n\nAgenda item one\n\n<!-- \/page -->/);
+});
+
 test("typed in the active mode: a draft at once, a commit a little later, by this browser", async () => {
   await open("Alpha.md");
   assert.equal(await page.evaluate(() => MdView.core.current.readonly), null);
