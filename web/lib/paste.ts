@@ -1,5 +1,6 @@
 // A project's pasteboard: one text for a repository, to carry something from one device to
-// another — typed or pasted on one, there on every other that shows it, at once. It is no note
+// another — typed or pasted on one, there on every other that shows it, at once. The text is
+// the page's to read (a list of blocks with their origin: overview.js); the server keeps it as it is. It is no note
 // and in no commit: the server keeps it, the one thing it keeps beside the shared notes' links
 // (lib/store.ts).
 //

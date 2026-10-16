@@ -192,7 +192,7 @@ or the tests see the old ones.
 | `src-tauri/src/history.rs` | A folder's history: a project is a folder that holds both the app's marker (.mdview/project.json) and a Git … |
 | `src-tauri/src/host.rs` | What the shell asks of the system it runs on: the clipboard, the web view's own settings, other applications. |
 | `src-tauri/src/looks.rs` | How the folders of a folder look in the sidebar — a colour, a sign — as the folder says itself, in … |
-| `src-tauri/src/paste.rs` | A project's pasteboard: one text for a project that is linked to a repository on GitHub, the same on every … |
+| `src-tauri/src/paste.rs` | A project's pasteboard: a small chat of blocks of text for a project that is linked to a repository on … |
 | `src-tauri/src/scan.rs` | What is read off the disk without a window: a folder's notes as a tree, a note's title, where a wikilink … |
 | `src-tauri/src/share.rs` | Sharing a note: a link under which anyone can read it in the web app, with a password if one is set — and … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |

@@ -240,32 +240,65 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-item.is-hidden > :is(.ov-sheet, .ov-stack, .ov-mini, .ov-text, .ov-name, .ov-sub, .ov-when) { opacity: 0.45; }
 /* the whiteboards: which of them, above the tiles */
 .ov-filter { display: flex; margin: 0 0 24px; }
-/* the pasteboard: one field as large as the window leaves room for, its buttons above it */
+/* the pasteboard: a chat of blocks of text, its buttons above and under it */
 #overview[data-scope="paste"] :is(.ov-add, .ov-more, .ov-seg, .ov-pastebtn) { display: none; } /* (a tab of its own: nothing of All Notes about it) */
 .ov-pastebtn { flex: none; align-self: center; display: grid; place-items: center; width: var(--control-height, 30px); height: var(--control-height, 30px); padding: 0; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 .ov-pastebtn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .ov-pastebtn:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
 .ov-pastebtn:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); }
-.ov-paste { display: grid; gap: 12px; }
+.ov-paste { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; height: calc(100dvh - 200px); min-height: 320px; }
+/* (a narrow window has the toolbar at its foot: the chat ends above it) */
+@media (max-width: 760px) { .ov-paste { height: calc(100dvh - 280px - env(safe-area-inset-bottom, 0px)); } }
 .ov-paste-bar { display: flex; align-items: center; gap: 8px; min-height: var(--control-height, 28px); }
 .ov-paste-bar .ov-space { flex: 1; }
-.ov-paste-bar .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
+.ov-paste .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
 .ov-paste-said { font: 400 13px/1.2 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); }
 .ov-paste-said[data-warn] { color: var(--c-red, var(--fg)); }
+/* the blocks: one under the other, the newest at the foot, like a chat */
+.ov-paste-list {
+  box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 14px;
+  border: var(--hairline); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 3%, var(--bg));
+}
+.ov-paste-empty { display: none; margin: auto; max-width: 320px; text-align: center; font: 400 13px/1.45 var(--ui); color: var(--fg2); }
+.ov-paste-list[data-empty] .ov-paste-empty { display: block; }
+.ov-pm {
+  flex: none; box-sizing: border-box; max-width: min(100%, 720px); align-self: flex-start; padding: 8px 12px 10px; border-radius: var(--radius-popover);
+  background: color-mix(in srgb, var(--fg) 7%, var(--bg)); user-select: text; -webkit-user-select: text;
+  transition: opacity var(--dur-fast) var(--ease-exit);
+}
+.ov-pm.is-mine { align-self: flex-end; background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
+.ov-pm.leaving { opacity: 0; }
+.ov-pm.entering { animation: ov-pm-in var(--dur-base) var(--ease-out); }
+@keyframes ov-pm-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .ov-pm.entering { animation-name: ov-pm-fade; } @keyframes ov-pm-fade { from { opacity: 0; } } }
+.ov-pm-meta { display: flex; align-items: center; gap: 8px; min-height: 22px; font: 400 12px/1.2 var(--ui); color: var(--fg2); }
+.ov-pm-from { font-weight: 600; }
+.ov-pm-at { flex: 1; }
+.ov-pm-copy {
+  flex: none; height: 22px; padding: 0 8px; border: 0; border-radius: var(--radius-chip); background: none; color: var(--fg2); font: inherit; cursor: default;
+  opacity: 0; transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.ov-pm:hover .ov-pm-copy, .ov-pm-copy:focus-visible { opacity: 1; }
+@media (hover: none) { .ov-pm-copy { opacity: 1; } }
+.ov-pm-copy:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.ov-pm-copy:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); }
+.ov-pm-text { margin-top: 2px; font: 400 14px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); }
+/* the field a block is made in, with its buttons */
+.ov-paste-compose { display: flex; align-items: flex-end; gap: 8px; }
 .ov-paste-text {
-  box-sizing: border-box; width: 100%; height: calc(100dvh - 250px); min-height: 240px; resize: none; margin: 0; padding: 16px 18px;
-  border: var(--hairline); border-radius: var(--radius-panel); outline: 0;
+  box-sizing: border-box; flex: 1; min-width: 0; height: 40px; max-height: 160px; resize: none; overflow-y: hidden; margin: 0; padding: 9px 14px;
+  border: var(--hairline); border-radius: var(--radius-control); outline: 0;
   background: color-mix(in srgb, var(--fg) 3%, var(--bg)); color: var(--fg);
-  font: 400 14px/1.55 var(--mono); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 400 14px/1.5 var(--mono); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere;
   user-select: text; -webkit-user-select: text;
   transition: border-color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
-/* (a narrow window has the toolbar at its foot: the field ends above it) */
-@media (max-width: 760px) { .ov-paste-text { height: calc(100dvh - 330px - env(safe-area-inset-bottom, 0px)); } }
+.ov-paste-compose .btn { height: 40px; }
 .ov-paste-text:focus { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
 .ov-paste-text::placeholder { color: var(--fg2); font-family: var(--ui); }
-/* (not read yet: the field waits, and nothing is typed into it) */
-.ov-paste:not([data-state="ok"]) :is(.ov-paste-text, .ov-paste-bar .btn) { opacity: 0.5; }
+/* (not read yet: nothing is typed into it) */
+.ov-paste:not([data-state="ok"]) :is(.ov-paste-text, .ov-paste .btn) { opacity: 0.5; }
+.ov-paste .btn:disabled { opacity: 0.4; }
 .ov-paste-none { display: none; }
 .ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > :not(.ov-paste-none) { display: none; }
 .ov-paste:is([data-state="off"], [data-state="signin"], [data-state="missing"], [data-state="unreachable"]) > .ov-paste-none { display: grid; }

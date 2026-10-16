@@ -1039,35 +1039,48 @@ Without a link, and without GitHub, everything above works as it does.
 
 ### The pasteboard
 
-A linked project has a pasteboard: one large field of text, the same on every device that shows
-the project — to carry a line, an address, a piece of code from one computer to another. It is
-no note, in no version and in no commit; the web app's server keeps it.
+A linked project has a pasteboard: a small chat of blocks of text, the same on every device that
+shows the project — to carry a line, an address, a piece of code from one computer to another. It
+is no note, in no version and in no commit; the web app's server keeps it.
 
 - **Where**: a tab of its own — the clipboard's button in All Notes' head opens it (or goes to
-  it, where it is open already), named *Pasteboard*. The field is ready to be typed into as it
-  shows; another tab takes it out of sight, its tab brings it back.
-- **Live**: what is typed or pasted is on the other devices within a moment, without anything
-  done — in the application and in the browser alike, for as long as the pasteboard is on
-  screen. The line above the field says how it stands: Sending…, or On every device.
-- **Two at once**: what two devices wrote in different places is both there. In the same place,
-  the one who wrote last has it.
-- **Paste** puts the clipboard's text in at the caret, **Copy** takes the whole field onto the
-  clipboard, **Clear** empties it — everywhere. `Ctrl+Z` in the field takes Paste and Clear back.
+  it, where it is open already), named *Pasteboard*. The field for a new block, under the blocks,
+  is ready to be typed into as it shows; another tab takes it out of sight, its tab brings it back.
+- **A block each time**: whatever is pasted is a block of its own at once — pasted into the field
+  (`Ctrl+V`, or the context menu) or with the **Paste** button (the clipboard's text). What is
+  typed becomes one with **Send** or Enter (Shift+Enter is a new line in it). The newest is at the
+  foot, as in a chat; a new one fades in, and the list follows it down unless it was scrolled up
+  to read.
+- **Where it came from**: every block says the device it was made on (the name set in Settings ›
+  History, else the computer's or the browser's own) and when — a time for today, a date and a
+  time before. What this device made stands at the right and tinted; what another made, at the
+  left. A block put there by an older version of the app, or without a device, says none.
+- **Copy on every block**: it shows when the pointer is over the block (always on a touch
+  screen) and puts that block's text, and nothing else, on the clipboard.
+- **Clear** (at the top, right) takes every block away — everywhere. A block is never changed
+  once it is made.
+- **Live**: a block is on the other devices within a moment, without anything done — in the
+  application and in the browser alike, for as long as the pasteboard is on screen. The line
+  above the blocks says how it stands: Sending…, or On every device.
+- **Two at once**: what two devices made at the same time is both there, in the order of the
+  times; a Clear on one does not take away a block another made after it.
 - **Whose it is**: the repository's. Whoever may write to it has the pasteboard; signed in with
   GitHub, in the application (Settings › History) as in the browser. A folder that is not linked
-  has none, and the page says so. It takes 200 000 characters.
-- **Without a connection** the field keeps what is typed and sends it once the server is reached
+  has none, and the page says so. It takes 200 000 characters in all: a block that would be more than that is not made (it says so).
+- **Without a connection** the blocks made keep showing and are sent once the server is reached
   again.
 - **A copy in the folder**: while the application shows the pasteboard, what stands on it is
-  written into the project as `.mdview/pasteboard.md` — as it is typed, here or elsewhere — for
+  written into the project as `.mdview/pasteboard.md` — a heading with the device and the time
+  above each block's text, the newest last, as the blocks are made, here or elsewhere — for
   who reads the folder and not the window: an agent at work in it. It is only a copy: what is
   written into the file goes nowhere, it is in no version and never sent to the repository, and
   with the pasteboard off screen it stays as it last stood. The browser keeps none.
 - **From a command line** — for an agent, or a script: `mdview paste` says what stands on the
-  pasteboard of the project it is run in, `mdview paste TEXT…` puts TEXT there in place of it,
-  `mdview paste -` takes the text from standard input, `--append` (`-a`) adds it as a new line
-  at the end, `--in FOLDER` names the project. What is written is on every device at once, as if
-  typed. `mdview paste --wait` (`-w`, with a number of seconds: 300 without, 540 at most) waits
+  pasteboard of the project it is run in (every block under its heading), `mdview paste TEXT…`
+  makes TEXT a new block after those that stand there (named for this device as "… (mdview
+  paste)"), `mdview paste -` takes the text from standard input, `--append` (`-a`) is the same,
+  `--in FOLDER` names the project. What is written is on every device at once, as if pasted.
+  `mdview paste --wait` (`-w`, with a number of seconds: 300 without, 540 at most) waits
   until something else stands there and has stood still for a moment, and says that — so an agent
   can ask for something and take it when it comes; nothing came: it ends with 3. The application does it, with its sign-in: the one that runs, or — with none running —
   one started for it, without a window. Where it cannot be done the command says why and ends

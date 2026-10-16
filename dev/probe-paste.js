@@ -19,21 +19,25 @@
     ok("All Notes has a button for the pasteboard, which is no way of showing the notes", !!btn() && !opt("paste"), document.querySelector('#overview [data-seg="scope"]').textContent);
     btn().click();
     ok("… pressed: it opens in a tab of its own", await until(() => document.querySelector("#overview").dataset.scope === "paste" && [...document.querySelectorAll("#tabs .tab .tab-label")].some((l) => l.textContent === "Pasteboard")));
-    ok("nobody signed in: it says so, and there is no field to type in", await until(() => state() === "signin") && getComputedStyle(field()).display === "none" && /Sign In/.test(box().querySelector(".ov-paste-none b").textContent), [state(), box() && box().textContent]);
+    ok("nobody signed in: it says so, and there is no field to type in", await until(() => state() === "signin") && field().getClientRects().length === 0 && /Sign In/.test(box().querySelector(".ov-paste-none b").textContent), [state(), box() && box().textContent]);
     post({ type: "github-signin" });
     // (signed in once the code is confirmed at the rig's GitHub: shown again, the pasteboard is asked for again)
     ok("signed in, it is there: empty, and ready to be typed into", await (async () => { for (let i = 0; i < 25 && state() !== "ok"; i++) { MdOverview.close(false); MdOverview.open("paste"); await until(() => state() === "ok", 10); } return state() === "ok"; })() && field().value === "" && !field().readOnly && document.activeElement === field(), [state(), document.activeElement && document.activeElement.className]);
     if (state() !== "ok") throw new Error("no pasteboard: " + state());
-    field().focus(); field().setRangeText("typed at the desk", 0, 0, "end"); field().dispatchEvent(new Event("input", { bubbles: true }));
+    const blocks = () => [...document.querySelectorAll(".ov-pm:not(.leaving)")];
     const said = () => box().querySelector(".ov-paste-said").textContent;
-    ok("typed: sent, and said so", await until(() => said() === "On every device"), said());
+    field().focus(); field().value = "typed at the desk"; field().dispatchEvent(new Event("input", { bubbles: true }));
+    field().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    ok("typed and sent: a block of its own, the field empty again", await until(() => blocks().length === 1) && blocks()[0].querySelector(".ov-pm-text").textContent === "typed at the desk" && field().value === "", field().value);
+    ok("it says where it came from and when, and is this device's", !!blocks()[0].querySelector(".ov-pm-from").textContent && !!blocks()[0].querySelector(".ov-pm-at").textContent && blocks()[0].classList.contains("is-mine"), blocks()[0].textContent);
+    ok("sent, and said so", await until(() => said() === "On every device"), said());
     post({ type: "probe", name: "paste-typed", text: "{}" });
-    ok("what another device wrote is in the field, without anything done", await until(() => field().value === "typed at the desk\nand on the laptop", 150), field().value);
-    ok("the caret stayed where it was", field().selectionStart === "typed at the desk".length, field().selectionStart);
+    ok("what another device wrote is a block here, from that device, without anything done", await until(() => blocks().length === 2 && blocks()[1].querySelector(".ov-pm-text").textContent === "and on the laptop", 150) && blocks()[1].querySelector(".ov-pm-from").textContent === "laptop" && !blocks()[1].classList.contains("is-mine"), blocks().map((b) => b.textContent));
+    ok("every block has a Copy of its own", blocks().every((b) => b.querySelector(".ov-pm-copy")));
     box().querySelector('[data-do="clear"]').click();
-    ok("Clear empties the field", field().value === "", field().value);
+    ok("Clear takes every block away", await until(() => blocks().length === 0), blocks().length);
     await until(() => said() === "On every device");
-    o.cleared = said() === "On every device" && field().value === "";
+    o.cleared = said() === "On every device" && blocks().length === 0;
     // the pasteboard is a tab: Esc in the field does not take it away (another tab, or closing its tab, does)
     field().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await sleep(400);

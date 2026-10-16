@@ -80,7 +80,7 @@ test("who waits for the next text has it as it is written — and is answered af
   assert.equal(idle.rev, rev + 1);
 });
 
-test("in its tab: typed in one window, it stands in the other — and what both wrote is both there", async () => {
+test("in its tab: a block made in one window stands in the other, with where it came from — and what both made is both there", async () => {
   const show = async () => {
     const page = await context.newPage();
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) problems.push(m.text()); });
@@ -93,24 +93,49 @@ test("in its tab: typed in one window, it stands in the other — and what both 
     return page;
   };
   const text = (p) => p.inputValue(".ov-paste-text");
+  const blocks = (p) => p.$$eval(".ov-pm:not(.leaving) .ov-pm-text", (n) => n.map((x) => x.textContent));
+  const stored = async () => JSON.parse((await now()).text).entries.map((e) => e.text);
   const a = await show(), b = await show();
-  assert.equal(await text(a), "carried over"); // (what the desktop wrote above)
+  assert.deepEqual(await blocks(a), ["carried over"]); // (what the desktop wrote above, a text of an older pasteboard: one block)
   assert.equal(await a.evaluate(() => document.activeElement.className), "ov-paste-text"); // (ready to be typed or pasted into)
-  await a.fill(".ov-paste-text", "first line\nlast line\n");
-  await until(async () => (await text(b)) === "first line\nlast line\n", "the other window has it");
+  // typed, and sent with Enter: a block, and the field is empty again; Shift+Enter is a new line
+  await a.type(".ov-paste-text", "first line");
+  await a.keyboard.press("Shift+Enter");
+  await a.keyboard.type("last line");
+  await a.keyboard.press("Enter");
+  await until(async () => (await blocks(b)).length === 2 && (await blocks(b))[1] === "first line\nlast line", "the other window has it");
+  assert.equal(await text(a), "");
   await until(async () => (await a.textContent(".ov-paste-said")) === "On every device", "said so");
-  // both at once, in different places: the first writing is taken, the second joined with it
-  await a.evaluate(() => { const t = document.querySelector(".ov-paste-text"); t.setRangeText("A ", 0, 0, "end"); t.dispatchEvent(new Event("input")); });
-  await b.evaluate(() => { const t = document.querySelector(".ov-paste-text"); t.focus(); t.setRangeText("B\n", t.value.length, t.value.length, "end"); t.dispatchEvent(new Event("input")); });
-  const both = "A first line\nlast line\nB\n";
-  await until(async () => (await text(a)) === both && (await text(b)) === both, "joined in both");
-  assert.equal((await now()).text, both);
-  assert.equal(await b.evaluate(() => document.querySelector(".ov-paste-text").selectionStart), both.length); // (the caret stayed where it was typing)
-  // Clear empties it, everywhere; the desktop's writing shows in both
+  const made = await b.$$eval(".ov-pm:not(.leaving)", (n) => n.map((x) => [x.querySelector(".ov-pm-from").textContent, x.querySelector(".ov-pm-at").textContent]));
+  assert.ok(made[1][0].length > 0 && made[1][1].length > 0, "it says where it came from, and when: " + made[1]);
+  assert.equal(made[0][0], ""); // (the older text has no origin)
+  // pasted into the field: a block of its own at once, the field stays as it was
+  await a.fill(".ov-paste-text", "a draft");
+  await a.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.setData("text/plain", "pasted line");
+    document.querySelector(".ov-paste-text").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await until(async () => (await blocks(b)).includes("pasted line"), "the pasted block in the other");
+  assert.equal(await text(a), "a draft");
+  await a.fill(".ov-paste-text", "");
+  // both at once: both blocks are there, in the same order in both windows
+  await Promise.all([a, b].map((p, i) => p.evaluate((t) => { const f = document.querySelector(".ov-paste-text"); f.value = t; f.dispatchEvent(new Event("input")); f.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })); }, i ? "from b" : "from a")));
+  await until(async () => (await blocks(a)).length === 5 && JSON.stringify(await blocks(a)) === JSON.stringify(await blocks(b)), "joined in both");
+  assert.deepEqual((await blocks(a)).slice(0, 3), ["carried over", "first line\nlast line", "pasted line"]);
+  assert.deepEqual([...(await blocks(a)).slice(3)].sort(), ["from a", "from b"]);
+  await until(async () => (await stored()).length === 5, "kept by the server");
+  // each block has a Copy of its own
+  await a.evaluate(() => { window.__copied = []; MdView.core.copy = (t) => window.__copied.push(t); });
+  await a.hover(".ov-pm:nth-of-type(3)");
+  await a.click(".ov-pm:nth-of-type(3) .ov-pm-copy");
+  assert.deepEqual(await a.evaluate(() => window.__copied), ["pasted line"]);
+  // Clear takes all of them away, everywhere; the desktop's writing shows in both
   await a.click('.ov-paste-bar [data-do="clear"]');
-  await until(async () => (await text(b)) === "", "cleared in the other");
+  await until(async () => (await blocks(b)).length === 0 && (await blocks(a)).length === 0, "cleared in both");
+  await until(async () => (await stored()).length === 0, "cleared at the server");
   await put("from the desk", (await now()).rev);
-  await until(async () => (await text(a)) === "from the desk" && (await text(b)) === "from the desk", "the desktop's text");
+  await until(async () => JSON.stringify(await blocks(a)) === '["from the desk"]' && JSON.stringify(await blocks(b)) === '["from the desk"]', "the desktop's text");
   // out of sight, it is not asked for: nothing waits at the server
   await a.click('#tabs .tab[data-path$="Alpha.md"]');
   await a.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
@@ -124,6 +149,6 @@ test("in its tab: typed in one window, it stands in the other — and what both 
   assert.deepEqual(asked, []); // (whoever waited when it went out of sight has its answer now, and does not ask again)
   assert.equal(await b.evaluate(() => MdOverview.isOpen), false); // (its tab is not the one shown)
   await b.click("#tabs .tab >> text=Pasteboard"); // (its tab again)
-  await until(async () => (await text(b)) === "unseen", "read again when shown again");
+  await until(async () => JSON.stringify(await blocks(b)) === '["unseen"]', "read again when shown again");
   assert.deepEqual(problems, []);
 });
