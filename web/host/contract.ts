@@ -167,7 +167,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   openBoardFile: ["answer", "a whiteboard that is a file of the repository, opened over the window: its row or tile was chosen, or it was just made"],
   revealRows: ["write", "rows just made — a whiteboard, what was pasted or added, a copy — brought into sight"],
   setBoards: ["answer", "the repository's whiteboards, for All Notes"],
-  pasteboard: ["answer", "the pasteboard's text and its count, a writing taken or not, or why there is none"],
+  pasteboard: ["answer", "the pasteboard's text and its count (and this device's name, for the blocks made here), a writing taken or not, or why there is none"],
   completion: ["none", "no AI in the web app"],
   graphic: ["none", "as completion"],
   graphicImage: ["none", "as completion"],

@@ -386,7 +386,9 @@ impl App {
                 }
             }
             Event::GitHub(news) => self.on_github(news),
-            Event::Paste { label, said } => {
+            Event::Paste { label, mut said } => {
+                // (what a block made here is said to come from)
+                said["device"] = json!(paste::device_name(&self.stamp().device));
                 if let Some(w) = self.wins.get(&label) {
                     w.js("MdView.pasteboard", &[said]);
                 }

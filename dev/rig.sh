@@ -30,7 +30,7 @@
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
-#   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, typed here and at the server, written there and here, cleared; its copy in the project; mdview paste
+#   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
@@ -1340,26 +1340,28 @@ PY
     app 120 MDVIEW_PROBE="$D/probe-paste.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" MDVIEW_WEB="http://127.0.0.1:$port" -- "$A"
     wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null; exit 1; }
     for _ in $(seq 400); do [[ -n $(compgen -G "$R/out/*.paste-typed.json" || compgen -G "$R/out/*.paste.json") ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/paste.png"
-    ok "what was typed here is at the server, signed with this device" '[[ $(curl "${as[@]}" "$at" | jq -r .text) == "typed at the desk" && -n $(curl "${as[@]}" "$at" | jq -r .by) ]]' 'curl "${as[@]}" "$at"'
-    ok "and in the project, as a copy for who reads the folder" '[[ $(cat "$A/.mdview/pasteboard.md") == "typed at the desk" ]]' 'ls -la "$A/.mdview"'
-    rev=$(curl "${as[@]}" "$at" | jq .rev)
-    curl "${as[@]}" -X PUT -d "{\"text\":\"typed at the desk\\nand on the laptop\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
+    # (what the server keeps is the page's list of blocks: a block is { id, text, at, from })
+    texts() { curl "${as[@]}" "$at" | jq -r '[.text | (try fromjson catch {entries: []}) | .entries[].text] | join("|")'; }
+    laptop() { local cur rev; cur=$(curl "${as[@]}" "$at"); rev=$(jq .rev <<<"$cur"); jq -c --arg t "$1" --argjson base "$rev" '{base: $base, by: "laptop", text: (((.text | (try fromjson catch {entries: []}) | .entries) + [{id: ("l" + ($base | tostring)), text: $t, at: (now | todate), from: "laptop"}]) | {v: 1, entries: .} | tojson)}' <<<"$cur" | curl "${as[@]}" -X PUT -d @- "$at" >/dev/null; }
+    ok "what was typed here is a block at the server, with this device as its origin, signed with this device" '[[ $(texts) == "typed at the desk" && -n $(curl "${as[@]}" "$at" | jq -r .by) && -n $(curl "${as[@]}" "$at" | jq -r ".text | fromjson | .entries[0].from") ]]' 'curl "${as[@]}" "$at"'
+    ok "and in the project, as a copy for who reads the folder: under a heading with its origin" '[[ $(head -1 "$A/.mdview/pasteboard.md") == "## "* && $(sed -n 3p "$A/.mdview/pasteboard.md") == "typed at the desk" ]]' 'cat "$A/.mdview/pasteboard.md"'
+    laptop "and on the laptop"
     wait_for paste 200
     ok "the copy followed: cleared, and no change of the project" '[[ -f "$A/.mdview/pasteboard.md" && ! -s "$A/.mdview/pasteboard.md" && -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'cat "$A/.mdview/pasteboard.md"; git -C "$A" status --porcelain'
     # `mdview paste` from a command line, as an agent would: handed to the running application (in its session), which is signed in
     cli() { local pid; pid=$(pgrep -f "^$APP" | head -1); env $(tr '\0' '\n' <"/proc/$pid/environ" | grep -E '^(DBUS_SESSION_BUS_ADDRESS|WAYLAND_DISPLAY|GDK_BACKEND|XDG_STATE_HOME|XDG_DATA_HOME|XDG_CACHE_HOME|MDVIEW_[A-Z_]+)=') timeout 30 "$APP" paste "$@"; }
     said=$(cd "$A" && cli from an agent 2>&1); wrote=$?
-    ok "mdview paste TEXT, run in the project: on the pasteboard, and in the copy" '[[ $wrote == 0 && $(curl "${as[@]}" "$at" | jq -r .text) == "from an agent" && $(cat "$A/.mdview/pasteboard.md") == "from an agent" ]]' 'echo "$wrote $said"; curl "${as[@]}" "$at"'
+    ok "mdview paste TEXT, run in the project: a new block on the pasteboard, from this device's command, and in the copy" '[[ $wrote == 0 && $(texts) == "from an agent" && $(curl "${as[@]}" "$at" | jq -r ".text | fromjson | .entries[0].from") == *"(mdview paste)" && $(tail -1 "$A/.mdview/pasteboard.md") == "from an agent" ]]' 'echo "$wrote $said"; curl "${as[@]}" "$at"'
     (cd / && cli --in "$A" --append "and more" 2>/dev/null); printf 'a third line' | (cd "$A" && cli -a - 2>/dev/null)
-    ok "--append adds a line, - reads the text from standard input, and bare it says what stands there" '[[ $(cd "$A" && cli) == $'"'"'from an agent\nand more\na third line'"'"' && $(curl "${as[@]}" "$at" | jq -r .text) == $'"'"'from an agent\nand more\na third line'"'"' ]]' '(cd "$A" && cli); curl "${as[@]}" "$at"'
+    ok "--append is the same, - reads the text from standard input, and bare it says the blocks that stand there" '[[ $(texts) == "from an agent|and more|a third line" && $(cd "$A" && cli | grep -c "^## ") == 3 && $(cd "$A" && cli | tail -1) == "a third line" ]]' '(cd "$A" && cli); curl "${as[@]}" "$at"'
     (cd "$A" && cli --wait 20 >"$R/out/paste-waited.txt" 2>/dev/null; echo $? >"$R/out/paste-waited.code") & waiter=$!
-    sleep 1.5; rev=$(curl "${as[@]}" "$at" | jq .rev); curl "${as[@]}" -X PUT -d "{\"text\":\"put there\",\"base\":$rev,\"by\":\"laptop\"}" "$at" >/dev/null
-    sleep 0.5; curl "${as[@]}" -X PUT -d "{\"text\":\"put there for the agent\",\"base\":$((rev + 1)),\"by\":\"laptop\"}" "$at" >/dev/null; wait $waiter
-    ok "--wait says what was put there by another device, once it stands still" '[[ $(cat "$R/out/paste-waited.code") == 0 && $(cat "$R/out/paste-waited.txt") == "put there for the agent" ]]' 'cat "$R/out/paste-waited.code" "$R/out/paste-waited.txt"'
+    sleep 1.5; laptop "put there"
+    sleep 0.5; laptop "put there for the agent"; wait $waiter
+    ok "--wait says what was put there by another device, once it stands still" '[[ $(cat "$R/out/paste-waited.code") == 0 && $(tail -1 "$R/out/paste-waited.txt") == "put there for the agent" && $(grep -c "^## laptop" "$R/out/paste-waited.txt") == 2 ]]' 'cat "$R/out/paste-waited.code" "$R/out/paste-waited.txt"'
     (cd "$A" && cli --wait 2 >/dev/null 2>&1); wrote=$?
     ok "--wait ends with 3 where nothing came" '[[ $wrote == 3 ]]' 'echo "$wrote"'
     said=$(cd "$R/out" && cli nowhere 2>&1); wrote=$?
-    ok "outside a linked project it says so, and writes nothing" '[[ $wrote == 1 && $said == *"no project"* && $(curl "${as[@]}" "$at" | jq -r .text) != nowhere ]]' 'echo "$wrote $said"'
+    ok "outside a linked project it says so, and writes nothing" '[[ $wrote == 1 && $said == *"no project"* && $(texts) != *nowhere* ]]' 'echo "$wrote $said"'
     ok "the copy is no change of the project, whatever was written" '[[ -z $(git -C "$A" status --porcelain -- .mdview/pasteboard.md) ]]' 'git -C "$A" status --porcelain'
     pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
     jq -r '.steps[], (.error // empty)' "$R/out"/*.paste.json; jq -e .pass "$R/out"/*.paste.json >/dev/null || fail=1

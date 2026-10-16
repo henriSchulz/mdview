@@ -28,9 +28,10 @@
  * of their own and those a note keeps (which no list of the folder shows): all of them, those a
  * note shows, or those none does. The application is asked for them (boards) when they are shown.
  *
- * A fourth choice is no list at all: the project's pasteboard — one large field of text, the
- * same on every device that shows the project, to carry something from one to another. What is
- * typed or pasted is there on the others within a moment; what two wrote at once is joined. The
+ * A fourth choice is no list of notes at all: the project's pasteboard — a small chat of blocks of
+ * text, the same on every device that shows the project, to carry something from one to another.
+ * What is pasted or typed is a block of its own, with where it came from and a Copy; it is there on
+ * the others within a moment, and what two wrote at once is both there. The
  * host keeps it (the web app's server: web/lib/paste.ts) and is asked for it while it shows.
  *
  * Copy, Cut, Paste and Duplicate (Ctrl+C, X, V, D) work on the tile the keyboard is on, or on
@@ -187,7 +188,7 @@
     el.dataset.scope = scope;
     pasteWatch(); // (asked for while it shows, and no longer than that)
     if (scope === "paste") {
-      // the pasteboard: one field, the same element for as long as it shows (what is typed, and where, stays) — in a tab of its own, named so
+      // the pasteboard: the same element for as long as it shows (what is typed, and the place in the list, stays) — in a tab of its own, named so
       title.textContent = T("Pasteboard");
       pressed(false); // (the house is All Notes', and this is not)
       el.querySelector(".ov-count").textContent = "";
@@ -408,49 +409,84 @@
   }
 
   // ------------------------------------------------------------ the pasteboard
-  /* One text for the project, kept by the host and the same wherever the project shows. The page
-   * knows three things of it: `base`, the text as the host last had it, `rev`, the host's count
-   * for that text, and what the field says. What the field says beyond `base` is sent a moment
-   * after the last key, naming `rev`; if the host has another rev by then it says so, with its
-   * text, and the two are joined (pasteJoin) and sent again. While the field shows, the host is
-   * asked for the next rev and answers when there is one (paste-get with wait) — so another
-   * device's writing is here as it is made. */
+  /* A small chat the project keeps for itself: what is pasted or typed is a block of its own, with
+   * the device it came from and the time, and a Copy of its own; Clear takes all of them away. The
+   * host keeps one text for the project and the same wherever the project shows (the web app's
+   * server: web/lib/paste.ts); here that text is the list of blocks (pasteEncode — a text that is
+   * no such list, as an older pasteboard has, is one block). The page knows three things of it:
+   * `base`, the blocks as the host last had them, `rev`, the host's count for them, and `mine`,
+   * what shows here. What differs from `base` is sent a moment after it was made, naming `rev`;
+   * if the host has another rev by then it says so, with its blocks, and the two lists are joined
+   * (pasteMerge: by the blocks' ids — a block added anywhere is there, one cleared stays away)
+   * and sent again. While the pasteboard shows, the host is asked for the next rev and answers
+   * when there is one (paste-get with wait) — so another device's block is here as it is made. */
   const PASTE_MAX = 200000, PASTE_QUIET = 250, PASTE_AGAIN = 3000;
   const pasteEl = document.createElement("div");
   pasteEl.className = "ov-paste";
   pasteEl.innerHTML = `<div class="ov-paste-bar"><span class="ov-paste-said" role="status"></span><span class="ov-space"></span>` +
-    [["paste", "Paste"], ["copy", "Copy"], ["clear", "Clear"]].map(([d, l]) => `<button class="btn" type="button" data-do="${d}">${esc(T(l))}</button>`).join("") + `</div>` +
-    `<textarea class="ov-paste-text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="${esc(T("Pasteboard"))}" placeholder="${esc(T("Type or paste here. It shows on every device that has this project open."))}"></textarea>` +
+    `<button class="btn" type="button" data-do="clear">${esc(T("Clear"))}</button></div>` +
+    `<div class="ov-paste-list" role="log" aria-label="${esc(T("Pasteboard"))}"><p class="ov-paste-empty">${esc(T("Nothing here yet. What is pasted or typed below shows on every device that has this project open."))}</p></div>` +
+    `<div class="ov-paste-compose"><textarea class="ov-paste-text" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="${esc(T("Pasteboard"))}" placeholder="${esc(T("Paste or type here"))}"></textarea>` +
+    [["paste", "Paste"], ["send", "Send"]].map(([d, l]) => `<button class="btn" type="button" data-do="${d}">${esc(T(l))}</button>`).join("") + `</div>` +
     `<div class="empty-state ov-paste-none"><div class="empty-icon">${ICON.copy || ""}</div><b></b><p></p></div>`;
-  const pasteText = pasteEl.querySelector("textarea"), pasteSaid = pasteEl.querySelector(".ov-paste-said");
-  const paste = { root: null, base: "", rev: -1, sent: null, gets: 0, puts: 0, timer: 0, again: 0, state: null, wants: false };
-  // where two texts differ, as one stretch: `a` from `from` to `to` is `text` in `b`
-  const pasteDiff = (a, b) => {
-    const n = Math.min(a.length, b.length);
-    let p = 0, q = 0;
-    while (p < n && a[p] === b[p]) p++;
-    while (q < n - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
-    return { from: p, to: a.length - q, text: b.slice(p, b.length - q) };
-  };
-  /* What was written here (mine) and elsewhere (theirs) since the text both began from: both, where
-   * they changed different places — else what was written here, which is sent next and so is what
-   * stands (a pasteboard has one writer at a time, nearly always: the last one has it). */
-  function pasteJoin(base, mine, theirs) {
-    if (mine === base || mine === theirs) return theirs;
-    if (theirs === base) return mine;
-    const m = pasteDiff(base, mine), t = pasteDiff(base, theirs);
-    const [a, b] = m.to <= t.from ? [m, t] : t.to <= m.from ? [t, m] : [];
-    return a ? base.slice(0, a.from) + a.text + base.slice(a.to, b.from) + b.text + base.slice(b.to) : mine;
+  const pasteText = pasteEl.querySelector("textarea"), pasteSaid = pasteEl.querySelector(".ov-paste-said"), pasteList = pasteEl.querySelector(".ov-paste-list");
+  const paste = { root: null, base: [], mine: [], rev: -1, sent: null, gets: 0, puts: 0, timer: 0, again: 0, state: null, wants: false, device: "" };
+  // the blocks as the host's text says them; an older pasteboard (one text, no list) is one block
+  function pasteDecode(text) {
+    try {
+      const o = JSON.parse(text);
+      if (o && o.v === 1 && Array.isArray(o.entries)) return o.entries.filter((e) => e && typeof e.id === "string" && typeof e.text === "string").map((e) => ({ id: e.id, text: e.text, at: typeof e.at === "string" ? e.at : "", from: typeof e.from === "string" ? e.from : "" }));
+    } catch { /* (a plain text) */ }
+    // (its id is of its text: the same on every device, and another text is another block)
+    let h = 0;
+    for (const c of String(text)) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0;
+    return String(text).trim() ? [{ id: "old-" + (h >>> 0).toString(36), text: String(text), at: "", from: "" }] : [];
   }
-  // the field says something else: the caret and the selection stay with the text they were in
-  function pasteShow(text) {
-    const was = pasteText.value;
-    if (was === text) return;
-    const d = pasteDiff(was, text), move = (c) => (c <= d.from ? c : c >= d.to ? c + text.length - was.length : d.from + d.text.length);
-    const from = move(pasteText.selectionStart), to = move(pasteText.selectionEnd), y = pasteText.scrollTop;
-    pasteText.value = text;
-    if (document.activeElement === pasteText) pasteText.setSelectionRange(from, to);
-    pasteText.scrollTop = y;
+  const pasteEncode = (list) => JSON.stringify({ v: 1, entries: list });
+  const pasteSame = (a, b) => a.length === b.length && a.every((e, i) => e.id === b[i].id);
+  /* What was made here (mine) and elsewhere (theirs) since the blocks both began from: all of
+   * them — a block that is in `theirs` or was made here, none that was cleared here — in the order of
+   * their times (blocks made at the same moment stay as they stood). */
+  function pasteMerge(base, mine, theirs) {
+    const had = new Set(base.map((e) => e.id)), has = new Set(mine.map((e) => e.id)), there = new Set(theirs.map((e) => e.id));
+    const out = theirs.filter((e) => !had.has(e.id) || has.has(e.id));
+    for (const e of mine) if (!had.has(e.id) && !there.has(e.id)) out.push(e);
+    return out.map((e, i) => [e, i]).sort(([a, i], [b, j]) => (a.at < b.at ? -1 : a.at > b.at ? 1 : i - j)).map(([e]) => e);
+  }
+  const pasteWhen = (at) => {
+    const d = new Date(at);
+    if (!at || isNaN(d)) return "";
+    const day = d.toDateString() === new Date().toDateString();
+    return day ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+  // the list on the screen says what `mine` says: a block keeps its element, one new fades in, one cleared fades out
+  function pasteDraw() {
+    const near = pasteList.scrollHeight - pasteList.scrollTop - pasteList.clientHeight < 48, first = !pasteList.querySelector(".ov-pm");
+    const there = new Map([...pasteList.querySelectorAll(".ov-pm:not(.leaving)")].map((n) => [n.dataset.id, n]));
+    let grew = false, prev = null;
+    for (const e of paste.mine) {
+      let n = there.get(e.id);
+      if (!n) {
+        n = document.createElement("div");
+        n.className = "ov-pm";
+        n.dataset.id = e.id;
+        n.innerHTML = `<div class="ov-pm-meta"><span class="ov-pm-from"></span><span class="ov-pm-at"></span><button class="ov-pm-copy" type="button"></button></div><div class="ov-pm-text"></div>`;
+        n.querySelector(".ov-pm-from").textContent = e.from;
+        n.querySelector(".ov-pm-at").textContent = pasteWhen(e.at);
+        n.querySelector(".ov-pm-copy").textContent = T("Copy");
+        n.querySelector(".ov-pm-text").textContent = e.text;
+        n.classList.toggle("is-mine", !!e.from && e.from === paste.device);
+        if (!first) n.classList.add("entering");
+        grew = true;
+      }
+      there.delete(e.id);
+      const at = prev ? prev.nextElementSibling : pasteList.querySelector(".ov-pm");
+      if (at !== n) pasteList.insertBefore(n, at);
+      prev = n;
+    }
+    for (const n of there.values()) { n.classList.add("leaving"); setTimeout(() => n.remove(), 200); }
+    pasteList.toggleAttribute("data-empty", !paste.mine.length);
+    if (grew && (near || first)) requestAnimationFrame(() => { pasteList.scrollTop = pasteList.scrollHeight; });
   }
   const PASTE_WHY = {
     off: ["No Pasteboard Yet", "A pasteboard belongs to a project that is linked to a repository on GitHub: Settings › History."],
@@ -470,10 +506,12 @@
     }
     pasteTell();
   }
+  const pasteDirty = () => !pasteSame(paste.mine, paste.base);
   function pasteTell() {
-    const large = pasteText.value.length > PASTE_MAX;
-    pasteSaid.textContent = paste.state !== "ok" ? "" : large ? T("Too long to send: a pasteboard takes {0} characters", PASTE_MAX.toLocaleString()) : paste.sent != null || pasteText.value !== paste.base ? T("Sending…") : T("On every device");
+    const large = pasteEncode(paste.mine).length > PASTE_MAX;
+    pasteSaid.textContent = paste.state !== "ok" ? "" : large ? T("Too long to send: a pasteboard takes {0} characters", PASTE_MAX.toLocaleString()) : paste.sent != null || pasteDirty() ? T("Sending…") : T("On every device");
     pasteSaid.toggleAttribute("data-warn", large);
+    pasteEl.querySelector('[data-do="clear"]').disabled = !paste.mine.length;
   }
   const pasteShown = () => isOpen() && scope === "paste" && !document.hidden && !!core.folder;
   function pasteAsk() {
@@ -487,9 +525,10 @@
     const root = core.folder ? core.folder.root : null;
     if (paste.root !== root) {
       clearTimeout(paste.timer);
-      Object.assign(paste, { root, base: "", rev: -1, sent: null, wants: false });
+      Object.assign(paste, { root, base: [], mine: [], rev: -1, sent: null, wants: false });
       paste.gets++; paste.puts++; // (answers still on their way are another folder's)
       pasteText.value = "";
+      pasteDraw();
       pasteState("");
     }
     const wants = pasteShown();
@@ -499,25 +538,28 @@
   }
   function pasteSend() {
     clearTimeout(paste.timer);
-    const text = pasteText.value;
-    if (paste.sent != null || paste.rev < 0 || paste.state !== "ok" || text === paste.base || text.length > PASTE_MAX) return pasteTell();
-    paste.sent = text;
+    if (paste.sent != null || paste.rev < 0 || paste.state !== "ok" || !pasteDirty()) return pasteTell();
+    const text = pasteEncode(paste.mine);
+    if (text.length > PASTE_MAX) return pasteTell();
+    paste.sent = paste.mine;
     post("paste-put", { n: ++paste.puts, text, base: paste.rev });
     pasteTell();
   }
   const pasteSoon = (ms = PASTE_QUIET) => { clearTimeout(paste.timer); paste.timer = setTimeout(pasteSend, ms); pasteTell(); };
-  // the host's text is another: joined with what the field says, and what the field then says beyond it is sent
+  // the host's blocks are others: joined with what shows here, and what shows beyond them is sent
   function pasteTake(m) {
-    const theirs = String(m.text ?? ""), joined = pasteJoin(paste.base, pasteText.value, theirs);
+    const theirs = pasteDecode(String(m.text ?? "")), joined = pasteMerge(paste.base, paste.mine, theirs);
     paste.base = theirs;
     paste.rev = m.rev;
-    pasteShow(joined);
-    if (joined !== theirs) pasteSoon(0); else pasteTell();
+    paste.mine = joined;
+    pasteDraw();
+    if (!pasteSame(joined, theirs)) pasteSoon(0); else pasteTell();
   }
   /* The host's answer — to a writing (put: taken as rev, or not, with what stands there instead),
    * or to the asking: the text, or why there is none (error). */
   function pasteboard(m) {
     if (!m) return;
+    if (m.device) paste.device = m.device;
     if (m.put) {
       if (m.n !== paste.puts || paste.sent == null) return;
       const sent = paste.sent;
@@ -525,7 +567,7 @@
       if (m.error === "large") { core.toast(T("Too long for the pasteboard")); return pasteTell(); }
       if (m.error) { pasteSoon(PASTE_AGAIN); return; } // (not reached: again in a while — the asking says so if it stays that way)
       if (typeof m.text === "string") pasteTake(m);
-      else { paste.base = sent; paste.rev = m.rev; if (pasteText.value !== sent) pasteSoon(); else pasteTell(); }
+      else { paste.base = sent; paste.rev = m.rev; if (!pasteSame(paste.mine, sent)) pasteSoon(); else pasteTell(); }
       pasteAsk(); // (from the rev that stands now)
       return;
     }
@@ -541,29 +583,59 @@
     if (m.rev !== paste.rev) pasteTake(m);
     pasteAsk();
   }
-  // typed text put where the caret is, as if typed (so that Undo takes it back)
-  function pasteType(text) {
-    pasteText.focus({ preventScroll: true });
-    let done = false;
-    try { done = text ? document.execCommand("insertText", false, text) : document.execCommand("delete"); } catch { /* (not here) */ }
-    if (!done) { pasteText.setRangeText(text, pasteText.selectionStart, pasteText.selectionEnd, "end"); pasteSoon(); }
+  const pasteId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  // a block of its own, at the end, sent at once — what was made here has this device for its origin
+  function pasteAdd(text) {
+    if (paste.state !== "ok" || !String(text).trim()) return false;
+    const list = [...paste.mine, { id: pasteId(), text: String(text), at: new Date().toISOString(), from: paste.device }];
+    if (pasteEncode(list).length > PASTE_MAX) { core.toast(T("Too long for the pasteboard")); return false; }
+    paste.mine = list;
+    pasteDraw();
+    pasteSoon(0);
+    return true;
+  }
+  const pasteGrow = () => {
+    pasteText.style.height = "auto";
+    pasteText.style.height = Math.max(40, Math.min(pasteText.scrollHeight, 160)) + "px";
+    pasteText.style.overflowY = pasteText.scrollHeight > 160 ? "auto" : "hidden";
+  };
+  function pasteCompose() {
+    if (pasteAdd(pasteText.value)) { pasteText.value = ""; pasteGrow(); }
   }
   let pasteAsked = false;
   /* The clipboard's text, asked of the host for the Paste button (viewer.js: pasteText). → whether it was the pasteboard's. */
   function pasted(r) {
     if (!pasteAsked) return false;
     pasteAsked = false;
-    if (pasteShown() && paste.state === "ok" && typeof r.text === "string" && r.text) pasteType(r.text);
+    if (pasteShown() && typeof r.text === "string") pasteAdd(r.text);
     return true;
   }
-  pasteText.addEventListener("input", () => pasteSoon());
+  pasteText.addEventListener("input", pasteGrow);
+  // what is pasted into the field is a block of its own at once; what is typed is one when it is sent (Enter; Shift+Enter is a new line)
+  pasteText.addEventListener("paste", (e) => {
+    const text = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+    if (!text || paste.state !== "ok") return;
+    e.preventDefault();
+    pasteAdd(text);
+  });
+  pasteText.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+    e.preventDefault();
+    pasteCompose();
+  });
   pasteText.addEventListener("blur", pasteSend);
-  pasteEl.querySelector(".ov-paste-bar").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-do]");
+  pasteEl.addEventListener("click", (e) => {
+    const copy = e.target.closest(".ov-pm-copy");
+    if (copy) {
+      const text = (paste.mine.find((x) => x.id === copy.closest(".ov-pm").dataset.id) || {}).text;
+      if (text != null) { core.copy(text); core.toast(T("Copied")); }
+      return;
+    }
+    const b = e.target.closest(".ov-paste-bar [data-do], .ov-paste-compose [data-do]");
     if (!b || paste.state !== "ok") return;
-    if (b.dataset.do === "copy") { core.copy(pasteText.value); core.toast(T("Copied")); }
-    else if (b.dataset.do === "paste") { pasteAsked = true; post("pastetext"); }
-    else if (pasteText.value) { pasteText.select(); pasteType(""); pasteSend(); }
+    if (b.dataset.do === "paste") { pasteAsked = true; post("pastetext"); }
+    else if (b.dataset.do === "send") { pasteCompose(); pasteText.focus({ preventScroll: true }); }
+    else if (paste.mine.length) { paste.mine = []; pasteDraw(); pasteSoon(0); }
   });
   document.addEventListener("visibilitychange", pasteWatch);
 
@@ -783,5 +855,5 @@
     picked.clear();
     rebuild();
   }
-  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteJoin, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
+  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();

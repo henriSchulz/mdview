@@ -1072,13 +1072,15 @@
     },
 
     /* The project's pasteboard (overview.js), kept by the server (lib/paste.ts): what stands there
-     * — with wait, answered only once it is another text than the page has — and a writing. */
+     * — with wait, answered only once it is another text than the page has — and a writing. The
+     * text is the page's own (the list of blocks, overview.js); the device is what a block made
+     * here is said to come from. */
     async "paste-get"({ n, rev, wait }) {
       try {
         const res = await ask(`${PASTE}?rev=${Number(rev) || 0}${wait ? "&wait=1" : ""}`);
         if (!res.ok) return tell("pasteboard", { n, error: res.status === 404 ? "missing" : "unreachable" });
         const now = await res.json();
-        tell("pasteboard", { n, text: now.text, rev: now.rev });
+        tell("pasteboard", { n, text: now.text, rev: now.rev, device: device.name });
       } catch { tell("pasteboard", { n, error: "unreachable" }); }
     },
     async "paste-put"({ n, text, base }) {
@@ -1086,7 +1088,7 @@
         const res = await ask(PASTE, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, base, by: device.name }) });
         if (!res.ok && res.status !== 409) return tell("pasteboard", { put: true, n, error: res.status === 413 ? "large" : "unreachable" });
         const now = await res.json();
-        tell("pasteboard", res.ok ? { put: true, n, rev: now.rev } : { put: true, n, text: now.text, rev: now.rev });
+        tell("pasteboard", res.ok ? { put: true, n, rev: now.rev, device: device.name } : { put: true, n, text: now.text, rev: now.rev, device: device.name });
       } catch { tell("pasteboard", { put: true, n, error: "unreachable" }); }
     },
 

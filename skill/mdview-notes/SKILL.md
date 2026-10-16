@@ -241,30 +241,31 @@ Say afterwards what was kept and whether it went over (the commit, and "pushed" 
 
 ## The pasteboard
 
-A project linked to GitHub has a pasteboard (All Notes › Pasteboard): one text, the same on every
-device that shows the project. It is no note and in no version. Between Henri and you it is the
+A project linked to GitHub has a pasteboard (All Notes › Pasteboard): a small chat of blocks of text,
+the same on every device that shows the project; each block names the device it came from and the
+time. It is no note and in no version. Between Henri and you it is the
 way to hand over what is awkward in the chat — a long log, several addresses, a piece of code,
 text from his phone or another computer — in both directions. Use it without being asked to when
 the work calls for it.
 
 | Want | Run, in the project's folder (or with `--in FOLDER`) |
 |---|---|
-| what stands there | `mdview paste` |
+| what stands there (every block under a `## device · time` heading, the newest last) | `mdview paste` |
 | wait for Henri to put something there | `mdview paste --wait` (300 s; `--wait 540` at most) |
-| add a line at the end | `mdview paste --append TEXT…` |
-| put a text in place of what stands there | `mdview paste TEXT…`, or `… \| mdview paste -` for many lines |
+| add a block at the end | `mdview paste TEXT…`, or `… \| mdview paste -` for many lines (`--append` is the same) |
 
 - **Taking something from Henri.** When you need material from him — more than a line, or
   several things — ask for it in one sentence that names what you need and says "put it on the
-  pasteboard", and run `mdview paste --wait` in the same turn. It returns the text once it has
-  stood still for a moment, so something typed arrives whole. It ends with 3 when nothing came:
-  wait once more, then say that you are waiting and stop. An empty answer means he cleared it;
-  wait again. Take what you need out of the text and go on with the work — do not repeat it back.
+  pasteboard", and run `mdview paste --wait` in the same turn. It returns the blocks once
+  something new has stood still for a moment, so something typed arrives whole; what he put there
+  is the last block (or the last ones). It ends with 3 when nothing came: wait once more, then say
+  that you are waiting and stop. An empty answer means he cleared it; wait again. Take what you
+  need out of it and go on with the work — do not repeat it back.
 - **Giving something to Henri.** What he will copy elsewhere — a command, an address, a
   configuration, a list of results — goes on the pasteboard, and you tell him in one line that it
-  is there and what it is. Read first: if something of his stands there, `--append`; replace only
-  what you put there yourself or what he said may go.
-- While the app shows the pasteboard the same text is in `.mdview/pasteboard.md` — a copy for
+  is there and what it is. It is a block of its own, after
+  his; nothing of his is replaced.
+- While the app shows the pasteboard the same blocks are in `.mdview/pasteboard.md` — a copy for
   reading; writing to that file changes nothing.
 - The command ends with 1 and says why where it cannot: no linked project, nobody signed in, no
   connection. Then ask for the material in the chat instead.

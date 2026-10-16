@@ -1,15 +1,18 @@
-//! A project's pasteboard: one text for a project that is linked to a repository on GitHub, the
-//! same on every device that shows it — to carry something from one to another. It is no file
+//! A project's pasteboard: a small chat of blocks of text for a project that is linked to a
+//! repository on GitHub, the same on every device that shows it — to carry something from one to
+//! another. Each block says where it came from (the device) and when. It is no file
 //! and in no version: the web app's server keeps it (web/lib/paste.ts), and the page asks for
 //! it and writes it through here (overview.js: paste-get, paste-put). The server knows the
-//! application by the token of its sign-in with GitHub, which it asks GitHub about.
+//! application by the token of its sign-in with GitHub, which it asks GitHub about. What the server
+//! keeps is one text, which is the page's to read: the list of blocks as JSON (`entries`,
+//! `encode`) — a text that is no such list, as an older pasteboard has, is one block.
 //!
 //! Every asking is a thread of its own — one that waits for the next text may wait half a
 //! minute — and its answer comes back as an event, for the window that asked.
 //!
 //! What the server says stands on the pasteboard is written into the project as well
-//! (.mdview/pasteboard.md), for who reads the folder and not the window — an agent at work in
-//! it. A copy: nothing reads it back, and the history leaves it out (.git/info/exclude).
+//! (.mdview/pasteboard.md, the blocks as Markdown: `render`), for who reads the folder and not the
+//! window — an agent at work in it. A copy: nothing reads it back, and the history leaves it out (.git/info/exclude).
 //!
 //! `mdview paste` reads and writes it from a command line (cli). Who is signed in is known to
 //! the running application alone, so the command hands what it wants to that one (a second
@@ -80,6 +83,43 @@ fn leave_out(root: &Path) -> std::io::Result<()> {
     fs::write(&list, format!("{now}{}{LEFT_OUT}\n", if now.is_empty() || now.ends_with('\n') { "" } else { "\n" }))
 }
 
+/// The blocks a pasteboard's text says: each `{ id, text, at, from }`.
+pub fn entries(text: &str) -> Vec<Value> {
+    if let Ok(Value::Object(o)) = serde_json::from_str::<Value>(text) {
+        if let (Some(1), Some(list)) = (o.get("v").and_then(Value::as_u64), o.get("entries").and_then(Value::as_array)) {
+            return list.iter().filter(|e| e["id"].is_string() && e["text"].is_string()).cloned().collect();
+        }
+    }
+    if text.trim().is_empty() {
+        vec![]
+    } else {
+        vec![json!({ "id": "first", "text": text, "at": "", "from": "" })]
+    }
+}
+
+/// The text the server keeps for these blocks.
+pub fn encode(list: &[Value]) -> String {
+    json!({ "v": 1, "entries": list }).to_string()
+}
+
+/// The blocks as Markdown, for who reads the folder: a heading with the device and the time, then the text.
+pub fn render(list: &[Value]) -> String {
+    let one = |e: &Value| {
+        let (from, at) = (e["from"].as_str().unwrap_or(""), e["at"].as_str().unwrap_or(""));
+        let at = at.get(..16).map(|t| format!("{} UTC", t.replace('T', " "))).unwrap_or_default();
+        let head = [from, at.as_str()].iter().filter(|p| !p.is_empty()).copied().collect::<Vec<_>>().join(" · ");
+        let text = e["text"].as_str().unwrap_or("");
+        if head.is_empty() { text.to_string() } else { format!("## {head}\n\n{text}") }
+    };
+    let all = list.iter().map(one).collect::<Vec<_>>().join("\n\n");
+    if all.is_empty() || all.ends_with('\n') { all } else { all + "\n" }
+}
+
+/// The name of a device without the id its stamp ends with: "laptop (3f2a…)" → "laptop".
+pub fn device_name(stamp: &str) -> &str {
+    stamp.rsplit_once(" (").filter(|(_, id)| id.ends_with(')')).map_or(stamp, |(name, _)| name)
+}
+
 fn url(at: &(String, String)) -> String {
     format!("{}/paste/{}/{}", share::web(), crate::scan::quote(&at.0), crate::scan::quote(&at.1))
 }
@@ -100,7 +140,7 @@ fn refused(e: ureq::Error) -> Value {
 /// is that it was taken (and names no text of its own).
 fn copy(root: &Path, said: &Value, put: Option<&str>) {
     if let (Some(text), Some(rev)) = (said["text"].as_str().or(put), said["rev"].as_u64()) {
-        keep(root, text, rev);
+        keep(root, &render(&entries(text)), rev);
     }
 }
 
@@ -154,17 +194,17 @@ pub fn put(tx: Sender<Event>, label: String, n: Value, root: PathBuf, at: (Strin
 /// before to be taken up again.
 pub static STARTED: LazyLock<Instant> = LazyLock::new(Instant::now);
 
-const HELP: &str = "mdview paste                 what stands on the project's pasteboard
-mdview paste TEXT…           TEXT put there, in place of what stands there
+const HELP: &str = "mdview paste                 what stands on the project's pasteboard: its blocks, each with its device and time
+mdview paste TEXT…           TEXT put there as a new block, after those that stand there
 mdview paste -               the same, the text read from standard input
-mdview paste --append TEXT…  TEXT added as a new line at its end (-a)
+mdview paste --append TEXT…  the same (-a)
 mdview paste --wait [SECS]   waits until something else stands there, and says that (-w; 300 seconds
                              without a number, 540 at most; ends with 3 where nothing came)
 mdview paste --in FOLDER …   the pasteboard of the project FOLDER is in (without: the folder this is run in)
 
 The project has to be linked to a repository on GitHub, and Markdown Notes signed in with it
 (Settings › History). While the application shows the pasteboard, what stands on it is in the
-project as well: .mdview/pasteboard.md.";
+project as well: .mdview/pasteboard.md (the blocks, each under a heading with its device and time).";
 
 /// What a command line asked for, as the application is handed it:
 /// `paste-for REPLY FOLDER read|write|append|wait [TEXTFILE|SECONDS]`.
@@ -172,7 +212,6 @@ pub struct Asked {
     pub reply: PathBuf,
     pub folder: PathBuf,
     text: Option<PathBuf>,
-    append: bool,
     wait: Option<u64>,
 }
 
@@ -181,7 +220,7 @@ impl Asked {
         let [reply, folder, what, rest @ ..] = args else { return None };
         let text = rest.first().map(PathBuf::from).filter(|_| what == "write" || what == "append");
         let wait = rest.first().and_then(|secs| secs.parse().ok()).filter(|_| what == "wait");
-        (what == "read" || text.is_some() || wait.is_some()).then(|| Asked { reply: reply.into(), folder: folder.into(), text, append: what == "append", wait })
+        (what == "read" || text.is_some() || wait.is_some()).then(|| Asked { reply: reply.into(), folder: folder.into(), text, wait })
     }
 }
 
@@ -189,10 +228,6 @@ impl Asked {
 pub fn answer(reply: &Path, said: &Value) {
     let part = reply.with_extension("part");
     let _ = fs::write(&part, said.to_string()).and_then(|()| fs::rename(&part, reply));
-}
-
-fn joined(now: &str, more: &str) -> String {
-    format!("{now}{}{more}", if now.is_empty() || now.ends_with('\n') { "" } else { "\n" })
 }
 
 /// Waited until another text stands on the pasteboard than `now`, and for that one to stand still
@@ -246,7 +281,9 @@ pub fn command(asked: Asked, root: PathBuf, at: (String, String), token: String,
                         said = now;
                         break;
                     };
-                    let text = if asked.append { joined(there, &new) } else { new.clone() };
+                    let mut list = entries(there);
+                    list.push(json!({ "id": uuid::Uuid::new_v4().to_string(), "text": new, "at": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true), "from": format!("{} (mdview paste)", device_name(&by)) }));
+                    let text = encode(&list);
                     said = write(&at, &token, &text, rev, &by);
                     copy(&root, &said, Some(&text));
                     if !said["text"].is_string() {
@@ -373,7 +410,7 @@ pub fn cli(args: &[String]) -> i32 {
         return 1;
     }
     match text {
-        None => print!("{}", said["text"].as_str().unwrap_or("")),
+        None => print!("{}", render(&entries(said["text"].as_str().unwrap_or("")))),
         Some(_) => eprintln!("On the pasteboard of {}.", said["repo"].as_str().unwrap_or("")),
     }
     0
@@ -410,14 +447,27 @@ mod tests {
     fn what_a_command_line_hands_over_is_understood() {
         let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         let read = Asked::of(&args(&["/run/r.json", "/notes", "read"])).unwrap();
-        assert!(read.text.is_none() && !read.append && read.folder == Path::new("/notes") && read.reply == Path::new("/run/r.json"));
+        assert!(read.text.is_none() && read.folder == Path::new("/notes") && read.reply == Path::new("/run/r.json"));
         let add = Asked::of(&args(&["/run/r.json", "/notes", "append", "/run/r.text"])).unwrap();
-        assert!(add.append && add.text.as_deref() == Some(Path::new("/run/r.text")));
-        assert!(!Asked::of(&args(&["/run/r.json", "/notes", "write", "/run/r.text"])).unwrap().append);
+        assert!(add.text.as_deref() == Some(Path::new("/run/r.text")));
+        assert!(Asked::of(&args(&["/run/r.json", "/notes", "write", "/run/r.text"])).unwrap().text.is_some());
         let wait = Asked::of(&args(&["/run/r.json", "/notes", "wait", "120"])).unwrap();
         assert!(wait.wait == Some(120) && wait.text.is_none() && read.wait.is_none() && add.wait.is_none());
         assert!(Asked::of(&args(&["/run/r.json", "/notes", "wait"])).is_none());
         assert!(Asked::of(&args(&["/run/r.json", "/notes", "write"])).is_none() && Asked::of(&args(&["/run/r.json"])).is_none());
-        assert_eq!((joined("", "b"), joined("a", "b"), joined("a\n", "b")), ("b".to_string(), "a\nb".to_string(), "a\nb".to_string()));
+    }
+
+    #[test]
+    fn the_blocks_are_read_written_and_shown() {
+        // an older pasteboard (a plain text) is one block, nothing is one none
+        assert_eq!(entries("carried\nover")[0]["text"], "carried\nover");
+        assert!(entries("").is_empty() && entries(" \n").is_empty());
+        let list = vec![json!({ "id": "a", "text": "one", "at": "2026-10-16T14:32:05.000Z", "from": "laptop" }), json!({ "id": "b", "text": "two\n", "at": "", "from": "" })];
+        assert_eq!(entries(&encode(&list)), list);
+        // (a text that only looks like a list of blocks is one block)
+        assert_eq!(entries("{\"v\":2}").len(), 1);
+        assert_eq!(render(&list), "## laptop · 2026-10-16 14:32 UTC\n\none\n\ntwo\n");
+        assert_eq!(render(&[]), "");
+        assert_eq!((device_name("laptop (3f2a)"), device_name("my (odd) pc (3f2a)"), device_name("plain")), ("laptop", "my (odd) pc", "plain"));
     }
 }
