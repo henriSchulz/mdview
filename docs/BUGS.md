@@ -233,6 +233,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
     the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
 
+66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
+    sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the
+    letters arrive as text and work, but for Backspace, Delete, the arrows, Home and End WebKit does
+    nothing. A key that is not text and that the page must act on cannot rest on the browser's
+    default: `viewer/toolbar.js` (`OUTSIDE`) does these after the editor had its say, where `e.code`
+    is not `e.key`. A new key of that kind — a probe with real keys (`rig.sh backspace`) says whether
+    it is one.
+
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
 19. **Desktop is `window.__TAURI_INTERNALS__`**, not the absence of something the web host sets

@@ -269,6 +269,42 @@
   }
   // what of the page follows the settings: the order of the notes, the width of the text column
 
+  /* Keys from a virtual keyboard — `wtype`, a phone's screen mirror — come with a hardware key that is not theirs (all of them with the
+   * one of Escape), and then WebKit does nothing for those that are no text: Backspace, Delete, the arrows left and right, Home and
+   * End. (The letters arrive as text, and work.) Such a key is known by its code not being its key; what the browser would have
+   * done with it is done here — after the editor had its say, and only where one can write. */
+  const OUTSIDE = new Set(["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Home", "End"]);
+  const wordBefore = (v, at) => { let i = at; while (i > 0 && /\s/.test(v[i - 1])) i--; while (i > 0 && !/\s/.test(v[i - 1])) i--; return i; };
+  const wordAfter = (v, at) => { let i = at; while (i < v.length && /\s/.test(v[i])) i++; while (i < v.length && !/\s/.test(v[i])) i++; return i; };
+  document.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented || e.isComposing || !OUTSIDE.has(e.key) || e.code === e.key || e.altKey || e.metaKey) return;
+    const t = e.target, field = t && (t.localName === "textarea" || (t.localName === "input" && /^(|text|search|url|email|password)$/.test(t.type)));
+    if (!field && !(t && t.isContentEditable)) return;
+    const del = e.key === "Backspace" || e.key === "Delete", back = e.key === "Backspace" || e.key === "ArrowLeft" || e.key === "Home", word = e.ctrlKey && !/^(Home|End)$/.test(e.key);
+    if (del && (t.readOnly || (!field && !t.isContentEditable))) return;
+    e.preventDefault();
+    if (field) {
+      const v = t.value, a = t.selectionStart, b = t.selectionEnd, dir = t.selectionDirection === "backward" ? "backward" : "forward", focus = dir === "backward" ? a : b;
+      const to = (at) => (e.key === "Home" ? v.lastIndexOf("\n", at - 1) + 1 : e.key === "End" ? (v.indexOf("\n", at) < 0 ? v.length : v.indexOf("\n", at)) : back ? (word ? wordBefore(v, at) : Math.max(0, at - ((v.charCodeAt(at - 1) & 0xfc00) === 0xdc00 ? 2 : 1))) : word ? wordAfter(v, at) : Math.min(v.length, at + ((v.charCodeAt(at) & 0xfc00) === 0xd800 ? 2 : 1)));
+      if (del) {
+        if (a === b) t.setSelectionRange(back ? to(a) : a, back ? a : to(a));
+        document.execCommand("delete");
+      } else if (e.shiftKey) {
+        const anchor = dir === "backward" ? b : a, now = to(focus);
+        t.setSelectionRange(Math.min(anchor, now), Math.max(anchor, now), now < anchor ? "backward" : "forward");
+      } else {
+        const now = a !== b && !word && !/^(Home|End)$/.test(e.key) ? (back ? a : b) : to(back ? a : b);
+        t.setSelectionRange(now, now);
+      }
+      return;
+    }
+    const sel = getSelection();
+    if (del) {
+      if (sel.isCollapsed && word) sel.modify("extend", back ? "backward" : "forward", "word");
+      document.execCommand(back ? "delete" : "forwardDelete");
+    } else sel.modify(e.shiftKey ? "extend" : "move", back ? "backward" : "forward", /^(Home|End)$/.test(e.key) ? "lineboundary" : word ? "word" : "character");
+  });
+
   // what the page's other files use of this one
   Object.assign(P, { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
