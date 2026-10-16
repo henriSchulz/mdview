@@ -141,8 +141,11 @@ test("a token about to end is renewed, and the sign-in goes on", async () => {
   gh.lifetime = 28800;
   const was = b.jar.get("mdview"), first = gh.validRefresh;
   const home = await b.go("/");
-  assert.equal(home.to, base + "/auth/renew?next=%2F"); // (a page cannot write the cookie: the route does)
-  const renewed = await b.go(home.to);
+  // (a page cannot write the cookie: the route does — and until the browser is there, the page shows the ring, not nothing)
+  assert.equal(home.status, 200);
+  assert.match(home.text, /<meta http-equiv="refresh" content="0;url=\/auth\/renew\?next=%2F"/);
+  assert.match(home.text, /class="boot-ring"/);
+  const renewed = await b.go("/auth/renew?next=%2F");
   assert.equal(renewed.to, base + "/");
   assert.notEqual(b.jar.get("mdview"), was);
   assert.equal(gh.refreshes, 1);

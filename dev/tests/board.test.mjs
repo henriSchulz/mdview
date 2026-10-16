@@ -108,9 +108,29 @@ test("a marker's stroke ends flat, a stroke made straight keeps its corners — 
   const text = F.write(model), back = F.parse(text);
   assert.deepEqual(plain(back.items.map((it) => [it.t, it.o, !!it.sharp])), [["marker", 0.4, false], ["mono", 1, true]]);
   const svg = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement;
-  assert.deepEqual([svg.querySelector("#aaaaaaa1").getAttribute("stroke-linecap"), svg.querySelector("#aaaaaaa1").getAttribute("opacity")], ["butt", "0.4"]);
+  assert.deepEqual([svg.querySelector("#aaaaaaa1").getAttribute("fill"), svg.querySelector("#aaaaaaa1").getAttribute("stroke"), svg.querySelector("#aaaaaaa1").getAttribute("opacity")], ["#f2b90f", null, "0.4"]); // (what its tip sweeps, filled: no line with ends of its own)
   assert.equal(svg.querySelector("#aaaaaaa2").getAttribute("d"), "M0 0L100 0L100 60L0 60Z");
   assert.equal(F.write(F.parse(F.write(back))), F.write(back));
+});
+
+test("a marker's tip is a chisel held one way: a line ends upright and flat, whichever way the hand turned at its end", () => {
+  const R = B.render;
+  const o = (pts) => R.outline({ k: "ink", t: "marker", w: 20, o: 0.4, c: "#f2b90f", pts: pts.map(([x, y]) => [x, y, 0.5, 0]) });
+  // a straight line right: a bar as high as the marker is wide, its ends upright
+  const bar = o([[0, 0], [100, 0]]);
+  assert.equal(bar.stroke, 0);
+  const xy = (d) => [...d.matchAll(/(-?[\d.]+) (-?[\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  const ends = xy(bar.d);
+  assert.deepEqual([Math.min(...ends.map((p) => p[1])), Math.max(...ends.map((p) => p[1]))], [-10, 10]);
+  assert.deepEqual([...new Set(ends.map((p) => p[0]))].sort((a, b) => a - b), [-3, 103]);
+  // … a flick down at its end: the end is still upright — no point of the last piece lies beyond the tip's own edge, and the edge is a vertical one
+  const flick = xy(o([[0, 0], [100, 0], [112, 30]]).d);
+  const right = Math.max(...flick.map((p) => p[0]));
+  assert.equal(right, 115);
+  assert.ok(flick.filter((p) => p[0] === right).length >= 2, "an upright edge at the end");
+  // a line straight down still shows (the tip has a width), and one point is a dot
+  assert.equal(Math.max(...xy(o([[0, 0], [0, 80]]).d).map((p) => p[0])), 3);
+  assert.ok(o([[5, 5]]).stroke > 0);
 });
 
 // a hand's version of a figure: its points, each a little off

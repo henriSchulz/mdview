@@ -121,6 +121,29 @@ test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in 
   assert.equal(JSON.parse(text(ATTACH))["Plan.board.svg"], undefined);
 });
 
+test("All Notes: a tile keeps the pose it has under the pointer while its menu is open on it (the pointer is on the menu then; the tile used to fall back and rise again)", async () => {
+  await open("Alpha.md");
+  await allNotes();
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
+  const tile = page.locator("#overview .ov-item[data-dir]").first();
+  await tile.waitFor({ timeout: 8000 });
+  const pose = () => page.evaluate(() => { const t = document.querySelector("#overview .ov-item[data-dir]"); return [...t.querySelectorAll(".ov-stack > i")].map((i) => getComputedStyle(i).transform); });
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(700);
+  const rest = await pose();
+  await tile.screenshot({ path: join(web, ".next", "stack.png") });
+  await tile.hover();
+  await page.waitForTimeout(700);
+  const raised = await pose();
+  assert.notDeepEqual(raised, rest, "the stack opens under the pointer");
+  await tile.click({ button: "right" });
+  await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
+  await page.waitForTimeout(700);
+  assert.deepEqual(await pose(), raised, "…and stays open while the menu is on it");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("#ctxmenu[data-open]"), null, { timeout: 4000 });
+});
+
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();

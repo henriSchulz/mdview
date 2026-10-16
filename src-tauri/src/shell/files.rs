@@ -346,7 +346,7 @@ impl Win {
             Ok(raw) => {
                 let text = String::from_utf8_lossy(&raw).into_owned();
                 let own = self.resolver.take();
-                self.resolver = Some(Resolver::new(&dir_of(&p), &home()));
+                self.resolver = Some(Resolver::in_base(&dir_of(&p), &home(), self.folder.as_deref()));
                 let links = if text.contains("[[") { self.build_links(&text) } else { json!({}) };
                 self.resolver = own;
                 self.js("MdView.noteRead", &[id.clone(), json!({ "path": s(&p), "text": text, "links": links }), Value::Null]);

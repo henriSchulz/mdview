@@ -80,9 +80,9 @@ body[data-mode="dark"] .ov-item { --paper: color-mix(in srgb, var(--fg) 7%, var(
 }
 /* Under the pointer the sheet lifts a little off the page: two pixels up, its shadow deeper. (Asked
    for here; elsewhere in the app nothing moves on hover.) */
-#overview[data-open] .ov-tile:hover .ov-sheet { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); transition-duration: var(--spring-smooth-dur), var(--dur-instant); }
-body[data-mode="dark"] #overview[data-open] .ov-tile:hover { --edge: rgb(255 255 255 / 0.22); }
-#overview[data-open] .ov-tile:active .ov-sheet { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+#overview[data-open] .ov-tile:is(:hover, .ctx-target) .ov-sheet { transform: translateY(-2px); box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); transition-duration: var(--spring-smooth-dur), var(--dur-instant); }
+body[data-mode="dark"] #overview[data-open] .ov-tile:is(:hover, .ctx-target) { --edge: rgb(255 255 255 / 0.22); }
+#overview[data-open] .ov-tile:active:not(.ctx-target) .ov-sheet { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 /* the text runs out towards the sheet's foot */
 .ov-sheet::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; }
 .ov-tile .ov-name { max-width: 100%; font: 600 13px/1.3 var(--ui); color: var(--fg); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
@@ -159,22 +159,23 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 /* a folder among the tiles: a stack of sheets in its colour, its sign on the one on top — under
  * the pointer the two below fan out —, and under the stack its name and how many notes lie in it */
 .ov-stack > i { position: absolute; inset: 12% 8% 6%; border-radius: var(--radius-control); background: color-mix(in srgb, var(--c, var(--accent)) 9%, var(--paper)); box-shadow: 0 0 0 0.5px var(--edge), 0 2px 6px rgb(0 0 0 / 0.06); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+.ov-stack > i:nth-child(-n+2) { inset: 17% 8% 11%; } /* (inside the front sheet's height: turned, their corners do not stand out above and below it) */
 .ov-stack > i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
 .ov-stack > i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
 .ov-stack > i:nth-child(3) { display: grid; place-items: center; color: var(--c, var(--accent)); }
-#overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(1) { transform: rotate(-10deg) translate(-12px, 2px); }
-#overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(2) { transform: rotate(9deg) translate(12px, 0); }
-#overview[data-open] .ov-tile:active .ov-stack > i:nth-child(3) { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+#overview[data-open] .ov-tile:is(:hover, .ctx-target) .ov-stack > i:nth-child(1) { transform: rotate(-10deg) translate(-12px, 2px); }
+#overview[data-open] .ov-tile:is(:hover, .ctx-target) .ov-stack > i:nth-child(2) { transform: rotate(9deg) translate(12px, 0); }
+#overview[data-open] .ov-tile:active:not(.ctx-target) .ov-stack > i:nth-child(3) { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .ov-stack .ov-icon { display: grid; place-items: center; }
 .ov-stack .ov-icon svg { width: 38px; height: 38px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
 .ov-sub { font: 400 12px/1.3 var(--ui); color: var(--fg-quiet); }
 .ov-name[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  #overview[data-open] .ov-tile:is(:hover, :active) .ov-sheet, #overview[data-open] .ov-tile:active .ov-stack > i:nth-child(3) { transform: none; }
-  #overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
-  #overview[data-open] .ov-tile:hover .ov-stack > i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
+  #overview[data-open] .ov-tile:is(:hover, :active, .ctx-target) .ov-sheet, #overview[data-open] .ov-tile:is(:active, .ctx-target) .ov-stack > i:nth-child(3) { transform: none; }
+  #overview[data-open] .ov-tile:is(:hover, .ctx-target) .ov-stack > i:nth-child(1) { transform: rotate(-6deg) translate(-6px, 2px); }
+  #overview[data-open] .ov-tile:is(:hover, .ctx-target) .ov-stack > i:nth-child(2) { transform: rotate(5deg) translate(6px, 0); }
 }
-/* the menu is open on it */
+/* the menu is open on it: the pointer is on the menu, not the tile, and the tile keeps the pose it had under it (above, with :hover) */
 .ov-tile.ctx-target .ov-sheet { box-shadow: 0 0 0 0.5px var(--edge), var(--lifted); }
 .ov-tile .ov-rename { position: static; width: 100%; height: 24px; margin: -3px 0; padding: 0 6px; font-size: 13px; text-align: center; }
 

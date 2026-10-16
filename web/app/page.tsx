@@ -3,7 +3,7 @@
 // opened too, from a list of its own: it is only read until its history is turned on there.
 // Nothing is chosen beforehand.
 import { GIVE, INSTALL, Refused, projects, repositories, type Place, type Repo } from "@/lib/github";
-import { sessionFor } from "@/lib/session";
+import { sessionOrRenew } from "@/lib/session";
 import { REPOSITORY } from "@/lib/welcome";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -23,11 +23,20 @@ function ago(iso: string | undefined, now: number): string {
   return `${Math.floor(days / 365)} year${days < 730 ? "" : "s"} ago`;
 }
 
-// The page is there at once, with the sign-in looked at (who is not signed in is sent on before anything is shown); the
+// The page is there at once, with the sign-in looked at (who is not signed in is sent on before anything is shown; a token that
+// is about to end shows the ring while the route that renews it is on its way); the
 // repositories are asked of GitHub behind it, and the window says so meanwhile: the ring a repository's own page begins
 // with (lib/page.ts), after the wait that is no wait (motion.css: --loading-delay).
 export default async function Home() {
-  const session = await sessionFor("/");
+  const session = await sessionOrRenew();
+  // a token about to end is renewed by a route (a page cannot write the cookie): the ring stands there meanwhile, and the
+  // browser is sent on without waiting for any script
+  if (session === "renew") return (
+    <main className="home">
+      <meta httpEquiv="refresh" content="0;url=/auth/renew?next=%2F" />
+      <div className="boot" role="status" aria-label="Loading"><span className="boot-ring" /></div>
+    </main>
+  );
   return (
     <main className="home">
       <Suspense fallback={<div className="boot" role="status" aria-label="Loading"><span className="boot-ring" /></div>}>

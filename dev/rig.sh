@@ -24,6 +24,7 @@
 #   dev/rig.sh latex                 LaTeX Suite with real keys: mk / dm, snippets, tabstops, fraction, matrix, tabout
 #   dev/rig.sh lists                 list items dragged between sub-lists, under an item, out a level, out of the list
 #   dev/rig.sh blocks                blocks selected as wholes (handle click, then the keyboard); a click below the last block
+#   dev/rig.sh backspace             Backspace sent as a key from outside (wtype -k BackSpace, a phone's screen mirror) takes a letter away: active mode and source
 #   dev/rig.sh blockpaste            Ctrl+D puts a block's copy right below it; what is pasted while blocks are selected goes below them (real keys)
 #   dev/rig.sh colsel                the rectangle over blocks in a column: the items, paragraphs and headings it reaches, not the list or the column
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
@@ -916,6 +917,17 @@ PY
     [[ -f $R/out/t.md.blockpaste.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.blockpaste.json" | grep -q '^FAIL' ;;
+  backspace)
+    # Backspace sent as a key from outside (the phone's screen mirror: `wtype -k BackSpace`) takes a letter away, in the active mode and in the source
+    rm -rf "$R/work"; mkdir -p "$R/work"; printf 'abc\n\nsecond line\n' > "$R/work/t.md"; rm -f "$R/out"/t.md.*.json
+    app 60 MDVIEW_PROBE="$D/probe-backspace.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/t.md"
+    w() { for _ in $(seq 300); do [[ -f $R/out/t.md.$1.json || -f $R/out/t.md.backspace.json ]] && break; sleep 0.1; done; sleep 0.5; }; k() { WAYLAND_DISPLAY="$(wl)" wtype -d 45 "$@"; }
+    w s1; k -k BackSpace; w s2; k -k BackSpace; w s3; k -k BackSpace; w s4; k -k Left; w s5; k -k Delete; w s6; k -k Home; w s7; k -M shift -k End -m shift
+    for _ in $(seq 300); do [[ -f $R/out/t.md.backspace.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/t.md.backspace.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.backspace.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/t.md.backspace.json" | grep -q '^FAIL' ;;
   blocks)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{selected,heading,blocks}.json
     app 90 MDVIEW_PROBE="$D/probe-blocks.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
