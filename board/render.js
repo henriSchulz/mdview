@@ -25,11 +25,41 @@
 
   /* The stroke as a path: { d, stroke, cap } — stroke: a line of that width to be stroked, with
    * ends of that kind (a stroke of one width: little to write); else an outline to be filled.
-   * A marker's line ends flat, as its tip is; a stroke made straight (sharp) keeps its corners. The outline is
+   * A marker's line is what its chisel tip sweeps (chisel); a stroke made straight (sharp) keeps its corners. The outline is
    * a row of closed pieces, one per stretch between two points, all wound the same way: filled
    * together they are the stroke, and no turn, however sharp, cuts a hole into it. */
+  /* A marker's tip is a chisel that is held one way: tall as the marker is wide and narrow (MARKER_TIP of that), never turned. Its
+   * stroke is what the tip sweeps: from point to point the hull of the tip at both — so an end is always the tip's own, flat and
+   * upright, however the hand turned at the end of the line (a line of butt ends is cut slantwise there, and a turn of the hand
+   * leaves a corner cut off). The pieces are all wound the same way: filled together they are the stroke, and the marker's
+   * opacity is one for all of it (a piece does not darken where it lies on the next). */
+  const MARKER_TIP = 0.3;
+  function chisel(it) {
+    const f = (v) => String(Math.round(v * 10) / 10), pts = it.pts, h = it.w / 2, t = Math.max(0.5, it.w * MARKER_TIP / 2);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    let d = "";
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], z = pts[i];
+      if (a[0] === z[0] && a[1] === z[1]) continue;
+      const all = [];
+      for (const p of [a, z]) all.push([p[0] - t, p[1] - h], [p[0] + t, p[1] - h], [p[0] + t, p[1] + h], [p[0] - t, p[1] + h]);
+      all.sort((u, v) => u[0] - v[0] || u[1] - v[1]);
+      const hull = [];
+      for (const side of [all, [...all].reverse()]) {
+        const start = hull.length;
+        for (const q of side) {
+          while (hull.length >= start + 2 && cross(hull[hull.length - 2], hull[hull.length - 1], q) <= 0) hull.pop();
+          hull.push(q);
+        }
+        hull.pop();
+      }
+      d += "M" + hull.map((q) => f(q[0]) + " " + f(q[1])).join("L") + "Z";
+    }
+    return { d: d || `M${f(pts[0][0])} ${f(pts[0][1])}h0.01`, stroke: d ? 0 : it.w, cap: "round" };
+  }
   function outline(it) {
     const pts = it.pts;
+    if (it.t === "marker" && pts.length > 1) return chisel(it);
     if (even(it)) {
       const w = radius(it, pts[0][2]) * 2;
       const cap = it.t === "marker" && pts.length > 1 ? "butt" : "round";
