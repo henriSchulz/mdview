@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
@@ -506,16 +506,31 @@ pub fn pdf_backlinks(pdf: &Path, root: &Path) -> Vec<Backlink> {
     out
 }
 
+/// The indexes of folders' files that were made lately (Resolver::index): by root, with when.
+static INDEXES: Mutex<Option<HashMap<PathBuf, (Instant, Arc<HashMap<String, Vec<String>>>)>>> = Mutex::new(None);
+
 /// Resolves Obsidian wikilink targets like Obsidian does: next to the note, at the vault
 /// root, then anywhere below the root by file name. The root is the nearest ancestor holding
 /// .obsidian, else the note's dir.
 pub struct Resolver {
     pub note_dir: PathBuf,
     pub vault: Option<PathBuf>,
-    index: Option<HashMap<String, Vec<String>>>,
+    /// The top of the folder window the note is in, where it is above the note and no vault is: searched like a vault is (it is none).
+    base: Option<PathBuf>,
+    index: Option<Arc<HashMap<String, Vec<String>>>>,
+    /// … and whether it was one made before (a file made since is not in it).
+    cached: bool,
 }
 
 impl Resolver {
+    /// … for a note in a folder window: with no .obsidian above it, the folder window's own top is the root
+    /// (a note of a subfolder names a note or a PDF of another subfolder just as well).
+    pub fn in_base(note_dir: &Path, home: &Path, base: Option<&Path>) -> Self {
+        let mut r = Resolver::new(note_dir, home);
+        r.base = base.filter(|b| r.vault.is_none() && note_dir.starts_with(b)).map(Path::to_path_buf);
+        r
+    }
+
     pub fn new(note_dir: &Path, home: &Path) -> Self {
         let mut vault = None;
         for p in note_dir.ancestors() {
@@ -527,35 +542,64 @@ impl Resolver {
                 break;
             }
         }
-        Resolver { note_dir: note_dir.to_path_buf(), vault, index: None }
+        Resolver { note_dir: note_dir.to_path_buf(), vault, base: None, index: None, cached: false }
     }
 
+    /// The files below the root by their lower-case names. Kept for a few seconds, for the next note opened and the next link
+    /// written: every note has its own resolver, and a folder of thousands of files is no walk to make at each of them — nor
+    /// one to cut short at the first 300 ms of a cold disk (a link to a file that was there was then "not a note").
     fn index(&mut self) -> &HashMap<String, Vec<String>> {
         if self.index.is_none() {
-            let mut idx: HashMap<String, Vec<String>> = HashMap::new();
-            let mut count = 0usize;
-            let deadline = Instant::now() + Duration::from_millis(300);
-            let root = self.vault.clone().unwrap_or_else(|| self.note_dir.clone());
-            walk_files(&root, |dir, files| {
-                for f in files {
-                    idx.entry(f.to_lowercase()).or_default().push(s(&dir.join(f)));
+            let root = self.vault.clone().or_else(|| self.base.clone()).unwrap_or_else(|| self.note_dir.clone());
+            let mut kept = INDEXES.lock().unwrap();
+            let kept = kept.get_or_insert_with(HashMap::new);
+            let fresh = kept.get(&root).filter(|(at, _)| at.elapsed() < Duration::from_secs(8)).map(|(_, idx)| idx.clone());
+            self.cached = fresh.is_some();
+            let idx = fresh.unwrap_or_else(|| {
+                let mut idx: HashMap<String, Vec<String>> = HashMap::new();
+                let mut count = 0usize;
+                let deadline = Instant::now() + Duration::from_millis(2500);
+                walk_files(&root, |dir, files| {
+                    for f in files {
+                        idx.entry(f.to_lowercase()).or_default().push(s(&dir.join(f)));
+                    }
+                    count += files.len();
+                    count <= 200_000 && Instant::now() <= deadline
+                });
+                let idx = Arc::new(idx);
+                if kept.len() > 16 {
+                    kept.clear();
                 }
-                count += files.len();
-                count <= 60000 && Instant::now() <= deadline
+                kept.insert(root, (Instant::now(), idx.clone()));
+                idx
             });
             self.index = Some(idx);
         }
         self.index.as_ref().unwrap()
     }
 
+    /// Where a link points. Found in none: if the files were last looked at some time ago, they are looked at again first.
     pub fn resolve(&mut self, target: &str) -> Option<PathBuf> {
+        let found = self.look_for(target);
+        if found.is_none() && self.cached {
+            let root = self.vault.clone().or_else(|| self.base.clone()).unwrap_or_else(|| self.note_dir.clone());
+            if let Some(kept) = INDEXES.lock().unwrap().as_mut() {
+                kept.remove(&root);
+            }
+            self.index = None;
+            return self.look_for(target);
+        }
+        found
+    }
+
+    fn look_for(&mut self, target: &str) -> Option<PathBuf> {
         let name = target.split(['#', '^']).next().unwrap_or("").trim();
         if name.is_empty() {
             return None;
         }
         let cands: Vec<String> = if is_md(Path::new(name)) { vec![name.to_string()] } else { vec![format!("{name}.md"), name.to_string()] };
         let mut bases = vec![self.note_dir.clone()];
-        bases.extend(self.vault.clone());
+        bases.extend(self.vault.clone().or_else(|| self.base.clone()));
         for c in &cands {
             for b in &bases {
                 let p = b.join(c);
@@ -631,6 +675,31 @@ mod tests {
         fs::create_dir_all(inner.join("assets")).unwrap();
         fs::write(inner.join("assets/own.png"), "").unwrap();
         assert_eq!(found(&inner.join("Below/assets/own.png")), inner.join("assets/own.png"));
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_note_of_a_subfolder_names_a_note_or_a_pdf_of_another_subfolder() {
+        let d = std::env::temp_dir().join(format!("mdview-resolve-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for dir in ["a", "b/deep", "c"] {
+            fs::create_dir_all(d.join(dir)).unwrap();
+        }
+        for f in ["a/x.md", "b/deep/Other note.md", "c/paper.pdf", "top.md"] {
+            fs::write(d.join(f), "").unwrap();
+        }
+        let home = std::env::temp_dir();
+        // (the folder window's top is the root: the note's own folder alone is not where the others are)
+        let mut r = Resolver::in_base(&d.join("a"), &home, Some(&d));
+        assert_eq!(r.resolve("Other note"), Some(d.join("b/deep/Other note.md")));
+        assert_eq!(r.resolve("paper.pdf"), Some(d.join("c/paper.pdf")));
+        assert_eq!(r.resolve("top"), Some(d.join("top.md")));
+        assert_eq!(r.resolve("none"), None);
+        // a file made since the files were last looked at is found all the same (a link written the moment its note was made)
+        fs::write(d.join("c/new note.md"), "").unwrap();
+        assert_eq!(Resolver::in_base(&d.join("a"), &home, Some(&d)).resolve("new note"), Some(d.join("c/new note.md")));
+        // a base that is not above the note changes nothing
+        assert_eq!(Resolver::in_base(&d.join("a"), &home, Some(&d.join("c"))).resolve("top"), None);
         let _ = fs::remove_dir_all(d);
     }
 

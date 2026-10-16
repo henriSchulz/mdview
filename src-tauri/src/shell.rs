@@ -626,7 +626,7 @@ impl Win {
     }
 
     fn new_resolver(&mut self) {
-        self.resolver = self.path.as_ref().map(|p| Resolver::new(&dir_of(p), &home()));
+        self.resolver = self.path.as_ref().map(|p| Resolver::in_base(&dir_of(p), &home(), self.folder.as_deref()));
     }
 
     fn vault(&self) -> Option<PathBuf> {
