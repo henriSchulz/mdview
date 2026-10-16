@@ -57,6 +57,23 @@ const open = async (note) => {
   await untilNote(note);
 };
 
+test("typed in the active mode: a draft at once, a commit a little later, by this browser", async () => {
+  await open("Alpha.md");
+  assert.equal(await page.evaluate(() => MdView.core.current.readonly), null);
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await page.click("#active p");
+  await page.keyboard.press("End");
+  await page.keyboard.type(", typed here");
+  await until(() => /first paragraph, typed here/.test(text("Alpha.md")), "the commit");
+  const made = gh.commits.at(-1);
+  assert.equal(made.headline, "Alpha.md");
+  assert.match(made.body, /^Device: Chrome on \w+ \([0-9a-f-]{36}\)\nClient: web$/);
+  assert.deepEqual([made.added, made.deleted], [["Alpha.md"], []]);
+  assert.equal(text("Alpha.md"), "# Alpha\n\nfirst paragraph, typed here\n\n- [ ] a task\n\nlast paragraph\n"); // (nothing else of the note touched)
+  assert.equal(gh.commits.length, 1);
+});
+
 test("two notes side by side: the one in the window scrolls down and all the way up again, in each mode", async () => {
   const para = (n) => Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1} of ${n}, long enough to wrap a little in a half of the window: ${"words ".repeat(14)}`).join("\n\n");
   put("Main.md", "# Main\n\n" + para("Main"));
@@ -99,23 +116,6 @@ test("a page's line cut and pasted in the active mode: the page keeps what was o
   await page.keyboard.press("Control+v");
   await until(() => /Agenda item one/.test(text("Pages.md") || "") && /<!-- page: Meeting -->/.test(text("Pages.md")), "the page is back, with its text");
   assert.match(text("Pages.md"), /<!-- page: Meeting -->\n\nAgenda item one\n\n<!-- \/page -->/);
-});
-
-test("typed in the active mode: a draft at once, a commit a little later, by this browser", async () => {
-  await open("Alpha.md");
-  assert.equal(await page.evaluate(() => MdView.core.current.readonly), null);
-  await page.evaluate(() => MdView.setMode("active"));
-  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
-  await page.click("#active p");
-  await page.keyboard.press("End");
-  await page.keyboard.type(", typed here");
-  await until(() => /first paragraph, typed here/.test(text("Alpha.md")), "the commit");
-  const made = gh.commits.at(-1);
-  assert.equal(made.headline, "Alpha.md");
-  assert.match(made.body, /^Device: Chrome on \w+ \([0-9a-f-]{36}\)\nClient: web$/);
-  assert.deepEqual([made.added, made.deleted], [["Alpha.md"], []]);
-  assert.equal(text("Alpha.md"), "# Alpha\n\nfirst paragraph, typed here\n\n- [ ] a task\n\nlast paragraph\n"); // (nothing else of the note touched)
-  assert.equal(gh.commits.length, 1);
 });
 
 test("what is written and no commit yet survives the tab", async () => {
