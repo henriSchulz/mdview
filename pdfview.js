@@ -162,9 +162,12 @@
     const root = container.firstChild;
     const v = (V = { p, root, bar: root.querySelector(".pdf-bar"), side: root.querySelector(".pdf-side"), box: root.querySelector(".pdf-pages"), pages: [], scale: 1, fit: "width", history: [], color: DEFAULT_COLOR, rectTool: false,
       backlinks: (p.backlinks || []).map((b) => ({ ...b, at: parseFrag(b.frag) })) });
+    // (a presentation is made into a PDF first — a few seconds, the first time: the waiting line says so)
+    const slides = /\.(pptx?|ppsx?|odp)$/i.test(p.path);
+    if (slides) v.box.querySelector(".pdf-wait").textContent = T("Preparing the slides of") + " " + p.name + "…";
     let doc;
     try { doc = await docOf(p.path, String(p.mtime || "")); }
-    catch (e) { if (V === v) v.box.innerHTML = `<div class="empty-state"><p>${esc("This PDF can't be opened: " + (e.message || e))}</p></div>`; return; }
+    catch (e) { if (V === v) v.box.innerHTML = `<div class="empty-state"><p>${esc((slides ? "This presentation can't be shown: " : "This PDF can't be opened: ") + (e.message || e))}</p></div>`; return; }
     if (V !== v) return;
     v.doc = doc;
     const first = await doc.getPage(1);

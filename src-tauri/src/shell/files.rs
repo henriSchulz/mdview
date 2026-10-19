@@ -80,7 +80,7 @@ impl Win {
     /// note, which the note no longer names (nor any other note), goes to the trash; one that
     /// is named again is put back, and the page shows it again (attach.rs).
     pub(super) fn tidy_attachments(&mut self, text: Option<&str>) {
-        let (Some(note), Some(text)) = (self.path.clone().filter(|p| !is_pdf(p)), text) else { return };
+        let (Some(note), Some(text)) = (self.path.clone().filter(|p| !shows_as_pdf(p)), text) else { return };
         // (whose notes may name the file too: the base folder's — what is put into them lies in one place)
         let base = self.base_of(&note);
         let root = self.vault().or_else(|| self.folder.clone().filter(|f| base.starts_with(f))).unwrap_or(base);
@@ -267,7 +267,7 @@ impl Win {
     /// The figure as a file where the note's pictures go, and its Markdown at the caret.
     pub(super) fn save_graphic(&mut self, app: &mut App, svg: &str, name: &str) {
         let Some(svg) = ai::clean_svg(svg) else { return };
-        let Some(note) = self.path.clone().filter(|p| !is_pdf(p)) else { return };
+        let Some(note) = self.path.clone().filter(|p| !shows_as_pdf(p)) else { return };
         let vault = self.vault();
         let clean = clean_name(name);
         let words: Vec<&str> = WORD_RE.find_iter(&clean).take(5).map(|m| m.as_str()).collect();
@@ -288,7 +288,7 @@ impl Win {
     /// note's pictures go, the note's own from now on, and how the note names it.
     pub(super) fn board_new(&mut self, app: &mut App, note: &str, text: &str, id: &Value) {
         let failed = |w: &Self, e: String| w.js("MdView.boardMade", &[json!({ "id": id, "error": e })]);
-        let Some(path) = self.path.clone().filter(|p| !is_pdf(p) && s(p) == note) else { return failed(self, "another note".into()) };
+        let Some(path) = self.path.clone().filter(|p| !shows_as_pdf(p) && s(p) == note) else { return failed(self, "another note".into()) };
         if !text.contains(BOARD_MARK) {
             return failed(self, "not a whiteboard".into());
         }
@@ -384,7 +384,7 @@ impl Win {
     /// drawn yet …
     pub(super) fn pdfink_read(&self, path: &str, id: &Value) {
         let p = scan::found(&resolve(Path::new(path)));
-        let read = if is_pdf(&p) && p.is_file() { ink_read(&p, &self.base_of(&p)) } else { Err("not a PDF file".into()) };
+        let read = if shows_as_pdf(&p) && p.is_file() { ink_read(&p, &self.base_of(&p)) } else { Err("not a PDF file".into()) };
         match read {
             Ok(text) => self.js("MdView.boardText", &[id.clone(), json!(text), Value::Null]),
             Err(e) => self.js("MdView.boardText", &[id.clone(), Value::Null, json!(e)]),
@@ -394,7 +394,7 @@ impl Win {
     /// … and as it is to be. The PDF is not touched.
     pub(super) fn pdfink_save(&mut self, path: &str, text: &str, empty: bool, id: &Value) {
         let p = scan::found(&resolve(Path::new(path)));
-        let done = if is_pdf(&p) && p.is_file() { ink_save(&p, &self.base_of(&p), text, empty) } else { Err("not a PDF file".into()) };
+        let done = if shows_as_pdf(&p) && p.is_file() { ink_save(&p, &self.base_of(&p), text, empty) } else { Err("not a PDF file".into()) };
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
     }
 

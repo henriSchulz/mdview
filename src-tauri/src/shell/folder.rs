@@ -118,7 +118,7 @@ impl Win {
         if is_board(path) {
             return self.js("MdView.openBoardFile", &[json!(s(path))]); // a whiteboard: over the window, as one in a note opens
         }
-        if !matches!(file_kind(path), "md" | "pdf") {
+        if !matches!(file_kind(path), "md" | "pdf" | "slides") {
             return host::launch_path(path); // a picture, a film, any other file: in its own application
         }
         // in a tab of its own where that was asked for; a note that has a tab already: that tab

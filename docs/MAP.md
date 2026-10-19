@@ -195,6 +195,7 @@ or the tests see the old ones.
 | `src-tauri/src/paste.rs` | A project's pasteboard: a small chat of blocks of text for a project that is linked to a repository on … |
 | `src-tauri/src/scan.rs` | What is read off the disk without a window: a folder's notes as a tree, a note's title, where a wikilink … |
 | `src-tauri/src/share.rs` | Sharing a note: a link under which anyone can read it in the web app, with a password if one is set — and … |
+| `src-tauri/src/slides.rs` | A presentation (PowerPoint, Impress) shown as the PDF LibreOffice makes of it: made once, in a thread of its … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
 | `src-tauri/src/theme.rs` | Colours follow the Omarchy theme. Where there is none (another desktop, another system) the light fallback … |
 

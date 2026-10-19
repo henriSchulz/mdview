@@ -59,6 +59,16 @@ pub fn is_pdf(path: &Path) -> bool {
     ext_of(path) == "pdf"
 }
 
+/// A presentation: shown as the PDF made of it (slides.rs).
+pub fn is_slides(path: &Path) -> bool {
+    crate::slides::SLIDES_EXT.contains(&ext_of(path).as_str())
+}
+
+/// What the window shows in its PDF viewer: a PDF, or a presentation as one.
+pub fn shows_as_pdf(path: &Path) -> bool {
+    is_pdf(path) || is_slides(path)
+}
+
 /// A whiteboard's file, by its name (board/format.js).
 pub fn is_board(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n.to_string_lossy().to_lowercase().ends_with(".board.svg"))
@@ -77,6 +87,8 @@ pub fn file_kind(path: &Path) -> &'static str {
         "video"
     } else if ext == "pdf" {
         "pdf"
+    } else if crate::slides::SLIDES_EXT.contains(&ext) {
+        "slides"
     } else {
         "file"
     }

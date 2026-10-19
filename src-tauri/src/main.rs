@@ -26,6 +26,7 @@ mod looks;
 mod paste;
 mod scan;
 mod share;
+mod slides;
 mod shell;
 mod sync;
 mod theme;

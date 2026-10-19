@@ -868,6 +868,14 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
   small, in the list. It is drawn when the tile comes near the window and kept while the window
   is open; until then the tile has the PDF's sign.
+- **Presentations** (`.pptx`, `.ppt`, `.pps`, `.ppsx`, `.odp`; the desktop app, with LibreOffice
+  installed): opened like a PDF, in the PDF viewer — a page for every slide, read only, drawn on
+  as a PDF is. LibreOffice makes the PDF the first time (a few seconds: "Preparing the slides of …"
+  stands there meanwhile), in a process of its own, and it is kept in the cache until the file
+  changes. The tile in All Notes and the sidebar's sheet show the first slide; its kind reads
+  *Presentation*. Animations are not shown, and fonts that are not installed are replaced. One
+  LibreOffice cannot read says so; without LibreOffice the presentation says that it is needed.
+  In the browser a presentation is a file like any other (no LibreOffice there).
 - **Working with files** (in the sidebar and in All Notes alike; in the browser too, but for what
   is said under *In the browser*):
   - **Copy, Cut, Paste** (`Ctrl+C`, `Ctrl+X`, `Ctrl+V` on a row or a tile, or the menu): what is

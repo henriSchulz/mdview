@@ -27,7 +27,7 @@ use crate::history::{self, Historian, Place, Stamp};
 use crate::paste;
 use crate::share;
 use crate::sync::{self, Access};
-use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
+use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, shows_as_pdf, is_slides, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
 use crate::theme::{self, home, Theme};
 use crate::{host, Event, Pick, ORIGIN, SHARED};
 
@@ -745,7 +745,7 @@ impl Win {
         self.send_tabs(app);
         if same && self.shell_ready {
             match fragment {
-                Some(f) if is_pdf(&path) => self.render_pdf(app, Some(f)), // (a place in the PDF: the viewer goes there)
+                Some(f) if shows_as_pdf(&path) => self.render_pdf(app, Some(f)), // (a place in the PDF: the viewer goes there)
                 Some(f) => self.js("MdView.scrollToFragment", &[json!(f), json!(true)]),
                 None => {}
             }
@@ -837,7 +837,7 @@ impl Win {
             for (i, p) in paths.iter().enumerate() {
                 let shown = saved.get("active").and_then(Value::as_u64) == Some(i as u64);
                 let Some(p) = p.as_str() else { continue };
-                let opens = !p.is_empty() && Path::new(p).is_file() && matches!(file_kind(Path::new(p)), "md" | "pdf");
+                let opens = !p.is_empty() && Path::new(p).is_file() && matches!(file_kind(Path::new(p)), "md" | "pdf" | "slides");
                 if opens || (p.is_empty() && shown) {
                     if shown {
                         self.tab = self.tabs.len();
@@ -1000,27 +1000,43 @@ impl Win {
             "MdView.render",
             &[json!({
                 "kind": "pdf", "text": "", "name": name_of(&path), "path": s(&path),
-                "base": file_url(&dir_of(&path)) + "/", "readonly": "a PDF", "vault": false, "links": {},
+                "base": file_url(&dir_of(&path)) + "/", "readonly": if is_slides(&path) { "a presentation" } else { "a PDF" }, "vault": false, "links": {},
                 "fragment": fragment, "error": error, "canBack": !self.back.is_empty(), "mtime": mtime,
                 "backlinks": backlinks,
             })],
         );
     }
 
-    /// The bytes of a PDF for the page (it may not read files itself), in pieces.
-    fn send_pdf(&self, path: &str, id: &str) {
-        let read = || -> Result<Vec<u8>, String> {
-            let p = scan::found(&resolve(Path::new(path)));
+    /// The bytes of a PDF for the page (it may not read files itself), in pieces. A presentation:
+    /// the PDF made of it (slides.rs) — until it is made, nothing is sent; it is asked for again
+    /// when it is there.
+    fn send_pdf(&self, app: &App, path: &str, id: &str) {
+        let read = || -> Result<Option<Vec<u8>>, String> {
+            let mut p = scan::found(&resolve(Path::new(path)));
+            if is_slides(&p) && p.is_file() {
+                match crate::slides::ready(&p) {
+                    crate::slides::Ready::Pdf(pdf) => p = pdf,
+                    crate::slides::Ready::Failed(e) => return Err(e),
+                    crate::slides::Ready::Not => {
+                        let (tx, label, again) = (app.tx.clone(), self.label.clone(), json!({ "type": "pdfdata", "path": path, "id": id }).to_string());
+                        crate::slides::make(&p, move || {
+                            let _ = tx.send(Event::Msg { label, json: again });
+                        });
+                        return Ok(None);
+                    }
+                }
+            }
             if !is_pdf(&p) || !p.is_file() {
                 return Err("not a PDF file".into());
             }
             if fs::metadata(&p).map_err(|e| strerror(&e))?.len() > 300_000_000 {
                 return Err("larger than 300 MB".into());
             }
-            fs::read(&p).map_err(|e| strerror(&e))
+            fs::read(&p).map(Some).map_err(|e| strerror(&e))
         };
         let data = match read() {
-            Ok(data) => data,
+            Ok(Some(data)) => data,
+            Ok(None) => return, // (being made)
             Err(e) => return self.js("MdView.pdfChunk", &[json!(id), json!(0), json!(1), json!(""), json!(e)]),
         };
         let parts: Vec<&[u8]> = if data.is_empty() { vec![&[]] } else { data.chunks(3_000_000).collect() };
@@ -1032,7 +1048,7 @@ impl Win {
 
     fn render(&mut self, app: &mut App, keep_scroll: bool, fragment: Option<String>, end: bool) {
         let Some(path) = self.path.clone().filter(|_| self.shell_ready) else { return };
-        if is_pdf(&path) {
+        if shows_as_pdf(&path) {
             return self.render_pdf(app, fragment);
         }
         let (text, error, readonly) = match fs::read(&path) {
@@ -1117,7 +1133,7 @@ impl Win {
         }
         if !p.exists() {
             self.toast(format!("Not found: {}", name_of(&p)));
-        } else if p.is_file() && (is_md(&p) || is_pdf(&p)) {
+        } else if p.is_file() && (is_md(&p) || shows_as_pdf(&p)) {
             if tab {
                 self.link_tab(app, &p, frag, own);
             } else {
@@ -1133,7 +1149,7 @@ impl Win {
         let Some(p) = self.resolver.as_mut().and_then(|r| r.resolve(target)) else {
             return self.toast(format!("Note “{}” doesn't exist", target.split('#').next().unwrap_or("")));
         };
-        if !matches!(file_kind(&p), "md" | "pdf") {
+        if !matches!(file_kind(&p), "md" | "pdf" | "slides") {
             host::launch_path(&p);
         } else if tab && !self.tabs.is_empty() && !(own && self.path.as_ref() == Some(&p)) {
             self.link_tab(app, &p, heading, own);
@@ -1167,8 +1183,8 @@ impl Win {
     /// it was); else "\n" throughout, written the way the file had it.
     fn save_text(&mut self, text: Option<&str>, exact: bool) {
         let (Some(path), Some(text)) = (self.path.clone(), text) else { return };
-        if is_pdf(&path) {
-            return; // (never the text of a note into a PDF)
+        if shows_as_pdf(&path) {
+            return; // (never the text of a note into a PDF — or a presentation)
         }
         if exact {
             match write_whole(&path, text.as_bytes()) {

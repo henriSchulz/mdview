@@ -87,7 +87,7 @@
     const notes = sortNotes(dir.notes).map((n) => ({ key: n.path, note: n, label: noteLabel(n) }));
     return [...dirs.sort(byLabel), ...notes];
   }
-  const rowIcon = (path) => (/\.board\.svg$/i.test(path) ? ICON.board : /\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf
+  const rowIcon = (path) => (/\.board\.svg$/i.test(path) ? ICON.board : /\.(md|markdown|mdown|txt)$/i.test(path) ? ICON.note : /\.pdf$/i.test(path) ? ICON.pdf : /\.(pptx?|ppsx?|odp)$/i.test(path) ? ICON.slides
     : /\.(png|jpe?g|gif|webp|svg|avif|bmp|tiff?|heic)$/i.test(path) ? ICON.picture : ICON.file);
   function makeItem(e, depth) {
     const item = document.createElement("div");
@@ -232,9 +232,9 @@
   function sheetOf(n) {
     const s = sbSeen.get(n.path), pic = (src, kind) => `<span class="sb-sheet-in is-pic" data-kind="${kind}"><img src="${esc(src)}" alt="" draggable="false"></span>`;
     if (n.kind === "image" || n.kind === "board") return pic(fileUrl(n.path) + (n.mtime ? "?v=" + Math.round(n.mtime) : ""), n.kind);
-    if (n.kind === "pdf") {
+    if (n.kind === "pdf" || n.kind === "slides") { // (a presentation: the first slide of the PDF made of it — shell, slides.rs)
       const shot = P.pdfShot.now(n.path, n.mtime);
-      if (shot) return pic(shot, "pdf");
+      if (shot) return pic(shot, n.kind);
       // (asked for once; when it is there the sheets are dressed again)
       if (!P.pdfShot.known(n.path, n.mtime)) P.pdfShot(n.path, n.mtime).then((src) => { if (!src || sbLayout() !== "sheets") return; clearTimeout(shotSoon); shotSoon = setTimeout(() => { if (folder && !folder.quick) syncList(false); }, 60); });
     }
