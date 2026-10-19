@@ -99,7 +99,8 @@
   const count = (node) => node.dirs.reduce((n, d) => { const c = count(d); return [n[0] + c[0], n[1] + c[1]]; }, [node.notes.filter((n) => !n.pdf).length, node.notes.filter((n) => n.pdf).length]);
   const plural = (n, one) => T(n === 1 ? "1 " + one : "{0} " + one + "s", n); // ("1 note", "{0} notes": the strings' own keys)
   const says = ([notes, files]) => [notes || !files ? T(notes === 1 ? "1 note" : "{0} notes", notes) : "", files ? T(files === 1 ? "1 file" : "{0} files", files) : ""].filter(Boolean).join(", ");
-  const KIND = { pdf: "PDF", image: "Picture", audio: "Sound", video: "Video", board: "Whiteboard" };
+  const KIND = { pdf: "PDF", slides: "Presentation", image: "Picture", audio: "Sound", video: "Video", board: "Whiteboard" };
+  const paged = (kind) => kind === "pdf" || kind === "slides"; // (shown in the PDF viewer: a PDF, a presentation as the PDF made of it)
   const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   // when a note was changed, as the sidebar says it — today's with the word before the time
   const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
@@ -166,9 +167,9 @@
     const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
     if (look && look.color) t.style.setProperty("--c", look.color);
     const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
-    const shot = file && n.kind === "pdf" ? shotOf(n) : null; // (a PDF's first page, where it was drawn before)
+    const shot = file && paged(n.kind) ? shotOf(n) : null; // (a PDF's first page, where it was drawn before; a presentation's first slide)
     const pic = shot ? `<img src="${esc(shot)}" alt="" draggable="false">` : file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
-    if (file && n.kind === "pdf" && !shot) { t.dataset.shot = String(n.mtime || n.v || 0); t.dataset.file = n.real || n.path; }
+    if (file && paged(n.kind) && !shot) { t.dataset.shot = String(n.mtime || n.v || 0); t.dataset.file = n.real || n.path; }
     // a row: the note's sheet in small, its name, under it its first words, at the end when it was changed
     if (list) t.innerHTML = `<span class="ov-mini">${dir || file ? pic || sign : `<span class="ov-prev" inert></span>`}</span><span class="ov-text"><span class="ov-name">${name}</span><span class="ov-snip">${sub}</span></span>` +
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
@@ -402,7 +403,7 @@
     if (tile.dataset.dir) { at.push(tile.dataset.dir); picked.clear(); rebuild(); return; }
     const path = tile.dataset.path;
     // (a picture, a film, any other file opens in its own application: the tiles stay)
-    if (tile.dataset.kind && tile.dataset.kind !== "pdf") { post("note", { path }); return; }
+    if (tile.dataset.kind && !paged(tile.dataset.kind)) { post("note", { path }); return; }
     close(false);
     core.going(path);
     post("note", { path, tab });
@@ -691,7 +692,7 @@
     const all = items.filter((t) => picked.has(t.dataset.path));
     if (cmd === "trash") { post("trash", { paths: all.map((t) => t.dataset.path) }); pick([]); return; }
     if (cmd !== "opentab") return;
-    const notes = all.filter((t) => !t.dataset.dir && (!t.dataset.kind || t.dataset.kind === "pdf"));
+    const notes = all.filter((t) => !t.dataset.dir && (!t.dataset.kind || paged(t.dataset.kind)));
     if (!notes.length) return;
     close(false);
     for (const t of notes) post("note", { path: t.dataset.path, tab: true });

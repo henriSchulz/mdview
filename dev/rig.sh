@@ -67,6 +67,7 @@
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
 #   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
+#   dev/rig.sh slides                 a presentation (.pptx): its tile, the PDF viewer, one that cannot be read (needs LibreOffice)
 #   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before) — TO=sidebar: held over the sidebar
 #   dev/rig.sh move                   a note dragged into a folder, a folder into another
 #   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
@@ -674,6 +675,23 @@ PY
     f=$(ls "$R/out"/*.fileundo.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$f"
     ! jq -r '.steps[], (.error // empty)' "$f" | grep -qv '^ok' ;;
+  slides)
+    # a presentation in a folder: its tile (the first slide), the PDF viewer (a page a slide), one that cannot be read — needs LibreOffice
+    command -v soffice >/dev/null || { echo "FAIL LibreOffice (soffice) is not installed"; exit 1; }
+    rm -rf "$R/work" "$R/cache/mdview/slides"; mkdir -p "$R/work/Slides"; rm -f "$R/out"/*.slides.json "$R/out"/*.shot-*.json "$R/out"/slides-*.png
+    printf '# Note\n\nBeside a presentation.\n' > "$R/work/Slides/Note.md"; printf 'PK\x03\x04not a presentation' > "$R/work/Slides/Broken.pptx"
+    python3 "$D/gen-slides.py" "$R/deck.fodp" 12 && soffice -env:UserInstallation=file://$R/lo --headless --convert-to pptx --outdir "$R" "$R/deck.fodp" >/dev/null 2>&1 && cp "$R/deck.pptx" "$R/work/Slides/Deck.pptx"
+    [[ -f $R/work/Slides/Deck.pptx ]] || { echo "FAIL no presentation made"; exit 1; }
+    app 180 MDVIEW_PROBE="$D/probe-slides.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Slides"
+    for v in tile viewer; do
+      for _ in $(seq 900); do [[ -n $(ls "$R/out"/*.shot-$v.json "$R"/out/*.slides.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.5; shot "$R/out/slides-$v.png"
+    done
+    for _ in $(seq 900); do ls "$R/out"/*.slides.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.slides.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$f"
+    ok=$(ls "$R/cache/mdview/slides"/*.pdf 2>/dev/null | wc -l); [[ $ok == 1 ]] && echo "ok   the PDF made of it is kept in the cache (one: the broken one has none)" || echo "FAIL PDFs in the cache: $ok"
+    ! { jq -r '.steps[], (.error // empty)' "$f"; [[ $ok == 1 ]] || echo FAIL; } | grep -qv '^ok' ;;
   tiledrag)
     # a tile of All Notes held by a real pointer (dev/vptr): the picture that goes with the pointer is the tile's, at the tile's size
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }

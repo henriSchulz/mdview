@@ -235,6 +235,8 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 /* a whiteboard: all of its picture, on the sheet */
 /* a PDF: its first page, from the top, fading in when it is drawn (overview.js: shoot) */
 .ov-file[data-kind="pdf"] :is(.ov-pic, .ov-mini) img { object-fit: cover; object-position: top; background: #fff; }
+/* a presentation: its first slide whole, across the sheet (a slide is wider than a sheet) */
+.ov-file[data-kind="slides"] :is(.ov-pic, .ov-mini) img { box-sizing: border-box; padding: 6px; object-fit: contain; background: #fff; }
 .ov-shot { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .ov-shot.on { opacity: 1; }
 .ov-file[data-kind="board"] .ov-pic img { box-sizing: border-box; padding: 8px; object-fit: contain; }

@@ -129,7 +129,7 @@ impl Win {
                     Value::String(t) => t.clone(),
                     other => other.to_string(),
                 };
-                self.send_pdf(text_of("path"), &id);
+                self.send_pdf(app, text_of("path"), &id);
             }
             "pdfnote" => {
                 // from a highlight in a PDF to the note it comes from, at the line of its link
