@@ -222,6 +222,8 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-item.drop-into { outline-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* (the tile that is dragged stands where it stood: pressed and lifted, it would be held beside the pointer) */
 #overview[data-open] .ov-tile.dragged :is(.ov-sheet, .ov-stack > i:nth-child(3)) { transform: none; transition: none; }
+/* its picture at the pointer hangs in the window itself (overview.js: dragstart), above the sidebar — out of All Notes, so shown here as it is there */
+.ov-item.drag-ghost { opacity: 0.94; }
 
 /* a file that is no note — a PDF, a picture, any other: a sheet with the picture on it, or its sign; under it its name and its kind */
 .ov-file .ov-sheet { padding: 0; }

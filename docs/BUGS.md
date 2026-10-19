@@ -78,6 +78,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 
 ### What the pointer does
 
+68. **What goes with the pointer hangs in the window itself**, not inside the part it was taken
+    from: a part of its own layer (All Notes, z-index 14) holds whatever is in it under the parts
+    above it (the sidebar, 16), and a drag is pulled across them. `moving.start(…, { into:
+    document.body })`, with what the copy needs of its part's styles said for `.drag-ghost` too.
+
 30. **A press-and-pull never falls through to the browser by accident.** On anything that is not
     text — a picture, a diagram, a formula, a file, a whiteboard's block — decide what the pull
     means (it moves the block); left alone, the browser starts selecting text. And

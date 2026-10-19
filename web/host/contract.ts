@@ -59,6 +59,8 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   newboard: ["write", "a whiteboard made as a file of the repository, in no note: a commit at once, and it opens"],
   boards: ["answer", "every whiteboard of the repository, for All Notes: those that are files and those a note keeps, each with the notes that show it"],
   "board-free": ["write", "a whiteboard a note keeps becomes a file of its own: taken out of .mdview/attachments.json, listed from then on"],
+  fileundo: ["none", "Ctrl+Z over All Notes or in the sidebar: the last thing done to the files taken back (the desktop app keeps that history; a repository has its own)"],
+  fileredo: ["none", "Ctrl+Shift+Z there: … and done again"],
   untrash: ["none", "the last move to the trash taken back (the desktop app: Undo in its message; a repository has its history for that)"],
   download: ["answer", "a note or another file handed out: the browser saves it (the share window, a file's menu)"],
   pasteimage: ["write", "a picture from the clipboard, kept beside the note"],

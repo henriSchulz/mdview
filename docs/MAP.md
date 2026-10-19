@@ -185,6 +185,7 @@ or the tests see the old ones.
 | `src-tauri/src/shell/messages.rs` | What the page says — one message, handed to what does it. (The page: viewer/*.js, viewer.js, active/*.js; |
 | `src-tauri/src/shell/project.rs` | A folder as a project: what the page asks about its history, its other side on GitHub, the signing in there, … |
 | `src-tauri/src/shell/tabs.rs` | The tabs of a folder window: made, shown, chosen, closed, opened again, moved. |
+| `src-tauri/src/shell/undo.rs` | What was done to a folder's files from the sidebar and All Notes, taken back and done again (Ctrl+Z, … |
 | `src-tauri/src/ai.rs` | The two things asked of a model: the next words while typing (Gemini, over HTTPS) and a figure drawn as SVG … |
 | `src-tauri/src/attach.rs` | Files the application itself put beside a note — a picture pasted, a file dropped in, a figure drawn — are … |
 | `src-tauri/src/github.rs` | Signing in with GitHub, for a linked project's other side. |
