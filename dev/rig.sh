@@ -31,6 +31,7 @@
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
+#   dev/rig.sh ovlook [FOLDER]       All Notes as it looks (tiles, list, subfolders) on a copy of FOLDER: screenshots only
 #   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
@@ -1148,6 +1149,21 @@ PY
     ls "$R/out"/*.ov.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json
     ! jq -r '.steps[], (.error // empty)' "$R/out"/*.ov.json | grep -qv '^ok' ;;
+  ovlook)
+    # All Notes as it looks, on a copy of FOLDER (default: the overview's notes): screenshots only, ovlook-*.png
+    src="${2:-$D/tests/overview-notes}"; rm -rf "$R/work"; mkdir -p "$R/work"; rsync -a --exclude .git "$src/" "$R/work/Notes/"
+    rm -f "$R/out"/*.ovlook.json "$R/out"/*.shot-*.json "$R/out"/ovlook-*.png; done_shots=" "
+    app 180 MDVIEW_PROBE="$D/probe-ovlook.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    for _ in $(seq 1500); do
+      for f in "$R/out"/*.shot-*.json; do
+        [[ -f $f && $done_shots != *" $f "* ]] || continue
+        v=${f##*.shot-}; v=${v%.json}; sleep 0.4; shot "$R/out/ovlook-$v.png"; echo "$R/out/ovlook-$v.png"; done_shots+="$f "
+      done
+      ls "$R/out"/*.ovlook.json >/dev/null 2>&1 && break; sleep 0.1
+    done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
+    jq -r '.error // "ok"' "$R/out"/*.ovlook.json ;;
   panel)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 90 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

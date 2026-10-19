@@ -57,11 +57,11 @@
   // raised field of their own, and "…" for the rest (the order, what is listed beside the notes)
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
-    `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span>` +
+    `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span><span class="ov-tools">` + // (the choices and buttons go to a new line together, never one by one)
     seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     // the pasteboard is no way of showing the notes: a tab of its own (viewer/tabs.js: pasteTab), opened from its button
     `<button class="ov-pastebtn" type="button" title="${esc(T("Pasteboard"))}" aria-label="${esc(T("Pasteboard"))}">${ICON.clip || ICON.copy || ""}</button>` +
-    `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button>` +
+    `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button></span>` +
     `</header><div class="ov-body"></div>`;
   document.body.appendChild(el);
   const body = el.querySelector(".ov-body");

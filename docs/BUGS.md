@@ -60,6 +60,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 7. **A page is as wide with little on it as with much**, and as wide in one layout as in another:
    scroll containers that can be short or long reserve the scrollbar's room
    (`overflow-y: scroll`), and two layouts of the same page share one `max-width`.
+67. **What comes in later is drawn again everywhere it shows, not only where it was asked for.**
+    Lucide's folder signs load when a folder first needs one (`folderGlyph`, `viewer/sidebar.js`);
+    whoever asked, the sidebar *and* All Notes (`MdOverview.folderChanged`) are drawn again when
+    they are there — else one place shows the folder's own sign and the other the plain folder.
 52. **A control is there by what it is for, not by an answer that comes later.** Sync Now stands
     where the folder is linked (`history.linked`), not where the two sides have been reconciled
     (`history.sync`: nothing until the first answer, half a minute after a start or longer).

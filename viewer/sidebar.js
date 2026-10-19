@@ -219,7 +219,7 @@
     if (FOLDER_ICONS[look.icon]) return FOLDER_ICONS[look.icon];
     const l = look.icon && lucide(look.icon);
     if (l) return l;
-    if (look.icon && !window.MdIcons && !iconsAsked) { iconsAsked = true; P.loadIcons().then(() => { if (folder && !folder.quick) { sbRail.dataset.key = ""; syncList(false); } }, () => {}); }
+    if (look.icon && !window.MdIcons && !iconsAsked) { iconsAsked = true; P.loadIcons().then(() => { if (folder && !folder.quick) { sbRail.dataset.key = ""; syncList(false); if (window.MdOverview) MdOverview.folderChanged(); } }, () => {}); } // (All Notes' stacks and rows wear the signs too)
     return ICON.folder;
   }
   const dirAt = (path) => { let at = null; const walk = (d) => { for (const x of d.dirs) { if (x.path === path) at = x; else if (path.startsWith(x.path + "/")) walk(x); } }; if (folder && path) walk(folder.tree); return at; };
