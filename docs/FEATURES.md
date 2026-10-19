@@ -1374,5 +1374,5 @@ user alone; the window only ever shows its last four signs. A key in the environ
 
 ## Look
 
-Colours follow the Omarchy theme, light or dark. Context menus and the `/` menu are dark plates;
+Colours follow the desktop, light or dark: Velum's current colours when Velum is installed (`~/.local/state/velum/colors.toml`, kept on the desktop's variant and appearance — the app switches with it), else the Omarchy theme. Context menus and the `/` menu are dark plates;
 the app's own icons are SF Symbols where that font is installed. Motion and sizes are the app's own (`motion.css`).

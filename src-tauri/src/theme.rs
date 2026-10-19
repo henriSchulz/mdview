@@ -1,5 +1,7 @@
-//! Colours follow the Omarchy theme. Where there is none (another desktop, another system)
-//! the light fallback holds. Motion and sizes are the app's own (motion.css, viewer/*.css).
+//! Colours follow the desktop: Velum's current colours when Velum is installed
+//! (~/.local/state/velum/colors.toml, the Omarchy keys, kept on the desktop's variant and
+//! light/dark by Velum), else the Omarchy theme. Where there is neither (another desktop, another
+//! system) the light fallback holds. Motion and sizes are the app's own (motion.css, viewer/*.css).
 
 use std::fs;
 use std::path::PathBuf;
@@ -62,6 +64,31 @@ pub fn theme_dir() -> PathBuf {
     std::env::var_os("MDVIEW_THEME_DIR").filter(|d| !d.is_empty()).map(PathBuf::from).unwrap_or_else(|| home().join(".local/state/omarchy/current"))
 }
 
+/// Velum's colours of the moment (~/.local/state/velum/colors.toml), when Velum is installed.
+/// Not while a test points the app at a theme of its own (MDVIEW_THEME_DIR) unless the test names a
+/// Velum state too (MDVIEW_VELUM_STATE).
+pub fn velum_dir() -> Option<PathBuf> {
+    if let Some(d) = std::env::var_os("MDVIEW_VELUM_STATE").filter(|d| !d.is_empty()) {
+        return Some(PathBuf::from(d));
+    }
+    if std::env::var_os("MDVIEW_THEME_DIR").is_some_and(|d| !d.is_empty()) {
+        return None;
+    }
+    Some(home().join(".local/state/velum"))
+}
+
+fn colors_file() -> PathBuf {
+    pick_colors(velum_dir(), theme_dir())
+}
+
+/// Velum's colours when its file is there, else the Omarchy theme's.
+fn pick_colors(velum: Option<PathBuf>, theme: PathBuf) -> PathBuf {
+    match velum.map(|d| d.join("colors.toml")) {
+        Some(f) if f.is_file() => f,
+        _ => theme.join("theme/colors.toml"),
+    }
+}
+
 fn rgb(hex: &str) -> Option<(u8, u8, u8)> {
     let h = hex.trim_start_matches('#');
     let part = |i: usize| h.get(i..i + 2).and_then(|x| u8::from_str_radix(x, 16).ok());
@@ -76,7 +103,7 @@ fn luminance(hex: &str) -> f64 {
 }
 
 pub fn load_theme() -> Theme {
-    let data: toml::Table = fs::read_to_string(theme_dir().join("theme/colors.toml")).ok().and_then(|t| t.parse().ok()).unwrap_or_default();
+    let data: toml::Table = fs::read_to_string(colors_file()).ok().and_then(|t| t.parse().ok()).unwrap_or_default();
     // (what the theme does not name is the fallback's: the dark one under a dark ground, or — no theme at all — a dark system)
     let dark = match data.get("mode").and_then(|m| m.as_str()) {
         Some("dark") => true,
@@ -106,4 +133,26 @@ pub fn load_theme() -> Theme {
 pub fn theme_css(theme: &Theme) -> String {
     let body: Vec<String> = theme.colors.iter().map(|(k, v)| format!("--c-{}:{v}", k.replace('_', "-"))).collect();
     format!(":root{{{};color-scheme:{}}}", body.join(";"), theme.mode)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pick_colors;
+    use std::fs;
+
+    #[test]
+    fn velum_colours_win_when_installed() {
+        let base = std::env::temp_dir().join(format!("mdview-velum-test-{}", std::process::id()));
+        let (velum, omarchy) = (base.join("velum"), base.join("omarchy"));
+        fs::create_dir_all(&velum).unwrap();
+        fs::create_dir_all(omarchy.join("theme")).unwrap();
+        // no Velum file: the Omarchy theme
+        assert_eq!(pick_colors(Some(velum.clone()), omarchy.clone()), omarchy.join("theme/colors.toml"));
+        // Velum not installed at all: the Omarchy theme
+        assert_eq!(pick_colors(None, omarchy.clone()), omarchy.join("theme/colors.toml"));
+        // Velum's file there: it wins
+        fs::write(velum.join("colors.toml"), "background = \"#f6f7fb\"\n").unwrap();
+        assert_eq!(pick_colors(Some(velum.clone()), omarchy.clone()), velum.join("colors.toml"));
+        let _ = fs::remove_dir_all(&base);
+    }
 }

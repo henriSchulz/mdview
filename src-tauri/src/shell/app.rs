@@ -252,6 +252,10 @@ impl App {
         for d in [dir.clone(), dir.join("theme")] {
             let _ = watcher.watch(&d, RecursiveMode::NonRecursive);
         }
+        // Velum's colours change with the desktop's variant and light/dark
+        if let Some(d) = theme::velum_dir() {
+            let _ = watcher.watch(&d, RecursiveMode::NonRecursive);
+        }
         self.watcher = Some(watcher);
     }
 
