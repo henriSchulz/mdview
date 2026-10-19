@@ -160,6 +160,9 @@ impl Win {
                 None => self.trash_note(app, text_of("path")),
             },
             "untrash" => self.untrash(app),
+            // Ctrl+Z and Ctrl+Shift+Z in the sidebar and All Notes: what was done to the files (shell/undo.rs)
+            "fileundo" => self.file_step(app, true),
+            "fileredo" => self.file_step(app, false),
             // a folder's list as a place to work with files: put out of sight, copied, put in, brought in from elsewhere
             "hide" => self.hide(app, &msg["paths"], msg["on"].as_bool().unwrap_or(true)),
             "copyfiles" => self.copy_files(app, &msg["paths"], truthy(&msg["cut"])),

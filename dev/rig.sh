@@ -66,7 +66,8 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
-#   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before)
+#   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
+#   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before) — TO=sidebar: held over the sidebar
 #   dev/rig.sh move                   a note dragged into a folder, a folder into another
 #   dev/rig.sh github                signing in with GitHub from the settings, against a GitHub of the rig's own
 #   dev/rig.sh tabs                  the tabs of a folder window: a note in its own tab, an empty one, a PDF where it was left, keys, closing, pulling
@@ -663,11 +664,22 @@ PY
     f=$(ls "$R/out"/*.railfav.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  fileundo)
+    # what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z), on a copy of the overview's notes
+    rm -rf "$R/work" "$R/data/Trash"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.fileundo.json
+    app 90 MDVIEW_PROBE="$D/probe-fileundo.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    for _ in $(seq 900); do ls "$R/out"/*.fileundo.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
+    f=$(ls "$R/out"/*.fileundo.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$f"
+    ! jq -r '.steps[], (.error // empty)' "$f" | grep -qv '^ok' ;;
   tiledrag)
     # a tile of All Notes held by a real pointer (dev/vptr): the picture that goes with the pointer is the tile's, at the tile's size
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }
     rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.plan?.json "$R/out"/*.tiledrag.json
-    app 60 MDVIEW_PROBE="$D/probe-tiledrag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    { echo "window.__to = '${TO:-room}';"; cat "$D/probe-tiledrag.js"; } > "$R/probe-tiledrag.js" # (TO=sidebar: held over the sidebar)
+    app 60 MDVIEW_PROBE="$R/probe-tiledrag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
     read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
     for _ in $(seq 300); do P=$(ls "$R/out"/*.plan1.json 2>/dev/null | head -1); [[ -n $P ]] && break; sleep 0.1; done
     read -r -a cmd < <(jq -r '.cmd' "$P"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"
@@ -683,10 +695,11 @@ PY
     magick "$R/out/tiledrag-before.png" -crop "$(box "$AX" "$AY")" +repage "$R/out/tiledrag-tile.png"
     magick "$R/out/tiledrag-held.png" -crop "$(box "$(echo "$HX - $TW / 2" | bc -l)" "$(echo "$HY - $TH / 2" | bc -l)")" +repage "$R/out/tiledrag-ghost.png"
     apart=$(magick compare -metric RMSE "$R/out/tiledrag-tile.png" "$R/out/tiledrag-ghost.png" null: 2>&1 | sed 's/.*(\(.*\)).*/\1/')
-    printf 'the picture at the pointer is %.3f apart from the tile (the same picture: under 0.08)\n' "$apart"
+    lim=0.08; [[ ${TO:-} == sidebar ]] && lim=0.10 # (over the sidebar the ground behind the picture is the sidebar's, not the page's)
+    printf 'the picture at the pointer is %.3f apart from the tile (the same picture: under %s)\n' "$apart" "$lim"
     f=$(ls "$R/out"/*.tiledrag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$f"
-    ! jq -r '.steps[], (.error // empty)' "$f" | grep -q '^FAIL\|Error' && (( $(echo "$apart < 0.08" | bc -l) )) ;;
+    ! jq -r '.steps[], (.error // empty)' "$f" | grep -q '^FAIL\|Error' && (( $(echo "$apart < $lim" | bc -l) )) ;;
   dragnote)
     # blocks moved with a real pointer in a copy of a real note (NOTE=… its file; pictures beside it go along): columns, svg, formulas, a board
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh dragreal once (it builds vptr)"; exit 1; }

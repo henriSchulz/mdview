@@ -954,8 +954,16 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   again**: onto the folder's name at the sidebar's head (the folder itself), or anywhere in the
   sidebar that is no folder's row — the folder shown. In the rail a folder's sign takes what is
   dropped on it (All Notes: the folder itself); among the sheets the way back at the top left
-  takes it into the folder above. What would take it is marked while it is pulled over.
+  takes it into the folder above. What would take it is marked while it is pulled over, and the
+  thing itself goes with the pointer — over All Notes and over the sidebar alike.
   Tabs, the note on screen and a share's link follow.
+- **Undo and redo for files** (the desktop app): `Ctrl+Z` over All Notes or in the sidebar takes
+  back the last thing done to the folder's files — moved (several dragged together: one step),
+  renamed, put in the Trash (taken out again), made (a new note, folder or whiteboard, a copy,
+  what was pasted or added: put in the Trash), hidden or shown — and `Ctrl+Shift+Z` (`Ctrl+Y`)
+  does it again; a message says what was undone. Doing something new forgets what was taken
+  back. In a field being typed in (a name) the keys are the field's. The browser has no such
+  history: a repository keeps its own.
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
 - **Started by itself** (nothing opened before), the app says in its window what can be opened:

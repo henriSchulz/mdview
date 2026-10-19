@@ -39,6 +39,7 @@ mod folder;
 mod messages;
 mod project;
 mod tabs;
+mod undo;
 
 const OPENED_LIMIT: usize = 3000; // notes whose last opening is remembered
 const SF_SYMBOLS: &str = ".SF Symbols Fallback"; // the font the app's signs are set in, where it is installed (viewer.js)
@@ -428,6 +429,7 @@ pub struct Win {
     kept_dirs: HashSet<String>, // folders made from the sidebar: shown although nothing is in them yet
     trashed: Vec<PathBuf>, // what went to the trash last: taken out again by Undo (while its message stands)
     trashed_shown: Option<PathBuf>, // … and the note that was on screen then, if it went with it
+    steps: undo::Steps,             // what was done to the folder's files: taken back and done again (shell/undo.rs)
     share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
@@ -570,6 +572,7 @@ impl Win {
             kept_dirs: HashSet::new(),
             trashed: vec![],
             trashed_shown: None,
+            steps: undo::Steps::default(),
             share_asked: None,
             title_cache: TitleCache::new(),
             watcher,

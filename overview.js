@@ -740,7 +740,8 @@
     const all = picked.has(t.dataset.path) && picked.size > 1 ? items.filter((x) => picked.has(x.dataset.path)) : [t];
     if (all.length === 1 && picked.size) pick([]);
     for (const x of all) x.classList.add("dragged");
-    core.moving.start(e, t.dataset.path, t, all.map((x) => x.dataset.path));
+    // (its picture over the whole window, not inside All Notes: the sidebar stands above All Notes, and the picture is pulled over it)
+    core.moving.start(e, t.dataset.path, t, all.map((x) => x.dataset.path), { into: document.body });
   });
   body.addEventListener("dragover", (e) => { if (foreign(e)) return; const t = folderAt(e); setInto(t); if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } });
   body.addEventListener("dragleave", (e) => { if (!body.contains(e.relatedTarget)) setInto(null); });

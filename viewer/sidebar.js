@@ -585,12 +585,12 @@
   const moving = {
     path: null, paths: null,
     // (el: what is dragged — held where the pointer took it, not by its corner or where a hover moved it;
-    // also: what goes with it — the others selected in All Notes)
-    start(e, path, el, also) {
+    // also: what goes with it — the others selected in All Notes; opt: as picture's)
+    start(e, path, el, also, opt) {
       moving.path = path; moving.paths = also && also.length > 1 ? also : null; e.dataTransfer.effectAllowed = "copyMove"; e.dataTransfer.setData("application/x-mdview-move", path);
       // (… and as files, for whatever else takes them: the note — a link to it, a whiteboard as its picture —, a file manager, another application)
       if (window.__TAURI_INTERNALS__) e.dataTransfer.setData("text/uri-list", (moving.paths || [path]).map((p) => "file://" + p.split("/").map(encodeURIComponent).join("/")).join("\r\n"));
-      moving.picture(e, el);
+      moving.picture(e, el, opt);
     },
     // what goes with the pointer in a drag, drawn by the page: a copy of el held where the pointer took it
     // (the browser's own picture of an element is twice as large on a screen scaled by a fraction)
@@ -898,6 +898,17 @@
     if (!item || item.classList.contains("is-dir")) return;
     e.preventDefault();
     openRow(item, true);
+  });
+  // Ctrl+Z and Ctrl+Shift+Z (Ctrl+Y) over All Notes or in the sidebar: what was done to the files — moved, renamed, trashed,
+  // made, hidden — taken back and done again. The shell keeps that history (shell/undo.rs); the browser's host has none (a
+  // repository has its history for that). Where text is typed, the keys are the text's.
+  document.addEventListener("keydown", (e) => {
+    if (!window.__TAURI_INTERNALS__ || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const k = e.key.toLowerCase(), back = k === "z" && !e.shiftKey, again = (k === "z" && e.shiftKey) || (k === "y" && !e.shiftKey);
+    const t = e.target instanceof Element ? e.target : document.body;
+    if (!(back || again) || t.isContentEditable || t.closest("input, textarea, .ov-paste") || !(window.MdOverview?.isOpen || t.closest("#sidebar"))) return;
+    e.preventDefault(); e.stopPropagation();
+    post(back ? "fileundo" : "fileredo");
   });
   sbList.addEventListener("keydown", (e) => {
     const row = e.target.closest(".sb-row");

@@ -162,6 +162,7 @@ impl Win {
             }
             Err(e) => return self.toast(format!("Couldn't create note: {}", strerror(&e))),
         }
+        self.did(undo::Step::Made(vec![path.clone()]));
         self.rescan(app);
         self.open_path(app, &path, None, true);
         // written at once, in the mode that is worked in: the active one where that is it, the source beside its reading
@@ -178,7 +179,7 @@ impl Win {
         let target = self.target_dir(&folder, wanted);
         let path = target.join(Some(clean_name(name)).filter(|n| !n.is_empty()).unwrap_or_else(|| "New Folder".into()));
         match fs::create_dir(&path) {
-            Ok(()) => {}
+            Ok(()) => self.did(undo::Step::Made(vec![path.clone()])),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => self.toast(format!("“{}” already exists", name_of(&path))),
             Err(e) => return self.toast(format!("Couldn't create folder: {}", strerror(&e))),
         }
@@ -237,6 +238,7 @@ impl Win {
         if let Err(e) = fs::rename(&old, &new) {
             return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
         }
+        self.did(undo::Step::Moved(vec![(old.clone(), new.clone())], if how == "rename" { "rename" } else { "move" }));
         let new_real = crate::scan::canon(&new).unwrap_or_else(|_| new.clone());
         if is_dir {
             crate::looks::moved(folder, &old, &new); // (its colour and its sign go along)
@@ -360,6 +362,7 @@ impl Win {
         let current_gone = self.path.as_ref().is_some_and(|p| gone(p, &done));
         // (it can be taken back while the message stands — where the system's trash can be read: not on macOS)
         self.trashed = done.iter().map(|(p, _, _)| p.clone()).collect();
+        self.did(undo::Step::Trashed(self.trashed.clone()));
         self.trashed_shown = self.path.clone().filter(|_| current_gone);
         if cfg!(target_os = "macos") {
             self.toast(said);
@@ -384,6 +387,14 @@ impl Win {
         let shown = self.trashed_shown.take();
         if wanted.is_empty() {
             return;
+        }
+        // (the last thing done: taken back as Ctrl+Z takes it back, so that Ctrl+Shift+Z does it again)
+        if self.steps.last() == Some(&undo::Step::Trashed(wanted.clone())) {
+            self.file_step(app, true);
+            return match shown.filter(|p| p.is_file()) {
+                Some(p) => self.open_path(app, &p, None, true),
+                None => self.send_tabs(app),
+            };
         }
         let items = match trash::os_limited::list() {
             Ok(items) => items,
@@ -453,7 +464,11 @@ impl Win {
         if paths.is_empty() {
             return;
         }
-        match crate::hidden::set(&folder, &paths.iter().map(PathBuf::as_path).collect::<Vec<_>>(), on) {
+        let set = crate::hidden::set(&folder, &paths.iter().map(PathBuf::as_path).collect::<Vec<_>>(), on);
+        if set.is_ok() {
+            self.did(undo::Step::Hidden(paths.clone(), on));
+        }
+        match set {
             Ok(()) if on && !truthy(&app.prefs()["showHidden"]) => {
                 let said = if paths.len() == 1 { format!("“{}” is hidden", name_of(&paths[0])) } else { format!("{} items are hidden", paths.len()) };
                 self.js("MdView.toast", &[json!(said), json!({ "label": "Undo", "type": "hide", "data": { "paths": paths.iter().map(|p| s(p)).collect::<Vec<_>>(), "on": false } })]);
@@ -535,6 +550,7 @@ impl Win {
         for d in made.iter().filter(|p| p.is_dir()) {
             self.kept_dirs.insert(s(d));
         }
+        self.did(undo::Step::Made(made.clone()));
         self.toast(if made.len() == 1 { format!("{how} “{}”", name_of(&made[0])) } else { format!("{how} {} items", made.len()) });
         app.touch(into);
         self.rescan(app);
@@ -559,6 +575,7 @@ impl Win {
         for d in made.iter().filter(|p| p.is_dir()) {
             self.kept_dirs.insert(s(d));
         }
+        self.did(undo::Step::Made(made.clone()));
         app.touch(&folder);
         self.rescan(app);
         self.js("MdView.revealRows", &[json!(made.iter().map(|p| s(p)).collect::<Vec<_>>())]);
@@ -611,7 +628,7 @@ impl Win {
         let stem = if stem.is_empty() { "Whiteboard".to_string() } else { stem };
         let path = into.join(format!("{stem}.board.svg"));
         match fs::OpenOptions::new().write(true).create_new(true).open(&path).and_then(|mut f| f.write_all(text.as_bytes())) {
-            Ok(()) => {}
+            Ok(()) => self.did(undo::Step::Made(vec![path.clone()])),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => self.toast(format!("“{}” already exists", name_of(&path))),
             Err(e) => return self.toast(format!("Couldn't create the whiteboard: {}", strerror(&e))),
         }
