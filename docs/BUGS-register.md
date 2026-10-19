@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-19
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The design of the folders and files has got worse again, it looks inconsistent (All Notes, tiles and list)" | three things, seen on a copy of his notes folder (`rig.sh ovlook ~/Documents/Notizen`): (1) a folder's stack showed the plain folder while its row in the list showed the folder's own sign (an image, a notebook): Lucide's signs load when a folder first needs one, and when they came only the sidebar was drawn again — All Notes opens first in a folder window, so its stacks asked and kept the plain sign (rule 67). (2) The pasteboard's button, added later, was flat beside the raised `…` and the switches, and the head broke its buttons apart: the switches stayed at the right, the pasteboard and `…` went alone to a second line. (3) A note's first words in the list were the style sheet of a drawing in it (`:root{color:…}`) and the text of its code blocks. **Which of these he meant was not asked** — he checks the build | `folderGlyph`'s loader calls `MdOverview.folderChanged()` too; the switches and buttons are one group (`.ov-tools`) that goes to a new line whole, the pasteboard's button raised as `…` is; `previewOf` takes a note's words without `style`, `svg` and `pre` | `rig.sh overview` (a folder's Lucide sign on its stack at the first view, and on its row; the pasteboard's button looks as `…`; the switches and buttons on one line), `dev/tests/snippet.test.mjs`; screenshots: `rig.sh ovlook [FOLDER]` |
+
 ### 2026-10-16
 
 | What Henri saw | Why | Fixed by | Guard |
@@ -192,6 +198,8 @@ cause in here.
 - `rig.sh prefs`: three checks expect a "/" menu without the whiteboard entry.
 - `rig.sh graphic`: two checks expect the file beside the note; the app saves under `assets/`.
 - `rig.sh edges`, `rig.sh regress`: failing on main since before 2026-10-08.
+- `rig.sh explorer` "All Notes: a PDF's tile shows its first page": fails on main (2026-10-19); the
+  tile does show it (a `blob:` picture), the check looks for another address.
 - `web/test/board-touch.test.mjs` "the tray goes where a finger pulls it": fails now and then in
   a full run, passes alone.
 - A latent one: `dev/tests/edit.test.mjs` found an edit after a hard break (two spaces at a

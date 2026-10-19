@@ -580,7 +580,9 @@
     for (const a of box.content.querySelectorAll("a")) a.removeAttribute("href");
     const color = fm.props && typeof fm.props.color === "string" && DECO_COLORS.includes(fm.props.color.trim().toLowerCase()) ? fm.props.color.trim().toLowerCase() : null;
     for (const x of box.content.querySelectorAll(more.whole ? ".katex-mathml" : "h1:first-child, .katex-mathml")) x.remove(); // (a row's words: without the name again)
-    return { html: box.innerHTML.trim(), color, text: box.content.textContent.replace(/\s+/g, " ").trim().slice(0, 240) };
+    const words = box.content.cloneNode(true); // (a row's words are what the note says: not a drawing's style sheet or a code block)
+    for (const x of words.querySelectorAll("style, svg, pre")) x.remove();
+    return { html: box.innerHTML.trim(), color, text: words.textContent.replace(/\s+/g, " ").trim().slice(0, 240) };
   }
   /* A PDF's first page as a picture: pdfShot(path, v) → its address ("": the PDF cannot be read). One PDF after the other — each
    * has to be read whole for it — and kept for as long as the window is, by the file and v (when it was changed).
