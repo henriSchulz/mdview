@@ -1067,7 +1067,7 @@
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
     const byFinger = window.MdView.core.touching();
     if (byFinger) view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard comes up, and one that is up goes)
-    const menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
+    const menu = () => { const items = byFinger && !document.documentElement.hasAttribute("data-ipad") ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
     if (handle.hasAttribute("data-group")) { view.focus(); menu(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
     menu();
@@ -1740,5 +1740,5 @@
     v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     return true;
   }
-  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { pasteBelow, selectAll, menuItems, slashItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

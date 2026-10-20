@@ -5,6 +5,14 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| (iPad) "the menu when a tile in All Notes is held must stand cleanly beside the tile" — then: no menu under a held finger on the iPad at all | the page's held finger was a right click everywhere (drawer.js): the file menu at the finger, over the tile; a tile also began a drag under a held finger | on the iPad no menu comes from a finger (drawer.js, tablet.js); a tile held is chosen, a bar has the file menu's entries (asked of the menu itself); tiles are not dragged by a finger | `web/test/tablet.test.mjs` "no menu under a held finger" |
+| (iPad) "the block bar hides things under More, in the old context menu" | the bar had four tiles and the block's menu (A.menu) for the rest | the bar has the "/" menu's entries for blocks as tiles and panels; the handle tapped by a finger opens no menu there | `web/test/tablet.test.mjs` "blocks chosen have their bar" |
+| (iPad) "tapping the four-part button: something at the top jumps before the sheet shrinks" | what floats over the note went at once (the toolbar, the name in the bar, the capsule), All Notes' tiles came in with their own movement under the note flying to its tile, and the note's place was read after All Notes had opened | they fade with the zoom, the tiles are simply there, the note's place is read as it is touched | `web/test/tablet.test.mjs` "the zoom … is one movement" (frames sampled; a jump > 2 px, or a fade faster than a quarter a frame, fails) |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

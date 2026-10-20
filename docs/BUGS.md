@@ -297,6 +297,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     otherwise (the toolbar, the rail, All Notes) and calls what they do; it adds no second way of doing a thing.
     Chromium's touch emulation has one touch point and its own user agent: a test of the iPad sets five
     (`Emulation.setTouchEmulationEnabled`) and Safari's agent, or the page is no iPad (`web/test/tablet.test.mjs`).
+70. **On the iPad a held finger opens no menu** (Henri, 2026-10-20). What a menu offers there is in a bar of tiles
+    (viewer/tablet.js), and the bar asks the menu itself for its entries (the file menu, the "/" menu's for blocks) —
+    a new entry in the menu is in the bar without a word. A secondary click (a trackpad) still has its menu.
+71. **A movement over a movement is one movement**: what stands over a view that zooms away goes with it (a fade as
+    long as the zoom, `ease-in-out` — `ease-out` drops at the first frame), what is under it does not come in on its
+    own meanwhile, and where the view stood is read when it is touched, before anything else is opened.
 
 ### Releases and installs
 

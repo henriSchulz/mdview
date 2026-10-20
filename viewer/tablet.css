@@ -26,7 +26,7 @@
   :root[data-ipad] .ip-title { display: grid; line-height: 1.2; font: 600 15px/1.25 var(--ui); color: var(--fg); opacity: 0; transform: translateY(6px); pointer-events: none !important; transition: opacity var(--dur-fast) var(--ease-exit), transform var(--dur-fast) var(--ease-exit); }
   :root[data-ipad] .ip-title small { display: flex; align-items: center; gap: 4px; font: 400 12px/1.3 var(--ui); color: var(--fg2); }
   :root[data-ipad] .ip-title small svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; }
-  :root[data-ipad][data-ip-titled] .ip-title { opacity: 1; transform: none; transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth); }
+  :root[data-ipad][data-ip-titled] .ip-title { opacity: 1; transform: none; transition: opacity var(--dur-slow) var(--ease-in-out), transform var(--spring-smooth-dur) var(--spring-smooth); }
   /* (a soft band of the page's ground under the buttons while the note scrolls under them) */
   :root[data-ipad] body::after { content: ""; position: fixed; z-index: 13; left: 0; right: 0; top: 0; height: calc(var(--ip-top) + 64px); background: linear-gradient(var(--bg) 45%, transparent); opacity: 0; pointer-events: none; transition: opacity var(--dur-base) var(--ease-out); }
   :root[data-ipad][data-ip-titled] body::after { opacity: 1; }
@@ -63,20 +63,59 @@
   :root[data-ipad] #overview { padding-top: calc(var(--ip-top) + 6px) !important; left: 0 !important; }
   :root[data-ipad] .ov-head { padding-left: calc(var(--ip-size) + 12px); min-height: var(--ip-size); align-items: center; }
   :root[data-ipad] .ov-title { font-size: 22px; }
-  :root[data-ipad] #overview[data-open] .ov-tile { transition-delay: 0s; }
+  /* (the tiles are simply there: the zoom brings them — their own coming in would move the note's tile under the note flying to it) */
+  :root[data-ipad] #overview .ov-tile { opacity: 1 !important; transform: none !important; transition: outline-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out) !important; }
+  /* (what floats over the note goes as the note goes — with the zoom, not before it) */
+  :root[data-ipad] #toolbar, :root[data-ipad] #ipad-tools { transition: opacity var(--dur-slow) var(--ease-in-out), transform var(--spring-smooth-dur) var(--spring-smooth); }
+  :root[data-ipad] body[data-overview] .ip-title { opacity: 0 !important; transition: opacity var(--dur-slow) var(--ease-in-out) !important; }
   :root[data-ipad] .ov-sheet { border-radius: 20px; }
 
-  /* the bar over selected blocks: tiles in the colours of what they do, at the foot in the middle */
-  :root[data-ipad] #ipad-blockbar { position: fixed; z-index: 22; left: 50%; bottom: var(--ip-bottom); display: flex; gap: 6px; padding: 7px; border-radius: 24px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); translate: -50% 0; transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; transition: transform var(--dur-slow) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit); }
-  :root[data-ipad] body[data-ip-blocks] #ipad-blockbar { transform: none; opacity: 1; pointer-events: auto; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
-  :root[data-ipad] .ip-tile { --t: var(--c-blue); display: grid; justify-items: center; align-content: center; gap: 3px; width: 66px; height: 58px; padding: 0; border: 0; border-radius: 15px; background: color-mix(in srgb, var(--t) 13%, var(--bg)); color: color-mix(in srgb, var(--t) 80%, var(--fg)); font: 500 11px/1.1 var(--ui); touch-action: manipulation; transition: transform var(--spring-snappy-dur) var(--spring-snappy); }
-  :root[data-ipad] .ip-tile > svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-  :root[data-ipad] .ip-tile:active { transform: scale(0.94); transition-duration: var(--dur-instant); }
-  :root[data-ipad] .ip-tile[data-key="menu.cut"] { --t: var(--c-orange); }
-  :root[data-ipad] .ip-tile.dup { --t: var(--c-green); }
-  :root[data-ipad] .ip-tile.more { --t: var(--fg); }
-  :root[data-ipad] .ip-tile.danger { --t: var(--c-red); }
 }
-:root:not([data-ipad]) :is(#ipad-nav, #ipad-tools, #ipad-blockbar) { display: none; }
-@media not ((min-width: 761px) and (min-height: 600px)) { :is(#ipad-nav, #ipad-tools, #ipad-blockbar) { display: none !important; } }
-@media print { :is(#ipad-nav, #ipad-tools, #ipad-blockbar) { display: none !important; } }
+:root:not([data-ipad]) :is(#ipad-nav, #ipad-tools, .ip-bar, #ipad-panel) { display: none; }
+@media not ((min-width: 761px) and (min-height: 600px)) { :is(#ipad-nav, #ipad-tools) { display: none !important; } }
+@media print { :is(#ipad-nav, #ipad-tools, .ip-bar, #ipad-panel) { display: none !important; } }
+
+/* --- on an iPad of any width: no menu under a held finger — bars of tiles at the foot, and panels that rise from them
+ * (viewer/tablet.js): over blocks chosen in the note, and over tiles chosen in All Notes. Craft's: tiles in the colour of
+ * what they do, a frosted panel with rows of a finger's height, colours as swatches. */
+:root[data-ipad] .ip-bar { position: fixed; z-index: 40; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 6px; max-width: calc(100vw - 24px); padding: 7px; box-sizing: border-box; border-radius: 24px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); translate: -50% 0; transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; transition: transform var(--dur-slow) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+:root[data-ipad] .ip-bar::-webkit-scrollbar { display: none; }
+:root[data-ipad] body[data-ip-blocks] #ipad-blockbar, :root[data-ipad] body[data-ip-picking] #ipad-pickbar { transform: none; opacity: 1; pointer-events: auto; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+:root[data-ipad] .ip-gap { flex: none; width: 1px; margin: 8px 1px; background: var(--line-strong); }
+:root[data-ipad] .ip-tile { --t: var(--c-blue); flex: none; display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 66px; height: 58px; padding: 0 8px; border: 0; border-radius: 15px; background: color-mix(in srgb, var(--t) 13%, var(--bg)); color: color-mix(in srgb, var(--t) 80%, var(--fg)); font: 500 11px/1.1 var(--ui); white-space: nowrap; touch-action: manipulation; transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out); }
+:root[data-ipad] .ip-tile > svg, :root[data-ipad] .ip-tile > .sf { width: 21px; height: 21px; font-size: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-ipad] .ip-tile .ip-aa { font: 600 17px/21px var(--ui); }
+:root[data-ipad] .ip-tile:active { transform: scale(0.94); transition-duration: var(--dur-instant); }
+:root[data-ipad] .ip-tile[aria-expanded="true"] { background: color-mix(in srgb, var(--t) 24%, var(--bg)); }
+:root[data-ipad] .ip-tile.danger { color: var(--c-red); }
+:root[data-ipad] body:is([data-ip-blocks], [data-ip-picking]) :is(#ipad-tools, #rrail, #settings-btn) { opacity: 0 !important; pointer-events: none !important; }
+/* the panel over the bar */
+:root[data-ipad] #ipad-panel { position: fixed; z-index: 41; left: var(--x, 12px); bottom: var(--y, 96px); width: 340px; max-height: calc(100vh - var(--y, 96px) - 24px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: var(--o, 50%) 100%; transform: scale(0.94) translateY(8px); opacity: 0; visibility: hidden; transition: transform var(--dur-fast) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+:root[data-ipad] #ipad-panel[data-open] { transform: none; opacity: 1; visibility: visible; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+:root[data-ipad] .ip-ph { padding: 10px 14px 4px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
+:root[data-ipad] .ip-pg { display: grid; padding-bottom: 6px; }
+:root[data-ipad] .ip-pg + .ip-ph, :root[data-ipad] .ip-pg + .ip-pg { border-top: 0.5px solid var(--line-strong); margin-top: 2px; padding-top: 6px; }
+:root[data-ipad] .ip-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: transparent; color: var(--fg); font: 400 17px/1.25 var(--ui); text-align: left; touch-action: manipulation; transition: background-color var(--dur-fast) var(--ease-out); }
+:root[data-ipad] .ip-row:active { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+:root[data-ipad] .ip-row:disabled { color: var(--fg3); }
+:root[data-ipad] .ip-row.danger { color: var(--c-red); }
+:root[data-ipad] .ip-ri { display: grid; place-items: center; width: 22px; flex: none; color: var(--fg2); }
+:root[data-ipad] .ip-ri svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-ipad] .ip-rl { flex: 1; min-width: 0; }
+:root[data-ipad] .ip-rc { color: var(--accent); }
+:root[data-ipad] .ip-rc svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-ipad] .ip-pg.sw { grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 6px 10px; }
+:root[data-ipad] .ip-sw { display: grid; justify-items: center; gap: 4px; padding: 6px 0; border: 0; border-radius: 14px; background: transparent; color: var(--fg2); font: 400 12px/1.2 var(--ui); touch-action: manipulation; }
+:root[data-ipad] .ip-sw i { width: 34px; height: 34px; border-radius: 50%; background: var(--s); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+:root[data-ipad] .ip-sw[aria-checked="true"] i { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+:root[data-ipad] .ip-sw:active { background: var(--fill-pressed); }
+/* All Notes while tiles are chosen: a check on each, the chosen ones lifted a little; the file menu asked for its entries stays out of sight */
+:root[data-ipad] body[data-ip-picking] #overview .ov-tile .ov-sheet::before { content: ""; position: absolute; z-index: 2; top: 10px; right: 10px; width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--fg) 35%, transparent); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked .ov-sheet::before { border: 0; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4L18 8'/%3E%3C/svg%3E") center / 15px no-repeat; }
+:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked .ov-sheet { transform: scale(1.03); box-shadow: 0 0 0 2px var(--accent), 0 14px 34px rgb(0 0 0 / 0.16); }
+:root[data-ipad] #overview .ov-tile.ip-held .ov-sheet { transform: scale(1.06); transition-duration: var(--dur-fast); }
+:root[data-ipad] body[data-ip-picking] #overview { padding-bottom: 120px; }
+:root[data-ipad] .ov-item { -webkit-user-drag: none; -webkit-touch-callout: none; }
+:root[data-ipad] body[data-ip-proxy] :is(#ctxmenu, #ctxsub) { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: none !important; }
+/* (the chosen tile carries its check and its lift: no ring around tile and name besides) */
+:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked { outline: none; background: none; }
