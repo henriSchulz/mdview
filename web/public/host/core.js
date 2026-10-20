@@ -104,9 +104,11 @@
     return null;
   }
 
-  /* Where a note's [[wikilinks]] lead, as Obsidian finds them: beside the note, at the vault's
-   * root (the nearest folder above with a .obsidian in it), then anywhere by the file's name —
-   * the nearest first. paths: every file of the repository, as it stands under `base`. */
+  /* Where a note's [[wikilinks]] lead, as Obsidian finds them: beside the note, at the root, then
+   * anywhere below the root by the file's name — the nearest first. The root is the vault (the
+   * nearest folder above with a .obsidian in it), else the repository's top: a note of a subfolder
+   * names a note or a PDF of another one (`assets/…`) just as well (scan.rs: Resolver::in_base).
+   * paths: every file of the repository, as it stands under `base`. */
   function resolver(base, paths, noteDir) {
     const all = new Set(paths);
     let vault = null;
@@ -114,10 +116,11 @@
       if (paths.some((p) => p.startsWith(d + "/.obsidian/"))) { vault = d; break; }
       if (d === base) break;
     }
+    const root = vault || base;
     let index = null;
     const build = () => {
       index = new Map();
-      const under = (vault || noteDir) + "/";
+      const under = root + "/";
       for (const p of paths) {
         if (!p.startsWith(under) || !shown(p.slice(under.length))) continue;
         const key = nameOf(p).toLowerCase();
@@ -135,7 +138,7 @@
       const name = target.split(/[#^]/)[0].trim();
       if (!name) return null;
       const cands = isMd(name) ? [name] : [name + ".md", name];
-      const bases = vault && vault !== noteDir ? [noteDir, vault] : [noteDir];
+      const bases = root !== noteDir ? [noteDir, root] : [noteDir];
       for (const c of cands) for (const b of bases) { const p = join(b, c); if (p && all.has(p)) return p; }
       if (!index) build();
       for (const c of cands) {

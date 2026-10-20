@@ -129,11 +129,15 @@
     const name = file.split("/").pop().replace(/\.md$/i, "");
     return name ? (sub ? `${name} › ${sub}` : name) : sub;
   };
+  // a link of the note on screen that leads nowhere (written just now, or said to be nowhere): the application is asked —
+  // see resolveSoon; never for a note drawn elsewhere (a tile, the sheet beside), whose links are not the note's
+  const askWhere = (env, target) => { if (env.links && P.current && env.links === P.current.links) P.resolveSoon(target); };
   md.renderer.rules.wikilink = (t, i, _o, env) => {
     const { target, alias } = t[i].meta;
     const label = esc(alias || wikiLabel(target));
     if (target.startsWith("#")) return `<a class="wikilink" href="#${esc(target.slice(1))}">${label}</a>`;
     const ok = env.links && env.links[target];
+    if (!ok) askWhere(env, target);
     return `<a class="wikilink${ok ? "" : " unresolved"}" href="#" data-wiki="${esc(target)}">${label}</a>`;
   };
   const sectionOf = (text, sub) => {
@@ -158,7 +162,7 @@
     const { target, alias } = t[i].meta;
     const info = env.links && env.links[target];
     if (!info) { // (written just now: the application is asked where it points; see linkResolved)
-      if (env.links && !(target in env.links)) P.resolveSoon(target);
+      askWhere(env, target);
       return `<span class="embed-missing" data-wiki="${esc(target)}">${esc(wikiLabel(target))}</span>`;
     }
     // how large: |300 or |300x200 (as Obsidian), |full for the column's whole width; nothing: its own size

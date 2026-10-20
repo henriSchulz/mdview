@@ -59,10 +59,28 @@ test("wikilinks lead where Obsidian finds them", () => {
   // from another folder the nearest of two is the one below it, else the one least deep
   assert.equal(C.resolver(B, paths, B + "/Archive").resolve("Plan"), B + "/Archive/Plan.md");
   assert.equal(C.resolver(B, paths, B + "/pics").resolve("Plan"), B + "/Archive/Plan.md");
-  // without a vault only what is below the note's folder is looked through
+  // without a vault the repository's top is the root: what is beside the note first, then all of it
   const plain = C.resolver(B, paths.filter((p) => !p.includes(".obsidian")), B + "/Projects");
-  assert.deepEqual([plain.vault, plain.resolve("Home"), plain.resolve("Sub/Plan")], [null, null, B + "/Projects/Sub/Plan.md"]);
+  assert.deepEqual([plain.vault, plain.resolve("Home"), plain.resolve("Sub/Plan"), plain.resolve("Plan"), plain.resolve("archive/plan"), plain.resolve("Gone")],
+    [null, B + "/Home.md", B + "/Projects/Sub/Plan.md", B + "/Projects/Plan.md", B + "/Archive/Plan.md", null]);
   assert.deepEqual(C.wikiTargets("see [[A]] and [[B c|shown]], ![[pic.png|300]] but not [[\nbroken]]"), [{ target: "A", embed: false }, { target: "B c", embed: false }, { target: "pic.png", embed: true }]);
+});
+
+test("a note of a subfolder names a note or a PDF of another folder of a repository without a vault", () => {
+  // (Henri's DreamChip notes: risc-v/tracing/06 E-Trace Spec.md, its PDFs in assets/risc-v/)
+  const paths = ["risc-v/tracing/06 E-Trace Spec.md", "risc-v/tracing/00 Übersicht.md", "risc-v/Overview.md", "assets/risc-v/risc-v-e-trace-spec.pdf", "assets/risc-v/Priv Spec.PDF", "other/Notes.md"].map((p) => B + "/" + p);
+  const r = C.resolver(B, paths, B + "/risc-v/tracing");
+  assert.equal(r.vault, null);
+  const pdf = B + "/assets/risc-v/risc-v-e-trace-spec.pdf";
+  for (const { target } of C.wikiTargets("[[risc-v-e-trace-spec.pdf#page=35|Spec, S. 35]] ![[risc-v-e-trace-spec.pdf#page=12&rect=76,65,557,363]]")) assert.equal(r.resolve(target), pdf, target);
+  assert.equal(r.resolve("assets/risc-v/risc-v-e-trace-spec.pdf"), pdf); // (a path from the top)
+  assert.equal(r.resolve("priv spec.pdf"), B + "/assets/risc-v/Priv Spec.PDF");
+  assert.equal(r.resolve("00 Übersicht"), B + "/risc-v/tracing/00 Übersicht.md");
+  assert.equal(r.resolve("Overview"), B + "/risc-v/Overview.md");
+  assert.equal(r.resolve("Notes"), B + "/other/Notes.md");
+  // and from a note in another folder
+  assert.equal(C.resolver(B, paths, B + "/other").resolve("risc-v-e-trace-spec.pdf#page=3"), pdf);
+  assert.equal(C.resolver(B, paths, B + "/other").resolve("06 E-Trace Spec"), B + "/risc-v/tracing/06 E-Trace Spec.md");
 });
 
 test("a file a note names is found in the repository's assets, from whatever folder", () => {

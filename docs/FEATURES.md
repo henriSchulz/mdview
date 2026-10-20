@@ -718,6 +718,12 @@ Not there yet: a table's single rows and columns pulled to size or put in betwee
 ![[Other note]]                the note itself, shown in place
 ```
 
+Where a link leads, as Obsidian finds it: beside the note, at the root, then anywhere below the
+root by the file's name (whatever its case; the nearest first). The root is the vault (the nearest
+folder above with an `.obsidian`), else the folder window's top, else the top of the project or
+repository the note is in — in the web app the repository's. So a note of `risc-v/tracing/` names
+`[[spec.pdf#page=12]]` that lies in `assets/risc-v/`. A link the app found nowhere is looked for
+once more when the note is drawn (a file made since, a list of the files cut short on a cold disk).
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
 **Back and forward**, as a browser has them: each tab has one way back through what was shown in

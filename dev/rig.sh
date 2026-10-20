@@ -17,6 +17,7 @@
 #   dev/rig.sh ghostmath             a continuation that closes a formula: taken, it is one
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
+#   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
@@ -889,6 +890,32 @@ PY
     want=$'> [!PDF|yellow] [[paper.pdf#page=2&selection=7,5,7,21|paper, page 2]]\n> '
     [[ $copied == "$want"* ]] && echo "ok   Ctrl+Shift+C: the quote with its link is on the clipboard" || echo "FAIL the clipboard after Ctrl+Shift+C: $copied"
     ! { jq -r '.steps[], (.error // "ok")' "$f"; } | grep -qv '^ok' ;;
+  wikiroot)
+    # (Henri's DreamChip notes: risc-v/tracing/06 E-Trace Spec.md, the PDFs in assets/risc-v/; above them a vault, or a repository's top)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.wikiroot.json; fails=0
+    run() { # run DIR NOTE (relative to DIR)
+      rm -f "$R/out"/*.wikiroot.json
+      app 90 MDVIEW_PROBE="$D/probe-wikiroot.js" MDVIEW_PROBE_OUT="$R/out" -- "$1/$2"
+      for _ in $(seq 600); do ls "$R/out"/*.wikiroot.json >/dev/null 2>&1 && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null
+      local f; f=$(ls "$R/out"/*.wikiroot.json 2>/dev/null | head -1)
+      [[ -n $f ]] || { echo "FAIL $3: no report"; tail -5 "$R/app.log"; fails=1; return; }
+      jq -r --arg w "$3" '(.steps[] | sub("^(?<s>ok   |FAIL )"; "\(.s)\($w): ")), (.error // empty)' "$f"
+      jq -r '.steps[], (.error // empty)' "$f" | grep -qv '^ok' && fails=1
+    }
+    if [[ -n ${2:-} ]]; then
+      cp -r "$2" "$R/work/doc"; run "$R/work/doc" "$3" "$(basename "$2")"
+    else
+      doc="$R/work/vault/doc"; mkdir -p "$R/work/vault/.obsidian" "$doc/risc-v/tracing" "$doc/assets/risc-v" "$doc/other"; echo '{}' > "$R/work/vault/.obsidian/app.json"
+      python3 "$D/gen-pdf.py" "$doc/assets/risc-v/risc-v-e-trace-spec.pdf" 40
+      printf '%s\n' '# E-Trace' '' 'See [[risc-v-e-trace-spec.pdf#page=35|Spec, S. 25]] and [[00 Übersicht]], [[Elsewhere]].' '' \
+        '![[risc-v-e-trace-spec.pdf#page=12&rect=76,65,557,363]]' '' '![[risc-v-e-trace-spec.pdf#page=3]]' > "$doc/risc-v/tracing/06 E-Trace Spec.md"
+      printf '# Overview\n\n[[06 E-Trace Spec]]\n' > "$doc/risc-v/tracing/00 Übersicht.md"; printf '# Elsewhere\n' > "$doc/other/Elsewhere.md"
+      run "$doc" "risc-v/tracing/06 E-Trace Spec.md" "in a vault"
+      rm -rf "$R/work/vault/.obsidian"; mkdir -p "$doc/.git"
+      run "$doc" "risc-v/tracing/06 E-Trace Spec.md" "in a repository"
+    fi
+    [[ $fails == 0 ]] ;;
   mathtext)
     # LaTeX Suite in the text, between dollars, with real keys (wtype); the probe is latex's (it reports the document per stage)
     name=latex.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Formulas\n\nStart.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json

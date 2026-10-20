@@ -215,6 +215,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     a whiteboard, a PDF, a copy, a share — asks it and never the disk directly; whatever puts a
     file into a note asks `attachment_dir` where and `way_to` how it is named. A note's place is
     not part of how it names its pictures: it is moved, and its blocks are pasted elsewhere.
+69. **Where a `[[link]]` leads is worked out the same in the shell and in the web host**
+    (`scan::Resolver`, `resolver` in `core.js`): beside the note, the root (the vault, else the
+    folder's, project's or repository's top — never the note's folder alone), then by name below
+    the root. A change to one is made in the other, with a test on each side. And "nowhere" is no
+    answer for good: a miss on what may not have been all the files looks once more, and the page
+    asks once more for a link it was told leads nowhere — once, never in a loop.
 18. **A path from Windows is not a path from Linux**: `C:\…`, `/C:/…` in a URL. Whatever builds
     or parses a file address is checked by the Windows probe (`system-probe.yml`), not by eye.
 61. **What flickers while nothing of the page changes is WebKit's, and is filmed, not probed.** A
