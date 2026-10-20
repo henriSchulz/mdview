@@ -1612,6 +1612,7 @@
   document.addEventListener("pointerup", (e) => {
     if (e.pointerType !== "touch" || !view || !view.editable || document.body.dataset.view !== "active" || drag || rubber) return;
     if (handle.contains(e.target) || e.target.closest?.(".actmenu")) return;
+    if (swiping || performance.now() - swiped < 100) return; // (the end of a swipe that chose a block, or let it spring back: no tap)
     if (!view.dom.contains(e.target)) { hide(); return; }
     const el = blockOf(view, e.target, e.clientY);
     if (!el) { hide(); return; }
@@ -1624,44 +1625,113 @@
       tapped = performance.now();
     }, 60);
   }, true);
-  let tapped = -1e9;
-  /* Under a finger a block is chosen by a swipe to the right, begun beside it in the margin left of the text: it is marked, its
-   * handle stands by it and stays. The same swipe beside another block adds that one; beside a chosen block it lets that one go
-   * (as a swipe to the left does). Up and down the margin moves the note, as everywhere. */
+  let tapped = -1e9, swiped = -1e9, swiping = false; // (a swipe going on, and when the last one ended: the tap's handle above leaves it alone)
+  /* Under a finger a block is chosen by a swipe to the right, as in Craft: begun anywhere on it — on its text, or beside it in the
+   * margin left of the text. The block goes along with the finger, held back the further it goes, and its field fades in; let go
+   * far enough (or fast enough), it is chosen, its handle stands by it and stays; let go before, it springs back and nothing is.
+   * The same swipe on another block adds that one; on a chosen block it lets that one go (as a swipe to the left does). Which
+   * block: the innermost the finger is on — the item of a list, a paragraph in a callout or a column — as a tap's handle has it.
+   * What the browser does by itself stays its own: up and down moves the note, a finger that rests first selects text, a tap
+   * puts the caret, and in what scrolls sideways (a code block, a table, a formula) the swipe is only taken at its left edge. */
+  const swipeKey = new PluginKey("blkswipe");
   {
     let sw = null;
+    const DECIDE = 10, CHOOSE = 60, FAST = 0.5, REACH = 220, RESTED = 400; // px before the direction is known; px or px/ms that choose; how far the block can go; ms after which a finger has rested (text is being selected)
     const beside = (x, y) => { const pm = view.dom.getBoundingClientRect(); return x > pm.left + 6 || y < pm.top || y > pm.bottom ? null : inner(blockAtY(view.dom, y, 6), y); };
     const mine = (e) => sw && [...e.changedTouches].find((t) => t.identifier === sw.id);
+    // what scrolls sideways between the finger and the note: the innermost such element, or null
+    const scrollerOf = (el) => { for (; el && el !== view.dom; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return el; return null; };
+    const holder = () => view.dom.parentElement; // (the block's offset and its field are set here, outside the editor's own elements: changed there, it would draw them anew)
+    const set = (x, p) => { holder().style.setProperty("--swipe-x", x + "px"); holder().style.setProperty("--swipe-p", String(p)); };
+    // held back: the further the finger goes, the less the block follows (as iOS's rubber band)
+    const band = (dx) => Math.sign(dx) * REACH * (1 - 1 / ((Math.abs(dx) * 0.55) / REACH + 1));
+    const mark = (pos, how) => view.dispatch(view.state.tr.setMeta(swipeKey, pos == null ? null : { pos, how }).setMeta("addToHistory", false));
+    const still = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+    function back(s, chosen) {
+      const h = holder(), v = view;
+      h.classList.add("blk-swipe-back");
+      set(0, chosen ? 1 : 0);
+      const done = () => { h.removeEventListener("transitionend", end); clearTimeout(s.timer); if (sw && sw !== s) return; h.classList.remove("blk-swipe-back"); h.style.removeProperty("--swipe-x"); h.style.removeProperty("--swipe-p"); if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null); };
+      const end = (e) => { if (e.propertyName === "--swipe-x" || e.propertyName === "transform") done(); };
+      h.addEventListener("transitionend", end);
+      s.timer = setTimeout(done, still.matches ? 0 : 700); // (with less motion: back at once; else where the end is not told)
+    }
     document.addEventListener("touchstart", (e) => {
+      if (sw && sw.side) return; // (a second finger during a swipe)
       sw = null;
       if (!view || !view.editable || document.body.dataset.view !== "active" || e.touches.length !== 1 || drag || rubber) return;
       // (by where the finger is, not by what the browser says it touched: beside the margin lie things made to be met — the
       // sidebar's edge, the handle — and a browser hands a touch that is near one of them to it)
       const t = e.touches[0], hit = document.elementFromPoint(t.clientX, t.clientY);
-      if (!hit || !hit.closest("#active") || hit.closest(CHROME)) return;
-      const el = beside(t.clientX, t.clientY);
-      if (el && el.pmViewDesc) sw = { id: t.identifier, x: t.clientX, y: t.clientY, el, side: 0, done: false };
+      if (!hit || !hit.closest("#active") || hit.closest(CHROME) || hit.closest("input, textarea, select, canvas, video, iframe")) return;
+      const onText = view.dom.contains(hit) && hit !== view.dom;
+      let el = onText ? blockOf(view, hit, t.clientY) : null;
+      if (!el) el = beside(t.clientX, t.clientY);
+      if (!el && view.dom.contains(hit)) el = inner(blockAtY(view.dom, t.clientY, 6), t.clientY); // (between blocks, in a row's gap)
+      if (!el || !el.pmViewDesc) return;
+      sw = { id: t.identifier, x: t.clientX, y: t.clientY, at: performance.now(), el, side: 0, scroller: onText ? scrollerOf(hit) : null, last: [t.clientX, performance.now()], v: 0 };
     }, { capture: true, passive: true });
     document.addEventListener("touchmove", (e) => {
       const t = mine(e);
       if (!t) return;
-      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      const dx = t.clientX - sw.x, dy = t.clientY - sw.y, now = performance.now();
       if (!sw.side) {
-        if (Math.hypot(dx, dy) < 10) return;
-        if (Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // (up or down: the note is moved)
-        sw.side = Math.sign(dx);
+        if (Math.hypot(dx, dy) < DECIDE) return;
+        const pos = sw.el.isConnected && sw.el.pmViewDesc ? sw.el.pmViewDesc.posBefore : null;
+        const has = pos != null && pickedOf(view.state).some((x) => x.pos === pos);
+        const sc = sw.scroller;
+        if (Math.abs(dy) >= Math.abs(dx) || pos == null || !e.cancelable || now - sw.at > RESTED // (up or down: the note is moved; a finger that rested: text is selected)
+          || (dx < 0 && (!has || sc)) // (to the left: only lets a chosen block go — in what scrolls, it scrolls)
+          || (sc && sc.scrollLeft > 0)) { sw = null; return; } // (scrolled sideways: the swipe scrolls it back)
+        sw.side = Math.sign(dx); sw.pos = pos; sw.has = has; swiping = true;
+        clearTimeout(leaving); rest(null);
+        set(0, 0);
+        mark(pos, has ? "drop" : "add");
       }
       if (e.cancelable) e.preventDefault();
-      if (sw.done || Math.abs(dx) < 28 || !sw.el.isConnected || !sw.el.pmViewDesc) return;
-      sw.done = true;
-      const pos = sw.el.pmViewDesc.posBefore, has = pickedOf(view.state).some((x) => x.pos === pos);
-      if (sw.side < 0 && !has) return; // (to the left: only lets a chosen block go)
-      if (has || selOf(view.state)) toggle(view, pos); else selectBlock(view, pos, false);
-      view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
-      if (!showHeld()) hide();
+      const dt = now - sw.last[1];
+      if (dt > 0) sw.v = sw.v * 0.2 + ((t.clientX - sw.last[0]) / dt) * 0.8;
+      sw.last = [t.clientX, now];
+      sw.dx = dx;
+      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, (dx * sw.side) / CHOOSE)));
     }, { capture: true, passive: false });
-    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => { if (mine(e)) sw = null; }, { capture: true, passive: true });
+    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => {
+      if (!mine(e)) return;
+      const s = sw;
+      sw = null;
+      if (!s.side) return;
+      swiping = false; swiped = performance.now();
+      const far = (s.dx || 0) * s.side;
+      const chosen = type === "touchend" && view && view.editable && (far >= CHOOSE || (far > DECIDE * 2 && s.v * s.side > FAST)) && view.state.doc.nodeAt(s.pos) && swipeKey.getState(view.state);
+      if (chosen) {
+        if (s.has || selOf(view.state)) toggle(view, s.pos); else selectBlock(view, s.pos, false);
+        view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
+        if (!showHeld()) hide();
+        if (swipeKey.getState(view.state)) mark(s.pos, s.has ? "drop" : "add"); // (the choice moved the block's position on: it is the same block)
+      }
+      back(s, !!chosen);
+    }, { capture: true, passive: true });
   }
+  // the block being swiped wears a mark: it goes with the finger, its field fades in or out (active/blocks.css)
+  const swipePlugin = new Plugin({
+    key: swipeKey,
+    state: {
+      init: () => null,
+      apply(tr, value) {
+        const meta = tr.getMeta(swipeKey);
+        if (meta !== undefined) return meta;
+        if (!value || !tr.docChanged) return value;
+        const m = tr.mapping.mapResult(value.pos, 1);
+        return m.deletedAfter ? null : { ...value, pos: m.pos };
+      },
+    },
+    props: {
+      decorations(state) {
+        const s = swipeKey.getState(state), node = s && state.doc.nodeAt(s.pos);
+        return node ? DecorationSet.create(state.doc, [Decoration.node(s.pos, s.pos + node.nodeSize, { class: s.how === "add" ? "blk-swiping blk-sel" : "blk-swiping", "data-swipe": s.how })]) : null;
+      },
+    },
+  });
   /* A finger on the handle that moves: the block is dragged — the drag a mouse has (above), handed on by hand, since a tablet's
    * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge. */
   {
@@ -1740,5 +1810,5 @@
     v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     return true;
   }
-  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();
