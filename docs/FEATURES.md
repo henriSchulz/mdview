@@ -1146,6 +1146,36 @@ counts — and has no writing help by a model.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on
   a button, a row or a title selects nothing.
+- **On an iPad** the app has a layout of its own, as Craft has it: no sidebar and no tabs —
+  All Notes is the way to the other notes. A round button of four parts at the top left goes
+  there: the note shrinks into its tile, the tiles grow around it; a tile opened grows into its
+  note, and the same button in All Notes goes back to the note it came from. A folder there is
+  opened by its stack and left by its name in the path at the top. The rest floats in the
+  window's corners: at the top right the outline, find and share in a capsule; at the bottom
+  left the note's history and the pencil, which goes from reading to writing (the active mode)
+  and back — while writing, undo and redo beside it (what Ctrl+Z and Ctrl+Shift+Z do: the
+  mode's own steps, then the note's across the modes; dimmed when there is nothing; a tap on
+  them brings no keyboard up; the iPad keyboard's own undo and redo keys do the same); at the bottom right, while writing, insert, format, style and information, their
+  panel above them, between the bars at the top and the foot (over the keyboard when it is up);
+  a tile of Insert held a moment goes with the finger, a line shows where it goes and the note
+  scrolls along near its edges, and let go it is put there (the panel then goes; a tap puts it
+  at the caret, as ever); the panel goes when the note is left and is not open again when it is
+  entered; the settings in All Notes' corner. Scrolled, the note's name and its folder
+  stand beside the button. A finger held anywhere opens no menu (the system's own over selected
+  text stays); what the menus had is in bars of tiles at the foot, with panels rising from them:
+  blocks chosen have Text Style (headings, lists, decorations, callouts, columns), Format (bold,
+  italic, strikethrough, code, alignment, indent and outdent, move up and down, the colours as
+  swatches), Insert (below them: code block, formula, table, picture, file, whiteboard, footnote,
+  the dividers), Copy, Cut, Duplicate, Actions (move, copy as Markdown, a page of them, paste) and
+  Delete — the "/" menu's own entries. In All Notes a tile held is chosen: a check on it, then a tap
+  chooses more or lets one go, a tap beside them or Done ends it, and the bar has the file menu's
+  entries for what is chosen (open in new tabs, copy, cut, duplicate, share, rename, hide, delete,
+  what is listed …). The note goes into its tile and comes out of it as one movement: what floats
+  over it fades with it. The other modes (the source,
+  side by side) are not offered there. An iPad is told by its touch screen (it says it is a
+  Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
+  `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
+  browser until then).
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

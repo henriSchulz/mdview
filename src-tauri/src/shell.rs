@@ -91,12 +91,13 @@ const SCRIPTS: &[&str] = &[
     "viewer/toolbar.js",
     "viewer/split.js",
     "viewer/twin.js",
+    "viewer/tablet.js",
     "viewer.js",
     "overview.js",
 ];
 
 /// The page's styles, in the order they are linked (later ones win): viewer/*.css.
-const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin"];
+const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet"];
 
 /// Settings of the active mode (state.json "active"), with what they are when nothing is set.
 fn default_prefs() -> Map<String, Value> {
