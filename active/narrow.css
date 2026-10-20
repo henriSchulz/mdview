@@ -103,6 +103,7 @@ body[data-mode="dark"] .rp-tile { --tile: color-mix(in srgb, var(--fg) 7%, var(-
 /* ---- under a finger: the handles are large enough to be met, and pulled without the page going along */
 @media (pointer: coarse) {
   .blk-h { width: 30px; height: 34px; margin: -8px 0 0 -10px; touch-action: none; }
+  :root[data-ipad] .blk-h { -webkit-touch-callout: none; } /* (an iPad: the handle is held to drag, never for the browser's own menu) */
   .blk-h svg { width: 12px; height: 19px; }
   .tbl-h { touch-action: none; }
   .tbl-h-col { width: 44px; height: 24px; }

@@ -1111,8 +1111,11 @@
   });
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   // a right click on the handle: the block's menu (the one a right click on selected blocks has) — the block is selected for it
+  // (on an iPad, its own layout, the handle has no menu: the bar at the foot has its actions; a finger held on it drags — below)
+  const IPAD = () => document.documentElement.hasAttribute("data-ipad") && matchMedia("(min-width: 761px) and (min-height: 600px)").matches; // (as viewer/tablet.css says it)
   handle.addEventListener("contextmenu", (e) => {
     e.preventDefault(); e.stopPropagation();
+    if (IPAD()) return;
     if (!view || !view.editable || !over || !over.isConnected || !over.pmViewDesc) return;
     const pos = over.pmViewDesc.posBefore;
     if (!handle.hasAttribute("data-group") && !pickedOf(view.state).some((x) => x.pos === pos)) selectBlock(view, pos, false);
@@ -1124,7 +1127,7 @@
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
     const byFinger = window.MdView.core.touching();
     if (byFinger) view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard comes up, and one that is up goes)
-    const menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
+    const menu = () => { const items = byFinger && !IPAD() ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
     if (handle.hasAttribute("data-group")) { view.focus(); menu(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
     menu();
@@ -1832,31 +1835,39 @@
     },
   });
   /* A finger on the handle that moves: the block is dragged — the drag a mouse has (above), handed on by hand, since a tablet's
-   * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge. */
+   * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge.
+   * On an iPad (its own layout) the handle has no menu — the bar at the foot has what the block's menu has: a finger held on the
+   * handle lifts the block at once, the drag begun before the finger moves, and nothing else; let go where it was, nothing moves
+   * and the block is selected, as by a tap. */
   {
     let pull = null;
     const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
     const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: pull.dt }); target.dispatchEvent(ev); return ev; };
     const under = (x, y) => document.elementFromPoint(x, y) || document.body;
     const mine = (e) => pull && [...e.changedTouches].find((t) => t.identifier === pull.id);
+    function begin() { // -> whether the drag began
+      pull.dt = made();
+      const began = send("dragstart", handle, pull.x, pull.y);
+      if (began.defaultPrevented || !drag) { pull = null; return false; }
+      pull.on = true;
+      handle.dataset.dragging = "";
+      const roll = () => { if (!pull || !pull.on) return; const y = pull.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...pull.at), ...pull.at); } pull.roll = requestAnimationFrame(roll); };
+      pull.roll = requestAnimationFrame(roll);
+      return true;
+    }
     handle.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1 || !view || !view.editable) { pull = null; return; }
       const t = e.touches[0];
-      pull = { id: t.identifier, x: t.clientX, y: t.clientY, on: false, dt: null, roll: 0, at: [t.clientX, t.clientY] };
+      pull = { id: t.identifier, x: t.clientX, y: t.clientY, on: false, dt: null, roll: 0, at: [t.clientX, t.clientY], moved: false, ipad: IPAD() };
       handle.draggable = false; // (the browser's own drag, begun by a finger that rests: not beside this one)
+      if (pull.ipad) begin(); // (held: lifted at once)
     }, { passive: true });
     handle.addEventListener("touchmove", (e) => {
       const t = mine(e);
       if (!t) return;
+      if (Math.hypot(t.clientX - pull.x, t.clientY - pull.y) >= 8) pull.moved = true;
       if (!pull.on) {
-        if (Math.hypot(t.clientX - pull.x, t.clientY - pull.y) < 8) return;
-        pull.dt = made();
-        const began = send("dragstart", handle, pull.x, pull.y);
-        if (began.defaultPrevented || !drag) { pull = null; return; }
-        pull.on = true;
-        handle.dataset.dragging = "";
-        const roll = () => { if (!pull || !pull.on) return; const y = pull.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...pull.at), ...pull.at); } pull.roll = requestAnimationFrame(roll); };
-        pull.roll = requestAnimationFrame(roll);
+        if (!pull.moved || !begin()) return;
       }
       if (e.cancelable) e.preventDefault();
       pull.at = [t.clientX, t.clientY];
@@ -1868,10 +1879,17 @@
       setTimeout(() => { handle.draggable = true; }, 0);
       if (!was.on) { pull = null; return; }
       cancelAnimationFrame(was.roll);
-      if (drop) send("drop", under(t.clientX, t.clientY), t.clientX, t.clientY);
+      const tapped = was.ipad && !was.moved; // (let go where it was: no move — a tap, or a finger that rested)
+      const el = over, group = handle.hasAttribute("data-group"); // (the drag's end puts the handle away)
+      if (drop && !tapped) send("drop", under(t.clientX, t.clientY), t.clientX, t.clientY);
       send("dragend", handle, t.clientX, t.clientY);
       pull = null;
       if (e.cancelable) e.preventDefault(); // (no tap follows: the handle's menu stays shut)
+      if (tapped && drop && view && el && el.isConnected && el.pmViewDesc) {
+        if (!group) selectBlock(view, el.pmViewDesc.posBefore, false);
+        view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard)
+        showHeld();
+      }
     };
     handle.addEventListener("touchend", (e) => done(e, true), { passive: false });
     handle.addEventListener("touchcancel", (e) => done(e, false), { passive: false });

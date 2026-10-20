@@ -180,6 +180,66 @@ test("an iPad: the menus — the outline from the top right, the pencil writes, 
   await d.context.close();
 });
 
+test("an iPad: the handle has no menu — held, it lifts the block at once and moves it; tapped, it selects the block; the bar has the actions", async () => {
+  const d = await device("ipad-handle"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await open(d);
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  const order = () => p.evaluate(() => [...document.querySelectorAll("#active .pm > *")].map((e) => e.textContent.slice(0, 14)));
+  const menuOpen = () => p.evaluate(() => MdActive.menu.isOpen || !!document.querySelector(".actmenu[data-open], #ctxmenu[data-open], #ctxmenu.open"));
+  const picked = () => p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.textContent.slice(0, 14)));
+  // the handle of a paragraph: a tap on its text shows it
+  const showHandle = async (i) => {
+    await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atStart(v.state.doc))); document.activeElement.blur(); });
+    await p.keyboard.press("Escape"); await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    const at = await p.evaluate((i) => { const e = [...document.querySelectorAll("#active .pm > p")][i]; e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return [r.left + 60, r.top + 10]; }, i);
+    await p.waitForTimeout(200);
+    await p.touchscreen.tap(at[0], at[1]);
+    await p.waitForTimeout(400);
+    const h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    assert.ok(h.on, "a tapped block has its handle");
+    return h;
+  };
+  // tapped: the block is selected, no menu — its actions are the bar's
+  let h = await showHandle(0);
+  await p.touchscreen.tap(h.x, h.y);
+  await p.waitForTimeout(500);
+  assert.equal(await menuOpen(), false, "a tap on the handle opens no menu");
+  assert.equal((await picked()).length, 1, "… it selects the block");
+  assert.equal(await shown(p, "#ipad-blockbar"), true, "… and the bar of its actions shows");
+  // held still: no menu (neither the page's long press nor the browser's), the block is lifted at once; let go, it stays
+  h = await showHandle(1);
+  const before = await order();
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(250);
+  assert.equal(await p.evaluate(() => document.querySelector(".blk-h").hasAttribute("data-dragging")), true, "held, the block is lifted at once");
+  await p.waitForTimeout(700);
+  assert.equal(await menuOpen(), false, "held past a long press: no menu");
+  // … and moved by the same finger, without letting go
+  const to = await p.evaluate(() => { const e = [...document.querySelectorAll("#active .pm > p")][4]; const r = e.getBoundingClientRect(); return [r.left + 60, r.bottom - 3]; });
+  for (let i = 1; i <= 10; i++) { await touch("touchMove", [[h.x + ((to[0] - h.x) * i) / 10, h.y + ((to[1] - h.y) * i) / 10]]); await p.waitForTimeout(20); }
+  await p.waitForTimeout(120);
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  const after2 = await order();
+  assert.notDeepEqual(after2, before, "the held handle moved its block");
+  assert.equal(after2.length, before.length);
+  assert.equal(await menuOpen(), false, "no menu after the move");
+  // held and let go where it was: nothing moves, no menu
+  h = await showHandle(1);
+  const still = await order();
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(900);
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  assert.deepEqual(await order(), still, "held and let go in place: nothing moves");
+  assert.equal(await menuOpen(), false, "… and no menu");
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector(".blk-h")).webkitTouchCallout || "none"), "none", "no callout of the browser's on the handle");
+  await d.context.close();
+});
+
 test("not an iPad, or a narrow window: nothing of the iPad's layout", async () => {
   // a browser with a mouse: the sidebar and the tabs as ever
   const desk = await device("desktop", { ipad: false, touch: false });
