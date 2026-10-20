@@ -48,6 +48,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     rail and its tile, and a note's row and tile, to the same entries: an entry added for one is
     there for all.
 
+69. **The sidebar lies over the note; showing it moves nothing but the card.** No room is made
+    for it — no padding, no `left`, no width of the note, All Notes or a split's halves that
+    depends on `data-sidebar` (and no `:root:has(…data-sidebar…)`: a change of it restyles every
+    element). Opening and shutting it lays nothing out anew, and nothing is sent: the host does
+    not scan or send the folder for a sidebar shown or hidden. `rig.sh sidebar` measures the
+    note's left edge, All Notes' and its sheets', at two widths, and how long the click takes.
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
@@ -304,6 +311,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     where the host works with files as files is behind one gate, `FILEWORK` (`viewer/base.js`:
     the desktop, or a host that says `MdHost.filework` before the page is there) — never behind
     `__TAURI_INTERNALS__` alone, which is for what a browser cannot do at all (rule 19).
+
+70. **A default that changes reaches everyone who did not choose; a value kept from the old
+    default is let go once.** The shell keeps only what differs from the defaults, the browser
+    only what was chosen — but a value that was once a choice stays one. Where Henri says the new
+    default is for everyone, the old value is taken out once, under a marker (`sheets_first` in
+    `state.json`, `mdview:sheets-first` in the browser; `lists_all` before it) — never at every
+    start, or a choice made after it could not be kept.
 
 ### Touch (iPad)
 

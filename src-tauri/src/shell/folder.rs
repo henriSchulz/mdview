@@ -437,9 +437,14 @@ impl Win {
         if let Some(visible) = msg.get("visible") {
             app.state.insert("sidebar".into(), json!(truthy(visible)));
         }
-        if let Some(titles) = msg.get("titles") {
-            app.state.insert("sidebar_titles".into(), json!(truthy(titles)));
-        }
+        let Some(titles) = msg.get("titles") else {
+            // only shown or hidden: this window shows it already, and nothing is to be scanned — the folder was not sent
+            // again while the sidebar opened, which made the page draw the whole list in the middle of the card's slide (Henri,
+            // 2026-10-20: "it always lags a bit"); the other windows are told as they were, from what they have
+            app.save_state();
+            return app.each_win(|w, app| w.send_folder(app));
+        };
+        app.state.insert("sidebar_titles".into(), json!(truthy(titles)));
         app.save_state();
         self.rescan(app);
         app.each_win(|w, app| w.rescan(app));

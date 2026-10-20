@@ -1,9 +1,12 @@
 /* Development probe (dev/rig.sh sidebar): the sidebar's four layouts — source, rail, sheets,
  * tiles — over one folder, the search, and a folder's colour and sign: chosen from its menu,
- * kept in the folder, and still its own after it was renamed. */
+ * kept in the folder, and still its own after it was renamed. Last, the sidebar lies over the
+ * note: opened and shut, the note's column, All Notes and the halves of a split do not move — in
+ * the window as it is and in one zoomed to be narrower (Henri, 2026-10-20). */
 (async () => {
   if (window.__probed) return; window.__probed = true;
   const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
+  const post = (type, data = {}) => window.MdHost.post(JSON.stringify({ type, ...data }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const o = { steps: [] };
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
@@ -20,7 +23,7 @@
     const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
 
     // ---- what a folder opens in: the rail
-    ok("a folder opens with the rail", sb.dataset.layout === "rail", sb.dataset.layout);
+    ok("a folder opens with the sheets (Henri, 2026-10-20: the rail before)", sb.dataset.layout === "sheets", sb.dataset.layout);
     // (the folder's name at the head, beside the button that opens another — in the rail's layout too: it was hidden there, Henri 2026-10-14)
     { const nm = q(".sb-folder-name"); ok("… the folder's name at the head, beside Open Another Folder", !!nm && nm.textContent.trim() !== "" && nm.offsetWidth > 20 && getComputedStyle(nm).display !== "none", nm && [nm.textContent, nm.offsetWidth, getComputedStyle(nm).display]); }
     await layout("source");
@@ -213,6 +216,44 @@
       ok("… chosen: the settings open", await until(() => document.getElementById("settings") && document.getElementById("settings").hasAttribute("data-open"), 3000));
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(500); }
     await layout("source");
+
+    // ---- the sidebar lies over the note: it never moves the note (Henri, 2026-10-20)
+    const toggle = async (open) => { if ((document.body.dataset.sidebar === "open") !== open) { document.querySelector('#tabs [data-act="sidebar"]').click(); await sleep(800); } };
+    const leftOf = (sel) => { const el = document.querySelector(sel); return el && el.getClientRects().length ? Math.round(el.getBoundingClientRect().left) : null; };
+    let sent = 0; { const own = MdView.setFolder; MdView.setFolder = function (...a) { sent++; return own.apply(this, a); }; } // (the folder the shell sends)
+    const still = async (what, sel) => {
+      await toggle(false); const shut = leftOf(sel), sentBefore = sent;
+      const t0 = performance.now(); document.querySelector('#tabs [data-act="sidebar"]').click(); const took = performance.now() - t0; await sleep(800);
+      ok(`… (${innerWidth} px) opened, the folder is not scanned and sent again (the whole list was drawn anew while the card slid in)`, sent === sentBefore, sent - sentBefore);
+      const open = leftOf(sel), side = sb.getBoundingClientRect();
+      ok(`${what} (${innerWidth} px): its left edge stays where it was when the sidebar opens, and the card lies over the window`, shut !== null && shut === open && document.body.dataset.sidebar === "open" && side.left > 0 && side.width > 150, { shut, open, w: innerWidth, side: [side.left, side.width] });
+      ok(`… (${innerWidth} px) opening it does nothing but slide the card: a few ms, not a layout of the note`, took < 30, Math.round(took));
+      await toggle(false);
+      ok(`… (${innerWidth} px) and it stays there when the sidebar shuts`, leftOf(sel) === shut, [leftOf(sel), shut]);
+    };
+    const overlay = async () => {
+      await still("the note's column", "#content");
+      await toggle(true);
+      { const btn = document.querySelector('#tabs [data-act="sidebar"]').getBoundingClientRect(), side = sb.getBoundingClientRect();
+        ok(`(${innerWidth} px) the sidebar's button in the strip stays beside the card, to be clicked`, btn.left >= side.right - 1, [btn.left, side.right]); }
+      // a press into the note: the card put away where it lies over the text, left open where it covers only the margin
+      { const c = document.getElementById("content"), r = c.getBoundingClientRect(), text = r.left + parseFloat(getComputedStyle(c).paddingLeft), over = text < sb.getBoundingClientRect().right;
+        const p = c.querySelector("p, h1") || c, pr = p.getBoundingClientRect(), x = Math.max(pr.left + 4, sb.getBoundingClientRect().right + 20), y = pr.top + 4;
+        p.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y, pointerType: "mouse", isPrimary: true })); await sleep(700);
+        ok(`(${innerWidth} px) a press into the note ${over ? "puts the card away: it lay over the text" : "leaves it open: it covers only the margin"}`, (document.body.dataset.sidebar === "open") === !over, { over, text, right: sb.getBoundingClientRect().right }); }
+      document.querySelector('#tabs [data-act="overview"]').click(); await sleep(900);
+      if (document.body.hasAttribute("data-overview")) { await still("All Notes", "#overview"); await still("All Notes' sheets", "#overview .ov-body"); window.MdOverview && MdOverview.close(false); await sleep(600); }
+      else ok("All Notes opened from the strip", false, "");
+    };
+    await overlay();
+    { // narrower: the page zoomed (fewer CSS pixels across), still wider than a phone's drawer
+      const wide = innerWidth, settle = async () => { for (let i = 0, last = -1, n = 0; i < 60 && n < 5; i++) { await sleep(100); n = innerWidth === last ? n + 1 : 0; last = innerWidth; } };
+      let steps = 0;
+      while (innerWidth > 1000 && steps < 12) { post("zoom", { step: 1 }); steps++; await settle(); }
+      if (innerWidth > 760 && innerWidth < wide) await overlay(); else ok("the window zoomed to between 760 and 1000 px", false, [wide, innerWidth]);
+      for (let i = 0; i < steps; i++) post("zoom", { step: -1 });
+      await settle();
+    }
   } catch (e) { o.error = String(e && e.stack || e); }
   out("sidebar", o);
 })();

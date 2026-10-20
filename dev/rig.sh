@@ -468,9 +468,9 @@ PY
     printf '# Plan\n\nNext.\n' > "$R/work/notes/Projekte/Plan.md"; printf '# Inner\n\nDeep in.\n' > "$R/work/notes/Projekte/Deep/Inner.md"
     rm -f "$R/out"/*.json
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run opened is not this one's)
-    app 90 MDVIEW_PROBE="$D/probe-sidebar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    app 150 MDVIEW_PROBE="$D/probe-sidebar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
     for v in source rail sheets tiles; do for _ in $(seq 400); do ls "$R/out"/*."$v".json >/dev/null 2>&1 && break; ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.4; shot "$R/out/sidebar-$v.png"; done
-    for _ in $(seq 300); do ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done
+    for _ in $(seq 900); do ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.sidebar.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }

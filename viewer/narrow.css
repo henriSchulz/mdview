@@ -85,9 +85,7 @@ details.props .callout-fold .sf { font-size: 10px; }
   :root { --sb-w: min(86vw, 340px) !important; }
   #sb-scrim { display: block; }
   body[data-sidebar="open"] #sb-scrim { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
-  body[data-sidebar="open"] { padding-left: 0; }
-  body[data-sidebar="open"] #tabs { left: 0; padding-left: 12px; }
-  body[data-sidebar="open"] #overview, body[data-sidebar="open"] #loading { left: 0; }
+  body[data-sidebar="open"] #tabs { padding-left: 12px; }
   #sidebar { z-index: 30; top: calc(var(--sb-inset) + env(safe-area-inset-top, 0px)); bottom: calc(var(--sb-inset) + env(safe-area-inset-bottom, 0px)); }
   body[data-sidebar="open"] #settings-btn { z-index: 31; }
   body:not([data-sidebar="open"]) #settings-btn { display: none; } /* (the gear is the drawer's foot here: nothing floats over the note's corner) */

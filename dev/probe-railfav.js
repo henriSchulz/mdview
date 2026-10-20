@@ -11,7 +11,8 @@
     await sleep(1400);
     const sb = document.getElementById("sidebar"), q = (s) => sb.querySelector(s), qa = (s) => [...sb.querySelectorAll(s)];
     if (document.body.dataset.sidebar !== "open") { document.querySelector('[data-act="sidebar"]').click(); await sleep(700); }
-    ok("a folder window's sidebar is the rail at first", sb.dataset.layout === "rail", sb.dataset.layout);
+    window.MdPrefs = { ...(window.MdPrefs || {}), sidebarLayout: "rail" }; MdView.prefsChanged(); await sleep(500); // (the sheets are the layout to begin with: the rail is chosen)
+    ok("the rail chosen", sb.dataset.layout === "rail", sb.dataset.layout);
     const rowOf = (name) => qa(".sb-list .sb-row").find((r) => r.querySelector(".sb-label").textContent === name);
     let seenAt = null, plans = 0;
     addEventListener("mousemove", (e) => { seenAt = [e.clientX, e.clientY]; }, true);

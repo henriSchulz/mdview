@@ -171,7 +171,7 @@
    * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
    * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
   const SB_LAYOUTS = ["source", "rail", "sheets", "tiles"];
-  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "rail");
+  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "sheets");
   const FOLDER_ICONS = {
     book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
     cap: svg('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>'),

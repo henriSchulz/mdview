@@ -70,7 +70,7 @@ or the tests see the old ones.
 |---|---|
 | `viewer/base.js` | its ground: the message to the shell (post), the icons, small helpers. |
 | `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast. |
-| `viewer/drawer.js` | the sidebar shown and hidden (it slides, the text glides), an empty folder, the window that asks for a new … |
+| `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, the window that asks for … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
 | `viewer/menus.js` | the app's own small menus: a choice among a few (popup, combo) and the menu for text in a field or in the … |
