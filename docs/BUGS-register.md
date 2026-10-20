@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "the sidebar is extremely laggy: while it is open the whole document lags, and opening it is not smooth at all" | without WebKit's DMA-BUF renderer the window is painted anew at every step of a scroll and of the slide; the sidebar's shade (`0 0 8px`, `0 2px 12px`, the card's whole height) and each sheet's (`0 3px 9px`) were blurred anew every time — 1.5 to 1.9 times as long a frame with the sidebar open (at twice the size, as on Henri's screen) | the shades are pictures blurred once, laid around the card and the sheets as nine-slice `border-image`s (`viewer/sidebar.css`, `viewer/layouts.css`); rule 69 | `dev/rig.sh sblag` (at `MDVIEW_RIG_SCALE=2`) |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

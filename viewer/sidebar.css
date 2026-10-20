@@ -10,36 +10,48 @@
   --sb-row: 32px;
   --sb-step: 16px;                                     /* a level deeper */
 }
-#sidebar {
+#sidebar, body[data-sidebar]::before {
   position: fixed;
   top: var(--sb-inset);
   bottom: var(--sb-inset);
   left: var(--sb-inset);
   z-index: 16;                       /* over the strip of tabs: its ground must not cover the card's edge and shade */
-  display: flex;
-  flex-direction: column;
   width: calc(var(--sb-w) - var(--sb-inset));
   box-sizing: border-box;
-  overflow: hidden;
-  border-radius: 18px;
-  background: var(--raised);
-  box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04);
-  font: 400 13px/1.3 var(--ui);
-  user-select: none;
-  -webkit-user-select: none;
   transform: translateX(calc(-100% - var(--sb-inset) * 3));
   visibility: hidden;
   transition:
     transform calc(var(--dur-slow) * 0.7) var(--ease-exit),
     visibility 0s linear calc(var(--dur-slow) * 0.7);
 }
-body[data-sidebar="open"] #sidebar {
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--raised);
+  box-shadow: 0 0 0 0.5px var(--line);
+  font: 400 13px/1.3 var(--ui);
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Its shade is a picture, not a box-shadow: without WebKit's DMA-BUF renderer the window is painted anew at every step of a
+ * scroll, and a blur the card's height long was most of what a step cost — the note lagged while the sidebar was open, and the
+ * sidebar slid in in uneven steps (rig.sh sblag). The picture is the shade blurred once (0 0 8px / 0.05, 0 2px 12px / 0.04,
+ * drawn at twice the size), cut in nine and laid around the card; it moves with the card. */
+body[data-sidebar]::before {
+  content: "";                       /* (the card's z-index too: body's first box, it lies under the card all the same) */
+  pointer-events: none;
+  border-image: url(data:image/png;base64,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) 68 / 34px / 16px;
+}
+body[data-sidebar="open"] #sidebar, body[data-sidebar="open"]::before {
   transform: none;
   visibility: visible;
   transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
 }
-#sidebar.no-anim { transition: none; }
-@media (prefers-contrast: more) { #sidebar { box-shadow: 0 0 0 1.5px var(--fg2); } }
+#sidebar.no-anim, body:has(#sidebar.no-anim)::before { transition: none; }
+@media (prefers-contrast: more) { #sidebar { box-shadow: 0 0 0 1.5px var(--fg2); } body[data-sidebar]::before { display: none; } }
+@media print { body[data-sidebar]::before { display: none !important; } }
 /* the settings: a gear at the window's lower left corner — the foot of the sidebar when that is open */
 #settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; border-radius: var(--radius-pill); }
 body[data-sidebar="open"] #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); }

@@ -241,6 +241,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     then put out of sight while the pages move — `visibility`, not `display`, so that nothing is
     laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
     the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
+69. **No blurred shade on what stands beside a scroll.** A `box-shadow` with a blur is blurred
+    anew in every frame the window is painted — without the DMA-BUF renderer every step of a
+    scroll; the sidebar's shade, its whole height long, made a note scrolled beside it take half
+    as long again per frame, and the sidebar slide in unevenly. What is shown while the page
+    scrolls or glides takes its shade as a picture, blurred once and cut in nine (`border-image`,
+    the sidebar's `body::before` and the sheets' `::before`); a ring without blur (`0 0 0 0.5px`)
+    costs nothing. A rig of its own size and scale: the frames are read at twice the size
+    (`MDVIEW_RIG_SCALE=2`, `rig.sh sblag`), where at scale 1 nothing showed.
 
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the
