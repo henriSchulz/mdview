@@ -40,6 +40,7 @@
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
 #   dev/rig.sh docstyle              the document's style (ground, width) beside the source and the source with its reading: the panel, written into the head, Ctrl+Z, both sheets
+#   dev/rig.sh scrollperf [pdf]      frames while a long note on each ground is scrolled in each mode, and a PDF of sixty pages: median, p95, long ones; no ground held at the window
 #   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
@@ -370,6 +371,32 @@ case "${1:-}" in
     want=$(printf '%s\n' '---' 'title: Style' 'width: wide' 'background: dots' '---' '# Style' '' 'A paragraph.' '' 'Another, where the caret is.')
     if [[ "$(cat "$F")" == "$want" ]]; then echo "ok   the file: its head as chosen, the rest as it was"; else echo "FAIL the file: $(head -c 300 "$F" | tr '\n' '|')"; fi
     ! { jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; [[ "$(cat "$F")" == "$want" ]] || echo FAIL; } | grep -q '^FAIL' ;;
+  scrollperf)
+    # (what a frame costs while a long note is scrolled — no ground, a run of two colours, dots, a grid — in each mode, and a PDF
+    # of sixty pages: the gaps between frames, median / p95 / how many over 33 ms. No element holds its picture at the window)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.scrollperf.json
+    body() { echo "# $1"; for i in $(seq 150); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold**, \`code\` and a [link](https://example.com)."; (( i % 15 == 0 )) && { echo; echo "## Section $i"; echo; echo '> [!note] A callout'; echo '> In it.'; }; done; }
+    body Plain > "$N/Plain.md"
+    for g in Run:cyan Dots:dots Grid:grid; do { printf -- '---\nbackground: %s\n---\n\n' "${g#*:}"; body "${g%%:*}"; } > "$N/${g%%:*}.md"; done
+    python3 "$D/gen-pdf.py" "$N/Long.pdf" 60
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    rm -f "$R/out"/*.cpu[AB]*.json; : > "$R/cpu.log"
+    # (`scrollperf pdf`: the PDF alone)
+    { [[ ${2:-} == pdf ]] && echo 'window.__scrollperfPdf = true;'; cat "$D/probe-scrollperf.js"; } > "$R/probe-scrollperf.js"
+    app 240 MDVIEW_PROBE="$R/probe-scrollperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    tree() { echo "$1"; local c; for c in $(pgrep -P "$1"); do tree "$c"; done; }
+    tick() { local s=0 p f; for p in $(tree "$(pgrep -f "^$APP" | head -1)"); do read -r -a f < "/proc/$p/stat" 2>/dev/null && s=$((s + f[13] + f[14])); done; echo $s; }
+    timeout 400 inotifywait -qm -e close_write --format %f "$R/out" | while read -r e; do [[ $e =~ \.(cpu[AB][0-9]+)\.json$ ]] && echo "${BASH_REMATCH[1]} $(tick)" >> "$R/cpu.log"; [[ $e == *.scrollperf.json ]] && break; done &
+    watch=$!
+    for _ in $(seq 2200); do ls "$R/out"/*.scrollperf.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; kill $watch 2>/dev/null; pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.scrollperf.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    # (each run's CPU, the app and its web process, in ms a frame — written into the report)
+    jq --argjson hz "$(getconf CLK_TCK)" --rawfile log "$R/cpu.log" '($log | split("\n") | map(select(length > 0) | split(" ")) | map({ (.[0]): (.[1] | tonumber) }) | add // {}) as $t
+      | .runs |= [to_entries[] | .value + { cpu: (if $t["cpuA\(.key + 1)"] and $t["cpuB\(.key + 1)"] then (($t["cpuB\(.key + 1)"] - $t["cpuA\(.key + 1)"]) * 1000 / $hz / .value.n * 10 | round / 10) else null end) }]' "$f" > "$f.new" && mv "$f.new" "$f"
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    jq -r '"  (frames while scrolling, ms: median / p95 / over 33 ms of \(.runs[0].n) / CPU a frame)", (.runs[] | "  \(.what): \(.median) / \(.p95) / \(.long) / \(.cpu)   (\(.box), \(.moved) px)"), "  (PDF: \(.pdf.canvases) canvases, \(.pdf.megapixels) Mpx, a page \(.pdf.page), dpr \(.pdf.dpr))"' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   pdfscroll)
     # (a PDF full of words: what lies over its pages to be selected is not drawn while they move, and is back when they rest)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.pdfscroll.json; python3 "$D/gen-pdf.py" "$R/work/dense.pdf" 8 dense

@@ -51,20 +51,21 @@
   function groundGoes() {
     const root = document.documentElement;
     if (document.body.hasAttribute("data-overview") || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const cs = getComputedStyle(root), plain = !root.dataset.docBg, from = plain ? getComputedStyle(document.body) : cs;
+    const plain = !root.dataset.docBg, cs = getComputedStyle(root, plain ? null : "::before"), from = plain ? getComputedStyle(document.body) : cs; // (the ground's layer: viewer/page.css)
     for (const x of document.querySelectorAll(".ground-was")) x.remove();
     // (one over the window, and one in the strip of tabs, which has the ground of its own: viewer/tabs.css)
     const tabs = document.getElementById("tabs"), strip = tabs && getComputedStyle(tabs).display !== "none" ? getComputedStyle(tabs) : null;
+    // (its picture as it was drawn there — never held at the window with `fixed`, which paints the window anew at each step)
     const lay = (parent, of) => {
       const was = document.createElement("div");
       was.className = "ground-was";
       was.setAttribute("aria-hidden", "true");
       was.style.backgroundColor = of.backgroundColor !== "rgba(0, 0, 0, 0)" ? of.backgroundColor : cs.backgroundColor;
-      if (!plain) Object.assign(was.style, { backgroundImage: cs.backgroundImage, backgroundSize: cs.backgroundSize, backgroundPosition: cs.backgroundPosition, backgroundRepeat: cs.backgroundRepeat, backgroundAttachment: "fixed" });
+      if (!plain) Object.assign(was.style, { backgroundImage: of.backgroundImage, backgroundSize: of.backgroundSize, backgroundPosition: of.backgroundPosition, backgroundRepeat: of.backgroundRepeat });
       parent.appendChild(was);
       return was;
     };
-    const all = [lay(document.body, from), ...(strip ? [lay(tabs, plain ? strip : cs)] : [])];
+    const all = [lay(document.body, from), ...(strip ? [lay(tabs, strip)] : [])];
     void all[0].offsetWidth;
     requestAnimationFrame(() => {
       for (const was of all) was.classList.add("gone");
