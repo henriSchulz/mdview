@@ -70,6 +70,7 @@
     addEventListener("pointerdown", (e) => {
       drop();
       if (e.pointerType !== "touch" || !e.isPrimary) return;
+      if (document.documentElement.hasAttribute("data-ipad")) return; // (an iPad has no menu under a held finger: its bars have what the menus had — viewer/tablet.js)
       if (e.target.closest?.("#board")) return; // (on a whiteboard a finger held still is drawing, or about to)
       const target = e.target, x = e.clientX, y = e.clientY;
       held = { x, y, timer: setTimeout(() => {

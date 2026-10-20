@@ -155,7 +155,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
-72. **A selected block's field is one look for every kind of block**, drawn in the layer over the
+74. **A selected block's field is one look for every kind of block**, drawn in the layer over the
     note (`drawFields` in `active/blocks.js`), never painted on the block itself: there a block's
     own surface (code, a table's sheet, a picture) covers the tint, a rule has no room for it, and
     each kind ended up with a look of its own. The fields of blocks that follow each other leave
@@ -310,7 +310,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     otherwise (the toolbar, the rail, All Notes) and calls what they do; it adds no second way of doing a thing.
     Chromium's touch emulation has one touch point and its own user agent: a test of the iPad sets five
     (`Emulation.setTouchEmulationEnabled`) and Safari's agent, or the page is no iPad (`web/test/tablet.test.mjs`).
-71. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
+70. **On the iPad a held finger opens no menu** (Henri, 2026-10-20). What a menu offers there is in a bar of tiles
+    (viewer/tablet.js), and the bar asks the menu itself for its entries (the file menu, the "/" menu's for blocks) —
+    a new entry in the menu is in the bar without a word. A secondary click (a trackpad) still has its menu.
+71. **A movement over a movement is one movement**: what stands over a view that zooms away goes with it (a fade as
+    long as the zoom, `ease-in-out` — `ease-out` drops at the first frame), what is under it does not come in on its
+    own meanwhile, and where the view stood is read when it is touched, before anything else is opened.
+73. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
     move it is not stopped from at once its own (the note scrolls, the text is selected) and the
     touches after it can no longer be held; Chromium's emulation holds them all the same, so a
     check passing there says nothing of it. What the page takes sideways has `touch-action:

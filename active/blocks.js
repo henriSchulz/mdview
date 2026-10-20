@@ -1945,5 +1945,5 @@
     v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     return true;
   }
-  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { pasteBelow, selectAll, menuItems, slashItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

@@ -164,20 +164,160 @@ test("an iPad: the menus — the outline from the top right, the pencil writes, 
   assert.ok(panel.bottom <= rail.y, `above the rail: ${panel.bottom} ${rail.y}`);
   await shot(d, "insert");
   await tap(d, '#rrail .rp-tab[data-tab="insert"]');
-  // a block selected: the bar of its actions, the menu behind More
-  await p.evaluate(() => { const v = MdActive.view.pm; let pos = 0; v.state.doc.forEach((n, off, i) => { if (i === 1) pos = off; }); MdActive.blocks.select(v, pos, false); });
+  await d.context.close();
+});
+
+/* a finger held still: down, a wait, up (no browser's tap) */
+async function hold(d, sel, ms = 800) {
+  const r = await rect(d.page, sel), x = Math.round(r.x + Math.min(r.w / 2, 60)), y = Math.round(r.y + Math.min(r.h / 2, 60));
+  const cdp = await d.context.newCDPSession(d.page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await d.page.waitForTimeout(ms);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await d.page.waitForTimeout(500);
+}
+const menuShown = (p) => p.evaluate(() => [document.getElementById("ctxmenu"), document.getElementById("textmenu"), document.getElementById("ctxsub")].some((m) => m && m.hasAttribute("data-open") && getComputedStyle(m).visibility !== "hidden") || !!(window.MdActive && MdActive.menu && MdActive.menu.isOpen));
+const barLabels = (p, sel) => p.evaluate((q) => [...document.querySelectorAll(`${q} .ip-tile span`)].map((s) => s.textContent), sel);
+const tileAt = (p, sel, label) => p.evaluate(([q, l]) => { const b = [...document.querySelectorAll(`${q} .ip-tile`)].find((x) => x.querySelector("span").textContent === l); return b ? b.dataset.t : null; }, [sel, label]);
+const tapTile = async (d, sel, label) => { const t = await tileAt(d.page, sel, label); assert.ok(t != null, `the tile ${label} in ${sel}`); await tap(d, `${sel} [data-t="${t}"]`); };
+const tapRow = async (d, label) => { const i = await d.page.evaluate((l) => [...document.querySelectorAll("#ipad-panel [data-r]")].findIndex((b) => b.textContent.trim() === l || b.getAttribute("aria-label") === l), label); assert.ok(i >= 0, `the row ${label} in the panel`); await tap(d, `#ipad-panel [data-r="${await d.page.evaluate((k) => document.querySelectorAll("#ipad-panel [data-r]")[k].dataset.r, i)}"]`); };
+const selectBlock = (p, test) => p.evaluate((f) => { const v = MdActive.view.pm, ok = new Function("n", "return " + f); let pos = -1; v.state.doc.descendants((n, off) => { if (pos < 0 && ok(n)) { pos = off; return false; } }); MdActive.blocks.select(v, pos, false); return pos; }, test);
+
+test("an iPad: blocks chosen have their bar — style, format, insert, the clipboard, actions, delete — and its panels; no menu of the old kind", async () => {
+  const d = await device("ipad-blocks"), p = d.page;
+  await open(d);
+  await p.evaluate(() => MdView.setMode("active"));
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  // a paragraph chosen: the bar
+  await selectBlock(p, "n.type.name === 'paragraph' && /Paragraph 1 /.test(n.textContent)");
   await p.waitForTimeout(600);
   assert.equal(await shown(p, "#ipad-blockbar"), true, "the bar over selected blocks");
-  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll("#ipad-blockbar .ip-tile span")].map((s) => s.textContent)), ["Copy", "Cut", "Duplicate", "Delete", "More"]);
+  assert.deepEqual(await barLabels(p, "#ipad-blockbar"), ["Text Style", "Format", "Insert", "Copy", "Cut", "Duplicate", "Actions", "Delete Block"]);
   assert.equal(await shown(p, "#ipad-tools"), false, "the capsule makes room for it");
-  await tap(d, "#ipad-blockbar [data-more]");
-  assert.equal(await p.evaluate(() => MdActive.menu.isOpen), true, "More: the block's menu");
-  await shot(d, "blocks");
+  await tapTile(d, "#ipad-blockbar", "Text Style");
+  assert.equal(await shown(p, "#ipad-panel"), true, "Text Style: its panel rises from the bar");
+  await shot(d, "style");
+  const panelR = await rect(p, "#ipad-panel"), barR = await rect(p, "#ipad-blockbar");
+  assert.ok(panelR.bottom <= barR.y && panelR.y >= 0, `over the bar, in the window: ${JSON.stringify(panelR)}`);
+  await tapRow(d, "Heading 2");
+  assert.equal(await p.evaluate(() => [...document.querySelectorAll("#active .pm > h2")].some((h) => /Paragraph 1 /.test(h.textContent))), true, "turned into a heading by the bar");
+  // its colour
+  await selectBlock(p, "n.type.name === 'heading' && /Paragraph 1 /.test(n.textContent)");
+  await p.waitForTimeout(500);
+  await tapTile(d, "#ipad-blockbar", "Format");
+  await tapRow(d, "Red");
+  assert.equal(await p.evaluate(() => [...document.querySelectorAll("#active .pm .deco-red")].some((x) => /Paragraph 1 /.test(x.textContent))), true, "red, by the bar");
+  // something put in below it
+  const codes = () => p.evaluate(() => { let n = 0; MdActive.view.pm.state.doc.descendants((x) => { if (x.type.name === "island") n++; }); return n; });
+  const blocks = await codes();
+  await selectBlock(p, "n.type.name === 'heading' && /Paragraph 1 /.test(n.textContent)");
+  await p.waitForTimeout(500);
+  await tapTile(d, "#ipad-blockbar", "Insert");
+  await shot(d, "insert");
+  await tapRow(d, "Code Block");
+  await p.waitForTimeout(400);
+  assert.equal(await codes(), blocks + 1, "a code block put in below it (its dialog opens, as the \"/\" menu's does)");
   await p.keyboard.press("Escape");
-  await p.waitForTimeout(300);
+  await p.waitForTimeout(500);
+  // a list item further in
+  await selectBlock(p, "n.type.name === 'list_item' && /Abschlussvortrag/.test(n.textContent)");
+  await p.waitForTimeout(500);
+  await tapTile(d, "#ipad-blockbar", "Format");
+  await tapRow(d, "Indent");
+  await p.waitForTimeout(400);
+  assert.equal(await p.evaluate(() => [...document.querySelectorAll("#active .pm li li")].some((li) => /Abschlussvortrag/.test(li.textContent))), true, "the item stands further in");
+  // Duplicate, straight from the bar
+  await selectBlock(p, "n.type.name === 'paragraph' && /Paragraph 2 /.test(n.textContent)");
+  await p.waitForTimeout(500);
   const before = await p.evaluate(() => MdActive.view.pm.state.doc.childCount);
-  await tap(d, '#ipad-blockbar [data-key="slash.duplicate"]');
-  assert.equal(await p.evaluate(() => MdActive.view.pm.state.doc.childCount), before + 1, "Duplicate did what the menu's does");
+  await tapTile(d, "#ipad-blockbar", "Duplicate");
+  assert.equal(await p.evaluate(() => MdActive.view.pm.state.doc.childCount), before + 1, "Duplicate, as the menu's");
+  assert.equal(await menuShown(p), false, "no menu of the old kind anywhere along the way");
+  // the handle tapped by a finger chooses the block — and opens no menu here
+  await d.context.close();
+});
+
+test("an iPad: no menu under a held finger — a tile held in All Notes is chosen, more are chosen by a tap, the bar has what the file menu has; held on the note's text, nothing", async () => {
+  const d = await device("ipad-hold"), p = d.page;
+  await open(d);
+  await hold(d, "#content p");
+  assert.equal(await menuShown(p), false, "no menu over the note's text");
+  await tap(d, "#ipad-nav .ip-all");
+  await p.waitForTimeout(400);
+  await hold(d, '#overview .ov-item[data-path$="Second note.md"]');
+  assert.equal(await menuShown(p), false, "no menu in All Notes");
+  assert.equal(await p.evaluate(() => document.body.hasAttribute("data-ip-picking")), true, "choosing");
+  assert.deepEqual(await p.evaluate(() => MdOverview.picked.map((x) => x.replace(/^.*\//, ""))), ["Second note.md"], "the tile held is chosen");
+  assert.equal(await shown(p, "#ipad-pickbar"), true, "its bar");
+  const labels = await barLabels(p, "#ipad-pickbar");
+  for (const l of ["Done", "Open in New Tab", "Copy", "Duplicate", "Rename", "Delete"]) assert.ok(labels.includes(l), `${l} in the bar: ${labels}`);
+  assert.equal(labels.includes("Show in Finder"), false, "not what only the desktop has");
+  assert.equal(await p.evaluate(() => document.querySelector('#overview .ov-item[data-path$="Second note.md"]').draggable), false, "a held finger does not drag the tile");
+  await shot(d, "picked");
+  // a tap: one more, with a bar for both
+  await tap(d, '#overview .ov-item[data-path$="Home.md"]');
+  assert.equal(await p.evaluate(() => MdOverview.picked.length), 2, "a tap chooses one more — and opens nothing");
+  assert.equal(await p.evaluate(() => document.body.hasAttribute("data-overview")), true);
+  assert.ok((await barLabels(p, "#ipad-pickbar")).includes("Open in New Tabs"), "the bar for many");
+  assert.equal((await barLabels(p, "#ipad-pickbar")).includes("Rename"), false, "no Rename for two");
+  // a tap lets one go; Done ends the choosing
+  await tap(d, '#overview .ov-item[data-path$="Home.md"]');
+  assert.equal(await p.evaluate(() => MdOverview.picked.length), 1);
+  await tapTile(d, "#ipad-pickbar", "Done");
+  assert.equal(await p.evaluate(() => [document.body.hasAttribute("data-ip-picking"), MdOverview.picked.length].join()), "false,0", "Done: nothing chosen");
+  // what the bar does is the menu's: Duplicate
+  await hold(d, '#overview .ov-item[data-path$="Second note.md"]');
+  await tapTile(d, "#ipad-pickbar", "Duplicate");
+  await p.waitForFunction(() => [...document.querySelectorAll("#overview .ov-item")].some((t) => /Second note.*\d|copy|Kopie/i.test(t.dataset.path) && !/^.*\/Second note\.md$/.test(t.dataset.path)), null, { timeout: 8000 });
+  assert.equal(await p.evaluate(() => document.body.hasAttribute("data-ip-picking")), false, "and the choosing ends");
+  assert.equal(await menuShown(p), false, "no menu along the way");
+  await d.context.close();
+});
+
+test("an iPad: the zoom to All Notes and back is one movement — nothing over the note jumps, the note starts where it stands", async () => {
+  const d = await device("ipad-zoom"), p = d.page;
+  await open(d);
+  const sample = () => p.evaluate(() => new Promise((done) => {
+    const els = { toolbar: "#toolbar", all: "#ipad-nav .ip-all", title: ".ip-title", tools: "#ipad-tools" };
+    const col = () => document.querySelector(document.body.dataset.view === "active" ? "#active" : "#content");
+    const frames = [], t0 = performance.now(), at = col().getBoundingClientRect();
+    const tick = () => {
+      const f = { t: performance.now() - t0 };
+      for (const [k, q] of Object.entries(els)) { const e = document.querySelector(q); if (!e) continue; const r = e.getBoundingClientRect(); f[k] = [r.left, r.top, r.width, +getComputedStyle(e).opacity]; }
+      const c = col().getBoundingClientRect(); f.col = [c.left, c.top, c.width];
+      frames.push(f);
+      if (performance.now() - t0 < 900) requestAnimationFrame(tick); else done({ frames, at: [at.left, at.top, at.width] });
+    };
+    document.querySelector("#ipad-nav .ip-all").click();
+    tick();
+  }));
+  const jumps = (frames) => {
+    const out = [];
+    for (let i = 1; i < frames.length; i++) {
+      const a = frames[i - 1], b = frames[i], dt = Math.max(16, b.t - a.t);
+      for (const k of ["toolbar", "all", "title", "tools"]) {
+        if (!a[k] || !b[k] || (!a[k][3] && !b[k][3])) continue; // (what is not seen does not jump)
+        const move = Math.max(Math.abs(a[k][0] - b[k][0]), Math.abs(a[k][1] - b[k][1]), Math.abs(a[k][2] - b[k][2]));
+        if (move > 2 * dt / 16) out.push(`${k} moved ${move.toFixed(1)} px at ${b.t.toFixed(0)} ms`);
+        if (Math.abs(a[k][3] - b[k][3]) > 0.25 * dt / 16) out.push(`${k} faded ${a[k][3]} → ${b[k][3]} in ${(b.t - a.t).toFixed(0)} ms`);
+      }
+    }
+    return out;
+  };
+  for (const y of [0, 700]) {
+    await p.evaluate((v) => scrollTo(0, v), y);
+    await p.waitForTimeout(500);
+    const out = await sample();
+    assert.deepEqual(jumps(out.frames), [], `to All Notes (scrolled ${y}): nothing over the note jumps`);
+    const first = out.frames[0].col;
+    assert.ok(Math.abs(first[0] - out.at[0]) <= 2 && Math.abs(first[1] - out.at[1]) <= 2, `the note starts where it stood: ${first} vs ${out.at}`);
+    await p.waitForTimeout(300);
+    const back = await sample();
+    assert.deepEqual(jumps(back.frames), [], `back into the note (scrolled ${y}): nothing jumps`);
+    await p.waitForTimeout(400);
+    assert.ok(Math.abs((await p.evaluate(() => scrollY)) - y) <= 2, "the note where it was");
+  }
   await d.context.close();
 });
 

@@ -1168,11 +1168,19 @@ counts — and has no writing help by a model.
   left the note's history and the pencil, which goes from reading to writing (the active mode)
   and back; at the bottom right, while writing, insert, format, style and information, their
   panel above them; the settings in All Notes' corner. Scrolled, the note's name and its folder
-  stand beside the button. Blocks chosen have a bar of tiles at the foot — copy, cut,
-  duplicate, delete, and More for the rest of the block's menu; there it is the only way to
-  them — a block's handle has no menu on an iPad. A finger held on the handle lifts the block at
-  once and moves it where the finger goes; a tap on it, or a hold let go in place, selects the
-  block. The other modes (the source,
+  stand beside the button. A finger held anywhere opens no menu (the system's own over selected
+  text stays); what the menus had is in bars of tiles at the foot, with panels rising from them:
+  blocks chosen have Text Style (headings, lists, decorations, callouts, columns), Format (bold,
+  italic, strikethrough, code, alignment, indent and outdent, move up and down, the colours as
+  swatches), Insert (below them: code block, formula, table, picture, file, whiteboard, footnote,
+  the dividers), Copy, Cut, Duplicate, Actions (move, copy as Markdown, a page of them, paste) and
+  Delete — the "/" menu's own entries. In All Notes a tile held is chosen: a check on it, then a tap
+  chooses more or lets one go, a tap beside them or Done ends it, and the bar has the file menu's
+  entries for what is chosen (open in new tabs, copy, cut, duplicate, share, rename, hide, delete,
+  what is listed …). The note goes into its tile and comes out of it as one movement: what floats
+  over it fades with it. A block's handle has no menu there either: a finger held on it lifts
+  the block at once and moves it where the finger goes; a tap on it, or a hold let go in place,
+  selects the block. The other modes (the source,
   side by side) are not offered there. An iPad is told by its touch screen (it says it is a
   Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
