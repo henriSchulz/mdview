@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "When a block is swiped to the side, left to right, it should be selected — as in Craft" (iPad, phone, touch screens) | a feature, not a bug: under a finger a block was chosen only by a swipe begun in the margin left of the text, and chosen as soon as the finger had gone 28 px, with nothing moving | the swipe is taken anywhere on a block (`active/blocks.js`): the direction is decided after 10 px (sideways, not after a resting finger), the block follows the finger held back and its field fades in (a decoration, `blk-swiping`; offset and fade as `--swipe-x`/`--swipe-p` on what holds the note, so the editor's own elements are not touched), 60 px or a fast flick choose it when let go, else it springs back; the innermost block (`blockOf`, as a tap's handle); in a code block, table or formula scrolled sideways the swipe scrolls it | `web/test/ipad.test.mjs` "a block swiped to the right on its own text" |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |
@@ -203,6 +209,9 @@ cause in here.
   tile does show it (a `blob:` picture), the check looks for another address.
 - `web/test/board-touch.test.mjs` "the tray goes where a finger pulls it": fails now and then in
   a full run, passes alone.
+- `web/test/write.test.mjs` "code put away behind a card" ("the window is not as small as its two
+  lines", 504 for 520): failed in full runs on 2026-10-20 (the window still growing when measured,
+  under load), passes alone.
 - A latent one: `dev/tests/edit.test.mjs` found an edit after a hard break (two spaces at a
   line's end) in `basics.md` that changes more than its place, when the fixture list shifted
   the random edits. Not looked into.

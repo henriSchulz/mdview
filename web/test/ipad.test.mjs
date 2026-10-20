@@ -27,6 +27,7 @@ const files = {
   "A note with a very long name that does not fit a narrow sidebar at all.md": "# Long\n",
   "sub/Deep.md": "# Deep\n\ntext\n\n## Part two\n\nmore text\n",
   ".mdview/project.json": "{\"id\":\"x\",\"version\":1}",
+  "Swipe.md": "# Swipe\n\nThe first paragraph, a block to be swiped to the right on its own text.\n\nThe second paragraph, another block of the note.\n\n- the first item of a list\n- the second item of a list\n- the third item\n\n> [!note]\n> A paragraph inside a callout.\n\n```python\ndef a_function_with_a_very_long_name_that_runs_far_past_the_side_of_the_window(argument_one, argument_two, argument_three):\n    return argument_one\n```\n\n| Column one | Column two | Column three | Column four | Column five | Column six | Column seven |\n|---|---|---|---|---|---|---|\n| a rather long cell | another long cell | and one more | and more | the fifth one | and the sixth | the last one |\n\n<!-- columns -->\n\nLeft column's paragraph.\n\n<!-- column -->\n\nRight column's paragraph.\n\n<!-- /columns -->\n\n" + long + "\n",
 };
 
 before(async () => {
@@ -161,4 +162,99 @@ for (const name of ["ipad", "ipadUp"]) {
     await d.context.close();
   });
 }
+test("ipad: a block swiped to the right on its own text is chosen, as in Craft; what scrolls and what is tapped stays the browser's", async () => {
+  const d = await device("ipad"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  const down = (a) => touch("touchStart", [a]);
+  const move = async (a, b, steps = 8) => { for (let i = 1; i <= steps; i++) { await touch("touchMove", [[a[0] + ((b[0] - a[0]) * i) / steps, a[1] + ((b[1] - a[1]) * i) / steps]]); await p.waitForTimeout(16); } };
+  const up = async () => { await p.waitForTimeout(120); await touch("touchEnd", []); await p.waitForTimeout(700); };
+  const swipe = async (a, b, steps) => { await down(a); await move(a, b, steps); await up(); };
+  const picked = () => p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.type.name + ":" + x.node.textContent.slice(0, 16)));
+  const clear = async () => { await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atStart(v.state.doc))); document.activeElement.blur(); }); await p.keyboard.press("Escape"); await p.keyboard.press("Escape"); await p.waitForTimeout(250); assert.deepEqual(await picked(), []); };
+  // a point on the text of the element the function finds (scrolled to the middle of the window first)
+  const at = (fn, dx = 0.3) => p.evaluate(async ([src, f]) => { const e = new Function("return " + src)()(); e.scrollIntoView({ block: "center" }); await new Promise((r) => setTimeout(r, 150)); const r = e.getBoundingClientRect(); return [Math.round(r.left + Math.min(r.width * f, 200)), Math.round(r.top + Math.min(r.height / 2, 12))]; }, [fn.toString(), dx]);
+  await open(d, "Swipe.md");
+  await p.evaluate(() => MdView.setMode("active"));
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(600);
+  await clear();
+  const para = () => document.querySelectorAll("#active .pm > p")[0];
+  // on its text, the block goes along with the finger — less far than the finger (it resists) — and is chosen when let go
+  let a = await at(para);
+  await down(a); await move(a, [a[0] + 120, a[1] + 3]);
+  const shift = await p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform).m41);
+  assert.ok(shift > 8 && shift < 100, `the block follows the finger, held back: ${shift}px for a finger 120px on`);
+  await shot(d, "swipe");
+  await up();
+  assert.deepEqual(await picked(), ["paragraph:The first paragr"], "a swipe to the right on a block's text chooses it");
+  assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus()), false, "… without the keyboard");
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform), "none", "… and springs back into its place");
+  // in that state the same swipe on another block adds it; on a chosen one, to the left, lets it go
+  const para2 = () => document.querySelectorAll("#active .pm > p")[1];
+  a = await at(para2);
+  await swipe(a, [a[0] + 100, a[1] + 2]);
+  assert.equal((await picked()).length, 2, "a swipe on another block adds it");
+  a = await at(para);
+  await swipe(a, [a[0] - 100, a[1] + 2]);
+  assert.deepEqual(await picked(), ["paragraph:The second parag"], "a swipe to the left on a chosen block lets it go");
+  a = await at(para2);
+  await swipe(a, [a[0] + 100, a[1] + 2]);
+  assert.deepEqual(await picked(), [], "… and so does one to the right");
+  await clear();
+  // a short swipe springs back and chooses nothing
+  a = await at(para);
+  await swipe(a, [a[0] + 30, a[1]], 6);
+  assert.deepEqual(await picked(), [], "a short swipe chooses nothing");
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform), "none", "… and the block is back in its place");
+  // up and down on the text: the note scrolls, nothing is chosen
+  a = await at(para2);
+  const y0 = await p.evaluate(() => scrollY);
+  await swipe(a, [a[0] + 12, a[1] - 160], 8);
+  assert.ok((await p.evaluate(() => scrollY)) > y0 + 40, "a finger moving up the text scrolls the note");
+  assert.deepEqual(await picked(), [], "… and chooses nothing");
+  // nested: the item of a list, the paragraph in a callout — the innermost block, not what holds it
+  a = await at(() => document.querySelectorAll("#active .pm li")[1]);
+  await swipe(a, [a[0] + 100, a[1] + 2]);
+  assert.deepEqual(await picked(), ["list_item:the second item "], "in a list: the item swiped, not the list");
+  await clear();
+  a = await at(() => document.querySelector("#active .pm .callout-content > p"));
+  await swipe(a, [a[0] + 100, a[1] + 2]);
+  assert.deepEqual(await picked(), ["paragraph:A paragraph insi"], "in a callout: the paragraph swiped");
+  await clear();
+  a = await at(() => [...document.querySelectorAll("#active .pm .col > p")][1]);
+  await swipe(a, [a[0] + 80, a[1] + 2]);
+  assert.deepEqual(await picked(), ["paragraph:Right column's p"], "in a column: the paragraph swiped, not the row");
+  await clear();
+  // a code block scrolled sideways: the swipe scrolls it back; at its left edge, the swipe chooses it
+  const scroller = () => [...document.querySelectorAll("#active .pm *")].find((e) => e.closest("pre") && e.scrollWidth > e.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(e).overflowX)) || document.querySelector("#active .pm pre");
+  const codeAt = await at(scroller, 0.5);
+  await p.evaluate((src) => { new Function("return " + src)()().scrollLeft = 150; }, scroller.toString());
+  const left0 = await p.evaluate((src) => new Function("return " + src)()().scrollLeft, scroller.toString());
+  assert.ok(left0 > 100, `the code block can scroll sideways: ${left0}`);
+  await swipe(codeAt, [codeAt[0] + 100, codeAt[1] + 2]);
+  const left1 = await p.evaluate((src) => new Function("return " + src)()().scrollLeft, scroller.toString());
+  assert.ok(left1 < left0 - 40, `a swipe in a code block scrolled sideways scrolls it back: ${left0} → ${left1}`);
+  assert.deepEqual(await picked(), [], "… and chooses nothing");
+  await p.evaluate((src) => { new Function("return " + src)()().scrollLeft = 0; }, scroller.toString());
+  await swipe(codeAt, [codeAt[0] - 100, codeAt[1] + 2]);
+  assert.ok((await p.evaluate((src) => new Function("return " + src)()().scrollLeft, scroller.toString())) > 40, "a swipe to the left in it scrolls it");
+  assert.deepEqual(await picked(), [], "… and chooses nothing");
+  await p.evaluate((src) => { new Function("return " + src)()().scrollLeft = 0; }, scroller.toString());
+  await swipe(codeAt, [codeAt[0] + 100, codeAt[1] + 2]);
+  assert.deepEqual((await picked()).map((x) => x.split(":")[0]), ["island"], "at its left edge the swipe chooses the code block");
+  await clear();
+  // a wide table, at its left edge: the swipe on a cell chooses the table
+  a = await at(() => document.querySelector("#active .pm .table-wrap td"), 0.5);
+  await p.evaluate(() => { document.querySelector("#active .pm .table-wrap").scrollLeft = 0; });
+  await swipe(a, [a[0] + 100, a[1] + 2]);
+  assert.deepEqual((await picked()).map((x) => x.split(":")[0]), ["table"], "a swipe on a table's cell chooses the table");
+  await clear();
+  // a tap on the text still puts the caret there
+  a = await at(para2);
+  await p.touchscreen.tap(a[0], a[1]);
+  await p.waitForTimeout(300);
+  assert.deepEqual(await p.evaluate(() => { const s = MdActive.view.pm.state.selection; return [s.empty, s.$from.parent.textContent.slice(0, 10)]; }), [true, "The second"], "a tap puts the caret into the text");
+  assert.deepEqual(await picked(), []);
+  await d.context.close();
+});
 test("nothing was refused or thrown along the way", () => { assert.deepEqual(problems.filter((p) => !/favicon|Failed to load resource/.test(p)), []); });

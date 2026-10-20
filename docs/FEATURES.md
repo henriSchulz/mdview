@@ -1136,10 +1136,15 @@ counts — and has no writing help by a model.
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
   the block (the note goes along near its upper and lower edge). A tapped cell has the table's
-  handles. A block is chosen by a swipe to the right begun beside it, in the margin left of
-  the text (wide enough for that): it is marked and keeps its handle, to be dragged by or for
-  its menu; the same swipe beside another block adds that one, beside a chosen one it lets it
-  go. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
+  handles. A block is chosen by a swipe to the right, as in Craft — begun anywhere on it, on
+  its text or in the margin left of it: the block goes along with the finger, held back, and
+  its field fades in; let go far enough (or flicked) it is chosen and keeps its handle, to be
+  dragged by or for its menu, let go before it springs back. The block is the innermost one
+  under the finger: an item of a list, a paragraph in a callout or a column. The same swipe on
+  another block adds that one; on a chosen one (to the right or the left) it lets it go. Up and
+  down still moves the note, a finger that rests first selects text, a tap puts the caret, and
+  a code block, a table or a formula scrolled sideways is scrolled back by the swipe — it
+  chooses only at its left edge. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
   when the text itself is tapped — not when a block is chosen, a menu shuts or a whiteboard is
   left.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
