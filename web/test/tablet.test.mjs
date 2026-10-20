@@ -540,7 +540,7 @@ test("an iPad: the Insert panel — a tile dragged by a finger goes where it is 
       const gap = await p.evaluate(() => { const ps = [...document.querySelectorAll("#active .pm > p")]; const a = ps.find((x) => /Paragraph 3 /.test(x.textContent)).getBoundingClientRect(), b = ps.find((x) => /Paragraph 4 /.test(x.textContent)).getBoundingClientRect(); return [a.left + 80, a.bottom - 3]; });
       const cdp = await d.context.newCDPSession(p), touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y]) => ({ x, y })) });
       await touch("touchStart", [tile]);
-      await p.waitForTimeout(350);
+      await p.waitForFunction(() => document.body.hasAttribute("data-ip-dragging"), null, { timeout: 3000 }); // (held: lifted — however busy the machine)
       for (let i = 1; i <= 12; i++) { await touch("touchMove", [[tile[0] + (gap[0] - tile[0]) * i / 12, tile[1] + (gap[1] - tile[1]) * i / 12]]); await p.waitForTimeout(20); }
       assert.equal(await p.evaluate(() => [...document.querySelectorAll(".blk-line")].some((l) => l.hasAttribute("data-on"))), true, "the line shows where it goes");
       assert.equal(await shown(p, "#ip-ghost"), true, "the tile goes with the finger");
