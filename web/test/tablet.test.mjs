@@ -489,7 +489,7 @@ test("an iPad: undo and redo beside the pencil while writing — what Ctrl+Z doe
   assert.equal(await state(), "true,true", "nothing to undo or redo yet: both dimmed");
   assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#ipad-tools [data-ip="undo"]')).opacity), "0.35");
   // something typed at the end of the first paragraph
-  await p.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === "paragraph") { at = pos + n.nodeSize - 1; return false; } }); v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
+  await p.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === "paragraph") { at = pos + n.nodeSize - 1; return false; } }); v.focus({ keyboard: true }); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
   await p.keyboard.type(" typed here");
   await p.waitForTimeout(500);
   const has = () => p.evaluate(() => document.querySelector("#active .pm").textContent.includes("typed here"));
