@@ -1309,6 +1309,8 @@ function bindScroll() {
 let press = null, swallow = false;
 const LONG = 430;
 scr.addEventListener("pointerdown", (e) => {
+  swallow = false;
+  if (press) { clearTimeout(press.t); press = null; return; } // a second finger: no long press
   if (e.button > 0) return;
   const blk = e.target.closest(".v-note .blk"), tile = e.target.closest(".tile");
   if (e.target.closest("[data-act],.m,.pal,.sh,.rad,.shade")) return;
@@ -1323,6 +1325,8 @@ scr.addEventListener("pointerdown", (e) => {
 scr.addEventListener("pointermove", (e) => { if (!press) return; const p = pt(e); if (Math.hypot(p.x - press.start.x, p.y - press.start.y) > 9) { clearTimeout(press.t); press = null; } });
 for (const ev of ["pointerup", "pointercancel"]) scr.addEventListener(ev, () => { if (press) { clearTimeout(press.t); press = null; } });
 scr.addEventListener("contextmenu", (e) => e.preventDefault());
+// the click that ends a long press goes nowhere (it would land on the layer the press just opened)
+scr.addEventListener("click", (e) => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
 scr.addEventListener("click", (e) => {
   if (swallow) { swallow = false; e.stopPropagation(); return; }
   const b = e.target.closest("[data-act]");
