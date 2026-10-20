@@ -291,6 +291,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 25. **Never focus the note programmatically right after a touch** — the keyboard comes up.
 26. **No gliding after two fingers** on the whiteboard; only one finger throws.
 27. Verified in Chromium's touch emulation only. Safari on the iPad is checked by Henri.
+69. **The iPad's layout is the iPad's alone** (viewer/tablet.js, viewer/tablet.css): every rule of it stands
+    under `:root[data-ipad]` inside `@media (min-width: 761px) and (min-height: 600px)` — the desktop, a phone, a
+    touch screen that is no iPad and an iPad in Split View look as they did. It lays the page's own parts out
+    otherwise (the toolbar, the rail, All Notes) and calls what they do; it adds no second way of doing a thing.
+    Chromium's touch emulation has one touch point and its own user agent: a test of the iPad sets five
+    (`Emulation.setTouchEmulationEnabled`) and Safari's agent, or the page is no iPad (`web/test/tablet.test.mjs`).
 
 ### Releases and installs
 
