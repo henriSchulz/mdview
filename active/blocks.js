@@ -47,6 +47,15 @@
     const left = r.left - (el.matches("li") || el.classList.contains("cols") ? 46 : 22), col = el.closest(".col"); // (a row of columns: further out than the handles of its first column's blocks)
     return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 20) : left;
   }
+  /* Under a finger the handle is larger (active/narrow.css) and would reach over the block's field and its text: it stands
+   * clear of the field, the fields' gap between them. -> the handle's left */
+  function clear(el, r, left) {
+    if (!COARSE.matches) return left;
+    const cs = getComputedStyle(layer), pad = parseFloat(cs.getPropertyValue("--blk-field-pad")) || 0, gap = parseFloat(cs.getPropertyValue("--blk-field-gap")) || 0;
+    const from = el.matches("li") && el.parentElement ? Math.min(r.left, el.parentElement.getBoundingClientRect().left) : r.left;
+    const w = handle.offsetWidth || parseFloat(getComputedStyle(handle).width) || 0, ml = parseFloat(getComputedStyle(handle).marginLeft) || 0;
+    return Math.min(left, from - pad - gap - w - ml);
+  }
   function place(el) {
     over = el;
     delete handle.dataset.group;
@@ -56,7 +65,7 @@
     const line = parseFloat(getComputedStyle(el).lineHeight) || 26;
     const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
     // left of the block; left of its bullet or checkbox for a list item
-    handle.style.left = leftOf(el, r) + scrollX + "px";
+    handle.style.left = clear(el, r, leftOf(el, r)) + scrollX + "px";
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
     handle.dataset.on = "";
   }
@@ -72,8 +81,8 @@
     delete handle.dataset.apart;
     over = els[0];
     const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
-    handle.style.left = leftOf(els[0], a) - 4 + scrollX + "px"; // (clear of the fields, which reach 5 px out of their blocks)
-    handle.style.top = a.top - 5 + scrollY + "px"; // (as far as the fields of the selected blocks go)
+    handle.style.left = clear(els[0], a, leftOf(els[0], a) - 4) + scrollX + "px"; // (clear of the fields, which reach 5 px out of their blocks)
+    handle.style.top = a.top - 5 - (parseFloat(getComputedStyle(handle).marginTop) || 0) + scrollY + "px"; // (as far as the fields of the selected blocks go; a finger's larger handle is drawn up by its margin)
     handle.style.height = b.bottom - a.top + 10 + "px";
     handle.dataset.group = "";
     handle.dataset.on = "";
@@ -783,15 +792,77 @@
     },
   });
 
-  let drawnDoc = null; // the document the page shows (see decorations)
+  /* The fields of the selected blocks: a layer of their own over the note (active/blocks.css, .blk-fields), so that every kind
+   * of block wears the same — a picture, a table's sheet, code with a surface of its own, a rule that is only a line. Each
+   * field is the block's box, a little wider (a list's item with its bullet); fields of blocks that follow each other in the
+   * document meet at the middle of the room between them with the same gap left clear, whatever margins the blocks have —
+   * several selected read as one group. Drawn again, a frame later, whenever the editor changes, the note is laid out anew
+   * or scrolled in what holds it. A block being swiped (below) wears its field too, fading in with the swipe. */
+  const layer = document.createElement("div");
+  layer.className = "blk-fields";
+  layer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(layer);
+  let drawQueued = 0;
+  function fieldsSoon() { if (!drawQueued) drawQueued = requestAnimationFrame(() => { drawQueued = 0; drawFields(); }); }
+  // what wears a field: [{ pos, node, how ("add" | "drop" while swiped), next (the block before it ends where this begins) }]
+  function fieldTargets(state) {
+    const out = [], sw = swipeKey.getState(state), P = pickedOf(state);
+    const add = (pos, node, how) => {
+      if (node.type.name === "columns") { // (each block of its columns, as the marks have it)
+        let colPos = pos + 1;
+        node.forEach((col) => { let p = colPos + 1; col.forEach((b) => { if (usable(b)) add(p, b, how); p += b.nodeSize; }); colPos += col.nodeSize; });
+        return;
+      }
+      const last = out[out.length - 1];
+      out.push({ pos, node, how, next: !!last && last.pos + last.node.nodeSize === pos });
+    };
+    for (const x of P) add(x.pos, x.node, sw && !sw.done && sw.pos === x.pos ? "drop" : null);
+    if (sw && !sw.done && !P.some((x) => x.pos === sw.pos)) { const n = state.doc.nodeAt(sw.pos); if (n && usable(n)) add(sw.pos, n, "add"); }
+    return out;
+  }
+  function drawFields() {
+    const v = view;
+    if (!v || v.isDestroyed || document.body.dataset.view !== "active") { layer.replaceChildren(); return; }
+    const cs = getComputedStyle(layer), px = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
+    const pad = px("--blk-field-pad"), gap = px("--blk-field-gap"), rulePad = px("--blk-field-rule");
+    const boxes = [];
+    for (const t of fieldTargets(v.state)) {
+      let el = null;
+      try { el = v.nodeDOM(t.pos); } catch (e) { el = null; }
+      if (!el || el.nodeType !== 1 || !el.isConnected) { boxes.push(null); continue; }
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) { boxes.push(null); continue; }
+      const swiping = el.classList.contains("blk-swiping"), shift = swiping ? new DOMMatrix(getComputedStyle(el).transform).m41 || 0 : 0; // (where the block stands, not where the finger has it)
+      const out = el.matches("hr") ? rulePad : pad;
+      const left = el.matches("li") && el.parentElement ? Math.min(r.left - shift, el.parentElement.getBoundingClientRect().left) : r.left - shift; // (an item: with its bullet)
+      boxes.push({ t, el, swiping, left: left - pad, right: r.right - shift + pad, top: r.top - out, bottom: r.bottom + out, raw: [r.top, r.bottom] });
+    }
+    // blocks that follow each other: their fields meet at the middle of the room between them, the gap left clear
+    for (let i = 1; i < boxes.length; i++) {
+      const a = boxes[i - 1], b = boxes[i];
+      if (!a || !b || !b.t.next || a.right <= b.left || b.right <= a.left || b.raw[0] < a.raw[1] - 1) continue;
+      const mid = (a.raw[1] + b.raw[0]) / 2;
+      a.bottom = mid - gap / 2; b.top = mid + gap / 2;
+    }
+    const shown = boxes.filter(Boolean), kids = [...layer.querySelectorAll(":scope > .blk-field")];
+    shown.forEach((b, i) => {
+      const f = kids[i] || layer.appendChild(Object.assign(document.createElement("div"), { className: "blk-field" }));
+      f.style.left = b.left + scrollX + "px"; f.style.top = b.top + scrollY + "px";
+      f.style.width = Math.max(0, b.right - b.left) + "px"; f.style.height = Math.max(0, b.bottom - b.top) + "px";
+      if (b.t.how) f.dataset.swipe = b.t.how; else delete f.dataset.swipe;
+      if (b.swiping) f.dataset.swiping = ""; else delete f.dataset.swiping;
+    });
+    for (const f of kids.slice(shown.length)) f.remove();
+  }
+  const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => { if (layer.firstChild) fieldsSoon(); }) : null;
+  window.addEventListener("resize", () => { if (layer.firstChild) fieldsSoon(); });
+  document.addEventListener("scroll", () => { if (layer.firstChild) fieldsSoon(); }, { capture: true, passive: true }); // (in what holds the note, if not the window)
+  new MutationObserver(fieldsSoon).observe(document.body, { attributes: true, attributeFilter: ["data-view"] }); // (another mode: the fields go)
   const selPlugin = new Plugin({
     view(v) {
-      drawnDoc = v.state.doc;
-      return { update(now, prev) {
-        const doc = now.state.doc;
-        drawnDoc = doc;
-        if (prev.doc !== doc && pickedOf(now.state).length) requestAnimationFrame(() => { if (now.state.doc === doc && !now.isDestroyed) now.dispatch(now.state.tr.setMeta("addToHistory", false)); });
-      } };
+      if (sizes) sizes.observe(v.dom);
+      fieldsSoon();
+      return { update() { fieldsSoon(); }, destroy() { if (sizes) sizes.unobserve(v.dom); layer.replaceChildren(); } };
     },
     key: selKey,
     state: {
@@ -830,15 +901,9 @@
           const s = state.selection;
           return s instanceof NodeSelection && s.node.isBlock ? DecorationSet.create(state.doc, around([s.from])) : null;
         }
-        // Blocks that follow each other are one box (active/*.css): each reaches up over the gap to the
-        // one before it. How far is measured — the gap is the blocks' margins, and those differ (a
-        // formula, a table, a heading) — and handed over as --up: the gap less the 4 px each of the
-        // two reaches into it already.
-        // (only when what is drawn is this document: after a change the blocks are measured a frame later)
-        const view = A.view.pm;
-        const rectAt = (pos) => { try { const d = view && drawnDoc === state.doc ? view.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; } catch (e) { return null; } };
-        // (a row of columns selected: each block in its columns wears its field, as anywhere — not one
-        // box around the row; the row is only marked, blk-row)
+        // (the fields themselves are drawn in a layer over the note: drawFields. The blocks are only marked, for what a
+        // selected block is otherwise — no caret, no browser's highlight, the arrow for a pointer)
+        // (a row of columns selected: each block in its columns is marked, as anywhere; the row itself blk-row)
         const D = [], rows = [];
         for (const x of P) {
           if (x.node.type.name !== "columns") { D.push(x); continue; }
@@ -846,15 +911,7 @@
           let colPos = x.pos + 1;
           x.node.forEach((col) => { let p = colPos + 1; col.forEach((b) => { if (usable(b)) D.push({ pos: p, node: b }); p += b.nodeSize; }); colPos += col.nodeSize; });
         }
-        return DecorationSet.create(state.doc, D.map((x, i) => {
-          const P = D, before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
-          // (the room between two fields is 6 px whatever the blocks are: a field reaches 5 px out of
-          // its block — a rule's 8 —, and up over what the gap has more than that (--up), or is cut
-          // where the gap has less (--cut). Items of a list are left as they are: one list.)
-          const out = (n) => (n.type.name === "horizontal_rule" ? 8 : 5), item = x.node.type.name === "list_item";
-          const up = before && here && !item ? Math.round((here.top - before.bottom - 6 - out(P[i - 1].node) - out(x.node)) * 10) / 10 : null;
-          return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null || !up ? { class: "blk-sel" } : { class: "blk-sel", style: up > 0 ? `--up: ${up}px` : `--cut: ${-up}px` });
-        }).concat(rows, around(P.map((x) => x.pos))));
+        return DecorationSet.create(state.doc, D.map((x) => Decoration.node(x.pos, x.pos + x.node.nodeSize, { class: "blk-sel" })).concat(rows, around(P.map((x) => x.pos))));
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : state.selection instanceof NodeSelection ? { class: "has-nodesel" } : null),
       handleKeyDown: keydown,
@@ -1054,8 +1111,11 @@
   });
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   // a right click on the handle: the block's menu (the one a right click on selected blocks has) — the block is selected for it
+  // (on an iPad, its own layout, the handle has no menu: the bar at the foot has its actions; a finger held on it drags — below)
+  const IPAD = () => document.documentElement.hasAttribute("data-ipad") && matchMedia("(min-width: 761px) and (min-height: 600px)").matches; // (as viewer/tablet.css says it)
   handle.addEventListener("contextmenu", (e) => {
     e.preventDefault(); e.stopPropagation();
+    if (IPAD()) return;
     if (!view || !view.editable || !over || !over.isConnected || !over.pmViewDesc) return;
     const pos = over.pmViewDesc.posBefore;
     if (!handle.hasAttribute("data-group") && !pickedOf(view.state).some((x) => x.pos === pos)) selectBlock(view, pos, false);
@@ -1067,7 +1127,7 @@
     if (e.ctrlKey || e.metaKey) { toggle(view, over.pmViewDesc.posBefore); return; } // (with Ctrl: this block joins the selected ones, or leaves them)
     const byFinger = window.MdView.core.touching();
     if (byFinger) view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard comes up, and one that is up goes)
-    const menu = () => { const items = byFinger ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
+    const menu = () => { const items = byFinger && !IPAD() ? menuItems(view) : null, r = handle.getBoundingClientRect(); if (items) A.menu.open({ x: r.right + 6, y: r.top, items, closed: () => view.focus() }); };
     if (handle.hasAttribute("data-group")) { view.focus(); menu(); return; } // (the handle of all that is selected: they stay selected)
     selectBlock(view, over.pmViewDesc.posBefore, e.shiftKey);
     menu();
@@ -1116,9 +1176,15 @@
     const r = over.getBoundingClientRect();
     // the picture under the pointer: the block — or all the blocks that go, as they stand
     const els = many ? groupEls(view.state) : null;
+    if (COARSE.matches) { // (a finger: the blocks themselves, as large as they are, held where they were taken — the handle under the finger stays free)
+      const exact = exactGhostOf(els || [over]);
+      window.MdView.core.moving.picture(e, exact.box, { into: document.body, hold: [e.clientX - exact.left, e.clientY - exact.top], loose: true });
+      exact.box.remove();
+    } else {
     const ghost = ghostOf(els || [over]); // (a card off the page; the page draws a copy of it that goes with the pointer)
     window.MdView.core.moving.picture(e, ghost, { into: document.body, hold: [e.clientX - r.left + 12, e.clientY - r.top + 8] });
     ghost.remove();
+    }
     // (after the picture is taken:) the selected blocks stand back where they are while they are dragged.
     // By a class on the page — the editor's own elements are not touched, it would draw them anew
     if (els) setTimeout(() => { if (drag) document.body.classList.add("blk-dragging"); }, 0);
@@ -1129,6 +1195,31 @@
     const els = [];
     for (const x of view ? pickedOf(state) : []) { const dom = view.nodeDOM(x.pos); if (dom && dom.nodeType === 1) els.push(dom); }
     return els.length > 1 ? els : null;
+  }
+  /* What a finger drags, as a picture: the blocks themselves, each where it stands and exactly as large, on the note's ground
+   * with a light shadow — not a card of the note's width laid out anew (its padding, a formula's room outside the editor made
+   * it a fifth larger than what was taken, and it covered the handle the finger holds). Each copy is laid out as in the
+   * editor (its class, contenteditable — inert, never focused). -> { box (off the page, to be copied), left, top (where the
+   * blocks stand in the window) } */
+  function exactGhostOf(els) {
+    const at = els.map((el) => { const r = el.getBoundingClientRect(), list = el.matches("li") && el.parentElement ? el.parentElement : null; return { el, r, l: list ? Math.min(r.left, list.getBoundingClientRect().left) : r.left, list }; });
+    const left = Math.min(...at.map((x) => x.l)), top = Math.min(...at.map((x) => x.r.top)), right = Math.max(...at.map((x) => x.r.right)), bottom = Math.max(...at.map((x) => x.r.bottom));
+    const box = document.createElement("div"), cs = getComputedStyle(view.dom);
+    box.className = "blk-ghost blk-ghost-exact";
+    box.setAttribute("aria-hidden", "true");
+    Object.assign(box.style, { width: right - left + "px", height: Math.min(bottom - top, innerHeight * 0.7) + "px", fontFamily: cs.fontFamily, fontSize: cs.fontSize, lineHeight: cs.lineHeight, color: cs.color });
+    for (const { el, r, l, list } of at) {
+      const wrap = box.appendChild(document.createElement("div"));
+      wrap.className = view.dom.className.replace(/\b(has-blocksel|has-nodesel|ProseMirror-focused)\b/g, "");
+      wrap.setAttribute("contenteditable", "true"); wrap.inert = true;
+      Object.assign(wrap.style, { position: "absolute", left: l - left + "px", top: r.top - top + "px", width: r.right - l + "px", height: r.height + "px", margin: "0", padding: "0", minHeight: "0" });
+      const copy = el.cloneNode(true);
+      copy.classList.remove("blk-sel", "blk-swiping", "ProseMirror-selectednode");
+      copy.style.margin = "0"; copy.style.transform = "none";
+      if (list) { const holder = wrap.appendChild(list.cloneNode(false)); holder.style.margin = "0"; holder.appendChild(copy); } else wrap.appendChild(copy);
+    }
+    document.body.appendChild(box);
+    return { box, left, top };
   }
   /* What is dragged, as a picture: the blocks as they stand, one under the other, on a card. A long
    * selection is shown by its beginning. */
@@ -1485,7 +1576,7 @@
   }
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (settling) return; follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -1612,6 +1703,7 @@
   document.addEventListener("pointerup", (e) => {
     if (e.pointerType !== "touch" || !view || !view.editable || document.body.dataset.view !== "active" || drag || rubber) return;
     if (handle.contains(e.target) || e.target.closest?.(".actmenu")) return;
+    if (swiping || performance.now() - swiped < 100) return; // (the end of a swipe that chose a block, or let it spring back: no tap)
     if (!view.dom.contains(e.target)) { hide(); return; }
     const el = blockOf(view, e.target, e.clientY);
     if (!el) { hide(); return; }
@@ -1624,70 +1716,176 @@
       tapped = performance.now();
     }, 60);
   }, true);
-  let tapped = -1e9;
-  /* Under a finger a block is chosen by a swipe to the right, begun beside it in the margin left of the text: it is marked, its
-   * handle stands by it and stays. The same swipe beside another block adds that one; beside a chosen block it lets that one go
-   * (as a swipe to the left does). Up and down the margin moves the note, as everywhere. */
+  let tapped = -1e9, swiped = -1e9, swiping = false, settling = false; // (a swipe going on, and when the last one ended: the tap's handle above leaves it alone; a block springing back after a swipe: its handle waits)
+  /* Under a finger a block is chosen by a swipe to the right, as in Craft: begun anywhere on it — on its text, or beside it in the
+   * margin left of the text. The block goes along with the finger, held back the further it goes, and its field fades in; let go
+   * far enough (or fast enough), it is chosen, its handle stands by it and stays; let go before, it springs back and nothing is.
+   * The same swipe on another block adds that one; on a chosen block it lets that one go (as a swipe to the left does). Which
+   * block: the innermost the finger is on — the item of a list, a paragraph in a callout or a column — as a tap's handle has it.
+   * What the browser does by itself stays its own: up and down moves the note, a finger that rests first selects text, a tap
+   * puts the caret, and in what scrolls sideways (a code block, a table, a formula) the swipe is only taken at its left edge. */
+  const swipeKey = new PluginKey("blkswipe");
   {
     let sw = null;
+    const DECIDE = 10, CHOOSE = 60, FAST = 0.5, REACH = 220, RESTED = 400; // px before the direction is known; px or px/ms that choose; how far the block can go; ms after which a finger has rested (text is being selected)
     const beside = (x, y) => { const pm = view.dom.getBoundingClientRect(); return x > pm.left + 6 || y < pm.top || y > pm.bottom ? null : inner(blockAtY(view.dom, y, 6), y); };
     const mine = (e) => sw && [...e.changedTouches].find((t) => t.identifier === sw.id);
+    // what scrolls sideways between the finger and the note: the innermost such element, or null
+    const scrollerOf = (el) => { for (; el && el !== view.dom; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return el; return null; };
+    // (the offset and the progress are set on the root, outside the editor's own elements — changed there, it would draw them
+    // anew —, so that the block and its field in the layer read the same)
+    const root = document.documentElement;
+    const set = (x, p) => { root.style.setProperty("--swipe-x", x + "px"); root.style.setProperty("--swipe-p", String(p)); };
+    // held back: the further the finger goes, the less the block follows (as iOS's rubber band)
+    const band = (dx) => Math.sign(dx) * REACH * (1 - 1 / ((Math.abs(dx) * 0.55) / REACH + 1));
+    const mark = (value) => view.dispatch(view.state.tr.setMeta(swipeKey, value).setMeta("addToHistory", false));
+    const still = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+    // the distance that chooses reached (or left again): the field's tint deepens, the block bumps once (active/blocks.css)
+    function reach(on) {
+      if (on === root.classList.contains("blk-swipe-reached")) return;
+      root.classList.toggle("blk-swipe-reached", on);
+    }
+    function back(s, chosen) {
+      const v = view;
+      root.classList.add("blk-swipe-back");
+      set(0, chosen ? 1 : 0);
+      const done = () => {
+        root.removeEventListener("transitionend", end); clearTimeout(s.timer);
+        if (sw && sw !== s && sw.side) return; // (another swipe has begun meanwhile: it is its)
+        root.classList.remove("blk-swipe-back");
+        root.style.removeProperty("--swipe-x");
+        if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null);
+        if (settling) { settling = false; if (!showHeld()) hide(); }
+        if (sw && sw.side) return;
+        root.style.removeProperty("--swipe-p"); root.classList.remove("blk-swipe-reached");
+      };
+      const end = (e) => { if (e.target === root && e.propertyName === "--swipe-x") done(); };
+      root.addEventListener("transitionend", end);
+      s.timer = setTimeout(done, still.matches ? 0 : 700); // (with less motion: back at once; else where the end is not told)
+    }
     document.addEventListener("touchstart", (e) => {
+      if (sw && sw.side) return; // (a second finger during a swipe)
       sw = null;
       if (!view || !view.editable || document.body.dataset.view !== "active" || e.touches.length !== 1 || drag || rubber) return;
       // (by where the finger is, not by what the browser says it touched: beside the margin lie things made to be met — the
       // sidebar's edge, the handle — and a browser hands a touch that is near one of them to it)
       const t = e.touches[0], hit = document.elementFromPoint(t.clientX, t.clientY);
-      if (!hit || !hit.closest("#active") || hit.closest(CHROME)) return;
-      const el = beside(t.clientX, t.clientY);
-      if (el && el.pmViewDesc) sw = { id: t.identifier, x: t.clientX, y: t.clientY, el, side: 0, done: false };
+      if (!hit || !hit.closest("#active") || hit.closest(CHROME) || hit.closest("input, textarea, select, canvas, video, iframe")) return;
+      const onText = view.dom.contains(hit) && hit !== view.dom;
+      let el = onText ? blockOf(view, hit, t.clientY) : null;
+      if (!el) el = beside(t.clientX, t.clientY);
+      if (!el && view.dom.contains(hit)) el = inner(blockAtY(view.dom, t.clientY, 6), t.clientY); // (between blocks, in a row's gap)
+      if (!el || !el.pmViewDesc) return;
+      sw = { id: t.identifier, x: t.clientX, y: t.clientY, at: performance.now(), el, side: 0, scroller: onText ? scrollerOf(hit) : null, last: [t.clientX, performance.now()], v: 0 };
     }, { capture: true, passive: true });
     document.addEventListener("touchmove", (e) => {
       const t = mine(e);
       if (!t) return;
-      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      const dx = t.clientX - sw.x, dy = t.clientY - sw.y, now = performance.now();
       if (!sw.side) {
-        if (Math.hypot(dx, dy) < 10) return;
-        if (Math.abs(dy) > Math.abs(dx)) { sw = null; return; } // (up or down: the note is moved)
-        sw.side = Math.sign(dx);
+        if (Math.hypot(dx, dy) < DECIDE) {
+          // (Safari on the iPad: a move it is not stopped from at once is its own — the text's or the note's —, and the touches
+          // that follow can no longer be held. Clearly sideways from the start, it is held while the direction is still open;
+          // the note's own touch-action, pan-y, keeps it from taking a sideways move for itself.)
+          if (e.cancelable && !sw.scroller && Math.abs(dx) > 2 * Math.abs(dy) && Math.abs(dx) >= 3 && now - sw.at <= RESTED) e.preventDefault();
+          return;
+        }
+        const pos = sw.el.isConnected && sw.el.pmViewDesc ? sw.el.pmViewDesc.posBefore : null;
+        const has = pos != null && pickedOf(view.state).some((x) => x.pos === pos);
+        const sc = sw.scroller;
+        if (Math.abs(dy) >= Math.abs(dx) || pos == null || !e.cancelable || now - sw.at > RESTED // (up or down: the note is moved; a finger that rested: text is selected)
+          || (dx < 0 && (!has || sc)) // (to the left: only lets a chosen block go — in what scrolls, it scrolls)
+          || (sc && sc.scrollLeft > 0)) { sw = null; return; } // (scrolled sideways: the swipe scrolls it back)
+        sw.side = Math.sign(dx); sw.pos = pos; sw.has = has; swiping = true;
+        clearTimeout(leaving); rest(null);
+        root.classList.remove("blk-swipe-back");
+        root.classList.remove("blk-swipe-reached");
+        set(0, 0);
+        mark({ pos, how: has ? "drop" : "add" });
       }
       if (e.cancelable) e.preventDefault();
-      if (sw.done || Math.abs(dx) < 28 || !sw.el.isConnected || !sw.el.pmViewDesc) return;
-      sw.done = true;
-      const pos = sw.el.pmViewDesc.posBefore, has = pickedOf(view.state).some((x) => x.pos === pos);
-      if (sw.side < 0 && !has) return; // (to the left: only lets a chosen block go)
-      if (has || selOf(view.state)) toggle(view, pos); else selectBlock(view, pos, false);
-      view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
-      if (!showHeld()) hide();
+      const dt = now - sw.last[1];
+      if (dt > 0) sw.v = sw.v * 0.2 + ((t.clientX - sw.last[0]) / dt) * 0.8;
+      sw.last = [t.clientX, now];
+      sw.dx = dx;
+      const far = dx * sw.side;
+      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, far / CHOOSE)));
+      reach(far >= CHOOSE);
     }, { capture: true, passive: false });
-    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => { if (mine(e)) sw = null; }, { capture: true, passive: true });
+    for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => {
+      if (!mine(e)) return;
+      const s = sw;
+      sw = null;
+      if (!s.side) return;
+      swiping = false; swiped = performance.now();
+      const far = (s.dx || 0) * s.side;
+      // (taken from the page by the system, a swipe that had gone far enough still counts: it was meant)
+      const chosen = view && view.editable && (far >= CHOOSE || (type === "touchend" && far > DECIDE * 2 && s.v * s.side > FAST)) && view.state.doc.nodeAt(s.pos) && swipeKey.getState(view.state);
+      if (chosen) {
+        reach(true);
+        if (s.has || selOf(view.state)) toggle(view, s.pos); else selectBlock(view, s.pos, false);
+        view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
+        settling = true; delete handle.dataset.on; // (its handle comes when it is back in its place)
+        const now = swipeKey.getState(view.state);
+        if (now) mark({ ...now, done: true }); // (its field is now the selection's own, or none)
+      }
+      back(s, !!chosen);
+    }, { capture: true, passive: true });
   }
+  // the block being swiped wears a mark: it goes with the finger, its field fades in or out (active/blocks.css)
+  const swipePlugin = new Plugin({
+    key: swipeKey,
+    state: {
+      init: () => null,
+      apply(tr, value) {
+        const meta = tr.getMeta(swipeKey);
+        if (meta !== undefined) return meta;
+        if (!value || !tr.docChanged) return value;
+        const m = tr.mapping.mapResult(value.pos, 1);
+        return m.deletedAfter ? null : { ...value, pos: m.pos };
+      },
+    },
+    props: {
+      decorations(state) {
+        const s = swipeKey.getState(state), node = s && state.doc.nodeAt(s.pos);
+        return node ? DecorationSet.create(state.doc, [Decoration.node(s.pos, s.pos + node.nodeSize, { class: "blk-swiping" })]) : null;
+      },
+    },
+  });
   /* A finger on the handle that moves: the block is dragged — the drag a mouse has (above), handed on by hand, since a tablet's
-   * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge. */
+   * browser begins none of its own under a finger that moves at once. The note goes along when the finger nears its upper or lower edge.
+   * On an iPad (its own layout) the handle has no menu — the bar at the foot has what the block's menu has: a finger held on the
+   * handle lifts the block at once, the drag begun before the finger moves, and nothing else; let go where it was, nothing moves
+   * and the block is selected, as by a tap. */
   {
     let pull = null;
     const made = () => { try { return new DataTransfer(); } catch (e) { return { effectAllowed: "", dropEffect: "", types: [], files: [], setData() {}, getData: () => "", setDragImage() {} }; } };
     const send = (type, target, x, y) => { const ev = new MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y }); Object.defineProperty(ev, "dataTransfer", { value: pull.dt }); target.dispatchEvent(ev); return ev; };
     const under = (x, y) => document.elementFromPoint(x, y) || document.body;
     const mine = (e) => pull && [...e.changedTouches].find((t) => t.identifier === pull.id);
+    function begin() { // -> whether the drag began
+      pull.dt = made();
+      const began = send("dragstart", handle, pull.x, pull.y);
+      if (began.defaultPrevented || !drag) { pull = null; return false; }
+      pull.on = true;
+      handle.dataset.dragging = "";
+      const roll = () => { if (!pull || !pull.on) return; const y = pull.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...pull.at), ...pull.at); } pull.roll = requestAnimationFrame(roll); };
+      pull.roll = requestAnimationFrame(roll);
+      return true;
+    }
     handle.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1 || !view || !view.editable) { pull = null; return; }
       const t = e.touches[0];
-      pull = { id: t.identifier, x: t.clientX, y: t.clientY, on: false, dt: null, roll: 0, at: [t.clientX, t.clientY] };
+      pull = { id: t.identifier, x: t.clientX, y: t.clientY, on: false, dt: null, roll: 0, at: [t.clientX, t.clientY], moved: false, ipad: IPAD() };
       handle.draggable = false; // (the browser's own drag, begun by a finger that rests: not beside this one)
+      if (pull.ipad) begin(); // (held: lifted at once)
     }, { passive: true });
     handle.addEventListener("touchmove", (e) => {
       const t = mine(e);
       if (!t) return;
+      if (Math.hypot(t.clientX - pull.x, t.clientY - pull.y) >= 8) pull.moved = true;
       if (!pull.on) {
-        if (Math.hypot(t.clientX - pull.x, t.clientY - pull.y) < 8) return;
-        pull.dt = made();
-        const began = send("dragstart", handle, pull.x, pull.y);
-        if (began.defaultPrevented || !drag) { pull = null; return; }
-        pull.on = true;
-        handle.dataset.dragging = "";
-        const roll = () => { if (!pull || !pull.on) return; const y = pull.at[1], by = y < 90 ? -Math.ceil((90 - y) / 6) : y > innerHeight - 90 ? Math.ceil((y - (innerHeight - 90)) / 6) : 0; if (by) { scrollBy(0, by); send("dragover", under(...pull.at), ...pull.at); } pull.roll = requestAnimationFrame(roll); };
-        pull.roll = requestAnimationFrame(roll);
+        if (!pull.moved || !begin()) return;
       }
       if (e.cancelable) e.preventDefault();
       pull.at = [t.clientX, t.clientY];
@@ -1699,10 +1897,17 @@
       setTimeout(() => { handle.draggable = true; }, 0);
       if (!was.on) { pull = null; return; }
       cancelAnimationFrame(was.roll);
-      if (drop) send("drop", under(t.clientX, t.clientY), t.clientX, t.clientY);
+      const tapped = was.ipad && !was.moved; // (let go where it was: no move — a tap, or a finger that rested)
+      const el = over, group = handle.hasAttribute("data-group"); // (the drag's end puts the handle away)
+      if (drop && !tapped) send("drop", under(t.clientX, t.clientY), t.clientX, t.clientY);
       send("dragend", handle, t.clientX, t.clientY);
       pull = null;
       if (e.cancelable) e.preventDefault(); // (no tap follows: the handle's menu stays shut)
+      if (tapped && drop && view && el && el.isConnected && el.pmViewDesc) {
+        if (!group) selectBlock(view, el.pmViewDesc.posBefore, false);
+        view.dom.blur(); // (a block is chosen, nothing is typed: no keyboard)
+        showHeld();
+      }
     };
     handle.addEventListener("touchend", (e) => done(e, true), { passive: false });
     handle.addEventListener("touchcancel", (e) => done(e, false), { passive: false });
@@ -1740,5 +1945,5 @@
     v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     return true;
   }
-  A.blocks = { pasteBelow, selectAll, menuItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { pasteBelow, selectAll, menuItems, slashItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();

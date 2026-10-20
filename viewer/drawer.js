@@ -19,6 +19,14 @@
   let touchedAt = -1e9;
   addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
   const touching = () => performance.now() - touchedAt < 1200;
+  /* What the hand last used: a finger (or a pen), a mouse, the keys. Under a finger the screen's keyboard comes with the note's
+   * focus, so the note is focused by the page only where the finger asked to type (active/view.js); with no time limit — a
+   * block held and dragged for long, a dialog left after a while, is still a finger's doing. */
+  let lastBy = "mouse";
+  addEventListener("pointerdown", (e) => { lastBy = e.pointerType || "mouse"; }, true);
+  addEventListener("touchstart", () => { lastBy = "touch"; }, { capture: true, passive: true });
+  addEventListener("keydown", (e) => { if (e.isTrusted && !/^(Unidentified|Process)$/.test(e.key)) lastBy = "keys"; }, true);
+  const byFinger = () => lastBy === "touch" || lastBy === "pen";
   {
     const GRIPS = "#sb-grip, .col-grip, .tbl-h-col, .tbl-h-row, .dlg-grip, .pa-sheet";
     let pulled = null;
@@ -61,6 +69,7 @@
     addEventListener("pointerdown", (e) => {
       drop();
       if (e.pointerType !== "touch" || !e.isPrimary) return;
+      if (document.documentElement.hasAttribute("data-ipad")) return; // (an iPad has no menu under a held finger: its bars have what the menus had — viewer/tablet.js)
       if (e.target.closest?.("#board")) return; // (on a whiteboard a finger held still is drawing, or about to)
       const target = e.target, x = e.clientX, y = e.clientY;
       held = { x, y, timer: setTimeout(() => {
@@ -229,5 +238,5 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { touching, compact, showSidebar, emptyState, openNewNote, closeNewNote, titleFresh });
+  Object.assign(P, { touching, byFinger, compact, showSidebar, emptyState, openNewNote, closeNewNote, titleFresh });
 })();

@@ -192,7 +192,9 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { trailPush, trailShow, trailStep, saveFailed, adoptDisk, setMode });
+  // whether there is a step beyond the active mode's own history (-1 back, 1 again): for buttons that show it (viewer/tablet.js)
+  const trailCan = (dir) => P.mode === "active" && !!P.current && trail.path === P.current.path && (dir < 0 ? trailFloor >= 1 : trailRedo.length > 0);
+  Object.assign(P, { trailPush, trailShow, trailStep, trailCan, saveFailed, adoptDisk, setMode });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     trail: [() => trail],

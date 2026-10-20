@@ -9,11 +9,11 @@ const SCRIPTS = [
   "vendor/abbr.min.js", "vendor/emoji.min.js", "vendor/js-yaml.min.js", "vendor/highlight.min.js", "vendor/highlight-extra.min.js",
   "vendor/katex/katex.min.js", "strings.js",
   "viewer/base.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
-  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js",
+  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js", "viewer/tablet.js",
   "viewer.js", "overview.js",
 ];
 // (and its styles: STYLES in shell.rs)
-const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin"];
+const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet"];
 
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.
@@ -71,6 +71,10 @@ const BOOT_CSS =
   `@keyframes boot-in{to{opacity:1}}@keyframes boot-turn{to{transform:rotate(360deg)}}` +
   `@media (prefers-reduced-motion:reduce){.boot-ring{animation:boot-in var(--dur-base) var(--ease-out) var(--loading-delay) forwards;border-top-color:color-mix(in srgb,var(--c-foreground) 14%,transparent);box-shadow:0 0 0 0 transparent}}` +
   `#wait{position:fixed;left:50%;top:50%;z-index:95;width:44px;height:44px;margin:-22px 0 0 -22px;display:grid;place-items:center;border-radius:50%;background:var(--c-background);box-shadow:0 0 0 .5px color-mix(in srgb,var(--c-foreground) 14%,transparent),0 8px 24px rgb(0 0 0/.18);pointer-events:none;opacity:0;visibility:hidden;transition:opacity calc(var(--dur-base)*.7) var(--ease-exit),visibility 0s linear calc(var(--dur-base)*.7)}body[data-wait] #wait{opacity:1;visibility:visible;transition:opacity var(--dur-base) var(--ease-out) var(--loading-delay),visibility 0s linear var(--loading-delay)}#wait span{width:20px;height:20px;box-sizing:border-box;border-radius:50%;border:2.5px solid color-mix(in srgb,var(--c-foreground) 14%,transparent);border-top-color:var(--c-accent)}body[data-wait] #wait span{animation:wait-turn .9s linear infinite}@keyframes wait-turn{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){body[data-wait] #wait span{animation:none}}`;
+// An iPad has a layout of its own (viewer/tablet.js, viewer/tablet.css): said on <html> before the page's scripts run.
+// An iPad says it is a Mac (Safari's desktop site) — it is told by its touch screen. `?ipad=1` (or 0) makes any
+// browser one (or none), and that is kept in the browser (localStorage "mdview.ipad") until said otherwise.
+const IPAD = `(function(){var k="mdview.ipad",q=/[?&]ipad=([01])(?![0-9])/.exec(location.search),f=null;try{if(q)localStorage.setItem(k,q[1]);f=localStorage.getItem(k)}catch(e){}var i=f?f==="1":navigator.maxTouchPoints>1&&/iPad|Macintosh/.test(navigator.userAgent)&&matchMedia("(pointer: coarse)").matches;if(i)document.documentElement.setAttribute("data-ipad","")})();`;
 // (leaving for another page of the app: what is left goes out of focus behind the ring — a veil that blurs it, at once)
 const VEIL_CSS = `body::before{content:"";position:fixed;inset:0;z-index:94;pointer-events:none;background:color-mix(in srgb,var(--c-background) 40%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);opacity:0;visibility:hidden;transition:opacity calc(var(--dur-slow)*.7) var(--ease-exit),visibility 0s linear calc(var(--dur-slow)*.7)}body[data-wait="leave"]::before{opacity:1;visibility:visible;pointer-events:auto;transition:opacity var(--dur-slow) var(--ease-out),visibility 0s}`;
 const WAIT = `<div id='wait' role='status' aria-label='Loading'><span></span></div>`;
@@ -96,7 +100,7 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `window.MdWeb=${inline(web)};` +
     `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""}${o.filework ? ",filework:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}${o.reading ? "" : ",download:true"}};` +
     `window.MdPrefs=${CHOSEN}(${inline({ ...PREFS, ...(o.prefs || {}) })});` +
-    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + BOOTED;
+    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + IPAD + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
   const page =
     `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'>` +

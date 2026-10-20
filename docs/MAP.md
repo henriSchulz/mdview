@@ -79,6 +79,7 @@ or the tests see the old ones.
 | `viewer/render.js` | rendering: a note drawn into #content, the place in it kept across a redraw, the way to a heading or a line, … |
 | `viewer/sidebar.js` | the sidebar of a folder window: the folder's notes as a tree reconciled by path, its layouts, sorting, the … |
 | `viewer/split.js` | two things side by side: beside the note, at the window's right, a second sheet that is only read — the note … |
+| `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
 | `viewer/trail.js` | one history for a note across the modes (undo and redo beyond what a mode did itself). |
@@ -102,6 +103,7 @@ or the tests see the old ones.
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |
 | `viewer/sidebar.css` | the sidebar of a folder window (its layouts: layouts.css). |
 | `viewer/split.css` | two things side by side (viewer/split.js). The window is two halves of one kind, as an editor's split is: the … |
+| `viewer/tablet.css` | the iPad's own layout (viewer/tablet.js): Craft's look — no sidebar and no tabs, round buttons and capsules … |
 | `viewer/tabs.css` | the tabs of a folder window, and the rows of the sidebar's list. |
 | `viewer/text.css` | the note's text (headings, lists, quotes, links, rules) and tasks. |
 | `viewer/twin.css` | the source beside its reading (viewer/twin.js): the source at the left, as the source mode has it, the note … |

@@ -797,8 +797,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
   rectangle pulled from the empty space selects those it reaches, and a click there lets go of
   whatever is selected — blocks or text. Select All in the right-click menu selects the note's
-  blocks as wholes. Each selected block has a field of its own, with the same room between two
-  of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
+  blocks as wholes. Each selected block has a field of its own — the same light tint, corners
+  and reach for every kind of block (a paragraph, a list's item with its bullet, a callout,
+  code, a table, a picture, a formula, a rule, the blocks of columns), lying over the block —,
+  with the same room between two of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
   the page along.
   What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
   them as blocks of its own and is selected there, so the next paste goes below that.
@@ -1163,17 +1165,60 @@ counts — and has no writing help by a model.
   sidebar's edge (wider there), the gap between columns, a dialog's corner, a table's row and
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
-  the block (the note goes along near its upper and lower edge). A tapped cell has the table's
-  handles. A block is chosen by a swipe to the right begun beside it, in the margin left of
-  the text (wide enough for that): it is marked and keeps its handle, to be dragged by or for
-  its menu; the same swipe beside another block adds that one, beside a chosen one it lets it
-  go. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
-  when the text itself is tapped — not when a block is chosen, a menu shuts or a whiteboard is
-  left.
+  the block (the note goes along near its upper and lower edge): what goes with the finger is
+  the blocks themselves, exactly as large as they are, lifted by a light shadow and held where
+  they were taken, so the handle under the finger stays in sight. A tapped cell has the table's
+  handles. A block is chosen by a swipe to the right, as in Craft — begun anywhere on it, on
+  its text or in the margin left of it: the block goes along with the finger, held back, its
+  field fades in; at the distance that chooses the field's tint deepens and the block gives
+  one small bump. Let go there (or flicked) the block springs back into its place chosen and
+  its handle shows, to be dragged by or for its menu; let go before, it springs back and
+  nothing is chosen. On a chosen block the field fades out towards the same point. The block is the innermost one
+  under the finger: an item of a list, a paragraph in a callout or a column. The same swipe on
+  another block adds that one; on a chosen one (to the right or the left) it lets it go. Up and
+  down still moves the note, a finger that rests first selects text, a tap puts the caret, and
+  a code block, a table or a formula scrolled sideways is scrolled back by the swipe — it
+  chooses only at its left edge. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
+  only where one means to type: a tap into the text, or a line of text put in (text, a heading,
+  a list, a quote) — not when a block is chosen, moved or dropped, a formula, code, a table or a
+  picture is put in (a tap into it brings the keyboard), a bar's or a menu's action runs, a
+  dialog opens or shuts, or a whiteboard is left. Up already, it stays while one types on.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on
   a button, a row or a title selects nothing.
+- **On an iPad** the app has a layout of its own, as Craft has it: no sidebar and no tabs —
+  All Notes is the way to the other notes. A round button of four parts at the top left goes
+  there: the note shrinks into its tile, the tiles grow around it; a tile opened grows into its
+  note, and the same button in All Notes goes back to the note it came from. A folder there is
+  opened by its stack and left by its name in the path at the top. The rest floats in the
+  window's corners: at the top right the outline, find and share in a capsule; at the bottom
+  left the note's history and the pencil, which goes from reading to writing (the active mode)
+  and back — while writing, undo and redo beside it (what Ctrl+Z and Ctrl+Shift+Z do: the
+  mode's own steps, then the note's across the modes; dimmed when there is nothing; a tap on
+  them brings no keyboard up; the iPad keyboard's own undo and redo keys do the same); at the bottom right, while writing, insert, format, style and information, their
+  panel above them, between the bars at the top and the foot (over the keyboard when it is up);
+  a tile of Insert held a moment goes with the finger, a line shows where it goes and the note
+  scrolls along near its edges, and let go it is put there (the panel then goes; a tap puts it
+  at the caret, as ever); the panel goes when the note is left and is not open again when it is
+  entered; the settings in All Notes' corner. Scrolled, the note's name and its folder
+  stand beside the button. A finger held anywhere opens no menu (the system's own over selected
+  text stays); what the menus had is in bars of tiles at the foot, with panels rising from them:
+  blocks chosen have Text Style (headings, lists, decorations, callouts, columns), Format (bold,
+  italic, strikethrough, code, alignment, indent and outdent, move up and down, the colours as
+  swatches), Insert (below them: code block, formula, table, picture, file, whiteboard, footnote,
+  the dividers), Copy, Cut, Duplicate, Actions (move, copy as Markdown, a page of them, paste) and
+  Delete — the "/" menu's own entries. In All Notes a tile held is chosen: a check on it, then a tap
+  chooses more or lets one go, a tap beside them or Done ends it, and the bar has the file menu's
+  entries for what is chosen (open in new tabs, copy, cut, duplicate, share, rename, hide, delete,
+  what is listed …). The note goes into its tile and comes out of it as one movement: what floats
+  over it fades with it. A block's handle has no menu there either: a finger held on it lifts
+  the block at once and moves it where the finger goes; a tap on it, or a hold let go in place,
+  selects the block. The other modes (the source,
+  side by side) are not offered there. An iPad is told by its touch screen (it says it is a
+  Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
+  `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
+  browser until then).
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

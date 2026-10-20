@@ -162,6 +162,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
+74. **A selected block's field is one look for every kind of block**, drawn in the layer over the
+    note (`drawFields` in `active/blocks.js`), never painted on the block itself: there a block's
+    own surface (code, a table's sheet, a picture) covers the tint, a rule has no room for it, and
+    each kind ended up with a look of its own. The fields of blocks that follow each other leave
+    the same gap whatever the blocks' margins. A web test measures it over all kinds at once.
 51. **A thing on the whiteboard is met where it is drawn, never by the box around it.** Whatever
     asks "is this under the pointer, in the box, in the loop" asks `items.js` (`hit`, `crosses`,
     `outline`, `inside`) — `bounds` is for what must fit on the screen or in the picture, not for
@@ -341,9 +346,36 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 
 24. **Chromium hands a touch near a small target to that target**: decide by
     `document.elementFromPoint`, not `event.target`.
-25. **Never focus the note programmatically right after a touch** — the keyboard comes up.
+25. **Under a finger the note is focused only where the finger asked to type** — the keyboard
+    comes with the focus and covers half the screen. A tap into the text focuses it by itself;
+    the page asks for it (`view.focus({ keyboard: true })`) only for a new line of text put in
+    (text, a heading, a list, a quote). Everything else that hands the focus back — a block
+    chosen, moved, dropped, a block of another kind put in, a bar's or a menu's action, a dialog
+    opened or left, undo — calls `view.focus()`, which under a finger does nothing unless the
+    note has the focus already (`core.byFinger()`: what the hand last used — a finger, a mouse,
+    the keys —, with no time limit: a drag held for long is still a finger's). A dialog's field
+    is not focused as it opens under a finger. A web test goes through each case (`tablet.test.mjs`).
 26. **No gliding after two fingers** on the whiteboard; only one finger throws.
 27. Verified in Chromium's touch emulation only. Safari on the iPad is checked by Henri.
+69. **The iPad's layout is the iPad's alone** (viewer/tablet.js, viewer/tablet.css): every rule of it stands
+    under `:root[data-ipad]` inside `@media (min-width: 761px) and (min-height: 600px)` — the desktop, a phone, a
+    touch screen that is no iPad and an iPad in Split View look as they did. It lays the page's own parts out
+    otherwise (the toolbar, the rail, All Notes) and calls what they do; it adds no second way of doing a thing.
+    Chromium's touch emulation has one touch point and its own user agent: a test of the iPad sets five
+    (`Emulation.setTouchEmulationEnabled`) and Safari's agent, or the page is no iPad (`web/test/tablet.test.mjs`).
+70. **On the iPad a held finger opens no menu** (Henri, 2026-10-20). What a menu offers there is in a bar of tiles
+    (viewer/tablet.js), and the bar asks the menu itself for its entries (the file menu, the "/" menu's for blocks) —
+    a new entry in the menu is in the bar without a word. A secondary click (a trackpad) still has its menu.
+71. **A movement over a movement is one movement**: what stands over a view that zooms away goes with it (a fade as
+    long as the zoom, `ease-in-out` — `ease-out` drops at the first frame), what is under it does not come in on its
+    own meanwhile, and where the view stood is read when it is touched, before anything else is opened.
+73. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
+    move it is not stopped from at once its own (the note scrolls, the text is selected) and the
+    touches after it can no longer be held; Chromium's emulation holds them all the same, so a
+    check passing there says nothing of it. What the page takes sideways has `touch-action:
+    pan-y` where the finger lands, and the first clearly sideways `touchmove` is prevented while
+    the direction is still being decided. A `touchcancel` after the gesture was clearly meant
+    still counts.
 
 ### Releases and installs
 

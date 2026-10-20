@@ -518,6 +518,7 @@
 
   // the settings changed: what depends on them follows at once
   A.onPrefs = () => {
+    if (!A.view || !A.bar || !A.menu) return; // (settings told while the active mode is still being loaded: what follows them is not there yet — it reads them as it starts)
     if (A.view.store) A.view.store.profile = null; // the style of new Markdown
     if (!now().bar) A.bar.hide();
     if (!now().slash && A.menu.isOpen) A.menu.close();
