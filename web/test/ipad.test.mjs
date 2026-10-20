@@ -161,4 +161,34 @@ for (const name of ["ipad", "ipadUp"]) {
     await d.context.close();
   });
 }
+// Drawing on a PDF with a pen: at each step of the pen only the part of the stroke under it is drawn anew — not the whole window,
+// which the browser then has to put on the screen again whole, over the PDF's pages (the ink came late behind the pen).
+test("ipad: a pen on a PDF — what it draws is drawn around the pen, not the whole window anew at each step", async () => {
+  const d = await device("ipad"), p = d.page, cdp = await d.context.newCDPSession(p);
+  await p.goto(`${base}/r/octo/notes?n=paper.pdf`);
+  await p.waitForFunction(() => window.MdPdf && MdPdf.shown && MdPdf.shown.pages.length && MdPdf.shown.pages[0].state === "done", null, { timeout: 20000 });
+  await p.click('.pdf-bar [data-do="draw"]');
+  await p.waitForFunction(() => window.MdBoard && MdBoard.shown && document.querySelector("#board[data-open]") && MdBoard.state().pdf, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  await p.click('#board [data-kind="pen"]');
+  await p.waitForTimeout(150);
+  await p.evaluate(() => {
+    window.__cleared = [];
+    const live = document.querySelector("#board .bd-live"), clear = CanvasRenderingContext2D.prototype.clearRect;
+    CanvasRenderingContext2D.prototype.clearRect = function (x, y, w, h) { if (this.canvas === live) window.__cleared.push(Math.abs(w * h) / (live.width * live.height)); return clear.call(this, x, y, w, h); };
+  });
+  const pen = (type, x, y) => cdp.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1, pointerType: "pen", force: 0.5 });
+  const [x0, y0] = [420, 360];
+  await pen("mousePressed", x0, y0);
+  for (let i = 1; i <= 40; i++) await pen("mouseMoved", x0 + i * 6, y0 + Math.sin(i / 3) * 14);
+  const during = await p.evaluate(() => { const c = document.querySelector("#board .bd-live"), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return { cleared: [...window.__cleared], inked: n }; });
+  await pen("mouseReleased", x0 + 240, y0);
+  await p.waitForTimeout(300);
+  const moves = during.cleared.slice(1); // (the first: the stroke begun — the canvas made empty for it)
+  assert.ok(during.inked > 200, `the stroke is on the screen while the pen is down: ${during.inked} pixels`);
+  assert.ok(moves.length >= 20 && moves.every((a) => a < 0.12), `each step of the pen clears and draws only around it: ${JSON.stringify(moves.map((a) => Math.round(a * 1000) / 1000))}`);
+  assert.equal(await p.evaluate(() => MdBoard.state().items), 1, "the stroke is kept");
+  await d.context.close();
+});
+
 test("nothing was refused or thrown along the way", () => { assert.deepEqual(problems.filter((p) => !/favicon|Failed to load resource/.test(p)), []); });

@@ -1318,8 +1318,10 @@ glide, a push on the touchpad running on after the fingers leave), a pinch or `C
 wheel makes them larger and smaller around what is under the pointer, freely from 10 % to 1600 %
 (a notch of a mouse's wheel glides there; what is in sight is drawn as sharp as the screen as soon
 as the hand rests, however far in); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at
-the same place and size, with what was drawn lying on the pages — there whenever the PDF is opened,
-and text under it can still be selected.
+the same place and size (as large as the viewer goes, up to 500 %: the place in the window's middle
+stays), with what was drawn lying on the pages — there whenever the PDF is opened, and text under it
+can still be selected. Another window clicked or a tap outside the app does not end the drawing; a
+tab or a note chosen does, and the PDF is then left where the board was.
 
 What is drawn is no part of the PDF: the file is never written to. It is kept as a whiteboard's
 file of its own in the folder's `.mdview/pdf` (the project's root, else the window's folder, else

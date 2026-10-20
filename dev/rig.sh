@@ -19,6 +19,7 @@
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
@@ -864,7 +865,7 @@ PY
     python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
     was=$(sha256sum < "$R/work/paper.pdf"); fail=0
     report() { # report NAME: the probe's steps, or that there are none
-      for _ in $(seq 400); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
+      for _ in $(seq 700); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
       sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
       [[ -f $R/out/paper.pdf.$1.json ]] || { echo "FAIL no report ($1)"; tail -5 "$R/app.log"; fail=1; return; }
       jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.$1.json"
@@ -884,6 +885,16 @@ PY
     check "the PDF itself is still as it was" '[[ $(sha256sum < "$R/work/paper.pdf") == "$was" ]]'
     grep -q '^FAIL' <(jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/paper.pdf.{drawn,again}.json 2>/dev/null) && fail=1
     exit $fail ;;
+  pdflag)
+    # how late what is drawn on a PDF shows: a bare page, quick work, a page written full, far in
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.lag.json
+    python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
+    app 120 MDVIEW_PROBE="$D/probe-pdflag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/paper.pdf"
+    for _ in $(seq 900); do [[ -f $R/out/paper.pdf.lag.json ]] && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1
+    [[ -f $R/out/paper.pdf.lag.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.lag.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.lag.json" | grep -q '^FAIL' ;;
   pdf)
     # a note with links into a PDF and embeds of it, and the PDF itself in the window
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json "$R/out"/paper.pdf.*.json
