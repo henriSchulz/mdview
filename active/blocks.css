@@ -128,7 +128,7 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
   --blk-field-pad: 5px;  /* how far a field reaches out of its block */
   --blk-field-gap: 6px;  /* the room between two fields, one under the other */
   --blk-field-rule: 9px;  /* a rule's field reaches further up and down (the rule is a line) */
-  position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 23; pointer-events: none;
+  position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; pointer-events: none; /* (over the note, under all that floats over it: the bars, the menus, the handle) */
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .blk-field { position: absolute; border-radius: var(--radius-row); background: var(--blk-field); pointer-events: none; }
