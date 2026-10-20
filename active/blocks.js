@@ -47,6 +47,15 @@
     const left = r.left - (el.matches("li") || el.classList.contains("cols") ? 46 : 22), col = el.closest(".col"); // (a row of columns: further out than the handles of its first column's blocks)
     return col && col.previousElementSibling ? Math.max(left, col.getBoundingClientRect().left - 20) : left;
   }
+  /* Under a finger the handle is larger (active/narrow.css) and would reach over the block's field and its text: it stands
+   * clear of the field, the fields' gap between them. -> the handle's left */
+  function clear(el, r, left) {
+    if (!COARSE.matches) return left;
+    const cs = getComputedStyle(layer), pad = parseFloat(cs.getPropertyValue("--blk-field-pad")) || 0, gap = parseFloat(cs.getPropertyValue("--blk-field-gap")) || 0;
+    const from = el.matches("li") && el.parentElement ? Math.min(r.left, el.parentElement.getBoundingClientRect().left) : r.left;
+    const w = handle.offsetWidth || parseFloat(getComputedStyle(handle).width) || 0, ml = parseFloat(getComputedStyle(handle).marginLeft) || 0;
+    return Math.min(left, from - pad - gap - w - ml);
+  }
   function place(el) {
     over = el;
     delete handle.dataset.group;
@@ -56,7 +65,7 @@
     const line = parseFloat(getComputedStyle(el).lineHeight) || 26;
     const first = el.matches("h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote") ? Math.min(r.height, line) : Math.min(r.height, 28);
     // left of the block; left of its bullet or checkbox for a list item
-    handle.style.left = leftOf(el, r) + scrollX + "px";
+    handle.style.left = clear(el, r, leftOf(el, r)) + scrollX + "px";
     handle.style.top = r.top + first / 2 - 9 + scrollY + "px";
     handle.dataset.on = "";
   }
@@ -72,8 +81,8 @@
     delete handle.dataset.apart;
     over = els[0];
     const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
-    handle.style.left = leftOf(els[0], a) - 4 + scrollX + "px"; // (clear of the fields, which reach 5 px out of their blocks)
-    handle.style.top = a.top - 5 + scrollY + "px"; // (as far as the fields of the selected blocks go)
+    handle.style.left = clear(els[0], a, leftOf(els[0], a) - 4) + scrollX + "px"; // (clear of the fields, which reach 5 px out of their blocks)
+    handle.style.top = a.top - 5 - (parseFloat(getComputedStyle(handle).marginTop) || 0) + scrollY + "px"; // (as far as the fields of the selected blocks go; a finger's larger handle is drawn up by its margin)
     handle.style.height = b.bottom - a.top + 10 + "px";
     handle.dataset.group = "";
     handle.dataset.on = "";
@@ -783,15 +792,77 @@
     },
   });
 
-  let drawnDoc = null; // the document the page shows (see decorations)
+  /* The fields of the selected blocks: a layer of their own over the note (active/blocks.css, .blk-fields), so that every kind
+   * of block wears the same — a picture, a table's sheet, code with a surface of its own, a rule that is only a line. Each
+   * field is the block's box, a little wider (a list's item with its bullet); fields of blocks that follow each other in the
+   * document meet at the middle of the room between them with the same gap left clear, whatever margins the blocks have —
+   * several selected read as one group. Drawn again, a frame later, whenever the editor changes, the note is laid out anew
+   * or scrolled in what holds it. A block being swiped (below) wears its field too, fading in with the swipe. */
+  const layer = document.createElement("div");
+  layer.className = "blk-fields";
+  layer.setAttribute("aria-hidden", "true");
+  document.body.appendChild(layer);
+  let drawQueued = 0;
+  function fieldsSoon() { if (!drawQueued) drawQueued = requestAnimationFrame(() => { drawQueued = 0; drawFields(); }); }
+  // what wears a field: [{ pos, node, how ("add" | "drop" while swiped), next (the block before it ends where this begins) }]
+  function fieldTargets(state) {
+    const out = [], sw = swipeKey.getState(state), P = pickedOf(state);
+    const add = (pos, node, how) => {
+      if (node.type.name === "columns") { // (each block of its columns, as the marks have it)
+        let colPos = pos + 1;
+        node.forEach((col) => { let p = colPos + 1; col.forEach((b) => { if (usable(b)) add(p, b, how); p += b.nodeSize; }); colPos += col.nodeSize; });
+        return;
+      }
+      const last = out[out.length - 1];
+      out.push({ pos, node, how, next: !!last && last.pos + last.node.nodeSize === pos });
+    };
+    for (const x of P) add(x.pos, x.node, sw && !sw.done && sw.pos === x.pos ? "drop" : null);
+    if (sw && !sw.done && !P.some((x) => x.pos === sw.pos)) { const n = state.doc.nodeAt(sw.pos); if (n && usable(n)) add(sw.pos, n, "add"); }
+    return out;
+  }
+  function drawFields() {
+    const v = view;
+    if (!v || v.isDestroyed || document.body.dataset.view !== "active") { layer.replaceChildren(); return; }
+    const cs = getComputedStyle(layer), px = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
+    const pad = px("--blk-field-pad"), gap = px("--blk-field-gap"), rulePad = px("--blk-field-rule");
+    const boxes = [];
+    for (const t of fieldTargets(v.state)) {
+      let el = null;
+      try { el = v.nodeDOM(t.pos); } catch (e) { el = null; }
+      if (!el || el.nodeType !== 1 || !el.isConnected) { boxes.push(null); continue; }
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) { boxes.push(null); continue; }
+      const swiping = el.classList.contains("blk-swiping"), shift = swiping ? new DOMMatrix(getComputedStyle(el).transform).m41 || 0 : 0; // (where the block stands, not where the finger has it)
+      const out = el.matches("hr") ? rulePad : pad;
+      const left = el.matches("li") && el.parentElement ? Math.min(r.left - shift, el.parentElement.getBoundingClientRect().left) : r.left - shift; // (an item: with its bullet)
+      boxes.push({ t, el, swiping, left: left - pad, right: r.right - shift + pad, top: r.top - out, bottom: r.bottom + out, raw: [r.top, r.bottom] });
+    }
+    // blocks that follow each other: their fields meet at the middle of the room between them, the gap left clear
+    for (let i = 1; i < boxes.length; i++) {
+      const a = boxes[i - 1], b = boxes[i];
+      if (!a || !b || !b.t.next || a.right <= b.left || b.right <= a.left || b.raw[0] < a.raw[1] - 1) continue;
+      const mid = (a.raw[1] + b.raw[0]) / 2;
+      a.bottom = mid - gap / 2; b.top = mid + gap / 2;
+    }
+    const shown = boxes.filter(Boolean), kids = [...layer.querySelectorAll(":scope > .blk-field")];
+    shown.forEach((b, i) => {
+      const f = kids[i] || layer.insertBefore(Object.assign(document.createElement("div"), { className: "blk-field" }), layer.querySelector(":scope > .blk-dot"));
+      f.style.left = b.left + scrollX + "px"; f.style.top = b.top + scrollY + "px";
+      f.style.width = Math.max(0, b.right - b.left) + "px"; f.style.height = Math.max(0, b.bottom - b.top) + "px";
+      if (b.t.how) f.dataset.swipe = b.t.how; else delete f.dataset.swipe;
+      if (b.swiping) f.dataset.swiping = ""; else delete f.dataset.swiping;
+    });
+    for (const f of kids.slice(shown.length)) f.remove();
+  }
+  const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => { if (layer.firstChild) fieldsSoon(); }) : null;
+  window.addEventListener("resize", () => { if (layer.firstChild) fieldsSoon(); });
+  document.addEventListener("scroll", () => { if (layer.firstChild) fieldsSoon(); }, { capture: true, passive: true }); // (in what holds the note, if not the window)
+  new MutationObserver(fieldsSoon).observe(document.body, { attributes: true, attributeFilter: ["data-view"] }); // (another mode: the fields go)
   const selPlugin = new Plugin({
     view(v) {
-      drawnDoc = v.state.doc;
-      return { update(now, prev) {
-        const doc = now.state.doc;
-        drawnDoc = doc;
-        if (prev.doc !== doc && pickedOf(now.state).length) requestAnimationFrame(() => { if (now.state.doc === doc && !now.isDestroyed) now.dispatch(now.state.tr.setMeta("addToHistory", false)); });
-      } };
+      if (sizes) sizes.observe(v.dom);
+      fieldsSoon();
+      return { update() { fieldsSoon(); }, destroy() { if (sizes) sizes.unobserve(v.dom); layer.replaceChildren(); } };
     },
     key: selKey,
     state: {
@@ -830,15 +901,9 @@
           const s = state.selection;
           return s instanceof NodeSelection && s.node.isBlock ? DecorationSet.create(state.doc, around([s.from])) : null;
         }
-        // Blocks that follow each other are one box (active/*.css): each reaches up over the gap to the
-        // one before it. How far is measured — the gap is the blocks' margins, and those differ (a
-        // formula, a table, a heading) — and handed over as --up: the gap less the 4 px each of the
-        // two reaches into it already.
-        // (only when what is drawn is this document: after a change the blocks are measured a frame later)
-        const view = A.view.pm;
-        const rectAt = (pos) => { try { const d = view && drawnDoc === state.doc ? view.nodeDOM(pos) : null; return d && d.nodeType === 1 ? d.getBoundingClientRect() : null; } catch (e) { return null; } };
-        // (a row of columns selected: each block in its columns wears its field, as anywhere — not one
-        // box around the row; the row is only marked, blk-row)
+        // (the fields themselves are drawn in a layer over the note: drawFields. The blocks are only marked, for what a
+        // selected block is otherwise — no caret, no browser's highlight, the arrow for a pointer)
+        // (a row of columns selected: each block in its columns is marked, as anywhere; the row itself blk-row)
         const D = [], rows = [];
         for (const x of P) {
           if (x.node.type.name !== "columns") { D.push(x); continue; }
@@ -846,15 +911,7 @@
           let colPos = x.pos + 1;
           x.node.forEach((col) => { let p = colPos + 1; col.forEach((b) => { if (usable(b)) D.push({ pos: p, node: b }); p += b.nodeSize; }); colPos += col.nodeSize; });
         }
-        return DecorationSet.create(state.doc, D.map((x, i) => {
-          const P = D, before = i > 0 && P[i - 1].pos + P[i - 1].node.nodeSize === x.pos ? rectAt(P[i - 1].pos) : null, here = before ? rectAt(x.pos) : null;
-          // (the room between two fields is 6 px whatever the blocks are: a field reaches 5 px out of
-          // its block — a rule's 8 —, and up over what the gap has more than that (--up), or is cut
-          // where the gap has less (--cut). Items of a list are left as they are: one list.)
-          const out = (n) => (n.type.name === "horizontal_rule" ? 8 : 5), item = x.node.type.name === "list_item";
-          const up = before && here && !item ? Math.round((here.top - before.bottom - 6 - out(P[i - 1].node) - out(x.node)) * 10) / 10 : null;
-          return Decoration.node(x.pos, x.pos + x.node.nodeSize, up == null || !up ? { class: "blk-sel" } : { class: "blk-sel", style: up > 0 ? `--up: ${up}px` : `--cut: ${-up}px` });
-        }).concat(rows, around(P.map((x) => x.pos))));
+        return DecorationSet.create(state.doc, D.map((x) => Decoration.node(x.pos, x.pos + x.node.nodeSize, { class: "blk-sel" })).concat(rows, around(P.map((x) => x.pos))));
       },
       attributes: (state) => (rangeOf(state) ? { class: "has-blocksel" } : state.selection instanceof NodeSelection ? { class: "has-nodesel" } : null),
       handleKeyDown: keydown,
@@ -1485,7 +1542,7 @@
   }
   const plugin = new Plugin({
     key: new PluginKey("blocks"),
-    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
+    view(v) { view = v; setTimeout(() => hookBelow(v), 0); return { update(now) { hookBelow(now); if (settling) return; follow(now.state); if (!drag) showHeld(); }, destroy() { hide(); if (view === v) view = null; } }; },
     props: {
       // while a block is dragged by its handle, the editor's own drop handling and drop line stay out of it
       handleDrop: () => !!drag,
@@ -1625,7 +1682,7 @@
       tapped = performance.now();
     }, 60);
   }, true);
-  let tapped = -1e9, swiped = -1e9, swiping = false; // (a swipe going on, and when the last one ended: the tap's handle above leaves it alone)
+  let tapped = -1e9, swiped = -1e9, swiping = false, settling = false; // (a swipe going on, and when the last one ended: the tap's handle above leaves it alone; a block springing back after a swipe: its handle waits)
   /* Under a finger a block is chosen by a swipe to the right, as in Craft: begun anywhere on it — on its text, or beside it in the
    * margin left of the text. The block goes along with the finger, held back the further it goes, and its field fades in; let go
    * far enough (or fast enough), it is chosen, its handle stands by it and stays; let go before, it springs back and nothing is.
@@ -1641,19 +1698,48 @@
     const mine = (e) => sw && [...e.changedTouches].find((t) => t.identifier === sw.id);
     // what scrolls sideways between the finger and the note: the innermost such element, or null
     const scrollerOf = (el) => { for (; el && el !== view.dom; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return el; return null; };
-    const holder = () => view.dom.parentElement; // (the block's offset and its field are set here, outside the editor's own elements: changed there, it would draw them anew)
-    const set = (x, p) => { holder().style.setProperty("--swipe-x", x + "px"); holder().style.setProperty("--swipe-p", String(p)); };
+    // (the offset and the progress are set on the root, outside the editor's own elements — changed there, it would draw them
+    // anew —, so that the block, its field in the layer and the circle read the same)
+    const root = document.documentElement;
+    const set = (x, p, a) => { root.style.setProperty("--swipe-x", x + "px"); root.style.setProperty("--swipe-p", String(p)); root.style.setProperty("--swipe-a", String(a)); };
     // held back: the further the finger goes, the less the block follows (as iOS's rubber band)
     const band = (dx) => Math.sign(dx) * REACH * (1 - 1 / ((Math.abs(dx) * 0.55) / REACH + 1));
-    const mark = (pos, how) => view.dispatch(view.state.tr.setMeta(swipeKey, pos == null ? null : { pos, how }).setMeta("addToHistory", false));
+    const mark = (value) => view.dispatch(view.state.tr.setMeta(swipeKey, value).setMeta("addToHistory", false));
     const still = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+    // the circle at the block's left: where its field begins, at the middle of its first line
+    const dot = document.createElement("div");
+    dot.className = "blk-dot";
+    dot.innerHTML = '<span><svg viewBox="0 0 12 12"><path d="M2.4 6.3 4.9 8.7 9.6 3.6"/></svg></span>';
+    function showDot(el, how) {
+      const r = el.getBoundingClientRect(), line = Math.min(r.height, parseFloat(getComputedStyle(el).lineHeight) || 26);
+      const left = el.matches("li") && el.parentElement ? Math.min(r.left, el.parentElement.getBoundingClientRect().left) : r.left;
+      dot.style.left = left + scrollX + "px";
+      dot.style.top = r.top + line / 2 + scrollY + "px";
+      dot.dataset.swipe = how;
+      delete dot.dataset.reached; delete dot.dataset.snap; delete dot.dataset.gone;
+      layer.appendChild(dot);
+    }
+    function reach(on) { // the distance that chooses reached (or left again): the circle fills, its tick shows, it jumps once
+      if (on === dot.hasAttribute("data-reached")) return;
+      if (on) dot.dataset.reached = ""; else delete dot.dataset.reached;
+      delete dot.dataset.snap; void dot.offsetWidth; dot.dataset.snap = "";
+    }
     function back(s, chosen) {
-      const h = holder(), v = view;
-      h.classList.add("blk-swipe-back");
-      set(0, chosen ? 1 : 0);
-      const done = () => { h.removeEventListener("transitionend", end); clearTimeout(s.timer); if (sw && sw !== s) return; h.classList.remove("blk-swipe-back"); h.style.removeProperty("--swipe-x"); h.style.removeProperty("--swipe-p"); if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null); };
-      const end = (e) => { if (e.propertyName === "--swipe-x" || e.propertyName === "transform") done(); };
-      h.addEventListener("transitionend", end);
+      const v = view;
+      root.classList.add("blk-swipe-back");
+      set(0, chosen ? 1 : 0, chosen ? 1 : 0);
+      const done = () => {
+        root.removeEventListener("transitionend", end); clearTimeout(s.timer);
+        if (sw && sw !== s && sw.side) return; // (another swipe has begun meanwhile: it is its)
+        root.classList.remove("blk-swipe-back");
+        root.style.removeProperty("--swipe-x");
+        if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null);
+        if (settling) { settling = false; if (!showHeld()) hide(); }
+        const clear = () => { if (sw && sw.side) return; dot.remove(); root.style.removeProperty("--swipe-p"); root.style.removeProperty("--swipe-a"); };
+        if (chosen) { dot.dataset.gone = ""; setTimeout(clear, 400); } else clear(); // (chosen: the circle, full, fades out)
+      };
+      const end = (e) => { if (e.target === root && e.propertyName === "--swipe-x") done(); };
+      root.addEventListener("transitionend", end);
       s.timer = setTimeout(done, still.matches ? 0 : 700); // (with less motion: back at once; else where the end is not told)
     }
     document.addEventListener("touchstart", (e) => {
@@ -1676,7 +1762,13 @@
       if (!t) return;
       const dx = t.clientX - sw.x, dy = t.clientY - sw.y, now = performance.now();
       if (!sw.side) {
-        if (Math.hypot(dx, dy) < DECIDE) return;
+        if (Math.hypot(dx, dy) < DECIDE) {
+          // (Safari on the iPad: a move it is not stopped from at once is its own — the text's or the note's —, and the touches
+          // that follow can no longer be held. Clearly sideways from the start, it is held while the direction is still open;
+          // the note's own touch-action, pan-y, keeps it from taking a sideways move for itself.)
+          if (e.cancelable && !sw.scroller && Math.abs(dx) > 2 * Math.abs(dy) && Math.abs(dx) >= 3 && now - sw.at <= RESTED) e.preventDefault();
+          return;
+        }
         const pos = sw.el.isConnected && sw.el.pmViewDesc ? sw.el.pmViewDesc.posBefore : null;
         const has = pos != null && pickedOf(view.state).some((x) => x.pos === pos);
         const sc = sw.scroller;
@@ -1685,15 +1777,19 @@
           || (sc && sc.scrollLeft > 0)) { sw = null; return; } // (scrolled sideways: the swipe scrolls it back)
         sw.side = Math.sign(dx); sw.pos = pos; sw.has = has; swiping = true;
         clearTimeout(leaving); rest(null);
-        set(0, 0);
-        mark(pos, has ? "drop" : "add");
+        root.classList.remove("blk-swipe-back");
+        set(0, 0, 0);
+        showDot(sw.el, has ? "drop" : "add");
+        mark({ pos, how: has ? "drop" : "add" });
       }
       if (e.cancelable) e.preventDefault();
       const dt = now - sw.last[1];
       if (dt > 0) sw.v = sw.v * 0.2 + ((t.clientX - sw.last[0]) / dt) * 0.8;
       sw.last = [t.clientX, now];
       sw.dx = dx;
-      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, (dx * sw.side) / CHOOSE)));
+      const far = dx * sw.side;
+      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, far / CHOOSE)), Math.min(1, Math.max(0, far / (CHOOSE / 2))));
+      reach(far >= CHOOSE);
     }, { capture: true, passive: false });
     for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => {
       if (!mine(e)) return;
@@ -1702,13 +1798,16 @@
       if (!s.side) return;
       swiping = false; swiped = performance.now();
       const far = (s.dx || 0) * s.side;
-      const chosen = type === "touchend" && view && view.editable && (far >= CHOOSE || (far > DECIDE * 2 && s.v * s.side > FAST)) && view.state.doc.nodeAt(s.pos) && swipeKey.getState(view.state);
+      // (taken from the page by the system, a swipe that had gone far enough still counts: it was meant)
+      const chosen = view && view.editable && (far >= CHOOSE || (type === "touchend" && far > DECIDE * 2 && s.v * s.side > FAST)) && view.state.doc.nodeAt(s.pos) && swipeKey.getState(view.state);
       if (chosen) {
+        reach(true);
         if (s.has || selOf(view.state)) toggle(view, s.pos); else selectBlock(view, s.pos, false);
         view.dom.blur(); // (blocks are chosen, nothing is typed: no keyboard)
-        if (!showHeld()) hide();
-        if (swipeKey.getState(view.state)) mark(s.pos, s.has ? "drop" : "add"); // (the choice moved the block's position on: it is the same block)
-      }
+        settling = true; delete handle.dataset.on; // (its handle comes when it is back in its place)
+        const now = swipeKey.getState(view.state);
+        if (now) mark({ ...now, done: true }); // (its field is now the selection's own, or none)
+      } else reach(false);
       back(s, !!chosen);
     }, { capture: true, passive: true });
   }
@@ -1728,7 +1827,7 @@
     props: {
       decorations(state) {
         const s = swipeKey.getState(state), node = s && state.doc.nodeAt(s.pos);
-        return node ? DecorationSet.create(state.doc, [Decoration.node(s.pos, s.pos + node.nodeSize, { class: s.how === "add" ? "blk-swiping blk-sel" : "blk-swiping", "data-swipe": s.how })]) : null;
+        return node ? DecorationSet.create(state.doc, [Decoration.node(s.pos, s.pos + node.nodeSize, { class: "blk-swiping" })]) : null;
       },
     },
   });

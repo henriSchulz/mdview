@@ -791,8 +791,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
   rectangle pulled from the empty space selects those it reaches, and a click there lets go of
   whatever is selected — blocks or text. Select All in the right-click menu selects the note's
-  blocks as wholes. Each selected block has a field of its own, with the same room between two
-  of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
+  blocks as wholes. Each selected block has a field of its own — the same light tint, corners
+  and reach for every kind of block (a paragraph, a list's item with its bullet, a callout,
+  code, a table, a picture, a formula, a rule, the blocks of columns), lying over the block —,
+  with the same room between two of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
   the page along.
   What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
   them as blocks of its own and is selected there, so the next paste goes below that.
@@ -1137,9 +1139,12 @@ counts — and has no writing help by a model.
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
   the block (the note goes along near its upper and lower edge). A tapped cell has the table's
   handles. A block is chosen by a swipe to the right, as in Craft — begun anywhere on it, on
-  its text or in the margin left of it: the block goes along with the finger, held back, and
-  its field fades in; let go far enough (or flicked) it is chosen and keeps its handle, to be
-  dragged by or for its menu, let go before it springs back. The block is the innermost one
+  its text or in the margin left of it: the block goes along with the finger, held back, its
+  field fades in and a circle grows at its left, filling; at the distance that chooses the
+  circle is full, shows a tick and jumps once. Let go there (or flicked) the block springs back
+  into its place chosen, the circle fades, and its handle shows, to be dragged by or for its
+  menu; let go before, it springs back and nothing is chosen. On a chosen block the circle
+  stands full and empties at the same point. The block is the innermost one
   under the finger: an item of a list, a paragraph in a callout or a column. The same swipe on
   another block adds that one; on a chosen one (to the right or the left) it lets it go. Up and
   down still moves the note, a finger that rests first selects text, a tap puts the caret, and
