@@ -430,7 +430,7 @@ test("an iPad: the keyboard comes only where the finger asked to type — not af
   await touch("touchStart", [a]); for (let i = 1; i <= 8; i++) { await touch("touchMove", [[a[0] + i * 12, a[1] + 1]]); await p.waitForTimeout(16); } await touch("touchEnd", []); await p.waitForTimeout(900);
   results.swipe = await keys();
   // its bar: Duplicate, then Delete
-  await tap(d, '#ipad-blockbar [data-key="slash.duplicate"]');
+  await tapTile(d, "#ipad-blockbar", "Duplicate");
   results.duplicate = await keys();
   // the handle: tapped, then held and the block moved — slowly, longer than a moment
   await calm();
