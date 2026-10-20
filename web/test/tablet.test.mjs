@@ -537,7 +537,9 @@ test("an iPad: the Insert panel — a tile dragged by a finger goes where it is 
     if (w === 1180) {
       // a finger takes "Table" and lets it go between two paragraphs
       const tile = await p.evaluate(() => { const t = [...document.querySelectorAll("#rpanel .rp-tile")].find((x) => x.querySelector(".rp-name").textContent === "Table"); const r = t.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-      const gap = await p.evaluate(() => { const ps = [...document.querySelectorAll("#active .pm > p")]; const a = ps.find((x) => /Paragraph 3 /.test(x.textContent)).getBoundingClientRect(), b = ps.find((x) => /Paragraph 4 /.test(x.textContent)).getBoundingClientRect(); return [a.left + 80, a.bottom - 3]; });
+      // (two paragraphs whose gap is in the middle of the window: near its edges the note would scroll along)
+      const [gap, first] = await p.evaluate(() => { const ps = [...document.querySelectorAll("#active .pm > p")]; for (let i = 0; i + 1 < ps.length; i++) { const r = ps[i].getBoundingClientRect(); if (r.bottom > 250 && r.bottom < innerHeight - 250 && /^Paragraph \d+ /.test(ps[i].textContent) && /^Paragraph \d+ /.test(ps[i + 1].textContent)) return [[r.left + 80, r.bottom - 3], ps[i].textContent.slice(0, 13)]; } return [null, null]; });
+      assert.ok(gap, "two paragraphs in the middle of the window");
       const cdp = await d.context.newCDPSession(p), touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y]) => ({ x, y })) });
       await touch("touchStart", [tile]);
       await p.waitForFunction(() => document.body.hasAttribute("data-ip-dragging"), null, { timeout: 3000 }); // (held: lifted — however busy the machine)
@@ -546,7 +548,7 @@ test("an iPad: the Insert panel — a tile dragged by a finger goes where it is 
       assert.equal(await shown(p, "#ip-ghost"), true, "the tile goes with the finger");
       await touch("touchEnd", []);
       await p.waitForTimeout(600);
-      assert.deepEqual(await p.evaluate(() => { const kids = [...document.querySelectorAll("#active .pm > *")]; const i = kids.findIndex((x) => /Paragraph 3 /.test(x.textContent)); return [kids[i + 1] && /table/i.test(kids[i + 1].tagName + kids[i + 1].className), kids.slice(i + 1, i + 4).some((x) => /Paragraph 4 /.test(x.textContent))]; }), [true, true], "the table between the two");
+      assert.equal(await p.evaluate((f) => { const kids = [...document.querySelectorAll("#active .pm > *")]; const i = kids.findIndex((x) => x.textContent.startsWith(f)); return !!kids[i + 1] && /table/i.test(kids[i + 1].tagName + kids[i + 1].className) && /^Paragraph/.test((kids[i + 2] || kids[i + 1]).textContent + (kids.slice(i + 2, i + 4).map((x) => x.textContent).join(""))); }, first), true, "the table between the two");
       assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), false, "put in: the panel goes");
       // open again, leave for All Notes, come back: shut, and not open again
       await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, 1))); v.dom.blur(); }); // (the table put in is chosen: the rail makes room for its bar)
