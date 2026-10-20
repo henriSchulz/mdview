@@ -1169,7 +1169,11 @@ counts — and has no writing help by a model.
   and back — while writing, undo and redo beside it (what Ctrl+Z and Ctrl+Shift+Z do: the
   mode's own steps, then the note's across the modes; dimmed when there is nothing; a tap on
   them brings no keyboard up; the iPad keyboard's own undo and redo keys do the same); at the bottom right, while writing, insert, format, style and information, their
-  panel above them; the settings in All Notes' corner. Scrolled, the note's name and its folder
+  panel above them, between the bars at the top and the foot (over the keyboard when it is up);
+  a tile of Insert held a moment goes with the finger, a line shows where it goes and the note
+  scrolls along near its edges, and let go it is put there (the panel then goes; a tap puts it
+  at the caret, as ever); the panel goes when the note is left and is not open again when it is
+  entered; the settings in All Notes' corner. Scrolled, the note's name and its folder
   stand beside the button. A finger held anywhere opens no menu (the system's own over selected
   text stays); what the menus had is in bars of tiles at the foot, with panels rising from them:
   blocks chosen have Text Style (headings, lists, decorations, callouts, columns), Format (bold,

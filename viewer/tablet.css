@@ -51,7 +51,9 @@
   :root[data-ipad] #rrail .rp-tab { width: var(--ip-size); height: var(--ip-size); border-radius: 50%; }
   :root[data-ipad] #rrail .rp-tab[data-tab="insert"] { order: 9; }
   :root[data-ipad] #rrail .rp-tab[data-tab="insert"] > svg { width: 30px; height: 30px; padding: 6px; box-sizing: border-box; border-radius: 50%; background: var(--fg); color: var(--bg); stroke-width: 2.4; }
-  :root[data-ipad] #rpanel { top: auto; bottom: calc(var(--ip-bottom) + var(--ip-size) + 10px); right: var(--ip-gap); max-height: calc(100vh - 2 * var(--ip-top) - 2 * var(--ip-size) - 40px); height: 640px; border-radius: 26px; transform-origin: 100% 100%; }
+  /* (the panel: between the bar at the top and the capsule at the foot, 12 px from each, over the keyboard when it is up) */
+  :root[data-ipad] #rpanel { top: calc(var(--ip-top) + var(--ip-size) + 12px); bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px) + var(--ip-size) + 12px); right: var(--ip-gap); height: auto; max-height: none; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: 100% 100%; }
+  :root[data-ipad] #rrail { bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px)); }
   :root[data-ipad] body[data-ip-blocks] #rrail { opacity: 0; pointer-events: none; }
 
   /* the settings: in All Notes, at its lower left (the note's corner is the capsule's) */
@@ -123,3 +125,7 @@
 :root[data-ipad] #ipad-tools .ip-hist { display: none; }
 :root[data-ipad] body[data-view="active"] #ipad-tools .ip-hist { display: grid; }
 :root[data-ipad] #ipad-tools .ip-hist[aria-disabled="true"] { opacity: 0.35; }
+/* a tile of the Insert panel held by a finger: lifted, it goes with the finger */
+:root[data-ipad] #ip-ghost { position: fixed; z-index: 60; left: 0; top: 0; margin: 0; pointer-events: none; border-radius: 14px; background: var(--raised, var(--bg)); box-shadow: 0 16px 40px rgb(0 0 0 / 0.22), 0 0 0 0.5px var(--line-strong); opacity: 0.96; }
+:root[data-ipad] body[data-ip-dragging] #rpanel { opacity: 0.4; transition: opacity var(--dur-fast) var(--ease-out); }
+:root[data-ipad] #rpanel .rp-tile { -webkit-user-drag: none; -webkit-touch-callout: none; }
