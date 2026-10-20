@@ -818,8 +818,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
   that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
   slides in from the edge with that mode and out again when the view changes, and the reading
-  view and the source have none (beside the reading view the panel comes only with `Ctrl+Alt+P`,
-  at Document). The panel lies over the window, under the toolbar and beside the rail:
+  view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and
@@ -842,8 +841,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Background and Page width are properties of the note (`background`, `width` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
   caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
-  last of them. Insert and Format are the active mode's; Style and Information stand beside the
-  reading view as well, the other two signs dimmed there. The rail is not beside the source.
+  last of them. Insert and Format are the active mode's; Style and Information stand in every
+  mode — beside the reading view, the source, and the source beside its reading — the other two
+  signs dimmed there. Beside the source a choice is an edit of its text like one typed: only the
+  head changes, the caret and the line at the window's top stay, `Ctrl+Z` in the source takes it
+  back, and it is saved at once. Beside the source with its reading the ground runs under both
+  halves, and the note at the right is a sheet on it as the source at the left is.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
 - **Undo** follows across the modes.
@@ -1335,7 +1338,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
-| `Ctrl+Alt+P` | panel (active mode; Style and Information in the reading view too) |
+| `Ctrl+Alt+P` | panel (active mode; Style and Information in every other mode too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
 | `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |

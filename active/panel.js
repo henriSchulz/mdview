@@ -13,9 +13,10 @@
  *             page is wide. The last two are properties of the note: chosen
  *             here, they are written into it (viewer.js: docSet).
  *
- * Insert and Format are the active mode's. Document stands beside the reading
- * view too: there the panel shows when that tab is the chosen one, and its
- * other tabs are dimmed. Beside the source it does not show (nor its rail).
+ * Insert and Format are the active mode's. Style and Info stand in every mode —
+ * beside the reading view and beside the source (alone or beside its reading):
+ * there the panel shows when one of them is the chosen tab, and its other tabs
+ * are dimmed; the rail is the active mode's alone.
  *
  * The Format tab is the "/" menu's entries laid out (slash.js says what is
  * offered where, and does it). The panel never takes the focus from the text,
@@ -402,10 +403,11 @@
   docEl.addEventListener("keydown", (e) => e.stopPropagation()); // (Space on a ground or the switch is not the note's)
 
   // --- tabs, opening and closing
-  /* Where it stands: beside the text that is edited — and beside the reading view for what is the
-   * document's, its third tab. Not beside the source, and not where a note is only shown. */
-  const reading = () => mode() === "read";
-  const wanted = () => !!pref().panel && can() && (mode() === "active" || (reading() && DOCS.includes(tabOf(pref().panelTab))));
+  /* Where it stands: beside the text that is edited in the active mode — and in the other modes (reading, the source alone
+   * or beside its reading) for what is the document's (Henri, 2026-10-20: the document's style in every mode). Not where a
+   * note is only shown. (reading: a mode with no Insert and Format — the source's view is "edit" in both its modes) */
+  const reading = () => mode() !== "active";
+  const wanted = () => !!pref().panel && can() && (mode() === "active" || DOCS.includes(tabOf(pref().panelTab)));
   const keep = (prefs) => { window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs }; post("prefs", { prefs }); };
   function setTab(tab, save = true) {
     tab = tabOf(tab);
@@ -420,7 +422,7 @@
   }
   /* The rail's signs: the one whose part is open is marked; beside the reading view only the document's can be pressed. The
    * rail is the active mode's: not beside the reading view (Henri, 2026-10-14 — there the panel comes only with Ctrl+Alt+P),
-   * not beside the source, not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
+   * and so not beside the source either (the same: Ctrl+Alt+P), not where a note is only shown. It comes in and goes out with the view (active/panel.css). */
   function marks() {
     for (const b of rail.querySelectorAll(".rp-tab")) { b.setAttribute("aria-selected", String(isOpen() && b.dataset.tab === el.dataset.tab)); b.disabled = reading() && !DOCS.includes(b.dataset.tab); }
     const cur = window.MdView.core.current; // (no note in the window — an empty tab, a PDF: no rail)
@@ -448,7 +450,7 @@
     if (save && (pref().panel !== !!open || (open && reading() && !DOCS.includes(tabOf(pref().panelTab))))) keep({ panel: !!open, ...(open && reading() && !DOCS.includes(tabOf(pref().panelTab)) ? { panelTab: "style" } : {}) });
     lay(save ? wanted() : !!open, animate);
   }
-  const toggle = () => { if (mode() !== "edit" && mode() !== "split") show(!wanted()); };
+  const toggle = () => show(!wanted());
 
   const plugin = new Plugin({
     key: new PluginKey("panel"),
