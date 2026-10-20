@@ -677,6 +677,9 @@
         const decos = [], { doc, selection } = state;
         if (doc.childCount === 1 && doc.firstChild.type === N.paragraph && doc.firstChild.content.size === 0) {
           decos.push(Decoration.node(0, doc.firstChild.nodeSize, { class: "placeholder", "data-placeholder": window.MdStrings.t("active.placeholder") }));
+        } else if (doc.firstChild && doc.firstChild.type === N.heading && doc.firstChild.attrs.level === 1 && doc.firstChild.content.size === 0) {
+          // a new note's title, still empty: what it is called while it stays so (New Note: the name follows the title)
+          decos.push(Decoration.node(0, doc.firstChild.nodeSize, { class: "placeholder", "data-placeholder": window.MdStrings.t("page.untitled") }));
         }
         const seen = new Set();
         for (const r of selection.ranges) {

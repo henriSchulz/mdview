@@ -1,5 +1,5 @@
-/* mdview, styles — the window for a new note's name, the copy that goes with the pointer in a drag, menus at a point, a choice among a few. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
-/* a new note or folder: a small window that asks for its name (viewer/drawer.js: openNewNote) */
+/* mdview, styles — the window for a new folder's name, the copy that goes with the pointer in a drag, menus at a point, a choice among a few. (One of several sheets, linked in a fixed order: docs/MAP.md.) */
+/* a new folder or whiteboard: a small window that asks for its name (viewer/drawer.js: openNewNote) */
 #newdlg { position: fixed; inset: 0; z-index: 52; display: grid; place-items: start center; padding-top: 22vh; box-sizing: border-box; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
 #newdlg[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
 .new-box { display: grid; gap: 14px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; margin: 0; padding: 18px 18px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); font: 400 13px/1.45 var(--ui); font-variation-settings: "opsz" 17; color: var(--fg); transform: scale(var(--popover-from-scale, 0.96)); transition: transform calc(var(--dur-base) * 0.7) var(--ease-exit); }

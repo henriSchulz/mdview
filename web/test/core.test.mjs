@@ -128,6 +128,7 @@ test("tabs: each with its own way back, as the desktop keeps them", () => {
 
 test("names, tasks, and what a commit is called", () => {
   assert.deepEqual([C.cleanName("  ..hidden/na\\me\t "), C.cleanName("A note"), C.cleanName("...")], ["hidden na me", "A note", ""]);
+  assert.deepEqual(["# ", "#", "# Projektplan\n\ntext", "# **A/B** test.\n"].map(C.titleName), ["", "", "Projektplan", "A B test"]); // (folder.rs: title_name)
   const text = "# T\n- [ ] one\n> 1. [x] two\nplain\n";
   assert.equal(C.toggleTask(text, 1, true), "# T\n- [x] one\n> 1. [x] two\nplain\n");
   assert.equal(C.toggleTask(text, 2, false), "# T\n- [ ] one\n> 1. [ ] two\nplain\n");

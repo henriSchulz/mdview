@@ -336,6 +336,11 @@ impl App {
                     w.close(app);
                 }
             }),
+            Event::SettleFresh { label, turn } => self.with_win(&label, |w, app| {
+                if turn == w.fresh_turn && w.fresh.is_some() && w.fresh == w.path {
+                    w.settle_fresh(app, false);
+                }
+            }),
             Event::CloseRequested { label } => self.with_win(&label, |w, app| w.close(app)),
             Event::Closed { label } => {
                 if self.wins.remove(&label).is_some() {

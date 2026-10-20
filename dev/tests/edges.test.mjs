@@ -127,3 +127,14 @@ test("12: emoji, combining characters, right-to-left, CJK", () => {
   check("typed after an emoji", raw, "👨‍👩‍👧‍👦");
   assert.ok(!/[​ ﻿]/.test(open(raw).typeAfter("End", " more").md()), "no invisible characters come in");
 });
+
+test("a new note's empty title (New Note): a heading to type into at the top, its words written into it", () => {
+  for (const raw of ["# ", "#\n"]) {
+    const e = open(raw);
+    assert.equal(e.state.doc.firstChild.type.name, "heading", JSON.stringify(raw) + ": a heading, not an island");
+    assert.equal(e.md(), raw, "unchanged: written back as it was");
+    e.apply((s) => s.tr.insertText("Projektplan", 1));
+    assert.match(e.md(), /^# Projektplan\n?$/);
+  }
+  assert.equal(open("Text\n\n#\n").state.doc.lastChild.type.name, "island", "an empty heading further down stays an island");
+});

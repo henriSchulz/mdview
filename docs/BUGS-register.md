@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "When new files are made, the dialog (enter a name) should go: one is in the file at once, the caret at the top where the name would be typed, as the top heading. If one does nothing, it is to be called Untitled" (a wish, as Apple Notes and Craft have it) | a new note was asked for in a window of its own (`openNewNote`, viewer/drawer.js), and its name was fixed from then on | New Note posts `newnote` without a name: the host makes "Untitled.md" ("Untitled 2.md" …) holding `# `, opens it and puts the caret in that empty heading (`MdView.titleFresh`; the active mode shows "Untitled" there). The host keeps it as *fresh* (`settle_fresh` in folder.rs, `settleFresh` in host.js) and names it after its first line 1.5 s after a save and when it is left, then for good; renamed by hand it is no longer fresh, any other note never is. Undo: the step that made it, under its new name (`Steps::named`). A save the page sent under the note's name of a moment ago is still the note's (`renamed_from`, rule 69). Found on the way, and true of any note made or renamed while it is on screen: the watcher's news of the file just made, or of the note under its new name, read the note anew under what was being typed, and the page took that as saved — the words typed in the first moment, or after the renaming, never reached the file. The host now knows those bytes as its own (`own_write`). An empty title at the top of a note is a heading to type into in the active mode, not an island (`headingOf`), and written into it is `# Title`, not `#  Title`. A folder and a whiteboard are still asked for | `rig.sh newnote`, `web/test/write.test.mjs` (New Note), `dev/tests/edges.test.mjs` (a new note's empty title), `cargo test title`, `cargo test named`, `web/test/core.test.mjs` (titleName) |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

@@ -382,6 +382,14 @@
   /* A name typed for a note or folder, as a file's name: nothing that parts paths, not hidden. */
   const cleanName = (name) => String(name || "").replace(/[/\\\x00-\x1f]/g, " ").trim().replace(/^[. ]+/, "");
 
+  /* What a note's first line says, as a file's name: the marks of Markdown left out, 60 letters at
+   * most. "": nothing (a new note's title still empty). (folder.rs: title_name) */
+  function titleName(text) {
+    const first = String(text || "").split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith("---") && !l.startsWith("<!--")) || "";
+    const plain = first.replace(/^[#>\-*+ ]+/, "").replace(/^\[ \] /, "").replace(/^\[x\] /, "").replace(/[*_`$[\]]/g, "").trim();
+    return cleanName([...plain].slice(0, 60).join("")).trim().replace(/\.+$/, "");
+  }
+
   /* A task's box ticked or cleared in a note's text, at a line (counted from 0). null: no task there. */
   function toggleTask(text, line, checked) {
     const lines = text.split("\n"), old = lines[line];
@@ -456,5 +464,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, titleName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

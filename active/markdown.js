@@ -632,7 +632,8 @@
       const text = listByItem(node, was, seg, profile, marker, store);
       if (text != null) return text;
     }
-    if (seg && was.type.name !== "island" && was.type.name !== "hidden") {
+    // (an empty title written into — a new note's: "# " — is written plainly; a merge would keep the space it had and add one)
+    if (seg && was.type.name !== "island" && was.type.name !== "hidden" && !(was.type.name === "heading" && !was.content.size)) {
       for (const level of [0, 1, 2]) {
         const base = canon(was, level), now = canon(node, level);
         for (const reach of [0, 3, 12, Infinity]) {

@@ -151,6 +151,35 @@ test("a task ticked, a note made, renamed and deleted", async () => {
   assert.ok(await page.evaluate(() => ![...document.querySelectorAll(".sb-row[data-real]")].some((r) => /Renamed/.test(r.textContent))));
 });
 
+test("New Note: no name asked — Untitled, its title empty; the name follows the title, an old note's never", async () => {
+  await open("Alpha.md");
+  const onScreen = (n) => page.waitForFunction((n) => MdView.core.current && MdView.core.current.name === n, n, { timeout: 8000 });
+  await post({ type: "newnote", name: "" });
+  await onScreen("Untitled.md");
+  assert.equal(await raw(), "# ");
+  await post({ type: "note", path: "/octo/notes/Alpha.md" }); // (left with nothing written: it stays Untitled)
+  await untilNote("Alpha.md");
+  await until(() => text("Untitled.md") === "# ", "the untitled note kept");
+  await post({ type: "newnote", name: "" });
+  await onScreen("Untitled 2.md");
+  await post({ type: "save", path: "/octo/notes/Untitled 2.md", text: "# Projektplan\n\nfirst line\n" });
+  await onScreen("Projektplan.md"); // (left alone a moment: named after its title)
+  await post({ type: "save", path: "/octo/notes/Projektplan.md", text: "# Projektplan 2026\n\nfirst line\n" });
+  await post({ type: "note", path: "/octo/notes/Alpha.md" }); // (… and when it is left)
+  await untilNote("Alpha.md");
+  await until(() => /^# Projektplan 2026\n/.test(text("Projektplan 2026.md") || "") && text("Untitled 2.md") === undefined && text("Projektplan.md") === undefined, "the new note named after its title");
+  assert.equal(text("Untitled.md"), "# ");
+  await open("Beta.md");
+  await post({ type: "save", path: "/octo/notes/Beta.md", text: "# Beta, another title\n\ntext\n" });
+  await page.waitForTimeout(2200);
+  assert.equal(await page.evaluate(() => MdView.core.current.name), "Beta.md"); // (a note of before: its title is only its title)
+  await until(() => /another title/.test(text("Beta.md") || ""), "Beta kept under its name");
+  await post({ type: "save", path: "/octo/notes/Beta.md", text: "# Beta\n\ntext\n" }); // (as the tests after this one have it)
+  await until(() => text("Beta.md") === "# Beta\n\ntext\n", "Beta as it was");
+  for (const p of ["Untitled.md", "Projektplan 2026.md"]) await post({ type: "trash", path: "/octo/notes/" + p });
+  await until(() => text("Untitled.md") === undefined && text("Projektplan 2026.md") === undefined, "the new notes gone again");
+});
+
 test("another device wrote elsewhere in the note meanwhile: both are in the commit", async () => {
   await open("Alpha.md");
   const here = await raw();

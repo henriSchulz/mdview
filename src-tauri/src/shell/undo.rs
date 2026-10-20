@@ -47,6 +47,27 @@ impl Steps {
             self.undo.remove(0);
         }
     }
+    /// A new note named after its title by the app (folder.rs: settle_fresh): no step of its own —
+    /// the step that made it makes it under the name it has now.
+    pub(super) fn named(&mut self, old: &Path, new: &Path) {
+        if matches!(self.undo.last(), Some((Step::Moved(p, "rename"), _)) if p.len() == 1 && p[0].0 == old && p[0].1 == new) {
+            self.undo.pop();
+        }
+        let swap = |p: &mut PathBuf| {
+            if p == old {
+                *p = new.to_path_buf();
+            }
+        };
+        let each = |step: &mut Step| match step {
+            Step::Moved(pairs, _) => pairs.iter_mut().for_each(|(a, b)| {
+                swap(a);
+                swap(b);
+            }),
+            Step::Trashed(p) | Step::Made(p) | Step::Hidden(p, _) => p.iter_mut().for_each(swap),
+        };
+        self.undo.iter_mut().for_each(|(s, _)| each(s));
+        self.redo.iter_mut().for_each(each);
+    }
     /// (the step that Undo would take back: the trash's own Undo goes by it)
     pub(super) fn last(&self) -> Option<&Step> {
         self.undo.last().map(|(s, _)| s)
@@ -189,6 +210,17 @@ mod tests {
         h.replaying = true;
         h.did(Step::Made(vec![p("m")])); // (what Undo itself does is no step)
         assert_eq!(h.undo.len(), 4);
+    }
+
+    #[test]
+    fn a_new_note_named_after_its_title_is_made_under_that_name_in_one_step() {
+        let mut h = Steps::default();
+        let p = |n: &str| PathBuf::from(format!("/f/{n}"));
+        h.did(Step::Made(vec![p("Untitled.md")]));
+        h.did(Step::Moved(vec![(p("Untitled.md"), p("Plan.md"))], "rename"));
+        h.named(&p("Untitled.md"), &p("Plan.md"));
+        assert_eq!(h.undo.len(), 1);
+        assert_eq!(h.last(), Some(&Step::Made(vec![p("Plan.md")])));
     }
 
     #[test]

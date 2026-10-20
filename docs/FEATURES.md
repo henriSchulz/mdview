@@ -947,7 +947,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   *Folders*, in the folder of the note on screen, whatever was shown last. The switches, the
   pasteboard's button and `…` are raised alike and stand together: where the head is too narrow
   for them beside the name, they go to a line of their own together. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
-  The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
+  The `+` at the head makes a new note (asked for nothing: "Untitled", see below) or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
   A choice at the head answers at once: its thumb goes there and what was shown dims, the tiles come
@@ -978,6 +978,19 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Open Folder… and Open File…. A note opened by itself has no sidebar; the folder button in its
   toolbar opens the folder the note lies in beside it, and the sidebar shows its notes.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
+- **A new note asks for nothing** (`Ctrl+N`, the sidebar's `+`, All Notes' `+`, New Note in a
+  folder's menu or the empty room's, the button of an empty folder — desktop and browser alike): it
+  is made at once as "Untitled" ("Untitled 2" … where that name is taken), next to the note on
+  screen or in the folder chosen, and opens in the mode one writes in (the browser: the source), the caret in its title — an
+  empty heading that shows "Untitled", greyed, in the active mode (the source shows `# `). What is
+  written there names the file: once it has been left alone a moment (1.5 s) while it is written,
+  and when the note is left (another note, its tab closed, the window closed) — the tab, the
+  sidebar and All Notes follow, and a name taken gets a number ("Plan 2"). Its title left empty, it
+  stays "Untitled". Only a note made so, and only until it is left or renamed by hand: the title of
+  any other note is only its title (links to a note are not rewritten when it is renamed). Its
+  making and naming are one step of Undo for files ("Making of “Plan.md”"). A new folder or
+  whiteboard is still asked for in a small window; among the quick notes a new one is named by the
+  time and then by its first line, as ever.
 
 ## History
 

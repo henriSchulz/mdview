@@ -66,6 +66,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh newnote                New Note asks for nothing: "Untitled" at once, the caret in its title; named after the title when left alone a moment and when left; an old note's title is only its title
 #   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
 #   dev/rig.sh slides                 a presentation (.pptx): its tile, the PDF viewer, one that cannot be read (needs LibreOffice)
 #   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before) — TO=sidebar: held over the sidebar
@@ -665,6 +666,17 @@ PY
     f=$(ls "$R/out"/*.railfav.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  newnote)
+    # New Note without the window that asked for a name, on a copy of the overview's notes
+    rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.newnote.json
+    app 90 MDVIEW_PROBE="$D/probe-newnote.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    for _ in $(seq 900); do ls "$R/out"/*.newnote.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
+    f=$(ls "$R/out"/*.newnote.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$f"
+    for n in "Untitled.md" "Projektplan.md" "Idee zwei.md" "Workout routine.md"; do [[ -f "$R/work/Notes/$n" ]] && echo "ok   on disk: $n" || echo "FAIL not on disk: $n"; done
+    { jq -r '.steps[], (.error // empty)' "$f"; for n in "Untitled.md" "Projektplan.md" "Idee zwei.md" "Workout routine.md"; do [[ -f "$R/work/Notes/$n" ]] || echo FAIL; done; } | grep -qv '^ok' && exit 1; exit 0 ;;
   fileundo)
     # what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z), on a copy of the overview's notes
     rm -rf "$R/work" "$R/data/Trash"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.fileundo.json
