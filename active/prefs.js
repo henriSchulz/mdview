@@ -9,7 +9,7 @@
     images: "assets", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
     dialogWidth: 0, dialogHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-    sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "rail",
+    sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
     ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
@@ -35,7 +35,7 @@
       [null, [
         ["docZoom", "select", [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250].map((z) => [z, z + " %"])],
         ["calloutStyle", "select", [["box", "prefs.calloutStyle.box"], ["tip", "prefs.calloutStyle.tip"], ["label", "prefs.calloutStyle.label"]]],
-        ["sidebarLayout", "select", [["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["sheets", "prefs.layout.sheets"], ["tiles", "prefs.layout.tiles"]]],
+        ["sidebarLayout", "select", [["sheets", "prefs.layout.sheets"], ["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["tiles", "prefs.layout.tiles"]]],
         ["hinting", "switch"],
       ]],
     ]],
@@ -518,6 +518,7 @@
 
   // the settings changed: what depends on them follows at once
   A.onPrefs = () => {
+    if (!A.view || !A.bar || !A.menu) return; // (settings told while the active mode is still being loaded: what follows them is not there yet — it reads them as it starts)
     if (A.view.store) A.view.store.profile = null; // the style of new Markdown
     if (!now().bar) A.bar.hide();
     if (!now().slash && A.menu.isOpen) A.menu.close();

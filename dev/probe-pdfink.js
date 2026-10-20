@@ -161,6 +161,43 @@
       ok("the PDF is as large as the board was left", Math.abs(V.scale - zoom * B.pdf.UNIT) < 0.02, [V.scale, zoom * B.pdf.UNIT]);
       ok("… and the page at the height it was", Math.abs(box(page(2))[1] - left[1]) <= 3, [box(page(2)), left]);
       ok("text can be selected through the ink", getComputedStyle(ink(2)).pointerEvents === "none");
+      // --- the board left without Back: the window's focus lost and got again (another window clicked, a tap outside) does not
+      // leave it; left quickly (a tab, a note chosen) the PDF stands where the board was, not where it stood before the pen
+      {
+        const mx = innerWidth / 2, my = innerHeight / 2;
+        const middle = (els) => { const i = els.findIndex((d) => { const r = d.getBoundingClientRect(); return r.top <= my && r.bottom >= my; }); if (i < 0) return null; const r = els[i].getBoundingClientRect(); return { n: i + 1, fx: (mx - r.left) / r.width, fy: (my - r.top) / r.height, h: r.height, w: r.width }; };
+        const sheets = () => [...document.querySelectorAll("#board .bd-sheet")], pages = () => V.pages.map((x) => x.div);
+        const same = (a, b) => a && b && a.n === b.n && Math.abs((a.fy - b.fy) * b.h) <= 3 && Math.abs((a.fx - b.fx) * b.w) <= 3;
+        const roll = (dy, ctrl = false) => stage().dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: mx, clientY: my, deltaY: dy, ctrlKey: ctrl }));
+        const rest = async () => { for (let t = 0; t < 40; t++) { const a = JSON.stringify(st().view); await sleep(150); if (JSON.stringify(st().view) === a) return; } };
+        const open = async () => { draw.click(); await until(() => B.shown && document.querySelector("#board[data-open]") && sheets().length === 6, 4000); await sleep(500); };
+        MdPdf.test.go(1);
+        await sleep(300);
+        const before = middle(pages());
+        await open();
+        for (let i = 0; i < 12; i++) { roll(120); await sleep(30); } // (down the pages, to page 3 or so)
+        await rest();
+        const was = middle(sheets());
+        window.dispatchEvent(new FocusEvent("blur")); await sleep(80); window.dispatchEvent(new FocusEvent("focus"));
+        await sleep(600);
+        ok("the window's focus lost and back while drawing on the PDF: the board stays", B.shown && !!document.querySelector("#board[data-open]"), B.shown);
+        ok("… where it was", same(middle(sheets()), was), [was, middle(sheets())]);
+        B.leave(); // (what a tab or a note chosen does: no way back to watch)
+        await sleep(400);
+        ok("left quickly: the board is gone", !B.shown);
+        ok("… and the PDF stands where the board was, not where it stood before", was && was.n !== before.n && same(middle(pages()), was), [before, was, middle(pages())]);
+        // larger on the board than the viewer goes (500 %): the place in the window's middle is kept
+        await open();
+        for (let i = 0; i < 14; i++) { roll(-120, true); await sleep(60); }
+        await rest();
+        const far = middle(sheets()), z = st().zoom;
+        key("Escape");
+        if (B.shown) document.querySelector('#board [data-do="back"]').click();
+        await until(() => !B.shown, 3000);
+        await sleep(300);
+        ok("back from larger than the viewer goes: as large as it goes", z * B.pdf.UNIT > 5.2 && Math.abs(V.scale - 5) < 0.01, [z, V.scale]);
+        ok("… and the place in the window's middle is the same", same(middle(pages()), { ...far, h: V.pages[0].div.getBoundingClientRect().height, w: V.pages[0].div.getBoundingClientRect().width }), [far, middle(pages())]);
+      }
     } else {
       // --- the app started anew: what was drawn is on the page
       phase = "again";

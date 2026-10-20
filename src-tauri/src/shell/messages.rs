@@ -61,13 +61,20 @@ impl Win {
             }
             "save" => {
                 // a late autosave must not land in whatever note is open by now
-                if msg["path"].is_null() || msg["path"].as_str() == self.path.as_deref().map(s).as_deref() {
+                // (… but one sent under the name the note on screen had a moment ago is its own: renamed meanwhile)
+                let at = msg["path"].as_str();
+                if at.is_none() || at == self.path.as_deref().map(s).as_deref() || (at.is_some() && at == self.renamed_from.as_deref().map(s).as_deref()) {
                     if truthy(&msg["seq"]) {
                         self.save_seq = msg["seq"].clone();
                     }
                     self.save_text(msg["text"].as_str(), truthy(&msg["exact"]));
                     if truthy(&msg["exact"]) {
                         self.tidy_attachments(msg["text"].as_str()); // (the active mode: what it no longer shows goes)
+                    }
+                    if self.fresh.is_some() && self.fresh == self.path {
+                        // a new note written in: named after its title once it is left alone a moment (folder.rs: settle_fresh)
+                        self.fresh_turn += 1;
+                        app.after(FRESH_PAUSE, Event::SettleFresh { label: self.label.clone(), turn: self.fresh_turn });
                     }
                 }
             }

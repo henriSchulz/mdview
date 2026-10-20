@@ -142,7 +142,10 @@
     if (caretIn) tr.setSelection(Selection.near(tr.doc.resolve(pos + 1), 1));
     else if (NodeSelection.isSelectable(node)) tr.setSelection(NodeSelection.create(tr.doc, pos));
     view.dispatch(tr.scrollIntoView().setMeta("step", true));
-    view.focus();
+    // (a line to type in — text, a heading, a list, a quote — is asked for to be typed in: under a finger the keyboard comes;
+    // a block of another kind — a formula, code, a table, a picture, a callout — is typed in only once the finger goes into it)
+    const typed = caretIn && (/^(paragraph|heading|bullet_list|ordered_list|blockquote)$/.test(node.type.name)) && !(node.type.name === "blockquote" && node.attrs && node.attrs.callout);
+    view.focus(typed ? { keyboard: true } : undefined);
     return pos;
   }
   const island = (raw, kind) => A.islands.blocksOf(raw, A.view.store).find((n) => n.type === N.island) || N.island.create({ kind, raw });

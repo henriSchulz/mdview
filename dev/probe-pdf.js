@@ -136,6 +136,7 @@
       ok("the bar is one row of round buttons", bar.getBoundingClientRect().height <= 40 && [...bar.querySelectorAll("button")].every((b) => b.classList.contains("tb") && b.getAttribute("aria-label")), bar.getBoundingClientRect().height);
       ok("… with no colours and no choice of format in it", !bar.querySelector(".pdf-color, select, .pop, [data-do='auto']"));
       // --- outline, pages, notes: a card over the window — the pages do not move for it and are not drawn anew
+      await until(() => !V.pages.some((x) => x.state === "busy"), 4000); // (pages still being drawn from the zoom above are not the card's doing)
       const was = page(), scale = V.scale, canvases = [...V.box.querySelectorAll(".pdf-canvas")];
       ok("the card is out of sight at first", getComputedStyle(card).visibility === "hidden");
       bar.querySelector('[data-do="side"]').click();

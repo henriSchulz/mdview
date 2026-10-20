@@ -43,7 +43,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   // writing
   save: ["write", "the note's text"],
   toggle: ["write", "a task ticked in the reading view"],
-  newnote: ["write", "a note made"],
+  newnote: ["write", "a note made: without a name, \"Untitled\" with an empty title, named after that title once it is written (left alone a moment, or left)"],
   quicknote: ["none", "a quick note made at once (the desktop app's window of quick notes: mdview --quick)"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
   rename: ["write", "a note, another file or a folder renamed: the page is told at once, the commit follows — one that names the file by its blob, with nothing of it fetched or sent"],
@@ -135,6 +135,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   setFolder: ["answer", "the repository as a tree, and how the sidebar is set"],
   setTabs: ["answer", "the tabs"],
   setMode: ["answer", "the mode to be in"],
+  titleFresh: ["write", "a new note (New Note) is on screen: the caret in its empty title, whose text names the file"],
   setPrefs: ["answer", "the settings"],
   setTheme: ["answer", "the colours: light or dark, as the system has it"],
   setPreviews: ["answer", "the beginnings of notes asked for"],

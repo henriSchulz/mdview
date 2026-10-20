@@ -151,6 +151,35 @@ test("a task ticked, a note made, renamed and deleted", async () => {
   assert.ok(await page.evaluate(() => ![...document.querySelectorAll(".sb-row[data-real]")].some((r) => /Renamed/.test(r.textContent))));
 });
 
+test("New Note: no name asked — Untitled, its title empty; the name follows the title, an old note's never", async () => {
+  await open("Alpha.md");
+  const onScreen = (n) => page.waitForFunction((n) => MdView.core.current && MdView.core.current.name === n, n, { timeout: 8000 });
+  await post({ type: "newnote", name: "" });
+  await onScreen("Untitled.md");
+  assert.equal(await raw(), "# ");
+  await post({ type: "note", path: "/octo/notes/Alpha.md" }); // (left with nothing written: it stays Untitled)
+  await untilNote("Alpha.md");
+  await until(() => text("Untitled.md") === "# ", "the untitled note kept");
+  await post({ type: "newnote", name: "" });
+  await onScreen("Untitled 2.md");
+  await post({ type: "save", path: "/octo/notes/Untitled 2.md", text: "# Projektplan\n\nfirst line\n" });
+  await onScreen("Projektplan.md"); // (left alone a moment: named after its title)
+  await post({ type: "save", path: "/octo/notes/Projektplan.md", text: "# Projektplan 2026\n\nfirst line\n" });
+  await post({ type: "note", path: "/octo/notes/Alpha.md" }); // (… and when it is left)
+  await untilNote("Alpha.md");
+  await until(() => /^# Projektplan 2026\n/.test(text("Projektplan 2026.md") || "") && text("Untitled 2.md") === undefined && text("Projektplan.md") === undefined, "the new note named after its title");
+  assert.equal(text("Untitled.md"), "# ");
+  await open("Beta.md");
+  await post({ type: "save", path: "/octo/notes/Beta.md", text: "# Beta, another title\n\ntext\n" });
+  await page.waitForTimeout(2200);
+  assert.equal(await page.evaluate(() => MdView.core.current.name), "Beta.md"); // (a note of before: its title is only its title)
+  await until(() => /another title/.test(text("Beta.md") || ""), "Beta kept under its name");
+  await post({ type: "save", path: "/octo/notes/Beta.md", text: "# Beta\n\ntext\n" }); // (as the tests after this one have it)
+  await until(() => text("Beta.md") === "# Beta\n\ntext\n", "Beta as it was");
+  for (const p of ["Untitled.md", "Projektplan 2026.md"]) await post({ type: "trash", path: "/octo/notes/" + p });
+  await until(() => text("Untitled.md") === undefined && text("Projektplan 2026.md") === undefined, "the new notes gone again");
+});
+
 test("another device wrote elsewhere in the note meanwhile: both are in the commit", async () => {
   await open("Alpha.md");
   const here = await raw();
@@ -972,9 +1001,9 @@ test("the source beside its reading: the source at the left, the note as it read
   await page.keyboard.press("Control+Alt+2");
   await until(() => page.evaluate(() => MdPage.mode === "split" && document.body.hasAttribute("data-twin")), "the mode");
   await page.waitForTimeout(700); // (the source glides to its half)
-  const box = await page.evaluate(() => { const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON(); return { ed: r("editor"), twin: r("twin"), w: innerWidth, side: document.body.dataset.sidebar === "open" ? r("sidebar").right : 0 }; });
-  assert.ok(box.ed.left >= box.side - 1 && box.ed.right <= box.twin.left + 1, `the source in the left half: ${JSON.stringify(box)}`);
-  assert.ok(Math.abs(box.twin.width - (box.w - box.side) / 2) < 2 && box.twin.right >= box.w - 1, `the reading in the right half of what the sidebar leaves: ${JSON.stringify(box)}`);
+  const box = await page.evaluate(() => { const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON(); return { ed: r("editor"), twin: r("twin"), w: innerWidth }; });
+  assert.ok(box.ed.left >= -1 && box.ed.right <= box.twin.left + 1, `the source in the left half: ${JSON.stringify(box)}`);
+  assert.ok(Math.abs(box.twin.width - box.w / 2) < 2 && box.twin.right >= box.w - 1, `the reading in the right half of the window — the sidebar lies over it and takes none of it (2026-10-20): ${JSON.stringify(box)}`);
   assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".seg-btn")].map((b) => b.dataset.mode)), ["active", "split", "edit", "read"]);
   // the line both halves are at, a little under the top: the source's line, and the block at the right around it
   const at = () => page.evaluate(() => {

@@ -18,7 +18,7 @@ const gh = fakeGitHub();
 let app, base, browser, session;
 const problems = [];
 const SHOTS = process.env.SHOT_DIR || "";
-const SIZES = { phone: { width: 390, height: 844 }, small: { width: 320, height: 568 }, tablet: { width: 820, height: 1180 }, wide: { width: 1180, height: 820 } };
+const SIZES = { phone: { width: 390, height: 844 }, small: { width: 320, height: 568 }, tablet: { width: 820, height: 1180 }, wide: { width: 1180, height: 820 }, desk: { width: 1400, height: 900 }, mid: { width: 900, height: 800 } };
 
 const long = Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} of the long note, with enough words in it to fill a line of a phone and wrap onto the next one.`).join("\n\n");
 const files = {
@@ -53,7 +53,7 @@ after(async () => { await browser?.close(); app?.kill(); gh.close(); });
 
 // a browser of that size, touched with a finger, signed in
 async function device(name) {
-  const touch = name !== "wide";
+  const touch = !["wide", "desk", "mid"].includes(name);
   const context = await browser.newContext({ viewport: SIZES[name], hasTouch: touch, isMobile: touch && name !== "tablet", deviceScaleFactor: 2 });
   await context.addCookies([{ name: "mdview", value: session.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
   const page = await context.newPage();
@@ -126,13 +126,53 @@ test("on a phone the sidebar is a drawer over the note; a note chosen in it shut
   await d.context.close();
 });
 
-test("on a tablet the sidebar stands beside the note", async () => {
+test("on a tablet the sidebar lies over the note, which does not move; a tap into the text it covers puts it away", async () => {
   const d = await device("tablet");
   await open(d);
-  await d.page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector(".tab-side").click(); }); await d.page.waitForTimeout(700);
+  await d.page.evaluate(() => { if (document.body.dataset.sidebar === "open") document.querySelector(".tab-side").click(); }); await d.page.waitForTimeout(700);
+  await d.page.tap("#content h1"); await d.page.waitForTimeout(1500); // (a first touch loads the active mode's sheets, which give the text room for a swipe: before, not while the sidebar opens)
+  const before = await rect(d.page, "#content h1");
+  await d.page.tap(".tab-side"); await d.page.waitForTimeout(700);
   const side = await rect(d.page, "#sidebar"), text = await rect(d.page, "#content h1");
-  assert.ok(text.x >= side.right, "the note begins beside the sidebar");
+  assert.equal(Math.round(text.x), Math.round(before.x), "the note does not move aside for it (Henri, 2026-10-20)");
+  assert.ok(text.x < side.right, "the card lies over the note's text");
   assert.equal(await d.page.evaluate(() => getComputedStyle(document.querySelector("#sb-scrim")).display), "none");
+  await d.page.touchscreen.tap(Math.round(side.right + 40), Math.round(text.y + text.h / 2)); await d.page.waitForTimeout(700);
+  assert.equal(await d.page.evaluate(() => document.body.dataset.sidebar), "closed");
+  await d.context.close();
+});
+
+// Henri, 2026-10-20: "Depending on the window's size the sidebar pushes the document aside when it opens. It should never move
+// the document, but always open over it." In a window of a desktop, wide and less wide: the note's column, All Notes and its
+// sheets stay where they are; the card lies over them.
+for (const size of ["desk", "mid"]) test(`in a window ${SIZES[size].width} px wide the sidebar opens over the note and All Notes: neither moves`, async () => {
+  const d = await device(size), page = d.page;
+  await open(d);
+  const set = async (open) => { if ((await page.evaluate(() => document.body.dataset.sidebar)) !== (open ? "open" : "closed")) { await page.click(".tab-side"); await page.waitForTimeout(800); } };
+  const lefts = () => page.evaluate(() => Object.fromEntries(["#content", "#content h1", "#overview", "#overview .ov-body"].map((q) => { const e = document.querySelector(q); return [q, e && e.getClientRects().length ? Math.round(e.getBoundingClientRect().left) : null]; })));
+  await set(false);
+  const shut = await lefts();
+  await set(true);
+  const opened = await lefts(), side = await rect(page, "#sidebar"), btn = await rect(page, ".tab-side");
+  assert.equal(opened["#content"], shut["#content"], "the note's column stays");
+  assert.equal(opened["#content h1"], shut["#content h1"], "its text stays");
+  assert.ok(side.x > 0 && side.w > 150, "the card is out");
+  assert.ok(btn.x >= side.right - 1, "the sidebar's button stays beside the card");
+  await shot(d, "over-note");
+  // where the card lies over the text a click into the note puts it away; where it covers only the margin it stays
+  const over = shut["#content h1"] < side.right;
+  const h1 = await rect(page, "#content h1");
+  await page.mouse.click(Math.round(Math.max(h1.x + 4, side.right + 20)), Math.round(h1.y + h1.h / 2)); await page.waitForTimeout(700);
+  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), over ? "closed" : "open", over ? "covering the text, it goes" : "covering the margin only, it stays");
+  // All Notes
+  await set(false);
+  await page.click('#tabs [data-act="overview"]'); await page.waitForFunction(() => document.body.hasAttribute("data-overview") && document.querySelector("#overview .ov-body"), null, { timeout: 10000 }); await page.waitForTimeout(700);
+  const ovShut = await lefts();
+  await set(true);
+  const ovOpen = await lefts();
+  assert.equal(ovOpen["#overview"], ovShut["#overview"], "All Notes stays");
+  assert.equal(ovOpen["#overview .ov-body"], ovShut["#overview .ov-body"], "its sheets stay");
+  await shot(d, "over-all-notes");
   await d.context.close();
 });
 

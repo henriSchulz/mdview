@@ -116,10 +116,15 @@
     })().catch((e) => { pdfLoad = null; throw e; }));
   }
   /* An embed typed or pasted after the note was read has no place yet (the application resolves
-   * links when it reads the note). It is asked for, and what shows the embed is drawn anew. */
-  const asked = new Set();
+   * links when it reads the note). It is asked for, and what shows the embed is drawn anew.
+   * A link the application said leads nowhere is asked once more when it is drawn — the files
+   * may not all have been known then (a list cut short, a file made since) — and only once for
+   * the links the note was read with: a second "nowhere" stands until the note is read anew. */
+  const asked = new Set(), missed = new Set();
+  let missedFor = null;
+  const missedNow = () => { if (missedFor !== P.current.links) { missedFor = P.current.links; missed.clear(); } return missed; };
   function resolveSoon(target) {
-    if (asked.has(target) || !P.current) return;
+    if (asked.has(target) || !P.current || missedNow().has(target)) return;
     asked.add(target);
     setTimeout(() => post("resolve", { target }), 0);
   }
@@ -127,19 +132,25 @@
     asked.delete(target); // (answered: what misses it later — after an undo, a paste — asks again)
     if (!P.current || !P.current.links) return;
     P.current.links[target] = info;
-    if (!info) return;
+    if (!info) { missedNow().add(target); return; }
+    missed.delete(target);
     const html = md.renderInline(`![[${target}]]`, { links: P.current.links, depth: 0 });
     for (const span of document.querySelectorAll(".embed-missing[data-wiki]")) {
       if (span.dataset.wiki === target) span.outerHTML = html;
+    }
+    for (const a of document.querySelectorAll("a.wikilink.unresolved[data-wiki]")) { // (a link, not an embed: found after all)
+      if (a.dataset.wiki === target) a.classList.remove("unresolved");
     }
     // the active mode keeps the HTML of what it shows: there too
     const pm = window.MdActive && MdActive.view && MdActive.view.pm;
     if (pm) {
       let tr = null;
       pm.state.doc.descendants((node, pos) => {
-        if (typeof node.attrs.html !== "string" || !node.attrs.html.includes("embed-missing")) return;
+        if (typeof node.attrs.html !== "string" || !/embed-missing|unresolved/.test(node.attrs.html)) return;
         if (node.type.name === "iatom" && node.attrs.raw === `![[${target}]]`) {
           tr = (tr || pm.state.tr).setNodeMarkup(pos, null, { ...node.attrs, html });
+        } else if (node.type.name === "iatom" && node.attrs.kind === "wikilink" && /^\[\[([^|\]]*)/.exec(node.attrs.raw)?.[1].trim() === target) {
+          tr = (tr || pm.state.tr).setNodeMarkup(pos, null, { ...node.attrs, html: md.renderInline(node.attrs.raw, { links: P.current.links, depth: 0 }) });
         } else if (node.type.name === "island" && String(node.attrs.raw || "").includes(`![[${target}`)) {
           // a block that is the embed (a picture alone in its paragraph, a PDF's page, a file as code): drawn anew, whole —
           // it stayed "⤷ name" for good: a picture shown as a file and undone, or cut and pasted, was not there

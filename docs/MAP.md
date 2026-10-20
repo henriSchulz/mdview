@@ -70,7 +70,7 @@ or the tests see the old ones.
 |---|---|
 | `viewer/base.js` | its ground: the message to the shell (post), the icons, small helpers. |
 | `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast. |
-| `viewer/drawer.js` | the sidebar shown and hidden (it slides, the text glides), an empty folder, the window that asks for a new … |
+| `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, a new note made at once … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
 | `viewer/menus.js` | the app's own small menus: a choice among a few (popup, combo) and the menu for text in a field or in the … |
@@ -97,7 +97,7 @@ or the tests see the old ones.
 | `viewer/code.css` | code blocks and code in the text. |
 | `viewer/editor.css` | the source editor. |
 | `viewer/layouts.css` | the sidebar's layouts. |
-| `viewer/menus.css` | the window for a new note's name, the copy that goes with the pointer in a drag, menus at a point, a choice … |
+| `viewer/menus.css` | the window for a new folder's name, the copy that goes with the pointer in a drag, menus at a point, a choice … |
 | `viewer/narrow.css` | scrollbars, tooltips, figures, signs set as text (SF Symbols), and narrow windows (a phone, a split screen). |
 | `viewer/page.css` | reading and editing styles. Colors come from the Omarchy theme (--c-*), durations, curves, radii and sizes … |
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |

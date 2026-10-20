@@ -48,6 +48,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     rail and its tile, and a note's row and tile, to the same entries: an entry added for one is
     there for all.
 
+69. **The sidebar lies over the note; showing it moves nothing but the card.** No room is made
+    for it — no padding, no `left`, no width of the note, All Notes or a split's halves that
+    depends on `data-sidebar` (and no `:root:has(…data-sidebar…)`: a change of it restyles every
+    element). Opening and shutting it lays nothing out anew, and nothing is sent: the host does
+    not scan or send the folder for a sidebar shown or hidden. `rig.sh sidebar` measures the
+    note's left edge, All Notes' and its sheets', at two widths, and how long the click takes.
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
@@ -155,6 +162,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
+74. **A selected block's field is one look for every kind of block**, drawn in the layer over the
+    note (`drawFields` in `active/blocks.js`), never painted on the block itself: there a block's
+    own surface (code, a table's sheet, a picture) covers the tint, a rule has no room for it, and
+    each kind ended up with a look of its own. The fields of blocks that follow each other leave
+    the same gap whatever the blocks' margins. A web test measures it over all kinds at once.
 51. **A thing on the whiteboard is met where it is drawn, never by the box around it.** Whatever
     asks "is this under the pointer, in the box, in the loop" asks `items.js` (`hit`, `crosses`,
     `outline`, `inside`) — `bounds` is for what must fit on the screen or in the picture, not for
@@ -173,6 +185,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     over a PDF: the pages lie where they lay — both lay them out by one rule (the gap between
     pages grows with the size in both) —, they come up with the pictures the viewer had, never
     bare, and what belongs to the view below (its bar, its card) goes as the other comes.
+    Going back is the same in every way it is left — Back, a tab, a note, the window closed: the
+    view below is put where the upper one was, never where it stood before; and a window that only
+    loses and gets its focus again (another window clicked, a tap outside) leaves nothing
+    (`rig.sh pdfink`).
 
 60. **A drag is checked with a real pointer.** Made-up drag events (a DataTransfer of the page's
     own, dispatched) are taken whatever they say; the browser's own drag takes a drop only where the
@@ -200,6 +216,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     `scrollIntoView` (the note jumps). Bring a change into sight only when it is out of sight,
     and gently.
 14. **Several changes for one request are one transaction**: one step of Undo.
+69. **What is the note's as a whole is offered in every mode a note is shown in** — its ground and
+    width (the panel's Style), its numbers — reading, active, the source, the source beside its
+    reading. A mode that cannot do a part of the panel dims that part; it does not take the panel
+    away. Written from the source, it is an edit of the source's text (`P.edReplace`: the editor's
+    own undo), not a new text put in. A new mode, or a new part of the document's: `dev/tests/docmodes.test.mjs`, `rig.sh docstyle`.
 
 ### The shell (Rust)
 
@@ -215,6 +236,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     a whiteboard, a PDF, a copy, a share — asks it and never the disk directly; whatever puts a
     file into a note asks `attachment_dir` where and `way_to` how it is named. A note's place is
     not part of how it names its pictures: it is moved, and its blocks are pasted elsewhere.
+69. **Where a `[[link]]` leads is worked out the same in the shell and in the web host**
+    (`scan::Resolver`, `resolver` in `core.js`): beside the note, the root (the vault, else the
+    folder's, project's or repository's top — never the note's folder alone), then by name below
+    the root. A change to one is made in the other, with a test on each side. And "nowhere" is no
+    answer for good: a miss on what may not have been all the files looks once more, and the page
+    asks once more for a link it was told leads nowhere — once, never in a loop.
 18. **A path from Windows is not a path from Linux**: `C:\…`, `/C:/…` in a URL. Whatever builds
     or parses a file address is checked by the Windows probe (`system-probe.yml`), not by eye.
 61. **What flickers while nothing of the page changes is WebKit's, and is filmed, not probed.** A
@@ -241,7 +268,23 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     then put out of sight while the pages move — `visibility`, not `display`, so that nothing is
     laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
     the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
-69. **No blurred shade on what stands beside a scroll.** A `box-shadow` with a blur is blurred
+69. **What a hand draws is drawn anew where it draws, not across the window.** A canvas cleared
+    whole is the window painted anew whole — and, without the DMA-BUF renderer, all that lies under
+    it, the PDF's pages too. The stroke under the pen clears and draws only around its end at each
+    step (`live` in board.js); all of it only when it begins, ends or the view moves. `rig.sh
+    pdflag` measures from the pen's sample to the frame and asks what is cleared;
+    `web/test/ipad.test.mjs` asks the same of a pen in the browser.
+
+69. **Nothing is held at the window with `background-attachment: fixed`, and what a scroll paints
+    anew is cheap to paint.** A fixed background makes WebKit paint the whole window at every step
+    of a scroll even where it could move what it drew (the DMA-BUF renderer): a ground that stays
+    with the window is a layer of its own (`position: fixed`, `:root::before`, `viewer/page.css`),
+    and what must show the same picture (the strip of tabs) draws it with the window's offset.
+    Without the DMA-BUF renderer every step is painted anyway, so what lies in the window must be
+    cheap: no blurred shadow and no rounded clip around a large canvas (a PDF's pages), no blend
+    mode on an empty layer, no `backdrop-filter` under `data-flat`. Measured, not guessed, at twice
+    the size: `rig.sh scrollperf` (frames and CPU while a note on each ground, and a PDF, scroll).
+75. **No blurred shade on what stands beside a scroll.** A `box-shadow` with a blur is blurred
     anew in every frame the window is painted — without the DMA-BUF renderer every step of a
     scroll; the sidebar's shade, its whole height long, made a note scrolled beside it take half
     as long again per frame, and the sidebar slide in unevenly. What is shown while the page
@@ -257,6 +300,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     default: `viewer/toolbar.js` (`OUTSIDE`) does these after the editor had its say, where `e.code`
     is not `e.key`. A new key of that kind — a probe with real keys (`rig.sh backspace`) says whether
     it is one.
+69. **The note on screen may be renamed while it is written** (a new note named after its title,
+    a rename from the sidebar): a save the page sent before it was told is under the old name.
+    The host takes it as the note's (`renamed_from`, `messages.rs`: "save") — never drops it as a
+    late save of another note, and never writes it as a new file under the old name. A note is
+    named for the user only from what was saved; an old note's title is never its name
+    (`settle_fresh`: only a note made by New Note, until it is left). And the watcher's news of
+    the file under its new name (or of one just made) is the host's own (`own_write`): read anew,
+    the page would take what is being typed as saved. `rig.sh newnote`.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
@@ -292,11 +343,26 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the desktop, or a host that says `MdHost.filework` before the page is there) — never behind
     `__TAURI_INTERNALS__` alone, which is for what a browser cannot do at all (rule 19).
 
+70. **A default that changes reaches everyone who did not choose; a value kept from the old
+    default is let go once.** The shell keeps only what differs from the defaults, the browser
+    only what was chosen — but a value that was once a choice stays one. Where Henri says the new
+    default is for everyone, the old value is taken out once, under a marker (`sheets_first` in
+    `state.json`, `mdview:sheets-first` in the browser; `lists_all` before it) — never at every
+    start, or a choice made after it could not be kept.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by
     `document.elementFromPoint`, not `event.target`.
-25. **Never focus the note programmatically right after a touch** — the keyboard comes up.
+25. **Under a finger the note is focused only where the finger asked to type** — the keyboard
+    comes with the focus and covers half the screen. A tap into the text focuses it by itself;
+    the page asks for it (`view.focus({ keyboard: true })`) only for a new line of text put in
+    (text, a heading, a list, a quote). Everything else that hands the focus back — a block
+    chosen, moved, dropped, a block of another kind put in, a bar's or a menu's action, a dialog
+    opened or left, undo — calls `view.focus()`, which under a finger does nothing unless the
+    note has the focus already (`core.byFinger()`: what the hand last used — a finger, a mouse,
+    the keys —, with no time limit: a drag held for long is still a finger's). A dialog's field
+    is not focused as it opens under a finger. A web test goes through each case (`tablet.test.mjs`).
 26. **No gliding after two fingers** on the whiteboard; only one finger throws.
 27. Verified in Chromium's touch emulation only. Safari on the iPad is checked by Henri.
 69. **The iPad's layout is the iPad's alone** (viewer/tablet.js, viewer/tablet.css): every rule of it stands
@@ -311,6 +377,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 71. **A movement over a movement is one movement**: what stands over a view that zooms away goes with it (a fade as
     long as the zoom, `ease-in-out` — `ease-out` drops at the first frame), what is under it does not come in on its
     own meanwhile, and where the view stood is read when it is touched, before anything else is opened.
+73. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
+    move it is not stopped from at once its own (the note scrolls, the text is selected) and the
+    touches after it can no longer be held; Chromium's emulation holds them all the same, so a
+    check passing there says nothing of it. What the page takes sideways has `touch-action:
+    pan-y` where the finger lands, and the first clearly sideways `touchmove` is prevented while
+    the direction is still being decided. A `touchcancel` after the gesture was clearly meant
+    still counts.
 
 ### Releases and installs
 

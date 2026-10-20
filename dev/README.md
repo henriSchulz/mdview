@@ -30,6 +30,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/edges.test.mjs` | the spec's edge cases: byte-exact round trip and local edits for nested structures, fences, dollars, broken Markdown, comments, line endings, BOM, Unicode |
 | `tests/map.test.mjs` | `docs/MAP.md` lists the files as they are (`node dev/map.mjs` writes the list) |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
+| `tests/docmodes.test.mjs` | the document's style in every mode: the panel beside the source and the source with its reading, a ground and a width written into the source's head as an edit (the rest as it was, the caret kept, saved) |
 | `tests/twin.test.mjs` | the fourth mode, the source beside its reading: its place in the switch, its keys, the right half following what is typed (layout and scrolling: `web/test/write.test.mjs`) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
@@ -55,8 +56,10 @@ every check.
 ./rig.sh overview                                       # all notes of a folder as tiles
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
+./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
 ./rig.sh board-hand                                     # a whiteboard under a mouse: hit areas, arrows joined as drawn, joints, the right button (a real pointer)
 ./rig.sh panel                                          # the panel at the right: Insert, Format and Document (a ground and a wide page written into the note)
+./rig.sh docstyle                                       # the document's style beside the source and the source with its reading: the panel, the head written, Ctrl+Z, both sheets on the ground
 ./rig.sh columns                                        # columns: made, typed in, their gap pulled, blocks dragged beside others
 ./rig.sh colsel                                         # the rectangle over blocks in a column: items, paragraphs, headings — not the list or the column
 ./rig.sh callout                                        # callouts made from the / menu, their titles typed in place

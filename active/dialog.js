@@ -499,7 +499,9 @@
     void dlg.offsetWidth;
     dlg.style.transition = "";
     dlg.style.transform = "none";
-    parts.focus();
+    // (under a finger the keyboard would come with the field's focus, over half the dialog: a tap into the field brings it; the
+    // dialog itself takes the focus meanwhile, for the keys of a keyboard attached — Esc, Ctrl+Enter)
+    if (!window.MdView.core.byFinger()) parts.focus(); else { if (!dlg.hasAttribute("tabindex")) dlg.tabIndex = -1; dlg.focus({ preventScroll: true }); }
     fit();
   }
   function close(how) {

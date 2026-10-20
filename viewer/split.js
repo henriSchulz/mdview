@@ -63,8 +63,7 @@
     grip.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      const left = document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0;
-      room = { left, wide: innerWidth - left, r: null };
+      room = { wide: innerWidth, r: null }; // (the sidebar lies over the window: the halves share all of it)
       grip.setPointerCapture(e.pointerId);
       pane.dataset.sizing = ""; document.body.dataset.splitSizing = "";
     });
@@ -266,11 +265,10 @@
   }
 
   // ---------------------------------------------------------------- opening and closing
-  /* Two things want room: 300 px each at the least. Where the window has less beside the sidebar, the sidebar makes way; where it
-   * has less even so, there is one thing to show — said, when two are asked for, and the sheet is out of sight for as long. */
+  /* Two things want room: 300 px each at the least. Where the window has less, there is one thing to show — said, when two are
+   * asked for, and the sheet is out of sight for as long. (The sidebar lies over the window and takes none of it.) */
   const ROOM = 600;
-  const sideW = () => (document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0);
-  const fits = () => innerWidth - sideW() >= ROOM;
+  const fits = () => innerWidth >= ROOM;
   const narrow = () => { document.body.toggleAttribute("data-split-narrow", !!S && !fits()); placed(); };
   addEventListener("resize", narrow);
   /* Where the note is a sheet on a ground of its own, what floats at the note's right — the rail, the panel — stands on that sheet,
@@ -282,16 +280,15 @@
     const r = el.getBoundingClientRect(), edge = parseFloat(getComputedStyle(el).borderRightWidth) || 0;
     root.style.setProperty("--split-in", Math.max(0, Math.round(pane.getBoundingClientRect().left - (r.right - edge))) + "px");
   }
-  if (typeof MutationObserver === "function") { // (another note, another mode, the sidebar: the sheet may stand elsewhere)
+  if (typeof MutationObserver === "function") { // (another note, another mode: the sheet may stand elsewhere)
     const again = new MutationObserver(() => { if (S) requestAnimationFrame(placed); });
     again.observe(document.documentElement, { attributes: true, attributeFilter: ["data-doc-bg"] });
-    again.observe(document.body, { attributes: true, attributeFilter: ["data-view", "data-sidebar", "data-going"] });
+    again.observe(document.body, { attributes: true, attributeFilter: ["data-view", "data-going"] });
   }
   /* what: null — the note at the left, as it reads; { path } — that file. */
   function open(what) {
     const kind = what ? kindOf(what.path) : "self";
     if (!kind) return P.toast && P.toast(T("This file can't be shown here"));
-    if (!fits() && innerWidth >= ROOM && sideW() && P.showSidebar) P.showSidebar(false, true);
     if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
     if (P.mode === "split") P.setMode("edit"); // (the source beside its reading makes way: one thing beside the note at a time — viewer/twin.js)
     if (!pane) build();

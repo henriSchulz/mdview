@@ -26,8 +26,7 @@
 
   // ---------------------------------------------------------------- there, or not
   const ROOM = 600; // (the two halves: 300 px each at the least, as for the sheet beside the note)
-  const sideW = () => (document.body.dataset.sidebar === "open" ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0);
-  const fits = () => innerWidth - sideW() >= ROOM;
+  const fits = () => innerWidth >= ROOM; // (the sidebar lies over the window and takes none of it)
   /* The mode says whether the right half is there (editor.js: showMode). Coming and going, the source glides to its new place
    * from where it stood (only transform), at the same line of the text. */
   function sync() {
@@ -51,7 +50,7 @@
   }
   let watch = 0;
   addEventListener("resize", () => { if (P.mode === "split") sync(); else if (on) sync(); });
-  if (typeof MutationObserver === "function") new MutationObserver(() => { if (P.mode === "split" || on) sync(); }).observe(document.body, { attributes: true, attributeFilter: ["data-sidebar", "data-view"] });
+  if (typeof MutationObserver === "function") new MutationObserver(() => { if (P.mode === "split" || on) sync(); }).observe(document.body, { attributes: true, attributeFilter: ["data-view"] });
 
   // ---------------------------------------------------------------- what it shows
   /* Drawn anew when the source is another text: at once after a pause in typing, and at most every so often while one types —

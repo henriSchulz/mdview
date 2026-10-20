@@ -76,17 +76,36 @@ impl Win {
         if text.trim().is_empty() {
             return fs::remove_file(&path).is_ok();
         }
-        let first = text.lines().map(str::trim).find(|l| !l.is_empty() && !l.starts_with("---") && !l.starts_with("<!--")).unwrap_or("");
-        let plain = first.trim_start_matches(|c: char| matches!(c, '#' | '>' | '-' | '*' | '+' | ' ')).trim_start_matches("[ ] ").trim_start_matches("[x] ");
-        let plain: String = plain.chars().filter(|c| !matches!(c, '*' | '_' | '`' | '$' | '[' | ']')).collect();
-        let name = clean_name(&take(plain.trim(), 60));
-        let name = name.trim().trim_end_matches('.').to_string();
+        let name = title_name(&text);
         if name.is_empty() {
             return false;
         }
-        let dir = dir_of(&path);
-        let target = (1..100).map(|n| dir.join(if n == 1 { format!("{name}.md") } else { format!("{name} {n}.md") })).find(|t| !t.exists());
-        target.is_some_and(|t| fs::rename(&path, t).is_ok())
+        free_name(&path, &name).is_some_and(|t| fs::rename(&path, t).is_ok())
+    }
+
+    /// A note made by New Note (no name asked for: "Untitled") is named after what its first line
+    /// says — once it has been left alone a moment while it is written (`last` false), and when it
+    /// is left (`last`): then it is a note as any other, and its title is only its title. A note
+    /// whose title stays empty keeps the name it has. A note renamed by hand is none of these.
+    pub(super) fn settle_fresh(&mut self, app: &mut App, last: bool) {
+        let Some(fresh) = self.fresh.clone() else { return };
+        if last {
+            self.fresh = None;
+        }
+        let Some(folder) = self.folder.clone().filter(|f| fresh.starts_with(f) && fresh.is_file()) else {
+            self.fresh = None;
+            return;
+        };
+        let Ok(text) = fs::read_to_string(&fresh) else { return };
+        let name = title_name(&text);
+        if name.is_empty() {
+            return;
+        }
+        let Some(to) = free_name(&fresh, &name).filter(|t| *t != fresh) else { return };
+        self.relocate(app, &folder, &fresh, &to, "rename");
+        if to.is_file() && !fresh.exists() {
+            self.steps.named(&fresh, &to); // (relocate: what is still fresh is so under its new path)
+        }
     }
 
     /// A new quick note: made at once, under the time for a name, shown and ready to be written in.
@@ -143,6 +162,25 @@ impl Win {
     pub(super) fn new_note(&mut self, app: &mut App, name: &str, wanted: Option<&str>) {
         let Some(folder) = self.folder.clone() else { return };
         let target = self.target_dir(&folder, wanted);
+        if clean_name(name).is_empty() {
+            // no name asked for: "Untitled", its title empty and the caret in it — the name follows the title (settle_fresh)
+            let path = match write_new(&target, |n| if n == 1 { "Untitled.md".into() } else { format!("Untitled {n}.md") }, b"# ", 1000) {
+                Ok(path) => resolve(&path),
+                Err(e) => return self.toast(format!("Couldn't create note: {}", strerror(&e))),
+            };
+            self.did(undo::Step::Made(vec![path.clone()]));
+            self.rescan(app);
+            self.open_path(app, &path, None, true);
+            self.own_write = Some(b"# ".to_vec()); // (the watcher tells of the file just made: no reading it anew under what is typed at once)
+            self.fresh = self.path.clone();
+            match app.state.get("mode").and_then(Value::as_str) {
+                Some("active") => self.js("MdView.setMode", &[json!("active")]),
+                Some("split") => self.js("MdView.setMode", &[json!("split"), json!("end")]),
+                _ => self.js("MdView.setMode", &[json!("edit"), json!("end")]),
+            }
+            self.js("MdView.titleFresh", &[]);
+            return;
+        }
         let name = Some(clean_name(name)).filter(|n| !n.is_empty()).unwrap_or_else(|| "Untitled".into());
         let stem = if name.to_lowercase().ends_with(".md") { name[..name.len() - 3].trim_end().to_string() } else { name };
         let path = target.join(format!("{}.md", if stem.is_empty() { "Untitled" } else { &stem }));
@@ -207,6 +245,9 @@ impl Win {
         if stem.is_empty() || new == old {
             return;
         }
+        if self.fresh.as_ref().is_some_and(|f| *f == old || Some(f) == crate::scan::canon(&old).ok().as_ref()) {
+            self.fresh = None; // (named by hand: its title no longer names it)
+        }
         self.relocate(app, &folder, &old, &new, "rename");
     }
 
@@ -266,8 +307,13 @@ impl Win {
             t.back.iter_mut().for_each(swap);
             t.fwd.iter_mut().for_each(swap);
         }
+        if self.fresh.as_ref().is_some_and(|f| *f == old || *f == old_real) {
+            self.fresh = Some(new_real.clone()); // (moved: still named after its title)
+        }
         if self.path.as_ref() == Some(&old_real) && new_real != old_real {
             // the note on screen: it stays as it is (also mid-edit), under its new name
+            self.renamed_from = Some(old_real.clone());
+            self.own_write = fs::read(&new_real).ok(); // (the watcher tells of the file under its new name: it is on screen already — read anew, what is typed meanwhile would be dropped)
             self.path = Some(new_real.clone());
             self.set_title(name_of(&new_real));
             self.watch();
@@ -437,9 +483,14 @@ impl Win {
         if let Some(visible) = msg.get("visible") {
             app.state.insert("sidebar".into(), json!(truthy(visible)));
         }
-        if let Some(titles) = msg.get("titles") {
-            app.state.insert("sidebar_titles".into(), json!(truthy(titles)));
-        }
+        let Some(titles) = msg.get("titles") else {
+            // only shown or hidden: this window shows it already, and nothing is to be scanned — the folder was not sent
+            // again while the sidebar opened, which made the page draw the whole list in the middle of the card's slide (Henri,
+            // 2026-10-20: "it always lags a bit"); the other windows are told as they were, from what they have
+            app.save_state();
+            return app.each_win(|w, app| w.send_folder(app));
+        };
+        app.state.insert("sidebar_titles".into(), json!(truthy(titles)));
         app.save_state();
         self.rescan(app);
         app.each_win(|w, app| w.rescan(app));
@@ -755,9 +806,40 @@ fn copy_tree(src: &Path, target: &Path, depth: usize) -> std::io::Result<()> {
     }
 }
 
+/// What a note's first line says, as a file's name: the marks of Markdown left out, 60 letters at most.
+fn title_name(text: &str) -> String {
+    let first = text.lines().map(str::trim).find(|l| !l.is_empty() && !l.starts_with("---") && !l.starts_with("<!--")).unwrap_or("");
+    let plain = first.trim_start_matches(|c: char| matches!(c, '#' | '>' | '-' | '*' | '+' | ' ')).trim_start_matches("[ ] ").trim_start_matches("[x] ");
+    let plain: String = plain.chars().filter(|c| !matches!(c, '*' | '_' | '`' | '$' | '[' | ']')).collect();
+    let name = clean_name(&take(plain.trim(), 60));
+    name.trim().trim_end_matches('.').to_string()
+}
+
+/// The first name beside the note that is free for `name` ("name.md", "name 2.md" …) — the note's own counts as free.
+fn free_name(path: &Path, name: &str) -> Option<PathBuf> {
+    let dir = dir_of(path);
+    (1..100).map(|n| dir.join(if n == 1 { format!("{name}.md") } else { format!("{name} {n}.md") })).find(|t| t == path || !t.exists())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_title_names_a_note_and_a_name_taken_gets_a_number() {
+        assert_eq!(title_name("# \n"), "");
+        assert_eq!(title_name("#"), "");
+        assert_eq!(title_name("# Projektplan\n\ntext"), "Projektplan");
+        assert_eq!(title_name("# **A/B** test.\n"), "A B test");
+        let d = std::env::temp_dir().join(format!("mdview-title-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        fs::write(d.join("Plan.md"), "x").unwrap();
+        fs::write(d.join("Untitled.md"), "# Plan").unwrap();
+        assert_eq!(free_name(&d.join("Untitled.md"), "Plan"), Some(d.join("Plan 2.md")));
+        assert_eq!(free_name(&d.join("Plan.md"), "Plan"), Some(d.join("Plan.md")));
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn a_copy_takes_the_first_free_name_and_a_folder_comes_whole() {

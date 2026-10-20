@@ -3,7 +3,6 @@
  * away, as it is for the sheet beside the note: it would seem to be the right half's); a hairline between them.
  * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 :root { --twin-room: 100vw; --twin-w: calc(var(--twin-room) / 2); }
-:root:has(> body[data-sidebar="open"]) { --twin-room: calc(100vw - var(--sb-w)); }
 body[data-twin]:not([data-overview]) { padding-right: var(--twin-w); }
 :root:has(> body[data-twin]:not([data-overview])) { scrollbar-width: none; }
 :root:has(> body[data-twin]:not([data-overview]))::-webkit-scrollbar { display: none; }
@@ -26,3 +25,14 @@ body:not([data-tabs]) .twin-doc { padding-top: 56px; }
 .twin-doc a { cursor: pointer; }
 .twin-doc input:disabled { cursor: default; }
 .twin-empty { color: var(--fg3); }
+
+/* a note with a ground of its own (page.css: data-doc-bg): the ground runs under both halves, and the note at the right is a
+ * sheet on it as the source at the left is — no wall of the window's colour beside it (as viewer/split.css has it) */
+:root[data-doc-bg] #twin { background: none; }
+:root[data-doc-bg] #twin::before { opacity: 0; }
+:root[data-doc-bg] .twin-doc { margin: var(--doc-gap) auto; padding: 40px 40px 40vh; min-height: calc(100% - 2 * var(--doc-gap) - 80px); border: solid transparent; border-width: 0 var(--doc-gap); border-radius: calc(var(--radius-panel) + var(--doc-gap)); background: var(--c-background) padding-box; }
+:root[data-doc-bg] > body:not([data-tabs]) .twin-doc { margin-top: 56px; min-height: calc(100% - 56px - var(--doc-gap) - 80px); } /* (where the source's sheet begins) */
+@media (max-width: 640px) { :root[data-doc-bg] .twin-doc { padding: 32px 20px 40vh; } }
+/* (on the way to another note the sheet stays, as the source's does: page.css) */
+:root[data-doc-bg] > body[data-going]:not([data-overview]) #twin .twin-doc { visibility: visible; }
+:root[data-doc-bg] > body[data-going]:not([data-overview]) #twin .twin-doc > * { visibility: hidden; }

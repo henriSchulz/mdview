@@ -28,6 +28,7 @@ const files = {
   "Second note.md": "# The second\n\nBack to [[Home]].\n",
   "sub/Deep.md": "# Deep\n\ntext\n",
   ".mdview/project.json": "{\"id\":\"x\",\"version\":1}",
+  "Formulas.md": "# Formulas\n\nA paragraph of text before the formulas, long enough to wrap onto a second line in the note's column on an iPad.\n\n$$a^2 + b^2 = c^2$$\n\n$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$\n\nAfter them.\n\n" + long + "\n",
 };
 
 before(async () => {
@@ -320,6 +321,162 @@ test("an iPad: the zoom to All Notes and back is one movement — nothing over t
   await d.context.close();
 });
 
+test("an iPad: the handle has no menu — held, it lifts the block at once and moves it; tapped, it selects the block; the bar has the actions", async () => {
+  const d = await device("ipad-handle"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await open(d);
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  const order = () => p.evaluate(() => [...document.querySelectorAll("#active .pm > *")].map((e) => e.textContent.slice(0, 14)));
+  const menuOpen = () => p.evaluate(() => MdActive.menu.isOpen || !!document.querySelector(".actmenu[data-open], #ctxmenu[data-open], #ctxmenu.open"));
+  const picked = () => p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).map((x) => x.node.textContent.slice(0, 14)));
+  // the handle of a paragraph: a tap on its text shows it
+  const showHandle = async (i) => {
+    await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.Selection.atStart(v.state.doc))); document.activeElement.blur(); });
+    await p.keyboard.press("Escape"); await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    const at = await p.evaluate((i) => { const e = [...document.querySelectorAll("#active .pm > p")][i]; e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return [r.left + 60, r.top + 10]; }, i);
+    await p.waitForTimeout(200);
+    await p.touchscreen.tap(at[0], at[1]);
+    await p.waitForTimeout(400);
+    const h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    assert.ok(h.on, "a tapped block has its handle");
+    return h;
+  };
+  // tapped: the block is selected, no menu — its actions are the bar's
+  let h = await showHandle(0);
+  await p.touchscreen.tap(h.x, h.y);
+  await p.waitForTimeout(500);
+  assert.equal(await menuOpen(), false, "a tap on the handle opens no menu");
+  assert.equal((await picked()).length, 1, "… it selects the block");
+  assert.equal(await shown(p, "#ipad-blockbar"), true, "… and the bar of its actions shows");
+  // held still: no menu (neither the page's long press nor the browser's), the block is lifted at once; let go, it stays
+  h = await showHandle(1);
+  const before = await order();
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(250);
+  assert.equal(await p.evaluate(() => document.querySelector(".blk-h").hasAttribute("data-dragging")), true, "held, the block is lifted at once");
+  await p.waitForTimeout(700);
+  assert.equal(await menuOpen(), false, "held past a long press: no menu");
+  // … and moved by the same finger, without letting go
+  const to = await p.evaluate(() => { const e = [...document.querySelectorAll("#active .pm > p")][4]; const r = e.getBoundingClientRect(); return [r.left + 60, r.bottom - 3]; });
+  for (let i = 1; i <= 10; i++) { await touch("touchMove", [[h.x + ((to[0] - h.x) * i) / 10, h.y + ((to[1] - h.y) * i) / 10]]); await p.waitForTimeout(20); }
+  await p.waitForTimeout(120);
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  const after2 = await order();
+  assert.notDeepEqual(after2, before, "the held handle moved its block");
+  assert.equal(after2.length, before.length);
+  assert.equal(await menuOpen(), false, "no menu after the move");
+  // held and let go where it was: nothing moves, no menu
+  h = await showHandle(1);
+  const still = await order();
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(900);
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  assert.deepEqual(await order(), still, "held and let go in place: nothing moves");
+  assert.equal(await menuOpen(), false, "… and no menu");
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector(".blk-h")).webkitTouchCallout || "none"), "none", "no callout of the browser's on the handle");
+  await d.context.close();
+});
+
+test("an iPad: blocks dragged by the handle — the picture under the finger is exactly as large as the blocks, and leaves the handle under the finger free", async () => {
+  const d = await device("ipad-ghost"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await open(d, "Formulas.md");
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(900);
+  // the paragraph and the two formulas selected
+  await p.evaluate(() => { const v = MdActive.view.pm, kids = []; v.state.doc.forEach((n, pos) => kids.push(pos)); MdActive.blocks.select(v, kids[1], false); MdActive.blocks.select(v, kids[3], true); document.activeElement.blur(); scrollTo(0, 0); });
+  await p.waitForTimeout(600);
+  const sel = await p.evaluate(() => { const els = MdActive.blocks.picked(MdActive.view.pm.state).map((x) => MdActive.view.pm.nodeDOM(x.pos).getBoundingClientRect()); return { n: els.length, left: Math.min(...els.map((r) => r.left)), right: Math.max(...els.map((r) => r.right)), top: els[0].top, bottom: els[els.length - 1].bottom }; });
+  assert.equal(sel.n, 3, "three blocks selected");
+  const h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left + r.width / 2, y: r.top + 14 }; });
+  assert.ok(h.on, "their handle shows");
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(200);
+  for (let i = 1; i <= 6; i++) { await touch("touchMove", [[h.x + i, h.y + i * 10]]); await p.waitForTimeout(30); }
+  await p.waitForTimeout(150);
+  const g = await p.evaluate(() => { const e = document.querySelector(".drag-ghost"); if (!e) return null; const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height }; });
+  if (process.env.SHOT_DIR) await shot(d, "ghost");
+  const finger = [h.x + 6, h.y + 60];
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  assert.ok(g, "a picture goes with the finger");
+  const bw = sel.right - sel.left, bh = sel.bottom - sel.top;
+  assert.ok(Math.abs(g.w - bw) / bw <= 0.02 && Math.abs(g.h - bh) / bh <= 0.02, `the picture as large as the blocks: ${Math.round(g.w)}×${Math.round(g.h)} for ${Math.round(bw)}×${Math.round(bh)}`);
+  assert.ok(g.left > finger[0] + 4, `the picture leaves the handle under the finger free: picture from ${Math.round(g.left)}, finger at ${finger[0]}`);
+  assert.ok(Math.abs(g.top - (sel.top + 60)) < 6, `… and stands where the blocks stood, moved as far as the finger: ${Math.round(g.top)} for ${Math.round(sel.top + 60)}`);
+  await d.context.close();
+});
+
+test("an iPad: the keyboard comes only where the finger asked to type — not after a block is chosen, moved, put in, or its bar used", async () => {
+  const d = await device("ipad-keys"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await open(d);
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  // (the keyboard comes with a field of text that has the focus: the note, or a field of a dialog)
+  const keys = () => p.evaluate(() => { const a = document.activeElement; return !!a && (a.isContentEditable || /^(TEXTAREA|INPUT)$/.test(a.tagName)) && a.getAttribute("inputmode") !== "none"; });
+  const calm = async () => { await p.evaluate(() => { document.activeElement && document.activeElement.blur(); scrollTo(0, 0); }); await p.keyboard.press("Escape"); await p.evaluate(() => document.activeElement && document.activeElement.blur()); await p.waitForTimeout(250); };
+  const paraAt = (i) => p.evaluate((i) => { const e = [...document.querySelectorAll("#active .pm > p")][i]; e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return [Math.round(r.left + 60), Math.round(r.top + 10)]; }, i);
+  const results = {};
+  // a swipe chooses a block
+  await calm();
+  let a = await paraAt(0);
+  await touch("touchStart", [a]); for (let i = 1; i <= 8; i++) { await touch("touchMove", [[a[0] + i * 12, a[1] + 1]]); await p.waitForTimeout(16); } await touch("touchEnd", []); await p.waitForTimeout(900);
+  results.swipe = await keys();
+  // its bar: Duplicate, then Delete
+  await tapTile(d, "#ipad-blockbar", "Duplicate");
+  results.duplicate = await keys();
+  // the handle: tapped, then held and the block moved — slowly, longer than a moment
+  await calm();
+  a = await paraAt(1);
+  await p.touchscreen.tap(a[0], a[1]); await p.waitForTimeout(400);
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  let h = await p.evaluate(() => { const r = document.querySelector(".blk-h").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await p.touchscreen.tap(h[0], h[1]); await p.waitForTimeout(500);
+  results.handleTap = await keys();
+  await calm();
+  a = await paraAt(1);
+  await p.touchscreen.tap(a[0], a[1]); await p.waitForTimeout(400);
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  h = await p.evaluate(() => { const r = document.querySelector(".blk-h").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  const to = await paraAt(4);
+  await touch("touchStart", [h]); await p.waitForTimeout(400);
+  for (let i = 1; i <= 20; i++) { await touch("touchMove", [[h[0] + ((to[0] - h[0]) * i) / 20, h[1] + ((to[1] + 12 - h[1]) * i) / 20]]); await p.waitForTimeout(60); }
+  await touch("touchEnd", []); await p.waitForTimeout(600);
+  results.drag = await keys();
+  // put in from the panel: a formula, a table — no keyboard; a line of text — the keyboard
+  await calm();
+  a = await paraAt(2);
+  await p.touchscreen.tap(a[0], a[1]); await p.waitForTimeout(400);
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  await tap(d, '#rrail .rp-tab[data-tab="insert"]');
+  const n0 = await p.evaluate(() => MdActive.view.pm.state.doc.childCount);
+  await tap(d, '#rpanel .rp-tile[data-i="0"]');
+  results.text = await keys();
+  assert.equal(await p.evaluate(() => MdActive.view.pm.state.doc.childCount), n0 + 1, "a line of text put in");
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  await tap(d, '#rpanel .rp-tile[data-i="2"]');
+  results.table = await keys();
+  await p.evaluate(() => document.activeElement && document.activeElement.blur());
+  await tap(d, '#rpanel .rp-tile[data-i="4"]');
+  results.formula = await keys();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(400);
+  await tap(d, '#rrail .rp-tab[data-tab="insert"]');
+  // a tap into the text: the keyboard
+  await calm();
+  a = await paraAt(3);
+  await p.touchscreen.tap(a[0], a[1]); await p.waitForTimeout(500);
+  results.tapText = await keys();
+  assert.deepEqual(results, { swipe: false, duplicate: false, handleTap: false, drag: false, formula: false, table: false, text: true, tapText: true }, "the keyboard only where the finger asked to type");
+  await d.context.close();
+});
+
 test("an iPad: undo and redo beside the pencil while writing — what Ctrl+Z does, without the keyboard coming up; dimmed when there is nothing", async () => {
   const d = await device("ipad-undo"), p = d.page;
   await open(d);
@@ -332,7 +489,7 @@ test("an iPad: undo and redo beside the pencil while writing — what Ctrl+Z doe
   assert.equal(await state(), "true,true", "nothing to undo or redo yet: both dimmed");
   assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#ipad-tools [data-ip="undo"]')).opacity), "0.35");
   // something typed at the end of the first paragraph
-  await p.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === "paragraph") { at = pos + n.nodeSize - 1; return false; } }); v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
+  await p.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === "paragraph") { at = pos + n.nodeSize - 1; return false; } }); v.focus({ keyboard: true }); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
   await p.keyboard.type(" typed here");
   await p.waitForTimeout(500);
   const has = () => p.evaluate(() => document.querySelector("#active .pm").textContent.includes("typed here"));

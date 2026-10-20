@@ -25,7 +25,7 @@
     sbPreviews, setFolder, moving, markShared, quickWhen, quickPreviews, quickFresh, GROUPS, groupOn,
     listed, applyFolder, openCtx } = P; // viewer/sidebar.js
   const { closePick, popup, combo, noteRenamed } = P; // viewer/menus.js
-  const { touching, emptyState } = P; // viewer/drawer.js
+  const { touching, byFinger, emptyState } = P; // viewer/drawer.js
   const { topRoom, setTabs } = P; // viewer/tabs.js
   const { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll } = P; // viewer/toolbar.js
 
@@ -51,20 +51,21 @@
   function groundGoes() {
     const root = document.documentElement;
     if (document.body.hasAttribute("data-overview") || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const cs = getComputedStyle(root), plain = !root.dataset.docBg, from = plain ? getComputedStyle(document.body) : cs;
+    const plain = !root.dataset.docBg, cs = getComputedStyle(root, plain ? null : "::before"), from = plain ? getComputedStyle(document.body) : cs; // (the ground's layer: viewer/page.css)
     for (const x of document.querySelectorAll(".ground-was")) x.remove();
     // (one over the window, and one in the strip of tabs, which has the ground of its own: viewer/tabs.css)
     const tabs = document.getElementById("tabs"), strip = tabs && getComputedStyle(tabs).display !== "none" ? getComputedStyle(tabs) : null;
+    // (its picture as it was drawn there — never held at the window with `fixed`, which paints the window anew at each step)
     const lay = (parent, of) => {
       const was = document.createElement("div");
       was.className = "ground-was";
       was.setAttribute("aria-hidden", "true");
       was.style.backgroundColor = of.backgroundColor !== "rgba(0, 0, 0, 0)" ? of.backgroundColor : cs.backgroundColor;
-      if (!plain) Object.assign(was.style, { backgroundImage: cs.backgroundImage, backgroundSize: cs.backgroundSize, backgroundPosition: cs.backgroundPosition, backgroundRepeat: cs.backgroundRepeat, backgroundAttachment: "fixed" });
+      if (!plain) Object.assign(was.style, { backgroundImage: of.backgroundImage, backgroundSize: of.backgroundSize, backgroundPosition: of.backgroundPosition, backgroundRepeat: of.backgroundRepeat });
       parent.appendChild(was);
       return was;
     };
-    const all = [lay(document.body, from), ...(strip ? [lay(tabs, plain ? strip : cs)] : [])];
+    const all = [lay(document.body, from), ...(strip ? [lay(tabs, strip)] : [])];
     void all[0].offsetWidth;
     requestAnimationFrame(() => {
       for (const was of all) was.classList.add("gone");
@@ -86,10 +87,36 @@
    * like any other — one step of its history, saved at once, the caret where it was; a page of a
    * note is not where the properties stand: there the file's text is put anew. In the reading view
    * the file is written and the note drawn again where it stands; the step is in the note's
-   * history for the active mode to take back. → whether it was done */
+   * history for the active mode to take back. Beside the source (alone or beside its reading) it
+   * is an edit of the source like one typed: only the head of the text changes, one step of the
+   * editor's own undo, the caret and the place in the text kept, saved at once. → whether it was done */
   function docSet(key, value) {
     const p = P.current;
-    if (!p || p.readonly || p.error || p.kind === "pdf" || READING || (P.mode !== "active" && P.mode !== "read")) return false;
+    if (!p || p.readonly || p.error || p.kind === "pdf" || READING || !["active", "read", "edit", "split"].includes(P.mode)) return false;
+    if (P.inSource()) {
+      if (P.edPath !== p.path) return false;
+      const before = edInput.value, text = setProp(before, key, value);
+      if (text == null || text === before) return false;
+      // what changed: the part between what stays at the front and what stays at the end (the head, as setProp writes it)
+      let a = 0, b = 0;
+      const max = Math.min(before.length, text.length);
+      while (a < max && before.charCodeAt(a) === text.charCodeAt(a)) a++;
+      while (b < max - a && before.charCodeAt(before.length - 1 - b) === text.charCodeAt(text.length - 1 - b)) b++;
+      const end = before.length - b, put = text.slice(a, text.length - b), by = put.length - (end - a);
+      const map = (x) => (x >= end ? x + by : x < a ? x : a + put.length);
+      const s = map(edInput.selectionStart), e = map(edInput.selectionEnd), focused = document.activeElement === edInput;
+      const lines = (t) => t.split("\n").length - 1, at = P.captureEditAnchor(), headLine = lines(before.slice(0, end));
+      P.edReplace(a, end, put, s, e); // (through the editor's undo, as a key would)
+      if (!focused) edInput.blur();
+      // the line at the window's top stays there (scrolled to the top, the head that came shows)
+      if (at.line == null) scrollTo({ top: 0, behavior: "instant" });
+      else {
+        const el = P.edBack.children[at.line > headLine ? at.line + lines(put) - lines(before.slice(a, end)) : at.line];
+        if (el) window.scrollBy({ top: el.getBoundingClientRect().top - at.top, behavior: "instant" });
+      }
+      flushSave(); // (written at once, the note's history a step on, the ground and width shown: docSync)
+      return true;
+    }
     if (P.mode === "active") {
       const view = window.MdActive && MdActive.view, shown = view && view.pm && viewOf(p);
       if (!shown) return false;
@@ -294,7 +321,7 @@
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && P.pagesShown && P.pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++P.pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind,
         title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
-      copy: (text) => post("copy", { text }), menuAt: (x, y, rows) => P.menuAt(x, y, rows), post, touching, mdHtml, mdInto, drawDiagrams, fenceSvg, noteText,
+      copy: (text) => post("copy", { text }), menuAt: (x, y, rows) => P.menuAt(x, y, rows), post, touching, byFinger, mdHtml, mdInto, drawDiagrams, fenceSvg, noteText,
       // (the folder's notes, for what the chat may be given to read: { path, name, dir })
       folderName: () => (P.folder ? (P.folder.quick ? "Quick Notes" : P.folder.name) : ""),
       folderNotes,
@@ -306,7 +333,7 @@
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
       filework: P.FILEWORK, get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); } },
-    quickFresh,
+    quickFresh, titleFresh: () => P.titleFresh(),
     setPreviews: (p) => { const rest = sbPreviews(p); if (!Object.keys(rest).length && Object.keys(p || {}).length) return; quickPreviews(rest); if (window.MdOverview) MdOverview.previews(rest); } };
 
   // what the page's other files use of this one

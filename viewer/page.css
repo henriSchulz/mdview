@@ -74,7 +74,14 @@ body[data-mode="dark"] {
 [data-doc-bg="dots"] { --doc-image: radial-gradient(circle at center, var(--doc-ink) 1px, transparent 1.6px); }
 [data-doc-bg="grid"] { --doc-image: linear-gradient(var(--doc-ink) 1px, transparent 1px), linear-gradient(90deg, var(--doc-ink) 1px, transparent 1px); }
 [data-doc-bg="lines"] { --doc-image: linear-gradient(var(--doc-ink) 1px, transparent 1px); --doc-size: 100% var(--doc-cell); }
-:root[data-doc-bg]:not(:has(> body[data-overview])) { background: var(--doc-ground) var(--doc-image) 0 0 / var(--doc-size) fixed; }
+/* (the ground is a layer of its own that stands at the window — not a background held there with `background-attachment: fixed`:
+ * WebKit cannot move what such a page drew, and paints the whole window anew at every step of a scroll, the run's colours and the
+ * paper's dots with it. Henri, 2026-10-20: "it performs worst when a background is set in the document"; `rig.sh scrollperf`.
+ * --doc-size-win: the picture's size where it is drawn on something smaller than the window — the strip of tabs, viewer/tabs.css) */
+[data-doc-bg] { --doc-size-win: 100vw 100vh; }
+:is([data-doc-bg="dots"], [data-doc-bg="grid"], [data-doc-bg="lines"]) { --doc-size-win: var(--doc-size); }
+:root[data-doc-bg]:not(:has(> body[data-overview])) { background: var(--doc-ground); }
+:root[data-doc-bg]:not(:has(> body[data-overview]))::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--doc-ground) var(--doc-image) 0 0 / var(--doc-size); }
 :root[data-doc-bg] > body:not([data-overview]) { background-color: transparent; }
 :root[data-doc-bg]:not(:has(> body[data-overview])) { scrollbar-color: color-mix(in srgb, var(--c-foreground) 30%, transparent) transparent; } /* (the scrollbar's track lets the ground through: no strip of one colour beside the run) */
 /* (the sheet: the three views of a note share it, as they share the column's measure. Beside it a little of the ground
@@ -91,6 +98,7 @@ body[data-mode="dark"] {
 @media (max-width: 640px) { :root[data-doc-bg] > body:not([data-overview]) :is(#content, #editor, #active) { padding: 32px 20px 40vh; } }
 @media print {
   :root[data-doc-bg] { background: var(--c-background); }
+  :root[data-doc-bg]::before { display: none; }
   :root[data-doc-bg] > body :is(#content, #editor, #active) { margin: 0 auto; border: 0; border-radius: 0; min-height: 0; }
 }
 
@@ -132,7 +140,6 @@ body[data-going] :is(#content, #active, #editor) { visibility: hidden; }
 #tabs > .ground-was { position: absolute; } /* (in the strip: over its ground, under its tabs) */
 .ground-was.gone { opacity: 0; }
 #loading { position: fixed; top: 34vh; left: 0; right: 0; margin: 0 auto; width: 22px; height: 22px; box-sizing: border-box; z-index: 13; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fg) 14%, transparent); border-top-color: color-mix(in srgb, var(--fg) 55%, transparent); opacity: 0; visibility: hidden; pointer-events: none; }
-body[data-sidebar="open"] #loading { left: var(--sb-w); }
 body[data-going] #loading { visibility: visible; animation: loading-in var(--dur-fast) var(--ease-out) 140ms both, loading-spin 0.75s linear infinite; will-change: transform, opacity; }
 @keyframes loading-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes loading-spin { to { transform: rotate(360deg); } }

@@ -31,6 +31,9 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 /* that picture, for several blocks: as they stand, on a card (made for the drag, off the page) */
 .blk-ghost { position: fixed; top: 0; left: -10000px; z-index: -1; box-sizing: border-box; max-height: 340px; overflow: hidden; padding: 8px 12px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); pointer-events: none; }
 .blk-ghost > div { margin: 0; padding: 0; min-height: 0; }
+/* (a finger's picture: the blocks themselves, as large as they are, on the note's ground, lifted by a light shadow) */
+.blk-ghost.blk-ghost-exact { padding: 0; max-height: none; border-radius: var(--radius-row); background: var(--bg); box-shadow: var(--shadow-capsule); }
+.blk-ghost.blk-ghost-exact > div { position: absolute; overflow: visible; }
 .blk-ghost > div > :first-child { margin-top: 0; }
 .blk-ghost > div > :last-child { margin-bottom: 0; }
 .blk-h svg { width: 10px; height: 16px; fill: currentColor; }
@@ -114,34 +117,29 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 
 /* blocks selected as wholes (a click on a handle, then the keyboard) */
 /* Each selected block wears a field of its own: a light tint with round corners, a little wider
- * than the block, with the room between two blocks left clear — several selected are several
- * fields, one under the other (as Craft shows them), not one box around all of them. --blk-out
- * (how far a field reached out over the block's handle) is none any more: the handle stands
- * beside the field. */
+ * than the block, with the same room between two fields whatever the blocks are — several
+ * selected are several fields, one under the other (as Craft shows them). The fields are drawn
+ * in a layer of their own over the note (blocks.js, drawFields), the same for every kind of
+ * block: a paragraph, a heading, a list's item (with its bullet), a callout, code, a table, a
+ * picture, a formula, a rule, the blocks of a row of columns. Painted on the blocks themselves
+ * they differed with each kind — a block's own surface (code, a table's sheet, a picture) lay
+ * over the tint, a rule had none, a table wore a ring. Through the layer the tint lies over all
+ * of them alike; the text under it keeps its colour but for a breath of the accent. */
 .pm { --blk-sel: color-mix(in srgb, var(--accent) 9%, var(--bg)); --blk-out: 0px; }
+.blk-fields {
+  --blk-field: color-mix(in srgb, var(--accent) 10%, transparent);
+  --blk-field-pad: 5px;  /* how far a field reaches out of its block */
+  --blk-field-gap: 6px;  /* the room between two fields, one under the other */
+  --blk-field-rule: 9px;  /* a rule's field reaches further up and down (the rule is a line) */
+  position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; pointer-events: none; /* (over the note, under all that floats over it: the bars, the menus, the handle) */
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.blk-field { position: absolute; border-radius: var(--radius-row); background: var(--blk-field); pointer-events: none; }
+body.blk-dragging .blk-fields { opacity: 0.35; }
+@media print { .blk-fields { display: none; } }
 /* (a row of columns selected: its blocks wear the fields, each its own — the row itself none) */
 .pm.has-blocksel.ProseMirror-focused .cols.blk-row.ProseMirror-selectednode { outline: none; background-color: transparent; box-shadow: none; }
 .pm .cols.blk-row, .pm .cols.blk-row * { cursor: default; caret-color: transparent; }
-.pm .blk-sel { --blk-box: 0 0 0 5px var(--blk-sel); background-color: var(--blk-sel); box-shadow: var(--blk-box); border-radius: var(--radius-row); }
-/* The room between two fields is the same whatever the blocks are: one that follows another
- * reaches up over what its gap has more than that — the gap is the blocks' margins, which differ
- * (a heading, a card, an empty line), and is measured (--up: the gap less 8 px, blocks.js). 6 px
- * stay clear. */
-.pm .blk-sel[style*="--up"] { --blk-box: 0 0 0 5px var(--blk-sel), 0 calc(-1 * var(--up)) 0 5px var(--blk-sel); }
-.pm .blk-sel[style*="--cut"] { clip-path: inset(calc(var(--cut) - 5px) -5px -5px -5px round var(--radius-row)); }
-/* (a rule: its field is a layer of its own — the same reach) */
-.pm hr.blk-sel[style*="--up"]::before { top: calc(-8px - var(--up)); }
-.pm hr.blk-sel[style*="--cut"] { clip-path: none; }
-.pm hr.blk-sel[style*="--cut"]::before { top: calc(-8px + var(--cut)); }
-/* (a list item: one layer that also takes in its bullet — two see-through layers would show double where they overlap) */
-.pm li.blk-sel, .pm li.blk-sel + li.blk-sel { position: relative; isolation: isolate; background-color: transparent; box-shadow: none; }
-.pm li.blk-sel::before { content: ""; position: absolute; inset: -4px -4px -4px calc(-1.6em - var(--blk-out) - 4px); z-index: -1; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; } /* (as far out as the box of a block beside the list: the list's indent, 1.6em, and what a block's box reaches out — its handle stands 46 out, inside it) */
-/* (a rule is one pixel high: a shadow shifted up cannot fill the gap above it, and a tint as its
- * background would be the line gone. Its tint is a layer of its own that reaches up to the block
- * before it, and the line is drawn over it — the same however the rule came to be selected.) */
-.pm hr.blk-sel, .pm.has-blocksel.ProseMirror-focused hr.blk-sel.ProseMirror-selectednode { position: relative; isolation: isolate; overflow: visible; background-color: transparent; box-shadow: none; }
-.pm hr.blk-sel::before { content: ""; position: absolute; inset: -8px -4px -8px calc(-4px - var(--blk-out)); z-index: -2; border-radius: var(--radius-row); background: var(--blk-sel); pointer-events: none; }
-.pm hr.blk-sel::after { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--rule, var(--line-strong)); pointer-events: none; }
 /* (on the selected blocks themselves, not on everything in the note: see .ProseMirror-selectednode above) */
 .pm .blk-sel::selection, .pm .blk-sel *::selection, .pm .blk-sel + *::selection, .pm .blk-sel + * *::selection { background: transparent; }
 /* (… and it reaches back into what stands before the block — the cells of a table lit up — and
@@ -153,8 +151,23 @@ body.blk-dragging .pm .blk-sel { opacity: 0.35; }
 .pm .blk-sel { caret-color: transparent; }
 /* (a block that is selected is a thing, not text: the pointer over it is the arrow — a click, or Enter, goes into it) */
 .pm .blk-sel, .pm .blk-sel * { cursor: default; }
-.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: var(--blk-box); }
-.pm.has-blocksel.ProseMirror-focused li.blk-sel.ProseMirror-selectednode { box-shadow: none; }
+.pm.has-blocksel.ProseMirror-focused .blk-sel.ProseMirror-selectednode { outline: none; box-shadow: none; }
+/* A block swiped by a finger (blocks.js), as Craft has it: the block goes along with the finger
+ * (--swipe-x, held back the further it goes) and the field it will wear fades in with the
+ * progress towards the distance that chooses (--swipe-p, 0 to 1) — fades out, swiped to be let
+ * go. There the block is taken: the field's tint deepens and the block gives one small bump
+ * (blk-swipe-reached on the root); let go, it springs back into its place. The values are set on
+ * the root, so the block and its field in the layer over the note read the same. */
+@property --swipe-x { syntax: "<length>"; inherits: true; initial-value: 0px; }
+@property --swipe-p { syntax: "<number>"; inherits: true; initial-value: 0; }
+.pm .blk-swiping { transform: translateX(var(--swipe-x)); }
+.blk-field[data-swiping] { transform: translateX(var(--swipe-x)); transition: background-color var(--dur-fast) var(--ease-out); }
+.blk-field[data-swipe="add"] { opacity: var(--swipe-p); }
+.blk-field[data-swipe="drop"] { opacity: calc(1 - var(--swipe-p)); }
+.blk-swipe-reached .blk-field[data-swiping] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.blk-swipe-reached .pm .blk-swiping, .blk-swipe-reached .blk-field[data-swiping] { animation: blk-swipe-bump var(--spring-snappy-dur) var(--spring-snappy); }
+@keyframes blk-swipe-bump { from { scale: 1.015; } to { scale: 1; } }
+.blk-swipe-back { transition: --swipe-x var(--spring-snappy-dur) var(--spring-snappy), --swipe-p var(--dur-fast) var(--ease-out); }
 
 /* … or the page of the note it would go into: its line is marked */
 /* … into a column: the column is marked, the line as wide as it (under the row instead: the line as wide as the text, no column marked) */

@@ -16,7 +16,7 @@
   height: var(--tabs-h);
   padding: 10px calc(var(--tb-w, 230px) + 28px) 0 12px;
   background: var(--bg);
-  clip-path: inset(0 0 -14px 0);   /* (what glides in from under the sidebar is cut at its edge; the shade below is not) */
+  clip-path: inset(0 0 -14px 0);   /* (cut at its edges, its shade below not) */
   font: 400 13px/1.2 var(--ui);
   font-variation-settings: "opsz" 17;
   user-select: none;
@@ -28,10 +28,13 @@ body[data-tabs] #tabs { display: block; }
 /* A note with a ground of its own (page.css: data-doc-bg): the strip is of that ground — the same picture, held at the window as
  * the ground is, so the two are one — and not a band of the window's colour across it; its shade below is the ground thinning
  * out. The sheet begins a little under the strip, with the ground between them. */
-:root[data-doc-bg] > body:not([data-overview]) #tabs, :root[data-doc-bg] > body:not([data-overview]) #tabs::after { background: var(--doc-ground) var(--doc-image) 0 0 / var(--doc-size) fixed; }
+/* (drawn where the window's ground is, not held there with `fixed`, which paints the window anew at each step of a scroll —
+ * page.css: the strip's picture begins where the window's does, --tabs-x to its left, and its shade's the strip's height above, --tabs-y) */
+:root[data-doc-bg] > body:not([data-overview]) #tabs { background: var(--doc-ground) var(--doc-image) calc(-1 * var(--tabs-x, 0px)) 0 / var(--doc-size-win); }
+:root[data-doc-bg] > body:not([data-overview]) #tabs::after { background: var(--doc-ground) var(--doc-image) calc(-1 * var(--tabs-x, 0px)) calc(-1 * var(--tabs-y, var(--tabs-h))) / var(--doc-size-win); }
 :root[data-doc-bg] > body:not([data-overview]) #tabs::after { -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
 :root[data-doc-bg] > body[data-tabs]:not([data-overview]) :is(#content, #editor, #active) { margin-top: calc(var(--tabs-h) + var(--doc-gap)); min-height: calc(100vh - var(--tabs-h) - 2 * var(--doc-gap)); }
-body[data-sidebar="open"] #tabs { left: var(--sb-w); padding-left: 6px; }
+body[data-sidebar="open"] #tabs { padding-left: calc(var(--sb-w) + 6px); } /* (the strip's tabs make room for the card that lies over it; the note does not) */
 /* the note begins under the strip; what sticks to the window's top sticks under it */
 body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }
 .tab-row { display: flex; align-items: center; gap: 4px; height: var(--tab-h); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }

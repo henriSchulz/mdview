@@ -518,8 +518,10 @@ pub fn pdf_backlinks(pdf: &Path, root: &Path) -> Vec<Backlink> {
     out
 }
 
-/// The indexes of folders' files that were made lately (Resolver::index): by root, with when.
-static INDEXES: Mutex<Option<HashMap<PathBuf, (Instant, Arc<HashMap<String, Vec<String>>>)>>> = Mutex::new(None);
+/// The indexes of folders' files that were made lately (Resolver::index): by root, with when, and whether the walk was cut short.
+static INDEXES: Mutex<Option<HashMap<PathBuf, (Instant, Arc<HashMap<String, Vec<String>>>, bool)>>> = Mutex::new(None);
+/// How long a walk for the index may take (a cold disk, a large folder: it is cut short then).
+const WALK_TIME: Duration = Duration::from_millis(2500);
 
 /// Resolves Obsidian wikilink targets like Obsidian does: next to the note, at the vault
 /// root, then anywhere below the root by file name. The root is the nearest ancestor holding
@@ -532,14 +534,23 @@ pub struct Resolver {
     index: Option<Arc<HashMap<String, Vec<String>>>>,
     /// … and whether it was one made before (a file made since is not in it).
     cached: bool,
+    /// … whether its walk was cut short (a file it did not reach is not in it).
+    partial: bool,
+    /// … whether a link found nowhere has had the files looked at once more (once for a resolver: a walk cut short again is not made a third time).
+    retried: bool,
+    /// How long the next walk may take: `WALK_TIME` (a test gives the first one less, to cut it short).
+    walk_time: Duration,
 }
 
 impl Resolver {
     /// … for a note in a folder window: with no .obsidian above it, the folder window's own top is the root
-    /// (a note of a subfolder names a note or a PDF of another subfolder just as well).
+    /// (a note of a subfolder names a note or a PDF of another subfolder just as well). A note opened by itself:
+    /// the top of the project or the repository it is in (its `assets` are there).
     pub fn in_base(note_dir: &Path, home: &Path, base: Option<&Path>) -> Self {
         let mut r = Resolver::new(note_dir, home);
-        r.base = base.filter(|b| r.vault.is_none() && note_dir.starts_with(b)).map(Path::to_path_buf);
+        if r.vault.is_none() {
+            r.base = base.filter(|b| note_dir.starts_with(b)).map(Path::to_path_buf).or_else(|| top_of(&note_dir.join("x")).filter(|t| t != home));
+        }
         r
     }
 
@@ -554,7 +565,7 @@ impl Resolver {
                 break;
             }
         }
-        Resolver { note_dir: note_dir.to_path_buf(), vault, base: None, index: None, cached: false }
+        Resolver { note_dir: note_dir.to_path_buf(), vault, base: None, index: None, cached: false, partial: false, retried: false, walk_time: WALK_TIME }
     }
 
     /// The files below the root by their lower-case names. Kept for a few seconds, for the next note opened and the next link
@@ -565,35 +576,40 @@ impl Resolver {
             let root = self.vault.clone().or_else(|| self.base.clone()).unwrap_or_else(|| self.note_dir.clone());
             let mut kept = INDEXES.lock().unwrap();
             let kept = kept.get_or_insert_with(HashMap::new);
-            let fresh = kept.get(&root).filter(|(at, _)| at.elapsed() < Duration::from_secs(8)).map(|(_, idx)| idx.clone());
+            let fresh = kept.get(&root).filter(|(at, _, _)| at.elapsed() < Duration::from_secs(8)).map(|(_, idx, partial)| (idx.clone(), *partial));
             self.cached = fresh.is_some();
-            let idx = fresh.unwrap_or_else(|| {
+            let (idx, partial) = fresh.unwrap_or_else(|| {
                 let mut idx: HashMap<String, Vec<String>> = HashMap::new();
-                let mut count = 0usize;
-                let deadline = Instant::now() + Duration::from_millis(2500);
+                let (mut count, mut partial) = (0usize, false);
+                let deadline = Instant::now() + self.walk_time;
                 walk_files(&root, |dir, files| {
                     for f in files {
                         idx.entry(f.to_lowercase()).or_default().push(s(&dir.join(f)));
                     }
                     count += files.len();
-                    count <= 200_000 && Instant::now() <= deadline
+                    partial = count > 200_000 || Instant::now() > deadline;
+                    !partial
                 });
                 let idx = Arc::new(idx);
                 if kept.len() > 16 {
                     kept.clear();
                 }
-                kept.insert(root, (Instant::now(), idx.clone()));
-                idx
+                kept.insert(root, (Instant::now(), idx.clone(), partial));
+                (idx, partial)
             });
+            self.walk_time = WALK_TIME;
+            self.partial = partial;
             self.index = Some(idx);
         }
         self.index.as_ref().unwrap()
     }
 
-    /// Where a link points. Found in none: if the files were last looked at some time ago, they are looked at again first.
+    /// Where a link points. Found in none: if the files were last looked at some time ago, or not all of them (the walk was cut
+    /// short — a cold disk), they are looked at again first; once for this resolver.
     pub fn resolve(&mut self, target: &str) -> Option<PathBuf> {
         let found = self.look_for(target);
-        if found.is_none() && self.cached {
+        if found.is_none() && self.index.is_some() && (self.cached || self.partial) && !self.retried {
+            self.retried = true;
             let root = self.vault.clone().or_else(|| self.base.clone()).unwrap_or_else(|| self.note_dir.clone());
             if let Some(kept) = INDEXES.lock().unwrap().as_mut() {
                 kept.remove(&root);
@@ -712,6 +728,31 @@ mod tests {
         assert_eq!(Resolver::in_base(&d.join("a"), &home, Some(&d)).resolve("new note"), Some(d.join("c/new note.md")));
         // a base that is not above the note changes nothing
         assert_eq!(Resolver::in_base(&d.join("a"), &home, Some(&d.join("c"))).resolve("top"), None);
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_link_is_looked_for_once_more_when_the_walk_for_the_files_was_cut_short() {
+        // (Henri's DreamChip notes: a note in risc-v/tracing, its PDFs in assets/risc-v; the first walk cut short — a cold disk)
+        let d = std::env::temp_dir().join(format!("mdview-partial-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        for dir in ["risc-v/tracing", "assets/risc-v"] {
+            fs::create_dir_all(d.join(dir)).unwrap();
+        }
+        for f in ["risc-v/tracing/06 E-Trace Spec.md", "risc-v/tracing/00 Übersicht.md", "assets/risc-v/risc-v-e-trace-spec.pdf", "top.md"] {
+            fs::write(d.join(f), "").unwrap();
+        }
+        let home = std::env::temp_dir();
+        let mut r = Resolver::in_base(&d.join("risc-v/tracing"), &home, Some(&d));
+        r.walk_time = Duration::ZERO; // (the walk stops after the first folder it reads: the top)
+        assert_eq!(r.resolve("risc-v-e-trace-spec.pdf#page=12&rect=76,65,557,363"), Some(d.join("assets/risc-v/risc-v-e-trace-spec.pdf")));
+        assert!(!r.partial, "looked at once more, whole");
+        assert_eq!(r.resolve("00 Übersicht"), Some(d.join("risc-v/tracing/00 Übersicht.md")));
+        assert_eq!(r.resolve("nowhere"), None);
+        // the note opened by itself, in a repository (no folder window): its top is the root all the same
+        assert_eq!(Resolver::in_base(&d.join("risc-v/tracing"), &home, None).resolve("risc-v-e-trace-spec.pdf"), None);
+        fs::create_dir_all(d.join(".git")).unwrap();
+        assert_eq!(Resolver::in_base(&d.join("risc-v/tracing"), &home, None).resolve("risc-v-e-trace-spec.pdf#page=35"), Some(d.join("assets/risc-v/risc-v-e-trace-spec.pdf")));
         let _ = fs::remove_dir_all(d);
     }
 

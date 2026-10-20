@@ -510,17 +510,47 @@
     ring.style.width = ring.style.height = d + "px";
     if (S.kind !== "eraser") ring.hidden = true;
   }
-  /* ahead: points the stroke is expected to reach next — drawn with it, not part of it. */
-  function live(item, loop = null, ahead = null) {
+  /* ahead: points the stroke is expected to reach next — drawn with it, not part of it. grows: the stroke only went on (the hand
+   * moved): what changed is the part around the hand — its last points, and what was foreseen ahead of them — and only that part
+   * of the canvas is cleared and drawn again. All of it, at every step, made the window draw itself anew whole, over the PDF's
+   * pages too, a frame of 30 to 60 ms where the window is drawn without the GPU: the ink came late behind the pen (dev/rig.sh pdflag). */
+  let liveAt = null; // what the canvas of the stroke under the hand shows: { item, n (its points), x, y, z (the view), box (around its end, in the canvas's pixels), band }
+  const TAIL = 6; // the points of a stroke that a new one changes the drawing of (the curve through their middles, the breadth taken over three, the end)
+  function tailBox(it, from, k, v) {
+    const pad = it.w * (it.t === "pencil" ? 2.6 : 1) * k + 3; // (as far as the tool reaches from its line: a pencil held flat, a pen pressed hard — render.js, reach)
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = Math.max(0, from); i < it.pts.length; i++) { const x = (it.pts[i][0] - v.x) * k, y = (it.pts[i][1] - v.y) * k; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return [Math.floor(x0 - pad), Math.floor(y0 - pad), Math.ceil(x1 + pad), Math.ceil(y1 + pad)];
+  }
+  function live(item, loop = null, ahead = null, grows = false) {
+    const whole = item;
     if (item && ahead && ahead.length) item = { ...item, pts: [...item.pts, ...ahead], path: null, box: null };
     const c = el.querySelector(".bd-live"), s = size(), dpr = window.devicePixelRatio || 1, ctx = c.getContext("2d"), v = S.view;
     if (c.width !== Math.round(s.w * dpr) || c.height !== Math.round(s.h * dpr)) { c.width = Math.round(s.w * dpr); c.height = Math.round(s.h * dpr); }
+    const k = dpr * v.z, was = liveAt;
+    liveAt = null;
+    if (grows && item && !loop && was && was.item === whole && was.x === v.x && was.y === v.y && was.z === v.z && whole.pts.length >= was.n) {
+      const now = tailBox(item, was.n - TAIL, k, v), b = was.box;
+      const r = [Math.max(0, Math.min(now[0], b[0])), Math.max(0, Math.min(now[1], b[1])), Math.min(c.width, Math.max(now[2], b[2])), Math.min(c.height, Math.max(now[3], b[3]))];
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (r[2] > r[0] && r[3] > r[1]) {
+        ctx.clearRect(r[0], r[1], r[2] - r[0], r[3] - r[1]);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(r[0], r[1], r[2] - r[0], r[3] - r[1]); ctx.clip();
+        ctx.setTransform(k, 0, 0, k, -v.x * k, -v.y * k);
+        B.ink.trace(ctx, item, auto());
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      // (a stroke that became another kind of line — a pen pressed harder than before: a band now, not a line of one width — all anew)
+      if (!!item.stroke === was.band) { liveAt = { item: whole, n: whole.pts.length, x: v.x, y: v.y, z: v.z, box: tailBox(item, whole.pts.length - TAIL, k, v), band: !!item.stroke }; return; }
+    }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, c.width, c.height);
     if (!item && !loop) return;
-    const k = dpr * v.z;
     ctx.setTransform(k, 0, 0, k, -v.x * k, -v.y * k);
     if (item) B.ink.trace(ctx, item, auto());
+    if (item && !loop) liveAt = { item: whole, n: whole.pts.length, x: v.x, y: v.y, z: v.z, box: tailBox(item, whole.pts.length - TAIL, k, v), band: !!item.stroke };
     ctx.globalAlpha = 1;
     if (loop && loop.length > 1) { // the lasso's line: dashes of one size on the screen, whatever the zoom
       ctx.beginPath();
@@ -945,7 +975,7 @@
     }
     let more = false;
     for (const p of pts) more = act.stroke.add(act.edge ? along(act.edge, onBoard(p)) : onBoard(p)) || more;
-    if (more) live(item, null, act.edge ? null : foreseen(item, ahead));
+    if (more) live(item, null, act.edge ? null : foreseen(item, ahead), true);
     if (act.edge) return; // (along the ruler it is straight already)
     if (Math.hypot(lastPt.x - act.still.x, lastPt.y - act.still.y) > STILL || !act.hold) {
       act.still = lastPt;

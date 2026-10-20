@@ -412,7 +412,7 @@
               break;
             }
             case "heading_open":
-              out.push(headingOf(t, inner[0], attrs));
+              out.push(headingOf(t, inner[0], attrs, ctx));
               break;
             case "hr":
               out.push({ type: "horizontal_rule", attrs: { ...attrs, markup: t.markup } });
@@ -475,8 +475,10 @@
       const meta = group[0].meta || {}, raw = sourceOf(group, ctx);
       return { type: "table", attrs: { ...attrs, wide: meta.wide !== false, head: meta.head || "", mark: meta.mark || null, cols: meta.cols || null, raw: meta.mark ? raw.replace(/^[^\n]*\n/, "") : raw }, content: rows }; // (raw: the table's own lines)
     }
-    function headingOf(t, inl, attrs) {
-      const content = inlineOf(inl);
+    function headingOf(t, inl, attrs, ctx = []) {
+      // (an empty title at the very top — a new note's, the caret in it: viewer/drawer.js, New Note — is a heading to type
+      // into; any other empty heading is shown as what it is, an island)
+      const content = inlineOf(inl, !ctx.length && t.tag === "h1" && attrs.line === 0);
       const node = Node.fromJSON(schema, { type: "heading", content });
       return { type: "heading", content, attrs: { ...attrs, align: (t.meta && t.meta.align) || null, level: Number(t.tag.slice(1)), markup: t.markup,
         slug: slugify(inlineText(inl.children)) || "section", slugOf: node.textContent } };

@@ -50,6 +50,7 @@
   --pressed-alpha: 14%;
   --hairline: 1px solid color-mix(in srgb, var(--fg, currentColor) 10%, transparent);
   --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.2), 0 0 0 0.5px rgb(0 0 0 / 0.12);
+  --shadow-floating: 0 10px 36px rgb(0 0 0 / 0.14), 0 2px 8px rgb(0 0 0 / 0.06);  /* a card that lies over the note: the sidebar (drawn as a picture of it: viewer/sidebar.css) */
 }
 
 /* Menus and popovers: [data-open] shows them; they stay in the page, so that closing can be

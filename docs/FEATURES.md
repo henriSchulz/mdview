@@ -41,8 +41,8 @@ Edits are saved by themselves. The settings (`Ctrl+,`) choose the mode a new win
 and at the right the note as it reads, drawn anew a moment after each key. The two halves stay at the same place in
 the text: scrolled at the left, the right follows; scrolled at the right, the source follows. A click on a block at the
 right puts the caret at its line; a link there leads where it leads in reading. Tasks are ticked in the source here. With
-the sidebar open the halves share what it leaves; a window too narrow for two (less than 600 px beside the sidebar) shows
-the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
+the sidebar open the halves stay as they are (it lies over the source's half); a window too narrow for two (less than
+600 px) shows the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
 sheet changes to the source alone, and this mode closes the sheet.
 
 ## Markdown that is rendered
@@ -718,6 +718,12 @@ Not there yet: a table's single rows and columns pulled to size or put in betwee
 ![[Other note]]                the note itself, shown in place
 ```
 
+Where a link leads, as Obsidian finds it: beside the note, at the root, then anywhere below the
+root by the file's name (whatever its case; the nearest first). The root is the vault (the nearest
+folder above with an `.obsidian`), else the folder window's top, else the top of the project or
+repository the note is in — in the web app the repository's. So a note of `risc-v/tracing/` names
+`[[spec.pdf#page=12]]` that lies in `assets/risc-v/`. A link the app found nowhere is looked for
+once more when the note is drawn (a file made since, a list of the files cut short on a cold disk).
 A link to a note that does not exist is drawn dashed. `Alt+←` / `Alt+→` go back and forward.
 
 **Back and forward**, as a browser has them: each tab has one way back through what was shown in
@@ -791,8 +797,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   all of them, and a right click the clipboard, Duplicate and Delete as well. `Ctrl+click` picks blocks one by one; a
   rectangle pulled from the empty space selects those it reaches, and a click there lets go of
   whatever is selected — blocks or text. Select All in the right-click menu selects the note's
-  blocks as wholes. Each selected block has a field of its own, with the same room between two
-  of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
+  blocks as wholes. Each selected block has a field of its own — the same light tint, corners
+  and reach for every kind of block (a paragraph, a list's item with its bullet, a callout,
+  code, a table, a picture, a formula, a rule, the blocks of columns), lying over the block —,
+  with the same room between two of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
   the page along.
   What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
   them as blocks of its own and is selected there, so the next paste goes below that.
@@ -812,8 +820,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
   that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
   slides in from the edge with that mode and out again when the view changes, and the reading
-  view and the source have none (beside the reading view the panel comes only with `Ctrl+Alt+P`,
-  at Document). The panel lies over the window, under the toolbar and beside the rail:
+  view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
   window narrower than 760 px shows neither the rail nor the panel. *Insert* (`+`) — tiles for everything that can be put in, click
   or drag; *Format* (`Aa`) — the styles of the block the caret is in; *Style* (the brush) and
@@ -836,8 +843,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Background and Page width are properties of the note (`background`, `width` — see Properties):
   chosen here they are written into its frontmatter, as one step that `Ctrl+Z` takes back, and the
   caret stays where it is. Taken back to none they leave the frontmatter, and it goes with the
-  last of them. Insert and Format are the active mode's; Style and Information stand beside the
-  reading view as well, the other two signs dimmed there. The rail is not beside the source.
+  last of them. Insert and Format are the active mode's; Style and Information stand in every
+  mode — beside the reading view, the source, and the source beside its reading — the other two
+  signs dimmed there. Beside the source a choice is an edit of its text like one typed: only the
+  head changes, the caret and the line at the window's top stay, `Ctrl+Z` in the source takes it
+  back, and it is saved at once. Beside the source with its reading the ground runs under both
+  halves, and the note at the right is a sheet on it as the source at the left is.
 - **Graphic** (`/` → Graphic): describe a figure and it is drawn as an SVG file beside the note.
 - **Suggestions while typing** (a setting, off by default): the next words in grey, `Tab` takes them.
 - **Undo** follows across the modes.
@@ -864,7 +875,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
-  the notes' titles.
+  the notes' titles. **It lies over the note**, a card that floats in the window with a shade
+  under it: opened or shut, the note, All Notes and the halves of a split stay where they are —
+  only the card slides in (the strip's tabs make room for it, its button beside it). Where the
+  window is narrow enough that it lies over the text, a click into the note puts it away; where
+  it covers only the margin, it stays open while one reads and writes. Over All Notes it stays
+  open (a tile can be pulled onto a folder in it) and lies over the first sheets until it is shut.
 - **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
   small, in the list. It is drawn when the tile comes near the window and kept while the window
   is open; until then the tile has the PDF's sign.
@@ -898,7 +914,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   does on them, are the same in all four:
   - **List**: the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
-  - **Rail** (the default, on every device until another is chosen): the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
+  - **Rail**: the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
     it what is in the one chosen. A folder is a favourite by its menu (**Add to Favourites**, a star —
     filled where it is one; **Remove from Favourites**) or by pulling it onto the rail. Favourites
     are kept with the folder's colour and sign, in the folder (`.mdview/folders.json`): every device
@@ -911,7 +927,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
   folder's row, and the name is changed there).
-  - **Sheets**: a sheet of paper for each file that shows what it is — a note its beginning, small,
+  - **Sheets** (the default, on every device until another is chosen; a rail kept from the days
+    it was the default gave way to it once): a sheet of paper for each file that shows what it is — a note its beginning, small,
     as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves; any
     other file its sign — and a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
@@ -947,7 +964,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   *Folders*, in the folder of the note on screen, whatever was shown last. The switches, the
   pasteboard's button and `…` are raised alike and stand together: where the head is too narrow
   for them beside the name, they go to a line of their own together. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
-  The `+` at the head makes a new note or folder in the folder shown. A sheet under the pointer
+  The `+` at the head makes a new note (asked for nothing: "Untitled", see below) or folder in the folder shown. A sheet under the pointer
   lifts a little, a folder's stack fans out. Other files it is set to show stand after the notes: a picture as itself, any
   other by its sign and its kind; a click opens a PDF here and the rest in its own application.
   A choice at the head answers at once: its thumb goes there and what was shown dims, the tiles come
@@ -978,6 +995,19 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Open Folder… and Open File…. A note opened by itself has no sidebar; the folder button in its
   toolbar opens the folder the note lies in beside it, and the sidebar shows its notes.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
+- **A new note asks for nothing** (`Ctrl+N`, the sidebar's `+`, All Notes' `+`, New Note in a
+  folder's menu or the empty room's, the button of an empty folder — desktop and browser alike): it
+  is made at once as "Untitled" ("Untitled 2" … where that name is taken), next to the note on
+  screen or in the folder chosen, and opens in the mode one writes in (the browser: the source), the caret in its title — an
+  empty heading that shows "Untitled", greyed, in the active mode (the source shows `# `). What is
+  written there names the file: once it has been left alone a moment (1.5 s) while it is written,
+  and when the note is left (another note, its tab closed, the window closed) — the tab, the
+  sidebar and All Notes follow, and a name taken gets a number ("Plan 2"). Its title left empty, it
+  stays "Untitled". Only a note made so, and only until it is left or renamed by hand: the title of
+  any other note is only its title (links to a note are not rewritten when it is renamed). Its
+  making and naming are one step of Undo for files ("Making of “Plan.md”"). A new folder or
+  whiteboard is still asked for in a small window; among the quick notes a new one is named by the
+  time and then by its first line, as ever.
 
 ## History
 
@@ -1135,13 +1165,24 @@ counts — and has no writing help by a model.
   sidebar's edge (wider there), the gap between columns, a dialog's corner, a table's row and
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
-  the block (the note goes along near its upper and lower edge). A tapped cell has the table's
-  handles. A block is chosen by a swipe to the right begun beside it, in the margin left of
-  the text (wide enough for that): it is marked and keeps its handle, to be dragged by or for
-  its menu; the same swipe beside another block adds that one, beside a chosen one it lets it
-  go. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
-  when the text itself is tapped — not when a block is chosen, a menu shuts or a whiteboard is
-  left.
+  the block (the note goes along near its upper and lower edge): what goes with the finger is
+  the blocks themselves, exactly as large as they are, lifted by a light shadow and held where
+  they were taken, so the handle under the finger stays in sight. A tapped cell has the table's
+  handles. A block is chosen by a swipe to the right, as in Craft — begun anywhere on it, on
+  its text or in the margin left of it: the block goes along with the finger, held back, its
+  field fades in; at the distance that chooses the field's tint deepens and the block gives
+  one small bump. Let go there (or flicked) the block springs back into its place chosen and
+  its handle shows, to be dragged by or for its menu; let go before, it springs back and
+  nothing is chosen. On a chosen block the field fades out towards the same point. The block is the innermost one
+  under the finger: an item of a list, a paragraph in a callout or a column. The same swipe on
+  another block adds that one; on a chosen one (to the right or the left) it lets it go. Up and
+  down still moves the note, a finger that rests first selects text, a tap puts the caret, and
+  a code block, a table or a formula scrolled sideways is scrolled back by the swipe — it
+  chooses only at its left edge. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
+  only where one means to type: a tap into the text, or a line of text put in (text, a heading,
+  a list, a quote) — not when a block is chosen, moved or dropped, a formula, code, a table or a
+  picture is put in (a tap into it brings the keyboard), a bar's or a menu's action runs, a
+  dialog opens or shuts, or a whiteboard is left. Up already, it stays while one types on.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on
@@ -1171,7 +1212,9 @@ counts — and has no writing help by a model.
   chooses more or lets one go, a tap beside them or Done ends it, and the bar has the file menu's
   entries for what is chosen (open in new tabs, copy, cut, duplicate, share, rename, hide, delete,
   what is listed …). The note goes into its tile and comes out of it as one movement: what floats
-  over it fades with it. The other modes (the source,
+  over it fades with it. A block's handle has no menu there either: a finger held on it lifts
+  the block at once and moves it where the finger goes; a tap on it, or a hold let go in place,
+  selects the block. The other modes (the source,
   side by side) are not offered there. An iPad is told by its touch screen (it says it is a
   Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
@@ -1296,7 +1339,7 @@ the left is the window's as ever, in any of its modes.
 - The two are halves of one kind: the same column, the same type, each scrolled by itself. The
   line between them can be pulled (a double click on it: halves again; how the window is shared
   is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
-  Two things want 600 px beside the sidebar: where the window has less, the sidebar makes way; where it has less even so, it says so and shows the note alone. What is beside a note is not kept when the
+  Two things want 600 px (the sidebar lies over them and takes none of it): where the window has less, it says so and shows the note alone. What is beside a note is not kept when the
   window is closed.
 - Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
   the right (the PDF's own viewer is the window's left).
@@ -1339,8 +1382,10 @@ glide, a push on the touchpad running on after the fingers leave), a pinch or `C
 wheel makes them larger and smaller around what is under the pointer, freely from 10 % to 1600 %
 (a notch of a mouse's wheel glides there; what is in sight is drawn as sharp as the screen as soon
 as the hand rests, however far in); `Ctrl+0` shows the page in sight whole. Back (`Esc`) returns to the viewer at
-the same place and size, with what was drawn lying on the pages — there whenever the PDF is opened,
-and text under it can still be selected.
+the same place and size (as large as the viewer goes, up to 500 %: the place in the window's middle
+stays), with what was drawn lying on the pages — there whenever the PDF is opened, and text under it
+can still be selected. Another window clicked or a tap outside the app does not end the drawing; a
+tab or a note chosen does, and the PDF is then left where the board was.
 
 What is drawn is no part of the PDF: the file is never written to. It is kept as a whiteboard's
 file of its own in the folder's `.mdview/pdf` (the project's root, else the window's folder, else
@@ -1359,7 +1404,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
-| `Ctrl+Alt+P` | panel (active mode; Style and Information in the reading view too) |
+| `Ctrl+Alt+P` | panel (active mode; Style and Information in every other mode too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |
 | `Ctrl+S` | save — and, where the folder has a history, keep a version now and send it |
@@ -1387,7 +1432,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

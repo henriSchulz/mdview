@@ -1,15 +1,14 @@
-/* mdview, the page — the sidebar shown and hidden (it slides, the text glides), an empty folder,
- * the window that asks for a new note's or folder's name. */
+/* mdview, the page — the sidebar shown and hidden (a card that slides in over the note), an empty folder,
+ * a new note made at once with the caret in its title, the window that asks for a new folder's or whiteboard's name. */
 "use strict";
 (() => {
   const P = window.MdPage;
   const { DESKTOP, content, post, T, esc, ICON } = P; // viewer/base.js
-  const { captureAnchor, restoreAnchor, reducedMotion } = P; // viewer/render.js
-  const { editor, edBack, READING, captureEditAnchor } = P; // viewer/editor.js
+  const { reducedMotion } = P; // viewer/render.js
+  const { editor, READING } = P; // viewer/editor.js
   const { sidebar, sidebarOpen, closeCtx } = P; // viewer/sidebar.js
 
-  // --- showing / hiding: the sidebar slides, the text column glides to its new
-  // place (transform only; the width change itself is applied at once)
+  // --- showing / hiding: the sidebar slides in over the note (transform only)
   /* Under a finger. A browser makes mouse events of a tap, after the fact — a pointer that came to rest where the finger was: what
    * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
    * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
@@ -20,6 +19,14 @@
   let touchedAt = -1e9;
   addEventListener("touchstart", () => { touchedAt = performance.now(); }, { capture: true, passive: true });
   const touching = () => performance.now() - touchedAt < 1200;
+  /* What the hand last used: a finger (or a pen), a mouse, the keys. Under a finger the screen's keyboard comes with the note's
+   * focus, so the note is focused by the page only where the finger asked to type (active/view.js); with no time limit — a
+   * block held and dragged for long, a dialog left after a while, is still a finger's doing. */
+  let lastBy = "mouse";
+  addEventListener("pointerdown", (e) => { lastBy = e.pointerType || "mouse"; }, true);
+  addEventListener("touchstart", () => { lastBy = "touch"; }, { capture: true, passive: true });
+  addEventListener("keydown", (e) => { if (e.isTrusted && !/^(Unidentified|Process)$/.test(e.key)) lastBy = "keys"; }, true);
+  const byFinger = () => lastBy === "touch" || lastBy === "pen";
   {
     const GRIPS = "#sb-grip, .col-grip, .tbl-h-col, .tbl-h-row, .dlg-grip, .pa-sheet";
     let pulled = null;
@@ -89,28 +96,41 @@
   sbScrim.addEventListener("click", () => { if (sidebarOpen()) showSidebar(false, true); });
   sidebar.addEventListener("click", (e) => { if (compact() && e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row") && !e.ctrlKey && !e.metaKey) showSidebar(false, true); });
   narrow.addEventListener("change", () => { if (P.folder && compact() && sidebarOpen()) showSidebar(false, false); });
+  /* The sidebar lies over the note in every window, as a card that floats (Henri, 2026-10-20: "never moves the document"):
+   * opened, only the card moves (transform) — the note, All Notes and the halves of a split stay where they are, and nothing of
+   * the text is laid out anew. The strip of tabs makes room for the card (the sidebar's button stays beside it): its row glides
+   * over (transform only). */
   function showSidebar(open, animate) {
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
-    const col = P.inSource() ? editor : P.mode === "active" ? MdActive.view.el : content;
-    const anchor = P.inSource() ? captureEditAnchor() : captureAnchor();
-    const before = col.getBoundingClientRect().left, tabsBefore = P.tabRow.getBoundingClientRect().left;
+    const tabsBefore = P.tabRow.getBoundingClientRect().left;
     sidebar.classList.toggle("no-anim", !animate);
     document.body.dataset.sidebar = open ? "open" : "closed";
-    if (P.inSource()) {
-      const el = anchor.line == null ? null : edBack.children[anchor.line];
-      if (el) window.scrollBy({ top: el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
-    } else if (P.current) restoreAnchor(anchor);
-    const dx = before - col.getBoundingClientRect().left, tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
-    if (!animate || reducedMotion()) return;
-    for (const [el, d] of [[col, dx], [P.tabRow, tdx]]) {
-      if (!d) continue;
-      el.style.transition = "none";
-      el.style.transform = `translateX(${d}px)`;
-      void el.offsetWidth;
-      el.style.transition = "";
-      el.style.transform = "";
-    }
+    const tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
+    if (!animate || reducedMotion() || !tdx) return;
+    const el = P.tabRow;
+    el.style.transition = "none";
+    el.style.transform = `translateX(${tdx}px)`;
+    void el.offsetWidth;
+    el.style.transition = "";
+    el.style.transform = "";
   }
+  /* Where the card lies over the note's text — a window too narrow for both — a press into the note puts it away, as a drawer
+   * is put away; where the window is wide enough that it covers only the margin, it stays open while one reads and writes.
+   * (Not over All Notes: there the two are used together — a tile pulled onto a folder in the sidebar. A narrow window: the
+   * shade beside the drawer, above.) */
+  const NOTE = "#content, #editor, #active, #split, #twin";
+  function covers() {
+    if (!sidebarOpen() || compact() || document.body.hasAttribute("data-overview")) return false;
+    const col = P.inSource() ? editor : P.mode === "active" && window.MdActive?.view ? MdActive.view.el : content;
+    if (!col || !col.getClientRects().length) return false;
+    const r = col.getBoundingClientRect();
+    return r.left + (parseFloat(getComputedStyle(col).paddingLeft) || 0) < sidebar.getBoundingClientRect().right;
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !P.folder || !(e.target.closest?.(NOTE) || e.target === document.body || e.target === document.documentElement) || !covers()) return;
+    showSidebar(false, true);
+    post("sidebar", { visible: false });
+  }, true);
 
   /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
    * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
@@ -124,10 +144,9 @@
   document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
 
   // --- new note
-  /* A new note or folder is asked for in a small window of its own — from the sidebar's +, from All
-   * Notes, from a menu, by Ctrl+N: its name, and where it goes. Enter makes it, Esc (or a click
-   * beside the window) does not. Among the quick notes the name may be left out: the note is then
-   * named after its first line, as ever. */
+  /* A new folder or whiteboard is asked for in a small window of its own — from the sidebar's +, from
+   * All Notes, from a menu: its name, and where it goes. Enter makes it, Esc (or a click beside the
+   * window) does not. A new note is not asked for (openNewNote). */
   let newKind = "note", newDir = null, newDlg = null, newBack = null;
   const newOpen = () => !!newDlg && newDlg.hasAttribute("data-open");
   function buildNewNote() {
@@ -139,8 +158,7 @@
       `<div class="new-foot"><button class="btn" type="button" data-new="cancel">${esc(T("dialog.cancel"))}</button><button class="btn primary" type="submit">${esc(T("new.create"))}</button></div></form>`;
     document.body.appendChild(newDlg);
     const input = newDlg.querySelector("#new-name"), go = newDlg.querySelector(".btn.primary");
-    const quick = () => !!(P.folder && P.folder.quick) && newKind === "note";
-    input.addEventListener("input", () => { go.disabled = !input.value.trim() && !quick(); });
+    input.addEventListener("input", () => { go.disabled = !input.value.trim(); });
     newDlg.addEventListener("mousedown", (e) => { if (e.target === newDlg) { e.preventDefault(); closeNewNote(); } });
     newDlg.addEventListener("click", (e) => { if (e.target.closest('[data-new="cancel"]')) closeNewNote(); });
     newDlg.addEventListener("keydown", (e) => {
@@ -156,29 +174,39 @@
     newDlg.querySelector("form").addEventListener("submit", (e) => {
       e.preventDefault();
       const name = input.value.trim(), kind = newKind;
-      if (!name && !quick()) return;
+      if (!name) return;
       // next to the note on screen, if that one lives in this folder
       const here = newDir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
       closeNewNote(false);
       // (a whiteboard as a file of its own: the page writes what an empty one holds, the host makes the file and it opens)
       if (kind === "board") { P.loadBoard().then(() => post("newboard", { name, dir: here, text: window.MdBoard.emptyText() })).catch(() => P.toast(T("Couldn't make the whiteboard"))); return; }
-      if (kind !== "folder" && window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
-      if (!name) post("quicknote"); else post(kind === "folder" ? "newfolder" : "newnote", { name, dir: here });
+      post("newfolder", { name, dir: here });
     });
   }
   function openNewNote(kind = "note", dir = null) {
     if (!P.folder || newOpen()) return;
+    if (kind === "note") {
+      /* A note is made at once, nothing asked: "Untitled", its title empty and the caret in it. What
+       * is written there names the file once it is left alone a moment, and when it is left (the
+       * host: settle_fresh). Among the quick notes: one named by the time, as ever. */
+      // (next to the note on screen, if that one lives in this folder)
+      const here = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
+      closeCtx(false);
+      if (window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
+      if (P.folder.quick) post("quicknote"); else post("newnote", { name: "", dir: here });
+      return;
+    }
     if (!newDlg) buildNewNote();
     newKind = kind; newDir = dir;
-    const quick = !!P.folder.quick && kind === "note", input = newDlg.querySelector("#new-name");
+    const input = newDlg.querySelector("#new-name");
     const where = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
-    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : kind === "board" ? ICON.board : ICON.note;
-    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : kind === "board" ? "new.board" : "new.note");
-    newDlg.querySelector(".new-where").textContent = quick ? T("new.quickHint") : T("new.in", where === P.folder.root ? P.folder.name : where.slice(P.folder.root.length + 1));
-    input.placeholder = kind === "folder" ? "Folder name" : kind === "board" ? "Whiteboard name" : "Note name";
-    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : kind === "board" ? "New whiteboard name" : "New note name");
+    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : ICON.board;
+    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : "new.board");
+    newDlg.querySelector(".new-where").textContent = T("new.in", where === P.folder.root ? P.folder.name : where.slice(P.folder.root.length + 1));
+    input.placeholder = kind === "folder" ? "Folder name" : "Whiteboard name";
+    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New whiteboard name");
     input.value = "";
-    newDlg.querySelector(".btn.primary").disabled = !quick;
+    newDlg.querySelector(".btn.primary").disabled = true;
     closeCtx(false);
     newBack = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
     newDlg.dataset.open = "";
@@ -193,6 +221,22 @@
     return true;
   }
 
+  /* A new note is on screen (New Note): the caret in its empty title, to name it by writing it. The
+   * source editor has it there already (the host asks for its end: "# "). */
+  function titleFresh() {
+    let tries = 0;
+    const go = () => {
+      const v = window.MdActive && MdActive.view, pm = v && v.pm;
+      if (P.mode === "active" && pm && v.payload && P.current && v.payload.path === P.current.path) {
+        pm.dispatch(pm.state.tr.setSelection(PM.state.Selection.atStart(pm.state.doc)));
+        v.focus();
+      } else if (P.mode !== "read" && P.mode !== "active") {
+        P.edInput?.focus({ preventScroll: true });
+      } else if (tries++ < 80) setTimeout(go, 25);
+    };
+    go();
+  }
+
   // what the page's other files use of this one
-  Object.assign(P, { touching, compact, showSidebar, emptyState, openNewNote, closeNewNote });
+  Object.assign(P, { touching, byFinger, compact, showSidebar, emptyState, openNewNote, closeNewNote, titleFresh });
 })();

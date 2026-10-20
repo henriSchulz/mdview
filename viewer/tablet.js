@@ -261,7 +261,7 @@
   const svgIcon = (x) => (typeof x === "string" && x.trim().startsWith("<") ? x : (x && ICON[x]) || "");
   let barFor = null;
   /* the command, without the caret coming into the text: a finger chose a block, no keyboard comes up (BUGS.md 25) */
-  const quiet = (v, run) => () => { const f = v.focus; v.focus = () => {}; try { run(); } finally { v.focus = f; } if (window.MdView.core.touching && window.MdView.core.touching()) v.dom.blur(); };
+  const quiet = (v, run) => () => { const f = v.focus; v.focus = () => {}; try { run(); } finally { v.focus = f; } if (window.MdView.core.byFinger && window.MdView.core.byFinger()) v.dom.blur(); }; // (the hand last a finger, however long ago: no keyboard — active/view.js)
   const key = (v, k, shift = false) => () => v.dom.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: shift, bubbles: true, cancelable: true }));
   function blockTiles(v) {
     const full = MdActive.blocks.slashItems(v, true) || [], short = MdActive.blocks.menuItems(v).filter(Boolean);

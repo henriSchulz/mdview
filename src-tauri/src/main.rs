@@ -53,6 +53,8 @@ pub enum Event {
     Reload { label: String, turn: u64 },
     Rescan { label: String, turn: u64 },
     CloseNow { label: String, turn: u64 },
+    /// a new note was written in and then left alone a moment: named after its title
+    SettleFresh { label: String, turn: u64 },
     CloseRequested { label: String },
     Closed { label: String },
     Crashed { label: String },

@@ -29,8 +29,8 @@
     sidebar: () => { if (P.folder) { showSidebar(!sidebarOpen(), true); if (!compact()) post("sidebar", { visible: sidebarOpen() }); } }, // (a drawer opened or shut on a phone is not how the sidebar is kept)
     overview: () => { if (P.folder && window.MdOverview) MdOverview.open(); }, // (the house: always to all notes — back to the note by its tab, or Esc)
     // the panel at the right — what can be put in, the formats, and what is the document's
-    // (active/panel.js: loaded with the active mode). Beside the source its button is dimmed and does nothing
-    panel: () => { if (!P.inSource() && P.current && !READING) P.loadActive().then(() => MdActive.panel.toggle(), () => toast(T("active.loadFailed"))); }, // all notes of the folder as tiles (overview.js)
+    // (active/panel.js: loaded with the active mode). Outside the active mode it has what is the document's: its style, its numbers
+    panel: () => { if (P.current && !READING) P.loadActive().then(() => MdActive.panel.toggle(), () => toast(T("active.loadFailed"))); }, // all notes of the folder as tiles (overview.js)
     titles: () => setTitles(!P.sbTitles),
     newnote: () => openNewNote(),
     newmenu: () => { // the + button: a note or a folder — among the quick notes a new one

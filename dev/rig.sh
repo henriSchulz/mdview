@@ -18,7 +18,9 @@
 #   dev/rig.sh ghostmath             a continuation that closes a formula: taken, it is one
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
+#   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
 #   dev/rig.sh mathtext              LaTeX Suite in the text, between dollars, with real keys
@@ -38,6 +40,8 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh docstyle              the document's style (ground, width) beside the source and the source with its reading: the panel, written into the head, Ctrl+Z, both sheets
+#   dev/rig.sh scrollperf [pdf]      frames while a long note on each ground is scrolled in each mode, and a PDF of sixty pages: median, p95, long ones; no ground held at the window
 #   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh sblag                 a long note scrolled, the sidebar opened and shut, in each layout: frames as even as with it shut
@@ -68,6 +72,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh newnote                New Note asks for nothing: "Untitled" at once, the caret in its title; named after the title when left alone a moment and when left; an old note's title is only its title
 #   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
 #   dev/rig.sh slides                 a presentation (.pptx): its tile, the PDF viewer, one that cannot be read (needs LibreOffice)
 #   dev/rig.sh tiledrag               a tile of All Notes held by a real pointer: the picture at the pointer is the tile's, at its size (run dragreal once before) — TO=sidebar: held over the sidebar
@@ -355,6 +360,46 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  docstyle)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.docstyle.json "$R/out"/*.shown.json; F="$R/work/Style.md"
+    printf '%s\n' '---' 'title: Style' '---' '# Style' '' 'A paragraph.' '' 'Another, where the caret is.' > "$F"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-docstyle.js" MDVIEW_PROBE_OUT="$R/out" -- "$F"
+    for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.docstyle.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/docstyle-split.png"
+    for _ in $(seq 400); do ls "$R/out"/*.docstyle.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.docstyle.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    # (on disk: the head as chosen last, the rest of the file as it was)
+    want=$(printf '%s\n' '---' 'title: Style' 'width: wide' 'background: dots' '---' '# Style' '' 'A paragraph.' '' 'Another, where the caret is.')
+    if [[ "$(cat "$F")" == "$want" ]]; then echo "ok   the file: its head as chosen, the rest as it was"; else echo "FAIL the file: $(head -c 300 "$F" | tr '\n' '|')"; fi
+    ! { jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; [[ "$(cat "$F")" == "$want" ]] || echo FAIL; } | grep -q '^FAIL' ;;
+  scrollperf)
+    # (what a frame costs while a long note is scrolled — no ground, a run of two colours, dots, a grid — in each mode, and a PDF
+    # of sixty pages: the gaps between frames, median / p95 / how many over 33 ms. No element holds its picture at the window)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.scrollperf.json
+    body() { echo "# $1"; for i in $(seq 150); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold**, \`code\` and a [link](https://example.com)."; (( i % 15 == 0 )) && { echo; echo "## Section $i"; echo; echo '> [!note] A callout'; echo '> In it.'; }; done; }
+    body Plain > "$N/Plain.md"
+    for g in Run:cyan Dots:dots Grid:grid; do { printf -- '---\nbackground: %s\n---\n\n' "${g#*:}"; body "${g%%:*}"; } > "$N/${g%%:*}.md"; done
+    python3 "$D/gen-pdf.py" "$N/Long.pdf" 60
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    rm -f "$R/out"/*.cpu[AB]*.json; : > "$R/cpu.log"
+    # (`scrollperf pdf`: the PDF alone)
+    { [[ ${2:-} == pdf ]] && echo 'window.__scrollperfPdf = true;'; cat "$D/probe-scrollperf.js"; } > "$R/probe-scrollperf.js"
+    app 240 MDVIEW_PROBE="$R/probe-scrollperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    tree() { echo "$1"; local c; for c in $(pgrep -P "$1"); do tree "$c"; done; }
+    tick() { local s=0 p f; for p in $(tree "$(pgrep -f "^$APP" | head -1)"); do read -r -a f < "/proc/$p/stat" 2>/dev/null && s=$((s + f[13] + f[14])); done; echo $s; }
+    timeout 400 inotifywait -qm -e close_write --format %f "$R/out" | while read -r e; do [[ $e =~ \.(cpu[AB][0-9]+)\.json$ ]] && echo "${BASH_REMATCH[1]} $(tick)" >> "$R/cpu.log"; [[ $e == *.scrollperf.json ]] && break; done &
+    watch=$!
+    for _ in $(seq 2200); do ls "$R/out"/*.scrollperf.json >/dev/null 2>&1 && break; sleep 0.1; done
+    sleep 0.3; kill $watch 2>/dev/null; pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.scrollperf.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    # (each run's CPU, the app and its web process, in ms a frame — written into the report)
+    jq --argjson hz "$(getconf CLK_TCK)" --rawfile log "$R/cpu.log" '($log | split("\n") | map(select(length > 0) | split(" ")) | map({ (.[0]): (.[1] | tonumber) }) | add // {}) as $t
+      | .runs |= [to_entries[] | .value + { cpu: (if $t["cpuA\(.key + 1)"] and $t["cpuB\(.key + 1)"] then (($t["cpuB\(.key + 1)"] - $t["cpuA\(.key + 1)"]) * 1000 / $hz / .value.n * 10 | round / 10) else null end) }]' "$f" > "$f.new" && mv "$f.new" "$f"
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    jq -r '"  (frames while scrolling, ms: median / p95 / over 33 ms of \(.runs[0].n) / CPU a frame)", (.runs[] | "  \(.what): \(.median) / \(.p95) / \(.long) / \(.cpu)   (\(.box), \(.moved) px)"), "  (PDF: \(.pdf.canvases) canvases, \(.pdf.megapixels) Mpx, a page \(.pdf.page), dpr \(.pdf.dpr))"' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   pdfscroll)
     # (a PDF full of words: what lies over its pages to be selected is not drawn while they move, and is back when they rest)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.pdfscroll.json; python3 "$D/gen-pdf.py" "$R/work/dense.pdf" 8 dense
@@ -483,9 +528,9 @@ PY
     printf '# Plan\n\nNext.\n' > "$R/work/notes/Projekte/Plan.md"; printf '# Inner\n\nDeep in.\n' > "$R/work/notes/Projekte/Deep/Inner.md"
     rm -f "$R/out"/*.json
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run opened is not this one's)
-    app 90 MDVIEW_PROBE="$D/probe-sidebar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    app 150 MDVIEW_PROBE="$D/probe-sidebar.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
     for v in source rail sheets tiles; do for _ in $(seq 400); do ls "$R/out"/*."$v".json >/dev/null 2>&1 && break; ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.4; shot "$R/out/sidebar-$v.png"; done
-    for _ in $(seq 300); do ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done
+    for _ in $(seq 900); do ls "$R/out"/*.sidebar.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
     ls "$R/out"/*.sidebar.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
@@ -697,6 +742,17 @@ PY
     f=$(ls "$R/out"/*.railfav.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  newnote)
+    # New Note without the window that asked for a name, on a copy of the overview's notes
+    rm -rf "$R/work"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.newnote.json
+    app 90 MDVIEW_PROBE="$D/probe-newnote.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
+    for _ in $(seq 900); do ls "$R/out"/*.newnote.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
+    f=$(ls "$R/out"/*.newnote.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$f"
+    for n in "Untitled.md" "Projektplan.md" "Idee zwei.md" "Workout routine.md"; do [[ -f "$R/work/Notes/$n" ]] && echo "ok   on disk: $n" || echo "FAIL not on disk: $n"; done
+    { jq -r '.steps[], (.error // empty)' "$f"; for n in "Untitled.md" "Projektplan.md" "Idee zwei.md" "Workout routine.md"; do [[ -f "$R/work/Notes/$n" ]] || echo FAIL; done; } | grep -qv '^ok' && exit 1; exit 0 ;;
   fileundo)
     # what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z), on a copy of the overview's notes
     rm -rf "$R/work" "$R/data/Trash"; mkdir -p "$R/work"; cp -r "$D/tests/overview-notes" "$R/work/Notes"; rm -f "$R/out"/*.fileundo.json
@@ -880,7 +936,7 @@ PY
     python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
     was=$(sha256sum < "$R/work/paper.pdf"); fail=0
     report() { # report NAME: the probe's steps, or that there are none
-      for _ in $(seq 400); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
+      for _ in $(seq 700); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
       sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
       [[ -f $R/out/paper.pdf.$1.json ]] || { echo "FAIL no report ($1)"; tail -5 "$R/app.log"; fail=1; return; }
       jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.$1.json"
@@ -900,6 +956,16 @@ PY
     check "the PDF itself is still as it was" '[[ $(sha256sum < "$R/work/paper.pdf") == "$was" ]]'
     grep -q '^FAIL' <(jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/paper.pdf.{drawn,again}.json 2>/dev/null) && fail=1
     exit $fail ;;
+  pdflag)
+    # how late what is drawn on a PDF shows: a bare page, quick work, a page written full, far in
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.lag.json
+    python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
+    app 120 MDVIEW_PROBE="$D/probe-pdflag.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/paper.pdf"
+    for _ in $(seq 900); do [[ -f $R/out/paper.pdf.lag.json ]] && break; sleep 0.1; done
+    sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1
+    [[ -f $R/out/paper.pdf.lag.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.lag.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.lag.json" | grep -q '^FAIL' ;;
   pdf)
     # a note with links into a PDF and embeds of it, and the PDF itself in the window
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/note.md.*.json "$R/out"/paper.pdf.*.json
@@ -921,6 +987,32 @@ PY
     want=$'> [!PDF|yellow] [[paper.pdf#page=2&selection=7,5,7,21|paper, page 2]]\n> '
     [[ $copied == "$want"* ]] && echo "ok   Ctrl+Shift+C: the quote with its link is on the clipboard" || echo "FAIL the clipboard after Ctrl+Shift+C: $copied"
     ! { jq -r '.steps[], (.error // "ok")' "$f"; } | grep -qv '^ok' ;;
+  wikiroot)
+    # (Henri's DreamChip notes: risc-v/tracing/06 E-Trace Spec.md, the PDFs in assets/risc-v/; above them a vault, or a repository's top)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.wikiroot.json; fails=0
+    run() { # run DIR NOTE (relative to DIR)
+      rm -f "$R/out"/*.wikiroot.json
+      app 90 MDVIEW_PROBE="$D/probe-wikiroot.js" MDVIEW_PROBE_OUT="$R/out" -- "$1/$2"
+      for _ in $(seq 600); do ls "$R/out"/*.wikiroot.json >/dev/null 2>&1 && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null
+      local f; f=$(ls "$R/out"/*.wikiroot.json 2>/dev/null | head -1)
+      [[ -n $f ]] || { echo "FAIL $3: no report"; tail -5 "$R/app.log"; fails=1; return; }
+      jq -r --arg w "$3" '(.steps[] | sub("^(?<s>ok   |FAIL )"; "\(.s)\($w): ")), (.error // empty)' "$f"
+      jq -r '.steps[], (.error // empty)' "$f" | grep -qv '^ok' && fails=1
+    }
+    if [[ -n ${2:-} ]]; then
+      cp -r "$2" "$R/work/doc"; run "$R/work/doc" "$3" "$(basename "$2")"
+    else
+      doc="$R/work/vault/doc"; mkdir -p "$R/work/vault/.obsidian" "$doc/risc-v/tracing" "$doc/assets/risc-v" "$doc/other"; echo '{}' > "$R/work/vault/.obsidian/app.json"
+      python3 "$D/gen-pdf.py" "$doc/assets/risc-v/risc-v-e-trace-spec.pdf" 40
+      printf '%s\n' '# E-Trace' '' 'See [[risc-v-e-trace-spec.pdf#page=35|Spec, S. 25]] and [[00 Übersicht]], [[Elsewhere]].' '' \
+        '![[risc-v-e-trace-spec.pdf#page=12&rect=76,65,557,363]]' '' '![[risc-v-e-trace-spec.pdf#page=3]]' > "$doc/risc-v/tracing/06 E-Trace Spec.md"
+      printf '# Overview\n\n[[06 E-Trace Spec]]\n' > "$doc/risc-v/tracing/00 Übersicht.md"; printf '# Elsewhere\n' > "$doc/other/Elsewhere.md"
+      run "$doc" "risc-v/tracing/06 E-Trace Spec.md" "in a vault"
+      rm -rf "$R/work/vault/.obsidian"; mkdir -p "$doc/.git"
+      run "$doc" "risc-v/tracing/06 E-Trace Spec.md" "in a repository"
+    fi
+    [[ $fails == 0 ]] ;;
   mathtext)
     # LaTeX Suite in the text, between dollars, with real keys (wtype); the probe is latex's (it reports the document per stage)
     name=latex.md; rm -rf "$R/work"; mkdir -p "$R/work"; printf '# Formulas\n\nStart.\n' > "$R/work/$name"; rm -f "$R/out/$name".*.json

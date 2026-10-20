@@ -51,6 +51,7 @@ const PREVIEW_BYTES: usize = 2400; // of a note's beginning, for its tile in the
 const PREVIEW_BATCH: usize = 60; // notes read per request for the overview
 const WATCH_LIMIT: usize = 400; // directories watched below an open folder
 const SIDEBAR_WIDTH: i64 = 260; // extra default width of a folder window; matches --sb-w
+const FRESH_PAUSE: u64 = 1500; // a new note left alone this long while it is written: named after its title
 
 static DEBUG: LazyLock<bool> = LazyLock::new(|| env("MDVIEW_DEBUG").is_some());
 // Development: a script evaluated in every page once it has rendered; what it posts as
@@ -124,7 +125,7 @@ fn default_prefs() -> Map<String, Value> {
         // PDFs, pictures, sound and film, whiteboards, everything else
         "sidebarPdf": true, "sidebarImages": true, "sidebarMedia": true, "sidebarBoards": true, "sidebarOther": true,
         "showHidden": false,      // … and what is put away: hidden by hand, named with a dot, built, kept for a note (shown dimmed)
-        "sidebarLayout": "rail", // how the sidebar is laid out: "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "sheets" (a sheet of paper each) | "tiles" (smart lists as tiles above the folders)
+        "sidebarLayout": "sheets", // how the sidebar is laid out: "sheets" (a sheet of paper each) | "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "tiles" (smart lists as tiles above the folders)
         "sidebarSort": "name",  // the notes of a folder, in the sidebar and the tiles: "name" (at first) | "opened" (last opened first) | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
         "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
@@ -431,6 +432,9 @@ pub struct Win {
     trashed: Vec<PathBuf>, // what went to the trash last: taken out again by Undo (while its message stands)
     trashed_shown: Option<PathBuf>, // … and the note that was on screen then, if it went with it
     steps: undo::Steps,             // what was done to the folder's files: taken back and done again (shell/undo.rs)
+    fresh: Option<PathBuf>,         // a note made by New Note, still named after its title while it is written (folder.rs: settle_fresh)
+    fresh_turn: u64,
+    renamed_from: Option<PathBuf>, // the note on screen was renamed: a save the page sent under its old path is still its own
     share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
@@ -498,6 +502,18 @@ pub struct App {
     file_clip: (Vec<PathBuf>, bool), // files and folders copied in a folder's list, for Paste there (true: cut — they are moved)
 }
 
+/// The sheets are the sidebar's layout to begin with (Henri, 2026-10-20). The rail, kept from the
+/// days it was the default, is let go once — chosen again after that, it stays.
+fn sheets_first(state: &mut Map<String, Value>) {
+    if state.insert("sheets_first".into(), json!(true)).is_none() {
+        if let Some(kept) = state.get_mut("active").and_then(Value::as_object_mut) {
+            if kept.get("sidebarLayout").and_then(Value::as_str) == Some("rail") {
+                kept.remove("sidebarLayout");
+            }
+        }
+    }
+}
+
 pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     let mut state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
     // Since a folder's list shows everything that is not taken out, what was chosen while it showed
@@ -507,6 +523,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
             kept.retain(|k, _| !matches!(k.as_str(), "sidebarPdf" | "sidebarImages" | "sidebarMedia" | "sidebarOther" | "ovPdf" | "ovImages" | "ovMedia" | "ovOther"));
         }
     }
+    sheets_first(&mut state);
     let mut app = App {
         file_clip: (vec![], false),
         illustrator: Illustrator::new(tx.clone()),
@@ -574,6 +591,9 @@ impl Win {
             trashed: vec![],
             trashed_shown: None,
             steps: undo::Steps::default(),
+            fresh: None,
+            fresh_turn: 0,
+            renamed_from: None,
             share_asked: None,
             title_cache: TitleCache::new(),
             watcher,
@@ -724,8 +744,14 @@ impl Win {
 
     fn open_path(&mut self, app: &mut App, path: &Path, fragment: Option<String>, push: bool) {
         let path = resolve(path);
+        if self.fresh.is_some() && self.fresh == self.path && self.path.as_deref() != Some(path.as_path()) {
+            self.settle_fresh(app, true); // (a new note left: named after its title, for good)
+        }
         app.touch(&path); // (what changed in its project while the app was not looking is kept, too)
         let same = self.path.as_deref() == Some(path.as_path());
+        if !same {
+            self.renamed_from = None;
+        }
         if push && !same {
             if let Some(old) = self.path.clone() {
                 self.back.push(old);
@@ -880,6 +906,10 @@ impl Win {
 
     /// Nothing to show: an empty folder, or its last note is gone.
     fn show_nothing(&mut self, app: &mut App) {
+        if self.fresh.is_some() && self.fresh == self.path {
+            self.settle_fresh(app, true);
+        }
+        self.renamed_from = None;
         self.path = None;
         self.watch();
         self.back.clear();
@@ -1279,6 +1309,7 @@ impl Win {
         }
         self.close_turn += 1;
         self.settle_quick(); // (a quick note left by closing: named, or gone if nothing is in it)
+        self.settle_fresh(app, true); // (… a new note: named after its title)
         if let Some(window) = self.window.take() {
             if !window.is_maximized().unwrap_or(false) {
                 if let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) {
@@ -1293,5 +1324,31 @@ impl Win {
         }
         self.watcher = None;
         self.gone = true;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_rail_kept_from_before_gives_way_to_the_sheets_once() {
+        let mut state: Map<String, Value> = serde_json::from_value(json!({ "active": { "sidebarLayout": "rail", "docZoom": 110 } })).unwrap();
+        sheets_first(&mut state);
+        assert_eq!(state["active"], json!({ "docZoom": 110 }));
+        assert_eq!(state["sheets_first"], json!(true));
+        // chosen again after that: it stays
+        state["active"]["sidebarLayout"] = json!("rail");
+        sheets_first(&mut state);
+        assert_eq!(state["active"]["sidebarLayout"], json!("rail"));
+        // another layout chosen is never touched
+        let mut other: Map<String, Value> = serde_json::from_value(json!({ "active": { "sidebarLayout": "source" } })).unwrap();
+        sheets_first(&mut other);
+        assert_eq!(other["active"]["sidebarLayout"], json!("source"));
+    }
+
+    #[test]
+    fn the_sheets_are_the_default_layout() {
+        assert_eq!(default_prefs()["sidebarLayout"], json!("sheets"));
     }
 }
