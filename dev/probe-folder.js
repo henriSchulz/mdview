@@ -77,10 +77,9 @@
       ok("right click on a folder: open, new note, folder, whiteboard, files added, paste, show in Finder, copy, cut, duplicate, its path, colour and icon, a favourite, rename, hide, trash, what is listed", menu.hasAttribute("data-open") && cmds() === "open,newnote,newfolder,newboard,addfiles,pastef,reveal,copyf,cutf,duplicate,copypath,look,fav,rename,hide,trash,sub:show", cmds());
       shown().find((b) => b.dataset.cmd === "newnote").click();
       await sleep(400);
-      ok("New Note there: the field asks for a note's name", document.activeElement === input && input.placeholder === "Note name", input.placeholder);
-      await enter("Idea");
+      ok("New Note there: no name asked", !document.querySelector("#newdlg[data-open]"));
       await sleep(600);
-      ok("the note is made inside that folder and opens", MdView.core.current.name === "Idea.md" && /\/Drafts\/Idea\.md$/.test(MdView.core.current.path), MdView.core.current.path);
+      ok("the note is made inside that folder, as Untitled, and opens", MdView.core.current.name === "Untitled.md" && /\/Drafts\/Untitled\.md$/.test(MdView.core.current.path), MdView.core.current.path);
       MdView.setMode("read"); await sleep(500);
     }
     // which kinds of files the sidebar lists: the settings

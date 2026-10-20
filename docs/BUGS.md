@@ -287,6 +287,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     default: `viewer/toolbar.js` (`OUTSIDE`) does these after the editor had its say, where `e.code`
     is not `e.key`. A new key of that kind — a probe with real keys (`rig.sh backspace`) says whether
     it is one.
+69. **The note on screen may be renamed while it is written** (a new note named after its title,
+    a rename from the sidebar): a save the page sent before it was told is under the old name.
+    The host takes it as the note's (`renamed_from`, `messages.rs`: "save") — never drops it as a
+    late save of another note, and never writes it as a new file under the old name. A note is
+    named for the user only from what was saved; an old note's title is never its name
+    (`settle_fresh`: only a note made by New Note, until it is left). And the watcher's news of
+    the file under its new name (or of one just made) is the host's own (`own_write`): read anew,
+    the page would take what is being typed as saved. `rig.sh newnote`.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 

@@ -51,6 +51,7 @@ const PREVIEW_BYTES: usize = 2400; // of a note's beginning, for its tile in the
 const PREVIEW_BATCH: usize = 60; // notes read per request for the overview
 const WATCH_LIMIT: usize = 400; // directories watched below an open folder
 const SIDEBAR_WIDTH: i64 = 260; // extra default width of a folder window; matches --sb-w
+const FRESH_PAUSE: u64 = 1500; // a new note left alone this long while it is written: named after its title
 
 static DEBUG: LazyLock<bool> = LazyLock::new(|| env("MDVIEW_DEBUG").is_some());
 // Development: a script evaluated in every page once it has rendered; what it posts as
@@ -430,6 +431,9 @@ pub struct Win {
     trashed: Vec<PathBuf>, // what went to the trash last: taken out again by Undo (while its message stands)
     trashed_shown: Option<PathBuf>, // … and the note that was on screen then, if it went with it
     steps: undo::Steps,             // what was done to the folder's files: taken back and done again (shell/undo.rs)
+    fresh: Option<PathBuf>,         // a note made by New Note, still named after its title while it is written (folder.rs: settle_fresh)
+    fresh_turn: u64,
+    renamed_from: Option<PathBuf>, // the note on screen was renamed: a save the page sent under its old path is still its own
     share_asked: Option<PathBuf>, // the note whose sharing the page last asked about: told again when its project was kept or reconciled
     title_cache: TitleCache,
     watcher: Option<notify::RecommendedWatcher>,
@@ -586,6 +590,9 @@ impl Win {
             trashed: vec![],
             trashed_shown: None,
             steps: undo::Steps::default(),
+            fresh: None,
+            fresh_turn: 0,
+            renamed_from: None,
             share_asked: None,
             title_cache: TitleCache::new(),
             watcher,
@@ -736,8 +743,14 @@ impl Win {
 
     fn open_path(&mut self, app: &mut App, path: &Path, fragment: Option<String>, push: bool) {
         let path = resolve(path);
+        if self.fresh.is_some() && self.fresh == self.path && self.path.as_deref() != Some(path.as_path()) {
+            self.settle_fresh(app, true); // (a new note left: named after its title, for good)
+        }
         app.touch(&path); // (what changed in its project while the app was not looking is kept, too)
         let same = self.path.as_deref() == Some(path.as_path());
+        if !same {
+            self.renamed_from = None;
+        }
         if push && !same {
             if let Some(old) = self.path.clone() {
                 self.back.push(old);
@@ -892,6 +905,10 @@ impl Win {
 
     /// Nothing to show: an empty folder, or its last note is gone.
     fn show_nothing(&mut self, app: &mut App) {
+        if self.fresh.is_some() && self.fresh == self.path {
+            self.settle_fresh(app, true);
+        }
+        self.renamed_from = None;
         self.path = None;
         self.watch();
         self.back.clear();
@@ -1291,6 +1308,7 @@ impl Win {
         }
         self.close_turn += 1;
         self.settle_quick(); // (a quick note left by closing: named, or gone if nothing is in it)
+        self.settle_fresh(app, true); // (… a new note: named after its title)
         if let Some(window) = self.window.take() {
             if !window.is_maximized().unwrap_or(false) {
                 if let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) {

@@ -313,7 +313,31 @@
     tell("render", payload);
     booted();
   }
+  /* A note made by New Note ("Untitled", nothing asked) is named after what its first line says:
+   * once it is left alone a moment while it is written, and when it is left — then for good, and
+   * its title is only its title from there on. One whose title stays empty keeps its name; one
+   * renamed by hand is not named again. (folder.rs: settle_fresh) */
+  let fresh = null, freshTimer = 0, renamedFrom = null;
+  const FRESH_PAUSE = 1500; // (left alone this long while it is written: named after its title)
+  function settleFresh(last) {
+    clearTimeout(freshTimer);
+    const path = fresh;
+    if (!path) return;
+    if (last) fresh = null;
+    if (!exists(path)) { fresh = null; return; }
+    const r = rel(path), text = drafts.has(r) ? drafts.get(r).text : committed(r);
+    const name = C.titleName(text);
+    if (!name) return;
+    const free = C.freeName(name + ".md", false, false, (n) => { const p = `${C.dirOf(path)}/${n}`; return p !== path && exists(p); });
+    const now = free && `${C.dirOf(path)}/${free}`;
+    if (!now || now === path) return;
+    relocate(path, now); // (follow: what is still fresh is so under its new path)
+    sendFolder();
+    sendTabs();
+    later();
+  }
   function openPath(path, fragment, push) {
+    if (fresh && path !== fresh) settleFresh(true); // (a new note left: named after its title, for good)
     const same = onScreen === path;
     tabs.open(path, push);
     onScreen = path;
@@ -330,6 +354,7 @@
     render(path, { fragment });
   }
   function showNothing() {
+    if (fresh) settleFresh(true);
     onScreen = null;
     turn++;
     wait(false);
@@ -777,9 +802,10 @@
   function follow(path, now) {
     if (C.isMd(path)) sharesFollowSoon(rel(path), rel(now));
     tabs.rename(path, now);
+    if (fresh === path) fresh = now;
     if (here.opened[path]) { here.opened[now] = here.opened[path]; delete here.opened[path]; }
     if (here.last === path) here.last = now;
-    if (onScreen === path) { onScreen = now; address(now); }
+    if (onScreen === path) { onScreen = now; address(now); renamedFrom = [path, now]; }
     tell("noteRenamed", { old: path, path: now, oldReal: path, real: now, name: C.nameOf(now) });
   }
   /* A folder under another path: each file in it (inside) moved, and the folders made here that
@@ -1245,7 +1271,8 @@
 
     // writing
     save({ text, path, exact, seq }) {
-      const p = path || onScreen;
+      // (one sent under the name the note on screen had a moment ago is its own: renamed meanwhile — BUGS.md rule 69)
+      const p = renamedFrom && path === renamedFrom[0] && onScreen === renamedFrom[1] ? onScreen : path || onScreen;
       if (typeof text !== "string" || !p || !p.startsWith(BASE + "/") || C.kindOf(p) === "pdf") return;
       if (!project()) return tell("saveFailed", NOT_YET);
       if (seq) lastSeq = seq;
@@ -1253,6 +1280,7 @@
       // (line ends are kept as the file has them, unless the page says the text is byte for byte)
       write(r, !exact && typeof was === "string" && was.includes("\r\n") ? text.replace(/\r?\n/g, "\r\n") : text);
       if (exact) tidyLater(r, text); // (the active mode: what it no longer shows goes)
+      if (fresh && p === fresh) { clearTimeout(freshTimer); freshTimer = setTimeout(() => { if (fresh && fresh === onScreen) settleFresh(false); }, FRESH_PAUSE); }
     },
     "history-now"() { if (project()) commit(); },
     async toggle({ line, checked }) {
@@ -1264,6 +1292,17 @@
     newnote({ name, dir }) {
       if (!mayWrite()) return;
       const into = dir && (dir === BASE || dir.startsWith(BASE + "/")) ? dir : BASE;
+      if (!C.cleanName(name)) {
+        // no name asked for: "Untitled", its title empty and the caret in it — the name follows the title (settleFresh)
+        const path = `${into}/${C.freeName("Untitled.md", false, false, (n) => exists(`${into}/${n}`))}`;
+        write(rel(path), "# ");
+        sendFolder();
+        openPath(path, null, true);
+        fresh = path;
+        tell("setMode", "edit", "end");
+        tell("titleFresh");
+        return;
+      }
       const typed = C.cleanName(name) || "Untitled", stem = (/\.md$/i.test(typed) ? typed.slice(0, -3).trimEnd() : typed) || "Untitled";
       const path = `${into}/${stem}.md`;
       if (exists(path)) { toast(`“${C.nameOf(path)}” already exists`); return openPath(path, null, true); }
@@ -1347,6 +1386,7 @@
       const now = `${C.dirOf(path)}/${stem}${suffix}`;
       if (!stem || now === path) return;
       if (exists(now)) return toast(`“${C.nameOf(now)}” already exists`);
+      if (fresh === path) fresh = null; // (named by hand: its title no longer names it)
       relocate(path, now);
       sendFolder();
       sendTabs();
