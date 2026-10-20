@@ -1137,14 +1137,15 @@ counts — and has no writing help by a model.
   sidebar's edge (wider there), the gap between columns, a dialog's corner, a table's row and
   column handles. In the active mode a tapped block has its handle beside it, at once; a tap
   on the handle chooses the block and opens its menu, and the handle pulled by a finger moves
-  the block (the note goes along near its upper and lower edge). A tapped cell has the table's
+  the block (the note goes along near its upper and lower edge): what goes with the finger is
+  the blocks themselves, exactly as large as they are, lifted by a light shadow and held where
+  they were taken, so the handle under the finger stays in sight. A tapped cell has the table's
   handles. A block is chosen by a swipe to the right, as in Craft — begun anywhere on it, on
   its text or in the margin left of it: the block goes along with the finger, held back, its
-  field fades in and a circle grows at its left, filling; at the distance that chooses the
-  circle is full, shows a tick and jumps once. Let go there (or flicked) the block springs back
-  into its place chosen, the circle fades, and its handle shows, to be dragged by or for its
-  menu; let go before, it springs back and nothing is chosen. On a chosen block the circle
-  stands full and empties at the same point. The block is the innermost one
+  field fades in; at the distance that chooses the field's tint deepens and the block gives
+  one small bump. Let go there (or flicked) the block springs back into its place chosen and
+  its handle shows, to be dragged by or for its menu; let go before, it springs back and
+  nothing is chosen. On a chosen block the field fades out towards the same point. The block is the innermost one
   under the finger: an item of a list, a paragraph in a callout or a column. The same swipe on
   another block adds that one; on a chosen one (to the right or the left) it lets it go. Up and
   down still moves the note, a finger that rests first selects text, a tap puts the caret, and

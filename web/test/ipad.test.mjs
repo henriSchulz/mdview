@@ -186,8 +186,8 @@ test("ipad: a block swiped to the right on its own text is chosen, as in Craft; 
   const shift = await p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform).m41);
   assert.ok(shift > 8 && shift < 100, `the block follows the finger, held back: ${shift}px for a finger 120px on`);
   await shot(d, "swipe");
-  // … a circle grows at its left and, past the distance that chooses, is full with its tick; the block's field has faded in
-  assert.deepEqual(await p.evaluate(() => { const dot = document.querySelector(".blk-fields .blk-dot"), f = document.querySelector(".blk-fields .blk-field[data-swipe='add']"); return [!!dot && dot.hasAttribute("data-reached"), dot && dot.dataset.swipe, !!f && +getComputedStyle(f).opacity > 0.9]; }), [true, "add", true], "the circle full, the field shown");
+  // … past the distance that chooses: no circle or tick of its own — the block's field has faded in and its tint deepened, the block bumps once
+  assert.deepEqual(await p.evaluate(() => { const f = document.querySelector(".blk-fields .blk-field[data-swipe='add']"); return [!!document.querySelector(".blk-dot"), !!f && +getComputedStyle(f).opacity > 0.9, document.documentElement.classList.contains("blk-swipe-reached"), !!f && getComputedStyle(f).animationName, getComputedStyle(document.querySelector("#active .pm .blk-swiping")).animationName]; }), [false, true, true, "blk-swipe-bump", "blk-swipe-bump"], "no circle; the field shown, deeper, the block bumps");
   await up();
   assert.deepEqual(await picked(), ["paragraph:The first paragr"], "a swipe to the right on a block's text chooses it");
   assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus()), false, "… without the keyboard");

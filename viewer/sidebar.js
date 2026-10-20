@@ -604,7 +604,8 @@
       for (const n of [g, ...g.querySelectorAll("[id], [data-path], [data-key]")]) for (const a of ["id", "data-path", "data-key", "draggable", "tabindex"]) n.removeAttribute(a);
       g.classList.add("drag-ghost"); g.setAttribute("aria-hidden", "true");
       g.style.width = r.width + "px"; g.style.height = r.height + "px";
-      ghost = { el: g, gx: Math.max(0, Math.min(r.width, opt.hold ? opt.hold[0] : x - r.left)), gy: Math.max(0, Math.min(r.height, opt.hold ? opt.hold[1] : y - r.top)), tx: 0, ty: 0 };
+      const keep = (v, max) => (opt.loose ? v : Math.max(0, Math.min(max, v))); // (opt.loose: held where it was, also outside it — beside it, by its handle)
+      ghost = { el: g, gx: keep(opt.hold ? opt.hold[0] : x - r.left, r.width), gy: keep(opt.hold ? opt.hold[1] : y - r.top, r.height), tx: 0, ty: 0 };
       if (opt.into) { g.style.left = g.style.top = "0"; g.style.zIndex = "90"; }
       const into = opt.into || el.parentNode;
       // (put in beside what it copies, where its styles hold — a moment later: a page changed while a drag begins may lose the drag)

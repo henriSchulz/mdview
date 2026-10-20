@@ -28,6 +28,7 @@ const files = {
   "Second note.md": "# The second\n\nBack to [[Home]].\n",
   "sub/Deep.md": "# Deep\n\ntext\n",
   ".mdview/project.json": "{\"id\":\"x\",\"version\":1}",
+  "Formulas.md": "# Formulas\n\nA paragraph of text before the formulas, long enough to wrap onto a second line in the note's column on an iPad.\n\n$$a^2 + b^2 = c^2$$\n\n$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$\n\nAfter them.\n\n" + long + "\n",
 };
 
 before(async () => {
@@ -237,6 +238,37 @@ test("an iPad: the handle has no menu — held, it lifts the block at once and m
   assert.deepEqual(await order(), still, "held and let go in place: nothing moves");
   assert.equal(await menuOpen(), false, "… and no menu");
   assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector(".blk-h")).webkitTouchCallout || "none"), "none", "no callout of the browser's on the handle");
+  await d.context.close();
+});
+
+test("an iPad: blocks dragged by the handle — the picture under the finger is exactly as large as the blocks, and leaves the handle under the finger free", async () => {
+  const d = await device("ipad-ghost"), p = d.page, cdp = await d.context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  await open(d, "Formulas.md");
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(900);
+  // the paragraph and the two formulas selected
+  await p.evaluate(() => { const v = MdActive.view.pm, kids = []; v.state.doc.forEach((n, pos) => kids.push(pos)); MdActive.blocks.select(v, kids[1], false); MdActive.blocks.select(v, kids[3], true); document.activeElement.blur(); scrollTo(0, 0); });
+  await p.waitForTimeout(600);
+  const sel = await p.evaluate(() => { const els = MdActive.blocks.picked(MdActive.view.pm.state).map((x) => MdActive.view.pm.nodeDOM(x.pos).getBoundingClientRect()); return { n: els.length, left: Math.min(...els.map((r) => r.left)), right: Math.max(...els.map((r) => r.right)), top: els[0].top, bottom: els[els.length - 1].bottom }; });
+  assert.equal(sel.n, 3, "three blocks selected");
+  const h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left + r.width / 2, y: r.top + 14 }; });
+  assert.ok(h.on, "their handle shows");
+  await touch("touchStart", [[h.x, h.y]]);
+  await p.waitForTimeout(200);
+  for (let i = 1; i <= 6; i++) { await touch("touchMove", [[h.x + i, h.y + i * 10]]); await p.waitForTimeout(30); }
+  await p.waitForTimeout(150);
+  const g = await p.evaluate(() => { const e = document.querySelector(".drag-ghost"); if (!e) return null; const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height }; });
+  if (process.env.SHOT_DIR) await shot(d, "ghost");
+  const finger = [h.x + 6, h.y + 60];
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  assert.ok(g, "a picture goes with the finger");
+  const bw = sel.right - sel.left, bh = sel.bottom - sel.top;
+  assert.ok(Math.abs(g.w - bw) / bw <= 0.02 && Math.abs(g.h - bh) / bh <= 0.02, `the picture as large as the blocks: ${Math.round(g.w)}×${Math.round(g.h)} for ${Math.round(bw)}×${Math.round(bh)}`);
+  assert.ok(g.left > finger[0] + 4, `the picture leaves the handle under the finger free: picture from ${Math.round(g.left)}, finger at ${finger[0]}`);
+  assert.ok(Math.abs(g.top - (sel.top + 60)) < 6, `… and stands where the blocks stood, moved as far as the finger: ${Math.round(g.top)} for ${Math.round(sel.top + 60)}`);
   await d.context.close();
 });
 

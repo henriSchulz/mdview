@@ -846,7 +846,7 @@
     }
     const shown = boxes.filter(Boolean), kids = [...layer.querySelectorAll(":scope > .blk-field")];
     shown.forEach((b, i) => {
-      const f = kids[i] || layer.insertBefore(Object.assign(document.createElement("div"), { className: "blk-field" }), layer.querySelector(":scope > .blk-dot"));
+      const f = kids[i] || layer.appendChild(Object.assign(document.createElement("div"), { className: "blk-field" }));
       f.style.left = b.left + scrollX + "px"; f.style.top = b.top + scrollY + "px";
       f.style.width = Math.max(0, b.right - b.left) + "px"; f.style.height = Math.max(0, b.bottom - b.top) + "px";
       if (b.t.how) f.dataset.swipe = b.t.how; else delete f.dataset.swipe;
@@ -1176,9 +1176,15 @@
     const r = over.getBoundingClientRect();
     // the picture under the pointer: the block — or all the blocks that go, as they stand
     const els = many ? groupEls(view.state) : null;
+    if (COARSE.matches) { // (a finger: the blocks themselves, as large as they are, held where they were taken — the handle under the finger stays free)
+      const exact = exactGhostOf(els || [over]);
+      window.MdView.core.moving.picture(e, exact.box, { into: document.body, hold: [e.clientX - exact.left, e.clientY - exact.top], loose: true });
+      exact.box.remove();
+    } else {
     const ghost = ghostOf(els || [over]); // (a card off the page; the page draws a copy of it that goes with the pointer)
     window.MdView.core.moving.picture(e, ghost, { into: document.body, hold: [e.clientX - r.left + 12, e.clientY - r.top + 8] });
     ghost.remove();
+    }
     // (after the picture is taken:) the selected blocks stand back where they are while they are dragged.
     // By a class on the page — the editor's own elements are not touched, it would draw them anew
     if (els) setTimeout(() => { if (drag) document.body.classList.add("blk-dragging"); }, 0);
@@ -1189,6 +1195,31 @@
     const els = [];
     for (const x of view ? pickedOf(state) : []) { const dom = view.nodeDOM(x.pos); if (dom && dom.nodeType === 1) els.push(dom); }
     return els.length > 1 ? els : null;
+  }
+  /* What a finger drags, as a picture: the blocks themselves, each where it stands and exactly as large, on the note's ground
+   * with a light shadow — not a card of the note's width laid out anew (its padding, a formula's room outside the editor made
+   * it a fifth larger than what was taken, and it covered the handle the finger holds). Each copy is laid out as in the
+   * editor (its class, contenteditable — inert, never focused). -> { box (off the page, to be copied), left, top (where the
+   * blocks stand in the window) } */
+  function exactGhostOf(els) {
+    const at = els.map((el) => { const r = el.getBoundingClientRect(), list = el.matches("li") && el.parentElement ? el.parentElement : null; return { el, r, l: list ? Math.min(r.left, list.getBoundingClientRect().left) : r.left, list }; });
+    const left = Math.min(...at.map((x) => x.l)), top = Math.min(...at.map((x) => x.r.top)), right = Math.max(...at.map((x) => x.r.right)), bottom = Math.max(...at.map((x) => x.r.bottom));
+    const box = document.createElement("div"), cs = getComputedStyle(view.dom);
+    box.className = "blk-ghost blk-ghost-exact";
+    box.setAttribute("aria-hidden", "true");
+    Object.assign(box.style, { width: right - left + "px", height: Math.min(bottom - top, innerHeight * 0.7) + "px", fontFamily: cs.fontFamily, fontSize: cs.fontSize, lineHeight: cs.lineHeight, color: cs.color });
+    for (const { el, r, l, list } of at) {
+      const wrap = box.appendChild(document.createElement("div"));
+      wrap.className = view.dom.className.replace(/\b(has-blocksel|has-nodesel|ProseMirror-focused)\b/g, "");
+      wrap.setAttribute("contenteditable", "true"); wrap.inert = true;
+      Object.assign(wrap.style, { position: "absolute", left: l - left + "px", top: r.top - top + "px", width: r.right - l + "px", height: r.height + "px", margin: "0", padding: "0", minHeight: "0" });
+      const copy = el.cloneNode(true);
+      copy.classList.remove("blk-sel", "blk-swiping", "ProseMirror-selectednode");
+      copy.style.margin = "0"; copy.style.transform = "none";
+      if (list) { const holder = wrap.appendChild(list.cloneNode(false)); holder.style.margin = "0"; holder.appendChild(copy); } else wrap.appendChild(copy);
+    }
+    document.body.appendChild(box);
+    return { box, left, top };
   }
   /* What is dragged, as a picture: the blocks as they stand, one under the other, on a card. A long
    * selection is shown by its beginning. */
@@ -1702,35 +1733,22 @@
     // what scrolls sideways between the finger and the note: the innermost such element, or null
     const scrollerOf = (el) => { for (; el && el !== view.dom; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return el; return null; };
     // (the offset and the progress are set on the root, outside the editor's own elements — changed there, it would draw them
-    // anew —, so that the block, its field in the layer and the circle read the same)
+    // anew —, so that the block and its field in the layer read the same)
     const root = document.documentElement;
-    const set = (x, p, a) => { root.style.setProperty("--swipe-x", x + "px"); root.style.setProperty("--swipe-p", String(p)); root.style.setProperty("--swipe-a", String(a)); };
+    const set = (x, p) => { root.style.setProperty("--swipe-x", x + "px"); root.style.setProperty("--swipe-p", String(p)); };
     // held back: the further the finger goes, the less the block follows (as iOS's rubber band)
     const band = (dx) => Math.sign(dx) * REACH * (1 - 1 / ((Math.abs(dx) * 0.55) / REACH + 1));
     const mark = (value) => view.dispatch(view.state.tr.setMeta(swipeKey, value).setMeta("addToHistory", false));
     const still = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
-    // the circle at the block's left: where its field begins, at the middle of its first line
-    const dot = document.createElement("div");
-    dot.className = "blk-dot";
-    dot.innerHTML = '<span><svg viewBox="0 0 12 12"><path d="M2.4 6.3 4.9 8.7 9.6 3.6"/></svg></span>';
-    function showDot(el, how) {
-      const r = el.getBoundingClientRect(), line = Math.min(r.height, parseFloat(getComputedStyle(el).lineHeight) || 26);
-      const left = el.matches("li") && el.parentElement ? Math.min(r.left, el.parentElement.getBoundingClientRect().left) : r.left;
-      dot.style.left = left + scrollX + "px";
-      dot.style.top = r.top + line / 2 + scrollY + "px";
-      dot.dataset.swipe = how;
-      delete dot.dataset.reached; delete dot.dataset.snap; delete dot.dataset.gone;
-      layer.appendChild(dot);
-    }
-    function reach(on) { // the distance that chooses reached (or left again): the circle fills, its tick shows, it jumps once
-      if (on === dot.hasAttribute("data-reached")) return;
-      if (on) dot.dataset.reached = ""; else delete dot.dataset.reached;
-      delete dot.dataset.snap; void dot.offsetWidth; dot.dataset.snap = "";
+    // the distance that chooses reached (or left again): the field's tint deepens, the block bumps once (active/blocks.css)
+    function reach(on) {
+      if (on === root.classList.contains("blk-swipe-reached")) return;
+      root.classList.toggle("blk-swipe-reached", on);
     }
     function back(s, chosen) {
       const v = view;
       root.classList.add("blk-swipe-back");
-      set(0, chosen ? 1 : 0, chosen ? 1 : 0);
+      set(0, chosen ? 1 : 0);
       const done = () => {
         root.removeEventListener("transitionend", end); clearTimeout(s.timer);
         if (sw && sw !== s && sw.side) return; // (another swipe has begun meanwhile: it is its)
@@ -1738,8 +1756,8 @@
         root.style.removeProperty("--swipe-x");
         if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null);
         if (settling) { settling = false; if (!showHeld()) hide(); }
-        const clear = () => { if (sw && sw.side) return; dot.remove(); root.style.removeProperty("--swipe-p"); root.style.removeProperty("--swipe-a"); };
-        if (chosen) { dot.dataset.gone = ""; setTimeout(clear, 400); } else clear(); // (chosen: the circle, full, fades out)
+        if (sw && sw.side) return;
+        root.style.removeProperty("--swipe-p"); root.classList.remove("blk-swipe-reached");
       };
       const end = (e) => { if (e.target === root && e.propertyName === "--swipe-x") done(); };
       root.addEventListener("transitionend", end);
@@ -1781,8 +1799,8 @@
         sw.side = Math.sign(dx); sw.pos = pos; sw.has = has; swiping = true;
         clearTimeout(leaving); rest(null);
         root.classList.remove("blk-swipe-back");
-        set(0, 0, 0);
-        showDot(sw.el, has ? "drop" : "add");
+        root.classList.remove("blk-swipe-reached");
+        set(0, 0);
         mark({ pos, how: has ? "drop" : "add" });
       }
       if (e.cancelable) e.preventDefault();
@@ -1791,7 +1809,7 @@
       sw.last = [t.clientX, now];
       sw.dx = dx;
       const far = dx * sw.side;
-      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, far / CHOOSE)), Math.min(1, Math.max(0, far / (CHOOSE / 2))));
+      set(Math.round(band(dx) * 10) / 10, Math.min(1, Math.max(0, far / CHOOSE)));
       reach(far >= CHOOSE);
     }, { capture: true, passive: false });
     for (const type of ["touchend", "touchcancel"]) document.addEventListener(type, (e) => {
@@ -1810,7 +1828,7 @@
         settling = true; delete handle.dataset.on; // (its handle comes when it is back in its place)
         const now = swipeKey.getState(view.state);
         if (now) mark({ ...now, done: true }); // (its field is now the selection's own, or none)
-      } else reach(false);
+      }
       back(s, !!chosen);
     }, { capture: true, passive: true });
   }
