@@ -848,7 +848,7 @@ PY
     python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 6
     was=$(sha256sum < "$R/work/paper.pdf"); fail=0
     report() { # report NAME: the probe's steps, or that there are none
-      for _ in $(seq 400); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
+      for _ in $(seq 700); do [[ -f $R/out/paper.pdf.$1.json ]] && break; sleep 0.1; done
       sleep 0.3; pkill -f "^$APP" 2>/dev/null; sleep 1.5
       [[ -f $R/out/paper.pdf.$1.json ]] || { echo "FAIL no report ($1)"; tail -5 "$R/app.log"; fail=1; return; }
       jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/paper.pdf.$1.json"

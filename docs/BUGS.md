@@ -173,6 +173,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     over a PDF: the pages lie where they lay — both lay them out by one rule (the gap between
     pages grows with the size in both) —, they come up with the pictures the viewer had, never
     bare, and what belongs to the view below (its bar, its card) goes as the other comes.
+    Going back is the same in every way it is left — Back, a tab, a note, the window closed: the
+    view below is put where the upper one was, never where it stood before; and a window that only
+    loses and gets its focus again (another window clicked, a tap outside) leaves nothing
+    (`rig.sh pdfink`).
 
 60. **A drag is checked with a real pointer.** Made-up drag events (a DataTransfer of the page's
     own, dispatched) are taken whatever they say; the browser's own drag takes a drop only where the

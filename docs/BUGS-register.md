@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "When editing a PDF: if one taps or clicks out, one leaves the edit mode AND it jumps to another place in the PDF" | the viewer asks the shell for the PDF anew whenever the window gets its focus back (links pasted into a note meanwhile) — and that message is one that leaves (`LEAVING`, viewer/base.js), so the board over the PDF was closed by it; closed that way (`B.leave`, quick) the viewer kept the place it had before the pen was taken (`drawn` returned early), and the pages, held while the board was open (`lockScroll`), stood there again. Back from the board larger than the viewer goes (the board up to 1600 %, the viewer 500 %), the page's top was put where the board's had been at the board's size: the place drifted | `pdfview.js`: the window's focus coming back while the board is open asks for nothing (the PDF is asked for when the board is closed); `drawn` puts the PDF where the board was in every way it is closed, quick too, and keeps the place in the window's middle at the size the viewer has | `dev/rig.sh pdfink`: "the window's focus lost and back while drawing on the PDF: the board stays", "… where it was", "… and the PDF stands where the board was, not where it stood before", "… and the place in the window's middle is the same" (all four fail without the fix); rule 59 |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

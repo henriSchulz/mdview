@@ -201,7 +201,9 @@
     v.onResize = () => { if (v.sideOpen) sidePlaced(); if (v.fit) { clearTimeout(v.resizeTimer); v.resizeTimer = setTimeout(() => zoomTo(v.fit), 120); } };
     v.onKey = keys;
     v.onSelect = () => { clearTimeout(v.selTimer); v.selTimer = setTimeout(selected, 250); };
-    v.onFocus = () => post("reload"); // links pasted into a note meanwhile show as highlights
+    // links pasted into a note meanwhile show as highlights — but not while the pages are drawn on: a reload leaves the board, and
+    // the window only lost its focus (another window clicked, a tap outside). The PDF is asked for anew when the board is closed.
+    v.onFocus = () => { if (window.MdBoard && MdBoard.shown) v.stale = true; else post("reload"); };
     window.addEventListener("scroll", v.onScroll, { passive: true });
     window.addEventListener("resize", v.onResize);
     document.addEventListener("keydown", v.onKey, true);
@@ -265,18 +267,24 @@
     } catch (e) { v.root.removeAttribute("data-drawing"); toast(T("Couldn't open the PDF to draw on")); }
     v.opening = false;
   }
-  /* The board over the PDF was closed: its ink lies on the pages, and the PDF stands where the board was left — as large, the same page at the same height. */
+  /* The board over the PDF was closed: its ink lies on the pages, and the PDF stands where the board was left — as large, the same
+   * place of the same page in the window's middle. Left quickly too (a tab, a note chosen, the window closed): never where the
+   * PDF stood before the pen was taken. As large as the viewer goes (25 to 500 %; the board goes further): the middle stays. */
   function drawn(v, now) {
     v.root.removeAttribute("data-drawing");
     if (V !== v || !v.root.isConnected) return;
     inked(v, now.model);
-    if (now.quick) return;
-    const P = window.MdBoard.pdf, scale = now.view.z * P.UNIT;
+    const P = window.MdBoard.pdf, view = now.view, mx = innerWidth / 2, my = innerHeight / 2;
+    const p = P.near(now.pages, view, { w: innerWidth, h: innerHeight });
+    const fx = (view.x + mx / view.z - p.x) / p.w, fy = (view.y + my / view.z - p.y) / p.h; // (where in that page the window's middle was)
+    const scale = view.z * P.UNIT;
     if (Math.abs(scale - v.scale) / v.scale > 0.01) zoomTo(scale);
-    const p = P.near(now.pages, now.view, { w: innerWidth, h: innerHeight }), r = v.pages[p.n - 1].div.getBoundingClientRect();
-    window.scrollBy({ top: r.top - (p.y - now.view.y) * now.view.z, behavior: "instant" });
-    v.box.scrollLeft += v.pages[p.n - 1].div.getBoundingClientRect().left - (p.x - now.view.x) * now.view.z; // (and across, as far as the pages go)
+    const div = v.pages[p.n - 1].div, r = div.getBoundingClientRect();
+    window.scrollBy({ top: r.top + fy * r.height - my, behavior: "instant" });
+    const r2 = div.getBoundingClientRect();
+    v.box.scrollLeft += r2.left + fx * r2.width - mx; // (and across, as far as the pages go)
     pageNow();
+    if (v.stale && !now.quick) { v.stale = false; post("reload"); } // (the window's focus came back meanwhile)
   }
 
   // ---------------------------------------------------------------- pages
