@@ -457,5 +457,5 @@
   // as the settings have it, and the mode (a window that opens, a mode that comes or goes)
   const sync = () => lay(wanted(), false);
 
-  A.panel = { plugin, show, toggle, sync, setTab, refresh, doc, el, rail, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem };
+  A.panel = { plugin, show, toggle, sync, setTab, refresh, doc, el, rail, get isOpen() { return isOpen(); }, items: ITEMS, run: runItem, gapAt, showLine }; // (gapAt, showLine: a finger's drag of a tile on the iPad, viewer/tablet.js)
 })();

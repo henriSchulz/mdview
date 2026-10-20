@@ -362,6 +362,49 @@ test("an iPad: undo and redo beside the pencil while writing — what Ctrl+Z doe
   await d.context.close();
 });
 
+test("an iPad: the Insert panel — a tile dragged by a finger goes where it is let go; the panel stands between the bars; it goes when the note is left and stays gone", async () => {
+  for (const [w, h] of [[1180, 820], [820, 1180]]) {
+    const d = await device(`ipad-insert-${w}`, { width: w, height: h }), p = d.page;
+    await open(d);
+    await tap(d, '#ipad-tools [data-ip="write"]');
+    await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+    await p.waitForTimeout(700);
+    await tap(d, '#rrail .rp-tab[data-tab="insert"]');
+    assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), true, "the panel is open");
+    await p.waitForTimeout(500);
+    const panel = await rect(p, "#rpanel"), top = [await rect(p, "#ipad-nav .ip-all"), await rect(p, "#toolbar")], rail = await rect(p, "#rrail");
+    const meets = (a, b) => a.x < b.right && b.x < a.right && a.y < b.bottom && b.y < a.bottom;
+    for (const t of top) assert.equal(meets(panel, t), false, `${w}×${h}: the panel clear of the top's buttons: ${JSON.stringify(panel)} ${JSON.stringify(t)}`);
+    assert.ok(panel.y >= Math.max(top[0].bottom, top[1].bottom) + 10 && panel.bottom <= rail.y - 10 && panel.bottom <= h, `${w}×${h}: between the bars: ${JSON.stringify(panel)}`);
+    await shot(d, `insert-${w}`);
+    if (w === 1180) {
+      // a finger takes "Table" and lets it go between two paragraphs
+      const tile = await p.evaluate(() => { const t = [...document.querySelectorAll("#rpanel .rp-tile")].find((x) => x.querySelector(".rp-name").textContent === "Table"); const r = t.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+      const gap = await p.evaluate(() => { const ps = [...document.querySelectorAll("#active .pm > p")]; const a = ps.find((x) => /Paragraph 3 /.test(x.textContent)).getBoundingClientRect(), b = ps.find((x) => /Paragraph 4 /.test(x.textContent)).getBoundingClientRect(); return [a.left + 80, a.bottom - 3]; });
+      const cdp = await d.context.newCDPSession(p), touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y]) => ({ x, y })) });
+      await touch("touchStart", [tile]);
+      await p.waitForTimeout(350);
+      for (let i = 1; i <= 12; i++) { await touch("touchMove", [[tile[0] + (gap[0] - tile[0]) * i / 12, tile[1] + (gap[1] - tile[1]) * i / 12]]); await p.waitForTimeout(20); }
+      assert.equal(await p.evaluate(() => [...document.querySelectorAll(".blk-line")].some((l) => l.hasAttribute("data-on"))), true, "the line shows where it goes");
+      assert.equal(await shown(p, "#ip-ghost"), true, "the tile goes with the finger");
+      await touch("touchEnd", []);
+      await p.waitForTimeout(600);
+      assert.deepEqual(await p.evaluate(() => { const kids = [...document.querySelectorAll("#active .pm > *")]; const i = kids.findIndex((x) => /Paragraph 3 /.test(x.textContent)); return [kids[i + 1] && /table/i.test(kids[i + 1].tagName + kids[i + 1].className), kids.slice(i + 1, i + 4).some((x) => /Paragraph 4 /.test(x.textContent))]; }), [true, true], "the table between the two");
+      assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), false, "put in: the panel goes");
+      // open again, leave for All Notes, come back: shut, and not open again
+      await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, 1))); v.dom.blur(); }); // (the table put in is chosen: the rail makes room for its bar)
+      await p.waitForTimeout(400);
+      await tap(d, '#rrail .rp-tab[data-tab="insert"]');
+      assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), true);
+      await tap(d, "#ipad-nav .ip-all");
+      await tap(d, "#ipad-nav .ip-all");
+      await p.waitForTimeout(600);
+      assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), false, "back in the note: the panel is not open again");
+    }
+    await d.context.close();
+  }
+});
+
 test("not an iPad, or a narrow window: nothing of the iPad's layout", async () => {
   // a browser with a mouse: the sidebar and the tabs as ever
   const desk = await device("desktop", { ipad: false, touch: false });

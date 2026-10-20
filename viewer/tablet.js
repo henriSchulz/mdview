@@ -411,6 +411,108 @@
   }, true);
   new MutationObserver(() => { if (!body.hasAttribute("data-overview") && picking()) unpick(false); }).observe(body, { attributes: true, attributeFilter: ["data-overview"] });
 
+  // --- the Insert panel under a finger: a tile held a moment is lifted and goes with the finger; the note's line shows where it
+  // goes (the panel's own: gapAt, showLine), the note scrolls along near its edges, and letting go puts it there — as a drag
+  // with the mouse does (active/panel.js). A tap still puts it at the caret. (A browser on an iPad sends no drag for a finger.)
+  {
+    const HOLD = 200, SLACK = 8;
+    let pend = null, drag = null, ghost = null, scrolling = 0;
+    const view = () => window.MdActive && MdActive.view && MdActive.view.pm;
+    new MutationObserver(() => { for (const t of document.querySelectorAll('#rpanel .rp-tile[draggable="true"]')) t.draggable = false; })
+      .observe(body, { childList: true, subtree: true });
+    const end = () => {
+      if (pend) { clearTimeout(pend.t); pend = null; }
+      if (ghost) { ghost.remove(); ghost = null; }
+      cancelAnimationFrame(scrolling); scrolling = 0;
+      if (drag && window.MdActive && MdActive.panel) MdActive.panel.showLine(null);
+      body.removeAttribute("data-ip-dragging");
+    };
+    const place = (x, y) => {
+      ghost.style.transform = `translate(${x - drag.dx}px, ${y - drag.dy}px) scale(1.04)`;
+      const v = view(), over = document.elementFromPoint(x, y);
+      const inNote = v && over && MdActive.view.el.contains(over) && !over.closest("#rpanel");
+      const g = inNote ? MdActive.panel.gapAt(v, x, y, drag.flat) : null;
+      drag.at = g ? g.at : null;
+      MdActive.panel.showLine(g);
+      drag.x = x; drag.y = y;
+    };
+    const roll = () => { // near the window's upper or lower edge the note goes along
+      if (!drag) return;
+      const edge = 90, y = drag.y, d = y < edge ? -(edge - y) / 4 : y > innerHeight - edge ? (y - (innerHeight - edge)) / 4 : 0;
+      if (d) { scrollBy(0, d); place(drag.x, drag.y); }
+      scrolling = requestAnimationFrame(roll);
+    };
+    addEventListener("pointerdown", (e) => {
+      const tile = e.pointerType === "touch" && e.isPrimary && e.target instanceof Element && e.target.closest("#rpanel .rp-tile[data-i]");
+      if (!tile || !view() || !view().editable) return;
+      const i = +tile.dataset.i;
+      if (A_ITEM(i) === false) return;
+      pend = { x: e.clientX, y: e.clientY, t: setTimeout(() => {
+        const r = tile.getBoundingClientRect();
+        drag = { i, at: null, flat: (MdActive.panel.items[i] || [])[0] === "slash.columns", dx: pend.x - r.left, dy: pend.y - r.top, x: pend.x, y: pend.y, tile };
+        pend = null;
+        ghost = tile.cloneNode(true);
+        ghost.id = "ip-ghost";
+        ghost.style.width = r.width + "px";
+        body.appendChild(ghost);
+        body.setAttribute("data-ip-dragging", "");
+        place(drag.x, drag.y);
+        scrolling = requestAnimationFrame(roll);
+        navigator.vibrate?.(8);
+      }, HOLD) };
+    }, true);
+    // (which tiles can be dragged at all: the panel says it by their grip)
+    const A_ITEM = (i) => !!document.querySelector(`#rpanel .rp-tile[data-i="${i}"] .rp-grip`);
+    addEventListener("pointermove", (e) => {
+      if (pend && Math.hypot(e.clientX - pend.x, e.clientY - pend.y) > SLACK) { clearTimeout(pend.t); pend = null; }
+      if (drag) place(e.clientX, e.clientY);
+    }, true);
+    // (while a tile is held, the finger moves it, not the panel or the page)
+    addEventListener("touchmove", (e) => { if (drag) e.preventDefault(); }, { capture: true, passive: false });
+    addEventListener("pointerup", (e) => {
+      if (!drag) return end();
+      const d = drag;
+      place(e.clientX, e.clientY);
+      const at = d.at;
+      end(); drag = null;
+      swallowNext = performance.now(); // (the tap the finger's lift would make is not a second insert)
+      if (at == null) return;
+      const v = view(), A = MdActive.view, f1 = v.focus, f2 = A.focus;
+      v.focus = () => {}; A.focus = () => {};
+      try { MdActive.panel.run(d.i, at); } finally { v.focus = f1; A.focus = f2; }
+      MdActive.panel.show(false); // (put in: the panel goes, the note shows what came)
+      // (a block of text is put in to be written in: the keyboard comes; anything else is only there)
+      const [sec, [key]] = MdActive.panel.items[d.i] || [null, [null]];
+      if (key === "menu.text" || ["panel.lists", "slash.deco", "slash.callout"].includes(sec)) v.focus({ keyboard: true });
+    }, true);
+    addEventListener("pointercancel", () => { end(); drag = null; }, true);
+    let swallowNext = 0;
+    addEventListener("click", (e) => { if (swallowNext && performance.now() - swallowNext < 700) { swallowNext = 0; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  }
+
+  // --- the panel is the note's: on the iPad it goes when the note is left (All Notes, another note, another mode), and does not
+  // come back of itself when the note is entered again (its "open" is not kept)
+  {
+    let was = { path: null, mode: null };
+    const shutPanel = () => { if (window.MdActive && MdActive.panel && MdActive.panel.isOpen) MdActive.panel.show(false, false); };
+    const check = () => {
+      const now = { path: P.current && P.current.path, mode: P.mode };
+      if (body.hasAttribute("data-overview") || (was.path && now.path !== was.path) || (was.mode && now.mode !== was.mode)) shutPanel();
+      was = now;
+    };
+    new MutationObserver(check).observe(body, { attributes: true, attributeFilter: ["data-overview", "data-view"] });
+    new MutationObserver(check).observe(P.content, { childList: true });
+    setInterval(check, 800); // (a note opened by a link, in the active mode: no attribute changes for it)
+  }
+
+  // --- with the keyboard up, what stands at the foot stands above it (Safari's visual viewport)
+  if (window.visualViewport) {
+    const kb = () => root.style.setProperty("--ip-kb", Math.max(0, Math.round(innerHeight - visualViewport.height - visualViewport.offsetTop)) + "px");
+    visualViewport.addEventListener("resize", kb);
+    visualViewport.addEventListener("scroll", kb);
+    kb();
+  }
+
   sync();
   P.tablet = { on, sync, toAll, toNote };
 })();
