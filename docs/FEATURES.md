@@ -1151,8 +1151,10 @@ counts — and has no writing help by a model.
   down still moves the note, a finger that rests first selects text, a tap puts the caret, and
   a code block, a table or a formula scrolled sideways is scrolled back by the swipe — it
   chooses only at its left edge. A formula or a diagram is not selected by a finger resting on it. The keyboard comes up
-  when the text itself is tapped — not when a block is chosen, a menu shuts or a whiteboard is
-  left.
+  only where one means to type: a tap into the text, or a line of text put in (text, a heading,
+  a list, a quote) — not when a block is chosen, moved or dropped, a formula, code, a table or a
+  picture is put in (a tap into it brings the keyboard), a bar's or a menu's action runs, a
+  dialog opens or shuts, or a whiteboard is left. Up already, it stays while one types on.
   Fields are 16 px, so that a phone does not make the page larger while one is typed in.
   The window is not pinched larger, nor made larger by a double tap (a whiteboard and a PDF
   are, by themselves), and only the note's text and fields are selected — a finger resting on

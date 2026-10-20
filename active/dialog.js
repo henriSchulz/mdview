@@ -499,7 +499,7 @@
     void dlg.offsetWidth;
     dlg.style.transition = "";
     dlg.style.transform = "none";
-    parts.focus();
+    if (!window.MdView.core.byFinger()) parts.focus(); // (under a finger the keyboard would come with it, over half the dialog: a tap into the field brings it)
     fit();
   }
   function close(how) {

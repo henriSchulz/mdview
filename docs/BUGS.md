@@ -293,7 +293,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 
 24. **Chromium hands a touch near a small target to that target**: decide by
     `document.elementFromPoint`, not `event.target`.
-25. **Never focus the note programmatically right after a touch** — the keyboard comes up.
+25. **Under a finger the note is focused only where the finger asked to type** — the keyboard
+    comes with the focus and covers half the screen. A tap into the text focuses it by itself;
+    the page asks for it (`view.focus({ keyboard: true })`) only for a new line of text put in
+    (text, a heading, a list, a quote). Everything else that hands the focus back — a block
+    chosen, moved, dropped, a block of another kind put in, a bar's or a menu's action, a dialog
+    opened or left, undo — calls `view.focus()`, which under a finger does nothing unless the
+    note has the focus already (`core.byFinger()`: what the hand last used — a finger, a mouse,
+    the keys —, with no time limit: a drag held for long is still a finger's). A dialog's field
+    is not focused as it opens under a finger. A web test goes through each case (`tablet.test.mjs`).
 26. **No gliding after two fingers** on the whiteboard; only one finger throws.
 27. Verified in Chromium's touch emulation only. Safari on the iPad is checked by Henri.
 69. **The iPad's layout is the iPad's alone** (viewer/tablet.js, viewer/tablet.css): every rule of it stands

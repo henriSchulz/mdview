@@ -247,14 +247,16 @@
           },
         });
         // Under a finger the keyboard comes with the editor's focus. The finger's own tap into the text gives it; what only hands
-        // the focus back after a tap elsewhere — a menu shut, a block chosen, a dialog left — does not, or the keyboard would
-        // come up each time. (An editor that has the focus keeps it.)
+        // the focus back after something else the finger did — a menu shut, a block chosen, moved or dropped, a block of its own
+        // put in, a dialog left, undone — does not, however long ago the finger came down, or the keyboard would come up each
+        // time and cover half the screen. Only where the finger asked to type — a new line of text put in — is it asked for:
+        // focus({ keyboard: true }). (An editor that has the focus keeps it, and the keyboard stays up while one types on.)
         const focus = view.focus.bind(view);
         // (… and the note stays where it is when it gets the keys: this browser, focusing, brings into sight whatever the page
         // had selected last — a caret left far away — though it is told not to scroll, and before the editor has put its own
         // selection there. After a block was dropped, the note jumped to that old place.)
-        view.focus = () => {
-          if (window.MdView.core.touching() && !view.hasFocus()) return;
+        view.focus = (opt) => {
+          if (!(opt && opt.keyboard) && (window.MdView.core.byFinger() || window.MdView.core.touching()) && !view.hasFocus()) return;
           const x = scrollX, y = scrollY;
           focus();
           if (scrollX !== x || scrollY !== y) scrollTo({ left: x, top: y, behavior: "instant" });
@@ -428,10 +430,10 @@
     leaving() { if (view) note(view.dom); },
     // (WebKit brings the caret into view when the editor gets the focus, wherever the page was
     // scrolled to: the page stays where it is)
-    focus() {
+    focus(opt) {
       if (!view || !view.editable) return;
       const x = window.scrollX, y = window.scrollY;
-      view.focus();
+      view.focus(opt);
       if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
     },
     // coming into this mode with the caret somewhere off screen: it goes to where one is reading
