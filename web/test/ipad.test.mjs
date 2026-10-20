@@ -135,6 +135,7 @@ for (const name of ["ipad", "ipadUp"]) {
     assert.equal(await count(), 0, "a finger moving down the margin chooses nothing");
     await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(200);
     await pull([kids[0].left - 34, kids[0].y], [kids[0].left + 50, kids[0].y + 4]);
+    await p.waitForTimeout(500); // (the block springs back into its place; then its handle shows)
     let hh = await p.evaluate(() => document.querySelector(".blk-h").hasAttribute("data-on"));
     assert.deepEqual([await count(), hh, await p.evaluate(() => MdActive.view.pm.hasFocus())], [1, true, false], "a swipe to the right beside a block chooses it; its handle stands by it, no keyboard");
     await p.evaluate(() => scrollBy(0, 30)); await p.waitForTimeout(250); await p.evaluate(() => scrollBy(0, -30)); await p.waitForTimeout(250);
@@ -185,6 +186,8 @@ test("ipad: a block swiped to the right on its own text is chosen, as in Craft; 
   const shift = await p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform).m41);
   assert.ok(shift > 8 && shift < 100, `the block follows the finger, held back: ${shift}px for a finger 120px on`);
   await shot(d, "swipe");
+  // … a circle grows at its left and, past the distance that chooses, is full with its tick; the block's field has faded in
+  assert.deepEqual(await p.evaluate(() => { const dot = document.querySelector(".blk-fields .blk-dot"), f = document.querySelector(".blk-fields .blk-field[data-swipe='add']"); return [!!dot && dot.hasAttribute("data-reached"), dot && dot.dataset.swipe, !!f && +getComputedStyle(f).opacity > 0.9]; }), [true, "add", true], "the circle full, the field shown");
   await up();
   assert.deepEqual(await picked(), ["paragraph:The first paragr"], "a swipe to the right on a block's text chooses it");
   assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus()), false, "… without the keyboard");
@@ -248,6 +251,28 @@ test("ipad: a block swiped to the right on its own text is chosen, as in Craft; 
   await p.evaluate(() => { document.querySelector("#active .pm .table-wrap").scrollLeft = 0; });
   await swipe(a, [a[0] + 100, a[1] + 2]);
   assert.deepEqual((await picked()).map((x) => x.split(":")[0]), ["table"], "a swipe on a table's cell chooses the table");
+  await clear();
+  // several blocks of every kind selected: each wears the same field, a little wider than the block, and the fields of blocks
+  // that follow each other leave the same room between them, whatever the blocks are
+  const plain = await p.evaluate(() => [...document.querySelectorAll("#active .pm > *")].slice(1, 7).map((e) => getComputedStyle(e).boxShadow + "|" + getComputedStyle(e).backgroundColor));
+  await p.evaluate(() => { const v = MdActive.view.pm, kids = []; v.state.doc.forEach((n, pos) => kids.push(pos)); scrollTo(0, 0); MdActive.blocks.select(v, kids[1], false); MdActive.blocks.select(v, kids[6], true); document.activeElement.blur(); });
+  await p.waitForTimeout(400);
+  const look = await p.evaluate(() => {
+    const fields = [...document.querySelectorAll(".blk-fields .blk-field")].map((f) => f.getBoundingClientRect());
+    const els = MdActive.blocks.picked(MdActive.view.pm.state).map((x) => MdActive.view.pm.nodeDOM(x.pos));
+    const kinds = els.map((e) => e.className.split(" ")[0] || e.tagName);
+    const tints = [...document.querySelectorAll(".blk-fields .blk-field")].map((f) => getComputedStyle(f).backgroundColor);
+    const gaps = fields.slice(1).map((f, i) => Math.round((f.top - fields[i].bottom) * 10) / 10);
+    const sides = fields.map((f, i) => { const r = els[i].getBoundingClientRect(); return [Math.round(r.right - f.right + 5), Math.round(f.right - f.left - r.width)]; });
+    return { n: fields.length, picked: els.length, kinds, tints: new Set(tints).size, gaps, sides, own: els.map((e) => getComputedStyle(e).boxShadow + "|" + getComputedStyle(e).backgroundColor) };
+  });
+  assert.equal(look.n, look.picked, `a field for each selected block: ${JSON.stringify(look)}`);
+  assert.equal(look.tints, 1, "one tint for all");
+  assert.ok(look.gaps.every((g) => Math.abs(g - 6) < 0.6), `the same room between fields: ${look.gaps}`);
+  assert.ok(look.sides.every(([r]) => r === 0), `each field reaches the same out of its block's right: ${JSON.stringify(look.sides)}`);
+  assert.deepEqual(look.own, plain, "nothing of the field is painted on the blocks themselves: they look as they do unselected");
+  const hb = await p.evaluate(() => { const h = document.querySelector(".blk-h").getBoundingClientRect(), f = document.querySelector(".blk-fields .blk-field").getBoundingClientRect(); return [h.right, f.left, document.querySelector(".blk-h").hasAttribute("data-on")]; });
+  assert.ok(hb[2] && hb[0] <= hb[1] - 4, `the handle stands clear of the fields: ${hb}`);
   await clear();
   // a tap on the text still puts the caret there
   a = await at(para2);
