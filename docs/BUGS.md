@@ -155,7 +155,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
-70. **A selected block's field is one look for every kind of block**, drawn in the layer over the
+72. **A selected block's field is one look for every kind of block**, drawn in the layer over the
     note (`drawFields` in `active/blocks.js`), never painted on the block itself: there a block's
     own surface (code, a table's sheet, a picture) covers the tint, a rule has no room for it, and
     each kind ended up with a look of its own. The fields of blocks that follow each other leave
@@ -296,7 +296,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 25. **Never focus the note programmatically right after a touch** — the keyboard comes up.
 26. **No gliding after two fingers** on the whiteboard; only one finger throws.
 27. Verified in Chromium's touch emulation only. Safari on the iPad is checked by Henri.
-69. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
+71. **A sideways gesture on the note is held from the first move.** Safari on the iPad makes a
     move it is not stopped from at once its own (the note scrolls, the text is selected) and the
     touches after it can no longer be held; Chromium's emulation holds them all the same, so a
     check passing there says nothing of it. What the page takes sideways has `touch-action:
