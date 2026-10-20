@@ -5,6 +5,7 @@
 # off-screen output on Henri's machine; any workspace name works).
 #
 #   dev/rig.sh start                 nested compositor up
+#                                    (MDVIEW_RIG_SCALE=2: drawn at twice the size, as on Henri's screen; MDVIEW_RIG_RULE="float; size 3200 1800": its window's size)
 #   dev/rig.sh compare FILE…         reading view vs. active mode: layout report + screenshots per file
 #   dev/rig.sh modes FILE            switching between the modes, find, outline, a task (on a copy of FILE)
 #   dev/rig.sh edit                  typing in the active mode: rules, keys, lists, undo, saving (on a copy)
@@ -39,6 +40,7 @@
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
 #   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
+#   dev/rig.sh sblag                 a long note scrolled, the sidebar opened and shut, in each layout: frames as even as with it shut
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
 #   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
 #   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
@@ -97,9 +99,9 @@ case "${1:-}" in
   start)
     [[ -n $(sig) ]] && HYPRLAND_INSTANCE_SIGNATURE=$(sig) hyprctl version >/dev/null 2>&1 && { echo "already up: $(sig)"; exit 0; }
     printf '%s\n' 'hl.config({ misc = { disable_hyprland_logo = true, disable_splash_rendering = true, disable_autoreload = true }, animations = { enabled = false } })' \
-      'hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })' > "$R/nested.lua"
+      'hl.monitor({ output = "", mode = "preferred", position = "auto", scale = '"${MDVIEW_RIG_SCALE:-1}"' })' > "$R/nested.lua"
     ls "$H" | sort > "$R/before"
-    hyprctl dispatch "hl.dsp.exec_cmd('[workspace $WS silent] env HYPRLAND_NO_SD_VARS=1 HYPRLAND_NO_SD_NOTIFY=1 HYPRLAND_NO_CRASHREPORTER=1 Hyprland -c $R/nested.lua')" >/dev/null
+    hyprctl dispatch "hl.dsp.exec_cmd('[workspace $WS silent${MDVIEW_RIG_RULE:+; $MDVIEW_RIG_RULE}] env HYPRLAND_NO_SD_VARS=1 HYPRLAND_NO_SD_NOTIFY=1 HYPRLAND_NO_CRASHREPORTER=1 Hyprland -c $R/nested.lua')" >/dev/null
     for _ in $(seq 50); do
       sleep 0.2; new=$(comm -13 "$R/before" <(ls "$H" | sort) | head -1)
       if [[ -n $new ]] && HYPRLAND_INSTANCE_SIGNATURE=$new hyprctl version >/dev/null 2>&1; then echo "$new" > "$R/sig"; break; fi
@@ -370,6 +372,36 @@ case "${1:-}" in
     for _ in $(seq 1100); do ls "$R/out"/*.switchlag.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.switchlag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$f"
+    jq -e .pass "$f" >/dev/null ;;
+  sblag)
+    # (Henri's notes as they are: a long note beside a folder of notes rich in what a sheet's beginning draws — formulas,
+    # code, tables, pictures; the sidebar in each layout, the note scrolled with it open and shut)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Sub"; rm -f "$R/out"/*.sblag.json
+    { echo '# Long'; for i in $(seq 200); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold**, \$a_$i^2 + b^2\$ and a [link](https://example.com)."; [[ $((i % 20)) == 0 ]] && { echo; echo "## Section $i"; }; done; } > "$N/Long.md"
+    magick -size 600x400 gradient:red-blue "$N/pic.png"
+    for i in $(seq 40); do { printf '# Note %s\n\nSome text with $x^%s$ and **bold**.\n\n![](pic.png)\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```js\nconst a = %s;\n```\n\n$$\\int_0^1 x^2\\,dx$$\n\n- one\n- two\n' $i $i $i; } > "$N/Note $i.md"; done
+    for i in $(seq 6); do printf '# Sub %s\n\nText.\n' $i > "$N/Sub/Sub $i.md"; done
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    rm -f "$R/out"/*.m[0-9]*.json
+    app 120 MDVIEW_PROBE="$D/probe-sblag.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    sleep 1; root=$(pgrep -f "^$APP" | head -1)
+    tree() { echo "$1"; local c; for c in $(pgrep -P "$1"); do tree "$c"; done; }
+    tick() { local s=0 p f; for p in $(tree "$root"); do read -r -a f < "/proc/$p/stat" 2>/dev/null && s=$((s + f[13] + f[14])); done; echo $s; }
+    k=1; prev=; label=; t0=; cpu=()
+    for _ in $(seq 2400); do
+      ls "$R/out"/*.sblag.json >/dev/null 2>&1 && break
+      m=$(ls "$R/out"/*.m$k.json 2>/dev/null | head -1)
+      if [[ -n $m ]]; then
+        now=$(tick); ns=$(date +%s%N)
+        [[ -n $label && $label != - ]] && cpu+=("$(printf '%s: %d%% CPU' "$label" $(( (now - prev) * 100000000000 / $(getconf CLK_TCK) / (ns - t0) )))")
+        label=$(jq -r .label "$m"); prev=$now; t0=$ns; k=$((k + 1))
+      fi
+      sleep 0.05
+    done
+    printf '  (%s)\n' "${cpu[@]}"
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.sblag.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$f"
     jq -e .pass "$f" >/dev/null ;;
   idle)
