@@ -5,7 +5,6 @@
  * to the sheet at the right is a small capsule in its corner, as the window's toolbar is one.
  * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 :root { --split-r: 0.5; --split-room: 100vw; --split-w: calc(var(--split-room) * var(--split-r)); }
-:root:has(> body[data-sidebar="open"]) { --split-room: calc(100vw - var(--sb-w)); }
 body[data-split]:not([data-overview]) { padding-right: var(--split-w); }
 :root:has(> body[data-split]:not([data-overview])) { scrollbar-width: none; }
 :root:has(> body[data-split]:not([data-overview]))::-webkit-scrollbar { display: none; }

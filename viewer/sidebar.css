@@ -1,8 +1,8 @@
 /* mdview, styles — the sidebar of a folder window (its layouts: layouts.css). (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 /* ------------------------------------------------------------- sidebar (folder windows) */
-/* A card that floats in the window, as the sidebar of a macOS window does: set in from the
- * window's edge, round, a shade lighter than the page. Sizes are Finder's. --sb-w is
- * the room it takes in the window, the inset included. */
+/* A card that floats in the window, over the note, as the sidebar of a macOS window does: set in
+ * from the window's edge, round, a shade lighter than the page, its shade a floating card's. Sizes
+ * are Finder's. --sb-w is the room it covers, the inset included. */
 :root {
   --sb-w: 260px;
   --sb-inset: 8px;
@@ -23,7 +23,7 @@
   overflow: hidden;
   border-radius: 18px;
   background: var(--raised);
-  box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04);
+  box-shadow: 0 0 0 0.5px var(--line), var(--shadow-floating);
   font: 400 13px/1.3 var(--ui);
   user-select: none;
   -webkit-user-select: none;
@@ -52,8 +52,8 @@ body[data-folder] #sb-grip { display: block; }
 body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; }
 body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 @media print { #sb-grip { display: none !important; } }
-/* The text column makes room at once; viewer.js glides it over (transform). */
-body[data-sidebar="open"] { padding-left: var(--sb-w); }
+/* (The note makes no room for it: the card lies over the note, All Notes and the halves of a split, which stay where they are —
+ * viewer/drawer.js: showSidebar. Henri, 2026-10-20.) */
 #toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
 /* the panel at the right is not the source's: there its button stands dimmed and takes no click
  * (beside the reading view it shows what is the document's — its third tab; active/panel.js) */

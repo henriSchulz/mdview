@@ -996,7 +996,7 @@
       if (visible != null) here.sidebar.visible = !!visible;
       if (titles != null) here.sidebar.titles = !!titles;
       save();
-      if (width != null) return;
+      if (width != null || titles == null) return; // (only shown or hidden: the page has the folder — sent again, it drew the whole list while the card slid in)
       if (here.sidebar.titles) loadAll().then(sendFolder);
       sendFolder();
     },

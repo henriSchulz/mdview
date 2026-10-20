@@ -3,7 +3,6 @@
  * away, as it is for the sheet beside the note: it would seem to be the right half's); a hairline between them.
  * (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 :root { --twin-room: 100vw; --twin-w: calc(var(--twin-room) / 2); }
-:root:has(> body[data-sidebar="open"]) { --twin-room: calc(100vw - var(--sb-w)); }
 body[data-twin]:not([data-overview]) { padding-right: var(--twin-w); }
 :root:has(> body[data-twin]:not([data-overview])) { scrollbar-width: none; }
 :root:has(> body[data-twin]:not([data-overview]))::-webkit-scrollbar { display: none; }

@@ -56,7 +56,7 @@ before(async () => {
 after(async () => { await browser?.close(); app?.kill(); gh.close(); });
 
 const shown = () => page.evaluate(() => ({ name: MdView.core.current && MdView.core.current.name, text: document.querySelector("#content").innerText, view: document.body.dataset.view }));
-const rows = () => page.evaluate(() => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => r.textContent.trim()));
+const rows = () => page.evaluate(() => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => (r.querySelector(".sb-label") || r).textContent.trim()));
 const tabNames = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab:not(.leaving) .tab-label")].map((t) => t.textContent.trim()));
 const untilNote = (name) => page.waitForFunction((n) => window.MdView && MdView.core.current && MdView.core.current.name === n && document.querySelector("#content").innerText.length > 0, name, { timeout: 15000 });
 
@@ -251,7 +251,7 @@ test("what another device sent appears without reloading", async () => {
   gh.repo.files.delete("Embedded.md");
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); // (as when the tab is come back to)
   await page.waitForFunction(() => /Changed on another device/.test(document.querySelector("#content").innerText), null, { timeout: 10000 });
-  await page.waitForFunction(() => ![...document.querySelectorAll(".sb-row[data-real]")].some((r) => r.textContent.trim() === "Embedded"), null, { timeout: 5000 }); // (a row that goes fades out first)
+  await page.waitForFunction(() => ![...document.querySelectorAll(".sb-row[data-real]")].some((r) => (r.querySelector(".sb-label") || r).textContent.trim() === "Embedded"), null, { timeout: 5000 }); // (a row that goes fades out first)
   assert.deepEqual((await rows()).sort(), ["Deep", "Home", "New here", "paper.pdf", "pic.png", "Second note"].sort());
 });
 
@@ -266,6 +266,22 @@ test("ordered by when a note was last changed: the time of the commit that chang
   assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf", "pic.png"]);
   assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("mdview:octo/notes:dates"))).length > 3), true);
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "name" } })));
+});
+
+test("the sheets are the sidebar's layout to begin with; a rail kept from before is let go once, chosen again it stays", async () => {
+  const layout = () => page.evaluate(() => [window.MdPrefs.sidebarLayout, document.getElementById("sidebar").dataset.layout]);
+  assert.deepEqual(await layout(), ["sheets", "sheets"]); // (Henri, 2026-10-20: "the sidebar's layout should always be the sheets")
+  // a browser that chose the rail while it was the default, before this
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); s.sidebarLayout = "rail"; localStorage.setItem("mdview:set", JSON.stringify(s)); localStorage.removeItem("mdview:sheets-first"); });
+  await page.reload(); await untilNote("Second note.md");
+  assert.deepEqual(await layout(), ["sheets", "sheets"]);
+  assert.equal(await page.evaluate(() => "sidebarLayout" in JSON.parse(localStorage.getItem("mdview:set") || "{}")), false);
+  // chosen again: it stays
+  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarLayout: "rail" } })));
+  await page.reload(); await untilNote("Second note.md");
+  assert.deepEqual(await layout(), ["rail", "rail"]);
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); delete s.sidebarLayout; localStorage.setItem("mdview:set", JSON.stringify(s)); });
+  await page.reload(); await untilNote("Second note.md");
 });
 
 test("the repositories on their way: the window says so at once — a ring, until the list is there", async () => {

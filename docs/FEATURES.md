@@ -41,8 +41,8 @@ Edits are saved by themselves. The settings (`Ctrl+,`) choose the mode a new win
 and at the right the note as it reads, drawn anew a moment after each key. The two halves stay at the same place in
 the text: scrolled at the left, the right follows; scrolled at the right, the source follows. A click on a block at the
 right puts the caret at its line; a link there leads where it leads in reading. Tasks are ticked in the source here. With
-the sidebar open the halves share what it leaves; a window too narrow for two (less than 600 px beside the sidebar) shows
-the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
+the sidebar open the halves stay as they are (it lies over the source's half); a window too narrow for two (less than
+600 px) shows the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
 sheet changes to the source alone, and this mode closes the sheet.
 
 ## Markdown that is rendered
@@ -864,7 +864,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
-  the notes' titles.
+  the notes' titles. **It lies over the note**, a card that floats in the window with a shade
+  under it: opened or shut, the note, All Notes and the halves of a split stay where they are —
+  only the card slides in (the strip's tabs make room for it, its button beside it). Where the
+  window is narrow enough that it lies over the text, a click into the note puts it away; where
+  it covers only the margin, it stays open while one reads and writes. Over All Notes it stays
+  open (a tile can be pulled onto a folder in it) and lies over the first sheets until it is shut.
 - **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
   small, in the list. It is drawn when the tile comes near the window and kept while the window
   is open; until then the tile has the PDF's sign.
@@ -898,7 +903,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   does on them, are the same in all four:
   - **List**: the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
-  - **Rail** (the default, on every device until another is chosen): the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
+  - **Rail**: the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
     it what is in the one chosen. A folder is a favourite by its menu (**Add to Favourites**, a star —
     filled where it is one; **Remove from Favourites**) or by pulling it onto the rail. Favourites
     are kept with the folder's colour and sign, in the folder (`.mdview/folders.json`): every device
@@ -911,7 +916,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   chosen is done where the thing was met: Colour and Icon… opens beside the row, the sign or the
   tile; a name is changed in the row or on the tile (from the rail: All Notes' list shows the
   folder's row, and the name is changed there).
-  - **Sheets**: a sheet of paper for each file that shows what it is — a note its beginning, small,
+  - **Sheets** (the default, on every device until another is chosen; a rail kept from the days
+    it was the default gave way to it once): a sheet of paper for each file that shows what it is — a note its beginning, small,
     as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves; any
     other file its sign — and a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
@@ -1266,7 +1272,7 @@ the left is the window's as ever, in any of its modes.
 - The two are halves of one kind: the same column, the same type, each scrolled by itself. The
   line between them can be pulled (a double click on it: halves again; how the window is shared
   is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
-  Two things want 600 px beside the sidebar: where the window has less, the sidebar makes way; where it has less even so, it says so and shows the note alone. What is beside a note is not kept when the
+  Two things want 600 px (the sidebar lies over them and takes none of it): where the window has less, it says so and shows the note alone. What is beside a note is not kept when the
   window is closed.
 - Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
   the right (the PDF's own viewer is the window's left).
@@ -1357,7 +1363,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (List, Rail, Sheets, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

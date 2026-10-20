@@ -45,7 +45,7 @@ before(async () => {
   context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: "mdview", value: cookie.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
-  await context.addInitScript(() => { if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1 })); }); // (a commit a second after the last change)
+  await context.addInitScript(() => { if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, sidebarLayout: "source" })); }); // (a commit a second after the last change; the list as a tree — the sheets, the default, fetch a picture to show it)
   page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
@@ -74,7 +74,12 @@ const row = (r) => page.locator(`#sidebar .sb-item[data-key="${R}/${r}"] > :firs
 const boardOpen = (items) => page.waitForFunction((n) => window.MdBoard && MdBoard.shown && document.getElementById("board").hasAttribute("data-ready") && (n == null || MdBoard.state().items === n), items ?? null, { timeout: 15000 });
 const boardShut = async () => { await page.keyboard.press("Escape"); await page.waitForFunction(() => !MdBoard.shown && document.getElementById("board").hidden, null, { timeout: 5000 }); };
 const tiles = () => page.evaluate((R) => [...document.querySelectorAll("#overview .ov-item")].map((t) => [t.dataset.path.slice(R.length + 1), t.querySelector(".ov-sub, .ov-snip").textContent, t.dataset.kept != null]), R);
-const allNotes = async () => { if (!(await page.evaluate(() => !!(window.MdOverview && MdOverview.isOpen)))) await page.keyboard.press("Control+Alt+g"); await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen, null, { timeout: 8000 }); };
+const allNotes = async () => {
+  if (!(await page.evaluate(() => !!(window.MdOverview && MdOverview.isOpen)))) await page.keyboard.press("Control+Alt+g");
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen, null, { timeout: 8000 });
+  // (the sidebar lies over All Notes' first sheets: shut, for the pointer to reach them — viewer/drawer.js)
+  if (await page.evaluate(() => { const was = document.body.dataset.sidebar === "open"; MdPage.showSidebar(false, false); return was; })) await page.waitForTimeout(100); // (not kept: the next page has it open)
+};
 
 test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in commits, opened from its row and shown in a note", async () => {
   await open("Alpha.md");

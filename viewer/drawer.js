@@ -1,15 +1,14 @@
-/* mdview, the page — the sidebar shown and hidden (it slides, the text glides), an empty folder,
+/* mdview, the page — the sidebar shown and hidden (a card that slides in over the note), an empty folder,
  * the window that asks for a new note's or folder's name. */
 "use strict";
 (() => {
   const P = window.MdPage;
   const { DESKTOP, content, post, T, esc, ICON } = P; // viewer/base.js
-  const { captureAnchor, restoreAnchor, reducedMotion } = P; // viewer/render.js
-  const { editor, edBack, READING, captureEditAnchor } = P; // viewer/editor.js
+  const { reducedMotion } = P; // viewer/render.js
+  const { editor, READING } = P; // viewer/editor.js
   const { sidebar, sidebarOpen, closeCtx } = P; // viewer/sidebar.js
 
-  // --- showing / hiding: the sidebar slides, the text column glides to its new
-  // place (transform only; the width change itself is applied at once)
+  // --- showing / hiding: the sidebar slides in over the note (transform only)
   /* Under a finger. A browser makes mouse events of a tap, after the fact — a pointer that came to rest where the finger was: what
    * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
    * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
@@ -88,28 +87,41 @@
   sbScrim.addEventListener("click", () => { if (sidebarOpen()) showSidebar(false, true); });
   sidebar.addEventListener("click", (e) => { if (compact() && e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row") && !e.ctrlKey && !e.metaKey) showSidebar(false, true); });
   narrow.addEventListener("change", () => { if (P.folder && compact() && sidebarOpen()) showSidebar(false, false); });
+  /* The sidebar lies over the note in every window, as a card that floats (Henri, 2026-10-20: "never moves the document"):
+   * opened, only the card moves (transform) — the note, All Notes and the halves of a split stay where they are, and nothing of
+   * the text is laid out anew. The strip of tabs makes room for the card (the sidebar's button stays beside it): its row glides
+   * over (transform only). */
   function showSidebar(open, animate) {
     if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
-    const col = P.inSource() ? editor : P.mode === "active" ? MdActive.view.el : content;
-    const anchor = P.inSource() ? captureEditAnchor() : captureAnchor();
-    const before = col.getBoundingClientRect().left, tabsBefore = P.tabRow.getBoundingClientRect().left;
+    const tabsBefore = P.tabRow.getBoundingClientRect().left;
     sidebar.classList.toggle("no-anim", !animate);
     document.body.dataset.sidebar = open ? "open" : "closed";
-    if (P.inSource()) {
-      const el = anchor.line == null ? null : edBack.children[anchor.line];
-      if (el) window.scrollBy({ top: el.getBoundingClientRect().top - anchor.top, behavior: "instant" });
-    } else if (P.current) restoreAnchor(anchor);
-    const dx = before - col.getBoundingClientRect().left, tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
-    if (!animate || reducedMotion()) return;
-    for (const [el, d] of [[col, dx], [P.tabRow, tdx]]) {
-      if (!d) continue;
-      el.style.transition = "none";
-      el.style.transform = `translateX(${d}px)`;
-      void el.offsetWidth;
-      el.style.transition = "";
-      el.style.transform = "";
-    }
+    const tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
+    if (!animate || reducedMotion() || !tdx) return;
+    const el = P.tabRow;
+    el.style.transition = "none";
+    el.style.transform = `translateX(${tdx}px)`;
+    void el.offsetWidth;
+    el.style.transition = "";
+    el.style.transform = "";
   }
+  /* Where the card lies over the note's text — a window too narrow for both — a press into the note puts it away, as a drawer
+   * is put away; where the window is wide enough that it covers only the margin, it stays open while one reads and writes.
+   * (Not over All Notes: there the two are used together — a tile pulled onto a folder in the sidebar. A narrow window: the
+   * shade beside the drawer, above.) */
+  const NOTE = "#content, #editor, #active, #split, #twin";
+  function covers() {
+    if (!sidebarOpen() || compact() || document.body.hasAttribute("data-overview")) return false;
+    const col = P.inSource() ? editor : P.mode === "active" && window.MdActive?.view ? MdActive.view.el : content;
+    if (!col || !col.getClientRects().length) return false;
+    const r = col.getBoundingClientRect();
+    return r.left + (parseFloat(getComputedStyle(col).paddingLeft) || 0) < sidebar.getBoundingClientRect().right;
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !P.folder || !(e.target.closest?.(NOTE) || e.target === document.body || e.target === document.documentElement) || !covers()) return;
+    showSidebar(false, true);
+    post("sidebar", { visible: false });
+  }, true);
 
   /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
    * (The note view and All Notes alike; the button asks for the note's name as the + does.) */

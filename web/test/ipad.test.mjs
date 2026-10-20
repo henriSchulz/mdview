@@ -99,7 +99,7 @@ for (const name of ["ipad", "ipadUp"]) {
     await p.evaluate(() => MdView.setMode("active"));
     await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
     await p.waitForTimeout(600);
-    const para = await p.evaluate(() => { const e = document.querySelector("#active .pm > h1"); const r = e.getBoundingClientRect(); return [r.left + 40, r.top + r.height / 2]; }); // (the heading: a tap on the paragraph under it would follow its link)
+    const para = await p.evaluate(() => { const e = document.querySelector("#active .pm > h1"); const r = e.getBoundingClientRect(), side = document.body.dataset.sidebar === "open" ? document.getElementById("sidebar").getBoundingClientRect().right : 0; return [Math.max(r.left + 40, side + 24), r.top + r.height / 2]; }); // (the heading: a tap on the paragraph under it would follow its link; beside the sidebar, which lies over the note — the tap puts it away)
     await p.touchscreen.tap(para[0], para[1]);
     await p.waitForTimeout(350);
     let h = await p.evaluate(() => { const e = document.querySelector(".blk-h"), r = e.getBoundingClientRect(); return { on: e.hasAttribute("data-on"), x: r.left, y: r.top, w: r.width, h: r.height }; });
