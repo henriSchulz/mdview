@@ -242,6 +242,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
     the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
 
+69. **Nothing is held at the window with `background-attachment: fixed`, and what a scroll paints
+    anew is cheap to paint.** A fixed background makes WebKit paint the whole window at every step
+    of a scroll even where it could move what it drew (the DMA-BUF renderer): a ground that stays
+    with the window is a layer of its own (`position: fixed`, `:root::before`, `viewer/page.css`),
+    and what must show the same picture (the strip of tabs) draws it with the window's offset.
+    Without the DMA-BUF renderer every step is painted anyway, so what lies in the window must be
+    cheap: no blurred shadow and no rounded clip around a large canvas (a PDF's pages), no blend
+    mode on an empty layer, no `backdrop-filter` under `data-flat`. Measured, not guessed, at twice
+    the size: `rig.sh scrollperf` (frames and CPU while a note on each ground, and a PDF, scroll).
+
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the
     letters arrive as text and work, but for Backspace, Delete, the arrows, Home and End WebKit does

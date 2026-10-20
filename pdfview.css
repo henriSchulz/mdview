@@ -40,10 +40,14 @@
 .pdf-pages::-webkit-scrollbar { display: none; }
 .pdf-page, .pdf-wait { margin-inline: auto; }
 .pdf-wait { padding: 30vh 0; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); animation: fade-in var(--dur-fast) var(--ease-out) var(--loading-delay) both; } /* (nothing before the loading delay: most PDFs are there sooner) */
-.pdf-page { position: relative; flex: none; background: #fff; border-radius: 3px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 6px 22px rgb(0 0 0 / 0.1); overflow: hidden; }
+/* (no blurred shadow, no round corners that clip the page: where WebKit draws without its GPU way the window is painted anew at
+ * each step of a scroll, and a 22 px shadow and a rounded clip around each page's canvas doubled what a frame cost — 71 ms against
+ * 32 at twice the size, `rig.sh scrollperf pdf`. A line that needs no blur marks the page's edge) */
+.pdf-page { position: relative; flex: none; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08); }
 .pdf-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pdf-marks, .pdf-links { position: absolute; inset: 0; pointer-events: none; }
-.pdf-marks { z-index: 1; mix-blend-mode: multiply; }
+.pdf-marks { z-index: 1; }
+.pdf-marks:not(:empty) { mix-blend-mode: multiply; } /* (a blend is a layer of the page's size painted at each step: only where there is a mark) */
 .pdf-ink { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; } /* what was drawn on the page (board/pdf.js) */
 .pdf-links { z-index: 3; }
 .pdf-link { position: absolute; pointer-events: auto; border-radius: 2px; }

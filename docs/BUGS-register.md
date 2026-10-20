@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The app has performance problems on Linux when scrolling, lags, in PDFs too — not in the browser on other devices" and "it performs worst when a background is set in the document" | measured in the rig at twice the size (2400×1500, as on his screen): without WebKit's DMA-BUF renderer (on since 2026-10-14, rule 61) every step of a scroll paints the whole window, so what lies in it decides. A PDF: each page's canvas in a rounded clip with a 22 px blurred shadow, and an empty layer with `mix-blend-mode` over it — 71 ms a frame (78 ms of CPU), 32–36 without (`scrollperf pdf`, quiet machine). A ground: held at the window with `background-attachment: fixed` (the root and the strip of tabs), which also makes WebKit's GPU way paint everything at each step — with `WEBKIT_DISABLE_DMABUF_RENDERER=0` dots and grid went from 24–30 ms a frame (26–58 frames over 33 ms of 149) to 18 ms (none). Without the GPU way the run of two colours still costs about twice a plain note (45–50 ms against 27; the same ground without its gradient: 27–30): the gradient is painted anew over the window at each step — **not fixed yet**. The DMA-BUF renderer is not turned back on: `scrollup` with it flickered in 2 of 3 runs | the ground is a layer that stands at the window (`:root::before`, `viewer/page.css`), the strip of tabs draws it with the window's offset (`viewer/tabs.css`, `--tabs-x`/`--tabs-y`), the ground that fades out (`viewer.js` `groundGoes`) is not fixed either; a PDF's page has a line for its edge instead of a blurred shadow and a rounded clip, its marks' blend only where there are marks (`pdfview.css`); the whiteboard's ruler has no `backdrop-filter` under `data-flat` (`board.css`). Rule 69 | `dev/rig.sh scrollperf` (frames and CPU per frame for each ground in each mode and a PDF of 60 pages; fails while anything has `background-attachment: fixed`), `rig.sh ground` |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

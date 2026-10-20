@@ -24,8 +24,10 @@
     if (window.MdOverview && MdOverview.shown) MdOverview.close();
     open("Ground.md");
     ok("the note has its ground, and the window has tabs", await until(() => root.dataset.docBg === "cyan" && document.body.hasAttribute("data-tabs")), [root.dataset.docBg, document.body.hasAttribute("data-tabs")]);
-    const strip = getComputedStyle(tabs), ground = getComputedStyle(root), shade = getComputedStyle(tabs, "::after");
-    ok("the strip of tabs is of the note's ground: the same picture, held at the window as the ground is", strip.backgroundImage === ground.backgroundImage && strip.backgroundImage.includes("gradient") && strip.backgroundAttachment === "fixed" && strip.backgroundColor === ground.backgroundColor, [strip.backgroundImage.slice(0, 60), ground.backgroundImage.slice(0, 60), strip.backgroundAttachment, strip.backgroundColor, ground.backgroundColor]);
+    // (the ground is a layer that stands at the window, root::before — page.css; the strip draws the same picture where it is)
+    const strip = getComputedStyle(tabs), ground = getComputedStyle(root, "::before"), shade = getComputedStyle(tabs, "::after");
+    const at = tabs.getBoundingClientRect(), px = (v) => parseFloat(v) || 0;
+    ok("the strip of tabs is of the note's ground: the same picture, begun where the window's begins", strip.backgroundImage === ground.backgroundImage && strip.backgroundImage.includes("gradient") && !/fixed/.test(strip.backgroundAttachment + ground.backgroundAttachment) && strip.backgroundColor === ground.backgroundColor && Math.abs(px(strip.backgroundPositionX) + at.left) < 1 && /px/.test(strip.backgroundSize) && ground.position === "fixed", [strip.backgroundImage.slice(0, 60), ground.backgroundImage.slice(0, 60), strip.backgroundAttachment, strip.backgroundColor, ground.backgroundColor, strip.backgroundPositionX, at.left, strip.backgroundSize, ground.position]);
     ok("… and its shade below is the ground thinning out, not the window's colour", shade.backgroundImage === ground.backgroundImage && /gradient/.test(shade.maskImage || shade.webkitMaskImage || ""), [shade.backgroundImage.slice(0, 60), shade.maskImage || shade.webkitMaskImage]);
     scrollTo(0, 0); await sleep(100);
     const gap = content.getBoundingClientRect().top - tabs.getBoundingClientRect().bottom;

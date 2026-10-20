@@ -86,13 +86,13 @@ details.props .callout-fold .sf { font-size: 10px; }
   #sb-scrim { display: block; }
   body[data-sidebar="open"] #sb-scrim { opacity: 1; visibility: visible; transition: opacity var(--dur-slow) var(--ease-out), visibility 0s; }
   body[data-sidebar="open"] { padding-left: 0; }
-  body[data-sidebar="open"] #tabs { left: 0; padding-left: 12px; }
+  body[data-sidebar="open"] #tabs { left: 0; --tabs-x: 0px; padding-left: 12px; }
   body[data-sidebar="open"] #overview, body[data-sidebar="open"] #loading { left: 0; }
   #sidebar { z-index: 30; top: calc(var(--sb-inset) + env(safe-area-inset-top, 0px)); bottom: calc(var(--sb-inset) + env(safe-area-inset-bottom, 0px)); }
   body[data-sidebar="open"] #settings-btn { z-index: 31; }
   body:not([data-sidebar="open"]) #settings-btn { display: none; } /* (the gear is the drawer's foot here: nothing floats over the note's corner) */
   #sb-grip { display: none !important; }
-  #tabs { padding-right: 12px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); height: calc(var(--tabs-h) + env(safe-area-inset-top, 0px)); }
+  #tabs { padding-right: 12px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); height: calc(var(--tabs-h) + env(safe-area-inset-top, 0px)); --tabs-y: calc(var(--tabs-h) + env(safe-area-inset-top, 0px)); }
   .tab-list { overflow-x: auto; scrollbar-width: none; }
   .tab-list::-webkit-scrollbar { display: none; }
   /* the toolbar: at the foot, in the middle */
