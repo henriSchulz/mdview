@@ -245,6 +245,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     then put out of sight while the pages move — `visibility`, not `display`, so that nothing is
     laid out again — and built only when the hand rests. Measured on Henri's screen, not only in
     the rig: there the page is drawn at twice its size (`rig.sh pdfscroll`).
+69. **What a hand draws is drawn anew where it draws, not across the window.** A canvas cleared
+    whole is the window painted anew whole — and, without the DMA-BUF renderer, all that lies under
+    it, the PDF's pages too. The stroke under the pen clears and draws only around its end at each
+    step (`live` in board.js); all of it only when it begins, ends or the view moves. `rig.sh
+    pdflag` measures from the pen's sample to the frame and asks what is cleared;
+    `web/test/ipad.test.mjs` asks the same of a pen in the browser.
 
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the
