@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-20
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The document style — where Background and Page Width are set — should be available in all modes" | the panel's Style tab stood only beside the active mode and the reading view: `Ctrl+Alt+P` did nothing beside the source (`viewer/toolbar.js`), the panel's `wanted()` and `toggle()` left out the source's two modes, and `docSet` wrote only from the active mode and the reading view; beside the source with its reading the right half had no ground rules (`#twin` painted the window's colour) | Style and Information in every mode (Insert and Format dimmed outside the active mode, no rail — as beside the reading view); from the source a choice is an edit of the head through the editor's undo, caret and top line kept, saved at once (`viewer.js: docSet`); the reading half lets the ground through and is a sheet on it (`viewer/twin.css`) — rule 69 | `dev/tests/docmodes.test.mjs`, `rig.sh docstyle` |
+
 ### 2026-10-19
 
 | What Henri saw | Why | Fixed by | Guard |

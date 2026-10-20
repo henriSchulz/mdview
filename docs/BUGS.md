@@ -200,6 +200,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     `scrollIntoView` (the note jumps). Bring a change into sight only when it is out of sight,
     and gently.
 14. **Several changes for one request are one transaction**: one step of Undo.
+69. **What is the note's as a whole is offered in every mode a note is shown in** — its ground and
+    width (the panel's Style), its numbers — reading, active, the source, the source beside its
+    reading. A mode that cannot do a part of the panel dims that part; it does not take the panel
+    away. Written from the source, it is an edit of the source's text (`P.edReplace`: the editor's
+    own undo), not a new text put in. A new mode, or a new part of the document's: `dev/tests/docmodes.test.mjs`, `rig.sh docstyle`.
 
 ### The shell (Rust)
 

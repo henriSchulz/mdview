@@ -86,10 +86,36 @@
    * like any other — one step of its history, saved at once, the caret where it was; a page of a
    * note is not where the properties stand: there the file's text is put anew. In the reading view
    * the file is written and the note drawn again where it stands; the step is in the note's
-   * history for the active mode to take back. → whether it was done */
+   * history for the active mode to take back. Beside the source (alone or beside its reading) it
+   * is an edit of the source like one typed: only the head of the text changes, one step of the
+   * editor's own undo, the caret and the place in the text kept, saved at once. → whether it was done */
   function docSet(key, value) {
     const p = P.current;
-    if (!p || p.readonly || p.error || p.kind === "pdf" || READING || (P.mode !== "active" && P.mode !== "read")) return false;
+    if (!p || p.readonly || p.error || p.kind === "pdf" || READING || !["active", "read", "edit", "split"].includes(P.mode)) return false;
+    if (P.inSource()) {
+      if (P.edPath !== p.path) return false;
+      const before = edInput.value, text = setProp(before, key, value);
+      if (text == null || text === before) return false;
+      // what changed: the part between what stays at the front and what stays at the end (the head, as setProp writes it)
+      let a = 0, b = 0;
+      const max = Math.min(before.length, text.length);
+      while (a < max && before.charCodeAt(a) === text.charCodeAt(a)) a++;
+      while (b < max - a && before.charCodeAt(before.length - 1 - b) === text.charCodeAt(text.length - 1 - b)) b++;
+      const end = before.length - b, put = text.slice(a, text.length - b), by = put.length - (end - a);
+      const map = (x) => (x >= end ? x + by : x < a ? x : a + put.length);
+      const s = map(edInput.selectionStart), e = map(edInput.selectionEnd), focused = document.activeElement === edInput;
+      const lines = (t) => t.split("\n").length - 1, at = P.captureEditAnchor(), headLine = lines(before.slice(0, end));
+      P.edReplace(a, end, put, s, e); // (through the editor's undo, as a key would)
+      if (!focused) edInput.blur();
+      // the line at the window's top stays there (scrolled to the top, the head that came shows)
+      if (at.line == null) scrollTo({ top: 0, behavior: "instant" });
+      else {
+        const el = P.edBack.children[at.line > headLine ? at.line + lines(put) - lines(before.slice(a, end)) : at.line];
+        if (el) window.scrollBy({ top: el.getBoundingClientRect().top - at.top, behavior: "instant" });
+      }
+      flushSave(); // (written at once, the note's history a step on, the ground and width shown: docSync)
+      return true;
+    }
     if (P.mode === "active") {
       const view = window.MdActive && MdActive.view, shown = view && view.pm && viewOf(p);
       if (!shown) return false;

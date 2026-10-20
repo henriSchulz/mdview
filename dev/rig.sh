@@ -37,6 +37,7 @@
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
+#   dev/rig.sh docstyle              the document's style (ground, width) beside the source and the source with its reading: the panel, written into the head, Ctrl+Z, both sheets
 #   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
@@ -353,6 +354,20 @@ case "${1:-}" in
     f=$(ls "$R/out"/*.ground.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  docstyle)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.docstyle.json "$R/out"/*.shown.json; F="$R/work/Style.md"
+    printf '%s\n' '---' 'title: Style' '---' '# Style' '' 'A paragraph.' '' 'Another, where the caret is.' > "$F"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-docstyle.js" MDVIEW_PROBE_OUT="$R/out" -- "$F"
+    for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.shown.json "$R/out"/*.docstyle.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/docstyle-split.png"
+    for _ in $(seq 400); do ls "$R/out"/*.docstyle.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.docstyle.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    # (on disk: the head as chosen last, the rest of the file as it was)
+    want=$(printf '%s\n' '---' 'title: Style' 'width: wide' 'background: dots' '---' '# Style' '' 'A paragraph.' '' 'Another, where the caret is.')
+    if [[ "$(cat "$F")" == "$want" ]]; then echo "ok   the file: its head as chosen, the rest as it was"; else echo "FAIL the file: $(head -c 300 "$F" | tr '\n' '|')"; fi
+    ! { jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"; [[ "$(cat "$F")" == "$want" ]] || echo FAIL; } | grep -q '^FAIL' ;;
   pdfscroll)
     # (a PDF full of words: what lies over its pages to be selected is not drawn while they move, and is back when they rest)
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.pdfscroll.json; python3 "$D/gen-pdf.py" "$R/work/dense.pdf" 8 dense
