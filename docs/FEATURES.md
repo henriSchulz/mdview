@@ -1153,7 +1153,9 @@ counts — and has no writing help by a model.
   opened by its stack and left by its name in the path at the top. The rest floats in the
   window's corners: at the top right the outline, find and share in a capsule; at the bottom
   left the note's history and the pencil, which goes from reading to writing (the active mode)
-  and back; at the bottom right, while writing, insert, format, style and information, their
+  and back — while writing, undo and redo beside it (what Ctrl+Z and Ctrl+Shift+Z do: the
+  mode's own steps, then the note's across the modes; dimmed when there is nothing; a tap on
+  them brings no keyboard up; the iPad keyboard's own undo and redo keys do the same); at the bottom right, while writing, insert, format, style and information, their
   panel above them; the settings in All Notes' corner. Scrolled, the note's name and its folder
   stand beside the button. A finger held anywhere opens no menu (the system's own over selected
   text stays); what the menus had is in bars of tiles at the foot, with panels rising from them:

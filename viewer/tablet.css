@@ -119,3 +119,7 @@
 :root[data-ipad] body[data-ip-proxy] :is(#ctxmenu, #ctxsub) { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: none !important; }
 /* (the chosen tile carries its check and its lift: no ring around tile and name besides) */
 :root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked { outline: none; background: none; }
+/* undo and redo in the capsule at the bottom left: while writing; nothing to take back, dimmed (and they do nothing) */
+:root[data-ipad] #ipad-tools .ip-hist { display: none; }
+:root[data-ipad] body[data-view="active"] #ipad-tools .ip-hist { display: grid; }
+:root[data-ipad] #ipad-tools .ip-hist[aria-disabled="true"] { opacity: 0.35; }
