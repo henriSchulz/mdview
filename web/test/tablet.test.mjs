@@ -477,6 +477,48 @@ test("an iPad: the keyboard comes only where the finger asked to type — not af
   await d.context.close();
 });
 
+test("an iPad: undo and redo beside the pencil while writing — what Ctrl+Z does, without the keyboard coming up; dimmed when there is nothing", async () => {
+  const d = await device("ipad-undo"), p = d.page;
+  await open(d);
+  assert.equal(await shown(p, '#ipad-tools [data-ip="undo"]'), false, "not while reading");
+  await tap(d, '#ipad-tools [data-ip="write"]');
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  const state = () => p.evaluate(() => ["undo", "redo"].map((k) => document.querySelector(`#ipad-tools [data-ip="${k}"]`).getAttribute("aria-disabled")).join());
+  assert.equal(await shown(p, '#ipad-tools [data-ip="undo"]'), true, "undo beside the pencil");
+  assert.equal(await state(), "true,true", "nothing to undo or redo yet: both dimmed");
+  assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('#ipad-tools [data-ip="undo"]')).opacity), "0.35");
+  // something typed at the end of the first paragraph
+  await p.evaluate(() => { const v = MdActive.view.pm; let at = -1; v.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === "paragraph") { at = pos + n.nodeSize - 1; return false; } }); v.focus(); v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, at))); });
+  await p.keyboard.type(" typed here");
+  await p.waitForTimeout(500);
+  const has = () => p.evaluate(() => document.querySelector("#active .pm").textContent.includes("typed here"));
+  assert.equal(await has(), true);
+  assert.equal(await state(), "false,true", "something to undo");
+  // the keyboard is put away; undo is tapped
+  await p.evaluate(() => MdActive.view.pm.dom.blur());
+  await tap(d, '#ipad-tools [data-ip="undo"]');
+  await p.waitForTimeout(400);
+  assert.equal(await has(), false, "undone");
+  assert.equal(await p.evaluate(() => MdActive.view.pm.hasFocus() || !!document.activeElement?.closest?.("#active")), false, "the editor not focused: no keyboard comes up");
+  assert.equal(await state(), "true,false", "nothing more to undo, something to redo");
+  await tap(d, '#ipad-tools [data-ip="redo"]');
+  await p.waitForTimeout(400);
+  assert.equal(await has(), true, "redone");
+  assert.equal(await state(), "false,true");
+  // dimmed means nothing is done
+  await tap(d, '#ipad-tools [data-ip="redo"]');
+  assert.equal(await has(), true);
+  // the iPad keyboard's own undo key (beforeinput historyUndo): the editor's undo
+  await p.evaluate(() => MdActive.view.pm.dom.dispatchEvent(new InputEvent("beforeinput", { inputType: "historyUndo", bubbles: true, cancelable: true })));
+  await p.waitForTimeout(300);
+  assert.equal(await has(), false, "the keyboard's undo key: the editor's undo");
+  // All Notes: the web keeps no history of what was done to the files — no undo there
+  await tap(d, "#ipad-nav .ip-all");
+  assert.equal(await shown(p, "#ipad-tools"), false, "not over All Notes (its capsule goes)");
+  await d.context.close();
+});
+
 test("not an iPad, or a narrow window: nothing of the iPad's layout", async () => {
   // a browser with a mouse: the sidebar and the tabs as ever
   const desk = await device("desktop", { ipad: false, touch: false });

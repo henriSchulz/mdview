@@ -38,6 +38,9 @@
   tools.className = "ip-cap";
   tools.innerHTML = READING ? "" :
     `<button class="ip-btn" type="button" data-ip="history" title="${esc(T("History"))}" aria-label="${esc(T("History"))}">${ICON.history}</button>` +
+    // (undo and redo: an iPad without a keyboard has no Ctrl+Z — Lucide's undo-2 and redo-2)
+    `<button class="ip-btn ip-hist" type="button" data-ip="undo" title="${esc(T("Undo"))}" aria-label="${esc(T("Undo"))}" aria-disabled="true">${P.svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>')}</button>` +
+    `<button class="ip-btn ip-hist" type="button" data-ip="redo" title="${esc(T("Redo"))}" aria-label="${esc(T("Redo"))}" aria-disabled="true">${P.svg('<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>')}</button>` +
     `<button class="ip-btn" type="button" data-ip="write" title="${esc(T("mode.active"))}" aria-label="${esc(T("mode.active"))}" aria-pressed="false">${ICON.pencil}</button>`;
   if (!READING) body.appendChild(tools);
 
@@ -85,11 +88,44 @@
   }
   addEventListener("scroll", titled, { passive: true });
 
+  // --- undo and redo: what Ctrl+Z and Ctrl+Shift+Z do in the active mode (its own history, then the note's trail across the
+  // modes: viewer/trail.js) — without the caret coming into the text: no keyboard comes up for a tap on them (BUGS.md 25)
+  const MAC = /Mac|iP(hone|[oa]d)/.test(navigator.platform || navigator.userAgent);
+  const pmView = () => window.MdActive && MdActive.view && MdActive.view.pm;
+  const depth = (dir) => { const v = pmView(); if (!v || P.mode !== "active" || !window.PM || !PM.history) return 0; return (dir < 0 ? PM.history.undoDepth(v.state) : PM.history.redoDepth(v.state)) + (P.trailCan && P.trailCan(dir) ? 1 : 0); };
+  function step(dir) {
+    const v = pmView();
+    if (!v || P.mode !== "active") return;
+    const A = MdActive.view, f1 = v.focus, f2 = A.focus, typing = v.hasFocus();
+    if (!typing) { v.focus = () => {}; A.focus = () => {}; }
+    try { v.dom.dispatchEvent(new KeyboardEvent("keydown", { key: "z", code: "KeyZ", shiftKey: dir > 0, metaKey: MAC, ctrlKey: !MAC, bubbles: true, cancelable: true })); }
+    finally { v.focus = f1; A.focus = f2; }
+    if (!typing && v.hasFocus()) v.dom.blur();
+    histState();
+  }
+  function histState() {
+    for (const [k, dir] of [["undo", -1], ["redo", 1]]) { const b = tools.querySelector(`[data-ip="${k}"]`); if (b) b.setAttribute("aria-disabled", String(!depth(dir))); }
+  }
+  let histQueued = false;
+  const histSoon = () => { if (histQueued) return; histQueued = true; requestAnimationFrame(() => { histQueued = false; histState(); }); };
+  let histOn = null;
+  function histWatch() { // (every change of the document changes what there is to undo)
+    const v = pmView();
+    if (!v || v.dom === histOn) return histSoon();
+    histOn = v.dom;
+    new MutationObserver(histSoon).observe(v.dom, { childList: true, subtree: true, characterData: true });
+    // an iPad's keyboard has keys of its own for them (and ⌘Z): as the editor's own keys, not the browser's undo of the page
+    v.dom.addEventListener("beforeinput", (e) => { if (e.inputType === "historyUndo" || e.inputType === "historyRedo") { e.preventDefault(); step(e.inputType === "historyUndo" ? -1 : 1); } });
+    histSoon();
+  }
+  new MutationObserver(histWatch).observe(body, { attributes: true, attributeFilter: ["data-view"] });
+
   // --- buttons
   tools.addEventListener("click", (e) => {
     const b = e.target.closest("[data-ip]");
     if (!b) return;
-    if (b.dataset.ip === "history") P.openHistory();
+    if (b.dataset.ip === "undo" || b.dataset.ip === "redo") { if (b.getAttribute("aria-disabled") !== "true") step(b.dataset.ip === "undo" ? -1 : 1); }
+    else if (b.dataset.ip === "history") P.openHistory();
     else if (b.dataset.ip === "write") P.switchMode(P.mode === "active" ? "read" : "active");
   });
   allBtn.addEventListener("click", () => {
@@ -225,7 +261,7 @@
   const svgIcon = (x) => (typeof x === "string" && x.trim().startsWith("<") ? x : (x && ICON[x]) || "");
   let barFor = null;
   /* the command, without the caret coming into the text: a finger chose a block, no keyboard comes up (BUGS.md 25) */
-  const quiet = (v, run) => () => { const f = v.focus; v.focus = () => {}; try { run(); } finally { v.focus = f; } if (window.MdView.core.touching && window.MdView.core.touching()) v.dom.blur(); };
+  const quiet = (v, run) => () => { const f = v.focus; v.focus = () => {}; try { run(); } finally { v.focus = f; } if (window.MdView.core.byFinger && window.MdView.core.byFinger()) v.dom.blur(); }; // (the hand last a finger, however long ago: no keyboard — active/view.js)
   const key = (v, k, shift = false) => () => v.dom.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey: shift, bubbles: true, cancelable: true }));
   function blockTiles(v) {
     const full = MdActive.blocks.slashItems(v, true) || [], short = MdActive.blocks.menuItems(v).filter(Boolean);
