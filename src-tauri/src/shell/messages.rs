@@ -188,6 +188,13 @@ impl Win {
                 Some(note) => self.set_folder(app, &dir_of(&note)),
                 None => self.pick(app, Pick::Folder),
             },
+            // a folder of the start window's list (the window that has nothing open takes it itself)
+            "recent" => {
+                let folder = resolve(Path::new(text_of("path")));
+                if folder.is_dir() && self.path.is_none() && self.folder.is_none() {
+                    self.set_folder(app, &folder);
+                }
+            }
             "open" => self.choose_file(app),
             "reload" => {
                 self.new_resolver();

@@ -1,7 +1,7 @@
 //! The windows and what they do, on one thread: every event (the page said something, a file
 //! changed, a timer ran out) is taken from one queue and handled to the end before the next.
 //!
-//! Opened on a folder (or started without arguments, which reopens the last folder) the
+//! Opened on a folder (a start without arguments opens a window that lists the folders opened last) the
 //! window gets a sidebar listing the folder's notes, by file name or by title (first H1), and
 //! can create, rename and trash them. Ctrl+E switches between reading and editing the source
 //! in place; edits are saved automatically (the page sends the text, this side writes the file).
@@ -193,6 +193,9 @@ fn truthy(v: &Value) -> bool {
         Value::Object(o) => !o.is_empty(),
     }
 }
+
+/// How many folders the start window lists.
+const RECENT_FOLDERS: usize = 8;
 
 fn name_of(path: &Path) -> String {
     path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
@@ -733,7 +736,7 @@ impl Win {
         let fragment = self.pending_fragment.take();
         self.render(app, false, fragment, false);
         if self.path.is_none() && self.folder.is_none() {
-            self.js("MdView.clear", &[]); // (nothing open yet: the page offers a folder and a file)
+            self.js("MdView.clear", &[json!({ "recents": app.recents() })]); // (nothing open yet: the page offers the folders opened last, a folder and a file)
         }
         if let (Some(probe), Some(window)) = (PROBE.as_ref(), &self.window) {
             if let Ok(script) = fs::read_to_string(probe) {
@@ -853,6 +856,10 @@ impl Win {
         if !self.quick {
             // (the quick notes are not the folder a bare start goes back to)
             app.state.insert("folder".into(), json!(s(&folder)));
+            let mut recents: Vec<Value> = app.recents().into_iter().filter(|r| r["path"] != json!(s(&folder))).map(|r| r["path"].clone()).collect();
+            recents.insert(0, json!(s(&folder)));
+            recents.truncate(RECENT_FOLDERS);
+            app.state.insert("recents".into(), json!(recents));
             app.save_state();
         }
         self.rescan(app);

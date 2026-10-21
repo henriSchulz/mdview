@@ -136,11 +136,14 @@
    * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
   /* Nothing open at all (the app started by itself, on the desktop): what can be opened — a folder of notes, which the
    * sidebar then shows, or one file. */
-  const startState = () => `<div class="empty-state start-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("start.title"))}</b><p>${esc(T("start.text"))}</p>` +
+  const recentList = () => !P.recents?.length ? "" : `<div class="start-recent"><small>${esc(T("start.recent"))}</small>` +
+    P.recents.map((r) => `<button class="start-row" type="button" data-recent="${esc(r.path)}" title="${esc(r.path)}"><span class="start-ico">${ICON.folder}</span><span class="start-name">${esc(r.name)}</span><span class="start-path">${esc(r.path.replace(/^\/home\/[^/]+/, "~"))}</span></button>`).join("") + `</div>`;
+  const startState = () => `<div class="empty-state start-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("start.title"))}</b><p>${esc(T("start.text"))}</p>` + recentList() +
     `<div class="start-go"><button class="btn primary" type="button" data-empty="folder">${esc(T("start.folder"))}</button><button class="btn" type="button" data-empty="file">${esc(T("start.file"))}</button></div></div>`;
   const emptyState = () => !P.folder && !READING && DESKTOP ? startState() : `<div class="empty-state"><div class="empty-icon">${ICON.folder}</div><b>${esc(T("empty.title"))}</b><p>${esc(T("empty.text"))}</p>` +
     (READING || !P.folder ? "" : `<button class="btn primary" type="button" data-empty="new">${esc(T("new.note"))}</button>`) + `</div>`;
   document.addEventListener("click", (e) => { if (e.target.closest?.('[data-empty="new"]') && P.folder) { e.preventDefault(); openNewNote(); } });
+  document.addEventListener("click", (e) => { const r = e.target.closest?.("[data-recent]"); if (r) { e.preventDefault(); post("recent", { path: r.dataset.recent }); } });
   document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
 
   // --- new note

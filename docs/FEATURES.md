@@ -991,8 +991,11 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   history: a repository keeps its own.
 - **Where a note was left**: a note opens at the place it was scrolled to — coming back from a
   PDF or another note, and in a new window — and in the mode it was in.
-- **Started by itself** (nothing opened before), the app says in its window what can be opened:
-  Open Folder… and Open File…. A note opened by itself has no sidebar; the folder button in its
+- **Started by itself** (no file or folder given — the last folder is not reopened), the app says
+  in its window what can be opened: the folders opened last (up to eight, newest first, each with
+  its place; one click opens it in that window), and under them Open Folder… and Open File…. Started
+  again by itself while that window waits, the app shows it instead of making another. A note opened
+  by itself has no sidebar; the folder button in its
   toolbar opens the folder the note lies in beside it, and the sidebar shows its notes.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
 - **A new note asks for nothing** (`Ctrl+N`, the sidebar's `+`, All Notes' `+`, New Note in a

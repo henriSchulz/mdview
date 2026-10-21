@@ -44,6 +44,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   save: ["write", "the note's text"],
   toggle: ["write", "a task ticked in the reading view"],
   newnote: ["write", "a note made: without a name, \"Untitled\" with an empty title, named after that title once it is written (left alone a moment, or left)"],
+  recent: ["none", "a folder of the start window's list of the folders opened last (the desktop app opened with nothing; a browser has its list of repositories)"],
   quicknote: ["none", "a quick note made at once (the desktop app's window of quick notes: mdview --quick)"],
   newfolder: ["write", "a folder made (it exists once a note is in it)"],
   rename: ["write", "a note, another file or a folder renamed: the page is told at once, the commit follows — one that names the file by its blob, with nothing of it fetched or sent"],

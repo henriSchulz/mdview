@@ -544,6 +544,16 @@ impl App {
         }
     }
 
+    /// The folders opened last, newest first, as the start window lists them (those gone from the disk left out).
+    pub(super) fn recents(&self) -> Vec<Value> {
+        let listed = self.state.get("recents").and_then(Value::as_array).cloned().unwrap_or_default();
+        let old = self.state.get("folder").cloned().into_iter(); // (kept before the list was: still the newest of it)
+        old.chain(listed).filter_map(|v| v.as_str().map(PathBuf::from)).filter(|p| p.is_dir())
+            .fold(Vec::<PathBuf>::new(), |mut all, p| { if !all.contains(&p) { all.push(p); } all })
+            .into_iter().take(RECENT_FOLDERS)
+            .map(|p| json!({ "name": name_of(&p), "path": s(&p) })).collect()
+    }
+
     pub(super) fn open_folder(&mut self, folder: &Path) {
         match self.wins.iter().find(|(_, w)| w.folder.as_deref() == Some(folder)).map(|(l, _)| l.clone()) {
             Some(label) => self.present(&label),
@@ -598,10 +608,9 @@ impl App {
             return self.open_folder(&resolve(&dir));
         }
         if files.is_empty() {
-            // Started bare: back to the folder that was open last, if there was one.
-            let last = self.state.get("folder").and_then(Value::as_str).map(PathBuf::from).filter(|p| p.is_dir());
-            return match last {
-                Some(folder) => self.open_folder(&folder),
+            // Started bare: the start window, which offers the folders opened last (a window that already waits there is shown).
+            return match self.wins.iter().find(|(_, w)| w.path.is_none() && w.folder.is_none()).map(|(l, _)| l.clone()) {
+                Some(label) => self.present(&label),
                 None => self.new_window(None, None),
             };
         }
