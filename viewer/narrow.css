@@ -149,6 +149,14 @@ body[data-folder] #toolbar [data-act="notefolder"] { display: none; }
 /* nothing open yet: a folder or a file */
 .start-go { display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .start-go .btn { margin: 0; }
+.start-recent { display: flex; flex-direction: column; gap: 2px; width: min(420px, 100%); margin: 14px auto 12px; text-align: left; }
+.start-recent small { padding: 0 10px 4px; color: var(--c-muted, inherit); opacity: .7; font-size: .8em; text-transform: uppercase; letter-spacing: .04em; }
+.start-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: var(--r-ctl, 8px); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.start-row:hover { background: color-mix(in srgb, currentColor 9%, transparent); }
+.start-ico { display: inline-flex; flex: none; width: 18px; height: 18px; opacity: .7; }
+.start-ico svg { width: 100%; height: 100%; }
+.start-name { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .5; font-size: .85em; direction: rtl; text-align: left; }
 
 /* ---- AI (ai.js): the bubble at the lower right that opens the chat — there only where AI is on (the settings), and nothing of
  * AI anywhere where it is off */

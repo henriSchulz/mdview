@@ -125,7 +125,8 @@
   }
 
   // A folder window with nothing to show (no notes yet).
-  function clear() {
+  function clear(info) {
+    if (info?.recents) P.recents = info.recents; // (the start window's list: the folders opened last)
     if (mode !== "read") modeBeforePdf = mode; // (the note that comes next is in this mode again)
     if (P.inSource(mode)) { P.flushSave(); P.leaveEditNow(); }
     if (mode === "active") P.leaveActiveNow();

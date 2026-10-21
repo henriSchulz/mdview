@@ -42,7 +42,7 @@ use tauri::http::{header, Response, StatusCode};
 
 /// What the shell's thread is told, one after the other.
 pub enum Event {
-    /// started, or started again while running: files and folders to open (none: the last folder)
+    /// started, or started again while running: files and folders to open (none: the start window, with the folders opened last)
     Open { args: Vec<String>, cwd: String },
     /// the page said something
     Msg { label: String, json: String },

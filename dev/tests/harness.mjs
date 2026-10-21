@@ -15,7 +15,7 @@ const SCRIPTS = [
 
 export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/wikilink.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/view.js"];
 
-export async function loadPage(extra = []) {
+export async function loadPage(extra = [], before = null) { // (before(window): run ahead of the page's scripts)
   const base = pathToFileURL(ROOT + "/").href;
   const tags = [...SCRIPTS, ...extra].map((s) => `<script nonce="t" src="${base}${s}"></script>`).join("");
   const errors = [];
@@ -25,7 +25,7 @@ export async function loadPage(extra = []) {
   const dom = new JSDOM(
     `<!doctype html><html><head><base href="${base}"><style id="theme"></style></head>` +
     `<body data-mode="light"><main id="content"></main>${tags}</body></html>`,
-    { url: base, runScripts: "dangerously", resources: "usable", pretendToBeVisual: true, virtualConsole });
+    { url: base, runScripts: "dangerously", resources: "usable", pretendToBeVisual: true, virtualConsole, beforeParse: before || undefined });
   await new Promise((resolve) => dom.window.addEventListener("load", resolve));
   if (errors.length) throw errors[0].detail || errors[0];
   if (!dom.window.MdView) throw new Error("viewer.js did not load");
