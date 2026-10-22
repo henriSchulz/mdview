@@ -90,6 +90,7 @@ impl Win {
             // the repositories the app was given (read anew), where they are chosen on GitHub, and
             // one of them fetched into a folder of its own
             "github-repos" => {
+                app.repos = None; // (read anew each time: what the app is given may have changed since)
                 if let Some(session) = app.session.clone() {
                     github::repos(app.tx.clone(), session);
                 }

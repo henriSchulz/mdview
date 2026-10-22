@@ -369,8 +369,8 @@
     }
     refresh.forEach((f) => f());
     show(PAGES.some((p) => p[0] === at) ? at : page);
-    asking = false; // (the repositories are read anew: what the app is given may have changed)
-    if (info.github) info.github = { ...info.github, repos: null };
+    // (the repositories are read anew: what the app is given may have changed; the shell drops its list on this message)
+    if (info.github) { info.github = { ...info.github, repos: null }; if (info.github.user) { asking = true; post("github-repos"); } else asking = false; }
     post("settings-info");
     void root.offsetWidth;
     window.MdView.core.lockScroll(true);
