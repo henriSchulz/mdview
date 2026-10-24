@@ -30,7 +30,8 @@ body[data-mode="dark"] #board { --bd-on-accent: #000; --bd-tool-body: #dedee3; -
 #board[data-open] { opacity: 1; transform: none; transition: transform var(--spring-gentle-dur) var(--spring-gentle), opacity var(--dur-slow) var(--ease-out); }
 
 .bd-stage { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
-.bd-stage[data-grid] { background-image: radial-gradient(circle, var(--bd-grid-dot) 0.75px, transparent 1.25px); }
+.bd-dots { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.bd-stage[data-grid] > .bd-dots { background-image: radial-gradient(circle, var(--bd-grid-dot) 0.75px, transparent 1.25px); }
 .bd-stage[data-tool="eraser"] { cursor: none; }
 .bd-stage[data-tool="lasso"] { cursor: default; }
 .bd-stage[data-tool="look"], .bd-stage[data-space] { cursor: grab; }

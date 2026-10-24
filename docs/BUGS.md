@@ -247,8 +247,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 61. **What flickers while nothing of the page changes is WebKit's, and is filmed, not probed.** A
     probe sees the page's state, not the frames the window gets: `rig.sh scrollup` records the
     nested screen (`wf-recorder`) and looks at each frame. The renderer is chosen in `main.rs`
-    (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed back, that case runs several times —
-    the torn frame comes one to four times a film, not in each.
+    (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed, that case runs several times —
+    the torn frame comes one to four times a film, not in each. Since 2026-10-24 the app draws
+    with the GPU (the DMA-BUF renderer on: rule 76) and the rig without it — its nested compositor
+    takes the GPU's frames too slowly for a film or a probe to end; the flicker is then looked for
+    on Henri's screen.
 62. **Without WebKit's DMA-BUF renderer there is no blur.** `backdrop-filter` is drawn on its way
     only: off (rule 61), glass is a pale film the text behind it is read through. What is glass
     takes `--glass` and `--glass-filter` — never a colour and a blur of its own — so that
@@ -292,6 +295,31 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the sidebar's `body::before` and the sheets' `::before`); a ring without blur (`0 0 0 0.5px`)
     costs nothing. A rig of its own size and scale: the frames are read at twice the size
     (`MDVIEW_RIG_SCALE=2`, `rig.sh sblag`), where at scale 1 nothing showed.
+
+76. **The window is drawn with the GPU, and what is measured for speed is measured on the desktop.**
+    Without WebKit's DMA-BUF renderer every frame is the whole window painted by the processor:
+    on Henri's laptop (i5-6200U, 2160×1440 at twice the size) a note on a ground scrolled at 40 to
+    65 ms a frame, the sidebar's sheets at 70, a whiteboard moved at 50 — with it all at 17. The
+    rig's nested compositor cannot say this (rule 61): its figures are the processor's, and the
+    perf cases (`scrollperf`, `boardperf`, `blockperf`, `sbscroll`) are run once on the desktop
+    too, on a hidden workspace (an output of its own) with the state of a rig, before a change to
+    speed is called done. Rules 62–65, 69 and 75 hold all the same: whoever turns the renderer off
+    (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) gets the processor's frames back.
+77. **What a pointer drives is done once a frame, at its last place.** A mouse moves several times
+    a frame; work that measures the page (blocks under a rectangle, where a dragged block would
+    go, the copy that goes with the pointer moved and measured) done at every move is done four
+    times for one picture — a block's drag took 40 ms a frame. A move notes where the pointer is
+    and asks for a frame; the frame does the work; a let-go before the frame came does it then,
+    from where it was let go. And in the frame: measured first, written after — the rectangle
+    drawn before the blocks were measured laid the page out at each measuring. What grows or
+    moves over the text while a pointer pulls (the rectangle, the fields of selected blocks, a
+    board's dots) is a layer of its own (`will-change: transform`), or each step paints the text
+    under it anew. `rig.sh blockperf`, `boardperf`.
+78. **What lies out of sight in a long list is not drawn.** The sidebar's sheets are thousands of
+    elements (a note's beginning: formulas, code, tables); a sheet has its size of its own, so it
+    takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight
+    (70 → 16 ms a frame). Only where the size is fixed: a row whose height comes from what is
+    in it would jump when it comes into sight. `rig.sh sbscroll`.
 
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the

@@ -20,6 +20,9 @@
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
+#   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
+#   dev/rig.sh sbscroll              the sidebar's own list scrolled in each layout: frames
 #   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
@@ -92,10 +95,13 @@ R="${MDVIEW_RIG:-$HOME/.cache/mdview-rig}"; H="$XDG_RUNTIME_DIR/hypr"; WS="${MDV
 mkdir -p "$R/out" "$R/state"
 sig() { cat "$R/sig" 2>/dev/null; }
 wl() { HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)" '.[] | select(.instance==$s) | .wl_socket'; }
+# (the nested compositor takes the frames of WebKit's GPU renderer far too slowly — a probe of frames never ends: the rig
+# draws without it, as the app did until 2026-10-24, unless told otherwise. Figures of the GPU's frames: on the desktop)
 app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
-    XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
+    XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 \
+    WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}" "${envs[@]}" \
     setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
 # (this rig's own window: several rigs stand side by side on the hidden workspace)
@@ -231,6 +237,38 @@ case "${1:-}" in
     [[ -n $f && $n == "$want" && $want -gt 3 ]] && echo "ok   the board is a file where the note's pictures go ($(basename "$f"), $(wc -c < "$f") bytes), with a line for each of its $n strokes" || echo "FAIL the board's file: ${f:-none}, $n strokes, $want on the board"
     [[ -n $f ]] && grep -q "$(basename "$f")" "$R/work/$name" && echo "ok   the note on disk names it" || echo "FAIL the note on disk does not name the board"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board.json"; } | grep -qv '^ok' ;;
+  boardperf)
+    # (a whiteboard written full: a pen's strokes, the board moved and zoomed — frames and lag, numbers only)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".boardperf.json
+    app 240 MDVIEW_PROBE="$D/probe-boardperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 2000); do [[ -f $R/out/$name.boardperf.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.boardperf.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95 / max, over 33 ms)", (.numbers | to_entries[] | select(.key != "window") | "  \(.key): \(.value | tostring)")' "$R/out/$name.boardperf.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/$name.boardperf.json" | grep -q '^FAIL' ;;
+  blockperf)
+    # (a long note: blocks selected with a rectangle and a block dragged by its handle, a mouse of 240 Hz — frames, numbers only)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.blockperf.json
+    { echo '# Long'; for i in $(seq 250); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold**, \$a_$i^2\$ and a [link](https://example.com)."; (( i % 25 == 0 )) && { echo; echo "- item one"; echo "- item two"; echo "  - nested"; }; done; } > "$R/work/long.md"
+    app 240 MDVIEW_PROBE="$D/probe-blockperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/long.md"
+    for _ in $(seq 2000); do ls "$R/out"/*.blockperf.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.blockperf.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95 / max, over 33 ms)", (.numbers | to_entries[] | "  \(.key): \(.value | tostring)")' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  sbscroll)
+    # (the sidebar's own list scrolled in each layout, a folder of notes rich in what a sheet draws — frames, numbers only)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Sub"; rm -f "$R/out"/*.sbscroll.json
+    magick -size 600x400 gradient:red-blue "$N/pic.png"
+    for i in $(seq 120); do printf '# Note %s\n\nSome text with $x^%s$ and **bold**.\n\n![](pic.png)\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```js\nconst a = %s;\n```\n\n$$\\int_0^1 x^2\\,dx$$\n\n- one\n- two\n' $i $i $i > "$N/Note $i.md"; done
+    for i in $(seq 6); do printf '# Sub %s\n' $i > "$N/Sub/Sub $i.md"; done
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 240 MDVIEW_PROBE="$D/probe-sbscroll.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 2000); do ls "$R/out"/*.sbscroll.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.sbscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95, over 33 ms)", (.numbers | to_entries[] | "  \(.key): \(.value | tostring)")' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   board-items)
     # what stands on a whiteboard beside the ink: shapes, sticky notes, text boxes, lines — chosen, moved, sized, turned, typed in, arranged
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{shape,items,arranged,closed,board-items}.json
