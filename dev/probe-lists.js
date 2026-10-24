@@ -32,6 +32,7 @@
       const t = own(where).getBoundingClientRect(), left = item(where).getBoundingClientRect().left;
       const x = left + inX - dx, y = half === "upper" ? t.top + 3 : t.bottom - 3;
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+      await new Promise((r) => requestAnimationFrame(() => r())); // (where it would go is looked for once a frame: docs/BUGS.md rule 77)
       const shown = line.hasAttribute("data-on"), lx = Math.round(line.getBoundingClientRect().left - left);
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));

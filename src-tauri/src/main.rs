@@ -244,15 +244,13 @@ fn main() {
     // (what the desktop knows the app's windows by: the desktop entry's StartupWMClass)
     #[cfg(target_os = "linux")]
     gtk::glib::set_prgname(Some("dev.henri.MdView"));
-    // (WebKit's DMA-BUF renderer hands the window a frame now and then that is half the last one moved
-    // by the wheel's step: scrolled up, the toolbar, the tabs and the sidebar jumped down for a frame
-    // — Henri, 2026-10-14, "the controls flicker when scrolling up"; `dev/rig.sh scrollup`. Its other
-    // way of handing frames over has none of that. Set before the first web view; a value given
-    // from outside wins — `=0` brings the renderer back)
-    #[cfg(target_os = "linux")]
-    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
-    }
+    // (WebKit's DMA-BUF renderer is left on: it draws with the GPU. Without it every frame is the whole window painted
+    // by the processor — on Henri's laptop (i5-6200U, a screen of 2160×1440 at twice the size) a note on a ground scrolled
+    // at 40 to 65 ms a frame, a PDF at 45, the sidebar's sheets at 70, a whiteboard moved at 50; with it all of them at
+    // 17 (`dev/rig.sh scrollperf`, `boardperf`, `sbscroll`, measured on the desktop itself — the nested rig's compositor
+    // takes its frames too slowly to say). It was off from 2026-10-14 to 2026-10-24 for a frame now and then that was
+    // half the last one moved by the wheel's step, scrolled up (`dev/rig.sh scrollup`). A value given from
+    // outside wins: `WEBKIT_DISABLE_DMABUF_RENDERER=1` turns it off again)
 
     let again = tx.clone();
     let events = tx.clone();

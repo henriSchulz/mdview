@@ -78,6 +78,7 @@
       const dt = new DataTransfer(), hr = h.getBoundingClientRect();
       h.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: hr.left + 9, clientY: hr.top + 9, dataTransfer: dt }));
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
+      await new Promise((r) => requestAnimationFrame(() => r())); // (where it would go is looked for once a frame: docs/BUGS.md rule 77)
       const lr = line.getBoundingClientRect(), dg = A.blocks.dragging(), shown = { on: line.hasAttribute("data-on"), w: lr.width, h: lr.height, x: lr.left, over: A.blocks.over() && A.blocks.over().textContent.slice(0, 8), drag: dg && [dg.from, dg.to], under: (document.elementFromPoint(x, y) || {}).tagName, col: !!view.dom.querySelector(".col.drop-col") };
       (document.elementFromPoint(x, y) || document.body).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX: x, clientY: y, dataTransfer: dt }));
       h.dispatchEvent(new DragEvent("dragend", { bubbles: true }));

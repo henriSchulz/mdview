@@ -57,6 +57,10 @@ every check.
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
+./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming
+./rig.sh blockperf                                      # a long note: a rectangle over blocks, a block dragged (a mouse of 240 Hz): frames
+./rig.sh sbscroll                                       # the sidebar's list scrolled in each layout: frames
+# (the rig draws without the GPU — WEBKIT_DISABLE_DMABUF_RENDERER=1 —, the app with it: figures of speed are taken on the desktop too, docs/BUGS.md rule 76)
 ./rig.sh board-hand                                     # a whiteboard under a mouse: hit areas, arrows joined as drawn, joints, the right button (a real pointer)
 ./rig.sh panel                                          # the panel at the right: Insert, Format and Document (a ground and a wide page written into the note)
 ./rig.sh docstyle                                       # the document's style beside the source and the source with its reading: the panel, the head written, Ctrl+Z, both sheets on the ground

@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-24
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The app needs extreme performance updates for this device — it does not run smoothly": "everywhere, above all in the file explorer, in block select, scrolling, block drag and drop, and the whiteboard lags so that it is not usable" (i5-6200U, HD 520, 2160×1440 at twice the size) | the window was painted by the processor at every frame (the DMA-BUF renderer off since 2026-10-14): a note on a ground scrolled at 40–65 ms a frame, the sidebar's sheets at 70, a whiteboard moved at 50 and zoomed at 74; the board's dots were the stage's background, painted anew at every step (a third of a frame); a rectangle over blocks and a block's drag did their measuring at every move of the mouse (several a frame), the copy that goes with the pointer was moved and measured at each, and the rectangle was drawn before the blocks were measured; the sheets out of sight were laid out and painted at every step of the list | the DMA-BUF renderer on (`main.rs`; the rig keeps it off, rule 76); the dots a layer of their own moved by a transform (`board.js`, `.bd-dots`); the rectangle, a drag's aim and its copy once a frame at the pointer's last place, measured before drawn (`active/blocks.js`, `viewer/sidebar.js`); the rectangle and the fields layers of their own; `content-visibility: auto` on the sheets (`viewer/layouts.css`). On the desktop: scroll 17 ms everywhere, the board moved and zoomed at 17, a pen's lag p95 54 → 18 ms, a rectangle 51 → 21, a drag 50 → 19, the sheets 70 → 16 | `rig.sh boardperf`, `blockperf`, `sbscroll`, `scrollperf` (figures of the desktop: rule 76); the old flicker scrolled up (`scrollup`) could not be filmed with the GPU's frames — no guard for it |
+
 ### 2026-10-20
 
 | What Henri saw | Why | Fixed by | Guard |

@@ -579,8 +579,14 @@
     ghost.tx += x - ghost.gx - r.left; ghost.ty += y - ghost.gy - r.top;
     ghost.el.style.transform = `translate(${ghost.tx}px, ${ghost.ty}px)`;
   };
-  const ghostGone = () => { if (ghost) ghost.el.remove(); ghost = null; };
-  document.addEventListener("dragover", (e) => ghostTo(e.clientX, e.clientY), true);
+  const ghostGone = () => { if (ghost) { cancelAnimationFrame(ghost.frame); ghost.el.remove(); } ghost = null; };
+  // (moved once a frame, to where the pointer was last: a mouse moves several times a frame, and each move of the copy measured
+  // and changed the page anew — a drag took twice a frame's time on Henri's laptop, dev/rig.sh blockperf)
+  document.addEventListener("dragover", (e) => {
+    if (!ghost) return;
+    ghost.at = [e.clientX, e.clientY];
+    if (!ghost.frame) ghost.frame = requestAnimationFrame(() => { if (!ghost) return; ghost.frame = 0; ghostTo(...ghost.at); });
+  }, true);
   for (const t of ["dragend", "drop"]) document.addEventListener(t, ghostGone, true);
   const moving = {
     path: null, paths: null,
