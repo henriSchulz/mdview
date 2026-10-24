@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-24
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The whiteboard and the PDF edit tool must be optimised for touch in the Linux version" — the tablet's fingers come over mac-cast as a touch screen of the Mac; "it must feel intuitive there" | the window's pinch gesture (host.rs) claimed two fingers on the screen too: the page never saw the second finger nor the first one move, so a whiteboard could not be moved or sized by them; WebKitGTK says the pointer is a fine one, so every bar stayed a mouse's size; it makes up a mouse's pointer events after every tap (the page then thought the hand a mouse); the PDF's pages had no fingers of their own (WebKitGTK's wheels under a finger, its zoom of the whole window under two) | host.rs claims only a touchpad's pinch; viewer/hand.js (`data-finger`, the made-up mouse taken out, two fingers held from the window's zoom); the bars a finger's size under `data-finger` (board.css, pdfview.css); the PDF's pages moved, thrown and sized by fingers (pdfview.js `fingers`) | `rig.sh gtktouch`, `web/test/linux-touch.test.mjs` |
+
 ### 2026-10-20
 
 | What Henri saw | Why | Fixed by | Guard |

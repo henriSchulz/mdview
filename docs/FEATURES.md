@@ -671,6 +671,10 @@ and shut back into it — or a file of the folder, of its own.
   runs on and comes to rest (a finger put down holds it); two fingers leave it where they left it. Two fingers tapped together take the last
   step back, three bring it again. On a narrow screen the bar of tools stands under the top
   row and the tray above the bottom row.
+- **A touch screen in the application on Linux** (a tablet's fingers over mac-cast, a laptop's
+  screen): the same. Once a finger has touched the window, the board's bars and the PDF's bar
+  are a finger's size, as on a tablet; a wheel or a touchpad's two fingers make them a mouse's
+  again. A pen that comes as a mouse (mac-cast's) draws as a mouse does.
 - **Joints**: the one thing chosen, and the thing a mouse rests over, has a small dot a little
   off the middle of each side. Pulled onto another thing, a line with an arrow joins the two
   at both ends; let go over the bare board, a choice of shapes asks what is to stand at its
@@ -1374,7 +1378,9 @@ back, the page, the size, fit, a region, the pen. The side card — outline, pag
 the window's left under the bar; no page moves for it. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
 again. A pinch and the wheel hold the place under the pointer; pages broader than the window are
-moved sideways (two fingers, `Shift` with the wheel). Keys: `+` `−` zoom, `W` fit width,
+moved sideways (two fingers, `Shift` with the wheel). On a touch screen of the application on
+Linux, one finger moves the pages and, let go while moving, throws them on; two fingers make
+them larger and smaller, what lies between them staying there. Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
 
 **Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the

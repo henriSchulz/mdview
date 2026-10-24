@@ -78,6 +78,7 @@ const SCRIPTS: &[&str] = &[
     "vendor/katex/katex.min.js",
     "strings.js",
     "viewer/base.js",
+    "viewer/hand.js",
     "viewer/markdown.js",
     "viewer/prep.js",
     "viewer/render.js",

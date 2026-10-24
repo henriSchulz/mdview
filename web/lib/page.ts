@@ -8,7 +8,7 @@ const SCRIPTS = [
   "vendor/markdown-it.min.js", "vendor/footnote.min.js", "vendor/deflist.min.js", "vendor/mark.min.js", "vendor/sub.min.js", "vendor/sup.min.js",
   "vendor/abbr.min.js", "vendor/emoji.min.js", "vendor/js-yaml.min.js", "vendor/highlight.min.js", "vendor/highlight-extra.min.js",
   "vendor/katex/katex.min.js", "strings.js",
-  "viewer/base.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
+  "viewer/base.js", "viewer/hand.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
   "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js", "viewer/tablet.js",
   "viewer.js", "overview.js",
 ];

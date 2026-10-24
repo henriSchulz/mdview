@@ -99,12 +99,19 @@ mod linux {
             }
             // Two fingers pulled apart on a touchpad are the PDF viewer's (pdfview.js pinch): the
             // page as a whole has one size. Taken here, before the web view makes a zoom of its
-            // own of them.
+            // own of them. Two fingers on a touch screen are not taken: they are the page's own
+            // (board/pointer.js, the PDF viewer's fingers in pdfview.js) — claimed here, the page
+            // never saw the second finger, nor the first one move (dev/rig.sh gtktouch).
             wv.add_events(gdk::EventMask::TOUCHPAD_GESTURE_MASK);
             let pinch = gtk::GestureZoom::new(&wv);
             pinch.set_propagation_phase(gtk::PropagationPhase::Capture);
             let to = page.clone();
-            pinch.connect_begin(move |g, _| {
+            pinch.connect_begin(move |g, seq| {
+                if seq.is_some() {
+                    // (a touchpad's pinch comes without a sequence; each finger on a screen is one)
+                    g.set_state(gtk::EventSequenceState::Denied);
+                    return;
+                }
                 g.set_state(gtk::EventSequenceState::Claimed);
                 let _ = to.eval("MdView.pinch(\"begin\",1)");
             });

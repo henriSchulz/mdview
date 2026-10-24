@@ -385,6 +385,20 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the direction is still being decided. A `touchcancel` after the gesture was clearly meant
     still counts.
 
+### Touch on Linux (WebKitGTK)
+
+76. **WebKitGTK is no Safari under a finger, and only a touch screen's touches show what it does** (Henri,
+    2026-10-24: the tablet's fingers on the Mac's screen, over mac-cast). It tells of fingers as pointers
+    of their own, but says the pointer is a fine one (`pointer: coarse` never holds: what is pressed is
+    sized by `<html data-finger>` too, viewer/hand.js), makes up a mouse's pointer events after every tap
+    (taken out by hand.js; the click stays), scrolls under a finger with wheels of its own and makes the
+    whole window larger under two fingers where the page does not take them. Two fingers on the screen
+    are never the host's: a gesture of the window that claims them (`GestureZoom`, host.rs) takes the
+    second finger and every move away from the page — only a touchpad's pinch, which has no sequence, is
+    claimed. Chromium's touch emulation shows none of this, and made-up DOM events neither: what WebKitGTK
+    does is checked in WebKitGTK with a touch screen's touches (`rig.sh gtktouch`, dev/gtktouch); what the
+    page does with it, in Chromium under WebKitGTK's name (`web/test/linux-touch.test.mjs`).
+
 ### Releases and installs
 
 28. **The Windows installer is tried before it is released** (`windows-tried` in `build.yml`).
