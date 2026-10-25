@@ -65,6 +65,32 @@ button { font: inherit; }
 .home-search { height: 36px; padding: 0 12px; box-sizing: border-box; border: 0; border-radius: var(--radius-popover, 10px); background: var(--raised); color: var(--fg); font: 400 14px var(--ui); box-shadow: 0 0 0 0.5px var(--line-strong); outline: none; transition: box-shadow var(--dur-fast) var(--ease-out); }
 .home-search:focus { box-shadow: 0 0 0 var(--focus-ring, 2px) var(--accent); }
 .home-search::placeholder { color: var(--fg3); }
+/* the search and New Space beside it (newspace.tsx): the button the page's one strong colour */
+.home-tools { display: flex; gap: 10px; }
+.home-tools .home-search { flex: 1; min-width: 0; }
+.new-space { flex: none; height: 36px; padding: 0 16px 0 12px; gap: 6px; border-radius: var(--radius-popover, 10px); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent); }
+.new-space svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+/* … and the small window it opens, in the look of the desktop app's chooser: over a veil, grown a little from the middle */
+.ns-scrim { position: fixed; inset: 0; z-index: 80; background: rgb(0 0 0 / 0.18); opacity: 0; visibility: hidden; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7); }
+.ns-scrim[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-base) var(--ease-out), visibility 0s; }
+.ns {
+  position: fixed; inset: 0; margin: auto; z-index: 81; width: min(420px, calc(100vw - 32px)); height: fit-content; box-sizing: border-box;
+  display: grid; gap: 8px; padding: 20px 20px 14px; border-radius: calc(var(--radius-panel) + 2px); background: var(--raised); color: var(--fg);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 18px 50px rgb(0 0 0 / 0.3);
+  opacity: 0; visibility: hidden; transform: scale(0.97);
+  transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), transform calc(var(--dur-base) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-base) * 0.7);
+}
+.ns[data-open] { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth), visibility 0s; }
+.ns h2 { margin: 0 0 6px; font: 600 17px/1.3 var(--ui); }
+.ns-label { font-size: 13px; font-weight: 500; color: var(--fg2); }
+.ns-field { width: 100%; background: var(--bg); }
+.ns-repo { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font-size: 13px; color: var(--fg2); overflow-wrap: anywhere; }
+.ns-repo small { color: var(--fg3); font-size: 12px; }
+.ns-why { margin: 2px 0 0; padding: 8px 12px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); font-size: 13px; line-height: 1.45; }
+.ns-why a { color: var(--accent); white-space: nowrap; }
+.ns-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.ns-foot .button:disabled { opacity: 0.45; filter: none; transform: none; }
+@media (prefers-reduced-motion: reduce) { .ns, .ns[data-open] { transform: none; } }
 .home-note { margin: 28px 0; text-align: center; color: var(--fg2); }
 /* a notebook: a cell with its sign, its name, what it is about, and when it was written to last */
 .books { display: grid; gap: 8px; }

@@ -497,6 +497,8 @@ pub struct App {
     signing: Option<(std::sync::Arc<std::sync::atomic::AtomicBool>, Option<(String, String)>)>, // a sign-in under way: to stop it, and the code to confirm (and where) once told
     github_said: String,       // why the last sign-in did not go, for the settings
     repos: Option<Vec<Value>>, // the repositories the app was given on the user's account, once read
+    making: Option<(PathBuf, Value)>, // a repository being made on GitHub: the project it is linked to once made, and the page's number for it
+    made: Value,                      // … how that went, for the settings: { n, busy, name } | { n, done, name } | { n, error, why, name }
     renew_turn: u64,
     synced: HashMap<PathBuf, Value>, // linked projects: how they stood when last reconciled, and when
     share_dirty: HashSet<PathBuf>, // projects whose list of shares changed here: the web app is told once that has arrived at GitHub
@@ -539,6 +541,8 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         signing: None,
         github_said: String::new(),
         repos: None,
+        making: None,
+        made: Value::Null,
         renew_turn: 0,
         synced: HashMap::new(),
         share_dirty: HashSet::new(),
@@ -1288,6 +1292,7 @@ impl Win {
                 history["linked"] = linked["linked"].clone();
                 history["sync"] = linked["sync"].clone();
             }
+            history["newRepo"] = json!(github::new_name(&name_of(&root))); // (the name a new repository is offered under)
         }
         let device = app.stamp().device;
         let device_id = device.rsplit_once(" (").map_or("", |(_, id)| id.trim_end_matches(')')).to_string();

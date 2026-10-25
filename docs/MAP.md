@@ -213,6 +213,7 @@ or the tests see the old ones.
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
 | `web/lib/paste.ts` | A project's pasteboard: one text for a repository, to carry something from one device to another — typed or … |
+| `web/lib/reponame.ts` | The name a new space's repository gets on GitHub, from the space's name: the same rule as the desktop app's … |
 | `web/lib/session.ts` | Who is signed in, kept in a cookie the page's scripts cannot read: the tokens and the user, sealed (encrypted … |
 | `web/lib/share.ts` | A note that was shared: read by anyone who has its link, signed in or not — and never anything else of the … |
 | `web/lib/sharegate.ts` | Who may see a shared note: anyone with its link — and, where a password was set, only a browser that gave it … |

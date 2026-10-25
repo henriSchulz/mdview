@@ -371,3 +371,36 @@ export const GIVE = "https://github.com/settings/installations";
 export type Place = { account: string; all: boolean; url: string };
 /** Where the app is put on an account, with the repositories it may reach (the GitHub App "mdview-notes"). */
 export const INSTALL = "https://github.com/apps/mdview-notes/installations/new";
+
+/** What a new space came to: its repository ("owner/name") — or why there is none: taken (the
+ * account has a repository of that name), denied (GitHub does not let the app make repositories:
+ * its permission for that not accepted yet), unreached (made, but the app was not given it),
+ * failed (anything else, said as GitHub said it). */
+export type Made = { name: string } | { error: "taken" | "denied" | "unreached" | "failed"; name: string; why?: string };
+
+/** A new space: a private, empty repository on the user's account under `name`, looked at with the
+ * same token (one the app is not given is of no use), and made a notebook at once — its first
+ * commit holds the app's marker, as when the history is turned on in an empty repository. */
+export async function newSpace(access: string, name: string, device: string): Promise<Made> {
+  const res = await fetch(`${API}/user/repos`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json", Accept: "application/vnd.github+json", "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28" },
+    body: JSON.stringify({ name, private: true, auto_init: false, description: "Notes, kept with Markdown Notes" }),
+    cache: "no-store",
+  });
+  if (res.status === 401) throw new Refused("GitHub does not take the token any more");
+  if (!res.ok) {
+    const said = (await res.json().catch(() => ({}))) as { message?: string; errors?: { message?: string }[] };
+    const details = (said.errors || []).map((e) => e.message || "").filter(Boolean).join("; ");
+    if (res.status === 422 && /already exists/i.test(details)) return { error: "taken", name };
+    if (denied(res)) return { error: "denied", name, why: said.message || "" }; // ("Resource not accessible by integration")
+    return { error: "failed", name, why: details || said.message || `GitHub said ${res.status}` };
+  }
+  const made = (await res.json().catch(() => ({}))) as { full_name?: string; default_branch?: string };
+  const [owner, repo] = (made.full_name || "").split("/");
+  if (!owner || !repo) return { error: "failed", name, why: "GitHub did not say what it made" };
+  if (!(await ask(access, repoPath(owner, repo))).ok) return { error: "unreached", name: made.full_name as string };
+  const marker = JSON.stringify({ id: crypto.randomUUID(), created: new Date().toISOString().replace(/\.\d+Z$/, "Z"), version: 1 }, null, 2) + "\n";
+  await commit(access, owner, repo, made.default_branch || "main", "", "History switched on", device ? `Device: ${device}\nClient: web` : "Client: web", { additions: [{ path: ".mdview/project.json", contents: Buffer.from(marker, "utf8").toString("base64") }], deletions: [] });
+  return { name: made.full_name as string };
+}
