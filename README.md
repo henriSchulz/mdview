@@ -29,8 +29,10 @@ beside the notes. The command and the repository are still called `mdview`;
 ## Install
 
 **Installers.** A tagged version is built on GitHub (`.github/workflows/build.yml`) and stands
-under *Releases*: `.deb`, `.rpm` and an AppImage for Linux. Windows and macOS are built in the
-same run, as its artifacts only: neither signed nor tried on those systems yet.
+under *Releases*: `.deb`, `.rpm` and an AppImage for Linux (x64 and arm64), and an installer for
+Windows — installed and started on GitHub's Windows before it is released, but not signed, so
+Windows warns before it runs it. macOS is not built for now. Which file is whose: the download
+page, https://md.henrischulz.com/download.
 
 **From the sources** (Linux; what the author runs):
 

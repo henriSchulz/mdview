@@ -1147,7 +1147,17 @@ counts — and has no writing help by a model.
   see. The sign-in lasts until Sign Out, or six months of not coming by.
 - **Before signing in**, the address shows a welcome page: the app itself with a handful of sample
   notes that live in the tab and nowhere else. Scrolling writes one of them, shows what a note can
-  hold, and leaves an editor to try; nothing typed there is kept.
+  hold, and leaves an editor to try; nothing typed there is kept. Its "Get the desktop app" leads
+  to the download page.
+- **The download page** (`/download`; `/install` leads there too) is open without signing in. It
+  offers the files of the desktop app's latest release on GitHub — Windows (the installer, with a
+  word that it is not signed and Windows warns), Linux (AppImage, .deb and .rpm, each for x64 and
+  arm64) and macOS, shown but not released yet ("Coming soon") — with the release's version and
+  date. The visitor's own system, read from the browser, comes first and is marked. The release is
+  asked of GitHub at most once an hour; where GitHub cannot be reached, the page says so and every
+  button leads to the releases on GitHub. A release's files are named
+  `MarkdownNotes-<version>-<system>-<arch>.<ext>` (from the release after v0.1.4 on; the page understands the older
+  names Tauri gave too), and the release says above its notes which file is whose.
 - **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
   is chosen beforehand.
 - **A repository that is missing**: the app reaches only what it was given on GitHub. Under the

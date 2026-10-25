@@ -9,6 +9,10 @@ const config: NextConfig = {
   // What every answer says about how it may be used: over https only from now on, its type not
   // guessed, not shown inside another site's page. (The pages that show notes add a policy of their own,
   // and say what they tell of where a visitor came from: lib/page.ts, lib/sharepage.ts.)
+  // the address the desktop app was once offered under (the repository's #install) is the download page now
+  async redirects() {
+    return [{ source: "/install", destination: "/download", permanent: false }];
+  },
   async headers() {
     return [{
       source: "/:path*",
