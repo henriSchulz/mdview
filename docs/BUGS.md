@@ -320,6 +320,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight
     (70 → 16 ms a frame). Only where the size is fixed: a row whose height comes from what is
     in it would jump when it comes into sight. `rig.sh sbscroll`.
+    `content-visibility` clips what the element holds to its box: a ring, a shade or a tab that
+    stands outside it is drawn on the element itself, not on a child (the open note's ring showed
+    only at the corners — `explorer.test.mjs`, "wears its ring all round").
 
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the

@@ -408,6 +408,29 @@ test("files from elsewhere, dropped on the list or chosen with Add Files…: lis
   assert.deepEqual([gh.repo.files.has("lost.txt"), gh.commits.length - n], [false, 0]);
 });
 
+// Henri, 2026-10-25: "what are these odd blue edges in the corners?" — the ring around the open note's sheet in the sidebar
+// showed at its four corners only: the sheet is laid out only when in sight (content-visibility), which clips what it holds
+// to its box, and the ring stood outside the box it held. Read from the pixels: the ring along each side, not only at the corners.
+test("the open note's sheet in the sidebar wears its ring all round, not only at the corners", async () => {
+  await open("Alpha.md");
+  await page.evaluate(() => { MdView.setPrefs({ ...(window.MdPrefs || {}), sidebarLayout: "sheets" }); MdPage.showSidebar(true, false); });
+  await page.waitForSelector('#sidebar[data-layout="sheets"] .sb-row.active .sb-sheet', { timeout: 5000 });
+  await page.waitForTimeout(500);
+  const r = await page.evaluate(() => { const b = document.querySelector("#sidebar .sb-row.active .sb-sheet").getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+  const pad = 6, clip = { x: Math.floor(r.x - pad), y: Math.floor(r.y - pad), width: Math.ceil(r.w + 2 * pad), height: Math.ceil(r.h + 2 * pad) };
+  const png = (await page.screenshot({ clip, path: join(web, ".next", "sheet-ring.png") })).toString("base64");
+  // (the picture read back in the page: a canvas says what each pixel is)
+  const px = await page.evaluate(async ({ png, r, clip }) => {
+    const img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    const k = img.width / clip.width, at = (x, y) => [...g.getImageData(Math.round((x - clip.x) * k), Math.round((y - clip.y) * k), 1, 1).data].slice(0, 3);
+    const mx = r.x + r.w / 2, my = r.y + r.h / 2;
+    return { left: at(r.x - 1.2, my), right: at(r.x + r.w + 1.2, my), top: at(mx, r.y - 1.2), bottom: at(mx, r.y + r.h + 1.2) };
+  }, { png, r, clip });
+  const blue = ([red, , b]) => b - red > 60;
+  for (const side of ["left", "right", "top", "bottom"]) assert.ok(blue(px[side]), `the ring along the ${side} side: ${px[side]}`);
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });
