@@ -150,6 +150,28 @@ test("All Notes: a tile keeps the pose it has under the pointer while its menu i
   await page.waitForFunction(() => !document.querySelector("#ctxmenu[data-open]"), null, { timeout: 4000 });
 });
 
+test("All Notes: another choice at the head dims what was shown at once — no glide that the new tiles cut off", async () => {
+  // (WebKit's GPU renderer kept the old tiles' picture of the fading layer, dimmed, under the empty Whiteboards: Henri 2026-10-25)
+  await open("Alpha.md");
+  await allNotes();
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="all"]');
+  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "all" && !document.querySelector("#overview .ov-body.ov-going"), null, { timeout: 8000 });
+  await new Promise((r) => setTimeout(r, 400));
+  const seen = await page.evaluate(() => new Promise((done) => {
+    const body = document.querySelector("#overview .ov-body"), out = [];
+    document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="boards"]').click();
+    const look = () => {
+      out.push(...body.getAnimations().map((a) => a.transitionProperty || a.animationName));
+      if (document.querySelector("#overview").dataset.scope === "boards" && !body.classList.contains("ov-going")) return done([...new Set(out)]);
+      requestAnimationFrame(look);
+    };
+    look();
+  }));
+  assert.deepEqual(seen, []);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
+});
+
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();
