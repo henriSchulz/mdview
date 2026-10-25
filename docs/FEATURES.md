@@ -24,6 +24,24 @@ an address that names a note (`?n=…`) opens that note, and a reload shows what
 The app stays resident for a while after its last window closes, so the next one opens at once.
 A file changed by another program is read again as it changes.
 
+### Updates
+
+An install from a downloaded file looks for a newer version a few seconds after it starts and
+every six hours (Settings › About › **Check for updates automatically**, on at first), in the
+background — the window is never held up, and a look that cannot reach GitHub says nothing.
+
+- **AppImage and Windows**: a newer version is downloaded and its signature checked, then a quiet
+  notice at the window's foot says so — *Markdown Notes 0.1.5 is available*, with **What's new**
+  (the release's page), **Later** (gone from every window; that version is not offered again
+  until the app starts anew) and **Restart to Update**: every window closes the way it does (a
+  note being written is saved, a question is asked), the new version is put in place and starts.
+- **.deb and .rpm**: the system's package manager owns the files, so the app only says that a
+  newer version is there, with **Download** (the download page).
+- **Built from the sources** (`bin/mdview-install`): no look, no notice — it is what the checkout builds.
+
+Settings › About › Updates shows the version, how the last look went, and **Check Now** (what
+went wrong is said there); with a version downloaded, **Restart to Update**.
+
 ## Four modes
 
 The switch at the top right — active, source and reading, source, reading, in that order — or `Ctrl+Alt+1` / `2` / `3` / `4`.
@@ -1496,7 +1514,7 @@ the right. A change takes effect at once.
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
 | PDFs | what a link to selected text is copied as, copy on select |
 | Writing Help | suggestions while typing, the Gemini API key, the model |
-| About | version, this guide, the settings folder |
+| About | version, this guide, the settings folder; for a downloaded install, updates: Check Now and checking automatically (see *Updates*) |
 
 The Gemini key is typed into the settings and kept in `~/.config/mdview/.env`, readable by the
 user alone; the window only ever shows its last four signs. A key in the environment

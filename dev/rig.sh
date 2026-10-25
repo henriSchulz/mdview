@@ -65,6 +65,7 @@
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
+#   dev/rig.sh update                a newer version of the app: the notice and the settings of an install that is told (a latest.json of the rig's own), offline, and a checkout's build that never is
 #   dev/rig.sh edges                 edge cases: empty document, one island, file changed under a dialog, narrow window, keyboard only
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
 #   dev/rig.sh assets                what is put into a note of a subfolder: in the base folder's assets, named assets/…, shown — also once the note is moved
@@ -1189,6 +1190,29 @@ PY
     ok "no subfolder got an assets of its own" '[[ ! -e $A/Sub/assets && ! -e $A/shelf/assets ]]' 'find "$A" -type d | sort'
     ok "the note that was moved names its pictures with the same words" 'grep -q "](assets/pasted-" "$A/shelf/Note.md" && grep -q "](assets/drop.png)" "$A/shelf/Note.md" && ! grep -q "\.\./" "$A/shelf/Note.md"' 'cat "$A/shelf/Note.md"'
     ok "what lay beside a note before stays where it was" '[[ -f $A/Old/assets/kept.png && ! -e $A/assets/kept.png ]]' 'find "$A" -type f | sort'
+    exit $fail ;;
+  update)
+    # (three runs, one after the other: an install told of 9.9.9 by an address of the rig's own, the same with nothing there, and the program as a checkout builds it)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/site"; cp "$D/tests/fixtures/$name" "$R/work/$name"
+    printf '{"version":"9.9.9","notes":"the rig'"'"'s","pub_date":"2026-10-25T12:00:00Z","platforms":{}}' > "$R/work/site/latest.json"
+    port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+    python3 -m http.server "$port" --bind 127.0.0.1 --directory "$R/work/site" >/dev/null 2>&1 & site=$!
+    fail=0
+    for run in package offline checkout; do
+      rm -f "$R/out/$name".{shown,settings,update}.json
+      { echo "window.__updateRun = '$run';"; cat "$D/probe-update.js"; } > "$R/probe-update-run.js"
+      at="http://127.0.0.1:$port/latest.json"; as=package
+      [[ $run == offline ]] && at="http://127.0.0.1:9/latest.json"
+      [[ $run == checkout ]] && as=
+      app 70 MDVIEW_PROBE="$R/probe-update-run.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_UPDATE_TEST="$as" MDVIEW_UPDATE_ENDPOINT="$at" MDVIEW_UPDATE_FIRST_MS=3000 -- "$R/work/$name"
+      for v in shown settings; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.update.json ]] && break; sleep 0.1; done; [[ -f $R/out/$name.$v.json ]] && { sleep 0.8; shot "$R/out/update-$run-$v.png"; }; done
+      for _ in $(seq 400); do [[ -f $R/out/$name.update.json ]] && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null; sleep 0.5
+      [[ -f $R/out/$name.update.json ]] || { echo "FAIL [$run] no report"; tail -5 "$R/app.log"; fail=1; continue; }
+      jq -r '.steps[], (.error // empty)' "$R/out/$name.update.json"
+      jq -r '.steps[], (.error // empty)' "$R/out/$name.update.json" | grep -qv '^ok' && fail=1
+    done
+    kill "$site" 2>/dev/null
     exit $fail ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json

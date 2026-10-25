@@ -41,6 +41,11 @@ test("a release's files are told apart by their names, old and new", () => {
     assets: [...Object.keys(OLD), "latest.json"].map((name) => ({ name, browser_download_url: `https://example.test/${name}`, size: 9e6 })) });
   assert.equal(release.version, "0.1.4");
   assert.equal(release.assets.length, 7);
+  // (a release with updates: each AppImage and the Windows installer beside its signature, and latest.json — only the installers are offered)
+  const sigs = ["MarkdownNotes-0.2.0-linux-x64.AppImage.sig", "MarkdownNotes-0.2.0-linux-arm64.AppImage.sig", "MarkdownNotes-0.2.0-windows-x64-setup.exe.sig"];
+  for (const name of sigs) assert.equal(classify(name), null, name);
+  const updating = releaseFrom({ tag_name: "v0.2.0", assets: [...Object.keys(NEW), ...sigs, "latest.json"].map((name) => ({ name, browser_download_url: `https://example.test/${name}` })) });
+  assert.deepEqual(updating.assets.map((a) => a.name).sort(), Object.keys(NEW).sort());
 });
 
 test("the visitor's system is read from the browser", () => {

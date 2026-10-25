@@ -30,6 +30,7 @@ mod slides;
 mod shell;
 mod sync;
 mod theme;
+mod update;
 
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -84,6 +85,12 @@ pub enum Event {
     SyncTick,
     /// asked: the page's doing (projects taken in), so what went wrong is said, and the folder told anew
     Snapshotted { root: PathBuf, kept: bool, skipped: Vec<String>, error: Option<String>, asked: bool },
+    /// time to look for a newer version of the app (update.rs), and what the look found
+    UpdateTick,
+    Update(update::News),
+    /// the page said Check Now, Restart to Update or Later — done with every window in its place
+    /// (a message is handled with its own window taken out of the list); and the last window gone while restarting
+    UpdateDo(&'static str),
 }
 
 #[derive(Clone, Copy)]
@@ -260,7 +267,12 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(move |_app, argv, cwd| {
             let _ = again.send(Event::Open { args: argv.into_iter().skip(1).collect(), cwd });
         }))
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+    // (the updater only where the app puts a new version in place itself: an AppImage, the Windows
+    // installer's program — never a checkout's build, update.rs)
+    #[cfg(any(target_os = "linux", windows))]
+    let app = if update::KIND.updates_itself() { app.plugin(tauri_plugin_updater::Builder::new().build()) } else { app };
+    let app = app
         .manage(tx)
         .invoke_handler(tauri::generate_handler![msg])
         .register_asynchronous_uri_scheme_protocol("md", |_ctx, request, responder| {

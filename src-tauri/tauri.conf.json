@@ -8,6 +8,13 @@
     "windows": [],
     "security": { "csp": null }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFQTIwNzg3NjA5NzI2ODgKUldTSUpwZGdod2VpdnZQamhXUnR4OGtMMWpYTHZITk1hUVRPcFc4cHdBMk9YWXJNUk5NRmtNbFMK",
+      "endpoints": ["https://github.com/henriSchulz/mdview/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": false,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png", "icons/icon.ico"],

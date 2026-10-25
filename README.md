@@ -34,6 +34,12 @@ Windows — installed and started on GitHub's Windows before it is released, but
 Windows warns before it runs it. macOS is not built for now. Which file is whose: the download
 page, https://md.henrischulz.com/download.
 
+**Updates.** The AppImage and the Windows installer update themselves: a newer release is
+downloaded in the background, its signature checked, and installed on *Restart to Update*. A
+`.deb` or an `.rpm` does not replace itself — the app says that a newer version is there; download
+it anew from the download page. Built from the sources, the app never looks. (The signing key:
+`packaging/updates.md`.)
+
 **From the sources** (Linux; what the author runs):
 
 ```sh

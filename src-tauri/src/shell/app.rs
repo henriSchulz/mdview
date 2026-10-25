@@ -312,6 +312,11 @@ impl App {
 
     /// No window left: the process stays for a while, so that the next one opens at once.
     pub(super) fn rest(&mut self) {
+        if self.restarting && self.wins.is_empty() {
+            // (Restart to Update: the new version starts — once the window being handled is back in the list or gone too)
+            let _ = self.tx.send(Event::UpdateDo("restarted"));
+            return;
+        }
         if self.wins.is_empty() {
             self.idle_turn += 1;
             // (the override: for tests)
@@ -430,6 +435,20 @@ impl App {
                     github::resume(self.tx.clone(), self.keyring_place());
                 }
             }
+            Event::UpdateTick => {
+                if truthy(&self.prefs()["updateAuto"]) {
+                    update::check(&self.handle, self.tx.clone(), false);
+                }
+                self.after(UPDATE_EVERY_MS, Event::UpdateTick);
+            }
+            Event::Update(news) => self.on_update(news),
+            Event::UpdateDo(what) => match what {
+                "check" => self.check_update(),
+                "restart" => self.restart_to_update(),
+                "later" => self.update_later(),
+                _ if self.restarting && self.wins.is_empty() => self.restart_updated(),
+                _ => {}
+            },
             Event::SyncTick => {
                 self.sync_shown();
                 self.after(self.sync_ms(), Event::SyncTick);
@@ -550,6 +569,114 @@ impl App {
         }
         #[cfg(not(unix))]
         let _ = args;
+    }
+
+    // -- updates of the app (update.rs) ------------------------------------
+
+    /// For the settings: what this install does about a newer version, and how the last look
+    /// went. Null where nothing is done (a checkout's build): the rows are then not shown.
+    pub(super) fn update_shown(&self) -> Value {
+        let kind = *update::KIND;
+        if kind == update::Install::Checkout {
+            return Value::Null;
+        }
+        let mut shown = self.update.clone();
+        shown["install"] = json!(kind.name());
+        shown["version"] = json!(update::VERSION);
+        shown
+    }
+
+    /// What the settings show of it, told to every window (only that part of what they know).
+    fn tell_update(&mut self) {
+        let info = json!({ "update": self.update_shown() });
+        self.each_win(|w, _| w.js("MdView.settingsInfo", &[info.clone()]));
+    }
+
+    /// The notice every window shows (None: taken away).
+    fn notice(&mut self, notice: Option<Value>) {
+        self.update_notice = notice.clone();
+        let notice = notice.unwrap_or(Value::Null);
+        self.each_win(|w, _| w.js("MdView.updateNotice", &[notice.clone()]));
+    }
+
+    /// Check Now, in the settings: said there how it went, errors too.
+    fn check_update(&mut self) {
+        if *update::KIND == update::Install::Checkout {
+            return;
+        }
+        self.update = json!({ "state": "checking" });
+        self.tell_update();
+        update::check(&self.handle, self.tx.clone(), true);
+    }
+
+    fn on_update(&mut self, news: update::News) {
+        use update::News;
+        match news {
+            News::Current { .. } => self.update = json!({ "state": "current" }),
+            News::Ready { version, asked } => {
+                self.update = json!({ "state": "ready", "latest": version });
+                if asked || self.update_later.as_deref() != Some(version.as_str()) {
+                    self.notice(Some(json!({ "version": version, "kind": "restart", "url": update::notes_url(&version) })));
+                }
+            }
+            News::Available { version, asked } => {
+                self.update = json!({ "state": "available", "latest": version });
+                if asked || self.update_later.as_deref() != Some(version.as_str()) {
+                    self.notice(Some(json!({ "version": version, "kind": "download", "url": update::DOWNLOAD_PAGE, "notes": update::notes_url(&version) })));
+                }
+            }
+            // (a look of its own that did not go says nothing: offline is no news)
+            News::Failed { why, asked } => {
+                if !asked && self.update["state"] != "checking" {
+                    return;
+                }
+                self.update = json!({ "state": "failed", "why": why });
+            }
+        }
+        self.tell_update();
+    }
+
+    /// Later: the notice goes from every window, and this version is not shown again by itself.
+    fn update_later(&mut self) {
+        self.update_later = self.update_notice.as_ref().and_then(|n| n["version"].as_str()).map(String::from);
+        self.notice(None);
+    }
+
+    /// Restart to Update: on Linux the AppImage is replaced at once (what does not go is said, and
+    /// nothing closes); then every window closes the way it does (a note being written is saved
+    /// first, a question it asks is asked) and, once the last one is gone, the new version starts.
+    fn restart_to_update(&mut self) {
+        if !update::KIND.updates_itself() || self.update["state"] != "ready" || self.restarting {
+            return;
+        }
+        #[cfg(not(windows))]
+        if let Err(e) = update::install() {
+            self.update = json!({ "state": "failed", "why": e });
+            self.notice(None);
+            self.tell_update();
+            let said = format!("Couldn't update: {}", self.update["why"].as_str().unwrap_or(""));
+            return self.each_win(|w, _| w.toast(said.clone()));
+        }
+        self.restarting = true;
+        self.notice(None);
+        if self.wins.is_empty() {
+            return self.restart_updated();
+        }
+        self.each_win(|w, app| w.close(app));
+    }
+
+    /// The last window is gone: what waits to be kept is kept, and the new version starts.
+    fn restart_updated(&mut self) {
+        self.snapshot_waiting(false);
+        self.historian.wait();
+        // (Windows: the installer is started, and it ends this process and starts the new one)
+        #[cfg(windows)]
+        if let Err(e) = update::install() {
+            self.restarting = false;
+            self.update = json!({ "state": "failed", "why": e });
+            return self.new_window(None, None); // (where the settings say why)
+        }
+        self.handle.request_restart();
     }
 
     pub(super) fn present(&self, label: &str) {
