@@ -62,6 +62,7 @@ const open = async (note) => {
   if (page.url().startsWith(base)) await page.evaluate(() => localStorage.setItem("mdview:mode", '"read"'));
   await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(note)}`);
   await untilNote(note);
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); // (a note opens with the sidebar shut: the rows are what is worked with here)
 };
 // the sidebar's rows, as paths below the repository (a folder's with a stroke; what is shown dimmed with a star)
 const rows = () => page.evaluate((R) => [...new Set([...document.querySelectorAll("#sidebar .sb-item")].map((el) => el.dataset.key.slice(R.length + 1) + (el.classList.contains("is-dir") ? "/" : "") + (el.classList.contains("is-hidden") || el.querySelector(".sb-row.is-hidden") ? "*" : "")))].sort(), R); // (a note opened lately has a second row, under Recent)

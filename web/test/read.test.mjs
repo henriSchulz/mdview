@@ -58,6 +58,7 @@ after(async () => { await browser?.close(); app?.kill(); gh.close(); });
 const shown = () => page.evaluate(() => ({ name: MdView.core.current && MdView.core.current.name, text: document.querySelector("#content").innerText, view: document.body.dataset.view }));
 const rows = () => page.evaluate(() => [...document.querySelectorAll(".sb-row[data-real]")].map((r) => (r.querySelector(".sb-label") || r).textContent.trim()));
 const tabNames = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab:not(.leaving) .tab-label")].map((t) => t.textContent.trim()));
+const sidebarShown = async () => { await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); await page.waitForTimeout(500); }; // (a note opens with the sidebar shut)
 const untilNote = (name) => page.waitForFunction((n) => window.MdView && MdView.core.current && MdView.core.current.name === n && document.querySelector("#content").innerText.length > 0, name, { timeout: 15000 });
 
 test("a repository opens as the desktop app shows a folder", async () => {
@@ -67,6 +68,7 @@ test("a repository opens as the desktop app shows a folder", async () => {
   assert.equal(new URL(page.url()).searchParams.get("n"), null);
   await page.goto(`${base}/r/octo/notes?n=Home.md`); // (an address names a note)
   await untilNote("Home.md");
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); // (a note opens with the sidebar shut: what the test does in it needs it)
   const now = await shown();
   assert.match(now.text, /Home/);
   assert.match(now.text, /Embedded text with a link/); // (a note embedded with ![[…]] is there, with its own text)
@@ -162,6 +164,7 @@ test("a shared note's sign stands at the end of its row, and the row keeps its n
 });
 
 test("the sidebar's button stands at the left, where the sidebar is", async () => {
+  await sidebarShown();
   const at = () => page.evaluate(() => { const b = document.querySelector('#tabs [data-act="sidebar"]'), old = document.querySelector('#toolbar [data-act="sidebar"]'), r = b.getBoundingClientRect(), sb = document.querySelector("#sidebar").getBoundingClientRect(); return { left: Math.round(r.left), shown: b.offsetParent !== null, old: !!old && old.offsetParent !== null, open: document.body.dataset.sidebar === "open", edge: Math.round(sb.right) }; });
   const open = await at();
   assert.deepEqual([open.shown, open.old, open.open], [true, false, true]);
@@ -177,6 +180,7 @@ test("the sidebar's button stands at the left, where the sidebar is", async () =
 });
 
 test("a file's menu offers what a browser can do, and calls it what it is here", async () => {
+  await sidebarShown();
   await page.click('.sb-row[data-real="/octo/notes/Second note.md"]', { button: "right" });
   await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });
   const shown = await page.evaluate(() => [...document.querySelector("#ctxmenu").children].filter((e) => !e.hidden).map((e) => (e.classList.contains("menu-rule") ? "—" : e.querySelector(".menu-label").textContent)));
@@ -188,6 +192,7 @@ test("a file's menu offers what a browser can do, and calls it what it is here",
 });
 
 test("a PDF opens in the viewer", async () => {
+  await sidebarShown();
   await page.evaluate(() => { const render = MdView.render; MdView.render = (p) => { window.__told = p; return render(p); }; });
   await page.click('.sb-row[data-real="/octo/notes/paper.pdf"]');
   await page.waitForFunction(() => MdView.core.current && MdView.core.current.name === "paper.pdf" && document.querySelectorAll("canvas").length > 0, null, { timeout: 20000 });
@@ -328,6 +333,30 @@ test("which repositories the app reaches is said on GitHub: the page says where,
     await page.waitForSelector(".home-first .button", { timeout: 15000 });
     assert.deepEqual(await page.evaluate(() => [document.querySelector(".home-first h2").textContent, document.querySelector(".home-first .button").getAttribute("href")]), ["One step on GitHub first", "https://github.com/apps/mdview-notes/installations/new"]);
   } finally { gh.listed = listed; gh.installed = true; }
+});
+
+test("in a note the sidebar is shut to begin with: the window's first note, and a note come to out of All Notes", async () => {
+  const side = () => page.evaluate(() => document.body.dataset.sidebar);
+  await page.goto(`${base}/r/octo/notes?n=Home.md`);
+  await untilNote("Home.md");
+  await sidebarShown();
+  assert.equal(await side(), "open");
+  await page.goto(`${base}/r/octo/notes?n=Home.md`); // (left open, and opened again: shut all the same)
+  await untilNote("Home.md");
+  assert.equal(await side(), "closed");
+  await page.goto(`${base}/r/octo/notes`); // (All Notes: as it was left)
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen && document.querySelector('#overview .ov-item[data-path$="Second note.md"]'), null, { timeout: 15000 });
+  await sidebarShown();
+  assert.equal(await side(), "open");
+  await page.click('#overview .ov-item[data-path$="Second note.md"]');
+  await untilNote("Second note.md");
+  await page.waitForFunction(() => document.body.dataset.sidebar === "closed", null, { timeout: 8000 });
+  // a note chosen in the sidebar leaves it open
+  await sidebarShown();
+  await page.click('.sb-row[data-real="/octo/notes/Home.md"]');
+  await untilNote("Home.md");
+  await page.waitForTimeout(300);
+  assert.equal(await side(), "open");
 });
 
 test("nothing was refused or thrown along the way", () => {

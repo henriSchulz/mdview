@@ -571,7 +571,7 @@ test("not an iPad, or a narrow window: nothing of the iPad's layout", async () =
   assert.equal(await desk.page.evaluate(() => document.documentElement.hasAttribute("data-ipad")), false);
   assert.equal(await shown(desk.page, "#ipad-nav"), false);
   assert.equal(await shown(desk.page, "#tabs"), true);
-  assert.equal(await desk.page.evaluate(() => document.body.dataset.sidebar), "open", "the sidebar as it was");
+  assert.equal(await desk.page.evaluate(() => document.body.dataset.sidebar), "closed", "the sidebar as ever: shut in a note");
   // … made one by hand (?ipad=1), and back (?ipad=0)
   await open(desk, "Home.md", "&ipad=1");
   assert.equal(await desk.page.evaluate(() => document.documentElement.hasAttribute("data-ipad")), true, "?ipad=1 makes any browser an iPad");
