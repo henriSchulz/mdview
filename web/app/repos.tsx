@@ -130,6 +130,7 @@ export function Repos({ rows, failed, unknown, name, login, give, install, place
             <a href="/shares"><span><b>Shared notes</b><small>Every note that stands under a link</small></span>{GO}</a>
             <a href={`${source}#install`} target="_blank" rel="noreferrer"><span><b>Desktop app</b><small>The same notes, on your computer</small></span>{OUT}</a>
             <a href="/welcome"><span><b>What a note can hold</b><small>Formulas, code, diagrams, pages</small></span>{GO}</a>
+            <a href="/feedback"><span><b>Send feedback</b><small>Report a bug, suggest a feature</small></span>{GO}</a>
           </nav>
         </aside>
       </div>

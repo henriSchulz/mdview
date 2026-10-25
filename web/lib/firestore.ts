@@ -107,3 +107,9 @@ export async function bump(collection: string, id: string, field: string, data: 
   const res = await call("POST", ":commit", { writes: [{ update: { name, fields: fields(data) }, updateMask: { fieldPaths: Object.keys(data) }, updateTransforms: [{ fieldPath: field, increment: { integerValue: "1" } }], currentDocument: { exists: true } }] });
   if (!res.ok && res.status !== 404 && res.status !== 400) throw new Error(`firestore bump: ${res.status}`);
 }
+/** The newest documents of a collection, by a field that holds a time as text: [id, fields]. */
+export async function newest(collection: string, field: string, limit: number): Promise<[string, Plain][]> {
+  const res = await call("POST", ":runQuery", { structuredQuery: { from: [{ collectionId: collection }], orderBy: [{ field: { fieldPath: field }, direction: "DESCENDING" }], limit } });
+  if (!res.ok) throw new Error(`firestore query: ${res.status}`);
+  return ((await res.json()) as { document?: { name: string; fields?: Record<string, Value> } }[]).filter((r) => r.document).map((r) => [idOf(r.document!.name), plain(r.document!)]);
+}

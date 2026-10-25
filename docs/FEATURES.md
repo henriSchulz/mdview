@@ -1307,6 +1307,31 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.
 
+### Feedback
+
+Anyone can report a bug or suggest a feature, in the web app, without signing in; Henri reads
+them in a list of his own. What is sent is kept by the web app's server — no repository, no
+GitHub issue.
+
+- **Where**: `/feedback` (also *Send feedback* beside the repositories); `/bug` and `/feature`
+  open it with that kind chosen.
+- **The form**: Bug or Feature (a choice of two), a title, a description — Markdown is fine; it
+  is kept and shown as plain text, never rendered — and, if one likes, an e-mail for questions
+  about it, the platform (Web, iPad, Desktop Linux, Windows, macOS) and the app's version or the
+  browser. In a browser the platform is Web (or iPad) and the browser and its system are filled
+  in beforehand; a bug's description suggests steps to reproduce. Sent, the form says thanks,
+  with Send Another and the way back to the app.
+- **Who sent it**: signed in with GitHub, the account goes with it on its own (the form says
+  so); otherwise nobody. The browser's user agent goes with it too.
+- **Against spam**: every field is checked on the server (a title of 3 to 120 characters, a
+  description of 10 to 8 000, an e-mail that is one, a platform from the list); a field nobody
+  sees, filled in, is thanked for and not kept; and one address sends at most 5 an hour (60 an
+  hour from everyone together) — counted on the server, forgotten when it restarts.
+- **The inbox** (`/feedback/inbox`): only for Henri's GitHub account (told by its id, not its
+  name); to anyone else, signed in or not, the address does not exist. Newest first, Bugs,
+  Features or all, open, done or all; a row opened shows the description and the user agent, an
+  e-mail is a link to answer. Mark Done (Reopen) and Delete (a second click deletes).
+
 ## Finding
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.

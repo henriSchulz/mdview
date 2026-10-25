@@ -207,6 +207,7 @@ or the tests see the old ones.
 | File | What is in it |
 |---|---|
 | `web/lib/app.ts` | The GitHub App acting as itself, not as a user: for a note that was shared, read by someone who is not signed … |
+| `web/lib/feedback.ts` | Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback), and a list … |
 | `web/lib/firestore.ts` | Firestore, as far as the app needs it, spoken to over its REST interface: no library, and nothing to bundle. |
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
