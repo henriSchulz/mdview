@@ -66,6 +66,10 @@ pub enum News {
     Later,
     /// the repositories the app was given on the user's account (or why they could not be read)
     Repos(Result<Vec<Value>, String>),
+    /// a repository made on the user's account: { name: "owner/repo", url, branch, private } —
+    /// or { error: "taken" | "denied" | "unreached" | "failed", why, name } where it was not, or
+    /// the app does not reach it
+    Made(Result<Value, Value>),
 }
 
 fn agent() -> ureq::Agent {
@@ -259,6 +263,93 @@ pub fn repos(tx: Sender<Event>, session: Session) {
     });
 }
 
+/// A repository's name as GitHub takes it, from any text (a folder's name): ASCII letters and
+/// digits, "-", "_" and "." stay; ä, ö, ü and ß are written ae, oe, ue and ss; anything else — a
+/// space too — becomes "-", one for a run of them; none of "-" and "." at either end; 100
+/// characters at most.
+pub fn repo_name(text: &str) -> String {
+    let mut out = String::new();
+    let mut gap = false;
+    for c in text.chars() {
+        let said = match c {
+            'ä' => "ae".to_string(),
+            'ö' => "oe".to_string(),
+            'ü' => "ue".to_string(),
+            'Ä' => "Ae".to_string(),
+            'Ö' => "Oe".to_string(),
+            'Ü' => "Ue".to_string(),
+            'ß' => "ss".to_string(),
+            c if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') => c.to_string(),
+            _ => {
+                gap = true;
+                continue;
+            }
+        };
+        if gap && !out.is_empty() {
+            out.push('-');
+        }
+        gap = false;
+        out.push_str(&said);
+    }
+    let out = out.trim_matches(|c| c == '-' || c == '.');
+    out[..out.len().min(100)].trim_matches(|c| c == '-' || c == '.').to_string()
+}
+
+/// The name a new repository for a project is offered under: mdview_ and the folder's name
+/// (mdview alone, where nothing of the name is left).
+pub fn new_name(folder: &str) -> String {
+    match repo_name(folder) {
+        f if f.is_empty() => "mdview".to_string(),
+        f => repo_name(&format!("mdview_{f}")),
+    }
+}
+
+/// A new repository on the user's account, private and empty — then looked at with the same
+/// token: one the app does not reach is of no use to link. What it is, or why not (News::Made).
+fn create(hosts: &Hosts, access: &str, name: &str) -> Result<Value, Value> {
+    let no = |error: &str, why: String, name: &str| json!({ "error": error, "why": why, "name": name });
+    let body = json!({ "name": name, "private": true, "auto_init": false, "description": "Notes, kept with Markdown Notes" });
+    let sent = agent()
+        .post(&format!("{}/user/repos", hosts.api))
+        .set("Accept", "application/vnd.github+json")
+        .set("Authorization", &format!("Bearer {access}"))
+        .set("User-Agent", "mdview")
+        .set("Content-Type", "application/json")
+        .send_string(&body.to_string());
+    let read = |res: ureq::Response| res.into_string().ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or(Value::Null);
+    let made = match sent {
+        Ok(res) => read(res),
+        Err(ureq::Error::Status(code, res)) => {
+            let said = read(res);
+            let message = said["message"].as_str().unwrap_or("").to_string();
+            let details = said["errors"].as_array().into_iter().flatten().filter_map(|e| e["message"].as_str()).collect::<Vec<_>>().join("; ");
+            return Err(match code {
+                // (the name is someone's already on the account)
+                422 if details.contains("already exists") => no("taken", details, name),
+                // (the app is not allowed to make repositories: "Resource not accessible by integration")
+                403 => no("denied", message, name),
+                _ => no("failed", if !details.is_empty() { details } else if !message.is_empty() { message } else { format!("GitHub said {code}") }, name),
+            });
+        }
+        Err(e) => return Err(no("failed", say(e), name)),
+    };
+    let (Some(full), Some(url)) = (made["full_name"].as_str(), made["clone_url"].as_str()) else {
+        return Err(no("failed", "GitHub did not say what it made".into(), name));
+    };
+    match get(hosts, access, &format!("/repos/{full}")) {
+        Ok(seen) if seen["full_name"].is_string() => Ok(json!({ "name": full, "url": url, "branch": made["default_branch"].as_str().unwrap_or("main"), "private": made["private"].as_bool().unwrap_or(true) })),
+        // (made, but not given to the app: the user gives it on GitHub, then links it)
+        _ => Err(no("unreached", String::new(), full)),
+    }
+}
+
+/// A new repository is made, on a thread of its own, and told.
+pub fn make(tx: Sender<Event>, session: Session, name: String) {
+    std::thread::spawn(move || {
+        let _ = tx.send(Event::GitHub(News::Made(create(&Hosts::default(), &session.access, &name))));
+    });
+}
+
 /// Where the user says which repositories the app is given.
 pub const GIVE: &str = "https://github.com/settings/installations";
 
@@ -282,6 +373,11 @@ mod tests {
     /// A GitHub of the test's own: answers every request with what `answer` says for its path
     /// and body. -> where it is
     fn fake(answer: impl Fn(&str, &str) -> String + Send + 'static) -> Hosts {
+        fake_status(move |path, body| (200, answer(path, body)))
+    }
+
+    /// … and with the status it answers with: (status, what it says).
+    fn fake_status(answer: impl Fn(&str, &str) -> (u16, String) + Send + 'static) -> Hosts {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let at = format!("http://{}", listener.local_addr().unwrap());
         std::thread::spawn(move || {
@@ -304,8 +400,8 @@ mod tests {
                 }
                 let mut body = vec![0; length];
                 let _ = reader.read_exact(&mut body);
-                let said = answer(&path, &String::from_utf8_lossy(&body));
-                let _ = write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{said}", said.len());
+                let (status, said) = answer(&path, &String::from_utf8_lossy(&body));
+                let _ = write!(reader.get_mut(), "HTTP/1.1 {status} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{said}", if status == 200 { "OK" } else { "No" }, said.len());
             }
         });
         Hosts { web: at.clone(), api: at }
@@ -382,6 +478,55 @@ mod tests {
         assert_eq!((all[0]["branch"].as_str(), all[0]["private"].as_bool(), all[1]["url"].as_str()), (Some("trunk"), Some(false), Some("https://github.com/octo/Zeta.git")));
         let none = fake(|_, _| json!({ "installations": [] }).to_string());
         assert!(repositories(&none, "ghu_a").unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_new_repository_is_named_after_the_folder_as_github_takes_it() {
+        assert_eq!(new_name("Notes"), "mdview_Notes");
+        assert_eq!(new_name("Uni Notizen  2026"), "mdview_Uni-Notizen-2026");
+        assert_eq!(new_name("Übungen & Lösungen"), "mdview_Uebungen-Loesungen");
+        assert_eq!(new_name("straße.v2"), "mdview_strasse.v2");
+        assert_eq!(new_name("日本 "), "mdview");
+        assert_eq!(repo_name(" ..-a/b-.. "), "a-b");
+        assert_eq!(repo_name(&"x".repeat(150)).len(), 100);
+    }
+
+    #[test]
+    fn a_new_repository_is_made_and_reached_or_said_why_not() {
+        let asked = Arc::new(Mutex::new(Vec::<String>::new()));
+        let seen = asked.clone();
+        let hosts = fake_status(move |path, body| {
+            seen.lock().unwrap().push(format!("{path} {body}"));
+            match path {
+                "/user/repos" => (201, json!({ "full_name": "octo/mdview_Notes", "clone_url": "https://github.com/octo/mdview_Notes.git", "default_branch": "main", "private": true }).to_string()),
+                "/repos/octo/mdview_Notes" => (200, json!({ "full_name": "octo/mdview_Notes" }).to_string()),
+                _ => (404, json!({ "message": "Not Found" }).to_string()),
+            }
+        });
+        let made = create(&hosts, "ghu_a", "mdview_Notes").unwrap();
+        assert_eq!((made["name"].as_str(), made["url"].as_str(), made["branch"].as_str()), (Some("octo/mdview_Notes"), Some("https://github.com/octo/mdview_Notes.git"), Some("main")));
+        {
+            let asked = asked.lock().unwrap();
+            let sent: Value = serde_json::from_str(asked[0].split_once(' ').unwrap().1).unwrap();
+            assert_eq!((sent["name"].as_str(), sent["private"].as_bool(), sent["auto_init"].as_bool()), (Some("mdview_Notes"), Some(true), Some(false)));
+        }
+        // the name is taken
+        let taken = fake_status(|_, _| (422, json!({ "message": "Repository creation failed.", "errors": [{ "resource": "Repository", "code": "custom", "field": "name", "message": "name already exists on this account" }] }).to_string()));
+        let no = create(&taken, "ghu_a", "mdview_Notes").unwrap_err();
+        assert_eq!((no["error"].as_str(), no["name"].as_str()), (Some("taken"), Some("mdview_Notes")));
+        // the app may not make repositories
+        let denied = fake_status(|_, _| (403, json!({ "message": "Resource not accessible by integration" }).to_string()));
+        assert_eq!(create(&denied, "ghu_a", "mdview_Notes").unwrap_err()["error"].as_str(), Some("denied"));
+        // made, but the app does not reach it
+        let unreached = fake_status(|path, _| match path {
+            "/user/repos" => (201, json!({ "full_name": "octo/mdview_Notes", "clone_url": "https://github.com/octo/mdview_Notes.git" }).to_string()),
+            _ => (404, json!({ "message": "Not Found" }).to_string()),
+        });
+        let no = create(&unreached, "ghu_a", "mdview_Notes").unwrap_err();
+        assert_eq!((no["error"].as_str(), no["name"].as_str()), (Some("unreached"), Some("octo/mdview_Notes")));
+        // anything else is said as GitHub said it
+        let other = fake_status(|_, _| (422, json!({ "message": "Repository creation failed.", "errors": [{ "message": "name is too long" }] }).to_string()));
+        assert_eq!(create(&other, "ghu_a", "x").unwrap_err()["why"].as_str(), Some("name is too long"));
     }
 
     #[test]

@@ -1069,6 +1069,15 @@ Without a link, and without GitHub, everything above works as it does.
   Link links. An empty repository takes the project as it is. One that holds the same project
   (another device linked it before) is joined with what is here. One that holds something else
   is not linked, and that is said.
+- **A new repository**: the chooser's New Repository… makes one on GitHub for the project and
+  links it. The name offered is `mdview_` and the folder's name as GitHub takes it — letters,
+  digits, `-`, `_` and `.` stay, ä ö ü ß become ae oe ue ss, anything else (a space too) becomes
+  `-`, one for a run of them — and can be changed before Create and Link. It is private and
+  empty, and takes the project as it is. A name the account has already is said so, and the field
+  stays to change it. Where GitHub does not let the app make repositories (the user has not
+  accepted the app's permission for it yet), that is said, with Choose on GitHub; a repository
+  made that the app is not given is said too — the project stays unlinked until it is given and
+  linked with Link….
 - **Getting a repository**: Settings › History › GitHub › Get… — the same chooser, then the
   folder to put it in. It is fetched into a folder of its own and opens as a project, linked.
 - **When the two are reconciled**: after every version kept, with `Ctrl+S`, and once a minute

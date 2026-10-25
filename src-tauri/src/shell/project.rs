@@ -96,6 +96,29 @@ impl Win {
                 }
             }
             "github-give" => host::launch_uri(github::GIVE),
+            // a new repository on GitHub for the project (the chooser's New Repository…): made, on a
+            // thread, under the name as GitHub takes it, then linked (app.rs: News::Made)
+            "github-new" => {
+                let name = github::repo_name(text_of("name"));
+                let root = self.here().and_then(|h| match history::place_of(&h) {
+                    Place::Project(r) => Some(r),
+                    _ => None,
+                });
+                // (the page waits for word of its number: where nothing is made, it is told why)
+                let n = msg["n"].clone();
+                app.made = match (root, app.session.clone()) {
+                    _ if app.making.is_some() => json!({ "n": n, "error": "failed", "why": "a repository is being made already" }),
+                    _ if name.is_empty() => json!({ "n": n, "error": "invalid", "name": text_of("name") }),
+                    (None, _) => json!({ "n": n, "error": "failed", "why": "this folder is not a project" }),
+                    (_, None) => json!({ "n": n, "error": "failed", "why": "not signed in" }),
+                    (Some(root), Some(session)) => {
+                        app.making = Some((root, n.clone()));
+                        github::make(app.tx.clone(), session, name.clone());
+                        json!({ "n": n, "busy": true, "name": name })
+                    }
+                };
+                app.each_win(|w, app| w.settings_info(app));
+            }
             "github-get" => {
                 if let (Some(url), Some(name)) = (msg["url"].as_str(), msg["name"].as_str().map(clean_name).filter(|n| !n.is_empty())) {
                     self.getting = Some((url.to_string(), name, msg["branch"].as_str().unwrap_or("main").to_string()));
@@ -106,6 +129,7 @@ impl Win {
                 github::sign_out(&app.keyring_place());
                 app.session = None;
                 app.repos = None;
+                app.made = Value::Null;
                 app.renew_turn += 1;
                 app.github_said.clear();
                 app.each_win(|w, app| w.settings_info(app));

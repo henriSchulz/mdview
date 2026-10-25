@@ -108,6 +108,7 @@ impl App {
             "busy": self.signing.is_some(),
             "repos": self.repos,
             "said": self.github_said,
+            "made": self.made,
         })
     }
 
@@ -139,6 +140,20 @@ impl App {
             News::Repos(Err(e)) => {
                 self.repos = Some(vec![]);
                 self.github_said = e;
+            }
+            // a repository made for a project: linked as Link… links it (an empty one takes the
+            // project as it is); not made, or not reached, and the project stays as it was
+            News::Made(Ok(repo)) => {
+                if let (Some((root, n)), Some(url)) = (self.making.take(), repo["url"].as_str()) {
+                    self.synced.remove(&root);
+                    let (stamp, access) = (self.stamp(), self.access());
+                    self.historian.link(&root, url.to_string(), stamp, access);
+                    self.made = json!({ "n": n, "done": true, "name": repo["name"] });
+                }
+            }
+            News::Made(Err(mut no)) => {
+                no["n"] = self.making.take().map_or(Value::Null, |(_, n)| n);
+                self.made = no;
             }
             News::Later => {
                 self.renew_turn += 1;
