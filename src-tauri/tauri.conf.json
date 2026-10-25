@@ -10,7 +10,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "UPDATER-PUBKEY-PLACEHOLDER: the content of ~/.tauri/mdview-updater.key.pub (packaging/updates.md)",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFQTIwNzg3NjA5NzI2ODgKUldTSUpwZGdod2VpdnZQamhXUnR4OGtMMWpYTHZITk1hUVRPcFc4cHdBMk9YWXJNUk5NRmtNbFMK",
       "endpoints": ["https://github.com/henriSchulz/mdview/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
