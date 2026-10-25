@@ -336,6 +336,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`settle_fresh`: only a note made by New Note, until it is left). And the watcher's news of
     the file under its new name (or of one just made) is the host's own (`own_write`): read anew,
     the page would take what is being typed as saved. `rig.sh newnote`.
+70. **Nothing goes to the other side that is not on the disk here** (`sync::durable`, before
+    every push): a crash after a push otherwise takes back here what is there already, and the
+    next change is a conflict that holds back every later push. **A sync that is stuck says so
+    wherever something waits on it** — the share window names the conflict (`sync::stuck`), never
+    only "once this is sent". `held_back_by_a_conflict_the_window_says_where`, `share.test.mjs`.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
