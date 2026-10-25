@@ -1,5 +1,6 @@
 /* mdview, the page — what a finger has in the note, as the iPad has it (Craft's): no menu under a held finger, bars of tiles
- * at the foot instead, with panels rising from them; a tile of the Insert panel held and put into the note by the finger.
+ * at the foot instead, with panels rising from them; a tile of the Insert panel held and put into the note by the finger;
+ * in All Notes a tile held is chosen, and the bar has what the file menu has for what is chosen.
  * On an iPad always (`<html data-ipad>`: its own layout, viewer/tablet.js); in the application (and WebKitGTK, its web view)
  * while the hand is a finger (`<html data-finger>`: viewer/hand.js) — Henri, 2026-10-25: the application on Linux under the
  * tablet's fingers; not in a narrow window, which has the phone's layout. A mouse or a touchpad there, and the menus are
@@ -12,6 +13,7 @@
   const body = document.body;
   const IPAD = root.hasAttribute("data-ipad");
   const wide = window.matchMedia ? matchMedia("(min-width: 761px) and (min-height: 600px)") : { matches: false, addEventListener() {} }; // (a phone, a narrow window: its own layout stays — viewer/narrow.css)
+  const GTK = !!(window.MdHand && MdHand.GTK);
   const APP = P.DESKTOP || !!(window.MdHand && MdHand.GTK); // (the application; a browser on a touch screen keeps the menus a finger holds)
   const on = () => IPAD || (APP && root.hasAttribute("data-finger") && wide.matches);
   // <html data-tiles> while it holds: the rail at the bottom right, the bars' look (viewer/tablet.css)
@@ -58,8 +60,25 @@
     panel.scrollTop = 0;
     panel.setAttribute("data-open", "");
   }
-  panel.addEventListener("pointerdown", (e) => e.preventDefault()); // (a tap here leaves the selection and the keyboard as they are)
-  panel.addEventListener("click", (e) => {
+  /* A click on what takes no focus (its pointerdown prevented). WebKitGTK sends no click after a tap whose pointerdown was
+   * prevented (Henri, 2026-10-25: the bar's panels did not open; a tap: dev/rig.sh gtktouch) — there the finger's lift is it. */
+  function tapped(el, run) {
+    el.addEventListener("pointerdown", (e) => e.preventDefault()); // (a tap here leaves the selection and the keyboard as they are)
+    let lifted = 0; // (a click after the lift, where one comes all the same — Chromium under WebKitGTK's name: not a second time)
+    el.addEventListener("click", (e) => { if (performance.now() - lifted > 600) run(e); });
+    if (!GTK) return;
+    let down = null;
+    el.addEventListener("pointerdown", (e) => { down = e.pointerType === "touch" && e.isPrimary ? { x: e.clientX, y: e.clientY, target: e.target } : null; });
+    el.addEventListener("pointermove", (e) => { if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) down = null; });
+    el.addEventListener("pointercancel", () => { down = null; });
+    el.addEventListener("pointerup", (e) => {
+      if (!down || e.pointerType !== "touch") return;
+      const target = document.elementFromPoint(e.clientX, e.clientY) || down.target;
+      down = null;
+      if (el.contains(target)) { lifted = performance.now(); run({ target, currentTarget: el }); }
+    });
+  }
+  tapped(panel, (e) => {
     const b = e.target.closest("[data-r]");
     if (!b || b.disabled) return;
     const row = panel._rows[+b.dataset.r];
@@ -83,8 +102,7 @@
 
   // --- the bar over selected blocks: what the "/" menu has for them (A.blocks.slashItems), as tiles and panels
   bar.classList.add("ip-bar");
-  bar.addEventListener("pointerdown", (e) => e.preventDefault());
-  bar.addEventListener("click", barClick);
+  tapped(bar, barClick);
   const svgIcon = (x) => (typeof x === "string" && x.trim().startsWith("<") ? x : (x && ICON[x]) || "");
   let barFor = null;
   /* the command, without the caret coming into the text: a finger chose a block, no keyboard comes up (BUGS.md 25) */
@@ -144,10 +162,10 @@
   new MutationObserver(follow).observe(root, { attributes: true, attributeFilter: ["data-tiles"] });
 
   // --- no menu under a held finger (Henri, 2026-10-20): what the menus had is in the bars. A secondary click (a trackpad) still has its menu.
-  // (in the application, the note in the active mode only: the sidebar, the tabs and All Notes keep theirs — they have no bars there)
+  // (in the application, the note in the active mode and All Notes' tiles only: the sidebar and the tabs keep theirs — no bars there)
   let touched = false;
   addEventListener("pointerdown", (e) => { touched = e.pointerType === "touch"; }, true);
-  addEventListener("contextmenu", (e) => { if (touched && on() && (IPAD || (e.target instanceof Element && e.target.closest("#active, .blk-h")))) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener("contextmenu", (e) => { if (touched && on() && (IPAD || (e.target instanceof Element && e.target.closest("#active, .blk-h, #overview .ov-item")))) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 
   // --- the Insert panel under a finger: a tile held a moment is lifted and goes with the finger; the note's line shows where it
   // goes (the panel's own: gapAt, showLine), the note scrolls along near its edges, and letting go puts it there — as a drag
@@ -231,6 +249,105 @@
     let swallowNext = 0;
     addEventListener("click", (e) => { if (swallowNext && performance.now() - swallowNext < 700) { swallowNext = 0; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   }
+
+  // --- All Notes: a tile held is chosen; then a tap chooses more, or lets one go; the bar has what the file menu has for them
+  const picker = document.createElement("div");
+  picker.id = "ipad-pickbar";
+  picker.className = "ip-bar";
+  picker.setAttribute("role", "toolbar");
+  body.appendChild(picker);
+  picker.addEventListener("click", barClick);
+  const ov = () => document.getElementById("overview");
+  const picking = () => body.hasAttribute("data-ip-picking");
+  const tileOf = (path) => ov() && [...ov().querySelectorAll(".ov-item")].find((t) => t.dataset.path === path);
+  // (tiles are not dragged by a finger here: a held finger chooses — on an iPad never; in the application a mouse still drags them)
+  if (IPAD) new MutationObserver(() => { const o = ov(); if (o) for (const t of o.querySelectorAll('.ov-item[draggable="true"]')) t.draggable = false; })
+    .observe(document.getElementById("overview") || body, { childList: true, subtree: true });
+  let undragged = null;
+  const redrag = () => { if (undragged) { const t = undragged; undragged = null; setTimeout(() => { t.draggable = true; }, 0); } };
+  /* What the file menu has for what is chosen: the menu itself is asked (opened out of sight, read, shut), and a tile
+   * of the bar chooses that entry of it — the menu's own work (viewer/sidebar.js runCtx), nothing of its own. */
+  const ctxEl = document.getElementById("ctxmenu");
+  function proxy(fn) {
+    const picked = MdOverview.picked, t = tileOf(picked[0]);
+    if (!t) return null;
+    const kind = picked.length > 1 ? "ovmany" : t.dataset.dir ? "ovdir" : "ovnote", r = t.getBoundingClientRect();
+    body.setAttribute("data-ip-proxy", "");
+    window.MdView.core.fileMenu(t, r.left, r.top, kind);
+    return fn([...ctxEl.querySelectorAll(".menu-item:not([hidden])")].filter((b) => !b.disabled));
+  }
+  const ctxShut = () => { P.closeCtx(false); body.removeAttribute("data-ip-proxy"); };
+  new MutationObserver(() => { if (!ctxEl.hasAttribute("data-open") && !document.getElementById("ctxsub").hasAttribute("data-open")) body.removeAttribute("data-ip-proxy"); }).observe(ctxEl, { attributes: true, attributeFilter: ["data-open"] });
+  const TONE = { trash: "var(--c-red)", copyf: "var(--c-cyan)", cutf: "var(--c-orange)", duplicate: "var(--c-green)", share: "var(--c-blue)", rename: "var(--c-magenta)", look: "var(--c-magenta)", fav: "var(--c-yellow)", opentab: "var(--c-blue)", openbeside: "var(--c-blue)" };
+  function pickTiles() {
+    const entries = proxy((items) => items.map((b, i) => ({ i, cmd: b.dataset.cmd, label: b.querySelector(".menu-label").textContent, icon: b.querySelector(".menu-icon").innerHTML, sub: b.classList.contains("has-sub"), danger: b.classList.contains("danger"), rule: !!b.previousElementSibling && b.previousElementSibling.classList.contains("menu-rule") && !b.previousElementSibling.hidden })));
+    ctxShut();
+    if (!entries) return [];
+    const done = { label: T("Done"), icon: ICON.check, tone: "var(--accent)", run: () => unpick() };
+    const tiles = [done, "|"];
+    for (const e of entries) {
+      if (e.cmd === "open") continue; // (a tap on a tile opens it — while nothing is chosen)
+      if (e.rule && tiles[tiles.length - 1] !== "|") tiles.push("|");
+      tiles.push({ label: e.label, icon: e.icon, tone: TONE[e.cmd] || "var(--fg)", danger: e.danger, ...(e.sub
+        ? { panel: () => subRows(e.i) }
+        : { run: () => { proxy((items) => items[e.i] && items[e.i].click()); if (!["copyf", "cutf"].includes(e.cmd)) unpick(false); } }) });
+    }
+    return tiles;
+  }
+  // (a menu beside the menu — "Show": what is listed — read the same way, its rows chosen the same way)
+  function subRows(i) {
+    const rows = proxy((items) => { items[i].click(); const sub = document.getElementById("ctxsub"); return [...sub.querySelectorAll(".menu-item")].map((b, k) => ({ label: b.querySelector(".menu-label").textContent, checked: b.getAttribute("aria-checked") === "true", k })); }) || [];
+    ctxShut();
+    return [{ rows: rows.map((r) => ({ label: r.label, checked: r.checked, run: () => { proxy((items) => { items[i].click(); document.getElementById("ctxsub").querySelectorAll(".menu-item")[r.k].click(); }); setTimeout(ctxShut, 200); } })) }];
+  }
+  function showPick() {
+    const n = MdOverview.picked.length;
+    if (!n) return unpick();
+    body.setAttribute("data-ip-picking", "");
+    fillBar(picker, pickTiles());
+  }
+  function unpick(clear = true) {
+    closePanel();
+    body.removeAttribute("data-ip-picking");
+    if (clear && window.MdOverview) MdOverview.pick([]);
+  }
+  function toggle(t) {
+    const now = new Set(MdOverview.picked);
+    if (now.has(t.dataset.path)) now.delete(t.dataset.path); else now.add(t.dataset.path);
+    MdOverview.pick([...now]);
+    showPick();
+  }
+  let hold = null, swallowTap = 0;
+  addEventListener("pointerdown", (e) => {
+    if (hold) { clearTimeout(hold.t); hold = null; }
+    swallowTap = 0; // (only the click of the held finger's own lift is swallowed, not the next tap's)
+    const t = e.pointerType === "touch" && e.isPrimary && on() && e.target instanceof Element && e.target.closest("#overview[data-open] .ov-item");
+    if (!t || t.dataset.kept != null) return;
+    if (t.draggable) { t.draggable = false; undragged = t; }
+    hold = { x: e.clientX, y: e.clientY, t: setTimeout(() => {
+      hold = null;
+      swallowTap = performance.now();
+      getSelection()?.removeAllRanges();
+      if (!picking()) MdOverview.pick([]);
+      if (!MdOverview.picked.includes(t.dataset.path)) toggle(t); else showPick();
+      t.classList.add("ip-held"); setTimeout(() => t.classList.remove("ip-held"), 400);
+      navigator.vibrate?.(8);
+    }, 450) };
+  }, true);
+  addEventListener("pointermove", (e) => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) { clearTimeout(hold.t); hold = null; } }, true);
+  for (const type of ["pointerup", "pointercancel", "scroll"]) addEventListener(type, () => { if (hold) { clearTimeout(hold.t); hold = null; } if (type !== "scroll") redrag(); }, true);
+  // while tiles are chosen: a tap on a tile chooses it or lets it go, a tap beside them ends the choosing
+  addEventListener("click", (e) => {
+    if (!(e.target instanceof Element)) return;
+    if (swallowTap && performance.now() - swallowTap < 900 && e.target.closest("#overview")) { swallowTap = 0; e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (!picking() || !e.target.closest("#overview")) return;
+    const t = e.target.closest(".ov-item");
+    if (t) { e.preventDefault(); e.stopImmediatePropagation(); if (t.dataset.kept == null) toggle(t); return; }
+    if (!e.target.closest(".ov-head, .ov-seg, .ov-crumb, button, input")) { e.preventDefault(); e.stopImmediatePropagation(); unpick(); }
+  }, true);
+  new MutationObserver(() => { if (!body.hasAttribute("data-overview") && picking()) unpick(false); }).observe(body, { attributes: true, attributeFilter: ["data-overview"] });
+  // (a mouse again: the tiles stay chosen, as a click chooses them; the bar goes — a right click has the menu)
+  new MutationObserver(() => { if (!on() && picking()) unpick(false); }).observe(root, { attributes: true, attributeFilter: ["data-tiles"] });
 
   P.tiles = { on, panel, fillBar, barClick, closePanel };
 })();

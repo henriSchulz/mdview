@@ -402,6 +402,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the application or WebKitGTK while the hand is a finger in a wide window), never by `data-finger`
     alone: a browser on a touch screen that is no iPad keeps the handle's menu and the held finger's
     (`web/test/ipad.test.mjs`).
+    WebKitGTK sends no click after a tap whose pointerdown was prevented: what keeps the note's selection
+    that way (the bars, their panels) takes the finger's lift as the click (viewer/touch.js `tapped`) —
+    checked in WebKitGTK (`rig.sh gtktouch`, after `rig.sh start`), Chromium shows nothing of it.
 
 ### Releases and installs
 

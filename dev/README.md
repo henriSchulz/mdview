@@ -57,7 +57,7 @@ every check.
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
-./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's
+./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's, a bar of tiles answers a tap
 ./rig.sh board-hand                                     # a whiteboard under a mouse: hit areas, arrows joined as drawn, joints, the right button (a real pointer)
 ./rig.sh panel                                          # the panel at the right: Insert, Format and Document (a ground and a wide page written into the note)
 ./rig.sh docstyle                                       # the document's style beside the source and the source with its reading: the panel, the head written, Ctrl+Z, both sheets on the ground

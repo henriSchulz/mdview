@@ -1235,9 +1235,10 @@ counts — and has no writing help by a model.
   let go in place, selects the block. The rail (insert, format, style, information) lies at the
   bottom right as a capsule, its panel above it, and a tile of Insert held a moment goes with the
   finger and is put where it is let go. A mouse's press, a wheel or a touchpad's two fingers and
-  it is as before: the rail at the top right, the menus, the handle's menu. The sidebar, the
-  tabs and All Notes keep the menu a held finger opens. A browser on a touch screen (no iPad)
-  keeps its menus.
+  it is as before: the rail at the top right, the menus, the handle's menu. In All Notes a tile
+  held is chosen, a tap then chooses more or lets one go, and the bar at the foot has the file
+  menu's entries for them (Done ends it; a mouse still drags the tiles). The sidebar and the tabs
+  keep the menu a held finger opens. A browser on a touch screen (no iPad) keeps its menus.
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

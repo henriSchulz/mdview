@@ -7,7 +7,8 @@
 //   a wheel turned makes them a mouse's again;
 // - the note in the active mode as the iPad has it while the hand is a finger (Henri, 2026-10-25: viewer/touch.js) — chosen
 //   blocks have the bar of tiles and its panels, no menu under a held finger, the handle held lifts its block, the rail lies
-//   at the bottom right and a tile of Insert is put in by the finger; a mouse's press, and the menus are back.
+//   at the bottom right and a tile of Insert is put in by the finger; a mouse's press, and the menus are back;
+// - All Notes under a finger: a tile held is chosen, a tap chooses more, the bar has what the file menu has for them.
 // Run: npm run build && npm test
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
@@ -217,5 +218,39 @@ test("linux: under a finger the note has the iPad's bars — chosen blocks, no m
   assert.equal(await menuShown(), true, "a right click has its menu");
   const back = await rect("#rrail");
   assert.ok(Math.abs(back.y - railBefore.y) < 2 && Math.abs(back.right - railBefore.right) < 2, `the rail where it stood: ${JSON.stringify(back)}`);
+  await context.close();
+});
+
+test("linux: All Notes under a finger — a tile held is chosen, a tap chooses one more, the bar has the file menu's entries; a mouse, and the bar goes", async () => {
+  const { context, page: p } = await device(true, "Blocks.md"), cdp = await context.newCDPSession(p);
+  const touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  const centre = (sel) => p.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return [Math.round(r.left + Math.min(r.width / 2, 60)), Math.round(r.top + Math.min(r.height / 2, 60))]; }, sel);
+  const shown = (sel) => p.evaluate((q) => { const e = document.querySelector(q); if (!e) return false; const s = getComputedStyle(e), r = e.getBoundingClientRect(); return s.display !== "none" && s.visibility !== "hidden" && +s.opacity > 0 && r.width > 0 && r.height > 0; }, sel);
+  const menuShown = () => p.evaluate(() => [document.getElementById("ctxmenu"), document.getElementById("ctxsub")].some((m) => m && m.hasAttribute("data-open") && getComputedStyle(m).visibility !== "hidden"));
+  const picked = () => p.evaluate(() => MdOverview.picked.map((x) => x.replace(/^.*\//, "")).sort());
+  await p.waitForFunction(() => !!window.MdOverview, null, { timeout: 10000 });
+  await p.evaluate(() => MdOverview.open());
+  await p.waitForSelector('#overview[data-open] .ov-item[data-path$="Home.md"]', { timeout: 10000 });
+  await p.waitForTimeout(600);
+  const at = await centre('#overview .ov-item[data-path$="Home.md"]');
+  await touch("touchStart", [at]);
+  await p.waitForTimeout(800);
+  await touch("touchEnd", []);
+  await p.waitForTimeout(500);
+  assert.equal(await menuShown(), false, "a held tile: no menu");
+  assert.deepEqual(await picked(), ["Home.md"], "the tile held is chosen");
+  assert.equal(await shown("#ipad-pickbar"), true, "its bar");
+  const labels = await p.evaluate(() => [...document.querySelectorAll("#ipad-pickbar .ip-tile span")].map((s) => s.textContent));
+  for (const l of ["Done", "Copy", "Duplicate", "Rename"]) assert.ok(labels.includes(l), `${l} in the bar: ${labels}`);
+  const b = await centre('#overview .ov-item[data-path$="paper.pdf"]');
+  await p.touchscreen.tap(b[0], b[1]);
+  await p.waitForTimeout(600);
+  assert.deepEqual(await picked(), ["Home.md", "paper.pdf"], "a tap chooses one more, and opens nothing");
+  assert.ok(await p.evaluate(() => document.body.hasAttribute("data-overview")), "All Notes still open");
+  assert.equal(await p.evaluate(() => document.querySelector('#overview .ov-item[data-path$="Home.md"]').draggable), true, "a mouse still drags the tile");
+  await p.waitForTimeout(700);
+  await p.mouse.click(5, 400);
+  await p.waitForTimeout(400);
+  assert.equal(await shown("#ipad-pickbar"), false, "a mouse: the bar is gone");
   await context.close();
 });

@@ -37,7 +37,7 @@
 #   dev/rig.sh ovlook [FOLDER]       All Notes as it looks (tiles, list, subfolders) on a copy of FOLDER: screenshots only
 #   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
-#   dev/rig.sh gtktouch              fingers on a touch screen in WebKitGTK (dev/gtktouch): after a tap no mouse of its own making, two fingers the page's and not the window's zoom, the hand known as a finger
+#   dev/rig.sh gtktouch              fingers on a touch screen in WebKitGTK (dev/gtktouch): after a tap no mouse of its own making, two fingers the page's and not the window's zoom, the hand known as a finger, a bar of tiles answers a tap
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
@@ -298,6 +298,13 @@ case "${1:-}" in
     ok "two fingers: both reach the page and move there, the host takes none of it" 'jq -e ".[1] == 2 and .[2] == 0" <<<"${now[2]}" >/dev/null' 'echo "${now[2]}"'
     ok "  (taken by the host as it was, the page saw neither move)" 'jq -e ".[1] == 0 and .[2] > 0" <<<"${claim[2]}" >/dev/null' 'echo "${claim[2]}"'
     ok "two fingers: the web view's own zoom of the window held back" 'jq -e ".[3] == [true]" <<<"${now[2]}" >/dev/null && jq -e ".[3] == [false]" <<<"${bare[2]}" >/dev/null' 'echo "${now[2]} / ${bare[2]}"'
+    # the bars of tiles (viewer/touch.js): a tile tapped opens its panel, a row tapped and a tile without a panel do their work
+    { echo "w 300"; echo "d 0 80 33"; echo "w 40"; echo "u 0"; echo "w 300"; echo 'js document.getElementById("ipad-panel").hasAttribute("data-open")'
+      echo "d 0 380 33"; echo "w 40"; echo "u 0"; echo "w 300"; echo "d 0 80 91"; echo "w 40"; echo "u 0"; echo "w 300"; echo 'js ran'; echo q; } > "$S"
+    PAGE="file://$D/gtktouch/tiles.html"; mapfile -t tiles < <(run X=1)
+    git -C "$D/.." show "${GTKTOUCH_BEFORE:-babba6e}:viewer/touch.js" > "$R/touch-before.js" 2>/dev/null && { PAGE="file://$D/gtktouch/tiles.html?src=file://$R/touch-before.js"; mapfile -t tilesBefore < <(run X=1); }
+    ok "a tile tapped opens its panel; its row tapped, and a tile without one, do their work" '[[ ${tiles[0]} == true && $(jq -c . <<<"${tiles[1]}") == "[\"heading\",\"copy\"]" ]]' 'echo "${tiles[*]}"'
+    ok "  (before 2026-10-25 a tap did nothing there: no click after a prevented pointerdown)" '[[ ${tilesBefore[0]} == false && $(jq -c . <<<"${tilesBefore[1]}") == "[]" ]]' 'echo "${tilesBefore[*]}"'
     exit $fail ;;
   board-hand)
     # what a mouse meets on a whiteboard (a thing where it is drawn, not the box around it), arrows joined as they are drawn, joints, the right button's menu, the board moved with it — the last with a real pointer (dev/vptr)

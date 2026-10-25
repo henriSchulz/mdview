@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-25
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| In the application under a finger "the iPad menu appears in the document, but the submenus are not there yet", and All Notes had none of it | the bar's tiles and its panel's rows prevent their pointerdown (a tap leaves the note's selection as it is), and WebKitGTK then sends no click after the tap — Chromium does, so the web test passed; All Notes' choosing by a held finger was still the iPad's alone | the finger's lift is the click there (viewer/touch.js `tapped`, a click after it not taken twice); All Notes' choosing moved into viewer/touch.js, the held finger's menu left out over its tiles | `dev/rig.sh gtktouch` (dev/gtktouch/tiles.html, against the touch.js before); `web/test/linux-touch.test.mjs` (All Notes) |
+
 ### 2026-10-24
 
 | What Henri saw | Why | Fixed by | Guard |
