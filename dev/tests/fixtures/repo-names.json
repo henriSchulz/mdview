@@ -1,0 +1,16 @@
+{
+  "about": "A space's (a folder's) name, and the name its new repository on GitHub is offered under — the same in the desktop app (src-tauri/src/github.rs: new_name) and the web app (web/lib/reponame.ts: newName); both tests read this list.",
+  "names": [
+    ["Notes", "mdview_Notes"],
+    ["notes", "mdview_notes"],
+    ["Uni Notizen  2026", "mdview_Uni-Notizen-2026"],
+    ["Übungen & Lösungen", "mdview_Uebungen-Loesungen"],
+    ["straße.v2", "mdview_strasse.v2"],
+    ["  Physik / Mechanik  ", "mdview_Physik-Mechanik"],
+    ["-a-", "mdview_a"],
+    ["..", "mdview"],
+    ["日本 ", "mdview"],
+    ["", "mdview"],
+    ["café_au-lait", "mdview_caf-_au-lait"]
+  ]
+}

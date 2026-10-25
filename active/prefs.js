@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
+    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -95,6 +95,8 @@
     ]],
     ["about", "info", [
       [null, [["version", "about"], ["guide", "action"], ["configDir", "about"]]],
+      // a newer version of the app: only where the install looks for one (the shell tells info.update; a checkout's build, the web: not)
+      ["prefs.updates", [["updateCheck", "update"], ["updateAuto", "switch"]]],
     ]],
   ];
   const GROUPS = [[null, ["general", "appearance"]], ["prefs.group.notes", ["sidebarPage", "allNotes", "history"]], ["prefs.group.writing", ["editing", "newMarkdown", "latex", "pdf", "ai"]], [null, ["about"]]];
@@ -246,6 +248,22 @@
       box.append(state, on);
       return box;
     }
+    if (kind === "update") { // how the install stands to a newer version, and the button that does the next thing (update.rs)
+      const box = el("div", { class: "pf-github" });
+      const state = el("span", { class: "pf-value" }), act = el("button", { class: "pf-link", type: "button" });
+      refresh.push(() => {
+        const u = info.update || {}, st = u.state || "idle";
+        state.textContent = T("prefs.update." + st, u.version || "", st === "failed" ? u.why || "" : u.latest || "");
+        const [does, run] = st === "ready" ? ["restart", () => post("update-restart")]
+          : st === "available" ? ["download", () => post("link", { href: "https://md.henrischulz.com/download" })]
+          : ["check", () => post("update-check")];
+        act.textContent = T("prefs.update." + does);
+        act.disabled = st === "checking";
+        act.onclick = run;
+      });
+      box.append(state, act);
+      return box;
+    }
     if (kind === "action") {
       const b = el("button", { class: "pf-link", type: "button" }, T("prefs." + key + ".do"));
       b.onclick = () => { close(); post("help"); };
@@ -296,6 +314,7 @@
           if (/^history[A-Z]/.test(key) && kind === "about") refresh.push(() => { row.hidden = info[key] == null; }); // (only what there is to say)
           if (kind === "link") refresh.push(() => { const st = historyState(); row.hidden = st !== "project" && st !== "inside"; }); // (a project's to link)
           if (kind === "get") refresh.push(() => { row.hidden = !(info.github || {}).user; });
+          if (/^update[A-Z]/.test(key)) refresh.push(() => { row.hidden = !info.update; }); // (an install that looks for a newer version)
           card.appendChild(row);
         }
         pg.appendChild(card);
@@ -397,13 +416,16 @@
   /* --- The chooser: a small window over the settings with the repositories the app was given — a
    * field to search them, the list, and a button that does it (link the project to the one
    * picked, or get it into a folder). Nothing is picked beforehand, and nothing happens until
-   * the button is pressed. */
+   * the button is pressed. Linking, New Repository… turns it into a field for a new repository's
+   * name (the folder's, as GitHub takes it): made on GitHub, private, and linked; where it was
+   * not, why stands under the field. */
   const chooser = (() => {
-    let scrim = null, box = null, field = null, list = null, go = null, title = null, empty = null, give = null;
-    let kind = "link", picked = "", back = null, shown = [];
+    let scrim = null, box = null, field = null, list = null, go = null, title = null, empty = null, give = null, fresh = null, name = null;
+    let kind = "link", picked = "", back = null, shown = [], making = 0, failed = null, turn = 0;
     const isOpen = () => !!box && box.hasAttribute("data-open");
     const repos = () => (info.github || {}).repos || null;
     function fill() {
+      if (kind === "new") return fillNew();
       const all = repos(), q = field.value.trim().toLowerCase();
       shown = !all ? [] : !q ? all : [...all.filter((r) => r.name.toLowerCase().split("/").some((p) => p.startsWith(q)) || r.name.toLowerCase().startsWith(q)), ...all.filter((r) => { const n = r.name.toLowerCase(); return n.includes(q) && !n.startsWith(q) && !n.split("/").some((p) => p.startsWith(q)); })];
       if (!shown.some((r) => r.url === picked)) picked = ""; // (what is searched away is not picked any more)
@@ -418,7 +440,31 @@
       empty.textContent = !all ? T("prefs.github.reading") : !all.length ? T("prefs.github.norepos") : shown.length ? "" : T("prefs.github.nofit");
       empty.hidden = !empty.textContent;
       give.hidden = !all || all.length > 0;
+      fresh.hidden = kind !== "link" || !all;
       go.disabled = !picked;
+    }
+    // the new repository's name: what the shell says of it while it is made, and after
+    function fillNew() {
+      const m = ((info.github || {}).made || {}).n === making ? info.github.made : null; // (only what is said of this one)
+      if (m && m.done) { making = 0; close(); return; }
+      if (m && m.error) { making = 0; failed = m; }
+      const busy = !!making;
+      name.disabled = busy;
+      if (m && m.error === "taken") { name.focus({ preventScroll: true }); name.select(); } // (there to be changed)
+      go.textContent = T(busy ? "prefs.github.newBusy" : "prefs.github.newDo");
+      go.disabled = busy || !name.value.trim();
+      empty.textContent = failed ? T("prefs.github.new." + failed.error, failed.name, failed.why || "") : T("prefs.github.newHint");
+      empty.hidden = false;
+      give.hidden = !failed || (failed.error !== "unreached" && failed.error !== "denied");
+      fresh.hidden = true;
+    }
+    function toNew() {
+      kind = box.dataset.kind = "new"; failed = null; making = 0;
+      title.textContent = T("prefs.github.newTitle");
+      field.hidden = list.hidden = true; name.hidden = false;
+      name.value = (info.history || {}).newRepo || "mdview";
+      fill();
+      name.focus({ preventScroll: true }); name.select();
     }
     function pick(url, into) {
       picked = url;
@@ -435,16 +481,20 @@
       head.append(x, title);
       field = el("input", { type: "text", class: "lp-field rc-search", spellcheck: "false", autocomplete: "off", placeholder: T("prefs.github.search"), "aria-label": T("prefs.github.search") });
       list = el("div", { class: "rc-list", role: "listbox", "aria-label": T("prefs.github.repo") });
+      name = el("input", { type: "text", class: "lp-field rc-search", spellcheck: "false", autocomplete: "off", "aria-label": T("prefs.github.newName") });
       empty = el("p", { class: "rc-empty" });
       const foot = el("footer", { class: "rc-foot" });
       give = el("button", { class: "pf-link", type: "button" }, T("prefs.github.give"));
+      fresh = el("button", { class: "pf-link", type: "button" }, T("prefs.github.new"));
       const cancel = el("button", { class: "pf-link", type: "button" }, T("prefs.github.cancel"));
       go = el("button", { class: "pf-link rc-go", type: "button" });
-      foot.append(give, cancel, go);
-      box.append(head, field, list, empty, foot);
+      foot.append(give, fresh, el("span", { class: "rc-gap" }), cancel, go);
+      box.append(head, field, list, name, empty, foot);
       document.body.append(scrim, box);
       x.onclick = cancel.onclick = () => close();
       give.onclick = () => post("github-give");
+      fresh.onclick = toNew;
+      name.addEventListener("input", () => { failed = null; fill(); });
       scrim.addEventListener("mousedown", (e) => { e.preventDefault(); close(); });
       field.addEventListener("input", fill);
       list.addEventListener("click", (e) => { const row = e.target.closest(".rc-row"); if (row) pick(row.dataset.url === picked ? "" : row.dataset.url); });
@@ -455,16 +505,23 @@
         e.stopPropagation(); // (not the settings' keys, nor the page's)
         const at = shown.findIndex((r) => r.url === picked);
         if (e.key === "Escape") { e.preventDefault(); close(); }
-        else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const to = shown[Math.max(0, Math.min(shown.length - 1, at + (e.key === "ArrowDown" ? 1 : at < 0 ? 0 : -1)))]; if (to) pick(to.url, true); }
+        else if (kind !== "new" && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); const to = shown[Math.max(0, Math.min(shown.length - 1, at + (e.key === "ArrowDown" ? 1 : at < 0 ? 0 : -1)))]; if (to) pick(to.url, true); }
+        else if (e.key === "Enter" && kind === "new") { if (e.target === name) { e.preventDefault(); done(); } }
         else if (e.key === "Enter" && picked && e.target !== cancel && e.target !== x && e.target !== give) { e.preventDefault(); done(); }
         else if (e.key === "Tab") { // the focus stays in the window
-          const all = [field, ...box.querySelectorAll(".rc-foot button, .st-close")].filter((n) => !n.disabled && !n.hidden);
+          const all = [kind === "new" ? name : field, ...box.querySelectorAll(".rc-foot button, .st-close")].filter((n) => !n.disabled && !n.hidden);
           e.preventDefault();
           all[(all.indexOf(document.activeElement) + (e.shiftKey ? -1 : 1) + all.length) % all.length]?.focus();
         }
       });
     }
     function done() {
+      if (kind === "new") {
+        if (making || !name.value.trim()) return;
+        making = ++turn; failed = null;
+        post("github-new", { name: name.value.trim(), n: making });
+        return fill();
+      }
       const r = (repos() || []).find((x) => x.url === picked);
       if (!r) return;
       const what = kind;
@@ -475,7 +532,8 @@
     function open(what, from) {
       if (isOpen()) return;
       if (!box) build();
-      kind = what; picked = ""; back = from;
+      kind = box.dataset.kind = what; picked = ""; back = from; making = 0; failed = null;
+      field.hidden = list.hidden = false; name.hidden = true;
       title.textContent = T(what === "link" ? "prefs.github.linkTitle" : "prefs.github.getTitle");
       go.textContent = T(what === "link" ? "prefs.github.linkDo" : "prefs.github.getDo");
       field.value = "";

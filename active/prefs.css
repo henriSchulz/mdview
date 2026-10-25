@@ -165,7 +165,10 @@ body[data-mode="dark"] #repos { box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.14),
 .rc-list:has(+ .rc-empty:not([hidden])) { flex: none; }
 .rc-foot { flex: none; display: flex; justify-content: flex-end; gap: 6px; padding: 10px 12px 12px; box-shadow: 0 -0.5px 0 var(--line); }
 .rc-foot [hidden] { display: none; }
-.rc-foot .pf-link:first-child { margin-right: auto; }
+.rc-foot .rc-gap { flex: 1; }
+.rc-search[hidden], .rc-list[hidden] { display: none; }
+#repos[data-kind="new"] { height: fit-content; } /* (a name to give: a small window, as high as what it holds) */
+#repos[data-kind="new"] .rc-empty { flex: none; margin: 6px 24px 16px; }
 .rc-go { font-weight: 600; }
 .pf-code { padding: 2px 10px; border-radius: var(--radius-control); background: var(--bg); box-shadow: 0 0 0 0.5px var(--line-strong); font: 600 15px/1.6 var(--mono); letter-spacing: 0.08em; user-select: all; -webkit-user-select: all; }
 /* the folder's history: what is so, in as many words as it takes, and the button that turns it on */

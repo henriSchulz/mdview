@@ -78,7 +78,7 @@ async function hold(d, sel, ms = 750) {
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await d.page.waitForTimeout(250);
 }
-const open = async (d, note = "Home.md") => { await d.page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(note)}`); await untilNote(d.page, note); await d.page.waitForTimeout(400); };
+const open = async (d, note = "Home.md") => { await d.page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(note)}`); await untilNote(d.page, note); await d.page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); await d.page.waitForTimeout(400); };
 
 
 for (const name of ["ipad", "ipadUp"]) {

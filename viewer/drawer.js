@@ -115,6 +115,16 @@
     el.style.transition = "";
     el.style.transform = "";
   }
+  /* In a note the sidebar is shut to begin with (Henri, 2026-10-25: "standardmäßig zu, wenn man in einer Notiz ist"): the
+   * window's first note, and a note come to out of All Notes. A note chosen in the sidebar leaves it as it is; the quick notes
+   * keep theirs (it is their list). Told to the host as a hand that shut it would: the folder sent again shows it as it stood. */
+  function noteShown(animate) {
+    if (!P.folder || P.folder.quick || compact() || !sidebarOpen()) return;
+    showSidebar(false, animate);
+    post("sidebar", { visible: false });
+  }
+  new MutationObserver(() => { if (!document.body.hasAttribute("data-overview") && P.current) noteShown(true); })
+    .observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
   /* Where the card lies over the note's text — a window too narrow for both — a press into the note puts it away, as a drawer
    * is put away; where the window is wide enough that it covers only the margin, it stays open while one reads and writes.
    * (Not over All Notes: there the two are used together — a tile pulled onto a folder in the sidebar. A narrow window: the
@@ -242,5 +252,5 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { touching, byFinger, compact, showSidebar, emptyState, openNewNote, closeNewNote, titleFresh });
+  Object.assign(P, { touching, byFinger, compact, showSidebar, noteShown, emptyState, openNewNote, closeNewNote, titleFresh });
 })();

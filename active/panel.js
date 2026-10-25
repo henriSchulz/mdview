@@ -451,6 +451,13 @@
     lay(save ? wanted() : !!open, animate);
   }
   const toggle = () => show(!wanted());
+  /* A press outside it closes it (Henri, 2026-10-25): on the note, the toolbar, the sidebar, the tabs. Not one on it, on its rail,
+   * or on what it opened over the note (a menu, a dialog). The press goes on to do what it does there: the caret goes where the
+   * note was pressed. */
+  const OWN = '#rpanel, #rrail, [data-act="panel"], .actmenu, #dlg, #dlg-scrim, #settings, #settings-scrim';
+  addEventListener("pointerdown", (e) => {
+    if (isOpen() && e.target instanceof Element && !e.target.closest(OWN)) show(false);
+  }, true);
 
   const plugin = new Plugin({
     key: new PluginKey("panel"),

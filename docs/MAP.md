@@ -57,6 +57,8 @@ or the tests see the old ones.
 | what a finger does in the application on Linux (`viewer/hand.js`, `host.rs`'s pinch, a PDF's fingers) | `dev/rig.sh gtktouch`; `cd web && npm test` (`linux-touch.test.mjs`) |
 | `src-tauri/src` | `cd src-tauri && cargo test`; the rig cases of what the change is about |
 | `web/`, or a message between page and shell | `cd web && npm test` |
+| a release's files (`packaging/release-name.sh`, `packaging/latest-json.mjs`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`, `latest-json.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
+| the app's updates (`src-tauri/src/update.rs`, the notice, Settings › About) | `cd src-tauri && cargo test` (`update::tests`); `cd dev && npm test` (`update.test.mjs`); `dev/rig.sh update` |
 
 `npm test` and `dev/rig.sh` say only what fails and how many checks held; every line:
 `npm run test:all`, `RIG_ALL=1 dev/rig.sh …`.
@@ -70,7 +72,7 @@ or the tests see the old ones.
 | File | What is in it |
 |---|---|
 | `viewer/base.js` | its ground: the message to the shell (post), the icons, small helpers. |
-| `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast. |
+| `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast, the notice of a newer version of the … |
 | `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, a new note made at once … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
 | `viewer/hand.js` | the hand: a finger, where the system does not say the screen is touched (Henri, 2026-10-24: the application … |
@@ -204,16 +206,20 @@ or the tests see the old ones.
 | `src-tauri/src/slides.rs` | A presentation (PowerPoint, Impress) shown as the PDF LibreOffice makes of it: made once, in a thread of its … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
 | `src-tauri/src/theme.rs` | Colours follow the desktop: Velum's current colours when Velum is installed … |
+| `src-tauri/src/update.rs` | Updates of an install that was downloaded: the AppImage and the Windows installer update themselves … |
 
 ### The web app (the same page in a browser)
 
 | File | What is in it |
 |---|---|
 | `web/lib/app.ts` | The GitHub App acting as itself, not as a user: for a note that was shared, read by someone who is not signed … |
+| `web/lib/download.ts` | The download page's ground (app/download): the latest release of the desktop app, read from GitHub, its files … |
+| `web/lib/feedback.ts` | Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback), and a list … |
 | `web/lib/firestore.ts` | Firestore, as far as the app needs it, spoken to over its REST interface: no library, and nothing to bundle. |
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
 | `web/lib/paste.ts` | A project's pasteboard: one text for a repository, to carry something from one device to another — typed or … |
+| `web/lib/reponame.ts` | The name a new space's repository gets on GitHub, from the space's name: the same rule as the desktop app's … |
 | `web/lib/session.ts` | Who is signed in, kept in a cookie the page's scripts cannot read: the tokens and the user, sealed (encrypted … |
 | `web/lib/share.ts` | A note that was shared: read by anyone who has its link, signed in or not — and never anything else of the … |
 | `web/lib/sharegate.ts` | Who may see a shared note: anyone with its link — and, where a password was set, only a browser that gave it … |

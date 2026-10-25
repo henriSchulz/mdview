@@ -3,6 +3,7 @@
 // whose owner's) begins with what is typed first, then those that hold it.
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NewSpace } from "./newspace";
 
 export type Row = { name: string; private: boolean; about: string; written: string; pushed: string; notes: boolean };
 export type Place = { account: string; all: boolean; url: string }; // an account the app stands on (lib/github.ts)
@@ -53,7 +54,11 @@ export function Repos({ rows, failed, unknown, name, login, give, install, place
 
       <div className="home-cols">
         <section className="home-main" aria-label="Notebooks">
-          <input className="home-search" type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search repositories" spellCheck={false} autoComplete="off" autoFocus />
+          <div className="home-tools">
+            <input className="home-search" type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search repositories" spellCheck={false} autoComplete="off" autoFocus />
+            {/* a new space: a repository made on GitHub, as a notebook (newspace.tsx) */}
+            {failed ? null : <NewSpace login={login} give={give} places={places} onAway={toGitHub} />}
+          </div>
 
           {failed ? (
             <p className="home-note" role="status">GitHub could not be reached. Reload to try again.</p>
@@ -130,6 +135,7 @@ export function Repos({ rows, failed, unknown, name, login, give, install, place
             <a href="/shares"><span><b>Shared notes</b><small>Every note that stands under a link</small></span>{GO}</a>
             <a href={`${source}#install`} target="_blank" rel="noreferrer"><span><b>Desktop app</b><small>The same notes, on your computer</small></span>{OUT}</a>
             <a href="/welcome"><span><b>What a note can hold</b><small>Formulas, code, diagrams, pages</small></span>{GO}</a>
+            <a href="/feedback"><span><b>Send feedback</b><small>Report a bug, suggest a feature</small></span>{GO}</a>
           </nav>
         </aside>
       </div>

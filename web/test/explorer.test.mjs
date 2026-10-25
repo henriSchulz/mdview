@@ -62,6 +62,7 @@ const open = async (note) => {
   if (page.url().startsWith(base)) await page.evaluate(() => localStorage.setItem("mdview:mode", '"read"'));
   await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(note)}`);
   await untilNote(note);
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); // (a note opens with the sidebar shut: the rows are what is worked with here)
 };
 // the sidebar's rows, as paths below the repository (a folder's with a stroke; what is shown dimmed with a star)
 const rows = () => page.evaluate((R) => [...new Set([...document.querySelectorAll("#sidebar .sb-item")].map((el) => el.dataset.key.slice(R.length + 1) + (el.classList.contains("is-dir") ? "/" : "") + (el.classList.contains("is-hidden") || el.querySelector(".sb-row.is-hidden") ? "*" : "")))].sort(), R); // (a note opened lately has a second row, under Recent)
@@ -147,6 +148,28 @@ test("All Notes: a tile keeps the pose it has under the pointer while its menu i
   assert.deepEqual(await pose(), raised, "…and stays open while the menu is on it");
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("#ctxmenu[data-open]"), null, { timeout: 4000 });
+});
+
+test("All Notes: another choice at the head dims what was shown at once — no glide that the new tiles cut off", async () => {
+  // (WebKit's GPU renderer kept the old tiles' picture of the fading layer, dimmed, under the empty Whiteboards: Henri 2026-10-25)
+  await open("Alpha.md");
+  await allNotes();
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="all"]');
+  await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "all" && !document.querySelector("#overview .ov-body.ov-going"), null, { timeout: 8000 });
+  await new Promise((r) => setTimeout(r, 400));
+  const seen = await page.evaluate(() => new Promise((done) => {
+    const body = document.querySelector("#overview .ov-body"), out = [];
+    document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="boards"]').click();
+    const look = () => {
+      out.push(...body.getAnimations().map((a) => a.transitionProperty || a.animationName));
+      if (document.querySelector("#overview").dataset.scope === "boards" && !body.classList.contains("ov-going")) return done([...new Set(out)]);
+      requestAnimationFrame(look);
+    };
+    look();
+  }));
+  assert.deepEqual(seen, []);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
 });
 
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
@@ -406,6 +429,29 @@ test("files from elsewhere, dropped on the list or chosen with Add Files…: lis
   await until(async () => /did not take the change to “lost\.txt”/.test(await said()), "the message");
   await until(async () => !(await rows()).includes("lost.txt"), "the row gone again");
   assert.deepEqual([gh.repo.files.has("lost.txt"), gh.commits.length - n], [false, 0]);
+});
+
+// Henri, 2026-10-25: "what are these odd blue edges in the corners?" — the ring around the open note's sheet in the sidebar
+// showed at its four corners only: the sheet is laid out only when in sight (content-visibility), which clips what it holds
+// to its box, and the ring stood outside the box it held. Read from the pixels: the ring along each side, not only at the corners.
+test("the open note's sheet in the sidebar wears its ring all round, not only at the corners", async () => {
+  await open("Alpha.md");
+  await page.evaluate(() => { MdView.setPrefs({ ...(window.MdPrefs || {}), sidebarLayout: "sheets" }); MdPage.showSidebar(true, false); });
+  await page.waitForSelector('#sidebar[data-layout="sheets"] .sb-row.active .sb-sheet', { timeout: 5000 });
+  await page.waitForTimeout(500);
+  const r = await page.evaluate(() => { const b = document.querySelector("#sidebar .sb-row.active .sb-sheet").getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; });
+  const pad = 6, clip = { x: Math.floor(r.x - pad), y: Math.floor(r.y - pad), width: Math.ceil(r.w + 2 * pad), height: Math.ceil(r.h + 2 * pad) };
+  const png = (await page.screenshot({ clip, path: join(web, ".next", "sheet-ring.png") })).toString("base64");
+  // (the picture read back in the page: a canvas says what each pixel is)
+  const px = await page.evaluate(async ({ png, r, clip }) => {
+    const img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    const k = img.width / clip.width, at = (x, y) => [...g.getImageData(Math.round((x - clip.x) * k), Math.round((y - clip.y) * k), 1, 1).data].slice(0, 3);
+    const mx = r.x + r.w / 2, my = r.y + r.h / 2;
+    return { left: at(r.x - 1.2, my), right: at(r.x + r.w + 1.2, my), top: at(mx, r.y - 1.2), bottom: at(mx, r.y + r.h + 1.2) };
+  }, { png, r, clip });
+  const blue = ([red, , b]) => b - red > 60;
+  for (const side of ["left", "right", "top", "bottom"]) assert.ok(blue(px[side]), `the ring along the ${side} side: ${px[side]}`);
 });
 
 test("nothing was refused or thrown along the way", () => {

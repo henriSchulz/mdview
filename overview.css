@@ -107,7 +107,9 @@ body[data-mode="dark"] #overview[data-open] .ov-tile:is(:hover, .ctx-target) { -
 :is(.ov-pic, .ov-mini) > img:not(.ov-shot) { opacity: 0; transition: opacity var(--dur-base) var(--ease-out); }
 :is(.ov-pic, .ov-mini) > img.on { opacity: 1; }
 /* a choice made at the head: what was shown dims at once, until the new tiles are there (a frame later) */
-.ov-going { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-out); }
+/* (dimmed at once, for the two frames before the new tiles: an opacity glided there was cut off when they came, and WebKit's
+ * GPU renderer kept the old tiles' picture of that layer, dimmed, under an empty Whiteboards — Henri 2026-10-25) */
+.ov-going { opacity: 0.55; }
 @media (prefers-reduced-motion: reduce) { .ov-tile .ov-prev:empty, .ov-prev.ov-in { animation: none; } }
 
 .ov-red { --c: var(--c-red); }

@@ -26,6 +26,7 @@ use crate::github::{self, News, Session};
 use crate::history::{self, Historian, Place, Stamp};
 use crate::paste;
 use crate::share;
+use crate::update;
 use crate::sync::{self, Access};
 use crate::scan::{self, clean_name, file_kind, is_md, is_pdf, shows_as_pdf, is_slides, quote, read_bytes, read_text, resolve, s, unquote, Node, Resolver, TitleCache};
 use crate::theme::{self, home, Theme};
@@ -44,6 +45,8 @@ mod undo;
 const OPENED_LIMIT: usize = 3000; // notes whose last opening is remembered
 const SF_SYMBOLS: &str = ".SF Symbols Fallback"; // the font the app's signs are set in, where it is installed (viewer.js)
 const RESIDENT_MS: u64 = 15 * 60 * 1000;
+const UPDATE_FIRST_MS: u64 = 8 * 1000; // the first look for a newer version of the app, after the start
+const UPDATE_EVERY_MS: u64 = 6 * 60 * 60 * 1000; // … and the looks after it
 const SYNC_MS: u64 = 60 * 1000; // how often a linked project's other side is looked at, while a window shows the project
 const EMBED_LIMIT: usize = 256 * 1024;
 const EDIT_LIMIT: usize = 2 * 1024 * 1024;
@@ -151,6 +154,8 @@ fn default_prefs() -> Map<String, Value> {
     // (put in here: the list above is as long as one json! takes)
     m.insert("quickDir".into(), json!(""));
     m.insert("quickNew".into(), json!("Ctrl+N"));
+    // a newer version of the app looked for by itself, a few seconds after the start and every six hours (update.rs)
+    m.insert("updateAuto".into(), json!(true));
     m
 }
 
@@ -499,12 +504,18 @@ pub struct App {
     signing: Option<(std::sync::Arc<std::sync::atomic::AtomicBool>, Option<(String, String)>)>, // a sign-in under way: to stop it, and the code to confirm (and where) once told
     github_said: String,       // why the last sign-in did not go, for the settings
     repos: Option<Vec<Value>>, // the repositories the app was given on the user's account, once read
+    making: Option<(PathBuf, Value)>, // a repository being made on GitHub: the project it is linked to once made, and the page's number for it
+    made: Value,                      // … how that went, for the settings: { n, busy, name } | { n, done, name } | { n, error, why, name }
     renew_turn: u64,
     synced: HashMap<PathBuf, Value>, // linked projects: how they stood when last reconciled, and when
     share_dirty: HashSet<PathBuf>, // projects whose list of shares changed here: the web app is told once that has arrived at GitHub
     watcher: Option<notify::RecommendedWatcher>,
     started: Option<SystemTime>, // the program file as it was when this started
     file_clip: (Vec<PathBuf>, bool), // files and folders copied in a folder's list, for Paste there (true: cut — they are moved)
+    update: Value,                 // a newer version of the app, as the settings show it: { state, latest, why } (update.rs)
+    update_notice: Option<Value>,  // … the notice every window shows while it stands: { version, kind, url }
+    update_later: Option<String>,  // the version Later was said to: not shown again by the looks of their own
+    restarting: bool,              // Restart to Update: the windows are closing, then the new version starts
 }
 
 /// The sheets are the sidebar's layout to begin with (Henri, 2026-10-20). The rail, kept from the
@@ -531,6 +542,10 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     sheets_first(&mut state);
     let mut app = App {
         file_clip: (vec![], false),
+        update: json!({ "state": "idle" }),
+        update_notice: None,
+        update_later: None,
+        restarting: false,
         illustrator: Illustrator::new(tx.clone()),
         talker: Talker::new(tx.clone()),
         historian: Historian::new(tx.clone()),
@@ -541,6 +556,8 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         signing: None,
         github_said: String::new(),
         repos: None,
+        making: None,
+        made: Value::Null,
         renew_turn: 0,
         synced: HashMap::new(),
         share_dirty: HashSet::new(),
@@ -563,6 +580,10 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     }
     app.watch_theme();
     app.after(app.sync_ms(), Event::SyncTick);
+    if *update::KIND != update::Install::Checkout {
+        let first = env("MDVIEW_UPDATE_FIRST_MS").and_then(|ms| ms.parse().ok()).unwrap_or(UPDATE_FIRST_MS); // (the override: for the rig)
+        app.after(first, Event::UpdateTick); // (a few seconds after the start, then every few hours)
+    }
     std::sync::LazyLock::force(&crate::paste::STARTED);
     github::resume(app.tx.clone(), app.keyring_place()); // (a sign-in kept from before)
     for event in rx {
@@ -739,6 +760,9 @@ impl Win {
         self.render(app, false, fragment, false);
         if self.path.is_none() && self.folder.is_none() {
             self.js("MdView.clear", &[json!({ "recents": app.recents() })]); // (nothing open yet: the page offers the folders opened last, a folder and a file)
+        }
+        if let Some(notice) = &app.update_notice {
+            self.js("MdView.updateNotice", &[notice.clone()]); // (a newer version waits: a new window says so too)
         }
         if let (Some(probe), Some(window)) = (PROBE.as_ref(), &self.window) {
             if let Ok(script) = fs::read_to_string(probe) {
@@ -1290,13 +1314,14 @@ impl Win {
                 history["linked"] = linked["linked"].clone();
                 history["sync"] = linked["sync"].clone();
             }
+            history["newRepo"] = json!(github::new_name(&name_of(&root))); // (the name a new repository is offered under)
         }
         let device = app.stamp().device;
         let device_id = device.rsplit_once(" (").map_or("", |(_, id)| id.trim_end_matches(')')).to_string();
         let config = s(&ai::config_dir());
         let home = s(&home());
         let shown = if !home.is_empty() && config.starts_with(&home) { format!("~{}", &config[home.len()..]) } else { config };
-        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown, "deviceName": host_name(), "deviceId": device_id, "history": history, "home": home, "github": app.github_shown() })]);
+        self.js("MdView.settingsInfo", &[json!({ "aiKey": ai::ai_key_state(), "aiModel": ai::AI_MODEL, "version": app_version(), "configDir": shown, "deviceName": host_name(), "deviceId": device_id, "history": history, "home": home, "github": app.github_shown(), "update": app.update_shown() })]);
     }
 
     fn go(&mut self, app: &mut App, back: bool) {

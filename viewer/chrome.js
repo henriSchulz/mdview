@@ -1,4 +1,5 @@
-/* mdview, the page — what stands around the note: the toolbar, find, the outline, the toast. */
+/* mdview, the page — what stands around the note: the toolbar, find, the outline, the toast, the
+ * notice of a newer version of the app. */
 "use strict";
 (() => {
   const P = window.MdPage;
@@ -75,6 +76,37 @@
     e.preventDefault(); e.stopPropagation();
     toastDo();
   }, true);
+
+  /* A newer version of the app (the desktop's shell says so: src-tauri/src/update.rs): a notice
+   * of the toast's kind that stays until it is answered — quiet, nothing over the note is held up.
+   * kind "restart": downloaded and checked, Restart to Update puts it in place (the windows close
+   * the way they do and the new version starts); kind "download": a .deb or an .rpm, the download
+   * page. Later takes it away in every window; null too. */
+  const updateEl = document.createElement("div");
+  updateEl.id = "update";
+  updateEl.setAttribute("role", "status");
+  updateEl.addEventListener("wheel", (e) => e.preventDefault(), { passive: false }); // (nothing to scroll here: the note behind does not either)
+  document.body.appendChild(updateEl);
+  function updateNotice(n) {
+    if (!n || !n.version) { delete updateEl.dataset.open; document.body.removeAttribute("data-update"); return; }
+    updateEl.textContent = "";
+    const text = updateEl.appendChild(document.createElement("span"));
+    text.className = "upd-text";
+    text.textContent = T("update.available", n.version);
+    const button = (label, act, cls = "") => {
+      const b = updateEl.appendChild(document.createElement("button"));
+      b.type = "button"; b.textContent = label; b.dataset.act = act;
+      if (cls) b.className = cls;
+      return b;
+    };
+    const notes = n.kind === "download" ? n.notes : n.url;
+    if (notes) button(T("update.notes"), "notes").onclick = () => post("link", { href: notes });
+    button(T("update.later"), "later").onclick = () => post("update-later");
+    if (n.kind === "download") button(T("update.download"), "download", "upd-go").onclick = () => post("link", { href: n.url });
+    else button(T("update.restart"), "restart", "upd-go").onclick = (e) => { e.currentTarget.disabled = true; post("update-restart"); };
+    document.body.setAttribute("data-update", "");
+    updateEl.dataset.open = "";
+  }
 
   const outlineOpen = () => outlinePop.hasAttribute("data-open");
   const findOpen = () => findBar.hasAttribute("data-open");
@@ -255,7 +287,7 @@
   });
 
   // what the page's other files use of this one
-  Object.assign(P, { toolbar, outlinePop, findBar, findInput, toast, outlineOpen, findOpen, showToolbar,
+  Object.assign(P, { toolbar, outlinePop, findBar, findInput, toast, updateNotice, outlineOpen, findOpen, showToolbar,
     buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

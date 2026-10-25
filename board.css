@@ -19,7 +19,10 @@
   position: fixed; inset: 0; z-index: 58;
   background: var(--bg); color: var(--fg);
   font: 400 13px/16px var(--ui);
-  overflow: hidden; outline: none;
+  /* clip, not hidden: hidden is still a box that can be scrolled — by a focus, scrollIntoView, a tap the browser brings into
+     view — and the dots' layer reaches a step past the window (grid() in board.js): scrolled by that much, every place on the
+     board was taken that far from where the hand was (BUGS.md 79) */
+  overflow: hidden; overflow: clip; outline: none;
   transform-origin: 0 0;
   opacity: 0;
   transition: transform calc(var(--spring-gentle-dur) * 0.7) var(--ease-exit), opacity calc(var(--dur-slow) * 0.7) var(--ease-exit);
@@ -30,7 +33,8 @@ body[data-mode="dark"] #board { --bd-on-accent: #000; --bd-tool-body: #dedee3; -
 #board[data-open] { opacity: 1; transform: none; transition: transform var(--spring-gentle-dur) var(--spring-gentle), opacity var(--dur-slow) var(--ease-out); }
 
 .bd-stage { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
-.bd-stage[data-grid] { background-image: radial-gradient(circle, var(--bd-grid-dot) 0.75px, transparent 1.25px); }
+.bd-dots { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.bd-stage[data-grid] > .bd-dots { background-image: radial-gradient(circle, var(--bd-grid-dot) 0.75px, transparent 1.25px); }
 .bd-stage[data-tool="eraser"] { cursor: none; }
 .bd-stage[data-tool="lasso"] { cursor: default; }
 .bd-stage[data-tool="look"], .bd-stage[data-space] { cursor: grab; }

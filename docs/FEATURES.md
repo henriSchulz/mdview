@@ -24,6 +24,24 @@ an address that names a note (`?n=…`) opens that note, and a reload shows what
 The app stays resident for a while after its last window closes, so the next one opens at once.
 A file changed by another program is read again as it changes.
 
+### Updates
+
+An install from a downloaded file looks for a newer version a few seconds after it starts and
+every six hours (Settings › About › **Check for updates automatically**, on at first), in the
+background — the window is never held up, and a look that cannot reach GitHub says nothing.
+
+- **AppImage and Windows**: a newer version is downloaded and its signature checked, then a quiet
+  notice at the window's foot says so — *Markdown Notes 0.1.5 is available*, with **What's new**
+  (the release's page), **Later** (gone from every window; that version is not offered again
+  until the app starts anew) and **Restart to Update**: every window closes the way it does (a
+  note being written is saved, a question is asked), the new version is put in place and starts.
+- **.deb and .rpm**: the system's package manager owns the files, so the app only says that a
+  newer version is there, with **Download** (the download page).
+- **Built from the sources** (`bin/mdview-install`): no look, no notice — it is what the checkout builds.
+
+Settings › About › Updates shows the version, how the last look went, and **Check Now** (what
+went wrong is said there); with a version downloaded, **Restart to Update**.
+
 ## Four modes
 
 The switch at the top right — active, source and reading, source, reading, in that order — or `Ctrl+Alt+1` / `2` / `3` / `4`.
@@ -822,7 +840,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
-  that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
+  that is open closes it, and so does a press anywhere outside the panel (the note, the toolbar,
+  the sidebar). The toolbar has no button for it. The rail is the active mode's: it
   slides in from the edge with that mode and out again when the view changes, and the reading
   view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
@@ -873,13 +892,15 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
-- **Sidebar** (`Ctrl+Alt+S`): everything that lies in the folder — notes, folders, and every other
-  file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
+- **Sidebar** (`Ctrl+Alt+S`, or the button at the left of the tabs — not shown over All Notes):
+  everything that lies in the folder — notes, folders, and every other file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
   adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
-  the notes' titles. **It lies over the note**, a card that floats in the window with a shade
+  the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
+  opened out of All Notes show without it; a note chosen in it leaves it open, and the quick
+  notes keep theirs. **It lies over the note**, a card that floats in the window with a shade
   under it: opened or shut, the note, All Notes and the halves of a split stay where they are —
   only the card slides in (the strip's tabs make room for it, its button beside it). Where the
   window is narrow enough that it lies over the text, a click into the note puts it away; where
@@ -1073,6 +1094,15 @@ Without a link, and without GitHub, everything above works as it does.
   Link links. An empty repository takes the project as it is. One that holds the same project
   (another device linked it before) is joined with what is here. One that holds something else
   is not linked, and that is said.
+- **A new repository**: the chooser's New Repository… makes one on GitHub for the project and
+  links it. The name offered is `mdview_` and the folder's name as GitHub takes it — letters,
+  digits, `-`, `_` and `.` stay, ä ö ü ß become ae oe ue ss, anything else (a space too) becomes
+  `-`, one for a run of them — and can be changed before Create and Link. It is private and
+  empty, and takes the project as it is. A name the account has already is said so, and the field
+  stays to change it. Where GitHub does not let the app make repositories (the user has not
+  accepted the app's permission for it yet), that is said, with Choose on GitHub; a repository
+  made that the app is not given is said too — the project stays unlinked until it is given and
+  linked with Link….
 - **Getting a repository**: Settings › History › GitHub › Get… — the same chooser, then the
   folder to put it in. It is fetched into a folder of its own and opens as a project, linked.
 - **When the two are reconciled**: after every version kept, with `Ctrl+S`, and once a minute
@@ -1151,7 +1181,20 @@ counts — and has no writing help by a model.
   see. The sign-in lasts until Sign Out, or six months of not coming by.
 - **Before signing in**, the address shows a welcome page: the app itself with a handful of sample
   notes that live in the tab and nowhere else. Scrolling writes one of them, shows what a note can
-  hold, and leaves an editor to try; nothing typed there is kept.
+  hold, and leaves an editor to try; nothing typed there is kept. Its "Get the desktop app" leads
+  to the download page.
+- **The download page** (`/download`; `/install` leads there too) is open without signing in. It
+  offers the files of the desktop app's latest release on GitHub — Windows (the installer, with a
+  word that it is not signed and Windows warns), Linux (AppImage, .deb and .rpm, each for x64 and
+  arm64) and macOS, shown but not released yet ("Coming soon") — with the release's version and
+  date. Three tall cards, always Windows, Linux, macOS: the visitor's own system, read from the
+  browser, stands raised with *Your system* and the strong button (in a narrow window it comes
+  first); Linux has its AppImage as the button and the other files as small chips. Below: that the
+  AppImage and the Windows app update themselves, the browser, and every version. The release is
+  asked of GitHub at most once an hour; where GitHub cannot be reached, the page says so and every
+  button leads to the releases on GitHub. A release's files are named
+  `MarkdownNotes-<version>-<system>-<arch>.<ext>` (from the release after v0.1.4 on; the page understands the older
+  names Tauri gave too), and the release says above its notes which file is whose.
 - **Choosing**: the repositories the app was given on GitHub, with a field to search them. None
   is chosen beforehand.
 - **A repository that is missing**: the app reaches only what it was given on GitHub. Under the
@@ -1161,6 +1204,14 @@ counts — and has no writing help by a model.
   from GitHub, the page looks again by itself.
 - **A new, empty repository** becomes a notebook like any other: opened, and its history turned
   on with the clock in the sidebar — the app makes the repository's first commit.
+- **New Space** (the blue button beside the search): a new notebook without going to GitHub. A
+  window asks for the space's name and shows, as it is typed, the repository it will be on GitHub
+  — `mdview_` and the name as GitHub takes it, the same rule as the desktop app's New
+  Repository… — private. Create makes it, makes it a notebook at once (its first commit holds
+  the app's marker) and opens it. A name the account has already is said at the field. Where
+  GitHub does not let the app make repositories (its permission for that not accepted yet on the
+  account) that is said, with the way to GitHub; a repository made that the app is not given is
+  said too, with the place where repositories are chosen, and nothing is written to it.
 - **On a phone or a tablet**: the same app, laid out for the screen. On a narrow screen the
   sidebar is a drawer over the note (the button at the strip's left; a note chosen shuts it, as
   does a tap beside it), the toolbar stands at the foot, and the settings and the history fill
@@ -1324,6 +1375,31 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.
 
+### Feedback
+
+Anyone can report a bug or suggest a feature, in the web app, without signing in; Henri reads
+them in a list of his own. What is sent is kept by the web app's server — no repository, no
+GitHub issue.
+
+- **Where**: `/feedback` (also *Send feedback* beside the repositories); `/bug` and `/feature`
+  open it with that kind chosen.
+- **The form**: Bug or Feature (a choice of two), a title, a description — Markdown is fine; it
+  is kept and shown as plain text, never rendered — and, if one likes, an e-mail for questions
+  about it, the platform (Web, iPad, Desktop Linux, Windows, macOS) and the app's version or the
+  browser. In a browser the platform is Web (or iPad) and the browser and its system are filled
+  in beforehand; a bug's description suggests steps to reproduce. Sent, the form says thanks,
+  with Send Another and the way back to the app.
+- **Who sent it**: signed in with GitHub, the account goes with it on its own (the form says
+  so); otherwise nobody. The browser's user agent goes with it too.
+- **Against spam**: every field is checked on the server (a title of 3 to 120 characters, a
+  description of 10 to 8 000, an e-mail that is one, a platform from the list); a field nobody
+  sees, filled in, is thanked for and not kept; and one address sends at most 5 an hour (60 an
+  hour from everyone together) — counted on the server, forgotten when it restarts.
+- **The inbox** (`/feedback/inbox`): only for Henri's GitHub account (told by its id, not its
+  name); to anyone else, signed in or not, the address does not exist. Newest first, Bugs,
+  Features or all, open, done or all; a row opened shows the description and the user agent, an
+  e-mail is a link to answer. Mark Done (Reopen) and Delete (a second click deletes).
+
 ## Finding
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
@@ -1463,7 +1539,7 @@ the right. A change takes effect at once.
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
 | PDFs | what a link to selected text is copied as, copy on select |
 | Writing Help | suggestions while typing, the Gemini API key, the model |
-| About | version, this guide, the settings folder |
+| About | version, this guide, the settings folder; for a downloaded install, updates: Check Now and checking automatically (see *Updates*) |
 
 The Gemini key is typed into the settings and kept in `~/.config/mdview/.env`, readable by the
 user alone; the window only ever shows its last four signs. A key in the environment

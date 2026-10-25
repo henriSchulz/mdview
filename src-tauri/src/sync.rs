@@ -123,6 +123,7 @@ fn fetch_into(repo: &Repository, access: &Access) -> Result<(), git2::Error> {
 /// The project's branch goes to the other side — only as a continuation of what is there: where
 /// the other side has commits this one has not, nothing is pushed and that is said.
 pub fn push(root: &Path, access: &Access) -> Res<()> {
+    durable(root)?;
     let repo = Repository::open(root).map_err(say)?;
     let head = repo.head().map_err(say)?;
     let branch = head.name().map_err(say)?.to_string();
@@ -142,6 +143,30 @@ pub fn push(root: &Path, access: &Access) -> Res<()> {
         Some(why) => Err(why),
         None => Ok(()),
     }
+}
+
+/// What is to go to the other side is on the disk first, not only in the system's memory: the
+/// folder, its commits and where the branch points. Otherwise a crash right after a push takes
+/// back here what is there already — the next change to the same note is then a conflict, and
+/// nothing goes over any more (2026-10-25: a commit reached GitHub, the machine went down within
+/// seconds, and here the note and its branch were as before).
+fn durable(root: &Path) -> Res<()> {
+    #[cfg(test)]
+    tests::SYNCED.with(|s| s.borrow_mut().push(root.to_path_buf()));
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        let dir = std::fs::File::open(root).map_err(say)?;
+        // (the whole file system the project is on, at once: cheaper than every file it has)
+        if unsafe { libc::syncfs(dir.as_raw_fd()) } != 0 {
+            return Err(format!("the disk did not keep it: {}", std::io::Error::last_os_error()));
+        }
+    }
+    #[cfg(all(unix, not(target_os = "linux")))]
+    unsafe {
+        libc::sync();
+    }
+    Ok(())
 }
 
 /// How a project and its other side stand after they were reconciled.
@@ -243,15 +268,7 @@ fn reconcile_in(root: &Path, access: &Access, stamp: &Stamp) -> Res<Standing> {
         let our_commit = repo.find_commit(ours).map_err(say)?;
         let mut joined = repo.merge_commits(&our_commit, &their_commit, None).map_err(say)?;
         if joined.has_conflicts() {
-            let mut files: Vec<String> = joined
-                .conflicts()
-                .map_err(say)?
-                .flatten()
-                .filter_map(|c| c.our.or(c.their).or(c.ancestor).map(|e| String::from_utf8_lossy(&e.path).into_owned()))
-                .collect();
-            files.sort();
-            files.dedup();
-            return Ok(Standing::Conflict(files));
+            return Ok(Standing::Conflict(conflicted(&joined)?));
         }
         if !join(&repo, &branch, &our_commit, &their_commit, &mut joined, stamp)? {
             return Ok(Standing::Refused("the folder changed meanwhile".into()));
@@ -291,6 +308,26 @@ fn joining(repo: &Repository) -> Res<(String, git2::Commit<'_>, git2::Commit<'_>
     let theirs = repo.find_commit(repo.refname_to_id(&theirs_name).map_err(say)?).map_err(say)?;
     let joined = repo.merge_commits(&ours, &theirs, None).map_err(say)?;
     Ok((branch, ours, theirs, joined))
+}
+
+/// The files both sides changed at the same place, in a join.
+fn conflicted(joined: &git2::Index) -> Res<Vec<String>> {
+    let mut files: Vec<String> = joined
+        .conflicts()
+        .map_err(say)?
+        .flatten()
+        .filter_map(|c| c.our.or(c.their).or(c.ancestor).map(|e| String::from_utf8_lossy(&e.path).into_owned()))
+        .collect();
+    files.sort();
+    files.dedup();
+    Ok(files)
+}
+
+/// The files that keep the project from going to the other side, as it was last fetched: both
+/// changed the same place, and nothing goes over until it is resolved. Empty: nothing does.
+pub fn stuck(root: &Path) -> Vec<String> {
+    let Ok(repo) = Repository::open(root) else { return vec![] };
+    joining(&repo).and_then(|(_, _, _, joined)| conflicted(&joined)).unwrap_or_default()
 }
 
 fn text_of(repo: &Repository, entry: Option<&IndexEntry>) -> Option<String> {
@@ -477,6 +514,11 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    thread_local! {
+        /// The projects made durable (sync::durable), in turn.
+        pub(super) static SYNCED: std::cell::RefCell<Vec<PathBuf>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
     struct Dir(PathBuf);
     impl Dir {
         fn new() -> Dir {
@@ -538,6 +580,21 @@ mod tests {
         assert_eq!(head(&a, "refs/remotes/origin/main"), head(&b, "HEAD"));
         assert_ne!(head(&a, "HEAD"), head(&b, "HEAD"));
         assert_eq!(fs::read_to_string(a.join("note.md")).unwrap(), "one\n");
+    }
+
+    #[test]
+    fn what_goes_over_is_on_the_disk_first() {
+        let d = Dir::new();
+        let (hub, a) = pair(&d);
+        SYNCED.with(|s| s.borrow_mut().clear());
+        push(&a, &Access::default()).unwrap();
+        assert_eq!(SYNCED.with(|s| s.borrow().clone()), [a.clone()]);
+        assert_eq!(head(&hub, "refs/heads/main"), head(&a, "HEAD"));
+        // (and through a whole round, from the first change to the push)
+        fs::write(a.join("note.md"), "two\n").unwrap();
+        SYNCED.with(|s| s.borrow_mut().clear());
+        assert_eq!(reconcile(&a, &Access::default(), &stamp("a")), Standing::Pushed(1));
+        assert_eq!(SYNCED.with(|s| s.borrow().clone()), [a.clone()]);
     }
 
     #[test]
@@ -662,6 +719,8 @@ mod tests {
         write(&a, "other.md", "more\n");
         assert_eq!(sync(&a, "a"), Standing::Conflict(vec!["note.md".into()]));
         assert_eq!(history::log(&a.join("other.md")).unwrap().len(), 3);
+        assert_eq!(stuck(&a), ["note.md"]); // (what holds it back, for whoever asks: a share's window)
+        assert!(stuck(&b).is_empty());
     }
 
     #[test]
@@ -781,6 +840,7 @@ mod tests {
         assert!(clean(&a));
         assert_eq!(head(&hub, "refs/heads/main"), head(&a, "HEAD"));
         assert_eq!(sync(&a, "a"), Standing::Even);
+        assert!(stuck(&a).is_empty());
         assert_eq!(sync(&b, "b"), Standing::Pulled(2));
         assert_eq!(read(&b, "note.md"), read(&a, "note.md"));
         assert!(b.join("pic (b).png").exists());

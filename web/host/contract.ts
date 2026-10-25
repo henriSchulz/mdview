@@ -101,6 +101,10 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   "github-repos": ["none", "the repositories are chosen before the page"],
   "github-give": ["none", "as github-repos"],
   "github-get": ["none", "as github-repos"],
+  "update-check": ["none", "Check Now for a newer version of the desktop app (src-tauri/src/update.rs): a web page is always the newest"],
+  "update-restart": ["none", "the desktop app's notice of a newer version: Restart to Update"],
+  "update-later": ["none", "… and Later"],
+  "github-new": ["none", "as github-repos (the list of repositories has a New Space of its own)"],
   // whiteboards (board.js)
   "board-new": ["write", "a new whiteboard: its file where the note's pictures go, in a commit at once"],
   "board-read": ["answer", "a whiteboard's text: the draft kept here, else the branch's"],
@@ -142,6 +146,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   setPreviews: ["answer", "the beginnings of notes asked for"],
   settingsInfo: ["answer", "what only the host knows, for the settings"],
   toast: ["answer", "a word shown for a moment"],
+  updateNotice: ["none", "a newer version of the desktop app is there (update.rs): a web page is always the newest"],
   clear: ["answer", "nothing to show"],
   scrollToFragment: ["answer", "to a place in the note shown"],
   linkResolved: ["answer", "where a link leads"],

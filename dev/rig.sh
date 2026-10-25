@@ -20,6 +20,9 @@
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
+#   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
+#   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
+#   dev/rig.sh sbscroll              the sidebar's own list scrolled in each layout: frames
 #   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
@@ -58,11 +61,13 @@
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
 #   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
+#   dev/rig.sh panelfine             the panel at the right: closed by a press outside it (the note, the toolbar), kept by one on it, its rail, a menu; none in All Notes, nor its rail, nor the sidebar's button
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
 #   dev/rig.sh prefs                 the settings and what follows them (put back afterwards)
+#   dev/rig.sh update                a newer version of the app: the notice and the settings of an install that is told (a latest.json of the rig's own), offline, and a checkout's build that never is
 #   dev/rig.sh edges                 edge cases: empty document, one island, file changed under a dialog, narrow window, keyboard only
 #   dev/rig.sh clip                  plain-text paste, a pasted picture, a large paste (the nested session's clipboard)
 #   dev/rig.sh assets                what is put into a note of a subfolder: in the base folder's assets, named assets/…, shown — also once the note is moved
@@ -73,6 +78,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh reopen                what the Windows probe does: a whiteboard drawn in a note, the app started again with its folder, the note chosen: the board has the stroke
 #   dev/rig.sh newnote                New Note asks for nothing: "Untitled" at once, the caret in its title; named after the title when left alone a moment and when left; an old note's title is only its title
 #   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
 #   dev/rig.sh slides                 a presentation (.pptx): its tile, the PDF viewer, one that cannot be read (needs LibreOffice)
@@ -93,10 +99,13 @@ R="${MDVIEW_RIG:-$HOME/.cache/mdview-rig}"; H="$XDG_RUNTIME_DIR/hypr"; WS="${MDV
 mkdir -p "$R/out" "$R/state"
 sig() { cat "$R/sig" 2>/dev/null; }
 wl() { HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)" '.[] | select(.instance==$s) | .wl_socket'; }
+# (the nested compositor takes the frames of WebKit's GPU renderer far too slowly — a probe of frames never ends: the rig
+# draws without it, as the app did until 2026-10-24, unless told otherwise. Figures of the GPU's frames: on the desktop)
 app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
-    XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 "${envs[@]}" \
+    XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 \
+    WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}" "${envs[@]}" \
     setsid -f timeout "$secs" dbus-run-session -- "$APP" "$@" >"$R/app.log" 2>&1
 }
 # (this rig's own window: several rigs stand side by side on the hidden workspace)
@@ -232,6 +241,38 @@ case "${1:-}" in
     [[ -n $f && $n == "$want" && $want -gt 3 ]] && echo "ok   the board is a file where the note's pictures go ($(basename "$f"), $(wc -c < "$f") bytes), with a line for each of its $n strokes" || echo "FAIL the board's file: ${f:-none}, $n strokes, $want on the board"
     [[ -n $f ]] && grep -q "$(basename "$f")" "$R/work/$name" && echo "ok   the note on disk names it" || echo "FAIL the note on disk does not name the board"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board.json"; } | grep -qv '^ok' ;;
+  boardperf)
+    # (a whiteboard written full: a pen's strokes, the board moved and zoomed — frames and lag, numbers only)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".boardperf.json
+    app 240 MDVIEW_PROBE="$D/probe-boardperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    for _ in $(seq 2000); do [[ -f $R/out/$name.boardperf.json ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.boardperf.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95 / max, over 33 ms)", (.numbers | to_entries[] | select(.key != "window") | "  \(.key): \(.value | tostring)")' "$R/out/$name.boardperf.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/$name.boardperf.json" | grep -q '^FAIL' ;;
+  blockperf)
+    # (a long note: blocks selected with a rectangle and a block dragged by its handle, a mouse of 240 Hz — frames, numbers only)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.blockperf.json
+    { echo '# Long'; for i in $(seq 250); do echo; echo "Paragraph $i of a long note, long enough to wrap a little in the window, with **bold**, \$a_$i^2\$ and a [link](https://example.com)."; (( i % 25 == 0 )) && { echo; echo "- item one"; echo "- item two"; echo "  - nested"; }; done; } > "$R/work/long.md"
+    app 240 MDVIEW_PROBE="$D/probe-blockperf.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/long.md"
+    for _ in $(seq 2000); do ls "$R/out"/*.blockperf.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.blockperf.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95 / max, over 33 ms)", (.numbers | to_entries[] | "  \(.key): \(.value | tostring)")' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  sbscroll)
+    # (the sidebar's own list scrolled in each layout, a folder of notes rich in what a sheet draws — frames, numbers only)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/Sub"; rm -f "$R/out"/*.sbscroll.json
+    magick -size 600x400 gradient:red-blue "$N/pic.png"
+    for i in $(seq 120); do printf '# Note %s\n\nSome text with $x^%s$ and **bold**.\n\n![](pic.png)\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```js\nconst a = %s;\n```\n\n$$\\int_0^1 x^2\\,dx$$\n\n- one\n- two\n' $i $i $i > "$N/Note $i.md"; done
+    for i in $(seq 6); do printf '# Sub %s\n' $i > "$N/Sub/Sub $i.md"; done
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 240 MDVIEW_PROBE="$D/probe-sbscroll.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 2000); do ls "$R/out"/*.sbscroll.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.sbscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), "  (ms: p50 / p95, over 33 ms)", (.numbers | to_entries[] | "  \(.key): \(.value | tostring)")' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   board-items)
     # what stands on a whiteboard beside the ink: shapes, sticky notes, text boxes, lines — chosen, moved, sized, turned, typed in, arranged
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{shape,items,arranged,closed,board-items}.json
@@ -552,6 +593,17 @@ PY
     f=$(ls "$R/out"/*.pastetab.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  panelfine)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.panelfine.json "$R/out"/*.look.json
+    printf '# Alpha\n\nA paragraph to press in.\n\nAnother one.\n' > "$N/Alpha.md"; printf '# Beta\n\nText.\n' > "$N/Beta.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-panelfine.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.look.json "$R/out"/*.panelfine.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.2; shot "$R/out/panelfine-overview.png"
+    for _ in $(seq 300); do ls "$R/out"/*.panelfine.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.panelfine.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f" | grep -q '^FAIL' ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"
@@ -1184,6 +1236,29 @@ PY
     ok "the note that was moved names its pictures with the same words" 'grep -q "](assets/pasted-" "$A/shelf/Note.md" && grep -q "](assets/drop.png)" "$A/shelf/Note.md" && ! grep -q "\.\./" "$A/shelf/Note.md"' 'cat "$A/shelf/Note.md"'
     ok "what lay beside a note before stays where it was" '[[ -f $A/Old/assets/kept.png && ! -e $A/assets/kept.png ]]' 'find "$A" -type f | sort'
     exit $fail ;;
+  update)
+    # (three runs, one after the other: an install told of 9.9.9 by an address of the rig's own, the same with nothing there, and the program as a checkout builds it)
+    name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/site"; cp "$D/tests/fixtures/$name" "$R/work/$name"
+    printf '{"version":"9.9.9","notes":"the rig'"'"'s","pub_date":"2026-10-25T12:00:00Z","platforms":{}}' > "$R/work/site/latest.json"
+    port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+    python3 -m http.server "$port" --bind 127.0.0.1 --directory "$R/work/site" >/dev/null 2>&1 & site=$!
+    fail=0
+    for run in package offline checkout; do
+      rm -f "$R/out/$name".{shown,settings,update}.json
+      { echo "window.__updateRun = '$run';"; cat "$D/probe-update.js"; } > "$R/probe-update-run.js"
+      at="http://127.0.0.1:$port/latest.json"; as=package
+      [[ $run == offline ]] && at="http://127.0.0.1:9/latest.json"
+      [[ $run == checkout ]] && as=
+      app 70 MDVIEW_PROBE="$R/probe-update-run.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_UPDATE_TEST="$as" MDVIEW_UPDATE_ENDPOINT="$at" MDVIEW_UPDATE_FIRST_MS=3000 -- "$R/work/$name"
+      for v in shown settings; do for _ in $(seq 300); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.update.json ]] && break; sleep 0.1; done; [[ -f $R/out/$name.$v.json ]] && { sleep 0.8; shot "$R/out/update-$run-$v.png"; }; done
+      for _ in $(seq 400); do [[ -f $R/out/$name.update.json ]] && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null; sleep 0.5
+      [[ -f $R/out/$name.update.json ]] || { echo "FAIL [$run] no report"; tail -5 "$R/app.log"; fail=1; continue; }
+      jq -r '.steps[], (.error // empty)' "$R/out/$name.update.json"
+      jq -r '.steps[], (.error // empty)' "$R/out/$name.update.json" | grep -qv '^ok' && fail=1
+    done
+    kill "$site" 2>/dev/null
+    exit $fail ;;
   prefs)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{dialog,slash,prefs}.json
     # (the probe stores and removes a key for the model: in a settings folder of its own, never the user's)
@@ -1502,6 +1577,27 @@ PY
     ok "… and nothing is marked any more" '[[ $(jq -c .unmarked "$R/out"/Note.md.share.json) == "[0,false]" ]]' 'jq -c .unmarked "$R/out"/Note.md.share.json'
     ok "nothing went wrong in the page" '[[ $(jq -r ".error // empty" "$R/out"/Note.md.share.json) == "" ]]' 'jq -r .error "$R/out"/Note.md.share.json'
     exit $fail;;
+  reopen)
+    # what the Windows probe does (dev/system-probe.ps1, a release's windows-tried): a whiteboard made in a note and drawn on,
+    # the app started again with the note's folder, the note chosen there — the board opens with what was drawn on it
+    rm -rf "$R/work"; mkdir -p "$R/work/a/sub" "$R/work/outside"; A="$R/work/a"; rm -f "$R/out"/*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    for to in "$A/pic.png" "$R/work/outside/photo.png"; do cp "$D/tests/tauri-check/bild.png" "$to"; done
+    printf '# A note\n\nText with a [link](sub/Deep.md).\n\n![a picture](pic.png)\n\nLast paragraph.\n' > "$A/Note.md"; printf '# Deep\n\ntext\n' > "$A/sub/Deep.md"
+    { printf 'window.__probePicture = "file://%s";\n' "$R/work/outside/photo.png"; cat "$D/probe-windows.js"; } > "$R/work/probe.js"
+    wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    app 90 MDVIEW_PROBE="$R/work/probe.js" MDVIEW_PROBE_OUT="$R/out" -- "$A/Note.md"
+    wait_for windows 900; sleep 0.5; pkill -f "^$APP" 2>/dev/null; sleep 1
+    J="$R/out/Note.md.windows.json"
+    ok "a whiteboard made in the note, drawn on, kept and shut" '[[ $(jq -c "[.board.opened, .board.drawn, .board.kept, .board.shut, .board.again]" "$J") == "[true,1,true,true,true]" ]]' 'jq -c .board "$J"'
+    rm -f "$R/out"/*.json
+    app 60 MDVIEW_PROBE="$R/work/probe.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    wait_for first 600; sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    J=$(ls "$R/out"/*.first.json | head -1)
+    ok "started again with the folder: its notes in the sidebar" '[[ $(jq -r ".note.folder != null and (.sidebarRows | length) >= 2" "$J") == true ]]' 'jq -c "[.note, .sidebarRows]" "$J"'
+    ok "… and the note's whiteboard opens with what was drawn on it" '[[ $(jq -c "[.boardThere.opened, .boardThere.items]" "$J") == "[true,1]" ]]' 'jq -c "[.chose, .boardThere, .pictures]" "$J"'
+    ok "nothing went wrong in the page" '[[ $(jq -r "(.error // \"\") + (.errors | join(\";\"))" "$J") == "" ]]' 'jq -c "[.error, .errors]" "$J"'
+    exit $fail;;
   sync)
     rm -rf "$R/work"; mkdir -p "$R/work/a"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/a/"
     A="$R/work/a"; B="$R/work/b"; HUB="$R/work/hub.git"; rm -f "$R/out"/*.sync*.json; fail=0
@@ -1585,12 +1681,14 @@ PY
   github)
     rm -rf "$R/work"; mkdir -p "$R/work/notes"; cp "$D"/tests/fixtures/basics.md "$R/work/notes/"; W="$R/work/notes"; rm -f "$R/out"/*.github*.json; fail=0
     ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fi; }
-    HUB="$R/work/hub.git"; git init -q --bare -b main "$HUB"
-    port=$((20000 + RANDOM % 20000)); python3 "$D/fake-github.py" "$port" "$HUB" >"$R/fake-github.log" 2>&1 & hub=$!
+    HUB="$R/work/hub.git"; git init -q --bare -b main "$HUB"; NEW="$R/work/new.git"; git init -q --bare -b main "$NEW"
+    port=$((20000 + RANDOM % 20000)); python3 "$D/fake-github.py" "$port" "$HUB" "$NEW" >"$R/fake-github.log" 2>&1 & hub=$!
     app 60 MDVIEW_PROBE="$D/probe-github.js" MDVIEW_PROBE_OUT="$R/out" MDVIEW_HISTORY_QUIET_MS=600 MDVIEW_GITHUB_WEB="http://127.0.0.1:$port" MDVIEW_GITHUB_API="http://127.0.0.1:$port" -- "$W"
     for _ in $(seq 100); do ls "$R/out"/*.github-code.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.3; shot "$R/out/github-code.png"
     for _ in $(seq 250); do ls "$R/out"/*.github-search.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.2; shot "$R/out/github-search.png"
     for _ in $(seq 250); do ls "$R/out"/*.github-linked.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.3; shot "$R/out/github-linked.png"
+    for _ in $(seq 250); do ls "$R/out"/*.github-new.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.2; shot "$R/out/github-new.png"
+    for _ in $(seq 250); do ls "$R/out"/*.github-taken.json >/dev/null 2>&1 && break; sleep 0.1; done; sleep 0.2; shot "$R/out/github-taken.png"
     sent=$(git -C "$HUB" log -1 --format="%an | %s" main 2>/dev/null)
     for _ in $(seq 250); do ls "$R/out"/*.github.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null; kill $hub 2>/dev/null
@@ -1598,6 +1696,7 @@ PY
     jq -r '.steps[], (.error // empty)' "$rep"; jq -e .pass "$rep" >/dev/null || fail=1
     ok "the commit made while signed in is by that user, and still names the device" '[[ $(git -C "$W" log -1 --format="%an <%ae>") == "Octo Cat <42+octo@users.noreply.github.com>" && -n $(git -C "$W" log -1 --format="%(trailers:key=Device,valueonly)") ]]' 'git -C "$W" log -2 --format="%an <%ae> | %s"' || fail=1
     ok "linked, what was kept went to the repository" '[[ $sent == "Octo Cat | basics.md" && $(git -C "$HUB" rev-list --count main) == 2 ]]' 'echo "$sent"; git -C "$HUB" log --oneline main' || fail=1
+    ok "a repository made from the chooser took the project as it was" '[[ $(git -C "$NEW" rev-list --count main 2>/dev/null) -ge 2 ]]' 'git -C "$NEW" log --oneline main' || fail=1
     ok "unlinked, the project has no other side, and its history is all there" '[[ -z $(git -C "$W" remote) && $(git -C "$W" rev-list --count HEAD) == 2 ]]' 'git -C "$W" remote -v' || fail=1
     exit $fail ;;
   regress)

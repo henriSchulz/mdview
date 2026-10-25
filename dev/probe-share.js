@@ -12,6 +12,8 @@
     const q = (s) => document.querySelector(s), shown = (s) => { const e = q(s); return !!e && !e.hidden && e.offsetParent !== null; };
     const settled = async () => { for (let i = 0; i < 80 && (!q("#share") || q(".share-box").hasAttribute("aria-busy")); i++) await sleep(100); await sleep(300); };
     const state = () => ({ title: q("#share-title").textContent, text: q(".share-text").textContent, link: shown("#share .share-link") ? q("#share .share-link").value : null, go: shown("#share .btn.primary"), stop: shown("#share .share-foot .pf-link.danger"), folded: q("#share .share-more").getAttribute("aria-expanded") === "false" });
+    // (a folder window opens without a note now: the note is chosen in the sidebar first)
+    if (!window.MdView.core.current) { q('.sb-row[data-real$="/Note.md"]').click(); for (let i = 0; i < 40 && !window.MdView.core.current; i++) await sleep(100); await sleep(300); }
     const btn = q('#toolbar [data-act="share"]'), before = btn.previousElementSibling, after = btn.nextElementSibling;
     o.button = [shown('#toolbar [data-act="share"]'), before.dataset.act, after.className]; // (between the magnifier and the modes)
     btn.click();

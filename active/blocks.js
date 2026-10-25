@@ -931,7 +931,7 @@
   });
 
   // what floats over or stands beside the text: a press there is neither a click into the empty space nor the start of a rectangle
-  const CHROME = ".blk-h, .tbl-h, .col-grip, .actmenu, #dlg, #dlg-scrim, #settings, #settings-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #findbar, #ctxmenu, #zoom, #toast, #acttip, #apptip, #ai-chat, #ai-bubble, #sblook";
+  const CHROME = ".blk-h, .tbl-h, .col-grip, .actmenu, #dlg, #dlg-scrim, #settings, #settings-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #findbar, #ctxmenu, #zoom, #toast, #update, #acttip, #apptip, #ai-chat, #ai-bubble, #sblook";
 
   /* ---------------------------------------------------------------- a rectangle pulled over blocks
    * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;
@@ -1011,11 +1011,12 @@
   }
   function pull() {
     const r = rubber, x = r.cx + scrollX, y = r.cy + scrollY;
+    // (the blocks measured first, the rectangle drawn after: drawn first, each measuring laid the page out anew)
+    const got = reached(r.x, r.y, x, y), cur = selOf(view.state);
     band.style.left = Math.min(r.x, x) + "px";
     band.style.top = Math.min(r.y, y) + "px";
     band.style.width = Math.abs(x - r.x) + "px";
     band.style.height = Math.abs(y - r.y) + "px";
-    const got = reached(r.x, r.y, x, y), cur = selOf(view.state);
     // from the block the pull began at to the one it has reached (pulled upwards: the other way round)
     const anchor = got && (y >= r.y ? got[0] : got[1]), head = got && (y >= r.y ? got[1] : got[0]);
     if (!got) { if (cur) view.dispatch(view.state.tr.setMeta(selKey, null)); return; }
@@ -1047,8 +1048,9 @@
   function endRubber(e, cancel = false) {
     const r = rubber;
     if (!r) return;
+    if (r.pulling && !cancel && view) { r.pulling = 0; pull(); } // (let go before the frame came: as far as the pointer went)
     rubber = null;
-    cancelAnimationFrame(r.frame);
+    cancelAnimationFrame(r.frame); cancelAnimationFrame(r.pulling);
     delete band.dataset.on;
     document.body.classList.remove("blk-pulling");
     if (r.pulled || cancel || !view) return;
@@ -1095,7 +1097,8 @@
       document.body.classList.add("blk-pulling");
     }
     e.preventDefault();
-    pull();
+    // (once a frame, at the pointer's last place: each pull measures the blocks and selects anew)
+    if (!rubber.pulling) rubber.pulling = requestAnimationFrame(() => { if (!rubber) return; rubber.pulling = 0; pull(); });
     if (!rubber.frame) rubber.frame = requestAnimationFrame(scrollAlong);
   }, true);
   document.addEventListener("mouseup", (e) => { if (rubber && e.button === 0) endRubber(e); }, true);
@@ -1417,9 +1420,17 @@
     e.dataTransfer.dropEffect = "move";
     drag.cy = e.clientY;
     if (!drag.frame) drag.frame = requestAnimationFrame(dragScroll);
-    const t = targetAt(e), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && a.col === b.col && (a.side || 0) === (b.side || 0) && (a.into || "") === (b.into || ""));
-    if (!same(t, drag.target)) { drag.target = t; showLine(t); }
+    // (where it would go is looked for once a frame, at the pointer's last place: a mouse moves several times a frame, and each
+    // look measures the blocks around it — on a slow machine the line came late behind the pointer)
+    drag.at = { clientX: e.clientX, clientY: e.clientY };
+    if (!drag.aim) drag.aim = requestAnimationFrame(aim);
   }, true);
+  function aim() {
+    if (!drag || !view || !drag.at) return;
+    drag.aim = 0;
+    const t = targetAt(drag.at), same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.wrap === b.wrap && a.x === b.x && a.col === b.col && (a.side || 0) === (b.side || 0) && (a.into || "") === (b.into || ""));
+    if (!same(t, drag.target)) { drag.target = t; showLine(t); }
+  }
   /* Dragged to the window's upper or lower edge, the page scrolls along — the faster the nearer
    * the edge — so a block can go further than what is on screen. (As the rectangle does, above.) */
   function dragScroll() {
@@ -1443,6 +1454,7 @@
     if (!drag || !view) return;
     e.stopPropagation();
     e.preventDefault();
+    if (drag.aim) { cancelAnimationFrame(drag.aim); drag.at = { clientX: e.clientX, clientY: e.clientY }; aim(); } // (let go before the frame came: where it is now)
     const d = drag, t = d.target;
     drag = null;
     showLine(null);

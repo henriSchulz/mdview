@@ -306,7 +306,7 @@
     graphic: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.result(...a),
     graphicImage: (...a) => window.MdActive && MdActive.graphic && MdActive.graphic.image(...a),
     completion: (...a) => window.MdActive && MdActive.ghost && MdActive.ghost.result(...a), linkResolved,
-    noteRead: (...a) => P.splitGot(...a), noteSaved: (...a) => P.splitSaved(...a), pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast,
+    noteRead: (...a) => P.splitGot(...a), noteSaved: (...a) => P.splitSaved(...a), pdfChunk: (...a) => window.MdPdf && MdPdf.chunk(...a), render, setTheme, scrollToFragment, toast, updateNotice: (n) => P.updateNotice(n),
     setMode, flush, saveFailed, setFolder, setTabs, clear, noteRenamed, insertImage, pasteText, pasteClip,
     setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
     setBoards: (list) => window.MdOverview && MdOverview.boards(list), pasteboard: (m) => window.MdOverview && MdOverview.pasteboard(m), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)

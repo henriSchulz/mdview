@@ -247,8 +247,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 61. **What flickers while nothing of the page changes is WebKit's, and is filmed, not probed.** A
     probe sees the page's state, not the frames the window gets: `rig.sh scrollup` records the
     nested screen (`wf-recorder`) and looks at each frame. The renderer is chosen in `main.rs`
-    (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed back, that case runs several times —
-    the torn frame comes one to four times a film, not in each.
+    (`WEBKIT_DISABLE_DMABUF_RENDERER`): before it is changed, that case runs several times —
+    the torn frame comes one to four times a film, not in each. Since 2026-10-24 the app draws
+    with the GPU (the DMA-BUF renderer on: rule 76) and the rig without it — its nested compositor
+    takes the GPU's frames too slowly for a film or a probe to end; the flicker is then looked for
+    on Henri's screen.
 62. **Without WebKit's DMA-BUF renderer there is no blur.** `backdrop-filter` is drawn on its way
     only: off (rule 61), glass is a pale film the text behind it is read through. What is glass
     takes `--glass` and `--glass-filter` — never a colour and a blur of its own — so that
@@ -293,6 +296,46 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     costs nothing. A rig of its own size and scale: the frames are read at twice the size
     (`MDVIEW_RIG_SCALE=2`, `rig.sh sblag`), where at scale 1 nothing showed.
 
+76. **The window is drawn with the GPU, and what is measured for speed is measured on the desktop.**
+    Without WebKit's DMA-BUF renderer every frame is the whole window painted by the processor:
+    on Henri's laptop (i5-6200U, 2160×1440 at twice the size) a note on a ground scrolled at 40 to
+    65 ms a frame, the sidebar's sheets at 70, a whiteboard moved at 50 — with it all at 17. The
+    rig's nested compositor cannot say this (rule 61): its figures are the processor's, and the
+    perf cases (`scrollperf`, `boardperf`, `blockperf`, `sbscroll`) are run once on the desktop
+    too, on a hidden workspace (an output of its own) with the state of a rig, before a change to
+    speed is called done. Rules 62–65, 69 and 75 hold all the same: whoever turns the renderer off
+    (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) gets the processor's frames back.
+80. **What is replaced is not in the middle of a glide.** An opacity or transform that glides on a
+    container whose content is then put in anew (a dim while the next view is built) is cut off a
+    few frames in; with the GPU renderer WebKit kept the cut layer's old picture on the screen, under
+    what came (the tiles of All Notes, dimmed, behind an empty Whiteboards). Such a state is set at
+    once, or the glide is let run to its end before the content changes. A probe sees no fault
+    here — the page is right; `explorer.test.mjs` asks that `.ov-body` has no animation while it
+    changes.
+77. **What a pointer drives is done once a frame, at its last place.** A mouse moves several times
+    a frame; work that measures the page (blocks under a rectangle, where a dragged block would
+    go, the copy that goes with the pointer moved and measured) done at every move is done four
+    times for one picture — a block's drag took 40 ms a frame. A move notes where the pointer is
+    and asks for a frame; the frame does the work; a let-go before the frame came does it then,
+    from where it was let go. And in the frame: measured first, written after — the rectangle
+    drawn before the blocks were measured laid the page out at each measuring. What grows or
+    moves over the text while a pointer pulls (the rectangle, the fields of selected blocks, a
+    board's dots) is a layer of its own (`will-change: transform`), or each step paints the text
+    under it anew. `rig.sh blockperf`, `boardperf`.
+78. **What lies out of sight in a long list is not drawn.** The sidebar's sheets are thousands of
+    elements (a note's beginning: formulas, code, tables); a sheet has its size of its own, so it
+    takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight
+    (70 → 16 ms a frame). Only where the size is fixed: a row whose height comes from what is
+    in it would jump when it comes into sight. `rig.sh sbscroll`.
+    `content-visibility` clips what the element holds to its box: a ring, a shade or a tab that
+    stands outside it is drawn on the element itself, not on a child (the open note's ring showed
+    only at the corners — `explorer.test.mjs`, "wears its ring all round").
+79. **What must never scroll is `overflow: clip`, not `hidden`.** A box with `overflow: hidden` is still
+    scrolled by a focus, `scrollIntoView` or a tap the browser brings into view, as soon as anything in it
+    reaches past its edge — the whiteboard's dots' layer does by one step (rule 77): scrolled by that much,
+    every place on the board was taken that far from the hand. `#board` is `clip`
+    (`web/test/board-touch.test.mjs`).
+
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the
     letters arrive as text and work, but for Backspace, Delete, the arrows, Home and End WebKit does
@@ -308,6 +351,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`settle_fresh`: only a note made by New Note, until it is left). And the watcher's news of
     the file under its new name (or of one just made) is the host's own (`own_write`): read anew,
     the page would take what is being typed as saved. `rig.sh newnote`.
+70. **Nothing goes to the other side that is not on the disk here** (`sync::durable`, before
+    every push): a crash after a push otherwise takes back here what is there already, and the
+    next change is a conflict that holds back every later push. **A sync that is stuck says so
+    wherever something waits on it** — the share window names the conflict (`sync::stuck`), never
+    only "once this is sent". `held_back_by_a_conflict_the_window_says_where`, `share.test.mjs`.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 

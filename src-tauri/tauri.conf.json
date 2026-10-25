@@ -2,11 +2,18 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Markdown Notes",
   "mainBinaryName": "mdview",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "identifier": "dev.henri.MdView",
   "app": {
     "windows": [],
     "security": { "csp": null }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFQTIwNzg3NjA5NzI2ODgKUldTSUpwZGdod2VpdnZQamhXUnR4OGtMMWpYTHZITk1hUVRPcFc4cHdBMk9YWXJNUk5NRmtNbFMK",
+      "endpoints": ["https://github.com/henriSchulz/mdview/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
   },
   "bundle": {
     "active": false,

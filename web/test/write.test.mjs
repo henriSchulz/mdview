@@ -55,6 +55,7 @@ const open = async (note) => {
   if (page.url().startsWith(base)) await page.evaluate(() => localStorage.setItem("mdview:mode", '"read"')); // (whatever mode the test before left: a note opens in the one used last)
   await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(note)}`);
   await untilNote(note);
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); // (a note opens with the sidebar shut: what the test does in it needs it)
 };
 
 test("typed in the active mode: a draft at once, a commit a little later, by this browser", async () => {

@@ -579,8 +579,14 @@
     ghost.tx += x - ghost.gx - r.left; ghost.ty += y - ghost.gy - r.top;
     ghost.el.style.transform = `translate(${ghost.tx}px, ${ghost.ty}px)`;
   };
-  const ghostGone = () => { if (ghost) ghost.el.remove(); ghost = null; };
-  document.addEventListener("dragover", (e) => ghostTo(e.clientX, e.clientY), true);
+  const ghostGone = () => { if (ghost) { cancelAnimationFrame(ghost.frame); ghost.el.remove(); } ghost = null; };
+  // (moved once a frame, to where the pointer was last: a mouse moves several times a frame, and each move of the copy measured
+  // and changed the page anew — a drag took twice a frame's time on Henri's laptop, dev/rig.sh blockperf)
+  document.addEventListener("dragover", (e) => {
+    if (!ghost) return;
+    ghost.at = [e.clientX, e.clientY];
+    if (!ghost.frame) ghost.frame = requestAnimationFrame(() => { if (!ghost) return; ghost.frame = 0; ghostTo(...ghost.at); });
+  }, true);
   for (const t of ["dragend", "drop"]) document.addEventListener(t, ghostGone, true);
   const moving = {
     path: null, paths: null,
@@ -798,6 +804,7 @@
     markActiveNote(first);
     // (on a narrow window — a phone — the sidebar is a drawer over the note: shut until it is asked for, and as it stands after that)
     P.showSidebar(P.compact() ? (first ? false : sidebarOpen()) : f.quick ? true : f.visible, !first); // (the quick notes are their list)
+    if (first && P.current) P.noteShown(false); // (a note already shown when its folder comes: shut, as it would have been)
     // (no note, and the window still asks for a folder: the folder's empty state now. Otherwise what is shown is the host's to
     // say — the note, All Notes or the empty state, told right after the folder: drawn here, the window showed "No Notes Yet"
     // until the note came, Henri 2026-10-14)

@@ -208,7 +208,7 @@
     el.tabIndex = -1;
     el.hidden = true;
     el.innerHTML =
-      `<div class="bd-stage"><div class="bd-paper"></div><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-tip" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
+      `<div class="bd-stage"><div class="bd-dots"></div><div class="bd-paper"></div><div class="bd-world"></div><canvas class="bd-ink"></canvas><canvas class="bd-live"></canvas><div class="bd-ring" hidden></div><div class="bd-tip" hidden></div><div class="bd-ruler" hidden><span></span></div>` +
         `<div class="bd-band" hidden></div><div class="bd-guide bd-guide-v" hidden></div><div class="bd-guide bd-guide-h" hidden></div>` +
         `<svg class="bd-marks" hidden><g></g></svg><div class="bd-pick" hidden>${["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((c) => `<i class="bd-dot" data-dot="${c}"></i>`).join("")}<i class="bd-knob"></i><i class="bd-dot" data-dot="a"></i><i class="bd-dot" data-dot="b"></i>${["t", "r", "b", "l"].map((d) => `<i class="bd-conn" data-side="${d}"></i>`).join("")}</div><div class="bd-joints" hidden>${["t", "r", "b", "l"].map((d) => `<i class="bd-joint" data-side="${d}"></i>`).join("")}</div><div class="bd-target" hidden></div><div class="bd-angle" hidden></div></div>` +
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
@@ -430,8 +430,12 @@
   function grid(v, st) {
     // the dots: every 20 of the board's pixels; fewer of them the smaller the board is shown, so they never crowd
     const every = v.z < 0.25 ? 4 : v.z < 0.5 ? 2 : 1, gap = 20 * every * v.z;
-    st.style.backgroundSize = `${gap}px ${gap}px`;
-    st.style.backgroundPosition = `${-v.x * v.z - gap / 2}px ${-v.y * v.z - gap / 2}px`;
+    // (a layer of their own, a tile larger than the window, moved by less than a dot's step: the board moving under the hand
+    // moves a picture — the stage's background moved was the window painted anew at every step, a third of a frame on Henri's
+    // laptop, dev/rig.sh boardperf)
+    const dots = st.querySelector(".bd-dots"), off = (p) => ((((-p * v.z - gap / 2) % gap) + gap) % gap) - gap;
+    if (dots.dataset.gap !== String(gap)) { dots.dataset.gap = gap; dots.style.backgroundSize = `${gap}px ${gap}px`; dots.style.inset = `0 ${-gap}px ${-gap}px 0`; }
+    dots.style.transform = `translate(${off(v.x)}px, ${off(v.y)}px)`;
   }
   function slide() {
     slideFrame = 0;

@@ -236,9 +236,9 @@
     await sleep(700);
     ok("in the reading view no rail at all — it goes out sliding to the edge", !document.body.hasAttribute("data-rail") && getComputedStyle(rr).visibility === "hidden" && shownAt[0] === "1.00" && Number(going[0]) < 1 && going[1] !== "0px" && going[1] !== "none", [shownAt, going, railAt()]);
     MdView.setMode("active"); await sleep(90);
-    const coming = railAt();
+    const coming = railAt(), comingOp = Number(getComputedStyle(rr).opacity); // (not rounded: at 90 ms it can be 0.995 — "1.00" — and still coming)
     await sleep(800);
-    ok("… and comes in with the active mode", document.body.hasAttribute("data-rail") && Number(coming[0]) < 1 && /^\d/.test(coming[1]) && coming[1] !== "0px" && railAt()[0] === "1.00", [coming, railAt()]);
+    ok("… and comes in with the active mode", document.body.hasAttribute("data-rail") && comingOp < 1 && /^\d/.test(coming[1]) && coming[1] !== "0px" && railAt()[0] === "1.00", [coming, comingOp, railAt()]);
   } catch (e) { o.error = String(e && (e.message + "\n" + e.stack) || e); }
   out("panel", o);
 })();

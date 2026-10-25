@@ -232,3 +232,52 @@ body[data-mode="dark"] .seg-thumb { background: color-mix(in srgb, var(--fg) 18%
     opacity var(--dur-slow) var(--ease-out),
     transform var(--spring-gentle-dur) var(--spring-gentle);
 }
+
+/* A newer version of the app (viewer/chrome.js: updateNotice): the toast's own look, standing until
+ * it is answered — the text, What's new and Later quiet, the action in the toast's blue. A toast
+ * meanwhile comes above it. */
+#update {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content; /* (not the half of the window that left: 50% leaves it) */
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 4px 6px 4px 14px;
+  border-radius: var(--radius-pill);
+  font: 500 13px var(--ui);
+  color: var(--bg);
+  background: color-mix(in srgb, var(--fg) 88%, transparent);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  transition:
+    opacity calc(var(--dur-slow) * 0.7) var(--ease-exit),
+    transform calc(var(--dur-slow) * 0.7) var(--ease-exit);
+}
+#update[data-open] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--spring-gentle-dur) var(--spring-gentle);
+}
+#update .upd-text { margin-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#update button { flex: none; height: 24px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: transparent; color: color-mix(in srgb, var(--bg) 72%, transparent); font: 500 13px var(--ui); cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+#update button.upd-go { color: color-mix(in srgb, var(--accent) 50%, var(--bg)); font-weight: 600; }
+#update button:hover { background: color-mix(in srgb, var(--bg) 14%, transparent); transition-duration: var(--dur-instant); }
+#update button:disabled { opacity: 0.5; }
+#update button:focus-visible { outline: var(--focus-ring, 2px) solid currentColor; outline-offset: -2px; }
+body[data-update] #toast { bottom: 64px; }
+/* (a narrow window has its toolbar at the foot, viewer/narrow.css: the notice stands above it) */
+@media (max-width: 760px) {
+  #update { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  body[data-update] #toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 560px) { #update .upd-text { white-space: normal; } #update button[data-act="notes"] { display: none; } }

@@ -29,8 +29,16 @@ beside the notes. The command and the repository are still called `mdview`;
 ## Install
 
 **Installers.** A tagged version is built on GitHub (`.github/workflows/build.yml`) and stands
-under *Releases*: `.deb`, `.rpm` and an AppImage for Linux. Windows and macOS are built in the
-same run, as its artifacts only: neither signed nor tried on those systems yet.
+under *Releases*: `.deb`, `.rpm` and an AppImage for Linux (x64 and arm64), and an installer for
+Windows — installed and started on GitHub's Windows before it is released, but not signed, so
+Windows warns before it runs it. macOS is not built for now. Which file is whose: the download
+page, https://md.henrischulz.com/download.
+
+**Updates.** The AppImage and the Windows installer update themselves: a newer release is
+downloaded in the background, its signature checked, and installed on *Restart to Update*. A
+`.deb` or an `.rpm` does not replace itself — the app says that a newer version is there; download
+it anew from the download page. Built from the sources, the app never looks. (The signing key:
+`packaging/updates.md`.)
 
 **From the sources** (Linux; what the author runs):
 
@@ -50,7 +58,11 @@ The fonts Inter and JetBrains Mono Nerd Font are used where they are installed.
 
 The page (`viewer.js` and what it loads) is read from the checkout at every
 start: a change to it needs no build, only a new window. A change to
-`src-tauri` needs `cargo build`.
+`src-tauri` needs `cargo build`. The installer links `bin/mdview-post-merge` as the checkout's
+Git `post-merge` hook, so a `git pull` or merge does that by itself: a change to `src-tauri` is
+built in the background (its log in `~/.cache/mdview/build.log`), and a notification says when
+a restart brings the new version — or that the build failed. A merge in another worktree of the
+checkout does nothing.
 
 ## What goes over the network
 

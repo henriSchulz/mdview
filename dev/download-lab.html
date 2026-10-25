@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – Download-Seite, sechs Ansätze</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Die Farben der Web-App (web/app/globals.css), dazu die Farben der Callouts aus dem Theme
+   * „cupertino“ (viewer/blocks.css) und die Schatten aus motion.css. Dunkel: dieselben Namen.
+   * Das Labor setzt die Erscheinung selbst (data-mode), damit beide per Taste D zu sehen sind. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-cyan: #0071a4; --c-orange: #c93400; --c-green: #248a3d; --c-magenta: #8944ab;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --row-hover: color-mix(in srgb, var(--fg) 4%, transparent);
+    --raised: color-mix(in srgb, #fff 62%, var(--bg));
+    --paper: #fff;
+    --on-accent: #fff;
+    --card: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.04);
+    --card-lift: 0 0 0 0.5px var(--line-strong), 0 18px 50px rgb(0 0 0 / 0.12);
+    --ui: "SF Pro", "Inter", system-ui, sans-serif;
+    --text: "Inter", system-ui, sans-serif;
+    --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, monospace;
+    --math: "KaTeX_Main", "Latin Modern Roman", "Times New Roman", serif;
+    --measure: 46rem;
+    --gutter: clamp(16px, 4vw, 40px);
+    color-scheme: light;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1e1e20; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-cyan: #64d2ff; --c-orange: #ff9f0a; --c-green: #30d158; --c-magenta: #bf5af2;
+    --raised: color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --paper: #2c2c2e;
+    --card: 0 0 0 0.5px var(--line-strong);
+    --card-lift: 0 0 0 0.5px var(--line-strong), 0 18px 50px rgb(0 0 0 / 0.4);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg); font: 400 14px/1.45 var(--ui); -webkit-font-smoothing: antialiased; overflow-x: hidden; transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 2px; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  code, kbd, pre { font-family: var(--mono); }
+
+  /* ---- die Leiste des Labors */
+  .bar { position: sticky; top: 0; z-index: 50; padding: 10px var(--gutter); background: color-mix(in srgb, var(--bg) 80%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-bottom: 0.5px solid var(--line); }
+  .bar-in { max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .bar-in .grow { flex: 1; }
+  .lseg { display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .lseg button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 0; border-radius: var(--radius-row); background: transparent; color: var(--fg2); font: 500 12.5px var(--ui); cursor: default; white-space: nowrap; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .lseg button:hover { color: var(--fg); transition-duration: var(--dur-instant); }
+  .lseg button[aria-pressed="true"] { background: var(--raised); color: var(--fg); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.08); }
+  .lseg kbd { font: 500 10.5px var(--mono); color: var(--fg3); }
+  .lab-label { font: 500 11px var(--ui); color: var(--fg3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .idea { max-width: 1120px; margin: 8px auto 0; color: var(--fg2); font-size: 13px; }
+  .idea b { color: var(--fg); font-weight: 600; }
+  @media (max-width: 760px) {
+    .lseg button .nm { display: none; }
+    .lseg button { padding: 0 8px; }
+    .lab-label { display: none; }
+  }
+
+  /* ---- der Rahmen um jeden Ansatz und wie er hereinkommt */
+  #stage { animation: stage-in var(--dur-slow) var(--ease-out) both; }
+  @keyframes stage-in { from { opacity: 0; transform: translateY(6px); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+  @keyframes fade { from { opacity: 0; } }
+  .rise { animation: rise var(--spring-gentle-dur) var(--spring-gentle) both; animation-delay: calc(var(--i, 0) * var(--stagger-step) * 4); }
+
+  /* ---- Knöpfe, die alle Ansätze teilen (wie .button der Web-App) */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 32px; padding: 0 14px; border: 0; border-radius: var(--radius-control); background: var(--accent); color: var(--on-accent); font: 500 14px var(--ui); white-space: nowrap; cursor: default; transition: filter var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .btn:hover { filter: brightness(1.08); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+  .btn:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+  .btn.lg { height: 44px; padding: 0 22px; border-radius: var(--radius-popover); font: 600 15px var(--ui); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .btn.lg svg { width: 18px; height: 18px; }
+  .btn.soft { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); box-shadow: none; }
+  .btn.soft:hover { filter: none; background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  .btn.quiet { background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); box-shadow: none; }
+  .btn.quiet:hover { filter: none; background: color-mix(in srgb, var(--fg) 12%, transparent); }
+  .btn[aria-disabled="true"] { background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg3); box-shadow: none; filter: none; transform: none; pointer-events: none; }
+  .lnk { color: var(--accent); }
+  .lnk:hover { text-decoration: underline; }
+  .lnk svg { width: 0.9em; height: 0.9em; vertical-align: -0.08em; stroke-width: 2; }
+  .icon { display: block; }
+
+  /* ---- das Fenster der App, als Bild (Ansätze 1 und 2) */
+  .mock { --m: 1em; font-size: clamp(8.5px, 1.25vw, 13.5px); border-radius: calc(var(--radius-panel) * 1.15); background: var(--paper); box-shadow: 0 0 0 0.5px var(--line-strong), 0 2em 5em rgb(0 0 0 / 0.16), 0 0.4em 1.2em rgb(0 0 0 / 0.06); overflow: hidden; text-align: left; color: var(--fg); }
+  :root[data-mode="dark"] .mock { background: #1c1c1e; box-shadow: 0 0 0 0.5px var(--line-strong), 0 2em 5em rgb(0 0 0 / 0.55); }
+  .mock-bar { display: flex; align-items: center; gap: 1em; height: 3em; padding: 0 1.1em; border-bottom: 0.5px solid var(--line); }
+  .mock-dots { display: flex; gap: 0.5em; }
+  .mock-dots i { width: 0.85em; height: 0.85em; border-radius: 50%; background: color-mix(in srgb, var(--fg) 16%, transparent); }
+  .mock-title { flex: 1; text-align: center; font: 600 0.95em var(--ui); color: var(--fg2); }
+  .mock-tool { width: 1.6em; height: 1.6em; color: var(--fg3); }
+  .mock-body { display: grid; grid-template-columns: 15em minmax(0, 1fr); min-height: 30em; }
+  .mock-side { padding: 1em 0.7em; border-right: 0.5px solid var(--line); background: color-mix(in srgb, var(--fg) 2.5%, transparent); font: 400 0.92em/1.3 var(--ui); }
+  .mock-side .h { padding: 0.3em 0.6em 0.5em; font-weight: 600; font-size: 0.82em; color: var(--fg3); }
+  .mock-side .r { display: flex; align-items: center; gap: 0.6em; padding: 0.45em 0.6em; border-radius: var(--radius-row); color: var(--fg2); }
+  .mock-side .r i { width: 0.75em; height: 0.75em; border-radius: 0.2em; background: var(--c); flex: none; }
+  .mock-side .r.on { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--fg); font-weight: 500; }
+  .mock-note { padding: 2.2em 3.2em 2.4em; font: 400 1.05em/1.6 var(--text); max-width: 46em; }
+  .mock-note h1 { margin: 0 0 0.2em; font: 700 2.1em/1.15 var(--text); letter-spacing: -0.022em; }
+  .mock-note h2 { margin: 1.1em 0 0.3em; font: 600 1.35em/1.2 var(--text); letter-spacing: -0.018em; }
+  .mock-note p { margin: 0 0 0.75em; color: color-mix(in srgb, var(--fg) 88%, transparent); }
+  .mock-props { display: flex; flex-wrap: wrap; gap: 0.5em; margin: 0 0 1.1em !important; }
+  .mock-props span { padding: 0.15em 0.6em; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 6%, transparent); font: 500 0.82em var(--ui); color: var(--fg2); }
+  .mock-callout { --cc: var(--c-cyan); margin: 0 0 0.9em; padding: 0.75em 1em; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cc) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 14%, transparent); }
+  .mock-callout b { display: flex; align-items: center; gap: 0.45em; color: color-mix(in srgb, var(--cc) 85%, var(--fg)); font-weight: 600; margin-bottom: 0.2em; }
+  .mock-callout b svg { width: 1.1em; height: 1.1em; }
+  .mock-math { display: flex; justify-content: center; align-items: center; gap: 0.3em; margin: 0.4em 0 0.9em; font: italic 1.25em/1 var(--math); }
+  .mock-math .up { font-style: normal; }
+  .frac { display: inline-grid; text-align: center; font-style: normal; vertical-align: middle; }
+  .frac > :first-child { padding: 0 0.2em 0.12em; border-bottom: 0.06em solid currentColor; }
+  .frac > :last-child { padding-top: 0.12em; }
+  .ov { border-top: 0.06em solid currentColor; padding: 0 0.1em; font-style: italic; }
+  .mock-tasks { margin: 0; padding: 0; list-style: none; }
+  .mock-tasks li { display: flex; align-items: center; gap: 0.6em; margin: 0.25em 0; }
+  .mock-tasks li::before { content: ""; width: 0.95em; height: 0.95em; border-radius: 0.25em; box-shadow: inset 0 0 0 1.5px var(--line-strong); flex: none; }
+  .mock-tasks li.done::before { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5 7 11l5-6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/80% no-repeat; box-shadow: none; }
+  .mock-tasks li.done { color: var(--fg3); text-decoration: line-through; text-decoration-color: var(--fg3); }
+  @media (max-width: 640px) {
+    .mock { font-size: 9.5px; }
+    .mock-body { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+    .mock-side { display: none; }
+    .mock-note { padding: 1.6em 1.8em 1.8em; }
+  }
+
+  /* ================= 0 · Heute (web/app/download/page.tsx, so wie es auf main steht) */
+  .v0 { max-width: 1040px; margin: 0 auto; padding: clamp(20px, 5vw, 56px) var(--gutter) 64px; }
+  .v0 .top { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(20px, 3.5vw, 36px); }
+  .v0 .top img { width: 44px; height: 44px; }
+  .v0 h1 { margin: 0; font: 700 clamp(22px, 2.6vw, 28px)/1.15 var(--ui); letter-spacing: -0.022em; }
+  .v0 .top p { margin: 2px 0 0; color: var(--fg2); font-size: 13px; }
+  .v0 .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .v0 .card { display: grid; gap: 10px; padding: 18px 18px 16px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--card); }
+  .v0 .head { display: flex; align-items: center; gap: 12px; }
+  .v0 .head h2 { margin: 0; font: 600 17px/1.3 var(--ui); }
+  .v0 .sign { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; background: var(--accent); color: #fff; }
+  .v0 .sign svg { width: 20px; height: 20px; }
+  .v0 .mine { margin-left: auto; padding: 2px 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 500 12px var(--ui); }
+  .v0 .about { margin: 0; color: var(--fg2); font-size: 13px; }
+  .v0 .note { margin: 0; color: var(--fg3); font-size: 12px; }
+  .v0 .note b { color: var(--fg2); }
+  .v0 .row { display: flex; align-items: center; gap: 6px; padding: 6px 0; }
+  .v0 .what { display: grid; flex: 1; min-width: 0; }
+  .v0 .what b { font: 600 13px var(--ui); } .v0 .what small { color: var(--fg2); font-size: 12px; }
+  .v0 .file { display: inline-grid; justify-items: center; min-width: 56px; padding: 4px 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font: 500 13px/1.25 var(--ui); }
+  .v0 .file small { font-size: 11px; opacity: 0.7; }
+  .v0 .later .sign { background: color-mix(in srgb, var(--fg) 22%, transparent); }
+  .v0 .foot { display: flex; gap: 20px; margin-top: 22px; font-size: 13px; }
+  @media (max-width: 900px) { .v0 .cards { grid-template-columns: minmax(0, 1fr); max-width: 560px; } }
+
+  /* ================= 1 · Produktseite */
+  .v1 { position: relative; padding: clamp(40px, 8vw, 96px) var(--gutter) 72px; text-align: center; overflow: hidden; }
+  .v1::before { content: ""; position: absolute; left: 50%; top: 34%; width: min(1100px, 160vw); aspect-ratio: 2 / 1; transform: translateX(-50%); background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%), radial-gradient(closest-side at 72% 60%, color-mix(in srgb, var(--c-magenta) 9%, transparent), transparent 70%); pointer-events: none; z-index: -1; }
+  .v1 .icon { width: clamp(64px, 9vw, 88px); height: auto; margin: 0 auto 18px; }
+  .v1 h1 { margin: 0; font: 700 clamp(40px, 7vw, 76px)/1.02 var(--ui); letter-spacing: -0.045em; text-wrap: balance; }
+  .v1 .lede { margin: 14px auto 0; max-width: 30ch; font: 500 clamp(19px, 2.4vw, 26px)/1.25 var(--ui); letter-spacing: -0.015em; color: var(--fg2); text-wrap: balance; }
+  .v1 .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+  .v1 .meta { margin: 14px 0 0; color: var(--fg3); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .v1 .meta .lnk { font-weight: 500; }
+  .v1 .more { margin: 6px 0 0; font-size: 13px; color: var(--fg3); }
+  .v1 .more a { color: var(--accent); }
+  .v1 .more a:hover { text-decoration: underline; }
+  .v1 .shot { max-width: 980px; margin: clamp(44px, 7vw, 72px) auto 0; }
+  .v1 .also { max-width: 880px; margin: clamp(56px, 8vw, 88px) auto 0; padding-top: 28px; border-top: 0.5px solid var(--line-strong); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; text-align: left; }
+  .v1 .also h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 600 15px var(--ui); }
+  .v1 .also h3 svg { width: 18px; height: 18px; color: var(--fg2); }
+  .v1 .also p { margin: 0 0 8px; color: var(--fg2); font-size: 13px; }
+  .v1 .also .links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+  .v1 .also .soon { color: var(--fg3); font-size: 13px; }
+  .v1 .fine { max-width: 880px; margin: 28px auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; color: var(--fg3); font-size: 12.5px; }
+  .v1 .fine span { display: inline-flex; align-items: center; gap: 6px; }
+  .v1 .fine svg { width: 14px; height: 14px; }
+  @media (max-width: 640px) {
+    .v1 .also { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .v1 .cta .btn { width: 100%; }
+  }
+
+  /* ================= 2 · Kartentrio */
+  .v2 { max-width: 1080px; margin: 0 auto; padding: clamp(32px, 6vw, 72px) var(--gutter) 72px; }
+  .v2 .head { text-align: center; margin-bottom: clamp(36px, 6vw, 60px); }
+  .v2 .head img { width: 56px; height: 56px; }
+  .v2 .head h1 { margin: 12px 0 0; font: 700 clamp(28px, 4vw, 40px)/1.1 var(--ui); letter-spacing: -0.03em; }
+  .v2 .head p { margin: 8px 0 0; color: var(--fg2); font-size: 14px; }
+  .v2 .trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; padding-top: 12px; }
+  .v2 .card { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 34px 22px 24px; border-radius: calc(var(--radius-panel) + 4px); background: var(--raised); box-shadow: var(--card); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  .v2 .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--card-lift); opacity: 0; pointer-events: none; transition: opacity var(--dur-base) var(--ease-out); }
+  .v2 .card:not(.mine):not(.later):hover { transform: translateY(-3px); }
+  .v2 .card:not(.later):hover::after { opacity: 0.6; }
+  .v2 .card.mine { transform: translateY(-12px); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .v2 .card.mine::after { opacity: 1; }
+  .v2 .badge { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 2px 9px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 600 11px var(--ui); letter-spacing: 0.02em; white-space: nowrap; }
+  .v2 .glyph { width: 76px; height: 76px; margin: 12px 0 18px; color: var(--fg); }
+  .v2 .glyph svg { width: 100%; height: 100%; stroke-width: 1.15; }
+  .v2 .mine .glyph { color: var(--accent); }
+  .v2 .later .glyph { color: var(--fg3); }
+  .v2 h2 { margin: 0; font: 600 21px/1.2 var(--ui); letter-spacing: -0.015em; }
+  .v2 .req { margin: 6px 0 20px; color: var(--fg2); font-size: 13px; min-height: 2.9em; }
+  .v2 .card .btn { width: 100%; max-width: 240px; }
+  .v2 .size { margin: 8px 0 0; color: var(--fg3); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .v2 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: auto; padding-top: 18px; }
+  .v2 .chip { padding: 4px 9px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); font: 500 12px var(--ui); transition: background-color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .v2 .chip:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+  .v2 .chip:active { transform: scale(var(--press-scale)); }
+  .v2 .chip small { color: var(--fg3); font-weight: 400; }
+  .v2 .tip { margin: auto 0 0; padding-top: 18px; color: var(--fg3); font-size: 12px; }
+  .v2 .tip b { color: var(--fg2); font-weight: 600; }
+  .v2 .strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 44px; }
+  .v2 .strip div { display: flex; gap: 10px; align-items: flex-start; color: var(--fg2); font-size: 13px; }
+  .v2 .strip svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: var(--accent); }
+  .v2 .strip b { display: block; color: var(--fg); font-weight: 600; }
+  @media (max-width: 820px) {
+    .v2 .trio, .v2 .strip { grid-template-columns: minmax(0, 1fr); max-width: 480px; margin-left: auto; margin-right: auto; }
+    .v2 .card.mine { order: -1; transform: none; }
+    .v2 .req { min-height: 0; }
+  }
+
+  /* ================= 3 · Wegweiser */
+  .v3 { max-width: 680px; margin: 0 auto; padding: clamp(32px, 6vw, 64px) var(--gutter) 80px; }
+  .v3 .head { display: flex; align-items: center; gap: 14px; margin-bottom: 36px; }
+  .v3 .head img { width: 48px; height: 48px; flex: none; }
+  .v3 .head h1 { margin: 0; font: 700 clamp(22px, 3vw, 28px)/1.15 var(--ui); letter-spacing: -0.022em; }
+  .v3 .head p { margin: 3px 0 0; color: var(--fg2); font-size: 13px; }
+  .v3 .step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 16px; padding-bottom: 30px; }
+  .v3 .step::before { content: ""; position: absolute; left: 13.5px; top: 34px; bottom: 6px; width: 1px; background: var(--line-strong); }
+  .v3 .step:last-child::before { display: none; }
+  .v3 .num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg2); font: 600 13px var(--ui); }
+  .v3 .step.done .num { background: var(--accent); color: var(--on-accent); }
+  .v3 .step.done .num span { display: none; }
+  .v3 .num svg { width: 14px; height: 14px; stroke-width: 2.4; display: none; }
+  .v3 .step.done .num svg { display: block; }
+  .v3 h2 { margin: 3px 0 4px; font: 600 17px/1.3 var(--ui); letter-spacing: -0.01em; }
+  .v3 .hint { margin: 0 0 14px; color: var(--fg2); font-size: 13px; }
+  .v3 .hint b { color: var(--fg); font-weight: 600; }
+  .v3 .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .v3 .tile { position: relative; display: grid; justify-items: center; gap: 8px; padding: 18px 8px 14px; border: 0; border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--card); cursor: default; transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .v3 .tile:hover { box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 14px rgb(0 0 0 / 0.08); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+  .v3 .tile:active { transform: scale(var(--press-scale)); }
+  .v3 .tile[aria-checked="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .v3 .tile svg { width: 32px; height: 32px; stroke-width: 1.4; color: var(--fg2); }
+  .v3 .tile[aria-checked="true"] svg { color: var(--accent); }
+  .v3 .tile b { font: 600 14px var(--ui); }
+  .v3 .tile small { position: absolute; top: 7px; right: 8px; color: var(--accent); font: 600 10.5px var(--ui); }
+  .v3 .opts { display: grid; gap: 8px; }
+  .v3 .opt { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 2px 12px; align-items: start; width: 100%; padding: 13px 14px; border: 0; border-radius: var(--radius-popover); background: var(--raised); box-shadow: var(--card); text-align: left; cursor: default; transition: box-shadow var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .v3 .opt:hover { box-shadow: 0 0 0 0.5px var(--line-strong), 0 4px 14px rgb(0 0 0 / 0.07); transition-duration: var(--dur-instant), var(--spring-snappy-dur); }
+  .v3 .opt:active { transform: scale(0.99); }
+  .v3 .opt[aria-checked="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .v3 .radio { grid-row: span 2; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-strong); transition: box-shadow var(--dur-fast) var(--ease-out); }
+  .v3 [aria-checked="true"] .radio { box-shadow: inset 0 0 0 5.5px var(--accent); }
+  .v3 .opt b { font: 600 14px var(--ui); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .v3 .opt b em { font-style: normal; padding: 1px 7px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--c-green) 14%, transparent); color: color-mix(in srgb, var(--c-green) 85%, var(--fg)); font: 600 11px var(--ui); }
+  .v3 .opt span:last-child { color: var(--fg2); font-size: 13px; }
+  .v3 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+  .v3 .sub { margin: 20px 0 8px; font: 600 13px var(--ui); color: var(--fg); }
+  .v3 .sub + .hint { margin-top: -6px; margin-bottom: 10px; }
+  .v3 .swap { animation: rise var(--dur-slow) var(--ease-out) both; }
+  .v3 .ss { margin-top: 4px; border-radius: var(--radius-popover); background: #1f5fa8; color: #fff; padding: 16px 18px 14px; font: 400 13px/1.45 "Segoe UI", var(--ui); box-shadow: var(--card); max-width: 420px; }
+  .v3 .ss h4 { margin: 0 0 6px; font: 300 19px "Segoe UI", var(--ui); }
+  .v3 .ss p { margin: 0 0 10px; opacity: 0.9; }
+  .v3 .ss u { text-decoration: underline; text-underline-offset: 2px; }
+  .v3 .ss .mark { outline: 2px solid #ffd60a; outline-offset: 2px; border-radius: 2px; }
+  .v3 .ss .act { display: flex; justify-content: flex-end; gap: 8px; }
+  .v3 .ss .act span { padding: 5px 16px; background: rgb(255 255 255 / 0.15); border-radius: 2px; }
+  .v3 .ss .step-n { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 6px; border-radius: 50%; background: #ffd60a; color: #1d1d1f; font: 700 10px var(--ui); vertical-align: 1px; }
+  .v3 .final { display: grid; gap: 12px; padding: 18px; border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--card-lift); }
+  .v3 .fname { display: flex; align-items: center; gap: 12px; }
+  .v3 .fname img { width: 36px; height: 36px; flex: none; }
+  .v3 .fname code { display: block; font-size: 12.5px; overflow-wrap: anywhere; }
+  .v3 .fname small { color: var(--fg3); font-size: 12px; }
+  .v3 .final .btn { justify-self: start; }
+  .v3 .then { margin: 0; padding-left: 18px; color: var(--fg2); font-size: 13px; }
+  .v3 .then li { margin: 3px 0; }
+  .v3 .then code { font-size: 12px; padding: 1px 5px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 7%, transparent); color: var(--fg); overflow-wrap: anywhere; }
+  .v3 .wait { color: var(--fg3); font-size: 13px; padding: 14px; border-radius: var(--radius-popover); box-shadow: inset 0 0 0 1px var(--line); }
+  @media (max-width: 520px) {
+    .v3 .two { grid-template-columns: minmax(0, 1fr); }
+    .v3 .tiles { gap: 8px; }
+    .v3 .tile small { position: static; }
+    .v3 .final .btn { justify-self: stretch; }
+  }
+
+  /* ================= 4 · Notiz */
+  .v4 { padding: clamp(24px, 5vw, 56px) var(--gutter) 80px; }
+  .v4 .sheet { max-width: calc(var(--measure) + 120px); margin: 0 auto; border-radius: calc(var(--radius-panel) + 2px); background: var(--paper); box-shadow: var(--card-lift); overflow: hidden; }
+  .v4 .tabbar { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-bottom: 0.5px solid var(--line); font: 500 12.5px var(--ui); color: var(--fg2); }
+  .v4 .tabbar img { width: 18px; height: 18px; }
+  .v4 .tabbar .crumb { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v4 .tabbar .crumb b { color: var(--fg); font-weight: 600; }
+  .v4 .tabbar .read { padding: 2px 8px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 6%, transparent); font-size: 11.5px; }
+  .v4 .note { max-width: var(--measure); margin: 0 auto; padding: clamp(28px, 5vw, 56px) clamp(20px, 5vw, 60px) clamp(36px, 6vw, 64px); font: 400 16px/1.65 var(--text); }
+  .v4 .props { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 18px; margin: 0 0 28px; padding: 0 0 18px; border-bottom: 0.5px solid var(--line); font: 400 13px/1.6 var(--ui); }
+  .v4 .props dt { color: var(--fg3); display: flex; align-items: center; gap: 6px; }
+  .v4 .props dt svg { width: 13px; height: 13px; }
+  .v4 .props dd { margin: 0; }
+  .v4 .props .tag { display: inline-block; margin-right: 4px; padding: 0 7px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-size: 12px; }
+  .v4 h1 { margin: 0 0 12px; font: 700 2.1em/1.15 var(--text); letter-spacing: -0.022em; }
+  .v4 h2 { display: flex; align-items: center; gap: 10px; margin: 1.9em 0 0.5em; font: 600 1.4em/1.25 var(--text); letter-spacing: -0.018em; }
+  .v4 h2 small { font: 500 11.5px var(--ui); padding: 2px 8px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); letter-spacing: 0; }
+  .v4 p { margin: 0 0 0.9em; }
+  .v4 .lede { font-size: 1.12em; color: var(--fg2); }
+  .v4 .note a.ln { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 3px; transition: text-decoration-color var(--dur-fast) var(--ease-out); }
+  .v4 .note a.ln:hover { text-decoration-color: var(--accent); transition-duration: var(--dur-instant); }
+  .v4 .callout { --cc: var(--c-cyan); margin: 1.1em 0; padding: 12px 16px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--cc) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 14%, transparent); }
+  .v4 .callout.warn { --cc: var(--c-orange); }
+  .v4 .ctitle { display: flex; align-items: center; gap: 8px; font-weight: 600; color: color-mix(in srgb, var(--cc) 85%, var(--fg)); }
+  .v4 .ctitle svg { width: 17px; height: 17px; flex: none; }
+  .v4 .cbody { margin-top: 6px; }
+  .v4 .cbody p:last-child { margin-bottom: 0; }
+  .v4 .cbody .btn { margin-top: 4px; }
+  .v4 .cbody .btn + .sz { margin-left: 10px; color: var(--fg3); font-size: 13px; }
+  .v4 .tbl { margin: 1em 0 1.2em; overflow-x: auto; }
+  .v4 table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+  .v4 th { text-align: left; font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line-strong); }
+  .v4 td { padding: 9px 12px; border-bottom: 0.5px solid var(--line); vertical-align: top; }
+  .v4 tr.mine td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+  .v4 td small { display: block; color: var(--fg3); font-size: 0.85em; }
+  .v4 td.dl { white-space: nowrap; }
+  .v4 code { font-size: 0.85em; padding: 1px 5px; border-radius: var(--radius-chip); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+  .v4 pre { margin: 0.6em 0 1.1em; padding: 12px 16px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 5%, transparent); font-size: 13px; line-height: 1.6; overflow-x: auto; }
+  .v4 pre .c { color: var(--fg3); }
+  .v4 .tasks { list-style: none; padding: 0; margin: 0.4em 0 1em; }
+  .v4 .tasks li { display: flex; gap: 10px; margin: 6px 0; }
+  .v4 .tasks li::before { content: ""; width: 16px; height: 16px; margin-top: 4px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--line-strong); flex: none; }
+  .v4 .tasks li.done::before { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5 7 11l5-6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/80% no-repeat; box-shadow: none; }
+  .v4 .muted { color: var(--fg3); }
+  .v4 hr { border: 0; border-top: 0.5px solid var(--line-strong); margin: 2.2em 0 1.2em; }
+  .v4 .end { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 400 14px var(--ui); }
+  @media (max-width: 640px) {
+    .v4 { padding-left: 0; padding-right: 0; padding-top: 0; }
+    .v4 .sheet { border-radius: 0; box-shadow: none; }
+    .v4 .note { padding-left: 16px; padding-right: 16px; font-size: 15.5px; }
+    .v4 .tabbar { padding: 0 16px; }
+    .v4 h1 { font-size: 1.9em; }
+    .v4 th, .v4 td { padding-left: 8px; padding-right: 8px; }
+    .v4 .hide-s { display: none; }
+  }
+
+  /* ================= 5 · Installer */
+  .v5 { position: relative; min-height: calc(100vh - 92px); display: grid; place-items: center; padding: clamp(32px, 6vw, 72px) var(--gutter); overflow: hidden; isolation: isolate; }
+  .v5 .field { position: absolute; inset: 0; z-index: -1; background: radial-gradient(40% 50% at 28% 30%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%), radial-gradient(38% 46% at 74% 70%, color-mix(in srgb, var(--c-magenta) 26%, transparent), transparent 70%), radial-gradient(30% 36% at 70% 22%, color-mix(in srgb, var(--c-cyan) 22%, transparent), transparent 70%), color-mix(in srgb, var(--fg) 3%, var(--bg)); }
+  :root[data-mode="dark"] .v5 .field { background: radial-gradient(40% 50% at 28% 30%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%), radial-gradient(38% 46% at 74% 70%, color-mix(in srgb, var(--c-magenta) 26%, transparent), transparent 70%), radial-gradient(30% 36% at 70% 22%, color-mix(in srgb, var(--c-cyan) 16%, transparent), transparent 70%), #0e0e10; }
+  .v5 .panel { width: min(440px, 100%); padding: 26px 24px 20px; border-radius: calc(var(--radius-panel) + 8px); background: color-mix(in srgb, var(--raised) 66%, transparent); -webkit-backdrop-filter: blur(40px) saturate(180%); backdrop-filter: blur(40px) saturate(180%); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, #fff 55%, transparent), 0 0 0 0.5px var(--line), 0 30px 80px rgb(0 0 0 / 0.22); animation: rise var(--spring-gentle-dur) var(--spring-gentle) both; }
+  :root[data-mode="dark"] .v5 .panel { background: color-mix(in srgb, #2a2a2e 62%, transparent); box-shadow: inset 0 0 0 0.5px color-mix(in srgb, #fff 16%, transparent), 0 30px 80px rgb(0 0 0 / 0.55); }
+  .v5 .who { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .v5 .who img { width: 56px; height: 56px; flex: none; }
+  .v5 .who h1 { margin: 0; font: 700 21px/1.2 var(--ui); letter-spacing: -0.02em; }
+  .v5 .who p { margin: 2px 0 0; color: var(--fg2); font-size: 13px; }
+  .v5 .who .lnk { font-weight: 500; }
+  .v5 .rowl { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 10px; }
+  .v5 .rowl > span { color: var(--fg2); font: 500 12.5px var(--ui); }
+  .v5 .seg { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+  .v5 .seg .thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n)); border-radius: var(--radius-pill); background: var(--paper); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px var(--line); transform: translateX(calc(var(--at) * 100%)); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
+  :root[data-mode="dark"] .v5 .seg .thumb { background: color-mix(in srgb, #fff 18%, transparent); }
+  .v5 .seg button { position: relative; height: 28px; border: 0; background: none; border-radius: var(--radius-pill); color: var(--fg2); font: 500 13px var(--ui); cursor: default; transition: color var(--dur-fast) var(--ease-out); white-space: nowrap; }
+  .v5 .seg button:hover { color: var(--fg); }
+  .v5 .seg button[aria-pressed="true"] { color: var(--fg); font-weight: 600; }
+  .v5 .seg button:disabled { color: var(--fg3); }
+  .v5 .fixed { height: 32px; display: flex; align-items: center; padding: 0 12px; border-radius: var(--radius-pill); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg2); font: 500 13px var(--ui); }
+  .v5 .well { margin: 18px 0 12px; padding: 12px 14px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fg) 5%, transparent); }
+  .v5 .well code { display: block; font-size: 12.5px; overflow-wrap: anywhere; color: var(--fg); }
+  .v5 .well p { margin: 4px 0 0; color: var(--fg2); font-size: 12.5px; }
+  .v5 .well .swap { animation: fade var(--dur-base) var(--ease-out) both; }
+  .v5 .panel > .btn { width: 100%; }
+  .v5 .foot { margin: 14px 0 0; color: var(--fg3); font-size: 12px; min-height: 3em; }
+  .v5 .foot b { color: var(--fg2); font-weight: 600; }
+  .v5 .links { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--line); font-size: 12.5px; }
+  @media (max-width: 520px) {
+    .v5 { min-height: 0; padding-top: 24px; padding-bottom: 40px; }
+    .v5 .panel { padding: 22px 16px 16px; }
+    .v5 .rowl { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  }
+
+  /* ================= 6 · Release-Blatt */
+  .v6 { max-width: 1120px; margin: 0 auto; padding: clamp(24px, 4vw, 44px) var(--gutter) 72px; }
+  .v6 .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line-strong); }
+  .v6 .head img { width: 28px; height: 28px; align-self: center; }
+  .v6 .head h1 { margin: 0; font: 700 22px/1.2 var(--ui); letter-spacing: -0.02em; }
+  .v6 .head h1 span { color: var(--fg3); font-weight: 500; }
+  .v6 .head .meta { color: var(--fg2); font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .v6 .head .meta .lnk { font-weight: 500; }
+  .v6 h2 { margin: 30px 0 10px; font: 600 12px var(--ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg3); }
+  .v6 .tbl { border-radius: var(--radius-popover); background: var(--raised); box-shadow: var(--card); overflow: hidden; }
+  .v6 .tr { display: grid; grid-template-columns: 92px 64px 96px minmax(0, 1fr) 60px 170px 96px; align-items: center; gap: 12px; padding: 7px 14px; border-top: 0.5px solid var(--line); font-size: 13px; transition: background-color var(--dur-fast) var(--ease-out); }
+  .v6 .tr:first-child { border-top: 0; }
+  .v6 .tr.th { color: var(--fg3); font: 500 11.5px var(--ui); padding-top: 9px; padding-bottom: 9px; background: color-mix(in srgb, var(--fg) 3%, transparent); }
+  .v6 .tr:not(.th):hover { background: var(--row-hover); transition-duration: var(--dur-instant); }
+  .v6 .tr.mine { box-shadow: inset 3px 0 0 var(--accent); }
+  .v6 .tr.later { color: var(--fg3); }
+  .v6 .sys { display: flex; align-items: center; gap: 7px; font-weight: 500; }
+  .v6 .sys svg { width: 15px; height: 15px; color: var(--fg2); flex: none; }
+  .v6 .you { font: 600 10px var(--ui); color: var(--accent); }
+  .v6 code { font-size: 12px; }
+  .v6 .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v6 .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg2); }
+  .v6 .sha { display: flex; align-items: center; gap: 4px; color: var(--fg2); min-width: 0; }
+  .v6 .sha code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
+  .v6 .ic { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: var(--radius-row); background: transparent; color: var(--fg3); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .v6 .ic:hover { background: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent); color: var(--fg); transition-duration: var(--dur-instant), var(--dur-instant), var(--spring-snappy-dur); }
+  .v6 .ic:active { transform: scale(var(--press-scale)); background: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent); }
+  .v6 .ic svg { width: 14px; height: 14px; }
+  .v6 .get { justify-self: end; height: 26px; padding: 0 10px; font-size: 12.5px; gap: 5px; }
+  .v6 .get svg { width: 13px; height: 13px; }
+  .v6 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .v6 .term { border-radius: var(--radius-popover); background: color-mix(in srgb, var(--fg) 4%, var(--bg)); box-shadow: var(--card); overflow: hidden; }
+  :root[data-mode="dark"] .v6 .term { background: #141416; }
+  .v6 .term header { display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 6px 0 12px; border-bottom: 0.5px solid var(--line); font: 500 12px var(--ui); color: var(--fg2); }
+  .v6 .term pre { margin: 0; padding: 10px 12px 12px; font-size: 12px; line-height: 1.65; overflow-x: auto; white-space: pre; }
+  .v6 .term .p { color: var(--fg3); user-select: none; }
+  .v6 .term .c { color: var(--fg3); }
+  .v6 .notes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 13px; color: var(--fg2); }
+  .v6 .notes li { display: flex; gap: 10px; }
+  .v6 .notes svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--fg3); }
+  .v6 .notes b { color: var(--fg); font-weight: 600; }
+  .v6 .lab { color: var(--fg3); font-size: 11.5px; margin-top: 8px; }
+  @media (max-width: 980px) {
+    .v6 .tr { grid-template-columns: 84px 56px 84px minmax(0, 1fr) 52px 96px; }
+    .v6 .tr > :nth-child(6) { display: none; }
+  }
+  @media (max-width: 680px) {
+    .v6 .grid2 { grid-template-columns: minmax(0, 1fr); }
+    .v6 .tr.th { display: none; }
+    .v6 .tr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "sys get" "fn get" "meta get"; gap: 2px 12px; padding: 10px 14px; }
+    .v6 .tr > :nth-child(1) { grid-area: sys; }
+    .v6 .tr > :nth-child(2), .v6 .tr > :nth-child(3), .v6 .tr > :nth-child(5) { display: none; }
+    .v6 .tr > :nth-child(4) { grid-area: fn; }
+    .v6 .tr > :nth-child(6) { display: flex; grid-area: meta; }
+    .v6 .tr > :nth-child(7) { grid-area: get; }
+    .v6 .sys .tail { color: var(--fg3); font-weight: 400; }
+  }
+  .v6 .sys .tail { display: none; }
+  @media (max-width: 680px) { .v6 .sys .tail { display: inline; } }
+
+  /* ---- die Nachricht des Labors, wenn eine Datei geladen würde */
+  .toast { position: fixed; left: 50%; bottom: 24px; z-index: 60; max-width: calc(100vw - 32px); padding: 9px 14px; border-radius: var(--radius-popover); background: color-mix(in srgb, var(--raised) 82%, transparent); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); box-shadow: var(--shadow-popover); font: 500 12.5px var(--ui); overflow-wrap: anywhere; opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), transform calc(var(--dur-base) * 0.7) var(--ease-exit); }
+  .toast[data-open] { opacity: 1; transform: translate(-50%, 0); transition: opacity var(--dur-base) var(--ease-out), transform var(--spring-smooth-dur) var(--spring-smooth); }
+</style>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="lseg" id="views" role="group" aria-label="Ansatz"></div>
+    <span class="grow"></span>
+    <span class="lab-label">Besucher</span>
+    <div class="lseg" id="oses" role="group" aria-label="System des Besuchers"></div>
+    <div class="lseg"><button id="mode" aria-pressed="false"><kbd>D</kbd><span class="nm">Dunkel</span></button></div>
+  </div>
+  <p class="idea" id="idea"></p>
+</div>
+<div id="stage"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ---------------- what the page offers: the release, as the page would read it from GitHub */
+const REPO = "https://github.com/henriSchulz/mdview";
+const REL = { version: "0.1.5", date: "25 October 2026", short: "25 Oct 2026", notes: `${REPO}/releases/tag/v0.1.5`, all: `${REPO}/releases` };
+const BASE = `${REPO}/releases/download/v0.1.5/`;
+// (sizes: those of 0.1.4; checksums in the lab: those of the 0.1.4 files — the page would take GitHub's "digest" of each file)
+const FILES = [
+  { sys: "windows", arch: "x64", kind: "setup", name: "MarkdownNotes-0.1.5-windows-x64-setup.exe", mb: 6, sha: "7778d5db092e3cc5093b1a54d407080610847a2c66d2c386f20638e9a1ad4043" },
+  { sys: "linux", arch: "x64", kind: "appimage", name: "MarkdownNotes-0.1.5-linux-x64.AppImage", mb: 89, sha: "8ef51894c816cc1de50f8736d55cf89ce08b249e085dfb1a279f0e15b95bd6b8" },
+  { sys: "linux", arch: "arm64", kind: "appimage", name: "MarkdownNotes-0.1.5-linux-arm64.AppImage", mb: 87, sha: "1b85af48840ccf61f77bc70d56118fe8883d4660b321e547d9edd7684dd6028b" },
+  { sys: "linux", arch: "x64", kind: "deb", name: "MarkdownNotes-0.1.5-linux-x64.deb", mb: 10, sha: "5c84ef2c3733244c3c918eb59fd76882e644318a87e04713ed291ba9a345ad7d" },
+  { sys: "linux", arch: "arm64", kind: "deb", name: "MarkdownNotes-0.1.5-linux-arm64.deb", mb: 9, sha: "dffde547e290debc72c571d18e4dcb70ae835ed37aa840d48ecdee48175100b1" },
+  { sys: "linux", arch: "x64", kind: "rpm", name: "MarkdownNotes-0.1.5-linux-x64.rpm", mb: 10, sha: "33c7d0a2df45b56d29a4a4b3bb93a301340fb3fb64a6a36ada204ec0294fbda0" },
+  { sys: "linux", arch: "arm64", kind: "rpm", name: "MarkdownNotes-0.1.5-linux-arm64.rpm", mb: 9, sha: "57360786f344ef588468b6fa66570ccd45ec77ff3fb06fa26089813f59d4ad97" },
+];
+const file = (sys, arch, kind) => FILES.find((f) => f.sys === sys && f.arch === arch && f.kind === kind);
+const NAME = { windows: "Windows", linux: "Linux", macos: "macOS" };
+const KIND = { setup: "Installer", appimage: "AppImage", deb: ".deb", rpm: ".rpm" };
+const KIND_FOR = { setup: "Windows 10 and 11", appimage: "Any distribution", deb: "Debian, Ubuntu, Mint", rpm: "Fedora, openSUSE" };
+const ICON = `../packaging/mdview.svg`;
+
+/* ---------------- drawings */
+const I = {
+  windows: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9h17M12 9v10.5"/>',
+  linux: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m7.5 10 3 2.5-3 2.5M12.5 15.5h4"/>',
+  macos: '<rect x="5" y="5" width="14" height="10" rx="2"/><path d="M3 18.5h18"/>',
+  down: '<path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/>',
+  out: '<path d="M8 16 16 8m0 0H9.5M16 8v6.5"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 8.5V6.7a2.2 2.2 0 0 0-2.2-2.2H6.7a2.2 2.2 0 0 0-2.2 2.2v6.6a2.2 2.2 0 0 0 2.2 2.2h1.8"/>',
+  refresh: '<path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4"/>',
+  shield: '<path d="M12 3.5 5 6v5.5c0 4.200 3 7.600 7 9 4-1.400 7-4.800 7-9V6l-7-2.500Z"/><path d="M12 9v4M12 16h.01"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.300 2.400 3.500 5.200 3.500 8.500s-1.200 6.100-3.500 8.500c-2.300-2.400-3.500-5.200-3.500-8.500S9.700 5.900 12 3.500Z"/>',
+  tip: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.600 10.800c.600.500 1 1.200 1.100 2.200h5c.100-1 .500-1.700 1.100-2.200A6 6 0 0 0 12 3Z"/>',
+  warning: '<path d="M12 4 2.800 19.500h18.400L12 4ZM12 10v4.500M12 17h.01"/>',
+  info: '<circle cx="12" cy="12" r="8.500"/><path d="M12 11v5M12 8h.01"/>',
+  side: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/>',
+  term: '<path d="m5 8 4 4-4 4M11 17h8"/>',
+  calendar: '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/>',
+  tag: '<path d="M4 4h7.5l8.5 8.5-7.5 7.5L4 11.5V4Z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
+  version: '<path d="M6 4v16M6 8h8a4 4 0 0 1 0 8H6"/>',
+};
+const svg = (k, cls = "") => `<svg viewBox="0 0 24 24" aria-hidden="true"${cls ? ` class="${cls}"` : ""}>${I[k]}</svg>`;
+const get = (f, label, cls = "btn", extra = "") => `<a class="${cls}" href="${BASE + f.name}" data-file="${f.name}" title="${f.name}"${extra}>${label}</a>`;
+const mock = () => `
+  <div class="mock" aria-hidden="true">
+    <div class="mock-bar"><span class="mock-dots"><i></i><i></i><i></i></span>${svg("side", "mock-tool")}<span class="mock-title">Resonance</span>${svg("tip", "mock-tool")}</div>
+    <div class="mock-body">
+      <div class="mock-side">
+        <div class="h">Physics 2</div>
+        <div class="r on" style="--c: var(--c-cyan)"><i></i>Resonance</div>
+        <div class="r" style="--c: var(--c-orange)"><i></i>Fourier series</div>
+        <div class="r" style="--c: var(--c-green)"><i></i>Lab journal</div>
+        <div class="r" style="--c: var(--c-magenta)"><i></i>Exam questions</div>
+        <div class="h" style="margin-top:1em">Reading</div>
+        <div class="r" style="--c: var(--accent)"><i></i>Feynman, ch. 23</div>
+        <div class="r" style="--c: var(--fg3)"><i></i>Ideas</div>
+      </div>
+      <div class="mock-note">
+        <h1>Resonance</h1>
+        <p class="mock-props"><span>Physics 2</span><span>6 October</span><span>lecture 4</span></p>
+        <p>An LC circuit trades energy back and forth between the coil's magnetic field and the capacitor's electric field. The resistor decides how quickly it dies away.</p>
+        <div class="mock-callout"><b>${svg("tip")}Remember</b>The resonant frequency depends only on <i>L</i> and <i>C</i> — never on the resistance.</div>
+        <div class="mock-math"><span><i>f</i><sub class="up">0</sub></span><span class="up">=</span><span class="frac"><span>1</span><span>2π<span class="up">√</span><span class="ov">LC</span></span></span></div>
+        <h2>Quality factor</h2>
+        <ul class="mock-tasks"><li class="done">Derive <i>Q</i> for the series circuit</li><li>Measure the bandwidth at 5 kHz</li></ul>
+      </div>
+    </div>
+  </div>`;
+
+/* ---------------- the approaches. Each: html(os) and, where it has choices of its own, wire(root, os) */
+const V = [];
+
+// 0 · today
+V[0] = { label: "Heute", idea: "<b>Heute.</b> Die Seite, wie sie auf <code>main</code> steht: drei gleiche Karten nebeneinander, das eigene System zuerst.",
+  html(os) {
+    const order = ["windows", "linux", "macos"]; if (os !== "other") order.sort((a, b) => (b === os) - (a === os));
+    const mine = (s) => s === os ? '<span class="mine">Your system</span>' : "";
+    const w = file("windows", "x64", "setup");
+    const card = { windows: `<section class="card"><header class="head"><span class="sign">${svg("windows")}</span><h2>Windows</h2>${mine("windows")}</header><p class="about">Windows 10 and 11, Intel or AMD (x64).</p><div>${get(w, svg("down") + "Download for Windows")} <small class="about">${w.mb} MB</small></div><p class="note">The installer is not signed yet, so Windows warns before it runs it: choose <b>More info</b>, then <b>Run anyway</b>.</p></section>`,
+      linux: `<section class="card"><header class="head"><span class="sign">${svg("linux")}</span><h2>Linux</h2>${mine("linux")}</header><p class="about">x64 is for Intel and AMD processors, arm64 for ARM.</p>${["appimage", "deb", "rpm"].map((k) => `<div class="row"><span class="what"><b>${KIND[k]}</b><small>${KIND_FOR[k]}</small></span>${["x64", "arm64"].map((a) => get(file("linux", a, k), `${a}<small>${file("linux", a, k).mb} MB</small>`, "file")).join("")}</div>`).join("")}</section>`,
+      macos: `<section class="card later"><header class="head"><span class="sign">${svg("macos")}</span><h2>macOS</h2>${mine("macos")}</header><p class="about">For Macs with Apple silicon.</p><div><span class="btn" aria-disabled="true">${svg("down")}Coming soon</span></div><p class="note">Not released yet. Meanwhile, the app works in the browser.</p></section>` };
+    return `<main class="v0"><header class="top"><img src="${ICON}" alt=""><div><h1>Markdown Notes for ${os === "windows" || os === "linux" ? NAME[os] : "your computer"}</h1><p>Version ${REL.version} · released ${REL.date} · <a class="lnk" href="${REL.notes}">What is new</a></p></div></header><div class="cards">${order.map((s) => card[s]).join("")}</div><footer class="foot"><a class="lnk" href="${REL.all}">All releases on GitHub</a><a class="lnk" href="/">Use it in the browser</a></footer></main>`;
+  } };
+
+// 1 · product page
+V[1] = { label: "Produktseite", idea: "<b>Produktseite.</b> Wie eine Apple-Produktseite: großer Name, ein Satz, <i>ein</i> Knopf für das eigene System und das Fenster der App als Bild; die anderen Systeme leise darunter.",
+  html(os) {
+    const w = file("windows", "x64", "setup"), ai = file("linux", "x64", "appimage");
+    let cta, meta, more = "";
+    if (os === "windows") {
+      cta = get(w, svg("down") + "Download for Windows", "btn lg");
+      meta = `Version ${REL.version} · ${w.mb} MB · Windows 10 and 11 · <a class="lnk" href="${REL.notes}">What’s new</a>`;
+      more = `Windows asks before the first start: choose <b>More info</b>, then <b>Run anyway</b>.`;
+    } else if (os === "linux") {
+      cta = get(ai, svg("down") + "Download for Linux", "btn lg");
+      meta = `AppImage · x64 · ${ai.mb} MB · runs on any distribution · <a class="lnk" href="${REL.notes}">What’s new</a>`;
+      more = `Also: ${get(file("linux", "arm64", "appimage"), "arm64", "")} · ${get(file("linux", "x64", "deb"), ".deb", "")} · ${get(file("linux", "x64", "rpm"), ".rpm", "")}`;
+    } else if (os === "macos") {
+      cta = `<span class="btn lg" aria-disabled="true">${svg("down")}Coming soon for Mac</span><a class="btn lg quiet" href="/">${svg("globe")}Use it in the browser</a>`;
+      meta = `The Mac version is on its way. Version ${REL.version} is out for Windows and Linux · <a class="lnk" href="${REL.notes}">What’s new</a>`;
+    } else {
+      cta = `<a class="btn lg" href="/">${svg("globe")}Use it in the browser</a>`;
+      meta = `The desktop app is for your computer — open this page there. Version ${REL.version} · <a class="lnk" href="${REL.notes}">What’s new</a>`;
+    }
+    const col = {
+      windows: `<div><h3>${svg("windows")}Windows</h3><p>Windows 10 and 11, Intel or AMD.</p><div class="links">${get(w, `Installer · ${w.mb} MB`, "lnk")}</div></div>`,
+      linux: `<div><h3>${svg("linux")}Linux</h3><p>x64 and arm64.</p><div class="links">${["appimage", "deb", "rpm"].map((k) => get(file("linux", "x64", k), KIND[k], "lnk")).join("")}<a class="lnk" href="${REL.all}">arm64 ${svg("out")}</a></div></div>`,
+      macos: `<div><h3>${svg("macos")}macOS</h3><p>For Macs with Apple silicon.</p><span class="soon">Coming soon</span></div>`,
+      web: `<div><h3>${svg("globe")}Browser</h3><p>Sign in with GitHub, nothing to install.</p><div class="links"><a class="lnk" href="/">Open Markdown Notes</a></div></div>`,
+    };
+    const others = os === "windows" ? ["linux", "macos", "web"] : os === "linux" ? ["windows", "macos", "web"] : os === "macos" ? ["windows", "linux", "web"] : ["windows", "linux", "macos"];
+    return `<main class="v1">
+      <img class="icon rise" src="${ICON}" alt="" style="--i:0">
+      <h1 class="rise" style="--i:1">Markdown Notes</h1>
+      <p class="lede rise" style="--i:2">Notes that stay yours.<br>Now on your desktop.</p>
+      <div class="cta rise" style="--i:3">${cta}</div>
+      <p class="meta rise" style="--i:4">${meta}</p>
+      ${more ? `<p class="more rise" style="--i:4">${more}</p>` : ""}
+      <div class="shot rise" style="--i:6">${mock()}</div>
+      <section class="also">${others.map((k) => col[k]).join("")}</section>
+      <p class="fine"><span>${svg("refresh")}The AppImage and the Windows app keep themselves up to date</span><span>${svg("calendar")}Released ${REL.date}</span><a class="lnk" href="${REL.all}">All releases ${svg("out")}</a></p>
+    </main>`;
+  } };
+
+// 2 · card trio
+V[2] = { label: "Kartentrio", idea: "<b>Kartentrio.</b> Drei ruhige, hohe Karten mit großem Zeichen; die Karte des eigenen Systems steht gehoben und trägt den kräftigen Knopf, die anderen bleiben flach und leise.",
+  html(os) {
+    const w = file("windows", "x64", "setup"), ai = file("linux", "x64", "appimage");
+    const btn = (s) => s === os ? "btn" : "btn soft";
+    const chip = (f, label) => get(f, `${label} <small>${f.mb} MB</small>`, "chip");
+    const cards = [
+      `<section class="card ${os === "windows" ? "mine" : ""}">${os === "windows" ? '<span class="badge">Your system</span>' : ""}<div class="glyph">${svg("windows")}</div><h2>Windows</h2><p class="req">Windows 10 and 11<br>Intel or AMD</p>${get(w, svg("down") + "Download", btn("windows"))}<p class="size">Installer · ${w.mb} MB</p><p class="tip">Not signed yet: Windows asks first — <b>More info</b>, then <b>Run anyway</b>.</p></section>`,
+      `<section class="card ${os === "linux" ? "mine" : ""}">${os === "linux" ? '<span class="badge">Your system</span>' : ""}<div class="glyph">${svg("linux")}</div><h2>Linux</h2><p class="req">Any distribution<br>x64 and arm64</p>${get(ai, svg("down") + "Download AppImage", btn("linux"))}<p class="size">x64 · ${ai.mb} MB</p><div class="chips">${chip(file("linux", "arm64", "appimage"), "AppImage arm64")}${chip(file("linux", "x64", "deb"), ".deb")}${chip(file("linux", "arm64", "deb"), ".deb arm64")}${chip(file("linux", "x64", "rpm"), ".rpm")}${chip(file("linux", "arm64", "rpm"), ".rpm arm64")}</div></section>`,
+      `<section class="card later ${os === "macos" ? "mine" : ""}">${os === "macos" ? '<span class="badge">Your system</span>' : ""}<div class="glyph">${svg("macos")}</div><h2>macOS</h2><p class="req">Apple silicon<br>&nbsp;</p><span class="btn soft" aria-disabled="true">Coming soon</span><p class="size">&nbsp;</p><p class="tip">Meanwhile: <a class="lnk" href="/">use it in the browser</a>.</p></section>`,
+    ];
+    return `<main class="v2">
+      <header class="head rise"><img src="${ICON}" alt=""><h1>Get Markdown Notes</h1><p>Version ${REL.version} · ${REL.date} · <a class="lnk" href="${REL.notes}">What’s new</a></p></header>
+      <div class="trio">${cards.map((c, i) => c.replace('<section class="card', `<section style="--i:${i + 1}" class="rise card`)).join("")}</div>
+      <div class="strip">
+        <div>${svg("refresh")}<span><b>Stays up to date</b>The AppImage and the Windows app update themselves.</span></div>
+        <div>${svg("globe")}<span><b>Or in the browser</b>The same notes, signed in with GitHub. <a class="lnk" href="/">Open</a></span></div>
+        <div>${svg("version")}<span><b>Every version</b>Older releases and their notes are on <a class="lnk" href="${REL.all}">GitHub</a>.</span></div>
+      </div>
+    </main>`;
+  } };
+
+// 3 · guided chooser
+const g3 = { sys: null, kind: "appimage", arch: "x64" };
+V[3] = { label: "Wegweiser", idea: "<b>Wegweiser.</b> Ein Gespräch in drei Schritten — welches System, welche Datei, fertig — mit klaren Erklärungen und Empfehlungen („Nicht sicher? Nimm das AppImage.“); das erkannte System ist schon gewählt.",
+  reset(os) { g3.sys = os === "other" ? null : os; g3.kind = "appimage"; g3.arch = "x64"; },
+  html(os) {
+    const tile = (s) => `<button class="tile" role="radio" data-sys="${s}" aria-checked="${g3.sys === s}">${s === os ? "<small>Detected</small>" : ""}${svg(s)}<b>${NAME[s]}</b></button>`;
+    return `<main class="v3">
+      <header class="head"><img src="${ICON}" alt=""><div><h1>Let’s get Markdown Notes onto your computer</h1><p>Version ${REL.version} · ${REL.date} · <a class="lnk" href="${REL.notes}">What’s new</a></p></div></header>
+      <section class="step" id="s1"><div class="num"><span>1</span>${svg("check")}</div><div><h2>Which computer is this?</h2><p class="hint">${os === "other" ? "This looks like a phone or tablet — pick the computer you will install it on." : `It looks like <b>${NAME[os]}</b>. If that’s wrong, pick another.`}</p><div class="tiles" role="radiogroup">${["windows", "linux", "macos"].map(tile).join("")}</div></div></section>
+      <section class="step" id="s2"></section>
+      <section class="step" id="s3"></section>
+    </main>`;
+  },
+  wire(root, os) {
+    const s1 = root.querySelector("#s1"), s2 = root.querySelector("#s2"), s3 = root.querySelector("#s3");
+    const radio = (key, val, title, about, rec) => `<button class="opt" role="radio" data-${key}="${val}" aria-checked="${g3[key] === val}"><span class="radio"></span><b>${title}${rec ? `<em>${rec}</em>` : ""}</b><span>${about}</span></button>`;
+    const paint = (which) => {
+      s1.classList.toggle("done", !!g3.sys);
+      s1.querySelectorAll(".tile").forEach((t) => t.setAttribute("aria-checked", String(t.dataset.sys === g3.sys)));
+      const head2 = `<div class="num"><span>2</span>${svg("check")}</div>`, head3 = `<div class="num"><span>3</span>${svg("check")}</div>`;
+      if (which <= 1) {
+        s2.classList.toggle("done", g3.sys === "windows" || g3.sys === "linux");
+        if (!g3.sys) s2.innerHTML = `${head2}<div><h2>Pick a file</h2><p class="wait">Choose your computer first.</p></div>`;
+        else if (g3.sys === "windows") s2.innerHTML = `${head2}<div class="swap"><h2>One thing to know first</h2><p class="hint">The installer isn’t signed yet, so Windows shows a blue warning the first time. It’s expected — click <b>More info</b>, then <b>Run anyway</b>.</p><div class="ss" aria-hidden="true"><h4>Windows protected your PC</h4><p>Microsoft Defender SmartScreen prevented an unrecognised app from starting.</p><p><u class="mark">More info</u><span class="step-n">1</span></p><div class="act"><span class="mark">Run anyway</span><span class="step-n">2</span><span>Don’t run</span></div></div></div>`;
+        else if (g3.sys === "macos") s2.innerHTML = `${head2}<div class="swap"><h2>Not quite yet</h2><p class="hint">The Mac version is on its way. Until then, Markdown Notes runs in your browser — the same app, signed in with GitHub.</p><a class="btn quiet" href="/">${svg("globe")}Use it in the browser</a></div>`;
+        else s2.innerHTML = `${head2}<div class="swap"><h2>Which kind of file?</h2><p class="hint">Not sure? <b>Take the AppImage</b> — it runs everywhere.</p><div class="opts" role="radiogroup">${radio("kind", "appimage", "AppImage", "One file that runs on any distribution and keeps itself up to date.", "Recommended")}${radio("kind", "deb", ".deb package", "For Debian, Ubuntu and Mint. Installs with your package manager; you download each new version.")}${radio("kind", "rpm", ".rpm package", "For Fedora and openSUSE. Installs with your package manager; you download each new version.")}</div><p class="sub">Which processor?</p><p class="hint">Almost every PC has Intel or AMD.</p><div class="two" role="radiogroup">${radio("arch", "x64", "Intel or AMD", "x64 — most computers")}${radio("arch", "arm64", "ARM", "arm64 — e.g. Snapdragon, Raspberry Pi")}</div></div>`;
+      } else {
+        s2.querySelectorAll("[data-kind]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.kind === g3.kind)));
+        s2.querySelectorAll("[data-arch]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.arch === g3.arch)));
+      }
+      const f = g3.sys === "windows" ? file("windows", "x64", "setup") : g3.sys === "linux" ? file("linux", g3.arch, g3.kind) : null;
+      s3.classList.toggle("done", false);
+      if (!f) { s3.innerHTML = `${head3}<div><h2>Download</h2><p class="wait">${g3.sys === "macos" ? "Nothing to download for the Mac yet." : "Your file appears here."}</p></div>`; return; }
+      const then = f.kind === "setup" ? `<li>Open it and follow the installer.</li><li>Later versions install themselves — the app asks before it restarts.</li>`
+        : f.kind === "appimage" ? `<li>Make it executable: right-click › Properties › <i>Allow executing</i>, or <code>chmod +x ${f.name}</code></li><li>Double-click to start. New versions arrive by themselves.</li>`
+        : `<li>Install it: <code>sudo ${f.kind === "deb" ? "apt" : "dnf"} install ./${f.name}</code></li><li>The app tells you when a new version is out.</li>`;
+      s3.innerHTML = `${head3}<div class="swap"><h2>Your download</h2><p class="hint">That’s all it takes.</p><div class="final"><div class="fname"><img src="${ICON}" alt=""><div><code>${f.name}</code><small>${KIND[f.kind]} · ${f.arch} · ${f.mb} MB</small></div></div>${get(f, svg("down") + "Download " + KIND[f.kind], "btn lg")}<ol class="then">${then}</ol></div></div>`;
+    };
+    root.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-sys],[data-kind],[data-arch]"); if (!b) return;
+      if (b.dataset.sys) { if (g3.sys === b.dataset.sys) return; g3.sys = b.dataset.sys; paint(1); }
+      else { if (b.dataset.kind) g3.kind = b.dataset.kind; if (b.dataset.arch) g3.arch = b.dataset.arch; paint(2); }
+    });
+    paint(1);
+  } };
+
+// 4 · editorial — the page is a note
+V[4] = { label: "Notiz", idea: "<b>Notiz.</b> Die Seite ist selbst eine schön gesetzte Notiz aus Markdown Notes — Eigenschaften, Callouts, eine Tabelle, Aufgaben, ein Codeblock: Wer lädt, sieht schon, was die App kann.",
+  html(os) {
+    const w = file("windows", "x64", "setup");
+    const rec = os === "windows" ? { f: w, t: "Windows" } : os === "linux" ? { f: file("linux", "x64", "appimage"), t: "Linux" } : null;
+    const tipBox = rec ? `<div class="callout"><div class="ctitle">${svg("tip")}For your ${rec.t}</div><div class="cbody"><p>${rec.f.kind === "setup" ? "The installer — it sets everything up and keeps the app current." : "The <b>AppImage</b> for Intel and AMD: one file, any distribution, updates itself."}</p>${get(rec.f, svg("down") + "Download " + KIND[rec.f.kind], "btn")}<span class="sz">${rec.f.mb} MB</span></div></div>`
+      : os === "macos" ? `<div class="callout"><div class="ctitle">${svg("info")}On a Mac</div><div class="cbody"><p>The Mac version isn’t out yet. Until it is, <a class="ln" href="/">open Markdown Notes in the browser</a> — the same app, signed in with GitHub.</p></div></div>`
+      : `<div class="callout"><div class="ctitle">${svg("info")}On a phone?</div><div class="cbody"><p>The desktop app is for Windows and Linux. Open this page on your computer — or <a class="ln" href="/">read and write in the browser</a>.</p></div></div>`;
+    const yours = (s) => s === os ? "<small>your system</small>" : "";
+    const row = (k) => `<tr class="${os === "linux" ? "mine" : ""}"><td><b>${KIND[k]}</b><small>${KIND_FOR[k]}</small></td><td class="dl">${get(file("linux", "x64", k), "x64", "ln")} <span class="muted">${file("linux", "x64", k).mb} MB</span></td><td class="dl">${get(file("linux", "arm64", k), "arm64", "ln")} <span class="muted">${file("linux", "arm64", k).mb} MB</span></td></tr>`;
+    return `<main class="v4"><article class="sheet rise">
+      <div class="tabbar"><img src="${ICON}" alt=""><span class="crumb">Markdown Notes / <b>Download.md</b></span><span class="read">Read only</span></div>
+      <div class="note">
+        <dl class="props">
+          <dt>${svg("version")}version</dt><dd>${REL.version}</dd>
+          <dt>${svg("calendar")}released</dt><dd>${REL.date}</dd>
+          <dt>${svg("tag")}tags</dt><dd><span class="tag">#windows</span><span class="tag">#linux</span><span class="tag">#desktop</span></dd>
+        </dl>
+        <h1>Download Markdown Notes</h1>
+        <p class="lede">The notes app you are reading this in — as a desktop app, for your own folders and files. <a class="ln" href="${REL.notes}">What’s new in ${REL.version}</a></p>
+        ${tipBox}
+        <h2>Windows ${yours("windows")}</h2>
+        <p>For Windows 10 and 11 on Intel or AMD: ${get(w, "the installer", "ln")} <span class="muted">(${w.mb} MB)</span>.</p>
+        <div class="callout warn"><div class="ctitle">${svg("warning")}Windows asks first</div><div class="cbody"><p>The installer isn’t signed yet, so SmartScreen warns before it starts. Choose <b>More info</b>, then <b>Run anyway</b>.</p></div></div>
+        <h2>Linux ${yours("linux")}</h2>
+        <p><b>x64</b> is for Intel and AMD, <b>arm64</b> for ARM. Not sure? The AppImage, x64.</p>
+        <div class="tbl"><table><thead><tr><th>Format</th><th>Intel / AMD</th><th>ARM</th></tr></thead><tbody>${["appimage", "deb", "rpm"].map(row).join("")}</tbody></table></div>
+        <pre><span class="c"># the AppImage: make it executable, then start it</span>
+chmod +x MarkdownNotes-${REL.version}-linux-x64.AppImage
+./MarkdownNotes-${REL.version}-linux-x64.AppImage</pre>
+        <h2>macOS ${yours("macos")}</h2>
+        <ul class="tasks"><li>A version for Macs with Apple silicon <span class="muted">— coming soon</span></li></ul>
+        <h2>Staying up to date</h2>
+        <ul class="tasks"><li class="done">The <b>AppImage</b> and the <b>Windows</b> app update themselves</li><li class="done">They ask before they restart</li><li>.deb and .rpm: the app tells you, you download the new one</li></ul>
+        <hr>
+        <div class="end"><a class="lnk" href="${REL.all}">All releases ${svg("out")}</a><a class="lnk" href="/">Use it in the browser</a></div>
+      </div>
+    </article></main>`;
+  } };
+
+// 5 · installer
+const g5 = { sys: "windows", kind: "appimage", arch: "x64" };
+V[5] = { label: "Installer", idea: "<b>Installer.</b> Ein einziges schwebendes Glas-Panel über einem weichen Farbfeld, wie ein Installer: System, Format und Prozessor als Segmente, darunter genau eine Datei und ein Knopf — die Größe des Panels springt nie.",
+  reset(os) { g5.sys = os === "other" ? "windows" : os; g5.kind = "appimage"; g5.arch = "x64"; },
+  html() {
+    const seg = (key, vals) => `<div class="seg" data-key="${key}" style="--n:${vals.length};--at:0"><span class="thumb"></span>${vals.map(([v, l]) => `<button data-val="${v}" aria-pressed="false">${l}</button>`).join("")}</div>`;
+    return `<main class="v5"><div class="field"></div><div class="panel">
+      <div class="who"><img src="${ICON}" alt=""><div><h1>Markdown Notes</h1><p>Version ${REL.version} · ${REL.short} · <a class="lnk" href="${REL.notes}">What’s new</a></p></div></div>
+      <div class="rowl"><span>System</span>${seg("sys", [["windows", "Windows"], ["linux", "Linux"], ["macos", "macOS"]])}</div>
+      <div class="rowl"><span>Format</span><div class="slot-kind">${seg("kind", [["appimage", "AppImage"], ["deb", ".deb"], ["rpm", ".rpm"]])}<div class="fixed" hidden></div></div></div>
+      <div class="rowl"><span>Processor</span><div class="slot-arch">${seg("arch", [["x64", "Intel / AMD"], ["arm64", "ARM"]])}<div class="fixed" hidden></div></div></div>
+      <div class="well"><div class="swap" id="w5"></div></div>
+      <a class="btn lg" id="go5" href="#">Download</a>
+      <p class="foot" id="foot5"></p>
+      <div class="links"><a class="lnk" href="${REL.all}">All releases ${svg("out")}</a><a class="lnk" href="/">Use it in the browser</a></div>
+    </div></main>`;
+  },
+  wire(root) {
+    const segs = Object.fromEntries([...root.querySelectorAll(".seg")].map((s) => [s.dataset.key, s]));
+    const paint = () => {
+      for (const [key, s] of Object.entries(segs)) {
+        const btns = [...s.querySelectorAll("button")]; const at = btns.findIndex((b) => b.dataset.val === g5[key]);
+        s.style.setProperty("--at", Math.max(0, at)); btns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.val === g5[key])));
+      }
+      const lin = g5.sys === "linux", mac = g5.sys === "macos";
+      const fixKind = root.querySelector(".slot-kind .fixed"), fixArch = root.querySelector(".slot-arch .fixed");
+      segs.kind.hidden = !lin; fixKind.hidden = lin; segs.arch.hidden = !lin; fixArch.hidden = lin;
+      fixKind.textContent = mac ? "—" : "Installer (.exe)"; fixArch.textContent = mac ? "Apple silicon" : "Intel / AMD (x64)";
+      const f = mac ? null : lin ? file("linux", g5.arch, g5.kind) : file("windows", "x64", "setup");
+      const w = root.querySelector("#w5"), go = root.querySelector("#go5"), foot = root.querySelector("#foot5");
+      const fresh = w.cloneNode(); w.replaceWith(fresh);
+      if (f) {
+        fresh.innerHTML = `<code>${f.name}</code><p>${f.mb} MB · ${KIND_FOR[f.kind]}</p>`;
+        go.outerHTML = get(f, `${svg("down")}Download ${lin ? KIND[f.kind] : "for Windows"}`, "btn lg", ' id="go5"');
+        foot.innerHTML = f.kind === "setup" ? "Not signed yet: Windows asks before the first start — choose <b>More info</b>, then <b>Run anyway</b>. After that it updates itself."
+          : f.kind === "appimage" ? "Make it executable (<code>chmod +x</code>), then start it. It updates itself." : "Installs with your package manager. The app tells you when a new version is out.";
+      } else {
+        fresh.innerHTML = `<code>Not released yet</code><p>The Mac version is on its way.</p>`;
+        go.outerHTML = `<span class="btn lg" id="go5" aria-disabled="true">Coming soon</span>`;
+        foot.innerHTML = "Meanwhile, Markdown Notes runs in the browser — the same app, signed in with GitHub.";
+      }
+    };
+    root.addEventListener("click", (e) => { const b = e.target.closest(".seg button"); if (!b) return; g5[b.parentNode.dataset.key] = b.dataset.val; paint(); });
+    paint();
+  } };
+
+// 6 · release sheet
+V[6] = { label: "Release-Blatt", idea: "<b>Release-Blatt.</b> Für Leute, die wissen, was sie wollen: alle Dateien als dichte Tabelle mit Größe und SHA-256, darunter Einzeiler fürs Terminal zum Kopieren — die Zeilen des eigenen Systems markiert.",
+  html(os) {
+    const short = (h) => `${h.slice(0, 8)}…${h.slice(-8)}`;
+    const rows = FILES.map((f) => `<div class="tr ${f.sys === os ? "mine" : ""}"><span class="sys">${svg(f.sys)}${NAME[f.sys]}<span class="tail">· ${f.arch} · ${f.mb} MB</span>${f.sys === os ? '<span class="you">YOU</span>' : ""}</span><span>${f.arch}</span><span>${KIND[f.kind]}</span><code class="fn" title="${f.name}">${f.name}</code><span class="num">${f.mb} MB</span><span class="sha"><code title="sha256:${f.sha}">${short(f.sha)}</code><button class="ic" data-copy="${f.sha}" aria-label="Copy SHA-256">${svg("copy")}</button></span>${get(f, svg("down") + "Get", "btn soft get")}</div>`).join("");
+    const mac = `<div class="tr later ${os === "macos" ? "mine" : ""}"><span class="sys">${svg("macos")}macOS<span class="tail">· coming soon</span>${os === "macos" ? '<span class="you">YOU</span>' : ""}</span><span>arm64</span><span>.dmg</span><span>Not released yet</span><span class="num">—</span><span class="sha"></span><span class="num">soon</span></div>`;
+    const ai = file("linux", "x64", "appimage"), deb = file("linux", "x64", "deb"), rpm = file("linux", "x64", "rpm"), w = file("windows", "x64", "setup");
+    const term = (title, lines, copy) => `<div class="term"><header><span>${title}</span><button class="ic" data-copy="${copy.replace(/"/g, "&quot;")}" aria-label="Copy">${svg("copy")}</button></header><pre>${lines}</pre></div>`;
+    const blocks = {
+      linux: [term("Linux · AppImage", `<span class="p">$ </span>curl -LO ${BASE}${ai.name}\n<span class="p">$ </span>chmod +x ${ai.name}\n<span class="p">$ </span>./${ai.name}`, `curl -LO ${BASE}${ai.name} && chmod +x ${ai.name} && ./${ai.name}`),
+        term("Linux · .deb / .rpm", `<span class="c"># Debian, Ubuntu, Mint</span>\n<span class="p">$ </span>sudo apt install ./${deb.name}\n<span class="c"># Fedora, openSUSE</span>\n<span class="p">$ </span>sudo dnf install ./${rpm.name}`, `sudo apt install ./${deb.name}`)],
+      windows: [term("Windows · PowerShell", `<span class="p">&gt; </span>iwr ${BASE}${w.name} -OutFile ${w.name}\n<span class="p">&gt; </span>.\\${w.name}`, `iwr ${BASE}${w.name} -OutFile ${w.name}; .\\${w.name}`)],
+      verify: [term("Verify", `<span class="p">$ </span>sha256sum ${ai.name}\n<span class="p">&gt; </span>Get-FileHash ${w.name}\n<span class="c"># compare with the SHA-256 column above</span>`, `sha256sum ${ai.name}`)],
+    };
+    const order = os === "windows" ? [...blocks.windows, ...blocks.verify, ...blocks.linux] : [...blocks.linux, ...blocks.windows, ...blocks.verify];
+    return `<main class="v6">
+      <header class="head"><img src="${ICON}" alt=""><h1>Markdown Notes <span>${REL.version}</span></h1><span class="meta"><span>${REL.short}</span><span>7 files</span><a class="lnk" href="${REL.notes}">Release notes ${svg("out")}</a><a class="lnk" href="${REL.all}">All releases ${svg("out")}</a></span></header>
+      <h2>Files</h2>
+      <div class="tbl"><div class="tr th"><span>System</span><span>Arch</span><span>Format</span><span>File</span><span class="num">Size</span><span>SHA-256</span><span></span></div>${os === "windows" ? rows : rows}${mac}</div>
+      <p class="lab">Lab: the checksums shown are those of the 0.1.4 files; the page would take GitHub’s digest of each file.</p>
+      <h2>From a terminal</h2>
+      <div class="grid2">${order.join("")}</div>
+      <h2>Good to know</h2>
+      <ul class="notes">
+        <li>${svg("refresh")}<span><b>Updates.</b> The AppImage and the Windows app download new versions themselves, check their signature and ask before restarting. .deb and .rpm only say a new version is out.</span></li>
+        <li>${svg("shield")}<span><b>SmartScreen.</b> The Windows installer isn’t code-signed yet: choose <b>More info</b> › <b>Run anyway</b>.</span></li>
+        <li>${svg("info")}<span><b>Architectures.</b> x64 = Intel and AMD, arm64 = ARM. Update signatures (<code>.sig</code>) are attached to the release.</span></li>
+      </ul>
+    </main>`;
+  } };
+
+/* ---------------- the lab around them */
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const root = document.documentElement, stage = document.getElementById("stage"), idea = document.getElementById("idea");
+const views = document.getElementById("views"), oses = document.getElementById("oses"), modeBtn = document.getElementById("mode");
+const OSES = [["windows", "Windows", "W"], ["linux", "Linux", "L"], ["macos", "Mac", "M"], ["other", "Phone", "P"]];
+V.forEach((v, i) => { const b = views.appendChild(document.createElement("button")); b.innerHTML = `<kbd>${i}</kbd><span class="nm">${v.label}</span>`; b.title = v.label; b.onclick = () => show(i); });
+OSES.forEach(([k, l, key]) => { const b = oses.appendChild(document.createElement("button")); b.dataset.os = k; b.innerHTML = `<kbd>${key}</kbd><span class="nm">${l}</span>`; b.title = l; b.onclick = () => setOs(k); });
+const params = new URLSearchParams(location.search);
+let cur = +(params.get("v") ?? store.get("download-lab-v") ?? 1), os = params.get("os") || store.get("download-lab-os") || "linux";
+let mode = params.get("mode") || store.get("download-lab-mode") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+function render() {
+  V.forEach((v) => v.reset && v.reset(os));
+  stage.innerHTML = V[cur].html(os);
+  V[cur].wire && V[cur].wire(stage.firstElementChild, os);
+  stage.style.animation = "none"; void stage.offsetWidth; stage.style.animation = "";
+  idea.innerHTML = V[cur].idea;
+  views.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === cur)));
+  oses.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.os === os)));
+}
+function show(i) { if (!V[i]) return; cur = i; store.set("download-lab-v", i); render(); scrollTo(0, 0); }
+function setOs(k) { os = k; store.set("download-lab-os", k); render(); }
+function setMode(m) { mode = m; root.dataset.mode = m; store.set("download-lab-mode", m); modeBtn.setAttribute("aria-pressed", String(m === "dark")); }
+modeBtn.onclick = () => setMode(mode === "dark" ? "light" : "dark");
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[0-6]$/.test(e.key)) show(+e.key);
+  else if (e.key.toLowerCase() === "d") setMode(mode === "dark" ? "light" : "dark");
+  else { const o = OSES.find((x) => x[2].toLowerCase() === e.key.toLowerCase()); if (o) setOs(o[0]); }
+});
+// the lab loads nothing: a download, a link or a copy says what it would do
+const toast = document.getElementById("toast"); let tt = 0;
+function say(t) { toast.textContent = t; toast.setAttribute("data-open", ""); clearTimeout(tt); tt = setTimeout(() => toast.removeAttribute("data-open"), 2200); }
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-copy]"); if (c) { e.preventDefault(); try { navigator.clipboard.writeText(c.dataset.copy); } catch {} say("Copied"); return; }
+  const a = e.target.closest("a"); if (!a) return; e.preventDefault();
+  say(a.dataset.file ? `Would download ${a.dataset.file}` : `Would open ${a.getAttribute("href")}`);
+});
+setMode(mode); render();
+requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("boot")));
+</script>

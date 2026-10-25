@@ -1,6 +1,7 @@
 {
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "Markdown notes",
     "longDescription": "Markdown Notes: a reader and editor for folders of Markdown notes.",

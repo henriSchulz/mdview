@@ -82,6 +82,9 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 #sidebar[data-layout="sheets"] .sb-list .sb-row .sb-label { max-width: 100%; box-sizing: border-box; padding: 1px 6px; border-radius: var(--radius-chip); font-size: 12px; font-weight: 600; line-height: 1.3; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
 #sidebar[data-layout="sheets"] .sb-list .sb-row .sb-tail { margin: 1px 0 0; padding: 0; font-size: 11px; }
 #sidebar[data-layout="sheets"] .sb-sheet { --fc-own: var(--fc, var(--accent)); display: block; position: relative; flex: none; width: 78px; height: 102px; margin-bottom: 8px; }
+/* (a sheet out of sight is neither laid out nor painted: a folder's beginnings are thousands of elements — formulas, code,
+   tables — and a scroll of the list drew them all at every step; its size is its own either way) */
+#sidebar[data-layout="sheets"] .sb-sheet { content-visibility: auto; contain-intrinsic-size: 78px 102px; }
 .sb-sheet-in { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 4.5px; box-sizing: border-box; padding: 10px 9px; border-radius: 5px; background: var(--sb-paper); box-shadow: 0 0 0 0.5px var(--line-strong); text-align: left; overflow: hidden; transition: box-shadow var(--dur-fast) var(--ease-out); }
 /* its shade (0 3px 9px / 0.12) a picture under it, as the sidebar's own (sidebar.css): a blur for each sheet, painted anew at each
  * step of a scroll, was what the sheets cost */
@@ -107,7 +110,10 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
 .sb-sheet.is-folder .sb-sheet-in .sf { font-size: 20px; }
 .sb-sheet-tab { position: absolute; left: 0; top: -6px; width: 34px; height: 12px; border-radius: 4px 6px 0 0; background: color-mix(in srgb, var(--fc-own) 72%, var(--sb-paper)); box-shadow: 0 0 0 0.5px var(--line-strong); }
 #sidebar[data-layout="sheets"] .sb-list .sb-row.active { background: transparent; }
-#sidebar[data-layout="sheets"] .sb-list .sb-row.active .sb-sheet-in { box-shadow: 0 0 0 2.5px var(--accent); }
+/* (the ring is the sheet's own, not what it holds: a sheet laid out only in sight (content-visibility, above) clips what it holds
+ * to its box, and a ring outside the inner sheet showed only at its four corners — Henri, 2026-10-25) */
+#sidebar[data-layout="sheets"] .sb-sheet { border-radius: 5px; transition: box-shadow var(--dur-fast) var(--ease-out); }
+#sidebar[data-layout="sheets"] .sb-list .sb-row.active .sb-sheet { box-shadow: 0 0 0 2.5px var(--accent); }
 #sidebar[data-layout="sheets"] .sb-list .sb-row.active .sb-label { background: var(--accent); color: #fff; }
 
 /* tiles: smart lists as tiles above the folders; a folder's sign stands on a disc in its colour */

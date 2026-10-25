@@ -9,8 +9,13 @@
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   const until = async (f, n = 80) => { for (let i = 0; i < n && !f(); i++) await sleep(100); return !!f(); };
   try {
+    if (!window.MdActive && window.MdPage) MdPage.loadActive(); // (the active mode, and with it the settings, is loaded when first used)
     await until(() => window.MdActive && MdActive.prefs, 100);
     post({ type: "history-enable" }); await sleep(900);
+    // (a folder window opens with no note: the one in it is opened, for the change written below)
+    const item = document.querySelector('#sidebar [data-key$="basics.md"]');
+    if (!MdView.core.current && item) post({ type: "note", path: item.dataset.key });
+    await until(() => MdView.core.current);
     MdActive.prefs.open("history"); await sleep(900);
     const row = document.querySelector('.pf-row[data-key="githubAccount"]');
     const says = () => row.querySelector(".pf-value").textContent, code = () => row.querySelector(".pf-code");
@@ -59,10 +64,32 @@
     post({ type: "probe", name: "github-linked", text: "{}" }); await sleep(900);
     link.querySelector(".pf-link:not([hidden])").click();
     ok("unlinked again: there to link anew", await until(() => does(link).join("|") === "Link…" && text(link) === "Not linked"), [text(link), does(link)]);
+    // a new repository, made from the chooser: named after the folder, said why not where it was
+    // not, and linked where it was
+    link.querySelector(".pf-link:not([hidden])").click(); await sleep(300);
+    const foot = () => [...box().querySelectorAll(".rc-foot button")].filter((b) => !b.hidden).map((b) => b.textContent);
+    const fresh = [...box().querySelectorAll(".rc-foot button")].find((b) => b.textContent === "New Repository…");
+    ok("the chooser offers a new repository", await until(() => foot().join("|") === "New Repository…|Cancel|Link"), foot());
+    fresh.click(); await sleep(200);
+    const name = [...box().querySelectorAll(".rc-search")].find((f) => !f.hidden), said = () => box().querySelector(".rc-empty").textContent;
+    ok("…under the folder's name, as GitHub takes it, ready to be made", name && name.value === "mdview_notes" && document.activeElement === name && !go.disabled && go.textContent === "Create and Link" && rows().every((r) => r.offsetParent === null) && /^Private/.test(said()) && foot().join("|") === "Cancel|Create and Link", [name && name.value, go.textContent, said(), foot()]);
+    post({ type: "probe", name: "github-new", text: "{}" }); await sleep(700);
+    const make = (v) => { name.value = v; name.dispatchEvent(new Event("input", { bubbles: true })); go.click(); };
+    make("taken");
+    ok("a name that is taken is said so, and the field is there to change it", await until(() => /named “taken” on your account already/.test(said())) && !name.disabled && document.activeElement === name && box().hasAttribute("data-open"), said());
+    post({ type: "probe", name: "github-taken", text: "{}" }); await sleep(700);
+    make("denied");
+    ok("where the app may not make repositories, the permission is said, and where it is given", await until(() => /accept the app's new permission/.test(said())) && foot().join("|") === "Choose on GitHub|Cancel|Create and Link", [said(), foot()]);
+    make("notes-unreached");
+    ok("made but not given to the app: said, and nothing linked", await until(() => /“octo\/notes-unreached” was created, but Markdown Notes can't reach it/.test(said())) && text(link) === "Not linked", [said(), text(link)]);
+    make("mdview_notes");
+    ok("made: the chooser closes, and the project is linked to it", await until(() => !box().hasAttribute("data-open") && /the same on both$/.test(text(link)), 150) && does(link).join("|") === "Unlink", [said(), text(link)]);
+    link.querySelector(".pf-link:not([hidden])").click();
+    ok("unlinked from it again", await until(() => text(link) === "Not linked"), text(link));
     const out = [...row.querySelectorAll("button")].find((b) => !b.hidden && b.textContent === "Sign Out"); // (never the one that opens a browser)
     if (out) out.click();
     ok("signed out again", await until(() => says() === "Not signed in") && shown().join("|") === "Sign In…", [says(), shown()]);
-  } catch (e) { o.error = String(e && e.stack || e); }
+  } catch (e) { o.error = String(e) + " " + String(e && e.stack || ""); }
   o.pass = !o.error && o.steps.every((s) => s.startsWith("ok"));
   post({ type: "probe", name: "github", text: JSON.stringify(o) });
 })();

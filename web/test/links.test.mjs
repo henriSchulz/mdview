@@ -101,7 +101,7 @@ const current = () => page.evaluate(() => MdView.core.current && MdView.core.cur
 const until = (fn, arg, ms = 15000) => page.waitForFunction(fn, arg, { timeout: ms });
 const untilShown = (name) => until((n) => window.MdView && MdView.core.current && MdView.core.current.name === n && (n.endsWith(".pdf") ? document.querySelector(".pdf-page canvas, .pdf-page img") : document.querySelector("#content").innerText.length > 0), name, 25000);
 const pdfPage = () => page.evaluate(() => window.MdPdf && MdPdf.shown && MdPdf.shown.now);
-const home = async () => { await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(NOTE)}`); await untilShown("06 E-Trace Spec.md"); };
+const home = async () => { await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent(NOTE)}`); await untilShown("06 E-Trace Spec.md"); await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); }); };
 
 test("every link of a note of a subfolder is found: notes of other folders, PDFs in assets/…, names with spaces, umlauts and &", async () => {
   await home();
