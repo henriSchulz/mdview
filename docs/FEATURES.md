@@ -836,7 +836,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
-  that is open closes it. The toolbar has no button for it. The rail is the active mode's: it
+  that is open closes it, and so does a press anywhere outside the panel (the note, the toolbar,
+  the sidebar). The toolbar has no button for it. The rail is the active mode's: it
   slides in from the edge with that mode and out again when the view changes, and the reading
   view and the source have none (there the panel comes only with `Ctrl+Alt+P`, at Style). The panel lies over the window, under the toolbar and beside the rail:
   nothing makes room for it, and neither the note nor the toolbar moves when it comes or goes. A
@@ -887,8 +888,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
-- **Sidebar** (`Ctrl+Alt+S`): everything that lies in the folder — notes, folders, and every other
-  file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
+- **Sidebar** (`Ctrl+Alt+S`, or the button at the left of the tabs — not shown over All Notes):
+  everything that lies in the folder — notes, folders, and every other file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
   adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the

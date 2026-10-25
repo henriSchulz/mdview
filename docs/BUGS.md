@@ -320,6 +320,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight
     (70 → 16 ms a frame). Only where the size is fixed: a row whose height comes from what is
     in it would jump when it comes into sight. `rig.sh sbscroll`.
+    `content-visibility` clips what the element holds to its box: a ring, a shade or a tab that
+    stands outside it is drawn on the element itself, not on a child (the open note's ring showed
+    only at the corners — `explorer.test.mjs`, "wears its ring all round").
 79. **What must never scroll is `overflow: clip`, not `hidden`.** A box with `overflow: hidden` is still
     scrolled by a focus, `scrollIntoView` or a tap the browser brings into view, as soon as anything in it
     reaches past its edge — the whiteboard's dots' layer does by one step (rule 77): scrolled by that much,

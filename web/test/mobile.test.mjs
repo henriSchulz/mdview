@@ -168,7 +168,10 @@ for (const size of ["desk", "mid"]) test(`in a window ${SIZES[size].width} px wi
   await set(false);
   await page.click('#tabs [data-act="overview"]'); await page.waitForFunction(() => document.body.hasAttribute("data-overview") && document.querySelector("#overview .ov-body"), null, { timeout: 10000 }); await page.waitForTimeout(700);
   const ovShut = await lefts();
-  await set(true);
+  // (over All Notes the sidebar has no button — Henri, 2026-10-25: there it comes with Ctrl+Alt+S)
+  assert.equal(await page.evaluate(() => document.querySelector(".tab-side").getClientRects().length), 0, "no sidebar button over All Notes");
+  await page.keyboard.press("Control+Alt+KeyS"); await page.waitForTimeout(800);
+  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "open", "Ctrl+Alt+S opens it there");
   const ovOpen = await lefts();
   assert.equal(ovOpen["#overview"], ovShut["#overview"], "All Notes stays");
   assert.equal(ovOpen["#overview .ov-body"], ovShut["#overview .ov-body"], "its sheets stay");

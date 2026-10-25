@@ -60,6 +60,7 @@
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
 #   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
+#   dev/rig.sh panelfine             the panel at the right: closed by a press outside it (the note, the toolbar), kept by one on it, its rail, a menu; none in All Notes, nor its rail, nor the sidebar's button
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
@@ -560,6 +561,17 @@ PY
     f=$(ls "$R/out"/*.pastetab.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
+  panelfine)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.panelfine.json "$R/out"/*.look.json
+    printf '# Alpha\n\nA paragraph to press in.\n\nAnother one.\n' > "$N/Alpha.md"; printf '# Beta\n\nText.\n' > "$N/Beta.md"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 60 MDVIEW_PROBE="$D/probe-panelfine.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.look.json "$R/out"/*.panelfine.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.2; shot "$R/out/panelfine-overview.png"
+    for _ in $(seq 300); do ls "$R/out"/*.panelfine.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.panelfine.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f" | grep -q '^FAIL' ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"

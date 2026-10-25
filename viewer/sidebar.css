@@ -78,3 +78,5 @@ body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: non
 /* (the sidebar's button: at the left, first in the strip of tabs — not among these; all notes: the house beside it) */
 .tab-side { width: 38px; color: var(--fg2); }
 body[data-sidebar="open"] .tab-side { color: var(--fg); }
+/* (over All Notes no button for the sidebar: the tiles show the folder already — Henri, 2026-10-25; Ctrl+Alt+S still works) */
+body[data-overview] .tab-side { display: none; }
