@@ -91,32 +91,35 @@ const page = (path, agent = "") => fetch(base + path, { redirect: "manual", head
 const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 const LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 const order = (html) => [...html.matchAll(/data-system="(\w+)"/g)].map((m) => m[1]);
+const raised = (html) => [...html.matchAll(/class="dl-card dl-mine[^"]*" data-system="(\w+)"/g)].map((m) => m[1]);
 
 test("the page is there without signing in, and links to GitHub's releases while GitHub cannot be reached", async () => {
   const down = await page("/download", WIN);
   assert.equal(down.status, 200);
   assert.ok(gh.asked > 0);
   assert.match(down.text, /could not be read from GitHub/);
-  assert.match(down.text, /href="https:\/\/github.com\/henriSchulz\/mdview\/releases\/latest"[^>]*>(<svg[^]*?<\/svg>)?Download for Windows/);
+  assert.match(down.text, /data-system="windows"[^]*?href="https:\/\/github.com\/henriSchulz\/mdview\/releases\/latest"[^>]*>(<svg[^]*?<\/svg>)?Download</);
   const install = await page("/install");
   assert.equal(install.status, 307);
   assert.equal(new URL(install.to, base).pathname, "/download");
   assert.doesNotMatch((await page("/r/octo/notes")).to || "", /download/); // (the rest still asks for a sign-in)
 });
 
-test("the page offers the release's files, the visitor's system first, macOS not yet", async () => {
+test("the page offers the release's files, the visitor's system raised, macOS not yet", async () => {
   gh.up = true; // (an answer that failed was not kept: this visit asks again)
   const win = await page("/download", WIN);
   assert.equal(win.status, 200);
   assert.match(win.text, /Version <!-- -->0\.1\.4|Version 0\.1\.4/);
   assert.match(win.text, /16 October 2026/);
-  assert.deepEqual(order(win.text), ["windows", "linux", "macos"]);
+  assert.deepEqual(order(win.text), ["windows", "linux", "macos"]); // (always in this order; narrow, the visitor's stands first)
+  assert.deepEqual(raised(win.text), ["windows"]);
   const file = (name) => `https://github.com/henriSchulz/mdview/releases/download/v0.1.4/${name}`;
   for (const name of Object.keys(OLD)) assert.ok(win.text.includes(`href="${file(name)}"`), name);
-  assert.match(win.text, /not signed/);
+  assert.match(win.text, /Not signed yet/);
   assert.match(win.text, /data-system="macos"[^]*Coming soon/);
   assert.doesNotMatch(win.text, /\.dmg"/);
   const linux = await page("/download", LINUX);
-  assert.deepEqual(order(linux.text), ["linux", "windows", "macos"]);
-  assert.match(linux.text, /Markdown Notes for <!-- -->Linux|Markdown Notes for Linux/);
+  assert.deepEqual(order(linux.text), ["windows", "linux", "macos"]);
+  assert.deepEqual(raised(linux.text), ["linux"]);
+  assert.match(linux.text, /data-system="linux"[^]*?Download AppImage/);
 });
