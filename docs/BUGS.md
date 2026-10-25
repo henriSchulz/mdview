@@ -433,6 +433,30 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the direction is still being decided. A `touchcancel` after the gesture was clearly meant
     still counts.
 
+### Touch on Linux (WebKitGTK)
+
+76. **WebKitGTK is no Safari under a finger, and only a touch screen's touches show what it does** (Henri,
+    2026-10-24: the tablet's fingers on the Mac's screen, over mac-cast). It tells of fingers as pointers
+    of their own, but says the pointer is a fine one (`pointer: coarse` never holds: what is pressed is
+    sized by `<html data-finger>` too, viewer/hand.js), makes up a mouse's pointer events after every tap
+    (taken out by hand.js; the click stays), scrolls under a finger with wheels of its own and makes the
+    whole window larger under two fingers where the page does not take them. Two fingers on the screen
+    are never the host's: a gesture of the window that claims them (`GestureZoom`, host.rs) takes the
+    second finger and every move away from the page — only a touchpad's pinch, which has no sequence, is
+    claimed. Chromium's touch emulation shows none of this, and made-up DOM events neither: what WebKitGTK
+    does is checked in WebKitGTK with a touch screen's touches (`rig.sh gtktouch`, dev/gtktouch); what the
+    page does with it, in Chromium under WebKitGTK's name (`web/test/linux-touch.test.mjs`).
+    The iPad's bars in the application are said by `<html data-tiles>` (viewer/touch.js: an iPad, or
+    the application or WebKitGTK while the hand is a finger in a wide window), never by `data-finger`
+    alone: a browser on a touch screen that is no iPad keeps the handle's menu and the held finger's
+    (`web/test/ipad.test.mjs`).
+    WebKitGTK sends no click after a tap whose pointerdown was prevented: what keeps the note's selection
+    that way (the bars, their panels) takes the finger's lift as the click (viewer/touch.js `tapped`) —
+    checked in WebKitGTK (`rig.sh gtktouch`, after `rig.sh start`), Chromium shows nothing of it.
+    What a bar's tile does is asked of the selection when it is tapped, not when the bar came: blocks
+    are added to a selection without the bar coming again (a swipe on one more). A check of it chooses
+    by swipes, not by `MdActive.blocks.select` — that one hands the bar the whole selection at once.
+
 ### Releases and installs
 
 28. **The Windows installer is tried before it is released** (`windows-tried` in `build.yml`).

@@ -118,9 +118,12 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 .bd-well:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
 .bd-well[aria-checked="true"] { outline: 2px solid var(--fg); outline-offset: 3px; }
 
+/* a finger: where the system says the pointer is one, and where it does not but a finger is in use (the application on Linux:
+ * viewer/hand.js) */
 @media (pointer: coarse) {
   #board { --bd-bar-h: 44px; --bd-bar-btn: 40px; --bd-inset: 16px; --bd-well: 28px; --bd-palette-h: 92px; --bd-tool-w: 44px; --bd-handle: 12px; }
 }
+:where(:root[data-finger]) #board { --bd-bar-h: 44px; --bd-bar-btn: 40px; --bd-inset: 16px; --bd-well: 28px; --bd-palette-h: 92px; --bd-tool-w: 44px; --bd-handle: 12px; }
 
 /* ---- what stands on the board beside the ink (layer.js): text boxes, sticky notes, shapes, lines */
 .bd-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; pointer-events: none; }

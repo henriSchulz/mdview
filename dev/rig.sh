@@ -40,6 +40,7 @@
 #   dev/rig.sh ovlook [FOLDER]       All Notes as it looks (tiles, list, subfolders) on a copy of FOLDER: screenshots only
 #   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
+#   dev/rig.sh gtktouch              fingers on a touch screen in WebKitGTK (dev/gtktouch): after a tap no mouse of its own making, two fingers the page's and not the window's zoom, the hand known as a finger, a bar of tiles answers a tap
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
 #   dev/rig.sh ground                a note with a ground of its own in a folder window: the strip of tabs is of that ground, the sheet begins under it
@@ -315,6 +316,37 @@ case "${1:-}" in
     f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
     [[ -n $f ]] && grep -q '"from":{"id"' "$f" && ! grep -q '"sides"' "$f" && echo "ok   the file says what each line is joined to, and nothing that is worked out" || echo "FAIL the file's lines"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-connect.json"; } | grep -qv '^ok' ;;
+  gtktouch)
+    # fingers on a touch screen in WebKitGTK, the application's web view (dev/gtktouch: a window of it that is handed a touch
+    # screen's touches from a script, its two fingers taken as host.rs takes them) — over the hand alone (dev/gtktouch/page.html),
+    # without it (?bare) and with the host as it was (CLAIM=1), to show each is what makes its check hold
+    G="$R/gtktouch"; [[ -x $G && $G -nt $D/gtktouch/gtktouch.c ]] || cc -O1 -o "$G" "$D/gtktouch/gtktouch.c" $(pkg-config --cflags --libs webkit2gtk-4.1 gtk+-3.0) || exit 1
+    S="$R/gtktouch.txt"
+    { echo "d 0 200 200"; echo "w 40"; echo "u 0"; echo "w 400"; echo 'js [kinds(), document.documentElement.hasAttribute("data-finger")]'; echo 'js (seen.length = 0, 1)'
+      echo "d 0 200 300"; echo "w 30"; echo "d 1 400 300"; echo "w 30"
+      for i in $(seq 1 10); do echo "m 0 $((200 - i * 8)) 300"; echo "m 1 $((400 + i * 8)) 300"; echo "w 16"; done
+      echo "u 0"; echo "u 1"; echo "w 300"
+      echo 'js [kinds(), new Set(seen.filter((s) => s.startsWith("pointermove touch")).map((s) => s.split(" ").pop())).size, zoomed.length, held]'; echo q; } > "$S"
+    run() { env -u HYPRLAND_INSTANCE_SIGNATURE "$@" WAYLAND_DISPLAY="$(wl)" GDK_BACKEND=wayland timeout 30 "$G" "$PAGE" "$S" 2>/dev/null | sed -n 's/^= //p'; }
+    PAGE="file://$D/gtktouch/page.html"; mapfile -t now < <(run X=1)
+    PAGE="file://$D/gtktouch/page.html?bare"; mapfile -t bare < <(run X=1)
+    PAGE="file://$D/gtktouch/page.html"; mapfile -t claim < <(run CLAIM=1)
+    [[ ${#now[@]} -ge 3 ]] || { echo "FAIL gtktouch said nothing (no touch screen to make?)"; exit 1; }
+    fail=0; ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    ok "a tap: the finger's pointer and the click, no mouse made up after it" '[[ $(jq -c ".[0]" <<<"${now[0]}") == "[\"pointerdown touch\",\"pointerup touch\",\"click mouse\"]" ]]' 'echo "${now[0]}"'
+    ok "  (without the hand the mouse made up came: that is what it is for)" 'jq -e ".[0] | index(\"pointerdown mouse\")" <<<"${bare[0]}" >/dev/null' 'echo "${bare[0]}"'
+    ok "a tap makes the hand a finger (data-finger)" 'jq -e ".[1] == true" <<<"${now[0]}" >/dev/null && jq -e ".[1] == false" <<<"${bare[0]}" >/dev/null' 'echo "${now[0]} / ${bare[0]}"'
+    ok "two fingers: both reach the page and move there, the host takes none of it" 'jq -e ".[1] == 2 and .[2] == 0" <<<"${now[2]}" >/dev/null' 'echo "${now[2]}"'
+    ok "  (taken by the host as it was, the page saw neither move)" 'jq -e ".[1] == 0 and .[2] > 0" <<<"${claim[2]}" >/dev/null' 'echo "${claim[2]}"'
+    ok "two fingers: the web view's own zoom of the window held back" 'jq -e ".[3] == [true]" <<<"${now[2]}" >/dev/null && jq -e ".[3] == [false]" <<<"${bare[2]}" >/dev/null' 'echo "${now[2]} / ${bare[2]}"'
+    # the bars of tiles (viewer/touch.js): a tile tapped opens its panel, a row tapped and a tile without a panel do their work
+    { echo "w 300"; echo "d 0 80 33"; echo "w 40"; echo "u 0"; echo "w 300"; echo 'js document.getElementById("ipad-panel").hasAttribute("data-open")'
+      echo "d 0 380 33"; echo "w 40"; echo "u 0"; echo "w 300"; echo "d 0 80 91"; echo "w 40"; echo "u 0"; echo "w 300"; echo 'js ran'; echo q; } > "$S"
+    PAGE="file://$D/gtktouch/tiles.html"; mapfile -t tiles < <(run X=1)
+    git -C "$D/.." show "${GTKTOUCH_BEFORE:-babba6e}:viewer/touch.js" > "$R/touch-before.js" 2>/dev/null && { PAGE="file://$D/gtktouch/tiles.html?src=file://$R/touch-before.js"; mapfile -t tilesBefore < <(run X=1); }
+    ok "a tile tapped opens its panel; its row tapped, and a tile without one, do their work" '[[ ${tiles[0]} == true && $(jq -c . <<<"${tiles[1]}") == "[\"heading\",\"copy\"]" ]]' 'echo "${tiles[*]}"'
+    ok "  (before 2026-10-25 a tap did nothing there: no click after a prevented pointerdown)" '[[ ${tilesBefore[0]} == false && $(jq -c . <<<"${tilesBefore[1]}") == "[]" ]]' 'echo "${tilesBefore[*]}"'
+    exit $fail ;;
   board-hand)
     # what a mouse meets on a whiteboard (a thing where it is drawn, not the box around it), arrows joined as they are drawn, joints, the right button's menu, the board moved with it — the last with a real pointer (dev/vptr)
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }

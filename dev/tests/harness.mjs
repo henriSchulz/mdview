@@ -9,8 +9,8 @@ const SCRIPTS = [
   "vendor/markdown-it.min.js", "vendor/footnote.min.js", "vendor/deflist.min.js", "vendor/mark.min.js",
   "vendor/sub.min.js", "vendor/sup.min.js", "vendor/abbr.min.js", "vendor/emoji.min.js", "vendor/js-yaml.min.js",
   "vendor/highlight.min.js", "vendor/highlight-extra.min.js", "vendor/katex/katex.min.js", "strings.js",
-  "viewer/base.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
-  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js", "viewer/tablet.js", "viewer.js",
+  "viewer/base.js", "viewer/hand.js", "viewer/markdown.js", "viewer/prep.js", "viewer/render.js", "viewer/chrome.js", "viewer/editor.js", "viewer/trail.js", "viewer/modes.js", "viewer/sidebar.js", "viewer/menus.js", 
+  "viewer/drawer.js", "viewer/tabs.js", "viewer/toolbar.js", "viewer/split.js", "viewer/twin.js", "viewer/touch.js", "viewer/tablet.js", "viewer.js",
 ];
 
 export const ACTIVE = ["vendor/prosemirror.min.js", "active/store.js", "active/schema.js", "active/tables.js", "active/markdown.js", "active/document.js", "active/link.js", "active/dialog.js", "active/latex-snippets.js", "active/latexsuite.js", "active/islands.js", "active/menu.js", "active/edit.js", "active/tableui.js", "active/notes.js", "active/clip.js", "active/context.js", "active/bar.js", "active/prefs.js", "active/slash.js", "active/wikilink.js", "active/syntax.js", "active/graphic.js", "active/mathtext.js", "active/ghost.js", "active/columns.js", "active/blocks.js", "active/view.js"];

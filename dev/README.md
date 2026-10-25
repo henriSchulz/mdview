@@ -59,6 +59,7 @@ every check.
 ./rig.sh explorer                                       # the folder's list works with files (hide, copy, paste, files pulled in); whiteboards as files
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
+./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's, a bar of tiles answers a tap
 ./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming
 ./rig.sh update                                         # a newer version: the notice and the settings (a .deb told by a latest.json of the rig's own), offline, a checkout's build that is never told
 ./rig.sh blockperf                                      # a long note: a rectangle over blocks, a block dragged (a mouse of 240 Hz): frames

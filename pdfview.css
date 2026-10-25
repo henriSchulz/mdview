@@ -20,6 +20,10 @@
 .pdfv[data-drawing] .pdf-card { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
 @media (prefers-reduced-motion: reduce) { .pdfv[data-drawing] .pdf-bar { translate: none; } }
 .pdf-bar .tb { flex: none; border-radius: var(--radius-pill); }
+/* a finger in use where the system does not say the pointer is one (viewer/hand.js): the bar's buttons a finger's size, as
+ * viewer/narrow.css makes them under a coarse pointer */
+:where(:root[data-finger]) .pdf-bar { --control-height: 40px; }
+:where(:root[data-finger]) .pdf-bar .tb svg { width: 20px; height: 20px; }
 .pdf-bar .tb:focus-visible { outline-offset: -2px; }
 .pdf-b:disabled { opacity: 0.4; pointer-events: none; }
 .pdf-b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-text, var(--accent)); }

@@ -689,6 +689,10 @@ and shut back into it — or a file of the folder, of its own.
   runs on and comes to rest (a finger put down holds it); two fingers leave it where they left it. Two fingers tapped together take the last
   step back, three bring it again. On a narrow screen the bar of tools stands under the top
   row and the tray above the bottom row.
+- **A touch screen in the application on Linux** (a tablet's fingers over mac-cast, a laptop's
+  screen): the same. Once a finger has touched the window, the board's bars and the PDF's bar
+  are a finger's size, as on a tablet; a wheel or a touchpad's two fingers make them a mouse's
+  again. A pen that comes as a mouse (mac-cast's) draws as a mouse does.
 - **Joints**: the one thing chosen, and the thing a mouse rests over, has a small dot a little
   off the middle of each side. Pulled onto another thing, a line with an arrow joins the two
   at both ends; let go over the bare board, a choice of shapes asks what is to stand at its
@@ -1273,6 +1277,19 @@ counts — and has no writing help by a model.
   Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
   browser until then).
+- **In the application under a finger** (a touch screen on Linux — the tablet's fingers over
+  mac-cast — or on Windows): while the hand is a finger and the window is wide, the
+  note in the active mode has the iPad's ways, the sidebar and the tabs staying as they are.
+  Blocks chosen have the bar of tiles at the foot (Text Style, Format, Insert, Copy, Cut,
+  Duplicate, Actions, Delete) with its panels; a finger held on the note's text or on a block's
+  handle opens no menu; a finger on the handle lifts the block at once, a tap on it, or a hold
+  let go in place, selects the block. The rail (insert, format, style, information) lies at the
+  bottom right as a capsule, its panel above it, and a tile of Insert held a moment goes with the
+  finger and is put where it is let go. A mouse's press, a wheel or a touchpad's two fingers and
+  it is as before: the rail at the top right, the menus, the handle's menu. In All Notes a tile
+  held is chosen, a tap then chooses more or lets one go, and the bar at the foot has the file
+  menu's entries for them (Done ends it; a mouse still drags the tiles). The sidebar and the tabs
+  keep the menu a held finger opens. A browser on a touch screen (no iPad) keeps its menus.
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —
@@ -1450,7 +1467,9 @@ back, the page, the size, fit, a region, the pen. The side card — outline, pag
 the window's left under the bar; no page moves for it. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
 again. A pinch and the wheel hold the place under the pointer; pages broader than the window are
-moved sideways (two fingers, `Shift` with the wheel). Keys: `+` `−` zoom, `W` fit width,
+moved sideways (two fingers, `Shift` with the wheel). On a touch screen of the application on
+Linux, one finger moves the pages and, let go while moving, throws them on; two fingers make
+them larger and smaller, what lies between them staying there. Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
 
 **Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the

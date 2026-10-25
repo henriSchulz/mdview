@@ -54,6 +54,7 @@ or the tests see the old ones.
 |---|---|
 | `viewer.js`, `viewer/*`, `active/*`, `strings.js` | `cd dev && npm test`; `dev/rig.sh regress dev/tests/fixtures/basics.md`; the rig cases of the part (`dev/rig.sh` lists them at its head: `sidebar`, `tabs`, `edit`, …) |
 | `board*`, `pdfview.*`, `overview.*`, `ai.*` | the rig cases of that name; whiteboards on touch: `cd web && npm test` |
+| what a finger does in the application on Linux (`viewer/hand.js`, `host.rs`'s pinch, a PDF's fingers) | `dev/rig.sh gtktouch`; `cd web && npm test` (`linux-touch.test.mjs`) |
 | `src-tauri/src` | `cd src-tauri && cargo test`; the rig cases of what the change is about |
 | `web/`, or a message between page and shell | `cd web && npm test` |
 | a release's files (`packaging/release-name.sh`, `packaging/latest-json.mjs`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`, `latest-json.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
@@ -74,6 +75,7 @@ or the tests see the old ones.
 | `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast, the notice of a newer version of the … |
 | `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, a new note made at once … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
+| `viewer/hand.js` | the hand: a finger, where the system does not say the screen is touched (Henri, 2026-10-24: the application … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
 | `viewer/menus.js` | the app's own small menus: a choice among a few (popup, combo) and the menu for text in a field or in the … |
 | `viewer/modes.js` | what is loaded when first used and shown over or instead of the note: the active mode (active/*.js), … |
@@ -84,6 +86,7 @@ or the tests see the old ones.
 | `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
+| `viewer/touch.js` | what a finger has in the note, as the iPad has it (Craft's): no menu under a held finger, bars of tiles at … |
 | `viewer/trail.js` | one history for a note across the modes (undo and redo beyond what a mode did itself). |
 | `viewer/twin.js` | the source beside its reading: the fourth mode ("split"). |
 | `viewer.js` | renderer, source editor, folder sidebar + UI inside the web view. |

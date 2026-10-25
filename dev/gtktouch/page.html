@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>gtktouch</title>
+<!-- The page dev/rig.sh gtktouch hands fingers to in WebKitGTK (dev/gtktouch/gtktouch.c): the hand (viewer/hand.js) and a
+     record of what reaches the page after it — what the whiteboard, the PDF viewer and the rest of the page would get. -->
+<style>body { margin: 0; height: 200vh; font: 15px sans-serif; } #pad { position: fixed; inset: 0; touch-action: none; }</style>
+<body>
+<div id="pad"></div>
+<script>if (!/bare/.test(location.search)) document.write('<script src="../../viewer/hand.js"><\/script>'); // (?bare: without it, to see what it is for)</script>
+<script>
+  // (after the hand: what it lets through)
+  window.seen = [];
+  for (const t of ["pointerdown", "pointermove", "pointerup", "pointercancel", "click"]) addEventListener(t, (e) => seen.push(`${t} ${e.pointerType || ""} ${e.pointerId ?? ""}`.trim()), true);
+  window.zoomed = [];
+  window.MdView = { pinch: (phase, scale) => zoomed.push(phase + " " + scale) }; // (the host's pinch: host.rs)
+  window.held = []; // two fingers: whether the web view's own zoom was held back
+  addEventListener("touchstart", (e) => { if (e.touches.length > 1) held.push(e.defaultPrevented); });
+  window.kinds = () => [...new Set(seen.map((s) => s.replace(/ \d+$/, "")))];
+</script>
+</body>
+</html>

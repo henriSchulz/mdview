@@ -69,7 +69,8 @@
     addEventListener("pointerdown", (e) => {
       drop();
       if (e.pointerType !== "touch" || !e.isPrimary) return;
-      if (document.documentElement.hasAttribute("data-ipad")) return; // (an iPad has no menu under a held finger: its bars have what the menus had — viewer/tablet.js)
+      if (document.documentElement.hasAttribute("data-ipad")) return; // (an iPad has no menu under a held finger: its bars have what the menus had — viewer/touch.js)
+      if (P.tiles && P.tiles.on() && e.target.closest?.("#active, .blk-h, #overview .ov-item")) return; // (nor the note in the active mode or a tile of All Notes, where the hand is a finger and the window wide: its bar has what the menu had)
       if (e.target.closest?.("#board")) return; // (on a whiteboard a finger held still is drawing, or about to)
       const target = e.target, x = e.clientX, y = e.clientY;
       held = { x, y, timer: setTimeout(() => {

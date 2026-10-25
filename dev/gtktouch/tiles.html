@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>gtktouch tiles</title>
+<!-- The bars of tiles under a finger in WebKitGTK (dev/rig.sh gtktouch; viewer/touch.js): a tile tapped opens its panel, a row
+     of the panel tapped does its work. Their pointerdown is prevented (a tap leaves the note's selection as it is), and
+     WebKitGTK then sends no click: the lift has to be it. ?src=… loads another touch.js (to see the check fail without it). -->
+<style>body { margin: 0; font: 15px sans-serif; } #ipad-panel:not([data-open]) { display: none; } .ip-tile, .ip-row { display: block; width: 160px; height: 50px; margin: 8px; }</style>
+<body>
+<div id="ctxmenu"></div><div id="ctxsub"></div>
+<script src="../../viewer/hand.js"></script>
+<script>
+  // (what touch.js takes of the page: viewer/base.js)
+  window.MdPage = { T: (k) => k, esc: (s) => String(s), ICON: {}, DESKTOP: true, svg: () => "" };
+  window.ran = []; window.errors = []; addEventListener("error", (e) => errors.push(e.message));
+</script>
+<script>document.write(`<script src="${new URLSearchParams(location.search).get("src") || "../../viewer/touch.js"}"><\/script>`);</script>
+<script>
+  const T = MdPage.tiles, bar = document.getElementById("ipad-blockbar");
+  bar.style.cssText = "position: fixed; left: 0; top: 0";
+  T.panel.style.cssText = "position: fixed; left: 300px; top: 0";
+  T.fillBar(bar, [{ label: "Style", panel: () => [{ rows: [{ label: "Heading", run: () => ran.push("heading") }] }] }, { label: "Copy", run: () => ran.push("copy") }]);
+</script>
+</body>
+</html>

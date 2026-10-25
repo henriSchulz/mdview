@@ -1,10 +1,11 @@
 /* mdview — the iPad's own layout (viewer/tablet.js): Craft's look — no sidebar and no tabs, round buttons and
  * capsules that float in the window's corners over the note. Only on an iPad (`<html data-ipad>`, said by the boot
  * script: web/lib/page.ts) and in a window that is not narrow — Split View and Slide Over keep the phone's layout
- * (narrow.css). Colours, material and shadows are the page's (page.css, chrome.css); times, curves and corners the
+ * (narrow.css). The rail at the bottom right and the bars of tiles are also the application's, in a wide window while the
+ * hand is a finger (`<html data-tiles>`: viewer/touch.js). Colours, material and shadows are the page's (page.css, chrome.css); times, curves and corners the
  * central ones (motion.css); the sizes are Craft's: 44 px, Apple's measure for what a finger presses. */
 @media (min-width: 761px) and (min-height: 600px) {
-  :root[data-ipad] { --ip-size: 44px; --ip-gap: 16px; --ip-top: calc(10px + env(safe-area-inset-top, 0px)); --ip-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  :root:is([data-ipad], [data-tiles]) { --ip-size: 44px; --ip-gap: 16px; --ip-top: calc(10px + env(safe-area-inset-top, 0px)); --ip-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 
   /* what is not here: the sidebar (All Notes is the way to the other notes), the tabs, the mode's segments (the pencil) */
   :root[data-ipad] :is(#sidebar, #sb-grip, #sb-scrim, #sblook, #tabs) { display: none !important; }
@@ -45,16 +46,18 @@
   :root[data-ipad] body:is([data-overview], [data-ip-blocks]) #ipad-tools { opacity: 0; transform: translateY(8px); pointer-events: none; }
 
   /* the bottom right: the active mode's rail (insert, format, style, information), lying down as a capsule; its panel above it */
-  :root[data-ipad] #rrail { top: auto; right: var(--ip-gap); bottom: var(--ip-bottom); height: var(--ip-size); padding: 0 2px; border-radius: var(--radius-pill); transform-origin: right bottom; translate: 0 10px; }
-  :root[data-ipad] body[data-rail] #rrail { translate: 0 0; }
-  :root[data-ipad] #rrail .rp-tabs { flex-direction: row; gap: 0; height: 100%; align-items: center; }
-  :root[data-ipad] #rrail .rp-tab { width: var(--ip-size); height: var(--ip-size); border-radius: 50%; }
-  :root[data-ipad] #rrail .rp-tab[data-tab="insert"] { order: 9; }
-  :root[data-ipad] #rrail .rp-tab[data-tab="insert"] > svg { width: 30px; height: 30px; padding: 6px; box-sizing: border-box; border-radius: 50%; background: var(--fg); color: var(--bg); stroke-width: 2.4; }
+  :root:is([data-ipad], [data-tiles]) #rrail { top: auto; right: var(--ip-gap); bottom: var(--ip-bottom); height: var(--ip-size); padding: 0 2px; border-radius: var(--radius-pill); transform-origin: right bottom; translate: 0 10px; }
+  :root:is([data-ipad], [data-tiles]) body[data-rail] #rrail { translate: 0 0; }
+  :root:is([data-ipad], [data-tiles]) #rrail .rp-tabs { flex-direction: row; gap: 0; height: 100%; align-items: center; }
+  :root:is([data-ipad], [data-tiles]) #rrail .rp-tab { width: var(--ip-size); height: var(--ip-size); border-radius: 50%; }
+  :root:is([data-ipad], [data-tiles]) #rrail .rp-tab[data-tab="insert"] { order: 9; }
+  :root:is([data-ipad], [data-tiles]) #rrail .rp-tab[data-tab="insert"] > svg { width: 30px; height: 30px; padding: 6px; box-sizing: border-box; border-radius: 50%; background: var(--fg); color: var(--bg); stroke-width: 2.4; }
   /* (the panel: between the bar at the top and the capsule at the foot, 12 px from each, over the keyboard when it is up) */
-  :root[data-ipad] #rpanel { top: calc(var(--ip-top) + var(--ip-size) + 12px); bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px) + var(--ip-size) + 12px); right: var(--ip-gap); height: auto; max-height: none; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: 100% 100%; }
-  :root[data-ipad] #rrail { bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px)); }
-  :root[data-ipad] body[data-ip-blocks] #rrail { opacity: 0; pointer-events: none; }
+  :root:is([data-ipad], [data-tiles]) #rpanel { top: calc(var(--ip-top) + var(--ip-size) + 12px); bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px) + var(--ip-size) + 12px); right: var(--ip-gap); height: auto; max-height: none; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: 100% 100%; }
+  :root:is([data-ipad], [data-tiles]) #rrail { bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px)); }
+  :root:is([data-ipad], [data-tiles]) body[data-ip-blocks] #rrail { opacity: 0; pointer-events: none; }
+  /* (in the application under a finger: the panel keeps its own top, under the tabs and the toolbar — viewer/touch.js) */
+  :root[data-tiles]:not([data-ipad]) #rpanel { top: calc(var(--sb-inset) + var(--rail-top)); }
 
   /* the settings: in All Notes, at its lower left (the note's corner is the capsule's) */
   :root[data-ipad] #settings-btn { left: var(--ip-gap) !important; bottom: var(--ip-bottom) !important; width: var(--ip-size); height: var(--ip-size); border-radius: 50%; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); color: var(--fg); }
@@ -73,59 +76,60 @@
   :root[data-ipad] .ov-sheet { border-radius: 20px; }
 
 }
-:root:not([data-ipad]) :is(#ipad-nav, #ipad-tools, .ip-bar, #ipad-panel) { display: none; }
+:root:not([data-ipad]) :is(#ipad-nav, #ipad-tools) { display: none; }
+:root:not([data-ipad]):not([data-tiles]) :is(.ip-bar, #ipad-panel) { display: none; }
 @media not ((min-width: 761px) and (min-height: 600px)) { :is(#ipad-nav, #ipad-tools) { display: none !important; } }
 @media print { :is(#ipad-nav, #ipad-tools, .ip-bar, #ipad-panel) { display: none !important; } }
 
-/* --- on an iPad of any width: no menu under a held finger — bars of tiles at the foot, and panels that rise from them
+/* --- on an iPad of any width, and in a wide window of the application while the hand is a finger: no menu under a held finger — bars of tiles at the foot, and panels that rise from them
  * (viewer/tablet.js): over blocks chosen in the note, and over tiles chosen in All Notes. Craft's: tiles in the colour of
  * what they do, a frosted panel with rows of a finger's height, colours as swatches. */
-:root[data-ipad] .ip-bar { position: fixed; z-index: 40; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 6px; max-width: calc(100vw - 24px); padding: 7px; box-sizing: border-box; border-radius: 24px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); translate: -50% 0; transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; transition: transform var(--dur-slow) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
-:root[data-ipad] .ip-bar::-webkit-scrollbar { display: none; }
-:root[data-ipad] body[data-ip-blocks] #ipad-blockbar, :root[data-ipad] body[data-ip-picking] #ipad-pickbar { transform: none; opacity: 1; pointer-events: auto; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
-:root[data-ipad] .ip-gap { flex: none; width: 1px; margin: 8px 1px; background: var(--line-strong); }
-:root[data-ipad] .ip-tile { --t: var(--c-blue); flex: none; display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 66px; height: 58px; padding: 0 8px; border: 0; border-radius: 15px; background: color-mix(in srgb, var(--t) 13%, var(--bg)); color: color-mix(in srgb, var(--t) 80%, var(--fg)); font: 500 11px/1.1 var(--ui); white-space: nowrap; touch-action: manipulation; transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out); }
-:root[data-ipad] .ip-tile > svg, :root[data-ipad] .ip-tile > .sf { width: 21px; height: 21px; font-size: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-:root[data-ipad] .ip-tile .ip-aa { font: 600 17px/21px var(--ui); }
-:root[data-ipad] .ip-tile:active { transform: scale(0.94); transition-duration: var(--dur-instant); }
-:root[data-ipad] .ip-tile[aria-expanded="true"] { background: color-mix(in srgb, var(--t) 24%, var(--bg)); }
-:root[data-ipad] .ip-tile.danger { color: var(--c-red); }
-:root[data-ipad] body:is([data-ip-blocks], [data-ip-picking]) :is(#ipad-tools, #rrail, #settings-btn) { opacity: 0 !important; pointer-events: none !important; }
+:root:is([data-ipad], [data-tiles]) .ip-bar { position: fixed; z-index: 40; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 6px; max-width: calc(100vw - 24px); padding: 7px; box-sizing: border-box; border-radius: 24px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); translate: -50% 0; transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; transition: transform var(--dur-slow) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+:root:is([data-ipad], [data-tiles]) .ip-bar::-webkit-scrollbar { display: none; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-blocks] #ipad-blockbar, :root:is([data-ipad], [data-tiles]) body[data-ip-picking] #ipad-pickbar { transform: none; opacity: 1; pointer-events: auto; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out); }
+:root:is([data-ipad], [data-tiles]) .ip-gap { flex: none; width: 1px; margin: 8px 1px; background: var(--line-strong); }
+:root:is([data-ipad], [data-tiles]) .ip-tile { --t: var(--c-blue); flex: none; display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 66px; height: 58px; padding: 0 8px; border: 0; border-radius: 15px; background: color-mix(in srgb, var(--t) 13%, var(--bg)); color: color-mix(in srgb, var(--t) 80%, var(--fg)); font: 500 11px/1.1 var(--ui); white-space: nowrap; touch-action: manipulation; transition: transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out); }
+:root:is([data-ipad], [data-tiles]) .ip-tile > svg, :root:is([data-ipad], [data-tiles]) .ip-tile > .sf { width: 21px; height: 21px; font-size: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root:is([data-ipad], [data-tiles]) .ip-tile .ip-aa { font: 600 17px/21px var(--ui); }
+:root:is([data-ipad], [data-tiles]) .ip-tile:active { transform: scale(0.94); transition-duration: var(--dur-instant); }
+:root:is([data-ipad], [data-tiles]) .ip-tile[aria-expanded="true"] { background: color-mix(in srgb, var(--t) 24%, var(--bg)); }
+:root:is([data-ipad], [data-tiles]) .ip-tile.danger { color: var(--c-red); }
+:root:is([data-ipad], [data-tiles]) body:is([data-ip-blocks], [data-ip-picking]) :is(#ipad-tools, #rrail, #settings-btn) { opacity: 0 !important; pointer-events: none !important; }
 /* the panel over the bar */
-:root[data-ipad] #ipad-panel { position: fixed; z-index: 41; left: var(--x, 12px); bottom: var(--y, 96px); width: 340px; max-height: calc(100vh - var(--y, 96px) - 24px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: var(--o, 50%) 100%; transform: scale(0.94) translateY(8px); opacity: 0; visibility: hidden; transition: transform var(--dur-fast) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
-:root[data-ipad] #ipad-panel[data-open] { transform: none; opacity: 1; visibility: visible; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
-:root[data-ipad] .ip-ph { padding: 10px 14px 4px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
-:root[data-ipad] .ip-pg { display: grid; padding-bottom: 6px; }
-:root[data-ipad] .ip-pg + .ip-ph, :root[data-ipad] .ip-pg + .ip-pg { border-top: 0.5px solid var(--line-strong); margin-top: 2px; padding-top: 6px; }
-:root[data-ipad] .ip-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: transparent; color: var(--fg); font: 400 17px/1.25 var(--ui); text-align: left; touch-action: manipulation; transition: background-color var(--dur-fast) var(--ease-out); }
-:root[data-ipad] .ip-row:active { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
-:root[data-ipad] .ip-row:disabled { color: var(--fg3); }
-:root[data-ipad] .ip-row.danger { color: var(--c-red); }
-:root[data-ipad] .ip-ri { display: grid; place-items: center; width: 22px; flex: none; color: var(--fg2); }
-:root[data-ipad] .ip-ri svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-:root[data-ipad] .ip-rl { flex: 1; min-width: 0; }
-:root[data-ipad] .ip-rc { color: var(--accent); }
-:root[data-ipad] .ip-rc svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-:root[data-ipad] .ip-pg.sw { grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 6px 10px; }
-:root[data-ipad] .ip-sw { display: grid; justify-items: center; gap: 4px; padding: 6px 0; border: 0; border-radius: 14px; background: transparent; color: var(--fg2); font: 400 12px/1.2 var(--ui); touch-action: manipulation; }
-:root[data-ipad] .ip-sw i { width: 34px; height: 34px; border-radius: 50%; background: var(--s); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
-:root[data-ipad] .ip-sw[aria-checked="true"] i { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
-:root[data-ipad] .ip-sw:active { background: var(--fill-pressed); }
+:root:is([data-ipad], [data-tiles]) #ipad-panel { position: fixed; z-index: 41; left: var(--x, 12px); bottom: var(--y, 96px); width: 340px; max-height: calc(100vh - var(--y, 96px) - 24px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: 8px; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: var(--o, 50%) 100%; transform: scale(0.94) translateY(8px); opacity: 0; visibility: hidden; transition: transform var(--dur-fast) var(--ease-exit), opacity var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+:root:is([data-ipad], [data-tiles]) #ipad-panel[data-open] { transform: none; opacity: 1; visibility: visible; transition: transform var(--spring-smooth-dur) var(--spring-smooth), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
+:root:is([data-ipad], [data-tiles]) .ip-ph { padding: 10px 14px 4px; font: 600 13px/1.3 var(--ui); color: var(--fg2); }
+:root:is([data-ipad], [data-tiles]) .ip-pg { display: grid; padding-bottom: 6px; }
+:root:is([data-ipad], [data-tiles]) .ip-pg + .ip-ph, :root:is([data-ipad], [data-tiles]) .ip-pg + .ip-pg { border-top: 0.5px solid var(--line-strong); margin-top: 2px; padding-top: 6px; }
+:root:is([data-ipad], [data-tiles]) .ip-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 14px; background: transparent; color: var(--fg); font: 400 17px/1.25 var(--ui); text-align: left; touch-action: manipulation; transition: background-color var(--dur-fast) var(--ease-out); }
+:root:is([data-ipad], [data-tiles]) .ip-row:active { background: var(--fill-pressed); transition-duration: var(--dur-instant); }
+:root:is([data-ipad], [data-tiles]) .ip-row:disabled { color: var(--fg3); }
+:root:is([data-ipad], [data-tiles]) .ip-row.danger { color: var(--c-red); }
+:root:is([data-ipad], [data-tiles]) .ip-ri { display: grid; place-items: center; width: 22px; flex: none; color: var(--fg2); }
+:root:is([data-ipad], [data-tiles]) .ip-ri svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:root:is([data-ipad], [data-tiles]) .ip-rl { flex: 1; min-width: 0; }
+:root:is([data-ipad], [data-tiles]) .ip-rc { color: var(--accent); }
+:root:is([data-ipad], [data-tiles]) .ip-rc svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+:root:is([data-ipad], [data-tiles]) .ip-pg.sw { grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px 6px 10px; }
+:root:is([data-ipad], [data-tiles]) .ip-sw { display: grid; justify-items: center; gap: 4px; padding: 6px 0; border: 0; border-radius: 14px; background: transparent; color: var(--fg2); font: 400 12px/1.2 var(--ui); touch-action: manipulation; }
+:root:is([data-ipad], [data-tiles]) .ip-sw i { width: 34px; height: 34px; border-radius: 50%; background: var(--s); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+:root:is([data-ipad], [data-tiles]) .ip-sw[aria-checked="true"] i { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+:root:is([data-ipad], [data-tiles]) .ip-sw:active { background: var(--fill-pressed); }
 /* All Notes while tiles are chosen: a check on each, the chosen ones lifted a little; the file menu asked for its entries stays out of sight */
-:root[data-ipad] body[data-ip-picking] #overview .ov-tile .ov-sheet::before { content: ""; position: absolute; z-index: 2; top: 10px; right: 10px; width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--fg) 35%, transparent); background: color-mix(in srgb, var(--bg) 70%, transparent); }
-:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked .ov-sheet::before { border: 0; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4L18 8'/%3E%3C/svg%3E") center / 15px no-repeat; }
-:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked .ov-sheet { transform: scale(1.03); box-shadow: 0 0 0 2px var(--accent), 0 14px 34px rgb(0 0 0 / 0.16); }
-:root[data-ipad] #overview .ov-tile.ip-held .ov-sheet { transform: scale(1.06); transition-duration: var(--dur-fast); }
-:root[data-ipad] body[data-ip-picking] #overview { padding-bottom: 120px; }
-:root[data-ipad] .ov-item { -webkit-user-drag: none; -webkit-touch-callout: none; }
-:root[data-ipad] body[data-ip-proxy] :is(#ctxmenu, #ctxsub) { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: none !important; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-picking] #overview .ov-tile .ov-sheet::before { content: ""; position: absolute; z-index: 2; top: 10px; right: 10px; width: 24px; height: 24px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--fg) 35%, transparent); background: color-mix(in srgb, var(--bg) 70%, transparent); }
+:root:is([data-ipad], [data-tiles]) body[data-ip-picking] #overview .ov-tile.picked .ov-sheet::before { border: 0; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4L18 8'/%3E%3C/svg%3E") center / 15px no-repeat; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-picking] #overview .ov-tile.picked .ov-sheet { transform: scale(1.03); box-shadow: 0 0 0 2px var(--accent), 0 14px 34px rgb(0 0 0 / 0.16); }
+:root:is([data-ipad], [data-tiles]) #overview .ov-tile.ip-held .ov-sheet { transform: scale(1.06); transition-duration: var(--dur-fast); }
+:root:is([data-ipad], [data-tiles]) body[data-ip-picking] #overview { padding-bottom: 120px; }
+:root:is([data-ipad], [data-tiles]) .ov-item { -webkit-user-drag: none; -webkit-touch-callout: none; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-proxy] :is(#ctxmenu, #ctxsub) { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; transition: none !important; }
 /* (the chosen tile carries its check and its lift: no ring around tile and name besides) */
-:root[data-ipad] body[data-ip-picking] #overview .ov-tile.picked { outline: none; background: none; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-picking] #overview .ov-tile.picked { outline: none; background: none; }
 /* undo and redo in the capsule at the bottom left: while writing; nothing to take back, dimmed (and they do nothing) */
-:root[data-ipad] #ipad-tools .ip-hist { display: none; }
-:root[data-ipad] body[data-view="active"] #ipad-tools .ip-hist { display: grid; }
-:root[data-ipad] #ipad-tools .ip-hist[aria-disabled="true"] { opacity: 0.35; }
+:root:is([data-ipad], [data-tiles]) #ipad-tools .ip-hist { display: none; }
+:root:is([data-ipad], [data-tiles]) body[data-view="active"] #ipad-tools .ip-hist { display: grid; }
+:root:is([data-ipad], [data-tiles]) #ipad-tools .ip-hist[aria-disabled="true"] { opacity: 0.35; }
 /* a tile of the Insert panel held by a finger: lifted, it goes with the finger */
-:root[data-ipad] #ip-ghost { position: fixed; z-index: 60; left: 0; top: 0; margin: 0; pointer-events: none; border-radius: 14px; background: var(--raised, var(--bg)); box-shadow: 0 16px 40px rgb(0 0 0 / 0.22), 0 0 0 0.5px var(--line-strong); opacity: 0.96; }
-:root[data-ipad] body[data-ip-dragging] #rpanel { opacity: 0.4; transition: opacity var(--dur-fast) var(--ease-out); }
-:root[data-ipad] #rpanel .rp-tile { -webkit-user-drag: none; -webkit-touch-callout: none; }
+:root:is([data-ipad], [data-tiles]) #ip-ghost { position: fixed; z-index: 60; left: 0; top: 0; margin: 0; pointer-events: none; border-radius: 14px; background: var(--raised, var(--bg)); box-shadow: 0 16px 40px rgb(0 0 0 / 0.22), 0 0 0 0.5px var(--line-strong); opacity: 0.96; }
+:root:is([data-ipad], [data-tiles]) body[data-ip-dragging] #rpanel { opacity: 0.4; transition: opacity var(--dur-fast) var(--ease-out); }
+:root:is([data-ipad], [data-tiles]) #rpanel .rp-tile { -webkit-user-drag: none; -webkit-touch-callout: none; }

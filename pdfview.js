@@ -19,7 +19,7 @@
   const T = window.MdStrings.t;
   const lib = window.pdfjsLib;
   let pressed = false; // (a button held: a selection being pulled, the page's scrollbar — the text stays: v.moving)
-  for (const [type, down] of [["pointerdown", true], ["pointerup", false], ["pointercancel", false]]) addEventListener(type, () => { pressed = down; }, { capture: true, passive: true });
+  for (const [type, down] of [["pointerdown", true], ["pointerup", false], ["pointercancel", false]]) addEventListener(type, (e) => { pressed = down && e.pointerType !== "touch"; }, { capture: true, passive: true }); // (a finger moves the pages: viewer/hand.js)
   const COLORS = { yellow: "#ffd000", red: "#ea5252", green: "#5ec269", blue: "#4a9cf0", purple: "#bb61e5" };
   const DEFAULT_COLOR = "yellow";
   const FORMATS = {
@@ -639,10 +639,83 @@
   const outlineLink = async (it) => { const pl = it.dest ? await placeOf(it.dest) : null; return pl ? `[[${basename(V.p.path)}#page=${pl.n}|${(it.title || "").trim() || stem(V.p.path) + ", page " + pl.n}]]` : null; };
   const pageLink = (n) => `[[${basename(V.p.path)}#page=${n}|${stem(V.p.path)}, page ${n}]]`;
 
+  /* Fingers on the pages where the web view does not move them as Safari does (WebKitGTK, the application on Linux:
+   * viewer/hand.js — it scrolled them by wheels of its own, and made the whole window larger under two fingers): one finger
+   * moves the pages and, let go while moving, throws them on; two size them, what lay under the middle between them staying
+   * under it, and move them with it. A tap stays the browser's (a link, a highlight); the region tool is left alone. */
+  function fingers(v) {
+    if (!(window.MdHand && window.MdHand.GTK)) return;
+    const SLACK = 8, at = new Map(); // fingers on the pages: id → { x, y }
+    let one = null, two = null, pulled = false, glide = 0;
+    const halt = () => { cancelAnimationFrame(glide); glide = 0; };
+    const span = () => { const [a, b] = [...at.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+    const move = (dx, dy) => { window.scrollBy({ top: -dy, behavior: "instant" }); if (v.box.hasAttribute("data-wide")) v.box.scrollLeft -= dx; };
+    v.box.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch" || v.rectTool || V !== v) return;
+      halt();
+      at.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (at.size === 1) { pulled = false; one = { id: e.pointerId, x0: e.clientX, y0: e.clientY, track: [{ t: e.timeStamp, x: e.clientX, y: e.clientY }] }; }
+      else if (at.size === 2) {
+        const m = span(), pg = v.pages.find((x) => x.div.getBoundingClientRect().bottom > m.y) || v.pages[v.pages.length - 1], r = pg.div.getBoundingClientRect();
+        two = { d: m.d, scale: v.scale, pg, fx: (m.x - r.left) / r.width, fy: (m.y - r.top) / r.height };
+        pulled = true; // (a finger that became two is no tap)
+      }
+    });
+    v.box.addEventListener("pointermove", (e) => {
+      const p = at.get(e.pointerId);
+      if (!p || V !== v) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y;
+      p.x = e.clientX; p.y = e.clientY;
+      if (two) {
+        const m = span();
+        if (two.d > 0 && m.d > 0) {
+          // what lay under the middle stays under it, wherever the middle goes (zoomTo keeps the place it is handed)
+          v.hold = { x: m.x, y: m.y, pg: two.pg, fx: two.fx, fy: two.fy, t: performance.now() };
+          pull(two.scale * (m.d / two.d), { x: m.x, y: m.y });
+        }
+        return;
+      }
+      if (!one || one.id !== e.pointerId) return;
+      if (!pulled && Math.hypot(e.clientX - one.x0, e.clientY - one.y0) < SLACK) return;
+      if (!pulled) { pulled = true; try { v.box.setPointerCapture(e.pointerId); } catch (x) { /* (a pointer made up by a test) */ } }
+      move(dx, dy);
+      one.track.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+      while (one.track.length > 2 && e.timeStamp - one.track[1].t > 120) one.track.shift();
+    });
+    const up = (e) => {
+      if (!at.delete(e.pointerId)) return;
+      if (at.size < 2) two = null;
+      const was = one && one.id === e.pointerId && !at.size ? one : null;
+      if (!at.size) one = null;
+      if (!was || !pulled || e.type !== "pointerup") return;
+      // let go while moving: the pages go on, slower and slower (as a page thrown on a phone)
+      // (how fast it moved at the end: over its last eighth of a second — none, if it rested before it let go)
+      const t = was.track, b = t[t.length - 1], a = t.find((x) => b.t - x.t <= 120) || b, dt = b.t - a.t;
+      if (dt <= 0 || e.timeStamp - b.t > 100) return;
+      let vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, then = performance.now();
+      if (Math.hypot(vx, vy) < 0.3 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const step = (now) => {
+        const ms = Math.min(32, now - then);
+        then = now;
+        move(vx * ms, vy * ms);
+        const k = Math.exp(-ms / 325);
+        vx *= k; vy *= k;
+        glide = Math.hypot(vx, vy) > 0.02 && V === v ? requestAnimationFrame(step) : 0;
+      };
+      glide = requestAnimationFrame(step);
+    };
+    v.box.addEventListener("pointerup", up);
+    v.box.addEventListener("pointercancel", up);
+    // (the web view's own scroll under the finger, and a click where a pull ended, are not to come as well)
+    v.box.addEventListener("touchmove", (e) => { if ((one || two) && e.cancelable) e.preventDefault(); }, { passive: false });
+    v.box.addEventListener("touchend", (e) => { if (pulled && e.cancelable) e.preventDefault(); }, { passive: false });
+  }
+
   function events() {
     const v = V;
     // a pen set on a page: it is there to draw (a finger and a mouse read and select, as before)
     v.box.addEventListener("pointerdown", (e) => { if (e.pointerType === "pen" && !v.rectTool && e.target.closest(".pdf-page")) { e.preventDefault(); drawOn(); } });
+    fingers(v);
     v.bar.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
