@@ -305,6 +305,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     too, on a hidden workspace (an output of its own) with the state of a rig, before a change to
     speed is called done. Rules 62–65, 69 and 75 hold all the same: whoever turns the renderer off
     (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) gets the processor's frames back.
+80. **What is replaced is not in the middle of a glide.** An opacity or transform that glides on a
+    container whose content is then put in anew (a dim while the next view is built) is cut off a
+    few frames in; with the GPU renderer WebKit kept the cut layer's old picture on the screen, under
+    what came (the tiles of All Notes, dimmed, behind an empty Whiteboards). Such a state is set at
+    once, or the glide is let run to its end before the content changes. A probe sees no fault
+    here — the page is right; `explorer.test.mjs` asks that `.ov-body` has no animation while it
+    changes.
 77. **What a pointer drives is done once a frame, at its last place.** A mouse moves several times
     a frame; work that measures the page (blocks under a rectangle, where a dragged block would
     go, the copy that goes with the pointer moved and measured) done at every move is done four
