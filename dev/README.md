@@ -123,6 +123,8 @@ does not hold — a picture that does not show, colours missing, a folder's note
 — ends the job, and the release has no Windows installer. (The system's own windows are tried and
 told of there, but nothing depends on them: keys typed at a window on a machine nobody sits at do
 not always arrive.)
+`dev/rig.sh reopen` runs the probe's whiteboard steps on Linux: a board drawn in the note, the app
+started again with the folder, the note chosen, the board opened with its stroke.
 
 ```sh
 gh workflow run system-probe.yml -f run=<the Build run's number>     # an installer, tried

@@ -76,6 +76,7 @@
 #   dev/rig.sh history               a folder made a project: commits after a quiet while, for a change from outside, at closing; the device named
 #   dev/rig.sh sync                  a project linked to a repository elsewhere (a bare one here): pushed, pulled, both joined
 #   dev/rig.sh share                  a note of a linked project shared from its window: the link, a password, shared no more
+#   dev/rig.sh reopen                what the Windows probe does: a whiteboard drawn in a note, the app started again with its folder, the note chosen: the board has the stroke
 #   dev/rig.sh newnote                New Note asks for nothing: "Untitled" at once, the caret in its title; named after the title when left alone a moment and when left; an old note's title is only its title
 #   dev/rig.sh fileundo               what was done to the files from All Notes taken back (Ctrl+Z) and done again (Ctrl+Shift+Z)
 #   dev/rig.sh slides                 a presentation (.pptx): its tile, the PDF viewer, one that cannot be read (needs LibreOffice)
@@ -1531,6 +1532,27 @@ PY
     ok "shared no more: nothing in the file, the window offers to share again" '[[ $(sh ".shares | length") == 0 && $(jq -c "[.stopped.link, .stopped.go]" "$R/out"/Note.md.share.json) == "[null,true]" ]]' 'cat "$A/.mdview/shares.json"; jq -c .stopped "$R/out"/Note.md.share.json'
     ok "… and nothing is marked any more" '[[ $(jq -c .unmarked "$R/out"/Note.md.share.json) == "[0,false]" ]]' 'jq -c .unmarked "$R/out"/Note.md.share.json'
     ok "nothing went wrong in the page" '[[ $(jq -r ".error // empty" "$R/out"/Note.md.share.json) == "" ]]' 'jq -r .error "$R/out"/Note.md.share.json'
+    exit $fail;;
+  reopen)
+    # what the Windows probe does (dev/system-probe.ps1, a release's windows-tried): a whiteboard made in a note and drawn on,
+    # the app started again with the note's folder, the note chosen there — the board opens with what was drawn on it
+    rm -rf "$R/work"; mkdir -p "$R/work/a/sub" "$R/work/outside"; A="$R/work/a"; rm -f "$R/out"/*.json; fail=0
+    ok() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1  ${3:+($(eval "$3" 2>&1 | head -4 | tr '\n' ' '))}"; fail=1; fi; }
+    for to in "$A/pic.png" "$R/work/outside/photo.png"; do cp "$D/tests/tauri-check/bild.png" "$to"; done
+    printf '# A note\n\nText with a [link](sub/Deep.md).\n\n![a picture](pic.png)\n\nLast paragraph.\n' > "$A/Note.md"; printf '# Deep\n\ntext\n' > "$A/sub/Deep.md"
+    { printf 'window.__probePicture = "file://%s";\n' "$R/work/outside/photo.png"; cat "$D/probe-windows.js"; } > "$R/work/probe.js"
+    wait_for() { for _ in $(seq "$2"); do ls "$R/out"/*."$1".json >/dev/null 2>&1 && return 0; sleep 0.1; done; echo "no report: $1"; tail -5 "$R/app.log"; pkill -f "^$APP" 2>/dev/null; exit 1; }
+    app 90 MDVIEW_PROBE="$R/work/probe.js" MDVIEW_PROBE_OUT="$R/out" -- "$A/Note.md"
+    wait_for windows 900; sleep 0.5; pkill -f "^$APP" 2>/dev/null; sleep 1
+    J="$R/out/Note.md.windows.json"
+    ok "a whiteboard made in the note, drawn on, kept and shut" '[[ $(jq -c "[.board.opened, .board.drawn, .board.kept, .board.shut, .board.again]" "$J") == "[true,1,true,true,true]" ]]' 'jq -c .board "$J"'
+    rm -f "$R/out"/*.json
+    app 60 MDVIEW_PROBE="$R/work/probe.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
+    wait_for first 600; sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    J=$(ls "$R/out"/*.first.json | head -1)
+    ok "started again with the folder: its notes in the sidebar" '[[ $(jq -r ".note.folder != null and (.sidebarRows | length) >= 2" "$J") == true ]]' 'jq -c "[.note, .sidebarRows]" "$J"'
+    ok "… and the note's whiteboard opens with what was drawn on it" '[[ $(jq -c "[.boardThere.opened, .boardThere.items]" "$J") == "[true,1]" ]]' 'jq -c "[.chose, .boardThere, .pictures]" "$J"'
+    ok "nothing went wrong in the page" '[[ $(jq -r "(.error // \"\") + (.errors | join(\";\"))" "$J") == "" ]]' 'jq -c "[.error, .errors]" "$J"'
     exit $fail;;
   sync)
     rm -rf "$R/work"; mkdir -p "$R/work/a"; cp "$D"/tests/fixtures/{basics,obsidian}.md "$R/work/a/"

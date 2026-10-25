@@ -19,7 +19,10 @@
   position: fixed; inset: 0; z-index: 58;
   background: var(--bg); color: var(--fg);
   font: 400 13px/16px var(--ui);
-  overflow: hidden; outline: none;
+  /* clip, not hidden: hidden is still a box that can be scrolled — by a focus, scrollIntoView, a tap the browser brings into
+     view — and the dots' layer reaches a step past the window (grid() in board.js): scrolled by that much, every place on the
+     board was taken that far from where the hand was (BUGS.md 79) */
+  overflow: hidden; overflow: clip; outline: none;
   transform-origin: 0 0;
   opacity: 0;
   transition: transform calc(var(--spring-gentle-dur) * 0.7) var(--ease-exit), opacity calc(var(--dur-slow) * 0.7) var(--ease-exit);

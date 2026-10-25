@@ -320,6 +320,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight
     (70 → 16 ms a frame). Only where the size is fixed: a row whose height comes from what is
     in it would jump when it comes into sight. `rig.sh sbscroll`.
+79. **What must never scroll is `overflow: clip`, not `hidden`.** A box with `overflow: hidden` is still
+    scrolled by a focus, `scrollIntoView` or a tap the browser brings into view, as soon as anything in it
+    reaches past its edge — the whiteboard's dots' layer does by one step (rule 77): scrolled by that much,
+    every place on the board was taken that far from the hand. `#board` is `clip`
+    (`web/test/board-touch.test.mjs`).
 
 66. **A key that comes from outside is no real key for WebKit.** `wtype` (a phone's screen mirror)
     sends every key with the hardware code of Escape (`e.code` is "Escape" for Backspace too); the

@@ -23,8 +23,14 @@
     o.toolbar = [...document.querySelectorAll("#toolbar .tb")].filter((b) => b.offsetParent).map((b) => b.dataset.act || b.dataset.mode || "?");
     o.pictures = [...document.querySelectorAll("#content img")].map((i) => ({ src: i.getAttribute("src").slice(0, 160), ok: i.complete && i.naturalWidth > 0, w: i.naturalWidth }));
     o.sidebarRows = [...document.querySelectorAll("#sidebar .sb-row")].slice(0, 12).map((r) => [r.textContent.trim().slice(0, 40), (r.dataset.real || r.dataset.path || "").slice(0, 120)]);
-    // a whiteboard that stands in the note already (the app started again, with the note of the run before): known by its
-    // picture's address alone, it opens with what was drawn on it
+    // a whiteboard that stands in the note already (the app started again, with the folder of the run before): known by its
+    // picture's address alone, it opens with what was drawn on it. A folder opens on All Notes, not on the note shown last
+    // (since 2026-10-14): the note is chosen in the sidebar first
+    if (!cur.path && document.querySelector('#sidebar .sb-row[data-real$="/Note.md"]')) {
+      document.querySelector('#sidebar .sb-row[data-real$="/Note.md"]').click();
+      o.chose = await until(() => MdView.core.current && document.querySelector("#content .board-block img"), 10000);
+      await sleep(800);
+    }
     const there = [...document.querySelectorAll("#content .board-block img")].find((i) => i.offsetParent);
     if (there) {
       const t = (o.boardThere = { address: String(there.src).slice(0, 90) });
