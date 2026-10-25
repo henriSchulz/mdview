@@ -90,6 +90,8 @@ for (const size of ["tablet", "phone"]) {
     s = await st();
     assert.deepEqual([s.things.length, s.picked.length, s.things[0].shape, s.things[0].fill], [1, 1, "rect", "none"], "the shape tool: a tap puts the shape of its tray there, chosen");
     assert.ok(Math.abs(s.things[0].x + s.things[0].w / 2 - (s.view.x + cx)) < 2, "… where the finger tapped");
+    // (the board itself is never scrolled — a tap Playwright brings into view scrolled it by the dots' step, and every place with it)
+    assert.deepEqual(await page.evaluate(() => { const b = document.getElementById("board"); b.scrollTo(40, 40); return [b.scrollLeft, b.scrollTop]; }), [0, 0], "the board is never scrolled");
     // ---- the lasso
     await sleep(700);
     await kind("lasso");
