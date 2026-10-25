@@ -89,7 +89,7 @@ export function fakeGitHub() {
       }
       const { owner, name, files } = gh.repo, at = `/repos/${owner}/${name}`;
       if (url.pathname === "/installation/repositories") return json({ repositories: [{ name: name, owner: { login: owner } }, { name: "Zeta", owner: { login: owner } }] }); // (as the app itself: where it is installed)
-      if (url.pathname === "/user") return json({ login: "octo", name: "Octo Cat", id: 42 });
+      if (url.pathname === "/user") return json(gh.user || { login: "octo", name: "Octo Cat", id: 42 }); // (gh.user: someone else signs in)
       if (url.pathname === "/user/installations") return json({ installations: gh.installed === false ? [] : [{ id: 7, html_url: "https://github.com/settings/installations/7", repository_selection: gh.selection || "selected", account: { login: "octo" } }] });
       // (a repository nothing was pushed to: its first file, put there by itself, makes the branch)
       if (req.method === "PUT" && url.pathname.startsWith(`${at}/contents/`)) {
