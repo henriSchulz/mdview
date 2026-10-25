@@ -888,8 +888,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   its place, `Ctrl+9` to the last. A tab can be pulled to another place; a right click has New
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
-- **Sidebar** (`Ctrl+Alt+S`): everything that lies in the folder — notes, folders, and every other
-  file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
+- **Sidebar** (`Ctrl+Alt+S`, or the button at the left of the tabs — not shown over All Notes):
+  everything that lies in the folder — notes, folders, and every other file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
   adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the

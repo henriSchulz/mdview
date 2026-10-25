@@ -60,7 +60,7 @@
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
 #   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
-#   dev/rig.sh panelfine             the panel at the right: closed by a press outside it (the note, the toolbar), kept by one on it, its rail, a menu; none in All Notes, nor its rail
+#   dev/rig.sh panelfine             the panel at the right: closed by a press outside it (the note, the toolbar), kept by one on it, its rail, a menu; none in All Notes, nor its rail, nor the sidebar's button
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips

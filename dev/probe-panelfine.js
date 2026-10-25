@@ -1,7 +1,8 @@
 /* Development probe (dev/rig.sh panelfine): the panel at the right (Insert, Format, Style, Info) and where it stands
  * (Henri, 2026-10-25): a press anywhere outside it — the note, the toolbar, the sidebar — closes it; a press on it, on its
  * rail or in a menu it opened leaves it open. In All Notes there is no panel and no rail at all: not seen, not to be
- * pressed, not opened by Ctrl+Alt+P — and it comes back as it was when All Notes is left. */
+ * pressed, not opened by Ctrl+Alt+P — and it comes back as it was when All Notes is left. Nor the sidebar's button at the
+ * top left (Henri, 2026-10-25), which is back with the note. */
 (async () => {
   const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -71,6 +72,8 @@
     ok("… nor its rail", gone(rail), o.inOverview.rail);
     const hit = document.elementFromPoint(innerWidth - 30, 200);
     ok("… nothing of it at the window's right to be pressed", !(hit && hit.closest("#rpanel, #rrail")), hit && (hit.id || hit.className));
+    const side = document.querySelector("#tabs .tab-side");
+    ok("… nor the sidebar's button at the top left", !!side && !side.getClientRects().length, side && getComputedStyle(side).display);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", ctrlKey: true, altKey: true, bubbles: true, cancelable: true }));
     await sleep(400);
     ok("… Ctrl+Alt+P there opens nothing", gone(el) && gone(rail), [getComputedStyle(el).visibility, getComputedStyle(rail).visibility]);
@@ -78,6 +81,7 @@
     await until(() => !MdOverview.isOpen);
     await sleep(600);
     ok("All Notes left: the rail is back beside the note", seen(rail), getComputedStyle(rail).visibility);
+    ok("… and the sidebar's button", side.getClientRects().length > 0, getComputedStyle(side).display);
   } catch (e) { o.error = String(e && e.stack || e); }
   o.errors = errs;
   out("panelfine", o);
