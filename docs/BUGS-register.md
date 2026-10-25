@@ -9,6 +9,7 @@ Newest first. *Guard* names the check; *no guard* means there is none yet.
 
 | What Henri saw | Why | Fixed by | Guard |
 |---|---|---|---|
+| "When one chooses and then does Format › Bold, it is applied to one block only" (blocks chosen by swipes, under a finger) | the bar's tiles were made once, when it came for the first block chosen; a swipe adding one more changes no class of the editor, so the bar stayed, and its commands knew only the first block (on the iPad too) | a tile asks what it does of the selection as it is when tapped (viewer/touch.js `_fresh`) | `web/test/linux-touch.test.mjs` (Bold: three in a row, two apart, three swiped) |
 | In the application under a finger "the iPad menu appears in the document, but the submenus are not there yet", and All Notes had none of it | the bar's tiles and its panel's rows prevent their pointerdown (a tap leaves the note's selection as it is), and WebKitGTK then sends no click after the tap — Chromium does, so the web test passed; All Notes' choosing by a held finger was still the iPad's alone | the finger's lift is the click there (viewer/touch.js `tapped`, a click after it not taken twice); All Notes' choosing moved into viewer/touch.js, the held finger's menu left out over its tiles | `dev/rig.sh gtktouch` (dev/gtktouch/tiles.html, against the touch.js before); `web/test/linux-touch.test.mjs` (All Notes) |
 
 ### 2026-10-24

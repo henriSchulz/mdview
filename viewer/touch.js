@@ -93,7 +93,10 @@
   function barClick(e) {
     const b = e.target.closest("[data-t]");
     if (!b) return;
-    const t = e.currentTarget._tiles[+b.dataset.t];
+    const el = e.currentTarget, was = el._tiles[+b.dataset.t];
+    // (what the tile does, asked of the selection as it is now: blocks added after the bar came — a swipe on one more —
+    // are in it; the bar stays as it stands. Henri, 2026-10-25: Bold made only the first of them bold)
+    const t = (el._fresh && el._fresh().find((x) => x && x !== "|" && x.label === was.label)) || was;
     if (t.panel) openPanel(b, t.panel());
     else { closePanel(); t.run(); }
   }
@@ -141,6 +144,7 @@
     if (barFor === view && body.hasAttribute("data-ip-blocks")) return;
     barFor = view;
     fillBar(bar, blockTiles(view));
+    bar._fresh = () => blockTiles(view);
     body.toggleAttribute("data-ip-blocks", true);
   }
   function hideBar() { barFor = null; closePanel(); body.removeAttribute("data-ip-blocks"); }

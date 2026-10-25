@@ -405,6 +405,9 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     WebKitGTK sends no click after a tap whose pointerdown was prevented: what keeps the note's selection
     that way (the bars, their panels) takes the finger's lift as the click (viewer/touch.js `tapped`) —
     checked in WebKitGTK (`rig.sh gtktouch`, after `rig.sh start`), Chromium shows nothing of it.
+    What a bar's tile does is asked of the selection when it is tapped, not when the bar came: blocks
+    are added to a selection without the bar coming again (a swipe on one more). A check of it chooses
+    by swipes, not by `MdActive.blocks.select` — that one hands the bar the whole selection at once.
 
 ### Releases and installs
 

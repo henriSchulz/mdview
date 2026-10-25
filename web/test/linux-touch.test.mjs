@@ -31,6 +31,7 @@ before(async () => {
   gh.repo.files.set("Home.md", Buffer.from("# Home\n\n[[paper.pdf]]\n"));
   gh.repo.files.set("paper.pdf", readFileSync(join(fixtures, "paper.pdf")));
   gh.repo.files.set("Blocks.md", Buffer.from("# Blocks\n\n" + Array.from({ length: 24 }, (_, i) => `Paragraph ${i + 1} of the note, with enough words in it to fill a line and wrap onto the next one.`).join("\n\n") + "\n"));
+  gh.repo.files.set("Bold.md", Buffer.from("# Bold\n\n" + Array.from({ length: 16 }, (_, i) => `Paragraph ${i + 1} of the note, with enough words in it to fill a line and wrap onto the next one.`).join("\n\n") + "\n"));
   gh.repo.files.set(".mdview/project.json", Buffer.from("{\"id\":\"x\",\"version\":1}"));
   const at = await gh.listen(), port = await freePort();
   base = `http://127.0.0.1:${port}`;
@@ -252,5 +253,51 @@ test("linux: All Notes under a finger — a tile held is chosen, a tap chooses o
   await p.mouse.click(5, 400);
   await p.waitForTimeout(400);
   assert.equal(await shown("#ipad-pickbar"), false, "a mouse: the bar is gone");
+  await context.close();
+});
+
+test("linux: blocks chosen together — Format › Bold from the bar makes all of them bold (Henri, 2026-10-25: only one was)", async () => {
+  const { context, page: p } = await device(true, "Bold.md");
+  const rect = (sel) => p.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }, sel);
+  const tap = async (sel) => { const r = await rect(sel); await p.touchscreen.tap(r.x + r.w / 2, r.y + r.h / 2); await p.waitForTimeout(600); };
+  const posOf = (n) => p.evaluate((k) => { let at = -1; MdActive.view.pm.state.doc.descendants((x, off) => { if (at < 0 && x.type.name === "paragraph" && x.textContent.startsWith(`Paragraph ${k} `)) { at = off; return false; } }); return at; }, n);
+  const bold = (ns) => p.evaluate((ks) => ks.map((k) => { let b = null; MdActive.view.pm.state.doc.descendants((x) => { if (b === null && x.type.name === "paragraph" && x.textContent.startsWith(`Paragraph ${k} `)) { let all = true; x.forEach((t) => { if (!t.marks.some((m) => m.type.name === "strong")) all = false; }); b = all; return false; } }); return b; }), ns);
+  const boldFromBar = async () => {
+    const t = await p.evaluate(() => [...document.querySelectorAll("#ipad-blockbar .ip-tile")].find((x) => x.querySelector("span").textContent === "Format").dataset.t);
+    await tap(`#ipad-blockbar [data-t="${t}"]`);
+    const r = await p.evaluate(() => [...document.querySelectorAll("#ipad-panel [data-r]")].find((b) => b.textContent.trim() === "Bold").dataset.r);
+    await tap(`#ipad-panel [data-r="${r}"]`);
+  };
+  await p.evaluate(() => MdView.setMode("active"));
+  await p.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm, null, { timeout: 15000 });
+  await p.waitForTimeout(700);
+  await tap("#active .pm > p:nth-of-type(2)"); // (the hand a finger)
+  // three in a row
+  await p.evaluate(async ([a, b]) => { const v = MdActive.view.pm; MdActive.blocks.select(v, a, false); MdActive.blocks.select(v, b, true); }, [await posOf(1), await posOf(3)]);
+  await p.waitForTimeout(400);
+  assert.equal(await p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).length), 3, "three chosen");
+  await boldFromBar();
+  assert.deepEqual(await bold([1, 2, 3]), [true, true, true], "all three in a row bold");
+  // one here, one there (as a swipe adds them)
+  await p.evaluate(async ([a, b]) => { const v = MdActive.view.pm; MdActive.blocks.select(v, a, false); MdActive.blocks.toggle(v, b); }, [await posOf(5), await posOf(8)]);
+  await p.waitForTimeout(400);
+  assert.equal(await p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).length), 2, "two chosen apart");
+  await boldFromBar();
+  assert.deepEqual(await bold([5, 8]), [true, true], "both apart bold");
+  // chosen by the finger itself: a swipe to the right on each
+  const cdp = await context.newCDPSession(p), touch = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y]) => ({ x, y })) });
+  await p.evaluate(() => { const v = MdActive.view.pm; v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, 1))); v.dom.blur(); });
+  await p.waitForTimeout(400);
+  for (const k of [10, 11, 13]) {
+    const at = await p.evaluate((n) => { const e = [...document.querySelectorAll("#active .pm > p")].find((x) => x.textContent.startsWith(`Paragraph ${n} `)); e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return [r.left + 40, r.top + 10]; }, k);
+    await p.waitForTimeout(200);
+    await touch("touchStart", [at]);
+    for (let i = 1; i <= 12; i++) { await touch("touchMove", [[at[0] + i * 14, at[1]]]); await p.waitForTimeout(16); }
+    await touch("touchEnd", []);
+    await p.waitForTimeout(700);
+  }
+  assert.equal(await p.evaluate(() => MdActive.blocks.picked(MdActive.view.pm.state).length), 3, "three chosen by swipes");
+  await boldFromBar();
+  assert.deepEqual(await bold([10, 11, 13]), [true, true, true], "all three swiped bold");
   await context.close();
 });
