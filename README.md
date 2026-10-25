@@ -52,7 +52,11 @@ The fonts Inter and JetBrains Mono Nerd Font are used where they are installed.
 
 The page (`viewer.js` and what it loads) is read from the checkout at every
 start: a change to it needs no build, only a new window. A change to
-`src-tauri` needs `cargo build`.
+`src-tauri` needs `cargo build`. The installer links `bin/mdview-post-merge` as the checkout's
+Git `post-merge` hook, so a `git pull` or merge does that by itself: a change to `src-tauri` is
+built in the background (its log in `~/.cache/mdview/build.log`), and a notification says when
+a restart brings the new version — or that the build failed. A merge in another worktree of the
+checkout does nothing.
 
 ## What goes over the network
 

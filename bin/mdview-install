@@ -12,6 +12,7 @@
 #                          the quick notes (mdview --quick)
 #   default application    text/markdown opens here (xdg-open, file managers)
 #   ~/.claude/skills/mdview-notes   the Claude skill for writing notes (a link into this checkout)
+#   .git/hooks/post-merge  after a merge here, the app is built anew where needed (bin/mdview-post-merge)
 set -euo pipefail
 src="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
@@ -38,6 +39,17 @@ install -m644 "$src/packaging/mdview.svg" "$icons/mdview.svg"
 if [[ -d $HOME/.claude ]]; then
   install -dm755 "$HOME/.claude/skills"
   [[ -e $HOME/.claude/skills/mdview-notes && ! -L $HOME/.claude/skills/mdview-notes ]] || ln -sfn "$src/skill/mdview-notes" "$HOME/.claude/skills/mdview-notes"
+fi
+
+# After a merge into this checkout the app brings itself up to date (bin/mdview-post-merge): a
+# hook of Git's own, never one that was there before (that one is left as it is, and said).
+hooks="$(git -C "$src" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/hooks"
+if [[ -d $hooks ]]; then
+  if [[ -e $hooks/post-merge && ! -L $hooks/post-merge ]]; then
+    echo "a post-merge hook of your own is in $hooks — the app does not update itself after a merge" >&2
+  else
+    ln -sfn "$src/bin/mdview-post-merge" "$hooks/post-merge"
+  fi
 fi
 
 command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
