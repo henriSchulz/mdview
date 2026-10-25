@@ -27,7 +27,7 @@ $$
 
 | Where   | How                          |
 | ------- | ---------------------------- |
-| Desktop | an app for Linux             |
+| Desktop | an app for Windows and Linux |
 | Browser | sign in with GitHub          |
 | A link  | read only, for whoever has it |
 
@@ -172,7 +172,7 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
     <p class='hero__p'>A fast, beautiful editor for Markdown files in your own Git repository. Formulas, code, circuits and diagrams, the way engineering and computer science are written down.</p>
     <div class='hero__go'>
       <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
-      <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>
+      <a class='btn' href='${here}/download'>${DOWN}<span>Get the desktop app</span></a>
     </div>
     <a class='hero__cue' href='#write'><span>See what it does</span><svg viewBox='0 0 16 16' aria-hidden='true'><path d='M8 2.5v10m0 0L4 8.6m4 3.9 4-3.9' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg></a>
     <div class='chips' aria-hidden='true'>
@@ -182,7 +182,7 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
       <code class='chip' style='--x:47;--y:-1;--z:.5;--i:6'>&#96;&#96;&#96;verilog</code><code class='chip' style='--x:-24;--y:-36;--z:.7;--i:7'>&gt; [!tip]</code>
     </div>
   </header>
-  <noscript><p class='nojs'>This page shows the app at work and needs JavaScript. <a href='${here}/signin'>Sign in with GitHub</a> or <a href='${REPOSITORY}#install'>get the desktop app</a>.</p></noscript>
+  <noscript><p class='nojs'>This page shows the app at work and needs JavaScript. <a href='${here}/signin'>Sign in with GitHub</a> or <a href='${here}/download'>get the desktop app</a>.</p></noscript>
 </section>
 
 <section id='write' class='stage write' aria-labelledby='write-h'>
@@ -246,8 +246,8 @@ ${icons(here)}<meta name='theme-color' content='#e9e9ee' media='(prefers-color-s
       <p class='go__p'>This is the app, running in your browser. Type in it, then open your own notes.</p>
       ${why ? `<p class='go__why' role='status'>${attr(why)}</p>` : ""}
       <a class='btn btn--main' href='${here}/auth/login'>${GITHUB}<span>Sign in with GitHub</span></a>
-      <a class='btn' href='${REPOSITORY}#install'>${DOWN}<span>Get the desktop app</span></a>
-      <p class='go__small'>Free and open source. The desktop app is built from its source, for Linux. <a href='${REPOSITORY}'>github.com/henriSchulz/mdview</a></p>
+      <a class='btn' href='${here}/download'>${DOWN}<span>Get the desktop app</span></a>
+      <p class='go__small'>Free and open source. The desktop app is for Windows and Linux. <a href='${REPOSITORY}'>github.com/henriSchulz/mdview</a></p>
     </div>
 </section>
 

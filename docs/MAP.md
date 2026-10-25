@@ -56,6 +56,7 @@ or the tests see the old ones.
 | `board*`, `pdfview.*`, `overview.*`, `ai.*` | the rig cases of that name; whiteboards on touch: `cd web && npm test` |
 | `src-tauri/src` | `cd src-tauri && cargo test`; the rig cases of what the change is about |
 | `web/`, or a message between page and shell | `cd web && npm test` |
+| a release's files (`packaging/release-name.sh`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
 
 `npm test` and `dev/rig.sh` say only what fails and how many checks held; every line:
 `npm run test:all`, `RIG_ALL=1 dev/rig.sh …`.
@@ -207,6 +208,7 @@ or the tests see the old ones.
 | File | What is in it |
 |---|---|
 | `web/lib/app.ts` | The GitHub App acting as itself, not as a user: for a note that was shared, read by someone who is not signed … |
+| `web/lib/download.ts` | The download page's ground (app/download): the latest release of the desktop app, read from GitHub, its files … |
 | `web/lib/firestore.ts` | Firestore, as far as the app needs it, spoken to over its REST interface: no library, and nothing to bundle. |
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
