@@ -1,0 +1,48 @@
+#!/bin/bash
+# After a merge into the installed checkout, the app is brought up to date by itself — Git runs this
+# as its post-merge hook (bin/mdview-install links it into the checkout's .git/hooks).
+#
+# The installed app runs straight out of this checkout: the page's files (viewer/, active/, the
+# sheets) are read when it starts, so for them a restart is enough; the program itself
+# (src-tauri/) has to be built anew. Which of the two the merge changed decides what happens:
+#
+#   src-tauri/ changed   cargo build --release, in the background (the merge does not wait), then
+#                        a notification: restart to update — or that the build failed, and where
+#                        its log is
+#   only the page        a notification: restart to update
+#   neither              nothing
+#
+# A merge in another worktree (they share the hooks) is not the installed app's and does nothing.
+# MDVIEW_HOOK_BUILD and MDVIEW_HOOK_NOTIFY stand in for the build and the notification in the
+# test (dev/tests/post-merge.test.mjs).
+src="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+here="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[[ $(readlink -f "$here") == "$(readlink -f "$src")" ]] || exit 0
+
+changed="$(git diff --name-only HEAD@{1} HEAD 2>/dev/null)" || exit 0
+[[ -n $changed ]] || exit 0
+
+notify() {
+  if [[ -n $MDVIEW_HOOK_NOTIFY ]]; then "$MDVIEW_HOOK_NOTIFY" "$1" "$2"
+  elif command -v notify-send >/dev/null; then notify-send -a "Markdown Notes" "$1" "$2"
+  fi
+}
+
+if grep -q '^src-tauri/' <<<"$changed"; then
+  log="${XDG_CACHE_HOME:-$HOME/.cache}/mdview/build.log"
+  mkdir -p "$(dirname "$log")"
+  # (one build at a time: a second merge while one runs waits for it, then builds what it brought)
+  (
+    exec 9>"$log.lock"
+    flock 9
+    if (cd "$src/src-tauri" && if [[ -n $MDVIEW_HOOK_BUILD ]]; then "$MDVIEW_HOOK_BUILD"; else cargo build --release; fi) >"$log" 2>&1; then
+      notify "Markdown Notes updated" "Restart the app to use the new version."
+    else
+      notify "Markdown Notes: the build failed" "The app was not updated. See $log"
+    fi
+  ) </dev/null >/dev/null 2>&1 &
+  disown
+elif grep -qE '^(viewer/|active/|[^/]+\.(js|css)$)' <<<"$changed"; then
+  notify "Markdown Notes updated" "Restart the app to use the new version."
+fi
+exit 0
