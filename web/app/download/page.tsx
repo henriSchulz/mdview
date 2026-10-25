@@ -1,105 +1,110 @@
 // The desktop app to download: the files of its latest release on GitHub, for Windows and Linux
-// (macOS shown, not there yet), the visitor's own system first. Open to everyone (proxy.ts); /install
-// comes here too (next.config.ts). What the release is, is asked of GitHub (lib/download.ts) — where
-// GitHub cannot be reached, every button goes to the releases there instead.
+// (macOS shown, not there yet). Three tall cards side by side, always in the same order; the card
+// of the visitor's own system stands raised and carries the strong button, the others stay flat
+// (Henri chose it from dev/download-lab.html, approach 2). Open to everyone (proxy.ts); /install
+// comes here too (next.config.ts). What the release is, is asked of GitHub (lib/download.ts) —
+// where GitHub cannot be reached, every button goes to the releases there instead.
 import { RELEASES, latestRelease, pick, systemOf, type Arch, type Asset, type Kind, type Release, type System } from "@/lib/download";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
-export const dynamic = "force-dynamic"; // (the visitor's system decides the order; the release itself is kept for an hour)
+export const dynamic = "force-dynamic"; // (the visitor's system decides which card is raised; the release itself is kept for an hour)
 export const metadata: Metadata = { title: "Download Markdown Notes", description: "Markdown Notes for Windows and Linux.", robots: { index: true, follow: true } };
 
+const icon = (d: React.ReactNode) => <svg viewBox="0 0 24 24" aria-hidden="true">{d}</svg>;
 const SIGN: Record<System, React.ReactNode> = {
-  windows: <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M3.5 9h17M12 9v10.5" /></svg>,
-  linux: <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M12.5 15.5h4" /></svg>,
-  macos: <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="10" rx="2" /><path d="M3 18.5h18" /></svg>,
+  windows: icon(<><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M3.5 9h17M12 9v10.5" /></>),
+  linux: icon(<><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="m7.5 10 3 2.5-3 2.5M12.5 15.5h4" /></>),
+  macos: icon(<><rect x="5" y="5" width="14" height="10" rx="2" /><path d="M3 18.5h18" /></>),
 };
-const DOWN = <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75v8.5m0 0L4.75 7M8 10.25 11.25 7M2.75 13.25h10.5" /></svg>;
-const NAME: Record<System, string> = { windows: "Windows", linux: "Linux", macos: "macOS" };
+const DOWN = icon(<path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" />);
+const REFRESH = icon(<path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4" />);
+const GLOBE = icon(<><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.3 2.4 3.5 5.2 3.5 8.5s-1.2 6.1-3.5 8.5c-2.3-2.4-3.5-5.2-3.5-8.5S9.7 5.9 12 3.5Z" /></>);
+const VERSION = icon(<path d="M6 4v16M6 8h8a4 4 0 0 1 0 8H6" />);
 
 const mb = (a?: Asset) => (a && a.size ? `${Math.max(1, Math.round(a.size / 1e6))} MB` : "");
 const when = (iso: string) => { const t = Date.parse(iso); return Number.isFinite(t) ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : ""; };
+/** Where a file is: its own link, or — where the release has no such file, or was not read — the releases on GitHub. */
+const href = (release: Release | null, a?: Asset) => (a ? a.url : release?.page || RELEASES);
 
-/** A file to download: its own link, or — where the release has no such file, or was not read — the releases on GitHub. */
-function Get({ release, system, arch, kind, main, children }: { release: Release | null; system: System; arch: Arch; kind: Kind; main?: boolean; children: React.ReactNode }) {
-  const a = pick(release, system, arch, kind);
+/** A card: its sign, name and what it runs on; raised, with the badge and the strong button, where it is the visitor's. */
+function Card({ system, mine, later, children }: { system: System; mine: boolean; later?: boolean; children: React.ReactNode }) {
+  const name = system === "windows" ? "Windows" : system === "linux" ? "Linux" : "macOS";
   return (
-    <a className={main ? "button dl-main" : "dl-file"} href={a ? a.url : release?.page || RELEASES} data-file={a?.name || ""} title={a?.name}>
-      {main ? DOWN : null}{children}{!main && a ? <small>{mb(a)}</small> : null}
-    </a>
+    <section className={`dl-card${mine ? " dl-mine" : ""}${later ? " dl-later" : ""}`} data-system={system} aria-labelledby={`dl-${system}`}>
+      {mine ? <span className="dl-badge">Your system</span> : null}
+      <div className="dl-glyph">{SIGN[system]}</div>
+      <h2 id={`dl-${system}`}>{name}</h2>
+      {children}
+    </section>
   );
 }
 
 function Windows({ release, mine }: { release: Release | null; mine: boolean }) {
   const a = pick(release, "windows", "x64", "setup");
   return (
-    <section className="dl-card" data-system="windows" aria-labelledby="dl-windows">
-      <header className="dl-head"><span className="book-sign">{SIGN.windows}</span><h2 id="dl-windows">Windows</h2>{mine ? <span className="dl-mine">Your system</span> : null}</header>
-      <p className="dl-about">Windows 10 and 11, Intel or AMD (x64).</p>
-      <div className="dl-go"><Get release={release} system="windows" arch="x64" kind="setup" main>Download for Windows</Get>{a ? <small className="dl-size">{mb(a)}</small> : null}</div>
-      <p className="dl-note">The installer is not signed yet, so Windows warns before it runs it: choose <b>More info</b>, then <b>Run anyway</b>.</p>
-    </section>
+    <Card system="windows" mine={mine}>
+      <p className="dl-req">Windows 10 and 11<br />Intel or AMD</p>
+      <a className={mine ? "dl-btn" : "dl-btn dl-soft"} href={href(release, a)} data-file={a?.name || ""} title={a?.name}>{DOWN}Download</a>
+      <p className="dl-size">Installer{a ? ` · ${mb(a)}` : ""}</p>
+      <p className="dl-tip">Not signed yet: Windows asks first — <b>More info</b>, then <b>Run anyway</b>.</p>
+    </Card>
   );
 }
 
-const LINUX: [Kind, string, string][] = [
-  ["appimage", "AppImage", "Any distribution. Make it executable, then start it."],
-  ["deb", ".deb", "Debian, Ubuntu, Mint."],
-  ["rpm", ".rpm", "Fedora, openSUSE."],
-];
+const CHIPS: [Arch, Kind, string][] = [["arm64", "appimage", "AppImage arm64"], ["x64", "deb", ".deb"], ["arm64", "deb", ".deb arm64"], ["x64", "rpm", ".rpm"], ["arm64", "rpm", ".rpm arm64"]];
 function Linux({ release, mine }: { release: Release | null; mine: boolean }) {
+  const a = pick(release, "linux", "x64", "appimage");
   return (
-    <section className="dl-card" data-system="linux" aria-labelledby="dl-linux">
-      <header className="dl-head"><span className="book-sign">{SIGN.linux}</span><h2 id="dl-linux">Linux</h2>{mine ? <span className="dl-mine">Your system</span> : null}</header>
-      <p className="dl-about">x64 is for Intel and AMD processors, arm64 for ARM.</p>
-      <div className="dl-rows">
-        {LINUX.map(([kind, name, about]) => (
-          <div className="dl-row" key={kind}>
-            <span className="dl-what"><b>{name}</b><small>{about}</small></span>
-            <Get release={release} system="linux" arch="x64" kind={kind}>x64</Get>
-            <Get release={release} system="linux" arch="arm64" kind={kind}>arm64</Get>
-          </div>
-        ))}
+    <Card system="linux" mine={mine}>
+      <p className="dl-req">Any distribution<br />x64 and arm64</p>
+      <a className={mine ? "dl-btn" : "dl-btn dl-soft"} href={href(release, a)} data-file={a?.name || ""} title={a?.name}>{DOWN}Download AppImage</a>
+      <p className="dl-size">x64{a ? ` · ${mb(a)}` : ""}</p>
+      <div className="dl-chips">
+        {CHIPS.map(([arch, kind, label]) => {
+          const f = pick(release, "linux", arch, kind);
+          return <a key={label} className="dl-chip" href={href(release, f)} data-file={f?.name || ""} title={f?.name}>{label}{f ? <small> {mb(f)}</small> : null}</a>;
+        })}
       </div>
-    </section>
+    </Card>
   );
 }
 
 function Mac({ mine }: { mine: boolean }) {
   return (
-    <section className="dl-card dl-later" data-system="macos" aria-labelledby="dl-macos">
-      <header className="dl-head"><span className="book-sign">{SIGN.macos}</span><h2 id="dl-macos">macOS</h2>{mine ? <span className="dl-mine">Your system</span> : null}</header>
-      <p className="dl-about">For Macs with Apple silicon.</p>
-      <div className="dl-go"><span className="button dl-main" aria-disabled="true">{DOWN}Coming soon</span></div>
-      <p className="dl-note">Not released yet. Meanwhile, the app works in the browser.</p>
-    </section>
+    <Card system="macos" mine={mine} later>
+      <p className="dl-req">Apple silicon<br />&nbsp;</p>
+      <span className="dl-btn dl-soft" aria-disabled="true">Coming soon</span>
+      <p className="dl-size">&nbsp;</p>
+      <p className="dl-tip">Meanwhile: <a className="dl-link" href="/">use it in the browser</a>.</p>
+    </Card>
   );
 }
 
 export default async function Download() {
   const [agent, release] = [(await headers()).get("user-agent"), await latestRelease()];
   const mine = systemOf(agent);
-  const order: System[] = ["windows", "linux", "macos"];
-  if (mine) order.sort((a, b) => Number(b === mine) - Number(a === mine));
-  const card = (s: System) => s === "windows" ? <Windows key={s} release={release} mine={s === mine} /> : s === "linux" ? <Linux key={s} release={release} mine={s === mine} /> : <Mac key={s} mine={s === mine} />;
   const date = release ? when(release.published) : "";
   return (
     <main className="dl" data-mine={mine || ""}>
       <header className="dl-top">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="home-icon" src="/welcome/icon.svg" alt="" width={44} height={44} />
-        <div className="home-hello">
-          <h1>Markdown Notes for {mine && mine !== "macos" ? NAME[mine] : "your computer"}</h1>
-          {release
-            ? <p>Version {release.version}{date ? <> · released {date}</> : null} · <a className="dl-link" href={release.page}>What is new</a></p>
-            : <p role="status">The latest release could not be read from GitHub just now. <a className="dl-link" href={RELEASES}>Find it on GitHub</a></p>}
-        </div>
+        <img src="/welcome/icon.svg" alt="" width={56} height={56} />
+        <h1>Get Markdown Notes</h1>
+        {release
+          ? <p>Version {release.version}{date ? <> · {date}</> : null} · <a className="dl-link" href={release.page}>What’s new</a></p>
+          : <p role="status">The latest release could not be read from GitHub just now. <a className="dl-link" href={RELEASES}>Find it on GitHub</a></p>}
       </header>
-      <div className="dl-cards">{order.map(card)}</div>
-      <footer className="dl-foot">
-        <a className="dl-link" href={RELEASES}>All releases on GitHub</a>
-        <a className="dl-link" href="/">Use it in the browser</a>
-      </footer>
+      <div className="dl-trio">
+        <Windows release={release} mine={mine === "windows"} />
+        <Linux release={release} mine={mine === "linux"} />
+        <Mac mine={mine === "macos"} />
+      </div>
+      <div className="dl-strip">
+        <div>{REFRESH}<span><b>Stays up to date</b>The AppImage and the Windows app update themselves.</span></div>
+        <div>{GLOBE}<span><b>Or in the browser</b>The same notes, signed in with GitHub. <a className="dl-link" href="/">Open</a></span></div>
+        <div>{VERSION}<span><b>Every version</b>Older releases and their notes are on <a className="dl-link" href={RELEASES}>GitHub</a>.</span></div>
+      </div>
     </main>
   );
 }

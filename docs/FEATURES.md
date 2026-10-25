@@ -1180,7 +1180,10 @@ counts — and has no writing help by a model.
   offers the files of the desktop app's latest release on GitHub — Windows (the installer, with a
   word that it is not signed and Windows warns), Linux (AppImage, .deb and .rpm, each for x64 and
   arm64) and macOS, shown but not released yet ("Coming soon") — with the release's version and
-  date. The visitor's own system, read from the browser, comes first and is marked. The release is
+  date. Three tall cards, always Windows, Linux, macOS: the visitor's own system, read from the
+  browser, stands raised with *Your system* and the strong button (in a narrow window it comes
+  first); Linux has its AppImage as the button and the other files as small chips. Below: that the
+  AppImage and the Windows app update themselves, the browser, and every version. The release is
   asked of GitHub at most once an hour; where GitHub cannot be reached, the page says so and every
   button leads to the releases on GitHub. A release's files are named
   `MarkdownNotes-<version>-<system>-<arch>.<ext>` (from the release after v0.1.4 on; the page understands the older
