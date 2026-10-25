@@ -70,10 +70,11 @@
     // … and where it cannot be shared from yet: what is missing, to be done from here
     fix = el("button", { class: "btn primary", type: "button" });
     fix.onclick = () => {
-      const need = state && state.need, folder = window.MdView.core.folder;
+      const need = needOf(state), folder = window.MdView.core.folder;
       close();
       if (need === "history" && folder) post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
       else if (need === "link" && A.prefs) A.prefs.open("history");
+      else if (need === "conflict" && A.conflict) A.conflict.open();
     };
     foot.append(stop, el("span"), back, go, fix);
     box.append(head, card, down, foot);
@@ -121,13 +122,18 @@
     });
   }
 
+  // (shared, but it cannot get to GitHub by itself: both sides changed the same place — the files, or null)
+  const heldBy = (s) => (s && s.link && s.pending && Array.isArray(s.conflict) && s.conflict.length ? s.conflict : null);
+  // what is to be done before the link works, from here: "history", "link", "conflict", or ""
+  const needOf = (s) => (heldBy(s) ? "conflict" : s && !s.can && (s.need === "history" || s.need === "link") ? s.need : "");
+
   /* The window as things stand: not to be shared from here (why), not shared, or shared — with
    * its link, and with or without a password. */
   function draw() {
-    const s = state, shared = !!(s && s.link), can = !!(s && s.can);
+    const s = state, shared = !!(s && s.link), can = !!(s && s.can), held = heldBy(s);
     title.textContent = T("share.title", (path || "").split("/").pop().replace(/\.(md|markdown)$/i, ""));
-    const need = !can && s && (s.need === "history" || s.need === "link") ? s.need : "";
-    text.textContent = !s ? "" : need ? T("share.need." + need) : !can ? s.why || T("share.cannot") : !shared ? T("share.intro")
+    const need = needOf(s);
+    text.textContent = !s ? "" : held ? (s.password ? T("share.on.password") : T("share.on")) + " " + T("share.held", held.join(", ")) : need ? T("share.need." + need) : !can ? s.why || T("share.cannot") : !shared ? T("share.intro")
       : (s.password ? T("share.on.password") : T("share.on")) + (s.pending ? " " + T("share.pending") : "");
     box.toggleAttribute("data-shared", shared);
     card.hidden = !can;
@@ -156,7 +162,7 @@
     if (isOpen() && (!box.contains(at) || at.hidden || at.disabled || at.closest("[inert]"))) box.focus();
   }
 
-  // how it stands, as the application says it: { path, can, why, link, password, pending }
+  // how it stands, as the application says it: { path, can, why, link, password, pending, conflict }
   function got(data) {
     if (!data || data.path !== path) return;
     const was = state;

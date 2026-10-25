@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-25
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "Sharing the document does not work. 404 comes" (`md.henrischulz.com/7`) | the share's commit never reached GitHub: the machine crashed seconds after a push, the pushed commit (and the note's new text) were not on the disk yet and were gone here; the next change to that note was a conflict, and the stuck sync held back every later push, the share too — while the share window only said the link works "once this is sent to GitHub" | `sync::push` makes the project durable first (`durable`: `syncfs`); the share window names the conflict that holds it back and offers Resolve Conflicts… (`sync::stuck`, `share::info` "conflict", `active/share.js`). The conflict in Henri's notes was resolved by hand | `cargo test` (`what_goes_over_is_on_the_disk_first`, `held_back_by_a_conflict_the_window_says_where`, `stuck` in the conflict tests); `dev/tests/share.test.mjs`; `rig.sh share` (release build) |
+
 ### 2026-10-24
 
 | What Henri saw | Why | Fixed by | Guard |

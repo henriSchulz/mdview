@@ -133,7 +133,7 @@ pub fn listed(folder: &Path) -> Vec<String> {
 }
 
 /// How a note's sharing stands, for the page (active/share.js): { path, can, why, link,
-/// password, pending }.
+/// password, pending, conflict } — conflict: the files that keep it from going to GitHub.
 pub fn info(path: &Path) -> Value {
     let told = |can: bool, why: Option<&str>, link: Option<String>, password: bool, pending: bool| json!({ "path": path.to_string_lossy(), "can": can, "why": why, "link": link, "password": password, "pending": pending });
     // (what is missing is named too — "history", "link": the window offers to do it)
@@ -143,7 +143,11 @@ pub fn info(path: &Path) -> Value {
     let Some(_) = at else { return lacking("link", "Link this project to a repository on GitHub first: Settings › History.") };
     let shares = read(&root);
     let Some(id) = find(&shares, &rel) else { return told(true, None, None, false, false) };
-    told(true, None, Some(format!("{}/{id}", web())), !shares[&id]["password"].is_null(), !arrived(&root))
+    let pending = !arrived(&root);
+    let mut v = told(true, None, Some(format!("{}/{id}", web())), !shares[&id]["password"].is_null(), pending);
+    // (not there, and it will not get there by itself: both sides changed the same place — the window says which, and offers to resolve it)
+    v["conflict"] = json!(if pending { sync::stuck(&root) } else { vec![] });
+    v
 }
 
 /// The note shared (if it was not: under the id given, where it is free here), and its password
@@ -220,6 +224,38 @@ mod tests {
         fs::write(d.join(".mdview/project.json"), "{}").unwrap();
         fs::write(d.join("docs/Note.md"), "# Note\n").unwrap();
         crate::scan::canon(d).unwrap()
+    }
+
+    #[test]
+    fn held_back_by_a_conflict_the_window_says_where() {
+        let d = project("c");
+        let note = d.join("docs/Note.md");
+        sync::link(&d, "https://github.com/octo/notes.git").unwrap();
+        let repo = git2::Repository::open(&d).unwrap();
+        let me = git2::Signature::now("Tester", "tester@example.invalid").unwrap();
+        // a commit of the folder as it is (onto: where the branch goes; None: beside it)
+        let commit = |text: &str, parents: &[git2::Oid], onto: Option<&str>| {
+            fs::write(&note, text).unwrap();
+            let mut index = repo.index().unwrap();
+            index.add_all(["*"], git2::IndexAddOption::DEFAULT, None).unwrap();
+            index.write().unwrap();
+            let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+            let parents: Vec<git2::Commit> = parents.iter().map(|p| repo.find_commit(*p).unwrap()).collect();
+            repo.commit(onto, &me, &me, "c", &tree, &parents.iter().collect::<Vec<_>>()).unwrap()
+        };
+        let base = commit("# Note\n\nmiddle\n", &[], Some("HEAD"));
+        let branch = repo.head().unwrap().shorthand().unwrap().to_string();
+        // the other side changed the middle, and so did this one — then the note was shared
+        let theirs = commit("# Note\n\nmiddle, theirs\n", &[base], None);
+        repo.reference(&format!("refs/remotes/{}/{branch}", sync::REMOTE), theirs, true, "fetched").unwrap();
+        set(&note, Some(None), None).unwrap();
+        commit("# Note\n\nmiddle, mine\n", &[base], Some("HEAD"));
+        let told = info(&note);
+        assert_eq!((&told["pending"], &told["conflict"]), (&json!(true), &json!(["docs/Note.md"])));
+        // what was there was only this side's to add: on its way, nothing holds it
+        repo.reference(&format!("refs/remotes/{}/{branch}", sync::REMOTE), base, true, "fetched").unwrap();
+        let told = info(&note);
+        assert_eq!((&told["pending"], &told["conflict"]), (&json!(true), &json!([])));
     }
 
     #[test]
