@@ -7,7 +7,7 @@
   const { md } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, pagePut, viewOf, pageBar, renderProps } = P; // viewer/prep.js
 
-  let current = null, outline = [], generation = 0;
+  let current = null, outline = [], generation = 0, firstNote = true;
   let mode = "read"; // "read" | "edit" | "active" | "split" (the source beside its reading: viewer/twin.js)
   let drawn = null;  // what #content shows: { p, text }
 
@@ -67,6 +67,7 @@
   function renderNow(p) {
     const prev = current;
     p.arriving = !prev || prev.path !== p.path; // (only a note come to is put where it was left — not one drawn again)
+    if (firstNote) { firstNote = false; P.noteShown(false); } // (the window's first note: the sidebar shut — viewer/drawer.js)
     clearTimeout(placeTimer); // (a place still to be kept is the note's that is leaving — it was kept as it was scrolled)
     if (p.kind === "pdf") { // shown in the reading view's place; nothing of it is edited here
       if (mode !== "read") modeBeforePdf = mode; // (the note after the PDF is in this mode again)

@@ -893,7 +893,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
-  the notes' titles. **It lies over the note**, a card that floats in the window with a shade
+  the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
+  opened out of All Notes show without it; a note chosen in it leaves it open, and the quick
+  notes keep theirs. **It lies over the note**, a card that floats in the window with a shade
   under it: opened or shut, the note, All Notes and the halves of a split stay where they are —
   only the card slides in (the strip's tabs make room for it, its button beside it). Where the
   window is narrow enough that it lies over the text, a click into the note puts it away; where

@@ -804,6 +804,7 @@
     markActiveNote(first);
     // (on a narrow window — a phone — the sidebar is a drawer over the note: shut until it is asked for, and as it stands after that)
     P.showSidebar(P.compact() ? (first ? false : sidebarOpen()) : f.quick ? true : f.visible, !first); // (the quick notes are their list)
+    if (first && P.current) P.noteShown(false); // (a note already shown when its folder comes: shut, as it would have been)
     // (no note, and the window still asks for a folder: the folder's empty state now. Otherwise what is shown is the host's to
     // say — the note, All Notes or the empty state, told right after the folder: drawn here, the window showed "No Notes Yet"
     // until the note came, Henri 2026-10-14)
