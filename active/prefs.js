@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N",
+    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -95,6 +95,8 @@
     ]],
     ["about", "info", [
       [null, [["version", "about"], ["guide", "action"], ["configDir", "about"]]],
+      // a newer version of the app: only where the install looks for one (the shell tells info.update; a checkout's build, the web: not)
+      ["prefs.updates", [["updateCheck", "update"], ["updateAuto", "switch"]]],
     ]],
   ];
   const GROUPS = [[null, ["general", "appearance"]], ["prefs.group.notes", ["sidebarPage", "allNotes", "history"]], ["prefs.group.writing", ["editing", "newMarkdown", "latex", "pdf", "ai"]], [null, ["about"]]];
@@ -246,6 +248,22 @@
       box.append(state, on);
       return box;
     }
+    if (kind === "update") { // how the install stands to a newer version, and the button that does the next thing (update.rs)
+      const box = el("div", { class: "pf-github" });
+      const state = el("span", { class: "pf-value" }), act = el("button", { class: "pf-link", type: "button" });
+      refresh.push(() => {
+        const u = info.update || {}, st = u.state || "idle";
+        state.textContent = T("prefs.update." + st, u.version || "", st === "failed" ? u.why || "" : u.latest || "");
+        const [does, run] = st === "ready" ? ["restart", () => post("update-restart")]
+          : st === "available" ? ["download", () => post("link", { href: "https://md.henrischulz.com/download" })]
+          : ["check", () => post("update-check")];
+        act.textContent = T("prefs.update." + does);
+        act.disabled = st === "checking";
+        act.onclick = run;
+      });
+      box.append(state, act);
+      return box;
+    }
     if (kind === "action") {
       const b = el("button", { class: "pf-link", type: "button" }, T("prefs." + key + ".do"));
       b.onclick = () => { close(); post("help"); };
@@ -296,6 +314,7 @@
           if (/^history[A-Z]/.test(key) && kind === "about") refresh.push(() => { row.hidden = info[key] == null; }); // (only what there is to say)
           if (kind === "link") refresh.push(() => { const st = historyState(); row.hidden = st !== "project" && st !== "inside"; }); // (a project's to link)
           if (kind === "get") refresh.push(() => { row.hidden = !(info.github || {}).user; });
+          if (/^update[A-Z]/.test(key)) refresh.push(() => { row.hidden = !info.update; }); // (an install that looks for a newer version)
           card.appendChild(row);
         }
         pg.appendChild(card);

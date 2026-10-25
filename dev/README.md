@@ -31,6 +31,8 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/map.test.mjs` | `docs/MAP.md` lists the files as they are (`node dev/map.mjs` writes the list) |
 | `tests/dom.test.mjs` | the active mode's DOM shows what the reading view's shows (structure; layout is the rig's job) |
 | `tests/docmodes.test.mjs` | the document's style in every mode: the panel beside the source and the source with its reading, a ground and a width written into the source's head as an edit (the rest as it was, the caret kept, saved) |
+| `tests/update.test.mjs` | a newer version of the app: the notice (Restart to Update, Download, Later, What's new) and the settings' rows — there only where the shell says the install looks for one |
+| `tests/latest-json.test.mjs` | `packaging/latest-json.mjs`: latest.json for the app's updater from a release's signatures (fake ones), only what was released |
 | `tests/twin.test.mjs` | the fourth mode, the source beside its reading: its place in the switch, its keys, the right half following what is typed (layout and scrolling: `web/test/write.test.mjs`) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that
@@ -58,6 +60,7 @@ every check.
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
 ./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming
+./rig.sh update                                         # a newer version: the notice and the settings (a .deb told by a latest.json of the rig's own), offline, a checkout's build that is never told
 ./rig.sh blockperf                                      # a long note: a rectangle over blocks, a block dragged (a mouse of 240 Hz): frames
 ./rig.sh sbscroll                                       # the sidebar's list scrolled in each layout: frames
 # (the rig draws without the GPU — WEBKIT_DISABLE_DMABUF_RENDERER=1 —, the app with it: figures of speed are taken on the desktop too, docs/BUGS.md rule 76)

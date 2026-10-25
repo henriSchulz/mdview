@@ -56,7 +56,8 @@ or the tests see the old ones.
 | `board*`, `pdfview.*`, `overview.*`, `ai.*` | the rig cases of that name; whiteboards on touch: `cd web && npm test` |
 | `src-tauri/src` | `cd src-tauri && cargo test`; the rig cases of what the change is about |
 | `web/`, or a message between page and shell | `cd web && npm test` |
-| a release's files (`packaging/release-name.sh`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
+| a release's files (`packaging/release-name.sh`, `packaging/latest-json.mjs`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`, `latest-json.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
+| the app's updates (`src-tauri/src/update.rs`, the notice, Settings › About) | `cd src-tauri && cargo test` (`update::tests`); `cd dev && npm test` (`update.test.mjs`); `dev/rig.sh update` |
 
 `npm test` and `dev/rig.sh` say only what fails and how many checks held; every line:
 `npm run test:all`, `RIG_ALL=1 dev/rig.sh …`.
@@ -70,7 +71,7 @@ or the tests see the old ones.
 | File | What is in it |
 |---|---|
 | `viewer/base.js` | its ground: the message to the shell (post), the icons, small helpers. |
-| `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast. |
+| `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast, the notice of a newer version of the … |
 | `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, a new note made at once … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
@@ -202,6 +203,7 @@ or the tests see the old ones.
 | `src-tauri/src/slides.rs` | A presentation (PowerPoint, Impress) shown as the PDF LibreOffice makes of it: made once, in a thread of its … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
 | `src-tauri/src/theme.rs` | Colours follow the desktop: Velum's current colours when Velum is installed … |
+| `src-tauri/src/update.rs` | Updates of an install that was downloaded: the AppImage and the Windows installer update themselves … |
 
 ### The web app (the same page in a browser)
 

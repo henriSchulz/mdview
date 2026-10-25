@@ -12,6 +12,14 @@
 # so that sorted by name they stand by system — and the release says above GitHub's notes which file
 # is whose (packaging/release-notes.md; gh puts a --notes-file before the --generate-notes). The web
 # app's download page (web/app/download) reads the latest release and offers its files.
+#
+# The app updates itself where it was installed from a downloaded file — the AppImage, the Windows
+# installer (src-tauri/src/update.rs; a .deb or an .rpm only says that a newer one is there). For
+# that each of the two is signed as it is built (bundle.createUpdaterArtifacts in
+# packaging/bundle.json; the key in the secrets TAURI_SIGNING_PRIVATE_KEY and …_PASSWORD), its
+# signature is a file of the release beside it (<file>.sig), and the last job writes latest.json
+# from the signatures the release has — so it offers only what was released. The app reads it at
+# releases/latest/download/latest.json. How the key came to be: packaging/updates.md.
 name: Build
 
 on:
@@ -46,6 +54,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libdbus-1-dev pkg-config patchelf rpm file xdg-utils
+      - name: The updater's public key is in the app
+        shell: bash
+        run: |
+          # (tauri.conf.json carries a placeholder until the key is made: an app built with it could never update)
+          if grep -q 'UPDATER-PUBKEY-PLACEHOLDER' src-tauri/tauri.conf.json; then
+            echo "::error file=src-tauri/tauri.conf.json::plugins.updater.pubkey is still the placeholder — put in the content of ~/.tauri/mdview-updater.key.pub (packaging/updates.md)"
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -56,6 +72,10 @@ jobs:
       - name: Build the installers
         working-directory: src-tauri
         shell: bash
+        env:
+          # (the AppImage and the Windows installer are signed with it, for the app's updates: <file>.sig beside each)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx --yes @tauri-apps/cli@2 build --bundles "${{ matrix.bundles }}" --config ../packaging/bundle.json -- --locked
       - uses: actions/upload-artifact@v4
         with:
@@ -65,7 +85,9 @@ jobs:
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
             src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.sig
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sig
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v') && runner.os != 'Windows' # (the Windows installer: after it was tried, below)
         shell: bash
@@ -74,7 +96,7 @@ jobs:
         run: |
           shopt -s nullglob
           mkdir -p release
-          for f in src-tauri/target/release/bundle/{deb/*.deb,rpm/*.rpm,appimage/*.AppImage}; do
+          for f in src-tauri/target/release/bundle/{deb/*.deb,rpm/*.rpm,appimage/*.AppImage,appimage/*.AppImage.sig}; do
             name=$(bash packaging/release-name.sh "${GITHUB_REF_NAME#v}" "$f") # (a file it cannot name ends the step)
             cp "$f" "release/$name"
           done
@@ -119,6 +141,7 @@ jobs:
         run: |
           mapfile -t files < <(find installer -name '*.exe')
           [[ ${#files[@]} -gt 0 ]] || { echo "no installer to release"; exit 1; }
+          mapfile -t -O "${#files[@]}" files < <(find installer -name '*.exe.sig') # (its signature, for the app's updates)
           mkdir -p release
           for f in "${files[@]}"; do
             name=$(bash packaging/release-name.sh "${GITHUB_REF_NAME#v}" "$f")
@@ -126,3 +149,26 @@ jobs:
           done
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Markdown Notes ${GITHUB_REF_NAME#v}" --notes-file packaging/release-notes.md --generate-notes || true
           gh release upload "$GITHUB_REF_NAME" --clobber release/*
+
+  # What the app's updater reads: latest.json, written from the signatures the release has once
+  # both jobs that upload to it are done — the Windows installer's only where it was tried and
+  # released. (After the Windows job, whatever became of it: the AppImages update all the same.)
+  latest:
+    name: latest.json
+    needs: [build, windows-tried]
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Written and released
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern '*.sig' --dir sigs
+          node packaging/latest-json.mjs "$GITHUB_REF_NAME" sigs > latest.json
+          cat latest.json
+          gh release upload "$GITHUB_REF_NAME" --clobber latest.json

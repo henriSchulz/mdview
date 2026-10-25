@@ -51,7 +51,14 @@ impl Win {
                 };
                 told(self, app);
                 app.each_win(told);
+                if new.get("updateAuto").is_some_and(truthy) && *update::KIND != update::Install::Checkout {
+                    update::check(&app.handle, app.tx.clone(), false); // (turned on: looked at now, not in six hours)
+                }
             }
+            // a newer version of the app (update.rs; app.rs: on_update): Check Now, the notice's Restart to Update and Later
+            "update-check" => { let _ = app.tx.send(Event::UpdateDo("check")); }
+            "update-restart" => { let _ = app.tx.send(Event::UpdateDo("restart")); }
+            "update-later" => { let _ = app.tx.send(Event::UpdateDo("later")); }
             "dropfiles" => self.drop_files(app, &msg["uris"], msg["path"].as_str()),
             "pickfiles" => self.pick_attach(app, msg["kind"] == "image", text_of("path")),
             "closehold" => {

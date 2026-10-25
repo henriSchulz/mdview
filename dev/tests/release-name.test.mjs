@@ -29,8 +29,14 @@ test("every installer Tauri builds gets a name that sorts by system", () => {
   assert.equal(named("Markdown.Notes_0.1.4_aarch64.dmg"), "MarkdownNotes-0.1.4-macos-arm64.dmg"); // (macOS, one day)
 });
 
+test("an installer's signature (for the app's updates) is named after its installer", () => {
+  assert.equal(named("src-tauri/target/release/bundle/appimage/Markdown.Notes_0.1.4_amd64.AppImage.sig"), "MarkdownNotes-0.1.4-linux-x64.AppImage.sig");
+  assert.equal(named("Markdown.Notes_0.1.4_aarch64.AppImage.sig"), "MarkdownNotes-0.1.4-linux-arm64.AppImage.sig");
+  assert.equal(named("installer/nsis/Markdown.Notes_0.1.4_x64-setup.exe.sig"), "MarkdownNotes-0.1.4-windows-x64-setup.exe.sig");
+});
+
 test("a file that is no installer, or names no architecture, is refused", () => {
-  for (const file of ["Markdown.Notes_0.1.4_amd64.AppImage.sig", "Markdown.Notes_0.1.4.deb", "notes.txt"]) {
+  for (const file of ["Markdown.Notes_0.1.4_amd64.AppImage.tar.gz", "Markdown.Notes_0.1.4.deb", "Markdown.Notes_0.1.4.deb.sig", "notes.sig", "notes.txt"]) {
     const run = spawnSync("bash", [script, "0.1.4", file], { encoding: "utf8" });
     assert.equal(run.status, 1, file);
     assert.equal(run.stdout, "", file);
