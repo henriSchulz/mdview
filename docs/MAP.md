@@ -84,6 +84,7 @@ or the tests see the old ones.
 | `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
+| `viewer/touch.js` | what a finger has in the note, as the iPad has it (Craft's): no menu under a held finger, bars of tiles at … |
 | `viewer/trail.js` | one history for a note across the modes (undo and redo beyond what a mode did itself). |
 | `viewer/twin.js` | the source beside its reading: the fourth mode ("split"). |
 | `viewer.js` | renderer, source editor, folder sidebar + UI inside the web view. |

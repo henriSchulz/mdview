@@ -1226,6 +1226,18 @@ counts — and has no writing help by a model.
   Mac); in Split View and Slide Over, where the window is narrow, it has the phone's layout.
   `?ipad=1` in the address gives any browser this layout, `?ipad=0` takes it back (kept in the
   browser until then).
+- **In the application under a finger** (a touch screen on Linux — the tablet's fingers over
+  mac-cast — or on Windows): while the hand is a finger and the window is wide, the
+  note in the active mode has the iPad's ways, the sidebar and the tabs staying as they are.
+  Blocks chosen have the bar of tiles at the foot (Text Style, Format, Insert, Copy, Cut,
+  Duplicate, Actions, Delete) with its panels; a finger held on the note's text or on a block's
+  handle opens no menu; a finger on the handle lifts the block at once, a tap on it, or a hold
+  let go in place, selects the block. The rail (insert, format, style, information) lies at the
+  bottom right as a capsule, its panel above it, and a tile of Insert held a moment goes with the
+  finger and is put where it is let go. A mouse's press, a wheel or a touchpad's two fingers and
+  it is as before: the rail at the top right, the menus, the handle's menu. The sidebar, the
+  tabs and All Notes keep the menu a held finger opens. A browser on a touch screen (no iPad)
+  keeps its menus.
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

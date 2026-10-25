@@ -93,6 +93,7 @@ const SCRIPTS: &[&str] = &[
     "viewer/toolbar.js",
     "viewer/split.js",
     "viewer/twin.js",
+    "viewer/touch.js",
     "viewer/tablet.js",
     "viewer.js",
     "overview.js",

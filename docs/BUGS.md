@@ -398,6 +398,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     claimed. Chromium's touch emulation shows none of this, and made-up DOM events neither: what WebKitGTK
     does is checked in WebKitGTK with a touch screen's touches (`rig.sh gtktouch`, dev/gtktouch); what the
     page does with it, in Chromium under WebKitGTK's name (`web/test/linux-touch.test.mjs`).
+    The iPad's bars in the application are said by `<html data-tiles>` (viewer/touch.js: an iPad, or
+    the application or WebKitGTK while the hand is a finger in a wide window), never by `data-finger`
+    alone: a browser on a touch screen that is no iPad keeps the handle's menu and the held finger's
+    (`web/test/ipad.test.mjs`).
 
 ### Releases and installs
 

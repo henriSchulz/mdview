@@ -3,8 +3,9 @@
  * WebKitGTK, the web view of the application on Linux, tells of fingers as pointers of their own (pointerType "touch"), but
  * - says the pointer is a fine one (`pointer: coarse` does not hold): what a finger presses is a mouse's size. While the hand
  *   is a finger, `<html data-finger>` says so, and what is pressed on a whiteboard and over a PDF is a finger's size
- *   (board.css, pdfview.css). A finger sets it; a wheel turned or a touchpad's two fingers moved (no finger on the screen,
- *   none a moment before: WebKitGTK scrolls under a finger with wheels of its own) take it away.
+ *   (board.css, pdfview.css), and the note has the iPad's bars instead of menus (viewer/touch.js). A finger sets it; a wheel
+ *   turned or a touchpad's two fingers moved (no finger on the screen, none a moment before: WebKitGTK scrolls under a finger
+ *   with wheels of its own), or a mouse's press, take it away.
  * - makes up a mouse after every tap: a mouse that moves to where the finger was, comes down and goes up — after it, as
  *   pointer events of a mouse (WebKitGTK alone: Chromium and Safari send only the older mouse events, which stay). Taken
  *   for a mouse's, the whiteboard would have done the tap a second time and the page would think the hand a mouse. They are
@@ -24,11 +25,13 @@
   addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") { down.add(e.pointerId); finger(true); } }, true);
   for (const type of ["pointerup", "pointercancel"]) addEventListener(type, (e) => { if (e.pointerType === "touch" && down.delete(e.pointerId)) lifted = { t: e.timeStamp, x: e.clientX, y: e.clientY }; }, true);
   addEventListener("wheel", (e) => { if (!e.ctrlKey && !down.size && (!lifted || e.timeStamp - lifted.t > 1500)) finger(false); }, { capture: true, passive: true });
+  // the mouse made up after a tap (WebKitGTK): where the finger left, at once after it
+  const madeUp = (e) => e.pointerType === "mouse" && !!lifted && e.timeStamp - lifted.t < 600 && Math.hypot(e.clientX - lifted.x, e.clientY - lifted.y) < 24;
+  // a mouse's own press (or a touchpad's) takes it away too: the menus are back (viewer/touch.js)
+  addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e))) finger(false); }, true);
 
   window.MdHand = { GTK, down: () => down.size };
   if (!GTK) return;
-  // the mouse made up after a tap: where the finger left, at once after it
-  const madeUp = (e) => e.pointerType === "mouse" && !!lifted && e.timeStamp - lifted.t < 600 && Math.hypot(e.clientX - lifted.x, e.clientY - lifted.y) < 24;
   for (const type of ["pointerover", "pointerenter", "pointermove", "pointerdown", "pointerup", "pointerout", "pointerleave"]) addEventListener(type, (e) => { if (madeUp(e)) e.stopImmediatePropagation(); }, true);
   // two fingers: the page's, never the web view's zoom of the whole
   for (const type of ["touchstart", "touchmove"]) addEventListener(type, (e) => { if (e.touches.length > 1 && e.cancelable) e.preventDefault(); }, { capture: true, passive: false });

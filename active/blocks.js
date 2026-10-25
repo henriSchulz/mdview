@@ -1111,8 +1111,10 @@
   });
   handle.addEventListener("mousedown", (e) => e.stopPropagation());
   // a right click on the handle: the block's menu (the one a right click on selected blocks has) — the block is selected for it
-  // (on an iPad, its own layout, the handle has no menu: the bar at the foot has its actions; a finger held on it drags — below)
-  const IPAD = () => document.documentElement.hasAttribute("data-ipad") && matchMedia("(min-width: 761px) and (min-height: 600px)").matches; // (as viewer/tablet.css says it)
+  // (on an iPad, its own layout, the handle has no menu: the bar at the foot has its actions; a finger held on it drags — below.
+  // In the application the same while the hand is a finger: viewer/touch.js)
+  const IPAD = () => matchMedia("(min-width: 761px) and (min-height: 600px)").matches // (as viewer/tablet.css says it)
+    && (document.documentElement.hasAttribute("data-ipad") || !!(window.MdPage.tiles && MdPage.tiles.on()));
   handle.addEventListener("contextmenu", (e) => {
     e.preventDefault(); e.stopPropagation();
     if (IPAD()) return;
