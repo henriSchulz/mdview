@@ -1166,6 +1166,14 @@ counts — and has no writing help by a model.
   from GitHub, the page looks again by itself.
 - **A new, empty repository** becomes a notebook like any other: opened, and its history turned
   on with the clock in the sidebar — the app makes the repository's first commit.
+- **New Space** (the blue button beside the search): a new notebook without going to GitHub. A
+  window asks for the space's name and shows, as it is typed, the repository it will be on GitHub
+  — `mdview_` and the name as GitHub takes it, the same rule as the desktop app's New
+  Repository… — private. Create makes it, makes it a notebook at once (its first commit holds
+  the app's marker) and opens it. A name the account has already is said at the field. Where
+  GitHub does not let the app make repositories (its permission for that not accepted yet on the
+  account) that is said, with the way to GitHub; a repository made that the app is not given is
+  said too, with the place where repositories are chosen, and nothing is written to it.
 - **On a phone or a tablet**: the same app, laid out for the screen. On a narrow screen the
   sidebar is a drawer over the note (the button at the strip's left; a note chosen shuts it, as
   does a tap beside it), the toolbar stands at the foot, and the settings and the history fill

@@ -482,11 +482,11 @@ mod tests {
 
     #[test]
     fn a_new_repository_is_named_after_the_folder_as_github_takes_it() {
-        assert_eq!(new_name("Notes"), "mdview_Notes");
-        assert_eq!(new_name("Uni Notizen  2026"), "mdview_Uni-Notizen-2026");
-        assert_eq!(new_name("Übungen & Lösungen"), "mdview_Uebungen-Loesungen");
-        assert_eq!(new_name("straße.v2"), "mdview_strasse.v2");
-        assert_eq!(new_name("日本 "), "mdview");
+        // (the list the web app's test reads too: both name a new repository the same)
+        let list: Value = serde_json::from_str(include_str!("../../dev/tests/fixtures/repo-names.json")).unwrap();
+        for pair in list["names"].as_array().unwrap() {
+            assert_eq!(new_name(pair[0].as_str().unwrap()), pair[1].as_str().unwrap(), "{pair}");
+        }
         assert_eq!(repo_name(" ..-a/b-.. "), "a-b");
         assert_eq!(repo_name(&"x".repeat(150)).len(), 100);
     }
