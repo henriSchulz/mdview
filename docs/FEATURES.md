@@ -1371,6 +1371,8 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - **Download** (in the browser): the share window hands the note out as its Markdown file
   instead, and a right click on any file in the sidebar or in All Notes has Download too.
 - **A link opened** shows a ring at once while the note is fetched, not an empty window.
+- **The link works as soon as GitHub has the share**, a few seconds after it was made — even
+  when it was opened at once, before that, and said 404 then.
 - **Stop Sharing** ends the link, within half a minute. So does deleting the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.

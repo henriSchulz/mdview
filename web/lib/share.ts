@@ -135,16 +135,26 @@ const AGAIN = Number(process.env.SHARE_LOOK_MS ?? 5000), REMEMBER = Number(proce
 const nowhere = new Map<string, number>(); // (ids that were looked for the long way and are no share: not again for a while — any address of one word asks)
 type Listed = { path?: unknown; password?: unknown; created?: unknown };
 const entries = (text: string): [string, Listed][] => { try { return Object.entries((JSON.parse(text).shares || {}) as Record<string, Listed>).filter(([id, e]) => ID.test(id) && e && typeof e.path === "string"); } catch { return []; } };
-const noted = (owner: string, repo: string, id: string, e: Listed) => putShare(id, { owner, name: repo, path: e.path as string, password: !!e.password, created: typeof e.created === "string" ? e.created : "" });
+// (when each id was last written down as shared: a list read before that is older than what is known of it)
+const notedAt = new Map<string, number>();
+const noted = (owner: string, repo: string, id: string, e: Listed) => {
+  notedAt.set(id, Date.now());
+  if (notedAt.size > 5000) notedAt.clear();
+  return putShare(id, { owner, name: repo, path: e.path as string, password: !!e.password, created: typeof e.created === "string" ? e.created : "" });
+};
 
 /** A repository's list of shares, written down as it stands: what it names is known, what it
  * names no more is forgotten. token: one that reads the repository. */
 export async function syncRepo(owner: string, repo: string, token: string): Promise<number> {
+  const began = Date.now();
   const res = await raw(token, owner, repo, SHARES);
   if (!res.ok && res.status !== 404) throw new Error(`GitHub: ${res.status} for the shares`);
   const listed = res.ok ? entries(await res.text()) : [], ids = new Set(listed.map(([id]) => id));
   for (const [id, e] of listed) { await noted(owner, repo, id, e); nowhere.delete(id); }
-  for (const [id] of await sharesOf([repoKey(owner, repo)])) if (!ids.has(id)) { await dropShare(id); where.delete(id); }
+  // (… but not what was written down while this list was on its way: a share made meanwhile — told
+  // by the one who made it — is not one this older list could name. Henri, 2026-10-26: a link
+  // opened at once started a look through every repository, which took the share away again)
+  for (const [id] of await sharesOf([repoKey(owner, repo)])) if (!ids.has(id) && (notedAt.get(id) || 0) < began) { await dropShare(id); where.delete(id); }
   return listed.length;
 }
 async function lookAbout(): Promise<void> {
@@ -152,6 +162,8 @@ async function lookAbout(): Promise<void> {
   for (let i = 0; i < repos.length; i += 8) await Promise.all(repos.slice(i, i + 8).map(({ owner, repo, token }) => syncRepo(owner, repo, token).catch(() => 0)));
   looked = Date.now();
 }
+
+const handedOut = (s: { state: string; created: string }) => s.state === "reserved" && Date.now() - (Date.parse(s.created) || 0) < 60 * 60 * 1000; // (as long as it is kept: lib/store.ts, reserve)
 
 /** The repository a shared note's id belongs to, or null. */
 export async function whereIs(id: string): Promise<{ owner: string; repo: string } | null> {
@@ -163,7 +175,9 @@ export async function whereIs(id: string): Promise<{ owner: string; repo: string
     looking = looking || lookAbout().finally(() => { looking = null; });
     await looking;
     s = await getShare(id);
-    if (!s || s.state !== "shared") { nowhere.set(id, Date.now()); if (nowhere.size > 5000) nowhere.clear(); }
+    // (not found: not looked for again for a while — but an id just handed out for a share is: its
+    // commit may be on its way, and the link was shown at once; Henri, 2026-10-26)
+    if (!s || (s.state !== "shared" && !handedOut(s))) { nowhere.set(id, Date.now()); if (nowhere.size > 5000) nowhere.clear(); }
   }
   if (!s || s.state !== "shared") return null;
   nowhere.delete(id);
