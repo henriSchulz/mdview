@@ -15,7 +15,7 @@ const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const browserPath = process.env.CHROMIUM || ["chromium", "chromium-browser", "google-chrome-stable", "google-chrome"].map((n) => { try { return execSync(`command -v ${n}`, { encoding: "utf8" }).trim(); } catch { return ""; } }).find(Boolean);
 const gh = fakeGitHub();
 const HENRI = { login: "henriSchulz", name: "Henri", id: 4242 }, OCTO = { login: "octo", name: "Octo Cat", id: 42 };
-let app, base, henri, octo;
+let app, base, henri, octo, log = "";
 
 /** Signed in as whoever GitHub says: → the session's cookie. */
 async function signIn(who) {
@@ -39,7 +39,7 @@ before(async () => {
   base = `http://127.0.0.1:${port}`;
   app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-tests-own-0123456789", STORE: "memory", FEEDBACK_OWNER_ID: String(HENRI.id), FEEDBACK_PER_HOUR: "3", FEEDBACK_REPO: "octo/notes",
     GITHUB_APP_PRIVATE_KEY: privateKey.export({ type: "pkcs1", format: "pem" }).replace(/\n/g, "\\n") }, stdio: "pipe" });
-  let log = ""; app.stdout.on("data", (d) => (log += d)); app.stderr.on("data", (d) => (log += d));
+  app.stdout.on("data", (d) => (log += d)); app.stderr.on("data", (d) => (log += d));
   for (let i = 0; ; i++) {
     try { if ((await fetch(base + "/signin")).ok) break; } catch { /* not up yet */ }
     if (i > 150) throw new Error("the app did not start:\n" + log);
@@ -64,6 +64,16 @@ test("the form is there without signing in; /bug and /feature come to it with th
   }
   assert.match(await (await fetch(base + "/feedback?kind=feature")).text(), /aria-checked="true"[^>]*>Feature</);
   assert.match(await (await fetch(base + "/feedback", { headers: { cookie: octo } })).text(), /Sent as @octo/);
+});
+
+test("the app not on the repository: kept all the same, and the server's log says why there is no issue", async () => {
+  gh.installed = false; // (before anything was sent: no token the app holds yet)
+  try {
+    assert.equal((await send(good({ title: "Kept, the app not there" }))).status, 200);
+    for (let i = 0; i < 100 && !/no issue opened/.test(log); i++) await new Promise((r) => setTimeout(r, 50));
+    assert.match(log, /feedback: no issue opened for \S+ Error: the GitHub App is not installed on octo\/notes/);
+    assert.match(await (await inbox(henri)).text(), /Kept, the app not there/);
+  } finally { gh.installed = true; }
 });
 
 test("what is sent is checked on the server, field by field", async () => {
