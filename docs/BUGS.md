@@ -4,12 +4,16 @@ Every bug Henri reports is written down: what he saw, why it happened, the rule 
 it, and the check that guards it (`dev/rig.sh <case>`, a node test, a web test). The rules are
 here, under the part of the app they are about — **read the sections a change touches before
 making it** (a change to a dialog: "Anything that floats over the note"; to a drag: "What the
-pointer does"; and so on). The bugs themselves, one row each, are the register:
-[`BUGS-register.md`](BUGS-register.md) — looked up when one of them comes back, not read through.
+pointer does"; and so on). The bugs themselves are GitHub issues (label `bug`), each with what
+Henri saw, why, what fixed it and its guard in a comment; those before 2026-10-26 are the
+register, [`BUGS-register.md`](BUGS-register.md) — looked up when one of them comes back, not
+read through.
 
-**When a bug is reported: reproduce it in a check first, fix it, see the check fail without the
-fix and pass with it, then add its row to the register** — and its rule here, if a new one
-follows. A bug without a guard is marked *no guard* there: a debt, not a state to leave it in.
+**When a bug is reported: open it as an issue, reproduce it in a check first, fix it, see the
+check fail without the fix and pass with it, then close the issue with the commit (`Fixes #n`)
+and say on it why, what fixed it and the guard** — and its rule here, if a new one follows. A
+bug without a guard says *no guard* there and keeps the label `no-guard`: a debt, not a state to
+leave it in.
 
 Running the checks: `dev/README.md`. In short: `cd dev && npm test`, `cd web && npm test`,
 `cd src-tauri && cargo test`, and `MDVIEW_RIG=… dev/rig.sh start`, `dev/rig.sh <case>` for the

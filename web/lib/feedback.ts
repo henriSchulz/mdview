@@ -1,10 +1,14 @@
 // Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback),
 // and a list only Henri sees (app/feedback/inbox). Kept by the server, beside the shared notes'
-// links and the pasteboards — never in a repository, never on GitHub.
+// links and the pasteboards — and each also an issue of the app's repository on GitHub (FEEDBACK_REPO),
+// opened by the GitHub App: GitHub e-mails Henri about it, and Claude's action sorts it
+// (.github/workflows/claude.yml). That repository is public: the issue has the kind, the title, the
+// description, the platform and the version — never the e-mail, the user agent or the account.
 //
 //   feedback/<id>  { kind: "bug" | "feature", title, body (Markdown, kept and shown as plain text),
 //                    email, platform, version, agent (the browser's user agent), login (the GitHub
-//                    account, where the sender was signed in), status: "open" | "done", created }
+//                    account, where the sender was signed in), status: "open" | "done", created,
+//                    issue (the issue's number; 0 while there is none) }
 //
 // What keeps it from being a bin for spam: a field no person sees (whoever fills it in is told
 // thanks and nothing is kept), lengths, a check of every field here on the server, and a few
@@ -14,6 +18,7 @@
 //
 // On Firebase it is Firestore (lib/firestore.ts); elsewhere a Map in memory.
 import { randomBytes } from "node:crypto";
+import { repoToken } from "./app";
 import * as fs from "./firestore";
 
 export const KINDS = ["bug", "feature"] as const;
@@ -21,13 +26,15 @@ export const PLATFORMS = ["Web", "iPad", "Desktop Linux", "Desktop Windows", "De
 export const LIMITS = { title: 120, body: 8000, email: 200, version: 120, agent: 400 };
 export const MIN = { title: 3, body: 10 };
 export type Kind = (typeof KINDS)[number];
-export type Entry = { kind: Kind; title: string; body: string; email: string; platform: string; version: string; agent: string; login: string; status: "open" | "done"; created: string };
+export type Entry = { kind: Kind; title: string; body: string; email: string; platform: string; version: string; agent: string; login: string; status: "open" | "done"; created: string; issue?: number };
 
 const COLLECTION = "feedback";
 const OWNER = Number(process.env.FEEDBACK_OWNER_ID || 89314140); // GitHub's id of @henriSchulz (an id stays when a login is renamed — and a login given up can be taken by someone else)
 const PER_HOUR = Number(process.env.FEEDBACK_PER_HOUR || 5); // from one address
 const ALL_PER_HOUR = Number(process.env.FEEDBACK_ALL_PER_HOUR || 60); // from everyone together: what is left when addresses are made up
 const HOUR = 60 * 60_000;
+const ISSUES = (process.env.FEEDBACK_REPO || "henriSchulz/mdview").split("/"); // where each one is also an issue
+const API = process.env.GITHUB_API || "https://api.github.com";
 
 type Kept = { memory: Map<string, Entry>; sent: Map<string, number[]>; all: number[] };
 // (one for the whole server: its routes are built apart, and each would have its own)
@@ -81,7 +88,7 @@ export function addressOf(request: Request): string {
 
 // ------------------------------------------------------------ kept
 
-const asEntry = (p: fs.Plain): Entry => ({ kind: p.kind === "feature" ? "feature" : "bug", title: String(p.title ?? ""), body: String(p.body ?? ""), email: String(p.email ?? ""), platform: String(p.platform ?? ""), version: String(p.version ?? ""), agent: String(p.agent ?? ""), login: String(p.login ?? ""), status: p.status === "done" ? "done" : "open", created: String(p.created ?? "") });
+const asEntry = (p: fs.Plain): Entry => ({ kind: p.kind === "feature" ? "feature" : "bug", title: String(p.title ?? ""), body: String(p.body ?? ""), email: String(p.email ?? ""), platform: String(p.platform ?? ""), version: String(p.version ?? ""), agent: String(p.agent ?? ""), login: String(p.login ?? ""), status: p.status === "done" ? "done" : "open", created: String(p.created ?? ""), issue: Number(p.issue) || 0 });
 
 export async function add(entry: Entry): Promise<string> {
   const id = `${Date.now().toString(36)}-${randomBytes(6).toString("base64url")}`;
@@ -105,3 +112,38 @@ export async function drop(id: string): Promise<void> {
   if (fs.here()) return fs.remove(COLLECTION, id);
   kept.memory.delete(id);
 }
+
+// ------------------------------------------------------------ as an issue on GitHub
+
+/** The issue a sending becomes: what may be public of it, the description as it was written —
+ * in a fence longer than any run of backticks in it, so that it is shown as text, as the inbox
+ * shows it (no picture loaded from elsewhere, no one named with an @ told of it). */
+export function asIssue(entry: Pick<Entry, "kind" | "title" | "body" | "platform" | "version">): { title: string; body: string; labels: string[] } {
+  const fence = "`".repeat(Math.max(3, ...[...entry.body.matchAll(/`+/g)].map((m) => m[0].length + 1)));
+  const about = [entry.kind === "bug" ? "Bug" : "Feature", entry.platform, entry.version].filter(Boolean).map((v) => v.replace(/[`*_[\]<>@#|\\]/g, (c) => "\\" + c)).join(" · ");
+  return {
+    title: entry.title,
+    body: `${about}\n\n${fence}text\n${entry.body}\n${fence}\n\n<sub>Sent with the feedback form of the web app.</sub>\n`,
+    labels: [entry.kind === "bug" ? "bug" : "enhancement", "feedback"],
+  };
+}
+
+/** Opens the issue for a sending kept under `id`, as the GitHub App, and keeps its number with it.
+ * The number, or 0 where the app has no key here or may not open issues there (it is kept all the
+ * same: the inbox has it). */
+export async function file(id: string, entry: Entry): Promise<number> {
+  const [owner, repo] = ISSUES;
+  const token = await repoToken(owner, repo, { issues: "write" }).catch(() => null);
+  if (!token) return 0;
+  const res = await fetch(`${API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`, {
+    method: "POST", cache: "no-store", body: JSON.stringify(asIssue(entry)),
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "Content-Type": "application/json", "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28" },
+  });
+  if (!res.ok) throw new Error(`GitHub: ${res.status} for the issue`);
+  const issue = Number(((await res.json()) as { number?: number }).number) || 0;
+  if (fs.here()) await fs.set(COLLECTION, id, { issue });
+  else { const had = kept.memory.get(id); if (had) kept.memory.set(id, { ...had, issue }); }
+  return issue;
+}
+/** The issue's address on GitHub. */
+export const issueAt = (n: number) => `https://github.com/${ISSUES[0]}/${ISSUES[1]}/issues/${n}`;

@@ -88,7 +88,7 @@ export function Form({ kind: first, login }: { kind: Kind; login: string }) {
           <label className="fb-field" {...flag("body")}>
             <span>Description</span>
             <textarea name="body" value={body} onChange={(e) => setBody(e.target.value)} maxLength={8000} placeholder={SAY[kind].body} required />
-            {said("body") || <span className="fb-hint">Markdown is fine.</span>}
+            {said("body") || <span className="fb-hint">Markdown is fine. Title and description are posted publicly on GitHub.</span>}
           </label>
           <div className="fb-pair">
             <label className="fb-field" {...flag("platform")}>

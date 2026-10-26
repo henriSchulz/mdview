@@ -1,5 +1,8 @@
 # Bugs that happened — the register
 
+**Closed on 2026-10-26: bugs since are GitHub issues** (label `bug`; why, the fix and the guard in
+a comment on each). What is here stays, to be looked up.
+
 One row for every bug Henri reported: what he saw, why, and the check that guards it. The rules
 that came out of them, and what to do when a new one is reported: [`BUGS.md`](BUGS.md).
 
