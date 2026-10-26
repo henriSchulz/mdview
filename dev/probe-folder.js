@@ -54,7 +54,7 @@
       const menu = document.getElementById("ctxmenu");
       const shown = () => [...menu.querySelectorAll(".menu-item:not([hidden])")];
       const cmds = () => shown().map((b) => b.dataset.cmd).join();
-      ok("right click on a file: open, open in a new tab, beside the note, in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "open,opentab,openbeside,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
+      ok("right click on a file: open, open in a new tab (not beside: a note beside a note is not side by side), in the default app, with another one, show in Finder, copy, cut, duplicate, its path, share, rename, hide, trash", menu.hasAttribute("data-open") && cmds() === "open,opentab,default,openwith,reveal,copyf,cutf,duplicate,copypath,share,rename,hide,trash,sub:show", cmds());
       ok("every entry has its icon", shown().every((b) => { const i = b.querySelector(".menu-icon :is(svg, .sf)"); return i && i.getBoundingClientRect().width > 10; }));
       const shut = async () => { menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(250); if (menu.hasAttribute("data-open")) { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); await sleep(250); } };
       await shut();

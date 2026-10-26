@@ -1,6 +1,7 @@
-/* Development probe (dev/rig.sh splitscroll): two notes side by side, the one in the window scrolled with a REAL wheel (dev/vptr)
+/* Development probe (dev/rig.sh splitscroll): a note and a PDF side by side (two notes are not, since 2026-10-26), the note in the
+ * window scrolled with a REAL wheel (dev/vptr)
  * — down and all the way up again: its first line comes back (Henri, 2026-10-14: "in the main document I cannot scroll to the very
- * top any more"). The beside one too. The probe says where the pointer goes (plan N). */
+ * top any more"). The PDF beside it too. The probe says where the pointer goes (plan N). */
 (async () => {
   const out = (name, o) => window.MdHost.post(JSON.stringify({ type: "probe", name, text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -15,8 +16,8 @@
     window.MdHost.post(JSON.stringify({ type: "note", path: root + "/Main.md" }));
     await until(() => MdView.core.current && MdView.core.current.name === "Main.md" && !(window.MdOverview && MdOverview.isOpen));
     await sleep(800);
-    MdPage.splitOpen({ path: root + "/Beside.md" });
-    await until(() => document.body.hasAttribute("data-split") && /Beside/.test(document.querySelector("#split .split-doc")?.textContent || ""));
+    MdPage.splitOpen({ path: root + "/Beside.pdf" });
+    await until(() => document.body.hasAttribute("data-split") && document.querySelector("#split .split-page img"), 10000);
     await sleep(900);
     const gone = []; new MutationObserver(() => { if (!document.body.hasAttribute("data-split") && !gone.length) gone.push({ y: scrollY, t: Math.round(performance.now()), stack: new Error().stack.slice(0, 200) }); }).observe(document.body, { attributes: true, attributeFilter: ["data-split"] });
     window.__gone = gone;
@@ -33,7 +34,7 @@
     await sleep(300);
     const kx = 200 / (seenAt[0] - p1[0]), ky = 150 / (seenAt[1] - p1[1]), G = (x, y) => `${Math.round(110 + (x - p1[0]) * kx)} ${Math.round(110 + (y - p1[1]) * ky)}`;
     const h1 = () => document.querySelector("#content h1"), top0 = h1().getBoundingClientRect().top, mainAt = G(innerWidth * 0.25, innerHeight * 0.5);
-    ok("two notes side by side, the window's at its top", document.body.hasAttribute("data-split") && scrollY === 0 && top0 > 0, [document.body.hasAttribute("data-split"), innerWidth, scrollY, top0]);
+    ok("a note and a PDF side by side, the note at its top", document.body.hasAttribute("data-split") && scrollY === 0 && top0 > 0, [document.body.hasAttribute("data-split"), innerWidth, scrollY, top0]);
     await run(`m ${mainAt} s 100 w 1 25 25`, 25 * 25);
     const down = scrollY;
     ok("the wheel over the note in the window: it goes down, the other stays beside it", down > 300 && document.body.hasAttribute("data-split"), [down, gone]);
@@ -55,9 +56,7 @@
     const first = () => { const v = document.body.dataset.view; if (v === "edit") { const e = document.querySelector("#editor, #ed-wrap"); return e ? e.getBoundingClientRect() : { top: -999 }; } return (document.querySelector(v === "active" ? "#active h1" : "#content h1") || {}).getBoundingClientRect?.() || { top: -999 }; };
     for (const [label, setup] of [["in the active mode", async () => { MdView.setMode("active"); await until(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view); await sleep(900); }],
       ["on a note with a ground", async () => { MdView.setMode("read"); await sleep(500); window.MdHost.post(JSON.stringify({ type: "note", path: root + "/Ground.md" })); await until(() => MdView.core.current && MdView.core.current.name === "Ground.md"); await sleep(1200); }],
-      ["… with a ground, in the active mode", async () => { MdView.setMode("active"); await until(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view); await sleep(900); }],
-      ["the note beside its own reading, in the source", async () => { MdView.setMode("edit"); await until(() => document.body.dataset.view === "edit"); await sleep(500); MdPage.splitOpen(null); await until(() => MdPage.splitState().kind === "self"); await sleep(900); }],
-      ["… the same in the reading view", async () => { MdView.setMode("read"); await sleep(900); }]]) {
+      ["… with a ground, in the active mode", async () => { MdView.setMode("active"); await until(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view); await sleep(900); }]]) {
       await setup();
       const sp = document.body.hasAttribute("data-split"), t0 = first().top;
       await run(`m ${mainAt} s 100 w 1 25 25`, 25 * 25);

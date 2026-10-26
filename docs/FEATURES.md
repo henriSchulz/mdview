@@ -1407,38 +1407,39 @@ GitHub issue.
 
 ## Side by side
 
-Beside the note, at the window's right, a second sheet can stand that is only read. The note at
-the left is the window's as ever, in any of its modes.
+A note and a PDF can stand side by side — and only these two (Henri, 2026-10-26: two notes side
+by side are not offered any more; a picture beside a note neither). One is the window's, as ever,
+in any of its modes; the other is a sheet at the window's right.
 
-- **A tab beside the one in the window**: right click on a tab that is not the one shown ›
-  **Show in Split View**. Its note is shown as it reads (its links found from where it lies), a
-  PDF as its pages, each drawn when it comes near, a picture as itself. While two are side by
-  side, any tab's menu has **Close Split View**.
-- **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
-  **Open Beside**.
-- **A note at the right is written in too**: the pencil in the sheet's capsule shows its source,
-  in the type of the window's own source, kept a moment after the last key (the book, or `Esc`,
-  reads it again). Not the note that is in the window as well: that one is written at the left.
-- **The tab in the window** › Show in Split View: the note beside its own reading — written at the
-  left (in any mode), read at the right a moment later.
+- **A PDF beside the note**: right click on a PDF's tab that is not the one shown › **Show in
+  Split View**, or on a PDF in the sidebar or in All Notes › **Open Beside**. Its pages are drawn
+  each when it comes near. While the two are side by side, any tab's menu has **Close Split View**.
+- Where the two would not be a note and a PDF — another note beside a note, a PDF beside a PDF,
+  the tab in the window — Show in Split View stands dimmed and Open Beside is not in the menu. A
+  window that comes to hold two of a kind (another note opened beside the note at the right,
+  another PDF beside the PDF) closes the sheet. (The source beside its reading is the mode of that
+  name, not this.)
 - **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
   one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
   around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.
   Over its pages, as in the viewer: their text, to select (`Ctrl+C` copies it, `Ctrl+Shift+C` — or
   letting go, where the settings copy at once — a link to it, in the settings' form), the PDF's own
   links (one to another page goes there, one out opens outside), and what was drawn on the pages.
-  The side card, a region for a note and drawing are the viewer's own, at the left.
-- A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
-  left alone. The arrows in the sheet's head (**Swap Sides**) change the two places: what is
-  beside goes into the window — written there in any mode, the active one too — and the
-  window's note beside it; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
-- The two are halves of one kind: the same column, the same type, each scrolled by itself. The
-  line between them can be pulled (a double click on it: halves again; how the window is shared
-  is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
-  Two things want 600 px (the sidebar lies over them and takes none of it): where the window has less, it says so and shows the note alone. What is beside a note is not kept when the
-  window is closed.
-- Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
-  the right (the PDF's own viewer is the window's left).
+  The side card, a region for a note and drawing are the viewer's own: **Swap Sides** puts the PDF
+  in the window for them.
+- **Swap Sides** (the arrows in the sheet's head) changes the two places: what is beside goes into
+  the window — a note written there in any mode, the active one too, a PDF with its whole viewer —
+  and the window's note or PDF beside it; the cross, or `Esc` in the sheet, closes it. Both stand
+  in a small capsule in the sheet's corner, with its name.
+- **A note beside a PDF** (after Swap Sides) is read as it reads, its links found from where it
+  lies, and is written in too: the pencil in the sheet's capsule shows its source, in the type of
+  the window's own source, kept a moment after the last key (the book, or `Esc`, reads it again).
+  A link to a note in it leads on there, beside the PDF; a link to a PDF opens that PDF in the
+  window.
+- The two are halves of one kind, each scrolled by itself. The line between them can be pulled (a
+  double click on it: halves again; how the window is shared is kept). Two things want 600 px (the
+  sidebar lies over them and takes none of it): where the window has less, it says so and shows
+  the one in the window alone. What is beside is not kept when the window is closed.
 
 ## PDFs
 

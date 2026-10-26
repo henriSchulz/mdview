@@ -3,6 +3,7 @@
 // about. The built app, a real Chromium, a GitHub of the test's own.
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -75,13 +76,15 @@ test("typed in the active mode: a draft at once, a commit a little later, by thi
   assert.equal(gh.commits.length, 1);
 });
 
-test("two notes side by side: the one in the window scrolls down and all the way up again, in each mode", async () => {
-  const para = (n) => Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1} of ${n}, long enough to wrap a little in a half of the window: ${"words ".repeat(14)}`).join("\n\n");
+const PDF = readFileSync(join(web, "..", "dev", "tests", "tauri-check", "paper.pdf"));
+const para = (n) => Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1} of ${n}, long enough to wrap a little in a half of the window: ${"words ".repeat(14)}`).join("\n\n");
+
+test("a note and a PDF side by side: the note in the window scrolls down and all the way up again, in each mode", async () => {
   put("Main.md", "# Main\n\n" + para("Main"));
-  put("Beside.md", "# Beside\n\n" + para("Beside"));
+  gh.repo.files.set("paper.pdf", PDF);
   await open("Main.md");
-  await page.evaluate(() => MdPage.splitOpen({ path: MdView.core.current.path.replace(/Main\.md$/, "Beside.md") }));
-  await page.waitForFunction(() => document.body.hasAttribute("data-split") && /Beside/.test(document.querySelector("#split .split-doc")?.textContent || ""), null, { timeout: 8000 });
+  await page.evaluate(() => MdPage.splitOpen({ path: MdView.core.current.path.replace(/Main\.md$/, "paper.pdf") }));
+  await page.waitForFunction(() => document.body.hasAttribute("data-split") && document.querySelector("#split .split-page img"), null, { timeout: 15000 });
   await page.waitForTimeout(900);
   for (const mode of ["read", "active", "edit"]) {
     await page.evaluate((m) => MdView.setMode(m), mode);
@@ -96,6 +99,57 @@ test("two notes side by side: the one in the window scrolls down and all the way
     assert.ok(down > 500, `${mode}: down ${down}`);
     assert.equal(await page.evaluate(() => scrollY), 0, `${mode}: all the way up again`);
   }
+});
+
+/* Henri, 2026-10-26: "In Split View two notes should no longer be able to stand side by side. Note + PDF is to be the only
+ * format for now." */
+test("side by side is a note and a PDF, nothing else: two notes or two PDFs are not opened, and close when the window comes to hold them", async () => {
+  put("Main.md", "# Main\n\n" + para("Main"));
+  put("Other.md", "# Other\n\nanother note\n");
+  gh.repo.files.set("paper.pdf", PDF);
+  gh.repo.files.set("second.pdf", PDF);
+  await open("Main.md");
+  const at = (name) => page.evaluate((n) => MdView.core.current.path.replace(/[^/]+$/, n), name);
+  const state = () => page.evaluate(() => MdPage.splitState());
+  const split = async (name) => { const p = await at(name); await page.evaluate((p) => MdPage.splitOpen({ path: p }), p); };
+  const current = () => page.evaluate(() => MdView.core.current.name);
+  // another note beside a note: not opened, and it says why
+  await split("Other.md");
+  await page.waitForTimeout(300);
+  assert.equal(await state(), null, "two notes are not side by side");
+  assert.equal(await page.evaluate(() => document.body.hasAttribute("data-split")), false);
+  assert.match(await page.evaluate(() => document.getElementById("toast").textContent), /a note and a PDF/);
+  // … nor offered: a note's menu has no Open Beside while a note is in the window; a PDF's has
+  const offers = async (name) => {
+    await page.click(`.sb-row[data-real="/octo/notes/${name}"]`, { button: "right" });
+    await page.waitForFunction(() => document.querySelector("#ctxmenu").hasAttribute("data-open"), null, { timeout: 8000 });
+    const has = await page.evaluate(() => !document.querySelector('#ctxmenu [data-cmd="openbeside"]').hidden);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("#ctxmenu").hasAttribute("data-open"));
+    return has;
+  };
+  assert.equal(await offers("Other.md"), false, "a note's menu beside a note: no Open Beside");
+  assert.equal(await offers("paper.pdf"), true, "a PDF's menu beside a note: Open Beside");
+  // a PDF beside the note
+  await split("paper.pdf");
+  await until(async () => (await state())?.kind === "pdf", "the PDF beside the note");
+  // Swap Sides: the PDF in the window, the note beside it — still a note and a PDF
+  await page.click('#split [data-do="over"]');
+  await until(async () => (await current()) === "paper.pdf" && (await state())?.kind === "note", "swapped");
+  assert.match((await state()).path, /Main\.md$/);
+  // another PDF beside the PDF: not opened
+  await split("second.pdf");
+  await page.waitForTimeout(300);
+  assert.equal((await state()).kind, "note", "two PDFs are not side by side");
+  // a note opened in the window beside the note: the sheet closes
+  await post({ type: "note", path: await at("Other.md") });
+  await until(async () => (await current()) === "Other.md", "the other note in the window");
+  await until(async () => (await state()) === null && !(await page.evaluate(() => document.body.hasAttribute("data-split"))), "two notes side by side: the sheet closed");
+  // … and a PDF opened in the window beside a PDF: the same
+  await split("paper.pdf");
+  await until(async () => (await state())?.kind === "pdf", "the PDF beside the note again");
+  await post({ type: "note", path: await at("second.pdf") });
+  await until(async () => (await state()) === null, "two PDFs side by side: the sheet closed");
 });
 
 test("a page's line cut and pasted in the active mode: the page keeps what was on it", async () => {

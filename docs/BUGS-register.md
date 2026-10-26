@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "In Split View two notes should no longer be able to stand side by side. Note + PDF is to be the only format for now!" | not a bug but a wish: the sheet at the right took any note, a PDF, a picture, or the note in the window as it reads; Show in Split View, Open Beside and a link in the sheet put a second note beside the first, and the window could come to hold a note beside a note (a note opened at the left after Swap Sides) | `viewer/split.js` takes a pair only — a PDF beside a note, a note beside a PDF (`pairs`); Show in Split View is dimmed and Open Beside left out of the menu for anything else (`viewer/sidebar.js`), and the sheet closes when the window comes to hold two of a kind (`held`, called from `viewer/render.js`). Pictures and the note beside itself are gone from it (the source beside its reading stays the mode of that name, `viewer/twin.js`). Nothing to fall back from: what is beside is not kept across a restart | `web/test/write.test.mjs` ("side by side is a note and a PDF, nothing else"); `web/test/read.test.mjs` (a note's menu); `rig.sh split`, `rig.sh splitscroll` (a PDF beside now) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |
