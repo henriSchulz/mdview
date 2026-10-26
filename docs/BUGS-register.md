@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The bug that share links do not work is still there and is not fixed: `https://md.henrischulz.com/o/raw` for example should work" | **`o` itself could not be reproduced**: no repository the app or Henri's GitHub account can read names a share `o` (`notizen`, `dct`, `md-view-test-notes`), his notes on the disk neither; live, `/o` and `/o/raw` are 404 because nothing is shared under it. What the repositories do show (`notizen`, 2026-10-26): a share `u` made in the web app at 08:52:15, on GitHub at 08:52:18, taken back at 08:52:51. Found by reading and reproduced against the fake GitHub, with the server's caches as they are live (the share tests ran with them off): the window shows the link before its commit; opened then, the server looks through every repository (live ≈ 6 s, `server-timing` of `/o`), and (a) not found, the id is not looked for again for a minute — the reserved id of a share on its way too —, (b) that look, begun before the commit, ends after the browser told the server of the share and takes it out again. Either way the link says 404 for a minute after it works on GitHub. The 2026-10-25 row (`/7`) was another cause: the share's commit never reached GitHub | `whereIs` forgets a miss only for an id not handed out in the last hour (`handedOut`); `syncRepo` takes out only shares written down before its list was asked for (`notedAt`) | `web/test/share-soon.test.mjs` (fails without the fix, both cases) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |

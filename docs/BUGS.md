@@ -359,6 +359,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
+81. **What the share server does not find, it may forget for a while — never an id it handed
+    out for a share on its way, and never a share written down after the list it reads was
+    asked for.** The share window shows the link at once and the commit follows: a link opened
+    in between must work once GitHub has it, told or not (`handedOut` in `web/lib/share.ts`),
+    and a look through every repository that began before the commit does not take the share
+    away again (`notedAt`, `syncRepo`). The server's caches are kept in tests only where a test
+    says so: `share-soon.test.mjs` runs the server with them as it has them live.
+
 19. **Desktop is `window.__TAURI_INTERNALS__`**, not the absence of something the web host sets
     later. What needs the `claude` command, a folder on disk, or a system dialog is desktop only
     and must not show in the web app.
