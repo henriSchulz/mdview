@@ -176,6 +176,9 @@ def greet(name):
 ```
 
 A fence with a language name is highlighted; hovering shows the language and a Copy button.
+Code without a language (or with a name the app does not know, or indented by four spaces) is
+coloured as shell lines are: the first word as a command, `-flags` and `+plusargs`, strings,
+numbers, `$variables` and `# comments`. A fence named `text` stays plain.
 `hide` after the language puts the code away behind a card — with a title, if one follows, else
 the code's first line — and a click shows it in a window of its own:
 

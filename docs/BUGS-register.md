@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "Code boxen haben kein design": fences of shell commands with no language (`-y /cad/…`, `simake ultraclean`) drawn grey on grey, while a `tcl` block beside them is coloured | only a fence whose language highlight.js knows was highlighted; one with no language, a name it does not know, or an indented block was escaped text. (highlight.js's own guess was no way out: it took such lines for Swift and coloured paths as regexps) | `plainCode` in `viewer/markdown.js`: such code is read as shell lines are — the first word a command, -flags and +plusargs, strings, numbers, $variables, # comments — in the theme's code colours; the active mode's code dialog colours it the same (`edLang` in `active/islands.js`). `text` stays plain | `dev/tests/plaincode.test.mjs` |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |
