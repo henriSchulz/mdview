@@ -1366,7 +1366,8 @@ Claude Code: `claude mcp add --transport http mdview <address>/mcp`.
   Allow sends the user to GitHub, which signs them in for the client (tokens of its own: the
   browser stays signed in, whatever the client does). Deny tells the client no. No session of
   the browser is needed, and none is written.
-- **What it may do**: list the repositories (`list_repositories`) and the notes, whiteboards and
+- **What it may do**: list the spaces — the repositories the app was given that hold its
+  `.mdview` folder, not every one (`list_repositories`) — and the notes, whiteboards and
   PDFs in one (`list_files`, without what was hidden in the app); read a note as its Markdown, a
   whiteboard as the text on it (sticky notes, text, shapes, tables, links, files, pictures, with
   where they stand; strokes of ink only counted) and a PDF as its text, page by page
