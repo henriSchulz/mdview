@@ -40,7 +40,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 47. **A size is kept only when it was chosen, and looked at when it is read.** A press that pulls
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
-81. **A dialog that edits a block stands over it with the block's own left and right edges**
+82. **A dialog that edits a block stands over it with the block's own left and right edges**
     (`place`, dialog.js): its width is the block's, not a kind's own or one kept from the corner,
     clamped only by the least a dialog can be and the window's edges. A block is what is not
     inline (an inline formula keeps a dialog of its own width). `rig.sh islands` measures the edges
