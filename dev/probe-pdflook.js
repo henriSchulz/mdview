@@ -56,6 +56,16 @@
     await sleep(600);
     const page2 = V.pages[0].div.getBoundingClientRect();
     ok("… the page where it stood after", Math.abs(page2.left - page.left) <= 2, [page2.left, page.left]);
+    // All Notes over the PDF (#5): the PDF's controls go with the PDF, and come back with it
+    const seen = (el) => { if (!el || !el.getClientRects().length) return false; for (let x = el; x && x.nodeType === 1; x = x.parentElement) { const st = getComputedStyle(x); if (st.visibility === "hidden" || +st.opacity === 0) return false; } return true; };
+    document.querySelector('#tabs [data-act="overview"]').click();
+    ok("All Notes over the PDF: shown", await until(() => document.body.hasAttribute("data-overview")));
+    await sleep(600);
+    ok("… the PDF's controls are not in sight", !seen(V.bar.querySelector('[data-do="in"]')));
+    MdOverview.close();
+    ok("… back to the PDF", await until(() => !document.body.hasAttribute("data-overview")));
+    await sleep(600);
+    ok("… its controls in sight again", seen(V.bar.querySelector('[data-do="in"]')));
   } catch (e) { o.error = String(e && e.stack || e); }
   out("pdflook", o);
 })();
