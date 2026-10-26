@@ -56,6 +56,9 @@
   :root:is([data-ipad], [data-tiles]) #rpanel { top: calc(var(--ip-top) + var(--ip-size) + 12px); bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px) + var(--ip-size) + 12px); right: var(--ip-gap); height: auto; max-height: none; border-radius: 28px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-menu); transform-origin: 100% 100%; }
   :root:is([data-ipad], [data-tiles]) #rrail { bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px)); }
   :root:is([data-ipad], [data-tiles]) body[data-ip-blocks] #rrail { opacity: 0; pointer-events: none; }
+  /* (the AI button in the corner, on the capsule's line, and the capsule left of it — not under it: #4) */
+  :root:is([data-ipad], [data-tiles]) #ai-bubble { right: var(--ip-gap); bottom: calc(var(--ip-bottom) + var(--ip-kb, 0px)); width: var(--ip-size); height: var(--ip-size); }
+  :root:is([data-ipad], [data-tiles]) body[data-ai] #rrail { right: calc(var(--ip-gap) + var(--ip-size) + 10px); }
   /* (in the application under a finger: the panel keeps its own top, under the tabs and the toolbar — viewer/touch.js) */
   :root[data-tiles]:not([data-ipad]) #rpanel { top: calc(var(--sb-inset) + var(--rail-top)); }
 
