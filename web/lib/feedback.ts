@@ -18,7 +18,7 @@
 //
 // On Firebase it is Firestore (lib/firestore.ts); elsewhere a Map in memory.
 import { randomBytes } from "node:crypto";
-import { repoToken } from "./app";
+import { repoToken, sharing } from "./app";
 import * as fs from "./firestore";
 
 export const KINDS = ["bug", "feature"] as const;
@@ -129,12 +129,13 @@ export function asIssue(entry: Pick<Entry, "kind" | "title" | "body" | "platform
 }
 
 /** Opens the issue for a sending kept under `id`, as the GitHub App, and keeps its number with it.
- * The number, or 0 where the app has no key here or may not open issues there (it is kept all the
- * same: the inbox has it). */
+ * The number, or 0 where the app has no key here (it is kept all the same: the inbox has it).
+ * Throws where GitHub would not have it: the app not on that repository, or not let open issues. */
 export async function file(id: string, entry: Entry): Promise<number> {
   const [owner, repo] = ISSUES;
-  const token = await repoToken(owner, repo, { issues: "write" }).catch(() => null);
-  if (!token) return 0;
+  if (!sharing()) return 0;
+  const token = await repoToken(owner, repo, { issues: "write" });
+  if (!token) throw new Error(`the GitHub App is not installed on ${owner}/${repo}`);
   const res = await fetch(`${API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`, {
     method: "POST", cache: "no-store", body: JSON.stringify(asIssue(entry)),
     headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`, "Content-Type": "application/json", "User-Agent": "mdview-web", "X-GitHub-Api-Version": "2022-11-28" },
