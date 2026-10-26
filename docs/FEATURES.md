@@ -1346,7 +1346,8 @@ counts — and has no writing help by a model.
   branch, how many versions it has, the last one, what is not kept yet — with the quiet while
   before a commit and the name this browser has in a version; signing in and choosing a
   repository are before any page.
-- **Help** opens this guide in a tab of its own.
+- **Help** opens this guide at `/guide`, a page of its own in another browser tab: the note to
+  be read, nothing to write and no tabs; for anyone, signed in or not.
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
 - **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder,

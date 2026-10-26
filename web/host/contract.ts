@@ -39,7 +39,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   prefs: ["answer", "settings changed (kept in the browser)"],
   sidebar: ["answer", "the sidebar's width, whether it shows, names or titles (kept in the browser)"],
   "settings-info": ["answer", "what the settings show that only the host knows"],
-  help: ["answer", "the guide: docs/FEATURES.md, as a note"],
+  help: ["answer", "the guide opened at /guide, a page of its own (app/guide): docs/FEATURES.md, as a note to be read"],
   // writing
   save: ["write", "the note's text"],
   toggle: ["write", "a task ticked in the reading view"],

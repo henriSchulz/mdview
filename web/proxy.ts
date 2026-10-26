@@ -3,8 +3,8 @@
 // here only its absence is seen.
 import { NextResponse, type NextRequest } from "next/server";
 
-const OPEN = ["/signin", "/auth/login", "/auth/callback", "/download", "/install", "/oauth/authorize", "/oauth/authorize/allow"]; // (the desktop app to download: for everyone, app/download)
-const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "paste", "app", "host", "welcome", "download", "install", "mcp", "oauth"]; // the app's own names at the top: never a shared note's id
+const OPEN = ["/signin", "/auth/login", "/auth/callback", "/download", "/install", "/oauth/authorize", "/oauth/authorize/allow", "/guide"]; // (the desktop app to download, and the guide: for everyone, app/download, app/guide)
+const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "paste", "app", "host", "welcome", "download", "install", "mcp", "oauth", "guide"]; // the app's own names at the top: never a shared note's id
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

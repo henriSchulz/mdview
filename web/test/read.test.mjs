@@ -232,21 +232,22 @@ test("a reload shows the note it was on, nothing between the wheel and it", asyn
   assert.equal(bare.length, 0, `frames with neither the wheel nor the note: ${bare.length} of ${seen.length}, from ${bare[0] && bare[0].t} ms to ${bare[bare.length - 1] && bare[bare.length - 1].t} ms (${JSON.stringify(bare[0])})`);
 });
 
-test("Help shows the guide in a tab of its own, not to be written", async () => {
-  const names = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab")].length);
-  const before = await names();
+test("Help opens the guide at /guide, a page of its own to be read — no tab of the repository", async () => {
+  const before = await tabNames(), at = page.url();
+  const opened = page.context().waitForEvent("page");
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "help" })));
-  await untilNote("FEATURES.md");
-  assert.deepEqual(await page.evaluate(() => [MdView.core.current.readonly, /In the browser/.test(MdView.core.current.raw), new URL(location.href).searchParams.get("n")]), ["the guide", true, null]);
-  assert.equal(await names(), before + 1);
-  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "help" }))); // (asked for again: the same tab)
+  const guide = await opened;
+  await guide.waitForFunction(() => window.MdView && MdView.core.current && MdView.core.current.name === "Guide.md" && document.querySelector("#content").innerText.length > 0, null, { timeout: 15000 });
+  assert.equal(new URL(guide.url()).pathname, "/guide");
+  assert.deepEqual(await guide.evaluate(() => [MdView.core.current.readonly, /In the browser/.test(MdView.core.current.raw)]), ["the guide", true]);
+  await guide.close();
   await page.waitForTimeout(300);
-  assert.equal(await names(), before + 1);
-  await page.reload(); // (and it is still there after a reload)
-  await untilNote("FEATURES.md");
-  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "tab", op: "close" })));
-  await untilNote("Home.md"); // (the tab beside it)
-  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "note", path: "/octo/notes/Second note.md" })));
+  assert.deepEqual(await tabNames(), before); // (nothing opened among the repository's tabs)
+  assert.equal(page.url(), at);
+  const signedOut = await fetch(base + "/guide", { redirect: "manual" }); // (for anyone: no sign-in asked for)
+  assert.equal(signedOut.status, 200);
+  assert.match(await signedOut.text(), /"Guide\.md"/);
+  await page.goto(`${base}/r/octo/notes?n=${encodeURIComponent("Second note.md")}`); // (where the next test begins: loaded anew, in the mode the last one left)
   await untilNote("Second note.md");
 });
 
