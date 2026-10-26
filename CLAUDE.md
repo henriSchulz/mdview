@@ -19,7 +19,7 @@
   `main` needs Henri's yes each time; push only when asked.
 - **Small bugs from the list go one after the other, in one worktree, without subagents**
   (Henri, 2026-10-26: seven agents, each building and testing everything, took far too long). Each
-  bug gets only its own check (fails without the fix, passes with it) and its register row.
+  bug gets only its own check (fails without the fix, passes with it) and its issue.
 - Before saying a batch is done — once for the whole batch, not after each bug: `cd dev && npm
   test`, `cd web && npm test`, `cd src-tauri && cargo test`, and the rig cases the changes touch
   (`dev/README.md`). They say only what fails; do not ask for every line unless a failure needs it.
