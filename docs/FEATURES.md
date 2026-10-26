@@ -1401,13 +1401,18 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 ### Feedback
 
 Anyone can report a bug or suggest a feature, in the web app, without signing in; Henri reads
-them in a list of his own. What is sent is kept by the web app's server — no repository, no
-GitHub issue.
+them in a list of his own. What is sent is kept by the web app's server, and each is also an
+issue of `henriSchulz/mdview` on GitHub, opened by the GitHub App (GitHub e-mails Henri about it;
+Claude sorts it, `.github/workflows/claude.yml`). The repository is public: the issue has the
+kind, the title, the description (as text, in a fence), the platform and the version — never the
+e-mail, the user agent or the account. Where GitHub does not let the app open it, it is kept all
+the same, without an issue.
 
 - **Where**: `/feedback` (also *Send feedback* beside the repositories); `/bug` and `/feature`
   open it with that kind chosen.
 - **The form**: Bug or Feature (a choice of two), a title, a description — Markdown is fine; it
-  is kept and shown as plain text, never rendered — and, if one likes, an e-mail for questions
+  is kept and shown as plain text, never rendered; the form says the title and description are
+  posted publicly on GitHub — and, if one likes, an e-mail for questions
   about it, the platform (Web, iPad, Desktop Linux, Windows, macOS) and the app's version or the
   browser. In a browser the platform is Web (or iPad) and the browser and its system are filled
   in beforehand; a bug's description suggests steps to reproduce. Sent, the form says thanks,
@@ -1421,7 +1426,8 @@ GitHub issue.
 - **The inbox** (`/feedback/inbox`): only for Henri's GitHub account (told by its id, not its
   name); to anyone else, signed in or not, the address does not exist. Newest first, Bugs,
   Features or all, open, done or all; a row opened shows the description and the user agent, an
-  e-mail is a link to answer. Mark Done (Reopen) and Delete (a second click deletes).
+  e-mail is a link to answer, the issue's number a link to it. Mark Done (Reopen) and Delete (a
+  second click deletes) — the issue stays as it is.
 
 ## Finding
 

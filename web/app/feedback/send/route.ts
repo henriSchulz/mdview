@@ -2,8 +2,10 @@
 //
 //   POST { kind, title, body, email?, platform?, version?, website: (the field nobody sees) }
 //        → { ok: true } — 400 { field, error } where a field does not fit, 429 after too many
-import { NextResponse } from "next/server";
-import { add, addressOf, allowed, check, LIMITS } from "@/lib/feedback";
+//
+// Once it is kept, and the answer is on its way, it is also opened as an issue (lib/feedback.ts file).
+import { after, NextResponse } from "next/server";
+import { add, addressOf, allowed, check, file, LIMITS, type Entry } from "@/lib/feedback";
 import { read } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +25,14 @@ export async function POST(request: Request) {
   if (!allowed(address)) return say({ error: "That is a lot at once. Try again in an hour." }, 429);
   let login = "";
   try { login = (await read())?.login || ""; } catch { /* (no session to be read) */ }
+  const entry: Entry = { ...checked.entry, agent: (request.headers.get("user-agent") || "").slice(0, LIMITS.agent), login, status: "open", created: new Date().toISOString(), issue: 0 };
+  let id: string;
   try {
-    await add({ ...checked.entry, agent: (request.headers.get("user-agent") || "").slice(0, LIMITS.agent), login, status: "open", created: new Date().toISOString() });
+    id = await add(entry);
   } catch {
     return say({ error: "It could not be kept just now. Try again in a moment." }, 502);
   }
+  // (the issue is not the sender's to wait for: kept, it is in the inbox whether GitHub answers or not)
+  after(() => file(id, entry).catch((e) => console.error("feedback: no issue opened for", id, String(e))));
   return say({ ok: true });
 }

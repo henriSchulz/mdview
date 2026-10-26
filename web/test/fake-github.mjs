@@ -22,6 +22,7 @@ export function fakeGitHub() {
     // someone's already (422), with `createDenied` the app may not make repositories (403), and with `createUnreached` it
     // is made but not given to the app (it stays out of reach, and the fake's repository as it was)
     taken: [], createDenied: false, createUnreached: false, created: [],
+    issues: [], issuesRefused: false, // the issues opened here: { title, body, labels, by (the token) } — numbered from 1; whether the app may open none
   };
   const blobSha = (buf) => createHash("sha1").update(`blob ${buf.length}\0`).update(buf).digest("hex");
   const stateSha = (salt, files = gh.repo.files) => createHash("sha1").update(salt + [...files].map(([p, b]) => p + blobSha(b)).sort().join("\n")).digest("hex");
@@ -88,6 +89,8 @@ export function fakeGitHub() {
         return json({ full_name: `octo/${asked.name}`, name: asked.name, private: !!asked.private, default_branch: "main", clone_url: `https://github.com/octo/${asked.name}.git` }, 201);
       }
       const { owner, name, files } = gh.repo, at = `/repos/${owner}/${name}`;
+      if (url.pathname === `${at}/issues` && req.method === "POST" && gh.issuesRefused) return json({ message: "Resource not accessible by integration" }, 403);
+      if (url.pathname === `${at}/issues` && req.method === "POST") { gh.issues.push({ ...JSON.parse(body || "{}"), by: bearer }); return json({ number: gh.issues.length }, 201); }
       if (url.pathname === "/installation/repositories") return json({ repositories: [{ name: name, owner: { login: owner } }, { name: "Zeta", owner: { login: owner } }] }); // (as the app itself: where it is installed)
       if (url.pathname === "/user") return json(gh.user || { login: "octo", name: "Octo Cat", id: 42 }); // (gh.user: someone else signs in)
       if (url.pathname === "/user/installations") return json({ installations: gh.installed === false ? [] : [{ id: 7, html_url: "https://github.com/settings/installations/7", repository_selection: gh.selection || "selected", account: { login: "octo" } }] });

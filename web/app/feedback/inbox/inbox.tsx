@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import type { Entry } from "@/lib/feedback";
 
-type Row = Entry & { id: string };
+type Row = Entry & { id: string; issueAt: string };
 type Kinds = "all" | "bug" | "feature";
 type States = "open" | "done" | "all";
 const when = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? "" : new Date(t).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
@@ -66,6 +66,7 @@ export function Inbox({ rows: first, failed }: { rows: Row[]; failed: boolean })
               <small>
                 {[when(r.created), r.platform, r.version, r.login ? `@${r.login}` : "not signed in"].filter(Boolean).join(" · ")}
                 {r.email ? <> · <a href={`mailto:${r.email}?subject=${encodeURIComponent(`Re: ${r.title}`)}`}>{r.email}</a></> : null}
+                {r.issue ? <> · <a href={r.issueAt} target="_blank" rel="noreferrer">#{r.issue}</a></> : null}
               </small>
               {open === r.id ? (
                 <>
