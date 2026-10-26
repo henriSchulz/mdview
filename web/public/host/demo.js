@@ -6,7 +6,7 @@
  * screen, the share window. */
 "use strict";
 (() => {
-  const C = window.MdWebCore, W = window.MdWeb; // { notes: { name: text }, first, link, mode, bare }
+  const C = window.MdWebCore, W = window.MdWeb; // { notes: { name: text }, first, link, mode, bare, readonly }
   /* With ?samples=1 in the address (only then — the welcome page itself stays as it is): files to try what a note can hold
    * besides text, on a tablet above all — a PDF of many pages (opened in the viewer, drawn on, embedded in a note: a page and
    * a part of one), a whiteboard with things on it, an empty one, and a note that shows them. They are files of the server
@@ -76,7 +76,7 @@ The whiteboard in the note (tap it to open it):
     onScreen = path;
     if (C.kindOf(path) === "pdf") return tell("render", { name: C.nameOf(path), path, base: FILES + "/", kind: "pdf", text: "", readonly: "a PDF", mtime: 0, backlinks: [], links: {}, vault: null, canBack: false, error: null, fragment: null, startMode: mode, ...more });
     tell("render", { name: C.nameOf(path), path, base: FILES + "/", text: notes.get(path) || "", links: links(path), vault: null, canBack: false, error: null,
-      fragment: null, startMode: mode, ...(W.bare ? { readonly: "a shared note" } : {}), ...more });
+      fragment: null, startMode: mode, ...(W.bare ? { readonly: W.readonly || "a shared note" } : {}), ...more });
     setTimeout(freshen, 0); setTimeout(freshen, 400);
   }
   function apply(now) { // (what a change of the tabs leaves on screen)
