@@ -34,7 +34,7 @@ body[data-tabs] #tabs { display: block; }
 :root[data-doc-bg] > body:not([data-overview]) #tabs::after { background: var(--doc-ground) var(--doc-image) calc(-1 * var(--tabs-x, 0px)) calc(-1 * var(--tabs-y, var(--tabs-h))) / var(--doc-size-win); }
 :root[data-doc-bg] > body:not([data-overview]) #tabs::after { -webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent); }
 :root[data-doc-bg] > body[data-tabs]:not([data-overview]) :is(#content, #editor, #active) { margin-top: calc(var(--tabs-h) + var(--doc-gap)); min-height: calc(100vh - var(--tabs-h) - 2 * var(--doc-gap)); }
-body[data-sidebar="open"] #tabs { padding-left: calc(var(--sb-w) + 6px); } /* (the strip's tabs make room for the card that lies over it; the note does not) */
+body[data-sidebar="open"] #tabs { padding-left: calc(var(--sb-w) + 6px); } /* (the strip's tabs make room for the card) */
 /* the note begins under the strip; what sticks to the window's top sticks under it */
 body[data-tabs] :is(#content, #active, #editor) { padding-top: calc(var(--tabs-h) + 28px); }
 .tab-row { display: flex; align-items: center; gap: 4px; height: var(--tab-h); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }

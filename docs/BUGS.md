@@ -57,12 +57,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     rail and its tile, and a note's row and tile, to the same entries: an entry added for one is
     there for all.
 
-69. **The sidebar lies over the note; showing it moves nothing but the card.** No room is made
-    for it — no padding, no `left`, no width of the note, All Notes or a split's halves that
-    depends on `data-sidebar` (and no `:root:has(…data-sidebar…)`: a change of it restyles every
-    element). Opening and shutting it lays nothing out anew, and nothing is sent: the host does
-    not scan or send the folder for a sidebar shown or hidden. `rig.sh sidebar` measures the
-    note's left edge, All Notes' and its sheets', at two widths, and how long the click takes.
+69. **Pinned, the sidebar makes room in one layout, and glides there; peeking, it moves nothing but
+    the card.** (Henri, 2026-10-26: the card over the note everywhere did not please him after all —
+    Notion's way.) Opening it lays the note out once: the room is made by rules on `data-sidebar`
+    that set `padding-left`, `#overview`'s `left` and the halves' widths directly — no custom
+    property that changes on `body` or `:root` (every element's style made anew; no
+    `:root:has(…data-sidebar…)`), what fits itself to the room told by `resize` only once the glide
+    is over. The note, All Notes and the halves glide to their places by `transform`
+    (`showSidebar`); the line at the window's top stays. Peeking (`data-sidebar="peek"`) changes no
+    layout and tells the host nothing; nothing is scanned or sent for a sidebar shown or hidden.
+    `rig.sh sidebar` measures the room made, the click's time, the peek at the edge and the button.
 
 ### What is drawn while something is coming in
 

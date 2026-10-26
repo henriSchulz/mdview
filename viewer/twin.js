@@ -26,7 +26,7 @@
 
   // ---------------------------------------------------------------- there, or not
   const ROOM = 600; // (the two halves: 300 px each at the least, as for the sheet beside the note)
-  const fits = () => innerWidth >= ROOM; // (the sidebar lies over the window and takes none of it)
+  const fits = () => innerWidth - (P.sbRoom?.() || 0) >= ROOM; // (a sidebar pinned takes its room)
   /* The mode says whether the right half is there (editor.js: showMode). Coming and going, the source glides to its new place
    * from where it stood (only transform), at the same line of the text. */
   function sync() {

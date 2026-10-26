@@ -73,7 +73,7 @@ or the tests see the old ones.
 |---|---|
 | `viewer/base.js` | its ground: the message to the shell (post), the icons, small helpers. |
 | `viewer/chrome.js` | what stands around the note: the toolbar, find, the outline, the toast, the notice of a newer version of the … |
-| `viewer/drawer.js` | the sidebar shown and hidden (a card that slides in over the note), an empty folder, a new note made at once … |
+| `viewer/drawer.js` | the sidebar pinned (it makes room) and shut (it peeks out over the note), an empty folder, a new note made at … |
 | `viewer/editor.js` | the source editor: a textarea under a coloured copy of its text, saving, and where a place in the text is on … |
 | `viewer/hand.js` | the hand: a finger, where the system does not say the screen is touched (Henri, 2026-10-24: the application … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
@@ -228,6 +228,7 @@ or the tests see the old ones.
 | `web/lib/types.ts` | What kind of content a file of a repository is sent as, by its ending. |
 | `web/lib/welcome.ts` | The welcome page: what is seen at the address without signing in. |
 | `web/lib/mcp/board.ts` | A whiteboard told in words, for a client of the Model Context Protocol: what is written on it — text, sticky … |
+| `web/lib/mcp/guide.gen.ts` | Written by scripts/assets.mjs from skill/mdview-notes/SKILL.md — not to be changed here. |
 | `web/lib/mcp/oauth.ts` | Signing a client of the Model Context Protocol in — Claude, Claude Code, any other: OAuth 2.1 as the protocol … |
 | `web/lib/mcp/tools.ts` | What a client of the Model Context Protocol may do with the user's notes: the repositories the app was given … |
 | `web/host/contract.ts` | The seam between the page (viewer.js and friends, the desktop app's own, unchanged) and whatever hosts it. |

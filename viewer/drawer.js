@@ -1,4 +1,4 @@
-/* mdview, the page — the sidebar shown and hidden (a card that slides in over the note), an empty folder,
+/* mdview, the page — the sidebar pinned (it makes room) and shut (it peeks out over the note), an empty folder,
  * a new note made at once with the caret in its title, the window that asks for a new folder's or whiteboard's name. */
 "use strict";
 (() => {
@@ -8,7 +8,7 @@
   const { editor, READING } = P; // viewer/editor.js
   const { sidebar, sidebarOpen, closeCtx } = P; // viewer/sidebar.js
 
-  // --- showing / hiding: the sidebar slides in over the note (transform only)
+  // --- showing / hiding: pinned it makes room, shut it peeks out over the note
   /* Under a finger. A browser makes mouse events of a tap, after the fact — a pointer that came to rest where the finger was: what
    * shows itself to a resting pointer asks touching() and shows itself by the tap instead.
    * What is pulled with a mouse (the edges things are sized at, a table's handles) is pulled by a finger the same way: on those
@@ -97,24 +97,82 @@
   sbScrim.addEventListener("click", () => { if (sidebarOpen()) showSidebar(false, true); });
   sidebar.addEventListener("click", (e) => { if (compact() && e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row") && !e.ctrlKey && !e.metaKey) showSidebar(false, true); });
   narrow.addEventListener("change", () => { if (P.folder && compact() && sidebarOpen()) showSidebar(false, false); });
-  /* The sidebar lies over the note in every window, as a card that floats (Henri, 2026-10-20: "never moves the document"):
-   * opened, only the card moves (transform) — the note, All Notes and the halves of a split stay where they are, and nothing of
-   * the text is laid out anew. The strip of tabs makes room for the card (the sidebar's button stays beside it): its row glides
-   * over (transform only). */
+  /* Open, the sidebar is pinned and makes room (Henri, 2026-10-26: Notion's way, after "never moves the document" of 2026-10-20
+   * did not please him): the note's column, All Notes and the halves of a split take their new places at once (sidebar.css) and glide there from where they stood — transform only, the layout made once, the line at the window's top
+   * kept there. A narrow window keeps the drawer over the note. The strip of tabs makes room for the card as before. */
+  const shown = (el) => el && el.getClientRects().length ? el : null;
+  const column = () => ["content", "editor", "active"].map((id) => shown(document.getElementById(id))).find(Boolean) || null;
+  const room = () => P.folder && sidebarOpen() && !compact() ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0;
+  let roomTimer = 0;
   function showSidebar(open, animate) {
-    if (sidebarOpen() === !!open && document.body.dataset.sidebar) return;
-    const tabsBefore = P.tabRow.getBoundingClientRect().left;
+    clearTimeout(peekTimer); clearTimeout(leaveTimer); peekTimer = leaveTimer = 0;
+    if (sidebarOpen() === !!open && document.body.dataset.sidebar && document.body.dataset.sidebar !== "peek") return;
+    const before = room(), overview = document.body.hasAttribute("data-overview");
+    const gliding = [P.tabRow, column(), shown(document.getElementById("overview")), shown(document.getElementById("split")), shown(document.getElementById("twin"))].filter(Boolean);
+    const lefts = gliding.map((el) => el.getBoundingClientRect().left);
+    // (the block at the window's top, and how far down it stands: there again once the column is narrower or wider)
+    const col = !overview && column(), top = (P.tabRow.getClientRects().length ? P.tabRow.getBoundingClientRect().bottom : 0);
+    const mark = col && [...col.children].find((el) => el.getBoundingClientRect().bottom > top), markTop = mark && mark.getBoundingClientRect().top;
     sidebar.classList.toggle("no-anim", !animate);
     document.body.dataset.sidebar = open ? "open" : "closed";
-    const tdx = tabsBefore - P.tabRow.getBoundingClientRect().left;
-    if (!animate || reducedMotion() || !tdx) return;
-    const el = P.tabRow;
-    el.style.transition = "none";
-    el.style.transform = `translateX(${tdx}px)`;
-    void el.offsetWidth;
-    el.style.transition = "";
-    el.style.transform = "";
+    if (room() !== before) {
+      if (mark && mark.isConnected) scrollBy(0, mark.getBoundingClientRect().top - markTop);
+      // (what fits itself to the window's room does so again — the halves of a split — once the glide is over)
+      clearTimeout(roomTimer);
+      roomTimer = setTimeout(() => window.dispatchEvent(new Event("resize")), animate && !reducedMotion() ? P.motionMs("--spring-gentle-dur", 526) : 0);
+    }
+    if (!animate || reducedMotion()) return;
+    gliding.forEach((el, i) => {
+      const dx = lefts[i] - el.getBoundingClientRect().left;
+      if (!dx) return;
+      el.style.transition = "none";
+      el.style.transform = `translateX(${dx}px)`;
+    });
+    void document.body.offsetWidth;
+    for (const el of gliding) {
+      if (!el.style.transform) continue;
+      el.style.transition = el === P.tabRow ? "" : "transform var(--spring-gentle-dur) var(--spring-gentle)";
+      el.style.transform = "";
+      if (el !== P.tabRow) el.addEventListener("transitionend", function done(e) { if (e.target !== el || e.propertyName !== "transform") return; el.removeEventListener("transitionend", done); if (!el.style.transform) el.style.transition = ""; });
+    }
   }
+  /* Shut, it peeks out (Notion's way): the pointer at the window's left edge, or resting on the sidebar's button, and the card
+   * slides in over the note — nothing makes room, nothing is told the host. The pointer gone from it a moment, it slides away
+   * again (not while a menu of it is open, a name is being written in it, its edge pulled); the button, or Ctrl+Alt+S, pins it. */
+  const EDGE = 6, PEEK_EDGE = 60, PEEK_BUTTON = 300, PEEK_LEAVE = 350, NEAR = 16;
+  let peekTimer = 0, leaveTimer = 0;
+  const peeking = () => document.body.dataset.sidebar === "peek";
+  const canPeek = () => !!P.folder && !compact() && document.body.dataset.sidebar === "closed" && !document.documentElement.hasAttribute("data-ipad") && !document.querySelector("#board[data-open], [aria-modal=\"true\"][data-open]"); // (not under a whiteboard or a dialog)
+  const busy = () => (P.ctxOpen && P.ctxOpen()) || !!document.querySelector(":is(#sblook, .ui-popover)[data-open]") || document.body.classList.contains("sb-sizing") ||
+    !!document.activeElement?.closest?.(".sb-rename");
+  function peek(on) {
+    clearTimeout(peekTimer); clearTimeout(leaveTimer); peekTimer = leaveTimer = 0;
+    if (on ? !canPeek() : !peeking()) return;
+    sidebar.classList.remove("no-anim");
+    document.body.dataset.sidebar = on ? "peek" : "closed";
+  }
+  function leaveSoon() {
+    if (leaveTimer) return;
+    leaveTimer = setTimeout(function away() { if (!peeking()) { leaveTimer = 0; return; } if (busy()) { leaveTimer = setTimeout(away, PEEK_LEAVE); return; } peek(false); }, PEEK_LEAVE);
+  }
+  function pointerAt(x, y, target) {
+    if (peeking()) {
+      const r = sidebar.getBoundingClientRect();
+      const near = x <= r.right + NEAR && y >= r.top - NEAR && y <= r.bottom + NEAR || target?.closest?.(".tab-side, #ctxmenu, #sblook, .ui-popover");
+      if (near) { clearTimeout(leaveTimer); leaveTimer = 0; } else leaveSoon();
+      return;
+    }
+    const wait = x <= EDGE ? PEEK_EDGE : target?.closest?.(".tab-side") ? PEEK_BUTTON : 0;
+    if (!wait || !canPeek()) { clearTimeout(peekTimer); peekTimer = 0; return; }
+    if (!peekTimer) peekTimer = setTimeout(() => { peekTimer = 0; peek(true); }, wait);
+  }
+  document.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) pointerAt(e.clientX, e.clientY, e.target); }, { passive: true });
+  document.addEventListener("dragover", (e) => pointerAt(e.clientX, e.clientY, e.target), { passive: true }); // (a tile pulled to the edge: the folders to drop it on)
+  document.documentElement.addEventListener("mouseleave", () => { clearTimeout(peekTimer); peekTimer = 0; if (peeking()) leaveSoon(); });
+  document.addEventListener("pointerdown", (e) => {
+    if (peeking() && !e.target.closest?.("#sidebar, #sb-grip, .tab-side, #ctxmenu, #sblook, .ui-popover")) peek(false);
+  }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && peeking() && !busy()) peek(false); });
   /* In a note the sidebar is shut to begin with (Henri, 2026-10-25: "standardmäßig zu, wenn man in einer Notiz ist"): the
    * window's first note, and a note come to out of All Notes. A note chosen in the sidebar leaves it as it is; the quick notes
    * keep theirs (it is their list). Told to the host as a hand that shut it would: the folder sent again shows it as it stood. */
@@ -125,23 +183,6 @@
   }
   new MutationObserver(() => { if (!document.body.hasAttribute("data-overview") && P.current) noteShown(true); })
     .observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
-  /* Where the card lies over the note's text — a window too narrow for both — a press into the note puts it away, as a drawer
-   * is put away; where the window is wide enough that it covers only the margin, it stays open while one reads and writes.
-   * (Not over All Notes: there the two are used together — a tile pulled onto a folder in the sidebar. A narrow window: the
-   * shade beside the drawer, above.) */
-  const NOTE = "#content, #editor, #active, #split, #twin";
-  function covers() {
-    if (!sidebarOpen() || compact() || document.body.hasAttribute("data-overview")) return false;
-    const col = P.inSource() ? editor : P.mode === "active" && window.MdActive?.view ? MdActive.view.el : content;
-    if (!col || !col.getClientRects().length) return false;
-    const r = col.getBoundingClientRect();
-    return r.left + (parseFloat(getComputedStyle(col).paddingLeft) || 0) < sidebar.getBoundingClientRect().right;
-  }
-  document.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !P.folder || !(e.target.closest?.(NOTE) || e.target === document.body || e.target === document.documentElement) || !covers()) return;
-    showSidebar(false, true);
-    post("sidebar", { visible: false });
-  }, true);
 
   /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.
    * (The note view and All Notes alike; the button asks for the note's name as the + does.) */
@@ -263,5 +304,5 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { touching, byFinger, compact, showSidebar, noteShown, emptyState, openNewNote, closeNewNote, titleFresh });
+  Object.assign(P, { touching, byFinger, compact, showSidebar, sbRoom: room, noteShown, emptyState, openNewNote, closeNewNote, titleFresh });
 })();

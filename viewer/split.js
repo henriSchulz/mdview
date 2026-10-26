@@ -69,7 +69,7 @@
     grip.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      room = { wide: innerWidth, r: null }; // (the sidebar lies over the window: the halves share all of it)
+      room = { wide: innerWidth - (P.sbRoom?.() || 0), r: null }; // (the halves share what the sidebar leaves of the window)
       grip.setPointerCapture(e.pointerId);
       pane.dataset.sizing = ""; document.body.dataset.splitSizing = "";
     });
@@ -238,9 +238,9 @@
 
   // ---------------------------------------------------------------- opening and closing
   /* Two things want room: 300 px each at the least. Where the window has less, there is one thing to show — said, when two are
-   * asked for, and the sheet is out of sight for as long. (The sidebar lies over the window and takes none of it.) */
+   * asked for, and the sheet is out of sight for as long. (A sidebar pinned takes its room.) */
   const ROOM = 600;
-  const fits = () => innerWidth >= ROOM;
+  const fits = () => innerWidth - (P.sbRoom?.() || 0) >= ROOM;
   const narrow = () => { document.body.toggleAttribute("data-split-narrow", !!S && !fits()); placed(); };
   addEventListener("resize", narrow);
   /* Where the note is a sheet on a ground of its own, what floats at the note's right — the rail, the panel — stands on that sheet,
