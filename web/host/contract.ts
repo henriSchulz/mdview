@@ -140,7 +140,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   setFolder: ["answer", "the repository as a tree, and how the sidebar is set"],
   setTabs: ["answer", "the tabs"],
   setMode: ["answer", "the mode to be in"],
-  titleFresh: ["write", "a new note (New Note) is on screen: the caret in its empty title, whose text names the file"],
+  titleFresh: ["write", "a new note (New Note) is made (its path): once it is on screen, the page puts it in the active mode and the caret in its empty title, whose text names the file"],
   setPrefs: ["answer", "the settings"],
   setTheme: ["answer", "the colours: light or dark, as the system has it"],
   setPreviews: ["answer", "the beginnings of notes asked for"],

@@ -1026,7 +1026,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **A new note asks for nothing** (`Ctrl+N`, the sidebar's `+`, All Notes' `+`, New Note in a
   folder's menu or the empty room's, the button of an empty folder — desktop and browser alike): it
   is made at once as "Untitled" ("Untitled 2" … where that name is taken), next to the note on
-  screen or in the folder chosen, and opens in the mode one writes in (the browser: the source), the caret in its title — an
+  screen or in the folder chosen, and opens in the active mode — the source, where the window was being written in the source — the caret in its title — an
   empty heading that shows "Untitled", greyed, in the active mode (the source shows `# `). What is
   written there names the file: once it has been left alone a moment (1.5 s) while it is written,
   and when the note is left (another note, its tab closed, the window closed) — the tab, the
