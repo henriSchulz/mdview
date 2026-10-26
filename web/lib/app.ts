@@ -49,21 +49,22 @@ export async function appRepos(): Promise<{ owner: string; repo: string; token: 
   return out;
 }
 
-const tokens = new Map<string, { token: string; until: number }>(); // "owner/repo" → a token that still holds
+const tokens = new Map<string, { token: string; until: number }>(); // "owner/repo {permissions}" → a token that still holds
 
-/** A token that reads one repository, as the app. null: sharing is not set up, or the app is not
+/** A token for one repository, as the app: one that reads it, unless other `permissions` are asked
+ * for (the feedback's issues: `{ issues: "write" }`). null: the key is not set up, or the app is not
  * installed on that repository (any more). */
-export async function repoToken(owner: string, repo: string): Promise<string | null> {
+export async function repoToken(owner: string, repo: string, permissions: Record<string, string> = { contents: "read" }): Promise<string | null> {
   const k = privateKey();
   if (!k) return null;
-  const name = `${owner}/${repo}`.toLowerCase(), now = Math.floor(Date.now() / 1000), had = tokens.get(name);
+  const name = `${owner}/${repo} ${JSON.stringify(permissions)}`.toLowerCase(), now = Math.floor(Date.now() / 1000), had = tokens.get(name);
   if (had && had.until - now > 300) return had.token;
   const headers = await statement(k);
   const where = await fetch(`${API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/installation`, { headers, cache: "no-store" });
   if (where.status === 404) return null;
   if (!where.ok) throw new Error(`GitHub: ${where.status} for the installation`);
   const { id } = (await where.json()) as { id: number };
-  const made = await fetch(`${API}/app/installations/${id}/access_tokens`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ repositories: [repo], permissions: { contents: "read" } }), cache: "no-store" });
+  const made = await fetch(`${API}/app/installations/${id}/access_tokens`, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ repositories: [repo], permissions }), cache: "no-store" });
   if (!made.ok) throw new Error(`GitHub: ${made.status} for the token`);
   const said = (await made.json()) as { token: string; expires_at: string };
   tokens.set(name, { token: said.token, until: Math.floor(Date.parse(said.expires_at) / 1000) || now + 3000 });

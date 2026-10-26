@@ -1,8 +1,10 @@
 // Feedback: a bug or a feature sent by anyone, signed in or not, checked and kept by the server
-// (lib/feedback.ts) — and the inbox, which is Henri's alone. The built app, a GitHub of the
-// test's own (whose /user is Henri or someone else, as `gh.user` says), Chromium for the form.
+// (lib/feedback.ts) — and the inbox, which is Henri's alone; each also an issue the app opens. The
+// built app, a GitHub of the test's own (whose /user is Henri or someone else, as `gh.user` says,
+// and which knows the app as itself), Chromium for the form.
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { after, before, test } from "node:test";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,9 +33,12 @@ const send = (data, { from = `10.1.0.${++n}`, cookie = "" } = {}) => fetch(base 
 const inbox = (cookie) => fetch(base + "/feedback/inbox", { redirect: "manual", headers: cookie ? { cookie } : {} });
 
 before(async () => {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  gh.appKey = publicKey;
   const at = await gh.listen(), port = await freePort();
   base = `http://127.0.0.1:${port}`;
-  app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-tests-own-0123456789", STORE: "memory", FEEDBACK_OWNER_ID: String(HENRI.id), FEEDBACK_PER_HOUR: "3" }, stdio: "pipe" });
+  app = spawn("npx", ["next", "start", "-p", String(port), "-H", "127.0.0.1"], { cwd: web, env: { ...process.env, GITHUB_WEB: at, GITHUB_API: at, GITHUB_CLIENT_SECRET: "the-secret", SESSION_SECRET: "a-session-secret-of-the-tests-own-0123456789", STORE: "memory", FEEDBACK_OWNER_ID: String(HENRI.id), FEEDBACK_PER_HOUR: "3", FEEDBACK_REPO: "octo/notes",
+    GITHUB_APP_PRIVATE_KEY: privateKey.export({ type: "pkcs1", format: "pem" }).replace(/\n/g, "\\n") }, stdio: "pipe" });
   let log = ""; app.stdout.on("data", (d) => (log += d)); app.stderr.on("data", (d) => (log += d));
   for (let i = 0; ; i++) {
     try { if ((await fetch(base + "/signin")).ok) break; } catch { /* not up yet */ }
@@ -123,6 +128,38 @@ test("the inbox is Henri's: anyone else finds nothing there — signed in or not
   assert.match(await (await inbox(henri)).text(), /\\"status\\":\\"done\\"/);
   assert.equal((await item(henri, "DELETE")).status, 200);
   assert.doesNotMatch(await (await inbox(henri)).text(), /Signed in, it says who/);
+});
+
+/** The issue opened for the sending whose title is this, once it is there. */
+async function issued(title) {
+  for (let i = 0; i < 100; i++) { const it = gh.issues.find((x) => x.title === title); if (it) return [it, gh.issues.indexOf(it) + 1]; await new Promise((r) => setTimeout(r, 50)); }
+  return [null, 0];
+}
+
+test("each one is also an issue the app opens — with nothing of who sent it, the description shown as text", async () => {
+  const body = "Steps:\n```js\nx()\n```\n@someone ![x](https://tracker.example/p.png) <img src=x>";
+  const res = await send(good({ title: "Kept and filed", body, email: "me@example.org", version: "Firefox 140 @octo" }), { cookie: octo });
+  assert.equal(res.status, 200);
+  const [issue, number] = await issued("Kept and filed");
+  assert.ok(issue, "an issue was opened");
+  assert.ok(gh.appTokens.has(issue.by), "as the app");
+  assert.deepEqual(gh.appAsked.at(-1), { repositories: ["notes"], permissions: { issues: "write" } }, "a token for this repository's issues, and only for them");
+  assert.deepEqual(issue.labels, ["bug", "feedback"]);
+  assert.ok(issue.body.includes("````text\n" + body + "\n````"), "the description in a fence longer than any in it");
+  assert.match(issue.body, /^Bug · Web · Firefox 140 \\@octo/);
+  for (const not of ["me@example.org", "Mozilla", "node", "@octo"]) assert.ok(!issue.body.replace("\\@octo", "").includes(not), `not in the issue: ${not}`);
+  const html = await (await inbox(henri)).text();
+  assert.ok(html.includes(`https://github.com/octo/notes/issues/${number}`), "the inbox links to it");
+});
+
+test("GitHub not letting the app open the issue: kept all the same, the sender told nothing of it", async () => {
+  gh.issuesRefused = true;
+  try {
+    assert.equal((await send(good({ title: "Kept without an issue" }))).status, 200);
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(gh.issues.find((x) => x.title === "Kept without an issue"), undefined);
+    assert.match(await (await inbox(henri)).text(), /Kept without an issue/);
+  } finally { gh.issuesRefused = false; }
 });
 
 test("in a browser: the platform filled in, the form sent, thanks", { skip: !browserPath && "no Chromium" }, async () => {

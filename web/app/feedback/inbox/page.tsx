@@ -2,7 +2,7 @@
 // signed in with GitHub. Anyone else — signed in or not — finds nothing at this address.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { isOwner, list, type Entry } from "@/lib/feedback";
+import { isOwner, issueAt, list, type Entry } from "@/lib/feedback";
 import { read } from "@/lib/session";
 import { Inbox } from "./inbox";
 import "../feedback.css";
@@ -14,8 +14,8 @@ export default async function FeedbackInbox() {
   let session = null;
   try { session = await read(); } catch { /* (no session to be read) */ }
   if (!isOwner(session)) notFound();
-  let rows: (Entry & { id: string })[] = [], failed = false;
-  try { rows = (await list()).map(([id, e]) => ({ id, ...e })); } catch { failed = true; }
+  let rows: (Entry & { id: string; issueAt: string })[] = [], failed = false;
+  try { rows = (await list()).map(([id, e]) => ({ id, ...e, issueAt: e.issue ? issueAt(e.issue) : "" })); } catch { failed = true; }
   return (
     <main className="center">
       <Inbox rows={rows} failed={failed} />
