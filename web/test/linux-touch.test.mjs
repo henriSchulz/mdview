@@ -154,6 +154,12 @@ test("linux: under a finger the note has the iPad's bars — chosen blocks, no m
   assert.ok(await finger(), "the hand is a finger");
   const rail = await rect("#rrail");
   assert.ok(rail.bottom > 800 - 40 && rail.right > 1280 - 40 && rail.w > rail.h, `the rail lies at the bottom right: ${JSON.stringify(railBefore)} → ${JSON.stringify(rail)}`);
+  // the AI button (on in the application) beside it, not over it (#4)
+  await p.evaluate(() => document.body.setAttribute("data-ai", ""));
+  await p.waitForTimeout(400);
+  const ai = await rect("#ai-bubble"), railAi = await rect("#rrail");
+  assert.ok(ai.w > 0 && (ai.x >= railAi.right || ai.right <= railAi.x || ai.y >= railAi.bottom || ai.bottom <= railAi.y), `the AI button beside the rail: ${JSON.stringify(ai)} / ${JSON.stringify(railAi)}`);
+  await p.evaluate(() => document.body.removeAttribute("data-ai"));
   // blocks chosen: the bar, and its panels do the work
   await choose("^Paragraph 1 ");
   await p.waitForTimeout(500);

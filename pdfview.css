@@ -19,6 +19,8 @@
  * over the pages. What the toolbar has for a note and a PDF has no use for (the outline, find, share, the modes) gives way. */
 #toolbar > .pdf-bar { position: static; display: flex; width: auto; max-width: none; margin: 0; padding: 0; overflow: visible; border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
 body.pdf-open #toolbar > :is([data-act="outline"], [data-act="find"], [data-act="share"], .seg) { display: none; }
+/* All Notes over the PDF: the toolbar holds nothing but the PDF's, and goes with it (#5) — as it goes where nothing is to be done */
+body.pdf-open[data-overview] #toolbar { opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), transform calc(var(--dur-fast) * 0.7) var(--ease-exit); }
 #toolbar > .pdf-bar .pdf-page-in { height: 24px; }
 /* drawn on (a whiteboard over the pages, pdfview.js: drawOn): the toolbar keeps the pen alone — pressed, it ends the drawing — and
  * the card goes as the board comes */

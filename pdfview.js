@@ -130,6 +130,7 @@
    * it is come back to (another tab, back from a note): it stands there again. */
   const left = new Map();
   const topRoom = () => (window.MdView && MdView.core.top) || 0; // (what the tabs take of the window's top)
+  const leftRoom = () => (window.MdView && MdView.core.left) || 0; // (what the pinned sidebar takes of the window's left)
   function leave() {
     if (!V) return;
     if (V.io && V.root.isConnected) {
@@ -271,7 +272,7 @@
       const seed = (n) => { const x = v.pages[n - 1], q = x.state === "done" ? x.div.getBoundingClientRect() : null; return q && q.bottom > -innerHeight && q.top < 2 * innerHeight ? x.div.querySelector(".pdf-canvas") : null; };
       v.root.setAttribute("data-drawing", ""); // (the card goes as the board comes, the toolbar keeps only the panel and the pen: pdfview.css)
       drawingNow(v, true);
-      if (!(await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, seed, at: { n: pg.n, left: r.left, top: r.top - topRoom(), width: r.width }, done: (now) => drawn(v, now) }))) { v.root.removeAttribute("data-drawing"); drawingNow(v, false); }
+      if (!(await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, seed, at: { n: pg.n, left: r.left - leftRoom(), top: r.top - topRoom(), width: r.width }, done: (now) => drawn(v, now) }))) { v.root.removeAttribute("data-drawing"); drawingNow(v, false); }
     } catch (e) { v.root.removeAttribute("data-drawing"); drawingNow(v, false); toast(T("Couldn't open the PDF to draw on")); }
     v.opening = false;
   }
@@ -282,6 +283,7 @@
   function drawingNow(v, on) {
     document.body.toggleAttribute("data-pdf-drawing", on);
     document.documentElement.style.setProperty("--bd-pdf-top", topRoom() + "px");
+    document.documentElement.style.setProperty("--bd-pdf-left", leftRoom() + "px");
     const tb = document.getElementById("toolbar");
     const r = tb && on && !topRoom() ? tb.getBoundingClientRect() : null; // (the pen alone, over the board where no tabs are: the board's undo stands left of it)
     document.documentElement.style.setProperty("--bd-pdf-tb", r && r.width ? innerWidth - r.left + "px" : "0px");
@@ -293,15 +295,15 @@
     drawingNow(v, false);
     if (V !== v || !v.root.isConnected) return;
     inked(v, now.model);
-    const top = topRoom(), P = window.MdBoard.pdf, view = now.view, mx = innerWidth / 2, my = (innerHeight - top) / 2; // (the board's middle: it begins under the tabs)
-    const p = P.near(now.pages, view, { w: innerWidth, h: innerHeight - top });
+    const top = topRoom(), side = leftRoom(), P = window.MdBoard.pdf, view = now.view, mx = (innerWidth - side) / 2, my = (innerHeight - top) / 2; // (the board's middle: it begins under the tabs, beside the pinned sidebar)
+    const p = P.near(now.pages, view, { w: innerWidth - side, h: innerHeight - top });
     const fx = (view.x + mx / view.z - p.x) / p.w, fy = (view.y + my / view.z - p.y) / p.h; // (where in that page the window's middle was)
     const scale = view.z * P.UNIT;
     if (Math.abs(scale - v.scale) / v.scale > 0.01) zoomTo(scale);
     const div = v.pages[p.n - 1].div, r = div.getBoundingClientRect();
     window.scrollBy({ top: r.top + fy * r.height - (top + my), behavior: "instant" });
     const r2 = div.getBoundingClientRect();
-    v.box.scrollLeft += r2.left + fx * r2.width - mx; // (and across, as far as the pages go)
+    v.box.scrollLeft += r2.left + fx * r2.width - (side + mx); // (and across, as far as the pages go)
     pageNow();
     if (v.stale && !now.quick) { v.stale = false; post("reload"); } // (the window's focus came back meanwhile)
   }
