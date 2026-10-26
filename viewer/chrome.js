@@ -113,7 +113,7 @@
 
   // toolbar hides while reading downwards, returns on scroll up or near the top
   let lastY = 0;
-  const showToolbar = (show) => toolbar.classList.toggle("hidden", !show && !document.body.hasAttribute("data-tabs")); // (beside the tabs it stays)
+  const showToolbar = (show) => toolbar.classList.toggle("hidden", !show && !document.body.hasAttribute("data-tabs") && !document.body.classList.contains("pdf-open")); // (beside the tabs it stays, and over a PDF: it holds the PDF's controls)
   addEventListener("scroll", () => {
     const y = window.scrollY;
     if (y < 48 || y < lastY - 6) showToolbar(true);

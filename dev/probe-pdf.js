@@ -142,8 +142,7 @@
       bar.querySelector('[data-do="side"]').click();
       ok("the bar's first button brings it", await until(() => getComputedStyle(card).visibility === "visible" && getComputedStyle(card).opacity === "1" && getComputedStyle(card).transform === "none", 2000) && bar.querySelector('[data-do="side"]').getAttribute("aria-pressed") === "true", getComputedStyle(card).opacity);
       ok("… over the pages: none moved, none was sized or drawn anew", page() === was && V.scale === scale && canvases.every((c) => c.isConnected), [was, page()]);
-      ok("… and it ends above the window's lower edge", card.getBoundingClientRect().bottom <= innerHeight - 8 && card.getBoundingClientRect().bottom >= innerHeight - 40, [card.getBoundingClientRect().bottom, innerHeight]);
-      ok("… as a card of the app's: its own ground, round corners", parseFloat(getComputedStyle(card).borderRadius) >= 14 && card.getBoundingClientRect().width > 200);
+      ok("… a panel at the window's left edge, down to its foot (GoodNotes)", card.getBoundingClientRect().left <= 1 && Math.abs(card.getBoundingClientRect().bottom - innerHeight) <= 1 && card.getBoundingClientRect().width > 200, [card.getBoundingClientRect().left, card.getBoundingClientRect().bottom, innerHeight]);
       const tabs = V.side.querySelector(".pdf-tabs");
       V.side.querySelector('[data-tab="pages"]').click();
       ok("a tab chosen: the mark goes to it, the tabs are not built anew", tabs.isConnected && tabs.style.getPropertyValue("--i") === "1" && V.side.querySelector('[data-tab="pages"]').getAttribute("aria-selected") === "true", tabs.style.cssText);

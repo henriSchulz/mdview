@@ -71,7 +71,7 @@ test("?samples=1 on an iPad: a PDF drawn on keeps what was drawn; a whiteboard d
   await tapAt(page, await center(page, () => [...document.querySelectorAll("#board button")].find((b) => b.getAttribute("aria-label") === "Pens" && b.offsetParent)), 400);
   await stroke(wave(450));
   await shot(page, "pdf-drawn");
-  await tapAt(page, await center(page, () => document.querySelector('#board [data-do="back"]')));
+  await tapAt(page, await center(page, () => document.querySelector('.pdf-bar [data-do="draw"]'))); // (the pen in the toolbar, pressed: drawing ends)
   assert.ok(await page.evaluate(() => document.querySelectorAll(".pdf-ink").length) > 0, "what was drawn lies on the PDF");
   await shot(page, "pdf-after");
   // the whiteboard: back to the note, opened, drawn on, left

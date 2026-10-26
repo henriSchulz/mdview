@@ -21,7 +21,8 @@
     mono: svg('<path d="M4 17c3-9 5-9 7-3s4 6 9-7"/>'),
     eraser: svg('<path d="m8.5 19-4-4a1.6 1.6 0 0 1 0-2.3l8.2-8.2a1.6 1.6 0 0 1 2.3 0l4.5 4.5a1.6 1.6 0 0 1 0 2.3L12 19z"/><path d="m8.8 8.6 6.6 6.6M7 19h13"/>'),
     grid: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><g fill="currentColor" stroke="none"><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></g>'),
-    marker: svg('<path d="M9.2 16.8 6 20h4.2l1.6-1.6"/><path d="m9.2 16.8 8.3-10.6a1.5 1.5 0 0 1 2.2-.2l1.3 1.2a1.5 1.5 0 0 1 0 2.2L11.8 18.4z"/><path d="m15.2 9.2 3 2.9"/>'),
+    // (the highlighter round, as GoodNotes has it: a body with round ends, a broad round tip in its colour — no wedge; Henri, 2026-10-26)
+    marker: svg('<g transform="rotate(45 12 12)"><rect x="9" y="0.8" width="6" height="14" rx="3"/><path d="M9 11.6h6"/><path d="M9.9 14.8h4.2v2.5a2.1 2.1 0 0 1-4.2 0z" style="fill: var(--band, currentColor)"/></g>'),
     pencil: svg('<path d="m4.5 19.5 1.3-5L15.3 5l3.7 3.7-9.5 9.5z"/><path d="m5.8 14.5 3.7 3.7M13.4 6.9l3.7 3.7"/>'),
     ruler: svg('<rect x="2.5" y="8.5" width="19" height="7" rx="1.5" transform="rotate(-35 12 12)"/><path d="m8.6 11.4 1.2 1.7M11.5 9.4l1.2 1.7M14.4 7.4l1.2 1.7"/>'),
     lasso: svg('<path d="M10.5 13.6C7 13.2 4.5 11.5 4.5 9.2c0-2.6 3.4-4.7 7.5-4.7s7.5 2.1 7.5 4.7c0 .9-.4 1.7-1.1 2.4" stroke-dasharray="2.6 2.4"/><path d="M12.5 11v8.5l2.3-2.1 1.5 3.1 1.6-.8-1.5-3 3.1-.3z"/>'),
@@ -493,7 +494,7 @@
     for (const b of el.querySelectorAll(".bd-type [data-style]")) b.setAttribute("aria-pressed", String(!!text[b.dataset.style]));
     for (const b of el.querySelectorAll(".bd-type [data-align]")) b.setAttribute("aria-pressed", String(text.align === b.dataset.align));
     // how broad: the pen's line, the eraser, a shape's outline
-    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"); dot.style.width = dot.style.height = d + "px"; }
+    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"), c = S.tools[S.pen].c; dot.style.width = dot.style.height = d + "px"; dot.style.setProperty("--d", d + "px"); dot.style.setProperty("--ink", !c || c === "auto" ? "var(--fg)" : c); }
     const sizes = el.querySelector(".bd-sizes"), list = kind === "shape" ? B.items.WIDTHS : kind === "eraser" ? B.ink.TOOLS.eraser.widths : B.ink.TOOLS[S.pen].widths, now = kind === "shape" ? drawn.w : kind === "eraser" ? S.tools.eraser.w : S.tools[S.pen].w, sig = list.join() + ":" + now;
     if (sizes.dataset.sig !== sig) {
       sizes.dataset.sig = sig;

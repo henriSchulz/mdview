@@ -589,10 +589,11 @@ and shut back into it — or a file of the folder, of its own.
   board opens), the pens (`P`), the eraser (`E`), text (`T`), shapes (`S`), then Picture, and
   under `+` a sticky note (`N`), a table and a link. Each tool but the lasso has a small tray
   of its own with what it is set to; the tray changes with the tool.
-- **The pens**: pen (`P`), fineliner (`F`), marker (`M`, see-through) and pencil (`B`, with a
-  grain), and the ruler. Under them how broad the line is — pressed, the widths open, and how
-  see-through the line is (a press on the pen in hand opens the same) — and three colours at
-  hand. The colour in use, pressed again, opens all the colours; the one chosen there takes
+- **The pens**: pen (`P`), fineliner (`F`), marker (`M`, see-through; its sign a round marker
+  with a round tip in its colour) and pencil (`B`, with a grain), and the ruler. Under them how
+  broad the line is, in the pen's colour (upright, as a stroke of that breadth) — pressed, the
+  widths open, and how see-through the line is (a press on the pen in hand opens the same) —
+  and three colours at hand, the one in use ringed in its own colour. The colour in use, pressed again, opens all the colours; the one chosen there takes
   its place among the three. Each pen keeps its own width, its own colour and its own three.
 - **The eraser**'s tray: whether it takes whole strokes or the parts it passes over, and how
   large it is. A shape, a line or an
@@ -1510,9 +1511,11 @@ text follow. **Show Result** shows the embed as the note will; Done writes it.
 In the viewer: select text, then `Ctrl+Shift+C` copies a link to it — as a callout, a quote, a
 link or an embed, as the settings say (there too: copy as soon as text is selected). Every such
 link in the notes shows as a highlight in the PDF, in the colour the link names; a double click on
-one opens the note. The bar over the pages is a capsule like the window's toolbar: the side card,
-back, the page, the size, fit, a region, the pen. The side card — outline, pages, notes — lies over
-the window's left under the bar; no page moves for it. Larger and smaller: two fingers on
+one opens the note. The PDF's controls stand in the window's toolbar, beside the tabs, where a note
+has its modes (a PDF has none of those, nor the outline, find and share): the side panel, back, the
+page, the size, fit, a region, the pen. The side panel — outline, pages, notes — lies at the
+window's left edge, from under the tabs to the foot, as GoodNotes has one; it lies over the pages,
+no page moves for it. Larger and smaller: two fingers on
 the touchpad, `Ctrl` (or `Super`) with `+` and `−`, `Ctrl` with the wheel; `Ctrl+0` fits the width
 again. A pinch and the wheel hold the place under the pointer; pages broader than the window are
 moved sideways (two fingers, `Shift` with the wheel). On a touch screen of the application on
@@ -1520,8 +1523,10 @@ Linux, one finger moves the pages and, let go while moving, throws them on; two 
 them larger and smaller, what lies between them staying there. Keys: `+` `−` zoom, `W` fit width,
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
 
-**Drawing on a PDF.** The pen in the viewer's toolbar (`D`, or a pen set on a page) opens the
-whiteboard over the PDF: its pages lie under it as sheets of paper, where they stood, and everything
+**Drawing on a PDF.** The pen in the toolbar (`D`, or a pen set on a page) opens the whiteboard
+over the PDF, under the tabs, which stay to be chosen; the toolbar then holds the pen alone,
+pressed — pressed again (or `Esc`) it ends the drawing. The pages lie under the board as sheets of
+paper, where they stood, and everything
 a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and
 arrows, the ruler, undo. Two fingers or the wheel move down the pages (a notch of a mouse's wheel as a
 glide, a push on the touchpad running on after the fingers leave), a pinch or `Ctrl` with the

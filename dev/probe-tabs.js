@@ -61,8 +61,8 @@
     for (let i = 0; i < 300 && !document.querySelector(".pdf-page canvas"); i++) await sleep(20);
     await sleep(500);
     ok("the middle button on a PDF: a tab for it, beside the one shown", els().length === 4 && shown() === 2 && cur() === "paper.pdf" && !!document.querySelector(".pdf-page canvas"), [labels(), shown(), cur()]);
-    const bar = document.querySelector(".pdf-bar").getBoundingClientRect();
-    ok("the PDF's bar stands under the strip", bar.top >= strip.getBoundingClientRect().bottom - 1, bar.top);
+    const bar = document.querySelector(".pdf-bar");
+    ok("the PDF's controls stand in the toolbar, at the strip's right end", bar.parentElement.id === "toolbar" && bar.getBoundingClientRect().bottom <= strip.getBoundingClientRect().bottom, bar.getBoundingClientRect().top);
     const p2 = document.querySelector('.pdf-page[data-page="2"]');
     window.scrollBy(0, p2.getBoundingClientRect().top - 120); await sleep(400);
     const at = p2.getBoundingClientRect().top; // (page 2 that far under the window's top: the pages' size may be fitted anew, the place in the page holds)

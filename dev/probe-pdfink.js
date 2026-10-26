@@ -43,14 +43,14 @@
       ok("the page stands where it stood in the viewer", close(box(sheet(2)), before), [box(sheet(2)), before]);
       ok("… and so do the pages before and after it: nothing jumps", close(box(sheet(3)), next) && close(box(sheet(1)), first), [box(sheet(1)), first, box(sheet(3)), next]);
       { // the board's bars come in moving, each from its edge — and come to rest where they belong
-        const bars = [...document.querySelectorAll("#board .bd-bar")].filter((b) => b.getBoundingClientRect().width), title = document.querySelector("#board .bd-title"), zoom = document.querySelector("#board .bd-zoom");
+        const bars = [...document.querySelectorAll("#board .bd-bar")].filter((b) => b.getBoundingClientRect().width), title = document.querySelector("#board .bd-insert"), zoom = document.querySelector("#board .bd-zoom");
         const first = (b) => (b.getAnimations().flatMap((a) => a.effect.getKeyframes()).find((k) => k.translate && /16px/.test(k.translate)) || {}).translate || "";
         const rest = new Map(bars.map((b) => [b, b.style.translate])), firsts = bars.map(first);
         ok("the board's bars come in moving", bars.length >= 3 && firsts.every(Boolean), firsts);
         ok("… those at the top from above, those at the bottom from below", first(title).endsWith("(-16px)") && first(zoom).endsWith("(16px)"), [first(title), first(zoom)]);
-        ok("… and come to rest where they stand", await until(() => bars.every((b) => !b.getAnimations().length), 3000) && bars.every((b) => b.style.translate === rest.get(b)) && Math.abs(title.getBoundingClientRect().top - 12) < 30, bars.map((b) => b.getAnimations().length));
+        ok("… and come to rest where they stand", await until(() => bars.every((b) => !b.getAnimations().length), 3000) && bars.every((b) => b.style.translate === rest.get(b)) && Math.abs(title.getBoundingClientRect().top - document.getElementById("board").getBoundingClientRect().top - 12) < 30, bars.map((b) => b.getAnimations().length));
       }
-      ok("the viewer's bar goes as the board comes", await until(() => getComputedStyle(V.bar).opacity === "0", 1500), getComputedStyle(V.bar).opacity);
+      ok("the toolbar keeps the pen alone, pressed — the rest of the viewer's controls go as the board comes", await until(() => [...document.querySelectorAll("#toolbar button")].filter((b) => b.offsetWidth).length === 1 && draw.offsetWidth && draw.getAttribute("aria-pressed") === "true", 1500), [...document.querySelectorAll("#toolbar button")].filter((b) => b.offsetWidth).map((b) => b.dataset.do || b.dataset.act));
       ok("the pages in sight are drawn", await until(() => st().pdf.drawn.includes(2) && sheet(2).querySelector("canvas")), st().pdf);
       ok("no bar at the lower right over a PDF (joining, the dots)", !document.querySelector("#board .bd-viewbar").getBoundingClientRect().width);
       ok("it is named as the PDF is, and has no dots", document.querySelector("#board .bd-name").textContent === "paper.pdf" && !stage().hasAttribute("data-grid"));
@@ -154,7 +154,7 @@
       }
       // --- back to the PDF
       key("Escape");
-      if (B.shown) document.querySelector('#board [data-do="back"]').click();
+      if (B.shown) draw.click(); // (the pen in the toolbar, pressed: drawing ends)
       ok("back: the board is gone", await until(() => !B.shown && document.querySelector("#board").hidden, 3000));
       ok("… and the viewer's bar is back", await until(() => getComputedStyle(V.bar).opacity === "1", 1500), getComputedStyle(V.bar).opacity);
       ok("the stroke lies on page 2, and on no other", await until(() => ink(2) && ink(2).querySelectorAll("path").length === 1) && !ink(1) && !ink(3), document.querySelectorAll(".pdf-ink").length);

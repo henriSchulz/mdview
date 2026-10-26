@@ -1,7 +1,8 @@
 /* mdview — the PDF viewer and PDFs embedded in notes (pdfview.js). */
 #content.pdf { max-width: none; padding: 56px 24px 30vh; }
 .pdfv { position: relative; }
-/* the bar over the pages: a capsule, as the window's own toolbar is one (viewer/chrome.css: #toolbar, .tb) */
+/* the PDF's controls in a capsule of their own — a split's half has them so (viewer/split.js); the viewer puts them into the
+ * window's toolbar instead (below: #toolbar > .pdf-bar) */
 .pdf-bar {
   position: sticky; top: 10px; z-index: 20;
   display: flex; align-items: center; gap: 2px;
@@ -14,11 +15,16 @@
   font: 400 12px/1 var(--ui, "Inter", sans-serif); white-space: nowrap; user-select: none; -webkit-user-select: none;
 }
 .pdf-bar::-webkit-scrollbar { display: none; }
-/* a whiteboard comes up over the PDF (pdfview.js: drawOn): the bar and the card go as it comes, and come as it goes */
-.pdf-bar { transition: opacity var(--dur-slow) var(--ease-out), translate var(--spring-gentle-dur) var(--spring-gentle); }
-.pdfv[data-drawing] .pdf-bar { opacity: 0; translate: 0 -16px; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), translate calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+/* The viewer's controls stand in the window's toolbar, where a note has its modes (pdfview.js: show) — beside the tabs, nothing
+ * over the pages. What the toolbar has for a note and a PDF has no use for (the outline, find, share, the modes) gives way. */
+#toolbar > .pdf-bar { position: static; display: flex; width: auto; max-width: none; margin: 0; padding: 0; overflow: visible; border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+body.pdf-open #toolbar > :is([data-act="outline"], [data-act="find"], [data-act="share"], .seg) { display: none; }
+#toolbar > .pdf-bar .pdf-page-in { height: 24px; }
+/* drawn on (a whiteboard over the pages, pdfview.js: drawOn): the toolbar keeps the pen alone — pressed, it ends the drawing — and
+ * the card goes as the board comes */
+body[data-pdf-drawing] #toolbar > .pdf-bar > :not([data-do="draw"]), body[data-pdf-drawing] #toolbar > :not(.pdf-bar) { display: none; }
+body[data-pdf-drawing] #toolbar { z-index: 60; } /* (over the board, where no tabs are above it: board.css) */
 .pdfv[data-drawing] .pdf-card { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
-@media (prefers-reduced-motion: reduce) { .pdfv[data-drawing] .pdf-bar { translate: none; } }
 .pdf-bar .tb { flex: none; border-radius: var(--radius-pill); }
 /* a finger in use where the system does not say the pointer is one (viewer/hand.js): the bar's buttons a finger's size, as
  * viewer/narrow.css makes them under a coarse pointer */
@@ -76,23 +82,25 @@
 .textLayer br::selection { background: transparent; }
 .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; -webkit-user-select: none; }
 
-/* outline, pages, notes: a card over the window's left, under the bar — as the panel at the right is one (active/panel.css).
- * It takes no room among the pages (nothing moves aside for it, no page is drawn anew): it comes out of the bar's corner, a
- * little smaller and faded, and goes faster than it came. */
-.pdf-side { --pdf-side-top: 56px; position: sticky; top: var(--pdf-side-top); z-index: 15; flex: none; width: 0; height: 0; }
+/* outline, pages, notes: a panel at the window's left edge, as GoodNotes has one — from under the tabs to the window's foot. It
+ * lies over the pages (BUGS.md 58): nothing moves aside for it, no page is drawn anew. It slides in from the edge and goes faster
+ * than it came. Beside the sidebar's card, it begins where that ends. */
+.pdf-side { position: sticky; top: 0; z-index: 14; flex: none; width: 0; height: 0; }
 .pdf-card {
-  position: absolute; left: 0; top: 0; box-sizing: border-box;
-  width: min(248px, calc(100vw - 48px)); height: calc(100vh - var(--at, var(--pdf-side-top)) - 20px); /* (--at: where it begins in the window now — pdfview.js, sidePlaced) */
+  position: fixed; left: 0; top: 0; bottom: 0; box-sizing: border-box;
+  width: min(264px, calc(100vw - 48px));
   display: flex; flex-direction: column; overflow: hidden;
-  border-radius: 18px; background: var(--raised);
-  box-shadow: 0 0 0 0.5px var(--line), 0 0 8px rgb(0 0 0 / 0.05), 0 2px 12px rgb(0 0 0 / 0.04);
+  background: var(--bg); box-shadow: 0.5px 0 0 var(--line-strong), 6px 0 18px rgb(0 0 0 / 0.04);
   font: 400 12.5px/1.35 var(--ui, "Inter", sans-serif); color: var(--fg); user-select: none; -webkit-user-select: none;
-  transform-origin: 0 0; transform: scale(0.95); opacity: 0; visibility: hidden;
-  transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit), opacity calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
+  transform: translateX(-100%); visibility: hidden;
+  transition: transform calc(var(--dur-slow) * 0.7) var(--ease-exit), visibility 0s linear calc(var(--dur-slow) * 0.7);
 }
-.pdf-side[data-open] .pdf-card { transform: none; opacity: 1; visibility: visible; transition: transform var(--spring-gentle-dur) var(--spring-gentle), opacity var(--dur-fast) var(--ease-out), visibility 0s; }
-@media (prefers-reduced-motion: reduce) { .pdf-card { transform: none; } }
-@media (prefers-contrast: more) { .pdf-card { box-shadow: 0 0 0 1.5px var(--fg2); } }
+body[data-tabs] .pdf-card { top: var(--tabs-h); padding-bottom: 44px; } /* (its foot left to the settings' gear: BUGS.md 40) */
+body:not([data-tabs]) .pdf-card { padding: 48px 0 44px; } /* (the toolbar's row; the gear's corner) */
+body[data-sidebar="open"] .pdf-card { left: calc(var(--sb-w) + 6px); }
+.pdf-side[data-open] .pdf-card { transform: none; visibility: visible; transition: transform var(--spring-smooth-dur) var(--spring-smooth), visibility 0s; }
+@media (prefers-reduced-motion: reduce) { .pdf-card { transform: none; opacity: 0; transition: opacity var(--dur-fast) var(--ease-exit), visibility 0s linear var(--dur-fast); } .pdf-side[data-open] .pdf-card { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out), visibility 0s; } }
+@media (prefers-contrast: more) { .pdf-card { box-shadow: 1.5px 0 0 var(--fg2); } }
 /* its three parts: one of them chosen, and the mark glides to it */
 .pdf-tabs { position: relative; flex: none; display: grid; grid-template-columns: repeat(3, 1fr); margin: 10px 10px 8px; padding: 2px; border-radius: var(--radius-control); background: var(--fill-hover); }
 .pdf-tabs::before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: calc(var(--radius-control) - 2px); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgb(0 0 0 / 0.08); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--spring-smooth-dur) var(--spring-smooth); }
@@ -124,5 +132,4 @@
 .pdf-embed.failed { padding: 6px 10px; line-height: 1.4; font-size: 0.85em; color: var(--muted, color-mix(in srgb, var(--fg) 60%, transparent)); cursor: default; }
 @media print { .pdf-bar, .pdf-side { display: none !important; } }
 /* under the tabs of a folder window (viewer/*.css): the bar and the side column stick below them */
-body[data-tabs] .pdf-bar { top: calc(var(--tabs-h) + 2px); }
-body[data-tabs] .pdf-side { --pdf-side-top: calc(var(--tabs-h) + 48px); }
+body[data-tabs] .split-bar.pdf-bar { top: calc(var(--tabs-h) + 2px); }
