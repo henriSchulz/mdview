@@ -217,40 +217,62 @@
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); await sleep(500); }
     await layout("source");
 
-    // ---- the sidebar lies over the note: it never moves the note (Henri, 2026-10-20)
+    // ---- pinned, the sidebar makes room; shut, it peeks out over the note (Henri, 2026-10-26: Notion's way)
     const toggle = async (open) => { if ((document.body.dataset.sidebar === "open") !== open) { document.querySelector('#tabs [data-act="sidebar"]').click(); await sleep(800); } };
     const leftOf = (sel) => { const el = document.querySelector(sel); return el && el.getClientRects().length ? Math.round(el.getBoundingClientRect().left) : null; };
+    const textLeft = (sel) => { const el = document.querySelector(sel); return el.getBoundingClientRect().left + (parseFloat(getComputedStyle(el).paddingLeft) || 0); };
+    const move = (x, y) => { const at = document.elementFromPoint(x, y) || document.body; at.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerType: "mouse", isPrimary: true, buttons: 0 })); };
     let sent = 0; { const own = MdView.setFolder; MdView.setFolder = function (...a) { sent++; return own.apply(this, a); }; } // (the folder the shell sends)
-    const still = async (what, sel) => {
+    const pinned = async (what, sel) => {
       await toggle(false); const shut = leftOf(sel), sentBefore = sent;
-      const t0 = performance.now(); document.querySelector('#tabs [data-act="sidebar"]').click(); const took = performance.now() - t0; await sleep(800);
-      ok(`… (${innerWidth} px) opened, the folder is not scanned and sent again (the whole list was drawn anew while the card slid in)`, sent === sentBefore, sent - sentBefore);
-      const open = leftOf(sel), side = sb.getBoundingClientRect();
-      ok(`${what} (${innerWidth} px): its left edge stays where it was when the sidebar opens, and the card lies over the window`, shut !== null && shut === open && document.body.dataset.sidebar === "open" && side.left > 0 && side.width > 150, { shut, open, w: innerWidth, side: [side.left, side.width] });
-      ok(`… (${innerWidth} px) opening it does nothing but slide the card: a few ms, not a layout of the note`, took < 30, Math.round(took));
+      const t0 = performance.now(); document.querySelector('#tabs [data-act="sidebar"]').click(); const took = performance.now() - t0;
+      const glides = getComputedStyle(document.querySelector(sel).closest("#content, #overview")).transform !== "none";
+      await sleep(800);
+      ok(`… (${innerWidth} px) opened, the folder is not scanned and sent again`, sent === sentBefore, sent - sentBefore);
+      const side = sb.getBoundingClientRect();
+      ok(`${what} (${innerWidth} px): pinned, the sidebar makes room — nothing of it lies under the card`, document.body.dataset.sidebar === "open" && side.width > 150 && textLeft(sel) >= side.right - 1, { text: Math.round(textLeft(sel)), card: Math.round(side.right), shut, open: leftOf(sel) });
+      ok(`… (${innerWidth} px) it glides there (transform), and the click takes little time: the new layout made once`, (glides || shut === leftOf(sel)) && took < 100, { glides, took: Math.round(took) });
       await toggle(false);
-      ok(`… (${innerWidth} px) and it stays there when the sidebar shuts`, leftOf(sel) === shut, [leftOf(sel), shut]);
+      ok(`… (${innerWidth} px) and it goes back where it was when the sidebar shuts`, leftOf(sel) === shut, [leftOf(sel), shut]);
     };
-    const overlay = async () => {
-      await still("the note's column", "#content");
+    const room = async () => {
+      await pinned("the note's column", "#content");
       await toggle(true);
       { const btn = document.querySelector('#tabs [data-act="sidebar"]').getBoundingClientRect(), side = sb.getBoundingClientRect();
         ok(`(${innerWidth} px) the sidebar's button in the strip stays beside the card, to be clicked`, btn.left >= side.right - 1, [btn.left, side.right]); }
-      // a press into the note: the card put away where it lies over the text, left open where it covers only the margin
-      { const c = document.getElementById("content"), r = c.getBoundingClientRect(), text = r.left + parseFloat(getComputedStyle(c).paddingLeft), over = text < sb.getBoundingClientRect().right;
-        const p = c.querySelector("p, h1") || c, pr = p.getBoundingClientRect(), x = Math.max(pr.left + 4, sb.getBoundingClientRect().right + 20), y = pr.top + 4;
-        p.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y, pointerType: "mouse", isPrimary: true })); await sleep(700);
-        ok(`(${innerWidth} px) a press into the note ${over ? "puts the card away: it lay over the text" : "leaves it open: it covers only the margin"}`, (document.body.dataset.sidebar === "open") === !over, { over, text, right: sb.getBoundingClientRect().right }); }
+      { const p = document.querySelector("#content p, #content h1"), pr = p.getBoundingClientRect();
+        p.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: pr.left + 4, clientY: pr.top + 4, pointerType: "mouse", isPrimary: true })); await sleep(700);
+        ok(`(${innerWidth} px) a press into the note leaves the pinned sidebar open`, document.body.dataset.sidebar === "open", document.body.dataset.sidebar); }
+      await toggle(false);
+      // peeking: the pointer at the window's left edge, and away again
+      document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true })); await sleep(300); // (a folder's colour window left open above)
+      document.querySelector("#settings[data-open] .st-close")?.click(); await sleep(500); // (and the settings)
+      { const before = leftOf("#content"); move(2, innerHeight / 2); await sleep(500);
+        ok(`(${innerWidth} px) shut, the pointer at the window's left edge: the card peeks out over the note`, document.body.dataset.sidebar === "peek" && sb.getBoundingClientRect().left >= 0 && leftOf("#content") === before, { state: document.body.dataset.sidebar, content: [before, leftOf("#content")] });
+        move(120, innerHeight / 2); await sleep(600);
+        ok("… the pointer on the card: it stays", document.body.dataset.sidebar === "peek", document.body.dataset.sidebar);
+        move(innerWidth - 80, innerHeight / 2); await sleep(900);
+        ok("… the pointer gone from it: it slides away again, and nothing was told the host", document.body.dataset.sidebar === "closed", { state: document.body.dataset.sidebar, ctx: MdPage.ctxOpen(), open: [...document.querySelectorAll(":is(#sblook, .ui-popover)[data-open]")].map((e) => e.id || e.className), sizing: document.body.className, at: (document.elementFromPoint(innerWidth - 80, innerHeight / 2) || {}).id });
+        move(innerWidth / 2, innerHeight / 2); move(30, innerHeight / 2); await sleep(400);
+        ok("… the pointer passing near the edge, not at it: no peek", document.body.dataset.sidebar === "closed", document.body.dataset.sidebar); }
+      { const btn = document.querySelector('#tabs [data-act="sidebar"]'), br = btn.getBoundingClientRect(); move(br.left + br.width / 2, br.top + br.height / 2); await sleep(700);
+        ok(`(${innerWidth} px) the pointer resting on the sidebar's button: it peeks out`, document.body.dataset.sidebar === "peek", { state: document.body.dataset.sidebar, at: (document.elementFromPoint(br.left + br.width / 2, br.top + br.height / 2) || {}).outerHTML?.slice(0, 80), br: [br.left, br.top, br.width] });
+        btn.click(); await sleep(800);
+        ok("… the button clicked: it is pinned, and makes room", document.body.dataset.sidebar === "open" && textLeft("#content") >= sb.getBoundingClientRect().right - 1, document.body.dataset.sidebar);
+        await toggle(false); }
+      { move(2, innerHeight / 2); await sleep(500); const p = document.querySelector("#content p, #content h1"), pr = p.getBoundingClientRect();
+        p.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, clientX: pr.right - 4, clientY: pr.top + 4, pointerType: "mouse", isPrimary: true })); await sleep(700);
+        ok(`(${innerWidth} px) peeking, a press into the note puts it away`, document.body.dataset.sidebar === "closed", document.body.dataset.sidebar); }
       document.querySelector('#tabs [data-act="overview"]').click(); await sleep(900);
-      if (document.body.hasAttribute("data-overview")) { await still("All Notes", "#overview"); await still("All Notes' sheets", "#overview .ov-body"); window.MdOverview && MdOverview.close(false); await sleep(600); }
+      if (document.body.hasAttribute("data-overview")) { await pinned("All Notes", "#overview"); await pinned("All Notes' sheets", "#overview .ov-body"); window.MdOverview && MdOverview.close(false); await sleep(600); }
       else ok("All Notes opened from the strip", false, "");
     };
-    await overlay();
+    await room();
     { // narrower: the page zoomed (fewer CSS pixels across), still wider than a phone's drawer
       const wide = innerWidth, settle = async () => { for (let i = 0, last = -1, n = 0; i < 60 && n < 5; i++) { await sleep(100); n = innerWidth === last ? n + 1 : 0; last = innerWidth; } };
       let steps = 0;
       while (innerWidth > 1000 && steps < 12) { post("zoom", { step: 1 }); steps++; await settle(); }
-      if (innerWidth > 760 && innerWidth < wide) await overlay(); else ok("the window zoomed to between 760 and 1000 px", false, [wide, innerWidth]);
+      if (innerWidth > 760 && innerWidth < wide) await room(); else ok("the window zoomed to between 760 and 1000 px", false, [wide, innerWidth]);
       for (let i = 0; i < steps; i++) post("zoom", { step: -1 });
       await settle();
     }

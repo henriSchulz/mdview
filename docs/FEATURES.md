@@ -59,7 +59,7 @@ Edits are saved by themselves. The settings (`Ctrl+,`) choose the mode a new win
 and at the right the note as it reads, drawn anew a moment after each key. The two halves stay at the same place in
 the text: scrolled at the left, the right follows; scrolled at the right, the source follows. A click on a block at the
 right puts the caret at its line; a link there leads where it leads in reading. Tasks are ticked in the source here. With
-the sidebar open the halves stay as they are (it lies over the source's half); a window too narrow for two (less than
+the sidebar pinned the halves share what it leaves of the window; a window too narrow for two (less than
 600 px) shows the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
 sheet changes to the source alone, and this mode closes the sheet.
 
@@ -908,12 +908,15 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
   opened out of All Notes show without it; a note chosen in it leaves it open, and the quick
-  notes keep theirs. **It lies over the note**, a card that floats in the window with a shade
-  under it: opened or shut, the note, All Notes and the halves of a split stay where they are —
-  only the card slides in (the strip's tabs make room for it, its button beside it). Where the
-  window is narrow enough that it lies over the text, a click into the note puts it away; where
-  it covers only the margin, it stays open while one reads and writes. Over All Notes it stays
-  open (a tile can be pulled onto a folder in it) and lies over the first sheets until it is shut.
+  notes keep theirs. **Open, it is pinned and makes room** (as Notion has it): a card that floats
+  in the window, and the note's column centres itself in what is left, All Notes begins beside it,
+  the halves of a split share the rest — they glide there, and the line at the window's top stays
+  there. **Shut, it peeks out**: the pointer at the window's left edge, or resting on its button a
+  moment, and the card slides in over the note with a shade under it, nothing making room; the
+  pointer gone from it, it slides away again (not while a menu of it is open or a name is being
+  written in it); a press into the note or `Esc` puts it away, the button or `Ctrl+Alt+S` pins it.
+  A file pulled to the window's edge makes it peek out too, to be dropped on a folder. A narrow
+  window (a phone) has it as a drawer over the note, with a shade beside it.
 - **A PDF among All Notes shows its first page**, as a note shows its beginning — on its tile and,
   small, in the list. It is drawn when the tile comes near the window and kept while the window
   is open; until then the tile has the PDF's sign.

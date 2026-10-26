@@ -134,7 +134,7 @@ test("All Notes: a tile keeps the pose it has under the pointer while its menu i
   const tile = page.locator("#overview .ov-item[data-dir]").first();
   await tile.waitFor({ timeout: 8000 });
   const pose = () => page.evaluate(() => { const t = document.querySelector("#overview .ov-item[data-dir]"); return [...t.querySelectorAll(".ov-stack > i")].map((i) => getComputedStyle(i).transform); });
-  await page.mouse.move(2, 2);
+  await page.mouse.move(400, 2); // (on no tile — and not at the window's left edge, where the sidebar peeks out)
   await page.waitForTimeout(700);
   const rest = await pose();
   await tile.screenshot({ path: join(web, ".next", "stack.png") });

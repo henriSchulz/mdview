@@ -1073,9 +1073,9 @@ test("the source beside its reading: the source at the left, the note as it read
   await page.keyboard.press("Control+Alt+2");
   await until(() => page.evaluate(() => MdPage.mode === "split" && document.body.hasAttribute("data-twin")), "the mode");
   await page.waitForTimeout(700); // (the source glides to its half)
-  const box = await page.evaluate(() => { const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON(); return { ed: r("editor"), twin: r("twin"), w: innerWidth }; });
+  const box = await page.evaluate(() => { const r = (id) => document.getElementById(id).getBoundingClientRect().toJSON(); return { ed: r("editor"), twin: r("twin"), w: innerWidth, room: MdPage.sbRoom() }; });
   assert.ok(box.ed.left >= -1 && box.ed.right <= box.twin.left + 1, `the source in the left half: ${JSON.stringify(box)}`);
-  assert.ok(Math.abs(box.twin.width - box.w / 2) < 2 && box.twin.right >= box.w - 1, `the reading in the right half of the window — the sidebar lies over it and takes none of it (2026-10-20): ${JSON.stringify(box)}`);
+  assert.ok(Math.abs(box.twin.width - (box.w - box.room) / 2) < 2 && box.twin.right >= box.w - 1, `the reading in the right half of what the sidebar leaves of the window (pinned, it makes room — 2026-10-26): ${JSON.stringify(box)}`);
   assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll(".seg-btn")].map((b) => b.dataset.mode)), ["active", "split", "edit", "read"]);
   // the line both halves are at, a little under the top: the source's line, and the block at the right around it
   const at = () => page.evaluate(() => {

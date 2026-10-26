@@ -1,8 +1,9 @@
 /* mdview, styles — the sidebar of a folder window (its layouts: layouts.css). (One of several sheets, linked in a fixed order: docs/MAP.md.) */
 /* ------------------------------------------------------------- sidebar (folder windows) */
-/* A card that floats in the window, over the note, as the sidebar of a macOS window does: set in
- * from the window's edge, round, a shade lighter than the page, its shade a floating card's. Sizes
- * are Finder's. --sb-w is the room it covers, the inset included. */
+/* A card that floats in the window, as the sidebar of a macOS window does: set in from the window's edge, round, a shade
+ * lighter than the page, its shade a floating card's. Sizes are Finder's. --sb-w is the room it covers, the inset included.
+ * Open, it is pinned: the note, All Notes and the halves of a split make room for it (below). Shut, it peeks out over the
+ * note while the pointer rests at the window's left edge or on its button (data-sidebar="peek": viewer/drawer.js). */
 :root {
   --sb-w: 260px;
   --sb-inset: 8px;
@@ -44,7 +45,7 @@ body[data-sidebar]::before {
   pointer-events: none;
   border-image: url(data:image/png;base64,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) 128 / 64px / 46px;
 }
-body[data-sidebar="open"] #sidebar, body[data-sidebar="open"]::before {
+body:is([data-sidebar="open"], [data-sidebar="peek"]) #sidebar, body:is([data-sidebar="open"], [data-sidebar="peek"])::before {
   transform: none;
   visibility: visible;
   transition: transform var(--spring-gentle-dur) var(--spring-gentle), visibility 0s;
@@ -54,9 +55,9 @@ body[data-sidebar="open"] #sidebar, body[data-sidebar="open"]::before {
 @media print { body[data-sidebar]::before { display: none !important; } }
 /* the settings: a gear at the window's lower left corner — the foot of the sidebar when that is open */
 #settings-btn { position: fixed; left: 10px; bottom: 10px; z-index: 17; border-radius: var(--radius-pill); }
-body[data-sidebar="open"] #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); }
+body:is([data-sidebar="open"], [data-sidebar="peek"]) #settings-btn { left: calc(var(--sb-inset) + 8px); bottom: calc(var(--sb-inset) + 8px); }
 #settings-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-body[data-sidebar="open"] .sb-list { padding-bottom: 48px; }
+body:is([data-sidebar="open"], [data-sidebar="peek"]) .sb-list { padding-bottom: 48px; }
 @media print { #settings-btn { display: none !important; } }
 /* its edge, to pull it wider, narrower, away — and, from the window's edge, out again (the pointer says so) */
 #sb-grip { position: fixed; top: 0; bottom: 0; left: 0; z-index: 16; width: 6px; cursor: col-resize; display: none; }
@@ -64,8 +65,19 @@ body[data-folder] #sb-grip { display: block; }
 body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; }
 body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 @media print { #sb-grip { display: none !important; } }
-/* (The note makes no room for it: the card lies over the note, All Notes and the halves of a split, which stay where they are —
- * viewer/drawer.js: showSidebar. Henri, 2026-10-20.) */
+/* Pinned in a window wide enough, the sidebar makes room, as in Finder or Notes (Henri, 2026-10-26: Notion's way — pinned it
+ * makes room, shut it peeks out over the note): the note's column centres itself in what is left, All Notes begins beside the
+ * card, the halves of a split share what is left. It glides there (viewer/drawer.js: showSidebar — transform only; the new
+ * layout is made once). A narrow window keeps the drawer over the note (narrow.css). */
+@media (min-width: 761px) {
+  /* (no custom property set on body for it: one that changes there is every element's style made anew — rule 69) */
+  body[data-folder][data-sidebar="open"] { padding-left: var(--sb-w); }
+  body[data-folder][data-sidebar="open"] #overview { left: var(--sb-w); }
+  body[data-folder][data-sidebar="open"][data-split]:not([data-overview]) { padding-right: calc((100vw - var(--sb-w)) * var(--split-r)); }
+  body[data-folder][data-sidebar="open"] :is(#split, #rrail, #rpanel, #ai-bubble, #ai-chat) { --split-room: calc(100vw - var(--sb-w)); --split-w: calc(var(--split-room) * var(--split-r)); }
+  body[data-folder][data-sidebar="open"][data-twin]:not([data-overview]) { padding-right: calc((100vw - var(--sb-w)) / 2); }
+  body[data-folder][data-sidebar="open"] #twin { --twin-room: calc(100vw - var(--sb-w)); --twin-w: calc(var(--twin-room) / 2); }
+}
 #toolbar [data-act="sidebar"], #toolbar [data-act="overview"] { display: none; }
 /* the panel at the right is not the source's: there its button stands dimmed and takes no click
  * (beside the reading view it shows what is the document's — its third tab; active/panel.js) */

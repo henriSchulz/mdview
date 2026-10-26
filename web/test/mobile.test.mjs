@@ -126,56 +126,60 @@ test("on a phone the sidebar is a drawer over the note; a note chosen in it shut
   await d.context.close();
 });
 
-test("on a tablet the sidebar lies over the note, which does not move; a tap into the text it covers puts it away", async () => {
+test("on a tablet the sidebar, opened, makes room: the note moves aside, and a tap into it leaves the sidebar open", async () => {
   const d = await device("tablet");
   await open(d);
   await d.page.evaluate(() => { if (document.body.dataset.sidebar === "open") document.querySelector(".tab-side").click(); }); await d.page.waitForTimeout(700);
   await d.page.tap("#content h1"); await d.page.waitForTimeout(1500); // (a first touch loads the active mode's sheets, which give the text room for a swipe: before, not while the sidebar opens)
-  const before = await rect(d.page, "#content h1");
-  await d.page.tap(".tab-side"); await d.page.waitForTimeout(700);
+  await d.page.tap(".tab-side"); await d.page.waitForTimeout(900);
   const side = await rect(d.page, "#sidebar"), text = await rect(d.page, "#content h1");
-  assert.equal(Math.round(text.x), Math.round(before.x), "the note does not move aside for it (Henri, 2026-10-20)");
-  assert.ok(text.x < side.right, "the card lies over the note's text");
+  assert.ok(text.x >= side.right - 1, "the note makes room for it (Henri, 2026-10-26: Notion's way)");
   assert.equal(await d.page.evaluate(() => getComputedStyle(document.querySelector("#sb-scrim")).display), "none");
-  await d.page.touchscreen.tap(Math.round(side.right + 40), Math.round(text.y + text.h / 2)); await d.page.waitForTimeout(700);
-  assert.equal(await d.page.evaluate(() => document.body.dataset.sidebar), "closed");
+  await d.page.touchscreen.tap(Math.round(text.x + 20), Math.round(text.y + text.h / 2)); await d.page.waitForTimeout(700);
+  assert.equal(await d.page.evaluate(() => document.body.dataset.sidebar), "open");
   await d.context.close();
 });
 
-// Henri, 2026-10-20: "Depending on the window's size the sidebar pushes the document aside when it opens. It should never move
-// the document, but always open over it." In a window of a desktop, wide and less wide: the note's column, All Notes and its
-// sheets stay where they are; the card lies over them.
-for (const size of ["desk", "mid"]) test(`in a window ${SIZES[size].width} px wide the sidebar opens over the note and All Notes: neither moves`, async () => {
+// Henri, 2026-10-26 (after the card over everything of 2026-10-20): Notion's way. Pinned, the sidebar makes room — the note's
+// column, All Notes and its sheets begin beside the card, and glide there; shut, the pointer at the window's left edge makes it
+// peek out over the note, which stays, and away again when the pointer leaves it.
+for (const size of ["desk", "mid"]) test(`in a window ${SIZES[size].width} px wide the sidebar pinned makes room for itself; shut, it peeks out over the note`, async () => {
   const d = await device(size), page = d.page;
   await open(d);
-  const set = async (open) => { if ((await page.evaluate(() => document.body.dataset.sidebar)) !== (open ? "open" : "closed")) { await page.click(".tab-side"); await page.waitForTimeout(800); } };
+  const state = () => page.evaluate(() => document.body.dataset.sidebar);
+  const set = async (open) => { if ((await state()) !== (open ? "open" : "closed")) { await page.click(".tab-side"); await page.waitForTimeout(800); } };
   const lefts = () => page.evaluate(() => Object.fromEntries(["#content", "#content h1", "#overview", "#overview .ov-body"].map((q) => { const e = document.querySelector(q); return [q, e && e.getClientRects().length ? Math.round(e.getBoundingClientRect().left) : null]; })));
   await set(false);
   const shut = await lefts();
   await set(true);
   const opened = await lefts(), side = await rect(page, "#sidebar"), btn = await rect(page, ".tab-side");
-  assert.equal(opened["#content"], shut["#content"], "the note's column stays");
-  assert.equal(opened["#content h1"], shut["#content h1"], "its text stays");
   assert.ok(side.x > 0 && side.w > 150, "the card is out");
+  assert.ok(opened["#content h1"] >= side.right - 1, `the note makes room: ${JSON.stringify({ opened, right: side.right })}`);
   assert.ok(btn.x >= side.right - 1, "the sidebar's button stays beside the card");
-  await shot(d, "over-note");
-  // where the card lies over the text a click into the note puts it away; where it covers only the margin it stays
-  const over = shut["#content h1"] < side.right;
+  await shot(d, "pinned-note");
   const h1 = await rect(page, "#content h1");
-  await page.mouse.click(Math.round(Math.max(h1.x + 4, side.right + 20)), Math.round(h1.y + h1.h / 2)); await page.waitForTimeout(700);
-  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), over ? "closed" : "open", over ? "covering the text, it goes" : "covering the margin only, it stays");
-  // All Notes
+  await page.mouse.click(Math.round(h1.x + 4), Math.round(h1.y + h1.h / 2)); await page.waitForTimeout(700);
+  assert.equal(await state(), "open", "a click into the note leaves it pinned");
   await set(false);
+  assert.deepEqual(await lefts(), shut, "shut, everything is back where it was");
+  // peeking
+  await page.mouse.move(2, 400); await page.waitForTimeout(500);
+  assert.equal(await state(), "peek", "the pointer at the window's left edge: it peeks out");
+  assert.equal((await lefts())["#content h1"], shut["#content h1"], "… over the note, which stays");
+  await shot(d, "peek");
+  await page.mouse.move(120, 400, { steps: 4 }); await page.waitForTimeout(600);
+  assert.equal(await state(), "peek", "… the pointer on the card: it stays");
+  await page.mouse.move(SIZES[size].width - 100, 400, { steps: 4 }); await page.waitForTimeout(900);
+  assert.equal(await state(), "closed", "… the pointer gone from it: it slides away");
+  // All Notes
   await page.click('#tabs [data-act="overview"]'); await page.waitForFunction(() => document.body.hasAttribute("data-overview") && document.querySelector("#overview .ov-body"), null, { timeout: 10000 }); await page.waitForTimeout(700);
-  const ovShut = await lefts();
   // (over All Notes the sidebar has no button — Henri, 2026-10-25: there it comes with Ctrl+Alt+S)
   assert.equal(await page.evaluate(() => document.querySelector(".tab-side").getClientRects().length), 0, "no sidebar button over All Notes");
   await page.keyboard.press("Control+Alt+KeyS"); await page.waitForTimeout(800);
-  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "open", "Ctrl+Alt+S opens it there");
-  const ovOpen = await lefts();
-  assert.equal(ovOpen["#overview"], ovShut["#overview"], "All Notes stays");
-  assert.equal(ovOpen["#overview .ov-body"], ovShut["#overview .ov-body"], "its sheets stay");
-  await shot(d, "over-all-notes");
+  assert.equal(await state(), "open", "Ctrl+Alt+S opens it there");
+  const ovOpen = await lefts(), ovSide = await rect(page, "#sidebar");
+  assert.ok(ovOpen["#overview"] >= ovSide.right - 1 && ovOpen["#overview .ov-body"] >= ovSide.right - 1, `All Notes begins beside it: ${JSON.stringify({ ovOpen, right: ovSide.right })}`);
+  await shot(d, "pinned-all-notes");
   await d.context.close();
 });
 
