@@ -28,6 +28,7 @@
       : brace ? `<span class="hljs-tag">${brace}</span>` : `<span class="hljs-number">${num}</span>`);
   function highlight(text, language) {
     if (language === "latex") return latex(text);
+    if (language === "code") return window.MdView.core.plainCode(text); // code without a language: as the note colours it (viewer/markdown.js)
     try {
       if (language && hljs.getLanguage(language)) return hljs.highlight(text, { language, ignoreIllegals: true }).value;
     } catch (e) { /* plain */ }

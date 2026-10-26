@@ -54,6 +54,8 @@
   const LANGS = () => [...new Set([...recent, ...hljs.listLanguages().filter((l) => !/^(plaintext|python-repl|php-template)$/.test(l)), "mermaid", "math", "svg"])];
   const ALIAS = { js: "javascript", ts: "typescript", py: "python", sh: "bash", zsh: "bash", shell: "bash", html: "xml", yml: "yaml", md: "markdown", "c++": "cpp", rs: "rust", rb: "ruby" };
   const hl = (lang) => { const l = lang.toLowerCase(); return hljs.getLanguage(l) ? l : ALIAS[l] || ""; };
+  // the code editor's language: code with none it knows is coloured as the note colours it ("code"); a diagram, a formula, a picture is not
+  const edLang = (lang) => hl(lang) || (/^(mermaid|math|svg)$/i.test(lang.trim()) ? "" : "code");
   const recent = []; // languages picked in this session, newest first
 
   // ------------------------------------------------------------ putting the result back
@@ -187,7 +189,7 @@
         // (a picture written on one endless line — as a program writes it — is shown with a line for each of its parts: there
         // is nothing to edit in a line that runs out of the box. Left as it was where nothing is changed.)
         const tidy = c.lang.trim().toLowerCase() === "svg" && c.code.split("\n").some((l) => l.length > 200) ? tidySvg(c.code) : c.code;
-        ed = A.dialog.editor({ value: tidy, language: hl(c.lang), label: T("dialog.code") });
+        ed = A.dialog.editor({ value: tidy, language: edLang(c.lang), label: T("dialog.code") });
         body.append(ed.el);
         const update = infoBar(info, ed);
         ed.onInput = update;
@@ -220,7 +222,7 @@
             if (mine === seq && preview) { preview.classList.add("stale"); preview.dataset.error = String(e.message || e).split("\n")[0]; }
           }
         };
-        lang.addEventListener("input", () => { ed.setLanguage(hl(lang.value.trim())); showPreview(); });
+        lang.addEventListener("input", () => { ed.setLanguage(edLang(lang.value.trim())); showPreview(); });
         showPreview();
         follow(ed, draw);
         return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
