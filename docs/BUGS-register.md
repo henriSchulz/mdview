@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The AI assistant should close when one clicks outside the chat" | the chat closed only by its own button, the bubble and `Esc`; nothing listened for a press beside it | a press anywhere outside the chat and the bubble closes it as its own close does (it fades out) and goes on to do what it does there; one on the chat or in its menus leaves it open, one on the bubble shuts it once (`ai.js`, as `active/panel.js` does for the panel) | `dev/tests/aichat.test.mjs`; `rig.sh ai` (the presses after the wheel) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |
