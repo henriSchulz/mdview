@@ -409,9 +409,12 @@
     const r = { width: dlg.offsetWidth, height: dlg.offsetHeight }, x0 = e.clientX, y0 = e.clientY; // (its size, not what a transform makes of it)
     dlg.classList.add("sizing");
     let pulled = false; // (a press on the corner that pulls nowhere keeps no size: a small dialog's own height, kept, would be every dialog's)
+    // (over a block its left edge stays where the block's is: it grows to the right, by the way of the pointer)
+    const block = dlg.dataset.block != null, left = dlg.offsetLeft;
     const move = (ev) => {
       pulled = true; // (centred: it grows to both sides, so twice the way of the pointer)
-      dlg.style.width = Math.max(380, Math.min(innerWidth * 0.96, r.width + 2 * (ev.clientX - x0))) + "px";
+      dlg.style.width = (block ? Math.max(Math.min(r.width, NARROWEST), Math.min(innerWidth - EDGE - left, r.width + ev.clientX - x0))
+        : Math.max(380, Math.min(innerWidth * 0.96, r.width + 2 * (ev.clientX - x0)))) + "px";
       dlg.style.height = Math.max(LEAST, Math.min(innerHeight * 0.92, r.height + 2 * (ev.clientY - y0))) + "px";
       dlg.style.maxHeight = "92vh";
       dlg.classList.add("sized");
@@ -421,7 +424,8 @@
       document.removeEventListener("mouseup", up);
       dlg.classList.remove("sizing");
       if (!pulled) return;
-      const prefs = { dialogWidth: dlg.offsetWidth, dialogHeight: dlg.offsetHeight };
+      // (the width pulled over a block is for this showing: the next block gives its own)
+      const prefs = { dialogWidth: block ? Number((window.MdPrefs || {}).dialogWidth) || 0 : dlg.offsetWidth, dialogHeight: dlg.offsetHeight };
       window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
       window.MdHost?.post(JSON.stringify({ type: "prefs", prefs }));
     };
@@ -432,6 +436,7 @@
     window.MdPrefs = { ...(window.MdPrefs || {}), dialogWidth: 0, dialogHeight: 0 };
     window.MdHost?.post(JSON.stringify({ type: "prefs", prefs: { dialogWidth: 0, dialogHeight: 0 } }));
     applySize();
+    if (open) place(open.opts.anchor());
   });
   // what a dialog held when it was left with Esc: offered again the next time the same block is opened
   let discarded = null;
@@ -439,6 +444,28 @@
   const title = dlg.querySelector("#dlg-title"), tools = dlg.querySelector(".dlg-tools"), body = dlg.querySelector(".dlg-body"), info = dlg.querySelector(".dlg-info");
   let open = null; // { anchor, done, cancel, … } while a dialog is up
 
+  /* A dialog that edits a block stands over it exactly as wide as it is: the block's left and right edges are the
+   * dialog's (Henri: "genau so breit wie die Codebox selbst" — in a dialog of its own width the lines of a wide code
+   * block were cut off and scrolled). A width kept from the corner does not count here; a block narrower than a
+   * dialog can be has one as narrow as it can be, over the block's middle; the window's edges hold it. A dialog
+   * without a block (an inline formula, Transform with AI) keeps its own width, in the middle of the window. */
+  const EDGE = 8, NARROWEST = 380;
+  const blockOf = (anchor) => (anchor && anchor.isConnected && !/^inline/.test(getComputedStyle(anchor).display) ? anchor.getBoundingClientRect() : null);
+  function place(anchor) {
+    const a = blockOf(anchor);
+    if (!a || !a.width) {
+      for (const k of ["left", "right", "minWidth"]) dlg.style[k] = "";
+      delete dlg.dataset.block;
+      return;
+    }
+    const w = Math.min(innerWidth - 2 * EDGE, Math.max(NARROWEST, a.width));
+    dlg.style.width = w + "px";
+    dlg.style.minWidth = "0"; // (code beside its picture has a floor of its own when a size is kept: here the block's width is the size)
+    dlg.style.left = Math.min(Math.max(EDGE, a.left + (a.width - w) / 2), innerWidth - EDGE - w) + "px";
+    dlg.style.right = "auto";
+    dlg.dataset.block = "";
+  }
+  addEventListener("resize", () => { if (open && dlg.dataset.block != null) place(open.opts.anchor()); });
   // where the dialog comes from and goes back to: the island's box, as a transform of the dialog's own
   function from(anchor) {
     const a = anchor && anchor.isConnected ? anchor.getBoundingClientRect() : null;
@@ -484,6 +511,7 @@
     applySize();
     const parts = opts.build(body, tools, info);
     open = { opts, parts };
+    place(opts.anchor());
     if (opts.key != null && discarded && discarded.key === opts.key && parts.setText) {
       const back = el("button", { class: "btn", type: "button" }, esc(T("dialog.restore")));
       const text = discarded.text;

@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "The dialog, when one clicks on a code box or so, should be exactly as wide as the code box itself" — a wide code block's dialog was narrower than the block and cut its lines off behind a scroll bar | a dialog had the width of its kind (`min(720px, 90vw)`, a formula's 1040, a diagram's 1120) or one kept from its corner, centred in the window — never the block's | the dialog takes the block's left and right edges (`place`, active/dialog.js; at least 380 px, inside the window), grows out of the block (only higher), its corner pulls it wider to the right for this showing; code beside its picture stands one above the other in a dialog under 640 px (rule 81) | `rig.sh islands` (the edges of a code block's, code in a list's, a formula's and a diagram's dialog) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |
