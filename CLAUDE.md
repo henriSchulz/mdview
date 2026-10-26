@@ -5,11 +5,16 @@
   of a file that is needed, not the file.
 - **Before changing the app, read the sections of `docs/BUGS.md` the change touches** — the rules
   that came out of bugs Henri reported, under the part of the app they are about. The bugs
-  themselves are in `docs/BUGS-register.md`: looked up, not read through.
-- **Every bug Henri reports**: reproduce it in a check (`dev/rig.sh <case>`, a node test, a web
-  test), fix it, see the check fail without the fix and pass with it, and add a row to the
-  register (`docs/BUGS-register.md`) — with the rule in `docs/BUGS.md`, if a new one follows from
-  it. Say plainly when a bug could not be reproduced; it gets a row all the same.
+  themselves are GitHub issues (label `bug`; `gh issue list --search`), those before 2026-10-26
+  in `docs/BUGS-register.md`: looked up, not read through.
+- **Every bug Henri reports**: open it as an issue (`gh issue create --label bug`, what he saw in
+  his words) unless it is one already, reproduce it in a check (`dev/rig.sh <case>`, a node test,
+  a web test), fix it, see the check fail without the fix and pass with it; the commit says
+  `Fixes #<n>`, and the issue gets a comment: why, what fixed it, the check that guards it — with
+  the rule in `docs/BUGS.md`, if a new one follows from it. Say plainly when a bug could not be
+  reproduced; it is written down all the same.
+- Issues are sorted by Claude in GitHub Actions; a comment `@claude` makes a fix there as a pull
+  request, without the rig (`.github/workflows/claude.yml`) — the rig cases it names are run here.
 - Never work in the installed checkout (`~/Projects/mdview`) — use a worktree. A merge into
   `main` needs Henri's yes each time; push only when asked.
 - Before saying something is done: `cd dev && npm test`, `cd web && npm test`,
