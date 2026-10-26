@@ -1347,6 +1347,29 @@ counts — and has no writing help by a model.
 - **Nothing a repository holds can run**: scripts in a note are not run, and a file opened from
   a repository is shown sandboxed.
 
+### The notes in Claude (MCP)
+
+The web app is a server of the Model Context Protocol: Claude, Claude Code or any other client of
+it reaches the notes in the repositories the app was given on GitHub. It is added under the web
+app's address with `/mcp` after it — in Claude: Settings › Connectors › Add custom connector; in
+Claude Code: `claude mcp add --transport http mdview <address>/mcp`.
+
+- **Signing in**: the client opens a page of the web app that names it and where it goes back to;
+  Allow sends the user to GitHub, which signs them in for the client (tokens of its own: the
+  browser stays signed in, whatever the client does). Deny tells the client no. No session of
+  the browser is needed, and none is written.
+- **What it may do**: list the repositories (`list_repositories`) and the notes, whiteboards and
+  PDFs in one (`list_files`, without what was hidden in the app); read a note as its Markdown, a
+  whiteboard as the text on it (sticky notes, text, shapes, tables, links, files, pictures, with
+  where they stand; strokes of ink only counted) and a PDF as its text, page by page
+  (`read_file`); search the lines of notes and whiteboards and the names of notes
+  (`search_notes`); write a note whole (`write_note` — one there already only with
+  `replace: true`), change a part of one (`edit_note`: the text replaced must stand in it once),
+  and move or rename a file (`move_note` — never onto one that is there).
+- **What is written** is one commit each, at once, named after the file, with Claude (MCP) as its
+  device in History. Links to a moved note in other notes stay as they were.
+- **Not there**: deleting, pictures, writing whiteboards or PDFs.
+
 ### Sharing a note
 
 A note can be read by people who have neither the app nor the folder: under a link, in a
