@@ -1524,7 +1524,8 @@ them larger and smaller, what lies between them staying there. Keys: `+` `−` z
 `H` fit page, `G` go to page, `O` outline, `T` pages, `N` notes, `R` region, `D` draw, `Alt+←` back.
 
 **Drawing on a PDF.** The pen in the toolbar (`D`, or a pen set on a page) opens the whiteboard
-over the PDF, under the tabs, which stay to be chosen; the toolbar then holds the pen alone,
+over the PDF, under the tabs, which stay to be chosen, and beside the sidebar when it is pinned,
+which stays in sight; the toolbar then holds the pen alone,
 pressed — pressed again (or `Esc`) it ends the drawing. The pages lie under the board as sheets of
 paper, where they stood, and everything
 a whiteboard has works on them — the pens, the marker, the eraser, the lasso, text, shapes, lines and

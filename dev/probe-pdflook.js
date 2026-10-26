@@ -40,6 +40,22 @@
     await sleep(600);
     ok("the toolbar has the PDF's controls again", !!V.bar.querySelector('[data-do="in"]').offsetWidth && V.bar.querySelector('[data-do="draw"]').getAttribute("aria-pressed") === "false");
     await shot("back");
+    // the sidebar pinned (#3): the board begins beside its card, not over it, and the pages stay where they stood
+    MdPage.showSidebar(true, false); await sleep(800);
+    const sb = document.getElementById("sidebar").getBoundingClientRect(), page = V.pages[0].div.getBoundingClientRect();
+    V.bar.querySelector('[data-do="draw"]').click();
+    ok("pinned sidebar: the board comes", await until(() => MdBoard.shown && document.querySelector("#board[data-open][data-pdf]"), 5000));
+    await sleep(800);
+    const bd2 = document.getElementById("board").getBoundingClientRect(), mid = document.elementFromPoint(sb.left + sb.width / 2, sb.top + sb.height / 2);
+    ok("… beside the sidebar's card, not over it", bd2.left >= sb.right && !!mid?.closest("#sidebar"), [bd2.left, sb.right, mid?.id || mid?.className]);
+    const sheet = document.querySelector("#board .bd-sheet")?.getBoundingClientRect();
+    ok("… the page where it stood", !!sheet && Math.abs(sheet.left - page.left) <= 2 && Math.abs(sheet.width - page.width) <= 2, [sheet?.left, page.left, sheet?.width, page.width]);
+    await shot("draw-pinned");
+    V.bar.querySelector('[data-do="draw"]').click();
+    ok("… the pen pressed again ends it", await until(() => !MdBoard.shown, 3000));
+    await sleep(600);
+    const page2 = V.pages[0].div.getBoundingClientRect();
+    ok("… the page where it stood after", Math.abs(page2.left - page.left) <= 2, [page2.left, page.left]);
   } catch (e) { o.error = String(e && e.stack || e); }
   out("pdflook", o);
 })();

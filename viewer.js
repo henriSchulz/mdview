@@ -332,7 +332,7 @@
           sign: folderGlyph(lookOf(path)) }), tableLook, tableMark, tableStyle, headColor, ruleLook, fileMenu: (...a) => openCtx(...a), pasteTab: () => P.pasteTab(), fileCmd: (...a) => P.fileCmd(...a), addFiles: (...a) => P.addFiles(...a),
       hydrate: (root) => renderMermaid(P.generation, null, root), // diagrams in freshly inserted HTML
       board: { open: openBoard, is: isBoardImg, make: newBoard },
-      filework: P.FILEWORK, get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); } },
+      filework: P.FILEWORK, get current() { return P.current; }, get folder() { return P.folder; }, get top() { return topRoom(); }, get left() { return P.sbRoom(); } },
     quickFresh, titleFresh: (path) => P.titleFresh(path),
     setPreviews: (p) => { const rest = sbPreviews(p); if (!Object.keys(rest).length && Object.keys(p || {}).length) return; quickPreviews(rest); if (window.MdOverview) MdOverview.previews(rest); } };
 

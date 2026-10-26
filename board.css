@@ -136,10 +136,11 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 #board[data-pdf] :is([data-do="image"], [data-do="grid"], [data-do="scenes"], [data-do="prev"], [data-do="next"]) { display: none; }
 #board[data-pdf] .bd-zoom .bd-sep { display: none; }
 #board[data-pdf] .bd-viewbar { display: none; } /* (joining things with lines, the dots: a whiteboard's, not a page's) */
-/* over a PDF the board begins under the tabs (pdfview.js: --bd-pdf-top), which stay to be chosen; the pen in the window's toolbar
+/* over a PDF the board begins under the tabs (pdfview.js: --bd-pdf-top), which stay to be chosen, and beside the pinned sidebar
+ * (--bd-pdf-left), which stays in sight (#3); the pen in the window's toolbar
  * ends it, not a Back of its own — and where there are no tabs the toolbar stands over the board's top row: undo and the rest
  * stand left of it (--bd-pdf-tb: how far from the window's right edge it reaches) */
-#board[data-pdf] { top: var(--bd-pdf-top, 0px); }
+#board[data-pdf] { top: var(--bd-pdf-top, 0px); left: var(--bd-pdf-left, 0px); }
 #board[data-pdf] .bd-title { display: none; }
 #board[data-pdf] .bd-actions { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 .bd-item { position: absolute; box-sizing: border-box; }
