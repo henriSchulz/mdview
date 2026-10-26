@@ -254,3 +254,6 @@ button { font: inherit; }
   .dl-top, .dl-card, .dl-card.dl-mine { animation-name: dl-fade; }
   @keyframes dl-fade { from { opacity: 0; } }
 }
+
+/* a client of the Model Context Protocol asks for the notes (app/oauth/authorize) */
+.consent-actions { display: flex; gap: 8px; align-items: center; }

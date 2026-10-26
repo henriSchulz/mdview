@@ -3,8 +3,8 @@
 // here only its absence is seen.
 import { NextResponse, type NextRequest } from "next/server";
 
-const OPEN = ["/signin", "/auth/login", "/auth/callback", "/download", "/install"]; // (the desktop app to download: for everyone, app/download)
-const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "paste", "app", "host", "welcome", "download", "install"]; // the app's own names at the top: never a shared note's id
+const OPEN = ["/signin", "/auth/login", "/auth/callback", "/download", "/install", "/oauth/authorize", "/oauth/authorize/allow"]; // (the desktop app to download: for everyone, app/download)
+const OWN = ["shares", "signin", "auth", "api", "file", "r", "s", "share", "paste", "app", "host", "welcome", "download", "install", "mcp", "oauth"]; // the app's own names at the top: never a shared note's id
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -26,5 +26,7 @@ export const config = {
   // not a shared note, /s/…, nor the id for a new one, /share/…: those are for whoever has the
   // link, and guard themselves — as does a project's pasteboard, /paste/…, which the desktop app
   // asks for too, with its own sign-in and no session here)
-  matcher: ["/((?!_next/|app/|host/|s/|share/|paste/|favicon.ico).*)"],
+  // (nor the Model Context Protocol's endpoint, /mcp, and its sign-in, /oauth/…, /.well-known/…: a
+  // client of it has no cookie, and they guard themselves with its tokens — app/mcp, lib/mcp/oauth.ts)
+  matcher: ["/((?!_next/|app/|host/|s/|share/|paste/|mcp$|oauth/register|oauth/token|\\.well-known/|favicon.ico).*)"],
 };

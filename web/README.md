@@ -36,6 +36,21 @@ GITHUB_APP_PRIVATE_KEY=…   # the GitHub App's private key (the .pem's text; li
 `npm run dev` and `npm run build` first copy the page's own files (`viewer.js`, `viewer/`,
 `active/`, `vendor/`, the other stylesheets) from the checkout into `public/app/`; they are not kept twice.
 
+## The notes in Claude (MCP)
+
+`/mcp` is a server of the Model Context Protocol (Streamable HTTP, JSON answers, no sessions),
+with its own OAuth sign-in in front of GitHub's (`lib/mcp/`, `app/oauth/`, `app/.well-known/`).
+Tried locally, with `npm run dev` running as above:
+
+```
+claude mcp add --transport http mdview http://localhost:3000/mcp
+```
+
+then `/mcp` in Claude Code signs in: the browser shows the app's page (Allow), then GitHub. In
+Claude (claude.ai) the deployed address is added as a custom connector, `…/mcp`. The sign-in
+comes back through `/auth/callback`, so no further callback URL is needed on the GitHub App.
+What it does: `../docs/FEATURES.md`, "The notes in Claude (MCP)"; its test: `test/mcp.test.mjs`.
+
 ## Tests
 
 ```

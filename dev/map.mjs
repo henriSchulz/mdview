@@ -13,7 +13,7 @@ const GROUPS = [
   ["The active mode (loaded when first used)", ["active/*.js", "active/*.css"]],
   ["All Notes, PDFs, AI, whiteboards (each loaded when first used)", ["overview.js", "pdfview.js", "ai.js", "board.js", "board/*.js"]],
   ["The shell (Rust)", ["src-tauri/src/main.rs", "src-tauri/src/shell.rs", "src-tauri/src/shell/*.rs", "src-tauri/src/*.rs"]],
-  ["The web app (the same page in a browser)", ["web/lib/*.ts", "web/host/*.ts", "web/public/host/*.js", "web/proxy.ts"]],
+  ["The web app (the same page in a browser)", ["web/lib/*.ts", "web/lib/mcp/*.ts", "web/host/*.ts", "web/public/host/*.js", "web/proxy.ts"]],
 ];
 const files = (pattern) => {
   if (!pattern.includes("*")) return [pattern];

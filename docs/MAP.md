@@ -214,7 +214,7 @@ or the tests see the old ones.
 |---|---|
 | `web/lib/app.ts` | The GitHub App acting as itself, not as a user: for a note that was shared, read by someone who is not signed … |
 | `web/lib/download.ts` | The download page's ground (app/download): the latest release of the desktop app, read from GitHub, its files … |
-| `web/lib/feedback.ts` | Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback), and a list … ; each also a GitHub issue the app opens (`file`, `asIssue`) |
+| `web/lib/feedback.ts` | Bugs reported and features asked for: a form anyone may send, signed in or not (app/feedback), and a list … |
 | `web/lib/firestore.ts` | Firestore, as far as the app needs it, spoken to over its REST interface: no library, and nothing to bundle. |
 | `web/lib/github.ts` | GitHub, as the web app speaks to it: signing in (the GitHub App's web flow — the user is sent to GitHub and … |
 | `web/lib/page.ts` | The document the desktop app's own page runs in, as the web app writes it: the page's styles, its one … |
@@ -227,6 +227,9 @@ or the tests see the old ones.
 | `web/lib/store.ts` | What the server keeps about shared notes — the one thing it keeps at all. |
 | `web/lib/types.ts` | What kind of content a file of a repository is sent as, by its ending. |
 | `web/lib/welcome.ts` | The welcome page: what is seen at the address without signing in. |
+| `web/lib/mcp/board.ts` | A whiteboard told in words, for a client of the Model Context Protocol: what is written on it — text, sticky … |
+| `web/lib/mcp/oauth.ts` | Signing a client of the Model Context Protocol in — Claude, Claude Code, any other: OAuth 2.1 as the protocol … |
+| `web/lib/mcp/tools.ts` | What a client of the Model Context Protocol may do with the user's notes: the repositories the app was given … |
 | `web/host/contract.ts` | The seam between the page (viewer.js and friends, the desktop app's own, unchanged) and whatever hosts it. |
 | `web/public/host/core.js` | what the page's host works out, apart from asking and telling: the repository as the tree the sidebar shows, … |
 | `web/public/host/demo.js` | the host of the welcome page's notes: the app's own page (viewer.js and friends), with a handful of sample … |
