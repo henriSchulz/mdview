@@ -617,6 +617,13 @@
       setTimeout(() => { if (box && box.dataset.open == null) box.hidden = true; }, 240);
     },
   };
+  /* A press outside it closes it (Henri, 2026-10-26), as the panel at the right does (active/panel.js): on the note, the
+   * toolbar, the sidebar. Not one on it or in a menu of it (they are inside it), nor on the bubble — that one's click shuts
+   * it by itself. The press goes on to do what it does there; the chat goes as its own close takes it away. */
+  const OWN = "#ai-chat, #ai-bubble";
+  addEventListener("pointerdown", (e) => {
+    if (Ai.chat.open && e.target instanceof Element && !e.target.closest(OWN)) Ai.chat.close();
+  }, true);
   /* AI turned off in the settings: whatever was asked is dropped, the chat is shut. */
   Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; clearTimeout(pending); pending = 0; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };
   // (another note on screen: it is the current document now)

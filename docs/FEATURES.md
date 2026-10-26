@@ -538,7 +538,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   kept (the last forty, on this computer): the title at the top, or ⋯, lists them, and renames,
   copies or deletes the one in hand; the pencil begins a new one. The window is pulled wider
   and higher at its left and upper edge, or set to Small, Medium or Large under ⋯. `Enter`
-  sends, `Shift+Enter` breaks the line, `Esc` shuts the chat.
+  sends, `Shift+Enter` breaks the line, `Esc` shuts the chat, and so does a press anywhere
+  outside it (the note, the toolbar, the sidebar) — the press still does what it does there.
 - **The chat's Edit mode** (the pill beside +, which says Ask or Edit; it is kept): in Edit,
   what is written is not answered in the chat but **done in the note** — Claude says in a line
   what it changes and the changes are made at once, wherever in the note they belong (a
