@@ -17,8 +17,11 @@
   request, without the rig (`.github/workflows/claude.yml`) — the rig cases it names are run here.
 - Never work in the installed checkout (`~/Projects/mdview`) — use a worktree. A merge into
   `main` needs Henri's yes each time; push only when asked.
-- Before saying something is done: `cd dev && npm test`, `cd web && npm test`,
-  `cd src-tauri && cargo test`, and the rig cases the change touches (`dev/README.md`). They say
-  only what fails; do not ask for every line unless a failure needs it.
+- **Small bugs from the list go one after the other, in one worktree, without subagents**
+  (Henri, 2026-10-26: seven agents, each building and testing everything, took far too long). Each
+  bug gets only its own check (fails without the fix, passes with it) and its issue.
+- Before saying a batch is done — once for the whole batch, not after each bug: `cd dev && npm
+  test`, `cd web && npm test`, `cd src-tauri && cargo test`, and the rig cases the changes touch
+  (`dev/README.md`). They say only what fails; do not ask for every line unless a failure needs it.
 - What the app does is described in `docs/FEATURES.md`; keep it true. It is long: search it for
   the part in question.

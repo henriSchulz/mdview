@@ -16,6 +16,8 @@ export function fakeGitHub() {
     appKey: null, installed: true, appToken: "", appTokens: new Set(), appAsked: [], // the app as itself: its public key, whether it is installed on the repository, the token it was given, what it asked for
     commits: [], // the commits made here: { headline, body, added: [paths], deleted: [paths], by } — linked: [paths] where blobs it has were named, not sent
     stall: null, // a promise the next commit waits for before it answers (a GitHub that takes its time over one thing)
+    holdRead: null, // a promise the next read of a file waits for once it has read it (an answer that is on its way while the file changes)
+    readHeld: null, // called when a read is held so
     refuse: 0, // the status the next commit is refused with
     trees: new Map(), made: new Map(), // the Git database: trees and commits built and not on the branch yet
     // a repository made here (POST /user/repos): empty, and the one the fake is from then on — but a name in `taken` is
@@ -220,6 +222,7 @@ export function fakeGitHub() {
         const buf = then.get(decodeURIComponent(url.pathname.slice(`${at}/contents/`.length)));
         if (!buf) return json({ message: "Not Found" }, 404);
         const etag = `"${blobSha(buf)}"`;
+        if (gh.holdRead) { const wait = gh.holdRead; gh.holdRead = null; gh.readHeld?.(); await wait; }
         if (req.headers["if-none-match"] === etag) { res.writeHead(304, { ETag: etag }); return res.end(); }
         res.writeHead(200, { "Content-Type": "application/vnd.github.raw+json", ETag: etag });
         return res.end(buf);

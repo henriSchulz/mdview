@@ -44,6 +44,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 47. **A size is kept only when it was chosen, and looked at when it is read.** A press that pulls
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
+82. **A dialog that edits a block stands over it with the block's own left and right edges**
+    (`place`, dialog.js): its width is the block's, not a kind's own or one kept from the corner,
+    clamped only by the least a dialog can be and the window's edges. A block is what is not
+    inline (an inline formula keeps a dialog of its own width). `rig.sh islands` measures the edges
+    for a code block, code in a list, a formula and a diagram.
 
 54. **One menu for a thing, wherever it is met.** The file menu's entries say for *what* they are
     (`data-for`: a file, a folder, many, the empty room) — never *where* (a row, the rail, a tile).
@@ -362,6 +367,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     only "once this is sent". `held_back_by_a_conflict_the_window_says_where`, `share.test.mjs`.
 
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
+
+81. **What the share server does not find, it may forget for a while — never an id it handed
+    out for a share on its way, and never a share written down after the list it reads was
+    asked for.** The share window shows the link at once and the commit follows: a link opened
+    in between must work once GitHub has it, told or not (`handedOut` in `web/lib/share.ts`),
+    and a look through every repository that began before the commit does not take the share
+    away again (`notedAt`, `syncRepo`). The server's caches are kept in tests only where a test
+    says so: `share-soon.test.mjs` runs the server with them as it has them live.
 
 19. **Desktop is `window.__TAURI_INTERNALS__`**, not the absence of something the web host sets
     later. What needs the `claude` command, a folder on disk, or a system dialog is desktop only

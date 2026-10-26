@@ -83,7 +83,29 @@
     await open("Weekend Trip.md");
     await sleep(500);
     ok("an old note's title edited: it keeps its name", has("Workout routine.md") && !all().some((p) => /renamed/.test(p)), all());
-    // 6. a folder is still asked for
+    // 6. made from the reading mode: written in the active mode at once, the caret in its title (Henri, 2026-10-26: it stayed in reading)
+    MdView.setMode("read");
+    await until(() => MdView.core.current && document.body.dataset.view !== "active", 3000);
+    await sleep(300);
+    ctrlN();
+    await until(() => cur() === "Untitled 2.md", 5000);
+    await until(() => pm() && document.body.dataset.view === "active" && MdActive.view.payload && MdActive.view.payload.path === MdView.core.current.path && pm().hasFocus(), 4000);
+    const r = pm() && pm().state.selection.$from;
+    ok("made from the reading mode: in the active mode, the caret in its empty title", cur() === "Untitled 2.md" && document.body.dataset.view === "active" && pm().hasFocus() && r.parent.type.name === "heading" && r.parent.content.size === 0, [cur(), document.body.dataset.view, r && r.parent.type.name]);
+    // … and from the source: written in the source, the caret after "# "
+    await open("Weekend Trip.md");
+    MdView.setMode("edit");
+    await until(() => document.body.dataset.view === "edit", 3000);
+    await sleep(300);
+    ctrlN();
+    await until(() => cur() === "Untitled 3.md", 5000);
+    await until(() => document.body.dataset.view === "edit" && document.activeElement && document.activeElement.tagName === "TEXTAREA", 4000);
+    const ta = document.activeElement;
+    ok("made from the source: in the source, the caret after “# ”", cur() === "Untitled 3.md" && document.body.dataset.view === "edit" && ta.tagName === "TEXTAREA" && ta.value === "# " && ta.selectionStart === 2, [cur(), document.body.dataset.view, ta.tagName, ta.value, ta.selectionStart]);
+    await open("Weekend Trip.md");
+    MdView.setMode("active");
+    await sleep(300);
+    // 7. a folder is still asked for
     document.querySelector('#sidebar [data-act="newmenu"]').click();
     await sleep(250);
     [...document.querySelectorAll("#ctxmenu .menu-item:not([hidden])")].find((b) => b.dataset.cmd === "newfolder")?.click();

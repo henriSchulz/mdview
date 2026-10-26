@@ -224,11 +224,16 @@ pub fn file_url(path: &Path) -> String {
 
 /// The file an address of the page's (or a file: address) names, and the place in it.
 fn url_file(href: &str) -> Option<(PathBuf, Option<String>)> {
+    url_file_on(href, cfg!(windows))
+}
+
+fn url_file_on(href: &str, windows: bool) -> Option<(PathBuf, Option<String>)> {
     let u = tauri::Url::parse(href).ok()?;
     let frag = u.fragment().map(unquote).filter(|f| !f.is_empty());
     if href.starts_with(ORIGIN) {
         let p = unquote(u.path().strip_prefix("/file")?);
-        return Some((PathBuf::from(if cfg!(windows) { p.trim_start_matches('/').to_string() } else { p }), frag));
+        // (Windows: "/C:/…" — as Explorer takes it, or a link to a file beside the note opens no file)
+        return Some((PathBuf::from(if windows { host::windows_path(&p) } else { p }), frag));
     }
     if u.scheme() == "file" {
         return Some((u.to_file_path().ok().unwrap_or_else(|| PathBuf::from(unquote(u.path()))), frag));
@@ -1379,6 +1384,22 @@ mod tests {
         let mut other: Map<String, Value> = serde_json::from_value(json!({ "active": { "sidebarLayout": "source" } })).unwrap();
         sheets_first(&mut other);
         assert_eq!(other["active"]["sidebarLayout"], json!("source"));
+    }
+
+    #[test]
+    fn a_link_to_a_file_beside_the_note_names_it_as_windows_does() {
+        // (Henri, 2026-10-26, Windows: "a link to a text file in the same folder opens Explorer
+        // without the file" — the page's address of it gave "C:/…/notes.txt", which Explorer
+        // does not take for a file)
+        let base = file_url(Path::new("/C:/Users/Henri/My Notes")) + "/";
+        let at = |rel: &str| url_file_on(&tauri::Url::parse(&base).unwrap().join(rel).unwrap().to_string(), true).map(|(p, f)| (s(&p), f));
+        assert_eq!(at("notes.txt"), Some((r"C:\Users\Henri\My Notes\notes.txt".into(), None)));
+        assert_eq!(at("./a%20log.log"), Some((r"C:\Users\Henri\My Notes\a log.log".into(), None)));
+        assert_eq!(at("sub/data.csv#x"), Some((r"C:\Users\Henri\My Notes\sub\data.csv".into(), Some("x".into()))));
+        assert_eq!(at("../script.py"), Some((r"C:\Users\Henri\script.py".into(), None)));
+        // on Linux and macOS: as it was
+        let unix = file_url(Path::new("/home/henri/My Notes")) + "/notes.txt";
+        assert_eq!(url_file_on(&unix, false).map(|(p, _)| s(&p)), Some("/home/henri/My Notes/notes.txt".into()));
     }
 
     #[test]

@@ -507,6 +507,37 @@
     const m = /^\S+[ \t]+hide(?::(small|large))?(?:[ \t]+(.*))?$/i.exec(String(info || "").trim());
     return m ? { title: (m[2] || "").trim().replace(/^(["'])(.*)\1$/, "$2"), size: (m[1] || "").toLowerCase() } : null;
   }
+  /* Code without a language highlight.js knows (a fence with none, or with a name it does not
+   * have, an indented block): mostly commands, in notes. It gets the colours the other blocks
+   * have (Henri, 2026-10-26: "Code boxen haben kein design") — read as a shell line is: the first
+   * word a command, -flags and +plusargs, "strings", numbers, $variables, # comments. Guessing a
+   * language (hljs.highlightAuto) took such lines for Swift and coloured paths as regexps. */
+  const SPAN = (cls, s) => `<span class="hljs-${cls}">${esc(s)}</span>`;
+  function plainCode(content) {
+    let more = false; // the line before ended in "\": this one goes on with its command
+    return String(content).split("\n").map((line) => {
+      const out = [];
+      let head = !more;
+      more = /\\\s*$/.test(line);
+      const re = /(\s+)|((?:#|\/\/).*)|("(?:[^"\\]|\\.)*"?|'[^']*'?)|(\|\||&&|[|;&])|([^\s"'|;&]+)/g;
+      let m;
+      while ((m = re.exec(line))) {
+        const [all, space, comment, str, op, word] = m;
+        if (space) out.push(all);
+        else if (comment) out.push(SPAN("comment", comment));
+        else if (str) { out.push(SPAN("string", str)); head = false; }
+        else if (op) { out.push(esc(op)); head = true; }
+        else if (word) {
+          if (/^[-+][A-Za-z]/.test(word)) out.push(SPAN("attr", word));
+          else if (/^[-+]?\d+(?:\.\d+)?$/.test(word)) out.push(SPAN("number", word));
+          else if (head && !/^\w+=/.test(word) && word !== "\\") out.push(SPAN("built_in", word));
+          else out.push(esc(word).replace(/\$(?:\{[^}]*\}|\w+)/g, (v) => `<span class="hljs-template-variable">${v}</span>`));
+          if (!/^\w+=/.test(word)) head = false;
+        }
+      }
+      return out.join("");
+    }).join("\n");
+  }
   // --- code fences: highlight, copy button, mermaid, math, svg
   md.renderer.rules.fence = (toks, idx) => {
     const t = toks[idx];
@@ -529,7 +560,7 @@
     try {
       code = lang && hljs.getLanguage(lang)
         ? hljs.highlight(content, { language: lang, ignoreIllegals: true }).value
-        : esc(content);
+        : from && !lang ? esc(content) : plainCode(content);
     } catch (e) {
       code = esc(content);
     }
@@ -567,7 +598,7 @@
       { label, html: `<a class="wikilink file" href="#" data-wiki="${esc(target.split("#")[0])}">${esc(label)}</a>` + (alias && !how ? `<span class="code-from-title">${esc(alias)}</span>` : "") });
   }
   md.renderer.rules.code_block = (toks, idx) =>
-    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div><pre><code class="hljs">${esc(toks[idx].content)}</code></pre></div>`;
+    `<div class="code-block"${lineAttr(toks[idx])}><div class="code-tools"><button class="btn code-copy" type="button" title="${esc(T("Copy code"))}">${esc(T("Copy"))}</button></div><pre><code class="hljs">${plainCode(toks[idx].content)}</code></pre></div>`;
   /* How a table looks is said by a line before it, a comment no renderer shows:
    *     <!-- table narrow head=#cfeefc -->
    * narrow: as wide as what it holds (else as wide as the text column, which is how a table stands
@@ -691,5 +722,5 @@
 
   // what the page's other files use of this one
   Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
-    svgPicture, codeHidden, codeLang, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
+    svgPicture, codeHidden, codeLang, plainCode, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
 })();

@@ -229,6 +229,36 @@
       const went2 = cq(".ai-log").dispatchEvent(w2);
       ok("the wheel over the chat is the chat's: the note behind it is not scrolled", !went && w.defaultPrevented && !went2 && scrollY === y0, [went, went2, y0, scrollY]);
     }
+    { // a press outside the chat closes it (Henri, 2026-10-26); one on it, in its menu or on the bubble does not
+      const press = (x, at) => {
+        const r = x.getBoundingClientRect(), cx = at ? at[0] : r.left + Math.min(20, r.width / 2), cy = at ? at[1] : r.top + Math.min(10, r.height / 2);
+        const opt = { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 0, buttons: 1, pointerId: 1, pointerType: "mouse", isPrimary: true };
+        const went = x.dispatchEvent(new PointerEvent("pointerdown", opt)) && x.dispatchEvent(new MouseEvent("mousedown", opt));
+        x.dispatchEvent(new PointerEvent("pointerup", { ...opt, buttons: 0 })); x.dispatchEvent(new MouseEvent("mouseup", { ...opt, buttons: 0 })); x.dispatchEvent(new MouseEvent("click", { ...opt, buttons: 0 }));
+        return went;
+      };
+      const opened = async () => { if (!ai().open) bubble.click(); await until(() => ai().open); await sleep(350); return ai().open; };
+      await opened();
+      press(cq(".ai-log")); press(cq(".ai-compose")); await sleep(200);
+      ok("a press on the chat leaves it open", ai().open);
+      cq('.ai-head .ai-ib[data-do="more"]').click(); await sleep(250);
+      press(cq(".ai-menu h6") || cq(".ai-menu")); await sleep(200);
+      ok("… and one in its menu", ai().open && ai().menu === "more", [ai().open, ai().menu]);
+      cq('.ai-head .ai-ib[data-do="more"]').click(); await sleep(250);
+      press(bubble); await sleep(400);
+      ok("a press on the bubble shuts it once, not shut and opened again", !ai().open, ai().open);
+      await opened();
+      const passed = press(view.dom.querySelector("p")); await sleep(60);
+      const fading = !chat().hidden && +getComputedStyle(chat()).opacity < 1 && !document.body.hasAttribute("data-ai-chat");
+      await sleep(400);
+      ok("a press in the note closes it, as its own close does: it fades out, then is hidden", !ai().open && chat().hidden && fading, [ai().open, chat().hidden, fading]);
+      // (a press made by a script never moves the focus, so what is checked is that nothing stopped it on its way to the note)
+      ok("… and the press is the note's: nothing stops it, so the caret goes there", passed, passed);
+      await opened();
+      press(document.getElementById("toolbar")); await sleep(400);
+      ok("a press on the toolbar closes it", !ai().open, ai().open);
+      await opened();
+    }
     // ---- the Edit mode: what Claude answers changes the note itself
     ok("the chat asks, at first; its button turns to Edit", cq(".ai-mode").textContent === "Ask" && !ai().editing, cq(".ai-mode").textContent);
     cq(".ai-mode").click(); await sleep(150);

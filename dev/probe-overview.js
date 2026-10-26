@@ -90,7 +90,7 @@
     const sorted = (sel) => names(sel).sort().join("|"); // (their order is the sidebar's: the one opened last first)
     const note = [...ov.querySelectorAll(".ov-tile")].find((t) => t.querySelector(".ov-name").textContent === "Commute thoughts");
     note.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 420, clientY: 300 })); await sleep(400);
-    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open Beside|Open in Default App|Open With…|Show in Finder|Copy|Cut|Duplicate|Copy Path|Share…|Rename|Hide|Move to Trash|Show", shown());
+    ok("a right click on a note: the file menu", menu.hasAttribute("data-open") && shown() === "Open|Open in New Tab|Open in Default App|Open With…|Show in Finder|Copy|Cut|Duplicate|Copy Path|Share…|Rename|Hide|Move to Trash|Show", shown());
     out("shot-menu", {}); await sleep(1300);
     [...menu.querySelectorAll(".menu-item:not([hidden])")].find((x) => x.dataset.cmd === "rename").click(); await sleep(500);
     const field = ov.querySelector(".ov-rename");

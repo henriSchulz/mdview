@@ -82,7 +82,7 @@ or the tests see the old ones.
 | `viewer/prep.js` | a note's text before it is rendered: frontmatter and comments taken off, the pages inside a note (parsed, … |
 | `viewer/render.js` | rendering: a note drawn into #content, the place in it kept across a redraw, the way to a heading or a line, … |
 | `viewer/sidebar.js` | the sidebar of a folder window: the folder's notes as a tree reconciled by path, its layouts, sorting, the … |
-| `viewer/split.js` | two things side by side: beside the note, at the window's right, a second sheet that is only read — the note … |
+| `viewer/split.js` | two things side by side: a note and a PDF, and nothing else (Henri, 2026-10-26: "two notes side by side … |
 | `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
 | `viewer/tabs.js` | the tabs of a folder window. |
 | `viewer/toolbar.js` | what the toolbar's buttons and the keys do, the outline closed by a click outside, a note larger and smaller, … |
@@ -107,7 +107,7 @@ or the tests see the old ones.
 | `viewer/page.css` | reading and editing styles. Colors come from the Omarchy theme (--c-*), durations, curves, radii and sizes … |
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |
 | `viewer/sidebar.css` | the sidebar of a folder window (its layouts: layouts.css). |
-| `viewer/split.css` | two things side by side (viewer/split.js). The window is two halves of one kind, as an editor's split is: the … |
+| `viewer/split.css` | a note and a PDF side by side (viewer/split.js). The window is two halves of one kind, as an editor's split … |
 | `viewer/tablet.css` | the iPad's own layout (viewer/tablet.js): Craft's look — no sidebar and no tabs, round buttons and capsules … |
 | `viewer/tabs.css` | the tabs of a folder window, and the rows of the sidebar's list. |
 | `viewer/text.css` | the note's text (headings, lists, quotes, links, rules) and tasks. |

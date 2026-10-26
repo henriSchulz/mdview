@@ -176,6 +176,9 @@ def greet(name):
 ```
 
 A fence with a language name is highlighted; hovering shows the language and a Copy button.
+Code without a language (or with a name the app does not know, or indented by four spaces) is
+coloured as shell lines are: the first word as a command, `-flags` and `+plusargs`, strings,
+numbers, `$variables` and `# comments`. A fence named `text` stays plain.
 `hide` after the language puts the code away behind a card — with a title, if one follows, else
 the code's first line — and a click shows it in a window of its own:
 
@@ -535,7 +538,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   kept (the last forty, on this computer): the title at the top, or ⋯, lists them, and renames,
   copies or deletes the one in hand; the pencil begins a new one. The window is pulled wider
   and higher at its left and upper edge, or set to Small, Medium or Large under ⋯. `Enter`
-  sends, `Shift+Enter` breaks the line, `Esc` shuts the chat.
+  sends, `Shift+Enter` breaks the line, `Esc` shuts the chat, and so does a press anywhere
+  outside it (the note, the toolbar, the sidebar) — the press still does what it does there.
 - **The chat's Edit mode** (the pill beside +, which says Ask or Edit; it is kept): in Edit,
   what is written is not answered in the chat but **done in the note** — Claude says in a line
   what it changes and the changes are made at once, wherever in the note they belong (a
@@ -835,6 +839,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   be dragged to move it.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket
   matching, `Ctrl+F`, LaTeX completion) and a live preview for formulas, Mermaid and SVG.
+  The dialog grows out of the block and stands over it exactly as wide as it is — the block's
+  left and right edges are its own (no narrower than 380 px, never past the window's edges); its
+  corner pulls it higher (kept for all dialogs) and wider to the right (for this time only).
+  Code beside its picture (SVG, Mermaid) stands one above the other in a dialog under 640 px.
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work
   in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
@@ -1026,7 +1034,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **A new note asks for nothing** (`Ctrl+N`, the sidebar's `+`, All Notes' `+`, New Note in a
   folder's menu or the empty room's, the button of an empty folder — desktop and browser alike): it
   is made at once as "Untitled" ("Untitled 2" … where that name is taken), next to the note on
-  screen or in the folder chosen, and opens in the mode one writes in (the browser: the source), the caret in its title — an
+  screen or in the folder chosen, and opens in the active mode — the source, where the window was being written in the source — the caret in its title — an
   empty heading that shows "Untitled", greyed, in the active mode (the source shows `# `). What is
   written there names the file: once it has been left alone a moment (1.5 s) while it is written,
   and when the note is left (another note, its tab closed, the window closed) — the tab, the
@@ -1371,6 +1379,8 @@ browser. Only a project linked to GitHub can share; the web app shows the note.
 - **Download** (in the browser): the share window hands the note out as its Markdown file
   instead, and a right click on any file in the sidebar or in All Notes has Download too.
 - **A link opened** shows a ring at once while the note is fetched, not an empty window.
+- **The link works as soon as GitHub has the share**, a few seconds after it was made — even
+  when it was opened at once, before that, and said 404 then.
 - **Stop Sharing** ends the link, within half a minute. So does deleting the note.
 - What is shared is written down in the project (`.mdview/shares.json`), so every device of
   yours knows it, and whoever can read the repository can too.
@@ -1413,38 +1423,39 @@ the same, without an issue.
 
 ## Side by side
 
-Beside the note, at the window's right, a second sheet can stand that is only read. The note at
-the left is the window's as ever, in any of its modes.
+A note and a PDF can stand side by side — and only these two (Henri, 2026-10-26: two notes side
+by side are not offered any more; a picture beside a note neither). One is the window's, as ever,
+in any of its modes; the other is a sheet at the window's right.
 
-- **A tab beside the one in the window**: right click on a tab that is not the one shown ›
-  **Show in Split View**. Its note is shown as it reads (its links found from where it lies), a
-  PDF as its pages, each drawn when it comes near, a picture as itself. While two are side by
-  side, any tab's menu has **Close Split View**.
-- **Any other file**: right click on a note, a PDF or a picture in the sidebar or in All Notes ›
-  **Open Beside**.
-- **A note at the right is written in too**: the pencil in the sheet's capsule shows its source,
-  in the type of the window's own source, kept a moment after the last key (the book, or `Esc`,
-  reads it again). Not the note that is in the window as well: that one is written at the left.
-- **The tab in the window** › Show in Split View: the note beside its own reading — written at the
-  left (in any mode), read at the right a moment later.
+- **A PDF beside the note**: right click on a PDF's tab that is not the one shown › **Show in
+  Split View**, or on a PDF in the sidebar or in All Notes › **Open Beside**. Its pages are drawn
+  each when it comes near. While the two are side by side, any tab's menu has **Close Split View**.
+- Where the two would not be a note and a PDF — another note beside a note, a PDF beside a PDF,
+  the tab in the window — Show in Split View stands dimmed and Open Beside is not in the menu. A
+  window that comes to hold two of a kind (another note opened beside the note at the right,
+  another PDF beside the PDF) closes the sheet. (The source beside its reading is the mode of that
+  name, not this.)
 - **A PDF at the right has the viewer's plain controls**, in a capsule over its pages: the page
   one is on (a number and `Enter` goes there), larger and smaller (`Ctrl` with the wheel too,
   around the pointer), Fit width and Fit page. Pages broader than the half are moved sideways.
   Over its pages, as in the viewer: their text, to select (`Ctrl+C` copies it, `Ctrl+Shift+C` — or
   letting go, where the settings copy at once — a link to it, in the settings' form), the PDF's own
   links (one to another page goes there, one out opens outside), and what was drawn on the pages.
-  The side card, a region for a note and drawing are the viewer's own, at the left.
-- A link to a note or a PDF in the sheet at the right leads on there, and leaves the note at the
-  left alone. The arrows in the sheet's head (**Swap Sides**) change the two places: what is
-  beside goes into the window — written there in any mode, the active one too — and the
-  window's note beside it; the cross, or `Esc` in the sheet, closes it. Both stand in a small capsule in the sheet's corner, with its name.
-- The two are halves of one kind: the same column, the same type, each scrolled by itself. The
-  line between them can be pulled (a double click on it: halves again; how the window is shared
-  is kept). A note beside its own reading runs with it: as far down the one is, so far the other.
-  Two things want 600 px (the sidebar lies over them and takes none of it): where the window has less, it says so and shows the note alone. What is beside a note is not kept when the
-  window is closed.
-- Not yet: two notes that are both written in, and selecting text or copying links in a PDF at
-  the right (the PDF's own viewer is the window's left).
+  The side card, a region for a note and drawing are the viewer's own: **Swap Sides** puts the PDF
+  in the window for them.
+- **Swap Sides** (the arrows in the sheet's head) changes the two places: what is beside goes into
+  the window — a note written there in any mode, the active one too, a PDF with its whole viewer —
+  and the window's note or PDF beside it; the cross, or `Esc` in the sheet, closes it. Both stand
+  in a small capsule in the sheet's corner, with its name.
+- **A note beside a PDF** (after Swap Sides) is read as it reads, its links found from where it
+  lies, and is written in too: the pencil in the sheet's capsule shows its source, in the type of
+  the window's own source, kept a moment after the last key (the book, or `Esc`, reads it again).
+  A link to a note in it leads on there, beside the PDF; a link to a PDF opens that PDF in the
+  window.
+- The two are halves of one kind, each scrolled by itself. The line between them can be pulled (a
+  double click on it: halves again; how the window is shared is kept). Two things want 600 px (the
+  sidebar lies over them and takes none of it): where the window has less, it says so and shows
+  the one in the window alone. What is beside is not kept when the window is closed.
 
 ## PDFs
 

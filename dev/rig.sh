@@ -51,12 +51,12 @@
 #   dev/rig.sh sblag                 a long note scrolled, the sidebar opened and shut, in each layout: frames as even as with it shut
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
 #   dev/rig.sh glass                 a menu over the note: what is behind it blurred or covered, never read through
-#   dev/rig.sh split                 two things side by side: the note as it reads beside its source, another note, a PDF's pages, a link leading on in the sheet
+#   dev/rig.sh split                 a note and a PDF side by side and nothing else (two notes are not), swapped, a note beside a PDF written in, a link leading on in the sheet
 #   dev/rig.sh sheets                the sidebar's sheets show the file: a note's beginning, a PDF's first page, a whiteboard, a picture
 #   dev/rig.sh pastetab              All Notes opens on the folders; the pasteboard in a tab of its own, from its button; every whiteboard listed
 #   dev/rig.sh colwidth              the line between two table columns pulled with a real pointer: the widths follow, the note says them
 #   dev/rig.sh icons                 a folder's colour from the more and its sign from Lucide's many: searched in English and German, kept, there again after a restart
-#   dev/rig.sh splitscroll           two notes side by side, each scrolled with a real wheel down and all the way up again
+#   dev/rig.sh splitscroll           a note and a PDF side by side, each scrolled with a real wheel down and all the way up again
 #   dev/rig.sh scrollup              a long note scrolled with a real wheel down and up again: what stands around it does not change meanwhile
 #   dev/rig.sh ovswitch              All Notes from the folders to all notes in some hundred notes: at once, a skeleton, beginnings fading in
 #   dev/rig.sh switching             from note to note with different grounds: one fades into the next, the sheet stays with one wheel on it
@@ -561,11 +561,11 @@ sys.exit(0 if ok else 1)
 PY
     ;;
   split)
-    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.self.json "$R/out"/*.pdf.json
-    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"; rm -f "$R/out"/*.split.json "$R/out"/*.note.json "$R/out"/*.pdf.json
+    printf '# Alpha\n\nSome text.\n' > "$N/Alpha.md"; printf '# Beta\n\nMore about it, and a link: [[Gamma]].\n' > "$N/sub/Beta.md"; printf '# Gamma\n\nThird.\n' > "$N/sub/Gamma.md"; printf '%s\n' '---' 'background: cyan' '---' '' '# Ground' '' 'On a ground.' > "$N/Ground.md"; python3 "$D/gen-pdf.py" "$N/paper.pdf" 3; cp "$N/paper.pdf" "$N/other.pdf"
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
     app 90 MDVIEW_PROBE="$D/probe-split.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
-    for v in self pdf; do for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.$v.json "$R/out"/*.split.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/split-$v.png"; done
+    for v in pdf note; do for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.$v.json "$R/out"/*.split.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/split-$v.png"; done
     for _ in $(seq 400); do ls "$R/out"/*.split.json >/dev/null 2>&1 && break; sleep 0.1; done
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.split.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
@@ -717,7 +717,7 @@ PY
     V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" -lwayland-client) || exit 1; }
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; rm -f "$R/out"/*.plan*.json "$R/out"/*.splitscroll.json
     { echo '# Main'; for i in $(seq 80); do echo; echo "Paragraph $i of the note in the window, long enough to wrap a little in a half of the window."; done; } > "$N/Main.md"
-    { echo '# Beside'; for i in $(seq 80); do echo; echo "Paragraph $i of the note beside it, long enough to wrap a little in a half of the window."; done; } > "$N/Beside.md"
+    python3 "$D/gen-pdf.py" "$N/Beside.pdf" 12
     { printf '%s\n' '---' 'background: cyan' '---' '' '# Ground'; for i in $(seq 80); do echo; echo "Paragraph $i of a note on a ground, long enough to wrap a little in a half of the window."; done; } > "$N/Ground.md"
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
     app 90 MDVIEW_PROBE="$D/probe-splitscroll.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
