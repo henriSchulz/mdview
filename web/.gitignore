@@ -5,3 +5,5 @@ next-env.d.ts
 # the page's own files, copied from the checkout when the app is built (scripts/assets.mjs)
 public/app/
 *.tsbuildinfo
+# the rules for writing a note, from the skill, written when the app is built (scripts/assets.mjs)
+lib/mcp/guide.gen.ts

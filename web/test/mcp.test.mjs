@@ -136,8 +136,14 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   const note = await fetch(base + "/mcp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
   assert.equal(note.status, 202);
   const listed = (await rpc(t, "tools/list")).body.result.tools.map((x) => x.name);
-  assert.deepEqual(listed, ["list_repositories", "list_files", "read_file", "search_notes", "write_note", "edit_note", "move_note"]);
+  assert.deepEqual(listed, ["notes_guide", "list_repositories", "list_files", "read_file", "search_notes", "write_note", "edit_note", "move_note"]);
 
+  // how a note is written: the skill of the repository, without what holds only on the author's computer
+  assert.match(init.body.result.instructions, /notes_guide/);
+  const guide = (await tool(t, "notes_guide", {})).text;
+  assert.match(guide, /^# Notes for Markdown Notes/);
+  assert.match(guide, /### Callouts/);
+  assert.doesNotMatch(guide, /pasteboard|~\/Projects|git status/);
   // only spaces: the repositories with the app's .mdview folder (the fake's projects), not every one the app was given
   const repos = (await tool(t, "list_repositories", {})).text;
   assert.match(repos, /octo\/alpha-notes/);

@@ -35,7 +35,7 @@ async function answer(m: Rpc, access: string): Promise<object | null> {
         protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "mdview", title: "Markdown Notes", version: "1.0.0" },
-        instructions: "The user's notes in Markdown Notes (mdview), kept in GitHub repositories: list_repositories first, then list_files, read_file, search_notes. Notes are Markdown with the app's own additions (callouts, [[wikilinks]], KaTeX, Mermaid); what is written is committed at once.",
+        instructions: "The user's notes in Markdown Notes (mdview), kept in GitHub repositories: list_repositories first, then list_files, read_file, search_notes. Notes are Markdown with the app's own additions (callouts, [[wikilinks]], KaTeX, Mermaid): before writing or changing a note, read notes_guide once — how a note is written for the app. What is written is committed at once.",
       });
     }
     case "ping": return ok({});
