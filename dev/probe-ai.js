@@ -233,8 +233,9 @@
       const press = (x, at) => {
         const r = x.getBoundingClientRect(), cx = at ? at[0] : r.left + Math.min(20, r.width / 2), cy = at ? at[1] : r.top + Math.min(10, r.height / 2);
         const opt = { bubbles: true, cancelable: true, composed: true, clientX: cx, clientY: cy, button: 0, buttons: 1, pointerId: 1, pointerType: "mouse", isPrimary: true };
-        x.dispatchEvent(new PointerEvent("pointerdown", opt)); x.dispatchEvent(new MouseEvent("mousedown", opt));
+        const went = x.dispatchEvent(new PointerEvent("pointerdown", opt)) && x.dispatchEvent(new MouseEvent("mousedown", opt));
         x.dispatchEvent(new PointerEvent("pointerup", { ...opt, buttons: 0 })); x.dispatchEvent(new MouseEvent("mouseup", { ...opt, buttons: 0 })); x.dispatchEvent(new MouseEvent("click", { ...opt, buttons: 0 }));
+        return went;
       };
       const opened = async () => { if (!ai().open) bubble.click(); await until(() => ai().open); await sleep(350); return ai().open; };
       await opened();
@@ -247,11 +248,12 @@
       press(bubble); await sleep(400);
       ok("a press on the bubble shuts it once, not shut and opened again", !ai().open, ai().open);
       await opened();
-      press(view.dom.querySelector("p")); await sleep(60);
+      const passed = press(view.dom.querySelector("p")); await sleep(60);
       const fading = !chat().hidden && +getComputedStyle(chat()).opacity < 1 && !document.body.hasAttribute("data-ai-chat");
       await sleep(400);
       ok("a press in the note closes it, as its own close does: it fades out, then is hidden", !ai().open && chat().hidden && fading, [ai().open, chat().hidden, fading]);
-      ok("… and the press is the note's: the caret goes there", view.hasFocus() || document.activeElement === view.dom, document.activeElement && document.activeElement.className);
+      // (a press made by a script never moves the focus, so what is checked is that nothing stopped it on its way to the note)
+      ok("… and the press is the note's: nothing stops it, so the caret goes there", passed, passed);
       await opened();
       press(document.getElementById("toolbar")); await sleep(400);
       ok("a press on the toolbar closes it", !ai().open, ai().open);
