@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "Links to text files do not work. A link to a text file in the same folder opens Explorer without the file" (feedback, Windows) | a link to a file that is no note nor PDF is handed to the system (`launch_path`); its path came out of the page's address (`url_file`) as `C:/…/notes.txt`, forward slashes, and Explorer, handed such a path, opens a window of its own on no file. **Not seen on Windows** — reasoned from the code; on Linux the path was right | `host::windows_path`: back slashes, no slash before the drive, no `\\?\`; used by `url_file` on Windows and by `launch_path` and `reveal` there. A text file stays the system's to open (the app shows notes and PDFs) | `cargo test` (`a_link_to_a_file_beside_the_note_names_it_as_windows_does`, `a_path_for_windows_has_back_slashes_and_no_slash_before_its_drive`) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |
