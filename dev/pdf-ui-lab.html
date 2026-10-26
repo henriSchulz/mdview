@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – PDF: Ansehen und Zeichnen</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+  /* Farben wie in der App (Theme „cupertino", Namen aus viewer/*.css); dunkel: dieselben Namen. */
+  :root {
+    --bg: #f5f5f7; --fg: #1d1d1f; --accent: #0071e3;
+    --c-red: #d70015; --c-orange: #c93400; --c-green: #248a3d; --c-blue: #0071e3; --c-yellow: #e6b400;
+    --fg2: color-mix(in srgb, var(--fg) 65%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 45%, transparent);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 18%, transparent);
+    --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --raised: color-mix(in srgb, #fff 70%, var(--bg));
+    --desk: #e6e6eb;
+    --glass: color-mix(in srgb, var(--bg) 74%, transparent);
+    --glass-filter: blur(24px) saturate(180%);
+    --shadow-capsule: 0 0 0 0.5px var(--line-strong), 0 4px 16px rgb(0 0 0 / 0.10);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 14%, transparent), 0 1px 2px rgb(0 0 0 / 0.05);
+    --ui: "SF Pro", "SF Pro Text", "Inter", system-ui, sans-serif;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c1e; --fg: #f5f5f7; --accent: #0a84ff;
+    --c-red: #ff453a; --c-orange: #ff9f0a; --c-green: #30d158; --c-blue: #0a84ff; --c-yellow: #ffd60a;
+    --raised: color-mix(in srgb, var(--fg) 8%, var(--bg));
+    --desk: #121214;
+    --glass: color-mix(in srgb, #2c2c2e 72%, transparent);
+    --shadow-capsule: 0 0 0 0.5px var(--line-strong), 0 6px 20px rgb(0 0 0 / 0.40);
+    --edge: 0 0 0 0.5px color-mix(in srgb, var(--fg) 16%, transparent);
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 400 13px/1.4 var(--ui); -webkit-font-smoothing: antialiased; }
+  body { display: flex; flex-direction: column; padding: 0 20px 20px; }
+  button { font: inherit; color: inherit; cursor: default; }
+  svg { display: block; }
+
+  /* ---- die Leiste des Labors */
+  .lab { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 10px; }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); height: 30px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .seg.designs { --n: 4; flex: 1 1 520px; }
+  .seg.modes { --n: 2; width: 220px; }
+  .seg-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n)); border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge), 0 2px 6px rgb(0 0 0 / 0.08); translate: calc(var(--i, 0) * 100%) 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .seg button { position: relative; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seg button[aria-pressed="true"] { color: var(--fg); }
+  .seg kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  .lab .plain { height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); font-weight: 500; }
+  .lab .plain:hover { background: var(--fill-pressed); }
+  .idea { flex: none; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--fg2); font-size: 13px; line-height: 1.5; }
+  .idea b { color: var(--fg); font-weight: 600; }
+  .idea .keys { float: right; color: var(--fg3); }
+
+  /* ---- das Fenster der App: Tabs oben, darunter das PDF */
+  .win { position: relative; flex: 1; min-height: 560px; overflow: hidden; border-radius: 12px; background: var(--desk); box-shadow: 0 0 0 0.5px var(--line-strong), 0 20px 50px rgb(0 0 0 / 0.14); }
+  .tabs { position: absolute; inset: 0 0 auto; z-index: 30; height: 38px; display: flex; align-items: flex-end; gap: 2px; padding: 0 10px 0 78px; background: var(--bg); box-shadow: inset 0 -0.5px 0 var(--line-strong); }
+  .tabs .dots { position: absolute; left: 14px; top: 13px; display: flex; gap: 8px; }
+  .tabs .dots i { width: 12px; height: 12px; border-radius: 50%; background: color-mix(in srgb, var(--fg) 16%, transparent); }
+  .tab { height: 30px; padding: 0 14px; display: flex; align-items: center; gap: 7px; border-radius: 8px 8px 0 0; color: var(--fg2); font-weight: 500; }
+  .tab.on { background: var(--desk); color: var(--fg); }
+  .tab svg { width: 13px; height: 13px; }
+  .scroller { position: absolute; inset: 38px 0 0; overflow: auto; scrollbar-width: thin; }
+  .pages { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: var(--pad-top, 72px) 24px var(--pad-bottom, 120px); transition: translate var(--spring-smooth-dur) var(--spring-smooth), padding var(--spring-smooth-dur) var(--spring-smooth); }
+  .page { position: relative; flex: none; width: calc(560px * var(--z, 1)); aspect-ratio: 210 / 297; padding: calc(56px * var(--z, 1)) calc(54px * var(--z, 1)); background: #fff; color: #222; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08); font-size: calc(9.5px * var(--z, 1)); line-height: 1.55; overflow: hidden; }
+  .page h2 { margin: 0 0 0.6em; font: 700 2em/1.2 "Georgia", serif; }
+  .page h3 { margin: 1.2em 0 0.5em; font: 700 1.35em/1.2 "Georgia", serif; }
+  .page p { margin: 0 0 0.8em; font-family: "Georgia", serif; color: #333; text-align: justify; }
+  .page .eq { margin: 1em auto; padding: 0.6em; width: 70%; text-align: center; font: italic 1.25em "Georgia", serif; color: #222; }
+  .page .num { position: absolute; bottom: calc(24px * var(--z, 1)); left: 0; right: 0; text-align: center; color: #999; font: 1em "Georgia", serif; }
+  .page svg.ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .page svg.ink path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .win[data-mode="draw"] .page { cursor: crosshair; }
+  .win[data-mode="draw"] .page svg.ink { pointer-events: auto; }
+  .win[data-mode="draw"][data-tool="eraser"] .page { cursor: cell; }
+  .win[data-mode="draw"][data-tool="pointer"] .page { cursor: default; }
+
+  /* ---- gemeinsame Bausteine der Leisten */
+  .glass { background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); }
+  .b { flex: none; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--fg); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .b svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .b:hover { background: var(--fill-hover); transition-duration: var(--dur-instant); }
+  .b:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .b.txt { width: auto; padding: 0 10px; gap: 6px; display: flex; font-weight: 500; }
+  .b.done { background: var(--accent); color: #fff; padding: 0 12px; }
+  .b.done:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+  .sep { flex: none; width: 1px; height: 16px; margin: 0 4px; background: var(--line-strong); }
+  .pg { flex: none; display: flex; align-items: center; gap: 4px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .pg input { width: 34px; height: 22px; border: 0; border-radius: 6px; background: var(--fill-hover); color: var(--fg); font: inherit; text-align: center; outline: none; }
+  .zoom { min-width: 40px; text-align: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .well { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--w); box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.2); transition: box-shadow var(--dur-fast) var(--ease-out); }
+  .well[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--w); }
+  .wells { display: flex; gap: 8px; padding: 0 6px; }
+  .width { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--radius-control); background: none; }
+  .width i { width: 18px; height: 3px; border-radius: 2px; background: var(--fg); }
+  .width:hover { background: var(--fill-hover); }
+
+  /* zwei Sätze Inhalt, je nach Modus: der eine blendet aus, der andere ein */
+  .for-view, .for-draw { display: flex; align-items: center; gap: 2px; transition: opacity var(--dur-fast) var(--ease-out); }
+  .win[data-mode="view"] .for-draw, .win[data-mode="draw"] .for-view { display: none; }
+  .fresh { animation: in var(--dur-base) var(--ease-out) both; }
+  @keyframes in { from { opacity: 0; } }
+
+  /* Inhaltsverzeichnis, Seiten, Notizen: der Inhalt ist in allen vier Vorschlägen derselbe */
+  .toc-tabs { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); margin: 10px 10px 6px; padding: 2px; border-radius: var(--radius-control); background: var(--fill-hover); }
+  .toc-tabs::before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: calc(var(--radius-control) - 2px); background: var(--raised); box-shadow: var(--edge); translate: calc(var(--i, 0) * 100%) 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .toc-tabs button { position: relative; height: 22px; border: 0; background: none; color: var(--fg2); font-weight: 500; font-size: 12px; }
+  .toc-tabs button[aria-selected="true"] { color: var(--fg); }
+  .toc-body { flex: 1; min-height: 0; overflow: auto; padding: 2px 8px 10px; }
+  .out { position: relative; display: flex; gap: 8px; padding: 5px 8px 5px calc(8px + var(--d) * 14px); border-radius: var(--radius-row); color: var(--fg); white-space: nowrap; }
+  .out span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .out em { font-style: normal; color: var(--fg3); font-variant-numeric: tabular-nums; }
+  .out[data-d="0"] { font-weight: 600; }
+  .out:hover { background: var(--fill-hover); }
+  .out.here { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+  .out.here em { color: inherit; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; padding: 4px; }
+  .thumb { display: grid; justify-items: center; gap: 3px; color: var(--fg3); font-size: 11px; }
+  .thumb i { width: 100%; aspect-ratio: 210 / 297; background: #fff linear-gradient(transparent 20%, #ddd 20% 22%, transparent 22% 30%, #e6e6e6 30% 31%, transparent 31% 36%, #e6e6e6 36% 37%, transparent 37% 42%, #e6e6e6 42% 43%, transparent 43%) ; box-shadow: 0 0 0 0.5px var(--line-strong); border-radius: 2px; }
+  .thumb.here i { box-shadow: 0 0 0 2px var(--accent); }
+  .note { display: grid; gap: 2px; padding: 7px 8px; border-radius: var(--radius-row); }
+  .note:hover { background: var(--fill-hover); }
+  .note b { font-weight: 600; } .note small { color: var(--fg3); } .note span { color: var(--fg2); }
+
+  /* ==================================================================
+   * 1 · Eine Leiste — eine Kapsel oben in der Mitte, in beiden Modi am selben Platz.
+   *     Zeichnen tauscht nur ihre Mitte aus; das Verzeichnis ist ein Popover am ersten Knopf.
+   * ================================================================== */
+  .d1 .cap { position: absolute; top: 50px; left: 50%; z-index: 20; translate: -50% 0; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--radius-pill); white-space: nowrap; overflow: hidden; transition: width var(--spring-snappy-dur) var(--spring-snappy); }
+  .d1 .cap .b { border-radius: var(--radius-pill); }
+  .d1 .cap .fixed { display: flex; align-items: center; gap: 2px; }
+  .d1 .pop { position: absolute; z-index: 25; top: 96px; width: 280px; max-height: calc(100% - 120px); display: flex; flex-direction: column; border-radius: var(--radius-popover); transform-origin: 14px 0; opacity: 0; scale: 0.98; visibility: hidden; transition: opacity calc(160ms * 0.7) var(--ease-exit), scale calc(160ms * 0.7) var(--ease-exit), visibility 0s linear calc(160ms * 0.7); }
+  .d1 .pop::before { content: ""; position: absolute; top: -6px; left: 16px; width: 12px; height: 12px; rotate: 45deg; background: inherit; border-radius: 2px 0 0 0; box-shadow: -0.5px -0.5px 0 var(--line-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .d1 .win[data-toc] .pop, .win.d1[data-toc] .pop { opacity: 1; scale: 1; visibility: visible; transition: opacity 160ms var(--ease-out), scale 160ms var(--ease-out), visibility 0s; }
+  .d1 .pop .toc-body { max-height: 420px; }
+
+  /* ==================================================================
+   * 2 · Vorschau — wie Preview am Mac: eine Fensterleiste über die ganze Breite, links die Seitenleiste als echte Spalte.
+   *     Zeichnen klappt eine zweite Zeile (Markup) unter der Leiste auf; nichts sonst verschiebt sich.
+   * ================================================================== */
+  .d2 .top { position: absolute; top: 38px; left: 0; right: 0; z-index: 20; height: 46px; display: flex; align-items: center; gap: 2px; padding: 0 10px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 -0.5px 0 var(--line-strong); }
+  .d2 .top .title { display: flex; flex-direction: column; margin: 0 10px 0 6px; line-height: 1.2; }
+  .d2 .top .title b { font-weight: 600; } .d2 .top .title small { color: var(--fg3); font-size: 11px; }
+  .d2 .top .grow { flex: 1; }
+  .d2 .markup { position: absolute; top: 84px; left: 0; right: 0; z-index: 19; height: 44px; display: flex; align-items: center; justify-content: center; gap: 2px; padding: 0 10px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset 0 -0.5px 0 var(--line-strong); translate: 0 -100%; opacity: 0; transition: translate calc(var(--dur-slow) * 0.7) var(--ease-exit), opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
+  .win.d2[data-mode="draw"] .markup { translate: 0 0; opacity: 1; transition: translate var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out); }
+  .d2 .markup .end { position: absolute; right: 10px; display: flex; gap: 2px; }
+  .d2 .side { position: absolute; top: 84px; bottom: 0; left: 0; z-index: 18; width: 248px; display: flex; flex-direction: column; background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: inset -0.5px 0 0 var(--line-strong); translate: -100% 0; transition: translate calc(var(--dur-slow) * 0.7) var(--ease-exit), top var(--spring-snappy-dur) var(--spring-snappy); }
+  .win.d2[data-toc] .side { translate: 0 0; transition: translate var(--spring-smooth-dur) var(--spring-smooth), top var(--spring-snappy-dur) var(--spring-snappy); }
+  .win.d2[data-mode="draw"] .side { top: 128px; }
+  .win.d2 { --pad-top: 104px; }
+  .win.d2[data-mode="draw"] { --pad-top: 148px; }
+  .win.d2[data-toc] .pages { translate: 124px 0; }
+
+  /* ==================================================================
+   * 3 · Schiene — eine Werkzeugschiene am linken Rand, oben ihr Schalter Ansehen | Zeichnen.
+   *     Die Schiene bleibt stehen, nur ihre Knöpfe wechseln; das Verzeichnis wächst als Schublade aus ihr heraus.
+   *     Seite und Größe unten rechts, beim Zeichnen kommen Rückgängig und Wiederholen dazu.
+   * ================================================================== */
+  .d3 .rail { position: absolute; left: 14px; top: 54px; z-index: 22; width: 46px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 4px 6px; border-radius: 16px; }
+  .d3 .rail .for-view, .d3 .rail .for-draw { flex-direction: column; }
+  .d3 .rail .b { width: 36px; height: 34px; }
+  .d3 .rail .sep { width: 18px; height: 1px; margin: 5px 0; }
+  .d3 .rail .wells { flex-direction: column; gap: 9px; padding: 4px 0; }
+  .d3 .sw { position: relative; display: grid; gap: 2px; width: 38px; padding: 2px; margin-bottom: 4px; border-radius: 11px; background: var(--fill-hover); }
+  .d3 .sw::before { content: ""; position: absolute; left: 2px; right: 2px; top: 2px; height: 34px; border-radius: 9px; background: var(--raised); box-shadow: var(--edge); translate: 0 calc(var(--i, 0) * (100% + 2px)); transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .d3 .sw .b { position: relative; width: 34px; height: 34px; border-radius: 9px; color: var(--fg2); }
+  .d3 .sw .b:hover { background: none; }
+  .d3 .sw .b[aria-pressed="true"] { background: none; color: var(--fg); }
+  .d3 .drawer { position: absolute; left: 66px; top: 54px; bottom: 70px; z-index: 21; width: 264px; display: flex; flex-direction: column; border-radius: 16px; transform-origin: 0 0; opacity: 0; scale: 0.98; visibility: hidden; transition: opacity calc(160ms * 0.7) var(--ease-exit), scale calc(160ms * 0.7) var(--ease-exit), visibility 0s linear calc(160ms * 0.7); }
+  .win.d3[data-toc] .drawer { opacity: 1; scale: 1; visibility: visible; transition: opacity 160ms var(--ease-out), scale 160ms var(--ease-out), visibility 0s; }
+  .d3 .drawer h4 { margin: 12px 14px 0; font-size: 13px; font-weight: 600; }
+  .d3 .nav { position: absolute; right: 14px; bottom: 14px; z-index: 20; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; }
+  .win.d3 { --pad-top: 24px; }
+
+  /* ==================================================================
+   * 4 · Dock — alles unten, wo das Whiteboard seine Ablage schon hat; das Dock wird beim Zeichnen zur Ablage mit Stiften.
+   *     Das Verzeichnis ist eine Kapitelleiste am rechten Rand: immer da als Striche, beim Zeigen die Titel.
+   * ================================================================== */
+  .d4 .dock { position: absolute; left: 50%; bottom: 16px; z-index: 22; translate: -50% 0; display: flex; align-items: center; gap: 2px; height: 46px; padding: 0 8px; border-radius: 23px; overflow: hidden; transition: height var(--spring-snappy-dur) var(--spring-snappy), border-radius var(--spring-snappy-dur) var(--spring-snappy); }
+  .win.d4[data-mode="draw"] .dock { height: 74px; border-radius: 22px; }
+  .d4 .dock .b { border-radius: var(--radius-pill); }
+  .d4 .tray { display: flex; align-items: flex-end; align-self: stretch; gap: 4px; padding: 0 6px; }
+  .d4 .pen { position: relative; width: 26px; height: 64px; padding: 0; border: 0; background: none; translate: 0 18px; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .d4 .pen[aria-pressed="true"] { translate: 0 4px; }
+  .d4 .pen:hover:not([aria-pressed="true"]) { translate: 0 13px; }
+  .d4 .pen svg { width: 26px; height: 64px; }
+  .d4 .dock .wells { padding: 0 8px; }
+  .d4 .scrub { position: absolute; right: 0; top: 100px; bottom: 80px; z-index: 21; width: 26px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 8px; transition: width 0s; }
+  .d4 .scrub .tick { position: relative; display: flex; align-items: center; justify-content: flex-end; flex: 1; }
+  .d4 .scrub .tick i { width: 6px; height: 2px; border-radius: 1px; background: var(--fg3); transition: width var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+  .d4 .scrub .tick[data-d="0"] i { width: 10px; background: var(--fg2); }
+  .d4 .scrub .tick.here i { width: 14px; background: var(--accent); }
+  .d4 .scrub .tick span { position: absolute; right: 22px; white-space: nowrap; padding: 2px 0; color: var(--fg); opacity: 0; translate: 6px 0; transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur-fast) var(--ease-out); }
+  .d4 .scrub .tick[data-d="1"] span { color: var(--fg2); }
+  .d4 .scrub .tick.here span { color: var(--accent); font-weight: 600; }
+  .d4 .scrub .tick em { font-style: normal; color: var(--fg3); margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .d4 .scrub::before { content: ""; position: absolute; inset: 0; border-radius: 16px 0 0 16px; background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+  .d4 .scrub:hover, .win.d4[data-toc] .scrub { width: 250px; }
+  .d4 .scrub:hover::before, .win.d4[data-toc] .scrub::before { opacity: 1; }
+  .d4 .scrub:hover .tick span, .win.d4[data-toc] .scrub .tick span { opacity: 1; translate: 0 0; }
+  .d4 .scrub .tick:hover span { color: var(--accent); }
+  .d4 .topright { position: absolute; top: 50px; right: 14px; z-index: 22; display: flex; gap: 2px; padding: 4px; border-radius: var(--radius-pill); opacity: 0; translate: 0 -8px; pointer-events: none; transition: opacity calc(var(--dur-base) * 0.7) var(--ease-exit), translate calc(var(--dur-base) * 0.7) var(--ease-exit); }
+  .win.d4[data-mode="draw"] .topright { opacity: 1; translate: 0 0; pointer-events: auto; transition: opacity var(--dur-base) var(--ease-out), translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .d4 .topright .b { border-radius: var(--radius-pill); }
+  .win.d4 { --pad-top: 24px; --pad-bottom: 140px; }
+
+  @media (prefers-reduced-motion: reduce) { .pages, .d2 .markup, .d2 .side, .d4 .pen, .seg-thumb { transition-property: opacity !important; } }
+</style>
+
+<div class="lab">
+  <div class="seg designs" role="group" aria-label="Vorschlag"><span class="seg-thumb"></span>
+    <button data-d="1"><kbd>1</kbd>Eine Leiste</button><button data-d="2"><kbd>2</kbd>Vorschau</button><button data-d="3"><kbd>3</kbd>Schiene</button><button data-d="4"><kbd>4</kbd>Dock</button>
+  </div>
+  <div class="seg modes" role="group" aria-label="Modus"><span class="seg-thumb"></span>
+    <button data-m="view">Ansehen</button><button data-m="draw">Zeichnen</button>
+  </div>
+  <button class="plain" data-act="toc">Inhalt</button>
+  <button class="plain" data-act="theme">Hell/Dunkel</button>
+</div>
+<div class="idea"><span class="keys">1–4 · E Modus · O Inhalt · L Hell/Dunkel · im Zeichenmodus auf die Seiten malen</span><span id="idea"></span></div>
+<div class="win" id="win" data-mode="view">
+  <div class="tabs"><span class="dots"><i></i><i></i><i></i></span>
+    <span class="tab on"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9.5 1.5V5H13"/></svg>LA-Skript.pdf</span>
+    <span class="tab">Vorlesung 4.md</span><span class="tab">Übungsblatt 3.md</span>
+  </div>
+  <div class="scroller" id="scroller"><div class="pages" id="pages"></div></div>
+  <div id="chrome"></div>
+</div>
+
+<script>
+const IDEAS = {
+  1: "<b>Eine Leiste.</b> Eine einzige Kapsel oben in der Mitte, in beiden Modi am selben Platz. Links bleibt immer stehen: Inhalt und Seite. Zeichnen tauscht nur die Mitte (Zoom → Stifte und Farben), rechts wird aus „Zeichnen“ ein blaues „Fertig“. Das Verzeichnis ist ein Popover, das am Inhalt-Knopf hängt und nach einem Sprung zugeht.",
+  2: "<b>Vorschau.</b> Wie Preview am Mac: eine Fensterleiste über die ganze Breite (Titel, Seite, Zoom, Stift). Das Verzeichnis ist eine echte Seitenleiste links, die Seiten rücken zur Seite statt verdeckt zu werden — bleibt offen, solange man will. Zeichnen klappt eine zweite Zeile mit Werkzeugen unter der Leiste auf; die obere Leiste bleibt genau, wie sie war.",
+  3: "<b>Schiene.</b> Eine Werkzeugschiene am linken Rand, oben ihr Schalter Ansehen | Zeichnen — man sieht immer, in welchem Modus man ist. Die Schiene bleibt stehen, nur ihre Knöpfe wechseln (Verzeichnis, Seiten, Bereich ↔ Stifte, Farben). Das Verzeichnis wächst als Schublade aus der Schiene. Seite und Zoom unten rechts, beim Zeichnen kommen Rückgängig/Wiederholen dazu. Oben bleibt das Fenster frei.",
+  4: "<b>Dock.</b> Alles unten, wo das Whiteboard seine Stift-Ablage heute schon hat: das Dock wächst beim Zeichnen zur Ablage mit stehenden Stiften, statt dass oben eine Leiste verschwindet und unten eine andere auftaucht. Das Verzeichnis ist eine Kapitelleiste am rechten Rand — immer da als Striche (wo bin ich, wie lang ist das Kapitel), beim Zeigen mit Titeln.",
+};
+const OUT = [
+  { t: "Vorwort", p: 1, d: 0 }, { t: "1 Vektorräume", p: 2, d: 0 }, { t: "1.1 Basis", p: 2, d: 1 }, { t: "1.2 Dimension", p: 3, d: 1 },
+  { t: "2 Lineare Abbildungen", p: 4, d: 0 }, { t: "2.1 Kern und Bild", p: 5, d: 1 }, { t: "2.2 Matrizen", p: 6, d: 1 },
+  { t: "3 Determinanten", p: 7, d: 0 }, { t: "3.1 Laplace-Entwicklung", p: 8, d: 1 }, { t: "4 Eigenwerte", p: 9, d: 0 },
+  { t: "4.1 Diagonalisierung", p: 10, d: 1 }, { t: "4.2 Spektralsatz", p: 11, d: 1 }, { t: "Literatur", p: 12, d: 0 },
+];
+const NOTES = [{ n: "Vorlesung 4", p: 9, s: "Eigenwerte sind die Nullstellen des charakteristischen Polynoms …" }, { n: "Übungsblatt 3", p: 6, s: "Aufgabe 2: Matrix der Abbildung bezüglich der Standardbasis" }, { n: "Klausur-Zettel", p: 10, s: "diagonalisierbar ⇔ algebraische = geometrische Vielfachheit" }];
+const N = 12, COLORS = ["#1d1d1f", "#0071e3", "#d70015", "#e6b400"];
+const S = { d: 1, mode: "view", toc: false, tab: "outline", z: 1, tool: "pen", color: 1, page: 1, strokes: [] };
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const win = $("#win"), chrome = $("#chrome"), scroller = $("#scroller"), pagesEl = $("#pages");
+
+const P = (d) => `<svg viewBox="0 0 20 20">${d}</svg>`;
+const I = {
+  side: P('<rect x="2.5" y="3.5" width="15" height="13" rx="2.5"/><path d="M7.5 3.5v13"/>'),
+  list: P('<path d="M7 5.5h10M7 10h10M9.5 14.5h7.5"/><circle cx="3.6" cy="5.5" r=".6" fill="currentColor"/><circle cx="3.6" cy="10" r=".6" fill="currentColor"/><circle cx="6" cy="14.5" r=".6" fill="currentColor"/>'),
+  grid: P('<rect x="3" y="3" width="6" height="6" rx="1.2"/><rect x="11" y="3" width="6" height="6" rx="1.2"/><rect x="3" y="11" width="6" height="6" rx="1.2"/><rect x="11" y="11" width="6" height="6" rx="1.2"/>'),
+  notes: P('<path d="M4 4.5h12v8.5H9l-3.5 3v-3H4z"/>'),
+  back: P('<path d="M8 6 4 10l4 4M4.5 10H13a3.5 3.5 0 0 1 0 7h-1"/>'),
+  prev: P('<path d="m12 5-5 5 5 5"/>'), next: P('<path d="m8 5 5 5-5 5"/>'),
+  minus: P('<path d="M5 10h10"/>'), plus: P('<path d="M5 10h10M10 5v10"/>'),
+  fit: P('<path d="M3 10h14M6 7l-3 3 3 3M14 7l3 3-3 3"/>'),
+  rect: P('<rect x="3" y="4.5" width="14" height="11" rx="1.5" stroke-dasharray="2.4 1.8"/>'),
+  pen: P('<path d="m4 16 1-4L13.5 3.5a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2L8 15z"/><path d="m12 5 3 3"/>'),
+  eye: P('<path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.5"/>'),
+  pointer: P('<path d="M5 3.5 15 9l-4.3 1.2L8.6 15z"/>'),
+  marker: P('<path d="m6 14 2-6 6-4.5 2.5 2.5L12 12l-6 2z"/><path d="M4 17h5"/>'),
+  eraser: P('<path d="m8 16-4-4 8-8 5 5-7 7z"/><path d="M8 16h9M7 9l5 5"/>'),
+  lasso: P('<ellipse cx="10" cy="8" rx="7" ry="4.5" stroke-dasharray="2.4 1.8"/><path d="M6 11.5c-1 2 0 4 2 4.5"/>'),
+  text: P('<path d="M4.5 5V3.5h11V5M10 3.5v13M7.5 16.5h5"/>'),
+  shape: P('<rect x="3" y="9" width="7" height="7" rx="1"/><circle cx="13" cy="7" r="4"/>'),
+  undo: P('<path d="M7 5 3.5 8.5 7 12"/><path d="M3.5 8.5H12a4 4 0 0 1 0 8H9"/>'),
+  redo: P('<path d="m13 5 3.5 3.5L13 12"/><path d="M16.5 8.5H8a4 4 0 0 0 0 8h3"/>'),
+  more: P('<circle cx="5" cy="10" r=".9" fill="currentColor"/><circle cx="10" cy="10" r=".9" fill="currentColor"/><circle cx="15" cy="10" r=".9" fill="currentColor"/>'),
+  check: P('<path d="m4.5 10.5 3.5 3.5 7.5-8"/>'),
+};
+const btn = (act, ic, label, extra = "") => `<button class="b" data-act="${act}" title="${label}" aria-label="${label}" ${extra}>${I[ic]}</button>`;
+const pressed = (on) => `aria-pressed="${on}"`;
+const pageField = () => `<span class="pg"><input value="${S.page}" aria-label="Seite" data-pg> <span>/ ${N}</span></span>`;
+const zoomSet = () => btn("zout", "minus", "Kleiner") + `<span class="zoom">${Math.round(S.z * 100)} %</span>` + btn("zin", "plus", "Größer");
+const tools = (list = ["pointer", "pen", "marker", "eraser", "lasso", "text", "shape"]) => list.map((t) => btn("tool:" + t, t, { pointer: "Auswählen", pen: "Stift", marker: "Marker", eraser: "Radierer", lasso: "Lasso", text: "Text", shape: "Form" }[t], pressed(S.tool === t))).join("");
+const wells = () => `<span class="wells">${COLORS.map((c, i) => `<button class="well" style="--w:${c}" data-act="color:${i}" aria-label="Farbe" ${pressed(S.color === i)}></button>`).join("")}</span>`;
+const widthBtn = () => `<button class="width" title="Strichstärke"><i></i></button>`;
+
+function tocContent() {
+  const tabs = ["outline", "pages", "notes"], i = tabs.indexOf(S.tab);
+  let body = "";
+  if (S.tab === "outline") body = OUT.map((o) => `<div class="out" data-d="${o.d}" style="--d:${o.d}" data-act="go:${o.p}"><span>${o.t}</span><em>${o.p}</em></div>`).join("");
+  else if (S.tab === "pages") body = `<div class="thumbs">${Array.from({ length: N }, (_, k) => `<div class="thumb" data-act="go:${k + 1}"><i></i>${k + 1}</div>`).join("")}</div>`;
+  else body = NOTES.map((n) => `<div class="note" data-act="go:${n.p}"><b>${n.n}</b><small>S. ${n.p}</small><span>${n.s}</span></div>`).join("");
+  return `<div class="toc-tabs" style="--i:${i}">${tabs.map((t) => `<button role="tab" data-act="tab:${t}" aria-selected="${S.tab === t}">${{ outline: "Inhalt", pages: "Seiten", notes: "Notizen" }[t]}</button>`).join("")}</div><div class="toc-body">${body}</div>`;
+}
+
+const PENS = (c, i) => `<button class="pen" data-act="${i < 2 ? "tool:" + ["pen", "marker"][i] : "tool:eraser"}" ${pressed(S.tool === ["pen", "marker", "eraser"][i])} title="${["Stift", "Marker", "Radierer"][i]}"><svg viewBox="0 0 26 64"><path d="M6 64V20l7-14 7 14v44z" fill="${i === 2 ? "#f2f2f4" : "#fafafa"}" stroke="rgb(0 0 0 / .18)" stroke-width=".8"/><path d="${i === 1 ? "M9 14h8l-2-6h-4z" : i === 2 ? "M6 20h14v8H6z" : "M10.5 11h5L13 6z"}" fill="${i === 2 ? "#f4a3a3" : c}"/><path d="M6 34h14" stroke="${i === 2 ? "#f4a3a3" : c}" stroke-width="3"/></svg></button>`;
+
+function render() {
+  win.className = "win d" + S.d;
+  win.dataset.mode = S.mode; win.dataset.tool = S.tool;
+  win.toggleAttribute("data-toc", S.toc);
+  const drawing = S.mode === "draw";
+  let h = "";
+  if (S.d === 1) {
+    h = `<div class="cap glass">
+      <span class="fixed">${btn("toc", "list", "Inhalt (O)", pressed(S.toc))}<span class="sep"></span>${pageField()}<span class="sep"></span></span>
+      <span class="for-view">${btn("back", "back", "Zurück")}${zoomSet()}${btn("fit", "fit", "Breite")}${btn("rect", "rect", "Bereich")}<span class="sep"></span><button class="b txt" data-act="mode" title="Zeichnen (D)">${I.pen}Zeichnen</button></span>
+      <span class="for-draw">${tools()}<span class="sep"></span>${wells()}${widthBtn()}<span class="sep"></span>${btn("undo", "undo", "Rückgängig")}${btn("redo", "redo", "Wiederholen")}<button class="b txt done" data-act="mode">Fertig</button></span>
+    </div><div class="pop glass">${tocContent()}</div>`;
+  } else if (S.d === 2) {
+    h = `<div class="top">${btn("toc", "side", "Seitenleiste (O)", pressed(S.toc))}<span class="title"><b>LA-Skript.pdf</b><small>Seite ${S.page} von ${N}</small></span>${btn("back", "back", "Zurück")}
+      <span class="grow"></span>${zoomSet()}${btn("fit", "fit", "Breite")}<span class="sep"></span>${btn("rect", "rect", "Bereich")}${btn("mode", "pen", "Markup (D)", pressed(drawing))}${btn("more", "more", "Mehr")}</div>
+      <div class="markup">${tools()}<span class="sep"></span>${wells()}${widthBtn()}<span class="end">${btn("undo", "undo", "Rückgängig")}${btn("redo", "redo", "Wiederholen")}<button class="b txt done" data-act="mode">Fertig</button></span></div>
+      <div class="side">${tocContent()}</div>`;
+  } else if (S.d === 3) {
+    h = `<div class="rail glass"><div class="sw" style="--i:${drawing ? 1 : 0}">${btn("view", "eye", "Ansehen", pressed(!drawing))}${btn("draw", "pen", "Zeichnen (D)", pressed(drawing))}</div>
+      <span class="for-view">${btn("toc", "list", "Inhalt (O)", pressed(S.toc && S.tab === "outline"))}${btn("tocp", "grid", "Seiten", pressed(S.toc && S.tab === "pages"))}${btn("tocn", "notes", "Notizen", pressed(S.toc && S.tab === "notes"))}<span class="sep"></span>${btn("rect", "rect", "Bereich")}${btn("fit", "fit", "Breite")}</span>
+      <span class="for-draw">${tools()}<span class="sep"></span>${wells()}${widthBtn()}<span class="sep"></span>${btn("toc", "list", "Inhalt (O)", pressed(S.toc))}</span></div>
+      <div class="drawer glass">${tocContent()}</div>
+      <div class="nav glass"><span class="for-draw">${btn("undo", "undo", "Rückgängig")}${btn("redo", "redo", "Wiederholen")}<span class="sep"></span></span>${btn("back", "back", "Zurück")}${btn("prev", "prev", "Vorige Seite")}${pageField()}${btn("next", "next", "Nächste Seite")}<span class="sep"></span>${zoomSet()}</div>`;
+  } else {
+    h = `<div class="dock glass">
+      <span class="for-view">${btn("toc", "list", "Inhalt (O)", pressed(S.toc))}<span class="sep"></span>${btn("prev", "prev", "Vorige Seite")}${pageField()}${btn("next", "next", "Nächste Seite")}<span class="sep"></span>${zoomSet()}${btn("fit", "fit", "Breite")}<span class="sep"></span>${btn("rect", "rect", "Bereich")}<button class="b txt" data-act="mode">${I.pen}Zeichnen</button></span>
+      <span class="for-draw"><button class="b txt done" data-act="mode">${I.check}Fertig</button><span class="sep"></span>${tools(["pointer", "lasso", "text", "shape"])}<span class="sep"></span><span class="tray">${COLORS.slice(0, 3).map((c, i) => PENS(COLORS[S.color], i)).join("")}</span><span class="sep"></span>${wells()}${widthBtn()}</span>
+    </div>
+    <div class="topright glass">${btn("undo", "undo", "Rückgängig")}${btn("redo", "redo", "Wiederholen")}<span class="sep"></span>${pageField()}${btn("zout", "minus", "Kleiner")}${btn("zin", "plus", "Größer")}</div>
+    <div class="scrub">${OUT.map((o) => `<div class="tick" data-d="${o.d}" data-act="go:${o.p}" data-p="${o.p}"><span>${o.t}<em>${o.p}</em></span><i></i></div>`).join("")}</div>`;
+  }
+  chrome.innerHTML = h;
+  const cap = $(".d1 .cap"), pop = $(".d1 .pop"); // (das Popover hängt am Inhalt-Knopf)
+  if (cap) pop.style.left = (cap.getBoundingClientRect().left - win.getBoundingClientRect().left) + "px";
+  marks();
+  // die Seg-Schalter des Labors
+  $(".designs .seg-thumb").parentElement.style.setProperty("--i", S.d - 1);
+  $$(".designs button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.d === S.d)));
+  $(".modes").style.setProperty("--i", drawing ? 1 : 0);
+  $$(".modes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.m === S.mode)));
+  $("#idea").innerHTML = IDEAS[S.d];
+}
+// Kapsel 1: ihre Breite gleitet vom alten zum neuen Inhalt
+function morph(fn) {
+  const cap = $(".d1 .cap"), w0 = cap && cap.offsetWidth;
+  fn();
+  const c = $(".d1 .cap");
+  if (!c || !w0) return;
+  c.querySelector(S.mode === "draw" ? ".for-draw" : ".for-view").classList.add("fresh");
+  c.style.transition = "none"; const w1 = c.offsetWidth; c.style.width = w0 + "px"; void c.offsetWidth;
+  c.style.transition = ""; c.style.width = w1 + "px";
+  c.addEventListener("transitionend", () => { c.style.width = ""; }, { once: true });
+}
+function marks() { // wo bin ich: im Verzeichnis, in der Kapitelleiste, in den Seiten
+  const here = OUT.filter((o) => o.p <= S.page).pop();
+  $$(".out, .tick").forEach((e) => e.classList.toggle("here", e.dataset.act === "go:" + here.p && e.textContent.startsWith(here.t)));
+  $$(".thumb").forEach((e) => e.classList.toggle("here", e.dataset.act === "go:" + S.page));
+  $$("[data-pg]").forEach((e) => { if (document.activeElement !== e) e.value = S.page; });
+  const t = $(".d2 .title small"); if (t) t.textContent = `Seite ${S.page} von ${N}`;
+}
+
+// ---- die Seiten
+const LOREM = ["Sei K ein Körper. Ein Vektorraum über K ist eine Menge V zusammen mit einer Addition und einer Skalarmultiplikation, die den üblichen Rechenregeln genügen. Die Elemente von V heißen Vektoren, die von K Skalare.", "Eine Familie von Vektoren heißt linear unabhängig, wenn sich der Nullvektor nur trivial als Linearkombination darstellen lässt. Jede maximale linear unabhängige Familie ist eine Basis.", "Ist f : V → W linear, so sind Kern und Bild Untervektorräume; es gilt die Dimensionsformel, die in vielen Beweisen dieses Kapitels gebraucht wird.", "Beweis. Wir wählen eine Basis des Kerns und ergänzen sie zu einer Basis von V. Die Bilder der ergänzten Vektoren bilden dann eine Basis des Bildes, wie man direkt nachrechnet."];
+const EQ = ["dim V = dim ker f + dim im f", "det(AB) = det A · det B", "A v = λ v,  v ≠ 0", "χ_A(λ) = det(λ E − A)"];
+function buildPages() {
+  pagesEl.innerHTML = Array.from({ length: N }, (_, k) => {
+    const n = k + 1, heads = OUT.filter((o) => o.p === n);
+    let html = heads.map((o) => o.d ? `<h3>${o.t}</h3>` : `<h2>${o.t}</h2>`).join("");
+    for (let j = 0; j < 7 - heads.length * 1.5; j++) html += `<p>${LOREM[(k + j) % 4]}</p>` + (j === 2 ? `<div class="eq">${EQ[k % 4]}</div>` : "");
+    return `<div class="page" data-n="${n}">${html}<div class="num">${n}</div><svg class="ink" viewBox="0 0 560 792" preserveAspectRatio="none"></svg></div>`;
+  }).join("");
+}
+function setZoom(z) {
+  const p = scroller.scrollTop / scroller.scrollHeight;
+  S.z = Math.min(2, Math.max(0.5, z)); pagesEl.style.setProperty("--z", S.z);
+  scroller.scrollTop = p * scroller.scrollHeight;
+  $$(".zoom").forEach((e) => (e.textContent = Math.round(S.z * 100) + " %"));
+}
+function go(n) {
+  n = Math.min(N, Math.max(1, n));
+  const pg = $(`.page[data-n="${n}"]`);
+  scroller.scrollTo({ top: pg.offsetTop - 60, behavior: "smooth" });
+}
+scroller.addEventListener("scroll", () => {
+  const mid = scroller.scrollTop + scroller.clientHeight * 0.35;
+  const n = $$(".page").filter((p) => p.offsetTop <= mid).length || 1;
+  if (n !== S.page) { S.page = n; marks(); }
+}, { passive: true });
+
+// ---- Zeichnen
+let live = null;
+pagesEl.addEventListener("pointerdown", (e) => {
+  if (S.mode !== "draw") return;
+  const svg = e.target.closest(".page")?.querySelector("svg.ink");
+  if (!svg) return;
+  if (S.tool === "eraser") { const p = e.target.closest("path"); if (p) p.remove(); return; }
+  if (S.tool !== "pen" && S.tool !== "marker") return;
+  const r = svg.getBoundingClientRect(), pt = (ev) => `${((ev.clientX - r.left) / r.width * 560).toFixed(1)} ${((ev.clientY - r.top) / r.height * 792).toFixed(1)}`;
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const marker = S.tool === "marker";
+  path.setAttribute("stroke", marker && S.color === 0 ? COLORS[3] : COLORS[S.color]);
+  path.setAttribute("stroke-width", marker ? 12 : 2.2);
+  if (marker) path.setAttribute("opacity", "0.35");
+  live = { path, d: "M" + pt(e), pt };
+  path.setAttribute("d", live.d);
+  svg.appendChild(path); S.strokes.push(path);
+  svg.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+pagesEl.addEventListener("pointermove", (e) => { if (!live) return; live.d += " L" + live.pt(e); live.path.setAttribute("d", live.d); });
+addEventListener("pointerup", () => { live = null; });
+
+// ---- Knöpfe
+function act(a) {
+  const [k, v] = a.split(":");
+  if (k === "mode" || k === "view" || k === "draw") {
+    const want = k === "mode" ? (S.mode === "view" ? "draw" : "view") : k;
+    if (want === S.mode) return;
+    morph(() => { S.mode = want; if (S.d === 1 || S.d === 3) S.toc = false; render(); });
+  } else if (k === "toc" || k === "tocp" || k === "tocn") {
+    const tab = { toc: "outline", tocp: "pages", tocn: "notes" }[k];
+    if (S.d === 3 && S.toc && S.tab !== tab) S.tab = tab; else { S.toc = !S.toc; if (S.d === 3) S.tab = tab; }
+    render();
+  } else if (k === "tab") { S.tab = v; render(); }
+  else if (k === "go") { go(+v); if (S.d === 1 || S.d === 3) { S.toc = false; render(); } }
+  else if (k === "zin") setZoom(S.z * 1.15);
+  else if (k === "zout") setZoom(S.z / 1.15);
+  else if (k === "fit") setZoom(1);
+  else if (k === "prev") go(S.page - 1);
+  else if (k === "next") go(S.page + 1);
+  else if (k === "undo") { const p = S.strokes.pop(); if (p) p.remove(); }
+  else if (k === "tool") { S.tool = v; render(); }
+  else if (k === "color") { S.color = +v; if (S.tool !== "marker") S.tool = "pen"; render(); }
+}
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-act]");
+  if (t) { if (t.dataset.act === "theme") theme(); else act(t.dataset.act); return; }
+  const d = e.target.closest("[data-d]"); if (d && d.closest(".designs")) { S.d = +d.dataset.d; S.toc = false; render(); return; }
+  const m = e.target.closest("[data-m]"); if (m) act(m.dataset.m);
+  // ein Popover schließt, wenn daneben geklickt wird (1 und 3)
+  if (S.toc && (S.d === 1 || S.d === 3) && !e.target.closest(".pop, .drawer, .cap, .rail")) { S.toc = false; render(); }
+});
+document.addEventListener("change", (e) => { if (e.target.matches("[data-pg]")) go(+e.target.value); });
+function theme() { const r = document.documentElement; r.dataset.mode = r.dataset.mode === "dark" ? "light" : "dark"; }
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input")) return;
+  if (/^[1-4]$/.test(e.key)) { S.d = +e.key; S.toc = false; render(); }
+  else if (e.key === "e" || e.key === "d") act("mode");
+  else if (e.key === "o") act("toc");
+  else if (e.key === "l") theme();
+  else if (e.key === "Escape" && S.toc) { S.toc = false; render(); }
+  else if (e.key === "Escape" && S.mode === "draw") act("mode");
+});
+if (matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.mode = "dark";
+{ const q = new URLSearchParams(location.hash.slice(1)); if (q.get("d")) S.d = +q.get("d"); if (q.get("m")) S.mode = q.get("m"); S.toc = q.get("toc") === "1"; if (q.get("dark")) document.documentElement.dataset.mode = "dark"; } // (für Bildschirmfotos)
+buildPages(); render();
+requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("boot")));
+</script>

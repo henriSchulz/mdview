@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="de" class="boot">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – PDF, Runde C: die Ablage rechts</title>
+<link rel="stylesheet" href="../motion.css">
+<style>
+
+  /* Farben wie in der App (hell: die Tab-Zeile und das Whiteboard aus den Bildern des Prüfstands); dunkel: dieselben Namen. */
+  :root {
+    --bg: #f5f6fa; --fg: #1d1d22; --accent: #5b5bd6; --on-accent: #fff;
+    --fg2: color-mix(in srgb, var(--fg) 62%, transparent);
+    --fg3: color-mix(in srgb, var(--fg) 40%, transparent);
+    --line: color-mix(in srgb, var(--fg) 9%, transparent);
+    --line-strong: color-mix(in srgb, var(--fg) 16%, transparent);
+    --fill-hover: color-mix(in srgb, var(--fg) var(--hover-alpha), transparent);
+    --fill-pressed: color-mix(in srgb, var(--fg) var(--pressed-alpha), transparent);
+    --raised: #fff;
+    --desk: #ecedf2;
+    --glass: color-mix(in srgb, #fff 82%, transparent);
+    --glass-filter: blur(24px) saturate(180%);
+    --shadow-capsule: 0 0 0 0.5px var(--line-strong), 0 3px 12px rgb(0 0 0 / 0.08);
+    --edge: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.05);
+    --ui: "SF Pro", "SF Pro Text", "Inter", system-ui, sans-serif;
+  }
+  :root[data-mode="dark"] {
+    --bg: #1c1c22; --fg: #ececf1; --accent: #7b7bf0;
+    --raised: #2a2a31; --desk: #131317;
+    --glass: color-mix(in srgb, #2a2a31 84%, transparent);
+    --shadow-capsule: 0 0 0 0.5px var(--line-strong), 0 6px 20px rgb(0 0 0 / 0.40);
+  }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 400 13px/1.4 var(--ui); -webkit-font-smoothing: antialiased; }
+  body { display: flex; flex-direction: column; padding: 0 20px 20px; }
+  button { font: inherit; color: inherit; cursor: default; }
+  svg { display: block; }
+
+  /* ---- Labor */
+  .lab { flex: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 10px; }
+  .seg { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); height: 30px; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); }
+  .seg.designs { --n: 4; flex: 1 1 560px; }
+  .seg.modes { --n: 2; width: 220px; }
+  .seg-thumb { position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n)); border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge); translate: calc(var(--i, 0) * 100%) 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .seg > button { position: relative; border: 0; border-radius: var(--radius-pill); background: none; color: var(--fg2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seg > button[aria-pressed="true"] { color: var(--fg); }
+  .seg kbd { margin-right: 5px; font: 600 11px var(--ui); color: var(--fg3); }
+  .lab .plain { height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); font-weight: 500; }
+  .idea { flex: none; margin: 0 0 12px; padding: 10px 14px; border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--fg2); line-height: 1.5; }
+  .idea b { color: var(--fg); font-weight: 600; }
+  .idea .keys { float: right; color: var(--fg3); }
+
+  /* ---- das Fenster: die Tab-Zeile wie heute, darunter das PDF */
+  .win { position: relative; flex: 1; min-height: 600px; overflow: hidden; border-radius: 12px; background: var(--desk); box-shadow: 0 0 0 0.5px var(--line-strong), 0 20px 50px rgb(0 0 0 / 0.14); }
+  .row { position: absolute; inset: 0 0 auto; z-index: 30; height: 56px; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 14px; background: var(--bg); box-shadow: inset 0 -0.5px 0 var(--line); }
+  .row .ic { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 9px; background: none; color: var(--fg2); }
+  .row .ic.dim { color: var(--fg3); }
+  .row .ic svg, .b svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .row .home { width: 40px; height: 34px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .tabs { display: flex; gap: 6px; margin-left: 6px; }
+  .tabp { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 16px; border-radius: 10px; color: var(--fg2); font-weight: 500; white-space: nowrap; }
+  .tabp.on { background: var(--raised); color: var(--fg); box-shadow: var(--edge); min-width: 190px; justify-content: center; }
+  .tabp svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  .row .grow { flex: 1; }
+  /* die Leiste des Fensters rechts: eine Kapsel; für ein PDF mit eigenem Inhalt */
+  .tb { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: var(--glass); box-shadow: var(--shadow-capsule); white-space: nowrap; transition: width var(--spring-snappy-dur) var(--spring-snappy); overflow: hidden; }
+  .tb .b { border-radius: var(--radius-pill); }
+  .tseg { position: relative; display: flex; gap: 0; padding: 2px; margin-left: 2px; border-radius: var(--radius-pill); background: var(--fill-hover); }
+  .tseg::before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 2px; width: 30px; border-radius: var(--radius-pill); background: var(--raised); box-shadow: var(--edge); translate: calc(var(--i, 0) * 30px) 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .tseg .b { position: relative; width: 30px; height: 26px; color: var(--fg2); }
+  .tseg .b:hover { background: none; color: var(--fg); }
+  .tseg .b[aria-pressed="true"] { background: none; color: var(--accent); }
+
+  .scroller { position: absolute; inset: 56px 0 0; overflow: auto; scrollbar-width: thin; }
+  .pages { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: var(--pad-top, 70px) 24px 120px; transition: translate var(--spring-smooth-dur) var(--spring-smooth); }
+  .win[data-side] .pages { translate: calc(var(--side-w) / 2) 0; }
+  .page { position: relative; flex: none; width: calc(540px * var(--z, 1)); aspect-ratio: 210 / 297; padding: calc(54px * var(--z, 1)) calc(52px * var(--z, 1)); background: #fff; color: #222; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08); font-size: calc(9.5px * var(--z, 1)); line-height: 1.55; overflow: hidden; }
+  .page h2 { margin: 0 0 0.6em; font: 700 2em/1.2 "Helvetica Neue", Arial, sans-serif; }
+  .page h3 { margin: 1.2em 0 0.5em; font: 700 1.35em/1.2 "Helvetica Neue", Arial, sans-serif; }
+  .page p { margin: 0 0 0.8em; font-family: "Helvetica Neue", Arial, sans-serif; color: #333; }
+  .page .eq { margin: 1em auto; text-align: center; font: italic 1.25em "Georgia", serif; color: #222; }
+  .page .num { position: absolute; bottom: calc(22px * var(--z, 1)); left: 0; right: 0; text-align: center; color: #999; }
+  .page svg.ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .page svg.ink path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .win[data-drawing] .page { cursor: crosshair; }
+  .win[data-drawing] .page svg.ink { pointer-events: auto; }
+  .win[data-tool="select"] .page, .win[data-tool="read"] .page { cursor: text; }
+
+  /* ---- Bausteine */
+  .b { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--fg2); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .b:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+  .b:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .b[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .b.txt { width: auto; display: flex; gap: 6px; padding: 0 12px; font-weight: 500; }
+  .b:disabled { opacity: 0.4; }
+  .sep { flex: none; width: 1px; height: 18px; margin: 0 5px; background: var(--line-strong); }
+  .pg { flex: none; display: flex; align-items: center; gap: 4px; padding: 0 4px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .pg input { width: 34px; height: 24px; border: 0; border-radius: 7px; background: var(--fill-hover); color: var(--fg); font: inherit; text-align: center; outline: none; }
+  .zoom { min-width: 44px; text-align: center; color: var(--fg); font-variant-numeric: tabular-nums; }
+
+  /* das Whiteboard, wie es ist: runde weiße Kapseln, das Werkzeug in der Hand ein voller Kreis in der Akzentfarbe */
+  .cap { position: absolute; z-index: 22; display: flex; align-items: center; gap: 4px; height: 50px; padding: 0 7px; border-radius: 25px; background: var(--raised); box-shadow: var(--shadow-capsule); white-space: nowrap; }
+  .cap .b { width: 38px; height: 38px; border-radius: 50%; }
+  .cap .b[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .tools { top: 70px; left: calc(50% + var(--shift, 0px)); translate: -50% 0; transition: left var(--spring-smooth-dur) var(--spring-smooth); }
+  .acts { top: 70px; right: 16px; }
+  .zoombar { left: calc(16px + var(--side-on, 0px)); bottom: 16px; transition: left var(--spring-smooth-dur) var(--spring-smooth); }
+  .zoombar .zoom { padding: 0 6px; }
+  .back { top: 70px; left: calc(16px + var(--side-on, 0px)); width: 50px; justify-content: center; padding: 0; transition: left var(--spring-smooth-dur) var(--spring-smooth); }
+  .done { top: 70px; left: calc(16px + var(--side-on, 0px)); padding: 0 6px; transition: left var(--spring-smooth-dur) var(--spring-smooth); }
+  .done .b { width: auto; padding: 0 14px; border-radius: 19px; background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  /* der Stift in der Hand: unten die Ablage mit Farben, wie das Whiteboard sie hat */
+  .palette { left: calc(50% + var(--shift, 0px)); bottom: 16px; translate: -50% 0; height: 64px; padding: 0 16px; gap: 10px; border-radius: 22px; overflow: hidden; align-items: flex-end; transition: left var(--spring-smooth-dur) var(--spring-smooth); }
+  .pen { width: 26px; height: 58px; padding: 0; border: 0; background: none; translate: 0 16px; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .pen[aria-pressed="true"] { translate: 0 4px; }
+  .pen svg { width: 26px; height: 58px; }
+  .wells { display: grid; grid-template-columns: repeat(3, 20px); gap: 6px; align-self: center; }
+  .well { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--w); box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.2); }
+  .well[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--w); }
+
+  /* Ein- und Ausblenden: was kommt, blendet schnell ein und gleitet 6 px; was geht, schneller */
+  .show { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out), translate var(--spring-snappy-dur) var(--spring-snappy), left var(--spring-smooth-dur) var(--spring-smooth); }
+  .gone { opacity: 0 !important; pointer-events: none; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), left var(--spring-smooth-dur) var(--spring-smooth); }
+  .tools.gone, .palette.gone { translate: -50% -6px; }
+  .palette.gone { translate: -50% 10px; }
+
+  /* ---- die Seitenleiste wie GoodNotes: links angedockt unter der Tab-Zeile, die Seiten rücken zur Seite */
+  .win { --side-w: 248px; }
+  .win[data-side] { --side-on: var(--side-w); --shift: calc(var(--side-w) / 2); }
+  .side { position: absolute; top: 56px; bottom: 0; left: 0; z-index: 24; width: var(--side-w); display: flex; flex-direction: column; background: var(--bg); box-shadow: inset -0.5px 0 0 var(--line-strong); translate: -100% 0; transition: translate calc(var(--dur-slow) * 0.7) var(--ease-exit), width var(--spring-smooth-dur) var(--spring-smooth); }
+  .win[data-side] .side { translate: 0 0; transition: translate var(--spring-smooth-dur) var(--spring-smooth), width var(--spring-smooth-dur) var(--spring-smooth); }
+  .stabs { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 12px 8px; padding: 2px; border-radius: var(--radius-control); background: var(--fill-hover); }
+  .stabs::before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / 3); border-radius: calc(var(--radius-control) - 2px); background: var(--raised); box-shadow: var(--edge); translate: calc(var(--i, 0) * 100%) 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .stabs button { position: relative; height: 24px; border: 0; background: none; color: var(--fg2); font-weight: 500; font-size: 12px; }
+  .stabs button[aria-selected="true"] { color: var(--fg); }
+  .sbody { flex: 1; min-height: 0; overflow: auto; padding: 2px 10px 12px; }
+  .thumbs { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 6px 0; }
+  .thumb { display: grid; justify-items: center; gap: 4px; color: var(--fg3); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .thumb i { display: block; width: 118px; aspect-ratio: 210 / 297; border-radius: 3px; background: #fff linear-gradient(transparent 14%, #c9c9cf 14% 17%, transparent 17% 26%, #e2e2e6 26% 27%, transparent 27% 31%, #e2e2e6 31% 32%, transparent 32% 36%, #e2e2e6 36% 37%, transparent 37% 41%, #e2e2e6 41% 42%, transparent 42%) no-repeat; background-size: 76% 100%; background-position: center; box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.06); }
+  .thumb.here { color: var(--accent); font-weight: 600; }
+  .thumb.here i { box-shadow: 0 0 0 2.5px var(--accent); }
+  .out { display: flex; gap: 8px; padding: 6px 8px 6px calc(8px + var(--d) * 14px); border-radius: var(--radius-row); white-space: nowrap; }
+  .out span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .out em { font-style: normal; color: var(--fg3); font-variant-numeric: tabular-nums; }
+  .out[data-d="0"] { font-weight: 600; }
+  .out:hover, .note:hover { background: var(--fill-hover); }
+  .out.here { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+  .out.here em { color: inherit; }
+  .note { display: grid; gap: 2px; padding: 8px; border-radius: var(--radius-row); }
+  .note b { font-weight: 600; } .note small { color: var(--fg3); } .note span { color: var(--fg2); }
+  .sfoot { flex: none; display: flex; align-items: center; justify-content: center; gap: 2px; padding: 8px; box-shadow: inset 0 0.5px 0 var(--line); }
+
+
+  /* ===== Runde C: Grundlage ist Vorschlag 3 aus Runde B (alles in der Tab-Zeile); hier geht es nur um die Ablage rechts */
+  .tray { position: absolute; z-index: 23; right: 16px; top: calc(56px + (100% - 56px) / 2); translate: 0 -50%; transition: opacity var(--dur-fast) var(--ease-out), translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .tray.gone { opacity: 0; translate: 12px -50%; pointer-events: none; transition: opacity calc(var(--dur-fast) * 0.7) var(--ease-exit), translate calc(var(--dur-fast) * 0.7) var(--ease-exit); }
+  .glyph { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tw { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg2); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+  .tw:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+  .tw:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+  .tw[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .tw svg { width: 22px; height: 22px; }
+  .well { width: 24px; height: 24px; }
+  .well[aria-pressed="true"] { box-shadow: 0 0 0 2.5px var(--raised), 0 0 0 4px var(--w); }
+  .well.any { background: conic-gradient(#e5372c, #f2b90f, #2fa84f, #55b9ee, #1f6fe5, #8e4fd6, #e8559c, #e5372c); }
+  .hr { width: 22px; height: 1px; margin: 4px 0; background: var(--line-strong); flex: none; }
+  .wid { display: grid; place-items: center; width: 40px; height: 34px; padding: 0; border: 0; border-radius: 12px; background: none; }
+  .wid:hover { background: var(--fill-hover); }
+  .wid i { display: block; border-radius: 50%; background: var(--fg); }
+  .wid[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .wid[aria-pressed="true"] i { background: var(--accent); }
+
+  /* A · Säule: eine schmale weiße Kapsel, alles untereinander: Stifte, Stärke, drei Farben */
+  .tA { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 52px; padding: 8px 0; border-radius: 26px; background: var(--raised); box-shadow: var(--shadow-capsule); }
+  .tA .wells { display: flex; flex-direction: column; gap: 12px; padding: 6px 0 4px; }
+  .tA .wbar { display: grid; place-items: center; width: 40px; height: 32px; border: 0; border-radius: 12px; background: none; padding: 0; }
+  .tA .wbar:hover { background: var(--fill-hover); }
+  .tA .wbar i { display: block; width: 20px; border-radius: 4px; background: var(--fg); }
+
+  /* B · Stifte als Dinge: sie liegen quer im rechten Rand, die Spitze zum Blatt; der in der Hand liegt weiter draußen */
+  .tB { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding: 12px 0 12px 0; width: 92px; border-radius: 24px 0 0 24px; right: 0; background: var(--raised); box-shadow: var(--shadow-capsule); overflow: hidden; }
+  .tB .obj { display: block; width: 92px; height: 34px; padding: 0; border: 0; background: none; translate: 22px 0; transition: translate var(--spring-snappy-dur) var(--spring-snappy); }
+  .tB .obj:hover { translate: 16px 0; transition-duration: var(--dur-fast); }
+  .tB .obj[aria-pressed="true"] { translate: 0 0; }
+  .tB .obj svg { width: 92px; height: 34px; }
+  .tB .wells { display: grid; grid-template-columns: repeat(2, 24px); gap: 12px 14px; align-self: center; padding: 10px 0 2px; }
+  .tB .hr { align-self: center; width: 44px; margin: 6px 0 2px; }
+  .tB .sizes { display: flex; gap: 2px; align-self: center; }
+  .tB .sizes .wid { width: 26px; height: 28px; border-radius: 8px; }
+
+  /* C · Werkzeug und daneben seine Wahl: die Säule hat nur die Werkzeuge; Stärke und Farben stehen links neben dem in der Hand */
+  .tC { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 52px; padding: 6px 0; border-radius: 26px; background: var(--raised); box-shadow: var(--shadow-capsule); }
+  .tC .tw { position: relative; }
+  .tC .tw .dot { position: absolute; right: 3px; bottom: 3px; width: 10px; height: 10px; border-radius: 50%; background: var(--w); box-shadow: 0 0 0 2px var(--raised); }
+  .tC .tw[aria-pressed="true"] .dot { box-shadow: 0 0 0 2px var(--accent); }
+  .flyC { position: absolute; z-index: 23; right: 78px; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 12px; border-radius: 25px; background: var(--raised); box-shadow: var(--shadow-capsule); translate: 0 -50%; transform-origin: 100% 50%; transition: top var(--spring-snappy-dur) var(--spring-snappy), opacity var(--dur-fast) var(--ease-out), scale var(--dur-fast) var(--ease-out); }
+  .flyC.gone { opacity: 0; scale: 0.96; pointer-events: none; }
+  .flyC .sizes { display: flex; gap: 0; }
+  .flyC .sizes .wid { width: 30px; height: 34px; border-radius: 10px; }
+  .flyC .wells { display: flex; gap: 10px; }
+  .flyC::after { content: ""; position: absolute; right: -5px; top: 50%; width: 10px; height: 10px; margin-top: -5px; rotate: 45deg; background: var(--raised); box-shadow: 1px -1px 0 var(--line-strong); }
+
+  /* D · Karte: eine kleine Palette wie ein Malkasten — Werkzeuge zu zweit, darunter Stärke als Regler, Farben als Feld */
+  .tD { display: grid; justify-items: center; gap: 10px; width: 112px; padding: 12px 10px 14px; border-radius: 22px; background: var(--raised); box-shadow: var(--shadow-capsule); }
+  .tD .grid2 { display: grid; grid-template-columns: repeat(2, 44px); gap: 4px; }
+  .tD .grid2 .tw { width: 44px; height: 44px; border-radius: 14px; }
+  .tD .grid2 .tw[aria-pressed="true"] { border-radius: 14px; }
+  .tD .slide { position: relative; width: 88px; height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 6px; border-radius: 13px; background: var(--fill-hover); }
+  .tD .slide .wid { width: 22px; height: 22px; border-radius: 50%; }
+  .tD .wells { display: grid; grid-template-columns: repeat(3, 24px); gap: 8px; }
+  .tD .now { display: flex; align-items: center; gap: 8px; color: var(--fg2); font-size: 11px; font-weight: 500; }
+  .tD .now i { width: 14px; height: 14px; border-radius: 50%; background: var(--w); }
+  .tD .hr { width: 70px; margin: 0; }
+</style>
+
+<div class="lab">
+  <div class="seg designs"><span class="seg-thumb"></span>
+    <button data-d="1"><kbd>1</kbd>Säule</button><button data-d="2"><kbd>2</kbd>Stifte als Dinge</button><button data-d="3"><kbd>3</kbd>Werkzeug + Wahl</button><button data-d="4"><kbd>4</kbd>Karte</button>
+  </div>
+  <div class="seg modes"><span class="seg-thumb"></span><button data-m="view">Lesen</button><button data-m="draw">Zeichnen</button></div>
+  <button class="plain" data-act="side">Seitenleiste</button>
+  <button class="plain" data-act="theme">Hell/Dunkel</button>
+</div>
+<div class="idea"><span class="keys">1–4 · E Modus · S Seitenleiste · L Hell/Dunkel · auf die Seiten malen</span><span id="idea"></span></div>
+<div class="win" id="win">
+  <div class="row" id="row"></div>
+  <div class="scroller" id="scroller"><div class="pages" id="pages"></div></div>
+  <div id="chrome"></div>
+  <aside class="side" id="side"></aside>
+</div>
+
+<script>
+const IDEAS = {
+  1: "<b>Säule.</b> Die Ablage von heute, aufgeräumt: eine schmale weiße Kapsel am rechten Rand, der Stift in der Hand ein voller Kreis wie oben in der Werkzeugleiste. Darunter die Stärke als Strich und drei Farben des Stifts (jeder Stift merkt sich seine), ganz unten der Farbkreis für alle anderen.",
+  2: "<b>Stifte als Dinge</b> (am nächsten an GoodNotes). Die Stifte liegen quer im rechten Fensterrand, die Spitze zum Blatt, in der Farbe, mit der sie schreiben; der in der Hand ist herausgezogen. Der Textmarker ist rund wie ein echter, mit breiter runder Spitze. Darunter drei Stärken und die Farben.",
+  3: "<b>Werkzeug + Wahl.</b> Die Säule hat nur die Werkzeuge, jedes mit einem Punkt in seiner Farbe. Stärke und Farben stehen in einer kleinen Leiste links daneben, genau auf der Höhe des Stifts in der Hand, und wandern mit, wenn ein anderer genommen wird. Die Säule bleibt so kurz wie möglich.",
+  4: "<b>Karte.</b> Ein kleiner Malkasten am rechten Rand: die Werkzeuge zu zweit nebeneinander als weiche Quadrate, darunter die Stärke als Regler mit drei Stufen und die Farben als Feld 3 × 2. Alles auf einen Blick, nichts klappt auf.",
+};
+const OUT = [
+  { t: "Vorwort", p: 1, d: 0 }, { t: "1 Vektorräume", p: 2, d: 0 }, { t: "1.1 Basis", p: 2, d: 1 }, { t: "1.2 Dimension", p: 3, d: 1 },
+  { t: "2 Lineare Abbildungen", p: 4, d: 0 }, { t: "2.1 Kern und Bild", p: 5, d: 1 }, { t: "2.2 Matrizen", p: 6, d: 1 },
+  { t: "3 Determinanten", p: 7, d: 0 }, { t: "4 Eigenwerte", p: 9, d: 0 }, { t: "4.1 Diagonalisierung", p: 10, d: 1 }, { t: "Literatur", p: 12, d: 0 },
+];
+const NOTES = [{ n: "Vorlesung 4", p: 9, s: "Eigenwerte sind die Nullstellen des charakteristischen Polynoms …" }, { n: "Übungsblatt 3", p: 6, s: "Aufgabe 2: Matrix der Abbildung bezüglich der Standardbasis" }];
+const N = 12;
+const INK = { black: "#1d1d22", blue: "#1f6fe5", red: "#e5372c", yellow: "#f2b90f", green: "#2fa84f", purple: "#8e4fd6" };
+const PENS = ["pen", "mono", "marker", "pencil"];
+const NAMES = { pen: "Füller", mono: "Fineliner", marker: "Textmarker", pencil: "Bleistift", ruler: "Lineal" };
+const FAVS = { pen: ["black", "blue", "red"], mono: ["black", "blue", "red"], marker: ["yellow", "green", "red"], pencil: ["black", "blue", "red"] };
+const ALL6 = ["black", "blue", "red", "yellow", "green", "purple"];
+const WIDTHS = { pen: [1.4, 2.2, 3.6], mono: [1, 1.6, 2.4], marker: [9, 14, 20], pencil: [1.2, 2, 3] };
+const S = { d: 1, mode: "draw", side: false, tab: "pages", z: 1, tool: "pen", ruler: false, page: 1, strokes: [],
+  color: { pen: "black", mono: "blue", marker: "yellow", pencil: "black" }, width: { pen: 1, mono: 1, marker: 1, pencil: 1 } };
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const win = $("#win"), row = $("#row"), chrome = $("#chrome"), side = $("#side"), scroller = $("#scroller"), pagesEl = $("#pages");
+
+const P = (d) => `<svg viewBox="0 0 20 20">${d}</svg>`;
+const I = {
+  sidebar: P('<rect x="2.5" y="3.5" width="15" height="13" rx="2.5"/><path d="M7.5 3.5v13"/>'),
+  left: P('<path d="m12 5-5 5 5 5"/>'), right: P('<path d="m8 5 5 5-5 5"/>'),
+  home: P('<path d="M3.5 9 10 3.5 16.5 9v7.5h-4.5v-5h-4v5H3.5z"/>'),
+  plus: P('<path d="M4.5 10h11M10 4.5v11"/>'), minus: P('<path d="M5 10h10"/>'),
+  list: P('<path d="M7 5.5h10M7 10h10M7 14.5h10"/><circle cx="3.6" cy="5.5" r=".7" fill="currentColor"/><circle cx="3.6" cy="10" r=".7" fill="currentColor"/><circle cx="3.6" cy="14.5" r=".7" fill="currentColor"/>'),
+  pen: P('<path d="m4 16 1-4L13.5 3.5a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2L8 15z"/><path d="m12 5 3 3"/>'),
+  select: P('<path d="M4 3.5 14 9l-4.3 1.2L7.6 15z"/><ellipse cx="11" cy="11" rx="6.5" ry="5" stroke-dasharray="2.2 1.8" opacity=".7"/>'),
+  eraser: P('<path d="m8 16-4-4 8-8 5 5-7 7z"/><path d="M8 16h9M7 9l5 5"/>'),
+  textbox: P('<rect x="3" y="4.5" width="14" height="11" rx="1.5"/><path d="M7.5 8h5M10 8v5"/>'),
+  shape: P('<rect x="3" y="8" width="8" height="8" rx="1.2"/><circle cx="12.5" cy="7.5" r="4.5"/>'),
+  image: P('<rect x="3" y="4" width="14" height="12" rx="2"/><circle cx="7.5" cy="8.5" r="1.4"/><path d="m3.5 14 4-3.5 3 2.5 2.5-2 3.5 3"/>'),
+  rect: P('<rect x="3" y="4.5" width="14" height="11" rx="1.5" stroke-dasharray="2.4 1.8"/>'),
+  fit: P('<path d="M3 10h14M6 7l-3 3 3 3M14 7l3 3-3 3"/>'),
+  undo: P('<path d="M7 5 3.5 8.5 7 12"/><path d="M3.5 8.5H12a4 4 0 0 1 0 8H9"/>'),
+  redo: P('<path d="m13 5 3.5 3.5L13 12"/><path d="M16.5 8.5H8a4 4 0 0 0 0 8h3"/>'),
+  more: P('<circle cx="5" cy="10" r="1" fill="currentColor"/><circle cx="10" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/>'),
+  pdf: P('<path d="M5 2.5h6.5L15 6v11.5H5z"/><path d="M11.5 2.5V6H15"/>'),
+};
+/* die Zeichen der Stifte (24er Raster, wie board.js). Der Textmarker neu: ein runder Körper mit runder, breiter Spitze — kein Keil mehr */
+const G = (d) => `<svg class="glyph" viewBox="0 0 24 24">${d}</svg>`;
+const GLYPH = {
+  pen: () => G('<path d="m5 19 1.2-4.6L16.5 4.1a1.6 1.6 0 0 1 2.3 0l1.1 1.1a1.6 1.6 0 0 1 0 2.3L9.6 17.8z"/><path d="m14.5 6.1 3.4 3.4"/>'),
+  mono: () => G('<path d="M4 17c3-9 5-9 7-3s4 6 9-7"/>'),
+  marker: (c) => G(`<g transform="rotate(45 12 12)"><rect x="9" y="0.8" width="6" height="14" rx="3"/><path d="M9 11.6h6"/><path d="M9.9 14.8h4.2v2.5a2.1 2.1 0 0 1-4.2 0z" fill="${c || "currentColor"}" fill-opacity="${c ? 1 : 0.25}"/></g>`),
+  pencil: () => G('<path d="m4.5 19.5 1.3-5L15.3 5l3.7 3.7-9.5 9.5z"/><path d="m5.8 14.5 3.7 3.7M13.4 6.9l3.7 3.7"/>'),
+  ruler: () => G('<rect x="2.5" y="8.5" width="19" height="7" rx="1.5" transform="rotate(-35 12 12)"/><path d="m8.6 11.4 1.2 1.7M11.5 9.4l1.2 1.7M14.4 7.4l1.2 1.7"/>'),
+};
+/* B: die Stifte als Dinge, quer liegend, die Spitze links (zum Blatt). Körper hell, Spitze und Ring in der Farbe des Stifts */
+function OBJ(t, c) {
+  const body = "var(--obj, #fbfbfd)", edge = "rgb(0 0 0 / .16)";
+  if (t === "marker") return `<svg viewBox="0 0 92 34"><rect x="26" y="7" width="70" height="20" rx="10" fill="${body}" stroke="${edge}"/><rect x="26" y="7" width="12" height="20" rx="6" fill="${c}" opacity=".9"/><path d="M27 10.5h-6a6.5 6.5 0 0 0 0 13h6z" fill="${c}"/><path d="M21 12a5 5 0 0 0 0 10" fill="none" stroke="rgb(255 255 255 / .5)" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+  if (t === "pencil") return `<svg viewBox="0 0 92 34"><path d="M30 10h66v14H30z" fill="#f2c14e" stroke="${edge}"/><path d="M30 10 12 17l18 7z" fill="#f3dfbd" stroke="${edge}"/><path d="M17 15 12 17l5 2z" fill="${c}"/><path d="M30 14.5h66M30 19.5h66" stroke="rgb(0 0 0 / .08)"/></svg>`;
+  if (t === "mono") return `<svg viewBox="0 0 92 34"><rect x="30" y="10" width="66" height="14" rx="4" fill="${body}" stroke="${edge}"/><rect x="38" y="10" width="6" height="14" fill="${c}"/><path d="M30 12.5 19 15.5v3l11 3z" fill="#d5d5db" stroke="${edge}"/><path d="M19 16.2h-6v1.6h6z" fill="${c}"/></svg>`;
+  return `<svg viewBox="0 0 92 34"><rect x="30" y="9" width="66" height="16" rx="5" fill="${body}" stroke="${edge}"/><rect x="40" y="9" width="5" height="16" fill="${c}"/><path d="M30 11 16 16.2v1.6L30 23z" fill="#d5d5db" stroke="${edge}"/><path d="m16 16.2-6 .8 6 .8z" fill="${c}"/></svg>`;
+}
+const btn = (act, ic, label, extra = "") => `<button class="b" data-act="${act}" title="${label}" aria-label="${label}" ${extra}>${I[ic]}</button>`;
+const on = (x) => `aria-pressed="${!!x}"`;
+const drawing = () => S.mode === "draw";
+const pageField = () => `<span class="pg"><input value="${S.page}" aria-label="Seite" data-pg><span>/ ${N}</span></span>`;
+const zoomTxt = () => `<span class="zoom">${Math.round(S.z * 100)} %</span>`;
+const isPen = () => PENS.includes(S.tool);
+const colorOf = (t) => INK[S.color[t]];
+
+function rowHtml() {
+  const left = `<button class="ic" data-act="side" title="Seitenleiste">${I.sidebar}</button><button class="ic dim">${I.left}</button><button class="ic dim">${I.right}</button><button class="ic home">${I.home}</button>
+    <span class="tabs"><span class="tabp on">${I.pdf}LA-Skript.pdf</span><span class="tabp">Vorlesung 4</span></span><button class="ic dim">${I.plus}</button><span class="grow"></span>`;
+  const tb = btn("side", "list", "Seiten und Inhalt", on(S.side)) + `<span class="sep"></span>` +
+    (drawing() ? pageField() + zoomTxt() : btn("prev", "left", "Vorige Seite") + pageField() + btn("next", "right", "Nächste Seite") + `<span class="sep"></span>` + btn("zout", "minus", "Kleiner") + zoomTxt() + btn("zin", "plus", "Größer") + btn("fit", "fit", "Breite") + btn("rect", "rect", "Bereich")) +
+    `<span class="sep"></span>` + btn("mode", "pen", "Zeichnen (D)", on(drawing()));
+  return left + `<span class="tb" id="tb">${tb}</span>`;
+}
+const topTools = () => btn("tool:select", "select", "Auswählen", on(S.tool === "select")) + btn("tool:pen", "pen", "Stifte", on(isPen())) + btn("tool:eraser", "eraser", "Radierer", on(S.tool === "eraser")) +
+  btn("tool:text", "textbox", "Text", on(S.tool === "text")) + btn("tool:shape", "shape", "Form", on(S.tool === "shape")) + btn("x", "image", "Bild") + `<span class="sep"></span>` + btn("x", "plus", "Mehr einfügen");
+
+// ---- die Ablage, in vier Entwürfen
+const toolBtn = (t, extra = "") => `<button class="tw" data-act="pen:${t}" title="${NAMES[t]}" aria-label="${NAMES[t]}" ${on(t === "ruler" ? S.ruler : S.tool === t)}>${GLYPH[t](t === "marker" ? colorOf("marker") : 0)}${extra}</button>`;
+const wellsOf = (t, list) => list.map((k) => `<button class="well" style="--w:${INK[k]}" data-act="color:${k}" title="${k}" ${on(S.color[t] === k)}></button>`).join("");
+const sizes = (t, cls = "") => WIDTHS[t].map((w, i) => `<button class="wid ${cls}" data-act="width:${i}" title="Stärke" ${on(S.width[t] === i)}><i style="width:${[5, 8, 12][i]}px;height:${[5, 8, 12][i]}px"></i></button>`).join("");
+function trayHtml() {
+  const t = isPen() ? S.tool : "pen", show = drawing() && isPen() ? "" : " gone";
+  if (S.d === 1) return `<div class="tray tA${show}">${PENS.map((p) => toolBtn(p)).join("")}${toolBtn("ruler")}<span class="hr"></span>
+    <button class="wbar" data-act="width:${(S.width[t] + 1) % 3}" title="Stärke"><i style="height:${[2, 4, 7][S.width[t]]}px;background:${colorOf(t)}"></i></button><span class="hr"></span>
+    <span class="wells">${wellsOf(t, FAVS[t])}<button class="well any" title="Alle Farben"></button></span></div>`;
+  if (S.d === 2) return `<div class="tray tB${show}">${PENS.map((p) => `<button class="obj" data-act="pen:${p}" title="${NAMES[p]}" ${on(S.tool === p)}>${OBJ(p, colorOf(p))}</button>`).join("")}
+    <span class="hr"></span><span class="sizes">${sizes(t)}</span><span class="wells">${wellsOf(t, ALL6)}</span></div>`;
+  if (S.d === 3) {
+    const flyTop = `calc(56px + (100% - 56px) / 2 + ${(PENS.indexOf(t) - 2) * 44}px)`;
+    return `<div class="tray tC${show}">${PENS.map((p) => toolBtn(p, `<span class="dot" style="--w:${colorOf(p)}"></span>`)).join("")}<span class="hr"></span>${toolBtn("ruler")}</div>
+      <div class="flyC${show}" style="top:${flyTop}"><span class="sizes">${sizes(t)}</span><span class="sep"></span><span class="wells">${wellsOf(t, ALL6)}</span></div>`;
+  }
+  return `<div class="tray tD${show}"><span class="grid2">${PENS.map((p) => toolBtn(p)).join("")}</span><span class="hr"></span>
+    <span class="slide">${sizes(t)}</span><span class="wells">${wellsOf(t, ALL6)}</span><span class="hr"></span><span class="grid2" style="grid-template-columns:44px">${toolBtn("ruler")}</span></div>`;
+}
+function chromeHtml() {
+  const d = drawing();
+  return `<div class="cap tools ${d ? "show" : "gone"}">${topTools()}</div>
+    <div class="cap acts ${d ? "show" : "gone"}">${btn("undo", "undo", "Rückgängig")}${btn("x", "redo", "Wiederholen")}<span class="sep"></span>${btn("x", "more", "Mehr")}</div>` + trayHtml();
+}
+function sideHtml() {
+  const tabs = ["pages", "outline", "notes"], i = tabs.indexOf(S.tab);
+  let body;
+  if (S.tab === "pages") body = `<div class="thumbs">${Array.from({ length: N }, (_, k) => `<div class="thumb" data-act="go:${k + 1}" data-n="${k + 1}"><i></i>${k + 1}</div>`).join("")}</div>`;
+  else if (S.tab === "outline") body = OUT.map((o) => `<div class="out" data-d="${o.d}" style="--d:${o.d}" data-act="go:${o.p}"><span>${o.t}</span><em>${o.p}</em></div>`).join("");
+  else body = NOTES.map((n) => `<div class="note" data-act="go:${n.p}"><b>${n.n}</b><small>S. ${n.p}</small><span>${n.s}</span></div>`).join("");
+  return `<div class="stabs" style="--i:${i}">${tabs.map((t) => `<button data-act="tab:${t}" aria-selected="${S.tab === t}">${{ pages: "Seiten", outline: "Inhalt", notes: "Notizen" }[t]}</button>`).join("")}</div><div class="sbody">${body}</div>`;
+}
+function render(soft) {
+  win.className = "win d" + S.d;
+  win.toggleAttribute("data-side", S.side);
+  win.toggleAttribute("data-drawing", drawing() && (isPen() || S.tool === "eraser"));
+  win.dataset.tool = S.tool;
+  const tb0 = $("#tb"), w0 = tb0 && tb0.offsetWidth;
+  row.innerHTML = rowHtml();
+  const tb = $("#tb");
+  if (w0) { tb.style.transition = "none"; const w1 = tb.offsetWidth; tb.style.width = w0 + "px"; void tb.offsetWidth; tb.style.transition = ""; tb.style.width = w1 + "px"; tb.addEventListener("transitionend", () => (tb.style.width = ""), { once: true }); }
+  const fresh = document.createElement("div"); fresh.innerHTML = chromeHtml();
+  const old = [...chrome.children], neu = [...fresh.children], key = (e) => e.className.replace(/ ?\b(show|gone)\b/g, "");
+  if (soft && old.length === neu.length && old.every((o, i) => key(o) === key(neu[i]))) old.forEach((o, i) => { o.className = neu[i].className; o.setAttribute("style", neu[i].getAttribute("style") || ""); o.innerHTML = neu[i].innerHTML; });
+  else chrome.replaceChildren(...neu);
+  side.innerHTML = sideHtml();
+  marks();
+  $(".designs").style.setProperty("--i", S.d - 1);
+  $$(".designs button").forEach((b) => b.setAttribute("aria-pressed", String(+b.dataset.d === S.d)));
+  $(".modes").style.setProperty("--i", drawing() ? 1 : 0);
+  $$(".modes button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.m === S.mode)));
+  $("#idea").innerHTML = IDEAS[S.d];
+  win.style.setProperty("--pad-top", drawing() ? "84px" : "28px");
+}
+function marks() {
+  const here = OUT.filter((o) => o.p <= S.page).pop();
+  $$(".out").forEach((e) => e.classList.toggle("here", e.textContent.startsWith(here.t)));
+  $$(".thumb").forEach((e) => e.classList.toggle("here", +e.dataset.n === S.page));
+  $$("[data-pg]").forEach((e) => { if (document.activeElement !== e) e.value = S.page; });
+}
+
+const TXT = ["Sei K ein Körper. Ein Vektorraum über K ist eine Menge V zusammen mit einer Addition und einer Skalarmultiplikation, die den üblichen Rechenregeln genügen.", "Eine Familie von Vektoren heißt linear unabhängig, wenn sich der Nullvektor nur trivial als Linearkombination darstellen lässt. Jede maximale linear unabhängige Familie ist eine Basis.", "Ist f : V → W linear, so sind Kern und Bild Untervektorräume; es gilt die Dimensionsformel.", "Beweis. Wir wählen eine Basis des Kerns und ergänzen sie zu einer Basis von V. Die Bilder der ergänzten Vektoren bilden eine Basis des Bildes."];
+const EQ = ["dim V = dim ker f + dim im f", "det(AB) = det A · det B", "A v = λ v,  v ≠ 0", "χ(λ) = det(λE − A)"];
+pagesEl.innerHTML = Array.from({ length: N }, (_, k) => {
+  const n = k + 1, heads = OUT.filter((o) => o.p === n);
+  let h = heads.map((o) => o.d ? `<h3>${o.t}</h3>` : `<h2>${o.t}</h2>`).join("");
+  for (let j = 0; j < 7 - heads.length * 1.5; j++) h += `<p>${TXT[(k + j) % 4]}</p>` + (j === 2 ? `<div class="eq">${EQ[k % 4]}</div>` : "");
+  return `<div class="page" data-n="${n}">${h}<div class="num">${n}</div><svg class="ink" viewBox="0 0 540 764" preserveAspectRatio="none"></svg></div>`;
+}).join("");
+function setZoom(z) { const p = scroller.scrollTop / scroller.scrollHeight; S.z = Math.min(2, Math.max(0.5, z)); pagesEl.style.setProperty("--z", S.z); scroller.scrollTop = p * scroller.scrollHeight; $$(".zoom").forEach((e) => (e.textContent = Math.round(S.z * 100) + " %")); }
+function go(n) { n = Math.min(N, Math.max(1, n)); scroller.scrollTo({ top: $(`.page[data-n="${n}"]`).offsetTop - 70, behavior: "smooth" }); }
+scroller.addEventListener("scroll", () => {
+  const mid = scroller.scrollTop + scroller.clientHeight * 0.35, n = $$(".page").filter((p) => p.offsetTop <= mid).length || 1;
+  if (n !== S.page) { S.page = n; marks(); }
+}, { passive: true });
+
+// ---- malen: jeder Stift wie er schreibt — der Textmarker breit, rund, durchscheinend
+let live = null;
+pagesEl.addEventListener("pointerdown", (e) => {
+  if (!win.hasAttribute("data-drawing")) return;
+  const svg = e.target.closest(".page")?.querySelector("svg.ink"); if (!svg) return;
+  if (S.tool === "eraser") { const p = e.target.closest("path"); if (p) p.remove(); return; }
+  const r = svg.getBoundingClientRect(), pt = (ev) => `${((ev.clientX - r.left) / r.width * 540).toFixed(1)} ${((ev.clientY - r.top) / r.height * 764).toFixed(1)}`;
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path"), t = S.tool;
+  path.setAttribute("stroke", colorOf(t)); path.setAttribute("stroke-width", WIDTHS[t][S.width[t]]);
+  if (t === "marker") { path.setAttribute("opacity", ".38"); path.style.mixBlendMode = "multiply"; }
+  if (t === "pencil") path.setAttribute("opacity", ".75");
+  live = { path, d: "M" + pt(e), pt }; path.setAttribute("d", live.d); svg.appendChild(path); S.strokes.push(path);
+  svg.setPointerCapture(e.pointerId); e.preventDefault();
+});
+pagesEl.addEventListener("pointermove", (e) => { if (live) { live.d += " L" + live.pt(e); live.path.setAttribute("d", live.d); } });
+addEventListener("pointerup", () => (live = null));
+
+let lastPen = "pen";
+function act(a) {
+  const [k, v] = a.split(":");
+  if (k === "mode" || k === "view" || k === "draw") { const want = k === "mode" ? (drawing() ? "view" : "draw") : k; if (want !== S.mode) { S.mode = want; render(true); } }
+  else if (k === "side") { S.side = !S.side; render(true); }
+  else if (k === "tab") { S.tab = v; render(true); }
+  else if (k === "go") go(+v);
+  else if (k === "zin") setZoom(S.z * 1.15);
+  else if (k === "zout") setZoom(S.z / 1.15);
+  else if (k === "fit") setZoom(1);
+  else if (k === "prev") go(S.page - 1);
+  else if (k === "next") go(S.page + 1);
+  else if (k === "undo") { const p = S.strokes.pop(); if (p) p.remove(); }
+  else if (k === "tool") { S.tool = v === "pen" ? lastPen : v; render(true); }
+  else if (k === "pen") { if (v === "ruler") S.ruler = !S.ruler; else S.tool = lastPen = v; render(true); }
+  else if (k === "color") { if (isPen()) S.color[S.tool] = v; render(true); }
+  else if (k === "width") { if (isPen()) S.width[S.tool] = +v; render(true); }
+}
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-act]");
+  if (t) { if (t.dataset.act === "theme") theme(); else act(t.dataset.act); return; }
+  const d = e.target.closest(".designs [data-d]"); if (d) { S.d = +d.dataset.d; render(); return; }
+  const m = e.target.closest("[data-m]"); if (m) act(m.dataset.m);
+});
+document.addEventListener("change", (e) => { if (e.target.matches("[data-pg]")) go(+e.target.value); });
+function theme() { const r = document.documentElement; r.dataset.mode = r.dataset.mode === "dark" ? "light" : "dark"; }
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input")) return;
+  if (/^[1-4]$/.test(e.key)) $(`.designs [data-d="${e.key}"]`).click();
+  else if (e.key === "e" || e.key === "d") act("mode");
+  else if (e.key === "s") act("side");
+  else if (e.key === "l") theme();
+  else if (e.key === "m") act("pen:marker");
+  else if (e.key === "p") act("pen:pen");
+  else if (e.key === "Escape" && drawing()) act("view");
+});
+{ const q = new URLSearchParams(location.hash.slice(1)); if (q.get("d")) S.d = +q.get("d"); if (q.get("m")) S.mode = q.get("m"); if (q.get("tool")) S.tool = q.get("tool"); S.side = q.get("side") === "1"; if (q.get("dark")) document.documentElement.dataset.mode = "dark"; }
+if (!location.hash.includes("dark") && !location.hash.includes("light") && matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.mode = "dark";
+render();
+requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("boot")));
+</script>

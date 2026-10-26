@@ -136,6 +136,12 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 #board[data-pdf] :is([data-do="image"], [data-do="grid"], [data-do="scenes"], [data-do="prev"], [data-do="next"]) { display: none; }
 #board[data-pdf] .bd-zoom .bd-sep { display: none; }
 #board[data-pdf] .bd-viewbar { display: none; } /* (joining things with lines, the dots: a whiteboard's, not a page's) */
+/* over a PDF the board begins under the tabs (pdfview.js: --bd-pdf-top), which stay to be chosen; the pen in the window's toolbar
+ * ends it, not a Back of its own — and where there are no tabs the toolbar stands over the board's top row: undo and the rest
+ * stand left of it (--bd-pdf-tb: how far from the window's right edge it reaches) */
+#board[data-pdf] { top: var(--bd-pdf-top, 0px); }
+#board[data-pdf] .bd-title { display: none; }
+#board[data-pdf] .bd-actions { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 .bd-item { position: absolute; box-sizing: border-box; }
 .bd-item[data-k="sticky"] { border-radius: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.10), 0 4px 10px rgb(0 0 0 / 0.08); }
 .bd-draw { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -428,6 +434,10 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 #board[data-palette="left"] .bd-set.bd-tools, #board[data-palette="right"] .bd-set.bd-tools { grid-template-columns: auto; }
 
 /* the pens' colours: three kept at hand; the one in use, pressed again, is changed for another */
+/* (the one in use ringed in its own colour; how broad the pen writes, in its colour — upright, as a stroke of that breadth) */
+.bd-palette .bd-well[aria-checked="true"] { outline-color: var(--ink, var(--fg)); }
+.bd-size-now i { background: var(--ink, var(--fg)); }
+#board:is([data-palette="left"], [data-palette="right"]) .bd-size-now i { width: 22px !important; height: max(2px, calc(var(--d, 6px) / 3)) !important; border-radius: 3px; }
 .bd-wells { grid-template-columns: repeat(3, var(--bd-well)); gap: 12px; padding: 0 6px; }
 #board:not([data-palette="left"]):not([data-palette="right"]) .bd-wells { grid-template-columns: repeat(3, var(--bd-well)); }
 

@@ -143,6 +143,8 @@
     document.removeEventListener("selectionchange", V.onSelect);
     window.removeEventListener("focus", V.onFocus);
     document.body.classList.remove("pdf-open");
+    document.body.removeAttribute("data-pdf-drawing");
+    if (V.bar && V.bar.parentElement && V.bar.parentElement.id === "toolbar") V.bar.remove(); // (the window's toolbar has its own buttons again)
     tip(null); // (the note under the pointer is gone with the PDF)
     V = null;
   }
@@ -158,9 +160,14 @@
     }
     leave();
     document.body.classList.add("pdf-open");
-    container.innerHTML = `<div class="pdfv"><div class="pdf-bar" role="toolbar" aria-label="${esc(T("PDF"))}"></div><div class="pdf-main"><aside class="pdf-side" aria-hidden="true"><div class="pdf-card"><div class="pdf-tabs" role="tablist">${[["outline", T("Outline")], ["pages", T("Pages")], ["notes", T("Notes")]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="false">${esc(l)}</button>`).join("")}</div><div class="pdf-side-body"></div></div></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
+    container.innerHTML = `<div class="pdfv"><div class="pdf-main"><aside class="pdf-side" aria-hidden="true"><div class="pdf-card"><div class="pdf-tabs" role="tablist">${[["outline", T("Outline")], ["pages", T("Pages")], ["notes", T("Notes")]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="false">${esc(l)}</button>`).join("")}</div><div class="pdf-side-body"></div></div></aside><div class="pdf-pages"><div class="pdf-wait">Opening ${esc(p.name)}…</div></div></div></div>`;
     const root = container.firstChild;
-    const v = (V = { p, root, bar: root.querySelector(".pdf-bar"), side: root.querySelector(".pdf-side"), box: root.querySelector(".pdf-pages"), pages: [], scale: 1, fit: "width", history: [], color: DEFAULT_COLOR, rectTool: false,
+    /* The PDF's buttons stand in the window's toolbar, where a note has its modes (viewer/chrome.js; pdfview.css hides what a PDF
+     * has no use for): beside the tabs, at the same place in reading and drawing — nothing floats over the pages. */
+    const tb = document.getElementById("toolbar"), bar = el("span", { class: "pdf-bar", role: "group", "aria-label": T("PDF") });
+    (tb || root).appendChild(bar);
+    if (window.MdPage && MdPage.showToolbar) MdPage.showToolbar(true); // (hidden by a note scrolled down: here it is the PDF's)
+    const v = (V = { p, root, bar, side: root.querySelector(".pdf-side"), box: root.querySelector(".pdf-pages"), pages: [], scale: 1, fit: "width", history: [], color: DEFAULT_COLOR, rectTool: false,
       backlinks: (p.backlinks || []).map((b) => ({ ...b, at: parseFrag(b.frag) })) });
     // (a presentation is made into a PDF first — a few seconds, the first time: the waiting line says so)
     const slides = /\.(pptx?|ppsx?|odp)$/i.test(p.path);
@@ -262,25 +269,37 @@
       const pg = v.pages[pageNow(true) - 1], r = pg.div.getBoundingClientRect();
       // (the pages as they are drawn here go under the board at once — none comes up bare and is filled in after)
       const seed = (n) => { const x = v.pages[n - 1], q = x.state === "done" ? x.div.getBoundingClientRect() : null; return q && q.bottom > -innerHeight && q.top < 2 * innerHeight ? x.div.querySelector(".pdf-canvas") : null; };
-      v.root.setAttribute("data-drawing", ""); // (the bar and the card go as the board comes: pdfview.css)
-      if (!(await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, seed, at: { n: pg.n, left: r.left, top: r.top, width: r.width }, done: (now) => drawn(v, now) }))) v.root.removeAttribute("data-drawing");
-    } catch (e) { v.root.removeAttribute("data-drawing"); toast(T("Couldn't open the PDF to draw on")); }
+      v.root.setAttribute("data-drawing", ""); // (the card goes as the board comes, the toolbar keeps only the panel and the pen: pdfview.css)
+      drawingNow(v, true);
+      if (!(await B.openPdf({ path: v.p.path, name: v.p.name, doc: v.doc, sizes, seed, at: { n: pg.n, left: r.left, top: r.top - topRoom(), width: r.width }, done: (now) => drawn(v, now) }))) { v.root.removeAttribute("data-drawing"); drawingNow(v, false); }
+    } catch (e) { v.root.removeAttribute("data-drawing"); drawingNow(v, false); toast(T("Couldn't open the PDF to draw on")); }
     v.opening = false;
   }
   /* The board over the PDF was closed: its ink lies on the pages, and the PDF stands where the board was left — as large, the same
    * place of the same page in the window's middle. Left quickly too (a tab, a note chosen, the window closed): never where the
    * PDF stood before the pen was taken. As large as the viewer goes (25 to 500 %; the board goes further): the middle stays. */
+  /* The board lies under the tabs (board.css: --bd-pdf-top), so they stay to be chosen; the toolbar's pen says it is drawn on. */
+  function drawingNow(v, on) {
+    document.body.toggleAttribute("data-pdf-drawing", on);
+    document.documentElement.style.setProperty("--bd-pdf-top", topRoom() + "px");
+    const tb = document.getElementById("toolbar");
+    const r = tb && on && !topRoom() ? tb.getBoundingClientRect() : null; // (the pen alone, over the board where no tabs are: the board's undo stands left of it)
+    document.documentElement.style.setProperty("--bd-pdf-tb", r && r.width ? innerWidth - r.left + "px" : "0px");
+    const pen = v.bar.querySelector('[data-do="draw"]');
+    if (pen) { pen.setAttribute("aria-pressed", String(on)); const name = T(on ? "Done drawing (Esc)" : "Draw on the PDF (D)"); pen.dataset.tip = name; pen.setAttribute("aria-label", T(on ? "Done drawing" : "Draw on the PDF")); }
+  }
   function drawn(v, now) {
     v.root.removeAttribute("data-drawing");
+    drawingNow(v, false);
     if (V !== v || !v.root.isConnected) return;
     inked(v, now.model);
-    const P = window.MdBoard.pdf, view = now.view, mx = innerWidth / 2, my = innerHeight / 2;
-    const p = P.near(now.pages, view, { w: innerWidth, h: innerHeight });
+    const top = topRoom(), P = window.MdBoard.pdf, view = now.view, mx = innerWidth / 2, my = (innerHeight - top) / 2; // (the board's middle: it begins under the tabs)
+    const p = P.near(now.pages, view, { w: innerWidth, h: innerHeight - top });
     const fx = (view.x + mx / view.z - p.x) / p.w, fy = (view.y + my / view.z - p.y) / p.h; // (where in that page the window's middle was)
     const scale = view.z * P.UNIT;
     if (Math.abs(scale - v.scale) / v.scale > 0.01) zoomTo(scale);
     const div = v.pages[p.n - 1].div, r = div.getBoundingClientRect();
-    window.scrollBy({ top: r.top + fy * r.height - my, behavior: "instant" });
+    window.scrollBy({ top: r.top + fy * r.height - (top + my), behavior: "instant" });
     const r2 = div.getBoundingClientRect();
     v.box.scrollLeft += r2.left + fx * r2.width - mx; // (and across, as far as the pages go)
     pageNow();
@@ -553,14 +572,15 @@
     draw: '<svg viewBox="0 0 24 24"><path d="m5 19 1.2-4.6L16.5 4.1a1.6 1.6 0 0 1 2.3 0l1.1 1.1a1.6 1.6 0 0 1 0 2.3L9.6 17.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="m14.5 6.1 3.4 3.4" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>',
     minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>', plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
   };
-  /* The bar over the pages: a capsule as the window's own toolbar is one — where one is, how large, and the two things done to a
-   * page: a region of it taken for a note, and drawing on it. (How a link to a selection is copied — as a callout, a quote, a
-   * link — and whether at once is the settings'; Ctrl+Shift+C copies it.) */
+  /* The PDF's part of the window's toolbar: the side panel, where one is, how large, and the two things done to a page: a region of
+   * it taken for a note, and drawing on it. While it is drawn on only the panel and the pen stay — the pen pressed, and pressed
+   * again it ends the drawing (pdfview.css). (How a link to a selection is copied — as a callout, a quote, a link — and whether
+   * at once is the settings'; Ctrl+Shift+C copies it.) */
   function toolbar() {
-    const v = V;
+    const v = V, IC = (window.MdPage && window.MdPage.ICON) || {};
     const b = (attr, label, tip, icon, more = "") => `<button type="button" class="tb pdf-b" ${attr} data-tip="${esc(T(tip))}" aria-label="${esc(T(label))}"${more}>${icon}</button>`;
     v.bar.innerHTML =
-      b('data-do="side"', "Outline, pages and notes", "Outline, pages and notes (O)", I.side, ' aria-pressed="false"') +
+      b('data-do="side"', "Outline, pages and notes", "Outline, pages and notes (O)", IC.list || I.side, ' aria-pressed="false"') +
       b('data-do="back"', "Back to where you were", "Back to where you were (Alt+←)", I.back, " disabled") +
       `<span class="pdf-sep"></span>` +
       `<input class="pdf-page-in" inputmode="numeric" value="1" aria-label="${esc(T("Page"))}" data-tip="${esc(T("Go to page (G)"))}"><span class="pdf-of">/ ${v.pages.length}</span>` +
@@ -569,7 +589,7 @@
       b('data-fit="width"', "Fit width", "Fit width (W)", I.width, ' aria-pressed="true"') + b('data-fit="page"', "Fit page", "Fit page (H)", I.page, ' aria-pressed="false"') +
       `<span class="pdf-sep"></span>` +
       b('data-do="rect"', "Select a region to embed", "Select a region to embed (R)", I.rect, ' aria-pressed="false"') +
-      (reading() ? "" : b('data-do="draw"', "Draw on the PDF", "Draw on the PDF (D)", I.draw));
+      (reading() ? "" : `<span class="pdf-sep"></span>` + b('data-do="draw"', "Draw on the PDF", "Draw on the PDF (D)", IC.pencil || I.draw, ' aria-pressed="false"'));
   }
   function act(what) {
     const v = V;
@@ -577,7 +597,7 @@
     else if (what === "back") back();
     else if (what === "in") zoomTo(v.scale * 1.15);
     else if (what === "out") zoomTo(v.scale / 1.15);
-    else if (what === "draw") drawOn();
+    else if (what === "draw") { if (window.MdBoard && MdBoard.shown) MdBoard.close(); else drawOn(); }
     else if (what === "rect") { v.rectTool = !v.rectTool; v.root.classList.toggle("rect-tool", v.rectTool); v.bar.querySelector('[data-do="rect"]').setAttribute("aria-pressed", String(v.rectTool)); }
   }
   /* Outline, pages, notes: a card that comes out from under the bar's first button and lies over the window's left — nothing

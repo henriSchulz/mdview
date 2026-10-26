@@ -23,6 +23,7 @@
 #   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
 #   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
 #   dev/rig.sh sbscroll              the sidebar's own list scrolled in each layout: frames
+#   dev/rig.sh pdflook               a PDF in a folder window as it looks: its controls in the toolbar beside the tabs, the panel at the left, the board under the tabs, the pens' tray
 #   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
 #   dev/rig.sh captions              a caption under a picture, a code block, a formula: a figure in both views; given and taken from the menu
@@ -1040,6 +1041,20 @@ PY
     check "the PDF itself is still as it was" '[[ $(sha256sum < "$R/work/paper.pdf") == "$was" ]]'
     grep -q '^FAIL' <(jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/paper.pdf.{drawn,again}.json 2>/dev/null) && fail=1
     exit $fail ;;
+  pdflook)
+    # a PDF in a folder window as it looks: the toolbar beside the tabs, the panel, the board under the tabs, the pens' tray (screenshots)
+    rm -rf "$R/work"; mkdir -p "$R/work/notes"; cp "$D"/tests/fixtures/basics.md "$R/work/notes/"; python3 "$D/gen-pdf.py" "$R/work/notes/paper.pdf" 6
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.tabs, .opened, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    rm -f "$R/out"/*.look-*.json "$R/out"/*.pdflook.json
+    app 90 MDVIEW_PROBE="$D/probe-pdflook.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
+    for v in view side draw marker back; do
+      for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.look-$v.json "$R/out"/*.pdflook.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pdflook-$v.png"
+    done
+    for _ in $(seq 300); do ls "$R/out"/*.pdflook.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    ls "$R/out"/*.pdflook.json >/dev/null 2>&1 || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/*.pdflook.json
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out"/*.pdflook.json | grep -q '^FAIL' ;;
   pdflag)
     # how late what is drawn on a PDF shows: a bare page, quick work, a page written full, far in
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/paper.pdf.lag.json
