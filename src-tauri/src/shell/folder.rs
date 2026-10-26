@@ -173,12 +173,9 @@ impl Win {
             self.open_path(app, &path, None, true);
             self.own_write = Some(b"# ".to_vec()); // (the watcher tells of the file just made: no reading it anew under what is typed at once)
             self.fresh = self.path.clone();
-            match app.state.get("mode").and_then(Value::as_str) {
-                Some("active") => self.js("MdView.setMode", &[json!("active")]),
-                Some("split") => self.js("MdView.setMode", &[json!("split"), json!("end")]),
-                _ => self.js("MdView.setMode", &[json!("edit"), json!("end")]),
-            }
-            self.js("MdView.titleFresh", &[]);
+            // (the page puts it in the mode it is written in — the active one, the source where that was
+            // being written — once the note is on screen: viewer/drawer.js, titleFresh)
+            self.js("MdView.titleFresh", &[json!(s(&path))]);
             return;
         }
         let name = Some(clean_name(name)).filter(|n| !n.is_empty()).unwrap_or_else(|| "Untitled".into());

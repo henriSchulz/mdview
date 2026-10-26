@@ -207,6 +207,7 @@
       const here = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
       closeCtx(false);
       if (window.MdOverview) MdOverview.close(false); // (the new note is opened: not under the tiles)
+      newFrom = P.mode; // (the mode it is written in: titleFresh)
       if (P.folder.quick) post("quicknote"); else post("newnote", { name: "", dir: here });
       return;
     }
@@ -235,18 +236,28 @@
     return true;
   }
 
-  /* A new note is on screen (New Note): the caret in its empty title, to name it by writing it. The
-   * source editor has it there already (the host asks for its end: "# "). */
-  function titleFresh() {
-    let tries = 0;
+  /* A new note is on screen (New Note): written at once, the caret in its empty title, to name it by
+   * writing it. The page puts it in its mode once the note itself is here: the browser's host reads
+   * the note after telling this, and a mode set before it came went to the note before — the new one,
+   * coming into the source editor, fell back to reading (Henri, 2026-10-26). The active mode, unless
+   * the window was being written in the source (alone or beside its reading): there the caret goes
+   * to the end of "# ". */
+  let newFrom = null;
+  function titleFresh(path) {
+    let tries = 0, asked = false;
+    const from = newFrom;
+    newFrom = null;
+    const want = from === "edit" || from === "split" ? from : "active";
     const go = () => {
+      if (!P.current || (path && P.current.path !== path)) { if (tries++ < 200) setTimeout(go, 25); return; }
+      if (!asked && P.mode !== want) { asked = true; P.setMode(want, "end"); }
       const v = window.MdActive && MdActive.view, pm = v && v.pm;
-      if (P.mode === "active" && pm && v.payload && P.current && v.payload.path === P.current.path) {
+      if (P.mode === "active" && pm && v.payload && v.payload.path === P.current.path) {
         pm.dispatch(pm.state.tr.setSelection(PM.state.Selection.atStart(pm.state.doc)));
         v.focus();
-      } else if (P.mode !== "read" && P.mode !== "active") {
+      } else if (P.inSource()) {
         P.edInput?.focus({ preventScroll: true });
-      } else if (tries++ < 80) setTimeout(go, 25);
+      } else if (tries++ < 200) setTimeout(go, 25);
     };
     go();
   }

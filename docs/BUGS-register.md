@@ -5,6 +5,12 @@ that came out of them, and what to do when a new one is reported: [`BUGS.md`](BU
 
 Newest first. *Guard* names the check; *no guard* means there is none yet.
 
+### 2026-10-26
+
+| What Henri saw | Why | Fixed by | Guard |
+|---|---|---|---|
+| "New notes should be in the active mode by default, so the title can be edited at once — now it comes up read-only and one cannot start writing" | the host chose the mode, before the page had the note: the browser's host reads the note after telling the page, so `setMode("edit")` went to the note before, and the new one, coming into the source editor, fell back to reading (`leaveEditNow`); the desktop put a note made from reading into the source, not the active mode | the hosts only say which note was made (`MdView.titleFresh(path)`); the page waits for that note on screen and puts it in the active mode (the source, where the window was being written in the source), the caret in its title (`viewer/drawer.js`) | `web/test/write.test.mjs` ("New Note from the reading mode …": fails before — `["read","Untitled.md",false]`); `rig.sh newnote` (steps 6, from reading and from the source — written, not run here) |
+
 ### 2026-10-25
 
 | What Henri saw | Why | Fixed by | Guard |

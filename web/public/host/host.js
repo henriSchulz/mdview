@@ -1299,8 +1299,7 @@
         sendFolder();
         openPath(path, null, true);
         fresh = path;
-        tell("setMode", "edit", "end");
-        tell("titleFresh");
+        tell("titleFresh", path); // (the page puts it in its mode once the note, read after this, is on screen)
         return;
       }
       const typed = C.cleanName(name) || "Untitled", stem = (/\.md$/i.test(typed) ? typed.slice(0, -3).trimEnd() : typed) || "Untitled";

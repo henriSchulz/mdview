@@ -181,6 +181,23 @@ test("New Note: no name asked — Untitled, its title empty; the name follows th
   await until(() => text("Untitled.md") === undefined && text("Projektplan 2026.md") === undefined, "the new notes gone again");
 });
 
+test("New Note from the reading mode: the new note is written in the active mode, the caret in its title, typed into at once", async () => {
+  await open("Alpha.md"); // (in the reading mode)
+  assert.ok(await page.evaluate(() => !["active", "edit", "split"].includes(document.body.dataset.view)));
+  await page.click('#sidebar [data-act="newmenu"]');
+  await page.waitForSelector('#ctxmenu .menu-item[data-cmd="newnote"]:not([hidden])');
+  await page.click('#ctxmenu .menu-item[data-cmd="newnote"]:not([hidden])');
+  await page.waitForFunction(() => MdView.core.current && MdView.core.current.name === "Untitled.md", null, { timeout: 8000 });
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view.pm && MdActive.view.payload?.path === MdView.core.current.path && MdActive.view.pm.hasFocus(), null, { timeout: 8000 })
+    .catch(async () => assert.fail("not in the active mode with the caret in it: " + await page.evaluate(() => JSON.stringify([document.body.dataset.view, MdView.core.current.name, !!(window.MdActive && MdActive.view.pm && MdActive.view.pm.hasFocus())]))));
+  assert.deepEqual(await page.evaluate(() => { const $c = MdActive.view.pm.state.selection.$from; return [document.body.dataset.view, $c.parent.type.name, $c.parent.content.size]; }), ["active", "heading", 0]);
+  await page.keyboard.type("Typed at once");
+  await until(() => /^# Typed at once/.test(text("Typed at once.md") || text("Untitled.md") || ""), "what was typed in the title");
+  await open("Alpha.md");
+  for (const p of ["Untitled.md", "Typed at once.md"]) if (text(p) !== undefined) await post({ type: "trash", path: "/octo/notes/" + p });
+  await until(() => text("Untitled.md") === undefined && text("Typed at once.md") === undefined, "the new note gone again");
+});
+
 test("another device wrote elsewhere in the note meanwhile: both are in the commit", async () => {
   await open("Alpha.md");
   const here = await raw();
