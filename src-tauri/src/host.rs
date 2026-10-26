@@ -35,6 +35,24 @@ pub fn open_in_editor(path: &Path) {
     launch_path(path);
 }
 
+/// A path as Windows' own programs take it: back slashes throughout, no "/" before the drive (an
+/// address of the page gives "/C:/…"), not the long form (\\?\C:\…). Explorer handed a path with
+/// forward slashes does not open the file but a window of its own on no file (Henri, 2026-10-26:
+/// a link to a .txt beside the note). Not only for Windows, so that it is tested on Linux.
+pub fn windows_path(path: &str) -> String {
+    let mut p = path.replace('/', "\\");
+    if let Some(rest) = p.strip_prefix(r"\\?\UNC\") {
+        p = format!(r"\\{rest}");
+    } else if let Some(rest) = p.strip_prefix(r"\\?\") {
+        p = rest.to_string();
+    }
+    let b = p.as_bytes();
+    if b.len() >= 3 && b[0] == b'\\' && b[1] != b'\\' && b[1].is_ascii_alphabetic() && b[2] == b':' {
+        p.remove(0); // ("\C:\…": the address's slash before the drive)
+    }
+    p
+}
+
 #[cfg(not(target_os = "linux"))]
 pub fn launch_uri(uri: &str) {
     if cfg!(target_os = "macos") {
@@ -51,7 +69,7 @@ pub fn launch_path(path: &Path) {
     if cfg!(target_os = "macos") {
         spawn("open", &[&path.to_string_lossy()]);
     } else {
-        spawn("explorer", &[&path.to_string_lossy()]);
+        spawn("explorer", &[&windows_path(&path.to_string_lossy())]);
     }
 }
 
@@ -471,7 +489,7 @@ mod other {
         if cfg!(target_os = "macos") {
             spawn("open", &["-R", &p]);
         } else {
-            spawn("explorer", &[&format!("/select,{p}")]);
+            spawn("explorer", &[&format!("/select,{}", windows_path(&p))]);
         }
     }
 
@@ -480,4 +498,22 @@ mod other {
     }
 
     pub fn hinting(_handle: &AppHandle) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::windows_path;
+
+    #[test]
+    fn a_path_for_windows_has_back_slashes_and_no_slash_before_its_drive() {
+        assert_eq!(windows_path("/C:/Users/Henri/Notes/notes.txt"), r"C:\Users\Henri\Notes\notes.txt");
+        assert_eq!(windows_path("C:/Users/Henri/My Notes/a log.txt"), r"C:\Users\Henri\My Notes\a log.txt");
+        // a folder of the system's with a link's own "sub/…" joined on
+        assert_eq!(windows_path(r"C:\Users\Henri\Notes\sub/data.csv"), r"C:\Users\Henri\Notes\sub\data.csv");
+        assert_eq!(windows_path(r"D:\x\y.py"), r"D:\x\y.py");
+        // the long form, and a share on the network
+        assert_eq!(windows_path(r"\\?\C:\x\notes.txt"), r"C:\x\notes.txt");
+        assert_eq!(windows_path(r"\\?\UNC\server\share\notes.txt"), r"\\server\share\notes.txt");
+        assert_eq!(windows_path("//server/share/notes.txt"), r"\\server\share\notes.txt");
+    }
 }
