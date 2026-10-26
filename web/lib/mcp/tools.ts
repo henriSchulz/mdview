@@ -4,7 +4,7 @@
 // makes them (app/api/r/…/commit). With the user's own GitHub token: nothing the app was not given
 // there is reached.
 import { extractText, getDocumentProxy } from "unpdf";
-import { commit, Denied, Moved, raw, repositories, state, texts, type Entry } from "../github";
+import { commit, Denied, Moved, projects, raw, repositories, state, texts, type Entry } from "../github";
 import { boardText } from "./board";
 
 export type Tool = { name: string; title: string; description: string; inputSchema: object; annotations: Record<string, boolean | string> };
@@ -29,7 +29,7 @@ const REPO = { type: "string", description: 'The repository, "owner/name", as li
 const PATH = { type: "string", description: "A file's path in the repository, with /." };
 
 export const TOOLS: Tool[] = [
-  { name: "list_repositories", title: "List notebooks", description: "The user's notebooks: the GitHub repositories the Markdown Notes app was given. Every other tool takes one of them.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
+  { name: "list_repositories", title: "List notebooks", description: "The user's spaces (notebooks): the GitHub repositories the Markdown Notes app was given that hold its .mdview folder. Every other tool takes one of them.", inputSchema: { type: "object", properties: {} }, annotations: { readOnlyHint: true } },
   { name: "list_files", title: "List files", description: "The notes (Markdown), whiteboards and PDFs in a repository, or in one folder of it, with their sizes. Files the user hid in the app are left out.", inputSchema: { type: "object", properties: { repo: REPO, folder: { type: "string", description: "Only what is in this folder (and below)." }, all: { type: "boolean", description: "Every file, not only notes, whiteboards and PDFs." } }, required: ["repo"] }, annotations: { readOnlyHint: true } },
   { name: "read_file", title: "Read a file", description: "A note's Markdown as it is; a whiteboard as the text on it (sticky notes, text, tables, links, with where they stand); a PDF's text, page by page.", inputSchema: { type: "object", properties: { repo: REPO, path: PATH, pages: { type: "string", description: 'A PDF only: which pages, as "3" or "2-5". All when left out.' } }, required: ["repo", "path"] }, annotations: { readOnlyHint: true } },
   { name: "search_notes", title: "Search notes", description: "The lines of the notes (and of the text on whiteboards) that hold a text, case not minded; also notes whose name holds it.", inputSchema: { type: "object", properties: { repo: REPO, query: { type: "string" }, folder: { type: "string", description: "Only in this folder (and below)." } }, required: ["repo", "query"] }, annotations: { readOnlyHint: true } },
@@ -102,7 +102,12 @@ export async function call(access: string, name: string, a: Record<string, unkno
     if (name === "list_repositories") {
       const all = await repositories(access);
       if (!all.length) return text("The app was given no repository yet: on GitHub, https://github.com/settings/installations → mdview-notes → the repositories.");
-      return text(all.map((r) => `- ${r.name}${r.private ? " (private)" : ""}${r.about ? ` — ${r.about}` : ""}`).join("\n"));
+      // (a space is a repository the app made its own: its folder .mdview with the marker in it — not every repository it was given)
+      const spaces = await projects(access, all);
+      if (!spaces) no("GitHub did not say which repositories are spaces. Try again in a moment.");
+      const mine = all.filter((r) => spaces!.has(r.name));
+      if (!mine.length) return text("None of the repositories the app was given is a space yet: a space is made in the app (New Space), or a folder's history is turned on in the desktop app.");
+      return text(mine.map((r) => `- ${r.name}${r.private ? " (private)" : ""}${r.about ? ` — ${r.about}` : ""}`).join("\n"));
     }
     const { owner, repo, st } = await repoOf(access, a.repo);
     if (st.empty) return name === "write_note" ? await write(access, owner, repo, a) : text(`${owner}/${repo} is empty.`);

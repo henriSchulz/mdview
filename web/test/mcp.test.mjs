@@ -138,7 +138,10 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   const listed = (await rpc(t, "tools/list")).body.result.tools.map((x) => x.name);
   assert.deepEqual(listed, ["list_repositories", "list_files", "read_file", "search_notes", "write_note", "edit_note", "move_note"]);
 
-  assert.match((await tool(t, "list_repositories", {})).text, /octo\/Zeta/);
+  // only spaces: the repositories with the app's .mdview folder (the fake's projects), not every one the app was given
+  const repos = (await tool(t, "list_repositories", {})).text;
+  assert.match(repos, /octo\/alpha-notes/);
+  assert.doesNotMatch(repos, /octo\/Zeta/);
   const files = (await tool(t, "list_files", { repo: "octo/notes" })).text;
   assert.match(files, /Uni\/Analysis\.md\tnote/);
   assert.match(files, /Uni\/Plan\.board\.svg\twhiteboard/);
