@@ -78,6 +78,7 @@
       document.title = p.name;
       if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path });
       if (!prev || prev.path !== p.path) P.markActiveNote(true);
+      if (P.splitHeld) P.splitHeld(); // (a PDF beside a note, a note beside a PDF — nothing else side by side: viewer/split.js)
       draw(p, null);
       return;
     }
@@ -104,6 +105,7 @@
     document.title = p.name || "Markdown Notes";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images
     if (!prev || prev.path !== p.path) P.markActiveNote(true);
+    if (P.splitHeld) P.splitHeld(); // (two notes are not side by side: viewer/split.js)
     if (P.inSource(mode)) {
       if (prev && prev.path === p.path) { P.adoptDisk(p); return; }
       P.leaveEditNow();
@@ -135,6 +137,7 @@
     content.classList.remove("pdf");
     current = null;
     drawn = null;
+    if (P.splitHeld) P.splitHeld(); // (nothing in the window: nothing beside it)
     if (P.docSync) P.docSync();
     outline = [];
     document.title = P.folder ? P.folder.name : "Markdown Notes";

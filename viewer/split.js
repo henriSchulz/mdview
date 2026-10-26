@@ -1,8 +1,11 @@
-/* mdview — two things side by side: beside the note, at the window's right, a second sheet that is only read — the note itself as it
- * reads (while its source is written at the left: it follows what is typed), another note, a PDF's pages, a picture. The note at
- * the left is the window's as ever, in any of its modes; what is beside it is chosen where the thing is: Show in Split View in the menu
- * of a tab that is not the one in the window, Open Beside in a file's menu. (The note beside its own reading: splitOpen(null) —
- * nothing in the window asks for it yet.) A link to a note or a PDF in the sheet at the right leads on there.
+/* mdview — two things side by side: a note and a PDF, and nothing else (Henri, 2026-10-26: "two notes side by side should no
+ * longer be possible; note + PDF is the only format for now"). Beside a note in the window, at the window's right, a PDF's pages;
+ * beside a PDF in the window (Swap Sides), the note, read or written in. The one in the window is the window's as ever, in any of
+ * its modes; what is beside it is chosen where the thing is: Show in Split View in the menu of a tab that is not the one in the
+ * window, Open Beside in a file's menu — offered only where the two would be a note and a PDF. A window that comes to hold what
+ * would make two notes (or two PDFs) side by side closes the sheet (held). A link to a note in the sheet leads on there; one that
+ * would make two of a kind opens in the window instead. (The note beside its own reading is the source mode's "split" —
+ * viewer/twin.js —, not this.)
  *
  * Another note's text is the host's to read (note-read: the page may not read files); a PDF's pages are drawn by the viewer's
  * own means (pdfview.js: pageShot), as pictures. */
@@ -16,13 +19,16 @@
     write: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
     read: svg('<path d="M3 5.5A1.5 1.5 0 0 1 4.5 4H10a2 2 0 0 1 2 2v14a1.6 1.6 0 0 0-1.6-1.6H4.5A1.5 1.5 0 0 1 3 16.9z"/><path d="M21 5.5A1.5 1.5 0 0 0 19.5 4H14a2 2 0 0 0-2 2v14a1.6 1.6 0 0 1 1.6-1.6h5.9a1.5 1.5 0 0 0 1.5-1.5z"/>'),
   };
-  const KINDS = [[/\.(md|markdown|mdown|txt)$/i, "note"], [/\.pdf$/i, "pdf"], [/\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i, "image"]];
+  const KINDS = [[/\.(md|markdown|mdown|txt)$/i, "note"], [/\.pdf$/i, "pdf"]];
   const kindOf = (path) => (KINDS.find(([re]) => re.test(path)) || [])[1] || null;
+  /* what the window holds, as the sheet sees it: "pdf", "note", or null (nothing, or a note that could not be read) */
+  const leftKind = () => { const c = P.current; return !c || c.error ? null : c.kind === "pdf" ? "pdf" : "note"; };
+  /* the one pair there is: a note and a PDF, either of them in the window */
+  const pairs = (kind) => (kind === "pdf" && leftKind() === "note") || (kind === "note" && leftKind() === "pdf");
   const nameOf = (path) => path.split("/").pop().replace(/\.(md|markdown|mdown)$/i, "");
-  const fileUrl = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
 
-  let S = null;        // what is beside the note: { kind: "self" | "note" | "pdf" | "image", path, links, shown, of }
-  let pane = null, watch = 0, seq = 0;
+  let S = null;        // what is beside: { kind: "note" | "pdf", path, links }
+  let pane = null, seq = 0, swapping = false;
   const waiting = new Map();
   const body = () => pane.querySelector(".split-body"), doc = () => pane.querySelector(".split-doc");
 
@@ -46,7 +52,7 @@
       if (!a) return;
       e.preventDefault(); e.stopPropagation(); // (the window's own links lead on at the left: these are the sheet's)
       const info = a.dataset.wiki && S && S.links ? S.links[a.dataset.wiki] : null;
-      if (info && info.path && kindOf(info.path)) open({ path: info.path });
+      if (info && info.path && kindOf(info.path)) { if (pairs(kindOf(info.path))) open({ path: info.path }); else post("note", { path: info.path }); }
     }, true);
     pane.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
   }
@@ -73,49 +79,15 @@
     grip.addEventListener("pointercancel", done);
     grip.addEventListener("dblclick", () => { kept(share(0.5)); placed(); });
   }
-  /* The note beside its own reading runs with it: as far down the note at the left is, so far is the sheet at the right (the
-   * two are one text, of two lengths). */
-  let runFrame = 0;
-  function run() {
-    runFrame = 0;
-    if (!S || S.kind !== "self") return;
-    const el = document.scrollingElement, far = el.scrollHeight - innerHeight, b = body();
-    if (far > 0) b.scrollTop = (el.scrollTop / far) * (b.scrollHeight - b.clientHeight);
-  }
-  addEventListener("scroll", () => { if (S && S.kind === "self" && !runFrame) runFrame = requestAnimationFrame(run); }, { passive: true });
-
   // ---------------------------------------------------------------- what it shows
-  /* The note at the left as it stands now, in whatever mode it is written. */
-  function textNow() {
-    if (P.inSource() && P.edInput) return P.edInput.value;
-    if (P.mode === "active" && window.MdActive && MdActive.view && MdActive.view.pm) { try { return MdActive.view.serialize(false); } catch (e) { /* (not ready) */ } }
-    return (P.current && P.current.raw) || "";
-  }
   const html = (path, text, links) => P.previewOf(path, text, { whole: true, links: links || {} }).html || `<p class="split-empty">${esc(T("Empty"))}</p>`;
-  /* … drawn again when it is another: what is typed at the left is read at the right a moment later, at the place one was. */
-  function follow() {
-    if (!S || S.kind !== "self") return;
-    const cur = P.current;
-    if (!cur || cur.kind === "pdf" || cur.error) { if (S.shown !== null) { S.shown = null; S.of = null; doc().innerHTML = ""; named(""); } return; }
-    const text = textNow();
-    if (text === S.shown && S.of === cur.path) return;
-    const same = S.of === cur.path, at = body().scrollTop;
-    S.shown = text; S.of = cur.path; S.path = cur.path; S.links = cur.links || {};
-    doc().className = "split-doc";
-    doc().innerHTML = html(cur.path, text, S.links);
-    named(cur.title || nameOf(cur.path));
-    body().scrollTop = same ? at : 0;
-    if (same) run();
-  }
-  /* A note beside the one in the window is written in too: its source, in the sheet, kept a moment after the last key (note-save)
-   * — as the window's own source is, in the same type. Not the note that is in the window as well: one note is written in one
-   * place. */
+  /* A note beside the PDF in the window is written in too: its source, in the sheet, kept a moment after the last key
+   * (note-save) — as the window's own source is, in the same type. */
   const SAVE_MS = 800;
   function writing(on) {
     const s = S;
     if (!s || s.kind !== "note" || !s.text && s.text !== "") return;
     const b = pane.querySelector('[data-do="write"]');
-    if (on && P.current && P.current.path === s.path) return P.toast && P.toast(T("This note is open at the left: it is written there"));
     if (!on) { keep(s); s.src = null; doc().classList.remove("is-src"); doc().innerHTML = html(s.path, s.text, s.links); }
     else {
       doc().classList.add("is-src");
@@ -285,30 +257,26 @@
     again.observe(document.documentElement, { attributes: true, attributeFilter: ["data-doc-bg"] });
     again.observe(document.body, { attributes: true, attributeFilter: ["data-view", "data-going"] });
   }
-  /* what: null — the note at the left, as it reads; { path } — that file. */
+  /* what: { path } — a PDF beside a note in the window, or a note beside a PDF; nothing else. */
   function open(what) {
-    const kind = what ? kindOf(what.path) : "self";
-    if (!kind) return P.toast && P.toast(T("This file can't be shown here"));
+    const kind = what && what.path ? kindOf(what.path) : null;
+    if (!kind || !pairs(kind)) return P.toast && P.toast(T("Side by side: a note and a PDF"));
     if (!fits()) return P.toast && P.toast(T("The window is too narrow for two side by side"));
     if (P.mode === "split") P.setMode("edit"); // (the source beside its reading makes way: one thing beside the note at a time — viewer/twin.js)
     if (!pane) build();
     if (S && S.src) keep(S);
     leave(S);
-    const s = (S = { kind, path: what ? what.path : null, links: {}, shown: undefined, of: null });
-    doc().className = "split-doc" + (kind === "pdf" ? " is-pdf" : kind === "image" ? " is-image" : "");
+    const s = (S = { kind, path: what.path, links: {} });
+    doc().className = "split-doc" + (kind === "pdf" ? " is-pdf" : "");
     doc().innerHTML = "";
-    named(what ? nameOf(what.path) : "");
-    pane.querySelector('[data-do="over"]').hidden = kind === "self";
+    named(nameOf(what.path));
     const w = pane.querySelector('[data-do="write"]');
     w.hidden = kind !== "note"; w.setAttribute("aria-pressed", "false"); w.innerHTML = I.write; w.title = T("Edit Here"); w.setAttribute("aria-label", w.title);
     document.body.dataset.split = kind;
     pane.dataset.kind = kind;
     narrow();
-    clearInterval(watch);
-    if (kind === "self") { follow(); watch = setInterval(follow, 400); }
-    else if (kind === "note") { const id = "s" + ++seq; waiting.set(id, s); post("note-read", { path: s.path, id }); }
-    else if (kind === "pdf") pages(s);
-    else doc().innerHTML = `<img src="${esc(fileUrl(s.path))}" alt="${esc(nameOf(s.path))}" draggable="false">`;
+    if (kind === "note") { const id = "s" + ++seq; waiting.set(id, s); post("note-read", { path: s.path, id }); }
+    else pages(s);
     body().scrollTop = 0;
   }
   function close() {
@@ -316,23 +284,27 @@
     if (S.src) keep(S);
     leave(S);
     S = null;
-    clearInterval(watch);
     delete document.body.dataset.split;
     narrow();
   }
-  /* What is beside the note becomes the window's own: opened at the left, where it can be written. */
   /* The two sides change places: what is beside goes into the window — the note to be edited there in any mode, the active one
-   * too — and the note of the window goes beside it (Henri, 2026-10-14: the right side had only its source). A PDF or a picture
-   * beside a PDF: the same. */
+   * too — and the window's PDF beside it (Henri, 2026-10-14: the right side had only its source); a PDF beside a note the same
+   * way round. (While they change, the window holds two of a kind for a moment: held lets it be.) */
   async function over() {
-    if (!S || !S.path || S.kind === "self") return;
+    if (!S || !S.path) return;
     if (S.src) keep(S);
     const path = S.path, was = P.current && P.current.path;
-    post("note", { path });
     if (!was || was === path) return close();
-    for (let t = 0; t < 4000 && !(P.current && P.current.path === path); t += 50) await new Promise((r) => setTimeout(r, 50));
-    if (P.current && P.current.path === path) open({ path: was }); else close();
+    swapping = true;
+    try {
+      post("note", { path });
+      for (let t = 0; t < 4000 && !(P.current && P.current.path === path); t += 50) await new Promise((r) => setTimeout(r, 50));
+    } finally { swapping = false; }
+    if (P.current && P.current.path === path && kindOf(was) && pairs(kindOf(was))) open({ path: was }); else close();
   }
+  /* The window has come to hold another thing (viewer/render.js): what is beside it stays only while the two are a note and a
+   * PDF — two notes, or two PDFs, are not side by side. */
+  function held() { if (S && !swapping && !pairs(S.kind)) close(); }
 
-  Object.assign(P, { splitSaved: saved, splitWrite: (on) => writing(on), splitFor: (path) => !READING && !!kindOf(path), splitOpen: open, splitClose: close, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, of: S.of, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
+  Object.assign(P, { splitSaved: saved, splitWrite: (on) => writing(on), splitFor: (path) => !READING && !!kindOf(path) && pairs(kindOf(path)), splitOpen: open, splitClose: close, splitHeld: held, splitGot: got, splitState: () => (S ? { kind: S.kind, path: S.path, pdf: S.pdfDo ? S.pdfDo.state() : null } : null), splitPdf: () => S && S.pdfDo });
 })();
