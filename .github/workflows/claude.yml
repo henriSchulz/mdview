@@ -70,7 +70,8 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # (a run that reaches either limit says so on the issue: the last step below)
+    timeout-minutes: 120
     permissions:
       contents: write
       pull-requests: write
@@ -88,11 +89,33 @@ jobs:
         run: |
           (cd dev && npm ci)
           (cd web && npm ci)
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
             --model claude-opus-5-5
-            --max-turns 80
-            --allowedTools "Read,Edit,Write,Grep,Glob,Bash(npm test:*),Bash(npm run build:*),Bash(npm run test:all:*),Bash(node --test:*),Bash(git:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr:*),Bash(rg:*),Bash(cd:*)"
-            --append-system-prompt "You run in GitHub Actions, not on Henri's machine. CLAUDE.md holds, except: there is no installed checkout and no worktree here (the branch is yours), and there is no desktop — dev/rig.sh and anything else that needs WebKitGTK or a screen cannot run. A bug: reproduce it in a node test (dev/tests) or a web test (web/test) first, see it fail, fix it, see it pass; cd dev && npm test and cd web && npm run build && npm test before the pull request (cargo test runs in the Test workflow on the pull request). Where only the rig can show it, say so plainly and name the rig cases (dev/README.md) Henri must run locally. The pull request says Fixes #<issue>. The issue is the bug's record (instead of a row in docs/BUGS-register.md): comment on it what Henri saw, why, what fixed it and the check that guards it. A new rule goes into docs/BUGS.md. Never merge."
+            --max-turns 200
+            --allowedTools "Read,Edit,Write,Grep,Glob,Bash(npm test:*),Bash(npm run build:*),Bash(npm run test:all:*),Bash(npm ci:*),Bash(node --test:*),Bash(node dev/map.mjs:*),Bash(git:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr:*),Bash(rg:*),Bash(cd:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(find:*)"
+            --append-system-prompt "You run in GitHub Actions, not on Henri's machine. CLAUDE.md holds, except: there is no installed checkout and no worktree here (the branch is yours), and there is no desktop — dev/rig.sh and anything else that needs WebKitGTK or a screen cannot run. A bug: reproduce it in a node test (dev/tests) or a web test (web/test) first, see it fail, fix it, see it pass; cd dev && npm test and cd web && npm run build && npm test before the pull request (cargo test runs in the Test workflow on the pull request). Where only the rig can show it, say so plainly and name the rig cases (dev/README.md) Henri must run locally. The pull request says Fixes #<issue>. The issue is the bug's record (instead of a row in docs/BUGS-register.md): comment on it what Henri saw, why, what fixed it and the check that guards it. A new rule goes into docs/BUGS.md. Never merge. The run can end at any moment (a limit of turns or of time): commit and push your branch after each step that is done (the check that fails, the fix, each test round), and tick it off in your comment, so nothing done is lost. When the tests are slow or hang, say so in the comment rather than waiting them out."
+      # The action's own comment stays at "Working on it" when GitHub ends the job at its time
+      # limit, and says only "encountered an error" at its limit of turns: here the issue is told
+      # which it was, and where the work stands.
+      - name: Say on the issue why the run stopped
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          OUTCOME: ${{ steps.claude.outcome }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$OUTCOME" in
+            cancelled) why="its time limit (timeout-minutes in claude.yml) was reached, or the run was cancelled" ;;
+            failure)   why="Claude stopped with an error — most often its limit of turns (--max-turns in claude.yml); the run's log says which" ;;
+            *)         why="a step before Claude failed ($OUTCOME)" ;;
+          esac
+          branch=$(git ls-remote --heads origin "claude/issue-$NUMBER-*" | sed 's|.*refs/heads/||' | tail -1)
+          where="Nothing was pushed."
+          [ -n "$branch" ] && where="What was done is on the branch \`$branch\`."
+          gh issue comment "$NUMBER" --body "**The run stopped before it was done:** $why. $where
+          [The run]($RUN) — a new \`@claude\` comment starts again."
