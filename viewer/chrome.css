@@ -281,3 +281,42 @@ body[data-update] #toast { bottom: 64px; }
   body[data-update] #toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 560px) { #update .upd-text { white-space: normal; } #update button[data-act="notes"] { display: none; } }
+
+/* the tour (viewer/tour.js): what it points at in a ring, the rest of the window dimmed, its card
+ * beside it. Over everything but the page's own ring while it loads. */
+#tour { position: fixed; inset: 0; z-index: 90; }
+#tour[hidden] { display: none; }
+#tour[data-free] { background: rgb(0 0 0 / 0.42); }
+.tour-spot {
+  position: fixed;
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 100vmax rgb(0 0 0 / 0.42);
+  pointer-events: none;
+  transition: left var(--dur-base) var(--ease-out), top var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out), height var(--dur-base) var(--ease-out);
+}
+#tour[data-free] .tour-spot { display: none; }
+.tour-card {
+  position: fixed;
+  width: min(340px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 14px 16px 12px;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--shadow-popover);
+  border-radius: var(--radius-panel);
+  outline: none;
+  transition: left var(--dur-base) var(--ease-out), top var(--dur-base) var(--ease-out);
+}
+.tour-count { font-size: 12px; color: var(--fg-quiet); }
+.tour-card h2 { margin: 2px 0 4px; font-size: 16px; font-weight: 650; }
+.tour-text { margin: 0 0 12px; font-size: 14px; line-height: 1.45; }
+.tour-acts { display: flex; align-items: center; gap: 6px; }
+.tour-gap { flex: 1; }
+.tour-acts .btn { height: var(--control-height, 28px); padding: 0 12px; font-size: 13px; }
+.tour-acts .btn[hidden] { display: none; }
+.tour-acts .btn.primary { min-width: 72px; background: var(--accent); color: var(--on-accent, #fff); box-shadow: none; }
+.tour-acts .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+.tour-acts .tour-skip { background: none; color: var(--fg2); }
+@media (prefers-reduced-motion: reduce) { .tour-spot, .tour-card { transition: none; } }
