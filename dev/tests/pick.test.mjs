@@ -117,3 +117,19 @@ test("a list in a column: its items picked are items, and all a row holds is the
   A.blocks.toggle(v, v.item("b")); v.click("right"); // every item of every list, and the paragraph: nothing of the row is left out
   assert.equal(A.blocks.picked(v.state).map((x) => x.node.type.name).join(), "columns");
 });
+
+// #6: text selected over several blocks, the first block's handle pulled — only that block
+// was shown and moved. What is selected is what goes.
+test("a drag by the handle takes every block the text selection reaches into", () => {
+  const v = open("first block\n\nsecond block\n\nthird block\n\nfourth block\n");
+  const sel = (from, to) => v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, from, to)));
+  const dragged = (text) => A.blocks.dragged(v.state, v.pos(text)).map((x) => x.node.textContent).join("|");
+  sel(v.pos("first block") + 3, v.pos("third block") + 4);
+  assert.equal(dragged("first block"), "first block|second block|third block");
+  assert.equal(dragged("third block"), "first block|second block|third block");
+  assert.equal(dragged("fourth block"), ""); // outside the selection: the block alone
+  sel(v.pos("first block") + 2, v.pos("first block") + 5);
+  assert.equal(dragged("first block"), ""); // text inside one block: the block alone
+  v.click("fourth block"); // blocks selected go as they did
+  assert.equal(dragged("fourth block"), "fourth block");
+});

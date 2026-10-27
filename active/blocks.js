@@ -153,6 +153,21 @@
     }
     return out.sort((a, b) => a.pos - b.pos);
   }
+  /* What a drag by the handle of the block at `pos` takes: all selected blocks, if it is one of
+   * them; else, with text selected over several blocks and this one among them, every block the
+   * text reaches into (in the same place as this one) — what is selected is what goes; else
+   * nothing ([]: the block alone). -> [{ pos, node }] */
+  function draggedOf(state, pos) {
+    const P = pickedOf(state);
+    if (P.some((x) => x.pos === pos)) return P;
+    const s = state.selection, doc = state.doc;
+    if (s.empty || !(s instanceof TextSelection)) return [];
+    const $p = doc.resolve(pos), d = $p.depth;
+    const at = (p) => { const $x = doc.resolve(p); return $x.depth > d && $x.node(d) === $p.parent ? $x.before(d + 1) : null; };
+    const a = at(s.from), b = at(s.to);
+    if (a == null || b == null || a === b || pos < a || pos > b) return [];
+    return pickedOf(state, { anchor: a, head: b });
+  }
   /* The selection for these blocks (positions), `head` the one the keyboard goes on from: a range
    * where they stand one after the other in the same place, else one of them and the others beside it. */
   // the columns of the row a block stands in that are picked whole (every block of theirs — a list's items all picked are the list): { colsPos, cols, full: [column index…] } or null
@@ -1149,8 +1164,7 @@
     const desc = over.pmViewDesc, pos = desc && desc.posBefore;
     const node = pos == null ? null : view.state.doc.nodeAt(pos);
     if (!node || node !== desc.node) { e.preventDefault(); return; }
-    // all selected blocks, if this is one of them; else this one
-    const P = pickedOf(view.state), many = P.some((x) => x.pos === pos);
+    const P = draggedOf(view.state, pos), many = P.length > 0;
     // what goes, as stretches of the document (blocks standing together are one stretch)
     const ranges = [];
     for (const x of many ? P : [{ pos, node }]) {
@@ -1180,7 +1194,7 @@
     e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
     const r = over.getBoundingClientRect();
     // the picture under the pointer: the block — or all the blocks that go, as they stand
-    const els = many ? groupEls(view.state) : null;
+    const els = many ? groupEls(view.state, P) : null;
     if (COARSE.matches) { // (a finger: the blocks themselves, as large as they are, held where they were taken — the handle under the finger stays free)
       const exact = exactGhostOf(els || [over]);
       window.MdView.core.moving.picture(e, exact.box, { into: document.body, hold: [e.clientX - exact.left, e.clientY - exact.top], loose: true });
@@ -1196,9 +1210,9 @@
     handle.dataset.dragging = "";
   });
   // the elements of the blocks selected (two or more), or null
-  function groupEls(state) {
+  function groupEls(state, P = pickedOf(state)) {
     const els = [];
-    for (const x of view ? pickedOf(state) : []) { const dom = view.nodeDOM(x.pos); if (dom && dom.nodeType === 1) els.push(dom); }
+    for (const x of view ? P : []) { const dom = view.nodeDOM(x.pos); if (dom && dom.nodeType === 1) els.push(dom); }
     return els.length > 1 ? els : null;
   }
   /* What a finger drags, as a picture: the blocks themselves, each where it stands and exactly as large, on the note's ground
@@ -1985,5 +1999,5 @@
     v.dispatch(tr.setSelection(pmSel(tr.doc, last)).scrollIntoView());
     return true;
   }
-  A.blocks = { pasteBelow, selectAll, menuItems, slashItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
+  A.blocks = { pasteBelow, selectAll, menuItems, slashItems, state: (state) => selOf(state), gap: (state) => gapOf(state), takeOut, selectTr: (state, pos) => setSel(state, pos, pos), over: () => over, select: selectBlock, selectAt, copyOf, groupEls, ghostOf, toggle, picked: (state) => pickedOf(state), dragged: (state, pos) => draggedOf(state, pos), targetAt: (e) => targetAt(e), dragging: () => drag, selection: (state) => rangeOf(state), selPlugin, gapPlugin, plugins: () => [plugin, swipePlugin, PM.dropcursor.dropCursor({ class: "drop-line", width: 2, color: false })], hide, handle };
 })();
