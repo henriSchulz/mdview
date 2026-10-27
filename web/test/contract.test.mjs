@@ -37,7 +37,7 @@ test("what the contract says the web host does, it does — and nothing it says 
 });
 
 test("the host tells the page only what the contract has, and what the page can be told", () => {
-  const api = page.slice(page.indexOf("window.MdView = {")), can = (n) => new RegExp(`[{,]\\s*${n}\\b`).test(api.slice(0, api.indexOf("};")));
+  const api = page.slice(page.indexOf("window.MdView = {")), can = (n) => new RegExp(`[{,]\\s*(?://[^\\n]*\\n\\s*)*${n}\\b`).test(api.slice(0, api.indexOf("};"))); // (a comment may end the line before)
   assert.deepEqual([...told].filter((n) => !toPage.has(n) || toPage.get(n) === "none" || !can(n)).sort(), []);
   assert.deepEqual([...toPage.keys()].filter((n) => !can(n)).sort(), []); // (nothing in the contract the page does not have)
   // what the host is to tell and never does: an answer that would not come

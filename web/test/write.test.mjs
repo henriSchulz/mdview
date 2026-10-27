@@ -935,7 +935,7 @@ test("the settings show what there is here, not the desktop's own", async () => 
     newMarkdown: ["style"],
     latex: ["latexSnippets", "latexFraction", "latexMatrix", "latexTabout", "latexEnlarge", "latexBrackets", "latexText"],
     pdf: ["pdfFormat", "pdfAuto"],
-    about: ["version", "guide"],
+    about: ["version", "guide", "tour"], // (the tour of the controls, #2)
   });
   await page.keyboard.press("Escape");
   // the sidebar's Show: the kinds of files, and what is put away

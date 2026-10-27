@@ -11,8 +11,8 @@
     "build": "next build",
     "start": "next start",
     "pretest": "out=$(npm run -s build 2>&1) || { echo \"$out\"; exit 1; }",
-    "test": "node --test --test-reporter=dot test/",
-    "test:all": "npm run build && node --test test/"
+    "test": "node --test --test-reporter=dot \"test/*.test.mjs\"",
+    "test:all": "npm run build && node --test \"test/*.test.mjs\""
   },
   "dependencies": {
     "jose": "^6.2.12",

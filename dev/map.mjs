@@ -2,6 +2,7 @@
 // one with the first sentence of its head comment — so the map says what the code says.
 //   node dev/map.mjs           write it        node dev/map.mjs --check    exit 1 if it is not up to date
 // (tests/map.test.mjs runs the check with the other tests.)
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,8 +19,20 @@ const GROUPS = [
 const files = (pattern) => {
   if (!pattern.includes("*")) return [pattern];
   const dir = dirname(pattern), ext = pattern.slice(pattern.lastIndexOf("*") + 1);
-  return readdirSync(join(root, dir)).filter((f) => f.endsWith(ext)).sort().map((f) => `${dir}/${f}`);
+  return readdirSync(join(root, dir)).filter((f) => f.endsWith(ext)).sort().map((f) => `${dir}/${f}`).filter((f) => !ignored(f));
 };
+// (what git leaves out is no file of the code: a generated one, web/lib/mcp/guide.gen.ts, is there only after a build — the
+// map listed it on one machine and not on another)
+let ignoredSet = null;
+function ignored(file) {
+  if (!ignoredSet) {
+    const all = GROUPS.flatMap(([, ps]) => ps.filter((x) => x.includes("*")).flatMap((x) => readdirSync(join(root, dirname(x))).map((f) => `${dirname(x)}/${f}`)));
+    let out = "";
+    try { out = execFileSync("git", ["check-ignore", "--stdin"], { cwd: root, input: all.join("\n"), encoding: "utf8" }); } catch (e) { out = e.stdout || ""; } // (exit 1: none is ignored)
+    ignoredSet = new Set(out.split("\n").filter(Boolean));
+  }
+  return ignoredSet.has(file);
+}
 // the head comment's first sentences, as one line
 function about(text, file) {
   let head = "";
