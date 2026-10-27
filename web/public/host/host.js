@@ -276,6 +276,14 @@
    * small ring over the page while a note's text is fetched or the app is left — each only after
    * the wait that is no wait (--loading-delay). */
   const booted = () => { if (window.MdBooted) window.MdBooted(); };
+  /* The tour of the controls (viewer/tour.js): once in this browser, at the first note it shows —
+   * a moment after it, so that the note is there around it. Never in a browser a test drives
+   * (navigator.webdriver): every click of the test would land on the tour. */
+  const toured = () => {
+    if (navigator.webdriver || load("mdview:toured", false)) return;
+    keep("mdview:toured", true);
+    setTimeout(() => tell("tour"), 800);
+  };
   const wait = (on) => { if (on) document.body.dataset.wait = on === "leave" ? "leave" : ""; else delete document.body.dataset.wait; }; // ("leave": the page blurs behind the ring)
   window.addEventListener("pageshow", () => wait(false)); // (come back to with the browser's Back)
   let turn = 0;
@@ -305,6 +313,7 @@
     wait(false);
     tell("render", payload);
     booted();
+    if (!payload.error && C.kindOf(path) === "md") toured();
   }
   /* A note made by New Note ("Untitled", nothing asked) is named after what its first line says:
    * once it is left alone a moment while it is written, and when it is left — then for good, and
