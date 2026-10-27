@@ -1352,6 +1352,7 @@ counts — and has no writing help by a model.
   repository are before any page.
 - **Help** opens this guide at `/guide`, a page of its own in another browser tab: the note to
   be read, nothing to write and no tabs; for anyone, signed in or not.
+- **The tour** starts by itself once, at the first note a browser shows (see *The tour*).
 - **Date Modified**, as an order of the sidebar, is the time of the last commit that changed a
   note: Git keeps no date for a file.
 - **Not there**: everything a desktop has that a browser has not — Open With…, Show in Finder,
@@ -1452,6 +1453,17 @@ the same, without an issue.
 
 - **Find in the note**: `Ctrl+F` or `/` (when not typing); `Enter` / `Shift+Enter` next and previous.
 - **Outline**: `Ctrl+Shift+O` — the note's headings, a click goes there.
+
+## The tour
+
+A short walk through the controls, one after the other (issue #2): a ring around each, the rest of
+the window dimmed, and a card beside it that says what it does — the sidebar, the tabs, All
+notes, the table of contents (the outline), find, share, the modes and the settings. What is not
+on the screen (the gear in a phone's drawer, the toolbar of an iPad) is passed over. **Next**,
+**Back** and **Skip**, or `→`, `←` and `Esc`; nothing behind it takes a click or a key while it is
+open. In the web app it starts by itself once, at the first note a browser shows; in both the web
+app and the desktop app **Settings › About › Start the tour** starts it at any time. In English
+and German, as the app is set.
 
 ## Side by side
 
@@ -1592,7 +1604,7 @@ the right. A change takes effect at once.
 | Formulas | the formula editor's helpers (snippets, fraction with `/`, matrix keys, Tab leaves brackets …) |
 | PDFs | what a link to selected text is copied as, copy on select |
 | Writing Help | suggestions while typing, the Gemini API key, the model |
-| About | version, this guide, the settings folder; for a downloaded install, updates: Check Now and checking automatically (see *Updates*) |
+| About | version, this guide, the tour, the settings folder; for a downloaded install, updates: Check Now and checking automatically (see *Updates*) |
 
 The Gemini key is typed into the settings and kept in `~/.config/mdview/.env`, readable by the
 user alone; the window only ever shows its last four signs. A key in the environment

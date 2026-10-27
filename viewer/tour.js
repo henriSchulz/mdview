@@ -12,9 +12,10 @@
   // [name, where its control is (the first that is on the screen)]; without a place: a word in the middle
   const STEPS = [
     ["welcome"],
-    ["sidebar", '#toolbar [data-act="sidebar"]'],
+    // (a folder window has these two at the head of its tabs, a note by itself in the toolbar)
+    ["sidebar", '#tabs [data-act="sidebar"], #toolbar [data-act="sidebar"]'],
     ["tabs", "#tabs .tab-new"],
-    ["overview", '#toolbar [data-act="overview"], #ipad-nav .ip-all'],
+    ["overview", '#tabs [data-act="overview"], #toolbar [data-act="overview"], #ipad-nav .ip-all'],
     ["outline", '#toolbar [data-act="outline"]'],
     ["find", '#toolbar [data-act="find"]'],
     ["share", '#toolbar [data-act="share"]'],
