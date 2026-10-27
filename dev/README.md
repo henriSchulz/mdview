@@ -96,6 +96,16 @@ MDVIEW_THEME_DIR=/nonexistent ./rig.sh m5               # any probe in the light
   typing helpers, the saved file and screenshots must be identical. Run it
   whenever `viewer.js` or something in `viewer/` changes.
 
+## The frame meter (`MDVIEW_METER=1`)
+
+What lags on a machine the rig cannot be — a touch screen's stream of moves, a touchpad, a slow
+processor — is measured there, in the app itself: started with `MDVIEW_METER=1 mdview`, a window
+shows a small panel at its lower left (`viewer/meter.js`, `viewer/meter.css`) with the frames of the
+last two seconds (per second, median, p95, how many over 33 ms, the longest), the longest of the
+last ten, the moves the page heard a second (pointer, touch, drag) and the last 120 frames as
+bars, red over 33 ms. It is drawn four times a second; the pointer goes through it. A screenshot of
+it while the lag is felt says what the rig cannot.
+
 ## The whiteboard alone (`board-lab.html`)
 
 `dev/board-lab.html` is the whiteboard without the app around it — for trying it on a tablet or

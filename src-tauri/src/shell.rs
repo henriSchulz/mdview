@@ -101,10 +101,11 @@ const SCRIPTS: &[&str] = &[
     "viewer/tour.js",
     "viewer.js",
     "overview.js",
+    "viewer/meter.js",
 ];
 
 /// The page's styles, in the order they are linked (later ones win): viewer/*.css.
-const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet"];
+const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "meter"];
 
 /// Settings of the active mode (state.json "active"), with what they are when nothing is set.
 fn default_prefs() -> Map<String, Value> {
@@ -735,7 +736,7 @@ impl Win {
              <link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>\
              {styles}\
              <link rel='stylesheet' href='{a}/overview.css'>\
-             </head><body data-mode='{mode}'{sf}{flat}><main id='content'></main>{scripts}</body></html>",
+             </head><body data-mode='{mode}'{sf}{flat}{meter}><main id='content'></main>{scripts}</body></html>",
             theme = theme::theme_css(&app.theme),
             styles = STYLES.iter().map(|s| format!("<link rel='stylesheet' href='{a}/viewer/{s}.css'>")).collect::<String>(),
             mode = app.theme.mode,
@@ -743,6 +744,8 @@ impl Win {
             // (WebKit without its DMA-BUF renderer draws no backdrop-filter: the menus are then of a ground that
             // covers, not glass that only lets the text behind it through — viewer/page.css, main.rs)
             flat = if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_ok_and(|v| v != "0") { " data-flat" } else { "" },
+            // (the frame meter at the lower left, for what lags on a machine the rig cannot be: viewer/meter.js)
+            meter = if std::env::var("MDVIEW_METER").is_ok_and(|v| v != "0") { " data-meter" } else { "" },
         );
         self.shell_n += 1;
         SHARED.pages.lock().unwrap().insert(self.label.clone(), page);

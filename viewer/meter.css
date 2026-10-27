@@ -1,0 +1,18 @@
+/* The frame meter (viewer/meter.js, MDVIEW_METER=1): a small panel at the lower left over everything, through which the
+ * pointer goes. A layer of its own, so that drawing it four times a second does not paint the note under it anew. */
+#meter {
+  --mt-bar: color-mix(in srgb, var(--accent) 70%, transparent);
+  --mt-slow: var(--c-red);
+  --mt-line: var(--line-strong);
+  position: fixed; left: 12px; bottom: 12px; z-index: 100; /* (over all the page's own, the highest of which is 90) */
+  box-sizing: border-box; width: 360px; padding: 8px 10px 10px;
+  border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--shadow-popover);
+  color: var(--fg2); font: 400 11px/1.4 var(--mono); font-variant-numeric: tabular-nums;
+  pointer-events: none; user-select: none; will-change: transform;
+}
+#meter .mt-row { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; }
+#meter .mt-more { padding-left: 1px; }
+#meter .mt-fps { color: var(--fg); font: 600 13px var(--ui); white-space: nowrap; }
+#meter[data-slow] .mt-fps { color: var(--mt-slow); }
+#meter .mt-bars { display: block; width: 100%; height: 36px; margin-top: 6px; }
+@media print { #meter { display: none; } }

@@ -78,6 +78,7 @@ or the tests see the old ones.
 | `viewer/hand.js` | the hand: a finger, where the system does not say the screen is touched (Henri, 2026-10-24: the application … |
 | `viewer/markdown.js` | markdown-it as the app sets it up: a note's own HTML made harmless, and the rules for what Markdown alone … |
 | `viewer/menus.js` | the app's own small menus: a choice among a few (popup, combo) and the menu for text in a field or in the … |
+| `viewer/meter.js` | The frame meter (MDVIEW_METER=1: the shell puts data-meter on the body; |
 | `viewer/modes.js` | what is loaded when first used and shown over or instead of the note: the active mode (active/*.js), … |
 | `viewer/prep.js` | a note's text before it is rendered: frontmatter and comments taken off, the pages inside a note (parsed, … |
 | `viewer/render.js` | rendering: a note drawn into #content, the place in it kept across a redraw, the way to a heading or a line, … |
@@ -104,6 +105,7 @@ or the tests see the old ones.
 | `viewer/editor.css` | the source editor. |
 | `viewer/layouts.css` | the sidebar's layouts. |
 | `viewer/menus.css` | the window for a new folder's name, the copy that goes with the pointer in a drag, menus at a point, a choice … |
+| `viewer/meter.css` | The frame meter (viewer/meter.js, MDVIEW_METER=1): a small panel at the lower left over everything, through … |
 | `viewer/narrow.css` | scrollbars, tooltips, figures, signs set as text (SF Symbols), and narrow windows (a phone, a split screen). |
 | `viewer/page.css` | reading and editing styles. Colors come from the Omarchy theme (--c-*), durations, curves, radii and sizes … |
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |
