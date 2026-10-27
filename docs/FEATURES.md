@@ -827,7 +827,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   blocks as wholes. Each selected block has a field of its own — the same light tint, corners
   and reach for every kind of block (a paragraph, a list's item with its bullet, a callout,
   code, a table, a picture, a formula, a rule, the blocks of columns), lying over the block —,
-  with the same room between two of them whatever the blocks are. A block dragged to the window's upper or lower edge scrolls
+  with the same room between two of them whatever the blocks are. The handle of a selected block
+  drags all that is selected; with text selected over several blocks, the handle of one of them
+  drags every block the text reaches into. A block dragged to the window's upper or lower edge scrolls
   the page along.
   What is pasted while blocks are selected (`Ctrl+V`) is not put in their place: it goes below
   them as blocks of its own and is selected there, so the next paste goes below that.

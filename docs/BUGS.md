@@ -175,6 +175,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     document's own blocks ("of a list the items it reaches, not the list") does not hold in a
     column, which is walked by other code. Such a rule is a function both call, and its check
     pulls over the same kind of block in each place (`rig.sh colsel`).
+83. **What is selected is what a handle's drag takes, whichever way it was selected** (#6): blocks
+    selected as wholes, and text selected over several blocks alike — a pull on the handle of one
+    of them takes all the blocks the text reaches into, shown and moved together. Only the block
+    selection was asked; text over three blocks, the first one's handle took the first alone. The
+    blocks that go are one function (`draggedOf`, `active/blocks.js`) that the picture and the
+    move both use; `dev/tests/pick.test.mjs` checks it.
 74. **A selected block's field is one look for every kind of block**, drawn in the layer over the
     note (`drawFields` in `active/blocks.js`), never painted on the block itself: there a block's
     own surface (code, a table's sheet, a picture) covers the tint, a rule has no room for it, and
