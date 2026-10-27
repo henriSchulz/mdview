@@ -37,15 +37,21 @@ fn way(target: &Path, note: &Path, base: &Path) -> String {
 const PDF_INK: &str = ".mdview/pdf";
 fn ink_of(pdf: &Path, base: &Path) -> Result<PathBuf, String> {
     // (a file's name is asked for at every save: worked out once for the file as it is)
-    static KNOWN: LazyLock<std::sync::Mutex<HashMap<PathBuf, (u64, SystemTime, String)>>> = LazyLock::new(Default::default);
+    // (known by which file it is too, not only by its length and time: another PDF of the same length put in its place in the
+    // same tick of the clock was given the first one's name, and what was drawn on that)
+    static KNOWN: LazyLock<std::sync::Mutex<HashMap<PathBuf, (u64, SystemTime, u64, String)>>> = LazyLock::new(Default::default);
     let meta = fs::metadata(pdf).map_err(|e| strerror(&e))?;
     let (len, at) = (meta.len(), meta.modified().unwrap_or(UNIX_EPOCH));
+    #[cfg(unix)]
+    let which = std::os::unix::fs::MetadataExt::ino(&meta);
+    #[cfg(not(unix))]
+    let which = meta.created().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos() as u64);
     let mut known = KNOWN.lock().unwrap_or_else(|e| e.into_inner());
     let name = match known.get(pdf) {
-        Some((l, t, name)) if *l == len && *t == at => name.clone(),
+        Some((l, t, w, name)) if *l == len && *t == at && *w == which => name.clone(),
         _ => {
             let name = git2::Oid::hash_file(git2::ObjectType::Blob, pdf).map_err(|e| e.message().to_string())?.to_string();
-            known.insert(pdf.to_path_buf(), (len, at, name.clone()));
+            known.insert(pdf.to_path_buf(), (len, at, which, name.clone()));
             name
         }
     };
@@ -494,8 +500,10 @@ mod tests {
         let moved = d.join("renamed.pdf");
         fs::rename(&pdf, &moved).unwrap();
         assert_eq!(ink_read(&moved, &d), Ok(Some(board)));
-        // another PDF has nothing on it
+        // another PDF has nothing on it — even of the same length, written in the same tick of the clock (CI, 2026-10-27: the
+        // name worked out for the first was given to it)
         fs::write(&pdf, b"%PDF-1.4 another").unwrap();
+        fs::File::options().write(true).open(&pdf).unwrap().set_modified(fs::metadata(&moved).unwrap().modified().unwrap()).unwrap();
         assert_eq!(ink_read(&pdf, &d), Ok(None));
         // all of it rubbed out: the file goes, and the folders made for it
         ink_save(&moved, &d, "", true).unwrap();
