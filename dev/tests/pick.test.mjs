@@ -123,13 +123,13 @@ test("a list in a column: its items picked are items, and all a row holds is the
 test("a drag by the handle takes every block the text selection reaches into", () => {
   const v = open("first block\n\nsecond block\n\nthird block\n\nfourth block\n");
   const sel = (from, to) => v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.create(v.state.doc, from, to)));
-  const dragged = (text) => A.blocks.dragged(v.state, v.pos(text)).map((x) => x.node.textContent);
+  const dragged = (text) => A.blocks.dragged(v.state, v.pos(text)).map((x) => x.node.textContent).join("|");
   sel(v.pos("first block") + 3, v.pos("third block") + 4);
-  assert.deepEqual(dragged("first block"), ["first block", "second block", "third block"]);
-  assert.deepEqual(dragged("third block"), ["first block", "second block", "third block"]);
-  assert.deepEqual(dragged("fourth block"), []); // outside the selection: the block alone
+  assert.equal(dragged("first block"), "first block|second block|third block");
+  assert.equal(dragged("third block"), "first block|second block|third block");
+  assert.equal(dragged("fourth block"), ""); // outside the selection: the block alone
   sel(v.pos("first block") + 2, v.pos("first block") + 5);
-  assert.deepEqual(dragged("first block"), []); // text inside one block: the block alone
+  assert.equal(dragged("first block"), ""); // text inside one block: the block alone
   v.click("fourth block"); // blocks selected go as they did
-  assert.deepEqual(dragged("fourth block"), ["fourth block"]);
+  assert.equal(dragged("fourth block"), "fourth block");
 });

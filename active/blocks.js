@@ -154,10 +154,19 @@
     return out.sort((a, b) => a.pos - b.pos);
   }
   /* What a drag by the handle of the block at `pos` takes: all selected blocks, if it is one of
-   * them; else nothing ([]: the block alone). -> [{ pos, node }] */
+   * them; else, with text selected over several blocks and this one among them, every block the
+   * text reaches into (in the same place as this one) — what is selected is what goes; else
+   * nothing ([]: the block alone). -> [{ pos, node }] */
   function draggedOf(state, pos) {
     const P = pickedOf(state);
-    return P.some((x) => x.pos === pos) ? P : [];
+    if (P.some((x) => x.pos === pos)) return P;
+    const s = state.selection, doc = state.doc;
+    if (s.empty || !(s instanceof TextSelection)) return [];
+    const $p = doc.resolve(pos), d = $p.depth;
+    const at = (p) => { const $x = doc.resolve(p); return $x.depth > d && $x.node(d) === $p.parent ? $x.before(d + 1) : null; };
+    const a = at(s.from), b = at(s.to);
+    if (a == null || b == null || a === b || pos < a || pos > b) return [];
+    return pickedOf(state, { anchor: a, head: b });
   }
   /* The selection for these blocks (positions), `head` the one the keyboard goes on from: a range
    * where they stand one after the other in the same place, else one of them and the others beside it. */
