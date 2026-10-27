@@ -145,6 +145,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   setTheme: ["answer", "the colours: light or dark, as the system has it"],
   setPreviews: ["answer", "the beginnings of notes asked for"],
   settingsInfo: ["answer", "what only the host knows, for the settings"],
+  tour: ["answer", "the tour of the controls (viewer/tour.js), once, at the first note this browser shows of any repository — not under a test's browser (navigator.webdriver)"],
   toast: ["answer", "a word shown for a moment"],
   updateNotice: ["none", "a newer version of the desktop app is there (update.rs): a web page is always the newest"],
   clear: ["answer", "nothing to show"],

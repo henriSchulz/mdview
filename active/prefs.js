@@ -94,7 +94,7 @@
       ["prefs.aiKeySection", [["aiKey", "key"], ["aiModel", "text"]]],
     ]],
     ["about", "info", [
-      [null, [["version", "about"], ["guide", "action"], ["configDir", "about"]]],
+      [null, [["version", "about"], ["guide", "action"], ["tour", "action"], ["configDir", "about"]]],
       // a newer version of the app: only where the install looks for one (the shell tells info.update; a checkout's build, the web: not)
       ["prefs.updates", [["updateCheck", "update"], ["updateAuto", "switch"]]],
     ]],
@@ -266,7 +266,8 @@
     }
     if (kind === "action") {
       const b = el("button", { class: "pf-link", type: "button" }, T("prefs." + key + ".do"));
-      b.onclick = () => { close(); post("help"); };
+      // (the guide: the host opens it; the tour of the controls: the page's own, viewer/tour.js)
+      b.onclick = () => { close(); if (key === "tour") window.MdView.tour(); else post("help"); };
       return b;
     }
     const value = el("span", { class: "pf-value" });
