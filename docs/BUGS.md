@@ -342,7 +342,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     moves over the text while a pointer pulls (the rectangle, the fields of selected blocks, a
     board's dots) is a layer of its own (`will-change: transform`), or each step paints the text
     under it anew. `rig.sh blockperf`, `boardperf`.
-83. **What a finger or a pointer moves step by step is never set on the root.** A custom property
+84. **What a finger or a pointer moves step by step is never set on the root.** A custom property
     on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
     computed anew when it changes: the block swiped by a finger set its offset there at each step,
     17 ms a step in a long note on an M1, more on a slower machine — the swipe lagged (#8). The
