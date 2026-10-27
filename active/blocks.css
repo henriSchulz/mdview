@@ -158,17 +158,18 @@ body.blk-dragging .blk-fields { opacity: 0.35; }
  * progress towards the distance that chooses (--swipe-p, 0 to 1) — fades out, swiped to be let
  * go. There the block is taken: the field's tint deepens and the block gives one small bump
  * (blk-swipe-reached on the root); let go, it springs back into its place. The values are set on
- * the root, so the block and its field in the layer over the note read the same. */
+ * the layer of fields (.blk-fields), which its fields inherit — never on the root, where the whole
+ * page inherited them and had its style computed anew at each step of the finger (#8); the block
+ * goes along by an animation of its own (blocks.js), with the same spring on its way back. */
 @property --swipe-x { syntax: "<length>"; inherits: true; initial-value: 0px; }
 @property --swipe-p { syntax: "<number>"; inherits: true; initial-value: 0; }
-.pm .blk-swiping { transform: translateX(var(--swipe-x)); }
 .blk-field[data-swiping] { transform: translateX(var(--swipe-x)); transition: background-color var(--dur-fast) var(--ease-out); }
 .blk-field[data-swipe="add"] { opacity: var(--swipe-p); }
 .blk-field[data-swipe="drop"] { opacity: calc(1 - var(--swipe-p)); }
 .blk-swipe-reached .blk-field[data-swiping] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .blk-swipe-reached .pm .blk-swiping, .blk-swipe-reached .blk-field[data-swiping] { animation: blk-swipe-bump var(--spring-snappy-dur) var(--spring-snappy); }
 @keyframes blk-swipe-bump { from { scale: 1.015; } to { scale: 1; } }
-.blk-swipe-back { transition: --swipe-x var(--spring-snappy-dur) var(--spring-snappy), --swipe-p var(--dur-fast) var(--ease-out); }
+.blk-fields.blk-swipe-back { transition: opacity var(--dur-fast) var(--ease-out), --swipe-x var(--spring-snappy-dur) var(--spring-snappy), --swipe-p var(--dur-fast) var(--ease-out); }
 
 /* … or the page of the note it would go into: its line is marked */
 /* … into a column: the column is marked, the line as wide as it (under the row instead: the line as wide as the text, no column marked) */

@@ -336,6 +336,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     moves over the text while a pointer pulls (the rectangle, the fields of selected blocks, a
     board's dots) is a layer of its own (`will-change: transform`), or each step paints the text
     under it anew. `rig.sh blockperf`, `boardperf`.
+83. **What a finger or a pointer moves step by step is never set on the root.** A custom property
+    on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
+    computed anew when it changes: the block swiped by a finger set its offset there at each step,
+    17 ms a step in a long note on an M1, more on a slower machine — the swipe lagged (#8). The
+    value goes on the smallest element that holds what reads it (the layer of fields), and an
+    element of the editor's own, which ProseMirror would draw anew were its style changed, is moved
+    by a Web Animation (`el.animate`, `effect.setKeyframes`), which changes nothing of the DOM. A
+    class put on the root once at a turn (`blk-swipe-reached`) is no step. `web/test/ipad.test.mjs`
+    asks that the swipe's values are not on the root.
 78. **What lies out of sight in a long list is not drawn.** The sidebar's sheets are thousands of
     elements (a note's beginning: formulas, code, tables); a sheet has its size of its own, so it
     takes `content-visibility: auto` with that size, and a scroll paints only the sheets in sight

@@ -1746,10 +1746,34 @@
     const mine = (e) => sw && [...e.changedTouches].find((t) => t.identifier === sw.id);
     // what scrolls sideways between the finger and the note: the innermost such element, or null
     const scrollerOf = (el) => { for (; el && el !== view.dom; el = el.parentElement) if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return el; return null; };
-    // (the offset and the progress are set on the root, outside the editor's own elements — changed there, it would draw them
-    // anew —, so that the block and its field in the layer read the same)
+    // (the offset and the progress are set on the layer of fields, which its fields inherit — not on the root, where every
+    // element of the page inherited them and had its style computed anew at each step of the finger: 16 ms a step of a long
+    // note on an M1, a swipe that lagged, #8 —; the block, one of the editor's own elements, which it would draw anew were its
+    // style changed, is moved by an animation of its own, which changes nothing of the DOM)
     const root = document.documentElement;
-    const set = (x, p) => { root.style.setProperty("--swipe-x", x + "px"); root.style.setProperty("--swipe-p", String(p)); };
+    let slide = null; // (the block's animation: where it stands while it is swiped, or its way back)
+    const boxAt = (pos) => { try { const el = view.nodeDOM(pos); return el && el.nodeType === 1 ? el : null; } catch (e) { return null; } };
+    function slideTo(el, x) {
+      const at = { transform: `translateX(${x}px)` };
+      if (slide && !slide.back && slide.effect.target === el) { slide.effect.setKeyframes([at, at]); return; }
+      if (slide) slide.cancel();
+      slide = el ? el.animate([at, at], { duration: 1e9, fill: "forwards" }) : null;
+    }
+    // (let go: back into its place as the field goes back, with the spring of the transition on the layer, active/blocks.css)
+    function slideBack(el, from) {
+      if (slide) slide.cancel();
+      slide = null;
+      if (!el || still.matches || !from) return;
+      const cs = getComputedStyle(root), t = cs.getPropertyValue("--spring-snappy-dur").trim(), ms = parseFloat(t) * (/[^m]s$/.test(t) ? 1000 : 1) || 300;
+      const k = [{ transform: `translateX(${from}px)` }, { transform: "none" }];
+      try { slide = el.animate(k, { duration: ms, easing: cs.getPropertyValue("--spring-snappy").trim() || "ease-out" }); } catch (e) { slide = el.animate(k, { duration: ms, easing: "ease-out" }); }
+      slide.back = true;
+    }
+    const set = (x, p) => {
+      layer.style.setProperty("--swipe-x", x + "px"); layer.style.setProperty("--swipe-p", String(p));
+      const on = swipeKey.getState(view.state);
+      slideTo(on ? boxAt(on.pos) : null, x);
+    };
     // held back: the further the finger goes, the less the block follows (as iOS's rubber band)
     const band = (dx) => Math.sign(dx) * REACH * (1 - 1 / ((Math.abs(dx) * 0.55) / REACH + 1));
     const mark = (value) => view.dispatch(view.state.tr.setMeta(swipeKey, value).setMeta("addToHistory", false));
@@ -1761,20 +1785,22 @@
     }
     function back(s, chosen) {
       const v = view;
-      root.classList.add("blk-swipe-back");
-      set(0, chosen ? 1 : 0);
+      layer.classList.add("blk-swipe-back");
+      layer.style.setProperty("--swipe-x", "0px"); layer.style.setProperty("--swipe-p", chosen ? "1" : "0");
+      slideBack(boxAt(s.pos), Math.round(band(s.dx || 0) * 10) / 10);
       const done = () => {
-        root.removeEventListener("transitionend", end); clearTimeout(s.timer);
+        layer.removeEventListener("transitionend", end); clearTimeout(s.timer);
         if (sw && sw !== s && sw.side) return; // (another swipe has begun meanwhile: it is its)
-        root.classList.remove("blk-swipe-back");
-        root.style.removeProperty("--swipe-x");
+        layer.classList.remove("blk-swipe-back");
+        layer.style.removeProperty("--swipe-x");
+        if (slide && slide.back) { slide.cancel(); slide = null; }
         if (v && !v.isDestroyed && swipeKey.getState(v.state)) mark(null);
         if (settling) { settling = false; if (!showHeld()) hide(); }
         if (sw && sw.side) return;
-        root.style.removeProperty("--swipe-p"); root.classList.remove("blk-swipe-reached");
+        layer.style.removeProperty("--swipe-p"); root.classList.remove("blk-swipe-reached");
       };
-      const end = (e) => { if (e.target === root && e.propertyName === "--swipe-x") done(); };
-      root.addEventListener("transitionend", end);
+      const end = (e) => { if (e.target === layer && e.propertyName === "--swipe-x") done(); };
+      layer.addEventListener("transitionend", end);
       s.timer = setTimeout(done, still.matches ? 0 : 700); // (with less motion: back at once; else where the end is not told)
     }
     document.addEventListener("touchstart", (e) => {
@@ -1812,7 +1838,7 @@
           || (sc && sc.scrollLeft > 0)) { sw = null; return; } // (scrolled sideways: the swipe scrolls it back)
         sw.side = Math.sign(dx); sw.pos = pos; sw.has = has; swiping = true;
         clearTimeout(leaving); rest(null);
-        root.classList.remove("blk-swipe-back");
+        layer.classList.remove("blk-swipe-back");
         root.classList.remove("blk-swipe-reached");
         set(0, 0);
         mark({ pos, how: has ? "drop" : "add" });

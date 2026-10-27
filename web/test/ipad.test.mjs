@@ -215,6 +215,10 @@ test("ipad: a block swiped to the right on its own text is chosen, as in Craft; 
   await down(a); await move(a, [a[0] + 120, a[1] + 3]);
   const shift = await p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelectorAll("#active .pm > p")[0]).transform).m41);
   assert.ok(shift > 8 && shift < 100, `the block follows the finger, held back: ${shift}px for a finger 120px on`);
+  // (and nothing page-wide changes with each step of the finger: a value on the root that every element inherits had the whole
+  // page's style computed anew at each step — 16 ms of 3900 elements on an M1, a swipe that lagged under a finger, #8)
+  assert.deepEqual(await p.evaluate(() => ["--swipe-x", "--swipe-p"].map((v) => document.documentElement.style.getPropertyValue(v) + "|" + getComputedStyle(document.body).getPropertyValue(v).trim())), ["|0px", "|0"],
+    "the swipe's values are not on the root, nor inherited by the page");
   await shot(d, "swipe");
   // … past the distance that chooses: no circle or tick of its own — the block's field has faded in and its tint deepened, the block bumps once
   assert.deepEqual(await p.evaluate(() => { const f = document.querySelector(".blk-fields .blk-field[data-swipe='add']"); return [!!document.querySelector(".blk-dot"), !!f && +getComputedStyle(f).opacity > 0.9, document.documentElement.classList.contains("blk-swipe-reached"), !!f && getComputedStyle(f).animationName, getComputedStyle(document.querySelector("#active .pm .blk-swiping")).animationName]; }), [false, true, true, "blk-swipe-bump", "blk-swipe-bump"], "no circle; the field shown, deeper, the block bumps");
