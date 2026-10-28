@@ -454,6 +454,26 @@ test("the open note's sheet in the sidebar wears its ring all round, not only at
   for (const side of ["left", "right", "top", "bottom"]) assert.ok(blue(px[side]), `the ring along the ${side} side: ${px[side]}`);
 });
 
+test("All Notes: Ctrl+C and Ctrl+V on its tiles copy and paste, as on the sidebar's rows — and still do once the paste has built the tiles anew (#11)", async () => {
+  await open("Alpha.md");
+  await allNotes();
+  const said = () => page.evaluate(() => document.querySelector("#toast").textContent);
+  const tile = (p) => page.locator(`#overview .ov-item[data-path="${R}/${p}"]`);
+  await page.waitForSelector(`#overview .ov-item[data-path="${R}/sub"]`, { timeout: 8000 });
+  // a tile chosen with Shift and a click: copied, and pasted into a folder's tile
+  await tile("Alpha.md").click({ modifiers: ["Shift"] });
+  await page.keyboard.press("Control+c");
+  await until(async () => /^Copied “Alpha\.md”/.test(await said()), "the copy");
+  await tile("sub").focus();
+  await page.keyboard.press("Control+v");
+  await until(() => text("sub/Alpha.md") !== undefined, "the paste in the repository");
+  // … and once more: the tiles were built anew by the paste, the keyboard is still on the folder's tile (it was on none of them)
+  await page.waitForTimeout(800);
+  assert.equal(await page.evaluate(() => document.activeElement.dataset?.path), `${R}/sub`);
+  await page.keyboard.press("Control+v");
+  await until(() => text("sub/Alpha 2.md") !== undefined, "the second paste");
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });

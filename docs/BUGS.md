@@ -440,6 +440,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     `state.json`, `mdview:sheets-first` in the browser; `lists_all` before it) — never at every
     start, or a choice made after it could not be kept.
 
+86. **What builds a list anew keeps the keyboard where it was** (#11): All Notes' tiles were made
+    again when the folder changed (a paste), the focus went with the old tile to the page, and the
+    next Ctrl+C, X, V went nowhere. A rebuild finds the element with the same path and focuses it
+    (`refresh` in `overview.js`). `explorer.test.mjs` (#11).
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

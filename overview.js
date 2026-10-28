@@ -290,6 +290,16 @@
     const to = (focus && items.find(focus)) || body.querySelector(".ov-item[aria-current]") || items[0];
     if (had && to) to.focus({ preventScroll: true });
   }
+  /* The folder changed under the tiles (a paste, a file from elsewhere): built anew where they stand, the keyboard on the tile
+   * it was on (Henri, 2026-10-28: "Strg + C, Strg + V, Strg + X klappt nicht im All notes view", #11 — the tiles were new and
+   * the focus on none of them: the next keys went to the page, not to All Notes). */
+  function refresh() {
+    const on = el.contains(document.activeElement) && document.activeElement.closest(".ov-item"), path = on && on.dataset.path;
+    build();
+    if (!on) return;
+    const to = items.find((t) => t.dataset.path === path) || body.querySelector(".ov-item[aria-current]") || items[0];
+    if (to) to.focus({ preventScroll: true });
+  }
   let chosenAt = 0;
   function choose(name, v) {
     if (name === "scope") { if (scope === v) return; scope = v; at = []; picked.clear(); if (v === "boards") askBoards(); }
@@ -857,5 +867,5 @@
     picked.clear();
     rebuild();
   }
-  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { build(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
+  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { refresh(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();
