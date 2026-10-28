@@ -1570,6 +1570,7 @@ rubbed out again, no file is kept. Pictures cannot be put on a PDF yet.
 | `Ctrl+Shift+O` | outline |
 | `Ctrl+Alt+S` | sidebar |
 | `Ctrl+Alt+G` | All Notes |
+| `F11`, `Ctrl+Shift+F` | focus mode: the window full screen and no control on it — no toolbar, tabs, sidebar, gear or panel, only the note (a pinned sidebar is pinned again after); the same key or `Esc` leaves it (in the browser also the browser's own leaving of the full screen) |
 | `Ctrl+Alt+P` | panel (active mode; Style and Information in every other mode too) |
 | `Ctrl+Alt+O` | open a folder |
 | `Ctrl+Alt+H` | history of the note |

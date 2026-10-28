@@ -1075,6 +1075,10 @@
       } catch { toast("Couldn't copy the picture"); }
     },
     print() { window.print(); },
+    fullscreen({ on }) { // (the focus mode; the browser may refuse it, and the controls are hidden all the same)
+      const d = document;
+      try { if (on && !d.fullscreenElement) d.documentElement.requestFullscreen?.()?.catch?.(() => {}); else if (!on && d.fullscreenElement) d.exitFullscreen?.()?.catch?.(() => {}); } catch { /* (not this browser's) */ }
+    },
     editcmd({ cmd }) { try { document.execCommand(String(cmd || "").toLowerCase()); } catch { /* (not this browser's) */ } },
     // the history's window: a note's versions are the commits that changed it
     async "history-log"({ path }) {

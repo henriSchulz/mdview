@@ -882,6 +882,7 @@
       "File changed on disk — keeping your edits": "Die Datei wurde außerhalb geändert – deine Änderungen bleiben",
       "Find": "Suchen",
       "Find (Ctrl+F)": "Suchen (Ctrl+F)",
+      "Focus mode — Esc or F11 to leave": "Fokusmodus – Esc oder F11 beendet ihn",
       "Go to PDF": "Zur PDF",
       "History Is On": "Verlauf ist an",
       "Insert and Format": "Einfügen und Formatieren",

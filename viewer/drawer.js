@@ -142,7 +142,7 @@
   const EDGE = 6, PEEK_EDGE = 60, PEEK_BUTTON = 300, PEEK_LEAVE = 350, NEAR = 16;
   let peekTimer = 0, leaveTimer = 0;
   const peeking = () => document.body.dataset.sidebar === "peek";
-  const canPeek = () => !!P.folder && !compact() && document.body.dataset.sidebar === "closed" && !document.documentElement.hasAttribute("data-ipad") && !document.querySelector("#board[data-open], [aria-modal=\"true\"][data-open]"); // (not under a whiteboard or a dialog)
+  const canPeek = () => !!P.folder && !compact() && !document.body.hasAttribute("data-focus") &&document.body.dataset.sidebar === "closed" && !document.documentElement.hasAttribute("data-ipad") && !document.querySelector("#board[data-open], [aria-modal=\"true\"][data-open]"); // (not under a whiteboard or a dialog)
   const busy = () => (P.ctxOpen && P.ctxOpen()) || !!document.querySelector(":is(#sblook, .ui-popover)[data-open]") || document.body.classList.contains("sb-sizing") ||
     !!document.activeElement?.closest?.(".sb-rename");
   function peek(on) {
