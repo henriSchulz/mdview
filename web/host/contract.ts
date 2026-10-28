@@ -88,6 +88,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   editcmd: ["local", "cut, copy, paste, select all where the focus is"],
   external: ["local", "an address elsewhere, in a new tab"],
   print: ["local", "the browser's printing"],
+  fullscreen: ["local", "the focus mode: the browser's full screen, on or off"],
   painted: ["none", "the first frame is out: nothing to lift here"],
   // not in a browser
   fileop: ["none", "open in the default app, open with, show in the file manager"],

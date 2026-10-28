@@ -191,6 +191,33 @@
     setDocZoom(reset ? 100 : DOC_ZOOMS[Math.max(0, Math.min(DOC_ZOOMS.length - 1, i + (up ? 1 : -1)))]);
   }, true);
 
+  /* The focus mode (issue #9: "nur aufs Dokument"): the window full screen, and nothing of the
+   * controls on it — the toolbar, the tabs, the sidebar, the gear (chrome.css: body[data-focus]).
+   * A sidebar that was pinned is shut while it lasts and pinned again after; the host makes the
+   * window full screen (the shell: the window's own; the browser: its Fullscreen API), and the
+   * browser's full screen left by its own Esc ends the mode too. */
+  let sbWas = false, fullHeld = false;
+  const focusOn = () => document.body.hasAttribute("data-focus");
+  function setFocus(on) {
+    if (focusOn() === !!on) return;
+    if (on) {
+      sbWas = !!P.folder && sidebarOpen() && !compact();
+      if (sbWas) showSidebar(false, true);
+      closeOutline(); closeFind();
+      document.body.dataset.focus = "";
+      toast(T("Focus mode — Esc or F11 to leave"));
+    } else {
+      delete document.body.dataset.focus;
+      if (sbWas) showSidebar(true, true);
+      sbWas = false;
+    }
+    post("fullscreen", { on: !!on });
+  }
+  document.addEventListener("fullscreenchange", () => {
+    if (document.fullscreenElement) fullHeld = true;
+    else if (fullHeld) { fullHeld = false; setFocus(false); }
+  });
+
   // --- keyboard
   addEventListener("keydown", (e) => {
     const mod = e.ctrlKey || e.metaKey;
@@ -198,8 +225,10 @@
     const typing = e.target.matches?.("input[type=search], input[type=text], textarea") || e.target.isContentEditable;
     if (e.key === "Escape") {
       if (closeCtx(true) || closeNewNote() || closeOutline() || closeFind()) e.preventDefault();
+      else if (focusOn() && !e.defaultPrevented) { e.preventDefault(); setFocus(false); }
       return;
     }
+    if (e.key === "F11" || (mod && e.shiftKey && !e.altKey && k === "f")) { e.preventDefault(); setFocus(!focusOn()); return; }
     if (mod && e.shiftKey && k === "o") { e.preventDefault(); actions.outline(); return; }
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
@@ -306,7 +335,7 @@
   });
 
   // what the page's other files use of this one
-  Object.assign(P, { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll });
+  Object.assign(P, { followWiki, docZoom, follow, pasteClip, setPrefs, lockScroll, setFocus });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     locks: [() => locks],

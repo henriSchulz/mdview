@@ -235,6 +235,12 @@ impl Win {
                     let _ = window.print();
                 }
             }
+            // the focus mode (viewer/toolbar.js): the window full screen while it lasts
+            "fullscreen" => {
+                if let Some(window) = &self.window {
+                    let _ = window.set_fullscreen(truthy(&msg["on"]));
+                }
+            }
             "close" => self.close(app),
             "back" => self.go(app, true),
             "forward" => self.go(app, false),

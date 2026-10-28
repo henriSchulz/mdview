@@ -68,6 +68,11 @@
     opacity calc(var(--dur-fast) * 0.7) var(--ease-exit),
     transform calc(var(--dur-fast) * 0.7) var(--ease-exit);
 }
+/* the focus mode (viewer/toolbar.js, F11 / Ctrl+Shift+F): only the note on the screen — no control, and the room the tabs took
+ * at the top given back to the note */
+body[data-focus] :is(#toolbar, #tabs, #sidebar, #sb-grip, #sblook, #settings-btn, #rrail, #rpanel, #update, #outline, #findbar) { display: none !important; }
+body[data-focus][data-tabs] :is(#content, #active, #editor) { padding-top: 56px; }
+body[data-focus][data-tabs] :is(#twin, #split) { top: 0; }
 .tb {
   display: grid;
   place-items: center;
