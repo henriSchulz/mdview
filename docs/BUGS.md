@@ -95,6 +95,11 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 9. **A bare `<svg>` in Markdown is put into an `svg` fence before it is rendered or inserted**
    (`core.fenceSvg`): as plain HTML its empty lines end the HTML block and the picture falls
    apart.
+85. **What wraps a block in the reading view does not change what the block is in the active
+    mode** (#12): a code block or a formula with its caption is a `figure` to markdown-it, and was
+    taken for "other" — its dialog was the raw Markdown's, the caption no field of its own. Kind
+    comes from what is inside (`A.store.typeOf`), and the caption is taken off before the block is
+    taken apart (`parseCode`, `parseMath`) and put back after.
 
 ### What the pointer does
 

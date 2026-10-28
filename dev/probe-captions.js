@@ -31,6 +31,17 @@
     ok("… its menu now takes it away", c.has);
     c.remove(); await sleep(300);
     ok("Remove Caption: the formula alone again", /\$\$\n\nEnd\n?$/.test(text()) && !/: Caption/.test(text()), text().slice(-40));
+    // #12: a code block's caption written in its dialog
+    b = blockOf(/^```js/);
+    MdActive.islands.open(view, b.p);
+    await until(() => document.querySelector("#dlg[data-open] .dlg-caption"), 3000);
+    const field = document.querySelector("#dlg[data-open] .dlg-caption");
+    ok("a code block's dialog: its caption in a field of its own, not in the code", !!field && field.value === "The first line" && !/The first line/.test(document.querySelector("#dlg[data-open] .ce").textContent), [field && field.value, document.querySelector("#dlg[data-open]")?.innerText.slice(0, 300)]);
+    if (field) {
+      field.value = "Line one";
+      field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await sleep(500);
+      ok("… changed there, it is changed in the note, the code as it was", /```js\nconst a = 1;\n```\n: Line one\n/.test(text()) && !/The first line/.test(text()), text());
+    }
     out("active", {});
     await sleep(600);
     if (errs.length) ok("no script errors", false, errs);

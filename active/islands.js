@@ -17,20 +17,30 @@
   const { el } = A.dialog;
 
   // ------------------------------------------------------------ Markdown of an island, taken apart and put together
-  /* A code block: { fence, indent, lang, rest, code, indented }. */
-  function parseCode(raw) {
+  /* A caption under the block — a line that begins with ": " (viewer/markdown.js, captions) — taken off what is
+   * written: [the block, the caption's text, the caption as it was written]. Put back as it was where its text is the
+   * same; an empty one is none. */
+  function offCaption(raw) {
+    const has = CAPTIONED.exec(raw);
+    return has ? [raw.slice(0, has.index), has[0].replace(/^\n[ \t]*\n?:[ \t]+/, "").replace(/\s+$/, ""), has[0]] : [raw, "", ""];
+  }
+  const onCaption = (block, p) => block + (p.caption === p.captionWas ? p.captionRaw || "" : p.caption.trim() ? "\n: " + p.caption.replace(/\s*\n\s*/g, " ").trim() : "");
+  /* A code block: { fence, indent, lang, rest, code, indented, caption }. */
+  function parseCode(whole) {
+    const [raw, caption, captionRaw] = offCaption(whole), cap = { caption, captionWas: caption, captionRaw };
     const lines = raw.split("\n");
     const m = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(lines[0]);
     if (!m) { // by indentation
-      return { indented: true, fence: "```", indent: "", lang: "", rest: "", code: lines.map((l) => l.replace(/^(?: {4}|\t| {0,3}$)/, "")).join("\n") };
+      return { indented: true, fence: "```", indent: "", lang: "", rest: "", code: lines.map((l) => l.replace(/^(?: {4}|\t| {0,3}$)/, "")).join("\n"), ...cap };
     }
     const [, indent, fence, info] = m;
     const closed = lines.length > 1 && new RegExp(`^ {0,3}${fence[0]}{${fence.length},}[ \\t]*$`).test(lines[lines.length - 1]);
     const body = lines.slice(1, closed ? -1 : undefined).map((l) => l.replace(new RegExp(`^ {0,${indent.length}}`), ""));
     const im = /^([ \t]*)(\S*)([\s\S]*)$/.exec(info);
-    return { indented: false, closed, fence, indent, lang: im[2], rest: im[3], lead: im[1], code: body.join("\n") };
+    return { indented: false, closed, fence, indent, lang: im[2], rest: im[3], lead: im[1], code: body.join("\n"), ...cap };
   }
-  function buildCode(c) {
+  const buildCode = (c) => onCaption(codeText(c), c);
+  function codeText(c) {
     if (c.indented && !c.lang) return c.code.split("\n").map((l) => (l ? "    " + l : "")).join("\n");
     // the fence has to be longer than any run of its character in the code
     let fence = c.fence;
@@ -40,11 +50,12 @@
     return [c.indent + fence + info, ...body, c.indent + fence].join("\n");
   }
   /* A formula block: what stands before and after the LaTeX stays as written. */
-  function parseMath(raw) {
+  function parseMath(whole) {
+    const [raw, caption, captionRaw] = offCaption(whole), cap = { caption, captionWas: caption, captionRaw };
     const m = /^( {0,3}\$\$[ \t]*\n?)([\s\S]*?)(\n?[ \t]*\$\$[ \t]*)$/.exec(raw);
-    return m ? { head: m[1], tex: m[2], tail: m[3] } : { head: "$$\n", tex: raw, tail: "\n$$" };
+    return m ? { head: m[1], tex: m[2], tail: m[3], ...cap } : { head: "$$\n", tex: raw, tail: "\n$$", ...cap };
   }
-  const buildMath = (p) => p.head + p.tex + p.tail;
+  const buildMath = (p) => onCaption(p.head + p.tex + p.tail, { caption: "", ...p });
   function parseFront(raw) {
     const m = /^(---[ \t]*\n)([\s\S]*?)(\n?(?:---|\.\.\.)[ \t]*)$/.exec(raw);
     return m ? { head: m[1], yaml: m[2], tail: m[3] } : { head: "---\n", yaml: raw, tail: "\n---" };
@@ -157,9 +168,21 @@
     render(ed.value);
   }
 
+  /* The caption under a code block or a formula, written in its dialog (Henri, 2026-10-28: "Caption bei code boxen lässt
+   * sich nicht editieren", #12): a field under the code while it has one (Add Caption gives it one). null: it has none. */
+  function captionField(p) {
+    if (!p.captionRaw) return null;
+    const f = el("input", { class: "lp-field dlg-caption", type: "text", placeholder: T("caption.new"), "aria-label": T("caption.new"), autocomplete: "off" });
+    f.value = p.caption;
+    // (Add Caption: its word is selected, to be written over)
+    f.fresh = p.caption === T("caption.new");
+    f.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); A.dialog.close("done"); } }); // (one line: Enter ends it)
+    return f;
+  }
+
   function codeDialog(view, pos, node, fresh) {
     const c = parseCode(node.attrs.raw);
-    let ed, lang, rest, restNow;
+    let ed, lang, rest, restNow, cap;
     A.dialog.show({
       title: T("dialog.code"),
       anchor: () => view.nodeDOM(pos),
@@ -190,7 +213,8 @@
         // is nothing to edit in a line that runs out of the box. Left as it was where nothing is changed.)
         const tidy = c.lang.trim().toLowerCase() === "svg" && c.code.split("\n").some((l) => l.length > 200) ? tidySvg(c.code) : c.code;
         ed = A.dialog.editor({ value: tidy, language: edLang(c.lang), label: T("dialog.code") });
-        body.append(ed.el);
+        cap = captionField(c);
+        body.append(ed.el, ...(cap ? [cap] : []));
         const update = infoBar(info, ed);
         ed.onInput = update;
         let preview = null;
@@ -226,12 +250,12 @@
         showPreview();
         follow(ed, draw);
         return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
-          focus: () => (fresh || c.code ? ed.focus() : lang.focus()),
+          focus: () => (cap && cap.fresh ? cap.select() : fresh || c.code ? ed.focus() : lang.focus()),
           result() {
             // (left as it was written where it was not touched: spaces at the line's end and all)
             const r = restNow(), hid = /^hide(?:\s|$)/i.test(r);
             // (a fence without a language has no place for "hide" after it)
-            const next = { ...c, lang: lang.value.trim() || (hid ? "text" : ""), rest: r === c.rest.trim() ? c.rest : r ? " " + r : "", code: ed.value === tidy ? c.code : ed.value };
+            const next = { ...c, lang: lang.value.trim() || (hid ? "text" : ""), rest: r === c.rest.trim() ? c.rest : r ? " " + r : "", code: ed.value === tidy ? c.code : ed.value, caption: cap ? cap.value : c.caption };
             const raw = buildCode(next);
             return raw === node.attrs.raw && !fresh ? undefined : raw;
           },
@@ -271,7 +295,7 @@
   /* inline: { from, to } of the atom when the formula stands in a line */
   function mathDialog(view, pos, node, fresh, inline) {
     const p = inline ? { head: "$", tex: inline.tex, tail: "$" } : parseMath(node.attrs.raw);
-    let ed, asInline = !!inline;
+    let ed, cap, asInline = !!inline;
     A.dialog.show({
       title: T("dialog.math"),
       kind: "math",
@@ -285,7 +309,8 @@
         // (Tab at the end of a formula on its own lines: on with the line below it, as in a note)
         const suite = A.latexsuite.attach(ed, { block: () => !asInline, exit: () => { const own = !inline && !asInline; A.dialog.close("done"); if (own) below(view, pos); } });
         const hint = el("div", { class: "dlg-hint" });
-        body.append(preview, error, bar, ed.el, hint);
+        cap = inline ? null : captionField(p);
+        body.append(preview, error, bar, ed.el, hint, ...(cap ? [cap] : []));
         // block or in the line; the LaTeX, or the formula as a picture, to the clipboard
         const shape = el("div", { class: "dlg-seg", role: "radiogroup", "aria-label": T("dialog.mathShape") },
           `<button type="button" class="btn" role="radio" data-shape="block">${esc(T("dialog.block"))}</button><button type="button" class="btn" role="radio" data-shape="inline">${esc(T("dialog.inline"))}</button>`);
@@ -330,10 +355,10 @@
         ed.onInput = draw;
         draw(ed.value);
         return { text: () => ed.value, setText: (v) => { ed.value = v; ed.input.dispatchEvent(new Event("input")); }, 
-          focus: () => ed.focus(),
+          focus: () => (cap && cap.fresh ? cap.select() : ed.focus()),
           result() {
-            const raw = inline ? "$" + ed.value.replace(/\s*\n\s*/g, " ").trim() + "$" : buildMath({ ...p, tex: ed.value });
-            return !fresh && ed.value === p.tex && asInline === !!inline ? undefined : raw;
+            const raw = inline ? "$" + ed.value.replace(/\s*\n\s*/g, " ").trim() + "$" : buildMath({ ...p, tex: ed.value, caption: cap ? cap.value : p.caption });
+            return !fresh && ed.value === p.tex && (!cap || cap.value === p.caption) && asInline === !!inline ? undefined : raw;
           },
         };
       },

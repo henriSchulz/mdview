@@ -26,6 +26,9 @@
     blockquote_open: "blockquote", table_open: "table", fence: "code", code_block: "code", math_block: "math",
     html_block: "html", columns_open: "columns", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes", link_row: "linkrow",
   };
+  // (a code block or a formula with its caption under it is a figure, and still the code block or the formula: its own
+  // dialog edits it, the caption in a field of that — viewer/markdown.js, captions; #12)
+  const typeOf = (token, next) => (token.type === "figure_open" && next && (next.type === "fence" || next.type === "math_block") ? TYPES[next.type] : TYPES[token.type] || "other");
 
   // Offsets of every line in the normalised text and in the original.
   function lineTable(original) {
@@ -57,7 +60,7 @@
     tokens.forEach((t, i) => {
       if (depth === 0) first = i;
       depth += t.nesting;
-      if (depth === 0) out.push({ tokens: tokens.slice(first, i + 1), map: tokens[first].map, type: TYPES[tokens[first].type] || "other" });
+      if (depth === 0) out.push({ tokens: tokens.slice(first, i + 1), map: tokens[first].map, type: typeOf(tokens[first], tokens[first + 1]) });
     });
     return out;
   }
@@ -245,5 +248,5 @@
     return s ? (exact ? s.sep.orig : s.sep.raw) : !out.trim() ? "" : exact ? store.eol : "\n";
   };
 
-  A.store = { parse, serialize, groups, lineTable, typeOf: (token) => TYPES[token.type] || "other", adopt };
+  A.store = { parse, serialize, groups, lineTable, typeOf, adopt };
 })();

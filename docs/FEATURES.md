@@ -434,7 +434,8 @@ $$
 
 A whiteboard and an embedded PDF page or region are pictures here too. In the active mode the
 block's menu has **Add Caption** (the line is put under it and its dialog opens, to write it in)
-and **Remove Caption**. Under a paragraph of text the line stays a definition, as Markdown has it.
+and **Remove Caption**. A code block's and a formula's dialog has the caption in a field under the
+code (Enter ends it; emptied, the caption is gone); a picture's, in its Markdown. Under a paragraph of text the line stays a definition, as Markdown has it.
 
 A picture can be turned by quarters. The turn is written before the size:
 

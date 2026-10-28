@@ -450,7 +450,7 @@
           }
         } catch (e) {
           if (!(e instanceof Unsupported)) throw e;
-          out.push(island(A.store.typeOf(t), group, ctx));
+          out.push(island(A.store.typeOf(t, group[1]), group, ctx));
         }
         i = j;
       }

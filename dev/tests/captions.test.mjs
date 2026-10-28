@@ -46,3 +46,27 @@ test("the active mode: one block, written as it was read; the menu gives a capti
   // a picture with a caption keeps its size and turn in the menu
   assert.equal(A.islands.picture(view, blocks[1].p, blocks[1].n).size, "300");
 });
+
+test("a code block's and a formula's caption: taken apart from the block, edited, put back (#12)", () => {
+  const I = A.islands;
+  let c = I.parseCode("```js\nconst a = 1;\n```\n: The first line");
+  assert.equal(c.code, "const a = 1;", "the caption is not part of the code");
+  assert.equal(c.closed, true);
+  assert.equal(c.caption, "The first line");
+  assert.equal(I.buildCode(c), "```js\nconst a = 1;\n```\n: The first line", "as it was");
+  assert.equal(I.buildCode({ ...c, caption: "Another" }), "```js\nconst a = 1;\n```\n: Another");
+  assert.equal(I.buildCode({ ...c, caption: "" }), "```js\nconst a = 1;\n```", "an empty caption: none");
+  c = I.parseCode("```js\nx\n```\n\n:  spaced");
+  assert.equal(I.buildCode(c), "```js\nx\n```\n\n:  spaced", "an untouched caption stays as it was written");
+  let p = I.parseMath("$$\ne=mc^2\n$$\n: Einstein");
+  assert.equal(p.tex, "e=mc^2");
+  assert.equal(p.caption, "Einstein");
+  assert.equal(I.buildMath({ ...p, caption: "Relativity" }), "$$\ne=mc^2\n$$\n: Relativity");
+  assert.equal(I.buildMath(I.parseMath("$$\nx\n$$")), "$$\nx\n$$");
+  // … and with its caption the block is still a code block, a formula: its own dialog opens, not the Markdown's
+  const text = "```js\nconst a = 1;\n```\n: Code\n\n$$\nx\n$$\n: F\n";
+  const d = A.document.open({ text, raw: text, links: {}, vault: false }), kinds = [];
+  d.doc.forEach((n) => kinds.push(n.attrs.kind));
+  assert.deepEqual(kinds, ["code", "math"]);
+  assert.equal(A.document.serialize(d, d.doc, false), text);
+});

@@ -250,10 +250,12 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 #dlg[data-split] .ce { max-height: none; min-height: 0; height: 100%; box-sizing: border-box; }
 #dlg[data-split] .dlg-preview { display: grid; place-items: center; height: 100%; box-sizing: border-box; min-height: 0; overflow: auto; }
 #dlg[data-split] .dlg-preview > svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+#dlg[data-split] .dlg-caption { grid-column: 1 / -1; grid-row: 2; } /* (a caption under the code and its picture: islands.js, captionField) */
 /* (a dialog as narrow as the block it stands over has the picture under the code, as a narrow window has) */
 #dlg { container: dlg / inline-size; }
 @container dlg (max-width: 640px) {
   #dlg[data-split] .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+  #dlg[data-split] .dlg-caption { grid-row: 3; }
 }
 @media (max-width: 760px) {
   #dlg[data-split] .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }

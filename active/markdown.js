@@ -575,7 +575,7 @@
       const v = node.attrs[a] ?? null;
       if (a === "raw" && node.attrs.kind === "code" && A.islands) { // code is its language and its text, however it is fenced
         const c = A.islands.parseCode(String(v));
-        return JSON.stringify([c.lang, c.code.replace(/\s+$/, "")]);
+        return JSON.stringify([c.lang, c.code.replace(/\s+$/, ""), c.caption]); // (and its caption)
       }
       if (a === "raw") return String(v).replace(/[ \t]+$/gm, "").replace(/\n{2,}/g, "\n\n").trim();
       if (a === "tight") return (v && !needsLoose(node)) || !canBeLoose(node); // a list with nothing to put a blank line between is tight
