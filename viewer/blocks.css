@@ -120,6 +120,16 @@ details[open] > summary .callout-fold { transform: rotate(90deg); }
 :root[data-callout="label"] .callout-icon .sf { font-size: 12px; }
 :root[data-callout="label"] .callout-fold { margin-left: 2px; }
 :root[data-callout="label"] .callout-content { margin-top: 0; }
+/* card (the Velum lab's callout): a raised card on the note — the page's raised tone, a floating card's shade — its sign in a
+ * filled round badge of the callout's colour at the left, the title in the text's ink, bold; Focus the same card */
+:root[data-callout="card"] .callout,
+:root[data-callout="card"] blockquote.deco-focus { position: relative; padding: 12px 16px 13px 46px; border: 0; border-radius: var(--radius-panel); background: var(--raised); box-shadow: var(--shadow-capsule); color: var(--fg); }
+:root[data-callout="card"] .callout-title { color: var(--fg); }
+:root[data-callout="card"] .callout-icon { position: absolute; left: 14px; top: 12px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cc); color: var(--raised); }
+:root[data-callout="card"] .callout-icon svg { width: 12px; height: 12px; stroke-width: 2.4; }
+:root[data-callout="card"] .callout-icon .sf { font-size: 11px; line-height: 20px; }
+:root[data-callout="card"] .callout-content { margin-top: 2px; }
+:root[data-callout="card"] blockquote.deco-focus { padding-left: 16px; font-weight: 500; }
 :root[data-callout="label"] details.callout:not([open]) { padding-block: 12px 0; border-radius: 0; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cc) 38%, transparent); }
 :root[data-callout="label"] blockquote.deco-focus { position: relative; padding: 6px 16px; border-left: 0; }
 :root[data-callout="label"] blockquote.deco-block.deco-focus { padding: 10px 16px; }

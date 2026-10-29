@@ -79,7 +79,7 @@
    * Three more show what is on the page: sheet (a small sheet of paper beside its name and how
    * its text begins), preview (the sheet large, the name under it) and widget (a tile with its
    * tasks, the pages in it, or its text). A link to another note is a row or a card. */
-  const CALLOUT_STYLES = ["tip", "label"]; // (beside the box, which needs no name)
+  const CALLOUT_STYLES = ["tip", "label", "card"]; // (beside the box, which needs no name)
   const PAGE_STYLES = ["row", "card", "sheet", "preview", "widget"], LINK_STYLES = ["row", "card"];
   const PAGE_OPEN = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*-->\s*$/, PAGE_CLOSE = /^ {0,3}<!--\s*\/page\s*-->\s*$/, PAGE_ROW = /^ {0,3}<!--\s*page(?:\s+([a-z]+(?:\s+[a-z]+)?))?\s*:\s*(.*?)\s*#([a-z]\d+)\s*-->\s*$/;
   const pageLook = (words) => { const [a, b] = String(words || "").split(/\s+/), style = PAGE_STYLES.includes(a) ? a : "row", color = [a, b].find((x) => DECO_COLORS.includes(x)) || ""; return { style, color }; };
