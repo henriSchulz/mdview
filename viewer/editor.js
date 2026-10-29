@@ -30,6 +30,7 @@
   if (READING) { modeSeg.hidden = true; for (const act of ["share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
   const MODES = ["active", "split", "edit", "read"]; // as in the toolbar (and Ctrl+Alt+1 … 4)
   function showMode() {
+    modeSeg.hidden = READING || P.current?.kind === "text"; // (a plain text file has no other mode to switch to)
     modeSeg.style.setProperty("--i", MODES.indexOf(P.mode));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === P.mode));
     if (P.twinSync) P.twinSync(); // (the source beside its reading: there in its mode, and only there — viewer/twin.js)
@@ -166,10 +167,11 @@
     const keys = new Array(n), html = new Array(n), cls = new Array(n);
     lineStarts = new Array(n);
     let st = "start", off = 0;
+    const plain = P.current?.kind === "text"; // (a plain text file: nothing in it is Markdown, nothing coloured)
     for (let i = 0; i < n; i++) {
       lineStarts[i] = off;
       off += lines[i].length + 1;
-      const r = hlLine(lines[i], st);
+      const r = plain ? [esc(lines[i]), "", st] : hlLine(lines[i], st);
       html[i] = r[0];
       cls[i] = r[1];
       keys[i] = r[1] + "\n" + r[0];

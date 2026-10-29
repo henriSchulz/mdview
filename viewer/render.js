@@ -93,10 +93,26 @@
     current = p;
     if (!p.error) P.trailPush(p.path, p.text);
     if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path }); // (back and forward: viewer/tabs.js)
+    if (p.kind === "text") { // a plain text file: its text in the source editor, and nothing else — no modes, no Markdown read into it
+      if (mode !== "read" && !(prev && prev.kind === "text")) modeBeforePdf = mode; // (the note after it is in this mode again)
+      document.title = p.name;
+      if (p.base && baseEl.href !== p.base) baseEl.href = p.base;
+      if (!prev || prev.path !== p.path) P.markActiveNote(true);
+      if (P.splitHeld) P.splitHeld();
+      if (P.inSource(mode)) {
+        if (prev && prev.path === p.path && mode === "edit") { P.adoptDisk(p); return; }
+        P.leaveEditNow();
+      }
+      if (mode === "active") P.leaveActiveNow();
+      draw(p, null);
+      if (!p.error && !p.readonly) P.setMode("edit"); // (one that can't be written stays as it reads: the text, plain)
+      return;
+    }
     // the mode the app was last used in (once, for the window's first note)
     // back from a PDF, or from a tab with no note in it: the mode the note before it was in (neither
     // has modes; it only looked like a change to reading)
-    if (!prev || prev.kind === "pdf") {
+    if (prev && prev.kind === "text") P.showMode(); // (the switch of modes is there again)
+    if (!prev || prev.kind === "pdf" || prev.kind === "text") {
       const back = modeBeforePdf;
       modeBeforePdf = null;
       if (back && !p.error && !(P.inSource(back) && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(back); }, 0);
@@ -163,6 +179,12 @@
     }
     if (p.error) {
       content.innerHTML = `<div class="empty-state"><div class="empty-icon">${ICON.alert}</div><p>${esc(p.error)}</p></div>`;
+      outline = [];
+      reveal();
+      return;
+    }
+    if (p.kind === "text") { // (seen only while it can't be edited, and printed: the text as it is)
+      content.innerHTML = p.text ? `<pre class="plain-text">${esc(p.text)}</pre>` : `<div class="empty-state"><p>This file is empty.</p></div>`;
       outline = [];
       reveal();
       return;

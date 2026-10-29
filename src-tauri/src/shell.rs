@@ -977,7 +977,7 @@ impl Win {
         dialog = match what {
             Pick::Folder => dialog.set_title("Open Folder"),
             Pick::Parent => dialog.set_title("Folder to Put the Repository In"),
-            Pick::File => dialog.set_title("Open Markdown").add_filter("Markdown", scan::MD_EXT),
+            Pick::File => dialog.set_title("Open Markdown").add_filter("Markdown", scan::MD_EXT).add_filter("Text", scan::TEXT_EXT),
             Pick::Reference => dialog.set_title("Reference picture").add_filter("Pictures", scan::IMAGE_EXT),
         };
         if let Some(dir) = here.filter(|_| !matches!(what, Pick::Reference)) {
@@ -1136,8 +1136,10 @@ impl Win {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (String::new(), Some(format!("File not found: {}", s(&path))), readonly_reason(&path, None)),
             Err(e) => (String::new(), Some(format!("Can't read file: {}", strerror(&e))), Some("file can't be read")),
         };
-        let links = if text.contains("[[") { self.build_links(&text) } else { json!({}) };
+        let plain = scan::is_text(&path);
+        let links = if !plain && text.contains("[[") { self.build_links(&text) } else { json!({}) };
         let mut payload = json!({
+            "kind": if plain { json!("text") } else { Value::Null },
             "text": text,
             "name": name_of(&path),
             "path": s(&path),
@@ -1213,7 +1215,7 @@ impl Win {
         }
         if !p.exists() {
             self.toast(format!("Not found: {}", name_of(&p)));
-        } else if p.is_file() && (is_md(&p) || shows_as_pdf(&p)) {
+        } else if p.is_file() && (is_md(&p) || scan::is_text(&p) || shows_as_pdf(&p)) {
             if tab {
                 self.link_tab(app, &p, frag, own);
             } else {
@@ -1229,7 +1231,7 @@ impl Win {
         let Some(p) = self.resolver.as_mut().and_then(|r| r.resolve(target)) else {
             return self.toast(format!("Note “{}” doesn't exist", target.split('#').next().unwrap_or("")));
         };
-        if !matches!(file_kind(&p), "md" | "pdf" | "slides") {
+        if !matches!(file_kind(&p), "md" | "pdf" | "slides") && !scan::is_text(&p) {
             host::launch_path(&p);
         } else if tab && !self.tabs.is_empty() && !(own && self.path.as_ref() == Some(&p)) {
             self.link_tab(app, &p, heading, own);

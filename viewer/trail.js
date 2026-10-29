@@ -92,6 +92,7 @@
     if (next === P.mode || !P.current) return;
     if (READING && next !== "read") return; // (a host that only shows a note: there is nothing but reading it)
     if (P.current.kind === "pdf") { toast(T("A PDF is read here, not edited")); return; }
+    if (P.current.kind === "text" && next !== "edit") return; // (a plain text file has the source editor alone: viewer/render.js)
     if (next === "active") {
       if (P.current.error) return;
       if (!window.MdActive?.view) { // first use: ProseMirror and active/*.js
@@ -130,7 +131,7 @@
     }
     const prev = P.mode;
     P.mode = next;
-    post("mode", { edit: P.mode !== "read", name: P.mode });
+    post("mode", { edit: P.mode !== "read", name: P.mode, plain: P.current.kind === "text" });
     showMode();
     closeOutline();
     // Reading <-> active: the same document in the same place, nothing to fade; the source alone <-> the source beside its

@@ -17,6 +17,7 @@ itself: every example below is drawn as it would be in a note.
 | `mdview FOLDER` | the folder: a sidebar with its notes, All Notes in the folder itself (its tabs as they were, an empty one shown) |
 | `mdview` | the folder opened last, the same way |
 | `mdview FILE.pdf` | the PDF, in the built-in viewer |
+| `mdview FILE.txt` | the text file, in the source editor (below) |
 
 In the browser the same: a repository's address opens on All Notes, in the repository itself;
 an address that names a note (`?n=…`) opens that note, and a reload shows what was shown.
@@ -62,6 +63,13 @@ right puts the caret at its line; a link there leads where it leads in reading. 
 the sidebar pinned the halves share what it leaves of the window; a window too narrow for two (less than
 600 px) shows the source alone until it is wider. It is not the sheet beside the note (Show in Split View, Open Beside): opening that
 sheet changes to the source alone, and this mode closes the sheet.
+
+**Plain text files** (`.txt`, `.text`) open in the source editor alone: nothing in them is read as Markdown or
+coloured, the switch of modes is hidden, and `Ctrl+B` / `Ctrl+I` / `Ctrl+K` type nothing into them. Edits are saved by
+themselves, line endings as they were. One that can't be written (not UTF-8, too large, read-only) shows its text as it
+is. The note opened after it is in the mode the window was in before, and the mode a new window starts in stays as it
+was. They open from the sidebar (where it lists other files), a link, Open (its Text filter) and the desktop: the app is the default for
+`text/plain` once installed.
 
 ## Markdown that is rendered
 
