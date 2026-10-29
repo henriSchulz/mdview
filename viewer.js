@@ -8,7 +8,7 @@
 (() => {
   const P = window.MdPage;
   const { NONCE, DESKTOP, ASSETS, post, T, esc, keys, SVG_ICON, ICON, fileHref, fileSize, fileExt,
-    DECO_COLORS, CALLOUT_ICON, slugify, inlineText } = P; // viewer/base.js
+    DECO_COLORS, CALLOUT_ICON, CALLOUT_BADGE, slugify, inlineText } = P; // viewer/base.js
   const { md, tex, imageSize, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark, svgPicture, plainCode, codeHidden,
     codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW, pageLook,
@@ -322,7 +322,7 @@
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
       markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && P.pagesShown && P.pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++P.pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind,
-        title: calloutTitle, icon: CALLOUT_ICON }, keys, follow, tex, mermaidSvg, toast,
+        title: calloutTitle, icon: CALLOUT_ICON, badge: CALLOUT_BADGE }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), menuAt: (x, y, rows) => P.menuAt(x, y, rows), post, touching, byFinger, mdHtml, mdInto, drawDiagrams, fenceSvg, noteText,
       // (the folder's notes, for what the chat may be given to read: { path, name, dir })
       folderName: () => (P.folder ? (P.folder.quick ? "Quick Notes" : P.folder.name) : ""),

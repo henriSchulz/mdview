@@ -143,6 +143,25 @@
     help: "question", faq: "question", attention: "warning", caution: "danger",
     fail: "failure", missing: "failure", error: "danger", cite: "quote",
   };
+  // the callouts' signs as badges (the card style, viewer/blocks.css): a filled disc in the callout's colour, the sign in white,
+  // drawn on the badge's own 20-unit grid — so a 20 px badge is drawn at its size, not a 24-unit drawing shrunk to 12 px
+  const badge = (inner) => `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/>${inner}</svg>`;
+  const CALLOUT_BADGE = {
+    note: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.4 13.6l.5-2.2 5.5-5.5a1.25 1.25 0 0 1 1.8 1.8l-5.5 5.5z"/>'),
+    info: badge('<circle fill="#fff" cx="10" cy="6.3" r="1.15"/><path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M10 9.2v5"/>'),
+    todo: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.3 10.2l2.5 2.5 4.9-5.2"/>'),
+    abstract: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.6 7h6.8M6.6 10h6.8M6.6 13h4.2"/>'),
+    tip: badge('<path fill="#fff" d="M10 4.6l1.45 3.3 3.6.35-2.75 2.4.8 3.55L10 12.35l-3.1 1.85.8-3.55-2.75-2.4 3.6-.35z"/>'),
+    success: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6.3 10.2l2.5 2.5 4.9-5.2"/>'),
+    question: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7.7 7.7a2.35 2.35 0 1 1 3.3 2.15c-.6.3-1 .75-1 1.4v.35"/><circle fill="#fff" cx="10" cy="14.3" r="1.1"/>'),
+    warning: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M10 5.6v5.2"/><circle fill="#fff" cx="10" cy="14" r="1.15"/>'),
+    failure: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7.2 7.2l5.6 5.6M12.8 7.2l-5.6 5.6"/>'),
+    danger: badge('<path fill="#fff" d="M11 4.4L6.6 11h3.1l-1 4.6 4.6-6.8h-3.1z"/>'),
+    bug: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8.1 8.6h3.8v3.3a1.9 1.9 0 0 1-3.8 0zM6.4 10.2h1.7M11.9 10.2h1.7M6.7 13.2h1.5M11.8 13.2h1.5M8.7 6.6l1.3 1 1.3-1"/>'),
+    example: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8.3 7h5M8.3 10h5M8.3 13h5"/><circle fill="#fff" cx="6.4" cy="7" r=".9"/><circle fill="#fff" cx="6.4" cy="10" r=".9"/><circle fill="#fff" cx="6.4" cy="13" r=".9"/>'),
+    quote: badge('<path fill="#fff" d="M6.1 13.6c0-2.6.95-4.45 2.8-5.5l.55.85c-.95.65-1.45 1.45-1.55 2.5h1.45v2.15zm5.1 0c0-2.6.95-4.45 2.8-5.5l.55.85c-.95.65-1.45 1.45-1.55 2.5h1.45v2.15z"/>'),
+    important: badge('<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M10 5.6v5.2"/><circle fill="#fff" cx="10" cy="14" r="1.15"/>'),
+  };
   const CALLOUT_ICON = {
     note: SVG_ICON.pencil, info: SVG_ICON.info, todo: SVG_ICON.todo, abstract: SVG_ICON.clip, tip: SVG_ICON.flame,
     success: SVG_ICON.check, question: SVG_ICON.help, warning: SVG_ICON.warn, failure: SVG_ICON.x,
@@ -175,7 +194,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { NONCE, DESKTOP, FILEWORK, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
-    ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, slugify,
+    ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, CALLOUT_BADGE, slugify,
     inlineText, inSource });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

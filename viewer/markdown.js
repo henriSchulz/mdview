@@ -4,7 +4,7 @@
 "use strict";
 (() => {
   const P = window.MdPage;
-  const { T, esc, ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON,
+  const { T, esc, ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, CALLOUT_BADGE,
     slugify, inlineText } = P; // viewer/base.js
 
   const md = window.markdownit({ html: true, linkify: true, typographer: false, breaks: false });
@@ -301,7 +301,7 @@
     }
   });
   md.renderer.rules.callout_title_open = (t, i) =>
-    `<${t[i].tag} class="callout-title"><span class="callout-icon">${CALLOUT_ICON[t[i].meta.kind]}</span><span class="callout-title-text">`;
+    `<${t[i].tag} class="callout-title"><span class="callout-icon">${CALLOUT_ICON[t[i].meta.kind]}</span><span class="callout-badge" aria-hidden="true">${CALLOUT_BADGE[t[i].meta.kind] || CALLOUT_BADGE.note}</span><span class="callout-title-text">`;
   md.renderer.rules.callout_title_close = (t, i) =>
     `</span>${t[i].meta.fold ? `<span class="callout-fold">${ICON.chevron}</span>` : ""}</${t[i].tag}>`;
   md.renderer.rules.callout_body_open = () => '<div class="callout-content">';

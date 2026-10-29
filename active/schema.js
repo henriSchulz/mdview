@@ -35,7 +35,7 @@
     const title = dom.appendChild(document.createElement(fold ? "summary" : "div"));
     title.className = "callout-title";
     title.contentEditable = "false";
-    title.innerHTML = `<span class="callout-icon">${C.callout.icon[C.callout.kind(type)]}</span><span class="callout-title-text">${C.md.renderInline(C.callout.title(type, n.attrs.title), { links: {}, outline: [], depth: 1 })}</span>`
+    title.innerHTML = `<span class="callout-icon">${C.callout.icon[C.callout.kind(type)]}</span><span class="callout-badge" aria-hidden="true">${(C.callout.badge || {})[C.callout.kind(type)] || (C.callout.badge || {}).note || ""}</span><span class="callout-title-text">${C.md.renderInline(C.callout.title(type, n.attrs.title), { links: {}, outline: [], depth: 1 })}</span>`
       + (fold ? `<span class="callout-fold">${C.UI.chevron}</span>` : "");
     const content = dom.appendChild(document.createElement("div"));
     content.className = "callout-content";
