@@ -25,10 +25,10 @@ console.log(`assets: ${files.length} files, ${folders.join(", ")} and the guide 
 
 // The rules for writing a note, for a client of the Model Context Protocol (lib/mcp/tools.ts,
 // notes_guide): the skill of the repository (skill/mdview-notes), without what only holds on the
-// author's own computer — where a file is saved, Git, the pasteboard's command — and with a head
-// of its own. Written as a module of the server, so it is in the build wherever that runs.
+// author's own computer (where a file is saved, Git, the pasteboard: SKILL.md's last part and
+// history.md) — and with a head of its own. Written as a module of the server, so it is in the build wherever that runs.
 const skill = readFileSync(join(root, "skill", "mdview-notes", "SKILL.md"), "utf8").replace(/^---\n[\s\S]*?\n---\n/, "");
-const LOCAL = ["Keeping a version and sending it", "The pasteboard"];
+const LOCAL = ["Where it goes"];
 const guide = skill
   .split(/\n(?=## )/)
   .filter((part) => !LOCAL.some((name) => part.startsWith(`## ${name}`)))
@@ -41,7 +41,6 @@ Written with write_note and edit_note: each is a commit of its own, nothing else
 no command. The skill was written for the app's author, Henri: where it says Henri, read the user.
 
 `)
-  .replace(/^6\. \*\*Save[\s\S]*?(?=\n\n## )/m, "")
   .trim();
 writeFileSync(join(web, "lib", "mcp", "guide.gen.ts"), `// Written by scripts/assets.mjs from skill/mdview-notes/SKILL.md — not to be changed here.\nexport const GUIDE = ${JSON.stringify(guide + "\n")};\n`);
 console.log(`assets: the guide for notes (${guide.length} characters) written to lib/mcp/guide.gen.ts`);

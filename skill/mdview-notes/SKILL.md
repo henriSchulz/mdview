@@ -1,288 +1,170 @@
 ---
 name: mdview-notes
-description: Write Markdown files for Henri's notes app Markdown Notes (mdview / mdnotes) so they use what the app renders — callouts, decorations, columns, wide tables, KaTeX, Mermaid, svg fences, wikilinks, properties with a tile colour, PDF links and figures embedded straight out of a PDF (PDF++ style, no extracted images). Use whenever a note, summary, cheat sheet, lecture notes, study sheet, documentation page or any .md file is written for Henri to read in mdview, or when he asks for "eine Notiz", "eine md-Datei", "für mdview", "für meine Notizen", "Zusammenfassung als Markdown". Triggers: mdview, mdnotes, Markdown Notes, Notiz, note, .md, Zusammenfassung, Lernzettel, cheat sheet.
+description: Write a note for Henri's notes app Markdown Notes (mdview / mdnotes) — a short, exact note on one subject, written as a textbook writes it, with the app's extras only where they carry content (properties, KaTeX, tables with a coloured head, callouts, definition lists, wikilinks, figures as svg fences — never Mermaid — and regions of a PDF embedded in place). Use whenever a note, summary, cheat sheet, lecture notes, study sheet or any .md file is written for Henri to read in mdview, or when he asks for "eine Notiz", "eine md-Datei", "für mdview", "für meine Notizen", "Zusammenfassung als Markdown". Triggers: mdview, mdnotes, Markdown Notes, Notiz, note, .md, Zusammenfassung, Lernzettel, cheat sheet.
 ---
 
 # Notes for Markdown Notes (mdview)
 
-Henri reads and writes his notes in his own app (`mdview`, `~/Projects/mdview`). A file written for
-it should be plain Markdown that also reads well elsewhere, and use the app's extras where they make
-the note better. The full reference, with every example rendered, is
-`~/Projects/mdview/docs/FEATURES.md` — read it when unsure whether something is supported.
+Henri reads his notes in his own app (`mdview`, `~/Projects/mdview`). A note is plain Markdown that
+reads well anywhere and uses the app's extras only where they carry content. Everything the app
+renders, each example shown, is in `~/Projects/mdview/docs/FEATURES.md`; search it when unsure.
 
-## Rules
+## What a note is
 
-1. **One `# Title`** as the first line after the properties; the file name is the title in the
-   sidebar, so name the file like the title (`Fourier Transform.md`, spaces are fine).
-2. **Properties** only when they say something: `tags`, `date`, and `color` (red, orange, yellow,
-   green, cyan, blue, magenta) to mark the note with a dot in that colour in All Notes. Two more
-   say how the note is shown: `background` (gray, red, orange, yellow, green, cyan, blue, magenta:
-   a soft run of colour around the note, which is a sheet on it; dots, grid, lines: paper around it) and `wide: true` (a wide text column — for
-   a note of wide tables, columns or figures). Leave both out unless the note gains by them.
-3. **Write the note, not a demo.** Use an extra only where it carries content: a callout for the
-   one thing not to miss, columns for a real side-by-side, a diagram where structure matters.
-   How it should read — formal, and not like something generated: *How a note reads* below.
-4. **Language**: the language Henri asked in (usually German) for the text; keep technical terms.
-5. **Blank line** before and after every block (lists, fences, callouts, tables, column markers).
-6. **Save** where Henri says; without a place, ask or use the folder he has open. Open it for him
-   only if he asks: `mdview "FILE.md"`.
-7. **Keep and send** what you wrote when the folder is a project with its history on — see
-   *Keeping a version and sending it* below. Elsewhere, write the files and leave Git alone.
+A note is one subject, written down so that it can be understood and looked up: the entry a good
+textbook or a formulary has on it, not the answer in a chat. It is kept, read again, and read
+beside other notes.
 
-## How a note reads
+- **Small.** One subject, and only what belongs to it: about one screen — 200 to 500 words of
+  text, with the formulas, one table and one figure where they are needed. A subject that needs
+  more is several notes, each on one part, linked with `[[…]]`; never one long note.
+- **Exact.** Every statement is one that holds, and the condition under which it holds stands
+  beside it. A symbol is named where it first appears, a quantity carries its unit, a number its
+  precision and its source. No "etwa", "meist", "in der Regel" where the exact statement is known.
+- **Dense.** Every sentence adds a fact. Nothing announces, repeats, summarises or comments on what
+  the note says; no sentence under a heading says what the section is about.
+- **In order.** Definition, then the statement (formula, law, mechanism), then the one worked
+  example or figure that makes it visible, then what follows from it. A derivation gives every
+  step; a long one is a note of its own. Not: motivation, history, overview, outlook.
 
-A note is a document Henri keeps: written to the standard of a textbook, a lecture script or a
-technical report, and still easy to follow. It must not read as something a chatbot produced.
+## How it reads
 
-- **Begin with the matter.** No opening that announces the note ("Diese Notiz erklärt …", "Im
-  Folgenden …", "Worum geht es?"), no overview of what follows, no closing "Zusammenfassung",
-  "Fazit", "Das Wichtigste in Kürze" or "Nächste Schritte" that says it all again.
-- **Headings name their subject**, as a noun phrase: "Faltungssatz", "Herleitung",
-  "Randbedingungen", "Messaufbau". Not a question, not a teaser, not a remark to the reader:
-  no "Was passiert hier?", "Warum ist das wichtig?", "Schritt für Schritt erklärt", "Merke".
-- **No sections nobody asked for**: no "Selbsttest", quiz, "Kontrollfragen", "Eselsbrücken",
-  "Tipps", "Häufige Fehler". Henri gets them when he asks for them.
-- **Formal, complete sentences** in the third person. No address to the reader, no rhetorical
-  questions, no exclamation marks, no emoji, no "ganz einfach", "kurz gesagt", "spannend".
-- **Understandable all the same**: a term is defined where it first appears, the steps of a
-  derivation are all there, one worked example stands where the general statement is hard to
-  see. Formal does not mean terse.
-- **Prose where there is an argument, a list where there is an enumeration.** No paragraph
-  chopped into bullets, no bold scattered over a sentence — bold marks a term being defined.
-- **The app's extras with restraint**: a definition list or a callout for a definition or a
-  theorem, a table for values, a formula as a block, a diagram where structure matters. One
-  callout a section at most, with a plain title ("Definition", "Satz", "Hinweis") — none that
-  only decorates.
+Formal, in the third person, in complete sentences, in the language Henri asked in (usually
+German), with the field's terms as the field writes them (English where it does).
+
+- **It begins with the matter.** The first sentence is the definition or the central statement.
+  No "Diese Notiz …", "Im Folgenden …", "Ein Überblick über …", and no closing "Zusammenfassung",
+  "Fazit", "Merke", "Nächste Schritte".
+- **Headings name their subject** as a noun phrase ("Faltungssatz", "Randbedingungen"),
+  unnumbered, two levels at most. Not a question or a teaser, not "Grundidee", "Überblick",
+  "Was passiert hier?".
+- **No section that was not asked for**: no quiz, "Kontrollfragen", "Tipps", "Häufige Fehler",
+  "Vorteile und Nachteile", "Anwendungen" as padding. Henri asks when he wants one.
+- **No address to the reader**, no rhetorical question, no exclamation mark, no emoji, no "ganz
+  einfach", "kurz gesagt", "spannend", "wichtig zu verstehen". No aside between dashes; a sentence
+  of its own instead.
+- **Prose where there is an argument, a list where there is an enumeration.** No paragraph chopped
+  into bullets with a bold lead ("- **Anregelzeit**: …"): terms get a definition list, steps a
+  numbered list, values a table. Bold marks a term only where it is defined.
+- **Nothing from outside without its source.** A note from a PDF links the page it draws on
+  (`[[paper.pdf#page=3|S. 3]]`). No pictures pulled from the web: a figure is drawn (below) or
+  embedded out of the PDF.
+
+## Formulas and figures
+
+A formula stands as a block, `$$` on its own lines, its symbols named in the sentence before or
+after it; in the running text it stays in the line, `$…$`.
+
+A figure is drawn where structure must be seen: a block diagram, a signal flow, the layers of a
+membrane, a circuit, a geometric construction, a measurement setup. **Always as an `svg` fence,
+never Mermaid** — its layout and look are not the note's. One figure a note is the rule; a second
+needs a second structure. A figure that only decorates or repeats a table is left out, and so is
+a flowchart of the note's own structure.
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="110" viewBox="0 0 400 110" font-family="SF Pro, Inter, sans-serif" font-size="13" fill="none" stroke="currentColor" stroke-width="1.5">
+  <defs><marker id="rk-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor" stroke="none"/></marker></defs>
+  <rect x="150" y="35" width="100" height="40" rx="4"/>
+  <line x1="60" y1="55" x2="148" y2="55" marker-end="url(#rk-a)"/>
+  <line x1="250" y1="55" x2="340" y2="55" marker-end="url(#rk-a)"/>
+  <g fill="currentColor" stroke="none">
+    <text x="200" y="59" text-anchor="middle">Regler</text>
+    <text x="100" y="47" text-anchor="middle" font-style="italic">e</text>
+    <text x="300" y="47" text-anchor="middle" font-style="italic">u</text>
+  </g>
+</svg>
+```
+: The caption stands on the line right under the fence.
+
+- One `<svg>` root with `xmlns`, `width`, `height` and `viewBox`, at most 700 wide: the app centres
+  it and scales it down to the column.
+- `currentColor` for every line and label, so it reads in the light and the dark theme; at most one
+  accent colour (`#0071e3`), for the one thing the figure is about. No background rectangle, no
+  gradient, pattern or shadow.
+- One stroke width throughout (1.5 or 2), coordinates on a grid of 10, arrows through one
+  `<marker>`. Labels stand clear of lines, `text-anchor="middle"` in boxes, 12 to 14 px, variables
+  in `font-style="italic"` as in the formulas.
+- Ids (`marker`, `clipPath`) carry a prefix of the figure's own: all figures of a note share one
+  page.
+- The caption says what is shown; no title inside the picture. No scripts, event attributes or
+  `foreignObject` (they are removed).
+
+## The file
+
+- `# Title` as the first line after the properties; the file is named like the title
+  (`Fourier Transform.md`, spaces are fine).
+- Properties only when they say something: `tags`, `date`, `color` (red, orange, yellow, green,
+  cyan, blue, magenta: a dot in All Notes). `width: wide` only for a note of wide tables or
+  figures; `background` is Henri's to set in the app.
+- A blank line before and after every block (list, fence, callout, table, column marker).
 
 ## What the app renders
 
+The daily tools:
+
 | Want | Write |
 |---|---|
-| highlight | `==text==` |
-| tag | `#tag`, `#nested/tag` |
-| task | `- [ ] open`, `- [x] done` |
-| footnote | `text[^1]` and `[^1]: the note` |
-| key | `<kbd>Ctrl</kbd>` |
-| sub / superscript | `H~2~O`, `x^2^` |
+| formula | `$a^2$` in the line; `$$` on its own line, the LaTeX, `$$` on its own line |
 | definition | `Term` then a line `: meaning` |
+| table with a coloured head | a line `<!-- table head=cyan -->` right before it (the seven colours or `#rrggbb`); `<!-- table narrow -->` as wide as its content |
+| callout | `> [!note] Title` then `> text` lines; kinds: note, info, abstract, tip, example, question, warning, danger, quote, important; `[!tip]-` folded. One a section at most, with a plain title ("Definition", "Satz", "Hinweis") |
+| figure | an `svg` fence, as above; caption `: text` on the line under it (a picture, a PDF region and a `$$` block take one too) |
+| link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]`; `![[Note]]` shows it in place |
+| footnote | `text[^1]` and `[^1]: the note` |
+| highlight | `==text==` |
+| picture | `![alt](file.png)`, `![[file.png\|400]]` at a width, `\|full` for the column's width. What the app itself inserted lies in `assets/` of the notes' base folder — keep such lines as they are |
+| figure out of a PDF | `![[paper.pdf#page=3&rect=72,400,300,520]]` — see below |
+| page of a PDF | `[[paper.pdf#page=3]]` a link, `![[paper.pdf#page=3]]` the page in place |
+
+Seldom, when the content asks for it:
+
+| Want | Write |
+|---|---|
+| sub / superscript | `H~2~O`, `x^2^` |
+| key | `<kbd>Ctrl</kbd>` |
+| tag, task | `#tag`, `- [ ] open`, `- [x] done` |
+| tinted block, coloured bar | `> [!block\|green]`, `> [!focus\|red]`, `[!block-focus\|blue]` (colour optional) |
+| columns | `<!-- columns 2:1 -->` … `<!-- column -->` … `<!-- /columns -->`; top level only, two to four, never in a list, quote or callout |
+| text centred / at the right | `A line <!-- center -->`, `## Title <!-- right -->` |
+| a note as a row or card | alone in its paragraph: `[[Note]] <!-- link row -->`, `[[Note]] <!-- link card blue -->` |
+| a file shown as code | `![[src/main.c]]`, `![[src/main.c#L10-L42]]`; put away behind a card: `![[src/main.c\|hide Title]]`; a fence put away: head `python hide Title` (`hide:small`, `hide:large`) |
+| rules | `---` thin, `***` three dots, `___` heavy, `- - -` dotted |
+| picture turned | `![[file.png\|r90\|400]]` (r90, r180, r270; before the width) |
 | hidden comment | `%% not shown %%` |
-| link to a note | `[[Note]]`, `[[Note\|text]]`, `[[Note#Heading]]` |
-| a note shown in place | `![[Note]]` |
-| picture | `![alt](file.png)` or `![[file.png]]` (relative to the note). What the app itself put in lies in `assets` of the notes' base folder and is named `assets/name.png` in a note of any subfolder — keep such a line as it is, also when the note is moved |
-| picture at a width | `![alt\|400](file.png)`, `![[file.png\|400]]`; `\|full` for the column's whole width (PDF embeds too) |
-| picture turned | `![alt\|r90\|400](file.png)`, `![[file.png\|r270]]` — `r90` a quarter right, `r180` upside down, `r270` a quarter left; before the width |
-| caption | a line that begins with `: ` right under a picture alone (an embed, a PDF region, a whiteboard), a code block or a `$$` formula block: `![](tree.png)` then `: A tree in winter` — shown as a figure, the caption under it |
-| text centred / at the right | a comment at the end of a paragraph or heading: `A line <!-- center -->`, `## Title <!-- right -->` |
-| formula in the line | `$a^2 + b^2 = c^2$` |
-| formula as a block | `$$` on its own line, the LaTeX, `$$` on its own line |
-| diagram | a fence named `mermaid` |
-| a source or text file shown as code, read from the file | `![[src/main.c]]`, lines only: `![[src/main.c#L10-L42]]`, put away behind a card: `![[src/main.c\|hide The title]]` (`hide:small`, `hide:large`) |
-| code put away behind a card | a fence's head `python hide The title` (`hide:small`, `hide:large` for the card's size) |
-| drawing | a fence named `svg` with one `<svg>` element |
-| whiteboard (drawn by hand in the app) | never written by hand: it is made in the app with `/whiteboard`. One that exists is named like a picture, alone on its line: `![](assets/board-….board.svg)` — keep such a line as it is, and never edit or regenerate the `.board.svg` file |
-| a link to a note as a block of its own: a row, a card (a colour after it) | alone in its paragraph: `[[Note]] <!-- link row -->`, `[[Note]] <!-- link card blue -->` |
-| PDF page link / embed | `[[paper.pdf#page=3]]`, `![[paper.pdf#page=3]]` |
-| a figure out of a PDF | `![[paper.pdf#page=3&rect=72,400,300,520]]` — see *Pictures from a PDF* |
+| whiteboard | never written by hand; an `![](assets/….board.svg)` line stays as it is |
 
-### Pictures from a PDF
+### Figures out of a PDF
 
-When a note is written from a PDF (a summary, lecture notes, a paper read) and needs its figures,
-tables or formulas as pictures, **do not extract them to PNG files**. Embed the region of the page
-the way PDF++ does — the app shows the region in the note and a click opens the PDF there:
+Never extract a figure to a PNG. Embed the region as PDF++ does; the app shows it in the note and a
+click opens the PDF there:
 
 ```markdown
 ![[paper.pdf#page=3&rect=72,400,300,520]]
+: Figure 3 of the paper: what it shows.
 ```
 
-- `rect` is `x1,y1,x2,y2` in PDF points (1/72 in), **origin at the lower left** of the page, as in
-  the PDF itself. The path is relative to the note, like a picture.
-- Find the region with PyMuPDF: `page.get_image_info()` or `page.get_drawings()` give the bounding
-  boxes of a figure's parts, `page.search_for("Figure 3")` the caption. PyMuPDF counts y from the
-  **top**, so convert: `y_pdf = page.rect.height - y_fitz`, and swap so that `y1 < y2`. Round to
-  whole points and leave a few points of air around the figure.
-- No clear box (a figure drawn in many pieces, a scanned page): embed the whole page,
-  `![[paper.pdf#page=3]]`, or a region guessed from the caption's position.
-- Quote the PDF with a link to the page, `[[paper.pdf#page=3|S. 3]]`, so the claim can be checked;
-  a `selection=` link needs the viewer's text indices and is made in the app, not by hand.
-- The PDF stays beside the note (or in the folder the note refers to); nothing is written into it.
+- `rect` is `x1,y1,x2,y2` in PDF points (1/72 in), origin at the lower left; the path is relative
+  to the note.
+- With PyMuPDF, `page.get_image_info()` and `page.get_drawings()` give the boxes of a figure's
+  parts, `page.search_for("Figure 3")` the caption. PyMuPDF counts y from the top:
+  `y_pdf = page.rect.height - y_fitz`, then order so that `y1 < y2`. Whole points, a few points of
+  air around the figure.
+- No clear box (many pieces, a scan): the whole page, `![[paper.pdf#page=3]]`.
+- The PDF stays where it is; nothing is written into it.
 
-### Callouts
+## Before handing over
 
-```markdown
-> [!warning] Title of its own
-> Text.
+- Read it once as Henri will. Is the first sentence the matter? Does a sentence only announce,
+  repeat or comment? Would it be two notes?
+- Every fence is closed and named, `$$` balanced; wikilinks name notes that exist or are meant to
+  come; pictures exist beside the note; a PDF embed names a PDF and a page that exist, with
+  `x1 < x2` and `y1 < y2` inside the page.
+- No HTML for what Markdown does (`<br>`, `<kbd>`, `<details>` are fine); no `$` around a price or
+  a shell variable in running text; no frontmatter the note does not need.
 
-> [!tip]- Folded until clicked
-> Text.
-```
+## Where it goes
 
-Kinds: note, info, todo, abstract, tip, success, question, warning, failure, danger, bug, example,
-quote, important. No title → the kind's name is the title.
-
-### Decorations (a quieter emphasis than a callout)
-
-```markdown
-> [!block|green]
-> A tinted block.
-
-> [!focus|red]
-> A quote with a coloured bar.
-```
-
-`[!block-focus|blue]` is both. Colours as for `color` above; the colour is optional.
-
-### Columns
-
-```markdown
-<!-- columns 2:1 -->
-
-Left block(s).
-
-<!-- column -->
-
-Right block(s).
-
-<!-- /columns -->
-```
-
-The ratio is optional. Top level only: never inside a list, a quote, a callout or other columns.
-Two to four columns; elsewhere they read as blocks one under the other.
-
-### Tables and rules
-
-A table is as wide as the text column by itself. A line right before it changes how it looks:
-`narrow` (as wide as what it holds), `head=…` (its head row in a colour: red, orange, yellow,
-green, cyan, blue, magenta, or any `#rrggbb`).
-
-```markdown
-<!-- table head=#cfeefc -->
-| A | B |
-|---|---|
-| 1 | 2 |
-```
-
-A rule's look follows how it is written: `---` thin, `***` three dots, `___` heavy, `- - -` dotted.
-
-### SVG drawings
-
-````markdown
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120">
-  <rect x="10" y="30" width="100" height="60" rx="8" fill="none" stroke="currentColor" stroke-width="2"/>
-  <text x="60" y="66" text-anchor="middle" font-size="14" fill="currentColor">Block</text>
-</svg>
-```
-````
-
-- One `<svg>` root with `xmlns`, `width`, `height` and `viewBox`; at most about 700 px wide.
-- `currentColor` for lines and text, so it reads in the light and the dark theme; add fixed colours
-  only for accents. No white background rectangle.
-- No scripts, event attributes or `foreignObject` (they are removed). Blank lines inside are fine.
-- Text: `font-family="SF Pro, Inter, sans-serif"`, 12–14 px.
-- Prefer `mermaid` for flowcharts, sequences and graphs; `svg` for figures Mermaid cannot draw
-  (circuits, geometry, annotated sketches).
-
-## Keeping a version and sending it
-
-An agent may commit the notes it wrote, and push them, the way the app does — but only where the
-app itself would. The app's rules are in `docs/FEATURES.md` under *History*; the code is
-`src-tauri/src/history.rs` and `sync.rs`.
-
-**When you may commit.** All three must hold; if one does not, do not commit — say so instead.
-
-- The folder is a **project**: the nearest repository at or above the note has
-  `.mdview/project.json` beside its `.git`. A repository without the marker is someone else's
-  (source code, say) and is never written to.
-- Its **history is on**: the marker file is there in the working folder. Switched off, the app
-  takes the marker away (the last commit still has it) — then nothing is kept.
-- Nothing is half done: no merge or rebase in progress (`git status` says so). That is Henri's or
-  the app's to finish.
-
-**How to commit.** One commit for what you wrote, as the app would have made it.
-
-- Stage **only your own files** (`git add -- <paths>`). Other changes waiting in the folder are
-  the app's to keep. Leave out what `.gitignore` leaves out and any file over 50 MB.
-- **Subject**: one file → its file name (`Fourier Transform.md`, no folder). Several →
-  `N files: a.md, b.md, c.md, …` — the first three names in path order, `, …` only when there are
-  more than three.
-- **Body**: the two lines the app reads, then nothing of your own in between:
-
-  ```text
-  14 files: A.md, B.md, C.md, …
-
-  Device: omarchy-m1 (61cf07db-381b-4bee-ad76-3bec773b1f82)
-  Client: claude-code
-  ```
-
-  `Device` is this computer as the app names it: `name (id)` from
-  `~/.local/state/mdview/state.json` — the id is `device.id`, the name is `active.deviceName`
-  where that is set, else `device.name`. `Client` names the program: `claude-code` (the app
-  writes `desktop 0.1.0`, the browser `web`). An attribution line the session asks for
-  (`Co-Authored-By: …`) goes after these, behind a blank line.
-- **Author**: whatever Git is configured with in that repository; do not set one.
-- Commit on the branch that is checked out. Never amend or rewrite a commit that has been sent.
-
-**When you may push.** Only when the project is **linked**: the repository has a remote named
-`origin`. Without one, the commit stays here and that is the end of it.
-
-**How to push.** The repository on GitHub is what counts, and nothing is ever overwritten.
-
-1. `git fetch origin`, then compare: `git rev-list --left-right --count <branch>...origin/<branch>`.
-2. Nothing new there → `git push origin <branch>:<branch>`.
-3. Another device kept something meanwhile → join first, as the app does, then push:
-   `git merge --no-ff origin/<branch>` with the subject `Joined with what another device kept`
-   and the same `Device:` / `Client:` lines.
-4. The merge **conflicts** (both changed the same place) → `git merge --abort`, push nothing, and
-   tell Henri: the app's clock turns red and Resolve Conflicts… is where it is settled.
-5. Never `--force`, never a rebase of what is already there. A push that is refused or cannot
-   reach GitHub is left for the app, which sends what waits the next time it reconciles.
-
-Say afterwards what was kept and whether it went over (the commit, and "pushed" or why not).
-
-## The pasteboard
-
-A project linked to GitHub has a pasteboard (All Notes › Pasteboard): a small chat of blocks of text,
-the same on every device that shows the project; each block names the device it came from and the
-time. It is no note and in no version. Between Henri and you it is the
-way to hand over what is awkward in the chat — a long log, several addresses, a piece of code,
-text from his phone or another computer — in both directions. Use it without being asked to when
-the work calls for it.
-
-| Want | Run, in the project's folder (or with `--in FOLDER`) |
-|---|---|
-| what stands there (every block under a `## device · time` heading, the newest last) | `mdview paste` |
-| wait for Henri to put something there | `mdview paste --wait` (300 s; `--wait 540` at most) |
-| add a block at the end | `mdview paste TEXT…`, or `… \| mdview paste -` for many lines (`--append` is the same) |
-
-- **Taking something from Henri.** When you need material from him — more than a line, or
-  several things — ask for it in one sentence that names what you need and says "put it on the
-  pasteboard", and run `mdview paste --wait` in the same turn. It returns the blocks once
-  something new has stood still for a moment, so something typed arrives whole; what he put there
-  is the last block (or the last ones). It ends with 3 when nothing came: wait once more, then say
-  that you are waiting and stop. An empty answer means he cleared it; wait again. Take what you
-  need out of it and go on with the work — do not repeat it back.
-- **Giving something to Henri.** What he will copy elsewhere — a command, an address, a
-  configuration, a list of results — goes on the pasteboard, and you tell him in one line that it
-  is there and what it is. It is a block of its own, after
-  his; nothing of his is replaced.
-- While the app shows the pasteboard the same blocks are in `.mdview/pasteboard.md` — a copy for
-  reading; writing to that file changes nothing.
-- The command ends with 1 and says why where it cannot: no linked project, nobody signed in, no
-  connection. Then ask for the material in the chat instead.
-- Nothing secret goes there unasked: the text is kept on the web app's server for everyone who
-  may write to the repository.
-
-## Do not
-
-- No HTML for what Markdown can do; no inline styles. (`<br>`, `<kbd>`, `<details>` are fine.)
-- No `$` around plain prices or shell variables in running text (`$5` alone is safe, `$x$` is a formula).
-- No blank line inside raw inline `<svg>` outside a fence — use the `svg` fence instead.
-- No nested columns, no columns inside lists or quotes.
-- No frontmatter keys the note does not need.
-
-## Check before handing over
-
-- Every fence is closed and has its language; `$$` blocks are balanced.
-- Wikilinks point to notes that exist in the folder (or are meant as notes to come).
-- Pictures referenced exist beside the note; PDF embeds name a PDF that exists, a page it has and a
-  `rect` with `x1 < x2`, `y1 < y2` inside the page.
+Save where Henri says; without a place, ask, or use the folder he has open. Open it only when he
+asks: `mdview "FILE.md"`. In a folder that is a project with its history on, commit what you wrote
+the way the app would: `history.md` beside this file has the rules (when a commit is allowed, its
+form, when to push, the pasteboard). Elsewhere write the file and leave Git alone.
