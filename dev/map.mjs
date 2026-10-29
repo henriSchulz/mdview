@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const GROUPS = [
   ["The page — reading, the source editor, the window around the note", ["viewer/*.js", "viewer.js", "strings.js"]],
-  ["The page's styles", ["motion.css", "viewer/*.css", "overview.css", "pdfview.css", "board.css", "ai.css"]],
+  ["The page's styles", ["velum.css", "motion.css", "viewer/*.css", "overview.css", "pdfview.css", "board.css", "ai.css"]],
   ["The active mode (loaded when first used)", ["active/*.js", "active/*.css"]],
   ["All Notes, PDFs, AI, whiteboards (each loaded when first used)", ["overview.js", "pdfview.js", "ai.js", "board.js", "board/*.js"]],
   ["The shell (Rust)", ["src-tauri/src/main.rs", "src-tauri/src/shell.rs", "src-tauri/src/shell/*.rs", "src-tauri/src/*.rs"]],

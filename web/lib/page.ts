@@ -13,7 +13,7 @@ const SCRIPTS = [
   "viewer.js", "overview.js",
 ];
 // (and its styles: STYLES in shell.rs)
-const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet"];
+const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "roles"];
 
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.
@@ -100,16 +100,16 @@ export function pageDocument(o: { here: string; title: string; web: object; file
     `window.MdWeb=${inline(web)};` +
     `window.MdHost={said:[],post:function(m){this.said.push(m)},files:location.origin+${inline(o.files)}${o.reading ? ",reading:true" : ""}${o.filework ? ",filework:true" : ""},lacks:${inline(LACKS)},labels:${inline(LABELS)}${o.reading ? "" : ",download:true"}};` +
     `window.MdPrefs=${CHOSEN}(${inline({ ...PREFS, ...(o.prefs || {}) })});` +
-    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light"})();` + IPAD + BOOTED;
+    `(function(){var d=matchMedia("(prefers-color-scheme: dark)").matches;document.getElementById("theme").textContent=MdWeb.themes[d?"dark":"light"];document.body.dataset.mode=d?"dark":"light";document.documentElement.dataset.appearance=d?"dark":"light"})();` + IPAD + BOOTED;
   const scripts = [`<script nonce="${nonce}">${before}</script>`, ...SCRIPTS.map((src) => `<script nonce="${nonce}" src="${a}/${src}"></script>`), ...o.hosts.map((src) => `<script nonce="${nonce}" src="${src}"></script>`)].join("");
   const page =
-    `<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'>` +
+    `<!doctype html><html lang='en' data-velum='opal' data-appearance='light'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'>` +
     // (on a phone's home screen: an app of its own, its bars in the page's colour — light and dark)
     `<meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-title' content='Notes'><meta name='apple-mobile-web-app-status-bar-style' content='default'>` +
     `<meta name='theme-color' content='${LIGHT.background}' media='(prefers-color-scheme: light)'><meta name='theme-color' content='${DARK.background}' media='(prefers-color-scheme: dark)'>` +
     `<meta name='robots' content='noindex'><title>${attr(o.title)}</title>${icons(here)}` +
     `<base href='${attr(here + o.base)}'>` +
-    `<link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
+    `<link rel='stylesheet' href='${here}${a}/velum.css'><link rel='stylesheet' href='${here}${a}/motion.css'><style id='theme'>${css(LIGHT, "light")}</style>` +
     `<link rel='stylesheet' href='${here}${a}/vendor/katex/katex.min.css'>${STYLES.map((s) => `<link rel='stylesheet' href='${here}${a}/viewer/${s}.css'>`).join("")}<link rel='stylesheet' href='${here}${a}/overview.css'>` +
     `<style>${BOOT_CSS}${VEIL_CSS}</style></head><body data-mode='light'>${BOOT}${WAIT}<main id='content'></main>${scripts}</body></html>`;
   return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": o.referrer || "same-origin", "X-Robots-Tag": "noindex" } });

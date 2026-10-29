@@ -105,7 +105,7 @@ const SCRIPTS: &[&str] = &[
 ];
 
 /// The page's styles, in the order they are linked (later ones win): viewer/*.css.
-const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "meter"];
+const STYLES: &[&str] = &["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "meter", "roles"];
 
 /// Settings of the active mode (state.json "active"), with what they are when nothing is set.
 fn default_prefs() -> Map<String, Value> {
@@ -728,9 +728,10 @@ impl Win {
         }
         let base = file_url(&target_dir).replace('&', "&amp;").replace('\'', "&#x27;").replace('"', "&quot;").replace('<', "&lt;").replace('>', "&gt;");
         let page = format!(
-            "<!doctype html><html lang='en'><head><meta charset='utf-8'>\
+            "<!doctype html><html lang='en'{velum}><head><meta charset='utf-8'>\
              <meta http-equiv='Content-Security-Policy' content=\"{csp}\">\
              <base href='{base}/'>\
+             <link rel='stylesheet' href='{a}/velum.css'>\
              <link rel='stylesheet' href='{a}/motion.css'>\
              <style id='theme'>{theme}</style>\
              <link rel='stylesheet' href='{a}/vendor/katex/katex.min.css'>\
@@ -738,6 +739,8 @@ impl Win {
              <link rel='stylesheet' href='{a}/overview.css'>\
              </head><body data-mode='{mode}'{sf}{flat}{meter}><main id='content'></main>{scripts}</body></html>",
             theme = theme::theme_css(&app.theme),
+            // (the desktop's Velum variant and appearance, so viewer/roles.css takes the roles of velum.css)
+            velum = app.theme.html_attrs(),
             styles = STYLES.iter().map(|s| format!("<link rel='stylesheet' href='{a}/viewer/{s}.css'>")).collect::<String>(),
             mode = app.theme.mode,
             sf = if app.sf_symbols { " data-sf" } else { "" },

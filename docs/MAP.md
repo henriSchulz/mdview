@@ -98,6 +98,7 @@ or the tests see the old ones.
 
 | File | What is in it |
 |---|---|
+| `velum.css` | Velum roles for the page: a copy of ~/Projects/velum/dist/css/velum.css (velum 994fb87), kept by … |
 | `motion.css` | how the app moves, and the sizes its controls share: durations, curves, springs, corners. One place for them; |
 | `viewer/blocks.css` | tables, formulas and diagrams, callouts. |
 | `viewer/chrome.css` | what stands around the note: the toolbar, find, the outline, the toast, overlays. |
@@ -109,6 +110,7 @@ or the tests see the old ones.
 | `viewer/narrow.css` | scrollbars, tooltips, figures, signs set as text (SF Symbols), and narrow windows (a phone, a split screen). |
 | `viewer/page.css` | reading and editing styles. Colors come from the Omarchy theme (--c-*), durations, curves, radii and sizes … |
 | `viewer/pages.css` | properties, transclusions, quick notes, the pages in a note, footnotes, an empty or missing note. |
+| `viewer/roles.css` | the app's own variables from Velum's roles. Velum (~/Projects/velum) is the desktop's style framework: one … |
 | `viewer/sidebar.css` | the sidebar of a folder window (its layouts: layouts.css). |
 | `viewer/split.css` | a note and a PDF side by side (viewer/split.js). The window is two halves of one kind, as an editor's split … |
 | `viewer/tablet.css` | the iPad's own layout (viewer/tablet.js): Craft's look — no sidebar and no tabs, round buttons and capsules … |

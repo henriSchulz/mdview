@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(web, "..");
 const out = join(web, "public", "app");
-const files = ["motion.css", "overview.css", "pdfview.css", "board.css", "viewer.js", "overview.js", "pdfview.js", "board.js", "strings.js"];
+const files = ["velum.css", "motion.css", "overview.css", "pdfview.css", "board.css", "viewer.js", "overview.js", "pdfview.js", "board.js", "strings.js"];
 const folders = ["active", "board", "vendor", "viewer"];
 
 if (!existsSync(join(root, "viewer.js"))) {

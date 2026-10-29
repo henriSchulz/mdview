@@ -203,7 +203,7 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--fg);
+  color: var(--sb-ink, var(--fg));   /* (Velum: an unselected row's ink — viewer/roles.css) */
   font: inherit;
   text-align: left;
   cursor: default;
@@ -216,6 +216,7 @@ body[data-overview] .tab[aria-selected="true"]:not([data-path=""]):hover { backg
 .sb-row.active { background: var(--sb-selected); font-weight: 500; }
 /* several at once (Shift+click): the fill a selected row of All Notes has */
 .sb-row.picked, .sb-row.picked:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.sb-row.active, .sb-row:hover { color: var(--fg); }
 /* put away — hidden by hand, named with a dot, kept for a note — and shown all the same (Show › Hidden Items) */
 .sb-item.is-hidden > .sb-in > .sb-row > :is(.sb-icon, .sb-label, .sb-tail, .sb-sheet) { opacity: 0.45; }
 /* on its way into the repository (a file added in the browser): the row is there at once, and a small wheel at its end

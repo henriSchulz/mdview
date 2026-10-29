@@ -42,6 +42,9 @@ fn system_dark() -> bool {
 pub struct Theme {
     pub mode: String,
     pub colors: Vec<(String, String)>,
+    /// The desktop's Velum variant ("opal", "pearl" …) when the colours are Velum's; the page then
+    /// takes Velum's roles (velum.css, viewer/roles.css).
+    pub variant: Option<String>,
 }
 
 impl Theme {
@@ -52,6 +55,14 @@ impl Theme {
     /// The window's own colour, as (r, g, b).
     pub fn background(&self) -> (u8, u8, u8) {
         rgb(self.color("background")).unwrap_or((255, 255, 255))
+    }
+
+    /// What the page's <html> carries for Velum: the variant and the appearance, or nothing.
+    pub fn html_attrs(&self) -> String {
+        match &self.variant {
+            Some(v) => format!(" data-velum='{}' data-appearance='{}'", v, self.mode),
+            None => String::new(),
+        }
     }
 }
 
@@ -81,6 +92,19 @@ fn colors_file() -> PathBuf {
     pick_colors(velum_dir(), theme_dir())
 }
 
+/// The variant named in Velum's settings (~/.local/state/velum/settings.json, "variant"), when the
+/// colours come from Velum. A name of letters only; anything else is no variant.
+fn velum_variant(colors: &std::path::Path) -> Option<String> {
+    let dir = velum_dir()?;
+    if colors != dir.join("colors.toml") {
+        return None;
+    }
+    let text = fs::read_to_string(dir.join("settings.json")).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let v = json.get("variant")?.as_str()?.trim().to_string();
+    (!v.is_empty() && v.chars().all(|c| c.is_ascii_lowercase())).then_some(v)
+}
+
 /// Velum's colours when its file is there, else the Omarchy theme's.
 fn pick_colors(velum: Option<PathBuf>, theme: PathBuf) -> PathBuf {
     match velum.map(|d| d.join("colors.toml")) {
@@ -103,7 +127,8 @@ fn luminance(hex: &str) -> f64 {
 }
 
 pub fn load_theme() -> Theme {
-    let data: toml::Table = fs::read_to_string(colors_file()).ok().and_then(|t| t.parse().ok()).unwrap_or_default();
+    let file = colors_file();
+    let data: toml::Table = fs::read_to_string(&file).ok().and_then(|t| t.parse().ok()).unwrap_or_default();
     // (what the theme does not name is the fallback's: the dark one under a dark ground, or — no theme at all — a dark system)
     let dark = match data.get("mode").and_then(|m| m.as_str()) {
         Some("dark") => true,
@@ -122,7 +147,7 @@ pub fn load_theme() -> Theme {
             }
         }
     }
-    let mut theme = Theme { mode: String::new(), colors };
+    let mut theme = Theme { mode: String::new(), colors, variant: velum_variant(&file) };
     theme.mode = match data.get("mode").and_then(|m| m.as_str()) {
         Some(m @ ("light" | "dark")) => m.to_string(),
         _ => if luminance(theme.color("background")) > 0.5 { "light" } else { "dark" }.to_string(),
@@ -153,6 +178,23 @@ mod tests {
         // Velum's file there: it wins
         fs::write(velum.join("colors.toml"), "background = \"#f6f7fb\"\n").unwrap();
         assert_eq!(pick_colors(Some(velum.clone()), omarchy.clone()), velum.join("colors.toml"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn variant_from_velum_settings() {
+        let base = std::env::temp_dir().join(format!("mdview-velum-variant-{}", std::process::id()));
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join("colors.toml"), "mode = \"light\"\nbackground = \"#fbfaf8\"\n").unwrap();
+        fs::write(base.join("settings.json"), "{\"variant\": \"opal\", \"appearance\": \"light\"}").unwrap();
+        std::env::set_var("MDVIEW_VELUM_STATE", &base);
+        let theme = super::load_theme();
+        assert_eq!(theme.variant.as_deref(), Some("opal"));
+        assert_eq!(theme.html_attrs(), " data-velum='opal' data-appearance='light'");
+        // no settings file: colours still Velum's, no variant
+        fs::remove_file(base.join("settings.json")).unwrap();
+        assert_eq!(super::load_theme().variant, None);
+        std::env::remove_var("MDVIEW_VELUM_STATE");
         let _ = fs::remove_dir_all(&base);
     }
 }

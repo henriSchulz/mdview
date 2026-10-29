@@ -1,0 +1,85 @@
+/* mdview, styles — the app's own variables from Velum's roles. (One of several sheets, linked last: docs/MAP.md.)
+ * Velum (~/Projects/velum) is the desktop's style framework: one token source, variants (Opal, Pearl, Glass, Paper,
+ * Slate), light and dark. Its generated roles ship with the app as velum.css (--v-*, dev/velum-sync.sh). Where the
+ * shell says which variant the desktop wears (<html data-velum="opal" data-appearance="light">, src-tauri/src/theme.rs
+ * from ~/.local/state/velum/settings.json; the web app: Opal), every variable the sheets draw with is taken from the
+ * roles here — colours, material, radii, sizes, motion — so the whole page follows the variant, and a variant's own
+ * line (Opal: stone grounds, lensed glass, lagoon) reaches the note's window as it reaches the desktop. Without
+ * data-velum nothing here applies and the sheets keep their own values (page.css, motion.css).
+ * Roles only: no colour, time or size is written here. */
+
+html[data-velum] {
+  /* ---- colour: three strengths of ink, the tones, one accent */
+  --bg: var(--v-bg-content);
+  --fg: var(--v-ink-primary);
+  --fg2: var(--v-ink-secondary);
+  --fg3: var(--v-ink-tertiary);
+  --fg-quiet: var(--v-ink-secondary);
+  --accent: var(--v-accent-base);
+  --accent-text: var(--v-accent-text);
+  --on-accent: var(--v-ink-on-accent);
+  --line: var(--v-line-base);
+  --line-strong: var(--v-line-strong);
+  --fill-hover: var(--v-fill-hover);
+  --fill-pressed: var(--v-fill-pressed);
+  --raised: var(--v-bg-raised);
+  --sb-card: var(--v-bg-sidebar);                 /* the sidebar's card: a tone of its own (sidebar.css) */
+  --sb-ink: var(--v-ink-sidebar);                 /* an unselected sidebar row (tabs.css) */
+  --sb-glyph: var(--v-ink-sidebar-glyph);
+  --sb-selected: var(--v-fill-selected);
+  --sb-hover: var(--v-fill-hover);
+  /* ---- material: menus and popovers are the variant's glass, with its lens in the shadow */
+  --glass: var(--v-popover-bg);
+  --glass-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate));
+  --menu-radius: var(--v-radius-menu);
+  --menu-pad: var(--v-menu-pad);
+  --menu-row-radius: var(--v-radius-menu-row);
+  --menu-item-height: var(--v-menu-row);
+  --shadow-menu: var(--v-menu-shadow);
+  --shadow-popover: var(--v-popover-shadow);
+  --shadow-capsule: var(--v-card-shadow);
+  --shadow-floating: var(--v-card-shadow);
+  /* ---- shape and size */
+  --radius-panel: var(--v-radius-panel);
+  --radius-popover: var(--v-radius-popover);
+  --radius-control: var(--v-radius-control);
+  --radius-row: var(--v-radius-row);
+  --radius-chip: var(--v-radius-chip);
+  --radius-pill: var(--v-radius-pill);
+  --focus-ring: var(--v-size-focus-ring);
+  --ui: var(--v-font-sans);
+  /* ---- motion: the shared core, the same as on the desktop */
+  --dur-instant: var(--v-dur-instant);
+  --dur-fast: var(--v-dur-fast);
+  --dur-base: var(--v-dur-base);
+  --dur-slow: var(--v-dur-slow);
+  --dur-slower: var(--v-dur-slower);
+  --flash-duration: var(--v-dur-flash);
+  --stagger-step: var(--v-stagger-step);
+  --ease-out: var(--v-ease-out);
+  --ease-in-out: var(--v-ease-in-out);
+  --ease-exit: var(--v-ease-exit);
+  --spring-smooth: var(--v-spring-smooth);
+  --spring-smooth-dur: var(--v-spring-smooth-dur);
+  --spring-snappy: var(--v-spring-snappy);
+  --spring-snappy-dur: var(--v-spring-snappy-dur);
+  --spring-gentle: var(--v-spring-gentle);
+  --spring-gentle-dur: var(--v-spring-gentle-dur);
+  --press-scale: var(--v-scale-press);
+}
+/* a control's height, where a finger is not the pointer (narrow.css gives a finger its own sizes, at :root) */
+@media not (pointer: coarse) {
+  html[data-velum] { --control-height: var(--v-control-height); }
+}
+/* page.css sets a few of these anew under a dark body; the roles already carry light and dark
+ * (data-appearance), so the dark overrides give way too. */
+html[data-velum] body {
+  --raised: var(--v-bg-raised);
+  --shadow-menu: var(--v-menu-shadow);
+  --shadow-popover: var(--v-popover-shadow);
+  --shadow-capsule: var(--v-card-shadow);
+  --sb-selected: var(--v-fill-selected);
+  --glass: var(--v-popover-bg);
+}
+/* Reduce Transparency, or a WebKit that draws no blur (data-flat): the opaque material */
+html[data-velum] body[data-flat] { --glass: var(--v-popover-bg-opaque); --glass-filter: none; }
