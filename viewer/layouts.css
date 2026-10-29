@@ -13,7 +13,7 @@ body[data-mode="dark"] #sidebar { --sb-paper: color-mix(in srgb, var(--fg) 16%, 
 #sidebar:not([data-layout="plain"]) .sb-tail { display: block; flex: none; margin-left: auto; padding-left: 6px; font-size: 11.5px; font-weight: 400; color: var(--fg3); font-variant-numeric: tabular-nums; }
 #sidebar:not([data-layout="plain"]) .sb-tail::after { content: attr(data-says); }
 .sb-tail + .sb-shared { margin-left: 4px; }
-#sidebar[data-layout="source"] .sb-list .sb-item:not(.is-dir) .sb-tail { display: none; }
+#sidebar:is([data-layout="source"], [data-layout="library"]) .sb-list .sb-item:not(.is-dir) .sb-tail { display: none; }
 /* a folder in its colour (the accent where none was chosen); the folder's own sign is filled lightly */
 #sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon { color: var(--fc, var(--accent-text)); }
 #sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row:not([data-icon]) .sb-icon svg, #sidebar:not([data-layout="plain"]) .sb-item.is-dir > .sb-in > .sb-row[data-icon=""] .sb-icon svg { fill: color-mix(in srgb, currentColor 18%, transparent); }
@@ -26,7 +26,7 @@ body[data-mode="dark"] #sidebar { --sb-paper: color-mix(in srgb, var(--fg) 16%, 
 
 /* source: the notes opened last above the tree, new and order at the foot */
 #sidebar[data-layout="source"] .sb-recent:not([hidden]) { display: block; padding: 0 var(--sb-pad); }
-#sidebar[data-layout="source"] .sb-cap-folders, #sidebar[data-layout="tiles"] .sb-cap-folders { display: block; }
+#sidebar[data-layout="source"] .sb-cap-folders, #sidebar[data-layout="tiles"] .sb-cap-folders, #sidebar[data-layout="library"] .sb-cap-folders { display: block; }
 #sidebar[data-layout="source"] .sb-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 0.5px solid var(--line); }
 #sidebar[data-layout="source"] .sb-head [data-act="newmenu"] { display: none; }
 /* (the settings' gear floats over the sidebar's lower left corner: here it is the foot's first button — the foot leaves its room, and it stands on the foot's line) */
@@ -168,3 +168,22 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
   .sb-rt:active, .sb-tile:active, .sb-new-note:active, .sl-color:active { transform: none; }
   .sl-more-colors { animation: none; }
 }
+
+/* ------------------------------------------------------------- library: the Velum lab's sidebar
+ * A Library of rows — All Notes, Recents — above the folders' tree; each row its sign, its name and, at its end, how many notes
+ * it holds (a folder's too: viewer/sidebar.js, dressRow). The rows are the tree's rows in size and shape. */
+#sidebar[data-layout="library"] .sb-smart { display: flex; flex-direction: column; gap: 1px; padding: 0 var(--sb-pad) 4px; }
+#sidebar[data-layout="library"] .sb-smart .sb-cap { padding-left: 8px; padding-right: 8px; }
+.sb-lib {
+  display: flex; align-items: center; gap: 7px; box-sizing: border-box; width: 100%; height: var(--sb-row);
+  padding: 0 8px 0 10px; border: 0; border-radius: var(--radius-row); background: transparent;
+  color: var(--sb-ink, var(--fg)); font: inherit; text-align: left; cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.sb-lib:hover { background: var(--sb-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.sb-lib.on { background: var(--sb-selected); color: var(--fg); }
+.sb-lib .sb-icon { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--sb-glyph, var(--accent-text)); }
+.sb-lib.on .sb-icon { color: var(--accent-text); }
+.sb-lib .sb-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-lib .sb-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sb-lib-n { flex: none; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }

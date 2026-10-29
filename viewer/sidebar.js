@@ -168,9 +168,11 @@
    *   sheets  a sheet of paper for each note (drawn as the note is built), a folder for each
    *           folder: one folder at a time, a click goes in
    *   tiles   smart lists as tiles — all, today, shared, with tasks — above the folders
+   *   library as the Velum lab's sidebar: a Library of rows — All Notes, Recents — then the Folders, each row
+   *           its sign, its name and how many notes it holds
    * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
    * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
-  const SB_LAYOUTS = ["source", "rail", "sheets", "tiles"];
+  const SB_LAYOUTS = ["source", "rail", "sheets", "tiles", "library"];
   const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "sheets");
   const FOLDER_ICONS = {
     book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
@@ -195,7 +197,7 @@
     camera: svg('<path d="M4 8h3l1.500-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.500"/>'),
   };
   const STAR_FULL = svg('<path fill="currentColor" d="m12 3 2.700 5.600 6.100.8-4.500 4.300 1.100 6.100L12 17l-5.400 2.800 1.100-6.100L3.200 9.400l6.100-.8z"/>'); // (a favourite: the star filled)
-  const SMART_ICONS = { all: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'), today: FOLDER_ICONS.calendar, shared: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'), tasks: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>') };
+  const SMART_ICONS = { all: svg('<path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/>'), today: FOLDER_ICONS.calendar, shared: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>'), tasks: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'), recent: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>') };
   const sbRail = sidebar.querySelector(".sb-rail"), sbCrumb = sidebar.querySelector(".sb-crumb"), sbSmartBox = sidebar.querySelector(".sb-smart"), sbRecent = sidebar.querySelector(".sb-recent"), sbFlat = sidebar.querySelector(".sb-flat");
   let sbHere = null;     // rail, sheets: the folder whose notes are shown (its path; null: the folder itself)
   let sbSmart = "all";   // tiles: the smart list that is chosen
@@ -248,7 +250,7 @@
     if (lay === "plain") return;
     let tail = row.querySelector(":scope > .sb-tail");
     if (!tail) { tail = document.createElement("span"); tail.className = "sb-tail"; row.insertBefore(tail, row.querySelector(".sb-label").nextSibling); }
-    const says = e.dir ? "" : quickWhen(e.note.mtime); // (a folder says nothing at its end: no number)
+    const says = e.dir ? (lay === "library" ? String(everyNote(e.dir).length) : "") : quickWhen(e.note.mtime); // (a folder says nothing at its end, but in the library how many notes it holds)
     if (tail.dataset.says !== says) tail.dataset.says = says; // (drawn by the stylesheet: the row's text stays its name)
     const look = e.dir ? lookOf(e.key) : {}, seen = e.note ? sbSeen.get(e.note.path) : null, color = e.dir ? look.color : seen && seen.color;
     row.style.setProperty("--fc", colorVar(color) || "");
@@ -286,13 +288,14 @@
     ["today", "Today", "blue", (n) => { const d = new Date(); return (n.mtime || 0) * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }],
     ["shared", "Shared", "green", (n) => ((folder && folder.shared) || []).includes(n.real)],
     ["tasks", "With Tasks", "orange", (n) => (sbSeen.get(n.path) || {}).open > 0],
+    ["recent", "Recent", "blue", (n) => !!n.opened],
   ];
   function layoutSync() {
     const lay = sbLayout(), query = lay === "plain" ? "" : quickFilter;
     sidebar.dataset.layout = document.body.dataset.sbLayout = lay; // (the body too: the settings' gear floats over the sidebar's foot — viewer/*.css)
     if (lay === "plain") { sidebar.removeAttribute("data-here"); sidebar.removeAttribute("data-flat"); return; }
     if ((lay !== "rail" && lay !== "sheets") || (sbHere && !dirAt(sbHere))) sbHere = null;
-    if (lay !== "tiles") sbSmart = "all";
+    if (lay !== "tiles" && lay !== "library") sbSmart = "all";
     sidebar.toggleAttribute("data-here", !!sbHere);
     sidebar.style.setProperty("--depth-off", sbHere ? String(relOf(sbHere).split("/").length) : "0");
     for (const el of sbList.querySelectorAll(".sb-item.is-dir")) {
@@ -319,16 +322,17 @@
     const smart = SMART.find((s) => s[0] === sbSmart) || SMART[0];
     const flat = query ? all.filter((n) => (noteLabel(n) + "\n" + relOf(n.path)).toLowerCase().includes(query)) : smart[0] !== "all" ? all.filter(smart[3]) : null;
     sidebar.toggleAttribute("data-flat", !!flat);
-    fill(sbFlat, flat ? (query ? T("Found") : T(smart[1])) : "", flat ? sortNotes(flat) : [], flat ? T("Nothing here") : "");
+    fill(sbFlat, flat ? (query ? T("Found") : T(smart[0] === "recent" ? "Recents" : smart[1])) : "", flat ? (!query && smart[0] === "recent" ? flat.sort((a, b) => b.opened - a.opened) : sortNotes(flat)) : [], flat ? T("Nothing here") : "");
     // the notes opened last (source)
     const recent = lay === "source" && !flat ? all.filter((n) => n.opened).sort((a, b) => b.opened - a.opened).slice(0, 3) : [];
     fill(sbRecent, recent.length ? T("Recent") : "", recent, "");
     sbRecent.hidden = !recent.length;
     // the smart lists (tiles): how many notes each holds
-    const tiles = lay === "tiles" ? SMART.map(([id, label, color, test]) => [id, label, color, all.filter(test).length]) : [];
+    const tiles = lay === "tiles" ? SMART.filter((x) => x[0] !== "recent").map(([id, label, color, test]) => [id, label, color, all.filter(test).length])
+      : lay === "library" ? SMART.filter((x) => x[0] === "all" || x[0] === "recent").map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : "Recents", color, all.filter(test).length]) : [];
     const tilesKey = JSON.stringify(tiles);
-    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
-    for (const b of sbSmartBox.children) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
+    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id]}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
+    for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
     for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!P.current && row.dataset.loose === P.current.path);
     sbAsk(lay, here);
   }

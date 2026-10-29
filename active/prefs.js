@@ -36,7 +36,7 @@
         ["docZoom", "select", [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250].map((z) => [z, z + " %"])],
         ["look", "select", [["app", "prefs.look.app"], ["velum", "prefs.look.velum"]]],
         ["calloutStyle", "select", [["box", "prefs.calloutStyle.box"], ["tip", "prefs.calloutStyle.tip"], ["label", "prefs.calloutStyle.label"]]],
-        ["sidebarLayout", "select", [["sheets", "prefs.layout.sheets"], ["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["tiles", "prefs.layout.tiles"]]],
+        ["sidebarLayout", "select", [["sheets", "prefs.layout.sheets"], ["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["tiles", "prefs.layout.tiles"], ["library", "prefs.layout.library"]]],
         ["hinting", "switch"],
       ]],
     ]],
