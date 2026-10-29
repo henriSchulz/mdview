@@ -13,7 +13,7 @@ const SCRIPTS = [
   "viewer.js", "overview.js",
 ];
 // (and its styles: STYLES in shell.rs)
-const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "roles"];
+const STYLES = ["page", "text", "code", "blocks", "pages", "editor", "chrome", "sidebar", "tabs", "menus", "narrow", "layouts", "split", "twin", "tablet", "roles", "look"];
 
 // The settings as they are when nothing is set (default_prefs in shell.rs), without what the web
 // app does not have.

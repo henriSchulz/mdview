@@ -1033,7 +1033,7 @@
       // (hide: what the settings have for the desktop alone — the model, signing in, linking, the quick notes, its updates
       // and their folder on a disk, where the folder lies: what cannot be here)
       tell("settingsInfo", { version: "web", configDir: "", aiKey: { set: false, tail: "", env: false }, aiModel: "", deviceName: browserAs.name, deviceId: device.id, home: "",
-        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "configDir", "quickNew", "quickDir", "historyRoot", "updateCheck", "updateAuto"],
+        hide: ["page:ai", "githubAccount", "githubGet", "hinting", "look", "configDir", "quickNew", "quickDir", "historyRoot", "updateCheck", "updateAuto"],
         // (how many versions: told once GitHub has said it — until then the row is not there; the last one: the commit the branch stands at)
         history: { ...st, branch, ...(versions == null ? {} : { versions }), ...(head && tip.time ? { last: { time: tip.time, device: tip.device } } : {}), changed: new Set([...drafts.keys(), ...gone, ...links.keys(), ...away.keys(), ...blobs.keys()]).size, waiting: unsaved() }, github: { user: W.user, repos: [] } });
       if (versions == null) countVersions();

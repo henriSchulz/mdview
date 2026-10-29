@@ -5,10 +5,11 @@
  * from ~/.local/state/velum/settings.json; the web app: Opal), every variable the sheets draw with is taken from the
  * roles here — colours, material, radii, sizes, motion — so the whole page follows the variant, and a variant's own
  * line (Opal: stone grounds, lensed glass, lagoon) reaches the note's window as it reaches the desktop. Without
- * data-velum nothing here applies and the sheets keep their own values (page.css, motion.css).
+ * data-velum, or without the look chosen in Settings (prefs "look": "velum", <html data-look>), nothing here applies and
+ * the sheets keep their own values (page.css, motion.css). The window's shape for that look: viewer/look.css.
  * Roles only: no colour, time or size is written here. */
 
-html[data-velum] {
+html[data-velum][data-look="velum"] {
   /* ---- colour: three strengths of ink, the tones, one accent */
   --bg: var(--v-bg-content);
   --fg: var(--v-ink-primary);
@@ -69,11 +70,11 @@ html[data-velum] {
 }
 /* a control's height, where a finger is not the pointer (narrow.css gives a finger its own sizes, at :root) */
 @media not (pointer: coarse) {
-  html[data-velum] { --control-height: var(--v-control-height); }
+  html[data-velum][data-look="velum"] { --control-height: var(--v-control-height); }
 }
 /* page.css sets a few of these anew under a dark body; the roles already carry light and dark
  * (data-appearance), so the dark overrides give way too. */
-html[data-velum] body {
+html[data-velum][data-look="velum"] body {
   --raised: var(--v-bg-raised);
   --shadow-menu: var(--v-menu-shadow);
   --shadow-popover: var(--v-popover-shadow);
@@ -82,4 +83,4 @@ html[data-velum] body {
   --glass: var(--v-popover-bg);
 }
 /* Reduce Transparency, or a WebKit that draws no blur (data-flat): the opaque material */
-html[data-velum] body[data-flat] { --glass: var(--v-popover-bg-opaque); --glass-filter: none; }
+html[data-velum][data-look="velum"] body[data-flat] { --glass: var(--v-popover-bg-opaque); --glass-filter: none; }

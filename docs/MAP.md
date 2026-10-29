@@ -105,6 +105,7 @@ or the tests see the old ones.
 | `viewer/code.css` | code blocks and code in the text. |
 | `viewer/editor.css` | the source editor. |
 | `viewer/layouts.css` | the sidebar's layouts. |
+| `viewer/look.css` | the Velum look: the window as the desktop's Velum lab draws it (~/Projects/velum/lab/web/opal.html, its … |
 | `viewer/menus.css` | the window for a new folder's name, the copy that goes with the pointer in a drag, menus at a point, a choice … |
 | `viewer/meter.css` | The frame meter (viewer/meter.js, MDVIEW_METER=1): a small panel at the lower left over everything, through … |
 | `viewer/narrow.css` | scrollbars, tooltips, figures, signs set as text (SF Symbols), and narrow windows (a phone, a split screen). |

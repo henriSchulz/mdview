@@ -1,0 +1,133 @@
+/* mdview, styles — the Velum look: the window as the desktop's Velum lab draws it (~/Projects/velum/lab/web/opal.html, its
+ * window on the desktop stage). Chosen in Settings › Appearance › Look (prefs "look": "velum"; viewer/base.js puts it on
+ * <html data-look>), and only where the shell names a Velum variant (<html data-velum>, src-tauri/src/theme.rs). The roles
+ * come from velum.css, the app's variables from them in viewer/roles.css; this sheet gives the window its shape:
+ * - the sidebar a card of its own tone, set in from the window's edge, its rows quiet until one is chosen;
+ * - the tabs and the toolbar one island of glass floating over the note (the variant's material and lens), the note
+ *   scrolling away under it behind a band of its own colour (the scroll edge);
+ * - the menus at a point the variant's glass menu, not the dark plate;
+ * - tracks and plates, the primary button and headings as the lab has them.
+ * Roles only: every colour, size, radius and shadow is a --v-* role or the app's variable it was mapped to.
+ * (One of several sheets, linked after roles.css: docs/MAP.md.) */
+
+:root[data-velum][data-look="velum"] {
+  --sb-w: calc(var(--v-sidebar-width) + var(--v-sidebar-inset));
+  --sb-inset: var(--v-sidebar-inset);
+  --sb-row: var(--v-row-height);
+  --tab-h: calc(var(--v-control-height) + 2 * var(--v-segment-pad));
+  --tabs-h: calc(var(--tab-h) + 2 * var(--v-space-4) + var(--v-space-10));
+}
+:root[data-velum][data-look="velum"] body { background: var(--v-bg-content); }
+
+/* ---- the sidebar: a card of the sidebar's tone, concentric with the window */
+:root[data-velum][data-look="velum"] #sidebar {
+  border-radius: var(--v-radius-sidebar);
+  background: var(--v-bg-sidebar);
+  box-shadow: var(--v-sidebar-shadow);
+}
+:root[data-velum][data-look="velum"] .sb-row { border-radius: var(--v-radius-row); }
+:root[data-velum][data-look="velum"] .sb-row.active { background: var(--v-fill-selected); color: var(--v-ink-primary); }
+:root[data-velum][data-look="velum"] .sb-row.active .sb-icon { color: var(--v-accent-text); }
+:root[data-velum][data-look="velum"] .sb-row:not(.active) .sb-icon { color: var(--v-ink-sidebar-glyph); }
+
+/* ---- the tabs and the toolbar: one floating island of glass */
+:root[data-velum][data-look="velum"] body[data-tabs] #tabs {
+  top: var(--v-space-10);
+  left: var(--v-space-10);
+  right: var(--v-space-10);
+  height: calc(var(--tab-h) + 2 * var(--v-space-4));
+  padding: var(--v-space-4) calc(var(--tb-w, 230px) + var(--v-space-16)) var(--v-space-4) var(--v-space-4);
+  border-radius: var(--v-radius-popover);
+  background: var(--v-popover-bg);
+  -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate));
+  backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate));
+  box-shadow: var(--v-popover-shadow);
+  clip-path: none;
+}
+:root[data-velum][data-look="velum"] body[data-tabs][data-sidebar="open"] #tabs { left: calc(var(--sb-w) + var(--v-space-4)); }
+:root[data-velum][data-look="velum"] body[data-tabs] #tabs::after { display: none; }
+/* the scroll edge: the note fades out under the island, in its own colour */
+:root[data-velum][data-look="velum"] body[data-tabs]::before {
+  content: "";
+  position: fixed;
+  z-index: 14;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tabs-h) + var(--v-space-16));
+  background: linear-gradient(var(--v-bg-content) 40%, transparent);
+  pointer-events: none;
+}
+/* the toolbar's capsule sits inside the island, at its right end, with no glass of its own — where the toolbar is at the
+ * window's top (narrow.css moves it to the foot at 760 px and less: there it stays a capsule of its own) */
+@media (min-width: 761px) {
+  :root[data-velum][data-look="velum"] body[data-tabs] #toolbar {
+    top: calc(var(--v-space-10) + var(--v-space-4) + (var(--tab-h) - var(--control-height) - 6px) / 2);
+    right: calc(var(--v-space-10) + var(--v-space-4));
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+@media (max-width: 760px) {
+  :root[data-velum][data-look="velum"] body[data-tabs] #tabs { padding-right: var(--v-space-4); }
+}
+/* without tabs the toolbar is an island of its own */
+:root[data-velum][data-look="velum"] body:not([data-tabs]) #toolbar { box-shadow: var(--v-popover-shadow); border-radius: var(--v-radius-popover); }
+:root[data-velum][data-look="velum"] :is(#toolbar, #tabs) .tb { color: var(--v-popover-ink-secondary); }
+:root[data-velum][data-look="velum"] :is(#toolbar, #tabs) .tb:hover { background: var(--v-popover-fill-hover); color: var(--v-popover-ink); }
+:root[data-velum][data-look="velum"] #toolbar .tb { border-radius: var(--v-radius-control); }
+
+/* the tabs: a track and a plate that glides (the lab's segment) */
+:root[data-velum][data-look="velum"] .tab-list { border-radius: var(--v-radius-segment); background: var(--v-segment-track); padding: var(--v-segment-pad); }
+:root[data-velum][data-look="velum"] .tab-plate,
+:root[data-velum][data-look="velum"] body[data-mode="dark"] .tab-plate {
+  top: var(--v-segment-pad);
+  height: calc(var(--tab-h) - 2 * var(--v-segment-pad));
+  border-radius: var(--v-radius-segment-plate);
+  background: var(--v-segment-plate);
+  box-shadow: var(--v-segment-plate-shadow);
+}
+:root[data-velum][data-look="velum"] :is(.tab, .tab-home, .tab-new) { background: transparent; color: var(--v-popover-ink-secondary); border-radius: var(--v-radius-segment-plate); }
+:root[data-velum][data-look="velum"] :is(.tab-home, .tab-new):hover { background: var(--v-popover-fill-hover); color: var(--v-popover-ink); }
+:root[data-velum][data-look="velum"] .tab[aria-selected="true"] { color: var(--v-popover-ink); }
+/* the toolbar's segments (read / edit …) the same track and plate */
+:root[data-velum][data-look="velum"] .seg-thumb,
+:root[data-velum][data-look="velum"] body[data-mode="dark"] .seg-thumb {
+  border-radius: var(--v-radius-segment-plate);
+  background: var(--v-segment-plate);
+  box-shadow: var(--v-segment-plate-shadow);
+}
+
+/* ---- menus at a point: the variant's glass menu with its lens, not the dark plate */
+:root[data-velum][data-look="velum"] :is(#ctxmenu, .actmenu) {
+  --fg: var(--v-menu-ink);
+  --fg2: var(--v-menu-ink-secondary);
+  --fg3: var(--v-ink-tertiary);
+  --line: var(--v-menu-line);
+  --accent: var(--v-menu-highlight);
+  --accent-text: var(--v-accent-text);
+  --on-accent: var(--v-menu-highlight-ink);
+  --menu-radius: var(--v-radius-menu);
+  --menu-pad: var(--v-menu-pad);
+  --menu-row-radius: var(--v-radius-menu-row);
+  background: var(--v-menu-bg);
+  -webkit-backdrop-filter: blur(var(--v-menu-blur)) saturate(var(--v-menu-saturate));
+  backdrop-filter: blur(var(--v-menu-blur)) saturate(var(--v-menu-saturate));
+  box-shadow: var(--v-menu-shadow);
+  color: var(--v-menu-ink);
+}
+:root[data-velum][data-look="velum"] body[data-flat] :is(#ctxmenu, .actmenu) { background: var(--v-menu-bg-opaque); -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root[data-velum][data-look="velum"] :is(#ctxmenu, .actmenu) .menu-item { min-height: var(--v-menu-row); font-size: var(--v-menu-font); font-weight: var(--v-menu-weight); }
+:root[data-velum][data-look="velum"] :is(#ctxmenu, .actmenu) .menu-item.danger:not(.hl) { color: var(--v-menu-danger); }
+:root[data-velum][data-look="velum"] .menu-item.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+
+/* ---- the one primary action: the accent rising to its top */
+:root[data-velum][data-look="velum"] .btn.primary { background: linear-gradient(var(--v-accent-top), var(--v-accent-base)); color: var(--v-ink-on-accent); }
+
+/* ---- page tiles: paper of the raised tone */
+:root[data-velum][data-look="velum"] { --page-paper: var(--v-bg-raised); --page-ground: var(--v-bg-window); }
+
+/* ---- headings drawn tighter, as the lab's note */
+:root[data-velum][data-look="velum"] :is(#content, #active) :is(h1, h2) { letter-spacing: -0.02em; }

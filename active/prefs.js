@@ -12,7 +12,7 @@
     sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",
     panel: false, panelTab: "insert",
-    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
+    ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", pdfFormat: "callout", pdfAuto: false, look: "app", measure: "normal", calloutStyle: "box", hinting: false, docZoom: 100, props: true, quickDir: "", quickNew: "Ctrl+N", updateAuto: true,
   };
   const post = (type, data = {}) => window.MdHost?.post(JSON.stringify({ type, ...data }));
   const now = () => ({ ...DEFAULTS, ...(window.MdPrefs || {}) });
@@ -34,6 +34,7 @@
     ["appearance", "title", [
       [null, [
         ["docZoom", "select", [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250].map((z) => [z, z + " %"])],
+        ["look", "select", [["app", "prefs.look.app"], ["velum", "prefs.look.velum"]]],
         ["calloutStyle", "select", [["box", "prefs.calloutStyle.box"], ["tip", "prefs.calloutStyle.tip"], ["label", "prefs.calloutStyle.label"]]],
         ["sidebarLayout", "select", [["sheets", "prefs.layout.sheets"], ["rail", "prefs.layout.rail"], ["source", "prefs.layout.source"], ["tiles", "prefs.layout.tiles"]]],
         ["hinting", "switch"],
@@ -332,6 +333,8 @@
       const hide = info.hide || [];
       for (const b of side.querySelectorAll(".st-nav")) b.hidden = hide.includes("page:" + b.dataset.page);
       for (const row of content.querySelectorAll(".pf-row")) if (hide.includes(row.dataset.key)) row.hidden = true;
+      // (the Velum look only where the desktop wears a Velum variant: <html data-velum>, the shell's theme.rs)
+      if (!document.documentElement.dataset.velum) for (const row of content.querySelectorAll('.pf-row[data-key="look"]')) row.hidden = true;
       for (const card of content.querySelectorAll(".st-card")) {
         card.hidden = ![...card.children].some((r) => !r.hidden);
         const title = card.previousElementSibling;

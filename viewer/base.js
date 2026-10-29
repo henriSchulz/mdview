@@ -6,6 +6,8 @@
 "use strict";
 (() => {
   const P = (window.MdPage = {});
+  // the look the settings chose (prefs "look": "app" | "velum"), on <html> before anything is drawn: viewer/look.css
+  document.documentElement.dataset.look = (window.MdPrefs || {}).look === "velum" ? "velum" : "app";
   // state of one file that others read (and set, where a setter is given): P.name is the variable itself
   P.live = (o) => { for (const k in o) Object.defineProperty(P, k, { get: o[k][0], set: o[k][1], enumerable: true }); };
 
