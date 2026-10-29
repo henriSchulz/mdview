@@ -78,3 +78,5 @@ body.swapping #content, body.swapping #editor {
 .m-math { color: var(--c-magenta); }
 .m-comment { color: var(--fg2); font-style: italic; }
 .m-key { color: var(--fg); }
+/* A plain text file that can't be edited (render.js): its text as it is, in the note's own type — not a block of code */
+#content pre.plain-text { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; white-space: pre-wrap; overflow-wrap: break-word; }

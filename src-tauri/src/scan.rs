@@ -14,6 +14,8 @@ use regex::Regex;
 use serde::Serialize;
 
 pub const MD_EXT: &[&str] = &["md", "markdown", "mdown", "mkd", "mkdn", "mdx"];
+/// plain text: opened in the source editor alone, no Markdown read into it (viewer/render.js)
+pub const TEXT_EXT: &[&str] = &["txt", "text"];
 const IMG_EXT: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico"];
 const AUDIO_EXT: &[&str] = &["mp3", "wav", "ogg", "m4a", "flac", "opus", "webm"];
 const VIDEO_EXT: &[&str] = &["mp4", "mkv", "mov", "ogv"];
@@ -53,6 +55,10 @@ pub fn ext_of(path: &Path) -> String {
 
 pub fn is_md(path: &Path) -> bool {
     MD_EXT.contains(&ext_of(path).as_str())
+}
+
+pub fn is_text(path: &Path) -> bool {
+    TEXT_EXT.contains(&ext_of(path).as_str())
 }
 
 pub fn is_pdf(path: &Path) -> bool {
@@ -667,6 +673,13 @@ mod tests {
             out.extend(names(d).into_iter().map(|x| format!("{}/{x}", d.name)));
         }
         out
+    }
+
+    #[test]
+    fn a_text_file_is_known_by_its_ending_and_listed_as_a_file() {
+        assert!(is_text(Path::new("/x/a.txt")) && is_text(Path::new("/x/B.TXT")) && is_text(Path::new("/x/c.text")));
+        assert!(!is_text(Path::new("/x/a.md")) && !is_text(Path::new("/x/txt")) && !is_text(Path::new("/x/a.txt.pdf")));
+        assert_eq!(file_kind(Path::new("/x/a.txt")), "file"); // (not a note: the sidebar and All Notes list it as they did)
     }
 
     #[test]

@@ -137,8 +137,8 @@ impl Win {
         if is_board(path) {
             return self.js("MdView.openBoardFile", &[json!(s(path))]); // a whiteboard: over the window, as one in a note opens
         }
-        if !matches!(file_kind(path), "md" | "pdf" | "slides") {
-            return host::launch_path(path); // a picture, a film, any other file: in its own application
+        if !matches!(file_kind(path), "md" | "pdf" | "slides") && !crate::scan::is_text(path) {
+            return host::launch_path(path); // a picture, a film, any other file: in its own application (plain text: here, in the source editor)
         }
         // in a tab of its own where that was asked for; a note that has a tab already: that tab
         let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());

@@ -529,7 +529,7 @@
       e.preventDefault();
       window.scrollBy({ top: (e.key === "PageDown" ? 1 : -1) * (innerHeight - 80), behavior: reducedMotion() ? "instant" : "smooth" });
     }
-    else if (mod && !e.shiftKey && !e.altKey && EDIT_KEYS[e.key.toLowerCase()]) { e.preventDefault(); EDIT_KEYS[e.key.toLowerCase()](); }
+    else if (mod && !e.shiftKey && !e.altKey && EDIT_KEYS[e.key.toLowerCase()] && P.current?.kind !== "text") { e.preventDefault(); EDIT_KEYS[e.key.toLowerCase()](); } // (no ** or [](url) typed into plain text)
     else if (/^(Arrow|Home|End)/.test(e.key)) requestAnimationFrame(revealCaret);
   });
   // Pasting an image: the page can't get at the image data, so the shell saves it
