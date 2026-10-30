@@ -154,7 +154,7 @@ test("All Notes: another choice at the head dims what was shown at once — no g
   // (WebKit's GPU renderer kept the old tiles' picture of the fading layer, dimmed, under the empty Whiteboards: Henri 2026-10-25)
   await open("Alpha.md");
   await allNotes();
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="all"]');
+  await page.evaluate(() => document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="all"]').click()); // (every note: the view, though its choice is not shown)
   await page.waitForFunction(() => document.querySelector("#overview").dataset.scope === "all" && !document.querySelector("#overview .ov-body.ov-going"), null, { timeout: 8000 });
   await new Promise((r) => setTimeout(r, 400));
   const seen = await page.evaluate(() => new Promise((done) => {
@@ -186,7 +186,7 @@ test("the toolbar stands only while a note is shown: not over All Notes (Henri, 
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].filter((o) => o.getClientRects().length).map((o) => o.dataset.v)), ["all", "folders", "boards"]); // (the choices that show: the pasteboard is a tab of its own — paste.test.mjs; Home only with its setting)
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#overview [data-seg="scope"] .ov-opt')].filter((o) => o.getClientRects().length).map((o) => o.dataset.v)), ["folders", "boards"]); // (the choices that show: the pasteboard is a tab of its own — paste.test.mjs; Home only with its setting; All Notes no longer, Henri 2026-10-30)
   await page.click('#overview [data-seg="scope"] .ov-opt[data-v="boards"]');
   await page.waitForFunction(() => document.querySelectorAll("#overview .ov-item").length === 3, null, { timeout: 8000 });
   assert.deepEqual(await tiles(), [["assets/kept.board.svg", "In “Beta”", true], ["Plan.board.svg", "In “Alpha”", false], ["sub/Loose.board.svg", "In no note", false]]);
@@ -213,7 +213,7 @@ test("All Notes › Whiteboards: every whiteboard of the repository with the not
   await page.click('#overview .ov-item[data-path$="Plan.board.svg"]');
   await boardOpen(1);
   await boardShut();
-  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="all"]');
+  await page.evaluate(() => document.querySelector('#overview [data-seg="scope"] .ov-opt[data-v="all"]').click()); // (every note: the view, though its choice is not shown)
   await page.keyboard.press("Escape");
   assert.ok((await rows()).includes("assets/kept.board.svg"), String(await rows())); // (listed from now on)
 });

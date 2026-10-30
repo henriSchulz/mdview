@@ -1007,8 +1007,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   beginning, under it its name and when it was changed; a folder is a stack of sheets in its
   colour, with its sign (the same on the stack, in the list and in the sidebar) — or as a list: a row per note with its sheet in small, its name, its
   first words (what it says: not a drawing's style sheet or a code block) and when it was changed. Two
-  switches at the head: *All Notes* (grouped by folder), *Folders* (one folder at a time, click
-  into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens on
+  switches at the head: *Folders* (one folder at a time, click into its folders, `Backspace` goes up) or
+  *Whiteboards* (below) — and *Home* first where it is on; *All Notes*, every note grouped by folder, is no longer among
+  them (Henri, 2026-10-30) — and tiles or list. It opens on
   *Folders*, in the folder of the note on screen, whatever was shown last — or on *Home*, with **Settings › All Notes ›
   Home** on: a page of cards, the first switch then *Home*. *Continue*: the three notes opened last, as tiles. *Open
   Tasks*: the open tasks (`- [ ]`) of the thirty notes changed last, with the note each is in — read from the notes'
@@ -1658,7 +1659,7 @@ first (Transform with AI on what is selected, while AI is on); the `/` menu as t
 tile; find a field of glass; the sidebar's Library with **All Notes, Recents, Today, With Tasks, Shared** (the Library
 layout — the tasks counted from the notes' beginnings), the folders on a square of their colour, and at its foot, beside
 the gear, how the folder stands with its history (*History on*, or for a linked one *Up to date* / *Not reached* …);
-All Notes opens on *All Notes* with the lab's page header (a large title, the count and the folder under it, the choices
+All Notes has the lab's page header (a large title, the count and the folder under it, the choices
 and **+ New Note** at the right). **Go to…** (the island's search, or `Ctrl+K` outside a text field — in the text
 `Ctrl+K` stays the link's): a field in the middle of the window, under it the notes of the folder whose names have what
 is typed (the ones opened last first), the headings of the note on screen that have it, and *New Note*, *Ask the

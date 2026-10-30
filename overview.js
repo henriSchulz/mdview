@@ -140,6 +140,7 @@
   function setSegs() {
     const home = homeOn();
     el.querySelector('[data-seg="scope"] [data-v="home"]').hidden = !home; // (Home: only with the setting — and the thumb counts what shows)
+    el.querySelector('[data-seg="scope"] [data-v="all"]').hidden = true; // (no All Notes among the choices — Henri, 2026-10-30: Home, Folders and Whiteboards are the ways in; the view stays for what asks for it)
     for (const [name, v] of [["scope", scope], ["layout", layout], ["boards", boardShow]]) {
       const box = el.querySelector(`[data-seg="${name}"]`);
       if (!box) continue;
@@ -552,8 +553,7 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    const lab = !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum; // (Velum Refined, Focus: the lab opens on All Notes)
-    scope = want === "paste" ? "paste" : homeOn() ? "home" : lab ? "all" : "folders";
+    scope = want === "paste" ? "paste" : homeOn() ? "home" : "folders";
     boardShow = "all"; // (every whiteboard of the folder: in a note or not, they are listed alike)
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
