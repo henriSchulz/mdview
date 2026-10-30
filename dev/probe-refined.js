@@ -38,6 +38,7 @@
     await shot("find");
     esc(); await sleep(400);
     document.querySelector('#tabs [data-act="overview"], #toolbar [data-act="overview"]')?.click();
+    await new Promise((r) => setTimeout(r, 800)); document.getElementById("overview").scrollTop = 0;
     await shot("home");
     document.getElementById("overview").scrollTop = 1e5;
     await shot("home-low");
