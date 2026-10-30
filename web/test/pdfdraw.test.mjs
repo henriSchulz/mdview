@@ -65,3 +65,19 @@ test("opening the drawing on a PDF: the toolbar's controls fade, they are not go
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.pdf-bar .tb:not([data-do="draw"])')).display !== "none"), true);
   await context.close();
 });
+
+test("drawing on a PDF in the Velum look: the board begins under the tabs' island, not into it (#14)", async () => {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+  await context.addCookies([{ name: "mdview", value: session.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
+  const page = await context.newPage();
+  page.on("pageerror", (e) => problems.push(String(e)));
+  await page.goto(`${base}/r/octo/notes?n=paper.pdf`);
+  await page.waitForFunction(() => window.MdPdf && MdPdf.shown && MdPdf.shown.pages.length && MdPdf.shown.pages[0].state === "done", null, { timeout: 20000 });
+  await page.evaluate(() => document.documentElement.setAttribute("data-look", "velum"));
+  await page.waitForTimeout(500);
+  await page.click('.pdf-bar [data-do="draw"]');
+  await page.waitForTimeout(800);
+  const [board, tabs] = await page.evaluate(() => [document.getElementById("board").getBoundingClientRect().top, document.getElementById("tabs").getBoundingClientRect().bottom]);
+  assert.ok(board >= tabs - 0.5, `the board begins at ${board}, the tabs end at ${tabs}`);
+  await context.close();
+});

@@ -31,7 +31,7 @@
   const tabRow = tabbar.firstChild, tabList = tabbar.querySelector(".tab-list");
   let tabs = [], tabActive = null, tabShown = null, tabClosed = false; // tabActive: the one marked (at once, on a click); tabShown: the one the application says is shown
   const tabsOn = () => document.body.hasAttribute("data-tabs");
-  const topRoom = () => (tabsOn() ? tabbar.offsetHeight : 0); // what of the window's top the strip takes
+  const topRoom = () => (tabsOn() ? tabbar.offsetTop + tabbar.offsetHeight : 0); // what of the window's top the strip takes — down to its lower edge (a strip that floats, as Velum's, lies below the top by its offset: #14)
   const tabEls = () => [...tabList.children].filter((el) => el.classList.contains("tab") && !el.classList.contains("leaving"));
   /* The plate under the tab one is on: it lies in the tabs' track (its last child, always) and glides to the tab chosen.
    * It follows by watching the list — which tab is marked, how many there are, how wide they got — and is out of the way

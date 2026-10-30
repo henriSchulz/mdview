@@ -215,6 +215,8 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     view below is put where the upper one was, never where it stood before; and a window that only
     loses and gets its focus again (another window clicked, a tap outside) leaves nothing
     (`rig.sh pdfink`).
+    What the tabs take of the window's top (`topRoom`) is down to the strip's lower edge, not its height: Velum's
+    strip floats below the top, and a board that began at its height lay into it (web `pdfdraw.test.mjs`, #14).
 
 60. **A drag is checked with a real pointer.** Made-up drag events (a DataTransfer of the page's
     own, dispatched) are taken whatever they say; the browser's own drag takes a drop only where the
