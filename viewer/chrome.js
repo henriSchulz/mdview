@@ -16,6 +16,8 @@
     `<button class="tb" data-act="outline" title="${esc(T("Outline (Ctrl+Shift+O)"))}" aria-label="${esc(T("Outline"))}">${ICON.list}</button>` +
     `<button class="tb" data-act="find" title="${esc(T("Find (Ctrl+F)"))}" aria-label="${esc(T("Find"))}">${ICON.search}</button>` +
     `<button class="tb" data-act="share" title="${esc(T("Share…"))}" aria-label="${esc(T("Share"))}">${ICON.share}</button>` +
+    // (the assistant from the bar, as the Velum lab has it — Velum Refined and Focus: viewer/look.css shows it, the bubble goes)
+    `<button class="tb tb-ai" data-act="ai" title="${esc(T("ai.chat"))}" aria-label="${esc(T("ai.chat"))}">${P.SVG_ICON.spark}</button>` +
     `<div class="seg" role="radiogroup" aria-label="${esc(T("mode.label"))}" style="--i:3"><span class="seg-thumb"></span>` +
     [["active", ICON.pencil], ["split", ICON.split], ["edit", ICON.source], ["read", ICON.book]].map(([m, icon]) =>
       `<button class="seg-btn" role="radio" data-act="mode" data-mode="${m}" aria-checked="${m === "read"}"` +
@@ -181,6 +183,73 @@
       else scrollToFragment(P.outline[i].slug, true);
     }, flash * 2);
   }
+  /* --- Go to… (Velum Refined and Focus: the island's search, Ctrl+K outside a field — the lab's palette): a field, and under it
+   * the notes of the folder whose names have what is typed, the headings of the note on screen, and what can be done with it
+   * (a new note, the assistant, find in this note). ↑ ↓ choose, Enter opens (Ctrl+Enter in a new tab), Esc closes. */
+  const pal = document.createElement("div");
+  pal.id = "palette";
+  pal.className = "ui-popover surface";
+  pal.setAttribute("role", "dialog");
+  pal.setAttribute("aria-label", T("Go to"));
+  pal.innerHTML = `<div class="pal-field">${ICON.search}<input type="text" spellcheck="false" autocomplete="off" placeholder="${esc(T("Go to a note, a heading or a command"))}"></div>` +
+    `<div class="pal-list" role="listbox"></div><div class="pal-foot"><span>↑↓ ${esc(T("choose"))}</span><span>↵ ${esc(T("open"))}</span><span>⌃↵ ${esc(T("open in new tab"))}</span><span>esc ${esc(T("close"))}</span></div>`;
+  document.body.appendChild(pal);
+  const palInput = pal.querySelector("input"), palList = pal.querySelector(".pal-list");
+  // (the wheel over it is its own: BUGS.md rule 2)
+  pal.addEventListener("wheel", (e) => { if (!palList.contains(e.target) || palList.scrollHeight <= palList.clientHeight) e.preventDefault(); }, { passive: false });
+  // Focus' round button at the window's top right: Go to… (viewer/look.css shows it there, nowhere else)
+  const palBtn = document.createElement("button");
+  palBtn.id = "pal-btn"; palBtn.type = "button"; palBtn.className = "tb";
+  palBtn.title = T("Go to") + " (Ctrl+K)"; palBtn.setAttribute("aria-label", T("Go to"));
+  palBtn.innerHTML = ICON.search;
+  palBtn.addEventListener("click", () => (palOpen() ? closePalette() : openPalette()));
+  document.body.appendChild(palBtn);
+  let palItems = [], palHl = 0;
+  const palOpen = () => pal.hasAttribute("data-open");
+  const allNotes = () => { const out = [], walk = (n) => { if (!n) return; for (const x of n.notes || []) if (!x.pdf || x.kind === "pdf") out.push(x); for (const d of n.dirs || []) walk(d); }; walk(P.folder && (P.folder.all || P.folder.tree)); return out; };
+  const mark = (text, q) => { const i = q ? text.toLowerCase().indexOf(q) : -1; return i < 0 ? esc(text) : esc(text.slice(0, i)) + "<em>" + esc(text.slice(i, i + q.length)) + "</em>" + esc(text.slice(i + q.length)); };
+  function palBuild() {
+    const raw = palInput.value.trim(), q = raw.toLowerCase(), rows = [];
+    const notes = allNotes().filter((n) => !q || (n.title || n.name).toLowerCase().includes(q) || n.path.toLowerCase().includes(q))
+      .sort((a, b) => (b.opened || 0) - (a.opened || 0) || (b.mtime || 0) - (a.mtime || 0)).slice(0, 7);
+    const root = P.folder ? P.folder.root + "/" : "";
+    for (const n of notes) rows.push({ kind: "note", icon: n.pdf ? "page" : "note", html: mark((n.title || n.name).replace(/\.(md|markdown|mdown)$/i, ""), q), sub: esc(n.path.startsWith(root) ? n.path.slice(root.length).replace(/[^/]*$/, "").replace(/\/$/, "") : ""), run: (tab) => { closePalette(); post("note", { path: n.path, tab }); } });
+    for (const [i, o] of (P.outline || []).entries()) if (q && o.text.toLowerCase().includes(q) && rows.length < 10) rows.push({ kind: "heading", icon: "list", html: mark(o.text, q), sub: esc(T("in this note")), run: () => { closePalette(); if (P.inSource()) P.goToLine(P.outline[i].line); else scrollToFragment(P.outline[i].slug, true); } });
+    const cmds = [];
+    if (P.folder) cmds.push({ icon: "plus", html: raw ? esc(T("New Note “{0}”", raw)) : esc(T("New Note")), key: "⌃N", run: () => { closePalette(); P.openNewNote(); } });
+    if (document.body.hasAttribute("data-ai")) cmds.push({ icon: "spark", html: raw ? esc(T("Ask the assistant about “{0}”", raw)) : esc(T("Ask the assistant")), run: () => { closePalette(); document.getElementById("ai-bubble")?.click(); } });
+    if (P.current) cmds.push({ icon: "search", html: raw ? esc(T("Find “{0}” in this note", raw)) : esc(T("Find in this note")), key: "⌃F", run: () => { closePalette(); openFind(); if (raw) { findInput.value = raw; runFind(raw, true); } } });
+    palItems = [...rows, ...cmds.map((c) => ({ kind: "cmd", ...c }))];
+    palHl = Math.min(palHl, Math.max(0, palItems.length - 1));
+    const icon = (n) => (n === "spark" ? P.SVG_ICON.spark : ICON[n] || ICON.note);
+    let html = "", last = "";
+    palItems.forEach((it, i) => {
+      const head = it.kind === "cmd" ? T("Commands") : it.kind === "heading" ? T("Headings") : T("Notes");
+      if (head !== last) { html += `<div class="pal-head">${esc(head)}</div>`; last = head; }
+      html += `<div class="pal-row${i === palHl ? " hl" : ""}" role="option" data-i="${i}">${icon(it.icon)}<span class="pal-t">${it.html}</span>${it.sub ? `<small>${it.sub}</small>` : ""}${it.key ? `<kbd>${esc(it.key)}</kbd>` : ""}</div>`;
+    });
+    palList.innerHTML = html || `<div class="menu-empty">${esc(T("Nothing found"))}</div>`;
+  }
+  function palSet(i) { palHl = i; palList.querySelectorAll(".pal-row").forEach((r) => r.classList.toggle("hl", Number(r.dataset.i) === i)); palList.querySelector(".pal-row.hl")?.scrollIntoView({ block: "nearest" }); }
+  function openPalette() {
+    closeFind(false); closeOutline();
+    palInput.value = ""; palHl = 0; palBuild();
+    pal.dataset.open = "";
+    palInput.focus({ preventScroll: true });
+  }
+  function closePalette() { if (!palOpen()) return false; delete pal.dataset.open; return true; }
+  palInput.addEventListener("input", () => { palHl = 0; palBuild(); });
+  palInput.addEventListener("keydown", (e) => {
+    e.stopPropagation(); // (the note's keys stay the note's: BUGS.md rule 1)
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (palItems.length) palSet((palHl + (e.key === "ArrowDown" ? 1 : -1) + palItems.length) % palItems.length); }
+    else if (e.key === "Enter") { e.preventDefault(); palItems[palHl]?.run(e.ctrlKey || e.metaKey); }
+    else if (e.key === "Escape") { e.preventDefault(); closePalette(); }
+  });
+  palList.addEventListener("mousemove", (e) => { const r = e.target.closest(".pal-row"); if (r && Number(r.dataset.i) !== palHl) palSet(Number(r.dataset.i)); });
+  palList.addEventListener("click", (e) => { const r = e.target.closest(".pal-row"); if (r) palItems[Number(r.dataset.i)]?.run(e.ctrlKey || e.metaKey); });
+  // a press beside it closes it, and does nothing else (as a menu)
+  document.addEventListener("mousedown", (e) => { if (palOpen() && !pal.contains(e.target) && !e.target.closest('[data-act="palette"], [data-act="find"], #pal-btn')) { closePalette(); e.preventDefault(); e.stopPropagation(); } }, true);
+
   /* --- the outline at the right: Velum Refined and Velum Focus (prefs "look"; the lab's ~/Projects/velum/lab/web/mdview.html,
    * proposals A and C). The note's headings in a quiet list beside it (Refined), or as marks at the window's edge that open
    * on hover (Focus) — viewer/look.css says where and when it shows. Filled when the note is drawn (railOutline, from
@@ -323,7 +392,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { toolbar, outlinePop, findBar, findInput, toast, updateNotice, outlineOpen, findOpen, showToolbar,
-    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind, railOutline });
+    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind, railOutline, openPalette, closePalette, palOpen });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     hitIdx: [() => hitIdx],

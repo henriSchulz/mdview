@@ -33,6 +33,8 @@
     `<div class="sb-cap sb-cap-folders">${esc(T("Folders"))}</div>` +
     `<nav class="sb-list" aria-label="${esc(T("Notes"))}"></nav>` +
     `<nav class="sb-flat sb-extra" aria-label="${esc(T("Notes"))}"></nav>` +
+    // (where the folder stands with its history, in words — Velum Refined and Focus show it at the sidebar's foot, beside the gear: viewer/look.css)
+    `<div class="sb-status" hidden><span class="sb-status-ic">${ICON.history}</span><span class="sb-status-t"><b></b><small></small></span></div>` +
     `<footer class="sb-foot"><button class="sb-new-note" type="button" data-sb="new">${ICON.plus}<span>${esc(T("New Note"))}</span></button><button class="tb" type="button" data-sb="more" title="${esc(T("Order of the notes, and what is listed"))}" aria-label="${esc(T("Order of the notes, and what is listed"))}">${ICON.list}</button></footer>`;
   document.body.appendChild(sidebar);
   sidebar.querySelector(".qn-search").addEventListener("input", (e) => { quickFilter = e.target.value.trim().toLowerCase(); if (folder && folder.quick) quickPaint(); else layoutSync(); });
@@ -329,7 +331,8 @@
     sbRecent.hidden = !recent.length;
     // the smart lists (tiles): how many notes each holds
     const tiles = lay === "tiles" ? SMART.filter((x) => x[0] !== "recent").map(([id, label, color, test]) => [id, label, color, all.filter(test).length])
-      : lay === "library" ? SMART.filter((x) => x[0] === "all" || x[0] === "recent").map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : "Recents", color, all.filter(test).length]) : [];
+      // (the library: the lab's rows — All Notes, Recents, Today, With Tasks, Shared)
+      : lay === "library" ? ["all", "recent", "today", "tasks", "shared"].map((id) => SMART.find((x) => x[0] === id)).map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : id === "recent" ? "Recents" : label, color, all.filter(test).length]) : [];
     const tilesKey = JSON.stringify(tiles);
     if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id]}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
     for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
@@ -338,8 +341,8 @@
   }
   // the beginnings of the notes a layout draws from: the sheets of the folder shown; for the tiles all of them (which have tasks)
   function sbAsk(lay, here) {
-    if (sbAsking.size || (lay !== "sheets" && lay !== "tiles")) return;
-    const notes = lay === "tiles" ? everyNote() : (here || folder.tree).notes;
+    if (sbAsking.size || (lay !== "sheets" && lay !== "tiles" && lay !== "library")) return;
+    const notes = lay === "tiles" || lay === "library" ? everyNote() : (here || folder.tree).notes; // (the tiles and the library count the notes with tasks)
     const want = notes.filter((n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path) && ((sbSeen.get(n.path) || {}).mtime !== n.mtime || (lay === "sheets" && (sbSeen.get(n.path) || {}).html === undefined))).slice(0, 40); // (the sheets want its beginning too, where only its shape was read)
     if (!want.length) return;
     for (const n of want) { sbAsking.add(n.path); sbSeen.set(n.path, { ...(sbSeen.get(n.path) || { shape: "", open: 0, color: "" }), mtime: n.mtime }); } // (asked once for what it is now, whatever comes back)
@@ -800,6 +803,11 @@
     // (a linked project: how it stands with its repository)
     const sy = syncState(), with_ = (f.history || {}).linked ? " · GitHub: " + ({ even: "the same on both", offline: "not reached", signin: "sign in to go on", conflict: "conflicts to resolve", error: "not going" }[sy] || "linked") : "";
     sbHistoryBtn.title = sbHistoryBtn.ariaLabel = HISTORY_SAYS[hs](f.history || {}) + (with_ || (odds ? " — conflicts to resolve" : ""));
+    const status = sidebar.querySelector(".sb-status"), on = hs === "project" || hs === "inside", linked = !!(f.history || {}).linked;
+    status.hidden = !on && !linked;
+    status.dataset.state = odds || sy === "error" ? "warn" : sy === "even" || (on && !linked) ? "ok" : "";
+    status.querySelector("b").textContent = T(linked ? ({ even: "Up to date", offline: "Not reached", signin: "Sign in to go on", conflict: "Conflicts to resolve", error: "Not going" }[sy] || "Linked") : "History on");
+    status.querySelector("small").textContent = linked ? "GitHub" + ((f.history || {}).name ? " · " + f.history.name : "") : T("Versions are kept");
     if (window.MdActive && MdActive.conflict) MdActive.conflict.standing((f.history || {}).sync);
     document.body.dataset.folder = "";
     if (first) openAncestors();

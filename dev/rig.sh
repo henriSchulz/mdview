@@ -23,6 +23,7 @@
 #   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
 #   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
 #   dev/rig.sh sbscroll              the sidebar's own list scrolled in each layout: frames
+#   dev/rig.sh orail [FILE]          Velum Refined's outline at the right takes its own clicks (a real pointer): nothing over its rows, the note untouched — reading view, active mode
 #   dev/rig.sh pdflook               a PDF in a folder window as it looks: its controls in the toolbar beside the tabs, the panel at the left, the board under the tabs, the pens' tray
 #   dev/rig.sh pdflag                how late what is drawn on a PDF shows (a pen's samples every 8 ms): a bare page, quick work, a page written full, far in
 #   dev/rig.sh turn                  pictures turned by quarters: shown turned in both views, turned from the menu, written before the size
@@ -364,6 +365,28 @@ case "${1:-}" in
     [[ -f $R/out/$name.board-hand.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/$name.board-hand.json"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-hand.json"; } | grep -qv '^ok' ;;
+  orail)
+    # Velum Refined's outline at the right (viewer/chrome.js #orail): a real click on each row, in the reading view and the active mode,
+    # leaves the note as it was. Its own Velum state (MDVIEW_VELUM_STATE) and the look chosen in the state, put back after.
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    name=orail.md; rm -rf "$R/work" "$R/velum-orail"; mkdir -p "$R/work" "$R/velum-orail"; rm -f "$R/out/$name".{plan*,orail,shot-active}.json "$R/out/orail-active.png"
+    if [[ -n ${2:-} ]]; then cp "$2" "$R/work/$name"; else printf '%s\n' '# One' '' 'Text one.' '' '## Two' '' 'Text two.' '' '## Three' '' 'Text three.' '' '## Four' '' 'Text four.' > "$R/work/$name"; fi; cp "$R/work/$name" "$R/orail.orig"
+    printf '%s\n' 'mode = "light"' 'background = "#fbfaf8"' 'foreground = "#1c1a17"' 'accent = "#138474"' > "$R/velum-orail/colors.toml"; echo '{"variant":"opal","appearance":"light"}' > "$R/velum-orail/settings.json"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] || echo '{}' > "$st"; cp "$st" "$R/state.orail.bak"; jq '.active = ((.active // {}) + {look: "refined"})' "$R/state.orail.bak" > "$st"
+    app 120 MDVIEW_VELUM_STATE="$R/velum-orail" MDVIEW_PROBE="$D/probe-orail.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 1200); do
+      [[ -f $R/out/$name.orail.json ]] && break
+      [[ -f $R/out/$name.shot-active.json && ! -f $R/out/orail-active.png ]] && { sleep 0.3; shot "$R/out/orail-active.png"; }
+      if [[ -f $R/out/$name.plan$n.json ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$R/out/$name.plan$n.json"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    pkill -f "^$APP" 2>/dev/null; sleep 0.3
+    cp "$R/state.orail.bak" "$st"
+    [[ -f $R/out/$name.orail.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out/$name.orail.json"
+    cmp -s "$R/orail.orig" "$R/work/$name" && echo "ok   the file on disk is as it was" || echo "FAIL the file on disk changed"
+    ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.orail.json"; cmp -s "$R/orail.orig" "$R/work/$name" || echo FAIL; } | grep -qv '^ok' ;;
   board-scenes)
     # the whiteboard's small menus: size, scenes, the grid, spreading, printing
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{scenes,list,board-scenes}.json

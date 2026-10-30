@@ -946,7 +946,7 @@
   });
 
   // what floats over or stands beside the text: a press there is neither a click into the empty space nor the start of a rectangle
-  const CHROME = ".blk-h, .tbl-h, .col-grip, .actmenu, #dlg, #dlg-scrim, #settings, #settings-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #orail, #findbar, #ctxmenu, #zoom, #toast, #update, #acttip, #apptip, #ai-chat, #ai-bubble, #sblook, #tour";
+  const CHROME = ".blk-h, .tbl-h, .col-grip, .actmenu, #dlg, #dlg-scrim, #settings, #settings-scrim, #fmtbar, #linkpop, #atompop, #notepop, #toolbar, #sidebar, #sb-grip, #settings-btn, #rpanel, #overview, #outline, #orail, #palette, #pal-btn, #findbar, #ctxmenu, #zoom, #toast, #update, #acttip, #apptip, #ai-chat, #ai-bubble, #sblook, #tour";
 
   /* ---------------------------------------------------------------- a rectangle pulled over blocks
    * Pressed in the empty space beside or below the text and pulled, the pointer draws a rectangle;

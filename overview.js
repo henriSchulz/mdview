@@ -56,7 +56,7 @@
   // the head, as Craft's "All Docs" has it: the plus before the name, at the right the choices in a
   // raised field of their own, and "…" for the rest (the order, what is listed beside the notes)
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
-  el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
+  el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}" data-label="${esc(T("New Note"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span><span class="ov-tools">` + // (the choices and buttons go to a new line together, never one by one)
     seg("scope", "Show", [["home", T("Home")], ["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     // the pasteboard is no way of showing the notes: a tab of its own (viewer/tabs.js: pasteTab), opened from its button
@@ -203,6 +203,7 @@
       return;
     }
     if (scope === "home" && !homeOn()) scope = "folders"; // (the setting turned off while Home showed)
+    if (scope !== "home") delete el.dataset.home;
     if (scope === "home") { buildHome(); return; }
     if (scope === "boards") {
       // the folder's whiteboards: asked for when they are shown, drawn when they come
@@ -238,8 +239,9 @@
     } else {
       const all = tree();
       gs = groups(all); total = gs.reduce((n, g) => n + g.notes.length, 0);
-      title.textContent = folder.name;
-      el.querySelector(".ov-count").textContent = says(count(all));
+      const lab = !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum;
+      title.textContent = lab ? T("All Notes") : folder.name; // (the lab's page: "All Notes", the folder under it)
+      el.querySelector(".ov-count").textContent = says(count(all)) + (lab ? " · " + T("in {0}", folder.name) : "");
     }
     body.textContent = "";
     tiles.clear();
@@ -368,7 +370,7 @@
       const tile = tiles.get(path);
       if (tile) paint(tile, made, true);
     }
-    if (scope === "home" && isOpen()) homeTasks();
+    if (scope === "home" && isOpen()) { homeTasks(); for (const [path, row] of launchRows) { const k = cache.get(path); if (k) row.querySelector(".ovl-snip").textContent = k.text || ""; } }
     ask();
   }
 
@@ -397,6 +399,8 @@
     return c;
   }
   function buildHome() {
+    if (document.documentElement.dataset.velumLook === "focus" && document.documentElement.dataset.velum) return buildLaunch(); // (Velum Focus: the lab's start)
+    delete el.dataset.home;
     const all = everyIn(tree()), notes = all.filter(isNote), here = core.current && core.current.path;
     const lang = (window.MdPrefs || {}).lang === "de" ? "de-DE" : "en-US", now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     el.querySelector(".ov-title").textContent = T("Home");
@@ -467,6 +471,55 @@
     saidWhere();
     ask();
   }
+  /* Home in Velum Focus (the lab's proposal C): a greeting, a large field that opens Go to… (viewer/chrome.js), the folders as
+   * chips, then the notes opened last and those changed this week, a row each — its name, its first words, when. */
+  const launchRows = new Map(); // path → the row's element (its first words come with the beginnings)
+  function buildLaunch() {
+    el.dataset.home = "launch";
+    const all = everyIn(tree()), notes = all.filter(isNote), now = new Date(), h = now.getHours();
+    const lang = (window.MdPrefs || {}).lang === "de" ? "de-DE" : "en-US";
+    el.querySelector(".ov-title").textContent = T("Home");
+    el.querySelector(".ov-count").textContent = "";
+    body.textContent = ""; tiles.clear(); items = []; launchRows.clear();
+    const box = document.createElement("div");
+    box.className = "ovl";
+    box.innerHTML = `<h2 class="ovl-hi">${esc(T(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"))}</h2>` +
+      `<p class="ovl-sub">${esc(now.toLocaleDateString(lang, { weekday: "long", month: "long", day: "numeric" }) + " · " + core.folder.name + " · " + says(count(tree())))}</p>` +
+      `<button class="ovl-field" type="button">${ICON.search}<span>${esc(T("Go to a note, a heading or a command"))}</span><kbd>⌃K</kbd></button>`;
+    box.querySelector(".ovl-field").addEventListener("click", () => window.MdPage.openPalette && window.MdPage.openPalette());
+    const chips = document.createElement("div");
+    chips.className = "ovl-chips";
+    for (const d of tree().dirs.filter((x) => !x.name.startsWith("."))) {
+      const look = core.folderLook(d.path), t = document.createElement("div");
+      t.className = "ov-item ov-folder ovl-chip"; t.tabIndex = 0; t.setAttribute("role", "link"); t.dataset.path = d.path; t.dataset.dir = d.name; t.draggable = true;
+      if (look && look.color) t.style.setProperty("--c", look.color);
+      t.innerHTML = `<span class="ovl-sign">${look.sign}</span><span>${esc(d.name)}</span>`;
+      chips.appendChild(t);
+    }
+    box.appendChild(chips);
+    const recent = [...notes].sort((a, b) => (b.opened || 0) - (a.opened || 0) || (b.mtime || 0) - (a.mtime || 0)).slice(0, 4);
+    const week = [...notes].filter((n) => !recent.includes(n) && (n.mtime || 0) * 1000 > now.getTime() - 7 * 864e5).sort((a, b) => (b.mtime || 0) - (a.mtime || 0)).slice(0, 5);
+    const rows = (title, list) => {
+      if (!list.length) return;
+      const h4 = document.createElement("h4"); h4.className = "ovl-cap"; h4.textContent = title; box.appendChild(h4);
+      for (const n of list) {
+        const t = document.createElement("div"), known = cache.get(n.path);
+        t.className = "ov-item ovl-row"; t.tabIndex = 0; t.setAttribute("role", "link"); t.dataset.path = n.path; t.draggable = true;
+        t.innerHTML = `<b>${esc((n.title || n.name).replace(/\.(md|markdown|mdown)$/i, ""))}</b><span class="ovl-snip">${esc(known ? known.text || "" : "")}</span><small>${esc(when(n.mtime))}</small>`;
+        launchRows.set(n.path, t);
+        box.appendChild(t);
+      }
+    };
+    rows(T("Recents"), recent);
+    rows(T("This week"), week);
+    body.appendChild(box);
+    items = [...body.querySelectorAll(".ov-item")];
+    homeScan = [];
+    queue = [...launchRows.keys()].filter((p) => !cache.has(p));
+    saidWhere();
+    ask();
+  }
+
   // Open Tasks: from what is known of the notes changed last
   function homeTasks() {
     const box = body.querySelector(".ovh-tasklist");
@@ -496,7 +549,8 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = want === "paste" ? "paste" : homeOn() ? "home" : "folders";
+    const lab = !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum; // (Velum Refined, Focus: the lab opens on All Notes)
+    scope = want === "paste" ? "paste" : homeOn() ? "home" : lab ? "all" : "folders";
     boardShow = "all"; // (every whiteboard of the folder: in a note or not, they are listed alike)
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";

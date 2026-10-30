@@ -66,3 +66,5 @@
 /* Popovers that are not showing rest at the top of the page: left where the flow would put them
  * (below the document), they would make the page longer by their height. */
 #linkpop, #atompop, #notepop, .tbl-h { top: 0; left: 0; }
+/* (Ask AI, first in the bar: Velum Refined and Focus only — viewer/look.css shows it) */
+#fmtbar :is(.fb-ai, .fb-ai-rule) { display: none; }

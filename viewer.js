@@ -219,8 +219,14 @@
     document.documentElement.dataset.look = look === "app" ? "app" : "velum"; // (the Velum look: viewer/look.css)
     if (look === "refined" || look === "focus") document.documentElement.dataset.velumLook = look; else delete document.documentElement.dataset.velumLook; // (… and Refined or Focus on top of it: viewer/look.css)
     P.railOutline(); // (the outline at the right comes and goes with them: viewer/chrome.js)
+    // (as the Velum lab draws the app: All Notes' sign is the tiles', reading comes first among the modes, callouts are cards)
+    const lab = look === "refined" || look === "focus";
+    const house = document.querySelector('#tabs [data-act="overview"]');
+    if (house) house.innerHTML = lab ? ICON.apps : ICON.home;
+    P.arrangeModes(lab ? ["read", "active", "edit", "split"] : ["active", "split", "edit", "read"]);
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer/*.css)
-    if (CALLOUT_STYLES.includes(window.MdPrefs?.calloutStyle)) document.documentElement.dataset.callout = MdPrefs.calloutStyle; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer/*.css)
+    const callout = lab && (window.MdPrefs?.calloutStyle || "box") === "box" ? "card" : window.MdPrefs?.calloutStyle; // (the default box is the lab's card in its looks)
+    if (CALLOUT_STYLES.includes(callout)) document.documentElement.dataset.callout = callout; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer/*.css)
     const sort = sortKey();
     // what the sidebar or All Notes lists beside the notes: each shows its part anew (the application
     // sends the folder again only where what both want together changed)
