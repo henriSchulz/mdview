@@ -142,7 +142,8 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   assert.match(init.body.result.instructions, /notes_guide/);
   const guide = (await tool(t, "notes_guide", {})).text;
   assert.match(guide, /^# Notes for Markdown Notes/);
-  assert.match(guide, /### Callouts/);
+  assert.match(guide, /## What the app renders/);
+  assert.match(guide, /## Never/);
   assert.doesNotMatch(guide, /pasteboard|~\/Projects|git status/);
   // only spaces: the repositories with the app's .mdview folder (the fake's projects), not every one the app was given
   const repos = (await tool(t, "list_repositories", {})).text;
@@ -178,6 +179,9 @@ test("signed in, a client lists, reads, searches and writes the notes", async ()
   assert.equal(gh.commits.at(-1).headline, "New.md");
   assert.ok((await tool(t, "write_note", { repo: "octo/notes", path: "Uni/New.md", content: "x" })).error, "not replaced unasked");
   assert.ok((await tool(t, "write_note", { repo: "octo/notes", path: "Uni/New.txt", content: "x" })).error, "only notes");
+  assert.ok((await tool(t, "write_note", { repo: "octo/notes", path: "Uni/Fig.md", content: "# Fig\n\n```mermaid\ngraph TD\n```\n" })).error, "no Mermaid");
+  const tl = (await rpc(t, "tools/list")).body.result.tools;
+  for (const n of ["write_note", "edit_note"]) assert.match(tl.find((x) => x.name === n).description, /Never Mermaid/);
   assert.match((await tool(t, "edit_note", { repo: "octo/notes", path: "Uni/Analysis.md", old_text: "Cauchy sequences.", new_text: "Cauchy sequences converge in R." })).text, /Changed/);
   assert.match(gh.repo.files.get("Uni/Analysis.md").toString(), /converge in R\.\n$/);
   assert.match((await tool(t, "edit_note", { repo: "octo/notes", path: "Uni/Analysis.md", old_text: "nowhere", new_text: "x" })).text, /not in the note/);

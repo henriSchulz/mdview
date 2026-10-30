@@ -26,6 +26,13 @@ class Said400 extends Error {}
 const no = (why: string): never => { throw new Said400(why); };
 const text = (s: string): Said => ({ content: [{ type: "text", text: s }] });
 
+// The hardest rules of notes_guide, said again where a note is written, so they are in front of the client
+// whether or not it read the guide.
+const RULES = "Rules (full text: notes_guide): one subject, 200–500 words, formal prose, first sentence is the matter. Write only what is known and exact — leave out what is unsure, never hedge (\"vermutlich\") or mark it (\"?\", \"TBD\"). No open points, to-dos, next steps, outlook, summary or section nobody asked for. Never Mermaid: a figure is an svg fence or left out. No bullet lists except a true enumeration; terms are a definition list, values a table. Nothing addressed to the user or about how the note was made.";
+// what no note may hold: refused, so the client writes it again by the rules
+const MERMAID = /^\s*(`{3,}|~{3,})\s*mermaid\b/im;
+const noMermaid = (t: unknown) => { if (typeof t === "string" && MERMAID.test(t)) no("A mermaid fence is not allowed in a note: draw the figure as an svg fence (notes_guide, Formulas and figures) or leave it out."); };
+
 const REPO = { type: "string", description: 'The repository, "owner/name", as list_repositories names it.' };
 const PATH = { type: "string", description: "A file's path in the repository, with /." };
 
@@ -35,8 +42,8 @@ export const TOOLS: Tool[] = [
   { name: "list_files", title: "List files", description: "The notes (Markdown), whiteboards and PDFs in a repository, or in one folder of it, with their sizes. Files the user hid in the app are left out.", inputSchema: { type: "object", properties: { repo: REPO, folder: { type: "string", description: "Only what is in this folder (and below)." }, all: { type: "boolean", description: "Every file, not only notes, whiteboards and PDFs." } }, required: ["repo"] }, annotations: { readOnlyHint: true } },
   { name: "read_file", title: "Read a file", description: "A note's Markdown as it is; a whiteboard as the text on it (sticky notes, text, tables, links, with where they stand); a PDF's text, page by page.", inputSchema: { type: "object", properties: { repo: REPO, path: PATH, pages: { type: "string", description: 'A PDF only: which pages, as "3" or "2-5". All when left out.' } }, required: ["repo", "path"] }, annotations: { readOnlyHint: true } },
   { name: "search_notes", title: "Search notes", description: "The lines of the notes (and of the text on whiteboards) that hold a text, case not minded; also notes whose name holds it.", inputSchema: { type: "object", properties: { repo: REPO, query: { type: "string" }, folder: { type: "string", description: "Only in this folder (and below)." } }, required: ["repo", "query"] }, annotations: { readOnlyHint: true } },
-  { name: "write_note", title: "Write a note", description: "A note written whole (notes_guide first: how a note is written for the app): made where there is none, replaced where there is one (only with replace: true). One commit.", inputSchema: { type: "object", properties: { repo: REPO, path: { type: "string", description: "The note's path, ending in .md." }, content: { type: "string", description: "The whole note, in Markdown." }, replace: { type: "boolean", description: "Replace a note that is there already." } }, required: ["repo", "path", "content"] }, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
-  { name: "edit_note", title: "Change a note", description: "A part of a note replaced (written as notes_guide says): old_text must stand in it exactly once (give more of what is around it if not). One commit.", inputSchema: { type: "object", properties: { repo: REPO, path: PATH, old_text: { type: "string" }, new_text: { type: "string" } }, required: ["repo", "path", "old_text", "new_text"] }, annotations: { readOnlyHint: false, destructiveHint: true } },
+  { name: "write_note", title: "Write a note", description: "A note written whole: made where there is none, replaced where there is one (only with replace: true). One commit. " + RULES, inputSchema: { type: "object", properties: { repo: REPO, path: { type: "string", description: "The note's path, ending in .md." }, content: { type: "string", description: "The whole note, in Markdown." }, replace: { type: "boolean", description: "Replace a note that is there already." } }, required: ["repo", "path", "content"] }, annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
+  { name: "edit_note", title: "Change a note", description: "A part of a note replaced: old_text must stand in it exactly once (give more of what is around it if not). One commit. " + RULES, inputSchema: { type: "object", properties: { repo: REPO, path: PATH, old_text: { type: "string" }, new_text: { type: "string" } }, required: ["repo", "path", "old_text", "new_text"] }, annotations: { readOnlyHint: false, destructiveHint: true } },
   { name: "move_note", title: "Move or rename", description: "A note, whiteboard or PDF moved or renamed — never onto a file that is there. Links to it in other notes stay as they are. One commit.", inputSchema: { type: "object", properties: { repo: REPO, from: PATH, to: PATH }, required: ["repo", "from", "to"] }, annotations: { readOnlyHint: false, destructiveHint: false } },
 ];
 
@@ -154,6 +161,7 @@ export async function call(access: string, name: string, a: Record<string, unkno
     if (name === "edit_note") {
       if (!good(a.path) || !MD.test(a.path)) no("path: a note's path, ending in .md");
       if (typeof a.old_text !== "string" || !a.old_text || typeof a.new_text !== "string") no("old_text and new_text: texts");
+      noMermaid(a.new_text);
       const head = await commitOnce(access, owner, repo, nameOf(a.path as string), async (at) => {
         const e = at.tree.find((f) => f.path === a.path) || no(`${a.path} is not there.`);
         const was = await textOf(access, owner, repo, e), n = was.split(a.old_text as string).length - 1;
@@ -183,6 +191,7 @@ export async function call(access: string, name: string, a: Record<string, unkno
 async function write(access: string, owner: string, repo: string, a: Record<string, unknown>): Promise<Said> {
   if (!good(a.path) || !MD.test(a.path)) no("path: a note's path, ending in .md");
   if (typeof a.content !== "string") no("content: the note's text");
+  noMermaid(a.content);
   let made = true;
   const head = await commitOnce(access, owner, repo, nameOf(a.path as string), async (at) => {
     const there = at.tree.some((f) => f.path === a.path);
