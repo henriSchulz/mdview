@@ -656,7 +656,7 @@
         act("slash.duplicate", "duplicate copy duplizieren verdoppeln", key("d", { ctrlKey: true })),
         act("slash.moveUp", "move up nach oben bewegen", move(-1), { disabled: other(-1) !== r.a - 1 || r.a === 0 }),
         act("slash.moveDown", "move down nach unten bewegen", move(1), { disabled: other(1) !== r.b + 1 }),
-        act("menu.copyMarkdown", "copy markdown kopieren", () => { window.MdView.core.copy(A.clip.markdownOf(v.state, v.state.doc.slice(r.from, r.to))); v.focus(); }),
+        act("menu.copyMarkdown", "copy markdown kopieren", () => { window.MdView.core.copy(A.clip.copyText(v.state, v.state.doc.slice(r.from, r.to))); v.focus(); }),
         null,
         act("slash.delete", "delete remove block löschen", key("Delete"), { danger: true }),
       ] });
@@ -684,7 +684,7 @@
       if (document.execCommand(what)) return; // (the clipboard's own event takes the blocks: toClipboard)
       const r = rangeOf(v.state);
       if (!r) return;
-      window.MdView.core.copy(A.clip.markdownOf(v.state, v.state.doc.slice(r.from, r.to)));
+      window.MdView.core.copy(A.clip.copyText(v.state, v.state.doc.slice(r.from, r.to)));
       if (what === "cut") key("Delete")();
     };
     const post = (type) => window.MdHost?.post(JSON.stringify({ type }));
@@ -707,7 +707,7 @@
     const apart = P.length && (selOf(v.state).more || []).length; // picked one by one: each of them, one after the other
     const slice = apart ? new Slice(together(v.state, P), 0, 0) : v.state.doc.slice(r.from, r.to);
     e.preventDefault();
-    e.clipboardData.setData("text/plain", A.clip.markdownOf(v.state, slice));
+    e.clipboardData.setData("text/plain", A.clip.copyText(v.state, slice));
     const box = document.createElement("div");
     box.appendChild(A.clip.plugin.props.clipboardSerializer.serializeFragment(slice.content));
     // (marked as this editor's own: put in again, it is read from its Markdown — a picture of svg, a formula, a whiteboard
@@ -1191,7 +1191,7 @@
     slice.content.forEach((n) => { if (n.type.name === "columns") cols = true; });
     drag = { from, to, ranges, slice, items, cols, dx, list: items && isList(parent) ? parent : null, target: null };
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", A.clip.markdownOf(view.state, slice));
+    e.dataTransfer.setData("text/plain", A.clip.copyText(view.state, slice));
     const r = over.getBoundingClientRect();
     // the picture under the pointer: the block — or all the blocks that go, as they stand
     const els = many ? groupEls(view.state, P) : null;

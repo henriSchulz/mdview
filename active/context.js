@@ -191,7 +191,7 @@
     if (document.execCommand(what)) return;
     // not allowed by the page: the Markdown by hand
     const sel = view.state.selection;
-    copy(A.clip.markdownOf(view.state, sel.content()));
+    copy(A.clip.copyText(view.state, sel.content()));
     if (what === "cut") view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
   }
   function textItems(view, pos) {

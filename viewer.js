@@ -12,7 +12,7 @@
   const { md, tex, imageSize, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark, svgPicture, plainCode, codeHidden,
     codeLang, headColor, tableLook, tableMark, tableStyle, ruleLook, isExternal } = P; // viewer/markdown.js
   const { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW, pageLook,
-    pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageFileLine, viewOf, pageAppend,
+    pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageCopy, pageAdopt, pageFileLine, viewOf, pageAppend,
     pageOpen, pagebar, pageName, toggleProp, setProp, BACKGROUNDS, docLook, docFacts, pageFacts,
     renderProps } = P; // viewer/prep.js
   const { going, render, clear, scrollToFragment, renderMermaid, mermaidSvg, setTheme, draw, captureAnchor } = P; // viewer/render.js
@@ -322,7 +322,7 @@
     setPrefs, insertDropped, openBoardFile: (path) => P.openBoardFile(path), revealRows: (paths) => P.revealRows(paths),
     setBoards: (list) => window.MdOverview && MdOverview.boards(list), pasteboard: (m) => window.MdOverview && MdOverview.pasteboard(m), // (a whiteboard that is a file of the folder opened; rows just made brought into sight; the folder's whiteboards, for All Notes)
     // what the active mode (active/*.js, loaded on demand) builds on
-    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, setProp, doc: { BACKGROUNDS, look: () => docShown, facts: docFacts, set: docSet }, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
+    core: { md, stripFrontmatter, stripComments, renderProps, toggleProp, setProp, doc: { BACKGROUNDS, look: () => docShown, facts: docFacts, set: docSet }, pages: { parse: parsePages, text: pagesText, view: pageView, put: pagePut, copy: pageCopy, adopt: pageAdopt, fileLine: pageFileLine, isRow: (raw) => PAGE_ROW.test(String(raw || "").trim()), idOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[3] || null, STYLES: PAGE_STYLES, facts: pageFacts, append: (id, markdown) => pageAppend(id, markdown),
       // a page's line: how it looks — and the line that says it looks another way
       // a link to a note as a block of its own: [[inner]] and how it looks
       link: { STYLES: LINK_STYLES, isRow: (raw) => LINK_ROW.test(String(raw || "").trim()), innerOf: (raw) => (LINK_ROW.exec(String(raw || "").trim()) || [])[1] || "", lookOf: (raw) => pageLook((LINK_ROW.exec(String(raw || "").trim()) || [])[2]), mark: linkMark, follow: (target) => followWiki(target) },

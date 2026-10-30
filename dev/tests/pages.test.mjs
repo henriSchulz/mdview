@@ -138,3 +138,25 @@ test("a page's line cut and pasted (Ctrl+X, Ctrl+V): the page is saved without i
   const fresh = P.put(root, root, view + "\n<!-- page: New #q9 -->\n");
   assert.ok(fresh.endsWith("<!-- page: New -->\n\n<!-- /page -->\n") || /<!-- page: New -->/.test(fresh));
 });
+
+test("a page copied into another note takes what is on it along (#13)", () => {
+  const root = P.parse(FILE);
+  w.MdPage.pagesShown = root;
+  const copied = P.copy("before\n\n<!-- page: Meeting notes #p1 -->\n\nafter");
+  assert.equal(copied, "before\n\n" + root.byId.get("p1").open + "\n\n## Agenda\n\n- one\n\n<!-- page: Inner -->\ninner text\n<!-- /page -->\n\nafter inner\n\n<!-- /page -->\n\nafter");
+  assert.ok(!/#p\d/.test(copied), "no id of this note on the clipboard");
+  // a line in a code block is the text it is
+  const fenced = "```\n<!-- page: Meeting notes #p1 -->\n```";
+  assert.equal(P.copy(fenced), fenced);
+  // … and in another note
+  w.MdPage.pagesShown = null;
+  const other = P.parse("# Other\n");
+  const pasted = P.adopt(copied);
+  const m = /<!-- page: Meeting notes #(x\d+) -->/.exec(pasted);
+  assert.ok(m, pasted);
+  const file = P.put(other, other, "# Other\n\n" + pasted);
+  assert.ok(file.includes("## Agenda\n\n- one") && file.includes("<!-- page: Inner -->\ninner text\n<!-- /page -->"), file);
+  assert.equal(P.view(other.byId.get(m[1])), "## Agenda\n\n- one\n\n<!-- page: Inner #" + [...other.byId.keys()].find((k) => other.byId.get(k).title === "Inner") + " -->\n\nafter inner\n");
+  // text without a page is not touched
+  assert.equal(P.adopt("plain <!-- page: --> text"), "plain <!-- page: --> text");
+});

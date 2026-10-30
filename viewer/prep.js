@@ -87,6 +87,7 @@
   const pageMark = (look, title, id = "") => `<!-- page${pageWords(look) ? " " + pageWords(look) : ""}: ${title}${id ? " #" + id : ""} -->`;
   const pageRow = (page, eol = "") => pageMark(pageLook(page.look), page.title, page.id) + eol;
   let pageFresh = 0; // (pages made here, until the file is read anew: x1, x2 …)
+  const pageStash = new Map(); // (pages pasted from another note: their line is here, what is on them waits in this until the line is put into the file)
   function parsePages(raw) {
     const root = { id: null, title: "", items: [], byId: new Map() };
     const lines = raw.split("\n"), stack = [root];
@@ -130,7 +131,7 @@
     page.items = lines.map((line) => {
       const m = PAGE_ROW.exec(line.replace(/\r$/, ""));
       if (!m) return line;
-      let sub = root.byId.get(m[3]) || (root.gone && root.gone.get(m[3])); // (a line cut a moment ago and put in again: its page, with what was on it)
+      let sub = root.byId.get(m[3]) || (root.gone && root.gone.get(m[3])) || pageStash.get(m[3]); // (a line cut a moment ago and put in again: its page, with what was on it)
       const words = pageWords(pageLook(m[1]));
       if (!sub) sub = { id: m[3], title: m[2], look: words, open: null, close: `<!-- /page -->${eol}`, lead: [eol], trail: [eol], items: [] }; // (a page made here: nothing in it yet)
       else if (seen.has(sub.id)) sub = clone(sub); // (its line once more — copied, duplicated: a page of its own with the same in it)
@@ -147,6 +148,36 @@
     for (const [id, x] of was) if (!root.byId.has(id)) root.gone.set(id, x);
     for (const id of root.byId.keys()) root.gone.delete(id);
     return pagesText(root);
+  }
+  /* A page on the clipboard. Copied, its line is the page as it stands in the file (<!-- page: Name -->
+   * … <!-- /page -->): the id on the line means something in this note only. Pasted, that text is
+   * pages again, each with an id of its own here and what was on it. */
+  const outsideFences = (markdown, each) => {
+    let fence = null;
+    return markdown.split("\n").map((line) => {
+      const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (f && !fence) fence = f[1]; else if (f && fence && f[1][0] === fence[0] && f[1].length >= fence.length && !line.slice(f[0].length).trim()) fence = null;
+      return fence || f ? line : each(line);
+    });
+  };
+  function pageCopy(markdown) {
+    const shown = pagesShown;
+    if (!shown || !shown.byId.size) return markdown;
+    return outsideFences(markdown, (line) => {
+      const m = PAGE_ROW.exec(line.replace(/\r$/, "")), page = m && shown.byId.get(m[3]);
+      return page ? pageLines(page).join("\n").replace(/\r/g, "") : line;
+    }).join("\n");
+  }
+  function pageAdopt(markdown) {
+    if (!/<!--\s*page\b/.test(markdown)) return markdown;
+    const root = parsePages(markdown);
+    if (!root.byId.size) return markdown;
+    const fresh = (page) => { page.id = "x" + ++pageFresh; for (const x of page.items) if (typeof x !== "string") fresh(x); pageStash.set(page.id, page); };
+    return root.items.map((x) => {
+      if (typeof x === "string") return x;
+      fresh(x);
+      return pageRow(x);
+    }).join("\n");
   }
   // the line of the file a line of the view is (0-based both)
   function pageFileLine(root, page, viewLine) {
@@ -528,7 +559,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { stripFrontmatter, stripComments, CALLOUT_STYLES, PAGE_STYLES, LINK_STYLES, PAGE_ROW,
-    pageLook, pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageFileLine, viewOf, viewPut,
+    pageLook, pageMark, parsePages, pageLines, pagesText, pageView, pagePut, pageCopy, pageAdopt, pageFileLine, viewOf, viewPut,
     pageStep, pageAppend, pageOpen, pagebar, pageBar, pageName, toggleProp, setProp, BACKGROUNDS, docLook,
     docFacts, pageFacts, renderProps });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
