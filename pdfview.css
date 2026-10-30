@@ -24,7 +24,9 @@ body.pdf-open[data-overview] #toolbar { opacity: 0; transform: translateY(-6px);
 #toolbar > .pdf-bar .pdf-page-in { height: 24px; }
 /* drawn on (a whiteboard over the pages, pdfview.js: drawOn): the toolbar keeps the pen alone — pressed, it ends the drawing — and
  * the card goes as the board comes */
-body[data-pdf-drawing] #toolbar > .pdf-bar > :not([data-do="draw"]), body[data-pdf-drawing] #toolbar > :not(.pdf-bar) { display: none; }
+body[data-pdf-drawing]:not([data-pdf-fading]) #toolbar > .pdf-bar > :not([data-do="draw"]), body[data-pdf-drawing]:not([data-pdf-fading]) #toolbar > :not(.pdf-bar) { display: none; }
+/* … they fade out as the board's bars fade in, and are gone when that is done (pdfview.js: drawingNow) — not in one frame, with nothing yet in their place (#15) */
+body[data-pdf-fading] #toolbar > .pdf-bar > :not([data-do="draw"]), body[data-pdf-fading] #toolbar > :not(.pdf-bar) { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
 body[data-pdf-drawing] #toolbar { z-index: 60; } /* (over the board, where no tabs are above it: board.css) */
 .pdfv[data-drawing] .pdf-card { opacity: 0; pointer-events: none; transition: opacity calc(var(--dur-slow) * 0.7) var(--ease-exit); }
 .pdf-bar .tb { flex: none; border-radius: var(--radius-pill); }

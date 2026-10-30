@@ -280,14 +280,20 @@
    * place of the same page in the window's middle. Left quickly too (a tab, a note chosen, the window closed): never where the
    * PDF stood before the pen was taken. As large as the viewer goes (25 to 500 %; the board goes further): the middle stays. */
   /* The board lies under the tabs (board.css: --bd-pdf-top), so they stay to be chosen; the toolbar's pen says it is drawn on. */
+  let fading = 0;
   function drawingNow(v, on) {
+    const pen = v.bar.querySelector('[data-do="draw"]');
+    // (the rest of the toolbar fades as the board comes, and is gone after — pdfview.css)
+    clearTimeout(fading);
+    document.body.toggleAttribute("data-pdf-fading", on);
+    if (on) fading = setTimeout(() => document.body.removeAttribute("data-pdf-fading"), parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--dur-slow")) * 0.7 + 40 || 230);
     document.body.toggleAttribute("data-pdf-drawing", on);
     document.documentElement.style.setProperty("--bd-pdf-top", topRoom() + "px");
     document.documentElement.style.setProperty("--bd-pdf-left", leftRoom() + "px");
     const tb = document.getElementById("toolbar");
-    const r = tb && on && !topRoom() ? tb.getBoundingClientRect() : null; // (the pen alone, over the board where no tabs are: the board's undo stands left of it)
-    document.documentElement.style.setProperty("--bd-pdf-tb", r && r.width ? innerWidth - r.left + "px" : "0px");
-    const pen = v.bar.querySelector('[data-do="draw"]');
+    const pr = pen && pen.getBoundingClientRect(), tr = tb && tb.getBoundingClientRect();
+    // (the pen alone, over the board where no tabs are: the board's undo stands left of it — as far as the toolbar reaches when only the pen is left in it)
+    document.documentElement.style.setProperty("--bd-pdf-tb", on && !topRoom() && pr && pr.width ? innerWidth - pr.left + (tr.right - pr.right) + "px" : "0px");
     if (pen) { pen.setAttribute("aria-pressed", String(on)); const name = T(on ? "Done drawing (Esc)" : "Draw on the PDF (D)"); pen.dataset.tip = name; pen.setAttribute("aria-label", T(on ? "Done drawing" : "Draw on the PDF")); }
   }
   function drawn(v, now) {
