@@ -233,6 +233,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     Whatever rewrites such a line — a menu, Claude — must give the id back, or the page's content
     is orphaned. `carryOut` in `ai.js` restores a missing id by name, then by place.
 12. **Claude sees a page as its line only**, not what is in it. Say so wherever it matters.
+88. **A page on the clipboard is the page, not its line.** The id in a page's line means something
+    in its own note only: copied (`clip.copyText`, `pages.copy`) the line is written out as
+    `<!-- page: Name -->` … `<!-- /page -->`; pasted (`pasteData`, `pages.adopt`) such text is pages
+    again, each with an id of its own here. Else the page is empty in any other note (#13).
 
 ### Changing the note for the user
 

@@ -189,6 +189,8 @@
     // a block cut open by the selection is not the block that was loaded (it is written by what it holds)
     return A.document.serialize({ ...d, store: { ...d.store, head: { raw: "", orig: "" } } }, doc, false).replace(/^\n+|\s+$/g, "");
   }
+  // … for the clipboard: a page on it is the page and what is on it, not its line (the id in the line means something in this note only)
+  const copyText = (state, slice) => window.MdView.core.pages.copy(markdownOf(state, slice));
   // HTML as the page shows it: islands and formulas with what they render
   const base = DOMSerializer.fromSchema(A.schema);
   const serializer = new DOMSerializer({
@@ -202,6 +204,7 @@
    * for the menu's Paste). -> false: the editor reads the HTML itself. */
   function pasteData(view, text, html) {
     const { $from, empty } = view.state.selection;
+    if (text) text = window.MdView.core.pages.adopt(text); // (pages from another note: each with an id of its own here)
     if (!text && !foreign(html)) {
       // a picture: the application saves it beside the note and answers with its Markdown (MdView.insertImage)
       if (A.view.payload && A.view.payload.path) post("pasteimage", { path: A.view.payload.path });
@@ -232,7 +235,7 @@
     key: new PluginKey("clip"),
     props: {
       clipboardSerializer: serializer,
-      clipboardTextSerializer: (slice, view) => markdownOf(view.state, slice),
+      clipboardTextSerializer: (slice, view) => copyText(view.state, slice),
       transformPastedHTML: (html) => (foreign(html) ? clean(html) : html),
       handleKeyDown(view, e) {
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "v") {
@@ -284,5 +287,5 @@
     const at = $from.after(), tr = state.tr.insert(at, nodes);
     view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(Math.min(at + nodes.reduce((n, x) => n + x.nodeSize, 0), tr.doc.content.size)), -1)).setMeta("step", true).scrollIntoView());
   }
-  A.clip = { insertDropped, plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, blocksOf, pasteFrom };
+  A.clip = { insertDropped, plugin, clean, foreign, insertMarkdown, insertPlain, markdownOf, copyText, blocksOf, pasteFrom };
 })();
