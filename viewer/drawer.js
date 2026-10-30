@@ -102,7 +102,15 @@
    * kept there. A narrow window keeps the drawer over the note. The strip of tabs makes room for the card as before. */
   const shown = (el) => el && el.getClientRects().length ? el : null;
   const column = () => ["content", "editor", "active"].map((id) => shown(document.getElementById(id))).find(Boolean) || null;
-  const room = () => P.folder && sidebarOpen() && !compact() ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sb-w")) || 0 : 0;
+  // (the sidebar's width as laid out: --sb-w may be a calc() of other properties — the Velum look's is — and a custom property
+  // is read back unresolved, as text: parseFloat made 0 of it, and the halves of a split took the whole window. A ruler resolves it.)
+  const ruler = document.createElement("div");
+  ruler.style.cssText = "position:absolute;left:0;top:0;height:0;visibility:hidden;pointer-events:none;width:var(--sb-w)";
+  document.body.appendChild(ruler);
+  // (read when it changes, not when asked: a click that opens the sidebar lays out once — rig.sh sidebar times it)
+  let sbWidth = -1;
+  if (typeof ResizeObserver === "function") new ResizeObserver((e) => { sbWidth = e[0].contentRect.width; }).observe(ruler);
+  const room = () => P.folder && sidebarOpen() && !compact() ? (sbWidth >= 0 ? sbWidth : ruler.offsetWidth) || 0 : 0;
   let roomTimer = 0;
   function showSidebar(open, animate) {
     clearTimeout(peekTimer); clearTimeout(leaveTimer); peekTimer = leaveTimer = 0;

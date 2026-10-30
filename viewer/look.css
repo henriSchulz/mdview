@@ -151,7 +151,7 @@
 :root[data-velum][data-velum-look] .or-row:hover { background: var(--v-fill-hover); color: var(--v-ink-primary); }
 :root[data-velum][data-velum-look] .or-row.current { color: var(--v-accent-text); font-weight: var(--v-weight-medium); }
 /* (not beside a PDF, a split, the panel, All Notes: they have the room) */
-:root[data-velum][data-velum-look] body:is(.pdf-open, [data-split], [data-panel], [data-overview]) #orail { display: none !important; }
+:root[data-velum][data-velum-look] body:is(.pdf-open, [data-split], [data-twin], [data-view="edit"], [data-panel], [data-overview]) #orail { display: none !important; }
 
 /* ==== Refined: the sidebar's folders in their colour, quiet properties, the outline beside the note */
 /* the properties: one quiet line of key and value, tags as chips — the fold's head only while it is folded (to open it again) */
@@ -176,11 +176,11 @@
  * padding, as the sidebar's room is made — BUGS.md rule 69; :has() only on the rail, which changes when a note is drawn) */
 @media (min-width: 940px) {
   :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]) #orail:not([hidden]) { display: flex; }
-  :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]):not(.pdf-open, [data-split], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
+  :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]):not(.pdf-open, [data-split], [data-twin], [data-view="edit"], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
 }
 @media (min-width: 1100px) {
   :root[data-velum][data-velum-look="refined"] #orail:not([hidden]) { display: flex; }
-  :root[data-velum][data-velum-look="refined"] body:not(.pdf-open, [data-split], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
+  :root[data-velum][data-velum-look="refined"] body:not(.pdf-open, [data-split], [data-twin], [data-view="edit"], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
 }
 
 /* ==== Focus: writing first — the tabs a capsule in the middle of the top, the tools one bar at the foot, the outline as marks */
@@ -307,14 +307,14 @@
   border-top: 0.5px solid var(--v-popover-line); color: var(--v-popover-ink-secondary); font-size: var(--v-type-caption); }
 
 /* the sidebar: folders on a square of their colour, the history's state at the foot beside the gear */
-:root[data-velum][data-velum-look] #sidebar:not([data-layout="plain"]):not([data-layout="sheets"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon {
+:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon {
   display: grid; place-items: center; flex: none; width: calc(var(--v-layout-icon-regular) + 2px); height: calc(var(--v-layout-icon-regular) + 2px);
   border-radius: calc(var(--v-layout-icon-regular) * 0.32); background: var(--fc, var(--v-accent-base)); color: var(--v-ink-on-accent);
 }
-:root[data-velum][data-velum-look] #sidebar:not([data-layout="plain"]):not([data-layout="sheets"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg {
+:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg {
   width: calc(var(--v-layout-icon-regular) * 0.7); height: calc(var(--v-layout-icon-regular) * 0.7); fill: none; stroke: currentColor; stroke-width: 1.9;
 }
-:root[data-velum][data-velum-look] #sidebar:not([data-layout="plain"]):not([data-layout="sheets"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon .sf { font-size: calc(var(--v-layout-icon-regular) * 0.62); color: inherit; }
+:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon .sf { font-size: calc(var(--v-layout-icon-regular) * 0.62); color: inherit; }
 :root[data-velum][data-velum-look] #sidebar .sb-cap { color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
 :root[data-velum][data-velum-look] .sb-lib-n { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
 :root[data-velum][data-velum-look] #sidebar .sb-status:not([hidden]) {

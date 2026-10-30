@@ -22,7 +22,7 @@ export const PREFS = {
   bullet: "-", emphasis: "*", strongMark: "**", ordered: ".", dialogWidth: 0, dialogHeight: 0,
   latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
   pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
-  aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", ovHome: false, look: "app", calloutStyle: "box", docZoom: 100, hinting: false, aiModel: "",
+  aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", ovHome: false, look: "refined", calloutStyle: "box", docZoom: 100, hinting: false, aiModel: "",
 };
 
 // The settings of this browser: the defaults, and over them what was chosen here ("mdview:set" —

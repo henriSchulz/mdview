@@ -105,6 +105,10 @@ wl() { HYPRLAND_INSTANCE_SIGNATURE= hyprctl instances -j | jq -r --arg s "$(sig)
 # draws without it, as the app did until 2026-10-24, unless told otherwise. Figures of the GPU's frames: on the desktop)
 app() { # app SECONDS ENV… -- FILE…
   local secs=$1; shift; local envs=(); while [[ $1 != -- ]]; do envs+=("$1"); shift; done; shift
+  # (the cases check the app's own look unless they choose one: Velum Refined is the look to begin with since 2026-10-30, and
+  # with Velum installed it would lay out what they measure differently — the orail case and the shots choose theirs)
+  local st="$R/state/mdview/state.json"; mkdir -p "$R/state/mdview"; [[ -s $st ]] || echo '{}' > "$st"
+  jq -e '.active.look' "$st" >/dev/null 2>&1 || { jq '.active = ((.active // {}) + {look: "app"})' "$st" > "$st.new" && mv "$st.new" "$st"; }
   env -u HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY="$(wl)" HYPRLAND_INSTANCE_SIGNATURE="$(sig)" GDK_BACKEND=wayland \
     XDG_STATE_HOME="$R/state" XDG_DATA_HOME="$R/data" XDG_CACHE_HOME="$R/cache" MDVIEW_DEBUG=1 MDVIEW_NO_KEYRING=1 \
     WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}" "${envs[@]}" \

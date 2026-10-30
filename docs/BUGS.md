@@ -459,11 +459,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the attribute — and a test that fails is a finding about the page before it is a test to change.
     `explorer.test.mjs` (All Notes › Whiteboards: the choices that show). *No issue: opening one was not allowed from here.*
 
-88. **In a folder window `body::before` is the sidebar's card** (its shadow, moved away and `visibility: hidden` while it is
+90. **In a folder window `body::before` is the sidebar's card** (its shadow, moved away and `visibility: hidden` while it is
     shut — sidebar.css). The Velum look drew its band under the tabs there, and it never showed: the note's text and the
     active mode's handles ran up into the tabs (Henri, 2026-10-30). A band, a ground or anything else over the page takes
     `body::after` (free but for the iPad's layout) or an element of its own. `rig.sh orail` checks the band in a folder
     window. *No issue: opening one was not allowed from here.*
+
+89. **A custom property is read back as it was written** (2026-10-30, Velum Refined as the look to begin with): the Velum look's
+    `--sb-w` is a `calc()` of other properties, `getComputedStyle().getPropertyValue("--sb-w")` gives that text, and
+    `parseFloat` made 0 of it — the halves beside the source took the whole window as though no sidebar were pinned
+    (`write.test.mjs`, the source beside its reading). A length the script needs is measured from an element sized by it
+    (drawer.js: the ruler, its width kept by a ResizeObserver, so a click lays out once), never parsed from the property.
 
 ### Touch (iPad)
 

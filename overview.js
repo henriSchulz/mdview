@@ -182,7 +182,7 @@
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
     // a tile: a folder is a stack of sheets, a note its sheet, any other file a sheet with its picture or its sign — the name under it
     else t.innerHTML = (dir ? `<div class="ov-stack"><i></i><i></i><i>${sign}</i></div>` : file ? `<div class="ov-sheet"><div class="ov-pic">${pic || sign}</div></div>` : `<div class="ov-sheet"><div class="ov-prev" inert></div></div>`) +
-      `<div class="ov-name">${name}</div><div class="ov-sub">${!dir && labLook() ? esc(folderOf(n) + " · " + when(n.mtime || n.v)) : dir || file ? sub : esc(when(n.mtime))}</div>`;
+      `<div class="ov-name">${name}</div><div class="ov-sub">${!dir && n.says == null && labLook() ? esc(folderOf(n) + " · " + when(n.mtime || n.v)) : dir || file ? sub : esc(when(n.mtime))}</div>`; // (what a tile says of itself — a whiteboard's note — stays)
     return t;
   }
   function build() {

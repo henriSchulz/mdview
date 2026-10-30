@@ -1635,7 +1635,7 @@ user alone; the window only ever shows its last four signs. A key in the environ
 Colours follow the desktop, light or dark: Velum's current colours when Velum is installed (`~/.local/state/velum/colors.toml`, kept on the desktop's variant and appearance — the app switches with it), else the Omarchy theme. Context menus and the `/` menu are dark plates;
 the app's own icons are SF Symbols where that font is installed. Motion and sizes are the app's own (`motion.css`) — unless Velum is there: then the whole look is the desktop's variant's. The page takes Velum's roles (`velum.css`, a copy of Velum's generated roles kept by `dev/velum-sync.sh`; `viewer/roles.css` maps the app's variables onto them): the tones of window, sidebar and note, the three strengths of ink, the glass of menus and popovers with its lens, radii, sizes and motion — Opal, Pearl, Glass, Paper or Slate, as `~/.local/state/velum/settings.json` says, light or dark with the desktop. In Opal the sidebar's rows are quieter than the note until one is chosen. The web app wears Opal.
 
-**Settings › Appearance › Look** chooses the window's shape where Velum is installed, and in the browser (which wears
+**Settings › Appearance › Look** (Velum Refined to begin with) chooses the window's shape where Velum is installed, and in the browser (which wears
 Opal) always — the row is not there in an app without Velum: *Markdown Notes* (the app's own), *Velum* (the sidebar a card of its own tone, tabs and toolbar one island of
 glass, menus of the same glass), and two more on top of Velum, after the Velum lab's design of the app
 (`~/Projects/velum/lab/web/mdview.html`):

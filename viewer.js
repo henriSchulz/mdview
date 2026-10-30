@@ -205,6 +205,27 @@
     if (diagrams) drawDiagrams(el);
   }
   const mdHtml = (text) => md.render(stripComments(String(text)), { links: {}, outline: [], depth: 1, lineOffset: 0 });
+  /* The look (Settings › Appearance › Look: viewer/look.css) — not under the finger's layout: an iPad, the tiles and bars a
+   * finger has on Linux, a coarse pointer keep the layout made for them (viewer/tablet.css, touch.js), whatever is chosen. Run
+   * when the settings change and when that layout comes or goes. */
+  const coarse = window.matchMedia ? matchMedia("(pointer: coarse)") : null;
+  function applyLook() {
+    const root = document.documentElement;
+    const finger = root.hasAttribute("data-ipad") || root.hasAttribute("data-tiles") || root.hasAttribute("data-finger") || !!(coarse && coarse.matches);
+    const chosen = ["velum", "refined", "focus"].includes(window.MdPrefs?.look) ? MdPrefs.look : "app", look = finger ? "app" : chosen;
+    if (root.dataset.look !== (look === "app" ? "app" : "velum")) root.dataset.look = look === "app" ? "app" : "velum"; // (the Velum look: viewer/look.css)
+    if (look === "refined" || look === "focus") { if (root.dataset.velumLook !== look) root.dataset.velumLook = look; } else delete root.dataset.velumLook; // (… and Refined or Focus on top of it)
+    P.railOutline(); // (the outline at the right comes and goes with them: viewer/chrome.js)
+    // (as the Velum lab draws the app: All Notes' sign is the tiles', reading comes first among the modes, callouts are cards)
+    const lab = look === "refined" || look === "focus";
+    const house = document.querySelector('#tabs [data-act="overview"]');
+    if (house) house.innerHTML = lab ? ICON.apps : ICON.home;
+    P.arrangeModes(lab ? ["read", "active", "edit", "split"] : ["active", "split", "edit", "read"]);
+    const callout = lab && (window.MdPrefs?.calloutStyle || "box") === "box" ? "card" : window.MdPrefs?.calloutStyle; // (the default box is the lab's card in its looks)
+    if (CALLOUT_STYLES.includes(callout)) root.dataset.callout = callout; else delete root.dataset.callout; // (how callouts and Focus look: viewer/*.css)
+  }
+  new MutationObserver(applyLook).observe(document.documentElement, { attributes: true, attributeFilter: ["data-ipad", "data-tiles", "data-finger"] });
+  if (coarse && coarse.addEventListener) coarse.addEventListener("change", applyLook);
   function prefsChanged() {
     aiShown();
     if (docZoom() !== zoomed) {
@@ -215,18 +236,8 @@
       scrollTo({ top: share * document.documentElement.scrollHeight, behavior: "instant" });
       window.dispatchEvent(new Event("resize"));
     }
-    const look = ["velum", "refined", "focus"].includes(window.MdPrefs?.look) ? MdPrefs.look : "app";
-    document.documentElement.dataset.look = look === "app" ? "app" : "velum"; // (the Velum look: viewer/look.css)
-    if (look === "refined" || look === "focus") document.documentElement.dataset.velumLook = look; else delete document.documentElement.dataset.velumLook; // (… and Refined or Focus on top of it: viewer/look.css)
-    P.railOutline(); // (the outline at the right comes and goes with them: viewer/chrome.js)
-    // (as the Velum lab draws the app: All Notes' sign is the tiles', reading comes first among the modes, callouts are cards)
-    const lab = look === "refined" || look === "focus";
-    const house = document.querySelector('#tabs [data-act="overview"]');
-    if (house) house.innerHTML = lab ? ICON.apps : ICON.home;
-    P.arrangeModes(lab ? ["read", "active", "edit", "split"] : ["active", "split", "edit", "read"]);
+    applyLook();
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer/*.css)
-    const callout = lab && (window.MdPrefs?.calloutStyle || "box") === "box" ? "card" : window.MdPrefs?.calloutStyle; // (the default box is the lab's card in its looks)
-    if (CALLOUT_STYLES.includes(callout)) document.documentElement.dataset.callout = callout; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer/*.css)
     const sort = sortKey();
     // what the sidebar or All Notes lists beside the notes: each shows its part anew (the application
     // sends the folder again only where what both want together changed)
