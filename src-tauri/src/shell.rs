@@ -143,7 +143,8 @@ fn default_prefs() -> Map<String, Value> {
         // what All Notes lists beside the notes — its own choice, apart from the sidebar's
         "ovPdf": true, "ovImages": true, "ovMedia": true, "ovBoards": true, "ovOther": true,
         "ovBoardsShow": "all",      // the whiteboards shown there: "all" | "embedded" (a note shows them) | "loose" (none does)
-        "look": "app",            // the window's look: "app" (its own) | "velum" (the desktop's Velum lab: viewer/look.css, only where Velum is)
+        "ovHome": false,          // All Notes opens on a Home (cards: Continue, Open Tasks, Today, Folders) — overview.js
+        "look": "app",            // the window's look: "app" (its own) | "velum" (the desktop's Velum lab: viewer/look.css, only where Velum is) | "refined" | "focus" (the lab's mdview.html proposals A and C, on top of "velum")
         "calloutStyle": "box",    // how callouts and Focus look: "box" (a tinted box, a bar) | "tip" (a large sign beside the text) | "label" (a line, the title on its edge)
         "docZoom": 100,           // the note's text, in percent (Ctrl + and −)
         "props": true,            // a note's properties show at its head (false: put away, from the menu of a right click)

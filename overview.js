@@ -58,7 +58,7 @@
   const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
   el.innerHTML = `<header class="ov-head"><button class="ov-add" type="button" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `<h1 class="ov-title"></h1><span class="ov-count"></span><span class="ov-space"></span><span class="ov-tools">` + // (the choices and buttons go to a new line together, never one by one)
-    seg("scope", "Show", [["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
+    seg("scope", "Show", [["home", T("Home")], ["all", T("All Notes")], ["folders", T("Folders")], ...(FILEWORK ? [["boards", T("Whiteboards")]] : [])]) + seg("layout", "View", [["tiles", "Tiles", "apps"], ["list", "List", "list"]]) +
     // the pasteboard is no way of showing the notes: a tab of its own (viewer/tabs.js: pasteTab), opened from its button
     `<button class="ov-pastebtn" type="button" title="${esc(T("Pasteboard"))}" aria-label="${esc(T("Pasteboard"))}">${ICON.clip || ICON.copy || ""}</button>` +
     `<button class="ov-more" type="button" title="${esc(T("Sort and show"))}" aria-label="${esc(T("Sort and show"))}" aria-haspopup="menu">${DOTS}</button></span>` +
@@ -138,11 +138,14 @@
     return node;
   }
   function setSegs() {
+    const home = homeOn();
+    el.querySelector('[data-seg="scope"] [data-v="home"]').hidden = !home; // (Home: only with the setting — and the thumb counts what shows)
     for (const [name, v] of [["scope", scope], ["layout", layout], ["boards", boardShow]]) {
       const box = el.querySelector(`[data-seg="${name}"]`);
       if (!box) continue;
-      const opts = [...box.querySelectorAll(".ov-opt")];
+      const opts = [...box.querySelectorAll(".ov-opt")].filter((o) => !o.hidden);
       opts.forEach((o) => o.setAttribute("aria-checked", String(o.dataset.v === v)));
+      box.style.setProperty("--n", opts.length);
       box.style.setProperty("--i", Math.max(0, opts.findIndex((o) => o.dataset.v === v)));
     }
   }
@@ -199,6 +202,8 @@
       saidWhere();
       return;
     }
+    if (scope === "home" && !homeOn()) scope = "folders"; // (the setting turned off while Home showed)
+    if (scope === "home") { buildHome(); return; }
     if (scope === "boards") {
       // the folder's whiteboards: asked for when they are shown, drawn when they come
       const all = boardList || [], name = (p) => p.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
@@ -358,12 +363,132 @@
     for (const [path, p] of Object.entries(got || {})) {
       const known = cache.get(path);
       if (known && known.mtime === p.mtime) continue; // unchanged: as it is
-      const made = { mtime: p.mtime, ...window.MdPage.previewOf(path, p.text || "") };
+      const made = { mtime: p.mtime, ...window.MdPage.previewOf(path, p.text || ""), tasks: openTasks(p.text) };
       cache.set(path, made);
       const tile = tiles.get(path);
       if (tile) paint(tile, made, true);
     }
+    if (scope === "home" && isOpen()) homeTasks();
     ask();
+  }
+
+  /* Home (Settings › All Notes › Home, ovHome — the lab's ~/Projects/velum/lab/web/mdview.html, proposal B): what to go
+   * on with, in cards. Continue: the notes opened last, as tiles. Open Tasks: the open tasks of the notes changed last, read
+   * from their beginnings as they come (a task far down a long note is not seen). Today: the notes changed today. The
+   * folders of the folder, each in its colour with its sign. The whiteboards and PDFs changed last. Every note, folder and
+   * file on it is an .ov-item: a click, a right click, Ctrl+click and the keys do what they do on the tiles. */
+  const homeOn = () => !!(window.MdPrefs || {}).ovHome;
+  const HOME_CONTINUE = 3, HOME_TODAY = 6, HOME_TASKS = 6, HOME_SCAN = 30, HOME_FILES = 6;
+  const openTasks = (text) => [...String(text || "").matchAll(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[ \][ \t]+(\S.*)$/gm)].map((m) => m[1].replace(/\s+$/, ""));
+  const everyIn = (node) => [...node.notes, ...node.dirs.flatMap(everyIn)];
+  const isNote = (n) => !n.pdf && /\.(md|markdown|mdown)$/i.test(n.path);
+  let homeScan = [];         // the notes Home reads tasks from: the ones changed last
+  function homeRow(n, right, sign) {
+    const t = document.createElement("div");
+    t.className = "ov-item ovh-row";
+    t.tabIndex = 0; t.setAttribute("role", "link"); t.dataset.path = n.path; t.draggable = true;
+    t.innerHTML = `<span class="ovh-sign">${sign || ICON.note}</span><span class="ovh-name">${esc(n.title || n.name)}</span><span class="ovh-right">${esc(right)}</span>`;
+    return t;
+  }
+  function homeCard(cls, title, sub) {
+    const c = document.createElement("section");
+    c.className = "ovh-card " + cls;
+    c.innerHTML = `<h2>${esc(title)}</h2>` + (sub ? `<p class="ovh-sub">${esc(sub)}</p>` : "");
+    return c;
+  }
+  function buildHome() {
+    const all = everyIn(tree()), notes = all.filter(isNote), here = core.current && core.current.path;
+    const lang = (window.MdPrefs || {}).lang === "de" ? "de-DE" : "en-US", now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    el.querySelector(".ov-title").textContent = T("Home");
+    el.querySelector(".ov-count").textContent = now.toLocaleDateString(lang, { weekday: "long", month: "long", day: "numeric" }) + " · " + says(count(tree()));
+    body.textContent = "";
+    tiles.clear();
+    items = [];
+    if (!all.length) { body.innerHTML = core.emptyState(); saidWhere(); return; }
+    const byChange = [...notes].sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+    const cont = [...notes].sort((a, b) => (b.opened || 0) - (a.opened || 0) || (b.mtime || 0) - (a.mtime || 0)).slice(0, HOME_CONTINUE);
+    const today = byChange.filter((n) => (n.mtime || 0) * 1000 >= midnight).slice(0, HOME_TODAY);
+    const cols = document.createElement("div"), left = document.createElement("div"), right = document.createElement("div");
+    cols.className = "ovh-cols"; left.className = right.className = "ovh-col";
+    let i = 0;
+    const tile = (n) => {
+      const t = item(n, i++, false);
+      if (n.real === here || n.path === here) t.setAttribute("aria-current", "page");
+      const known = !n.pdf && cache.get(n.path);
+      if (known) paint(t, known);
+      if (!n.pdf) tiles.set(n.path, t);
+      if (t.dataset.shot && shotNear) shotNear.observe(t);
+      return t;
+    };
+    // Continue
+    const c1 = homeCard("ovh-continue", T("Continue"), T("Where you left off")), g1 = document.createElement("div");
+    g1.className = "ov-grid";
+    for (const n of cont) g1.appendChild(tile(n));
+    c1.appendChild(g1); left.appendChild(c1);
+    // Open Tasks (filled as the beginnings come: homeTasks)
+    const c2 = homeCard("ovh-tasks", T("Open Tasks"), T("To-dos across the notes changed last"));
+    c2.appendChild(Object.assign(document.createElement("div"), { className: "ovh-list ovh-tasklist" }));
+    left.appendChild(c2);
+    // Today
+    const c3 = homeCard("ovh-today", T("Today"), today.length ? T(today.length === 1 ? "1 note changed today" : "{0} notes changed today", today.length) : T("Nothing changed today")), l3 = document.createElement("div");
+    l3.className = "ovh-list";
+    for (const n of today) l3.appendChild(homeRow(n, core.when(n.mtime)));
+    c3.appendChild(l3); right.appendChild(c3);
+    cols.append(left, right);
+    body.appendChild(cols);
+    // the folders
+    const dirs = tree().dirs.filter((d) => !d.name.startsWith("."));
+    if (dirs.length) {
+      const h = Object.assign(document.createElement("h2"), { className: "ov-dir ovh-head", textContent: T("Folders") }), g = document.createElement("div");
+      g.className = "ovh-folders";
+      for (const d of dirs) {
+        const look = core.folderLook(d.path), t = document.createElement("div");
+        t.className = "ov-item ov-folder ovh-folder";
+        t.tabIndex = 0; t.setAttribute("role", "link"); t.dataset.path = d.path; t.dataset.dir = d.name; t.draggable = true;
+        if (look && look.color) t.style.setProperty("--c", look.color);
+        t.innerHTML = `<span class="ovh-disc">${look.sign}</span><span class="ovh-text"><span class="ovh-name">${esc(d.name)}</span><span class="ovh-right">${esc(says(count(d)))}</span></span>`;
+        g.appendChild(t);
+      }
+      body.append(h, g);
+    }
+    // the whiteboards and PDFs changed last
+    const files = all.filter((n) => n.pdf && (paged(n.kind) || n.kind === "board")).sort((a, b) => (b.mtime || b.v || 0) - (a.mtime || a.v || 0)).slice(0, HOME_FILES);
+    if (files.length) {
+      const h = Object.assign(document.createElement("h2"), { className: "ov-dir ovh-head", textContent: T("Whiteboards and PDFs") }), g = document.createElement("div");
+      g.className = "ov-grid";
+      for (const n of files) g.appendChild(tile(n));
+      body.append(h, g);
+    }
+    // the keys go through them as they stand
+    items = [...body.querySelectorAll(".ov-item")];
+    homeScan = byChange.slice(0, HOME_SCAN).map((n) => n.path);
+    homeTasks();
+    queue = [...new Set([...tiles.keys(), ...homeScan])].filter((p) => !cache.has(p));
+    saidWhere();
+    ask();
+  }
+  // Open Tasks: from what is known of the notes changed last
+  function homeTasks() {
+    const box = body.querySelector(".ovh-tasklist");
+    if (!box) return;
+    const byPath = new Map(everyIn(tree()).map((n) => [n.path, n])), rows = [];
+    let waitingFor = 0;
+    for (const p of homeScan) {
+      const known = cache.get(p), n = byPath.get(p);
+      if (!known) { waitingFor++; continue; }
+      for (const task of known.tasks || []) if (rows.length < HOME_TASKS && n) rows.push([n, task]);
+    }
+    const had = box.contains(document.activeElement) && document.activeElement.dataset.task;
+    box.textContent = "";
+    for (const [n, task] of rows) {
+      const t = homeRow(n, n.title || n.name.replace(/\.[^.]+$/, ""), `<span class="ovh-box"></span>`);
+      t.dataset.task = task;
+      t.querySelector(".ovh-name").textContent = task.replace(/[*_`~=]+/g, "");
+      box.appendChild(t);
+    }
+    if (!rows.length) box.innerHTML = `<p class="ovh-none">${esc(T(waitingFor ? "Looking for tasks…" : "No open tasks"))}</p>`;
+    items = [...body.querySelectorAll(".ov-item")];
+    if (had) [...box.querySelectorAll(".ov-item")].find((t) => t.dataset.task === had)?.focus({ preventScroll: true });
   }
 
   /* want: "paste" — the tab is the pasteboard's (viewer/tabs.js); else All Notes opens on the folders, whatever was shown last. */
@@ -371,7 +496,7 @@
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = want === "paste" ? "paste" : "folders";
+    scope = want === "paste" ? "paste" : homeOn() ? "home" : "folders";
     boardShow = "all"; // (every whiteboard of the folder: in a note or not, they are listed alike)
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
@@ -410,7 +535,7 @@
   const toggle = () => (!isOpen() ? open() : core.current ? close() : false);
   // tab: in a tab of its own (Ctrl held, the middle button)
   function go(tile, tab = false) {
-    if (tile.dataset.dir) { at.push(tile.dataset.dir); picked.clear(); rebuild(); return; }
+    if (tile.dataset.dir) { if (scope === "home") { scope = "folders"; at = []; } at.push(tile.dataset.dir); picked.clear(); rebuild(); return; }
     const path = tile.dataset.path;
     // (a picture, a film, any other file opens in its own application: the tiles stay)
     if (tile.dataset.kind && !paged(tile.dataset.kind)) { post("note", { path }); return; }

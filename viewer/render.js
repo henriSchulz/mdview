@@ -198,6 +198,7 @@
     reveal();
     if (quiet) { renderMermaid(gen, null); return; }
     if (P.outlineOpen()) P.buildOutline();
+    P.railOutline(); // (the outline at the right, where the look has one: viewer/chrome.js)
     if (anchor) restoreAnchor(anchor);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();

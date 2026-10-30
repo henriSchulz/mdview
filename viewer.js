@@ -215,7 +215,10 @@
       scrollTo({ top: share * document.documentElement.scrollHeight, behavior: "instant" });
       window.dispatchEvent(new Event("resize"));
     }
-    document.documentElement.dataset.look = window.MdPrefs?.look === "velum" ? "velum" : "app"; // (the Velum look: viewer/look.css)
+    const look = ["velum", "refined", "focus"].includes(window.MdPrefs?.look) ? MdPrefs.look : "app";
+    document.documentElement.dataset.look = look === "app" ? "app" : "velum"; // (the Velum look: viewer/look.css)
+    if (look === "refined" || look === "focus") document.documentElement.dataset.velumLook = look; else delete document.documentElement.dataset.velumLook; // (… and Refined or Focus on top of it: viewer/look.css)
+    P.railOutline(); // (the outline at the right comes and goes with them: viewer/chrome.js)
     document.documentElement.toggleAttribute("data-props-off", window.MdPrefs?.props === false); // (properties put away: viewer/*.css)
     if (CALLOUT_STYLES.includes(window.MdPrefs?.calloutStyle)) document.documentElement.dataset.callout = MdPrefs.calloutStyle; else delete document.documentElement.dataset.callout; // (how callouts and Focus look: viewer/*.css)
     const sort = sortKey();

@@ -1009,7 +1009,13 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   first words (what it says: not a drawing's style sheet or a code block) and when it was changed. Two
   switches at the head: *All Notes* (grouped by folder), *Folders* (one folder at a time, click
   into its folders, `Backspace` goes up) or *Whiteboards* (below), and tiles or list. It opens on
-  *Folders*, in the folder of the note on screen, whatever was shown last. The switches, the
+  *Folders*, in the folder of the note on screen, whatever was shown last — or on *Home*, with **Settings › All Notes ›
+  Home** on: a page of cards, the first switch then *Home*. *Continue*: the three notes opened last, as tiles. *Open
+  Tasks*: the open tasks (`- [ ]`) of the thirty notes changed last, with the note each is in — read from the notes'
+  beginnings, so a task far down a long note is not seen; a click opens the note. *Today*: the notes changed today. Then
+  the folders, each a card with its sign on a disc of its colour and how many notes it holds (a click goes into it, as
+  *Folders*), and the whiteboards and PDFs changed last. A click, a right click, `Ctrl`+click and the keys do on them what
+  they do on the tiles. In the browser too. The switches, the
   pasteboard's button and `…` are raised alike and stand together: where the head is too narrow
   for them beside the name, they go to a line of their own together. Arrows move, `Enter` opens, `F2` renames, `Del` trashes; a right click has the file menu.
   The `+` at the head makes a new note (asked for nothing: "Untitled", see below) or folder in the folder shown. A sheet under the pointer
@@ -1608,9 +1614,9 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, the look (Markdown Notes, Velum, Velum Refined, Velum Focus — where Velum is installed: *Look* above), how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
-| All Notes | all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
+| All Notes | Home (it opens on a page of cards), all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |
 | Editing | formatting bar, `/` menu, Markdown shown at the caret, typographic quotes, wrapping of new paragraphs, where pasted pictures go, the quick notes' key for a new one and their folder |
 | New Markdown | as the document does it, or fixed marks for bullets, numbers, italic and bold |
@@ -1627,3 +1633,17 @@ user alone; the window only ever shows its last four signs. A key in the environ
 
 Colours follow the desktop, light or dark: Velum's current colours when Velum is installed (`~/.local/state/velum/colors.toml`, kept on the desktop's variant and appearance — the app switches with it), else the Omarchy theme. Context menus and the `/` menu are dark plates;
 the app's own icons are SF Symbols where that font is installed. Motion and sizes are the app's own (`motion.css`) — unless Velum is there: then the whole look is the desktop's variant's. The page takes Velum's roles (`velum.css`, a copy of Velum's generated roles kept by `dev/velum-sync.sh`; `viewer/roles.css` maps the app's variables onto them): the tones of window, sidebar and note, the three strengths of ink, the glass of menus and popovers with its lens, radii, sizes and motion — Opal, Pearl, Glass, Paper or Slate, as `~/.local/state/velum/settings.json` says, light or dark with the desktop. In Opal the sidebar's rows are quieter than the note until one is chosen. The web app wears Opal.
+
+**Settings › Appearance › Look** chooses the window's shape where Velum is installed (the row is not there otherwise, nor in
+the browser): *Markdown Notes* (the app's own), *Velum* (the sidebar a card of its own tone, tabs and toolbar one island of
+glass, menus of the same glass), and two more on top of Velum, after the Velum lab's design of the app
+(`~/Projects/velum/lab/web/mdview.html`):
+
+- **Velum Refined** (proposal A): as Velum, set straight — the sidebar's folders show their sign white on a small square of
+  their colour (the accent where none was chosen), the note's properties are one quiet line of name and value with the tags
+  as chips (folded, their head is there to open them again), and the note's **outline stands at the right** where the
+  window has the room (1100 px with the sidebar shut, 1240 with it pinned): its headings, the one being read marked, a
+  click goes there. Not beside a PDF, a split, the panel or All Notes.
+- **Velum Focus** (proposal C): writing first — the tabs a capsule of glass in the middle of the top, the toolbar one bar
+  of glass at the window's foot (the outline's list opens above it), and the outline as marks at the window's right edge,
+  the heading being read the longer one; under the pointer the marks open into the headings (from 900 px).

@@ -389,6 +389,7 @@
     if (MdActive.view.built !== P.activeBuilt) { P.activeBuilt = MdActive.view.built; trailPush(p.path, p.text); P.trailFloor = P.trail.at; }
     P.outline = store.env.outline;
     if (outlineOpen()) buildOutline();
+    P.railOutline(); // (the outline at the right, where the look has one: viewer/chrome.js)
     if (anchor) restoreAnchor(anchor, MdActive.view.dom);
     else if (p.fragment) scrollToFragment(p.fragment, false);
     else if (p.toEnd) scrollToEnd();

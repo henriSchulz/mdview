@@ -929,7 +929,7 @@ test("the settings show what there is here, not the desktop's own", async () => 
     general: ["lang", "startMode"],
     appearance: ["docZoom", "calloutStyle", "sidebarLayout"],
     sidebarPage: ["sidebarSort", "# Sidebar shows, beside notes", "sidebarPdf", "sidebarImages", "sidebarMedia", "sidebarBoards", "sidebarOther", "showHidden"],
-    allNotes: ["ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
+    allNotes: ["ovHome", "ovLayout", "# All Notes shows, beside notes", "ovPdf", "ovImages", "ovMedia", "ovBoards", "ovOther"],
     history: ["# This folder", "historyState", "historyName", "historyBranch", "historyCount", "historyLast", "historyChanged", "historyLink", "historyQuiet", "# This device", "deviceName", "deviceId"],
     editing: ["bar", "slash", "syntax", "quotes", "# Paragraphs", "wrap", "# Pictures", "images"],
     newMarkdown: ["style"],
