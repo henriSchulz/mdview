@@ -11,6 +11,13 @@
   const run = async (cmd, ms) => { out("plan" + ++plans, { cmd }); await sleep(ms); };
   try {
     await document.fonts.ready; await sleep(1500);
+    // (a folder window — the rig opens the note's folder — with the note in it, the sidebar shut)
+    const core = window.MdView.core;
+    if (core.folder) { window.MdHost.post(JSON.stringify({ type: "note", path: core.folder.root + "/orail.md" })); await sleep(1500); }
+    // the band under the tabs is drawn (in a folder window body::before is the sidebar's card: the band is body::after)
+    const band = getComputedStyle(document.body, "::after");
+    ok(!!core.folder && band.content !== "none" && band.visibility === "visible" && band.transform === "none" && parseFloat(band.height) > 0 && /linear-gradient/.test(band.backgroundImage),
+      "a folder window: the band under the tabs is there, visible, in place", { folder: !!core.folder, content: band.content, visibility: band.visibility, transform: band.transform, height: band.height });
     const rail = document.getElementById("orail");
     if (getComputedStyle(rail).display === "none") throw new Error(`the outline is not shown (window ${innerWidth} px wide; it needs 1100 — start the rig with MDVIEW_RIG_RULE="float; size 1160 800")`);
     const rows = () => [...rail.querySelectorAll(".or-row")];

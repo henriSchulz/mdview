@@ -325,5 +325,8 @@ body[data-update] #toast { bottom: 64px; }
 .tour-acts .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
 .tour-acts .tour-skip { background: none; color: var(--fg2); }
 @media (prefers-reduced-motion: reduce) { .tour-spot, .tour-card { transition: none; } }
+/* The toolbar only while a note (or a PDF) is shown — not over All Notes, an empty tab or a window without a note (Henri,
+ * 2026-10-30: "dieses Menü soll nur angezeigt werden, wenn eine Notiz offen ist"). render.js keeps body[data-nonote]. */
+body:is([data-nonote], [data-overview]) #toolbar { display: none; }
 /* (the bar's assistant and Go to…: Velum Refined and Focus only — viewer/look.css shows them) */
 #toolbar .tb-ai, #palette, #pal-btn { display: none; }

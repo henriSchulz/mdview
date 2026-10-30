@@ -50,7 +50,7 @@
 :root[data-velum][data-look="velum"] body[data-tabs][data-sidebar="open"] #tabs { left: calc(var(--sb-w) + var(--v-space-4)); }
 :root[data-velum][data-look="velum"] body[data-tabs] #tabs::after { display: none; }
 /* the scroll edge: the note fades out under the island, in its own colour */
-:root[data-velum][data-look="velum"] body[data-tabs]::before {
+:root[data-velum][data-look="velum"] body[data-tabs]::after { /* (::after: in a folder window body::before is the sidebar's card — moved away and unseen while it is shut — so a band drawn there never showed: Henri, 2026-10-30, the note "baked into" the tabs) */
   content: "";
   position: fixed;
   z-index: 14;
@@ -431,3 +431,29 @@
 :root[data-velum][data-velum-look] #overview .ov-tile .ov-name { font: var(--v-weight-medium) var(--v-type-body) / 1.3 var(--ui); color: var(--v-ink-primary); -webkit-line-clamp: 1; }
 :root[data-velum][data-velum-look] #overview .ov-tile .ov-sub { font: var(--v-type-body-weight) var(--v-type-small) / 1.3 var(--ui); color: var(--v-ink-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-velum][data-velum-look] #overview .ov-tile[aria-current] .ov-name { color: var(--v-accent-text); }
+
+/* All Notes' head where the room is small (Henri, 2026-10-30: "verbackt" at a narrow window): the way to the folder stays one line —
+ * the folders above it smaller and quieter, the last one large and cut with an ellipsis — and below ~860 px of All Notes the choices
+ * and New go to a line of their own under the title */
+:root[data-velum][data-velum-look] #overview { container: ov / inline-size; }
+:root[data-velum][data-velum-look] #overview .ov-title { display: flex; flex-wrap: nowrap; align-items: baseline; min-width: 0; }
+:root[data-velum][data-velum-look] #overview .ov-title > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-velum][data-velum-look] #overview .ov-title .ov-crumb { flex: none; font-size: var(--v-type-title); font-weight: var(--v-weight-semibold); color: var(--v-ink-tertiary); white-space: nowrap; }
+:root[data-velum][data-velum-look] #overview .ov-title .ov-crumb:hover { color: var(--v-ink-secondary); }
+:root[data-velum][data-velum-look] #overview .ov-title .ov-sep { flex: none; width: var(--v-space-16); color: var(--v-ink-tertiary); }
+@container ov (max-width: 860px) {
+  :root[data-velum][data-velum-look] #overview .ov-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title title" "count count" "tools add"; row-gap: var(--v-space-4); }
+  :root[data-velum][data-velum-look] #overview .ov-tools { margin-top: var(--v-space-8); flex-wrap: wrap; }
+  :root[data-velum][data-velum-look] #overview .ov-add { margin-top: var(--v-space-8); }
+}
+@container ov (max-width: 520px) {
+  :root[data-velum][data-velum-look] #overview .ov-opt { padding: 0 var(--v-space-6); }
+  :root[data-velum][data-velum-look] #overview .ov-add::after { content: none; }
+  :root[data-velum][data-velum-look] #overview .ov-add { width: var(--v-control-height); padding: 0; justify-content: center; }
+}
+
+/* What scrolls under the tabs stays under them (Henri, 2026-10-30: "hier backen die Blöcke in die Tableiste mit rein"): the band at
+ * the top is the note's ground down to the tabs' lower edge and only then fades, and the active mode's handles and lines (z-index
+ * 23–26 in active/blocks.css) go under the band (14) and the tabs (15) — over the note they still are */
+:root[data-velum][data-look="velum"] body[data-tabs]::after { background: linear-gradient(var(--v-bg-content) calc(100% - var(--v-space-16)), transparent); }
+:root[data-velum][data-look="velum"] body[data-tabs] :is(.blk-h, .tbl-h, .col-grip, .col-x, .blk-line, .tbl-line) { z-index: 13; }

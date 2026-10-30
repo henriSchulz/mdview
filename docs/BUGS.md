@@ -456,6 +456,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     the attribute — and a test that fails is a finding about the page before it is a test to change.
     `explorer.test.mjs` (All Notes › Whiteboards: the choices that show). *No issue: opening one was not allowed from here.*
 
+88. **In a folder window `body::before` is the sidebar's card** (its shadow, moved away and `visibility: hidden` while it is
+    shut — sidebar.css). The Velum look drew its band under the tabs there, and it never showed: the note's text and the
+    active mode's handles ran up into the tabs (Henri, 2026-10-30). A band, a ground or anything else over the page takes
+    `body::after` (free but for the iPad's layout) or an element of its own. `rig.sh orail` checks the band in a folder
+    window. *No issue: opening one was not allowed from here.*
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

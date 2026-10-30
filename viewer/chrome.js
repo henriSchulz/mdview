@@ -24,6 +24,7 @@
       ` title="${esc(T("mode.tip." + m, T("mode." + m)))}" aria-label="${esc(T("mode." + m))}">${icon}</button>`).join("") +
     `</div>`; // (the panel at the right: from its rail at the window's edge, or Ctrl+Alt+P — no button of its own here)
   document.body.appendChild(toolbar);
+  document.body.setAttribute("data-nonote", ""); // (until a note is shown — viewer/render.js — the toolbar has nothing to work on)
 
   const outlinePop = document.createElement("div");
   outlinePop.id = "outline";

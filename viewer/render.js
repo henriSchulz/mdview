@@ -75,6 +75,7 @@
       if (mode === "active") P.leaveActiveNow();
       p.text = p.raw = "";
       current = p;
+      document.body.removeAttribute("data-nonote"); // (a note — or a PDF — is shown: the toolbar is there for it, viewer/chrome.css)
       document.title = p.name;
       if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path });
       if (!prev || prev.path !== p.path) P.markActiveNote(true);
@@ -91,6 +92,7 @@
     p.raw = p.text; // as on disk; the active mode keeps line endings as they are
     p.text = p.text.replace(/\r\n?/g, "\n");
     current = p;
+    document.body.removeAttribute("data-nonote");
     if (!p.error) P.trailPush(p.path, p.text);
     if (P.navHere && p.path && (!prev || prev.path !== p.path)) P.navHere({ note: p.path }); // (back and forward: viewer/tabs.js)
     if (p.kind === "text") { // a plain text file: its text in the source editor, and nothing else — no modes, no Markdown read into it
@@ -152,6 +154,7 @@
     if (window.MdPdf) MdPdf.leave();
     content.classList.remove("pdf");
     current = null;
+    document.body.setAttribute("data-nonote", ""); // (no note: no toolbar — Henri, 2026-10-30)
     drawn = null;
     if (P.splitHeld) P.splitHeld(); // (nothing in the window: nothing beside it)
     if (P.docSync) P.docSync();

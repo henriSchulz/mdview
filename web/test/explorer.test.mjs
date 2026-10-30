@@ -172,6 +172,17 @@ test("All Notes: another choice at the head dims what was shown at once — no g
   await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
 });
 
+test("the toolbar stands only while a note is shown: not over All Notes (Henri, 2026-10-30)", async () => {
+  const shown = () => page.evaluate(() => document.getElementById("toolbar").getClientRects().length > 0);
+  await open("Alpha.md");
+  assert.equal(await shown(), true, "a note: the toolbar is there");
+  await allNotes();
+  assert.equal(await shown(), false, "All Notes: no toolbar");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !(window.MdOverview && MdOverview.isOpen), null, { timeout: 8000 });
+  assert.equal(await shown(), true, "back on the note: the toolbar again");
+});
+
 test("All Notes › Whiteboards: every whiteboard of the repository with the note that shows it, all of them alike; one a note keeps becomes a file of its own", async () => {
   await open("Alpha.md");
   await allNotes();
