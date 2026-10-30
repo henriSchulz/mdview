@@ -27,6 +27,25 @@ beside other notes.
   example or figure that makes it visible, then what follows from it. A derivation gives every
   step; a long one is a note of its own. Not: motivation, history, overview, outlook.
 
+## Never
+
+These break a note outright; check each before writing and again before handing over.
+
+- **Nothing that is not known.** Write only what holds and can be stated exactly. What is unsure
+  is left out, or asked of Henri before the note is written; it is never softened ("wahrscheinlich",
+  "vermutlich", "soll", "ca.") and never marked ("?", "TBD", "unklar"). Nothing from memory that a
+  source in reach could confirm: look it up, or leave it out.
+- **No open points.** No "Offene Punkte", "Offene Fragen", "To-do", "TODO", "Nächste Schritte",
+  "Ausblick", "Weiterführend", "Siehe auch" as a list of what is missing. A note is finished or it
+  is not written; what is missing is told to Henri in the chat, not put into the note.
+- **No Mermaid**, in no form (` ```mermaid `, `graph TD`, `flowchart`, `sequenceDiagram`): a
+  figure is an `svg` fence or it is left out.
+- **No bullet list as the default.** A list only for an enumeration of equal items; an argument is
+  prose, steps a numbered list, terms a definition list, values a table. A note that is mostly
+  bullets is rewritten as prose.
+- **No chat in the note**: no address to Henri, no "Hier ist die Notiz", no offer, no note on how
+  the note was made, no summary of it.
+
 ## How it reads
 
 Formal, in the third person, in complete sentences, in the language Henri asked in (usually
@@ -156,6 +175,8 @@ click opens the PDF there:
 
 - Read it once as Henri will. Is the first sentence the matter? Does a sentence only announce,
   repeat or comment? Would it be two notes?
+- Search the text for what “Never” bans: `mermaid`, `?`, `TODO`, `offen`, `vermutlich`,
+  `wahrscheinlich`, a heading of open points or next steps, a page of bullets. Each hit goes.
 - Every fence is closed and named, `$$` balanced; wikilinks name notes that exist or are meant to
   come; pictures exist beside the note; a PDF embed names a PDF and a page that exist, with
   `x1 < x2` and `y1 < y2` inside the page.
