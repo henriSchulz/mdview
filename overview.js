@@ -149,6 +149,9 @@
       box.style.setProperty("--i", Math.max(0, opts.findIndex((o) => o.dataset.v === v)));
     }
   }
+  // (Velum Refined and Focus: All Notes as the lab draws it — a flat grid, each tile's folder beside when)
+  const labLook = () => !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum;
+  const folderOf = (n) => { const rel = n.path.slice(core.folder.root.length + 1).split("/"); return rel.length > 1 ? rel[rel.length - 2] : core.folder.name; };
   // a note or a folder, as a tile or as a row
   function item(n, i, dir) {
     const t = document.createElement("div"), list = layout === "list";
@@ -178,7 +181,7 @@
       (dir ? `<span class="ov-go">${ICON.chevron}</span>` : `<span class="ov-when">${esc(when(n.mtime))}</span>`);
     // a tile: a folder is a stack of sheets, a note its sheet, any other file a sheet with its picture or its sign — the name under it
     else t.innerHTML = (dir ? `<div class="ov-stack"><i></i><i></i><i>${sign}</i></div>` : file ? `<div class="ov-sheet"><div class="ov-pic">${pic || sign}</div></div>` : `<div class="ov-sheet"><div class="ov-prev" inert></div></div>`) +
-      `<div class="ov-name">${name}</div><div class="ov-sub">${dir || file ? sub : esc(when(n.mtime))}</div>`;
+      `<div class="ov-name">${name}</div><div class="ov-sub">${!dir && labLook() ? esc(folderOf(n) + " · " + when(n.mtime || n.v)) : dir || file ? sub : esc(when(n.mtime))}</div>`;
     return t;
   }
   function build() {
@@ -238,8 +241,8 @@
       total += node.dirs.length;
     } else {
       const all = tree();
-      gs = groups(all); total = gs.reduce((n, g) => n + g.notes.length, 0);
-      const lab = !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum;
+      const lab = labLook();
+      gs = lab ? [{ label: "", notes: ordered(everyIn(all)) }] : groups(all); total = gs.reduce((n, g) => n + g.notes.length, 0); // (the lab: one grid, the folder on each tile)
       title.textContent = lab ? T("All Notes") : folder.name; // (the lab's page: "All Notes", the folder under it)
       el.querySelector(".ov-count").textContent = says(count(all)) + (lab ? " · " + T("in {0}", folder.name) : "");
     }
