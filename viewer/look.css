@@ -172,11 +172,15 @@
 :root[data-velum][data-velum-look="refined"] .or-row.current { box-shadow: inset 2px 0 0 var(--v-accent-base); border-radius: 0 var(--v-radius-row) var(--v-radius-row) 0; }
 :root[data-velum][data-velum-look="refined"] .or-row > i { display: none; }
 :root[data-velum][data-velum-look] body[data-rail] #orail { right: calc(var(--v-space-16) + var(--v-control-height) + var(--v-space-24)); } /* (beside the panel's rail of the active mode) */
-@media (min-width: 1100px) {
+/* … and where it stands, the note makes room for it, as the lab's column does: centred in what is left (a rule on the body's
+ * padding, as the sidebar's room is made — BUGS.md rule 69; :has() only on the rail, which changes when a note is drawn) */
+@media (min-width: 940px) {
   :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]) #orail:not([hidden]) { display: flex; }
+  :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]):not(.pdf-open, [data-split], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
 }
-@media (min-width: 1150px) {
+@media (min-width: 1100px) {
   :root[data-velum][data-velum-look="refined"] #orail:not([hidden]) { display: flex; }
+  :root[data-velum][data-velum-look="refined"] body:not(.pdf-open, [data-split], [data-panel], [data-overview]):has(> #orail:not([hidden])) { padding-right: calc(var(--v-sidebar-width) - var(--v-space-8)); }
 }
 
 /* ==== Focus: writing first — the tabs a capsule in the middle of the top, the tools one bar at the foot, the outline as marks */
