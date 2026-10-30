@@ -172,6 +172,27 @@ test("All Notes: another choice at the head dims what was shown at once — no g
   await page.waitForFunction(() => !MdOverview.isOpen, null, { timeout: 4000 });
 });
 
+test("the Velum looks in the browser: Refined puts the outline at the right and the palette on Ctrl+K, Focus the bar at the foot (Henri, 2026-10-30)", async () => {
+  await open("Alpha.md");
+  await page.setViewportSize({ width: 1280, height: 860 });
+  const set = (look) => page.evaluate((look) => { MdView.setPrefs({ ...MdPrefs, look }); }, look);
+  await set("refined");
+  await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined", null, { timeout: 4000 });
+  const st = await page.evaluate(() => ({ look: document.documentElement.dataset.look, velum: document.documentElement.dataset.velum, ai: getComputedStyle(document.getElementById("ai-bubble")).display }));
+  assert.deepEqual([st.look, st.velum, st.ai], ["velum", "opal", "none"], JSON.stringify(st));
+  await page.keyboard.press("Control+k");
+  await page.waitForFunction(() => document.getElementById("palette").hasAttribute("data-open") && getComputedStyle(document.getElementById("palette")).display === "block", null, { timeout: 4000 });
+  if (process.env.MDVIEW_SHOTS) await page.screenshot({ path: process.env.MDVIEW_SHOTS + "/web-refined-palette.png" });
+  await page.keyboard.press("Escape");
+  await set("focus");
+  await page.waitForFunction(() => document.documentElement.dataset.velumLook === "focus", null, { timeout: 4000 });
+  const bar = await page.evaluate(() => { const r = document.getElementById("toolbar").getBoundingClientRect(); return { bottom: innerHeight - r.bottom, top: r.top, h: innerHeight }; });
+  assert.ok(bar.bottom < 40 && bar.top > bar.h / 2, "Focus: the toolbar at the window's foot " + JSON.stringify(bar));
+  if (process.env.MDVIEW_SHOTS) await page.screenshot({ path: process.env.MDVIEW_SHOTS + "/web-focus.png" });
+  await set("app");
+  await page.waitForFunction(() => !document.documentElement.dataset.velumLook, null, { timeout: 4000 });
+});
+
 test("the toolbar stands only while a note is shown: not over All Notes (Henri, 2026-10-30)", async () => {
   const shown = () => page.evaluate(() => document.getElementById("toolbar").getClientRects().length > 0);
   await open("Alpha.md");
