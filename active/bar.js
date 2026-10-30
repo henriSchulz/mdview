@@ -48,7 +48,9 @@
     ["math", "bar.math", "", `<span class="fb-math">∑</span>`],
     ["para", "bar.paragraph", "", `<span class="fb-para">¶</span>${svg('<path d="m7 10 5 5 5-5"/>')}`],
   ];
-  bar.innerHTML = BUTTONS.map(([id, key, short, html], i) =>
+  // (first, Ask AI — Transform with AI on what is selected: shown in Velum Refined and Focus, as the Velum lab's bar has it, while AI is on)
+  bar.innerHTML = `<button class="tb fb fb-ai" type="button" tabindex="-1" data-do="ai" data-tip="${T("ai.transform")}" aria-label="${T("ai.transform")}">${window.MdView.core.UI.spark || ""}<span>${T("Ask AI")}</span></button><span class="fb-rule fb-ai-rule"></span>` +
+    BUTTONS.map(([id, key, short, html], i) =>
     (i === 4 || i === 6 ? `<span class="fb-rule"></span>` : "") +
     `<button class="tb fb" type="button" tabindex="-1" data-do="${id}" data-tip="${T(key)}${short ? " (" + short + ")" : ""}" aria-label="${T(key)}">${html}</button>`).join("");
   document.body.appendChild(bar);
@@ -109,6 +111,7 @@
     const b = e.target.closest("[data-do]");
     if (!b || b.disabled || !view) return;
     const what = b.dataset.do;
+    if (what === "ai") { hide(); window.MdView.core.ai.transform(view); return; }
     if (what === "link") { hide(); A.link.edit(view); return; }
     if (what === "math") { hide(); A.context.toMath(view); return; }
     if (what === "para") {

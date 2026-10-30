@@ -151,6 +151,7 @@ body[data-overview] #toolbar :is([data-act="outline"], [data-act="find"], [data-
 .ov-seg { position: relative; align-self: center; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 7%, transparent); user-select: none; -webkit-user-select: none; }
 .ov-opt { position: relative; display: grid; place-items: center; min-width: var(--control-height, 28px); height: calc(var(--control-height, 28px) - 4px); padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--fg2); font: 500 12px/1 var(--ui); white-space: nowrap; cursor: default; transition: color var(--dur-fast) var(--ease-out); }
 .ov-opt[title] { padding: 0 8px; }
+.ov-opt[hidden] { display: none; } /* (Home without its setting: `display: grid` above would show it, and the thumb counts what shows) */
 .ov-opt svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ov-opt:hover, .ov-opt[aria-checked="true"] { color: var(--fg); transition-duration: var(--dur-instant); }
 .ov-opt:focus-visible { outline-offset: -2px; }

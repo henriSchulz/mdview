@@ -445,6 +445,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     next Ctrl+C, X, V went nowhere. A rebuild finds the element with the same path and focuses it
     (`refresh` in `overview.js`). `explorer.test.mjs` (#11).
 
+87. **`hidden` hides only where no rule gives the element a `display`** (2026-10-30, All Notes' switch: the Home choice,
+    hidden while its setting is off, showed all the same — `.ov-opt { display: grid }` — and the thumb, sized for the
+    choices that were meant to show, sat across two of them, in every look). An element hidden by the attribute gets
+    `[hidden] { display: none }` beside the rule that sets its display. A test checks what shows (`getClientRects()`), not
+    the attribute — and a test that fails is a finding about the page before it is a test to change.
+    `explorer.test.mjs` (All Notes › Whiteboards: the choices that show). *No issue: opening one was not allowed from here.*
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

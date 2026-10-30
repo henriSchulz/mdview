@@ -1644,6 +1644,23 @@ glass, menus of the same glass), and two more on top of Velum, after the Velum l
   as chips (folded, their head is there to open them again), and the note's **outline stands at the right** where the
   window has the room (1100 px with the sidebar shut, 1240 with it pinned): its headings, the one being read marked, a
   click goes there. Not beside a PDF, a split, the panel or All Notes.
-- **Velum Focus** (proposal C): writing first — the tabs a capsule of glass in the middle of the top, the toolbar one bar
-  of glass at the window's foot (the outline's list opens above it), and the outline as marks at the window's right edge,
-  the heading being read the longer one; under the pointer the marks open into the headings (from 900 px).
+- **Velum Focus** (proposal C): writing first — the tabs a capsule of glass in the middle of the top with a round sidebar
+  button at the window's top left and a round *Go to…* button at its top right; the toolbar one bar of glass at the window's
+  foot, beginning with All Notes, then the modes (the outline's list opens above it); the outline as marks at the window's
+  right edge, the heading being read the longer one; under the pointer the marks open into the headings (from 900 px). The
+  assistant opens over the bar, in the middle. With **Home** on, Home is the lab's start: a greeting, a large field that opens
+  *Go to…*, the folders as chips, the notes opened last and those changed this week, each a row with its first words.
+
+What both have, as the lab draws them: the note set at 15 px, headings 30 / 20; the island without back and forward
+(`Alt+←` `→` still go), the modes with reading first, the assistant's button beside find (the bubble at the corner goes);
+callouts as cards (where *Callouts and Focus* is left at Box); the formatting bar of the variant's glass with **Ask AI**
+first (Transform with AI on what is selected, while AI is on); the `/` menu as tall as what it shows, each sign on a small
+tile; find a field of glass; the sidebar's Library with **All Notes, Recents, Today, With Tasks, Shared** (the Library
+layout — the tasks counted from the notes' beginnings), the folders on a square of their colour, and at its foot, beside
+the gear, how the folder stands with its history (*History on*, or for a linked one *Up to date* / *Not reached* …);
+All Notes opens on *All Notes* with the lab's page header (a large title, the count and the folder under it, the choices
+and **+ New Note** at the right). **Go to…** (the island's search, or `Ctrl+K` outside a text field — in the text
+`Ctrl+K` stays the link's): a field in the middle of the window, under it the notes of the folder whose names have what
+is typed (the ones opened last first), the headings of the note on screen that have it, and *New Note*, *Ask the
+assistant*, *Find in this note*; `↑` `↓` choose, `Enter` opens, `Ctrl+Enter` in a new tab, `Esc` closes. The search in
+the toolbar opens it; `Ctrl+F` is still find in the note.

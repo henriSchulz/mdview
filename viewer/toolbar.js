@@ -18,11 +18,15 @@
   const { tabbar, tabsOn } = P; // viewer/tabs.js
 
   // --- toolbar + find buttons
+  const labLook = () => !!document.documentElement.dataset.velumLook && !!document.documentElement.dataset.velum; // (Velum Refined, Velum Focus: viewer/look.css)
   const actions = {
     navback: () => P.navGo(-1),
     navfwd: () => P.navGo(1),
     outline: () => (outlineOpen() ? closeOutline() : openOutline()),
-    find: () => (findOpen() ? closeFind() : openFind()),
+    // (in Velum Refined and Focus the bar's search is the lab's palette — Go to…; Ctrl+F stays find in the note)
+    find: () => (labLook() ? (P.palOpen() ? P.closePalette() : P.openPalette()) : findOpen() ? closeFind() : openFind()),
+    palette: () => (P.palOpen() ? P.closePalette() : P.openPalette()),
+    ai: () => document.getElementById("ai-bubble")?.click(),
     share: () => { if (P.current && P.current.kind !== "pdf" && !P.current.error) openShare(); else toast(T("Only notes can be shared")); },
     edit: () => switchMode(P.inSource() ? "read" : "edit"),
     mode: (b) => switchMode(b.dataset.mode),
@@ -230,6 +234,7 @@
     }
     if (e.key === "F11" || (mod && e.shiftKey && !e.altKey && k === "f")) { e.preventDefault(); setFocus(!focusOn()); return; }
     if (mod && e.shiftKey && k === "o") { e.preventDefault(); actions.outline(); return; }
+    if (mod && !e.shiftKey && !e.altKey && k === "k" && !typing && labLook()) { e.preventDefault(); actions.palette(); return; } // (Go to…; in a field Ctrl+K is the link's)
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); if (P.folder && window.MdOverview) MdOverview.toggle(); return; } // (the key goes there and back)

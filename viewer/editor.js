@@ -28,10 +28,16 @@
   // to switch between, and nothing to insert or format.
   const READING = !!(window.MdHost && window.MdHost.reading);
   if (READING) { modeSeg.hidden = true; for (const act of ["share"]) toolbar.querySelector(`[data-act="${act}"]`).hidden = true; }
-  const MODES = ["active", "split", "edit", "read"]; // as in the toolbar (and Ctrl+Alt+1 … 4)
+  const MODES = ["active", "split", "edit", "read"]; // as Ctrl+Alt+1 … 4 name them
+  // the thumb's place: the mode's button among the switch's, as they stand (Velum Refined and Focus put reading first: arrangeModes)
+  const placeOf = (mode) => [...modeSeg.querySelectorAll(".seg-btn")].findIndex((b) => b.dataset.mode === mode);
+  function arrangeModes(order) {
+    for (const m of order) { const b = modeSeg.querySelector(`.seg-btn[data-mode="${m}"]`); if (b) modeSeg.appendChild(b); }
+    modeSeg.style.setProperty("--i", placeOf(P.mode));
+  }
   function showMode() {
     modeSeg.hidden = READING || P.current?.kind === "text"; // (a plain text file has no other mode to switch to)
-    modeSeg.style.setProperty("--i", MODES.indexOf(P.mode));
+    modeSeg.style.setProperty("--i", placeOf(P.mode));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === P.mode));
     if (P.twinSync) P.twinSync(); // (the source beside its reading: there in its mode, and only there — viewer/twin.js)
   }
@@ -51,7 +57,7 @@
     if (next === P.mode || !P.current || switching) return;
     if (P.current.kind === "pdf" || !P.current.text || P.current.text.length < HEAVY || (next === "active" && P.current.error) || (P.inSource(next) && P.current.readonly)) { P.setMode(next); return; }
     const btn = modeSeg.querySelector(`.seg-btn[data-mode="${next}"]`);
-    modeSeg.style.setProperty("--i", MODES.indexOf(next));
+    modeSeg.style.setProperty("--i", placeOf(next));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b === btn));
     document.body.classList.add("mode-wait");
     const done = () => { clearTimeout(switching); switching = 0; document.body.classList.remove("mode-wait"); showMode(); };
@@ -322,7 +328,7 @@
   }
 
   // what the page's other files use of this one
-  Object.assign(P, { AUTOSAVE_MS, editor, edWrap, edInput, edBack, READING, MODES, showMode, switchMode,
+  Object.assign(P, { AUTOSAVE_MS, editor, edWrap, edInput, edBack, READING, MODES, showMode, switchMode, arrangeModes,
     paint, setEditorText, rangeOf, revealCaret, captureEditAnchor, goToLine, outlineOf, dirty, sourceIs,
     flushSave, flush });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
