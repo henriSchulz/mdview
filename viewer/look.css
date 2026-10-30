@@ -418,3 +418,16 @@
 }
 #overview:not([data-keys]) :is(.ovl-chip, .ovl-row, .ovh-row, .ovh-folder):focus { outline: none; box-shadow: none; } /* (a ring only for the keys) */
 #overview[data-keys] :is(.ovl-chip, .ovl-row):focus-visible { outline: var(--focus-ring) solid var(--v-accent-base); outline-offset: -2px; }
+
+/* All Notes' tiles as the lab draws them (mdview.html .tile): a sheet across rather than up, its note's title on it, under it the
+ * name and "folder · when" at the left; the note on screen in the accent */
+:root[data-velum][data-velum-look] #overview .ov-grid { grid-template-columns: repeat(auto-fill, minmax(calc(var(--v-sidebar-width) * 0.72), 1fr)); gap: var(--v-space-20) var(--v-space-16); }
+:root[data-velum][data-velum-look] #overview .ovh-card .ov-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--v-space-12); }
+:root[data-velum][data-velum-look] #overview .ov-item { --paper: var(--v-bg-raised); --edge: var(--v-line-base); --rest: var(--v-card-shadow); --lifted: var(--v-shadow-drag); }
+:root[data-velum][data-velum-look] #overview .ov-tile { justify-items: stretch; text-align: left; gap: 1px; }
+:root[data-velum][data-velum-look] #overview :is(.ov-sheet, .ov-stack) { aspect-ratio: 3 / 2.05; margin-bottom: var(--v-space-6); }
+:root[data-velum][data-velum-look] #overview .ov-sheet { padding: var(--v-space-10) var(--v-space-12) 0; border-radius: var(--v-radius-row); }
+:root[data-velum][data-velum-look] #overview .ov-prev h1:first-child { display: block; margin: 0 0 0.35em; font-size: 1.3em; line-height: 1.25; font-weight: var(--v-weight-semibold); letter-spacing: 0; }
+:root[data-velum][data-velum-look] #overview .ov-tile .ov-name { font: var(--v-weight-medium) var(--v-type-body) / 1.3 var(--ui); color: var(--v-ink-primary); -webkit-line-clamp: 1; }
+:root[data-velum][data-velum-look] #overview .ov-tile .ov-sub { font: var(--v-type-body-weight) var(--v-type-small) / 1.3 var(--ui); color: var(--v-ink-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-velum][data-velum-look] #overview .ov-tile[aria-current] .ov-name { color: var(--v-accent-text); }
