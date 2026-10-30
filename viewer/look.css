@@ -7,6 +7,9 @@
  *   scrolling away under it behind a band of its own colour (the scroll edge);
  * - the menus at a point the variant's glass menu, not the dark plate;
  * - tracks and plates, the primary button and headings as the lab has them.
+ * At its end Velum Refined and Velum Focus (prefs "look": "refined" | "focus", <html data-velum-look>), on top of all this: the
+ * lab's mdview.html, proposals A and C — the folders in their colour, quiet properties, the outline at the right (#orail,
+ * viewer/chrome.js); the tabs a capsule at the top, the toolbar a bar at the foot, the outline as marks at the edge.
  * Roles only: every colour, size, radius and shadow is a --v-* role or the app's variable it was mapped to.
  * (One of several sheets, linked after roles.css: docs/MAP.md.) */
 
@@ -131,3 +134,103 @@
 
 /* ---- headings drawn tighter, as the lab's note */
 :root[data-velum][data-look="velum"] :is(#content, #active) :is(h1, h2) { letter-spacing: -0.02em; }
+
+/* ==== Velum Refined and Velum Focus (prefs "look": "refined" | "focus" — viewer.js puts it on <html data-velum-look>, over
+ * data-look="velum": everything above holds for them too). The lab's ~/Projects/velum/lab/web/mdview.html, proposals A and C.
+ * Roles only, as above. */
+
+/* ---- the outline at the right (viewer/chrome.js: #orail) — hidden unless a rule below shows it */
+#orail { display: none; }
+:root[data-velum][data-velum-look] #orail { position: fixed; z-index: 13; flex-direction: column; font: var(--v-type-body-weight) var(--v-type-small) / 1.3 var(--ui);
+  scrollbar-width: none; user-select: none; -webkit-user-select: none; }
+:root[data-velum][data-velum-look] #orail::-webkit-scrollbar { display: none; }
+:root[data-velum][data-velum-look] .or-head { margin: 0 0 var(--v-space-6) var(--v-space-10); color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
+:root[data-velum][data-velum-look] .or-row { display: flex; align-items: center; gap: var(--v-space-8); min-width: 0; border: 0; background: transparent; color: var(--v-ink-secondary); font: inherit; text-align: left; cursor: default;
+  padding: var(--v-space-4) var(--v-space-10) var(--v-space-4) calc(var(--v-space-10) + var(--indent, 0) * var(--v-space-12)); border-radius: var(--v-radius-row); }
+:root[data-velum][data-velum-look] .or-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-velum][data-velum-look] .or-row:hover { background: var(--v-fill-hover); color: var(--v-ink-primary); }
+:root[data-velum][data-velum-look] .or-row.current { color: var(--v-accent-text); font-weight: var(--v-weight-medium); }
+/* (not beside a PDF, a split, the panel, All Notes: they have the room) */
+:root[data-velum][data-velum-look] body:is(.pdf-open, [data-split], [data-panel], [data-overview]) #orail { display: none !important; }
+
+/* ==== Refined: the sidebar's folders in their colour, quiet properties, the outline beside the note */
+:root[data-velum][data-velum-look="refined"] #sidebar:not([data-layout="plain"]):not([data-layout="sheets"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon {
+  display: grid; place-items: center; flex: none; width: var(--v-layout-icon-regular); height: var(--v-layout-icon-regular); border-radius: calc(var(--v-layout-icon-regular) * 0.3);
+  background: var(--fc, var(--v-accent-base)); color: var(--v-ink-on-accent);
+}
+:root[data-velum][data-velum-look="refined"] #sidebar:not([data-layout="plain"]):not([data-layout="sheets"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg {
+  width: calc(var(--v-layout-icon-regular) * 0.68); height: calc(var(--v-layout-icon-regular) * 0.68); fill: none; stroke: currentColor; stroke-width: 2.2;
+}
+:root[data-velum][data-velum-look="refined"] #sidebar .sb-cap { color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
+:root[data-velum][data-velum-look="refined"] .sb-lib-n { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+/* the properties: one quiet line of key and value, tags as chips — the fold's head only while it is folded (to open it again) */
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] > summary { display: none; }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] :is(table, tbody) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-4) var(--v-space-16); border: 0; margin: 0; }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] tr { display: inline-flex; align-items: baseline; gap: var(--v-space-6); border: 0; background: none; }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] :is(th, td) { width: auto; padding: 0; border: 0; background: none; font-size: var(--v-type-small); line-height: 1.6; }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] td { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--v-space-4); }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] th { color: var(--v-ink-tertiary); font-weight: var(--v-weight-regular); }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] td { color: var(--v-ink-secondary); }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] :is(.tag, .chip) { font-size: var(--v-type-small); border-radius: var(--v-radius-chip); }
+:root[data-velum][data-velum-look] :is(#content, #active) .props[open] .tag { background: var(--v-fill-selected); color: var(--v-accent-text); }
+/* the outline: a quiet list at the right, where the window has the room beside the note */
+:root[data-velum][data-velum-look="refined"] #orail {
+  right: var(--v-space-16); top: calc(var(--tabs-h, 0px) + var(--v-space-24)); width: calc(var(--v-sidebar-width) - var(--v-space-24));
+  max-height: calc(100vh - var(--tabs-h, 0px) - 2 * var(--v-space-24)); overflow-y: auto;
+}
+:root[data-velum][data-velum-look="refined"] .or-row.current { box-shadow: inset 2px 0 0 var(--v-accent-base); border-radius: 0 var(--v-radius-row) var(--v-radius-row) 0; }
+:root[data-velum][data-velum-look="refined"] .or-row > i { display: none; }
+:root[data-velum][data-velum-look] body[data-rail] #orail { right: calc(var(--v-space-16) + var(--v-control-height) + var(--v-space-24)); } /* (beside the panel's rail of the active mode) */
+@media (min-width: 1100px) {
+  :root[data-velum][data-velum-look="refined"] body:not([data-sidebar="open"]) #orail:not([hidden]) { display: flex; }
+}
+@media (min-width: 1240px) {
+  :root[data-velum][data-velum-look="refined"] #orail:not([hidden]) { display: flex; }
+}
+
+/* ==== Focus: writing first — the tabs a capsule in the middle of the top, the tools one bar at the foot, the outline as marks */
+@media (min-width: 761px) {
+  :root[data-velum][data-velum-look="focus"] body[data-tabs] #tabs {
+    left: 50%; right: auto; width: max-content; max-width: calc(100vw - 2 * var(--v-space-32)); transform: translateX(-50%);
+    padding: var(--v-space-4); border-radius: var(--v-radius-pill);
+  }
+  :root[data-velum][data-velum-look="focus"] body[data-tabs][data-sidebar="open"] #tabs { left: calc(var(--sb-w) + (100vw - var(--sb-w)) / 2); max-width: calc(100vw - var(--sb-w) - 2 * var(--v-space-32)); }
+  :root[data-velum][data-velum-look="focus"] .tab-list { border-radius: var(--v-radius-pill); }
+  :root[data-velum][data-velum-look="focus"] :is(.tab, .tab-home, .tab-new, .tab-plate) { border-radius: var(--v-radius-pill); }
+  :root[data-velum][data-velum-look="focus"] body #toolbar,
+  :root[data-velum][data-velum-look="focus"] body[data-tabs] #toolbar {
+    top: auto; right: auto; left: 50%; bottom: var(--v-space-16); transform: translateX(-50%);
+    padding: var(--v-space-4) var(--v-space-6); border-radius: var(--v-radius-pill);
+    background: var(--v-popover-bg); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate));
+    box-shadow: var(--v-popover-shadow);
+  }
+  :root[data-velum][data-velum-look="focus"] body[data-flat] #toolbar { background: var(--v-popover-bg-opaque); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :root[data-velum][data-velum-look="focus"] #toolbar.hidden { transform: translate(-50%, var(--v-space-6)); }
+  :root[data-velum][data-velum-look="focus"] body[data-sidebar="open"] #toolbar { left: calc(var(--sb-w) + (100vw - var(--sb-w)) / 2); }
+  /* (the outline's list and find open over the bar, not at the top) */
+  :root[data-velum][data-velum-look="focus"] #outline { top: auto; bottom: calc(var(--v-space-16) + var(--v-control-height) + var(--v-space-24)); --origin: bottom right; }
+  :root[data-velum][data-velum-look="focus"] :is(#content, #active, #editor) { padding-bottom: max(40vh, 120px); }
+}
+/* the outline: a ladder of marks at the window's right edge, the heading read the longer one; under the pointer it opens */
+:root[data-velum][data-velum-look="focus"] #orail {
+  right: var(--v-space-6); top: 50%; transform: translateY(-50%); align-items: flex-end; gap: 0;
+  max-height: 70vh; overflow-y: auto; padding: var(--v-space-6) var(--v-space-4); border-radius: var(--v-radius-popover);
+  transition: background-color var(--v-dur-fast) var(--v-ease-out), box-shadow var(--v-dur-fast) var(--v-ease-out);
+}
+:root[data-velum][data-velum-look="focus"] #orail .or-head { display: none; }
+:root[data-velum][data-velum-look="focus"] #orail .or-row { justify-content: flex-end; padding: var(--v-space-4) var(--v-space-6); width: 100%; }
+:root[data-velum][data-velum-look="focus"] #orail .or-row > span { display: none; }
+:root[data-velum][data-velum-look="focus"] #orail .or-row > i { display: block; flex: none; width: calc(var(--v-space-16) - var(--indent, 0) * var(--v-space-4)); height: 2px; border-radius: 1px; background: var(--v-line-strong); }
+:root[data-velum][data-velum-look="focus"] #orail .or-row.current > i { width: var(--v-space-20); background: var(--v-accent-base); }
+:root[data-velum][data-velum-look="focus"] #orail:hover {
+  width: calc(var(--v-sidebar-width) - var(--v-space-16)); align-items: stretch;
+  background: var(--v-popover-bg); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); box-shadow: var(--v-popover-shadow);
+}
+:root[data-velum][data-velum-look="focus"] #orail:hover .or-row { justify-content: flex-start; padding-left: calc(var(--v-space-10) + var(--indent, 0) * var(--v-space-12)); color: var(--v-popover-ink-secondary); }
+:root[data-velum][data-velum-look="focus"] #orail:hover .or-row > span { display: block; }
+:root[data-velum][data-velum-look="focus"] #orail:hover .or-row > i { display: none; }
+:root[data-velum][data-velum-look="focus"] #orail:hover .or-row.current { color: var(--v-accent-text); }
+:root[data-velum][data-velum-look="focus"] #orail:hover .or-row:hover { background: var(--v-popover-fill-hover); color: var(--v-popover-ink); }
+@media (min-width: 900px) {
+  :root[data-velum][data-velum-look="focus"] #orail:not([hidden]) { display: flex; }
+}

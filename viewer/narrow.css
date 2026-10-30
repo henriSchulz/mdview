@@ -12,7 +12,7 @@
 ::-webkit-scrollbar-corner { background: transparent; }
 
 @media print {
-  #toolbar, #tabs, #outline, #findbar, #toast, #editor, #sidebar, #ctxmenu, .code-tools { display: none !important; }
+  #toolbar, #tabs, #outline, #orail, #findbar, #toast, #editor, #sidebar, #ctxmenu, .code-tools { display: none !important; }
   body { padding-left: 0 !important; }
   #content { display: block !important; opacity: 1 !important; }
   #content { max-width: none; padding: 0; }

@@ -181,6 +181,41 @@
       else scrollToFragment(P.outline[i].slug, true);
     }, flash * 2);
   }
+  /* --- the outline at the right: Velum Refined and Velum Focus (prefs "look"; the lab's ~/Projects/velum/lab/web/mdview.html,
+   * proposals A and C). The note's headings in a quiet list beside it (Refined), or as marks at the window's edge that open
+   * on hover (Focus) — viewer/look.css says where and when it shows. Filled when the note is drawn (railOutline, from
+   * viewer/render.js and viewer/modes.js); the heading read is marked as the note scrolls, a click goes there. */
+  const rail = document.createElement("nav");
+  rail.id = "orail";
+  rail.hidden = true;
+  rail.setAttribute("aria-label", T("Outline"));
+  document.body.appendChild(rail);
+  let railCur = -2, railFrame = 0;
+  function railOutline() {
+    const list = document.documentElement.dataset.velumLook && document.documentElement.dataset.velum ? P.outline || [] : []; // (only where Velum is: viewer/look.css)
+    rail.hidden = list.length < 2; // (one heading is no outline)
+    if (rail.hidden) { rail.textContent = ""; return; }
+    const min = Math.min(...list.map((o) => o.level));
+    rail.innerHTML = `<div class="or-head">${esc(T("Outline"))}</div>` +
+      list.map((o, i) => `<button class="or-row" type="button" data-i="${i}" style="--indent:${Math.min(o.level - min, 3)}"><i></i><span>${esc(o.text)}</span></button>`).join("");
+    railCur = -2;
+    railMark();
+  }
+  function railMark() {
+    if (rail.hidden) return;
+    const i = currentSection();
+    if (i === railCur) return;
+    railCur = i;
+    rail.querySelectorAll(".or-row").forEach((b, k) => b.classList.toggle("current", k === Math.max(i, 0)));
+  }
+  addEventListener("scroll", () => { if (!rail.hidden && !railFrame) railFrame = requestAnimationFrame(() => { railFrame = 0; railMark(); }); }, { passive: true });
+  rail.addEventListener("click", (e) => {
+    const b = e.target.closest(".or-row"), o = b && P.outline[Number(b.dataset.i)];
+    if (!o) return;
+    if (P.inSource()) P.goToLine(o.line);
+    else scrollToFragment(o.slug, true);
+  });
+
   outlinePop.addEventListener("mousemove", (e) => {
     const item = e.target.closest(".menu-item");
     if (item && Number(item.dataset.i) !== hl) setHl(Number(item.dataset.i));
@@ -288,7 +323,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { toolbar, outlinePop, findBar, findInput, toast, updateNotice, outlineOpen, findOpen, showToolbar,
-    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind });
+    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind, railOutline });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     hitIdx: [() => hitIdx],

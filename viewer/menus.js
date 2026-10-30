@@ -164,7 +164,7 @@
     if (e.defaultPrevented) return; // (a part with a menu of its own)
     e.preventDefault();
     const t = e.target.nodeType === 1 ? e.target : e.target.parentElement;
-    if (!t || t.closest("#settings-scrim, #dlg-scrim, #toolbar, #zoom, #tour, #update")) return;
+    if (!t || t.closest("#settings-scrim, #dlg-scrim, #toolbar, #orail, #zoom, #tour, #update")) return;
     const field = t.closest("input, textarea"), rich = t.closest('[contenteditable="true"]');
     const editable = field ? !field.readOnly && !field.disabled && !/^(checkbox|radio|range|button|submit)$/.test(field.type) : !!rich;
     if (field && !editable && field.tagName === "INPUT" && /^(checkbox|radio|range|button|submit)$/.test(field.type)) return;
