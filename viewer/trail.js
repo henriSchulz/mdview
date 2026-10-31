@@ -91,6 +91,7 @@
   function setMode(next, caret) {
     if (next === P.mode || !P.current) return;
     if (READING && next !== "read") return; // (a host that only shows a note: there is nothing but reading it)
+    if (P.folder && P.folder.quick && next !== "active" && P.current.kind !== "pdf" && P.current.kind !== "text") return; // (quick notes have the active mode alone)
     if (P.current.kind === "pdf") { toast(T("A PDF is read here, not edited")); return; }
     if (P.current.kind === "text" && next !== "edit") return; // (a plain text file has the source editor alone: viewer/render.js)
     if (next === "active") {

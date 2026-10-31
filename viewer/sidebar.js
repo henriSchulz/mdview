@@ -790,6 +790,7 @@
     const first = !folder || folder.root !== f.root;
     if (first) { sbOpen.clear(); sbList.textContent = ""; sbHere = null; sbSmart = "all"; sbSeen.clear(); sbAsking.clear(); closeLook(); }
     folder = f;
+    if (f.quick && P.current && P.current.kind !== "pdf" && P.current.kind !== "text") { P.setMode("active"); P.showMode(); } // (quick notes have the active mode alone)
     sbTitles = f.titles;
     sbTitlesBtn.classList.toggle("active", sbTitles);
     sbTitlesBtn.setAttribute("aria-pressed", String(sbTitles));

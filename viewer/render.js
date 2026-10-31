@@ -119,6 +119,7 @@
       modeBeforePdf = null;
       if (back && !p.error && !(P.inSource(back) && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(back); }, 0);
     }
+    if (P.folder && P.folder.quick) p.startMode = "active"; // (quick notes: the active mode alone)
     if (p.startMode && p.startMode !== "read" && !p.error && !(P.inSource(p.startMode) && p.readonly)) setTimeout(() => { if (current === p && mode === "read") P.setMode(p.startMode); }, 0);
     document.title = p.name || "Markdown Notes";
     if (p.base && baseEl.href !== p.base) baseEl.href = p.base; // relative links and images

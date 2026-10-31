@@ -299,6 +299,7 @@ at the right. The + (or Ctrl+N; another key can be set in the settings) makes a 
 asking for a name: its file is named after its first line when the note is left, and a note left
 empty is gone again. The notes are Markdown files in one folder (Documents/Notizen/QuickNotes,
 or the folder the settings name), so they are notes like any other everywhere else.
+Quick notes have the active mode alone: no switch of modes, no reading, source or split view.
 
 ### Pages in a note
 

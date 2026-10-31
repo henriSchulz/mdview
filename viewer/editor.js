@@ -36,7 +36,7 @@
     modeSeg.style.setProperty("--i", placeOf(P.mode));
   }
   function showMode() {
-    modeSeg.hidden = READING || P.current?.kind === "text"; // (a plain text file has no other mode to switch to)
+    modeSeg.hidden = READING || P.current?.kind === "text" || !!(P.folder && P.folder.quick); // (a plain text file has no other mode to switch to)
     modeSeg.style.setProperty("--i", placeOf(P.mode));
     for (const b of modeSeg.querySelectorAll(".seg-btn")) b.setAttribute("aria-checked", String(b.dataset.mode === P.mode));
     if (P.twinSync) P.twinSync(); // (the source beside its reading: there in its mode, and only there — viewer/twin.js)
