@@ -105,6 +105,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     notebook the pages it writes on. What it takes away is one step and fades out together (`{"del":[…]}`, the
     strokes of one step one group) — never stroke by stroke. Checks: `dev/tests/boardclaude.test.mjs`,
     `web/test/notebook.test.mjs`; the real model measured by hand (`claude -p` with the board's prompt).
+98. **A formula on a board is set as a hand writes it, and nothing written is left out** (#36, #37). Henri,
+    of „1/(5z^4) = z/5 (da z^5 = 1)" written by Claude: „das will ich NIE WIEDER SEHEN" — and signs went missing
+    mid-formula: the hand's font had no −, no Greek letter, no ∈ ∫ ∑ ℝ, and a sign it has not is left out
+    silently. A formula goes as LaTeX between dollars in the text of "write", and `board/claude.js` lays it
+    out (`texParse`, `texBox`): a fraction over its bar, exponents raised, indices lowered, a root's sign,
+    brackets as tall as what they hold; a `^` or `_` in plain words is raised or lowered all the same. A sign
+    a formula needs is drawn in the font's units (`SIGNS`), never dropped. A formula is one unit of the line:
+    the hand's chance on a letter's width is not put on it (it pushed what follows into its end), a line with a
+    fraction stands taller, and an underline Claude put where a line of words would end goes under the fraction
+    (Claude cannot know how far it reaches). Checks: `dev/tests/boardclaude.test.mjs` (#36, #37); the real model
+    by hand (`claude -p` with the board's prompt, its answer drawn).
 
 ### Markdown that is rendered somewhere new
 

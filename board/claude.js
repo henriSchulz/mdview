@@ -161,9 +161,37 @@
     "≤": ["M19,6 L5,12 L19,18 M5,22 L19,22", 13], "≥": ["M5,6 L19,12 L5,18 M5,22 L19,22", 13], "±": ["M12,6 L12,18 M5,12 L19,12 M5,22 L19,22", 13],
     "÷": ["M4,14 L20,14 M12,8 L12.6,8.6 M12,20 L12.6,20.6", 13], "°": ["M6,2 C4,2 3,3.5 3,5 C3,6.5 4,8 6,8 C8,8 9,6.5 9,5 C9,3.5 8,2 6,2", 7],
     "√": ["M2,14 L5,13 L9,22 L14,1 L22,1", 13], "∞": ["M12,14 C9,10 4,10 4,14 C4,18 9,18 12,14 C15,10 20,10 20,14 C20,18 15,18 12,14", 14],
+    // (the signs of mathematics, and the Greek letters — #37: left out, they were gaps in the middle of a formula)
+    "·": ["M5,13 L5.6,13.6 M4.6,14 L5.8,12.8", 6], "×": ["M5,8 L17,20 M17,8 L5,20", 12], "−": ["M4,14 L20,14", 13],
+    "∈": ["M17,6 L11,6 C7,6 4,9 4,13 C4,17 7,20 11,20 L17,20 M4,13 L15,13", 11], "∉": ["M17,6 L11,6 C7,6 4,9 4,13 C4,17 7,20 11,20 L17,20 M4,13 L15,13 M14,3 L8,23", 11],
+    "∀": ["M3,1 L10,22 L17,1 M6,11 L14,11", 11], "∃": ["M4,1 L16,1 L16,22 L4,22 M7,11.5 L16,11.5", 11], "∫": ["M15,-1 C13,-2 11,-1 10,2 L8,25 C7,28 5,29 3,28", 9],
+    "∑": ["M16,1 L4,1 L11,11.5 L4,22 L16,22", 11], "∏": ["M4,22 L4,1 L16,1 L16,22", 11], "∂": ["M6,4 C8,2 10,1 12,1 C15,1 17,4 17,9 C17,16 14,22 9,22 C6,22 4,20 4,17 C4,13 7,11 10,11 C13,11 15,12 17,14", 11],
+    "∇": ["M2,1 L18,1 L10,22 L2,1", 11], "⊂": ["M17,5 L11,5 C7,5 4,8 4,12.5 C4,17 7,20 11,20 L17,20", 11], "⊆": ["M17,3 L11,3 C7,3 4,6 4,10 C4,14 7,17 11,17 L17,17 M4,22 L17,22", 11],
+    "∪": ["M4,5 L4,13 C4,18 7,21 10.5,21 C14,21 17,18 17,13 L17,5", 11], "∩": ["M4,21 L4,13 C4,8 7,5 10.5,5 C14,5 17,8 17,13 L17,21", 11],
+    "∧": ["M3,21 L10,5 L17,21", 11], "∨": ["M3,5 L10,21 L17,5", 11], "¬": ["M3,11 L17,11 L17,16", 11], "≡": ["M3,8 L21,8 M3,14 L21,14 M3,20 L21,20", 13],
+    "∝": ["M19,9 C16,9 14,11 12,14 C10,17 8,19 6,19 C4,19 3,17 3,14 C3,11 4,9 6,9 C8,9 10,11 12,14 C14,17 16,19 19,19", 12],
+    "ℝ": ["M4,22 L4,1 L11,1 C14,1 16,3 16,6 C16,9 14,11 11,11 L4,11 M11,11 L16,22 M7,1 L7,22", 11], "ℕ": ["M4,22 L4,1 L16,22 L16,1 M7,6 L7,22", 11],
+    "ℤ": ["M4,1 L16,1 L4,22 L16,22 M12.5,1 L1,22", 11], "ℚ": ["M10,1 C5,1 3,6 3,11.5 C3,17 5,22 10,22 C15,22 17,17 17,11.5 C17,6 15,1 10,1 M12,18 L17,24 M6,3 L6,20", 11],
+    "ℂ": ["M16,4 C14,2 12,1 10,1 C5,1 3,6 3,11.5 C3,17 5,22 10,22 C12,22 14,21 16,19 M6,3 L6,20", 10], "½": ["M3,4 L5,3 L5,10 M14,2 L5,22 M13,15 C13,13 18,13 18,15 C18,17 13,20 13,22 L18,22", 12],
+    "α": ["M17,8 C15,16 14,20 18,22 M16,12 C14,8 10,8 7,9 C4,11 3,15 4,19 C5,22 9,22 11,21 C13,19 15,16 16,12", 11], "β": ["M5,28 L5,6 C5,2 8,1 10,1 C13,1 14,3 14,5 C14,8 12,10 9,10 C13,10 16,12 16,16 C16,20 13,22 10,22 C8,22 6,21 5,19", 10],
+    "γ": ["M3,9 C5,8 7,9 8,12 L10,22 L10,28 M16,8 L10,22", 10], "δ": ["M13,2 C10,1 7,2 7,4 C7,6 10,8 13,10 C16,12 17,15 16,18 C15,21 12,22 10,22 C7,22 4,20 4,16 C4,12 7,10 11,9", 10],
+    "ε": ["M15,9 C13,8 9,8 7,9 C5,10 5,14 9,15 L12,15 M9,15 C5,15 4,18 5,20 C6,22 10,22 15,21", 10], "ζ": ["M6,1 L15,1 C9,6 4,11 4,16 C4,20 8,21 12,22 C14,23 14,26 12,28", 10],
+    "η": ["M4,9 C5,8 6,9 6,11 L6,22 M6,13 C8,9 11,8 13,8 C15,8 16,10 16,13 L16,28", 11], "θ": ["M10,1 C6,1 4,6 4,11.5 C4,17 6,22 10,22 C14,22 16,17 16,11.5 C16,6 14,1 10,1 M4,11.5 L16,11.5", 10],
+    "ι": ["M7,8 L7,19 C7,21 8,22 10,21", 6], "κ": ["M5,8 L5,22 M15,8 L5,16 M8,14 L15,22", 10], "λ": ["M4,1 C7,1 8,3 9,6 L15,22 M10,10 L4,22", 10],
+    "μ": ["M5,8 L5,28 M5,17 C5,21 8,22 10,22 C13,22 15,19 15,16 M15,8 L15,19 C15,21 16,22 18,21", 11], "ν": ["M4,8 L9,22 C12,18 15,13 15,8", 10],
+    "ξ": ["M7,1 L14,1 M13,1 C8,1 6,3 6,5 C6,7 9,8 12,8 C7,8 4,10 4,14 C4,18 8,19 11,20 C13,21 13,25 11,28", 10], "π": ["M3,10 C5,8 8,8 10,8 L18,8 M7,8 L6,22 M14,8 L14,20 C14,21 15,22 17,21", 11],
+    "ρ": ["M5,28 L5,15 C5,11 7,8 10,8 C13,8 15,11 15,15 C15,19 13,22 10,22 C7,22 5,20 5,18", 10], "σ": ["M17,8 L10,8 C6,8 4,11 4,15 C4,19 6,22 9,22 C12,22 14,19 14,15 C14,11 12,9 10,8", 10],
+    "τ": ["M3,9 C4,8 6,8 8,8 L16,8 M10,8 L10,20 C10,21 11,22 13,21", 10], "υ": ["M4,9 C5,8 6,9 6,11 L6,17 C6,20 8,22 10,22 C13,22 15,18 15,13 C15,10 14,8 13,8", 10],
+    "φ": ["M10,4 L10,28 M10,8 C6,8 4,11 4,15 C4,19 7,22 10,22 C13,22 16,19 16,15 C16,11 14,8 10,8", 10], "χ": ["M4,8 C6,8 7,10 8,13 L12,22 C13,25 14,28 16,28 M15,8 L5,28", 10],
+    "ψ": ["M10,1 L10,28 M3,9 C4,8 5,9 5,11 L5,15 C5,19 7,22 10,22 C13,22 15,19 15,15 L15,8", 10], "ω": ["M6,8 C4,10 3,13 3,16 C3,20 5,22 7,22 C9,22 10,20 10,17 L10,14 M10,17 C10,20 11,22 13,22 C15,22 17,20 17,16 C17,13 16,10 14,8", 11],
+    "Γ": ["M5,22 L5,1 L17,1", 10], "Δ": ["M10,1 L2,22 L18,22 L10,1", 11], "Θ": ["M10,1 C5,1 3,6 3,11.5 C3,17 5,22 10,22 C15,22 17,17 17,11.5 C17,6 15,1 10,1 M7,11.5 L13,11.5", 11],
+    "Λ": ["M2,22 L10,1 L18,22", 11], "Ξ": ["M4,1 L16,1 M6,11 L14,11 M4,22 L16,22", 11], "Π": ["M4,22 L4,1 L16,1 L16,22", 11], "Σ": ["M16,1 L4,1 L11,11.5 L4,22 L16,22", 11],
+    "Φ": ["M10,1 L10,22 M10,5 C5,5 3,8 3,11.5 C3,15 5,18 10,18 C15,18 17,15 17,11.5 C17,8 15,5 10,5", 11], "Ψ": ["M10,1 L10,22 M3,5 L3,10 C3,14 6,16 10,16 C14,16 17,14 17,10 L17,5", 11],
+    "Ω": ["M3,22 L7,22 C4,19 3,16 3,12 C3,6 6,1 10,1 C14,1 17,6 17,12 C17,16 16,19 13,22 L17,22", 11],
     "•": ["M9,13 L9.6,13.6 M8.6,14 L9.8,12.8", 7], "€": ["M15,5 C13,2 11,1 9,1 C5,1 3,6 3,11.5 C3,17 5,22 9,22 C11,22 13,21 15,18 M1,9 L11,9 M1,14 L10,14", 9],
   };
-  const RAISED = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "ⁿ": "n" };
+  const RAISED = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "ⁿ": "n", "ⁱ": "i", "ˣ": "x" };
+  const LOWERED = { "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-", "ₙ": "n", "ᵢ": "i", "ⱼ": "j", "ₖ": "k", "ₓ": "x" };
   /* the marks of accented letters (é: e and ´), about the letter's middle mid and its top: [[x, y], …] each */
   const MARKS = {
     "\u0301": (m, t) => [[[m - 1, t - 2], [m + 2, t - 5]]], "\u0300": (m, t) => [[[m - 2, t - 5], [m + 1, t - 2]]], "\u0302": (m, t) => [[[m - 3, t - 2], [m, t - 5], [m + 3, t - 2]]],
@@ -180,6 +208,7 @@
     if (ch === "ß") return { runs: flatten(ESZETT[0], 0.7), adv: ESZETT[1] * UNIT };
     if (SIGNS[ch]) return { runs: flatten(SIGNS[ch][0], 0.7), adv: SIGNS[ch][1] * UNIT };
     if (RAISED[ch]) { const g = letter(font, RAISED[ch]); return { runs: g.runs.map((r) => r.map(([x, y]) => [x * 0.6, y * 0.6 - 1])), adv: g.adv * 0.65 }; }
+    if (LOWERED[ch]) { const g = letter(font, LOWERED[ch]); return { runs: g.runs.map((r) => r.map(([x, y]) => [x * 0.6, y * 0.6 + 11])), adv: g.adv * 0.65 }; }
     if (DOTS[ch]) {
       const base = letter(font, DOTS[ch]), xs = base.runs.flat().map((p) => p[0]), mid = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : base.adv / 2, y = DOTS[ch] === DOTS[ch].toUpperCase() ? -3 : 4;
       return { runs: [...base.runs, [[mid - 3, y], [mid - 2.4, y]], [[mid + 2.4, y], [mid + 3, y]]], adv: base.adv };
@@ -195,6 +224,152 @@
     if (!g && !(SAME[ch] && SAME[ch].length > 1)) return { runs: [], adv: SPACE * UNIT }; // (what no hand can write here — an emoji —: left out, never a "?")
     if (SAME[ch] && SAME[ch].length > 1) { const parts = [...SAME[ch]].map((x) => letter(font, x)); let at = 0; const runs = []; for (const p of parts) { runs.push(...p.runs.map((r) => r.map(([x, y]) => [x + at, y]))); at += p.adv; } return { runs, adv: at }; }
     return { runs: flatten(g[0], 0.7), adv: g[1] * UNIT };
+  }
+  // ---------------------------------------------------------------- formulas, as a hand sets them (#36)
+  /* A formula in LaTeX ($…$ in what is written) laid out as a person writes it on paper: a fraction's parts one over the other
+   * with a bar between, exponents raised and smaller, indices lowered, a root's sign over what it holds, brackets as tall as
+   * what they hold — never as typed (Henri, 2026-11-02, of "1/(5z^4)": "das will ich NIE WIEDER SEHEN"). */
+  const TEX = { alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε", varepsilon: "ε", zeta: "ζ", eta: "η", theta: "θ", vartheta: "θ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", xi: "ξ",
+    pi: "π", rho: "ρ", varrho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ", phi: "φ", varphi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+    Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+    cdot: "·", times: "×", pm: "±", div: "÷", le: "≤", leq: "≤", ge: "≥", geq: "≥", ne: "≠", neq: "≠", approx: "≈", equiv: "≡", propto: "∝", infty: "∞",
+    to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒", implies: "⇒", Leftarrow: "⇐", leftrightarrow: "↔", Leftrightarrow: "↔", iff: "↔", mapsto: "→",
+    in: "∈", notin: "∉", forall: "∀", exists: "∃", int: "∫", sum: "∑", prod: "∏", partial: "∂", nabla: "∇", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩",
+    land: "∧", wedge: "∧", lor: "∨", vee: "∨", neg: "¬", lnot: "¬", circ: "°", degree: "°", ldots: "…", dots: "…", cdots: "…", lbrace: "{", rbrace: "}",
+    "{": "{", "}": "}", "|": "|", "%": "%", "$": "$", "&": "&", "#": "#", "_": "_", langle: "<", rangle: ">", vert: "|", mid: "|",
+    quad: " ", qquad: "  ", ",": " ", ";": " ", ":": " ", " ": " ", "!": "", displaystyle: "", limits: "", nolimits: "", backslash: "\\" };
+  const FN = new Set(["sin", "cos", "tan", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "log", "ln", "lg", "exp", "lim", "max", "min", "sup", "inf", "det", "dim", "ker", "deg", "gcd", "arg", "mod", "Re", "Im"]);
+  const BB = { R: "ℝ", N: "ℕ", Z: "ℤ", Q: "ℚ", C: "ℂ" };
+  const OPS = new Set([..."=+−<>≤≥≠≈≡∝→←⇒⇐↔∈∉⊂⊆∪∩∧∨±×÷"]); // (room on either side, as a hand leaves it)
+  /* LaTeX → atoms: { k: "ch", ch } | { k: "row", items } | { k: "frac", num, den } | { k: "sqrt", arg, n }, each with sup and sub. */
+  function texParse(src) {
+    const s = String(src);
+    let i = 0;
+    const skip = () => { while (s[i] === " ") i++; };
+    const raw = () => { skip(); if (s[i] !== "{") return s[i++] || ""; let d = 0, j = i; for (; j < s.length; j++) { if (s[j] === "{") d++; else if (s[j] === "}" && !--d) break; } const t = s.slice(i + 1, j); i = j + 1; return t; };
+    const arg = () => { skip(); if (s[i] === "{") { i++; const r = row("}"); i++; return r; } return row(null, true); };
+    const word = (t) => ({ k: "row", items: [...t].map((ch) => ({ k: "ch", ch })) });
+    function command() {
+      let j = i + 1;
+      if (/[A-Za-z]/.test(s[j] || "")) while (/[A-Za-z]/.test(s[j] || "")) j++; else j++;
+      const name = s.slice(i + 1, j);
+      i = j;
+      if (name === "frac" || name === "dfrac" || name === "tfrac" || name === "cfrac") return { k: "frac", num: arg(), den: arg() };
+      if (name === "sqrt") { let n = null; skip(); if (s[i] === "[") { const e = s.indexOf("]", i); n = e > i ? s.slice(i + 1, e) : null; i = e > i ? e + 1 : i + 1; } return { k: "sqrt", arg: arg(), n }; }
+      if (/^(left|right|big|Big|bigg|Bigg)[lr]?$/.test(name)) { skip(); if (s[i] === "\\") { const d = command(); return d && d.k === "ch" ? d : null; } const d = s[i++]; return d && d !== "." ? { k: "ch", ch: d } : null; }
+      if (["text", "textrm", "mathrm", "operatorname", "mathit", "mathbf", "textbf", "boldsymbol", "mathsf", "mbox"].includes(name)) return word(raw());
+      if (name === "mathbb") return word([...raw()].map((ch) => BB[ch] || ch).join(""));
+      if (FN.has(name)) { const f = word(name); f.items.unshift({ k: "gap", w: 4 }); f.items.push({ k: "gap", w: 5 }); return f; } // (2x cos t, not 2xcost)
+      if (name in TEX) return TEX[name] ? { k: "ch", ch: TEX[name] } : null;
+      return word(name); // (a command it does not know: its name, as a hand would write it)
+    }
+    function row(end, one = false) {
+      const out = [];
+      while (i < s.length) {
+        const c = s[i];
+        if (c === "}") { if (end) break; i++; continue; }
+        if (c === " ") { i++; continue; }
+        let atom = null;
+        if (c === "^" || c === "_") {
+          i++;
+          const key = c === "^" ? "sup" : "sub", sc = arg();
+          let last = out[out.length - 1];
+          if (!last || last[key]) { last = { k: "row", items: [] }; out.push(last); }
+          last[key] = sc;
+          if (one) return out;
+          continue;
+        }
+        if (c === "{") { i++; atom = { k: "row", items: row("}") }; i++; }
+        else if (c === "\\") atom = command();
+        else { i++; atom = { k: "ch", ch: c === "-" ? "−" : c === "*" ? "·" : c === "'" ? "′" : c }; }
+        if (atom) out.push(atom);
+        if (one && atom) return out;
+      }
+      return out;
+    }
+    return row(null);
+  }
+  /* Atoms laid out in the font's units about their baseline (y 0, upward negative): { runs, w, top, bot, ch }. */
+  function texBox(font, atoms) {
+    const put = (into, b, dx, dy) => { for (const r of b.runs) into.push(r.map(([x, y]) => [x + dx, y + dy])); };
+    const scaled = (b, f) => ({ runs: b.runs.map((r) => r.map(([x, y]) => [x * f, y * f])), w: b.w * f, top: b.top * f, bot: b.bot * f, ch: b.ch });
+    const glyph = (ch) => {
+      const g = letter(font, ch === "′" ? "'" : ch), runs = g.runs.map((r) => r.map(([x, y]) => [x, y - 21])), ys = runs.flat().map((p) => p[1]);
+      return { runs, w: g.adv, top: ys.length ? Math.min(-13, ...ys) : -13, bot: ys.length ? Math.max(0, ...ys) : 0, ch };
+    };
+    const stretch = (d, top, bot) => { // (a bracket as tall as what it holds)
+      const ys = d.runs.flat().map((p) => p[1]), t = Math.min(...ys), b = Math.max(...ys), f = (bot - top) / (b - t || 1);
+      d.runs = d.runs.map((r) => r.map(([x, y]) => [x, top + (y - t) * f]));
+      d.top = top; d.bot = bot;
+    };
+    function row(items) {
+      const parts = items.map(atom);
+      const pair = { "(": ")", "[": "]", "{": "}", "|": "|" };
+      for (let a = 0; a < parts.length; a++) {
+        const close = pair[parts[a].ch];
+        if (!close) continue;
+        let depth = 0, z = a + 1;
+        for (; z < parts.length; z++) { if (parts[z].ch === parts[a].ch && close !== parts[a].ch) depth++; else if (parts[z].ch === close) { if (!depth) break; depth--; } }
+        if (z >= parts.length || z === a + 1) continue;
+        const inner = parts.slice(a + 1, z), t = Math.min(...inner.map((p) => p.top)), b = Math.max(...inner.map((p) => p.bot));
+        if (t < -22 || b > 7) { stretch(parts[a], t - 2, b + 2); stretch(parts[z], t - 2, b + 2); }
+      }
+      const runs = [];
+      let x = 0, top = -13, bot = 0;
+      parts.forEach((p, n) => {
+        const op = OPS.has(p.ch) && n > 0 && n < parts.length - 1;
+        if (op) x += 5;
+        put(runs, p, x, 0);
+        x += p.w + (op ? 5 : 0);
+        top = Math.min(top, p.top); bot = Math.max(bot, p.bot);
+      });
+      return { runs, w: x, top, bot, ch: parts.length === 1 ? parts[0].ch : null };
+    }
+    function atom(a) {
+      let b;
+      if (a.k === "ch") b = glyph(a.ch);
+      else if (a.k === "gap") b = { runs: [], w: a.w, top: -13, bot: 0, ch: null };
+      else if (a.k === "frac") {
+        const n = scaled(row(a.num.items || a.num), 0.88), d = scaled(row(a.den.items || a.den), 0.88), w = Math.max(n.w, d.w) + 8, axis = -8, runs = [];
+        const ny = axis - 5 - n.bot, dy = axis + 5 - d.top;
+        put(runs, n, 3 + (w - n.w) / 2, ny); put(runs, d, 3 + (w - d.w) / 2, dy);
+        runs.push([[3, axis], [3 + w, axis]]);
+        b = { runs, w: w + 6, top: ny + n.top, bot: dy + d.bot, ch: null };
+      } else if (a.k === "sqrt") {
+        const x = row(a.arg.items || a.arg), top = x.top - 3, runs = [[[0, -7], [3, -9], [7, x.bot + 1], [11, top], [15 + x.w, top]]];
+        put(runs, x, 13, 0);
+        if (a.n) { const nb = scaled(row(texParse(a.n)), 0.5); put(runs, nb, 0, -10); }
+        b = { runs, w: x.w + 17, top: top - 1, bot: x.bot + 1, ch: null };
+      } else b = row(a.items || []);
+      if (a.sup || a.sub) {
+        const runs = [...b.runs], end = b.w;
+        let w = b.w, top = b.top, bot = b.bot;
+        if (a.sup) { const s = scaled(row(a.sup), 0.62), y = Math.min(-10, b.top + 8); put(runs, s, end + 1, y); w = Math.max(w, end + 1 + s.w); top = Math.min(top, y + s.top); }
+        if (a.sub) { const s = scaled(row(a.sub), 0.62), y = Math.max(5, b.bot + 3); put(runs, s, end + 1, y); w = Math.max(w, end + 1 + s.w); bot = Math.max(bot, y + s.bot); }
+        b = { runs, w: w + 1, top, bot, ch: null };
+      }
+      return b;
+    }
+    return row(atoms);
+  }
+  /* A formula as one letter is: { runs, adv, top, bot } in the font's units, the line at y 21. */
+  function formula(font, tex) {
+    const b = texBox(font, texParse(tex));
+    return { runs: b.runs.map((r) => r.map(([x, y]) => [x + 2, y + 21])), adv: b.w + 4, top: b.top + 21, bot: b.bot + 21 };
+  }
+  /* What is written, in units: a letter, or a formula ($…$). A ^ or _ that stands in plain words is made what it means — what
+   * follows it raised or lowered —, never written as a sign (#36). */
+  function units(text) {
+    const out = [];
+    for (const part of String(text).split(/(\$[^$]+\$)/)) {
+      if (/^\$[^$]+\$$/.test(part)) { out.push({ tex: part.slice(1, -1) }); continue; }
+      const plain = part.replace(/(?<=\S)([\^_])(\{[^}]*\}|[−+-]?[A-Za-z0-9]+)/g, (m, c, v) => `\u0000${c}{${v.replace(/^\{|\}$/g, "")}}\u0000`);
+      for (const bit of plain.split(/(\u0000[^\u0000]*\u0000)/)) {
+        if (bit.startsWith("\u0000")) out.push({ tex: bit.slice(1, -1) });
+        else for (const ch of bit) out.push({ ch });
+      }
+    }
+    return out;
   }
   /* A slow wandering along s (a stroke's length, a line's width): about −1…1, a few waves of their own each time — what a
    * hand does that no font does. scale: how long one wave is, about. */
@@ -247,27 +422,34 @@
     const mess = Number.isFinite(o.mess) ? Math.max(0.3, Math.min(1.5, o.mess)) : 1;
     const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = Number.isFinite(o.y) ? o.y : 0, maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
     const script = o.style === "script", slant = script ? 0.02 + Math.random() * 0.06 : 0.03 + Math.random() * 0.13, wide = (script ? 0.92 : 0.8) + Math.random() * 0.12, apart = 0.9 + Math.random() * 0.1;
-    const wide1 = (word) => [...word].reduce((a, ch) => a + letter(font, ch).adv, 0) * k * wide * apart;
-    // the lines: as written, and broken where a word would go past maxw
+    const glyphOf = (u) => (u.tex != null ? formula(font, u.tex) : letter(font, u.ch));
+    const wide1 = (text) => units(text).reduce((a, u) => a + glyphOf(u).adv, 0) * k * wide * apart;
+    // the lines: as written, and broken where a word would go past maxw (never inside a formula)
     const lines = [];
     for (const para of o.text.slice(0, 4000).split("\n")) {
       let line = "";
-      for (const word of para.split(/(?<= )/)) { if (line && wide1(line + word.trimEnd()) > maxw) { lines.push(line.trimEnd()); line = word; } else line += word; }
+      const words = para.replace(/\$[^$]+\$/g, (m) => m.replace(/ /g, "\u0001")).split(/(?<= )/).map((x) => x.replace(/\u0001/g, " "));
+      for (const word of words) { if (line && wide1(line + word.trimEnd()) > maxw) { lines.push(line.trimEnd()); line = word; } else line += word; }
       lines.push(line.trimEnd());
     }
-    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 11)), made = [];
+    // (a line with a fraction in it stands taller: the lines after it further down)
+    let extra = 0;
+    const tops = lines.map((line) => { const fs = units(line).filter((u) => u.tex != null).map((u) => formula(font, u.tex)), up = Math.max(0, 1 - Math.min(1, ...fs.map((f) => f.top))) * k, down = Math.max(0, Math.max(28, ...fs.map((f) => f.bot)) - 28) * k; const at = extra + up; extra += up + down; return at; });
+    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 11)), made = [], inLine = [];
     lines.forEach((line, n) => {
       let at = x0 + shake(size * 0.15 * mess) * (n ? 1 : 0); // (a new line begins where the hand comes back to — about)
       const base = wander(size * 7), lean = wander(size * 9), warpX = wander(size * 1.3), warpY = wander(size * 1.1); // (no bow a circle: the line's letters bent, softly, here one way, there another)
       let word = { grow: 1, lift: 0 };
-      for (const ch of line) {
-        if (ch === " " || at === x0) word = { grow: 1 + shake(0.05 * mess), lift: shake(size * 0.03 * mess) };
-        const g = letter(font, ch), grow = word.grow * (1 + shake(0.06 * mess)), across = wide * (1 + shake(0.08 * mess)), tall = 1 + shake(0.08 * mess), skew = shake(0.08 * mess), turn = shake(0.035 * mess);
+      for (const u of units(line)) {
+        if (u.ch === " " || at === x0) word = { grow: 1 + shake(0.05 * mess), lift: shake(size * 0.03 * mess) };
+        // (a formula is one unit, as long as many letters: its size, its turn and the room after it are a hand's over a whole word,
+        // not a letter's — a letter's chance on its width put what follows into its end)
+        const g = glyphOf(u), f = u.tex != null ? 0.25 : 1, grow = word.grow * (1 + shake(0.06 * mess * f)), across = wide * (1 + shake(0.08 * mess * f)), tall = 1 + shake(0.08 * mess * f), skew = shake(0.08 * mess * f), turn = shake(0.035 * mess * f);
         const sl = slant + lean(at - x0) * 0.04 * mess, lift = word.lift + base(at - x0) * size * 0.05 * mess + shake(size * 0.02 * mess), cos = Math.cos(turn), sin = Math.sin(turn);
         for (const run of g.runs) {
           let px = run.map(([gx, gy]) => {
             const ly = (gy - 21) * k * grow * tall, lx = gx * k * grow * across - ly * (sl + skew); // (about the letter's foot)
-            const x = at + lx * cos - ly * sin, y = y0 + n * lead + size + lift + lx * sin + ly * cos;
+            const x = at + lx * cos - ly * sin, y = y0 + n * lead + tops[n] + size + lift + lx * sin + ly * cos;
             return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess];
           });
           // (a dot — of an i, a j, an umlaut, a full stop — is a short dash as a pen puts it, not a round)
@@ -276,10 +458,13 @@
           const it = stroke(hand(px, size, dot ? mess * 0.3 : mess), { tool: o.tool || "pen", c: o.c, w });
           it.of = of;
           made.push(it);
+          if (u.tex != null) (inLine[n] = inLine[n] || []).push(it);
         }
-        at += g.adv * k * grow * across * apart * (1 + shake(0.07 * mess));
+        at += g.adv * k * grow * across * (u.tex != null ? 1 : apart * (1 + shake(0.07 * mess)));
       }
     });
+    // (where a line's formulas reach above and below it: apply keeps an underline out of a fraction)
+    made.rows = inLine.map((its, n) => { if (!its) return null; const bs = its.map((it) => B.format.boundsOf(it)); return { x0: Math.min(...bs.map((b) => b[0])), x1: Math.max(...bs.map((b) => b[2])), base: y0 + n * lead + tops[n] + size, bot: Math.max(...bs.map((b) => b[3])), size }; }).filter(Boolean);
     if (made.length) made[0].said = o.text.slice(0, 400); // (what was written, told back to Claude while the board is open — not kept in the file)
     return made;
   }
@@ -309,13 +494,23 @@
     if (typeof step.add === "string") {
       const k = step.add === "stroke" ? "ink" : step.add, made = [];
       if (k === "write" || k === "hand") {
-        made.push(...write(step));
+        const w = write(step);
+        made.push(...w);
+        if (w.rows.length) names.set("\u0000rows", [...(names.get("\u0000rows") || []), ...w.rows]);
       } else if (k === "ink") {
         const runs = Array.isArray(step.pts) ? [step.pts.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))] : flatten(step.d);
         // (Claude's own strokes, as a pen leaves them: the pressure rising, varying, easing off — and a hand's touch more of
         // wandering where it was asked to write in a hurry; a straight stroke stays straight)
         const pen = (run) => (step.sharp === true || run.length < 2 ? run : hand(run, 30, Number.isFinite(step.mess) ? step.mess * 0.3 : 0.3, false)); // (its ends where Claude put them: an arrow meets its point)
         for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? pen(run) : [run[0], run[0]], step));
+        // (an underline Claude put where a line of words would end, under a line with a fraction: under the fraction, not through it —
+        // Claude cannot know how far a formula reaches; #36)
+        for (const it of made) {
+          const b = B.format.boundsOf(it);
+          if (!b || b[3] - b[1] > 10 || b[2] - b[0] < 30) continue;
+          const row = (names.get("\u0000rows") || []).find((r) => Math.min(r.x1, b[2]) - Math.max(r.x0, b[0]) > 10 && (b[1] + b[3]) / 2 > r.base - r.size * 0.3 && (b[1] + b[3]) / 2 < r.bot + 2);
+          if (row) { const dy = row.bot + row.size * 0.3 - (b[1] + b[3]) / 2; B.ink.moved(it, (p) => [p[0], p[1] + dy]); }
+        }
         // (the strokes of one step — a word Claude wrote itself, a drawing's part — are one thing to it: told once, taken away at once, #33)
         if (made.length > 1) { const of = B.format.id(); for (const it of made) it.of = of; }
       } else {
@@ -521,5 +716,5 @@
     return null;
   }
 
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, formula: (tex, style) => formula(fontOf(style), tex), units, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
 })();

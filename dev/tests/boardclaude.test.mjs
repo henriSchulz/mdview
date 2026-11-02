@@ -230,3 +230,45 @@ test("Improve: a line of handwriting set straight, its letters the user's own �
   const sq1 = m2.items.find((it) => it.id === "sq").pts.map((p) => p[1]);
   assert.ok(Math.max(...sq1) < 75 && Math.abs(Math.min(...sq1) - Math.min(...sq0)) < 3, "an exponent keeps its height: " + [Math.min(...sq1), Math.max(...sq1)]);
 });
+
+test("#37: the signs of a formula and the Greek letters are written — none left out as a gap", () => {
+  const missing = [..."−·×∈∉∀∃∫∑∏∂∇αβγδεζηθικλμνξπρστυφχψωΓΔΘΛΞΠΣΦΨΩ⊂⊆∪∩∧∨¬≡∝ℝℕℤℚℂ½⁻¹₀₁₂₃ₙᵢ"].filter((ch) => !C.letter(ch).runs.length);
+  assert.deepEqual(missing, []);
+  const made = C.write({ text: "a − b ∈ ℝ, α ≡ π", x: 0, y: 0, size: 28 });
+  assert.ok(made.length >= 14, "every sign drawn: " + made.length);
+});
+
+test("#36: a formula is written as a hand sets it — a fraction over its bar, exponents raised — never as typed (1/(5z^4), z^5)", () => {
+  // a fraction: its numerator above a bar, its denominator below it
+  const f = C.formula("\\frac{1}{5z^4}");
+  const bar = f.runs.find((r) => r.length === 2 && Math.abs(r[0][1] - r[1][1]) < 0.01 && r[1][0] - r[0][0] > 15);
+  assert.ok(bar, "a bar");
+  const above = f.runs.filter((r) => r !== bar && Math.max(...r.map((p) => p[1])) < bar[0][1]), below = f.runs.filter((r) => r !== bar && Math.min(...r.map((p) => p[1])) > bar[0][1]);
+  assert.ok(above.length >= 1 && below.length >= 3, "1 above the bar, 5z⁴ below it: " + [above.length, below.length]);
+  // an exponent raised: written in plain words, or in a formula — the ^ is never a sign of its own
+  assert.deepEqual(plain(C.units("z^4 und a_1").map((u) => u.ch ?? "$" + u.tex)), ["z", "$^{4}", " ", "u", "n", "d", " ", "a", "$_{1}"]);
+  assert.deepEqual(plain(C.units("da $z^5 = 1$").map((u) => u.ch ?? "$" + u.tex)), ["d", "a", " ", "$z^5 = 1"]);
+  const n = C.formula("z").runs.length, z = C.formula("z^5"), ys = (r) => r.map((p) => p[1]), zb = Math.max(...z.runs.slice(0, n).flatMap(ys)), five = z.runs.slice(n).flatMap(ys);
+  assert.ok(Math.max(...five) < zb - 4, "the 5 stands raised over the z's line");
+  // a line with a fraction stands taller: the line after it further down
+  const one = C.write({ text: "a\nb", x: 0, y: 0, size: 28, mess: 0.3 }), two = C.write({ text: "$\\frac{a}{b}$\nb", x: 0, y: 0, size: 28, mess: 0.3 });
+  const low = (made) => Math.max(...made.at(-1).pts.map((p) => p[1]));
+  assert.ok(low(two) > low(one) + 10, "room for the fraction: " + [low(one), low(two)]);
+  // what follows a long formula stands after it, not in its end (a letter's chance on its width once put it there)
+  const m = C.formula("\\frac{e^{2it} - 1}{e^{it} - e^{-it}} = e^{it}").runs.length;
+  for (let i = 0; i < 20; i++) {
+    const made = C.write({ text: "$\\frac{e^{2it} - 1}{e^{it} - e^{-it}} = e^{it}$, analog", x: 0, y: 0, size: 24, mess: 1.4 });
+    const end = Math.max(...made.slice(0, m).flatMap((it) => it.pts.map((p) => p[0]))), next = Math.min(...made.slice(m).flatMap((it) => it.pts.map((p) => p[0])));
+    assert.ok(next > end - 1, "the comma after the formula: " + [end, next]);
+  }
+});
+
+test("#36: an underline put where a line of words would end goes under the line's fraction, not through it", () => {
+  const m = board(), names = new Map();
+  C.apply(m, { add: "write", x: 0, y: 0, size: 28, text: "Residuum von $\\frac{1}{z^5 - 1}$" }, names);
+  const low = Math.max(...m.items.map((it) => B.format.boundsOf(it)[3]));
+  const got = C.apply(m, { add: "ink", d: "M 0 36 L 400 36" }, names), b = B.format.boundsOf(got.added[0]);
+  assert.ok(b[1] > low, "under the denominator: " + [b[1], low]);
+  const far = C.apply(m, { add: "ink", d: "M 0 200 L 400 200" }, names);
+  assert.ok(Math.abs(B.format.boundsOf(far.added[0])[1] - 200) < 4, "a line elsewhere stays where it was drawn");
+});
