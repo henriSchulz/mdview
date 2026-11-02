@@ -377,9 +377,11 @@
   }
 
   // ---------------------------------------------------------------- Improve: strokes chosen, made a little neater
-  /* What is chosen and nothing else goes to Claude, and what comes back is the same strokes set straight: moved, scaled,
-   * turned (fit) or drawn anew close to their course (redraw) — each keeps its pen, colour and width. The hand's own
-   * tremble is smoothed here at once, before Claude has said anything. */
+  /* What is chosen and nothing else goes to Claude. What it reads as written comes back as text, written anew here by a
+   * careful hand where it stood, as large and as wide (write) — strokes traced over kept an ugly hand ugly (Henri,
+   * 2026-11-02); what is drawn comes back drawn anew clean (redraw), or moved, scaled, turned (fit). All of it in the pen,
+   * colour and width of the strokes it takes the place of. The hand's own tremble is smoothed here at once, before Claude
+   * has said anything. */
 
   /* A stroke's points smoothed: twice, each point a little toward its neighbours, but never farther than most from where
    * the hand put it — the tremble goes, a letter's corners stay. The ends stay, and the pressure and time. */
@@ -449,6 +451,22 @@
       const removed = all.slice(runs.length); // (fewer parts than strokes: those left over go)
       if (removed.length) model.items = model.items.filter((it) => !removed.includes(it));
       return { added, changed, removed };
+    }
+    if (typeof step.write === "string") { // (words read off the strokes, written anew by a careful hand where they stood — as wide, as tall, in their pen)
+      const all = strokes(step.ids != null ? step.ids : step.of), first = all[0];
+      if (!first || !step.write.trim()) return null;
+      const size = clamp(Number(step.size), 6, 200, 28), base = origin[1] + clamp(Number(step.base), -1e5, 1e5, size);
+      const style = step.script === true ? "script" : "hand", foot = Math.max(...letter(fontOf(style), "x").runs.flat().map((p) => p[1])) - 21; // (where the font's letters stand, below its line)
+      const made = write({ text: step.write.split("\n")[0], x: origin[0], y: base - size - (foot * size) / 21, size, mess: 0.4, w: first.w, c: first.c, tool: first.t, style });
+      if (!made.length) return null;
+      // (as wide as it was: mostly the whole of it larger or smaller about the start of its baseline, a little only wider or narrower — its letters keep their shape)
+      const bs = made.map((it) => B.format.boundsOf(it)), x0 = Math.min(...bs.map((b) => b[0])), x1 = Math.max(...bs.map((b) => b[2])), k = Number(step.width) > 0 && x1 > x0 ? Number(step.width) / (x1 - x0) : 1;
+      const all1 = clamp(k, 0.7, 1.3, 1), across = clamp(k / all1, 0.85, 1.15, 1);
+      const left = origin[0] + clamp(Number(step.x), -1e5, 1e5, 0); // (its first letter where the first one stood: no glyph's margin before it)
+      for (const it of made) { B.ink.moved(it, (p) => [left + (p[0] - x0) * all1 * across, base + (p[1] - base) * all1], all1); it.o = first.o; delete it.said; }
+      model.items.splice(model.items.indexOf(first), 0, ...made);
+      model.items = model.items.filter((it) => !all.includes(it));
+      return { added: made, changed: [], removed: all };
     }
     if (step.del != null) {
       const removed = strokes(step.del);

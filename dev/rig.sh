@@ -1021,7 +1021,7 @@ PY
     # strokes chosen on a note's new whiteboard, made a little neater by Claude (Improve) — the model a fixed answer; `real`: Claude itself
     rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; name=m5.md
     rm -f "$R/out/$name".{chosen,improving,improved,board-improve}.json
-    fake=$'<board>\n{"fit":"wa","dy":5}\n{"fit":"wx","dy":50}\n{"redraw":"wb","d":"M 0 0 L 40 0"}\n{"del":"wc"}\n</board>'
+    fake=$'<board>\n{"fit":"wa","dy":5}\n{"fit":"wx","dy":50}\n{"redraw":"wb","d":"M 0 0 L 40 0"}\n{"del":"wc"}\n{"write":"Hi","ids":["wd","we"],"x":0,"base":250,"size":30,"width":40}\n</board>'
     p="$D/probe-board-improve.js"; [[ ${2:-} == real ]] && { { echo 'window.__improveReal = true;'; cat "$p"; } > "$R/probe-board-improve-real.js"; p="$R/probe-board-improve-real.js"; }
     if [[ ${2:-} == real ]]; then app 300 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
     else app 120 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE=x MDVIEW_IMPROVE_FAKE="$fake" -- "$R/work/$name"; fi

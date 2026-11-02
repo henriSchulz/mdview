@@ -204,3 +204,18 @@ test("Improve: fit and redraw change only the strokes chosen, and keep their pen
   assert.equal(C.refine(m, { del: ["other", "b"] }, ids, origin).removed.map((it) => it.id).join(), "b", "only what was chosen is taken away");
   assert.ok(m.items.some((it) => it.id === "other"));
 });
+
+test("Improve: words read off the strokes are written anew where they stood, as wide, in their pen — the strokes gone", () => {
+  const m = board();
+  const ink = (id, pts) => ({ id, k: "ink", t: "pencil", c: "#1f6fe5", w: 2.5, o: 1, ch: "xypt", pts: pts.map(([x, y], i) => [x, y, 0.5, i * 10]) });
+  m.items.push(ink("h1", [[100, 100], [95, 160]]), ink("h2", [[130, 100], [128, 160]]), ink("o", [[150, 140], [170, 160]]), ink("other", [[0, 0], [5, 5]]));
+  const ids = new Set(["h1", "h2", "o"]);
+  const got = C.refine(m, { write: "Ho", ids: ["h1", "h2", "o", "other"], x: 0, base: 60, size: 60, width: 80 }, ids, [95, 100]);
+  assert.deepEqual(plain(got.removed.map((it) => it.id)).sort(), ["h1", "h2", "o"], "the strokes it was read off go; one not chosen stays");
+  assert.ok(m.items.some((it) => it.id === "other"));
+  assert.ok(got.added.length >= 3 && got.added.every((it) => it.t === "pencil" && it.c === "#1f6fe5" && Math.abs(it.w - 2.5) < 0.6), "in their pen and colour");
+  const bs = got.added.map((it) => B.format.boundsOf(it)), x0 = Math.min(...bs.map((b) => b[0])), x1 = Math.max(...bs.map((b) => b[2])), y1 = Math.max(...bs.map((b) => b[3]));
+  assert.ok(Math.abs(x0 - 95) < 6 && Math.abs(x1 - x0 - 80) < 14, "where it stood, about as wide: " + [x0, x1]);
+  assert.ok(Math.abs(y1 - 160) < 6, "on its baseline: " + y1);
+  assert.equal(C.refine(m, { write: "x", ids: ["other"] }, ids, [0, 0]), null, "nothing chosen: nothing written");
+});
