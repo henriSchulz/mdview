@@ -2,7 +2,7 @@
  *
  *   <svg …>
  *   <metadata id="mdview-board"><![CDATA[
- *   {"board":1,"bg":"auto","grid":true,"view":{"x":0,"y":0,"z":1}}      line 1: the board
+ *   {"board":1,"bg":"auto","grid":true,"view":{"x":0,"y":0,"z":1}}      line 1: the board (a notebook's: its "paper" too, paper.js)
  *   {"id":"k3f9a","k":"ink","t":"pen","c":"auto","o":1,"w":3,"ch":"xypt","p":"…"}   one line per item,
  *   ]]></metadata>                                                       in stacking order
  *   …the picture, drawn from the lines above (render.js)…
@@ -121,6 +121,8 @@
     if (typeof o.id !== "string" || !o.id || !Array.isArray(o.view) || o.view.length !== 4 || !o.view.every(Number.isFinite) || o.view[2] <= 0 || o.view[3] <= 0) return null;
     return { id: o.id, name: typeof o.name === "string" ? o.name.slice(0, 200) : "", view: o.view.map((v) => Math.round(v)) };
   }
+  /* A notebook's paper (paper.js), where the head has one; loaded without paper.js it is carried as it is. */
+  const paperOf = (o) => (!o || typeof o !== "object" || Array.isArray(o) ? {} : { paper: B.paper ? B.paper.norm(o) : JSON.parse(JSON.stringify(o)) });
   /* The file's text → { board, items, lost }. lost: how many lines could not be read. Throws where
    * the text is no board at all. */
   function parse(text) {
@@ -136,7 +138,7 @@
       if (o && typeof o === "object" && "board" in o && !("id" in o)) {
         if (head) continue; // (two heads after a merge: the first stands)
         head = true;
-        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, ...(o.snap === true ? { snap: true } : {}), ...(o.insert && typeof o.insert === "object" && !Array.isArray(o.insert) ? { insert: JSON.parse(JSON.stringify(o.insert)) } : {}), view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
+        out.board = { v: num(o.board, VERSION), bg: ["auto", "light", "dark"].includes(o.bg) ? o.bg : "auto", grid: o.grid !== false, ...(o.snap === true ? { snap: true } : {}), ...(o.insert && typeof o.insert === "object" && !Array.isArray(o.insert) ? { insert: JSON.parse(JSON.stringify(o.insert)) } : {}), ...paperOf(o.paper), view: o.view && Number.isFinite(o.view.x) && Number.isFinite(o.view.y) && o.view.z > 0 ? { x: o.view.x, y: o.view.y, z: o.view.z } : null };
         continue;
       }
       if (o && o.k === "scene") { // (scenes stand in their own order, beside the items)
@@ -160,7 +162,7 @@
   const json = (o) => JSON.stringify(o).replace(/[<>&\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   /* { board, items } → the file's text. */
   function write(model) {
-    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid, ...(b.snap ? { snap: true } : {}), ...(b.insert && Object.keys(b.insert).length ? { insert: b.insert } : {}) }; // (insert: the look new items of a kind begin with)
+    const b = model.board, head = { board: VERSION, bg: b.bg, grid: b.grid, ...(b.snap ? { snap: true } : {}), ...(b.insert && Object.keys(b.insert).length ? { insert: b.insert } : {}), ...(b.paper ? { paper: b.paper } : {}) }; // (insert: the look new items of a kind begin with; paper: a notebook's)
     if (b.view) head.view = { x: Math.round(b.view.x), y: Math.round(b.view.y), z: Math.round(b.view.z * 1000) / 1000 };
     const lines = [json(head), ...(model.scenes || []).map((sc) => json({ id: sc.id, k: "scene", name: sc.name, view: sc.view })), ...model.items.map(lineOf).filter(Boolean).map(json)];
     const pic = B.render.picture(model);

@@ -436,3 +436,41 @@ test("a PDF's pages on the board: one under the other, and what is drawn is on i
   assert.doesNotThrow(() => new JSDOM(pic, { contentType: "image/svg+xml" }));
   assert.equal(P.picture(pages[0], by.get(9)), "");
 });
+
+// A notebook (board/paper.js): a whiteboard whose head says it has pages of paper — they lie as a
+// PDF's do, the head keeps the paper and how many pages, and the file's picture is the first page.
+test("a notebook: its paper is kept in the head, its pages lie as a PDF's, its picture is its first page", () => {
+  const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
+  w.window = w;
+  vm.createContext(w);
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/pdf.js", "board/paper.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  const { format: F, paper: Pa, pdf: P } = w.MdBoard;
+  assert.deepEqual(plain(Pa.norm({ bg: "dots", n: 3 })), { bg: "dots", size: "a4", n: 3 });
+  assert.deepEqual(plain(Pa.norm({ bg: "zigzag", n: -4, size: "x" })), { bg: "grid", size: "a4", n: 1 }); // (what cannot be read: one squared page of A4)
+  assert.equal(Pa.norm(null), null);
+  assert.equal(Pa.norm([1]), null);
+  // the pages: A4, one under the other, laid out as a PDF of A4 pages
+  const paper = { bg: "lines", size: "a4", n: 3 }, pages = plain(Pa.pages(paper));
+  assert.equal(pages.length, 3);
+  assert.deepEqual(pages, plain(P.layout([[595.28, 841.89], [595.28, 841.89], [595.28, 841.89]])));
+  // written and read back; a board without paper stays one
+  const m = F.fresh();
+  m.board.paper = paper;
+  m.items.push(ink("a1", [[-100, 50, 0.5, 0], [100, 80, 0.5, 8]]));
+  const text = F.write(m), back = F.parse(text);
+  assert.match(text, /\{"board":1,[^\n]*"paper":\{"bg":"lines","size":"a4","n":3\}/);
+  assert.deepEqual(plain(back.board.paper), paper);
+  assert.equal(F.parse(F.empty()).board.paper, undefined);
+  assert.doesNotMatch(F.empty(), /paper/);
+  // the picture: the first page, its sheet, its rules, the ink on it
+  const pic = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement, p = pages[0];
+  assert.equal(pic.getAttribute("viewBox"), [Math.floor(p.x), Math.floor(p.y), Math.ceil(p.w), Math.ceil(p.h)].join(" "));
+  assert.ok(pic.querySelector("g.paper rect[fill='#fff']"));
+  assert.ok(pic.querySelector("g.paper path"), "the ruled page has its lines");
+  assert.ok(pic.querySelector("path#a1"), "what was drawn on it is in the picture");
+  // each paper draws what it is: blank nothing but the sheet, dots dots, squares lines both ways
+  assert.doesNotMatch(Pa.svg(p, "blank"), /<path/);
+  assert.match(Pa.svg(p, "dots"), /stroke-linecap="round"/);
+  assert.match(Pa.svg(p, "grid"), /V[\d.]+/);
+  assert.match(Pa.svg(p, "grid"), /H[\d.]+/);
+});

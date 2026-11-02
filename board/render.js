@@ -127,6 +127,12 @@
         ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
         : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${it.t === "pencil" ? ` opacity="${n(it.o * 0.6)}"` : op}/>\n`;
     }
+    // a notebook (paper.js) shows its first page, as a notebook's cover is its first page: the sheet, its paper, what is on it
+    const paper = model.board && model.board.paper && B.paper && B.pdf ? B.paper.norm(model.board.paper) : null;
+    if (paper) {
+      const p = B.paper.pages(paper)[0], box = [Math.floor(p.x), Math.floor(p.y), Math.ceil(p.w), Math.ceil(p.h)];
+      return { w: box[2], h: box[3], box, body: B.paper.svg(p, paper.bg) + body, empty: !body };
+    }
     if (!body) {
       const [x, y, w, h] = EMPTY, cx = x + w / 2, cy = y + h / 2;
       body = `<g fill="none" stroke="${AUTO}" stroke-opacity="0.28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="${cx - 26}" y="${cy - 20}" width="52" height="40" rx="7"/><path d="M${cx - 15} ${cy + 8}c6-15 12 3 18-9s9-6 12-3"/></g>\n`;

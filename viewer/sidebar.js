@@ -1005,6 +1005,7 @@
     entry("newnote", "note", T("New Note"), "dir new blank", "Ctrl+N") +
     entry("newfolder", "folderPlus", T("New Folder"), "dir new blank") +
     entry("newboard", "board", T("New Whiteboard"), "dir new blank") +
+    entry("newbook", "notebook", T("New Notebook"), "dir new blank") +
     entry("addfiles", "down", T("Add Files…"), "dir new blank") +
     entry("pastef", "clip", T("Paste"), "dir blank", "Ctrl+V") +
     `<div class="menu-rule" data-for="blank"></div>` +
@@ -1106,7 +1107,7 @@
   /* What of the menu is not for this row or tile: Hide for what is hidden and the other way round, a
    * whiteboard's entries for anything else — and for a whiteboard a note keeps (All Notes shows those
    * too) nothing that would take it from its note. */
-  const FILE_CMDS = ["newboard", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote", "boardfree"];
+  const FILE_CMDS = ["newboard", "newbook", "addfiles", "pastef", "copyf", "cutf", "duplicate", "copypath", "hide", "unhide", "embed", "boardnote", "boardfree"];
   function ctxLacks(cmd, item, kind) {
     // (beside what is in the window only what makes a note and a PDF with it: viewer/split.js)
     if (cmd === "openbeside") return !(item.dataset && item.dataset.kept == null && P.splitFor((ctxTile ? item.dataset.path : item.dataset.key) || ""));
@@ -1201,7 +1202,7 @@
         return;
       }
       const into = kind === "dir" ? path : kind === "blank" || kind === "new" ? dir : null;
-      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard") P.openNewNote(cmd === "newfolder" ? "folder" : cmd === "newboard" ? "board" : "note", into);
+      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard" || cmd === "newbook") P.openNewNote({ newfolder: "folder", newboard: "board", newbook: "notebook" }[cmd] || "note", into);
       else if (cmd === "embed") P.embedBoard(path);
       else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
       else if (cmd === "boardfree") post("board-free", { path });
