@@ -98,8 +98,8 @@ test("words written by hand: strokes of the font's letters, each its own (chosen
   assert.ok(g && got.every((it) => it.k === "ink" && it.of === g && !it.group), "all of one writing, none in a group: chosen stroke by stroke (Henri, 2026-11-02)");
   assert.equal(names.get("t"), g, "its name is the writing's");
   const box = got.map((it) => B.format.boundsOf(it)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
-  assert.ok(box[0] > 95 && box[0] < 110 && box[1] > 45 && box[1] < 60 && box[3] < 80, "where it was put, a line high: " + box.map(Math.round));
-  assert.ok(box[2] - box[0] > 21 * 0.75 * 10 * 0.75 && box[2] - box[0] < 21 * 0.75 * 10 * 1.3, "about 0.75 × size a letter: " + Math.round(box[2] - box[0]));
+  assert.ok(box[0] > 92 && box[0] < 112 && box[1] > 38 && box[1] < 62 && box[3] < 84, "where it was put, a line high (as a hand puts it): " + box.map(Math.round));
+  assert.ok(box[2] - box[0] > 21 * 10 * 0.45 && box[2] - box[0] < 21 * 10 * 0.8, "about 0.6 × size a letter: " + Math.round(box[2] - box[0]));
   // (the file keeps which writing a stroke is part of)
   assert.deepEqual([...new Set(B.format.parse(B.format.write(m)).items.map((it) => it.of))], [g]);
   const n = (text) => C.write({ x: 0, y: 0, text, size: 21 }).length;
