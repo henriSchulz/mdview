@@ -573,6 +573,9 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   pages** — a page's content is part of what it reads, and it writes into a page from wherever
   one is ("put a section about … into the subpage"); it is told which page is on screen, so
   "here" and "this page" mean that one.
+- **None of the user's own Claude Code goes along**: the app asks `claude` without the user's settings — their hooks
+  and plugins do not run with its questions, nor change how Claude answers (`--setting-sources project`, of a folder
+  the app made). The login is the user's, as always.
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
 - **Claude on a whiteboard** — on a note's board, a board of its own, and the board over a PDF:
@@ -587,8 +590,9 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up),
   made as a hand makes them: each text written by a hand of its own (slant, width, spacing), the line drifting, words
   and letters a little larger, smaller, turned and bent, no corner sharp, every stroke wandering and trembling a little,
-  its ends a touch long or short, its pressure rising, varying and easing off, dots put as short dashes; umlauts, ß and €
-  with them — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
+  its ends a touch long or short, its pressure rising, varying and easing off, dots put as short dashes; umlauts, ß, accented letters (é ñ ç å),
+  arrows (→ ⇒ ↔ …), ✓ ✗ ° ≈ ≤ ≥ ± √ ∞ € and raised digits (² ³) with them — what it has not (an emoji) is left out, never
+  a question mark — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
   or takes away the whole when asked. Texts, sticky notes, shapes, lines
   joined to things and tables only when they are asked for by name; and any thing on the board,
   also what the user made, it may change, move or take away. What it does can be watched: the strokes come one after another at a hand's pace, words letter by letter, a point

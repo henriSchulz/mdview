@@ -150,7 +150,25 @@
    * is part of (of), for Claude to change or take away the whole. */
   const SAME = { "“": '"', "”": '"', "„": '"', "‘": "'", "’": "'", "‚": ",", "–": "-", "—": "-", "…": "...", "•": "*", "·": ".", "×": "x", "°": "o" };
   const DOTS = { ä: "a", ö: "o", ü: "u", Ä: "A", Ö: "O", Ü: "U" };
-  const EURO = ["M15,5 C13,2 11,1 9,1 C5,1 3,6 3,11.5 C3,17 5,22 9,22 C11,22 13,21 15,18 M1,9 L11,9 M1,14 L10,14", 9];
+  // signs a keyboard has not, drawn by hand in the font's units (the line at y 21, a capital from y 1): [path, o]
+  const SIGNS = {
+    "→": ["M2,14 L20,14 M14,9 L20,14 L14,19", 12], "←": ["M20,14 L2,14 M8,9 L2,14 L8,19", 12], "↑": ["M8,22 L8,4 M3,9 L8,4 L13,9", 9], "↓": ["M8,4 L8,22 M3,17 L8,22 L13,17", 9],
+    "↔": ["M2,14 L22,14 M7,9 L2,14 L7,19 M17,9 L22,14 L17,19", 14], "⇒": ["M2,11 L18,11 M2,17 L18,17 M14,8 L21,14 L14,20", 13], "⇐": ["M22,11 L6,11 M22,17 L6,17 M10,8 L3,14 L10,20", 13],
+    "✓": ["M3,14 L8,20 L19,5", 12], "✔": ["M3,14 L8,20 L19,5", 12], "✗": ["M4,6 L18,20 M18,6 L4,20", 12], "✘": ["M4,6 L18,20 M18,6 L4,20", 12],
+    "≈": ["M3,11 C6,8 9,8 12,11 C15,14 18,14 21,11 M3,17 C6,14 9,14 12,17 C15,20 18,20 21,17", 13], "≠": ["M4,11 L20,11 M4,17 L20,17 M16,6 L8,22", 13],
+    "≤": ["M19,6 L5,12 L19,18 M5,22 L19,22", 13], "≥": ["M5,6 L19,12 L5,18 M5,22 L19,22", 13], "±": ["M12,6 L12,18 M5,12 L19,12 M5,22 L19,22", 13],
+    "÷": ["M4,14 L20,14 M12,8 L12.6,8.6 M12,20 L12.6,20.6", 13], "°": ["M6,2 C4,2 3,3.5 3,5 C3,6.5 4,8 6,8 C8,8 9,6.5 9,5 C9,3.5 8,2 6,2", 7],
+    "√": ["M2,14 L5,13 L9,22 L14,1 L22,1", 13], "∞": ["M12,14 C9,10 4,10 4,14 C4,18 9,18 12,14 C15,10 20,10 20,14 C20,18 15,18 12,14", 14],
+    "•": ["M9,13 L9.6,13.6 M8.6,14 L9.8,12.8", 7], "€": ["M15,5 C13,2 11,1 9,1 C5,1 3,6 3,11.5 C3,17 5,22 9,22 C11,22 13,21 15,18 M1,9 L11,9 M1,14 L10,14", 9],
+  };
+  const RAISED = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "ⁿ": "n" };
+  /* the marks of accented letters (é: e and ´), about the letter's middle mid and its top: [[x, y], …] each */
+  const MARKS = {
+    "\u0301": (m, t) => [[[m - 1, t - 2], [m + 2, t - 5]]], "\u0300": (m, t) => [[[m - 2, t - 5], [m + 1, t - 2]]], "\u0302": (m, t) => [[[m - 3, t - 2], [m, t - 5], [m + 3, t - 2]]],
+    "\u030c": (m, t) => [[[m - 3, t - 5], [m, t - 2], [m + 3, t - 5]]], "\u0303": (m, t) => [[[m - 4, t - 3], [m - 2, t - 5], [m + 1, t - 3], [m + 3, t - 5]]],
+    "\u0308": (m, t) => [[[m - 3, t - 3], [m - 2.4, t - 3]], [[m + 2.4, t - 3], [m + 3, t - 3]]], "\u030a": (m, t) => [[[m, t - 6], [m + 1.5, t - 5], [m + 1, t - 3], [m - 1, t - 3], [m - 1.5, t - 5], [m, t - 6]]],
+    "\u0327": (m) => [[[m, 21], [m + 1.5, 23], [m - 1, 25]]],
+  };
   const ESZETT = ["M4,22 L4,7 C4,3 6,1 9,1 C12,1 13,3 13,5 C13,7 11,9 8,9 C12,9 14,12 14,15 C14,19 12,22 9,22 L7,22", 9];
   const UNIT = 1.68, SPACE = 7; // (the font's: how far o reaches; a space, in its units)
   const fontOf = (style) => (window.MdHershey || {})[style === "script" ? "script" : "hand"];
@@ -158,12 +176,21 @@
   function letter(font, ch) {
     if (ch === " " || ch === "\t") return { runs: [], adv: SPACE * UNIT };
     if (ch === "ß") return { runs: flatten(ESZETT[0], 0.7), adv: ESZETT[1] * UNIT };
-    if (ch === "€") return { runs: flatten(EURO[0], 0.7), adv: EURO[1] * UNIT };
+    if (SIGNS[ch]) return { runs: flatten(SIGNS[ch][0], 0.7), adv: SIGNS[ch][1] * UNIT };
+    if (RAISED[ch]) { const g = letter(font, RAISED[ch]); return { runs: g.runs.map((r) => r.map(([x, y]) => [x * 0.6, y * 0.6 - 1])), adv: g.adv * 0.65 }; }
     if (DOTS[ch]) {
       const base = letter(font, DOTS[ch]), xs = base.runs.flat().map((p) => p[0]), mid = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : base.adv / 2, y = DOTS[ch] === DOTS[ch].toUpperCase() ? -3 : 4;
       return { runs: [...base.runs, [[mid - 3, y], [mid - 2.4, y]], [[mid + 2.4, y], [mid + 3, y]]], adv: base.adv };
     }
-    const c = (SAME[ch] || ch).charCodeAt(0), g = font[c - 33] || (SAME[ch] && SAME[ch].length > 1 ? null : font["?".charCodeAt(0) - 33]);
+    // an accented letter: the letter, and its mark above it (or under it, ç) — an i without its dot under its mark
+    const parts = ch.normalize("NFD");
+    if (parts.length > 1 && /^[A-Za-z]$/.test(parts[0]) && [...parts.slice(1)].every((m) => MARKS[m])) {
+      const base = letter(font, parts[0]), runs = parts[0] === "i" || parts[0] === "j" ? base.runs.filter((r) => Math.max(...r.map((p) => p[1])) - Math.min(...r.map((p) => p[1])) > 3) : base.runs;
+      const xs = runs.flat().map((p) => p[0]), ys = runs.flat().map((p) => p[1]), mid = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : base.adv / 2, top = ys.length ? Math.min(...ys) : 8;
+      return { runs: [...runs, ...[...parts.slice(1)].flatMap((m) => MARKS[m](mid, top))], adv: base.adv };
+    }
+    const c = (SAME[ch] || ch).charCodeAt(0), g = font[c - 33];
+    if (!g && !(SAME[ch] && SAME[ch].length > 1)) return { runs: [], adv: SPACE * UNIT }; // (what no hand can write here — an emoji —: left out, never a "?")
     if (SAME[ch] && SAME[ch].length > 1) { const parts = [...SAME[ch]].map((x) => letter(font, x)); let at = 0; const runs = []; for (const p of parts) { runs.push(...p.runs.map((r) => r.map(([x, y]) => [x + at, y]))); at += p.adv; } return { runs, adv: at }; }
     return { runs: flatten(g[0], 0.7), adv: g[1] * UNIT };
   }
@@ -342,5 +369,5 @@
     return null;
   }
 
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply };
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, letter: (ch, style) => letter(fontOf(style), ch) };
 })();

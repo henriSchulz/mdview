@@ -118,3 +118,14 @@ test("words written by hand: strokes of the font's letters, each its own (chosen
   C.apply(m, { del: g }, names);
   assert.equal(m.items.length, 0, "del: all of it");
 });
+
+test("handwriting never writes a \"?\" for a sign it has not: accents are letters with their marks, arrows and signs are drawn, raised digits small, an emoji left out (Henri, 2026-11-02: so many question marks)", () => {
+  const n = (text) => C.write({ x: 0, y: 0, text, size: 21 }).length;
+  const shape = (ch) => JSON.stringify(plain(C.letter(ch).runs)), q = shape("?");
+  for (const ch of "→←↑↓↔⇒✓✗°≈≠≤≥±÷√∞•€²³éñçå") assert.ok(C.letter(ch).runs.length >= 1 && shape(ch) !== q, ch + " is written, and is no question mark");
+  assert.equal(n("é"), n("e") + 1, "é: an e and its mark");
+  assert.equal(n("ç"), n("c") + 1, "ç: a c and its cedilla");
+  assert.equal(n("í"), n("i"), "í: an i without its dot, and its mark");
+  assert.equal(n("😀"), 0, "an emoji: nothing — and no question mark");
+  assert.equal(n("a 😀 b"), n("ab"), "… around it, the words as they are");
+});
