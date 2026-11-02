@@ -360,6 +360,26 @@ test("in a note the sidebar is shut to begin with: the window's first note, and 
   assert.equal(await side(), "open");
 });
 
+test("a note or a folder dragged in All Notes: what goes with the pointer is the tile as the look draws it (#19)", async () => {
+  await page.goto(`${base}/r/octo/notes`);
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen && document.querySelector("#overview .ov-tile[data-dir]") && document.querySelector("#overview .ov-tile:not([data-dir])"), null, { timeout: 15000 });
+  assert.ok(await page.evaluate(() => document.documentElement.hasAttribute("data-velum-look")), "a Velum look (Refined, the one to begin with)");
+  await page.waitForTimeout(900); // (the tiles have come in)
+  for (const which of ["#overview .ov-tile:not([data-dir])", "#overview .ov-tile[data-dir]"]) {
+    const [tile, ghost] = await page.evaluate(async (sel) => {
+      const t = document.querySelector(sel), r = t.getBoundingClientRect();
+      const of = (el) => { const s = el.querySelector(".ov-sheet, .ov-stack").getBoundingClientRect(), n = el.querySelector(".ov-name"); return { w: Math.round(s.width), h: Math.round(s.height), align: getComputedStyle(el).textAlign, name: n && getComputedStyle(n).fontSize }; };
+      t.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 20, dataTransfer: new DataTransfer() }));
+      await new Promise((go) => setTimeout(go, 100));
+      const g = document.querySelector(".ov-item.drag-ghost"), out = [of(t), g && of(g)];
+      t.dispatchEvent(new DragEvent("dragend", { bubbles: true }));
+      return out;
+    }, which);
+    assert.ok(ghost, `a picture goes with the pointer (${which})`);
+    assert.deepEqual(ghost, tile, `the picture is the tile as it stands in All Notes (${which})`);
+  }
+});
+
 test("nothing was refused or thrown along the way", () => {
   const real = problems.filter((p) => !/Content Security Policy|Refused to (execute|load)|Failed to load resource/i.test(p));
   assert.deepEqual(real, []);
