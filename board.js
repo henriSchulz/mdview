@@ -361,7 +361,7 @@
       if (pt.type === "touch" && pens.seen && !pens.finger) return "pan";
       return S.kind === "shape" ? shapeStart(pt) : start(pt);
     };
-    hands = B.pointer.attach(stage(), { start: begun, move: (pts, e, ahead) => (sel.busy ? sel.move(pts, e) : move(pts, e, ahead)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
+    hands = B.pointer.attach(stage(), { start: begun, move: (pts, e, ahead) => (sel.busy ? (sel.move(pts, e), edgeAt(pts[pts.length - 1], e)) : move(pts, e, ahead)), end: () => { edgeAt(null); return sel.busy ? sel.end() : end(); }, cancel: () => { edgeAt(null); return sel.busy ? sel.cancel() : cancel(); }, hover, space: () => space,
       hold: (pt, e) => (mine() ? sel.hold(pt, e) : false),
       // A finger tapped (it did not draw: a pen is about, or it met nothing). With the text tool: a text there. With a tool that draws
       // in hand: the thing under it is chosen — the finger moves it, the pen pulls it to size — and the tool stays in hand (back): the
@@ -387,6 +387,27 @@
       zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
     // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
     el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);
+  }
+  /* Something pulled to the window's edge — a thing moved (onto the next page), a box, a shape pulled open: the board runs along under
+   * it, the faster the nearer the edge, as a list does under a row that is dragged; what is pulled stays under the hand. */
+  const EDGE = 56, RUN = 18; // (how near the edge it begins, in the window's pixels; how far a frame goes at the edge itself)
+  let edge = null;
+  function edgeAt(pt, e) {
+    if (!pt) { if (edge) cancelAnimationFrame(edge.frame); edge = null; return; }
+    if (!edge) edge = { frame: 0 };
+    edge.pt = pt; edge.e = e;
+    if (!edge.frame) edge.frame = requestAnimationFrame(edgeRun);
+  }
+  function edgeRun() {
+    if (!edge) return;
+    edge.frame = 0;
+    if (!S || !sel.pulling) return;
+    const s = size(), pt = edge.pt, by = (a, n) => (a < EDGE ? (EDGE - Math.max(0, a)) / EDGE : a > n - EDGE ? -(EDGE - Math.max(0, n - a)) / EDGE : 0);
+    const dx = by(pt.x, s.w), dy = by(pt.y, s.h);
+    if (!dx && !dy) return;
+    fast = true; S.view.panBy(dx * RUN, dy * RUN); fast = false;
+    sel.move([pt], edge.e); // (the hand stood still while the board went on: what it holds goes with the board)
+    edge.frame = requestAnimationFrame(edgeRun);
   }
   /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
    * goes only moves where it is going. */

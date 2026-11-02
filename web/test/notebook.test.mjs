@@ -132,3 +132,38 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   assert.ok(await shown('#board [data-do="grid"]'));
   assert.deepEqual(problems, []);
 });
+
+test("what is pulled to the window's edge takes the board along: a stroke moved down onto the next page", async () => {
+  if (await page.evaluate(() => MdBoard.shown)) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 }); }
+  await page.evaluate((p) => MdPage.openBoardFile(p), `${R}/Heft.board.svg`);
+  await boardOpen();
+  await page.waitForFunction(() => MdBoard.state().book && MdBoard.state().items === 1, null, { timeout: 8000 });
+  await page.waitForTimeout(500);
+  await page.click('#board [data-kind="lasso"]');
+  await page.keyboard.press("Control+a");
+  const box = await page.evaluate(() => MdBoard.state().chosenBox), v0 = await page.evaluate(() => MdBoard.state().view);
+  assert.ok(box, "the stroke chosen");
+  // taken by its middle and pulled to the lower edge, the hand held still there
+  const st = await page.evaluate(() => { const b = document.querySelector("#board .bd-stage").getBoundingClientRect(); return { left: b.left, top: b.top, h: b.height }; });
+  const from = [st.left + ((box[0] + box[2]) / 2 - v0.x) * v0.z, st.top + ((box[1] + box[3]) / 2 - v0.y) * v0.z], to = [from[0], st.top + st.h - 8];
+  await page.mouse.move(...from);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) await page.mouse.move(from[0], from[1] + ((to[1] - from[1]) * i) / 12);
+  await page.waitForTimeout(700);
+  const v1 = await page.evaluate(() => MdBoard.state().view);
+  await page.mouse.up();
+  const after = await page.evaluate(() => MdBoard.state().chosenBox), hand = (to[1] - from[1]) / v0.z;
+  assert.ok(v1.y - v0.y > 150, `the board ran down under the hand (${v0.y} → ${v1.y})`);
+  // the stroke went as far as the hand and the board together: still under the hand
+  assert.ok(after[1] - box[1] > hand + 150, `the stroke went with the board (${after[1] - box[1]} > ${hand})`);
+  assert.ok(Math.abs(after[1] - box[1] - (hand + v1.y - v0.y)) < 40, "… as far as both");
+  // a hand that rests away from the edge moves nothing
+  const v2 = await page.evaluate(() => MdBoard.state().view);
+  await page.mouse.move(640, 450);
+  await page.mouse.down();
+  await page.mouse.move(660, 470);
+  await page.waitForTimeout(300);
+  await page.mouse.up();
+  assert.equal((await page.evaluate(() => MdBoard.state().view)).y, v2.y);
+  assert.deepEqual(problems, []);
+});

@@ -647,7 +647,8 @@ and shut back into it — or a file of the folder, of its own.
   stand. A shape that is only an outline is met at its outline: a click within it still
   chooses it, a pull within it is a box over what stands in it, and once chosen it is moved
   from anywhere within. What is chosen is pulled to another place — several
-  things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
+  things, or strokes, anywhere in their frame; pulled to the window's edge, the board runs along
+  under it, the faster the nearer the edge —, copied (`Ctrl+D`), deleted (`Delete`), nudged
   with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
   corners of their frame, and take another colour in the small bar beside them. `Esc`, or a
   click or tap on the bare board, lets go.
