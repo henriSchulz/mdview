@@ -48,6 +48,7 @@
     ok("its field opens under it, the keys in it", await until(() => pop().hasAttribute("data-open") && input() && document.activeElement === input(), 2000), pop().dataset.kind);
     input().value = REAL ? (pdf ? "Underline the title of the first page in red and write a short note beside it" : "Draw a little house with a tree beside it, as a quick sketch, and write Mein Haus under it") : "Draw a house";
     input().dispatchEvent(new Event("input", { bubbles: true }));
+    const input0 = input().value.trim();
     ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
     // (the style: a pill for each — writing, hand, with what —, each a small menu; what is chosen is said on its pill and kept)
     ok("the card's foot: Chat and three pills of the style", pop().querySelectorAll(".bd-ask-pill").length === 3 && !!pop().querySelector('[data-m="ask-chat"]'), pop().querySelector(".bd-ask-foot")?.textContent);
@@ -80,6 +81,9 @@
       // (a picture goes with the question only where the text does not say all: a PDF's pages, ink — an empty board none)
       ok("what Claude said shows under its button — a picture went along only over the PDF", (where === "pdf" ? /Here is a house, with a picture/ : /Here is a house, without a picture/).test(after.claude.chip), after.claude.chip);
     } else ok("Claude drew something", after.things.length + after.items > before.things.length + before.items, o.drawn);
+    // (what was asked in the board's field, and the answer, stand in the chat's conversation of this document — Henri, 2026-11-02)
+    const talk = window.MdAi ? MdAi.state().talk : [], asked = talk.findIndex((m) => m.role === "user" && m.text === input0);
+    ok("the question asked on the board, and its answer, are in the chat's conversation", asked >= 0 && talk[asked + 1] && talk[asked + 1].role === "assistant" && (REAL || talk[asked + 1].drew >= 1), talk.map((m) => [m.role, String(m.text || m.error || "").slice(0, 40), m.drew || 0]));
     ok("all of it is one step back", after.undo === before.undo + 1, [before.undo, after.undo]);
     el().querySelector('[data-do="undo"]').click();
     await sleep(200);
@@ -109,6 +113,7 @@
     const chat = () => document.getElementById("ai-chat");
     ok("Talk about it in the Chat: the chat opens over the board, and is seen", await until(() => window.MdAi && MdAi.chat.open && chat() && Number(getComputedStyle(chat()).zIndex) > Number(getComputedStyle(el()).zIndex) && chat().getBoundingClientRect().width > 200, 4000), chat() && [getComputedStyle(chat()).zIndex, getComputedStyle(chat()).display, chat().getBoundingClientRect().width]);
     await sleep(400);
+    out("history", {}); await sleep(900); // (the conversation: what was asked on the board stands in it)
     const field = chat().querySelector(".ai-field"), kind = st().kind;
     field.focus();
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "e", bubbles: true, cancelable: true }));

@@ -992,7 +992,7 @@ PY
     # new board, then on a PDF, then on a notebook opened from the note (the model is a fixed answer; `real`: Claude itself)
     rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 3
     printf '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><metadata id="mdview-board"><![CDATA[\n{"board":1,"bg":"auto","grid":false,"paper":{"bg":"grid","color":"white","size":"a4","n":2}}\n]]></metadata></svg>\n' > "$R/work/Heft.board.svg"
-    rm -f "$R/out"/{m5.md,paper.pdf,none}.{styling,asking,drawing,stroking,drawn,chat,board-ai-note,board-ai-pdf,board-ai-book}.json; fail=0
+    rm -f "$R/out"/{m5.md,paper.pdf,none}.{styling,asking,drawing,stroking,drawn,history,chat,board-ai-note,board-ai-pdf,board-ai-book}.json; fail=0
     steps=$'{"add":"shape","as":"walls","shape":"rect","x":-120,"y":160,"w":240,"h":160}\n{"add":"ink","tool":"pen","c":"#e5372c","w":4,"d":"M -140 160 L 0 50 L 140 160"}\n{"add":"sticky","as":"note","x":160,"y":40,"w":160,"h":120,"text":"A house"}'
     more=$'{"add":"line","p":[170,160,120,200],"arrow":true,"from":{"id":"note"},"to":{"id":"walls"}}\n{"move":"note","dx":20,"dy":0}\n{"set":"walls","fill":"#b5dcff"}\n{"add":"write","x":-120,"y":340,"text":"Mein Haus – grün & groß","size":28}'
     fake=$'Here is a house, PICTURE.\n<board>\n'"$steps"$'\n'"$more"$'\n</board>'
@@ -1004,11 +1004,11 @@ PY
       where=note; [[ $file == *.pdf ]] && where=pdf; [[ $file == *.board.svg ]] && where=book
       p="$probe"; [[ $where == book ]] && { p="$R/probe-board-ai-book.js"; file=none; } # (a folder's window reports as "none")
       open="$R/work/$file"; [[ $where == book ]] && open="$R/work" # (the notebook from the folder's window: All Notes under it, #31)
-      rm -f "$R/out/$file".{styling,asking,drawing,stroking,drawn,chat}.json # (the notebook's run opens it from the note: the note's moments anew)
+      rm -f "$R/out/$file".{styling,asking,drawing,stroking,drawn,history,chat}.json # (the notebook's run opens it from the note: the note's moments anew)
       st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (one window: the file's)
       if [[ -n ${real[*]} ]]; then app 600 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" -- "$open"
       else app 120 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" MDVIEW_BOARD_FAKE="$fake" MDVIEW_TALK_FAKE="$chat" -- "$open"; fi
-      for v in styling asking drawing stroking drawn chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done
+      for v in styling asking drawing stroking drawn history chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done
       for _ in $(seq 3000); do [[ -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done
       pkill -f "^$APP" 2>/dev/null; sleep 1
       [[ -f $R/out/$file.board-ai-$where.json ]] || { echo "FAIL no report ($where)"; tail -5 "$R/app.log"; fail=1; continue; }
