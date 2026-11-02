@@ -142,7 +142,8 @@
     key("Escape"); await sleep(80);
     ok("Esc puts the menu away, and what was chosen stays", !menuOpen() && picked().length === 2, [menuOpen(), picked()]);
     await right([[600, 520]]);
-    ok("a right click on the bare board: nothing is chosen, the menu offers Paste and Select All", !picked().length && menuOpen() && entries().map((x) => x.replace(" (off)", "")).join() === "Paste,Select All", [picked(), entries()]);
+    // (and Ask Claude after them, where Claude is on: board/select.js, context)
+    ok("a right click on the bare board: nothing is chosen, the menu offers Paste and Select All", !picked().length && menuOpen() && /^Paste,Select All(,Ask Claude)?$/.test(entries().map((x) => x.replace(" (off)", "")).join()), [picked(), entries()]);
     ok("Select All, chosen there: everything", (await choose("Select All")) && picked().length === things().length + st().items, [picked().length, things().length]);
     key("Escape"); await sleep(60);
 
