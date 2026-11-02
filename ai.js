@@ -394,7 +394,9 @@
   async function say(text) {
     text = String(text || "").trim();
     if (!text || talking) return;
-    const edit = editing;
+    // (over a whiteboard Claude draws on it, whatever the mode: Edit is for a note's text — a notebook or a PDF has none, and
+    // the chat refused, its word about it under the board, the text left in the field: #34)
+    const B = window.MdBoard, onBoard = !!(B && B.shown && B.claudeChat), edit = editing && !onBoard;
     if (edit && !active()) { // (the note is changed where it is written: the active mode)
       if (!core.current || core.current.readonly || core.current.kind === "pdf") return core.toast(T("ai.noEdit"));
       window.MdView.setMode("active");
@@ -412,7 +414,7 @@
     if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
     const t = (talking = { id: null, talk: mine, text: "", el: null });
     // (a whiteboard open: what is on it goes along, and the steps Claude answers with are done on it as they come — board.js)
-    const B = window.MdBoard, board = B && B.shown && B.claudeChat ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
+    const board = onBoard ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
     if (talking !== t) return;
     t.id = ask("chat", { ...(board || {}), edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
       (piece) => { t.text += piece; if (steps) steps.feed(piece); drawLive(); },

@@ -13,6 +13,8 @@
   const pdf = /\.pdf$/i.test(location.search + (window.MdView?.core?.current?.path || "")) || !!(window.MdPdf && MdPdf.shown);
   let where = pdf ? "pdf" : "note";
   try {
+    // (the chat in its Edit mode, as it is kept from a note: over a board it draws all the same — #34)
+    try { localStorage.setItem("mdview:ai-edit", "1"); } catch (e) { /* (none) */ }
     await document.fonts.ready;
     await sleep(800);
     const B = () => window.MdBoard, st = () => B() && B().shown && B().state(), el = () => document.getElementById("board");

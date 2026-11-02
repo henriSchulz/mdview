@@ -505,6 +505,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     and not to be seen. A rule for All Notes leaves out `:has(#board[data-open])`. `rig.sh board-ai` opens the notebook from
     the folder's window and wants the chat seen (its size), not only open.
 
+95. **A mode kept from a note does not hold where there is no note** (#34, Henri: „das chat funktioniert nicht. man kann
+    keine nachrichten verschicken“ — over a notebook). The chat's Edit mode is kept (`mdview:ai-edit`); over a notebook, opened
+    from the folder's window, there is no note to change, so the chat refused — its toast under the board, the text left
+    in the field, nothing sent. Over a whiteboard the chat draws whatever the mode (ai.js: `say`). A refusal is said where
+    it is seen, and leaves nothing as though it went. `rig.sh board-ai` asks with the chat in Edit mode.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by
