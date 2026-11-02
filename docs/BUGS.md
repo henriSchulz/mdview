@@ -44,11 +44,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 47. **A size is kept only when it was chosen, and looked at when it is read.** A press that pulls
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
-82. **A dialog that edits a block stands over it with the block's own left and right edges**
-    (`place`, dialog.js): its width is the block's, not a kind's own or one kept from the corner,
-    clamped only by the least a dialog can be and the window's edges. A block is what is not
-    inline (an inline formula keeps a dialog of its own width). `rig.sh islands` measures the edges
-    for a code block, code in a list, a formula and a diagram.
+82. **A dialog that edits a block stands over it with the page's left and right edges**
+    (`place`, dialog.js): its width is the page's — the sheet the note is on (`#active`,
+    `#content`, `#editor`, inside its border) — not the block's, a kind's own or one kept from the
+    corner, clamped only by the least a dialog can be and the window's edges (#25, Henri: the
+    block's own width was not what he meant). A block is what is not inline (an inline formula
+    keeps a dialog of its own width). `tests/dialogwidth.test.mjs` holds the width; `rig.sh
+    islands` measures the edges for a code block, code in a list, a formula and a diagram.
 
 54. **One menu for a thing, wherever it is met.** The file menu's entries say for *what* they are
     (`data-for`: a file, a folder, many, the empty room) — never *where* (a row, the rail, a tile).

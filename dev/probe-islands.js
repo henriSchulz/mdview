@@ -27,11 +27,12 @@
       target.dispatchEvent(e);
     };
     const ed = () => dlg.querySelector(".ce-in");
-    // the dialog stands over the block it edits with the block's own left and right edges (Henri: "exactly as wide as the code box")
+    // a block's dialog is as wide as the page the note is on: the sheet's left and right edges, inside its border (#25, Henri: "genau so breit wie die Page")
     const sameEdges = async (name, pos) => {
       for (let i = 0; i < 60 && !/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(getComputedStyle(dlg).transform); i++) await sleep(20);
-      const b = view.nodeDOM(pos), a = b.getBoundingClientRect(), d = dlg.getBoundingClientRect(), c = b.firstElementChild && b.firstElementChild.getBoundingClientRect();
-      ok(name, isOpen() && Math.abs(a.left - d.left) <= 1 && Math.abs(a.right - d.right) <= 1, { block: [a.left, a.right], child: c && [c.left, c.right], dialog: [d.left, d.right], window: innerWidth });
+      const b = view.nodeDOM(pos), pg = b.closest("#active"), r = pg.getBoundingClientRect(), s = r.width / pg.offsetWidth;
+      const a = { left: r.left + pg.clientLeft * s, right: r.left + (pg.clientLeft + pg.clientWidth) * s }, d = dlg.getBoundingClientRect(), k = b.getBoundingClientRect();
+      ok(name, isOpen() && Math.abs(a.left - d.left) <= 1 && Math.abs(a.right - d.right) <= 1, { page: [a.left, a.right], block: [k.left, k.right], dialog: [d.left, d.right], window: innerWidth });
     };
     const setEditor = (text) => { const t = ed(); t.value = text; t.dispatchEvent(new Event("input")); };
     const done = async () => { key(dlg, "Enter", { ctrlKey: true }); await sleep(80); };
@@ -42,7 +43,7 @@
     click(island("code"));
     await sleep(700);
     ok("a click on a code block opens its dialog", isOpen() && document.getElementById("dlg-title").textContent === "Code block");
-    await sameEdges("the code block's dialog is exactly as wide as the code block, at its left and right", island("code"));
+    await sameEdges("the code block's dialog is exactly as wide as the page, at its left and right", island("code"));
     const r = dlg.getBoundingClientRect();
     ok("the dialog has settled inside the window", getComputedStyle(dlg).transform === "none" || getComputedStyle(dlg).transform === "matrix(1, 0, 0, 1, 0, 0)" ? r.top >= 0 && r.bottom <= innerHeight && r.width > 300 : false, [getComputedStyle(dlg).transform, r.top, r.bottom]);
     ok("language, info and code are there", dlg.querySelector(".dlg-lang").value === "js" && dlg.querySelector(".dlg-rest").value === 'title="a.js"' && ed().value === "let a = 1;");
@@ -85,7 +86,7 @@
     click(island("code", 2));
     await sleep(300);
     ok("code in a list item shows without its indentation", ed().value === "echo hi", ed().value);
-    await sameEdges("… and the dialog of code in a list item as wide as that block, where it stands", island("code", 2));
+    await sameEdges("… and the dialog of code in a list item as wide as the page too", island("code", 2));
     setEditor("echo ho\n\necho again");
     await done();
     ok("… and gets it back", md().includes("- item\n\n  ```sh\n  echo ho\n\n  echo again\n  ```"), md().slice(-120));
@@ -104,7 +105,7 @@
     click(island("math"));
     await sleep(400);
     ok("a click on a formula opens the formula dialog with a preview", isOpen() && ed().value === "E = mc^2" && !!dlg.querySelector(".dlg-preview .katex"));
-    await sameEdges("a formula's dialog is as wide as the formula block, a width kept from the corner notwithstanding", island("math"));
+    await sameEdges("a formula's dialog is as wide as the page, a width kept from the corner notwithstanding", island("math"));
     { const b = dlg.querySelector(".dlg-body"), pv = dlg.querySelector(".dlg-preview");
       ok("a dialog is never lower than what is on it, whatever height was kept: nothing of it to scroll, the formula whole", b.scrollHeight <= b.clientHeight + 1 && pv.scrollHeight <= pv.clientHeight + 1 && dlg.offsetHeight > 240, [b.scrollHeight, b.clientHeight, pv.scrollHeight, pv.clientHeight, dlg.offsetHeight]); }
     window.MdPrefs = { ...window.MdPrefs, dialogWidth: 0, dialogHeight: 0 };
@@ -227,7 +228,7 @@
       click(last);
       await sleep(500);
       ok("a diagram opens code beside its picture", isOpen() && dlg.hasAttribute("data-split"));
-      await sameEdges("… in a dialog as wide as the diagram's block", last);
+      await sameEdges("… in a dialog as wide as the page", last);
       key(dlg, "Escape");
       await sleep(400); }
 
