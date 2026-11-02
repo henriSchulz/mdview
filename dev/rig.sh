@@ -991,7 +991,7 @@ PY
     # Claude draws on a whiteboard: asked from the board's button and about what is chosen, the chat over the board — on a note's
     # new board, then on a PDF (the model is a fixed answer; `real`: Claude itself)
     rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 3
-    rm -f "$R/out"/{m5.md,paper.pdf}.{drawing,drawn,chat,board-ai-note,board-ai-pdf}.json; fail=0
+    rm -f "$R/out"/{m5.md,paper.pdf}.{asking,drawing,drawn,chat,board-ai-note,board-ai-pdf}.json; fail=0
     steps=$'{"add":"shape","as":"walls","shape":"rect","x":-120,"y":160,"w":240,"h":160}\n{"add":"ink","tool":"pen","c":"#e5372c","w":4,"d":"M -140 160 L 0 50 L 140 160"}\n{"add":"sticky","as":"note","x":160,"y":40,"w":160,"h":120,"text":"A house"}'
     more=$'{"add":"line","p":[170,160,120,200],"arrow":true,"from":{"id":"note"},"to":{"id":"walls"}}\n{"move":"note","dx":20,"dy":0}\n{"set":"walls","fill":"#b5dcff"}'
     fake=$'Here is a house, PICTURE.\n<board>\n'"$steps"$'\n'"$more"$'\n</board>'
@@ -1003,7 +1003,7 @@ PY
       st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (one window: the file's)
       if [[ -n ${real[*]} ]]; then app 600 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$file"
       else app 120 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" MDVIEW_BOARD_FAKE="$fake" MDVIEW_TALK_FAKE="$chat" -- "$R/work/$file"; fi
-      for v in drawing drawn chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done
+      for v in asking drawing drawn chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done
       for _ in $(seq 3000); do [[ -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done
       pkill -f "^$APP" 2>/dev/null; sleep 1
       [[ -f $R/out/$file.board-ai-$where.json ]] || { echo "FAIL no report ($where)"; tail -5 "$R/app.log"; fail=1; continue; }

@@ -34,6 +34,9 @@
     alignL: svg('<path d="M5 7h14M5 12h9M5 17h12"/>'), alignC: svg('<path d="M5 7h14M7.5 12h9M6 17h12"/>'), alignR: svg('<path d="M5 7h14M10 12h9M7 17h12"/>'),
     shrink: svg('<path d="M8 10l4 4 4-4"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
+    get claude() { return this.spark; }, // (Ask Claude's button)
+    send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+    chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
     stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
     more: svg('<circle cx="6" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="18" cy="12" r="1" fill="currentColor"/>'),
     scenes: svg('<path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><circle cx="4.8" cy="7" r="0.9" fill="currentColor"/><circle cx="4.8" cy="12" r="0.9" fill="currentColor"/><circle cx="4.8" cy="17" r="0.9" fill="currentColor"/>'),
@@ -750,11 +753,24 @@
           (S.readonly ? "" : `<button type="button" class="bd-btn" data-scene-name="${sc.id}" title="${esc(T("board.scene.rename"))}" aria-label="${esc(T("board.scene.rename"))}">${I.rename}</button><button type="button" class="bd-btn" data-scene-set="${sc.id}" title="${esc(T("board.scene.replace"))}" aria-label="${esc(T("board.scene.replace"))}">${I.frame}</button><button type="button" class="bd-btn" data-scene-del="${sc.id}" title="${esc(T("board.delete"))}" aria-label="${esc(T("board.delete"))}">${I.trash}</button>`) + `</div>`).join("")}</div>`
         : `<p class="bd-hint">${esc(T("board.scene.none"))}</p>`) + (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="scene-add">${esc(T("board.scene.add"))}</button>`);
     }
-    else if (kind === "ask") html = `<input type="text" class="bd-scene-input bd-ask-input" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000"><button type="button" class="bd-wide-btn" data-m="ask-go">${esc(T("board.ask.go"))}</button><button type="button" class="bd-wide-btn" data-m="ask-chat">${esc(T("board.ask.chat"))}</button>`;
+    // (Claude asked: a card to write in, as the chat's — what is chosen named above it, the chat at its foot, the round button sends)
+    else if (kind === "ask") html = `<div class="bd-ask">${S.pick.length ? `<span class="bd-ask-about">${I.spark}${esc(T(S.pick.length === 1 ? "board.ask.about.one" : "board.ask.about", S.pick.length))}</span>` : ""}` +
+      `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
+      `<div class="bd-ask-foot"><button type="button" class="bd-ask-chat" data-m="ask-chat" title="${esc(T("board.ask.chat"))}">${I.chat}<span>${esc(T("board.ask.chatShort"))}</span></button>` +
+      `<button type="button" class="bd-ask-send" data-m="ask-go" title="${esc(T("board.ask.go"))}" aria-label="${esc(T("board.ask.go"))}">${I.send}</button></div></div>`;
     else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
     p.dataset.kind = kind;
-    if (kind === "ask") { const input = p.querySelector("input"); input.value = claude.typed; setTimeout(() => input.focus(), 0); input.addEventListener("input", () => { claude.typed = input.value; }); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.isComposing) claude.go(); else if (e.key === "Escape") menu(null); }); }
+    if (kind === "ask") {
+      const field = p.querySelector(".bd-ask-field"), send = p.querySelector(".bd-ask-send");
+      const fit = () => { field.style.height = "auto"; field.style.height = Math.min(160, field.scrollHeight) + "px"; send.toggleAttribute("data-idle", !field.value.trim()); };
+      field.value = claude.typed;
+      fit();
+      setTimeout(() => { field.focus(); field.setSelectionRange(field.value.length, field.value.length); }, 0);
+      field.addEventListener("input", () => { claude.typed = field.value; fit(); });
+      // (Enter asks, Shift+Enter breaks the line, Esc shuts it — as in the chat)
+      field.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); claude.go(); } else if (e.key === "Escape") menu(null); });
+    }
     if (kind === "link") { const input = p.querySelector("input"); setTimeout(() => input.focus(), 0); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") linkAdd(); else if (e.key === "Escape") menu(null); }); }
     const a = anchor || el.querySelector(`[data-do="${kind === "link" ? "plus" : kind === "ask" ? "claude" : kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
     p.style.left = Math.round(Math.max(8, Math.min(box.width - p.offsetWidth - 8, r.left - box.left + r.width / 2 - p.offsetWidth / 2))) + "px";
@@ -933,7 +949,7 @@
       menu("ask", anchor || el.querySelector('[data-do="claude"]'), true);
     },
     async go() {
-      const input = vpop().querySelector(".bd-ask-input"), text = (input ? input.value : claude.typed).trim();
+      const input = vpop().querySelector(".bd-ask-field"), text = (input ? input.value : claude.typed).trim();
       if (!text) { if (input) { input.focus(); input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); } return; }
       if (claude.job || !claude.on()) return;
       menu(null);
@@ -1234,7 +1250,7 @@
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
     if (mod && k === "q") return; // (the application's: it asks the page for what is unsaved, which leave() hands over)
     if (e.target.matches?.("input[type=text]")) return; // (a scene's name being typed: its own keys, and its field keeps them from the note)
-    if (e.target.closest?.("#ai-chat")) return; // (the chat over the board: what is typed there is the chat's)
+    if (e.target.closest?.("#ai-chat, .bd-ask")) return; // (the chat over the board, and the field Claude is asked in: what is typed there is theirs)
     e.stopPropagation(); // nothing of this is the note's under the board
     if (!el.contains(e.target)) el.focus({ preventScroll: true }); // (the note took the keyboard back — after a button of the board was pressed, say: what is typed is not the note's)
     if (sel.editing || (e.target.isContentEditable && el.contains(e.target))) { // (text being typed: the keys are its own — but Esc ends it, and Tab goes on to a table's next cell)

@@ -29,13 +29,15 @@
     ok("the board opens", await until(() => st() && el().hasAttribute("data-ready")), st());
     await sleep(900);
     const btn = () => el().querySelector('.bd-actions [data-do="claude"]'), seen = (e) => !!e && e.getClientRects().length > 0;
-    ok("the board's bar has Ask Claude", seen(btn()) && btn().getAttribute("aria-label") === "Ask Claude", btn() && btn().outerHTML.slice(0, 120));
+    ok("the board's bar has Ask Claude, with its sign", seen(btn()) && btn().getAttribute("aria-label") === "Ask Claude" && !!btn().querySelector("svg path"), btn() && btn().outerHTML.slice(0, 120));
     // --- asked from the board's own button
     btn().click();
-    const pop = () => el().querySelector(".bd-vpop"), input = () => pop().querySelector(".bd-ask-input");
+    const pop = () => el().querySelector(".bd-vpop"), input = () => pop().querySelector(".bd-ask-field");
     ok("its field opens under it, the keys in it", await until(() => pop().hasAttribute("data-open") && input() && document.activeElement === input(), 2000), pop().dataset.kind);
     input().value = REAL ? (pdf ? "Underline the title of the first page in red and write a short note beside it" : "Draw a little house with a tree beside it, as a quick sketch") : "Draw a house";
     input().dispatchEvent(new Event("input", { bubbles: true }));
+    ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
+    out("asking", {}); await sleep(900);
     const before = st();
     input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
     ok("asked: the field goes, the button is Stop, the title says Claude draws", await until(() => !pop().hasAttribute("data-open") && st().claude.busy && btn().getAttribute("aria-label") === "Stop Claude" && /Claude is drawing/.test(st().claude.chip), 3000), st().claude);
@@ -69,7 +71,7 @@
       const fbar = el().querySelector(".bd-fbar"), ask = fbar.querySelector('[data-f="claude"]');
       ok("a thing chosen: its bar has Ask Claude", !fbar.hidden && !!ask, fbar.innerHTML.slice(0, 200));
       ask.click();
-      ok("… its field asks what to do with what is chosen", await until(() => pop().hasAttribute("data-open") && /what is chosen/.test(input().placeholder), 2000), input() && input().placeholder);
+      ok("… its field says it is about what is chosen", await until(() => pop().hasAttribute("data-open") && /thing chosen/.test(pop().querySelector(".bd-ask-about")?.textContent || "") && /do with it/.test(input().placeholder), 2000), pop().innerHTML.slice(0, 300));
       document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       input() && input().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       await sleep(200);

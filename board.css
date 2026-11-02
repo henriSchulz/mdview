@@ -460,7 +460,21 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
    stops it — in the accent, so that it is seen — and the field asked in is as wide as a sentence */
 body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do="claude"] { display: none; }
 #board [data-do="claude"][data-busy] { color: var(--accent); }
-.bd-vpop .bd-ask-input { width: 320px; max-width: calc(100vw - 48px); }
+.bd-vpop:has(.bd-ask) { padding: 8px; }
+.bd-ask { width: 340px; max-width: calc(100vw - 64px); display: flex; flex-direction: column; gap: 4px; }
+.bd-ask-about { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin: 2px 4px 0; padding: 3px 9px 3px 7px; border-radius: var(--radius-pill); background: var(--fill-hover); color: var(--fg2); font-size: 12px; }
+.bd-ask-about svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+.bd-ask-field { display: block; width: 100%; box-sizing: border-box; height: 24px; max-height: 160px; margin: 0; padding: 6px 8px 2px; resize: none; border: 0; background: transparent; color: var(--fg); font: inherit; font-size: 14px; line-height: 1.45; outline: none; user-select: text; -webkit-user-select: text; }
+.bd-ask-field::placeholder { color: color-mix(in srgb, var(--fg) 38%, transparent); }
+.bd-ask-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bd-ask-chat { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px 0 8px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--fg2); font: inherit; font-size: 12.5px; cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.bd-ask-chat:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.bd-ask-send { width: 30px; height: 30px; flex: none; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--fg); color: var(--bg); cursor: default; transition: opacity var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
+.bd-ask-send[data-idle] { opacity: 0.22; pointer-events: none; }
+.bd-ask :is(.bd-ask-chat, .bd-ask-send) svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.bd-ask .bd-ask-send svg { width: 16px; height: 16px; stroke-width: 2; }
+.bd-ask-chat:active, .bd-ask-send:active { transform: scale(var(--press-scale, 0.97)); transition-duration: var(--dur-instant); }
+.bd-ask-chat:focus-visible, .bd-ask-send:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 1px; }
 /* … and what it says, in a line under its button: that it draws, then the sentence it answered with (board.js: note) */
 .bd-claude-note { position: absolute; right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-top, 0px));
   max-width: min(420px, 60vw); box-sizing: border-box; padding: 6px 12px; border-radius: var(--radius-pill); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
