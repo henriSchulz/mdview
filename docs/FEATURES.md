@@ -578,7 +578,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   the app made). The login is the user's, as always.
 - **Graphics by Claude** (Insert › Graphic by Claude…, and Draw Clean with Claude… on a
   whiteboard) belong to it, and go with it when AI is off.
-- **Claude on a whiteboard** — on a note's board, a board of its own, and the board over a PDF:
+- **Claude on a whiteboard** — on a note's board, a board of its own, a notebook (told its pages and their paper, and
+  writing on them) and the board over a PDF:
   **Ask Claude** (the sparkle in the board's bar at the upper right, beside ⋯) opens a field:
   say what to draw or change and press `Enter` (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing
   as the file has it, a stroke by its tool, colour and the box around it), which part of it the
