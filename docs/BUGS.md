@@ -485,6 +485,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`write.test.mjs`, the source beside its reading). A length the script needs is measured from an element sized by it
     (drawer.js: the ruler, its width kept by a ResizeObserver, so a click lays out once), never parsed from the property.
 
+92. **A mark between words of a row aligned on baselines is set on those words' line, not in the row's middle** (#20,
+    Henri in the browser: All Notes' way back, `dct › risc-v › cv32e40p`, its chevrons riding high). The Velum look made
+    the names of the way back smaller than the title and kept the row on its baseline; the chevron, an icon without a
+    baseline, stayed `align-self: center` — the middle of the title's taller line, above the small names. An icon among
+    text of another size gets a line of that text's size (an empty letter gives it the baseline) and sits in its middle
+    (look.css, `.ov-sep`). `explorer.test.mjs` (#20) measures the chevron against the name's letters.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

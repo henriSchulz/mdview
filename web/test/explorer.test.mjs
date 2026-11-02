@@ -506,6 +506,29 @@ test("All Notes: Ctrl+C and Ctrl+V on its tiles copy and paste, as on the sideba
   await until(() => text("sub/Alpha 2.md") !== undefined, "the second paste");
 });
 
+test("All Notes in a folder, in a Velum look: the chevrons of the way back stand level with its names, which are smaller than the title (#20)", async () => {
+  await open("Alpha.md");
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "refined" }); });
+  await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined", null, { timeout: 4000 });
+  await allNotes();
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
+  await page.click(`#overview .ov-folder[data-path="${R}/sub"]`);
+  await page.waitForSelector("#overview .ov-title .ov-crumb", { timeout: 8000 });
+  await page.waitForTimeout(400);
+  // the middle of the name's letters (its font's box, not its line) and of the chevron beside it
+  const at = await page.evaluate(() => {
+    const crumb = document.querySelector("#overview .ov-title .ov-crumb"), r = document.createRange();
+    r.selectNodeContents(crumb);
+    const a = r.getBoundingClientRect(), b = document.querySelector("#overview .ov-title .ov-sep svg").getBoundingClientRect();
+    return { name: (a.top + a.bottom) / 2, chevron: (b.top + b.bottom) / 2 };
+  });
+  if (process.env.MDVIEW_SHOTS) await page.locator("#overview .ov-head").screenshot({ path: process.env.MDVIEW_SHOTS + "/web-crumbs.png" });
+  assert.ok(Math.abs(at.name - at.chevron) <= 1.5, JSON.stringify(at));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "app" }); });
+  await page.waitForFunction(() => !document.documentElement.dataset.velumLook, null, { timeout: 4000 });
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });
