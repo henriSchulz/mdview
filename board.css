@@ -455,3 +455,9 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 
 /* (the ink, moved and sized as a picture while the board goes under the hand: board.js, slide) */
 .bd-ink { transform-origin: 0 0; }
+
+/* Claude on the board (board.js: ask): its button where AI is on and the board may be changed; while it draws, the button
+   stops it — in the accent, so that it is seen — and the field asked in is as wide as a sentence */
+body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do="claude"] { display: none; }
+#board [data-do="claude"][data-busy] { color: var(--accent); }
+.bd-vpop .bd-ask-input { width: 320px; max-width: calc(100vw - 48px); }

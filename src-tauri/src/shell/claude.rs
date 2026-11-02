@@ -17,19 +17,24 @@ impl Win {
                 change: Some(take(text_of("change"), 3000)).filter(|c| !c.is_empty()),
             }),
             "graphic-cancel" => app.illustrator.stop(),
-            // Claude asked about a part of the note (transform) or the whole of it (chat): its answer comes in pieces
-            // (MdView.aiDelta) and ends (MdView.aiDone). Not where AI is turned off in the settings.
+            // Claude asked about a part of the note (transform), the whole of it (chat) or the whiteboard that is open (board):
+            // its answer comes in pieces (MdView.aiDelta) and ends (MdView.aiDone). Not where AI is turned off in the settings.
             "ai-ask" => {
                 let prefs = app.prefs();
                 let (channel, id) = (text_of("channel").to_string(), msg["id"].clone());
-                if prefs.get("aiOn") == Some(&Value::Bool(false)) || !matches!(channel.as_str(), "transform" | "chat") {
+                if prefs.get("aiOn") == Some(&Value::Bool(false)) || !matches!(channel.as_str(), "transform" | "chat" | "board") {
                     return self.js("MdView.aiDone", &[id, Value::Null, json!("AI is turned off in the settings")]);
                 }
                 let model = prefs.get("aiClaude").and_then(Value::as_str).filter(|m| (2..=60).contains(&m.len()) && m.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))).unwrap_or("").to_string();
                 let (name, note) = (take(text_of("name"), 200), take(text_of("note"), 120_000));
                 let whole = if note.trim().is_empty() { String::new() } else { format!("The note{}:\n<note>\n{note}\n</note>\n\n", if name.is_empty() { String::new() } else { format!(" “{name}”") }) };
-                let (system, prompt) = if channel == "transform" {
-                    (ai::TRANSFORM_SYSTEM, format!("{whole}The selected part of the note:\n<selection>\n{}\n</selection>\n\nWhat to do with the selected part: {}\n\nReply with the Markdown that takes its place, and nothing else.", take(text_of("selection"), 60_000), take(text_of("instruction"), 4000)))
+                // (a whiteboard open: what is on it, as board/claude.js tells it — for the board's own question and for the chat)
+                let board = take(text_of("board"), 240_000);
+                let board = if board.trim().is_empty() { String::new() } else { format!("The board:\n<board-now>\n{board}\n</board-now>\n\n") };
+                let (system, prompt) = if channel == "board" {
+                    (ai::board_system(false), format!("{board}What the user asks: {}", take(text_of("instruction"), 4000)))
+                } else if channel == "transform" {
+                    (ai::TRANSFORM_SYSTEM.to_string(), format!("{whole}The selected part of the note:\n<selection>\n{}\n</selection>\n\nWhat to do with the selected part: {}\n\nReply with the Markdown that takes its place, and nothing else.", take(text_of("selection"), 60_000), take(text_of("instruction"), 4000)))
                 } else {
                     let said: Vec<String> = msg["messages"].as_array().map(Vec::as_slice).unwrap_or_default().iter().rev().take(30).rev()
                         .filter_map(|m| Some(format!("{}: {}", if m["role"] == "assistant" { "Assistant" } else { "User" }, take(m["text"].as_str()?, 20_000))))
@@ -38,10 +43,21 @@ impl Win {
                     let chosen = if chosen.trim().is_empty() { String::new() } else { format!("What the user has selected in the note right now:\n<selection>\n{chosen}\n</selection>\n\n") };
                     let at = take(text_of("where"), 400);
                     let at = if at.trim().is_empty() { String::new() } else { format!("The user is looking at the page “{}” of the note right now: “this page”, “the subpage”, “here” mean that page.\n\n", at.trim()) };
-                    (if truthy(&msg["edit"]) { ai::CHAT_EDIT_SYSTEM } else { ai::CHAT_SYSTEM }, format!("{whole}{at}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
+                    let system = if !board.is_empty() { ai::board_system(true) } else if truthy(&msg["edit"]) { ai::CHAT_EDIT_SYSTEM.to_string() } else { ai::CHAT_SYSTEM.to_string() };
+                    (system, format!("{whole}{board}{at}{chosen}The conversation so far:\n\n{}\n\nReply as the assistant to the user's last message.", said.join("\n\n")))
                 };
                 // what else the chat was given to read: other notes of the folder, the whole folder, files chosen in the system's window
                 let (mut more, mut attach) = (String::new(), Vec::new());
+                // (what the window shows of the board, as a picture the page drew: a PNG, for Claude to look at)
+                if !board.is_empty() {
+                    let picture = base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG"));
+                    let file = std::env::temp_dir().join(format!("mdview-board-{}-{channel}", std::process::id())).join("board-view.png");
+                    if let Some(data) = picture {
+                        if file.parent().is_some_and(|d| fs::create_dir_all(d).is_ok()) && fs::write(&file, data).is_ok() {
+                            attach.push(file);
+                        }
+                    }
+                }
                 if channel == "chat" {
                     let mut room = 400_000usize; // (letters of other documents, all told: what fits a question)
                     let put = |more: &mut String, path: &Path, room: &mut usize| -> bool {

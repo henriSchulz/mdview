@@ -74,12 +74,37 @@ pub const CHAT_SYSTEM: &str = r##"You are the assistant inside a note-taking app
 - Inside <insert> keep to the note's own Markdown: headings, lists, task lists, tables, callouts (> [!note]), code fences, [[wikilinks]]. Never invent addresses or file names.
 - You cannot change the note yourself and have no tools; say so if asked to do something you cannot."##;
 
+/// What Claude may do on a whiteboard (board/claude.js reads it): the steps, for the board's own question and for the chat.
+pub const BOARD_STEPS: &str = r##"How you change the board: one block
+<board>
+one step per line, each a JSON object on a line of its own
+</board>
+The app does each step as soon as its line is complete; the user can undo all of them at once. Coordinates are the board's pixels: x to the right, y downward. Steps:
+- {"add":"ink","tool":"pen","c":"auto","w":3,"d":"M 0 0 C 20 -30, 60 -30, 80 0"} — a stroke of ink, drawn as by hand, along an SVG path (M L H V C S Q T Z; a path of several M parts is several strokes) — or "pts":[[x,y],…] instead of "d". tool: "pen" (lines and writing, w 1–8), "pencil" (sketching, w 1.5–9), "mono" (an even line), "marker" (see-through, wide, w 8–36, for highlighting). "sharp":true draws straight between the points.
+- {"add":"text","x":0,"y":0,"w":300,"h":44,"text":"Words","size":24} — a text (size 12–64; "align":"left|center|right"; "ts":{"bold":true}).
+- {"add":"sticky","x":0,"y":0,"w":180,"h":180,"text":"Idea","fill":"#ffe27a"} — a sticky note (fill: #ffe27a yellow, #ffc078 orange, #ffb3c7 pink, #d9c2ff purple, #b5dcff blue, #bfe8b0 green, #e3e3e6 grey).
+- {"add":"shape","shape":"ellipse","x":0,"y":0,"w":120,"h":80,"fill":"none","c":"auto","sw":2,"text":""} — a shape: rect, round, ellipse, triangle, diamond, star, hexagon; fill a colour or "none"; c and sw its outline; text inside it.
+- {"add":"line","p":[x1,y1,x2,y2],"c":"auto","w":2,"arrow":true} — a line or arrow; "from":{"id":…} and "to":{"id":…} join its ends to things, which it then follows; "route":"corner" or "curve".
+- {"add":"table","x":0,"y":0,"cols":[120,120],"rows":[36,36],"cells":[["a","b"],["c","d"]]} — a table.
+- "as":"name" on an add gives the new thing a name the later steps of this answer may use wherever an id goes.
+- {"set":"<id>", …fields} changes fields of a thing (e.g. "text", "fill", "x", "w", "size", "c"); {"move":"<id>","dx":40,"dy":0} moves it; {"del":"<id>"} takes it away. Any thing on the board may be changed, moved or taken away, also what the user made.
+Colours: "auto" (the board's ink: dark on a light board, light on a dark one) or "#rrggbb". Draw within the part of the board the window shows unless told otherwise, and keep clear of what is there unless the drawing is about it. A sketch is many strokes: outlines first, then details, curves where things are round; draw it as a person draws, not as a diagram of boxes, unless a diagram is asked for. Over a PDF, the pages are boxes on the board: draw and write on the page the user looks at; to highlight a line of the PDF, a marker stroke along it. Text on the board is in the user's language unless told otherwise. A picture of what the window shows, if given, is the truth about what is there: look at it first."##;
+/// … when the board itself asks (its own button, or a part of it chosen and asked about).
+pub const BOARD_SYSTEM: &str = "You draw on a whiteboard inside a note-taking app. The user says what to draw or change; you do it with steps the app carries out. Reply with at most one short sentence in the user's language, then the block of steps, and nothing after it. If what is asked is no drawing or change, answer in one or two sentences without a block.";
+/// … and what the chat is told besides, while a whiteboard is open.
+pub const BOARD_CHAT: &str = "The user has a whiteboard open (described below as “the board”). When they ask you to draw on it or change it, do it with a block of steps, after one short sentence; the block is done on the board at once, so it is not repeated in an <insert>.";
+
+/// The board's way of saying it, for its own question (chat: false) or the chat's.
+pub fn board_system(chat: bool) -> String {
+    if chat { format!("{CHAT_SYSTEM}\n\n{BOARD_CHAT}\n\n{BOARD_STEPS}") } else { format!("{BOARD_SYSTEM}\n\n{BOARD_STEPS}") }
+}
+
 /// One question to Claude: what it is told to be, what it is asked, and where the answer goes.
 pub struct Talk {
     pub label: String,
     pub id: Value,
-    pub channel: String, // one talk at a time for each: "transform", "chat"
-    pub system: &'static str,
+    pub channel: String, // one talk at a time for each: "transform", "chat", "board"
+    pub system: String,
     pub prompt: String,
     pub model: String, // "": claude's own
     pub attach: Vec<PathBuf>, // files Claude is to read itself (a PDF, a picture): copied beside it, and the tool to read them given
@@ -137,10 +162,11 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     };
     if let Ok(fake) = std::env::var("MDVIEW_TALK_FAKE") {
         // (tests: no model — what is said is given, in two pieces: before "||" for a transform, after it for the chat;
-        // CHANNEL names the channel, and "please fail" in the question fails)
+        // CHANNEL names the channel, PICTURE whether a whiteboard's picture went along, and "please fail" in the question fails. The board's own question: MDVIEW_BOARD_FAKE, if set)
         let mut both = fake.splitn(3, "||");
         let (first, second, third) = (both.next().unwrap_or(""), both.next(), both.next());
-        let said = if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
+        let board = std::env::var("MDVIEW_BOARD_FAKE").ok().filter(|_| t.channel == "board");
+        let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURE", if t.attach.iter().any(|p| p.ends_with("board-view.png")) { "with a picture" } else { "without a picture" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
             return Err("Claude: asked to fail".into());
@@ -169,7 +195,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     let mut prompt = t.prompt.clone();
     let mut cmd = Command::new(exe);
     // (the question on the way in, not as an argument: a note is longer than a command line may be)
-    cmd.arg("-p").arg("--system-prompt").arg(t.system);
+    cmd.arg("-p").arg("--system-prompt").arg(&t.system);
     if attached.is_empty() {
         cmd.args(["--tools", ""]);
     } else {

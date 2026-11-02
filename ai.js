@@ -34,6 +34,7 @@
     return id;
   }
   function stop(id) { const j = jobs.get(id); if (!j) return; jobs.delete(id); post("ai-stop", { channel: j.channel }); }
+  Ai.ask = ask; Ai.stop = stop; // (for the whiteboard's own question: board.js)
   Ai.delta = (id, text) => { const j = jobs.get(id); if (j) j.onDelta(String(text || "")); };
   Ai.done = (id, text, error) => { const j = jobs.get(id); if (!j) return; jobs.delete(id); j.onDone(text == null ? null : String(text), error || null); };
   const noteName = () => String((core.current && core.current.name) || "").replace(/\.(md|markdown)$/i, "");
@@ -295,7 +296,8 @@
   const EDIT = /<edit>\s*<find>\n?([\s\S]*?)\n?<\/find>\s*<replace>\n?([\s\S]*?)\n?<\/replace>\s*<\/edit>/g;
   const editsOf = (text) => [...String(text).matchAll(EDIT)].map((m) => ({ find: m[1], replace: m[2] }));
   // (what it said without them — one being written, while the answer comes, is left out too)
-  const noEdits = (text) => String(text).replace(EDIT, "").replace(/<edit>[\s\S]*$/, "").replace(/<\/?e(?:d(?:i(?:t)?)?)?$/, "");
+  const noEdits = (text) => String(text).replace(EDIT, "").replace(/<edit>[\s\S]*$/, "").replace(/<\/?e(?:d(?:i(?:t)?)?)?$/, "")
+    .replace(/<board>[\s\S]*?(<\/board>|$)/g, "").replace(/<\/?b(?:o(?:a(?:r(?:d)?)?)?)?$/, ""); // (and the steps done on a whiteboard: board/claude.js)
   function parts(text) {
     const out = [];
     let rest = noEdits(text);
@@ -324,11 +326,12 @@
     const inner = parts(m.text).map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
       : `<div class="ai-card"${p.open ? " data-open" : ""}><div class="ai-md">${md(p.insert)}</div>` +
         (p.open ? "" : `<div class="ai-card-foot"><button class="ai-pillbtn ai-main" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="ai-pillbtn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
+    const drew = m.drew ? `<div class="ai-made"><span class="ai-made-text">${I.edit}<span>${esc(T("ai.drew", m.drew))}</span></span></div>` : "";
     const made = m.made ? `<div class="ai-made"${m.made.done ? "" : " data-none"}><span class="ai-made-text">${I.edit}<span>${esc(m.made.done ? T(m.made.done === 1 ? "ai.made.one" : "ai.made", m.made.done) : T("ai.made.none"))}</span></span>` +
       (m.made.done && undoable(m) ? `<button class="ai-pillbtn" type="button" data-undo="${i}">${esc(T("ai.made.undo"))}</button>` : "") + `</div>` +
       (m.made.error ? `<div class="ai-error">${esc(m.made.error)}</div>` : "") +
       (m.made.missed && m.made.missed.length ? `<div class="ai-missed"><b>${esc(T("ai.made.missed", m.made.missed.length))}</b>${m.made.missed.map((f) => `<code>${esc(f.slice(0, 90))}</code>`).join("")}</div>` : "") : "";
-    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${made}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
+    return `<div class="ai-msg ai-bot"${live ? " data-live" : ""}>${inner}${drew}${made}` + (live ? "" : `<div class="ai-acts"><button class="ai-ib ai-small" type="button" data-copyall="${i}" title="${esc(T("ai.copy"))}" aria-label="${esc(T("ai.copy"))}">${I.copy}</button></div>`) + `</div>`;
   }
   const bottom = () => { log.scrollTop = log.scrollHeight; };
   /* The whole conversation, drawn (when the window opens, another conversation is taken up, or a message is done). */
@@ -408,8 +411,11 @@
     let selection = "";
     if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
     const t = (talking = { id: null, talk: mine, text: "", el: null });
-    t.id = ask("chat", { edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
-      (piece) => { t.text += piece; drawLive(); },
+    // (a whiteboard open: what is on it goes along, and the steps Claude answers with are done on it as they come — board.js)
+    const B = window.MdBoard, board = B && B.shown && B.claudeChat ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
+    if (talking !== t) return;
+    t.id = ask("chat", { ...(board || {}), edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
+      (piece) => { t.text += piece; if (steps) steps.feed(piece); drawLive(); },
       (all, error) => {
         if (talking === t) talking = null;
         clearTimeout(pending); pending = 0;
@@ -421,6 +427,7 @@
         mine.messages.push(m);
         keep();
         if (cur === mine) drawAll();
+        if (steps) steps.end(!!m.error).then((n) => { if (!n) return; m.drew = n; keep(); if (cur === mine) drawAll(); });
       });
     field.value = "";
     fit();
@@ -622,7 +629,7 @@
    * it by itself. The press goes on to do what it does there; the chat goes as its own close takes it away. */
   const OWN = "#ai-chat, #ai-bubble";
   addEventListener("pointerdown", (e) => {
-    if (Ai.chat.open && e.target instanceof Element && !e.target.closest(OWN)) Ai.chat.close();
+    if (Ai.chat.open && e.target instanceof Element && !e.target.closest(OWN) && !e.target.closest("#board")) Ai.chat.close(); // (not on a whiteboard: it is drawn on while the chat talks about it)
   }, true);
   /* AI turned off in the settings: whatever was asked is dropped, the chat is shut. */
   Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; clearTimeout(pending); pending = 0; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };

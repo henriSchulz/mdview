@@ -163,3 +163,6 @@ body[data-mode="dark"] .ai-dialog { --ai-card: color-mix(in srgb, var(--bg) 82%,
 .ai-out[hidden] { display: none; }
 .ai-wait { display: flex; align-items: center; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; margin-bottom: 10px; opacity: 0.6; }
 .ai-stream { opacity: 0.8; }
+
+/* ---- over a whiteboard: the chat stays where it is, over the board (board.css: z-index 58) — it talks about what is drawn */
+body:has(#board[data-open]) #ai-chat { z-index: 59; }

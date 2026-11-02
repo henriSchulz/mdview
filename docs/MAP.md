@@ -174,6 +174,7 @@ or the tests see the old ones.
 | `pdfview.js` | PDFs in the window, the way Obsidian PDF++ works with them (https://github.com/RyotaUshio/obsidian-pdf-plus, … |
 | `ai.js` | AI: Claude, asked through the claude command on this computer (the application runs it: src-tauri/src/ai.rs). |
 | `board.js` | the whiteboard: a board that stands in a note as a picture (a file *.board.svg, see board/format.js) is … |
+| `board/claude.js` | a whiteboard drawn on by Claude: what it is told of the board, and what it answers, done on the board. |
 | `board/format.js` | a whiteboard's file: an SVG picture that carries its own data. |
 | `board/ink.js` | a whiteboard's ink: strokes drawn on a canvas from the same paths the file's picture is made of (render.js), … |
 | `board/items.js` | what stands on a whiteboard beside the ink: text boxes, sticky notes, shapes, lines and arrows. |

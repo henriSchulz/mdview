@@ -651,6 +651,8 @@
         if (every((it) => it.k === "table")) html += btn("table", T("board.table"), ICON.table);
         if (p.length === 1 && first.k === "image") html += `<button type="button" class="bd-btn" data-f="crop" title="${esc(T("board.crop"))}" aria-label="${esc(T("board.crop"))}" aria-pressed="${st.crop === first.id}">${ICON.crop}</button>` + (first.crop ? btn("uncrop", T("board.uncrop"), ICON.uncrop) : "");
         if (p.length === 1 && (first.k === "link" || first.k === "file")) html += btn("open", T("board.open"), ICON.open);
+        // (Claude asked about what is chosen: board.js — where AI is on)
+        if (ctx.claude && ctx.claude.on()) html += `<span class="bd-sep"></span>` + btn("claude", T("board.claude"), ctx.icons.spark);
         html += `<span class="bd-sep"></span>` + btn("arrange", T("board.arrange"), ICON.arrange) + btn("duplicate", T("board.duplicate"), ctx.icons.copy) + btn("remove", T("board.delete"), ctx.icons.trash);
       }
       if (b.dataset.sig !== html) { b.innerHTML = html; b.dataset.sig = html; }
@@ -707,7 +709,7 @@
       const d = b.dataset;
       if (d.f) {
         if (["ink", "fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
-        ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]),
+        ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]), claude: () => ctx.claude.open(barEl()),
           crop: () => { const st = S(); st.crop = st.crop === st.pick[0].id ? null : st.pick[0].id; ctx.paint(); },
           uncrop: () => change((p) => { const it = p[0], c = it.crop; if (!c) return; const fw = it.w / (1 - c[0] - c[2]), fh = it.h / (1 - c[1] - c[3]), [lx, ly] = [-(c[0] - c[2]) * fw / 2, -(c[1] - c[3]) * fh / 2], rad = (it.r * Math.PI) / 180, [cx, cy] = I.mid(it); delete it.crop; Object.assign(it, { w: Math.round(fw * 10) / 10, h: Math.round(fh * 10) / 10 }); Object.assign(it, { x: Math.round((cx + lx * Math.cos(rad) - ly * Math.sin(rad) - it.w / 2) * 10) / 10, y: Math.round((cy + lx * Math.sin(rad) + ly * Math.cos(rad) - it.h / 2) * 10) / 10 }); }),
           copyLook: () => { copyLook(); closePop(); }, pasteLook, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
@@ -833,7 +835,8 @@
       if (it && !st.pick.includes(it)) pick([it]);
       else if (!it && !(st.pick.length && inBox(p))) pick([]);
       const pk = st.pick, free = !locked(), things = pk.filter((i) => i.k !== "ink"), grouped = pk.some((i) => i.group), row = (name, keys, on, f, cls = "") => [esc(T(name)), keys, on, f, cls];
-      if (!pk.length) return [row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), null, row("menu.selectAll", "Ctrl+A", st.model.items.some((i) => !i.foreign), () => ctx.all())];
+      const claude = ctx.claude && ctx.claude.on() ? [null, row("board.claude", "", true, () => ctx.claude.open(null, pt))] : [];
+      if (!pk.length) return [row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), null, row("menu.selectAll", "Ctrl+A", st.model.items.some((i) => !i.foreign), () => ctx.all()), ...claude];
       const rows = [row("menu.cut", "Ctrl+X", free, () => copy(true)), row("menu.copy", "Ctrl+C", true, () => copy(false)), row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), row("board.duplicate", "Ctrl+D", true, duplicate)];
       if (!free) return [...rows.slice(1), null, row("board.unlock", "Ctrl+L", true, () => lock(false))];
       rows.push(null, row("board.front", "Ctrl+Shift+F", true, () => order(true)), row("board.toBack", "Ctrl+Shift+B", true, () => order(false)));
@@ -843,7 +846,7 @@
       if (things.length) rows.push(row("board.lock", "Ctrl+L", true, () => lock(true)));
       rows.push(null, row("board.copyStyle", "Ctrl+Alt+C", pk.length === 1 && pk[0].k !== "ink", copyLook));
       if (look) rows.push(row("board.pasteStyle", "Ctrl+Alt+V", true, pasteLook));
-      rows.push(null, row("board.delete", "Del", true, remove, "danger"));
+      rows.push(...claude, null, row("board.delete", "Del", true, remove, "danger"));
       return rows;
     }
 
@@ -872,7 +875,7 @@
       return false;
     }
 
-    return { hover, context, thingAt: (pt) => { const p = ctx.onBoard(pt); return under(p.x, p.y) || shellAt(p.x, p.y); }, get joints() { const it = act ? null : jointed(); return it ? { id: it.id, at: SIDES.map(([side, hx, hy]) => { const m = I.mid(it), r = ((it.r || 0) * Math.PI) / 180, lx = hx * (it.w / 2 + JOINT / z()), ly = hy * (it.h / 2 + JOINT / z()); return [side, ...toScreen(m[0] + lx * Math.cos(r) - ly * Math.sin(r), m[1] + lx * Math.sin(r) + ly * Math.cos(r))]; }) } : null; }, make, put, type, grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
+    return { hover, context, snapshot: snap, commitSince: commit, thingAt: (pt) => { const p = ctx.onBoard(pt); return under(p.x, p.y) || shellAt(p.x, p.y); }, get joints() { const it = act ? null : jointed(); return it ? { id: it.id, at: SIDES.map(([side, hx, hy]) => { const m = I.mid(it), r = ((it.r || 0) * Math.PI) / 180, lx = hx * (it.w / 2 + JOINT / z()), ly = hy * (it.h / 2 + JOINT / z()); return [side, ...toScreen(m[0] + lx * Math.cos(r) - ly * Math.sin(r), m[1] + lx * Math.sin(r) + ly * Math.cos(r))]; }) } : null; }, make, put, type, grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; } };
   }
   B.select = { make };
 })();

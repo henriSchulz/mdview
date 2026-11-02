@@ -33,6 +33,8 @@
     erasePart: svg('<path d="M4 15c1.8-4.6 3.2-6.2 4.6-5.4M15 13.6c1.4-.4 2.8-2.6 4.5-6.6"/><circle cx="11.8" cy="12.4" r="2.6" stroke-dasharray="1.8 1.6"/>'),
     alignL: svg('<path d="M5 7h14M5 12h9M5 17h12"/>'), alignC: svg('<path d="M5 7h14M7.5 12h9M6 17h12"/>'), alignR: svg('<path d="M5 7h14M10 12h9M7 17h12"/>'),
     shrink: svg('<path d="M8 10l4 4 4-4"/>'),
+    spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
+    stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
     more: svg('<circle cx="6" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="18" cy="12" r="1" fill="currentColor"/>'),
     scenes: svg('<path d="M8.5 7h11M8.5 12h11M8.5 17h11"/><circle cx="4.8" cy="7" r="0.9" fill="currentColor"/><circle cx="4.8" cy="12" r="0.9" fill="currentColor"/><circle cx="4.8" cy="17" r="0.9" fill="currentColor"/>'),
     prev: svg('<path d="M14.5 7 9.5 12l5 5"/>'), next: svg('<path d="m9.5 7 5 5-5 5"/>'),
@@ -215,7 +217,7 @@
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
-      `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("more", "board.more")}</div>` +
+      `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
       `<div class="bd-vpop ui-menu ui-popover" role="menu"></div>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
@@ -241,6 +243,7 @@
       if (b.closest(".bd-fbar, .bd-fpop")) return void sel.click(b);
       if (b.closest(".bd-vpop")) return void picked(b);
       if (["zoom", "more", "scenes", "plus"].includes(b.dataset.do)) return menu(b.dataset.do, b);
+      if (b.dataset.do === "claude") return claude.job ? claude.stop() : claude.open(b);
       if (b.dataset.kind) return setKind(b.dataset.kind);
       if (b.dataset.do === "hues") return options(b, false, "hues");
       if (b.dataset.fav) { // one of the three colours at hand: taken up — the one in use, pressed again, is changed for another
@@ -323,7 +326,7 @@
     // text in the board's picture breaks where it breaks on the screen: measured with the same letters
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
-    sel = B.select.make({ S: () => S, el: () => el, paint, did, changed, size, kind: () => (S ? S.kind : null), loop: (pts) => live(null, pts), inks: INKS.map(([, c]) => c), onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
+    sel = B.select.make({ claude, S: () => S, el: () => el, paint, did, changed, size, kind: () => (S ? S.kind : null), loop: (pts) => live(null, pts), inks: INKS.map(([, c]) => c), onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
       // what the right button's menu shares with the keys: Ctrl+V (a picture on the clipboard first, on the desktop), Ctrl+A
       canPaste: () => !BROWSER || sel.clip > 0, paste: () => { if (S.mode !== "select") setMode("select"); if (BROWSER) sel.paste(); else pasteHere(); }, all: () => { setKind("lasso"); sel.pick(S.model.items.filter((it) => !it.foreign)); },
       // a card's file or address, opened: by the host, as a link in a note is (a file in the program for its kind, an address in the browser)
@@ -747,11 +750,13 @@
           (S.readonly ? "" : `<button type="button" class="bd-btn" data-scene-name="${sc.id}" title="${esc(T("board.scene.rename"))}" aria-label="${esc(T("board.scene.rename"))}">${I.rename}</button><button type="button" class="bd-btn" data-scene-set="${sc.id}" title="${esc(T("board.scene.replace"))}" aria-label="${esc(T("board.scene.replace"))}">${I.frame}</button><button type="button" class="bd-btn" data-scene-del="${sc.id}" title="${esc(T("board.delete"))}" aria-label="${esc(T("board.delete"))}">${I.trash}</button>`) + `</div>`).join("")}</div>`
         : `<p class="bd-hint">${esc(T("board.scene.none"))}</p>`) + (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="scene-add">${esc(T("board.scene.add"))}</button>`);
     }
+    else if (kind === "ask") html = `<input type="text" class="bd-scene-input bd-ask-input" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000"><button type="button" class="bd-wide-btn" data-m="ask-go">${esc(T("board.claude.go"))}</button><button type="button" class="bd-wide-btn" data-m="ask-chat">${esc(T("board.ask.chat"))}</button>`;
     else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
     p.dataset.kind = kind;
+    if (kind === "ask") { const input = p.querySelector("input"); input.value = claude.typed; setTimeout(() => input.focus(), 0); input.addEventListener("input", () => { claude.typed = input.value; }); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.isComposing) claude.go(); else if (e.key === "Escape") menu(null); }); }
     if (kind === "link") { const input = p.querySelector("input"); setTimeout(() => input.focus(), 0); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") linkAdd(); else if (e.key === "Escape") menu(null); }); }
-    const a = anchor || el.querySelector(`[data-do="${kind === "link" ? "plus" : kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
+    const a = anchor || el.querySelector(`[data-do="${kind === "link" ? "plus" : kind === "ask" ? "claude" : kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
     p.style.left = Math.round(Math.max(8, Math.min(box.width - p.offsetWidth - 8, r.left - box.left + r.width / 2 - p.offsetWidth / 2))) + "px";
     p.style.top = up ? "auto" : Math.round(r.bottom - box.top + 10) + "px";
     p.style.bottom = up ? Math.round(box.bottom - r.top + 10) + "px" : "auto";
@@ -768,6 +773,8 @@
     if (d.sceneDel) return scenesDo(() => { S.model.scenes = S.model.scenes.filter((x) => x.id !== d.sceneDel); S.scene = -1; });
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
     if (d.m === "link-add") return linkAdd();
+    if (d.m === "ask-go") return claude.go();
+    if (d.m === "ask-chat") { menu(null); return void core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {}); }
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
     if (d.m === "fit") { S.view.fit(bounds()); return menu(null); }
@@ -849,6 +856,131 @@
     img.src = url;
     document.body.appendChild(img);
   }
+
+  // ---------------------------------------------------------------- Claude on the board (board/claude.js; ai.js asks, the shell's channel "board")
+  /* What is told of the board: its things, where the window looks, what is chosen, a PDF's pages — and a point asked at. */
+  const aiBoard = (pt = null) => B.claude.describe(S.model, { view: sceneNow(), pick: S.pick.map((it) => it.id), pages: S.pdf ? S.pdf.pages : null }) +
+    (pt ? `\nThe user asked at x ${Math.round(pt.x)}, y ${Math.round(pt.y)} on the board (“here”).` : "");
+  /* What the window shows, as a PNG's base64 for Claude to look at: the PDF's pages as they are drawn now, the board's things
+   * and ink over them (the board's own picture, cut to the window) — on white, as the file's picture is drawn. */
+  async function aiPicture() {
+    const s = size(), v = S.view, k = Math.min(2, 1600 / Math.max(s.w, s.h, 1)), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(s.w * k)); c.height = Math.max(1, Math.round(s.h * k));
+    const g = c.getContext("2d"), at = (x, y) => [(x - v.x) * v.z * k, (y - v.y) * v.z * k];
+    g.fillStyle = S.pdf ? "#e9e9ec" : "#ffffff"; // (around a PDF's pages: a grey for the paper to stand on)
+    g.fillRect(0, 0, c.width, c.height);
+    for (const sheet of el.querySelectorAll(".bd-paper .bd-sheet")) {
+      const x = parseFloat(sheet.style.left), y = parseFloat(sheet.style.top), w = parseFloat(sheet.style.width), h = parseFloat(sheet.style.height), [sx, sy] = at(x, y);
+      if (sx > c.width || sy > c.height || sx + w * v.z * k < 0 || sy + h * v.z * k < 0) continue;
+      g.fillStyle = "#ffffff"; g.fillRect(sx, sy, w * v.z * k, h * v.z * k);
+      for (const pic of sheet.querySelectorAll("canvas")) {
+        const dx = parseFloat(pic.style.left) || 0, dy = parseFloat(pic.style.top) || 0, dw = parseFloat(pic.style.width) || w, dh = parseFloat(pic.style.height) || h, [px, py] = at(x + dx, y + dy);
+        try { g.drawImage(pic, px, py, dw * v.z * k, dh * v.z * k); } catch (e) { /* (a page not drawn yet) */ }
+      }
+    }
+    const pic = B.render.picture(S.model), vb = [v.x, v.y, s.w / v.z, s.h / v.z].map((n) => Math.round(n * 10) / 10).join(" ");
+    if (!pic.empty) {
+      const url = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${c.width}" height="${c.height}" viewBox="${vb}">${pic.body}</svg>`], { type: "image/svg+xml" })), img = new Image();
+      try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; }); g.drawImage(img, 0, 0, c.width, c.height); } catch (e) { /* (the things as text are told all the same) */ }
+      URL.revokeObjectURL(url);
+    }
+    return c.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  }
+  /* The steps of one answer, done on the board as they come: each as soon as its line is whole, a stroke drawn along its way
+   * (quickly; at once where motion is reduced). All of them are one step back. end(cut): the answer is over — or stopped:
+   * what is drawing is drawn whole, what was still to come is left. → how many steps were done */
+  function aiSteps(s) {
+    const before = sel.snapshot(), names = new Map(), r = B.claude.reader(), still = () => S === s && !over;
+    let queue = Promise.resolve(), n = 0, over = false;
+    const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const grow = (inks) => new Promise((done) => {
+      const full = inks.map((it) => it.pts), most = Math.max(...full.map((p) => p.length)), ms = calm() ? 0 : Math.min(700, 120 + most * 3), t0 = performance.now();
+      const frame = (t) => {
+        const f = !still() || !ms ? 1 : Math.min(1, (t - t0) / ms);
+        inks.forEach((it, i) => { it.pts = f >= 1 ? full[i] : full[i].slice(0, Math.max(2, Math.ceil(full[i].length * f))); it.path = null; it.box = null; });
+        if (S === s) paint();
+        if (f >= 1) done(); else requestAnimationFrame(frame);
+      };
+      frame(t0);
+    });
+    const one = (step) => { queue = queue.then(async () => {
+      if (!still()) return;
+      const got = B.claude.apply(s.model, step, names);
+      if (!got) return;
+      n++;
+      s.pick = s.pick.filter((it) => s.model.items.includes(it));
+      const inks = got.added.filter((it) => it.k === "ink");
+      if (inks.length) await grow(inks); else { paint(); await new Promise((res) => setTimeout(res, calm() ? 0 : 60)); }
+      changed();
+    }); };
+    return {
+      feed: (text) => r.feed(text).forEach(one),
+      end(cut = false) {
+        if (cut) over = true; else r.end().forEach(one);
+        return queue.then(() => { over = true; if (S === s && n) { sel.commitSince(before); paint(); } return n; });
+      },
+    };
+  }
+  const claude = {
+    job: null, // the answer coming in: { id, ai, steps, s }
+    typed: "", // what was typed into the field, kept until it was asked
+    pt: null, // where the right button was pressed, when it was asked from its menu
+    on: () => !!(S && !S.readonly && core.ai && core.ai.on && core.ai.on()),
+    open(anchor = null, pt = null) {
+      if (!claude.on()) return;
+      claude.pt = pt ? onBoard(pt) : null;
+      menu("ask", anchor || el.querySelector('[data-do="claude"]'), true);
+    },
+    async go() {
+      const input = vpop().querySelector(".bd-ask-input"), text = (input ? input.value : claude.typed).trim();
+      if (!text) { if (input) { input.focus(); input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); } return; }
+      if (claude.job || !claude.on()) return;
+      menu(null);
+      const s = S, board = aiBoard(claude.pt);
+      busy(true);
+      let ai = null, picture = "";
+      try { [ai, picture] = await Promise.all([core.ai.load(), aiPicture().catch(() => "")]); } catch (e) { /* (ai.js could not be loaded) */ }
+      if (S !== s) return;
+      if (!ai || !ai.ask) { busy(false); return chip(T("board.ask.failed"), true); }
+      claude.typed = "";
+      const steps = aiSteps(s);
+      const job = { ai, steps, s };
+      job.id = ai.ask("board", { board, picture, instruction: text }, (piece) => steps.feed(piece), async (whole, error) => {
+        const n = await steps.end();
+        if (claude.job === job) { claude.job = null; busy(false); }
+        if (S !== s) return;
+        const words = B.claude.words(whole);
+        if (error) chip(error === "AI is turned off in the settings" ? T("board.ask.off") : error, true);
+        else chip(n ? (words ? words.split("\n")[0].slice(0, 160) : T("board.ask.done", n)) : words.slice(0, 200) || T("board.ask.none"), !n && !words);
+        clearTimeout(claude.said);
+        claude.said = setTimeout(() => { if (S === s && !claude.job) chip(""); }, 8000);
+      });
+      claude.job = job;
+    },
+    stop() {
+      const job = claude.job;
+      if (!job) return;
+      claude.job = null;
+      job.ai.stop(job.id);
+      job.steps.end(true).then((n) => { if (S === job.s) chip(n ? T("board.ask.stopped", n) : ""); });
+      busy(false);
+    },
+  };
+  /* While Claude draws: its button is one to stop it, and the title says so. */
+  function busy(on) {
+    const b = el.querySelector('[data-do="claude"]');
+    b.innerHTML = on ? I.stop : I.spark;
+    b.title = T(on ? "board.claude.stop" : "board.claude"); b.setAttribute("aria-label", b.title);
+    b.toggleAttribute("data-busy", on);
+    el.toggleAttribute("data-claude", on);
+    clearTimeout(claude.said);
+    chip(on ? T("board.ask.busy") : "");
+  }
+  B.claudeChat = {
+    /* For the chat (ai.js), while a board is open: what to tell Claude of it, and its steps done as they come. */
+    context: async () => (S && !S.readonly ? { board: aiBoard(), picture: await aiPicture().catch(() => "") } : null),
+    steps: () => (S && !S.readonly ? aiSteps(S) : null),
+  };
 
   // ---------------------------------------------------------------- changes, and taking them back
   function changed() {
@@ -1094,6 +1226,7 @@
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
     if (mod && k === "q") return; // (the application's: it asks the page for what is unsaved, which leave() hands over)
     if (e.target.matches?.("input[type=text]")) return; // (a scene's name being typed: its own keys, and its field keeps them from the note)
+    if (e.target.closest?.("#ai-chat")) return; // (the chat over the board: what is typed there is the chat's)
     e.stopPropagation(); // nothing of this is the note's under the board
     if (!el.contains(e.target)) el.focus({ preventScroll: true }); // (the note took the keyboard back — after a button of the board was pressed, say: what is typed is not the note's)
     if (sel.editing || (e.target.isContentEditable && el.contains(e.target))) { // (text being typed: the keys are its own — but Esc ends it, and Tab goes on to a table's next cell)
@@ -1257,6 +1390,7 @@
   /* quick: no way back to watch (the note under the board is being left). */
   B.close = (quick = false) => {
     if (!S) return;
+    claude.stop(); // (what was drawn stays: it was kept as it came)
     if (S.act) cancel();
     sel.cancel(); sel.finish(); sel.closePop(); menu(null);
     save();
@@ -1307,7 +1441,7 @@
     inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(),
     kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
-    lost: S.model.lost } : null);
+    lost: S.model.lost, claude: { busy: !!claude.job, chip: el.querySelector(".bd-chip").hidden ? "" : el.querySelector(".bd-chip").textContent } } : null);
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
