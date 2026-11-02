@@ -614,7 +614,10 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
   typed in it are its own; a press on the board shuts it, one on the board's bars does not), is told the board as the
   field is, and what it answers with steps is done on the board as well — the chat says how many
-  and shows no steps as text. Not on a board that is only shown, and not where AI is off.
+  and shows no steps as text. What is asked in the board's field goes into the chat's conversation too (marked as asked
+  on the board, with its answer and how many steps were drawn), so the chat knows it when asked on; a board open with no
+  note on screen — a notebook, a board from the folder's window — has a conversation of its own. Over a board the chat
+  draws whatever its mode (Edit is for a note's text), and its field asks what to draw. Not on a board that is only shown, and not where AI is off.
 
 ### Whiteboards
 

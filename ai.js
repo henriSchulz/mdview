@@ -35,6 +35,18 @@
   }
   function stop(id) { const j = jobs.get(id); if (!j) return; jobs.delete(id); post("ai-stop", { channel: j.channel }); }
   Ai.ask = ask; Ai.stop = stop; // (for the whiteboard's own question: board.js)
+  /* … and what was asked there and answered, into the document's conversation as though in the chat (Henri, 2026-11-02):
+   * the chat shows it, and what is asked in the chat next knows it. a: { text, error, drew } */
+  Ai.record = (question, a) => {
+    forNote();
+    const t = cur;
+    t.messages.push({ role: "user", text: String(question), ctx: [{ kind: "board", name: T("ai.ctx.board") }] });
+    t.messages.push(a.error ? { role: "assistant", text: "", error: String(a.error) } : { role: "assistant", text: String(a.text || ""), ...(a.drew ? { drew: a.drew } : {}) });
+    t.at = Date.now();
+    if (!talksAll.includes(t)) talksAll.unshift(t);
+    keep();
+    if (Ai.chat.open) drawAll();
+  };
   Ai.delta = (id, text) => { const j = jobs.get(id); if (j) j.onDelta(String(text || "")); };
   Ai.done = (id, text, error) => { const j = jobs.get(id); if (!j) return; jobs.delete(id); j.onDone(text == null ? null : String(text), error || null); };
   const noteName = () => String((core.current && core.current.name) || "").replace(/\.(md|markdown)$/i, "");
@@ -277,7 +289,8 @@
    * on it again (or come back to it), it shows the one begun there. Earlier ones are in the conversation history. */
   const byNote = new Map(); // path → the conversation in hand on that document (as long as the window is open)
   let curPath = null;
-  const pathNow = () => (core.current && core.current.path) || "";
+  // (the document whose conversation it is: the note on screen — or, with none, the whiteboard open by itself, a notebook)
+  const pathNow = () => (core.current && core.current.path) || (window.MdBoard && MdBoard.shown && MdBoard.claudeChat && MdBoard.claudeChat.ref()) || "";
   function forNote() {
     const path = pathNow();
     if (cur && path === curPath) return;
@@ -317,7 +330,7 @@
   const md = (text) => { try { return core.mdHtml(core.fenceSvg(text)); } catch (e) { return `<p>${esc(text)}</p>`; } };
   const SHEET = `<span class="ai-sheet" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`;
   const chipOf = (name, sub, more = "") => `<span class="ai-doc"${more}>${SHEET}<span class="ai-doc-text"><b>${esc(name)}</b><small>${esc(sub)}</small></span></span>`;
-  const subOf = (c) => T(c.kind === "folder" ? "ai.ctx.folder" : c.kind === "file" ? "ai.ctx.file" : c.kind === "doc" ? "ai.ctx.doc" : "ai.ctx.note");
+  const subOf = (c) => T(c.kind === "folder" ? "ai.ctx.folder" : c.kind === "file" ? "ai.ctx.file" : c.kind === "doc" ? "ai.ctx.doc" : c.kind === "board" ? "ai.ctx.boardSub" : "ai.ctx.note");
   /* One message of the conversation, as the window shows it. i: its place in the conversation (for the cards' buttons). */
   function htmlOf(m, i, live) {
     if (m.role === "user") return `<div class="ai-msg ai-user">${(m.ctx || []).map((c) => chipOf(c.name, subOf(c))).join("")}<div class="ai-said">${esc(m.text)}</div></div>`;
@@ -357,7 +370,7 @@
     mode.setAttribute("aria-pressed", String(editing));
     mode.innerHTML = (editing ? I.edit : I.chat) + `<span>${esc(T(editing ? "ai.mode.edit" : "ai.mode.ask"))}</span>`;
     mode.title = T(editing ? "ai.mode.edit.tip" : "ai.mode.ask.tip");
-    field.placeholder = T(editing ? "ai.chat.change" : "ai.chat.ask");
+    field.placeholder = T(window.MdBoard && MdBoard.shown && MdBoard.claudeChat ? "board.ask.what" : editing ? "ai.chat.change" : "ai.chat.ask"); // (over a board: what it draws, whatever the mode — #34)
     box.toggleAttribute("data-editing", editing);
     const model = (window.MdPrefs || {}).aiClaude || "";
     q(".ai-model:not(.ai-mode) span").textContent = T((MODELS.find(([k]) => k === model) || MODELS[0])[1]);
@@ -394,7 +407,9 @@
   async function say(text) {
     text = String(text || "").trim();
     if (!text || talking) return;
-    const edit = editing;
+    // (over a whiteboard Claude draws on it, whatever the mode: Edit is for a note's text — a notebook or a PDF has none, and
+    // the chat refused, its word about it under the board, the text left in the field: #34)
+    const B = window.MdBoard, onBoard = !!(B && B.shown && B.claudeChat), edit = editing && !onBoard;
     if (edit && !active()) { // (the note is changed where it is written: the active mode)
       if (!core.current || core.current.readonly || core.current.kind === "pdf") return core.toast(T("ai.noEdit"));
       window.MdView.setMode("active");
@@ -412,7 +427,7 @@
     if (A && useDoc) { const r = chosen(A.view.pm, false); if (r) selection = A.clip.markdownOf(A.view.pm.state, A.view.pm.state.doc.slice(r.from, r.to)); }
     const t = (talking = { id: null, talk: mine, text: "", el: null });
     // (a whiteboard open: what is on it goes along, and the steps Claude answers with are done on it as they come — board.js)
-    const B = window.MdBoard, board = B && B.shown && B.claudeChat ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
+    const board = onBoard ? await B.claudeChat.context() : null, steps = board ? B.claudeChat.steps() : null;
     if (talking !== t) return;
     t.id = ask("chat", { ...(board || {}), edit, where: useDoc ? core.ai.where().join(" › ") : "", note: useDoc ? core.ai.fileText() : "", name: useDoc ? name : "", selection, context: extra.map((c) => ({ kind: c.kind, path: c.path })), messages: mine.messages.map((m) => ({ role: m.role, text: m.text || "" })).filter((m) => m.text) },
       (piece) => { t.text += piece; if (steps) steps.feed(piece); drawLive(); },

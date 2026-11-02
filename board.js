@@ -1233,6 +1233,7 @@
         if (claude.job === job) { claude.job = null; busy(false); }
         if (S !== s) return;
         const words = B.claude.words(whole);
+        if (error !== "stopped") ai.record?.(text, { text: whole, error, drew: n }); // (into the chat's conversation of this document)
         if (error) note(error === "AI is turned off in the settings" ? T("board.ask.off") : error, true);
         else note(n ? (words ? words.split("\n")[0].slice(0, 160) : T(n === 1 ? "board.ask.done.one" : "board.ask.done", n)) : words.slice(0, 200) || T("board.ask.none"), !n && !words);
         claude.said = setTimeout(() => { if (S === s && !claude.job) note(""); }, 8000);
@@ -1270,6 +1271,7 @@
     /* For the chat (ai.js), while a board is open: what to tell Claude of it, and its steps done as they come. */
     context: async () => (S && !S.readonly ? { board: aiBoard() + ((claude.prefs = claude.prefs || styleOf()), styleAsk()), picture: aiSees() ? await aiPicture().catch(() => "") : "" } : null),
     steps: () => (S && !S.readonly ? aiSteps(S) : null),
+    ref: () => (S ? (S.pdf ? S.pdf.path : S.ref) || null : null), // (the board's own document: a conversation of its own where no note is on screen)
   };
 
   // ---------------------------------------------------------------- changes, and taking them back
