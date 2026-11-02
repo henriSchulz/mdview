@@ -595,13 +595,14 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   a question mark — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
   or takes away the whole when asked. Texts, sticky notes, shapes, lines
   joined to things and tables only when they are asked for by name; and any thing on the board,
-  also what the user made, it may change, move or take away. What it does can be watched: the strokes come one after another at a hand's pace, words letter by letter, a point
+  also what the user made, it may change, move or take away. What it does can be watched as a pen draws: each stroke slower where it bends and quicker where it runs straight, the
+  pen's tip going through the air to the next one and resting a moment, longer where a word ends, a point
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
   motion is reduced). While it thinks, then draws, the button stops it and a line under it says so; what it said stands in that
   line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
   the empty board, shuts the field (and the chat). At the field's foot, beside the chat's button, three quiet pills say how Claude draws and writes, each with a small
-  menu of its choices (the one in use ticked), kept on the computer: the writing (print or script), the hand (careful,
-  natural, hurried) and with what (ink only, or shapes, texts and sticky notes too). Things chosen: their bar has Ask
+  menu of its choices (the one in use ticked), kept on the computer: the writing (drawn — Claude draws every letter itself as strokes, the default —, or print or script set in a pen's
+  font), the hand (careful, natural, hurried) and with what (ink only, or shapes, texts and sticky notes too). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys

@@ -204,7 +204,7 @@
   /* A stroke of the font made as a hand makes it (px, [[x, y]] → [[x, y, p]]): no corner quite sharp, the line wandering a
    * little and trembling less, its ends a touch long or short, its pressure rising as the pen comes down, varying on the way
    * and easing off as it leaves. mess: 0.5 careful … 1 as most write … 1.4 in a hurry. */
-  function hand(run, size, mess) {
+  function hand(run, size, mess, ends = true) {
     const len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0);
     // points every so far along it
     const step = Math.max(0.8, size / 28), even = [run[0]];
@@ -218,7 +218,7 @@
     for (let pass = 0; pass < 2; pass++) pts = pts.map((p, i) => (i === 0 || i === pts.length - 1 ? p : [(pts[i - 1][0] + 2 * p[0] + pts[i + 1][0]) / 4, (pts[i - 1][1] + 2 * p[1] + pts[i + 1][1]) / 4]));
     // a touch long or short at its ends: the pen overshoots, or lifts early
     const L = len(pts), tip = (a, b, by) => { const d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; return [a[0] + ((a[0] - b[0]) / d) * by, a[1] + ((a[1] - b[1]) / d) * by]; };
-    if (L > size * 0.3 && pts.length > 3) {
+    if (ends && L > size * 0.3 && pts.length > 3) {
       const end = shake(size * 0.05 * mess);
       if (end > 0) pts.push(tip(pts[pts.length - 1], pts[pts.length - 2], end)); else pts = pts.slice(0, Math.max(2, pts.length - Math.round((-end / L) * pts.length)));
       if (Math.random() < 0.5) { const start = Math.random() * size * 0.03 * mess; pts.unshift(tip(pts[0], pts[1], start)); }
@@ -310,7 +310,10 @@
         made.push(...write(step));
       } else if (k === "ink") {
         const runs = Array.isArray(step.pts) ? [step.pts.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))] : flatten(step.d);
-        for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? run : [run[0], run[0]], step));
+        // (Claude's own strokes, as a pen leaves them: the pressure rising, varying, easing off — and a hand's touch more of
+        // wandering where it was asked to write in a hurry; a straight stroke stays straight)
+        const pen = (run) => (step.sharp === true || run.length < 2 ? run : hand(run, 30, Number.isFinite(step.mess) ? step.mess * 0.3 : 0.3, false)); // (its ends where Claude put them: an arrow meets its point)
+        for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? pen(run) : [run[0], run[0]], step));
       } else {
         const o = { ...step, k, id: B.format.id() };
         delete o.add; delete o.as;

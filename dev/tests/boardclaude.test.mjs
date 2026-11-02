@@ -63,8 +63,10 @@ test("steps done on the board: things added as the file has them, a stroke from 
   C.apply(m, { set: "idea", text: "Better", size: 24, fill: "#bfe8b0" }, names);
   const st = m.items.find((it) => it.id === a.added[0].id);
   assert.deepEqual([st.text, st.ts.size, st.fill, st.ts.align], ["Better", 24, "#bfe8b0", "center"], "set changes only what it names");
+  const was = plain(ink[1].pts[0].slice(0, 2));
   C.apply(m, { move: ink[1].id, dx: 10, dy: -5 }, names);
-  assert.deepEqual(plain(ink[1].pts[0].slice(0, 2)), [60, -5]);
+  assert.ok(Math.abs(ink[1].pts[0][0] - was[0] - 10) < 0.15 && Math.abs(ink[1].pts[0][1] - was[1] + 5) < 0.15, "moved by dx, dy");
+  assert.ok(Math.abs(was[0] - 50) < 0.4 && Math.abs(was[1]) < 0.4, "a stroke begins where its path does (a pen's tremor aside): " + was);
   C.apply(m, { set: ink[1].id, c: "#1f6fe5", w: 6 }, names);
   assert.deepEqual([ink[1].c, ink[1].w], ["#1f6fe5", 6]);
   assert.ok(C.apply(m, { del: "c" }, names));
@@ -84,7 +86,8 @@ test("what Claude is told: where the window looks, the PDF's pages, each thing a
   assert.match(said, /page 1: -408, 0, 816, 1056/);
   assert.match(said, /"k":"text".*"text":"Title"/);
   const line = JSON.parse(said.split("\n").find((l) => l.includes('"k":"ink"')));
-  assert.deepEqual([line.tool, line.box.map(Math.round)], ["pen", [8, 8, 105, 55]], "the box around the points and the stroke's width");
+  assert.equal(line.tool, "pen");
+  assert.ok([8, 8, 105, 55].every((v, i) => Math.abs(line.box[i] - v) <= 2), "the box around the points and the stroke's width (as a pen leaves it): " + line.box);
   assert.ok(!("pts" in line), "a stroke's points are not told");
   assert.match(said, new RegExp(`Chosen by the user right now.*${ink.id}`));
   assert.match(C.describe(board()), /The board is empty/);

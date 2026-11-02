@@ -924,6 +924,7 @@
    * (quickly; at once where motion is reduced). All of them are one step back. end(cut): the answer is over — or stopped:
    * what is drawing is drawn whole, what was still to come is left. → how many steps were done */
   function aiSteps(s, first = null) {
+    claude.tip = null;
     const before = sel.snapshot(), names = new Map(), r = B.claude.reader(), still = () => S === s && !over;
     let queue = Promise.resolve(), n = 0, over = false;
     const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -934,23 +935,46 @@
     });
     // the pen's tip, where Claude draws now: a point of the ink's colour that goes with the stroke (board.css: .bd-claude-tip)
     const tip = el.querySelector(".bd-claude-tip");
-    const tipAt = (it, p) => { const v = S.view; tip.style.translate = `${(p[0] - v.x) * v.z}px ${(p[1] - v.y) * v.z}px`; tip.style.setProperty("--tip", it.c === "auto" ? auto() : it.c); tip.toggleAttribute("data-on", !calm()); };
+    const tipAt = (it, p, up = false) => { const v = S.view; tip.style.translate = `${(p[0] - v.x) * v.z}px ${(p[1] - v.y) * v.z}px`; tip.style.setProperty("--tip", it.c === "auto" ? auto() : it.c); tip.toggleAttribute("data-on", !calm()); tip.toggleAttribute("data-up", up); };
     /* Strokes drawn one after the other, each along its way at a hand's pace — handwriting a little slower, letter by letter —
      * however many: a step takes some six seconds at most. */
+    /* Strokes drawn as a pen draws them: along each, slower where it bends and quicker where it runs straight; between two,
+     * the tip goes through the air to where the next begins (no ink), resting a moment — longer where a word ends — and a
+     * long answer is drawn a little quicker, never so that it looks typed. lastTip: where the pen was, over the answer. */
     async function draw(inks) {
-      const full = inks.map((it) => it.pts), len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0) * S.view.z;
+      const z = S.view.z, full = inks.map((it) => it.pts);
       s.model.items = s.model.items.filter((it) => !inks.includes(it)); // (not there until their turn)
-      const lens = full.map(len), hand = inks[0].of ? 0.55 : 1.3, all = lens.reduce((a, b) => a + b, 0) / hand + inks.length * 30, speed = hand * Math.max(1, all / 6000);
+      // each point's moment along its stroke, in ms at a speed of 1 (screen px a ms), slower round a bend
+      const times = full.map((pts) => {
+        const out = [0];
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1], b = pts[i], c = pts[i + 1] || b, d = Math.hypot(b[0] - a[0], b[1] - a[1]) * z;
+          const t1 = Math.atan2(b[1] - a[1], b[0] - a[0]), t2 = Math.atan2(c[1] - b[1], c[0] - b[0]), bend = Math.abs(Math.atan2(Math.sin(t2 - t1), Math.cos(t2 - t1)));
+          out.push(out[i - 1] + d / (1 - 0.65 * Math.min(1, bend / 0.9)));
+        }
+        return out;
+      });
+      const hand = inks[0].of ? 0.5 : 0.9, air = 2.2; // (a writing hand is slower than a drawing one; through the air it is quick)
+      const total = times.reduce((a, t) => a + t[t.length - 1], 0) / hand + inks.length * 60, speed = hand * Math.max(1, total / 9000);
       for (let i = 0; i < inks.length; i++) {
-        const it = inks[i], pts = full[i];
+        const it = inks[i], pts = full[i], at = times[i], end = at[at.length - 1] / speed;
+        // through the air to where it begins
+        if (claude.tip && !calm()) {
+          const from = claude.tip, to = pts[0], far = Math.hypot(to[0] - from[0], to[1] - from[1]) * z;
+          if (far > 2) await frames(Math.min(320, Math.max(40, far / air)), (k) => { const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; tipAt(it, [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e], true); });
+          await wait(far > (inks[0].of ? 0.9 : 3) * (it.w || 3) * 10 * z ? 90 + Math.random() * 110 : 15 + Math.random() * 45); // (a word's end, or a lift of the pen)
+        }
         if (!s.model.items.includes(it)) s.model.items.push(it);
-        await frames(Math.min(900, Math.max(30, lens[i] / speed)), (k) => {
-          it.pts = k >= 1 ? pts : pts.slice(0, Math.max(2, Math.ceil(pts.length * k)));
+        await frames(Math.min(2400, Math.max(25, end)), (k) => {
+          const now = k * end * speed;
+          let n = 1;
+          while (n < at.length && at[n] <= now) n++;
+          it.pts = k >= 1 ? pts : pts.slice(0, Math.max(2, n));
           it.path = null; it.box = null;
           tipAt(it, it.pts[it.pts.length - 1]);
           if (S === s) paint();
         });
-        await wait(inks[0].of ? 18 : 40); // (the pen lifted)
+        claude.tip = pts[pts.length - 1];
       }
     }
     /* A thing put on the board: it grows into its place (its element, board/layer.js). */
@@ -989,7 +1013,7 @@
   }
   /* How Claude draws and writes, chosen in its card: the font of its handwriting, how careful the hand, and whether it may use
    * the board's things (texts, sticky notes, shapes, tables) besides ink. Kept on this computer. */
-  const STYLE = { font: ["hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"] };
+  const STYLE = { font: ["claude", "hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"] }; // (font "claude": Claude draws the letters itself)
   function styleOf() {
     let kept = {};
     try { kept = JSON.parse(localStorage.getItem("mdview:board-claude") || "{}") || {}; } catch (e) { /* (none kept, or no storage) */ }
@@ -1011,14 +1035,20 @@
     b.setAttribute("aria-expanded", "true");
   }
   /* What the style says to Claude, after what the user asked, and what it does to the steps themselves (aiSteps). */
-  const styleAsk = () => (claude.prefs.kit === "all" ? "\n\n(Texts, sticky notes, shapes, lines and tables may be used wherever they suit, besides ink.)" : "") + (claude.prefs.font === "script" ? "\n\n(Write in joined-up script: \"style\":\"script\".)" : "");
-  const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || p.font, mess: Number(p.mess) } : step; };
+  const styleAsk = () => {
+    const p = claude.prefs, how = { "0.55": "neatly, carefully", "1": "as people write notes", "1.4": "quickly, loosely, as in a hurry" }[p.mess];
+    return (p.kit === "all" ? "\n\n(Texts, sticky notes, shapes, lines and tables may be used wherever they suit, besides ink.)" : "") +
+      (p.font === "claude" ? `\n\n(Write every word yourself, by hand: strokes of ink ("add":"ink" with a "d" path) letter by letter, as a person writes with a pen — not the step "write". Write ${how}, and legibly: the user must read it. Small letters about 0.6 × a capital's height; the letters of a word close together on one line, joined where a hand joins them; most letters one stroke, some a few (t, f, k, x, the dot of an i). Put out the strokes of a word in the order they are written, left to right.)`
+        : `\n\n(Write words with the step "write"${p.font === "script" ? ', in joined-up script: "style":"script"' : ""}.)`);
+  };
+  const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || (p.font === "script" ? "script" : "hand"), mess: Number(p.mess) } : step.add === "ink" || step.add === "stroke" ? { ...step, mess: Number(p.mess) } : step; };
   const claude = {
     prefs: null, // (styleOf(), when first asked for)
     job: null, // the answer coming in: { id, ai, steps, s }
     typed: "", // what was typed into the field, kept until it was asked
     pt: null, // where the right button was pressed, when it was asked from its menu
     note: "", // what the title says of Claude now: that it draws, what it said, why it could not
+    tip: null, // where Claude's pen was last: the next stroke is reached through the air from there
     on: () => !!(S && !S.readonly && core.ai && core.ai.on && core.ai.on()),
     /* anchor: the button it was asked from — pressed again, it shuts the field and the chat (Henri, 2026-11-02); none: the
      * right button's menu, at pt. */

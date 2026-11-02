@@ -34,16 +34,18 @@
     btn().click();
     const pop = () => el().querySelector(".bd-vpop"), input = () => pop().querySelector(".bd-ask-field");
     ok("its field opens under it, the keys in it", await until(() => pop().hasAttribute("data-open") && input() && document.activeElement === input(), 2000), pop().dataset.kind);
-    input().value = REAL ? (pdf ? "Underline the title of the first page in red and write a short note beside it" : "Draw a little house with a tree beside it, as a quick sketch") : "Draw a house";
+    input().value = REAL ? (pdf ? "Underline the title of the first page in red and write a short note beside it" : "Draw a little house with a tree beside it, as a quick sketch, and write Mein Haus under it") : "Draw a house";
     input().dispatchEvent(new Event("input", { bubbles: true }));
     ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
     // (the style: a pill for each — writing, hand, with what —, each a small menu; what is chosen is said on its pill and kept)
     ok("the card's foot: Chat and three pills of the style", pop().querySelectorAll(".bd-ask-pill").length === 3 && !!pop().querySelector('[data-m="ask-chat"]'), pop().querySelector(".bd-ask-foot")?.textContent);
     pop().querySelector('.bd-ask-pill[data-k="font"]').click();
-    ok("the writing's pill opens its menu: print, script, the one in use ticked", await until(() => pop().querySelector(".bd-ask-menu[data-open]") && pop().querySelectorAll(".bd-ask-menu button").length === 2 && pop().querySelectorAll('.bd-ask-menu [aria-checked="true"]').length === 1, 1000), pop().querySelector(".bd-ask-menu")?.outerHTML.slice(0, 200));
+    ok("the writing's pill opens its menu: drawn, print, script, the one in use ticked", await until(() => pop().querySelector(".bd-ask-menu[data-open]") && pop().querySelectorAll(".bd-ask-menu button").length === 3 && pop().querySelectorAll('.bd-ask-menu [aria-checked="true"]').length === 1, 1000), pop().querySelector(".bd-ask-menu")?.outerHTML.slice(0, 200));
     out("styling", {}); await sleep(900);
-    pop().querySelector('.bd-ask-menu [data-v="script"]').click();
-    ok("… Script chosen: the menu shuts, the pill says it, it is kept, the field keeps the keys", !pop().querySelector(".bd-ask-menu[data-open]") && /Script/.test(pop().querySelector('.bd-ask-pill[data-k="font"]').textContent) && /script/.test(localStorage.getItem("mdview:board-claude") || "") && document.activeElement === input(), [pop().querySelector('.bd-ask-pill[data-k="font"]').textContent, localStorage.getItem("mdview:board-claude")]);
+    // (real: Claude draws its letters itself — the writing in its own hand; else a font's, to see it chosen)
+    const font = REAL ? ["claude", /Drawn/] : ["script", /Script/];
+    pop().querySelector(`.bd-ask-menu [data-v="${font[0]}"]`).click();
+    ok("… a writing chosen: the menu shuts, the pill says it, it is kept, the field keeps the keys", !pop().querySelector(".bd-ask-menu[data-open]") && font[1].test(pop().querySelector('.bd-ask-pill[data-k="font"]').textContent) && (localStorage.getItem("mdview:board-claude") || "").includes(font[0]) && document.activeElement === input(), [pop().querySelector('.bd-ask-pill[data-k="font"]').textContent, localStorage.getItem("mdview:board-claude")]);
     out("asking", {}); await sleep(900);
     const before = st();
     input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
