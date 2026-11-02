@@ -76,6 +76,23 @@ test("typed in the active mode: a draft at once, a commit a little later, by thi
   assert.equal(gh.commits.length, 1);
 });
 
+test("the panel at the right, closed again: a click where it was reaches the note, not its tiles (#18)", async () => {
+  await open("Alpha.md");
+  await page.evaluate(() => MdView.setMode("active"));
+  await page.waitForFunction(() => document.body.dataset.view === "active" && window.MdActive && MdActive.view && MdActive.view.pm && MdActive.panel, null, { timeout: 15000 });
+  for (const tab of ["insert", "format", "style"]) {
+    await page.evaluate((t) => { MdActive.panel.show(true); MdActive.panel.setTab(t); }, tab);
+    await page.waitForTimeout(600);
+    const at = await page.evaluate(() => { const r = document.querySelector("#rpanel").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 3 }; });
+    assert.ok(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest("#rpanel"), at), `${tab}: open, the panel is there`);
+    await page.evaluate(() => MdActive.panel.show(false));
+    await page.waitForTimeout(800);
+    const hit = await page.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return e?.closest("#rpanel") ? e.className || e.tagName : null; }, at);
+    assert.equal(hit, null, `${tab}: closed, a click where it was still lands on it`);
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll("#rpanel *")].some((e) => getComputedStyle(e).visibility === "visible")), false, `${tab}: closed, nothing of it is still there to be clicked or tabbed to`);
+  }
+});
+
 const PDF = readFileSync(join(web, "..", "dev", "tests", "tauri-check", "paper.pdf"));
 const para = (n) => Array.from({ length: 60 }, (_, i) => `Paragraph ${i + 1} of ${n}, long enough to wrap a little in a half of the window: ${"words ".repeat(14)}`).join("\n\n");
 

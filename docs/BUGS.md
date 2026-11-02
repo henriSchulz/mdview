@@ -68,6 +68,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     layout and tells the host nothing; nothing is scanned or sent for a sidebar shown or hidden.
     `rig.sh sidebar` measures the room made, the click's time, the peek at the edge and the button.
 
+91. **What is shown inside something that hides is `visibility: inherit`, never `visible`.** A
+    child that says `visible` stays there — invisible by its parent's `opacity: 0`, but clicked —
+    when the parent turns `hidden`: the panel at the right, closed, still took the clicks on its
+    tab (#18). The parent's `visibility` hides all of it only if no child sets its own.
+    `web/test/write.test.mjs` ("the panel at the right, closed again") clicks where it was.
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that
