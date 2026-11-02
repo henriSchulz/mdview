@@ -499,6 +499,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     text of another size gets a line of that text's size (an empty letter gives it the baseline) and sits in its middle
     (look.css, `.ov-sep`). `explorer.test.mjs` (#20) measures the chevron against the name's letters.
 
+94. **What hides under All Notes does not hide over a whiteboard opened from it** (#31, Henri: „das KI chatfenster öffnet
+    im notebook nicht“). A notebook opened from a folder's window, no note in it, lies over All Notes; the rule that keeps the
+    chat out of All Notes (`body[data-overview] #ai-chat { display: none }`, narrow.css) hid it there too — it was open,
+    and not to be seen. A rule for All Notes leaves out `:has(#board[data-open])`. `rig.sh board-ai` opens the notebook from
+    the folder's window and wants the chat seen (its size), not only open.
+
 ### Touch (iPad)
 
 24. **Chromium hands a touch near a small target to that target**: decide by

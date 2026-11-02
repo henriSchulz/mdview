@@ -170,6 +170,6 @@ body[data-ai] #ai-bubble { display: grid; }
 body[data-ai-chat] #ai-bubble { background: var(--accent); color: #fff; }
 body:not([data-ai]) [data-needs-ai] { display: none !important; }
 /* (not over what fills the window, nor on paper) */
-body[data-overview] #ai-bubble, body[data-overview] #ai-chat { display: none; }
+body[data-overview] #ai-bubble, body[data-overview]:not(:has(#board[data-open])) #ai-chat { display: none; } /* (but over a whiteboard opened from All Notes — a notebook from the folder's window — the chat is the board's: #31) */
 @media print { #ai-bubble { display: none !important; } }
 @media (max-width: 640px) { #ai-bubble { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 12px; } }

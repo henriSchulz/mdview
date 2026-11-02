@@ -18,7 +18,9 @@
     const B = () => window.MdBoard, st = () => B() && B().shown && B().state(), el = () => document.getElementById("board");
     // (a notebook, a whiteboard's file opened by itself: its board opens with it)
     // (the rig's third file: a notebook beside the note — opened as the sidebar opens one, over the window)
-    const heft = window.__boardAiBook && String(window.MdView?.core?.current?.path || "").replace(/[^/]*$/, "Heft.board.svg");
+    // (the folder's window, no note in it — All Notes under the notebook, as when it is opened from the sidebar: #31)
+    if (window.__boardAiBook) await until(() => window.MdView?.core?.folder?.root, 8000);
+    const heft = window.__boardAiBook && MdView.core.folder.root + "/Heft.board.svg";
     if (heft) MdPage.openBoardFile(heft);
     const book = !!heft && await until(() => B() && B().shown && B().state().book, 15000);
     o.opened = { path: String(window.MdView?.core?.current?.path || ""), shown: !!(B() && B().shown), book: B() && B().shown ? B().state().book : null };
@@ -103,7 +105,7 @@
     await until(() => pop().hasAttribute("data-open"), 2000);
     pop().querySelector('[data-m="ask-chat"]').click();
     const chat = () => document.getElementById("ai-chat");
-    ok("Talk about it in the Chat: the chat opens over the board", await until(() => window.MdAi && MdAi.chat.open && chat() && Number(getComputedStyle(chat()).zIndex) > Number(getComputedStyle(el()).zIndex), 4000), chat() && getComputedStyle(chat()).zIndex);
+    ok("Talk about it in the Chat: the chat opens over the board, and is seen", await until(() => window.MdAi && MdAi.chat.open && chat() && Number(getComputedStyle(chat()).zIndex) > Number(getComputedStyle(el()).zIndex) && chat().getBoundingClientRect().width > 200, 4000), chat() && [getComputedStyle(chat()).zIndex, getComputedStyle(chat()).display, chat().getBoundingClientRect().width]);
     await sleep(400);
     const field = chat().querySelector(".ai-field"), kind = st().kind;
     field.focus();
