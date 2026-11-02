@@ -24,6 +24,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/commands.test.mjs` | keys and commands with the Markdown expected afterwards; escaping; random sequences of edits (`MDVIEW_FUZZ=200` for more rounds) |
 | `tests/docpanel.test.mjs` | the panel's Document tab: a note counted (words, characters, blocks …), a property written into the frontmatter with the rest of the file as it was, a note's own ground and width read |
 | `tests/islands.test.mjs` | code blocks, formulas and frontmatter taken apart for their dialogs and put together again |
+| `tests/dialogwidth.test.mjs` | a block's dialog is as wide as the page, whatever the block's width; an inline formula's keeps its own (#25) |
 | `tests/tables.test.mjs` | cells edited in place, the table's own formatting kept, keys, rows and columns |
 | `tests/notes.test.mjs` | footnote definitions found and written back, a new note |
 | `tests/clip.test.mjs` | Markdown pasted keeps its spelling, HTML reduced to Markdown, copy |

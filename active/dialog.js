@@ -445,13 +445,20 @@
   const title = dlg.querySelector("#dlg-title"), tools = dlg.querySelector(".dlg-tools"), body = dlg.querySelector(".dlg-body"), info = dlg.querySelector(".dlg-info");
   let open = null; // { anchor, done, cancel, … } while a dialog is up
 
-  /* A dialog that edits a block stands over it exactly as wide as it is: the block's left and right edges are the
-   * dialog's (Henri: "genau so breit wie die Codebox selbst" — in a dialog of its own width the lines of a wide code
-   * block were cut off and scrolled). A width kept from the corner does not count here; a block narrower than a
-   * dialog can be has one as narrow as it can be, over the block's middle; the window's edges hold it. A dialog
-   * without a block (an inline formula, Transform with AI) keeps its own width, in the middle of the window. */
+  /* A dialog that edits a block is exactly as wide as the page the note is on: the sheet's left and right edges
+   * (inside its border) are the dialog's, whatever the block's own width (#25, Henri: "dass das Modal einfach immer
+   * genau so breit sein soll wie die Page" — a short code block's dialog was as narrow as the block). A block outside
+   * a page stands for its own edges. A width kept from the corner does not count here; a page narrower than a dialog
+   * can be has one as narrow as it can be, over its middle; the window's edges hold it. A dialog without a block (an
+   * inline formula, Transform with AI) keeps its own width, in the middle of the window. */
   const EDGE = 8, NARROWEST = 380;
-  const blockOf = (anchor) => (anchor && anchor.isConnected && !/^inline/.test(getComputedStyle(anchor).display) ? anchor.getBoundingClientRect() : null);
+  function pageOf(block) {
+    const p = block.closest("#active, #content, #editor");
+    if (!p) return null;
+    const r = p.getBoundingClientRect(), s = p.offsetWidth ? r.width / p.offsetWidth : 1; // (s: the note's zoom)
+    return { left: r.left + p.clientLeft * s, width: p.clientWidth * s };
+  }
+  const blockOf = (anchor) => (anchor && anchor.isConnected && !/^inline/.test(getComputedStyle(anchor).display) ? pageOf(anchor) || anchor.getBoundingClientRect() : null);
   function place(anchor) {
     const a = blockOf(anchor);
     if (!a || !a.width) {

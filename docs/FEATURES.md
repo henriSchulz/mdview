@@ -865,8 +865,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   be dragged to move it.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket
   matching, `Ctrl+F`, LaTeX completion) and a live preview for formulas, Mermaid and SVG.
-  The dialog grows out of the block and stands over it exactly as wide as it is — the block's
-  left and right edges are its own (no narrower than 380 px, never past the window's edges); its
+  The dialog grows out of the block and stands over it exactly as wide as the page the note is
+  on — the sheet's left and right edges are its own, however narrow the block (no narrower than
+  380 px, never past the window's edges); its
   corner pulls it higher (kept for all dialogs) and wider to the right (for this time only).
   Code beside its picture (SVG, Mermaid) stands one above the other in a dialog under 640 px.
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work
