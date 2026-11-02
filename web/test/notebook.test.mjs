@@ -247,3 +247,31 @@ test("a page is put in before or after another, or deleted, from its menu — wh
   await until(() => head().paper && head().paper.n === n0, "kept as it was after the steps back", 8000);
   assert.deepEqual(problems, []);
 });
+
+test("Claude's steps in a notebook: what it writes below the last page gets pages (#32), what it takes away fades out at once, not stroke by stroke (#33)", async () => {
+  if (await page.evaluate(() => MdBoard.shown)) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 }); }
+  await page.evaluate((p) => MdPage.openBoardFile(p), `${R}/Heft.board.svg`);
+  await boardOpen();
+  await page.waitForFunction(() => MdBoard.state().book, null, { timeout: 8000 });
+  const pages = () => page.evaluate(() => MdBoard.state().book.pages), n0 = await pages(), items0 = await page.evaluate(() => MdBoard.state().items);
+  const lastBottom = await page.evaluate(() => { const s = [...document.querySelectorAll("#board .bd-sheet")].at(-1); return s.offsetTop + s.offsetHeight; });
+  // written far below the last page: pages enough for it, and one step back takes the writing and the pages away
+  await page.evaluate((y) => { const st = MdBoard.claudeChat.steps(); st.feed(`<board>\n{"add":"write","x":-300,"y":${y},"text":"Weiter unten","size":28}\n</board>\n`); return st.end(); }, lastBottom + 1600);
+  assert.equal(await pages(), n0 + 2, "two pages more: the writing lies on the second of them");
+  await page.keyboard.press("Control+z");
+  assert.equal(await pages(), n0, "a step back: the pages go with it");
+  assert.equal(await page.evaluate(() => MdBoard.state().items), items0);
+  // a word of three strokes, then taken away: all three fade together, and go together
+  await page.evaluate(() => { const st = MdBoard.claudeChat.steps(); st.feed('<board>\n{"add":"ink","as":"w","d":"M 0 200 L 10 230 L 20 200 M 30 200 L 30 230 M 40 200 C 50 190, 60 210, 70 200"}\n</board>\n'); return st.end(); });
+  assert.equal(await page.evaluate(() => MdBoard.state().items), items0 + 3);
+  const seen = await page.evaluate(async () => {
+    const counts = new Set();
+    const st = MdBoard.claudeChat.steps(), ids = await MdBoard.claudeChat.context().then((c) => [...c.board.matchAll(/\{"id":"([a-z0-9]+)","k":"ink","strokes":3/g)].map((m) => m[1]));
+    let on = true; const watch = () => { counts.add(MdBoard.state().items); if (on) requestAnimationFrame(watch); }; watch();
+    st.feed(`<board>\n{"del":"${ids[0]}"}\n</board>\n`);
+    await st.end(); on = false; counts.add(MdBoard.state().items);
+    return [...counts];
+  });
+  assert.deepEqual(seen.sort(), [items0, items0 + 3].sort(), `three, then none of them — never one by one: ${seen}`);
+  assert.deepEqual(problems, []);
+});

@@ -31,7 +31,7 @@
     if (o.view) out.push(`The window shows x ${Math.round(o.view[0])} to ${Math.round(o.view[0] + o.view[2])}, y ${Math.round(o.view[1])} to ${Math.round(o.view[1] + o.view[3])}.`);
     if (o.pages && o.pages.length) {
       const n = `${o.pages.length} page${o.pages.length === 1 ? "" : "s"}`;
-      out.push(o.paper ? `The board is a notebook of ${n} of ${o.paper.bg === "blank" ? "blank" : o.paper.bg} paper (${o.paper.color}), A4, one under the other; write and draw on the pages, within their margins, as on paper. Each page as a box on the board (x, y, width, height):`
+      out.push(o.paper ? `The board is a notebook of ${n} of ${o.paper.bg === "blank" ? "blank" : o.paper.bg} paper (${o.paper.color}), A4, one under the other; write and draw on the pages, within their margins, as on paper; what goes on below the last page gets pages of its own — write on, page after page, as long as the content needs. Each page as a box on the board (x, y, width, height):`
         : `The board lies over a PDF of ${n}; each page as a box on the board (x, y, width, height):`);
       for (const p of o.pages.slice(0, 400)) out.push(`page ${p.n}: ${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.w)}, ${Math.round(p.h)}`);
     }
@@ -316,6 +316,8 @@
         // wandering where it was asked to write in a hurry; a straight stroke stays straight)
         const pen = (run) => (step.sharp === true || run.length < 2 ? run : hand(run, 30, Number.isFinite(step.mess) ? step.mess * 0.3 : 0.3, false)); // (its ends where Claude put them: an arrow meets its point)
         for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? pen(run) : [run[0], run[0]], step));
+        // (the strokes of one step — a word Claude wrote itself, a drawing's part — are one thing to it: told once, taken away at once, #33)
+        if (made.length > 1) { const of = B.format.id(); for (const it of made) it.of = of; }
       } else {
         const o = { ...step, k, id: B.format.id() };
         delete o.add; delete o.as;
@@ -332,8 +334,8 @@
       items.push(...made);
       return { added: made, changed: [], removed: [] };
     }
-    if (typeof step.del === "string") {
-      const gone = every(step.del);
+    if (typeof step.del === "string" || Array.isArray(step.del)) { // (several at once: one step, gone together — #33)
+      const gone = [...new Set((Array.isArray(step.del) ? step.del : [step.del]).flatMap((v) => every(v)))];
       if (!gone.length) return null;
       model.items = items.filter((x) => !gone.includes(x));
       return { added: [], changed: [], removed: gone };

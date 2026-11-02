@@ -132,3 +132,31 @@ test("handwriting never writes a \"?\" for a sign it has not: accents are letter
   assert.equal(n("😀"), 0, "an emoji: nothing — and no question mark");
   assert.equal(n("a 😀 b"), n("ab"), "… around it, the words as they are");
 });
+
+// #33: what Claude takes away goes in one step — a list of ids, or a group of strokes by one name — not stroke by stroke
+test("taken away at once: a del of several ids, and the strokes of one step are one group (told once, gone with one del)", () => {
+  const m = board(), names = new Map();
+  for (const [as, x] of [["a", 0], ["b", 200], ["c", 400]]) C.apply(m, { add: "shape", shape: "rect", as, x, y: 0, w: 100, h: 80 }, names);
+  const got = C.apply(m, { del: ["a", "c"] }, names);
+  assert.equal(got.removed.length, 2);
+  assert.deepEqual(plain(m.items.map((it) => it.k)), ["shape"]);
+  // a word Claude wrote itself: one ink step of several strokes — one thing to it
+  const word = C.apply(m, { add: "ink", as: "w", d: "M 0 200 L 10 230 L 20 200 M 30 200 L 30 230 M 40 200 C 50 190, 60 210, 70 200" }, names);
+  assert.equal(word.added.length, 3);
+  assert.equal(new Set(word.added.map((it) => it.of)).size, 1, "the strokes share one group");
+  const told = C.describe(m).split("\n").filter((l) => l.includes('"k":"ink"'));
+  assert.equal(told.length, 1, "told as one");
+  assert.match(told[0], /"strokes":3/);
+  assert.equal(C.apply(m, { del: "w" }, names).removed.length, 3, "one del takes all of it");
+  assert.equal(m.items.filter((it) => it.k === "ink").length, 0);
+  // a single stroke stays a stroke of its own
+  const one = C.apply(m, { add: "ink", d: "M 0 0 L 50 50" }, names);
+  assert.equal(one.added[0].of, undefined);
+});
+
+// #32: a notebook is told that it grows — a long study sheet is written on, page after page
+test("a notebook is told to Claude as one that grows: what goes on below the last page gets pages", () => {
+  const told = C.describe(board(), { pages: [{ n: 1, x: -397, y: 0, w: 794, h: 1123 }], paper: { bg: "grid", color: "white", size: "a4", n: 1 } });
+  assert.match(told, /notebook of 1 page/);
+  assert.match(told, /below the last page gets pages of its own/);
+});

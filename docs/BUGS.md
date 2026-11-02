@@ -96,6 +96,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     where the folder is linked (`history.linked`), not where the two sides have been reconciled
     (`history.sync`: nothing until the first answer, half a minute after a start or longer).
 
+95. **What Claude draws costs what it writes, and it is told what is wanted at length** (#32, #33). Every
+    letter Claude draws itself is a path of points it writes out: a study sheet in drawn letters took 22 000
+    tokens and three minutes for one page, and a large one ran into the limit and broke off — so long text goes
+    as the step "write" (the app's hand draws it), drawn letters only for titles and labels. A board's own
+    prompt (`ai.rs`) said "within the part the window shows", and a notebook could not grow: a "large" sheet came
+    as one squeezed page. Say how much is meant (pages, lines), let the content run on below, and give a
+    notebook the pages it writes on. What it takes away is one step and fades out together (`{"del":[…]}`, the
+    strokes of one step one group) — never stroke by stroke. Checks: `dev/tests/boardclaude.test.mjs`,
+    `web/test/notebook.test.mjs`; the real model measured by hand (`claude -p` with the board's prompt).
+
 ### Markdown that is rendered somewhere new
 
 8. **Use the reading view's renderer** (`core.mdHtml` / `core.mdInto`) for anything that shows

@@ -1041,6 +1041,7 @@
   function aiSteps(s, first = null) {
     claude.tip = null;
     const before = sel.snapshot(), names = new Map(), r = B.claude.reader(), still = () => S === s && !over;
+    const pages0 = s.book ? s.model.board.paper.n : 0; // (a notebook's pages before: what the answer writes below the last one gets pages of its own)
     let queue = Promise.resolve(), n = 0, over = false;
     const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const wait = (ms) => new Promise((res) => setTimeout(res, calm() || !still() ? 0 : ms));
@@ -1069,7 +1070,7 @@
         }
         return out;
       });
-      const hand = inks[0].of ? 0.5 : 0.9, air = 2.2; // (a writing hand is slower than a drawing one; through the air it is quick)
+      const hand = inks[0].said != null ? 0.5 : 0.9, air = 2.2; // (a writing hand is slower than a drawing one; through the air it is quick)
       const total = times.reduce((a, t) => a + t[t.length - 1], 0) / hand + inks.length * 60, speed = hand * Math.max(1, total / 9000);
       for (let i = 0; i < inks.length; i++) {
         const it = inks[i], pts = full[i], at = times[i], end = at[at.length - 1] / speed;
@@ -1077,7 +1078,7 @@
         if (claude.tip && !calm()) {
           const from = claude.tip, to = pts[0], far = Math.hypot(to[0] - from[0], to[1] - from[1]) * z;
           if (far > 2) await frames(Math.min(320, Math.max(40, far / air)), (k) => { const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; tipAt(it, [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e], true); });
-          await wait(far > (inks[0].of ? 0.9 : 3) * (it.w || 3) * 10 * z ? 90 + Math.random() * 110 : 15 + Math.random() * 45); // (a word's end, or a lift of the pen)
+          await wait(far > (inks[0].said != null ? 0.9 : 3) * (it.w || 3) * 10 * z ? 90 + Math.random() * 110 : 15 + Math.random() * 45); // (a word's end, or a lift of the pen)
         }
         if (!s.model.items.includes(it)) s.model.items.push(it);
         await frames(Math.min(2400, Math.max(25, end)), (k) => {
@@ -1092,6 +1093,28 @@
         claude.tip = pts[pts.length - 1];
       }
     }
+    /* What a step takes away, faded out together in a moment (its strokes and its things alike), then gone. was: the board's
+     * things before the step, in their order — they stand there while they fade. */
+    async function fadeOut(was, gone) {
+      if (calm() || !still()) return;
+      const after = s.model.items, inks = gone.filter((it) => it.k === "ink"), o0 = inks.map((it) => it.o);
+      const els = gone.filter((it) => it.k !== "ink").map((it) => el.querySelector(`.bd-item[data-id="${it.id}"]`)).filter(Boolean);
+      s.model.items = was;
+      tip.removeAttribute("data-on");
+      await frames(240, (k) => { const e = 1 - k * k; inks.forEach((it, i) => { it.o = o0[i] * e; }); for (const x of els) x.style.opacity = String(e); if (S === s) paint(); });
+      inks.forEach((it, i) => { it.o = o0[i]; }); // (as it was: a step back brings it as it was)
+      for (const x of els) x.style.opacity = "";
+      s.model.items = after;
+    }
+    /* A notebook: pages enough for what was just put below its last page (board/paper.js) — the answer writes on, page after page. */
+    function grow(added) {
+      const paper = s.model.board.paper;
+      let bottom = -Infinity;
+      for (const it of added) { const b = B.format.boundsOf(it); if (b && b[3] > bottom) bottom = b[3]; }
+      let n = paper.n;
+      while (n < B.paper.MAX) { const last = B.paper.pages({ ...paper, n }).pop(); if (last.y + last.h >= bottom) break; n++; }
+      if (n !== paper.n) { paper.n = n; pagesNow(); }
+    }
     /* A thing put on the board: it grows into its place (its element, board/layer.js). */
     function arrive(items) {
       if (calm()) return;
@@ -1100,8 +1123,11 @@
     }
     const one = (step) => { queue = queue.then(async () => {
       if (!still()) return;
+      const was = [...s.model.items];
       const got = B.claude.apply(s.model, styled(step), names);
       if (!got) return;
+      if (got.removed.length) await fadeOut(was, got.removed); // (taken away: all of it at once, fading — not stroke by stroke, #33)
+      if (s.book && got.added.length) grow(got.added);
       if (!n++ && first) first();
       s.pick = s.pick.filter((it) => s.model.items.includes(it));
       const inks = got.added.filter((it) => it.k === "ink"), things = got.added.filter((it) => it.k !== "ink");
@@ -1122,7 +1148,19 @@
       feed: (text) => r.feed(text).forEach(one),
       end(cut = false) {
         if (cut) over = true; else r.end().forEach(one);
-        return queue.then(() => { over = true; tip.removeAttribute("data-on"); if (S === s && n) { sel.commitSince(before); paint(); } return n; });
+        return queue.then(() => {
+          over = true; tip.removeAttribute("data-on");
+          if (S === s && n) {
+            sel.commitSince(before);
+            const pages1 = s.book ? s.model.board.paper.n : 0;
+            if (pages1 !== pages0 && S.undo.length) { // (the pages it took go with its step: one step back takes them away again)
+              const act = S.undo.pop(), at = (m) => () => { S.model.board.paper.n = m; pagesNow(); };
+              did({ undo: () => { act.undo(); at(pages0)(); }, redo: () => { act.redo(); at(pages1)(); } });
+            }
+            paint();
+          }
+          return n;
+        });
       },
     };
   }
@@ -1153,7 +1191,7 @@
   const styleAsk = () => {
     const p = claude.prefs, how = { "0.55": "neatly, carefully", "1": "as people write notes", "1.4": "quickly, loosely, as in a hurry" }[p.mess];
     return (p.kit === "all" ? "\n\n(Texts, sticky notes, shapes, lines and tables may be used wherever they suit, besides ink.)" : "") +
-      (p.font === "claude" ? `\n\n(Write every word yourself, by hand: strokes of ink ("add":"ink" with a "d" path) letter by letter, as a person writes with a pen — not the step "write". Write ${how}, and legibly: the user must read it. Small letters about 0.6 × a capital's height; the letters of a word close together on one line, joined where a hand joins them; most letters one stroke, some a few (t, f, k, x, the dot of an i). Put out the strokes of a word in the order they are written, left to right.)`
+      (p.font === "claude" ? `\n\n(Write every word yourself, by hand: strokes of ink ("add":"ink" with a "d" path) letter by letter, as a person writes with a pen — not the step "write". Write ${how}, and legibly: the user must read it. Small letters about 0.6 × a capital's height; the letters of a word close together on one line, joined where a hand joins them; most letters one stroke, some a few (t, f, k, x, the dot of an i). Put out the strokes of a word in the order they are written, left to right, a word in one step (one "d" of several M parts). This is for titles, headings, labels and short notes; text of more than a few lines — a study sheet's body, paragraphs, long lists — write with the step "write" instead, which the app writes by hand: so a large sheet is written whole, and soon.)`
         : `\n\n(Write words with the step "write"${p.font === "script" ? ', in joined-up script: "style":"script"' : ""}.)`);
   };
   const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || (p.font === "script" ? "script" : "hand"), mess: Number(p.mess) } : step.add === "ink" || step.add === "stroke" ? { ...step, mess: Number(p.mess) } : step; };
