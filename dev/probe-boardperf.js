@@ -75,15 +75,29 @@
     await sleep(800);
     // --- moved by a wheel (two fingers on a touchpad): a step a frame
     const wheel = (dy, ctrl = false) => stage.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: W / 2, clientY: H / 2, deltaY: dy, deltaX: 0, ctrlKey: ctrl }));
-    gaps = []; watching = true;
-    for (let i = 0; i < 90; i++) { wheel(i < 45 ? 12 : -12); await frame(); }
+    // (what the ink's picture shows in each frame of it, #35: how much of the window it leaves without ink, and how far it is shown
+    // from its own size — drawn only once the hand rested, a part moved into sight stayed empty, and a zoom blurred, till then)
+    let shown = [];
+    const look = () => {
+      const c = el().querySelector(".bd-ink"), r = c.getBoundingClientRect(), w = stage.getBoundingClientRect(), k = r.width / c.offsetWidth;
+      const iw = Math.max(0, Math.min(r.right, w.right) - Math.max(r.left, w.left)), ih = Math.max(0, Math.min(r.bottom, w.bottom) - Math.max(r.top, w.top));
+      shown.push({ bare: 1 - (iw * ih) / (w.width * w.height), off: Math.abs(Math.log(k)) });
+    };
+    const late = (what) => {
+      const bare = Math.max(...shown.map((f) => f.bare)), off = Math.max(...shown.map((f) => f.off)), stale = shown.filter((f) => f.bare > 0.005 || f.off > Math.log(1.15)).length;
+      ok(`${what}: the ink is in the whole window and near its own size in nearly every frame`, bare <= 0.02 && stale <= shown.length * 0.1, { frames: shown.length, stale, bare: Math.round(bare * 100) + " %", size: Math.round(Math.exp(off) * 100) + " %" });
+    };
+    gaps = []; shown = []; watching = true;
+    for (let i = 0; i < 90; i++) { wheel(i < 45 ? 12 : -12); await frame(); look(); }
     watching = false;
     o.numbers.pan = stat(gaps);
+    late("moved");
     await sleep(800);
-    gaps = []; watching = true;
-    for (let i = 0; i < 60; i++) { wheel(i < 30 ? -8 : 8, true); await frame(); }
+    gaps = []; shown = []; watching = true;
+    for (let i = 0; i < 60; i++) { wheel(i < 30 ? -8 : 8, true); await frame(); look(); }
     watching = false;
     o.numbers.zoom = stat(gaps);
+    late("zoomed");
     await sleep(800);
     // --- the same, the dots switched the other way (what the board's grid costs a frame)
     o.numbers.grid = st().grid !== undefined ? st().grid : document.querySelector("#board .bd-stage").hasAttribute("data-grid");
