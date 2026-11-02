@@ -29,6 +29,7 @@
     image: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="8.6" cy="10" r="1.6"/><path d="m4.5 17 4.6-4.2 3.4 3 2.6-2.2 4.4 3.9"/>'),
     plus: svg('<path d="M12 5.5v13M5.5 12h13"/>'),
     paper: svg('<rect x="5.5" y="3.5" width="13" height="17" rx="2"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5"/>'),
+    page: svg('<path d="M13.5 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5z"/><path d="M13.5 3.5v5h5M12 11.5v6M9 14.5h6"/>'),
     auto: svg('<path d="M5 14.5C4 9.5 7.5 5.5 12 5.5s7.5 3 7.5 6.6-3.2 6.4-7.4 6.4c-2.6 0-4.9-1-6.3-2.8" stroke-dasharray="2.8 2.4"/><path d="m3.5 11.2 1.5 3.3 3.2-1.6"/>'),
     eraseAll: svg('<path d="M4 15c2.8-7 4.8-7 6.6-2.4S14.6 17 19.5 7"/><path d="M5.5 5.5l13 13"/>'),
     erasePart: svg('<path d="M4 15c1.8-4.6 3.2-6.2 4.6-5.4M15 13.6c1.4-.4 2.8-2.6 4.5-6.6"/><circle cx="11.8" cy="12.4" r="2.6" stroke-dasharray="1.8 1.6"/>'),
@@ -193,7 +194,7 @@
   }
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
   const paged = () => S && (S.pdf || S.book); // (pages under the board: a PDF's, or a notebook's — paper.js)
-  const auto = () => (paged() ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on pages: ink for paper, whatever the theme)
+  const auto = () => (S && S.book ? B.paper.ink(S.model.board.paper) : paged() ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on pages: ink for paper, whatever the theme)
   const button = (name, key, more = "") => `<button type="button" class="bd-btn" data-do="${name}" title="${esc(T(key))}" aria-label="${esc(T(key))}"${more}>${I[name] || ""}</button>`;
   const DRAWS = ["pen", "mono", "marker", "pencil"], ALL = [...DRAWS, "eraser"];
   /* What the hand does on the board, chosen in the bar at the top: choose and move (lasso), draw (pen), rub out (eraser), put a
@@ -217,7 +218,7 @@
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
-      `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("more", "board.more")}</div>` +
+      `<div class="bd-bar bd-actions" role="toolbar">${button("page", "board.page.add")}<span class="bd-sep" data-for="book"></span>${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("more", "board.more")}</div>` +
       `<div class="bd-vpop ui-menu ui-popover" role="menu"></div>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
@@ -266,13 +267,14 @@
       if (b.dataset.ink) { hue(b.dataset.ink); return options(null); }
       if (b.dataset.w) return setWidth(Number(b.dataset.w));
       if (b.dataset.mode) return setErase(b.dataset.mode);
-      ({ back: () => B.close(), undo: () => step(-1), redo: () => step(1), fit: () => S.view.fit(bounds()), actual: () => { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, 1); },
+      ({ back: () => B.close(), page: () => addPage(), undo: () => step(-1), redo: () => step(1), fit: () => S.view.fit(bounds()), actual: () => { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, 1); },
         grid: () => { S.model.board.grid = !S.model.board.grid; changed(); paint(); } })[b.dataset.do]?.();
     });
     el.querySelector(".bd-file").addEventListener("change", (e) => { if (S && !S.readonly) put([...(e.target.files || [])]); });
     el.querySelector(".bd-pop").addEventListener("input", (e) => { if (S && e.target.matches("input[type=range]")) setOpacity(Number(e.target.value) / 100); else if (S && e.target.matches("input[type=color]")) hue(e.target.value); });
     // the options shut when anything beside them is touched
     el.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".bd-addpage")) e.stopPropagation(); // (the way to a page more, under the last one: a button, not the board — no stroke begins on it)
       if (popOpen() && !e.target.closest(".bd-pop, .bd-tool, .bd-hue, .bd-size-now, [data-fav]")) options(null);
       if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="plus"], [data-do="paper"]')) menu(null);
       if (S && sel.pending && !e.target.closest(".bd-cpop")) { delete el.querySelector(".bd-cpop").dataset.open; sel.connectTo(null); } // (no shape chosen for a connector's end: it ends where it was let go)
@@ -476,6 +478,7 @@
   /* Everything the window shows, from what is so. */
   function paint() {
     if (!S) return;
+    const fgInk = S.book ? B.paper.ink(S.model.board.paper) : "var(--fg)"; // (what "auto" is drawn in, shown in the wells: on a notebook's dark paper light)
     clearTimeout(rested); cancelAnimationFrame(slideFrame); slideFrame = 0;
     const v = S.view, st = stage(), s = size();
     B.ink.draw(el.querySelector(".bd-ink"), S.model.items, v, s, auto(), null);
@@ -505,12 +508,12 @@
     const shown = kind === "text" ? text.color : kind === "shape" ? drawn.c : strokes.length ? (strokes.every((it) => it.c === strokes[0].c) ? strokes[0].c : null) : (S.tools[S.pen] || {}).c;
     const mini = el.querySelector(".bd-shrunk"), inHand = kind === "pen" ? S.pen : kind;
     if (mini.dataset.shows !== inHand) { mini.dataset.shows = inHand; mini.innerHTML = kind === "pen" ? I[inHand] : I[KICON[kind]]; mini.toggleAttribute("data-flat", true); }
-    mini.style.setProperty("--band", !shown || shown === "auto" ? "var(--fg)" : shown);
-    el.querySelector(".bd-hue").style.setProperty("--ink", !shown || shown === "auto" ? "var(--fg)" : shown);
+    mini.style.setProperty("--band", !shown || shown === "auto" ? fgInk : shown);
+    el.querySelector(".bd-hue").style.setProperty("--ink", !shown || shown === "auto" ? fgInk : shown);
     for (const b of el.querySelectorAll("[data-tool]")) {
       b.setAttribute("aria-checked", String(b.dataset.tool === S.pen));
       const c = (S.tools[b.dataset.tool] || {}).c;
-      b.style.setProperty("--band", !c || c === "auto" ? "var(--fg)" : c);
+      b.style.setProperty("--band", !c || c === "auto" ? fgInk : c);
     }
     for (const b of el.querySelectorAll(".bd-palette [data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === S.tools.eraser.mode));
     for (const b of el.querySelectorAll("[data-form]")) b.setAttribute("aria-checked", String(b.dataset.form === form));
@@ -518,14 +521,14 @@
     for (const b of el.querySelectorAll(".bd-type [data-style]")) b.setAttribute("aria-pressed", String(!!text[b.dataset.style]));
     for (const b of el.querySelectorAll(".bd-type [data-align]")) b.setAttribute("aria-pressed", String(text.align === b.dataset.align));
     // how broad: the pen's line, the eraser, a shape's outline
-    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"), c = S.tools[S.pen].c; dot.style.width = dot.style.height = d + "px"; dot.style.setProperty("--d", d + "px"); dot.style.setProperty("--ink", !c || c === "auto" ? "var(--fg)" : c); }
+    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"), c = S.tools[S.pen].c; dot.style.width = dot.style.height = d + "px"; dot.style.setProperty("--d", d + "px"); dot.style.setProperty("--ink", !c || c === "auto" ? fgInk : c); }
     const sizes = el.querySelector(".bd-sizes"), list = kind === "shape" ? B.items.WIDTHS : kind === "eraser" ? B.ink.TOOLS.eraser.widths : B.ink.TOOLS[S.pen].widths, now = kind === "shape" ? drawn.w : kind === "eraser" ? S.tools.eraser.w : S.tools[S.pen].w, sig = list.join() + ":" + now;
     if (sizes.dataset.sig !== sig) {
       sizes.dataset.sig = sig;
       const most = Math.max(...list);
       sizes.innerHTML = list.map((w) => { const d = Math.max(3, Math.round((w / most) * 22)); return `<button type="button" class="bd-width" role="radio" data-w="${w}" aria-checked="${w === now}" aria-label="${w}"><i style="width:${d}px;height:${d}px"></i></button>`; }).join("");
     }
-    for (const b of el.querySelectorAll("[data-fav]")) { const c = favs[S.pen][Number(b.dataset.fav)]; b.style.setProperty("--ink", c === "auto" ? "var(--fg)" : c); b.dataset.ink = c; b.setAttribute("aria-checked", String(c === shown)); }
+    for (const b of el.querySelectorAll("[data-fav]")) { const c = favs[S.pen][Number(b.dataset.fav)]; b.style.setProperty("--ink", c === "auto" ? fgInk : c); b.dataset.ink = c; b.setAttribute("aria-checked", String(c === shown)); }
     st.dataset.tool = S.readonly ? "look" : S.kind === "lasso" ? "select" : S.kind === "text" || S.kind === "shape" ? S.kind : S.tool;
     const rule = el.querySelector(".bd-ruler"), ruled = !!S.ruler && S.mode === "draw" && !S.readonly;
     rule.hidden = !ruled;
@@ -766,9 +769,12 @@
     if (kind === "zoom") html = `<div class="bd-list">${B.view.STEPS.map((z) => row(`data-zoom="${z}"`, Math.round(z * 100) + " %", Math.abs(S.view.z - z) < 0.005)).join("")}<hr>${row('data-m="fit"', T("board.fit"))}${row('data-m="actual"', T("board.actual"))}</div>`;
     else if (kind === "more") html = `<div class="bd-list">${S.pdf ? "" : row('data-m="copy"', T("board.copyPicture")) + row('data-m="print"', T("board.print"))}${S.readonly ? "" : (S.pdf ? "" : "<hr>") + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
     else if (kind === "plus") html = `<div class="bd-list">${row('data-m="sticky"', T("board.insert.sticky"))}${row('data-m="table"', T("board.insert.table"))}${row('data-m="linkask"', T("board.insert.link"))}${S.book ? "<hr>" + row('data-m="page"', T("board.insert.page")) : ""}</div>`;
-    else if (kind === "paper") { // (a notebook's: the paper of its pages, and one more page)
-      const bg = S.model.board.paper.bg;
-      html = `<div class="bd-list">${B.paper.KINDS.map((k) => row(`data-paper="${k}"`, T("board.paper." + k), k === bg, S.readonly ? " disabled" : "")).join("")}${S.readonly ? "" : "<hr>" + row('data-m="page"', T("board.page.add"))}</div>`;
+    else if (kind === "paper") { // (a notebook's: its paper, as GoodNotes' writing paper — each a small picture of a page —, its colour, and one more page)
+      const now = S.model.board.paper, page = B.paper.pages({ ...now, n: 1 })[0], off = S.readonly ? " disabled" : "";
+      const tile = (k) => `<button type="button" class="bd-ptile" role="menuitemradio" data-paper="${k}" aria-checked="${k === now.bg}"${off}><svg viewBox="${page.x} ${page.y} ${page.w} ${page.h}" aria-hidden="true">${B.paper.svg(page, k, now.color, 3)}</svg><span>${esc(T("board.paper." + k))}</span></button>`;
+      const tone = (c) => `<button type="button" class="bd-ptone" role="menuitemradio" data-tone="${c}" aria-checked="${c === now.color}" title="${esc(T("board.paper.color." + c))}" aria-label="${esc(T("board.paper.color." + c))}" style="--tone:${B.paper.COLORS[c].sheet}"${off}></button>`;
+      html = `<div class="bd-papers">${B.paper.KINDS.map(tile).join("")}</div><div class="bd-ptones"><span>${esc(T("board.paper.color"))}</span>${B.paper.TONES.map(tone).join("")}</div>` +
+        (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="page">${esc(T("board.page.add"))}</button>`);
     }
     else if (kind === "scenes") {
       html = (S.model.scenes.length ? `<div class="bd-scenes">${S.model.scenes.map((sc, i) => `<div class="bd-scene"${i === S.scene ? " data-now" : ""}><button type="button" class="bd-scene-go" data-scene="${sc.id}">${esc(sc.name || T("board.scene"))}</button>` +
@@ -796,7 +802,7 @@
     if (d.sceneDel) return scenesDo(() => { S.model.scenes = S.model.scenes.filter((x) => x.id !== d.sceneDel); S.scene = -1; });
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
     if (d.m === "link-add") return linkAdd();
-    if (d.paper) { setPaper(d.paper); return menu("paper", null, true); }
+    if (d.paper || d.tone) { setPaper(d.paper || S.model.board.paper.bg, d.tone || S.model.board.paper.color); return menu("paper", null, true); }
     if (d.m === "page") { menu(null); return addPage(); }
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
@@ -841,14 +847,16 @@
   function pagesNow() {
     const paper = S.model.board.paper;
     S.book.pages = B.paper.pages(paper);
-    S.book.paper.set(S.book.pages, paper.bg);
+    S.book.paper.set(S.book.pages, paper);
+    el.dataset.tone = paper.color;
   }
-  function setPaper(bg) {
-    const paper = S.model.board.paper, was = paper.bg;
-    if (S.readonly || !B.paper.KINDS.includes(bg) || bg === was) return;
-    const to = (k) => () => { S.model.board.paper.bg = k; pagesNow(); };
-    to(bg)();
-    did({ undo: to(was), redo: to(bg) });
+  /* The notebook's paper (one of GoodNotes' writing papers) and its colour, for every page. */
+  function setPaper(bg, color) {
+    const paper = S.model.board.paper, was = [paper.bg, paper.color];
+    if (S.readonly || !B.paper.KINDS.includes(bg) || !B.paper.TONES.includes(color) || (bg === was[0] && color === was[1])) return;
+    const to = (k, c) => () => { Object.assign(S.model.board.paper, { bg: k, color: c }); pagesNow(); };
+    to(bg, color)();
+    did({ undo: to(...was), redo: to(bg, color) });
     paint();
   }
   /* One more page at the end, and the view on it — as large as it was, where the page fits so. */
@@ -1259,6 +1267,7 @@
     el.toggleAttribute("data-readonly", s.readonly);
     el.toggleAttribute("data-pdf", !!pdf);
     el.removeAttribute("data-book");
+    delete el.dataset.tone;
     { const back = el.querySelector('[data-do="back"]'), name = T(pdf ? "board.back.pdf" : "board.back"); back.title = name; back.setAttribute("aria-label", name); }
     chip("");
     options(null);
@@ -1271,8 +1280,9 @@
       s.model = model;
       if (!pdf && model.board.paper && B.paper) { // a notebook: its pages under the board, as a PDF's lie (board/paper.js)
         const pages = B.paper.pages(model.board.paper);
-        s.book = { pages, paper: B.paper.paper(el.querySelector(".bd-paper"), pages, model.board.paper.bg) };
+        s.book = { pages, paper: B.paper.paper(el.querySelector(".bd-paper"), pages, model.board.paper, s.readonly ? "" : T("board.page.add")) };
         el.toggleAttribute("data-book", true);
+        el.dataset.tone = model.board.paper.color;
         el.querySelector(".bd-name").textContent = nameOf(ref) || T("board.name.book");
         model.board.grid = false;
         s.view.max = 16; // (a page is written on closer than a board is looked at: board/pdf.js)
@@ -1367,7 +1377,7 @@
     asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
-    editing: sel.editing, ref: S.ref, book: S.book ? { pages: S.book.pages.length, bg: S.model.board.paper.bg, drawn: S.book.paper.state() } : null, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
+    editing: sel.editing, ref: S.ref, book: S.book ? { pages: S.book.pages.length, bg: S.model.board.paper.bg, color: S.model.board.paper.color, drawn: S.book.paper.state() } : null, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
     tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form,
     chosen: S.pick.filter((it) => it.k === "ink").length,
     chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null,

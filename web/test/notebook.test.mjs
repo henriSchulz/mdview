@@ -67,27 +67,47 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   await boardOpen();
   await until(() => text("Heft.board.svg") !== undefined, "the notebook's file in the repository");
   // one squared page of A4 to begin with: in the file's head, and as a sheet under the board
-  assert.deepEqual(head().paper, { bg: "grid", size: "a4", n: 1 });
-  assert.deepEqual(await book(), { pages: 1, bg: "grid", drawn: [1] });
+  assert.deepEqual(head().paper, { bg: "grid", color: "white", size: "a4", n: 1 });
+  assert.deepEqual(await book(), { pages: 1, bg: "grid", color: "white", drawn: [1] });
   assert.equal(await page.locator("#board .bd-paper .bd-sheet > svg").count(), 1);
   assert.ok(await page.evaluate(() => document.getElementById("board").hasAttribute("data-book")));
   assert.equal(await page.textContent("#board .bd-name"), "Heft");
   assert.ok(await shown('#board [data-do="paper"]'), "the paper's button");
   assert.ok(!(await shown('#board [data-do="grid"]')), "no dots over the paper");
-  // the paper: chosen in its menu, for every page
+  assert.ok(!(await shown('#board [data-do="connect"]')), "no connectors in a notebook");
+  assert.ok(await shown('#board .bd-actions [data-do="page"]'), "a page more, in the bar at the top");
+  assert.ok(await shown("#board .bd-addpage"), "… and under the last page");
+  // the paper: GoodNotes' writing papers, each a small page in its menu, and its colours — for every page
   await page.waitForTimeout(500);
   await page.click('#board [data-do="paper"]');
   await page.waitForSelector('#board .bd-vpop[data-open] [data-paper="dots"]', { timeout: 4000 });
-  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#board .bd-vpop [data-paper]")].map((b) => [b.dataset.paper, b.textContent, b.getAttribute("aria-checked") === "true"])),
-    [["blank", "Blank", false], ["lines", "Ruled", false], ["grid", "Squared", true], ["dots", "Dotted", false]]);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#board .bd-vpop [data-paper]")].map((b) => [b.dataset.paper, b.querySelector("span").textContent, b.getAttribute("aria-checked") === "true", !!b.querySelector("svg g.paper")])),
+    [["blank", "Blank", false, true], ["dots", "Dotted", false, true], ["grid", "Squared", true, true], ["narrow", "Narrow Ruled", false, true], ["wide", "Wide Ruled", false, true], ["legal", "Legal", false, true], ["cornell", "Cornell", false, true], ["music", "Music", false, true]]);
+  assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll("#board .bd-vpop [data-tone]")].map((b) => [b.dataset.tone, b.getAttribute("aria-checked") === "true"])), [["white", true], ["yellow", false], ["dark", false]]);
   await page.click('#board .bd-vpop [data-paper="dots"]');
   assert.equal((await book()).bg, "dots");
   assert.equal(await page.locator('#board .bd-sheet[data-paper="dots"]').count(), 1);
-  // a page more: from the same menu, and from + — undone and done again like any change
+  await page.click('#board .bd-vpop [data-tone="dark"]');
+  assert.equal((await book()).color, "dark");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#board .bd-world")).color), "rgb(242, 242, 247)"); // (on dark paper the ink is light)
+  assert.equal(await page.evaluate(() => document.querySelector('#board [data-fav][data-ink="auto"]').style.getPropertyValue("--ink")), "#f2f2f7"); // (… and so is its well)
+  await page.keyboard.press("Control+z");
+  assert.deepEqual([(await book()).bg, (await book()).color], ["dots", "white"]);
+  // a page more: from the same menu, from +, from the bar at the top, from the sheet under the last page — undone and done again like any change
+  if (!(await page.evaluate(() => document.querySelector("#board .bd-vpop").hasAttribute("data-open")))) await page.click('#board [data-do="paper"]'); // (still open from before the undo)
   await page.click('#board .bd-vpop [data-m="page"]');
   assert.equal((await book()).pages, 2);
   await page.click('#board [data-do="plus"]');
   await page.click('#board .bd-vpop [data-m="page"]');
+  assert.equal((await book()).pages, 3);
+  await page.click('#board .bd-actions [data-do="page"]');
+  assert.equal((await book()).pages, 4);
+  const items = await page.evaluate(() => MdBoard.state().items);
+  await page.click("#board .bd-addpage");
+  assert.equal((await book()).pages, 5);
+  assert.equal(await page.evaluate(() => MdBoard.state().items), items, "no stroke begun on it");
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+z");
   assert.equal((await book()).pages, 3);
   await page.keyboard.press("Control+z");
   assert.equal((await book()).pages, 2);
@@ -105,15 +125,15 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   for (let i = 1; i <= 20; i++) await page.mouse.move(500 + i * 8, 300 + Math.sin(i / 2) * 30);
   await page.mouse.up();
   await until(() => head().paper && head().paper.n === 2 && (text("Heft.board.svg") || "").split("\n").some((l) => l.startsWith('{"id"')), "the pages and the stroke in a commit", 12000);
-  assert.deepEqual(head().paper, { bg: "dots", size: "a4", n: 2 });
+  assert.deepEqual(head().paper, { bg: "dots", color: "white", size: "a4", n: 2 });
   // the file's picture is the first page: its paper and what is on it
-  assert.match(text("Heft.board.svg"), /<g class="paper"><rect [^>]*fill="#fff"\/><path [^>]*stroke-linecap="round"/);
+  assert.match(text("Heft.board.svg"), /<g class="paper"><rect [^>]*fill="#ffffff"\/><path [^>]*stroke-linecap="round"/);
   // shut and opened again from its row: as it was left
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !MdBoard.shown && document.getElementById("board").hidden, null, { timeout: 5000 });
   await page.locator(`#sidebar .sb-item[data-key="${R}/Heft.board.svg"] .sb-row`).first().click();
   await boardOpen();
-  assert.deepEqual(await book(), { pages: 2, bg: "dots", drawn: [1, 2] });
+  assert.deepEqual(await book(), { pages: 2, bg: "dots", color: "white", drawn: [1, 2] });
   assert.equal(await page.evaluate(() => MdBoard.state().items), 1);
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 });
@@ -130,6 +150,8 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   assert.equal(await page.locator("#board .bd-sheet").count(), 0);
   assert.ok(!(await shown('#board [data-do="paper"]')));
   assert.ok(await shown('#board [data-do="grid"]'));
+  assert.ok(await shown('#board [data-do="connect"]'));
+  assert.ok(!(await shown('#board [data-do="page"]')));
   assert.deepEqual(problems, []);
 });
 

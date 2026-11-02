@@ -763,25 +763,30 @@ Not there yet: a table's single rows and columns pulled to size or put in betwee
 ### Notebooks
 
 A notebook is a whiteboard of pages, as GoodNotes has its notebooks: sheets of A4 one under the
-other, of blank, ruled, squared or dotted paper, written and drawn on with everything a whiteboard
-has — the pens, the eraser, the lasso, text, shapes, pictures, the ruler, undo.
+other, on GoodNotes' writing paper, written and drawn on with everything a whiteboard has — the
+pens, the eraser, the lasso, text, shapes, pictures, the ruler, undo (no connectors: the button for
+them is not there).
 
 - **Making one**: New Notebook — the sidebar's `+`, a right click on a folder or the empty room,
   the `+` of All Notes. It is asked for its name, made in that folder (`Name.board.svg`, as a
-  whiteboard's file) with one squared page, and opened. It is listed, opened, embedded in a note,
-  renamed, moved and trashed as a whiteboard that is a file is (All Notes › *Whiteboards* shows it
-  too).
-- **The paper** (the button at the bottom right, where a whiteboard has its dots): Blank, Ruled
-  (lines 8 mm apart under a head, a margin at the left), Squared (5 mm) or Dotted (5 mm) — for
-  every page of the notebook. The paper is white and the ink is for paper, whatever the theme.
-- **Pages**: Add Page in the same menu, or Page under `+` in the bar at the top, puts a page at the
-  end and goes to it. `Ctrl+Z` takes it away again. What is drawn stays where it was drawn.
+  whiteboard's file) with one white squared page, and opened. It is listed, opened, embedded in a
+  note, renamed, moved and trashed as a whiteboard that is a file is (All Notes › *Whiteboards*
+  shows it too).
+- **The paper** (the button at the bottom right): GoodNotes' writing papers, each shown as a small
+  page — Blank; Dotted and Squared (5 mm); Narrow Ruled (7.1 mm) and Wide Ruled (8.7 mm) under a
+  head; Legal (wide lines under a deeper head, a double red margin); Cornell (the head, the cue
+  column at the left, the summary at the foot); Music (staves of five lines) — and its colour:
+  White, Yellow or Dark. For every page of the notebook; `Ctrl+Z` takes it back. Black ink is
+  dark on white and yellow paper and light on dark paper, whatever the theme.
+- **A page more**: the page button beside undo at the top, the sheet with Add Page under the last
+  page, Add Page in the paper's menu, or Page under `+` — at the end, and the view goes to it.
+  `Ctrl+Z` takes it away again. What is drawn stays where it was drawn.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
   on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 %; `Ctrl+0` shows
   the page in sight whole. It opens with the page it was left at whole in the window.
-- **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its size,
-  how many pages (`"paper":{"bg":"grid","size":"a4","n":2}`). Its picture, in the sidebar, in All
-  Notes and in a note, is its first page.
+- **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
+  its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
+  picture, in the sidebar, in All Notes and in a note, is its first page.
 
 Not there yet: a page of its own paper, a page put in between others or taken out, pages of
 another size or lying across, a sign of its own in the sidebar.
