@@ -1000,6 +1000,7 @@ PY
     probe="$D/probe-board-ai.js"; [[ -n ${real[*]} ]] && probe="$R/probe-board-ai-real.js"
     for file in m5.md paper.pdf; do
       where=note; [[ $file == *.pdf ]] && where=pdf
+      st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (one window: the file's)
       if [[ -n ${real[*]} ]]; then app 600 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$file"
       else app 120 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" MDVIEW_BOARD_FAKE="$fake" MDVIEW_TALK_FAKE="$chat" -- "$R/work/$file"; fi
       for v in drawing drawn chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done

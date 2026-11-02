@@ -461,3 +461,14 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do="claude"] { display: none; }
 #board [data-do="claude"][data-busy] { color: var(--accent); }
 .bd-vpop .bd-ask-input { width: 320px; max-width: calc(100vw - 48px); }
+/* … and what it says, in a line under its button: that it draws, then the sentence it answered with (board.js: note) */
+.bd-claude-note { position: absolute; right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-top, 0px));
+  max-width: min(420px, 60vw); box-sizing: border-box; padding: 6px 12px; border-radius: var(--radius-pill); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule);
+  color: var(--fg2); font-size: 12.5px; pointer-events: none; transform-origin: top right;
+  opacity: 0; scale: 0.96; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
+.bd-claude-note[data-on] { opacity: 1; scale: 1; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
+.bd-claude-note[data-bad] { color: var(--c-red); }
+#board[data-pdf] .bd-claude-note { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
+@media (prefers-reduced-motion: reduce) { .bd-claude-note, .bd-claude-note[data-on] { scale: 1; } }
+@media (max-width: 560px) { .bd-claude-note { top: calc(var(--bd-inset) + 2 * var(--bd-bar-h) + 16px + env(safe-area-inset-top, 0px)); } } /* (the tools' bar is the second row there) */

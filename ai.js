@@ -326,7 +326,7 @@
     const inner = parts(m.text).map((p) => (p.insert == null ? `<div class="ai-md">${md(p.text)}</div>`
       : `<div class="ai-card"${p.open ? " data-open" : ""}><div class="ai-md">${md(p.insert)}</div>` +
         (p.open ? "" : `<div class="ai-card-foot"><button class="ai-pillbtn ai-main" type="button" data-put="${i}:${n}">${I.put}<span>${esc(T("ai.put"))}</span></button><button class="ai-pillbtn" type="button" data-copy="${i}:${n++}">${I.copy}<span>${esc(T("ai.copy"))}</span></button></div>`) + `</div>`)).join("");
-    const drew = m.drew ? `<div class="ai-made"><span class="ai-made-text">${I.edit}<span>${esc(T("ai.drew", m.drew))}</span></span></div>` : "";
+    const drew = m.drew ? `<div class="ai-made"><span class="ai-made-text">${I.edit}<span>${esc(T(m.drew === 1 ? "ai.drew.one" : "ai.drew", m.drew))}</span></span></div>` : "";
     const made = m.made ? `<div class="ai-made"${m.made.done ? "" : " data-none"}><span class="ai-made-text">${I.edit}<span>${esc(m.made.done ? T(m.made.done === 1 ? "ai.made.one" : "ai.made", m.made.done) : T("ai.made.none"))}</span></span>` +
       (m.made.done && undoable(m) ? `<button class="ai-pillbtn" type="button" data-undo="${i}">${esc(T("ai.made.undo"))}</button>` : "") + `</div>` +
       (m.made.error ? `<div class="ai-error">${esc(m.made.error)}</div>` : "") +
