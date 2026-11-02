@@ -879,6 +879,9 @@
     (pt ? `\nThe user asked at x ${Math.round(pt.x)}, y ${Math.round(pt.y)} on the board (“here”).` : "");
   /* What the window shows, as a PNG's base64 for Claude to look at: the PDF's pages as they are drawn now, the board's things
    * and ink over them (the board's own picture, cut to the window) — on white, as the file's picture is drawn. */
+  // (only where the board's text does not say all of it — strokes, pictures, a PDF's pages: a picture makes Claude think before
+  // it begins, measured some five seconds; an empty board, or one of texts and shapes, is begun on at once)
+  const aiSees = () => !!S.pdf || S.model.items.some((it) => it.k === "ink" || it.k === "image");
   async function aiPicture() {
     const s = size(), v = S.view, k = Math.min(2, 1600 / Math.max(s.w, s.h, 1)), c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(s.w * k)); c.height = Math.max(1, Math.round(s.h * k));
@@ -992,7 +995,7 @@
       const s = S, board = aiBoard(claude.pt);
       busy(true);
       let ai = null, picture = "";
-      try { [ai, picture] = await Promise.all([core.ai.load(), aiPicture().catch(() => "")]); } catch (e) { /* (ai.js could not be loaded) */ }
+      try { [ai, picture] = await Promise.all([core.ai.load(), aiSees() ? aiPicture().catch(() => "") : ""]); } catch (e) { /* (ai.js could not be loaded) */ }
       if (S !== s) return;
       if (!ai || !ai.ask) { busy(false); return note(T("board.ask.failed"), true); }
       claude.typed = "";
@@ -1039,7 +1042,7 @@
   }
   B.claudeChat = {
     /* For the chat (ai.js), while a board is open: what to tell Claude of it, and its steps done as they come. */
-    context: async () => (S && !S.readonly ? { board: aiBoard(), picture: await aiPicture().catch(() => "") } : null),
+    context: async () => (S && !S.readonly ? { board: aiBoard(), picture: aiSees() ? await aiPicture().catch(() => "") : "" } : null),
     steps: () => (S && !S.readonly ? aiSteps(S) : null),
   };
 

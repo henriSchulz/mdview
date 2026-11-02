@@ -579,8 +579,9 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   **Ask Claude** (the sparkle in the board's bar at the upper right, beside ⋯) opens a field:
   say what to draw or change and press `Enter` (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing
   as the file has it, a stroke by its tool, colour and the box around it), which part of it the
-  window shows, what is chosen, the pages of a PDF, and is given a picture of what the window
-  shows (the PDF's pages with what is drawn on them). It answers with steps that are done on
+  window shows, what is chosen, the pages of a PDF, and — where there are strokes, pictures or a
+  PDF, which the text does not show — a picture of what the window shows, sent with the question
+  (an empty board is begun on at once: the first stroke in a second or two). It answers with steps that are done on
   the board **as they come**, and it works **by hand**: drawings are strokes of ink drawn along
   their way (sketches, arrows, frames, a marker over a line of the PDF), words are
   **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up

@@ -92,7 +92,7 @@ Steps:
 - "as":"name" on an add gives the new thing a name the later steps of this answer may use wherever an id goes.
 - Strokes that are one thing (a handwritten text) are listed once, by the id of the group they make; set, move and del with that id work on all of them.
 - {"set":"<id>", …fields} changes fields of a thing (e.g. "text", "fill", "x", "w", "size", "c"); {"move":"<id>","dx":40,"dy":0} moves it; {"del":"<id>"} takes it away. Any thing on the board may be changed, moved or taken away, also what the user made.
-Colours: "auto" (the board's ink: dark on a light board, light on a dark one) or "#rrggbb". Draw within the part of the board the window shows unless told otherwise, and keep clear of what is there unless the drawing is about it. A sketch is many strokes: outlines first, then details, curves where things are round; draw it as a person draws, not as a diagram of boxes, unless a diagram is asked for. Over a PDF, the pages are boxes on the board: draw and write on the page the user looks at; to highlight a line of the PDF, a marker stroke along it. Text on the board is in the user's language unless told otherwise. A picture of what the window shows, if given, is the truth about what is there: look at it first."##;
+Colours: "auto" (the board's ink: dark on a light board, light on a dark one) or "#rrggbb". Draw within the part of the board the window shows unless told otherwise, and keep clear of what is there unless the drawing is about it. A sketch is many strokes: outlines first, then details, curves where things are round; draw it as a person draws, not as a diagram of boxes, unless a diagram is asked for. Over a PDF, the pages are boxes on the board: draw and write on the page the user looks at; to highlight a line of the PDF, a marker stroke along it. Text on the board is in the user's language unless told otherwise. A picture of what the window shows, if given, is the truth about what is there. Begin at once and put the steps out in the order a person draws them: the user watches the drawing grow as you write."##;
 /// … when the board itself asks (its own button, or a part of it chosen and asked about).
 pub const BOARD_SYSTEM: &str = "You draw on a whiteboard inside a note-taking app. The user says what to draw or change; you do it with steps the app carries out. Reply with at most one short sentence in the user's language, then the block of steps, and nothing after it. If what is asked is no drawing or change, answer in one or two sentences without a block.";
 /// … and what the chat is told besides, while a whiteboard is open.
@@ -112,6 +112,8 @@ pub struct Talk {
     pub prompt: String,
     pub model: String, // "": claude's own
     pub attach: Vec<PathBuf>, // files Claude is to read itself (a PDF, a picture): copied beside it, and the tool to read them given
+    pub picture: Option<Vec<u8>>, // a PNG that goes with the question itself — what a whiteboard's window shows: no tool, no round to read it
+    pub effort: &'static str, // "": claude's own; "low" where an answer is watched as it comes (a whiteboard), and thinking long first is waiting
 }
 
 /// Claude asked through the command line tool, its answer handed on as it comes. One talk for each
@@ -170,7 +172,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         let mut both = fake.splitn(3, "||");
         let (first, second, third) = (both.next().unwrap_or(""), both.next(), both.next());
         let board = std::env::var("MDVIEW_BOARD_FAKE").ok().filter(|_| t.channel == "board");
-        let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURE", if t.attach.iter().any(|p| p.ends_with("board-view.png")) { "with a picture" } else { "without a picture" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
+        let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURE", if t.picture.is_some() { "with a picture" } else { "without a picture" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
             return Err("Claude: asked to fail".into());
@@ -207,6 +209,14 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         prompt = format!("Files the user attached lie in {}: {}. Read each of them with the Read tool before you answer.\n\n{prompt}", work.display(), attached.join(", "));
     }
     cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "stream-json", "--include-partial-messages", "--verbose"]);
+    // (a picture with the question: the question as a message of its own, the picture in it — measured, 2026-11-02: a picture
+    // to be read with the tool cost Claude a round and some ten seconds of thought before its first line)
+    if t.picture.is_some() {
+        cmd.args(["--input-format", "stream-json"]);
+    }
+    if !t.effort.is_empty() {
+        cmd.arg("--effort").arg(t.effort);
+    }
     if !t.model.is_empty() {
         cmd.arg("--model").arg(&t.model);
     }
@@ -224,7 +234,19 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     let mut child = cmd.spawn().map_err(|e| format!("Couldn't run claude: {e}"))?;
     pid(Some(child.id()));
     if let Some(mut stdin) = child.stdin.take() {
-        let _ = stdin.write_all(prompt.as_bytes());
+        let _ = match &t.picture {
+            Some(png) => {
+                use base64::Engine;
+                let data = base64::engine::general_purpose::STANDARD.encode(png);
+                let message = json!({ "type": "user", "message": { "role": "user", "content": [
+                    { "type": "text", "text": "What the window shows of the whiteboard now:" },
+                    { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": data } },
+                    { "type": "text", "text": prompt },
+                ] } });
+                stdin.write_all(format!("{message}\n").as_bytes())
+            }
+            None => stdin.write_all(prompt.as_bytes()),
+        };
     }
     let err = child.stderr.take().map(|mut p| {
         std::thread::spawn(move || {

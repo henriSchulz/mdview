@@ -56,7 +56,8 @@
       ok("the house: walls filled, a roof of ink, a sticky note moved, an arrow joined to both, words under it by hand", after.things.length === before.things.length + 3 && after.items > before.items + 10 &&
         after.things.some((t) => t.k === "shape" && t.fill === "#b5dcff") && after.things.some((t) => t.k === "sticky" && t.text === "A house" && t.x === 180) &&
         after.things.some((t) => t.k === "line" && t.from && t.to), o.drawn);
-      ok("what Claude said shows in the title — it was shown the window's picture", /Here is a house, with a picture/.test(after.claude.chip), after.claude.chip);
+      // (a picture goes with the question only where the text does not say all: a PDF's pages, ink — an empty board none)
+      ok("what Claude said shows under its button — a picture went along only over the PDF", (pdf ? /Here is a house, with a picture/ : /Here is a house, without a picture/).test(after.claude.chip), after.claude.chip);
     } else ok("Claude drew something", after.things.length + after.items > before.things.length + before.items, o.drawn);
     ok("all of it is one step back", after.undo === before.undo + 1, [before.undo, after.undo]);
     el().querySelector('[data-do="undo"]').click();

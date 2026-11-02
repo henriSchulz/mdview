@@ -48,16 +48,9 @@ impl Win {
                 };
                 // what else the chat was given to read: other notes of the folder, the whole folder, files chosen in the system's window
                 let (mut more, mut attach) = (String::new(), Vec::new());
-                // (what the window shows of the board, as a picture the page drew: a PNG, for Claude to look at)
-                if !board.is_empty() {
-                    let picture = base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG"));
-                    let file = std::env::temp_dir().join(format!("mdview-board-{}-{channel}", std::process::id())).join("board-view.png");
-                    if let Some(data) = picture {
-                        if file.parent().is_some_and(|d| fs::create_dir_all(d).is_ok()) && fs::write(&file, data).is_ok() {
-                            attach.push(file);
-                        }
-                    }
-                }
+                // (what the window shows of the board, as a picture the page drew — a PNG that goes with the question; the page sends
+                // one only where the board's text does not say all: ink, pictures, a PDF)
+                let picture = if board.is_empty() { None } else { base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG")) };
                 if channel == "chat" {
                     let mut room = 400_000usize; // (letters of other documents, all told: what fits a question)
                     let put = |more: &mut String, path: &Path, room: &mut usize| -> bool {
@@ -99,7 +92,8 @@ impl Win {
                         more = format!("Other documents the user gave you to read:\n\n{more}");
                     }
                 }
-                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach });
+                let effort = if board.is_empty() { "" } else { "low" }; // (a board's answer is watched as it comes: begun soon)
+                app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach, picture, effort });
             }
             // files for Claude to read, chosen in the system's own window; what was chosen comes back as "ai-picked", with this window's word
             "ai-pick" => {
