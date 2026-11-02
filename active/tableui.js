@@ -162,11 +162,37 @@
       }, { label: T("table.head.own") + (own ? " (" + now + ")" : "") + "…", checked: own }),
     ];
   }
+  /* The caption under the table (#16; viewer/markdown.js, captions): set (its Markdown, one line), or taken away (empty). */
+  const caption = (view, tablePos, text) => {
+    const now = view.state.doc.nodeAt(tablePos), next = String(text || "").replace(/\s*\n\s*/g, " ").trim() || null;
+    if (now && now.type === N.table && next !== (now.attrs.caption == null ? null : String(now.attrs.caption).trim() || null)) {
+      view.dispatch(view.state.tr.setNodeMarkup(tablePos, null, { ...now.attrs, caption: next }).setMeta("step", true));
+    }
+    view.focus();
+  };
+  // … written in a field over the caption's place (Add Caption: the word "Caption", selected, to be written over)
+  function captionAsk(view, tablePos) {
+    const now = view.state.doc.nodeAt(tablePos);
+    if (!now || now.type !== N.table) return;
+    const dom = view.nodeDOM(tablePos), r = dom && dom.getBoundingClientRect ? dom.getBoundingClientRect() : { left: 100, bottom: 100 };
+    A.dialog.fields({
+      rect: { left: r.left, right: r.left, top: r.bottom - 24, bottom: r.bottom }, label: T("caption.new"),
+      fields: [{ key: "caption", label: T("caption.new"), value: now.attrs.caption || "", placeholder: T("caption.new") }],
+      apply(v) { caption(view, tablePos, v.caption); },
+      cancel() { view.focus(); },
+    });
+  }
+  function captionItems(view, cell) {
+    const has = !!String(cell.table.attrs.caption || "").trim();
+    return has ? [item("table.caption.edit", () => captionAsk(view, cell.tablePos), { label: T("table.caption.edit") + "…" }), item("menu.caption.remove", () => caption(view, cell.tablePos, ""))]
+      : [item("menu.caption.add", () => captionAsk(view, cell.tablePos))];
+  }
   // the table's own menu (its "…"): how it looks, its rows and columns, and away with it
   function tableItems(view, cell) {
     return [
       item("table.wide", () => wide(view, cell), { checked: !!cell.table.attrs.wide }),
       { label: T("table.head"), items: headItems(view, cell) },
+      ...captionItems(view, cell),
       null,
       { label: T("table.row"), items: rowItems(view, cell) },
       { label: T("table.column"), items: colItems(view, cell) },
@@ -405,6 +431,19 @@
       handleDOMEvents: {
         mousedown(view, e) {
           if (e.button !== 0 || sizing) return false;
+          // a click on a table's caption: written in its field (#16)
+          const cap = view.editable && e.target.closest?.("figcaption.tbl-cap");
+          if (cap && cap.closest(".pm") === view.dom) {
+            e.preventDefault();
+            let pos = null;
+            view.state.doc.descendants((n, p) => {
+              if (pos != null) return false;
+              if (n.type === N.table) { if (view.nodeDOM(p) === cap.parentElement) pos = p; return false; }
+              return !n.isTextblock;
+            });
+            if (pos != null) captionAsk(view, pos);
+            return true;
+          }
           const edge = edgeAt(view, e);
           if (!edge) return false;
           e.preventDefault(); // (no caret, no selection: the line is taken)
@@ -431,5 +470,5 @@
     },
   });
 
-  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems, wide, head, headItems, tableItems };
+  A.tableui = { plugins: () => [plugin, PM.tables.tableEditing({ allowTableNodeSelection: false })], tab, enter, noBreak, make, change, changed, ops, cellAt, hide, rowItems, colItems, wide, head, headItems, tableItems, caption, captionAsk, captionItems };
 })();

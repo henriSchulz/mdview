@@ -249,6 +249,7 @@
       items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
         item("table.wide", () => A.tableui.wide(view, cell), { checked: !!cell.table.attrs.wide }),
         { label: T("table.head"), items: A.tableui.headItems(view, cell) },
+        ...A.tableui.captionItems(view, cell),
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
     // in a column: what can be done with the columns (the "/" menu's entries for them)

@@ -27,8 +27,9 @@
     html_block: "html", columns_open: "columns", dl_open: "deflist", hr: "rule", footnote_block_open: "footnotes", link_row: "linkrow",
   };
   // (a code block or a formula with its caption under it is a figure, and still the code block or the formula: its own
-  // dialog edits it, the caption in a field of that — viewer/markdown.js, captions; #12)
-  const typeOf = (token, next) => (token.type === "figure_open" && next && (next.type === "fence" || next.type === "math_block") ? TYPES[next.type] : TYPES[token.type] || "other");
+  // dialog edits it, the caption in a field of that — viewer/markdown.js, captions; #12). So is a table with its caption:
+  // still a table to type in, the caption one of its attributes (schema.js; #16).
+  const typeOf = (token, next) => (token.type === "figure_open" && next && (next.type === "fence" || next.type === "math_block" || next.type === "table_open") ? TYPES[next.type] : TYPES[token.type] || "other");
 
   // Offsets of every line in the normalised text and in the original.
   function lineTable(original) {

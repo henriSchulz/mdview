@@ -446,6 +446,19 @@ block's menu has **Add Caption** (the line is put under it and its dialog opens,
 and **Remove Caption**. A code block's and a formula's dialog has the caption in a field under the
 code (Enter ends it; emptied, the caption is gone); a picture's, in its Markdown. Under a paragraph of text the line stays a definition, as Markdown has it.
 
+A table has a caption the same way: the line right under its last row, or after a blank line
+(Pandoc's way of writing it). Right under the table the line must not hold a `|` — that would be
+one more row; a caption with one is written after a blank line. In the active mode the table stays
+a table to type in, the caption under it: its menu (the table's "…" and the context menu) has
+**Add Caption**, **Edit Caption…** and **Remove Caption**, and a click on the caption edits it.
+
+```markdown
+| Month | Sales |
+|-------|-------|
+| May   | 120   |
+: Sales in *May*
+```
+
 A picture can be turned by quarters. The turn is written before the size:
 
 ```markdown

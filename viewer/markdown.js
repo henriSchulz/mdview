@@ -405,8 +405,39 @@
    *
    * The two are one figure (<figure>, the caption a <figcaption>, in Markdown of its own). Under a picture the line makes a
    * definition list of the two (markdown-it-deflist: a term, ": " its definition) — that is read as the figure too. Any other
-   * program shows the line under the thing. */
+   * program shows the line under the thing.
+   * A table has one too (#16), right under its last row or after a blank line — Pandoc's own way. Right under it GitHub's
+   * tables take the line for one more row: a last row of one cell that begins with ": ", its line without a "|", is
+   * taken off the table again (table_captions) and is the caption. */
   const CAPTION = /^:[ \t]+(?=\S)/;
+  md.core.ruler.after("block", "table_captions", (state) => {
+    const toks = state.tokens, lines = state.src.split("\n");
+    for (let i = 0; i < toks.length; i++) {
+      if (toks[i].type !== "table_open") continue;
+      let end = i;
+      while (end < toks.length && toks[end].type !== "table_close") end++;
+      const bodyEnd = end - 1;
+      if (!toks[bodyEnd] || toks[bodyEnd].type !== "tbody_close") continue;
+      let tr = bodyEnd - 1;
+      while (tr > i && toks[tr].type !== "tr_open") tr--;
+      const row = toks.slice(tr, bodyEnd), at = toks[tr].map && toks[tr].map[0];
+      const cells = row.filter((t) => t.type === "inline");
+      if (at == null || /(^|[^\\])\|/.test(lines[at] || "") || !cells.length || !CAPTION.test(cells[0].content) || cells.slice(1).some((c) => c.content.trim())) continue;
+      const open = toks[i], cap = (type, tag, nesting, level) => { const t = new state.Token(type, tag, nesting); t.block = true; t.level = level; t.map = [at, at + 1]; return t; };
+      const inl = cap("inline", "", 0, open.level + 1);
+      inl.content = cells[0].content;
+      inl.children = [];
+      const p = [cap("paragraph_open", "p", 1, open.level), inl, cap("paragraph_close", "p", -1, open.level)];
+      p[2].map = null;
+      let bodyOpen = tr - 1;
+      while (toks[bodyOpen].type !== "tbody_open") bodyOpen--;
+      const empty = bodyOpen === tr - 1; // (the caption was its only row: a table of its head alone)
+      toks.splice(end + 1, 0, ...p);
+      toks.splice(empty ? bodyOpen : tr, (empty ? bodyEnd + 1 : bodyEnd) - (empty ? bodyOpen : tr));
+      if (!empty && toks[bodyOpen].map) toks[bodyOpen].map[1] = at;
+      if (open.map) open.map[1] = at;
+    }
+  });
   md.core.ruler.after("inline", "captions", (state) => {
     const toks = state.tokens, T = state.Token;
     const loneIn = (inl) => { const kids = ((inl && inl.children) || []).filter((k) => !((k.type === "text" && !k.content.trim()) || k.type === "softbreak")); return kids.length === 1 && (kids[0].type === "image" || kids[0].type === "wiki_embed") ? kids[0] : null; };
@@ -423,10 +454,12 @@
         toks.splice(i, end - i + 1, ...figure(t.map, [para, toks[i + 2], close("paragraph_close", "p")], toks[p + 1]));
         continue;
       }
-      // a code block, a formula block, a picture alone — and under it a paragraph that begins with ": "
+      // a code block, a formula block, a picture alone, a table — and under it a paragraph that begins with ": "
       const lone = t.type === "paragraph_open" && toks[i + 1] && toks[i + 1].type === "inline" && loneIn(toks[i + 1]);
-      if (t.type !== "fence" && t.type !== "math_block" && !lone) continue;
-      const end = lone ? i + 2 : i, c = end + 1, inl = toks[c + 1];
+      if (t.type !== "fence" && t.type !== "math_block" && t.type !== "table_open" && !lone) continue;
+      let end = lone ? i + 2 : i;
+      if (t.type === "table_open") while (toks[end] && toks[end].type !== "table_close") end++;
+      const c = end + 1, inl = toks[c + 1];
       if (!toks[c] || toks[c].type !== "paragraph_open" || toks[c].level !== t.level || !inl || inl.type !== "inline" || !CAPTION.test(inl.content)) continue;
       inl.content = inl.content.replace(CAPTION, "");
       const first = (inl.children || [])[0];
