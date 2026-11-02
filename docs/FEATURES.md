@@ -618,6 +618,15 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   on the board, with its answer and how many steps were drawn), so the chat knows it when asked on; a board open with no
   note on screen — a notebook, a board from the folder's window — has a conversation of its own. Over a board the chat
   draws whatever its mode (Edit is for a note's text), and its field asks what to draw. Not on a board that is only shown, and not where AI is off.
+- **Improve** makes strokes chosen a little neater — handwriting, a formula, a sketch or a diagram, on a whiteboard, in a
+  notebook and over a PDF: their bar has a wand beside Ask Claude (the right button's menu has Improve too). The tremble of the hand is
+  smoothed at once (a point moves at most about the stroke's width: a letter's corners stay); then Claude, told the strokes chosen
+  and nothing else (no note, no board round them, a picture of them alone — some seconds), sets them straight as close to the
+  original as it can: letters on one baseline and of one size, a line level, one slant, a formula's parts in line, lines meant to
+  be straight straight, circles round, a stray dot taken away. It never adds, leaves out or changes what is written, and never
+  turns it into print: each stroke keeps its pen, colour and width, and only strokes that were chosen change. Each of its steps
+  glides there; what it made stays chosen; all of it, the smoothing too, is one step of Undo. Pressed again while it works, the
+  wand stops it. Not where AI is off.
 
 ### Whiteboards
 

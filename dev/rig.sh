@@ -20,6 +20,7 @@
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
 #   dev/rig.sh board-ai [real]       Claude draws on a whiteboard: its button, what is chosen, the chat over the board; a note's board, a PDF, a notebook
+#   dev/rig.sh board-improve [real]  strokes chosen made neater by Claude (Improve): its button, smoothed at once, moved, drawn anew, a slip gone, one step back, stopped
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
 #   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
 #   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
@@ -1016,6 +1017,20 @@ PY
       grep -q '^FAIL\|: FAIL' "$R/out/board-ai-$where.txt" && fail=1
     done
     exit $fail ;;
+  board-improve)
+    # strokes chosen on a note's new whiteboard, made a little neater by Claude (Improve) — the model a fixed answer; `real`: Claude itself
+    rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; name=m5.md
+    rm -f "$R/out/$name".{chosen,improving,improved,board-improve}.json
+    fake=$'<board>\n{"fit":"wa","dy":5}\n{"fit":"wx","dy":50}\n{"redraw":"wb","d":"M 0 0 L 40 0"}\n{"del":"wc"}\n</board>'
+    p="$D/probe-board-improve.js"; [[ ${2:-} == real ]] && { { echo 'window.__improveReal = true;'; cat "$p"; } > "$R/probe-board-improve-real.js"; p="$R/probe-board-improve-real.js"; }
+    if [[ ${2:-} == real ]]; then app 300 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    else app 120 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" MDVIEW_TALK_FAKE=x MDVIEW_IMPROVE_FAKE="$fake" -- "$R/work/$name"; fi
+    for v in chosen improving improved; do for _ in $(seq 2000); do [[ -f $R/out/$name.$v.json || -f $R/out/$name.board-improve.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-improve-$v.png"; done
+    for _ in $(seq 2000); do [[ -f $R/out/$name.board-improve.json ]] && break; sleep 0.1; done
+    sleep 0.5; pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.board-improve.json ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$R/out/$name.board-improve.json"
+    ! jq -r '.steps[], (.error // empty | "FAIL")' "$R/out/$name.board-improve.json" | grep -q '^FAIL' ;;
   board-more)
     # the rest of the whiteboard's tools: pencil, ruler, the palette at the other edge, cards, a picture cut, a look kept for new items
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work/outside"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".{ruler,more,board-more}.json

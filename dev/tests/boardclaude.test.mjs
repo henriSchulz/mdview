@@ -160,3 +160,47 @@ test("a notebook is told to Claude as one that grows: what goes on below the las
   assert.match(told, /notebook of 1 page/);
   assert.match(told, /below the last page gets pages of its own/);
 });
+
+// Improve: strokes chosen, made a little neater — told to Claude alone, from the box round them; its steps done on them only.
+test("Improve: the strokes chosen are told from the box round them, smoothed with their ends kept", () => {
+  const ink = (id, pts, o = {}) => ({ id, k: "ink", t: "pen", c: "#e5372c", w: 3, o: 1, ch: "xypt", pts: pts.map(([x, y], i) => [x, y, 0.5, i * 10]), ...o });
+  const a = ink("a", [[100, 200], [110, 204], [120, 198], [130, 203], [140, 200]]), b = ink("b", [[150, 190], [150, 230]]);
+  const told = C.tellPick([a, b]);
+  assert.deepEqual(plain(told.origin), [B.format.boundsOf(a)[0], B.format.boundsOf(b)[1]], "from the box round them all");
+  const lines = told.text.split("\n").slice(1).map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => l.id), ["a", "b"], "in the order they were drawn");
+  assert.match(lines[1].d, /^M\d+ \d+ L\d+ \d+$/, "a path in whole pixels");
+  assert.ok(lines.every((l) => l.box[0] >= 0 && l.box[1] >= 0), "from the box's top left");
+  const sm = C.smooth(a.pts, 2);
+  assert.ok(sm.every((p, i) => Math.hypot(p[0] - a.pts[i][0], p[1] - a.pts[i][1]) <= 2 + 0.1), "never farther than it may go: a letter's corners stay");
+  assert.deepEqual(plain(sm[0]), plain(a.pts[0]));
+  assert.deepEqual(plain(sm.at(-1)), plain(a.pts.at(-1)), "the ends stay");
+  assert.ok(Math.abs(sm[2][1] - 200) < Math.abs(a.pts[2][1] - 200) + 1e-9 && sm[1][1] < a.pts[1][1], "the tremble smoothed");
+  assert.deepEqual(plain(sm.map((p) => p.slice(2))), plain(a.pts.map((p) => p.slice(2))), "pressure and time kept");
+});
+
+test("Improve: fit and redraw change only the strokes chosen, and keep their pen, colour and width", () => {
+  const m = board();
+  const ink = (id, pts) => ({ id, k: "ink", t: "pencil", c: "#1f6fe5", w: 4, o: 1, ch: "xypt", pts: pts.map(([x, y], i) => [x, y, 0.5, i * 10]) });
+  m.items.push(ink("a", [[0, 0], [10, 0]]), ink("b", [[0, 20], [10, 22]]), ink("c", [[50, 50], [60, 60]]), ink("other", [[300, 300], [310, 310]]));
+  const ids = new Set(["a", "b", "c"]), origin = [0, 0];
+  const fit = C.refine(m, { fit: "a", dy: 3 }, ids, origin);
+  assert.deepEqual(plain(fit.changed.map((it) => it.pts.map((p) => p[1]))), [[3, 3]]);
+  assert.equal(C.refine(m, { fit: "other", dy: 3 }, ids, origin), null, "a stroke not chosen is left alone");
+  assert.equal(C.refine(m, { fit: "a", dy: 9999 }, ids, origin).changed[0].pts[0][1], 403, "moves are kept small");
+  const two = C.refine(m, { fit: ["a", "b"], rotate: 90 }, ids, origin);
+  assert.equal(two.changed.length, 2, "several turned as one");
+  const re = C.refine(m, { redraw: "b", d: "M 0 0 L 20 0" }, ids, [100, 50]);
+  const b = re.changed[0];
+  assert.equal(b.id, "b");
+  assert.deepEqual([b.t, b.c, b.w], ["pencil", "#1f6fe5", 4], "its pen, colour and width");
+  assert.deepEqual(plain([b.pts[0].slice(0, 2), b.pts.at(-1).slice(0, 2)]), [[100, 50], [120, 50]], "the path from the box's top left");
+  const join = C.refine(m, { redraw: ["a", "c"], d: "M 0 0 L 30 0" }, ids, origin);
+  assert.deepEqual(plain([join.changed.map((it) => it.id), join.removed.map((it) => it.id)]), [["a"], ["c"]], "fewer parts than strokes: the rest go");
+  assert.ok(!m.items.some((it) => it.id === "c"));
+  const split = C.refine(m, { redraw: "a", d: "M 0 0 L 5 0 M 10 0 L 15 0" }, ids, origin);
+  assert.equal(split.added.length, 1);
+  assert.deepEqual([split.added[0].t, split.added[0].c], ["pencil", "#1f6fe5"], "more parts: strokes of their own, in its look");
+  assert.equal(C.refine(m, { del: ["other", "b"] }, ids, origin).removed.map((it) => it.id).join(), "b", "only what was chosen is taken away");
+  assert.ok(m.items.some((it) => it.id === "other"));
+});

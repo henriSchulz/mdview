@@ -652,7 +652,8 @@
         if (p.length === 1 && first.k === "image") html += `<button type="button" class="bd-btn" data-f="crop" title="${esc(T("board.crop"))}" aria-label="${esc(T("board.crop"))}" aria-pressed="${st.crop === first.id}">${ICON.crop}</button>` + (first.crop ? btn("uncrop", T("board.uncrop"), ICON.uncrop) : "");
         if (p.length === 1 && (first.k === "link" || first.k === "file")) html += btn("open", T("board.open"), ICON.open);
         // (Claude asked about what is chosen: board.js — where AI is on)
-        if (ctx.claude && ctx.claude.on()) html += `<span class="bd-sep"></span>` + btn("claude", T("board.claude"), ctx.icons.spark);
+        // (Improve: the strokes chosen made a little neater by Claude — board.js; pressed while it works, it stops)
+        if (ctx.claude && ctx.claude.on()) html += `<span class="bd-sep"></span>` + (p.some((it) => it.k === "ink") ? (ctx.improve.job ? btn("improve", T("board.improve.stop"), ctx.icons.stop) : btn("improve", T("board.improve"), ctx.icons.wand)) : "") + btn("claude", T("board.claude"), ctx.icons.spark);
         html += `<span class="bd-sep"></span>` + btn("arrange", T("board.arrange"), ICON.arrange) + btn("duplicate", T("board.duplicate"), ctx.icons.copy) + btn("remove", T("board.delete"), ctx.icons.trash);
       }
       if (b.dataset.sig !== html) { b.innerHTML = html; b.dataset.sig = html; }
@@ -709,7 +710,7 @@
       const d = b.dataset;
       if (d.f) {
         if (["ink", "fill", "stroke", "text", "ends", "arrange", "table"].includes(d.f)) return pop(d.f), true;
-        ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]), claude: () => ctx.claude.open(barEl()),
+        ({ duplicate, remove, group, ungroup, link, insertStyle, open: () => ctx.open(S().pick[0]), claude: () => ctx.claude.open(barEl()), improve: () => (ctx.improve.job ? ctx.improve.stop() : ctx.improve.go()),
           crop: () => { const st = S(); st.crop = st.crop === st.pick[0].id ? null : st.pick[0].id; ctx.paint(); },
           uncrop: () => change((p) => { const it = p[0], c = it.crop; if (!c) return; const fw = it.w / (1 - c[0] - c[2]), fh = it.h / (1 - c[1] - c[3]), [lx, ly] = [-(c[0] - c[2]) * fw / 2, -(c[1] - c[3]) * fh / 2], rad = (it.r * Math.PI) / 180, [cx, cy] = I.mid(it); delete it.crop; Object.assign(it, { w: Math.round(fw * 10) / 10, h: Math.round(fh * 10) / 10 }); Object.assign(it, { x: Math.round((cx + lx * Math.cos(rad) - ly * Math.sin(rad) - it.w / 2) * 10) / 10, y: Math.round((cy + lx * Math.sin(rad) + ly * Math.cos(rad) - it.h / 2) * 10) / 10 }); }),
           copyLook: () => { copyLook(); closePop(); }, pasteLook, front: () => order(true), back: () => order(false), lock: () => { lock(true); closePop(); }, unlock: () => lock(false) })[d.f]?.();
@@ -835,7 +836,7 @@
       if (it && !st.pick.includes(it)) pick([it]);
       else if (!it && !(st.pick.length && inBox(p))) pick([]);
       const pk = st.pick, free = !locked(), things = pk.filter((i) => i.k !== "ink"), grouped = pk.some((i) => i.group), row = (name, keys, on, f, cls = "") => [esc(T(name)), keys, on, f, cls];
-      const claude = ctx.claude && ctx.claude.on() ? [null, row("board.claude", "", true, () => ctx.claude.open(null, pt))] : [];
+      const claude = ctx.claude && ctx.claude.on() ? [null, ...(st.pick.some((i) => i.k === "ink") ? [row("board.improve", "", !ctx.improve.job, () => ctx.improve.go())] : []), row("board.claude", "", true, () => ctx.claude.open(null, pt))] : [];
       if (!pk.length) return [row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), null, row("menu.selectAll", "Ctrl+A", st.model.items.some((i) => !i.foreign), () => ctx.all()), ...claude];
       const rows = [row("menu.cut", "Ctrl+X", free, () => copy(true)), row("menu.copy", "Ctrl+C", true, () => copy(false)), row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), row("board.duplicate", "Ctrl+D", true, duplicate)];
       if (!free) return [...rows.slice(1), null, row("board.unlock", "Ctrl+L", true, () => lock(false))];

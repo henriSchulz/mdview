@@ -376,5 +376,88 @@
     return null;
   }
 
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, letter: (ch, style) => letter(fontOf(style), ch) };
+  // ---------------------------------------------------------------- Improve: strokes chosen, made a little neater
+  /* What is chosen and nothing else goes to Claude, and what comes back is the same strokes set straight: moved, scaled,
+   * turned (fit) or drawn anew close to their course (redraw) — each keeps its pen, colour and width. The hand's own
+   * tremble is smoothed here at once, before Claude has said anything. */
+
+  /* A stroke's points smoothed: twice, each point a little toward its neighbours, but never farther than most from where
+   * the hand put it — the tremble goes, a letter's corners stay. The ends stay, and the pressure and time. */
+  function smooth(pts, most = 1) {
+    if (pts.length < 4) return pts;
+    let now = pts;
+    for (let pass = 0; pass < 2; pass++) now = now.map((p, i) => (i === 0 || i === now.length - 1 ? p : [(now[i - 1][0] + 2 * p[0] + now[i + 1][0]) / 4, (now[i - 1][1] + 2 * p[1] + now[i + 1][1]) / 4, ...p.slice(2)]));
+    return now.map((p, i) => {
+      const o = pts[i], dx = p[0] - o[0], dy = p[1] - o[1], d = Math.hypot(dx, dy), k = d > most ? most / d : 1;
+      return [r1(o[0] + dx * k), r1(o[1] + dy * k), ...o.slice(2)];
+    });
+  }
+  /* The points that carry a line's shape: those farther than eps from the line between their neighbours (Ramer, Douglas, Peucker). */
+  function simplify(pts, eps) {
+    if (pts.length < 3) return pts;
+    const keep = new Uint8Array(pts.length), todo = [[0, pts.length - 1]];
+    keep[0] = keep[pts.length - 1] = 1;
+    while (todo.length) {
+      const [a, b] = todo.pop(), dx = pts[b][0] - pts[a][0], dy = pts[b][1] - pts[a][1], len = Math.hypot(dx, dy);
+      let far = -1, most = eps;
+      for (let i = a + 1; i < b; i++) {
+        const d = len ? Math.abs((pts[i][0] - pts[a][0]) * dy - (pts[i][1] - pts[a][1]) * dx) / len : Math.hypot(pts[i][0] - pts[a][0], pts[i][1] - pts[a][1]);
+        if (d > most) { most = d; far = i; }
+      }
+      if (far >= 0) { keep[far] = 1; todo.push([a, far], [far, b]); }
+    }
+    return pts.filter((_, i) => keep[i]);
+  }
+  /* The strokes chosen, as Claude is told them: from the top left of the box round them all (small numbers are quick to
+   * read and to write), in the order they were drawn, each its id, box and path in whole pixels.
+   * → { text, origin: [x, y], size: [w, h] }, or null when no stroke is chosen. */
+  function tellPick(inks) {
+    if (!inks.length) return null;
+    const boxes = inks.map((it) => B.format.boundsOf(it)), x0 = Math.min(...boxes.map((b) => b[0])), y0 = Math.min(...boxes.map((b) => b[1]));
+    const w = Math.max(...boxes.map((b) => b[2])) - x0, h = Math.max(...boxes.map((b) => b[3])) - y0, at = (v, o) => Math.round(v - o);
+    const lines = inks.map((it, i) => {
+      const b = boxes[i], pts = simplify(it.pts, Math.max(0.5, it.w * 0.2));
+      const d = pts.map((p, n) => `${n ? "L" : "M"}${at(p[0], x0)} ${at(p[1], y0)}`).join(" ");
+      return JSON.stringify({ id: it.id, tool: it.t, w: it.w, box: [at(b[0], x0), at(b[1], y0), Math.round(b[2] - b[0]), Math.round(b[3] - b[1])], d });
+    });
+    return { text: `${inks.length} stroke${inks.length === 1 ? "" : "s"} in a box of ${Math.round(w)} × ${Math.round(h)}:\n${lines.join("\n")}`, origin: [x0, y0], size: [w, h] };
+  }
+  /* One step of Improve done on the model — only on the strokes that were chosen (ids, a Set), its coordinates from origin.
+   * → { added, changed, removed } (the strokes as they now are), or null when it could not be done. */
+  function refine(model, step, ids, origin) {
+    const clamp = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    const list = (v) => [...new Set((Array.isArray(v) ? v : [v]).filter((x) => typeof x === "string" && ids.has(x)))];
+    const strokes = (v) => list(v).map((id) => model.items.find((it) => it.id === id && it.k === "ink")).filter(Boolean);
+    if (step.fit != null) {
+      const all = strokes(step.fit);
+      if (!all.length) return null;
+      const bs = all.map((it) => B.format.boundsOf(it)), cx = (Math.min(...bs.map((b) => b[0])) + Math.max(...bs.map((b) => b[2]))) / 2, cy = (Math.min(...bs.map((b) => b[1])) + Math.max(...bs.map((b) => b[3]))) / 2;
+      const k = clamp(Number(step.scale), 0.5, 2, 1), a = (clamp(Number(step.rotate), -30, 30, 0) * Math.PI) / 180, cos = Math.cos(a) * k, sin = Math.sin(a) * k;
+      const dx = clamp(Number(step.dx), -400, 400, 0), dy = clamp(Number(step.dy), -400, 400, 0);
+      for (const it of all) B.ink.moved(it, (p) => [cx + (p[0] - cx) * cos - (p[1] - cy) * sin + dx, cy + (p[0] - cx) * sin + (p[1] - cy) * cos + dy]);
+      return { added: [], changed: all, removed: [] };
+    }
+    if (step.redraw != null) {
+      const all = strokes(step.redraw), runs = flatten(step.d).filter((run) => run.length > 1);
+      if (!all.length || !runs.length) return null;
+      const added = [], changed = [], at = (run) => run.map((p) => [p[0] + origin[0], p[1] + origin[1]]);
+      runs.forEach((run, i) => {
+        const it = all[Math.min(i, all.length - 1)], made = stroke(at(run), { tool: it.t, c: it.c, w: it.w });
+        if (i < all.length) { it.pts = made.pts; it.ch = made.ch; it.path = null; it.box = null; changed.push(it); }
+        else { made.o = it.o; if (it.of) made.of = it.of; model.items.splice(model.items.indexOf(it) + 1 + added.length, 0, made); added.push(made); } // (more parts than strokes: strokes of their own, with the last one's look)
+      });
+      const removed = all.slice(runs.length); // (fewer parts than strokes: those left over go)
+      if (removed.length) model.items = model.items.filter((it) => !removed.includes(it));
+      return { added, changed, removed };
+    }
+    if (step.del != null) {
+      const removed = strokes(step.del);
+      if (!removed.length) return null;
+      model.items = model.items.filter((it) => !removed.includes(it));
+      return { added: [], changed: [], removed };
+    }
+    return null;
+  }
+
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
 })();

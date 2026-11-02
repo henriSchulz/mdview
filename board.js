@@ -35,6 +35,7 @@
     erasePart: svg('<path d="M4 15c1.8-4.6 3.2-6.2 4.6-5.4M15 13.6c1.4-.4 2.8-2.6 4.5-6.6"/><circle cx="11.8" cy="12.4" r="2.6" stroke-dasharray="1.8 1.6"/>'),
     alignL: svg('<path d="M5 7h14M5 12h9M5 17h12"/>'), alignC: svg('<path d="M5 7h14M7.5 12h9M6 17h12"/>'), alignR: svg('<path d="M5 7h14M10 12h9M7 17h12"/>'),
     shrink: svg('<path d="M8 10l4 4 4-4"/>'),
+    wand: svg('<path d="m4 20 11-11M13 7l2 2"/><path d="M18 3v3M16.5 4.5h3M20 9v2M19 10h2M10 3v2M9 4h2"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
     get claude() { return this.spark; }, // (Ask Claude's button)
     font: svg('<path d="M4 18 9 6l5 12M5.8 14h6.4"/><path d="M15 17.5c1.2-.4 1.6-1.6 2-3.2s.8-3.3 2.6-3.3c.9 0 1.4.6 1.4 1.4"/>'),
@@ -337,7 +338,7 @@
     // text in the board's picture breaks where it breaks on the screen: measured with the same letters
     const meter = document.createElement("canvas").getContext("2d");
     B.items.measure = (text, font) => { meter.font = font; return meter.measureText(text).width; };
-    sel = B.select.make({ claude, S: () => S, el: () => el, paint, did, changed, size, kind: () => (S ? S.kind : null), loop: (pts) => live(null, pts), inks: INKS.map(([, c]) => c), onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
+    sel = B.select.make({ claude, improve, S: () => S, el: () => el, paint, did, changed, size, kind: () => (S ? S.kind : null), loop: (pts) => live(null, pts), inks: INKS.map(([, c]) => c), onBoard: (pt) => onBoard(pt), T, esc, icons: I, copied: (text) => core.copy(text),
       // what the right button's menu shares with the keys: Ctrl+V (a picture on the clipboard first, on the desktop), Ctrl+A
       canPaste: () => !BROWSER || sel.clip > 0, paste: () => { if (S.mode !== "select") setMode("select"); if (BROWSER) sel.paste(); else pasteHere(); }, all: () => { setKind("lasso"); sel.pick(S.model.items.filter((it) => !it.foreign)); },
       // a card's file or address, opened: by the host, as a link in a note is (a file in the program for its kind, an address in the browser)
@@ -1274,6 +1275,101 @@
     ref: () => (S ? (S.pdf ? S.pdf.path : S.ref) || null : null), // (the board's own document: a conversation of its own where no note is on screen)
   };
 
+  // ---------------------------------------------------------------- Improve (board/claude.js: smooth, tellPick, refine; the shell's channel "improve")
+  /* The strokes chosen, made a little neater — handwriting, a formula, a sketch: smoothed here at once, then set straight by
+   * Claude, who is told them and nothing else (no note, no board round them: it is quick). Each of its steps glides there;
+   * all of it, the smoothing too, is one step back, and what it made stays chosen. Pressed again while it works, it stops. */
+  const improve = {
+    job: null, // { s, before, ids, origin, n, queue, over, ai, id }
+    async go() {
+      if (improve.job || !claude.on() || sel.editing) return;
+      const s = S, inks = s.pick.filter((it) => it.k === "ink" && !it.lock && !it.foreign);
+      if (!inks.length) return;
+      const before = sel.snapshot();
+      for (const it of inks) if (!it.sharp) { const pts = B.claude.smooth(it.pts, Math.max(0.6, it.w * 0.3)); if (pts !== it.pts) { it.pts = pts; it.path = null; it.box = null; } }
+      const told = B.claude.tellPick(inks), job = { s, before, ids: new Set(inks.map((it) => it.id)), origin: told.origin, n: 0, queue: Promise.resolve(), over: false };
+      improve.job = job;
+      paint();
+      note(T("board.improve.busy"));
+      let ai = null, picture = "";
+      try { [ai, picture] = await Promise.all([core.ai.load(), improvePicture(inks).catch(() => "")]); } catch (e) { /* (ai.js could not be loaded) */ }
+      if (improve.job !== job) return;
+      if (!ai || !ai.ask) return improveDone(job, T("board.ask.failed"));
+      job.ai = ai;
+      const r = B.claude.reader(), feed = (steps) => { for (const step of steps) job.queue = job.queue.then(() => improveStep(job, step)); };
+      job.id = ai.ask("improve", { strokes: told.text, picture }, (piece) => feed(r.feed(piece)), (whole, error) => { feed(r.end()); job.queue.then(() => improveDone(job, error)); });
+    },
+    stop() {
+      const job = improve.job;
+      if (!job) return;
+      job.over = true;
+      if (job.ai) job.ai.stop(job.id);
+      job.queue.then(() => improveDone(job, "stopped"));
+    },
+  };
+  /* What Claude is shown: the strokes chosen alone, on white, a little room round them — large enough to read a small hand. */
+  async function improvePicture(inks) {
+    const bs = inks.map((it) => B.format.boundsOf(it)), pad = 12;
+    const x = Math.min(...bs.map((b) => b[0])) - pad, y = Math.min(...bs.map((b) => b[1])) - pad, w = Math.max(...bs.map((b) => b[2])) + pad - x, h = Math.max(...bs.map((b) => b[3])) + pad - y;
+    const k = Math.max(0.5, Math.min(4, 900 / Math.max(w, h, 1))), c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const g = c.getContext("2d");
+    g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+    const pic = B.render.picture({ ...S.model, items: inks, board: { ...S.model.board, paper: null } }), img = new Image();
+    const url = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${c.width}" height="${c.height}" viewBox="${[x, y, w, h].map((n) => Math.round(n * 10) / 10).join(" ")}">${pic.body}</svg>`], { type: "image/svg+xml" }));
+    try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; }); g.drawImage(img, 0, 0, c.width, c.height); } finally { URL.revokeObjectURL(url); }
+    return c.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  }
+  /* One step of Claude's, done: a stroke changed glides from where it was to where it is now, one taken away fades out, one
+   * added fades in — together, in a moment (at once where motion is reduced). */
+  async function improveStep(job, step) {
+    const s = job.s;
+    if (job.over || improve.job !== job || S !== s) return;
+    const old = new Map(s.model.items.filter((it) => it.k === "ink" && job.ids.has(it.id)).map((it) => [it, it.pts]));
+    const got = B.claude.refine(s.model, step, job.ids, job.origin);
+    if (!got) return;
+    job.n++;
+    for (const it of got.added) job.ids.add(it.id);
+    s.pick = [...s.pick.filter((it) => s.model.items.includes(it)), ...got.added];
+    const calm = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const ms = calm ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--spring-snappy-dur")) || 400; // (motion.css)
+    if (ms) {
+      const after = s.model.items, to = new Map(got.changed.map((it) => [it, it.pts])), fade = [...got.removed, ...got.added], o0 = new Map(fade.map((it) => [it, it.o]));
+      if (got.removed.length) s.model.items = [...after, ...got.removed]; // (there while they fade)
+      await new Promise((done) => {
+        const t0 = performance.now(), go = (t) => {
+          const k = job.over || S !== s ? 1 : Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+          for (const [it, b] of to) {
+            const a = old.get(it) || b, n = Math.max(1, b.length - 1);
+            it.pts = b.map((p, i) => { const q = a[Math.round((i * (a.length - 1)) / n)]; return [q[0] + (p[0] - q[0]) * e, q[1] + (p[1] - q[1]) * e, ...p.slice(2)]; });
+            it.path = null; it.box = null;
+          }
+          for (const it of got.removed) it.o = o0.get(it) * (1 - e);
+          for (const it of got.added) it.o = o0.get(it) * e;
+          if (S === s) paint();
+          if (k < 1) requestAnimationFrame(go); else done();
+        };
+        requestAnimationFrame(go);
+      });
+      for (const [it, b] of to) { it.pts = b; it.path = null; it.box = null; }
+      for (const it of fade) it.o = o0.get(it);
+      s.model.items = after;
+    }
+    if (S === s) paint();
+  }
+  /* Claude is done (or was stopped, or could not be asked): what it did, the smoothing with it, is one step back. */
+  function improveDone(job, error) {
+    if (improve.job !== job) return;
+    improve.job = null;
+    const s = job.s;
+    if (S !== s) return;
+    sel.commitSince(job.before);
+    paint();
+    if (error === "stopped") return note("");
+    note(error ? (error === "AI is turned off in the settings" ? T("board.ask.off") : error) : T(job.n ? "board.improve.done" : "board.improve.none"), !!error);
+    claude.said = setTimeout(() => { if (S === s && !claude.job && !improve.job) note(""); }, 6000);
+  }
+
   // ---------------------------------------------------------------- changes, and taking them back
   function changed() {
     S.dirty = true;
@@ -1745,9 +1841,12 @@
     inks: S.model.items.filter((it) => it.k === "ink").map((it) => it.c), options: popOpen(),
     kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
-    lost: S.model.lost, claude: { busy: el.hasAttribute("data-claude"), chip: claude.note } } : null);
+    lost: S.model.lost, claude: { busy: el.hasAttribute("data-claude"), chip: claude.note }, improving: !!improve.job } : null);
   B.page = (op, i) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i) })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
+  // (for the tests: strokes put on the board by name, as a hand would have drawn them — [{ id, pts: [[x, y], …], c, tool, w }] — and their points read)
+  B.inkPut = (list) => { if (!S || S.readonly) return; for (const o of list) S.model.items.push({ ...B.claude.stroke(o.pts, o), id: o.id }); changed(); paint(); };
+  B.inkPts = (id) => { const it = S && S.model.items.find((x) => x.id === id && x.k === "ink"); return it ? it.pts.map((p) => [p[0], p[1]]) : null; };
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
   B.emptyText = () => B.format.empty();

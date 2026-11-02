@@ -22,7 +22,7 @@ impl Win {
             "ai-ask" => {
                 let prefs = app.prefs();
                 let (channel, id) = (text_of("channel").to_string(), msg["id"].clone());
-                if prefs.get("aiOn") == Some(&Value::Bool(false)) || !matches!(channel.as_str(), "transform" | "chat" | "board") {
+                if prefs.get("aiOn") == Some(&Value::Bool(false)) || !matches!(channel.as_str(), "transform" | "chat" | "board" | "improve") {
                     return self.js("MdView.aiDone", &[id, Value::Null, json!("AI is turned off in the settings")]);
                 }
                 let model = prefs.get("aiClaude").and_then(Value::as_str).filter(|m| (2..=60).contains(&m.len()) && m.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))).unwrap_or("").to_string();
@@ -31,7 +31,10 @@ impl Win {
                 // (a whiteboard open: what is on it, as board/claude.js tells it — for the board's own question and for the chat)
                 let board = take(text_of("board"), 240_000);
                 let board = if board.trim().is_empty() { String::new() } else { format!("The board:\n<board-now>\n{board}\n</board-now>\n\n") };
-                let (system, prompt) = if channel == "board" {
+                // (Improve: the strokes chosen on a board and nothing else — no note, no board round them; the picture is theirs alone)
+                let (system, prompt) = if channel == "improve" {
+                    (ai::IMPROVE_SYSTEM.to_string(), format!("The strokes chosen:\n<strokes>\n{}\n</strokes>", take(text_of("strokes"), 120_000)))
+                } else if channel == "board" {
                     (ai::board_system(false), format!("{board}What the user asks: {}", take(text_of("instruction"), 4000)))
                 } else if channel == "transform" {
                     (ai::TRANSFORM_SYSTEM.to_string(), format!("{whole}The selected part of the note:\n<selection>\n{}\n</selection>\n\nWhat to do with the selected part: {}\n\nReply with the Markdown that takes its place, and nothing else.", take(text_of("selection"), 60_000), take(text_of("instruction"), 4000)))
@@ -50,7 +53,7 @@ impl Win {
                 let (mut more, mut attach) = (String::new(), Vec::new());
                 // (what the window shows of the board, as a picture the page drew — a PNG that goes with the question; the page sends
                 // one only where the board's text does not say all: ink, pictures, a PDF)
-                let picture = if board.is_empty() { None } else { base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG")) };
+                let picture = if board.is_empty() && channel != "improve" { None } else { base64::engine::general_purpose::STANDARD.decode(text_of("picture")).ok().filter(|d| d.len() <= 20_000_000 && d.starts_with(b"\x89PNG")) };
                 if channel == "chat" {
                     let mut room = 400_000usize; // (letters of other documents, all told: what fits a question)
                     let put = |more: &mut String, path: &Path, room: &mut usize| -> bool {
@@ -92,7 +95,7 @@ impl Win {
                         more = format!("Other documents the user gave you to read:\n\n{more}");
                     }
                 }
-                let effort = if board.is_empty() { "" } else { "low" }; // (a board's answer is watched as it comes: begun soon)
+                let effort = if board.is_empty() && channel != "improve" { "" } else { "low" }; // (a board's answer is watched as it comes: begun soon)
                 app.talker.ask(Talk { label: self.label.clone(), id, channel, system, prompt: format!("{more}{prompt}"), model, attach, picture, effort });
             }
             // files for Claude to read, chosen in the system's own window; what was chosen comes back as "ai-picked", with this window's word

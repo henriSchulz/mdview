@@ -96,6 +96,19 @@ Colours: "auto" (the board's ink: dark on a light board, light on a dark one) or
 Notes, a summary, a study sheet (a "Lernzettel"): as complete as the topic and the request call for — every part the user names, with its definitions, formulas, steps and examples, in headings and short lines as a good student writes them; one asked to be large, detailed or thorough fills two to four pages of A4 or more (a page holds some 30 lines of handwriting at size 16–20): don't stop at one page or squeeze it to fit — go on below, written to its end."##;
 /// … when the board itself asks (its own button, or a part of it chosen and asked about).
 pub const BOARD_SYSTEM: &str = "You draw on a whiteboard inside a note-taking app. The user says what to draw or change; you do it with steps the app carries out. Reply with at most one short sentence in the user's language, then the block of steps, and nothing after it. If what is asked is no drawing or change, answer in one or two sentences without a block.";
+/// … when strokes chosen on a board are to be made a little neater (Improve): nothing but them, and as quick as can be.
+pub const IMPROVE_SYSTEM: &str = r##"You tidy up handwriting and hand drawings in a note-taking app. The user chose some strokes of ink — words, a formula, a sketch or a diagram — and pressed Improve. Make them a little neater, the way the same hand would have written them with more care, and stay as close to the original as you can: the same words and letters in the same letterforms, the same formula, the same drawing, in the same place and size. It must still look like the user's own hand, only nicer. Never add or leave out content, never change what is written or drawn, never turn handwriting into print.
+What to set straight: the letters of a word on one baseline and of an even size; a line of words level; one slant throughout; a formula's parts in line — a fraction bar straight and as wide as what stands over it, exponents and indices at an even height and size, brackets as tall as what they hold; in a drawing, lines meant to be straight straight, circles round, corners and joins closed where they were meant to meet, arrowheads even, parallel lines parallel. Leave alone what is fine: usually most strokes need no step at all.
+You are given each stroke as a line — its id, its pen, its width, its box [x, y, width, height] and its path in pixels from the top left of what was chosen (x to the right, y downward), in the order they were drawn — and a picture of the strokes.
+Reply with nothing but one block, and nothing before or after it:
+<board>
+one step per line, each a JSON object on a line of its own
+</board>
+Steps:
+- {"fit":"<id>","dx":0,"dy":-2,"scale":1,"rotate":0} — a stroke moved, scaled about its centre and turned (degrees, clockwise); several at once ("fit":["<id>","<id>"]: a letter of several strokes, a word, a line of words) about their common centre, as one. For size, baseline, level and slant: it keeps the stroke's own shape — prefer it.
+- {"redraw":"<id>","d":"M 0 0 L 10 0"} — a stroke drawn anew along an SVG path (M L C Q, the same coordinates), close to its own course but clean: a line meant to be straight, a circle meant to be round, a shaky curve, a letter gone wrong. Several ids ("redraw":["<id>","<id>"]) become the parts of the path, one for each M, in order; ids left over are taken away (a line drawn in three pieces made one).
+- {"del":"<id>"} — only for a stroke that is plainly a slip: a stray dot, a scribble made by mistake.
+Keep changes small: moves of a few pixels, scale between 0.8 and 1.25, turns within 10 degrees. Begin at once; the user watches the strokes get better as you write."##;
 /// … and what the chat is told besides, while a whiteboard is open.
 pub const BOARD_CHAT: &str = "The user has a whiteboard open (described below as “the board”), and on it you can draw: what is said above about having no tools does not hold for the board. When they ask you to draw on it, write on it or change it, always answer with a block of steps (<board> … </board>) after one short sentence — never only say that you will; the block is done on the board at once, so it is not repeated in an <insert>.";
 
@@ -113,7 +126,7 @@ const SETTINGS: [&str; 2] = ["--setting-sources", "project"];
 pub struct Talk {
     pub label: String,
     pub id: Value,
-    pub channel: String, // one talk at a time for each: "transform", "chat", "board"
+    pub channel: String, // one talk at a time for each: "transform", "chat", "board", "improve"
     pub system: String,
     pub prompt: String,
     pub model: String, // "": claude's own
@@ -174,10 +187,10 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
     };
     if let Ok(fake) = std::env::var("MDVIEW_TALK_FAKE") {
         // (tests: no model — what is said is given, in two pieces: before "||" for a transform, after it for the chat;
-        // CHANNEL names the channel, PICTURE whether a whiteboard's picture went along, and "please fail" in the question fails. The board's own question: MDVIEW_BOARD_FAKE, if set)
+        // CHANNEL names the channel, PICTURE whether a whiteboard's picture went along, and "please fail" in the question fails. The board's own question: MDVIEW_BOARD_FAKE, if set; Improve: MDVIEW_IMPROVE_FAKE)
         let mut both = fake.splitn(3, "||");
         let (first, second, third) = (both.next().unwrap_or(""), both.next(), both.next());
-        let board = std::env::var("MDVIEW_BOARD_FAKE").ok().filter(|_| t.channel == "board");
+        let board = std::env::var(if t.channel == "improve" { "MDVIEW_IMPROVE_FAKE" } else { "MDVIEW_BOARD_FAKE" }).ok().filter(|_| t.channel == "board" || t.channel == "improve");
         let said = if let Some(b) = &board { b.as_str() } else if t.system == CHAT_EDIT_SYSTEM { third.or(second).unwrap_or(first) } else if t.channel == "chat" { second.unwrap_or(first) } else { first }.replace("CHANNEL", &t.channel).replace("PICTURE", if t.picture.is_some() { "with a picture" } else { "without a picture" }).replace("SEEN", if t.prompt.contains("<document name=\"other.md\">\n# Other\n\nother note text") { "Seen: other note text." } else { "" });
         if t.prompt.contains("please fail") {
             std::thread::sleep(Duration::from_millis(150));
@@ -246,7 +259,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
                 use base64::Engine;
                 let data = base64::engine::general_purpose::STANDARD.encode(png);
                 let message = json!({ "type": "user", "message": { "role": "user", "content": [
-                    { "type": "text", "text": "What the window shows of the whiteboard now:" },
+                    { "type": "text", "text": if t.channel == "improve" { "The strokes chosen, as they look:" } else { "What the window shows of the whiteboard now:" } },
                     { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": data } },
                     { "type": "text", "text": prompt },
                 ] } });
