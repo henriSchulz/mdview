@@ -16,7 +16,7 @@
   :root[data-ipad] .ip-btn { display: grid; place-items: center; width: var(--ip-size); height: var(--ip-size); padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--fg); touch-action: manipulation; -webkit-touch-callout: none; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--spring-snappy-dur) var(--spring-snappy); }
   :root[data-ipad] .ip-btn > svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   :root[data-ipad] .ip-btn:active { transform: scale(0.92); transition-duration: var(--dur-instant); }
-  :root[data-ipad] :is(.ip-cap, .ip-all), :root[data-ipad] :is(#toolbar, #rrail) { background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); }
+  :root[data-ipad] :is(.ip-cap, .ip-all, .ip-sync), :root[data-ipad] :is(#toolbar, #rrail) { background: var(--glass); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule); }
   :root[data-ipad] .ip-cap { display: flex; align-items: center; height: var(--ip-size); padding: 0 2px; border-radius: var(--radius-pill); }
 
   /* the top left: the button of four parts, and the note's name once its title has scrolled away */
@@ -70,6 +70,7 @@
   /* All Notes: the title beside the button of four parts; the tiles are there at once (the zoom brings them) */
   :root[data-ipad] #overview { padding-top: calc(var(--ip-top) + 6px) !important; left: 0 !important; }
   :root[data-ipad] .ov-head { padding-left: calc(var(--ip-size) + 12px); min-height: var(--ip-size); align-items: center; }
+  :root[data-ipad] body[data-linked] .ov-head { padding-left: calc(var(--ip-size) * 2 + 24px); } /* (beside All Notes Sync Now stands too: #30) */
   :root[data-ipad] .ov-title { font-size: 22px; }
   /* (the tiles are simply there: the zoom brings them — their own coming in would move the note's tile under the note flying to it) */
   :root[data-ipad] #overview .ov-tile { opacity: 1 !important; transform: none !important; transition: outline-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out) !important; }

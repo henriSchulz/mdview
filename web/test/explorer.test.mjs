@@ -532,3 +532,21 @@ test("All Notes in a folder, in a Velum look: the chevrons of the way back stand
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/Failed to load resource/.test(p)), []);
 });
+
+test("Sync Now stands in the tabs' strip beside All Notes, not in the sidebar: in sight over a note and over All Notes, the sidebar open or shut (#30)", async () => {
+  await open("Alpha.md");
+  const seen = (sel) => page.evaluate((s) => { const b = document.querySelector(s); if (!b) return false; const r = b.getBoundingClientRect(); return getComputedStyle(b).display !== "none" && r.width > 0 && r.bottom > 0 && r.top < innerHeight; }, sel);
+  assert.equal(await page.evaluate(() => !!document.querySelector("#sidebar [data-act='syncnow']")), false, "no longer in the sidebar's head");
+  assert.ok(await seen('#tabs .tab-sync[data-act="syncnow"]'), "over a note, the sidebar open");
+  assert.equal(await page.evaluate(() => document.querySelector("#tabs .tab-sync").previousElementSibling.dataset.act), "overview", "beside All Notes");
+  await page.evaluate(() => MdPage.showSidebar(false, false));
+  await page.waitForTimeout(400);
+  assert.ok(await seen("#tabs .tab-sync"), "over a note, the sidebar shut");
+  await allNotes();
+  assert.ok(await seen("#tabs .tab-sync"), "over All Notes");
+  // pressed: what waits is kept and the two sides brought in line — it turns once and says so
+  await page.click("#tabs .tab-sync");
+  assert.ok(await page.evaluate(() => document.querySelector("#tabs .tab-sync").classList.contains("turning")));
+  await page.waitForFunction(() => /Up to date|Syncing/.test(document.querySelector("#toast")?.textContent || ""), null, { timeout: 8000 });
+  await page.keyboard.press("Escape");
+});

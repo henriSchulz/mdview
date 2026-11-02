@@ -27,9 +27,12 @@
   const nav = document.createElement("div");
   nav.id = "ipad-nav";
   nav.innerHTML = `<button class="ip-btn ip-all" type="button" title="${esc(T("All notes"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.apps}</button>` +
+    // (Sync Now beside All Notes, in sight over All Notes too — #30; there while the folder is linked)
+    `<button class="ip-btn ip-sync" type="button" data-ip="sync" title="${esc(T("Sync Now"))}" aria-label="${esc(T("Sync Now"))}">${ICON.sync}</button>` +
     `<div class="ip-title" aria-hidden="true"><b></b><small>${ICON.folder}<span></span></small></div>`;
   body.appendChild(nav);
   const allBtn = nav.querySelector(".ip-all");
+  nav.querySelector(".ip-sync").addEventListener("click", () => P.syncNow());
 
   // --- the capsule at the bottom left: the history, reading or writing
   const READING = !!(window.MdHost || {}).reading;

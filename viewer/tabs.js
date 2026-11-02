@@ -25,6 +25,8 @@
     `<button class="tab-home tab-nav" data-act="navback" title="${esc(T("Back (Alt+←)"))}" aria-label="${esc(T("Back"))}" disabled>${ICON.back}</button>` +
     `<button class="tab-home tab-nav" data-act="navfwd" title="${esc(T("Forward (Alt+→)"))}" aria-label="${esc(T("Forward"))}" disabled>${ICON.forward}</button>` +
     `<button class="tab-home" data-act="overview" title="${esc(T("All notes (Ctrl+Alt+G)"))}" aria-label="${esc(T("All notes"))}" aria-pressed="false">${ICON.home}</button>` +
+    // (Sync Now beside All Notes: in sight over a note and over All Notes alike, the sidebar open or not — #30; there while the folder is linked)
+    `<button class="tab-home tab-sync" data-act="syncnow" title="${esc(T("Sync Now: fetch what other devices wrote, and send what was written here"))}" aria-label="${esc(T("Sync Now"))}">${ICON.sync}</button>` +
     `<div class="tab-list" role="tablist"></div>` +
     `<button class="tab-new" data-act="newtab" title="${esc(T("New tab (Ctrl+T)"))}" aria-label="${esc(T("New tab"))}">${ICON.plus}</button></div>`;
   document.body.appendChild(tabbar);
