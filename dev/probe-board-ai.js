@@ -98,12 +98,23 @@
     const last = MdAi.state().talk.at(-1) || {};
     ok("… the chat says so, and shows no steps as text", last.drew >= 1 && /Drawn on the whiteboard/.test(chat().querySelector(".ai-log").textContent) && !/"add"/.test(chat().querySelector(".ai-log").textContent), [last.drew, chat().querySelector(".ai-log").textContent.slice(-200)]);
     out("chat", {});
-    // (a press on the board does not shut the chat: it is drawn on while the chat talks about it)
-    el().querySelector(".bd-stage").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, clientX: 200, clientY: 300, pointerId: 9, pointerType: "mouse", isPrimary: true, button: 0, buttons: 1 }));
-    el().querySelector(".bd-stage").dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, clientX: 200, clientY: 300, pointerId: 9, pointerType: "mouse", isPrimary: true, button: 0, buttons: 0 }));
-    await sleep(300);
-    ok("a press on the board leaves the chat open", MdAi.chat.open);
-    MdAi.chat.close();
+    // (the star pressed again shuts the chat; so does a press on the empty board — Henri, 2026-11-02)
+    const press = (target, x, y) => { for (const type of ["pointerdown", "pointerup"]) target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 9, pointerType: "mouse", isPrimary: true, button: 0, buttons: type === "pointerdown" ? 1 : 0 })); };
+    const click = (b) => { const r = b.getBoundingClientRect(); press(b, r.left + 4, r.top + 4); b.click(); };
+    click(btn());
+    ok("the star pressed again shuts the chat", await until(() => !MdAi.chat.open, 2000));
+    MdAi.chat.toggle();
+    await until(() => MdAi.chat.open, 2000);
+    press(el().querySelector(".bd-stage"), 200, 300);
+    ok("a press on the empty board shuts the chat", await until(() => !MdAi.chat.open, 2000));
+    click(btn());
+    ok("the star opens the field", await until(() => pop().hasAttribute("data-open") && pop().dataset.kind === "ask", 2000));
+    click(btn());
+    ok("… and shuts it, pressed again", await until(() => !pop().hasAttribute("data-open"), 2000), pop().dataset.kind);
+    click(btn());
+    await until(() => pop().hasAttribute("data-open"), 2000);
+    press(el().querySelector(".bd-stage"), 200, 300);
+    ok("… and so does a press on the empty board", await until(() => !pop().hasAttribute("data-open"), 2000));
     ok("nothing was thrown", !errs.length, errs);
   } catch (e) {
     o.error = String((e && e.stack) || e);

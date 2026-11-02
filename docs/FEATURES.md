@@ -577,19 +577,20 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   whiteboard) belong to it, and go with it when AI is off.
 - **Claude on a whiteboard** — on a note's board, a board of its own, and the board over a PDF:
   **Ask Claude** (the sparkle in the board's bar at the upper right, beside ⋯) opens a field:
-  say what to draw or change and press `Enter`. Claude is told what is on the board (each thing
+  say what to draw or change and press `Enter` (`Shift+Enter` breaks the line). Claude is told what is on the board (each thing
   as the file has it, a stroke by its tool, colour and the box around it), which part of it the
   window shows, what is chosen, the pages of a PDF, and is given a picture of what the window
   shows (the PDF's pages with what is drawn on them). It answers with steps that are done on
   the board **as they come**: strokes of ink drawn along their way — sketches, writing, a
   marker over a line of the PDF —, texts, sticky notes, shapes, lines and arrows joined to
   things, tables; and any thing on the board, also what the user made, changed, moved or taken
-  away. While it draws, the button stops it and the title says so; what it said stands in the
-  title afterwards. All its steps are **one step of Undo**. Things chosen: their bar has Ask
+  away. While it draws, the button stops it and a line under it says so; what it said stands in that
+  line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
+  the empty board, shuts the field (and the chat). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
-  Chat**, opens the chat over the board: while a board is open the chat stays over it (a press
-  on the board does not shut it, the keys typed in it are its own), is told the board as the
+  Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
+  typed in it are its own; a press on the board shuts it, one on the board's bars does not), is told the board as the
   field is, and what it answers with steps is done on the board as well — the chat says how many
   and shows no steps as text. Not on a board that is only shown, and not where AI is off.
 

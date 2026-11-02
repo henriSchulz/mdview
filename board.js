@@ -278,7 +278,7 @@
     // the options shut when anything beside them is touched
     el.addEventListener("pointerdown", (e) => {
       if (popOpen() && !e.target.closest(".bd-pop, .bd-tool, .bd-hue, .bd-size-now, [data-fav]")) options(null);
-      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="plus"]')) menu(null);
+      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="plus"], [data-do="claude"], [data-f="claude"]')) menu(null);
       if (S && sel.pending && !e.target.closest(".bd-cpop")) { delete el.querySelector(".bd-cpop").dataset.open; sel.connectTo(null); } // (no shape chosen for a connector's end: it ends where it was let go)
       if (S && e.target.closest(".bd-bar") && !e.target.closest(".bd-fbar") && !(S.kind === "text" && e.target.closest(".bd-palette"))) sel.finish(); // (a bar touched while text is typed: the text is done — but not the text tool's own tray, which sets how it looks)
     }, true);
@@ -943,8 +943,12 @@
     pt: null, // where the right button was pressed, when it was asked from its menu
     note: "", // what the title says of Claude now: that it draws, what it said, why it could not
     on: () => !!(S && !S.readonly && core.ai && core.ai.on && core.ai.on()),
+    /* anchor: the button it was asked from — pressed again, it shuts the field and the chat (Henri, 2026-11-02); none: the
+     * right button's menu, at pt. */
     open(anchor = null, pt = null) {
       if (!claude.on()) return;
+      const chat = window.MdAi && MdAi.chat.open;
+      if (anchor && ((vpop().dataset.open != null && vpop().dataset.kind === "ask") || chat)) { menu(null); if (chat) MdAi.chat.close(); return; }
       claude.pt = pt ? onBoard(pt) : null;
       menu("ask", anchor || el.querySelector('[data-do="claude"]'), true);
     },

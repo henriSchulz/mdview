@@ -629,7 +629,7 @@
    * it by itself. The press goes on to do what it does there; the chat goes as its own close takes it away. */
   const OWN = "#ai-chat, #ai-bubble";
   addEventListener("pointerdown", (e) => {
-    if (Ai.chat.open && e.target instanceof Element && !e.target.closest(OWN) && !e.target.closest("#board")) Ai.chat.close(); // (not on a whiteboard: it is drawn on while the chat talks about it)
+    if (Ai.chat.open && e.target instanceof Element && !e.target.closest(OWN) && !e.target.closest("#board .bd-bar, #board .bd-vpop")) Ai.chat.close(); // (over a whiteboard: a press on the board shuts it, one on the board's bars and its field for Claude does not)
   }, true);
   /* AI turned off in the settings: whatever was asked is dropped, the chat is shut. */
   Ai.off = () => { for (const id of [...jobs.keys()]) stop(id); talking = null; clearTimeout(pending); pending = 0; if (box) { delete box.dataset.open; delete document.body.dataset.aiChat; box.hidden = true; } };
