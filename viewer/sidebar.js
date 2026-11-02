@@ -21,7 +21,7 @@
     `<button class="tb" data-act="titles" aria-pressed="false">${ICON.title}</button>` +
     `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
     // (only where the folder has another side to be brought in line with: a project linked to a repository, a repository in the browser)
-    `<button class="tb sb-sync" data-act="syncnow" title="${esc(T("Sync Now: fetch what other devices wrote, and send what was written here"))}" aria-label="${esc(T("Sync Now"))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.4L4 8.5M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.4L20 15.5M20 20v-4.5h-4.5"/></svg></button>` +
+    `` +
     `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
     `</header>` +
     `<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off">` +

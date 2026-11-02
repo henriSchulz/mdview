@@ -1161,8 +1161,9 @@ A project can be linked to a repository on GitHub. Linked, the two are kept the 
 kept here goes there, and what another device sent comes here — the repository is what counts.
 Without a link, and without GitHub, everything above works as it does.
 
-- **Sync Now**: the two arrows in the sidebar's head (there while the folder is linked; in the
-  browser always). What waits is kept, and the two sides are brought in line at once — not after
+- **Sync Now**: the two arrows in the tabs' strip, beside All Notes — in sight over a note and over
+  All Notes, the sidebar open or shut; on an iPad beside the button of four parts (there while the
+  folder is linked; in the browser always). What waits is kept, and the two sides are brought in line at once — not after
   the quiet while, or the next look a minute later.
 - **Signing in**: Settings › History › GitHub › Sign In…. The app shows a code; Copy Code and
   Open GitHub puts it on the clipboard and opens the page where it is confirmed. No password is

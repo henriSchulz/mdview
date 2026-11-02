@@ -44,13 +44,7 @@
       openCtx(b, r.right, r.bottom + 4, "new");
     },
     // Sync Now: what is typed is saved first; the application keeps what waits and brings the two sides in line
-    syncnow: () => {
-      const b = sbHead.querySelector(".sb-sync");
-      flush(false);
-      post("sync-now");
-      b.classList.remove("turning"); void b.offsetWidth; b.classList.add("turning"); // (it turns once: asked for)
-      toast(T("Syncing…"));
-    },
+    syncnow: () => syncNow(),
     historymenu: () => { // the clock: the folder's history, switched on or said to be
       const r = sbHistoryBtn.getBoundingClientRect();
       if (ctxOpen() && P.ctxKind === "history") { closeCtx(false); return; }
@@ -63,6 +57,15 @@
     next: () => focusHit(P.hitIdx + 1),
     closefind: () => closeFind(),
   };
+  /* Sync Now (its button in the tabs' strip, on an iPad among the tools at the top): what is typed is saved first; the application
+   * keeps what waits and brings the two sides in line. */
+  function syncNow() {
+    flush(false);
+    post("sync-now");
+    for (const b of document.querySelectorAll(".tab-sync, .ip-sync")) { b.classList.remove("turning"); void b.offsetWidth; b.classList.add("turning"); } // (it turns once: asked for)
+    toast(T("Syncing…"));
+  }
+  P.syncNow = syncNow;
   for (const root of [toolbar, findBar, sbHead, tabbar]) {
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-act]");

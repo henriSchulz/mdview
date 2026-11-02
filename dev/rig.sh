@@ -1680,7 +1680,7 @@ PY
     rm -f "$R/out"/*.sync-button.json
     app 30 MDVIEW_PROBE="$D/probe-sync-button.js" MDVIEW_PROBE_OUT="$R/out" -- "$A"
     wait_for sync-button 150; pkill -f "^$APP" 2>/dev/null
-    ok "a linked project opened anew: Sync Now is in the sidebar's head at once" '[[ $(jq -c "[.linked, .display]" "$R/out"/*.sync-button.json) == "[true,\"grid\"]" ]]' 'jq -c . "$R/out"/*.sync-button.json'
+    ok "a linked project opened anew: Sync Now is in the tabs' strip at once" '[[ $(jq -c "[.linked, .display]" "$R/out"/*.sync-button.json) == "[true,\"grid\"]" ]]' 'jq -c . "$R/out"/*.sync-button.json'
     exit $fail ;;
   paste)
     # A project's pasteboard in the application: none without a sign-in, then typed here and at the server, written there and here.

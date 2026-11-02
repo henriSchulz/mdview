@@ -82,6 +82,8 @@ test("an iPad: no sidebar and no tabs, buttons in the corners, the note's name i
   assert.ok(tools.x <= 24 && 820 - tools.bottom <= 30 && tools.h === 44, `the capsule at the bottom left: ${JSON.stringify(tools)}`);
   assert.equal(await shown(p, "#toolbar .seg"), false, "the modes' segments are the pencil's");
   assert.equal(await shown(p, "#settings-btn"), false, "no gear over the note's corner");
+  const sync = await rect(p, "#ipad-nav .ip-sync");
+  assert.ok(sync.x >= all.right && sync.y === all.y && sync.w === 44, `Sync Now beside it (#30): ${JSON.stringify(sync)}`);
   assert.equal(await shown(p, ".ip-title"), false, "the name is not in the bar while the title shows");
   await shot(d, "note");
   await p.evaluate(() => scrollTo(0, 600));
@@ -104,7 +106,9 @@ test("an iPad: the button of four parts goes to All Notes, the note's tile is wh
   assert.equal(await p.evaluate(() => document.querySelector("#overview .ov-item[aria-current]")?.dataset.path.endsWith("Home.md")), true, "the note's tile is marked: the zoom's end");
   assert.equal(await shown(p, "#toolbar"), false, "the note's toolbar is not over All Notes");
   assert.equal(await shown(p, "#settings-btn"), true, "the gear in All Notes' corner");
-  const head = await rect(p, ".ov-head"), btn = await rect(p, "#ipad-nav .ip-all");
+  // Sync Now beside the button of four parts, over All Notes too (#30) — and the title beside both
+  assert.equal(await shown(p, "#ipad-nav .ip-sync"), true, "Sync Now over All Notes");
+  const head = await rect(p, ".ov-head"), btn = await rect(p, "#ipad-nav .ip-sync");
   const title = await rect(p, ".ov-title");
   assert.ok(title.x >= btn.right, `the title beside the button, not under it: ${title.x} ${btn.right}`);
   assert.ok(head.y < 60);
