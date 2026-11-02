@@ -87,7 +87,7 @@
   }
   // (a stroke of ink is taken as it is — its points copied, not what was worked out for drawing it)
   const data = (it) => {
-    if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ch: it.ch, ...(it.sharp ? { sharp: true } : {}), pts: it.pts.map((p) => [...p]), path: null, box: null };
+    if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ch: it.ch, ...(it.sharp ? { sharp: true } : {}), ...(it.group ? { group: it.group } : {}), pts: it.pts.map((p) => [...p]), path: null, box: null };
     const d = JSON.parse(JSON.stringify(it)); delete d.sides; return d; // (sides: worked out, not kept)
   };
 

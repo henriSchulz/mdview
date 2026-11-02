@@ -93,6 +93,7 @@
       if (!pts.length) return null;
       const it = { id: o.id, k: "ink", t: typeof o.t === "string" ? o.t : "pen", c: typeof o.c === "string" ? o.c : "auto", o: Math.max(0.05, Math.min(1, num(o.o, 1))), w: Math.max(0.5, Math.min(200, num(o.w, 3))), ch, pts };
       if (o.sharp === true) it.sharp = true; // (a stroke made straight: its points are corners)
+      if (typeof o.group === "string" && o.group) it.group = o.group; // (strokes that are one thing — a word written by hand: chosen together)
       return it;
     }
     return null;
@@ -100,7 +101,7 @@
   function lineOf(it) {
     if (it.foreign) return it.foreign;
     if (B.items && B.items.KINDS.has(it.k)) return B.items.data(it);
-    if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ...(it.sharp ? { sharp: true } : {}), ch: it.ch, p: pack(it.pts, it.ch) };
+    if (it.k === "ink") return { id: it.id, k: "ink", t: it.t, c: it.c, o: it.o, w: it.w, ...(it.sharp ? { sharp: true } : {}), ...(it.group ? { group: it.group } : {}), ch: it.ch, p: pack(it.pts, it.ch) };
     return null;
   }
   /* What an item covers: [x0, y0, x1, y1]. */

@@ -993,7 +993,7 @@ PY
     rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 3
     rm -f "$R/out"/{m5.md,paper.pdf}.{asking,drawing,drawn,chat,board-ai-note,board-ai-pdf}.json; fail=0
     steps=$'{"add":"shape","as":"walls","shape":"rect","x":-120,"y":160,"w":240,"h":160}\n{"add":"ink","tool":"pen","c":"#e5372c","w":4,"d":"M -140 160 L 0 50 L 140 160"}\n{"add":"sticky","as":"note","x":160,"y":40,"w":160,"h":120,"text":"A house"}'
-    more=$'{"add":"line","p":[170,160,120,200],"arrow":true,"from":{"id":"note"},"to":{"id":"walls"}}\n{"move":"note","dx":20,"dy":0}\n{"set":"walls","fill":"#b5dcff"}'
+    more=$'{"add":"line","p":[170,160,120,200],"arrow":true,"from":{"id":"note"},"to":{"id":"walls"}}\n{"move":"note","dx":20,"dy":0}\n{"set":"walls","fill":"#b5dcff"}\n{"add":"write","x":-120,"y":340,"text":"Mein Haus – grün & groß","size":28}'
     fake=$'Here is a house, PICTURE.\n<board>\n'"$steps"$'\n'"$more"$'\n</board>'
     chat=$'x||Done.\n<board>\n{"add":"sticky","x":-300,"y":40,"text":"From the chat","fill":"#bfe8b0"}\n</board>'
     real=(); [[ ${2:-} == real ]] && { { echo 'window.__boardAiReal = true;'; cat "$D/probe-board-ai.js"; } > "$R/probe-board-ai-real.js"; real=(real); }

@@ -5,6 +5,7 @@
  *
  *   <board>
  *   {"add":"ink","tool":"pen","c":"#e5372c","w":3,"d":"M 10 10 C 40 0, 60 0, 90 10"}   a stroke: an SVG path, or "pts"
+ *   {"add":"write","x":0,"y":0,"text":"Idea","size":28}                                  words written by hand (vendor/hershey.js)
  *   {"add":"sticky","as":"a","x":0,"y":0,"w":180,"h":180,"text":"Idea"}                 anything else as the file's line has it
  *   {"add":"line","p":[0,0,200,0],"ends":["none","arrow"],"from":{"id":"a"}}             ("as": a name later steps may use)
  *   {"set":"k3f9a","text":"Better idea","fill":"#bfe8b0"}                                  fields of a thing changed
@@ -37,7 +38,18 @@
     else {
       out.push(`What is on the board (${items.length}), from the back to the front:`);
       let room = 200_000;
+      const told = new Set();
       for (const it of items) {
+        // (strokes that are one thing — words written by hand — are told as one: their group, how many, the box round them all)
+        if (it.k === "ink" && it.group) {
+          if (told.has(it.group)) continue;
+          told.add(it.group);
+          const all = items.filter((x) => x.k === "ink" && x.group === it.group), b = all.map((x) => B.format.boundsOf(x)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
+          const line = JSON.stringify({ id: it.group, k: "ink", strokes: all.length, tool: it.t, c: it.c, w: it.w, box: [r1(b[0]), r1(b[1]), r1(b[2] - b[0]), r1(b[3] - b[1])], ...(it.said ? { text: it.said } : {}) });
+          if ((room -= line.length) < 0) { out.push("(… more, left out for their length)"); break; }
+          out.push(line);
+          continue;
+        }
         const line = JSON.stringify(lineOf(it));
         if ((room -= line.length) < 0) { out.push("(… more, left out for their length)"); break; }
         out.push(line);
@@ -132,6 +144,66 @@
     return runs.filter((r) => r.length > 1 && r.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])));
   }
 
+  // ---------------------------------------------------------------- handwriting
+  /* Words as a hand writes them: the letters of a Hershey font (vendor/hershey.js: strokes, as a pen draws them), each a
+   * little turned, raised and sized as a hand does — strokes of ink, one group for the whole text. */
+  const SAME = { "“": '"', "”": '"', "„": '"', "‘": "'", "’": "'", "‚": ",", "–": "-", "—": "-", "…": "...", "•": "*", "·": ".", "×": "x", "°": "o" };
+  const DOTS = { ä: "a", ö: "o", ü: "u", Ä: "A", Ö: "O", Ü: "U" };
+  const EURO = ["M15,5 C13,2 11,1 9,1 C5,1 3,6 3,11.5 C3,17 5,22 9,22 C11,22 13,21 15,18 M1,9 L11,9 M1,14 L10,14", 9];
+  const ESZETT = ["M4,22 L4,7 C4,3 6,1 9,1 C12,1 13,3 13,5 C13,7 11,9 8,9 C12,9 14,12 14,15 C14,19 12,22 9,22 L7,22", 9];
+  const UNIT = 1.68, SPACE = 7; // (the font's: how far o reaches; a space, in its units)
+  const fontOf = (style) => (window.MdHershey || {})[style === "script" ? "script" : "hand"];
+  /* One letter: its strokes in the font's units (the line it stands on at y 21), and how far the next stands. */
+  function letter(font, ch) {
+    if (ch === " " || ch === "\t") return { runs: [], adv: SPACE * UNIT };
+    if (ch === "ß") return { runs: flatten(ESZETT[0], 0.7), adv: ESZETT[1] * UNIT };
+    if (ch === "€") return { runs: flatten(EURO[0], 0.7), adv: EURO[1] * UNIT };
+    if (DOTS[ch]) {
+      const base = letter(font, DOTS[ch]), xs = base.runs.flat().map((p) => p[0]), mid = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : base.adv / 2, y = DOTS[ch] === DOTS[ch].toUpperCase() ? -3 : 4;
+      return { runs: [...base.runs, [[mid - 3, y], [mid - 2.4, y]], [[mid + 2.4, y], [mid + 3, y]]], adv: base.adv };
+    }
+    const c = (SAME[ch] || ch).charCodeAt(0), g = font[c - 33] || (SAME[ch] && SAME[ch].length > 1 ? null : font["?".charCodeAt(0) - 33]);
+    if (SAME[ch] && SAME[ch].length > 1) { const parts = [...SAME[ch]].map((x) => letter(font, x)); let at = 0; const runs = []; for (const p of parts) { runs.push(...p.runs.map((r) => r.map(([x, y]) => [x + at, y]))); at += p.adv; } return { runs, adv: at }; }
+    return { runs: flatten(g[0], 0.7), adv: g[1] * UNIT };
+  }
+  /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", maxw (where lines
+   * break), tool, c, w } → strokes, one group. */
+  function write(o) {
+    const font = fontOf(o.style);
+    if (!font || typeof o.text !== "string" || !o.text.trim()) return [];
+    const size = Number.isFinite(o.size) ? Math.max(8, Math.min(200, o.size)) : 28, k = size / 21, lead = size * 1.75;
+    const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = Number.isFinite(o.y) ? o.y : 0, maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
+    const wide = (word) => [...word].reduce((a, ch) => a + letter(font, ch).adv, 0) * k;
+    // the lines: as written, and broken where a word would go past maxw
+    const lines = [];
+    for (const para of o.text.slice(0, 4000).split("\n")) {
+      let line = "";
+      for (const word of para.split(/(?<= )/)) { if (line && wide(line + word.trimEnd()) > maxw) { lines.push(line.trimEnd()); line = word; } else line += word; }
+      lines.push(line.trimEnd());
+    }
+    const shake = (a) => (Math.random() * 2 - 1) * a, slant = o.style === "script" ? 0 : 0.08;
+    const group = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 12)), made = [];
+    lines.forEach((line, n) => {
+      let at = x0;
+      const wave = shake(size * 0.03); // (a line is never quite straight)
+      for (const ch of line) {
+        const g = letter(font, ch), turn = shake(0.03), grow = 1 + shake(0.04), lift = shake(size * 0.025) + wave, cos = Math.cos(turn), sin = Math.sin(turn);
+        for (const run of g.runs) {
+          const pts = run.map(([gx, gy]) => {
+            const lx = gx * k * grow - (gy - 21) * k * grow * slant, ly = (gy - 21) * k * grow; // (about the letter's foot)
+            return [at + lx * cos - ly * sin + shake(0.15), y0 + n * lead + size + lift + lx * sin + ly * cos + shake(0.15)];
+          });
+          const it = stroke(pts, { tool: o.tool || "pen", c: o.c, w });
+          it.group = group;
+          made.push(it);
+        }
+        at += g.adv * k * grow;
+      }
+    });
+    if (made.length) made[0].said = o.text.slice(0, 400); // (what was written, told back to Claude while the board is open — not kept in the file)
+    return made;
+  }
+
   // ---------------------------------------------------------------- the steps, done
   /* A stroke from points [[x, y], …]: pressure as a hand that starts and ends light, time as a hand that moves on evenly. */
   function stroke(pts, o) {
@@ -151,10 +223,13 @@
    * names: Claude's own names ("as") → the ids they were given, kept over one answer. */
   function apply(model, step, names = new Map()) {
     const items = model.items, id = (v) => (typeof v === "string" ? names.get(v) || v : null), find = (v) => items.find((it) => it.id === id(v));
+    const every = (v) => { const want = id(v), one = items.find((it) => it.id === want); return one ? [one] : items.filter((it) => it.k === "ink" && it.group === want); }; // (a group of strokes: all of them)
     const ends = (o) => { for (const e of ["from", "to"]) if (o[e] && typeof o[e].id === "string") o[e] = { ...o[e], id: id(o[e].id) }; return o; };
     if (typeof step.add === "string") {
       const k = step.add === "stroke" ? "ink" : step.add, made = [];
-      if (k === "ink") {
+      if (k === "write" || k === "hand") {
+        made.push(...write(step));
+      } else if (k === "ink") {
         const runs = Array.isArray(step.pts) ? [step.pts.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))] : flatten(step.d);
         for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? run : [run[0], run[0]], step));
       } else {
@@ -169,35 +244,36 @@
         if (it) made.push(it);
       }
       if (!made.length) return null;
-      if (typeof step.as === "string" && step.as) names.set(step.as, made[0].id);
+      if (typeof step.as === "string" && step.as) names.set(step.as, made[0].group || made[0].id);
       items.push(...made);
       return { added: made, changed: [], removed: [] };
     }
     if (typeof step.del === "string") {
-      const it = find(step.del);
-      if (!it) return null;
-      model.items = items.filter((x) => x !== it);
-      return { added: [], changed: [], removed: [it] };
+      const gone = every(step.del);
+      if (!gone.length) return null;
+      model.items = items.filter((x) => !gone.includes(x));
+      return { added: [], changed: [], removed: gone };
     }
     if (typeof step.move === "string") {
-      const it = find(step.move), dx = Number(step.dx) || 0, dy = Number(step.dy) || 0;
-      if (!it) return null;
-      if (it.k === "ink") B.ink.moved(it, (p) => [p[0] + dx, p[1] + dy]);
-      else B.items.moveBy(it, dx, dy);
-      return { added: [], changed: [it], removed: [] };
+      const all = every(step.move), dx = Number(step.dx) || 0, dy = Number(step.dy) || 0;
+      if (!all.length) return null;
+      for (const it of all) { if (it.k === "ink") B.ink.moved(it, (p) => [p[0] + dx, p[1] + dy]); else B.items.moveBy(it, dx, dy); }
+      return { added: [], changed: all, removed: [] };
     }
     if (typeof step.set === "string") {
-      const it = find(step.set);
+      const all = every(step.set), it = all[0];
       if (!it) return null;
       const more = { ...step };
       delete more.set; delete more.id; delete more.k;
       if (it.k === "ink") {
-        if (more.c != null) it.c = color(more.c, it.c);
-        if (Number.isFinite(more.w)) it.w = Math.max(0.5, Math.min(60, more.w));
-        if (Number.isFinite(more.o)) it.o = Math.max(0.05, Math.min(1, more.o));
-        if (INKS.includes(more.tool)) it.t = more.tool;
-        it.path = null; it.box = null;
-        return { added: [], changed: [it], removed: [] };
+        for (const x of all) {
+          if (more.c != null) x.c = color(more.c, x.c);
+          if (Number.isFinite(more.w)) x.w = Math.max(0.5, Math.min(60, more.w));
+          if (Number.isFinite(more.o)) x.o = Math.max(0.05, Math.min(1, more.o));
+          if (INKS.includes(more.tool)) x.t = more.tool;
+          x.path = null; x.box = null;
+        }
+        return { added: [], changed: all, removed: [] };
       }
       const was = B.items.data(it);
       // (a value of another sort than the one it replaces — a number that is none, a text that is a number — is left out)
@@ -214,5 +290,5 @@
     return null;
   }
 
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, apply };
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply };
 })();

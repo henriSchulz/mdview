@@ -581,10 +581,13 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   as the file has it, a stroke by its tool, colour and the box around it), which part of it the
   window shows, what is chosen, the pages of a PDF, and is given a picture of what the window
   shows (the PDF's pages with what is drawn on them). It answers with steps that are done on
-  the board **as they come**: strokes of ink drawn along their way — sketches, writing, a
-  marker over a line of the PDF —, texts, sticky notes, shapes, lines and arrows joined to
-  things, tables; and any thing on the board, also what the user made, changed, moved or taken
-  away. While it draws, the button stops it and a line under it says so; what it said stands in that
+  the board **as they come**, and it works **by hand**: drawings are strokes of ink drawn along
+  their way (sketches, arrows, frames, a marker over a line of the PDF), words are
+  **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up
+  when asked), each letter a little turned and raised as a hand writes, umlauts, ß and € with
+  them, one thing to choose, move or rub out as a whole. Texts, sticky notes, shapes, lines
+  joined to things and tables only when they are asked for by name; and any thing on the board,
+  also what the user made, it may change, move or take away. While it draws, the button stops it and a line under it says so; what it said stands in that
   line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
   the empty board, shuts the field (and the chat). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu

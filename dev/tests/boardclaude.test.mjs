@@ -10,7 +10,7 @@ function load() {
   const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
   w.window = w;
   vm.createContext(w);
-  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "vendor/hershey.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
   return w.MdBoard;
 }
 const B = load(), C = B.claude;
@@ -88,4 +88,33 @@ test("what Claude is told: where the window looks, the PDF's pages, each thing a
   assert.ok(!("pts" in line), "a stroke's points are not told");
   assert.match(said, new RegExp(`Chosen by the user right now.*${ink.id}`));
   assert.match(C.describe(board()), /The board is empty/);
+});
+
+test("words written by hand: strokes of the font's letters, one group, umlauts with their dots, lines broken at maxw; set, move, delete the whole", () => {
+  const m = board(), names = new Map();
+  const got = C.apply(m, { add: "write", as: "t", x: 100, y: 50, text: "Hallo Welt", size: 21 }, names).added;
+  assert.ok(got.length > 10, "a stroke for each part of each letter");
+  const g = got[0].group;
+  assert.ok(g && got.every((it) => it.k === "ink" && it.group === g), "all of them one group");
+  assert.equal(names.get("t"), g, "its name is the group's");
+  const box = got.map((it) => B.format.boundsOf(it)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
+  assert.ok(box[0] > 95 && box[0] < 110 && box[1] > 45 && box[1] < 60 && box[3] < 80, "where it was put, a line high: " + box.map(Math.round));
+  assert.ok(box[2] - box[0] > 21 * 0.75 * 10 * 0.75 && box[2] - box[0] < 21 * 0.75 * 10 * 1.3, "about 0.75 × size a letter: " + Math.round(box[2] - box[0]));
+  // (the group is one thing in the file, too)
+  assert.equal(new Set(B.format.parse(B.format.write(m)).items.map((it) => it.group)).size, 1);
+  const n = (text) => C.write({ x: 0, y: 0, text, size: 21 }).length;
+  assert.equal(n("ä"), n("a") + 2, "ä: an a and two dots");
+  assert.ok(n("ß") >= 1 && n("“ok”…") > n("ok"), "ß and the typographer's signs are written too");
+  const wrapped = C.write({ x: 0, y: 0, text: "one two three four five six", size: 20, maxw: 120 });
+  const bottom = Math.max(...wrapped.map((it) => B.format.boundsOf(it)[3]));
+  assert.ok(bottom > 60, "broken into lines at maxw: " + Math.round(bottom));
+  const said = C.describe(m);
+  assert.match(said, new RegExp(`"id":"${g}","k":"ink","strokes":${got.length}.*"text":"Hallo Welt"`), "told as one line, with what it says");
+  const x = got.map((it) => it.pts[0][0]);
+  C.apply(m, { move: "t", dx: 10, dy: 0 }, names);
+  assert.ok(got.every((it, i) => Math.abs(it.pts[0][0] - x[i] - 10) < 0.2), "move: every stroke of it");
+  C.apply(m, { set: g, c: "#e5372c" }, names);
+  assert.ok(m.items.every((it) => it.c === "#e5372c"), "set: every stroke of it");
+  C.apply(m, { del: g }, names);
+  assert.equal(m.items.length, 0, "del: all of it");
 });

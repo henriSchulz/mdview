@@ -15,6 +15,7 @@ by `dev/build-licenses.mjs`; it goes into the installers with this folder).
 | `pdfjs/` | PDF.js | Apache-2.0 (`pdfjs/LICENSE`) |
 | `prosemirror.min.js` | the ProseMirror packages named at its head | MIT |
 | `diff.min.js` | diff 9.0.0 | BSD-3-Clause |
+| `hershey.js` | two Hershey fonts (handwriting on a whiteboard), from hersheytext 2.0.0 — made by `dev/build-hershey.mjs` | MIT (the fonts: public domain) |
 
 Not in this folder, and another's work too: the landing page's scroll runtime,
 `web/public/welcome/scrollcraft.js` and `.css` (MIT, `scrollcraft.LICENSE` beside them).

@@ -50,7 +50,7 @@
     out("drawn", {});
     o.drawn = { things: after.things.map((t) => [t.k, t.shape || "", t.text || "", t.fill || ""]), inks: after.kinds, chip: after.claude.chip };
     if (!REAL) {
-      ok("the house: walls filled, a roof of ink, a sticky note moved, an arrow joined to both", after.things.length === before.things.length + 3 && after.items === before.items + 1 &&
+      ok("the house: walls filled, a roof of ink, a sticky note moved, an arrow joined to both, words under it by hand", after.things.length === before.things.length + 3 && after.items > before.items + 10 &&
         after.things.some((t) => t.k === "shape" && t.fill === "#b5dcff") && after.things.some((t) => t.k === "sticky" && t.text === "A house" && t.x === 180) &&
         after.things.some((t) => t.k === "line" && t.from && t.to), o.drawn);
       ok("what Claude said shows in the title — it was shown the window's picture", /Here is a house, with a picture/.test(after.claude.chip), after.claude.chip);
