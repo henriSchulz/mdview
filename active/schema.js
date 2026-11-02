@@ -133,6 +133,7 @@
       content: "table_row+",
       tableRole: "table",
       isolating: true,
+      allowGapCursor: false, // (the place between two blocks is between blocks, not between rows or cells: #17)
       // wide: as wide as the text column (so it stands when nothing is said); head: its head row's colour.
       // mark: the line before it in the file that said so, kept to be written again as it was (viewer/markdown.js: tableLook)
       // cols: how wide its columns are, as shares in percent ([30, 20, 50]; null: as their text has them — active/tableui.js)
@@ -140,7 +141,7 @@
       parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !dom.parentElement || !dom.parentElement.classList.contains("table-wrap") || dom.parentElement.classList.contains("wide") }) }],
       toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide || n.attrs.cols ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", n.attrs.cols ? { class: "has-cols" } : {}, 0]]; },
     }),
-    table_row: { content: "table_cell+", tableRole: "row", parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
+    table_row: { content: "table_cell+", tableRole: "row", allowGapCursor: false, parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
     table_cell: {
       content: "inline*",
       tableRole: "cell",

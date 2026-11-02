@@ -253,6 +253,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     reading. A mode that cannot do a part of the panel dims that part; it does not take the panel
     away. Written from the source, it is an edit of the source's text (`P.edReplace`: the editor's
     own undo), not a new text put in. A new mode, or a new part of the document's: `dev/tests/docmodes.test.mjs`, `rig.sh docstyle`.
+91. **The place between two blocks is between blocks only**, never inside a table (#17). ProseMirror's
+    own gap cursor stops wherever two "closed" nodes meet and a textblock could go — a table's cells
+    are isolating textblocks, so it stopped between every two cells of a row. A node that holds no
+    blocks says `allowGapCursor: false` in the schema (`table`, `table_row`); `dev/tests/tablegap.test.mjs`.
 
 ### The shell (Rust)
 
