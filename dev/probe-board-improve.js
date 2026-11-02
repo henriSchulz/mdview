@@ -26,12 +26,12 @@
     const wave = Array.from({ length: 24 }, (_, i) => [x0 + i * 6, y0 + Math.sin(i * 1.7) * 3 + (i % 2 ? 1.5 : -1.5)]);
     const line = Array.from({ length: 12 }, (_, i) => [x0 + i * 4, y0 + 40 + (i % 3) * 2]);
     B().inkPut([{ id: "wa", pts: wave, c: "#e5372c", tool: "pen", w: 3 }, { id: "wb", pts: line, c: "#1f6fe5", tool: "pencil", w: 4 },
-      { id: "wc", pts: [[x0 + 160, y0 + 60], [x0 + 161, y0 + 61]] }, { id: "wd", pts: [[x0 + 220, y0 + 10], [x0 + 216, y0 + 40], [x0 + 232, y0 + 26]], c: "#52b85a" }, { id: "we", pts: [[x0 + 245, y0 + 20], [x0 + 243, y0 + 40]], c: "#52b85a" }, { id: "wx", pts: [[x0, y0 + 120], [x0 + 3, y0 + 125], [x0 + 60, y0 + 118], [x0 + 80, y0 + 130]] }]);
+      { id: "wc", pts: [[x0 + 160, y0 + 60], [x0 + 161, y0 + 61]] }, { id: "wd", pts: [[x0 + 220, y0 + 10], [x0 + 216, y0 + 40], [x0 + 232, y0 + 26]], c: "#52b85a" }, { id: "we", pts: [[x0 + 245, y0 + 10], [x0 + 243, y0 + 30]], c: "#52b85a" }, { id: "wx", pts: [[x0, y0 + 120], [x0 + 3, y0 + 125], [x0 + 60, y0 + 118], [x0 + 80, y0 + 130]] }]);
     // (real: words and a formula in a hurried hand, and a wobbly circle, for Claude to set straight)
     const hand = REAL ? B().claude.write({ x: x0, y: y0 + 180, text: "Hallo Welt\na² + b² = c²", size: 30, mess: 1.5 }).map((it, i) => ({ id: "h" + i, pts: it.pts.map((p) => [p[0], p[1]]), w: it.w })) : [];
     if (REAL) hand.push({ id: "ring", pts: Array.from({ length: 40 }, (_, i) => { const a = (i / 39) * Math.PI * 2.1; return [x0 + 300 + Math.cos(a) * (40 + Math.sin(i) * 4), y0 + 240 + Math.sin(a) * (34 + Math.cos(i * 1.3) * 4)]; }) });
     if (REAL) B().inkPut(hand);
-    const was = { wa: B().inkPts("wa"), wb: B().inkPts("wb"), wx: B().inkPts("wx") };
+    const was = { wa: B().inkPts("wa"), wb: B().inkPts("wb"), wx: B().inkPts("wx"), wd: B().inkPts("wd"), we: B().inkPts("we") };
     B().pick(["wa", "wb", "wc", "wd", "we", ...hand.map((h) => h.id)]);
     await sleep(300);
     const btn = () => el().querySelector('.bd-pickbar [data-f="improve"], [data-f="improve"]');
@@ -56,7 +56,8 @@
       ok("redraw: the shaky line drawn anew, straight and 40 wide", wb && wb.every((p) => Math.abs(p[1] - wb[0][1]) < 0.2) && Math.abs(wb.at(-1)[0] - wb[0][0] - 40) < 0.5, wb && [wb[0], wb.at(-1)]);
       ok("…in its own pen, colour and width", s1.kinds.some((k) => k.startsWith("pencil:")) && s1.inks.includes("#1f6fe5"), s1.kinds);
       ok("del: the slip is gone", !B().inkPts("wc"));
-      ok("write: the word read off its strokes written anew in their colour, the strokes gone", !B().inkPts("wd") && !B().inkPts("we") && s1.inks.filter((c) => c === "#52b85a").length >= 3, s1.inks);
+      const wd = B().inkPts("wd"), we = B().inkPts("we"), foot = (ps) => Math.max(...ps.map((p) => p[1]));
+      ok("line: the word's own letters set on one baseline", wd && we && Math.abs(foot(wd) - foot(we)) < Math.abs(foot(was.wd) - foot(was.we)), [wd && foot(wd), we && foot(we)]);
     } else ok("Claude changed the strokes", JSON.stringify(wa) !== JSON.stringify(was.wa) || JSON.stringify(wb) !== JSON.stringify(was.wb), s1.claude.chip);
     ok("what was not chosen is as it was", JSON.stringify(B().inkPts("wx")) === JSON.stringify(was.wx));
     ok("what it made stays chosen", s1.picked.includes("wa") && s1.picked.includes("wb") && !s1.picked.includes("wx"), s1.picked);

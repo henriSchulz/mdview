@@ -377,11 +377,11 @@
   }
 
   // ---------------------------------------------------------------- Improve: strokes chosen, made a little neater
-  /* What is chosen and nothing else goes to Claude. What it reads as written comes back as text, written anew here by a
-   * careful hand where it stood, as large and as wide (write) — strokes traced over kept an ugly hand ugly (Henri,
-   * 2026-11-02); what is drawn comes back drawn anew clean (redraw), or moved, scaled, turned (fit). All of it in the pen,
-   * colour and width of the strokes it takes the place of. The hand's own tremble is smoothed here at once, before Claude
-   * has said anything. */
+  /* What is chosen and nothing else goes to Claude. What it reads as written it tells back letter by letter — which strokes
+   * each letter is —, and the app sets the letters straight itself, keeping their shapes (line): traced over by Claude an
+   * ugly hand stayed ugly, written anew in the app's hand it no longer looked human (Henri, 2026-11-02). What is drawn comes
+   * back drawn anew clean (redraw), or moved, scaled, turned (fit). The hand's own tremble is smoothed here at once,
+   * before Claude has said anything. */
 
   /* A stroke's points smoothed: twice, each point a little toward its neighbours, but never farther than most from where
    * the hand put it — the tremble goes, a letter's corners stay. The ends stay, and the pressure and time. */
@@ -424,6 +424,65 @@
     });
     return { text: `${inks.length} stroke${inks.length === 1 ? "" : "s"} in a box of ${Math.round(w)} × ${Math.round(h)}:\n${lines.join("\n")}`, origin: [x0, y0], size: [w, h] };
   }
+  /* A stroke as a calmer hand draws it: its shape in the few points that carry it (eps), and a smooth curve through them
+   * (Catmull-Rom), a point every two pixels — each with the pressure and time of the point it was drawn with there. */
+  function calm(pts, eps) {
+    if (pts.length < 3) return pts;
+    const key = simplify(pts, eps), out = [];
+    for (let i = 0; i < key.length - 1; i++) {
+      const a = key[i - 1] || key[i], b = key[i], c = key[i + 1], d = key[i + 2] || c, n = Math.max(1, Math.round(Math.hypot(c[0] - b[0], c[1] - b[1]) / 2));
+      for (let k = 0; k < n; k++) {
+        const t = k / n, f = (p, q, r, s) => 0.5 * (2 * q + (r - p) * t + (2 * p - 5 * q + 4 * r - s) * t * t + (3 * q - p - 3 * r + s) * t * t * t);
+        out.push([f(a[0], b[0], c[0], d[0]), f(a[1], b[1], c[1], d[1])]);
+      }
+    }
+    out.push(key[key.length - 1]);
+    return out.map((p, i) => [r1(p[0]), r1(p[1]), ...pts[Math.round((i * (pts.length - 1)) / Math.max(1, out.length - 1))].slice(2)]);
+  }
+  /* A line of handwriting set straight, its letters the user's own: each letter (the strokes Claude says it is made of) brought
+   * most of the way to the line's baseline and to the height of its kind — capitals and tall letters, small letters, letters
+   * that reach below —, the room between letters and between words most of the way to even, and every stroke drawn calmer.
+   * step: {"line":"Hallo","base":150,"cap":110,"xh":60,"letters":[["H",["id",…]],["a",["id"]],…]} */
+  const BY = 0.8; // (how far of the way: the rest is the hand's own, and keeps it a hand's)
+  function line(model, step, strokes, origin) {
+    const seen = new Set(), groups = [];
+    for (const [ch, ids] of step.letters.filter(Array.isArray)) {
+      const its = strokes(ids).filter((it) => !seen.has(it));
+      its.forEach((it) => seen.add(it));
+      if (its.length) groups.push({ ch: String(ch || ""), its });
+    }
+    if (!groups.length) return null;
+    const box = (its) => { const xs = its.flatMap((it) => it.pts.map((p) => p[0])), ys = its.flatMap((it) => it.pts.map((p) => p[1])); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
+    const clamp = (v, lo, hi, d) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+    // (the line measured on the user's own letters — the middle of each kind, not the odd one out —; what Claude said only where a kind is missing)
+    const kind = (ch) => (/^[gjpqyµ]$/.test(ch) ? "low" : /^[A-ZÄÖÜ0-9bdfhklß]$/.test(ch) ? "tall" : /^[acemnorsuvwxzäöüt]$/.test(ch) ? "small" : "");
+    for (const g of groups) { g.kind = kind(g.ch); g.b = box(g.its); }
+    const mid = (list) => { const v = [...list].sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : NaN; };
+    const of = (k) => groups.filter((g) => g.kind === k), cap = clamp(mid(of("tall").map((g) => g.b[3] - g.b[1])), 2, 400, clamp(Number(step.cap), 2, 400, 0));
+    const xh = clamp(mid(of("small").map((g) => g.b[3] - g.b[1])), 2, 400, clamp(Number(step.xh), 2, 400, cap * 0.6));
+    const base = clamp(mid([...of("tall"), ...of("small")].map((g) => g.b[3])), -1e6, 1e6, origin[1] + clamp(Number(step.base), -1e5, 1e5, 0));
+    // (the slant of a letter that stands upright — a tall one, one that reaches below: how far its points lean to the right going up; most of the way to the line's)
+    const lean = (its) => { const ps = its.flatMap((it) => it.pts), n = ps.length, my = ps.reduce((a, p) => a + p[1], 0) / n, mx = ps.reduce((a, p) => a + p[0], 0) / n; let xy = 0, yy = 0; for (const p of ps) { xy += (p[0] - mx) * (p[1] - my); yy += (p[1] - my) ** 2; } return yy ? xy / yy : 0; };
+    for (const g of groups) g.lean = g.kind === "tall" || g.kind === "low" ? lean(g.its) : null;
+    const slant = clamp(mid(groups.filter((g) => g.lean != null).map((g) => g.lean)), -1, 1, 0);
+    for (const g of groups) {
+      if (g.lean != null) { const k = clamp((slant - g.lean) * BY, -0.6, 0.6, 0), y0 = g.b[3]; for (const it of g.its) B.ink.moved(it, (p) => [p[0] + (p[1] - y0) * k, p[1]]); g.b = box(g.its); }
+      const b = g.b, h = b[3] - b[1], low = g.kind === "low", tall = g.kind === "tall", small = g.kind === "small";
+      const want = tall ? cap : small ? xh : 0, s = want && h > 2 ? 1 + (clamp(want / h, 0.6, 1.6, 1) - 1) * BY : 1;
+      const ax = (b[0] + b[2]) / 2, ay = low ? b[1] : b[3], to = low ? base - xh : base, dy = g.kind ? (to - ay) * BY : 0; // (a sign — a dot, a comma, a plus, an exponent, an index — keeps its height)
+      for (const it of g.its) B.ink.moved(it, (p) => [ax + (p[0] - ax) * s, ay + (p[1] - ay) * s + dy]);
+    }
+    // the room between letters, and between words, most of the way to even
+    const boxes = groups.map((g) => box(g.its)), gaps = boxes.slice(1).map((b, i) => b[0] - boxes[i][2]);
+    const word = (gap) => gap > Math.max(xh * 0.6, 4);
+    const mean = (list) => (list.length ? list.reduce((a, v) => a + v, 0) / list.length : 0), inner = mean(gaps.filter((v) => !word(v))), outer = mean(gaps.filter(word));
+    let shift = 0;
+    groups.forEach((g, i) => {
+      if (i) shift += ((word(gaps[i - 1]) ? outer : inner) - gaps[i - 1]) * BY;
+      for (const it of g.its) { if (shift) B.ink.moved(it, (p) => [p[0] + shift, p[1]]); it.pts = calm(it.pts, Math.max(1.2, it.w * 0.5)); it.path = null; it.box = null; }
+    });
+    return { added: [], changed: groups.flatMap((g) => g.its), removed: [] };
+  }
   /* One step of Improve done on the model — only on the strokes that were chosen (ids, a Set), its coordinates from origin.
    * → { added, changed, removed } (the strokes as they now are), or null when it could not be done. */
   function refine(model, step, ids, origin) {
@@ -452,22 +511,7 @@
       if (removed.length) model.items = model.items.filter((it) => !removed.includes(it));
       return { added, changed, removed };
     }
-    if (typeof step.write === "string") { // (words read off the strokes, written anew by a careful hand where they stood — as wide, as tall, in their pen)
-      const all = strokes(step.ids != null ? step.ids : step.of), first = all[0];
-      if (!first || !step.write.trim()) return null;
-      const size = clamp(Number(step.size), 6, 200, 28), base = origin[1] + clamp(Number(step.base), -1e5, 1e5, size);
-      const style = step.script === true ? "script" : "hand", foot = Math.max(...letter(fontOf(style), "x").runs.flat().map((p) => p[1])) - 21; // (where the font's letters stand, below its line)
-      const made = write({ text: step.write.split("\n")[0], x: origin[0], y: base - size - (foot * size) / 21, size, mess: 0.4, w: first.w, c: first.c, tool: first.t, style });
-      if (!made.length) return null;
-      // (as wide as it was: mostly the whole of it larger or smaller about the start of its baseline, a little only wider or narrower — its letters keep their shape)
-      const bs = made.map((it) => B.format.boundsOf(it)), x0 = Math.min(...bs.map((b) => b[0])), x1 = Math.max(...bs.map((b) => b[2])), k = Number(step.width) > 0 && x1 > x0 ? Number(step.width) / (x1 - x0) : 1;
-      const all1 = clamp(k, 0.7, 1.3, 1), across = clamp(k / all1, 0.85, 1.15, 1);
-      const left = origin[0] + clamp(Number(step.x), -1e5, 1e5, 0); // (its first letter where the first one stood: no glyph's margin before it)
-      for (const it of made) { B.ink.moved(it, (p) => [left + (p[0] - x0) * all1 * across, base + (p[1] - base) * all1], all1); it.o = first.o; delete it.said; }
-      model.items.splice(model.items.indexOf(first), 0, ...made);
-      model.items = model.items.filter((it) => !all.includes(it));
-      return { added: made, changed: [], removed: all };
-    }
+    if (typeof step.line === "string" && Array.isArray(step.letters)) return line(model, step, strokes, origin);
     if (step.del != null) {
       const removed = strokes(step.del);
       if (!removed.length) return null;

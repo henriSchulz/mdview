@@ -205,17 +205,28 @@ test("Improve: fit and redraw change only the strokes chosen, and keep their pen
   assert.ok(m.items.some((it) => it.id === "other"));
 });
 
-test("Improve: words read off the strokes are written anew where they stood, as wide, in their pen — the strokes gone", () => {
+test("Improve: a line of handwriting set straight, its letters the user's own — on one baseline, of even heights and slant", () => {
   const m = board();
-  const ink = (id, pts) => ({ id, k: "ink", t: "pencil", c: "#1f6fe5", w: 2.5, o: 1, ch: "xypt", pts: pts.map(([x, y], i) => [x, y, 0.5, i * 10]) });
-  m.items.push(ink("h1", [[100, 100], [95, 160]]), ink("h2", [[130, 100], [128, 160]]), ink("o", [[150, 140], [170, 160]]), ink("other", [[0, 0], [5, 5]]));
-  const ids = new Set(["h1", "h2", "o"]);
-  const got = C.refine(m, { write: "Ho", ids: ["h1", "h2", "o", "other"], x: 0, base: 60, size: 60, width: 80 }, ids, [95, 100]);
-  assert.deepEqual(plain(got.removed.map((it) => it.id)).sort(), ["h1", "h2", "o"], "the strokes it was read off go; one not chosen stays");
-  assert.ok(m.items.some((it) => it.id === "other"));
-  assert.ok(got.added.length >= 3 && got.added.every((it) => it.t === "pencil" && it.c === "#1f6fe5" && Math.abs(it.w - 2.5) < 0.6), "in their pen and colour");
-  const bs = got.added.map((it) => B.format.boundsOf(it)), x0 = Math.min(...bs.map((b) => b[0])), x1 = Math.max(...bs.map((b) => b[2])), y1 = Math.max(...bs.map((b) => b[3]));
-  assert.ok(Math.abs(x0 - 95) < 6 && Math.abs(x1 - x0 - 80) < 14, "where it stood, about as wide: " + [x0, x1]);
-  assert.ok(Math.abs(y1 - 160) < 6, "on its baseline: " + y1);
-  assert.equal(C.refine(m, { write: "x", ids: ["other"] }, ids, [0, 0]), null, "nothing chosen: nothing written");
+  const ink = (id, pts) => ({ id, k: "ink", t: "pen", c: "#1f6fe5", w: 3, o: 1, ch: "xypt", pts: pts.map(([x, y], i) => [x, y, 0.5, i * 10]) });
+  // "llo": an l that leans and stands high, one upright and tall, an o that sits low; and a stroke not chosen
+  const circle = (cx, cy, r) => Array.from({ length: 25 }, (_, i) => [cx + Math.cos((i / 24) * Math.PI * 2) * r, cy + Math.sin((i / 24) * Math.PI * 2) * r]);
+  m.items.push(ink("l1", [[0, 0], [10, 20], [20, 40], [30, 60], [40, 80]]), ink("l2", [[60, -10], [60, 40], [60, 100]]), ink("o", circle(100, 90, 20)), ink("other", [[0, 300], [9, 300]]));
+  const ids = new Set(["l1", "l2", "o"]);
+  const got = C.refine(m, { line: "llo", letters: [["l", ["l1"]], ["l", ["l2", "other"]], ["o", ["o"]]] }, ids, [0, 0]);
+  assert.deepEqual(plain(got.changed.map((it) => it.id)), ["l1", "l2", "o"], "only the letters chosen");
+  assert.deepEqual(plain(m.items.find((it) => it.id === "other").pts.map((p) => p.slice(0, 2))), [[0, 300], [9, 300]]);
+  const b = (id) => { const ps = m.items.find((it) => it.id === id).pts; return [Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))]; };
+  const feet = ["l1", "l2", "o"].map((id) => b(id)[3]);
+  assert.ok(Math.max(...feet) - Math.min(...feet) < 30 * 0.25, "most of the way to one baseline (their feet 30 apart before): " + feet);
+  assert.ok(Math.abs((b("l1")[3] - b("l1")[1]) - (b("l2")[3] - b("l2")[1])) < 12, "the two l about as tall");
+  const lean = (id) => { const ps = m.items.find((it) => it.id === id).pts; return (ps.at(-1)[0] - ps[0][0]) / (ps.at(-1)[1] - ps[0][1]); };
+  assert.ok(Math.abs(lean("l1") - lean("l2")) < 0.35, "their slant brought together: " + [lean("l1"), lean("l2")]);
+  assert.ok(Math.abs(lean("l2") - lean("l1")) > 0.03, "…not all of the way: the hand stays a hand");
+  assert.equal(C.refine(m, { line: "x", letters: [["x", ["other"]]] }, ids, [0, 0]), null, "nothing chosen: nothing set");
+  const m2 = board();
+  m2.items.push(ink("a", circle(20, 90, 10)), ink("sq", [[34, 60], [40, 58], [36, 70], [42, 70]]), ink("b", [[60, 50], [60, 100]]));
+  const sq0 = plain(m2.items[1].pts.map((p) => p[1]));
+  C.refine(m2, { line: "a²b", letters: [["a", ["a"]], ["²", ["sq"]], ["b", ["b"]]] }, new Set(["a", "sq", "b"]), [0, 0]);
+  const sq1 = m2.items.find((it) => it.id === "sq").pts.map((p) => p[1]);
+  assert.ok(Math.max(...sq1) < 75 && Math.abs(Math.min(...sq1) - Math.min(...sq0)) < 3, "an exponent keeps its height: " + [Math.min(...sq1), Math.max(...sq1)]);
 });

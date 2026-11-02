@@ -618,16 +618,17 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   on the board, with its answer and how many steps were drawn), so the chat knows it when asked on; a board open with no
   note on screen — a notebook, a board from the folder's window — has a conversation of its own. Over a board the chat
   draws whatever its mode (Edit is for a note's text), and its field asks what to draw. Not on a board that is only shown, and not where AI is off.
-- **Improve** makes strokes chosen nicer — handwriting, a formula, a sketch or a diagram, on a whiteboard, in a notebook and
-  over a PDF: their bar has a wand beside Ask Claude (the right button's menu has Improve too). The tremble of the hand is
-  smoothed at once (a point moves at most about the stroke's width); then Claude, told the strokes chosen and nothing else (no
-  note, no board round them, a picture of them alone — some seconds), reads what is written and sees what is drawn. What is
-  written — words, numbers, a formula's letters and signs — is written anew a line at a time by a careful hand where it stood:
-  on its baseline, as tall and about as wide (letters joined where the user joins them). What is drawn is drawn anew clean:
-  straight lines straight, circles round, corners meeting, a fraction bar level; a stray dot goes. Nothing is added or left
-  out; what takes the old strokes' place has their pen, colour and width, and only strokes that were chosen change. Each step
-  glides or fades there; what it made stays chosen; all of it, the smoothing too, is one step of Undo. Pressed again while it
-  works, the wand stops it. Not where AI is off.
+- **Improve** makes strokes chosen nicer and keeps them the user's own hand — handwriting, a formula, a sketch or a
+  diagram, on a whiteboard, in a notebook and over a PDF: their bar has a wand beside Ask Claude (the right button's menu has
+  Improve too). The tremble of the hand is smoothed at once (a point moves at most about the stroke's width); then Claude, told
+  the strokes chosen and nothing else (no note, no board round them, a picture of them alone — a few seconds), reads what is
+  written and sees what is drawn. What is written keeps its letters: Claude says which strokes each letter is, and the app
+  brings each letter most of the way to the line's baseline, to the height of its kind (capitals and tall letters, small
+  letters, letters reaching below — measured on the user's own letters) and to the line's slant, makes the room between
+  letters and between words more even, and draws every stroke with a calmer hand. What is drawn is drawn anew clean along its
+  own course: straight lines straight, circles round, corners meeting; a stray dot goes. Nothing is added or left out, and
+  only strokes that were chosen change, in their pen, colour and width. Each step glides there; what it made stays chosen;
+  all of it, the smoothing too, is one step of Undo. Pressed again while it works, the wand stops it. Not where AI is off.
 
 ### Whiteboards
 
