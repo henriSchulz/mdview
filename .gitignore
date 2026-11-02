@@ -2,3 +2,5 @@ __pycache__/
 .env
 # (packages: a folder, or a link to one in a worktree — never kept)
 node_modules
+# (the pictures of an issue, fetched for Claude in GitHub Actions: .github/issue-pictures.sh)
+.issue-pictures/

@@ -442,6 +442,11 @@
 :root[data-velum][data-velum-look] #overview .ov-title .ov-crumb { flex: none; font-size: var(--v-type-title); font-weight: var(--v-weight-semibold); color: var(--v-ink-tertiary); white-space: nowrap; }
 :root[data-velum][data-velum-look] #overview .ov-title .ov-crumb:hover { color: var(--v-ink-secondary); }
 :root[data-velum][data-velum-look] #overview .ov-title .ov-sep { flex: none; width: var(--v-space-16); color: var(--v-ink-tertiary); }
+/* (the names of the way back are smaller than the title and stand on its baseline: the chevron is put on theirs — a line of
+   their size, by an empty letter, with the chevron in its middle — not in the middle of the title's line, where it rode high: #20) */
+:root[data-velum][data-velum-look] #overview .ov-title .ov-sep { display: block; position: relative; align-self: baseline; font-size: var(--v-type-title); }
+:root[data-velum][data-velum-look] #overview .ov-title .ov-sep::before { content: "\200b"; }
+:root[data-velum][data-velum-look] #overview .ov-title .ov-sep svg { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
 @container ov (max-width: 860px) {
   :root[data-velum][data-velum-look] #overview .ov-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title title" "count count" "tools add"; row-gap: var(--v-space-4); }
   :root[data-velum][data-velum-look] #overview .ov-tools { margin-top: var(--v-space-8); flex-wrap: wrap; }
