@@ -82,7 +82,7 @@ one step per line, each a JSON object on a line of its own
 The app does each step as soon as its line is complete; the user can undo all of them at once. Coordinates are the board's pixels: x to the right, y downward.
 Work by hand, as a person with a pen on a tablet does: what you draw is strokes of ink, what you write is handwriting (the step "write"). Arrows, frames round words, underlines, ticks, crosses and connecting lines are strokes too. Text boxes, sticky notes, shapes, lines and tables only when the user asks for them by that name, or to change ones that are there.
 Steps:
-- {"add":"write","x":0,"y":0,"text":"Words by hand","size":28,"c":"auto"} — handwriting: x, y its top left; size the height of a capital letter (small letters about two thirds of it; 20–40 for notes, more for a title); a letter is about 0.6 × size wide; lines ("\n" in text) stand 1.75 × size apart; "maxw":400 breaks the lines at that width; "style":"script" writes joined-up instead of print. Its strokes are listed as one, by the writing's id.
+- {"add":"write","x":0,"y":0,"text":"Words by hand","size":28,"c":"auto"} — handwriting: x, y its top left; size the height of a capital letter (small letters about two thirds of it; 20–40 for notes, more for a title); a letter is about 0.6 × size wide; lines ("\n" in text) stand 1.75 × size apart; "maxw":400 breaks the lines at that width; "style":"script" writes joined-up instead of print. Its strokes are listed as one, by the writing's id. Handwriting has the letters, digits and signs of a keyboard, umlauts, ß and accented letters, arrows (→ ← ↑ ↓ ↔ ⇒ ⇐), ✓ ✗ ° ≈ ≠ ≤ ≥ ± ÷ √ ∞ • € and raised digits (² ³); nothing else — no emoji: draw such things as strokes.
 - {"add":"ink","tool":"pen","c":"auto","w":3,"d":"M 0 0 C 20 -30, 60 -30, 80 0"} — a stroke of ink, drawn as by hand, along an SVG path (M L H V C S Q T Z; a path of several M parts is several strokes) — or "pts":[[x,y],…] instead of "d". tool: "pen" (lines and writing, w 1–8), "pencil" (sketching, w 1.5–9), "mono" (an even line), "marker" (see-through, wide, w 8–36, for highlighting). "sharp":true draws straight between the points.
 - {"add":"text","x":0,"y":0,"w":300,"h":44,"text":"Words","size":24} — a text (size 12–64; "align":"left|center|right"; "ts":{"bold":true}).
 - {"add":"sticky","x":0,"y":0,"w":180,"h":180,"text":"Idea","fill":"#ffe27a"} — a sticky note (fill: #ffe27a yellow, #ffc078 orange, #ffb3c7 pink, #d9c2ff purple, #b5dcff blue, #bfe8b0 green, #e3e3e6 grey).
@@ -102,6 +102,11 @@ pub const BOARD_CHAT: &str = "The user has a whiteboard open (described below as
 pub fn board_system(chat: bool) -> String {
     if chat { format!("{CHAT_SYSTEM}\n\n{BOARD_CHAT}\n\n{BOARD_STEPS}") } else { format!("{BOARD_SYSTEM}\n\n{BOARD_STEPS}") }
 }
+
+/// What of the user's own Claude Code goes along when the app asks: none of their settings — their hooks and plugins would
+/// run with every question and could change how Claude answers (Henri, 2026-11-02) — only the project's, of a folder the
+/// app made itself, which has none. The login is not a setting: it holds. (--bare would drop the hooks too, and the login with them.)
+const SETTINGS: [&str; 2] = ["--setting-sources", "project"];
 
 /// One question to Claude: what it is told to be, what it is asked, and where the answer goes.
 pub struct Talk {
@@ -209,6 +214,7 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         prompt = format!("Files the user attached lie in {}: {}. Read each of them with the Read tool before you answer.\n\n{prompt}", work.display(), attached.join(", "));
     }
     cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "stream-json", "--include-partial-messages", "--verbose"]);
+    cmd.args(SETTINGS);
     // (a picture with the question: the question as a message of its own, the picture in it — measured, 2026-11-02: a picture
     // to be read with the tool cost Claude a round and some ten seconds of thought before its first line)
     if t.picture.is_some() {
@@ -611,6 +617,7 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
         let mut cmd = Command::new(exe);
         cmd.arg("-p").arg(prompt).arg("--system-prompt").arg(GRAPHIC_SYSTEM).args(&tools);
         cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "text"]);
+        cmd.args(SETTINGS);
         cmd.current_dir(&work).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
         #[cfg(unix)]
         {
