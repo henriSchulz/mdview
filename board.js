@@ -925,7 +925,7 @@
     async function draw(inks) {
       const full = inks.map((it) => it.pts), len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0) * S.view.z;
       s.model.items = s.model.items.filter((it) => !inks.includes(it)); // (not there until their turn)
-      const lens = full.map(len), hand = inks[0].group ? 0.55 : 1.3, all = lens.reduce((a, b) => a + b, 0) / hand + inks.length * 30, speed = hand * Math.max(1, all / 6000);
+      const lens = full.map(len), hand = inks[0].of ? 0.55 : 1.3, all = lens.reduce((a, b) => a + b, 0) / hand + inks.length * 30, speed = hand * Math.max(1, all / 6000);
       for (let i = 0; i < inks.length; i++) {
         const it = inks[i], pts = full[i];
         if (!s.model.items.includes(it)) s.model.items.push(it);
@@ -935,7 +935,7 @@
           tipAt(it, it.pts[it.pts.length - 1]);
           if (S === s) paint();
         });
-        await wait(inks[0].group ? 18 : 40); // (the pen lifted)
+        await wait(inks[0].of ? 18 : 40); // (the pen lifted)
       }
     }
     /* A thing put on the board: it grows into its place (its element, board/layer.js). */

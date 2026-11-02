@@ -40,12 +40,12 @@
       let room = 200_000;
       const told = new Set();
       for (const it of items) {
-        // (strokes that are one thing — words written by hand — are told as one: their group, how many, the box round them all)
-        if (it.k === "ink" && it.group) {
-          if (told.has(it.group)) continue;
-          told.add(it.group);
-          const all = items.filter((x) => x.k === "ink" && x.group === it.group), b = all.map((x) => B.format.boundsOf(x)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
-          const line = JSON.stringify({ id: it.group, k: "ink", strokes: all.length, tool: it.t, c: it.c, w: it.w, box: [r1(b[0]), r1(b[1]), r1(b[2] - b[0]), r1(b[3] - b[1])], ...(it.said ? { text: it.said } : {}) });
+        // (strokes that are words written by hand are told as one: the writing's id, how many, the box round them all)
+        if (it.k === "ink" && it.of) {
+          if (told.has(it.of)) continue;
+          told.add(it.of);
+          const all = items.filter((x) => x.k === "ink" && x.of === it.of), b = all.map((x) => B.format.boundsOf(x)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
+          const line = JSON.stringify({ id: it.of, k: "ink", strokes: all.length, tool: it.t, c: it.c, w: it.w, box: [r1(b[0]), r1(b[1]), r1(b[2] - b[0]), r1(b[3] - b[1])], ...(it.said ? { text: it.said } : {}) });
           if ((room -= line.length) < 0) { out.push("(… more, left out for their length)"); break; }
           out.push(line);
           continue;
@@ -146,7 +146,8 @@
 
   // ---------------------------------------------------------------- handwriting
   /* Words as a hand writes them: the letters of a Hershey font (vendor/hershey.js: strokes, as a pen draws them), each a
-   * little turned, raised and sized as a hand does — strokes of ink, one group for the whole text. */
+   * little turned, raised and sized as a hand does — strokes of ink as any other, chosen one by one; each knows the writing it
+   * is part of (of), for Claude to change or take away the whole. */
   const SAME = { "“": '"', "”": '"', "„": '"', "‘": "'", "’": "'", "‚": ",", "–": "-", "—": "-", "…": "...", "•": "*", "·": ".", "×": "x", "°": "o" };
   const DOTS = { ä: "a", ö: "o", ü: "u", Ä: "A", Ö: "O", Ü: "U" };
   const EURO = ["M15,5 C13,2 11,1 9,1 C5,1 3,6 3,11.5 C3,17 5,22 9,22 C11,22 13,21 15,18 M1,9 L11,9 M1,14 L10,14", 9];
@@ -167,7 +168,7 @@
     return { runs: flatten(g[0], 0.7), adv: g[1] * UNIT };
   }
   /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", maxw (where lines
-   * break), tool, c, w } → strokes, one group. */
+   * break), tool, c, w } → strokes, all of one writing. */
   function write(o) {
     const font = fontOf(o.style);
     if (!font || typeof o.text !== "string" || !o.text.trim()) return [];
@@ -182,7 +183,7 @@
       lines.push(line.trimEnd());
     }
     const shake = (a) => (Math.random() * 2 - 1) * a, slant = o.style === "script" ? 0 : 0.08;
-    const group = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 12)), made = [];
+    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 12)), made = [];
     lines.forEach((line, n) => {
       let at = x0;
       const wave = shake(size * 0.03); // (a line is never quite straight)
@@ -194,7 +195,7 @@
             return [at + lx * cos - ly * sin + shake(0.15), y0 + n * lead + size + lift + lx * sin + ly * cos + shake(0.15)];
           });
           const it = stroke(pts, { tool: o.tool || "pen", c: o.c, w });
-          it.group = group;
+          it.of = of;
           made.push(it);
         }
         at += g.adv * k * grow;
@@ -223,7 +224,7 @@
    * names: Claude's own names ("as") → the ids they were given, kept over one answer. */
   function apply(model, step, names = new Map()) {
     const items = model.items, id = (v) => (typeof v === "string" ? names.get(v) || v : null), find = (v) => items.find((it) => it.id === id(v));
-    const every = (v) => { const want = id(v), one = items.find((it) => it.id === want); return one ? [one] : items.filter((it) => it.k === "ink" && it.group === want); }; // (a group of strokes: all of them)
+    const every = (v) => { const want = id(v), one = items.find((it) => it.id === want); return one ? [one] : items.filter((it) => it.k === "ink" && it.of === want); }; // (words written by hand: all their strokes)
     const ends = (o) => { for (const e of ["from", "to"]) if (o[e] && typeof o[e].id === "string") o[e] = { ...o[e], id: id(o[e].id) }; return o; };
     if (typeof step.add === "string") {
       const k = step.add === "stroke" ? "ink" : step.add, made = [];
@@ -244,7 +245,7 @@
         if (it) made.push(it);
       }
       if (!made.length) return null;
-      if (typeof step.as === "string" && step.as) names.set(step.as, made[0].group || made[0].id);
+      if (typeof step.as === "string" && step.as) names.set(step.as, made[0].of || made[0].id);
       items.push(...made);
       return { added: made, changed: [], removed: [] };
     }

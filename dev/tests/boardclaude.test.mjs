@@ -90,18 +90,18 @@ test("what Claude is told: where the window looks, the PDF's pages, each thing a
   assert.match(C.describe(board()), /The board is empty/);
 });
 
-test("words written by hand: strokes of the font's letters, one group, umlauts with their dots, lines broken at maxw; set, move, delete the whole", () => {
+test("words written by hand: strokes of the font's letters, each its own (chosen one by one), all of one writing; umlauts with their dots, lines broken at maxw; set, move, delete the whole by its id", () => {
   const m = board(), names = new Map();
   const got = C.apply(m, { add: "write", as: "t", x: 100, y: 50, text: "Hallo Welt", size: 21 }, names).added;
   assert.ok(got.length > 10, "a stroke for each part of each letter");
-  const g = got[0].group;
-  assert.ok(g && got.every((it) => it.k === "ink" && it.group === g), "all of them one group");
-  assert.equal(names.get("t"), g, "its name is the group's");
+  const g = got[0].of;
+  assert.ok(g && got.every((it) => it.k === "ink" && it.of === g && !it.group), "all of one writing, none in a group: chosen stroke by stroke (Henri, 2026-11-02)");
+  assert.equal(names.get("t"), g, "its name is the writing's");
   const box = got.map((it) => B.format.boundsOf(it)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]);
   assert.ok(box[0] > 95 && box[0] < 110 && box[1] > 45 && box[1] < 60 && box[3] < 80, "where it was put, a line high: " + box.map(Math.round));
   assert.ok(box[2] - box[0] > 21 * 0.75 * 10 * 0.75 && box[2] - box[0] < 21 * 0.75 * 10 * 1.3, "about 0.75 × size a letter: " + Math.round(box[2] - box[0]));
-  // (the group is one thing in the file, too)
-  assert.equal(new Set(B.format.parse(B.format.write(m)).items.map((it) => it.group)).size, 1);
+  // (the file keeps which writing a stroke is part of)
+  assert.deepEqual([...new Set(B.format.parse(B.format.write(m)).items.map((it) => it.of))], [g]);
   const n = (text) => C.write({ x: 0, y: 0, text, size: 21 }).length;
   assert.equal(n("ä"), n("a") + 2, "ä: an a and two dots");
   assert.ok(n("ß") >= 1 && n("“ok”…") > n("ok"), "ß and the typographer's signs are written too");

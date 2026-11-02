@@ -586,7 +586,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   their way (sketches, arrows, frames, a marker over a line of the PDF), words are
   **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up
   when asked), each letter a little turned and raised as a hand writes, umlauts, ß and € with
-  them, one thing to choose, move or rub out as a whole. Texts, sticky notes, shapes, lines
+  them — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
+  or takes away the whole when asked. Texts, sticky notes, shapes, lines
   joined to things and tables only when they are asked for by name; and any thing on the board,
   also what the user made, it may change, move or take away. What it does can be watched: the strokes come one after another at a hand's pace, words letter by letter, a point
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
