@@ -171,9 +171,13 @@ test("what is pulled to the window's edge takes the board along: a stroke moved 
   await page.mouse.move(...from);
   await page.mouse.down();
   for (let i = 1; i <= 12; i++) await page.mouse.move(from[0], from[1] + ((to[1] - from[1]) * i) / 12);
-  await page.waitForTimeout(700);
-  const v1 = await page.evaluate(() => MdBoard.state().view);
+  // (held there until the board has run a good way — however slowly frames come on a busy machine)
+  const ran = () => page.evaluate((y0) => MdBoard.state().view.y - y0, v0.y);
+  await until(async () => (await ran()) > 200, "the board running down under the hand", 8000);
   await page.mouse.up();
+  const v1 = await page.evaluate(() => MdBoard.state().view); // (after the hand let go: the board stops where it is)
+  await page.waitForTimeout(100);
+  assert.equal((await page.evaluate(() => MdBoard.state().view)).y, v1.y, "let go: the board stops");
   const after = await page.evaluate(() => MdBoard.state().chosenBox), hand = (to[1] - from[1]) / v0.z;
   assert.ok(v1.y - v0.y > 150, `the board ran down under the hand (${v0.y} → ${v1.y})`);
   // the stroke went as far as the hand and the board together: still under the hand
