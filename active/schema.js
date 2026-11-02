@@ -137,9 +137,20 @@
       // wide: as wide as the text column (so it stands when nothing is said); head: its head row's colour.
       // mark: the line before it in the file that said so, kept to be written again as it was (viewer/markdown.js: tableLook)
       // cols: how wide its columns are, as shares in percent ([30, 20, 50]; null: as their text has them — active/tableui.js)
-      attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null }, cols: { default: null } },
+      // caption: the line under it that begins with ": ", its Markdown (null: none — #16); capRaw: the lines under the table as they were written
+      attrs: { raw: { default: null }, wide: { default: true }, head: { default: "" }, mark: { default: null }, cols: { default: null }, caption: { default: null }, capRaw: { default: null } },
       parseDOM: [{ tag: "table", getAttrs: (dom) => ({ wide: !dom.parentElement || !dom.parentElement.classList.contains("table-wrap") || dom.parentElement.classList.contains("wide") }) }],
-      toDOM: (n) => { const style = window.MdView.core.tableStyle(n.attrs.head); return ["div", { class: "table-wrap" + (n.attrs.wide || n.attrs.cols ? " wide" : ""), ...(style ? { style } : {}), ...lineAttr(n) }, ["table", n.attrs.cols ? { class: "has-cols" } : {}, 0]]; },
+      toDOM: (n) => {
+        const core = window.MdView.core, style = core.tableStyle(n.attrs.head), caption = String(n.attrs.caption || "").trim();
+        const wrap = ["div", { class: "table-wrap" + (n.attrs.wide || n.attrs.cols ? " wide" : ""), ...(style ? { style } : {}), ...(caption ? {} : lineAttr(n)) }, ["table", n.attrs.cols ? { class: "has-cols" } : {}, 0]];
+        if (!caption) return wrap;
+        // with a caption: the figure the reader draws, the caption under the table (a click on it edits it: tableui.js)
+        const cap = document.createElement("figcaption");
+        cap.className = "tbl-cap";
+        cap.contentEditable = "false";
+        cap.innerHTML = core.md.renderInline(caption, { links: {}, outline: [], depth: 1, lineOffset: 0 });
+        return ["figure", { class: "fig", ...lineAttr(n) }, wrap, cap];
+      },
     }),
     table_row: { content: "table_cell+", tableRole: "row", allowGapCursor: false, parseDOM: [{ tag: "tr" }], toDOM: () => ["tr", 0] },
     table_cell: {
@@ -446,6 +457,16 @@
             case "table_open":
               out.push(tableOf(group, inner, attrs, ctx));
               break;
+            case "figure_open": { // a table with its caption under it (viewer/markdown.js, captions; #16): the table, the caption its attribute
+              const tab = inner[0], te = tab && tab.type === "table_open" ? closeIndex(inner, 0) : -1, cap = inner[te + 2];
+              if (te < 0 || !cap || cap.type !== "inline") throw new Unsupported("figure");
+              const made = tableOf(inner.slice(0, te + 1), inner.slice(1, te), attrs, ctx);
+              // capRaw: the lines under the table as they were written (a blank line before the caption, or none), to be written so again
+              made.attrs.caption = cap.content;
+              made.attrs.capRaw = t.map && tab.map ? sourceOf([{ map: [tab.map[1], t.map[1]] }], ctx) : null;
+              out.push(made);
+              break;
+            }
             default:
               throw new Unsupported(t.type);
           }

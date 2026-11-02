@@ -359,7 +359,16 @@
     const core = window.MdView.core, was = node.attrs.mark ? core.tableLook(node.attrs.mark) : null;
     const cols = node.attrs.cols && node.attrs.cols.length === (node.firstChild ? node.firstChild.childCount : 0) ? node.attrs.cols : null; // (as many as it has columns: else they are not said)
     const mark = was && was.wide === !!node.attrs.wide && was.head === (node.attrs.head || "") && String(was.cols || "") === String(cols || "") ? node.attrs.mark : core.tableMark({ wide: !!node.attrs.wide, head: node.attrs.head || "", cols });
-    return mark ? [style.indent + mark].concat(lines) : lines;
+    return (mark ? [style.indent + mark].concat(lines) : lines).concat(captionLines(node, style.indent));
+  }
+  /* A table's caption (#16): as it was written where it says the same; else right under the table — after a blank line
+   * where it has a "|", which right under it would make it a row of the table (viewer/markdown.js, table_captions). */
+  function captionLines(node, indent) {
+    const text = String(node.attrs.caption || "").trim(), raw = node.attrs.capRaw;
+    if (!text) return [];
+    if (raw != null && raw.trim().replace(/^:[ \t]+/, "") === node.attrs.caption) return raw.split("\n");
+    const one = text.replace(/\s*\n\s*/g, " ");
+    return (/(^|[^\\])\|/.test(one) ? [""] : []).concat([indent + ": " + one]);
   }
   // -> the lines of every item of a list
   function listItems(node, cx) {
@@ -528,7 +537,7 @@
   /* Do two blocks say the same? Spelling aside: which delimiter, which bullet.
    * Marks a parser adds by itself to plain text (tags, bare URLs) do not count. */
   const KEEP = {
-    table_cell: ["header", "align"], table: ["wide", "head"], blockquote: ["deco", "color", "callout", "title", "fold"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
+    table_cell: ["header", "align"], table: ["wide", "head", "caption"], blockquote: ["deco", "color", "callout", "title", "fold"], heading: ["level"], ordered_list: ["start", "tight"], bullet_list: ["tight"], list_item: ["task"],
     image: ["src", "alt", "title"], iatom: ["kind", "raw"], hard_break: [], island: ["raw"], hidden: ["raw"],
   };
   function shape(node) {
