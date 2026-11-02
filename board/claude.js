@@ -167,38 +167,88 @@
     if (SAME[ch] && SAME[ch].length > 1) { const parts = [...SAME[ch]].map((x) => letter(font, x)); let at = 0; const runs = []; for (const p of parts) { runs.push(...p.runs.map((r) => r.map(([x, y]) => [x + at, y]))); at += p.adv; } return { runs, adv: at }; }
     return { runs: flatten(g[0], 0.7), adv: g[1] * UNIT };
   }
-  /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", maxw (where lines
-   * break), tool, c, w } → strokes, all of one writing. */
+  /* A slow wandering along s (a stroke's length, a line's width): about −1…1, a few waves of their own each time — what a
+   * hand does that no font does. scale: how long one wave is, about. */
+  const wander = (scale) => {
+    const w = [1, 2, 3].map((i) => ({ f: ((0.6 + Math.random() * 1.2) * i) / scale, p: Math.random() * 6.283, a: 1 / i })), all = w.reduce((a, x) => a + x.a, 0);
+    return (s) => w.reduce((a, x) => a + x.a * Math.sin(s * x.f + x.p), 0) / all;
+  };
+  const shake = (a) => (Math.random() * 2 - 1) * a;
+  /* A stroke of the font made as a hand makes it (px, [[x, y]] → [[x, y, p]]): no corner quite sharp, the line wandering a
+   * little and trembling less, its ends a touch long or short, its pressure rising as the pen comes down, varying on the way
+   * and easing off as it leaves. mess: 0.5 careful … 1 as most write … 1.4 in a hurry. */
+  function hand(run, size, mess) {
+    const len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0);
+    // points every so far along it
+    const step = Math.max(0.8, size / 28), even = [run[0]];
+    for (let i = 1; i < run.length; i++) {
+      const a = run[i - 1], b = run[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(d / step));
+      for (let k = 1; k <= n; k++) even.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+    }
+    if (even.length < 2) return even.map((p) => [...p, 0.5]);
+    // corners rounded: each point drawn a little toward its neighbours (the ends stay)
+    let pts = even;
+    for (let pass = 0; pass < 2; pass++) pts = pts.map((p, i) => (i === 0 || i === pts.length - 1 ? p : [(pts[i - 1][0] + 2 * p[0] + pts[i + 1][0]) / 4, (pts[i - 1][1] + 2 * p[1] + pts[i + 1][1]) / 4]));
+    // a touch long or short at its ends: the pen overshoots, or lifts early
+    const L = len(pts), tip = (a, b, by) => { const d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; return [a[0] + ((a[0] - b[0]) / d) * by, a[1] + ((a[1] - b[1]) / d) * by]; };
+    if (L > size * 0.3 && pts.length > 3) {
+      const end = shake(size * 0.05 * mess);
+      if (end > 0) pts.push(tip(pts[pts.length - 1], pts[pts.length - 2], end)); else pts = pts.slice(0, Math.max(2, pts.length - Math.round((-end / L) * pts.length)));
+      if (Math.random() < 0.5) { const start = Math.random() * size * 0.03 * mess; pts.unshift(tip(pts[0], pts[1], start)); }
+    }
+    // it wanders, slowly, and trembles a little; its pressure comes and goes
+    const drift = wander(size * 0.9), press = wander(size * 1.4), all = len(pts);
+    let s = 0;
+    return pts.map((p, i) => {
+      if (i) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / d, ny = (b[0] - a[0]) / d;
+      const off = drift(s) * size * 0.022 * mess + shake(0.1 * mess);
+      const down = Math.min(1, s / Math.max(2, size * 0.12)), up = Math.min(1, (all - s) / Math.max(2, size * 0.18));
+      const pr = (0.42 + 0.12 * press(s)) * (0.45 + 0.55 * down) * (0.35 + 0.65 * up);
+      return [p[0] + nx * off, p[1] + ny * off, Math.max(0.08, Math.min(1, pr))];
+    });
+  }
+  /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", mess (0.5 careful …
+   * 1.4 hurried; 1), maxw (where lines break), tool, c, w } → strokes, all of one writing. Each text is written by a hand of
+   * its own: its slant, how wide and how far apart its letters, a line that drifts, words a little larger or smaller. */
   function write(o) {
     const font = fontOf(o.style);
     if (!font || typeof o.text !== "string" || !o.text.trim()) return [];
     const size = Number.isFinite(o.size) ? Math.max(8, Math.min(200, o.size)) : 28, k = size / 21, lead = size * 1.75;
+    const mess = Number.isFinite(o.mess) ? Math.max(0.3, Math.min(1.5, o.mess)) : 1;
     const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = Number.isFinite(o.y) ? o.y : 0, maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
-    const wide = (word) => [...word].reduce((a, ch) => a + letter(font, ch).adv, 0) * k;
+    const script = o.style === "script", slant = script ? 0.02 + Math.random() * 0.06 : 0.03 + Math.random() * 0.13, wide = (script ? 0.92 : 0.8) + Math.random() * 0.12, apart = 0.9 + Math.random() * 0.1;
+    const wide1 = (word) => [...word].reduce((a, ch) => a + letter(font, ch).adv, 0) * k * wide * apart;
     // the lines: as written, and broken where a word would go past maxw
     const lines = [];
     for (const para of o.text.slice(0, 4000).split("\n")) {
       let line = "";
-      for (const word of para.split(/(?<= )/)) { if (line && wide(line + word.trimEnd()) > maxw) { lines.push(line.trimEnd()); line = word; } else line += word; }
+      for (const word of para.split(/(?<= )/)) { if (line && wide1(line + word.trimEnd()) > maxw) { lines.push(line.trimEnd()); line = word; } else line += word; }
       lines.push(line.trimEnd());
     }
-    const shake = (a) => (Math.random() * 2 - 1) * a, slant = o.style === "script" ? 0 : 0.08;
-    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 12)), made = [];
+    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 11)), made = [];
     lines.forEach((line, n) => {
-      let at = x0;
-      const wave = shake(size * 0.03); // (a line is never quite straight)
+      let at = x0 + shake(size * 0.15 * mess) * (n ? 1 : 0); // (a new line begins where the hand comes back to — about)
+      const base = wander(size * 7), lean = wander(size * 9), warpX = wander(size * 1.3), warpY = wander(size * 1.1); // (no bow a circle: the line's letters bent, softly, here one way, there another)
+      let word = { grow: 1, lift: 0 };
       for (const ch of line) {
-        const g = letter(font, ch), turn = shake(0.03), grow = 1 + shake(0.04), lift = shake(size * 0.025) + wave, cos = Math.cos(turn), sin = Math.sin(turn);
+        if (ch === " " || at === x0) word = { grow: 1 + shake(0.05 * mess), lift: shake(size * 0.03 * mess) };
+        const g = letter(font, ch), grow = word.grow * (1 + shake(0.06 * mess)), across = wide * (1 + shake(0.08 * mess)), tall = 1 + shake(0.08 * mess), skew = shake(0.08 * mess), turn = shake(0.035 * mess);
+        const sl = slant + lean(at - x0) * 0.04 * mess, lift = word.lift + base(at - x0) * size * 0.05 * mess + shake(size * 0.02 * mess), cos = Math.cos(turn), sin = Math.sin(turn);
         for (const run of g.runs) {
-          const pts = run.map(([gx, gy]) => {
-            const lx = gx * k * grow - (gy - 21) * k * grow * slant, ly = (gy - 21) * k * grow; // (about the letter's foot)
-            return [at + lx * cos - ly * sin + shake(0.15), y0 + n * lead + size + lift + lx * sin + ly * cos + shake(0.15)];
+          let px = run.map(([gx, gy]) => {
+            const ly = (gy - 21) * k * grow * tall, lx = gx * k * grow * across - ly * (sl + skew); // (about the letter's foot)
+            const x = at + lx * cos - ly * sin, y = y0 + n * lead + size + lift + lx * sin + ly * cos;
+            return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess];
           });
-          const it = stroke(pts, { tool: o.tool || "pen", c: o.c, w });
+          // (a dot — of an i, a j, an umlaut, a full stop — is a short dash as a pen puts it, not a round)
+          const xs = px.map((p) => p[0]), ys = px.map((p) => p[1]), dot = Math.max(...xs) - Math.min(...xs) < size * 0.14 && Math.max(...ys) - Math.min(...ys) < size * 0.14;
+          if (dot) { const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, d = size * (0.04 + Math.random() * 0.04), a = -0.5 + shake(0.6); px = [[cx - Math.cos(a) * d, cy - Math.sin(a) * d], [cx + Math.cos(a) * d, cy + Math.sin(a) * d]]; }
+          const it = stroke(hand(px, size, dot ? mess * 0.3 : mess), { tool: o.tool || "pen", c: o.c, w });
           it.of = of;
           made.push(it);
         }
-        at += g.adv * k * grow;
+        at += g.adv * k * grow * across * apart * (1 + shake(0.07 * mess));
       }
     });
     if (made.length) made[0].said = o.text.slice(0, 400); // (what was written, told back to Claude while the board is open — not kept in the file)
@@ -206,15 +256,16 @@
   }
 
   // ---------------------------------------------------------------- the steps, done
-  /* A stroke from points [[x, y], …]: pressure as a hand that starts and ends light, time as a hand that moves on evenly. */
+  /* A stroke from points [[x, y], …] ([x, y, p] where the pressure is given): pressure as a hand that starts and ends light,
+   * time as a hand that moves on evenly. */
   function stroke(pts, o) {
     const tool = INKS.includes(o.tool) ? o.tool : INKS.includes(o.t) ? o.t : "pen", def = B.ink.TOOLS[tool];
     const n = pts.length;
     let t = 0;
     const out = pts.map((p, i) => {
       if (i) t += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) / 1.2; // (1.2 board pixels a millisecond)
-      const ends = Math.min(i, n - 1 - i), p0 = Math.min(1, 0.35 + ends * 0.08);
-      return [r1(p[0]), r1(p[1]), Math.round(p0 * 0.6 * 100) / 100, Math.round(t)];
+      const ends = Math.min(i, n - 1 - i), p0 = Number.isFinite(p[2]) ? p[2] / 0.6 : Math.min(1, 0.35 + ends * 0.08); // (a pressure given: the hand's)
+      return [r1(p[0]), r1(p[1]), Math.round(Math.min(1, p0 * 0.6) * 100) / 100, Math.round(t)];
     });
     const it = { id: B.format.id(), k: "ink", t: tool, c: color(o.c, def.c), o: def.o, w: Number.isFinite(o.w) ? Math.max(0.5, Math.min(60, o.w)) : def.w, ch: "xypt", pts: out };
     if (o.sharp === true) it.sharp = true;

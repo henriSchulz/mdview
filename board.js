@@ -35,6 +35,7 @@
     shrink: svg('<path d="M8 10l4 4 4-4"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
     get claude() { return this.spark; }, // (Ask Claude's button)
+    style: svg('<path d="M4 20c3-1 4.5-3 6-6s3-7 6-8"/><path d="M14 4.5 19.5 10"/><path d="M4 20h7"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
     stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
@@ -756,7 +757,9 @@
     // (Claude asked: a card to write in, as the chat's — what is chosen named above it, the chat at its foot, the round button sends)
     else if (kind === "ask") html = `<div class="bd-ask">${S.pick.length ? `<span class="bd-ask-about">${I.spark}${esc(T(S.pick.length === 1 ? "board.ask.about.one" : "board.ask.about", S.pick.length))}</span>` : ""}` +
       `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
-      `<div class="bd-ask-foot"><button type="button" class="bd-ask-chat" data-m="ask-chat" title="${esc(T("board.ask.chat"))}">${I.chat}<span>${esc(T("board.ask.chatShort"))}</span></button>` +
+      `<div class="bd-ask-style"${claude.styling ? "" : " hidden"}>${styleRows()}</div>` +
+      `<div class="bd-ask-foot"><span class="bd-ask-left"><button type="button" class="bd-ask-chat" data-m="ask-chat" title="${esc(T("board.ask.chat"))}">${I.chat}<span>${esc(T("board.ask.chatShort"))}</span></button>` +
+      `<button type="button" class="bd-ask-chat bd-ask-stylebtn" data-m="ask-style" aria-expanded="${!!claude.styling}" title="${esc(T("board.ask.style"))}">${I.style}<span>${esc(styleSaid())}</span></button></span>` +
       `<button type="button" class="bd-ask-send" data-m="ask-go" title="${esc(T("board.ask.go"))}" aria-label="${esc(T("board.ask.go"))}">${I.send}</button></div></div>`;
     else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
@@ -790,6 +793,14 @@
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
     if (d.m === "link-add") return linkAdd();
     if (d.m === "ask-go") return claude.go();
+    if (d.m === "ask-style") { claude.styling = !claude.styling; vpop().querySelector(".bd-ask-style").hidden = !claude.styling; b.setAttribute("aria-expanded", claude.styling); return vpop().querySelector(".bd-ask-field")?.focus(); }
+    if (d.opt) { // (one of the style's choices: kept for the next question, and on this computer)
+      claude.prefs[d.opt] = d.v;
+      keepStyle();
+      for (const x of b.parentNode.children) x.setAttribute("aria-checked", x === b);
+      vpop().querySelector(".bd-ask-stylebtn span").textContent = styleSaid();
+      return vpop().querySelector(".bd-ask-field")?.focus();
+    }
     if (d.m === "ask-chat") { menu(null); return void core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {}); }
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
@@ -946,7 +957,7 @@
     }
     const one = (step) => { queue = queue.then(async () => {
       if (!still()) return;
-      const got = B.claude.apply(s.model, step, names);
+      const got = B.claude.apply(s.model, styled(step), names);
       if (!got) return;
       if (!n++ && first) first();
       s.pick = s.pick.filter((it) => s.model.items.includes(it));
@@ -972,7 +983,24 @@
       },
     };
   }
+  /* How Claude draws and writes, chosen in its card: the font of its handwriting, how careful the hand, and whether it may use
+   * the board's things (texts, sticky notes, shapes, tables) besides ink. Kept on this computer. */
+  const STYLE = { font: ["hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"] };
+  function styleOf() {
+    let kept = {};
+    try { kept = JSON.parse(localStorage.getItem("mdview:board-claude") || "{}") || {}; } catch (e) { /* (none kept, or no storage) */ }
+    return Object.fromEntries(Object.entries(STYLE).map(([k, vs]) => [k, vs.includes(kept[k]) ? kept[k] : vs[k === "mess" ? 1 : 0]]));
+  }
+  function keepStyle() { try { localStorage.setItem("mdview:board-claude", JSON.stringify(claude.prefs)); } catch (e) { /* (not kept: it holds for now) */ } }
+  const styleSaid = () => [T("board.style.font." + claude.prefs.font), T("board.style.mess." + claude.prefs.mess.replace(".", "_"))].join(" · ");
+  const styleRows = () => Object.entries(STYLE).map(([k, vs]) => `<div class="bd-row"><span class="bd-ask-label">${esc(T("board.style." + k))}</span><span class="bd-seg" role="radiogroup" aria-label="${esc(T("board.style." + k))}">` +
+    vs.map((v) => `<button type="button" role="radio" data-opt="${k}" data-v="${v}" aria-checked="${claude.prefs[k] === v}">${esc(T(`board.style.${k}.${v.replace(".", "_")}`))}</button>`).join("") + `</span></div>`).join("");
+  /* What the style says to Claude, after what the user asked, and what it does to the steps themselves (aiSteps). */
+  const styleAsk = () => (claude.prefs.kit === "all" ? "\n\n(Texts, sticky notes, shapes, lines and tables may be used wherever they suit, besides ink.)" : "") + (claude.prefs.font === "script" ? "\n\n(Write in joined-up script: \"style\":\"script\".)" : "");
+  const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || p.font, mess: Number(p.mess) } : step; };
   const claude = {
+    prefs: null, // (styleOf(), when first asked for)
+    styling: false, // whether the style's choices are open in the card
     job: null, // the answer coming in: { id, ai, steps, s }
     typed: "", // what was typed into the field, kept until it was asked
     pt: null, // where the right button was pressed, when it was asked from its menu
@@ -982,6 +1010,7 @@
      * right button's menu, at pt. */
     open(anchor = null, pt = null) {
       if (!claude.on()) return;
+      claude.prefs = claude.prefs || styleOf();
       const chat = window.MdAi && MdAi.chat.open;
       if (anchor && ((vpop().dataset.open != null && vpop().dataset.kind === "ask") || chat)) { menu(null); if (chat) MdAi.chat.close(); return; }
       claude.pt = pt ? onBoard(pt) : null;
@@ -1002,7 +1031,7 @@
       const steps = aiSteps(s, () => { if (claude.job === job) note(T("board.ask.busy")); });
       const job = { ai, s };
       job.steps = steps;
-      job.id = ai.ask("board", { board, picture, instruction: text }, (piece) => steps.feed(piece), async (whole, error) => {
+      job.id = ai.ask("board", { board, picture, instruction: text + styleAsk() }, (piece) => steps.feed(piece), async (whole, error) => {
         const n = await steps.end();
         if (claude.job === job) { claude.job = null; busy(false); }
         if (S !== s) return;
@@ -1042,7 +1071,7 @@
   }
   B.claudeChat = {
     /* For the chat (ai.js), while a board is open: what to tell Claude of it, and its steps done as they come. */
-    context: async () => (S && !S.readonly ? { board: aiBoard(), picture: aiSees() ? await aiPicture().catch(() => "") : "" } : null),
+    context: async () => (S && !S.readonly ? { board: aiBoard() + ((claude.prefs = claude.prefs || styleOf()), styleAsk()), picture: aiSees() ? await aiPicture().catch(() => "") : "" } : null),
     steps: () => (S && !S.readonly ? aiSteps(S) : null),
   };
 

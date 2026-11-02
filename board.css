@@ -491,3 +491,12 @@ body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do
   background: var(--tip, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tip, var(--accent)) 22%, transparent), 0 0 14px color-mix(in srgb, var(--tip, var(--accent)) 50%, transparent);
   opacity: 0; transition: opacity var(--dur-fast) var(--ease-exit); }
 .bd-claude-tip[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+/* … the style Claude draws and writes in, chosen in its card (board.js: STYLE): a pill at the foot, the choices above it */
+.bd-ask-left { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.bd-ask-stylebtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.bd-ask-stylebtn[aria-expanded="true"] { background: var(--fill-hover); color: var(--fg); }
+.bd-ask-style { display: flex; flex-direction: column; gap: 6px; margin: 2px 2px 4px; padding: 8px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 4%, transparent); }
+.bd-ask-style[hidden] { display: none; }
+.bd-ask-label { flex: none; width: 64px; color: var(--fg2); font-size: 12px; }
+.bd-ask-style .bd-seg { height: 28px; font-size: 12.5px; }
+.bd-ask-style .bd-seg button { padding: 0 8px; }

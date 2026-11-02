@@ -37,6 +37,11 @@
     input().value = REAL ? (pdf ? "Underline the title of the first page in red and write a short note beside it" : "Draw a little house with a tree beside it, as a quick sketch") : "Draw a house";
     input().dispatchEvent(new Event("input", { bubbles: true }));
     ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
+    // (the style: its pill opens the choices; one chosen is said on the pill and kept)
+    pop().querySelector('[data-m="ask-style"]').click();
+    ok("Style opens its choices: writing, hand, with what", await until(() => !pop().querySelector(".bd-ask-style").hidden && pop().querySelectorAll(".bd-ask-style .bd-seg").length === 3, 1000), pop().querySelector(".bd-ask-style")?.outerHTML.slice(0, 200));
+    pop().querySelector('[data-opt="font"][data-v="script"]').click();
+    ok("… Script chosen: said on the pill, kept, the field keeps the keys", /Script/.test(pop().querySelector(".bd-ask-stylebtn").textContent) && /script/.test(localStorage.getItem("mdview:board-claude") || "") && document.activeElement === input(), [pop().querySelector(".bd-ask-stylebtn").textContent, localStorage.getItem("mdview:board-claude")]);
     out("asking", {}); await sleep(900);
     const before = st();
     input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));

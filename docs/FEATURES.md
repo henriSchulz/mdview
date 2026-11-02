@@ -584,16 +584,20 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   (an empty board is begun on at once: the first stroke in a second or two). It answers with steps that are done on
   the board **as they come**, and it works **by hand**: drawings are strokes of ink drawn along
   their way (sketches, arrows, frames, a marker over a line of the PDF), words are
-  **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up
-  when asked), each letter a little turned and raised as a hand writes, umlauts, ß and € with
-  them — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
+  **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up),
+  made as a hand makes them: each text written by a hand of its own (slant, width, spacing), the line drifting, words
+  and letters a little larger, smaller, turned and bent, no corner sharp, every stroke wandering and trembling a little,
+  its ends a touch long or short, its pressure rising, varying and easing off, dots put as short dashes; umlauts, ß and €
+  with them — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
   or takes away the whole when asked. Texts, sticky notes, shapes, lines
   joined to things and tables only when they are asked for by name; and any thing on the board,
   also what the user made, it may change, move or take away. What it does can be watched: the strokes come one after another at a hand's pace, words letter by letter, a point
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
   motion is reduced). While it thinks, then draws, the button stops it and a line under it says so; what it said stands in that
   line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
-  the empty board, shuts the field (and the chat). Things chosen: their bar has Ask
+  the empty board, shuts the field (and the chat). **Style** at the field's foot opens how Claude draws and writes, kept on the computer: the writing (print or
+  script), the hand (careful, natural, hurried) and with what (ink only, or shapes, texts and sticky notes too); the
+  pill says what is chosen. Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
