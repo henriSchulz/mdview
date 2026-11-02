@@ -35,7 +35,10 @@
     shrink: svg('<path d="M8 10l4 4 4-4"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
     get claude() { return this.spark; }, // (Ask Claude's button)
-    style: svg('<path d="M4 20c3-1 4.5-3 6-6s3-7 6-8"/><path d="M14 4.5 19.5 10"/><path d="M4 20h7"/>'),
+    font: svg('<path d="M4 18 9 6l5 12M5.8 14h6.4"/><path d="M15 17.5c1.2-.4 1.6-1.6 2-3.2s.8-3.3 2.6-3.3c.9 0 1.4.6 1.4 1.4"/>'),
+    mess: svg('<path d="M3 14c2-4 3.5-4 5 0s3 4 4.5 0 3-4 4.5 0 2.5 2.5 4 1"/>'),
+    kit: svg('<path d="M5 17c2.5-6 5-9 8-9"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><circle cx="17" cy="17" r="3"/>'),
+    check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
     chat: svg('<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16A2.5 2.5 0 0 1 5 13.5z"/>'),
     stop: svg('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
@@ -757,9 +760,9 @@
     // (Claude asked: a card to write in, as the chat's — what is chosen named above it, the chat at its foot, the round button sends)
     else if (kind === "ask") html = `<div class="bd-ask">${S.pick.length ? `<span class="bd-ask-about">${I.spark}${esc(T(S.pick.length === 1 ? "board.ask.about.one" : "board.ask.about", S.pick.length))}</span>` : ""}` +
       `<textarea class="bd-ask-field" rows="1" placeholder="${esc(T(S.pick.length ? "board.ask.chosen" : "board.ask.what"))}" aria-label="${esc(T("board.claude"))}" maxlength="4000" spellcheck="false"></textarea>` +
-      `<div class="bd-ask-style"${claude.styling ? "" : " hidden"}>${styleRows()}</div>` +
-      `<div class="bd-ask-foot"><span class="bd-ask-left"><button type="button" class="bd-ask-chat" data-m="ask-chat" title="${esc(T("board.ask.chat"))}">${I.chat}<span>${esc(T("board.ask.chatShort"))}</span></button>` +
-      `<button type="button" class="bd-ask-chat bd-ask-stylebtn" data-m="ask-style" aria-expanded="${!!claude.styling}" title="${esc(T("board.ask.style"))}">${I.style}<span>${esc(styleSaid())}</span></button></span>` +
+      `<div class="bd-ask-menu" role="menu"></div>` +
+      `<div class="bd-ask-foot"><span class="bd-ask-left"><button type="button" class="bd-ask-chat bd-ask-icon" data-m="ask-chat" title="${esc(T("board.ask.chat"))}" aria-label="${esc(T("board.ask.chat"))}">${I.chat}</button>` +
+      Object.keys(STYLE).map((k) => `<button type="button" class="bd-ask-chat bd-ask-pill" data-m="ask-pill" data-k="${k}" aria-haspopup="menu" aria-expanded="false" title="${esc(T("board.style." + k))}">${I[k]}<span>${esc(styleLabel(k))}</span></button>`).join("") + `</span>` +
       `<button type="button" class="bd-ask-send" data-m="ask-go" title="${esc(T("board.ask.go"))}" aria-label="${esc(T("board.ask.go"))}">${I.send}</button></div></div>`;
     else if (kind === "link") html = `<input type="text" class="bd-scene-input bd-link-input" placeholder="https://" aria-label="${esc(T("board.insert.link"))}" spellcheck="false"><button type="button" class="bd-wide-btn" data-m="link-add">${esc(T("board.link.add"))}</button>`;
     p.innerHTML = html;
@@ -770,9 +773,10 @@
       field.value = claude.typed;
       fit();
       setTimeout(() => { field.focus(); field.setSelectionRange(field.value.length, field.value.length); }, 0);
-      field.addEventListener("input", () => { claude.typed = field.value; fit(); });
+      field.addEventListener("input", () => { claude.typed = field.value; fit(); styleMenu(null); });
+      p.querySelector(".bd-ask").addEventListener("pointerdown", (e) => { if (!e.target.closest(".bd-ask-menu, .bd-ask-pill")) styleMenu(null); });
       // (Enter asks, Shift+Enter breaks the line, Esc shuts it — as in the chat)
-      field.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); claude.go(); } else if (e.key === "Escape") menu(null); });
+      field.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); claude.go(); } else if (e.key === "Escape") { if (p.querySelector(".bd-ask-menu[data-open]")) styleMenu(null); else menu(null); } });
     }
     if (kind === "link") { const input = p.querySelector("input"); setTimeout(() => input.focus(), 0); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") linkAdd(); else if (e.key === "Escape") menu(null); }); }
     const a = anchor || el.querySelector(`[data-do="${kind === "link" ? "plus" : kind === "ask" ? "claude" : kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
@@ -793,12 +797,12 @@
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
     if (d.m === "link-add") return linkAdd();
     if (d.m === "ask-go") return claude.go();
-    if (d.m === "ask-style") { claude.styling = !claude.styling; vpop().querySelector(".bd-ask-style").hidden = !claude.styling; b.setAttribute("aria-expanded", claude.styling); return vpop().querySelector(".bd-ask-field")?.focus(); }
-    if (d.opt) { // (one of the style's choices: kept for the next question, and on this computer)
+    if (d.m === "ask-pill") return styleMenu(b);
+    if (d.opt) { // (one of the style's choices: kept for the next question, and on this computer; its pill says it)
       claude.prefs[d.opt] = d.v;
       keepStyle();
-      for (const x of b.parentNode.children) x.setAttribute("aria-checked", x === b);
-      vpop().querySelector(".bd-ask-stylebtn span").textContent = styleSaid();
+      vpop().querySelector(`.bd-ask-pill[data-k="${d.opt}"] span`).textContent = styleLabel(d.opt);
+      styleMenu(null);
       return vpop().querySelector(".bd-ask-field")?.focus();
     }
     if (d.m === "ask-chat") { menu(null); return void core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {}); }
@@ -992,15 +996,25 @@
     return Object.fromEntries(Object.entries(STYLE).map(([k, vs]) => [k, vs.includes(kept[k]) ? kept[k] : vs[k === "mess" ? 1 : 0]]));
   }
   function keepStyle() { try { localStorage.setItem("mdview:board-claude", JSON.stringify(claude.prefs)); } catch (e) { /* (not kept: it holds for now) */ } }
-  const styleSaid = () => [T("board.style.font." + claude.prefs.font), T("board.style.mess." + claude.prefs.mess.replace(".", "_"))].join(" · ");
-  const styleRows = () => Object.entries(STYLE).map(([k, vs]) => `<div class="bd-row"><span class="bd-ask-label">${esc(T("board.style." + k))}</span><span class="bd-seg" role="radiogroup" aria-label="${esc(T("board.style." + k))}">` +
-    vs.map((v) => `<button type="button" role="radio" data-opt="${k}" data-v="${v}" aria-checked="${claude.prefs[k] === v}">${esc(T(`board.style.${k}.${v.replace(".", "_")}`))}</button>`).join("") + `</span></div>`).join("");
+  const styleLabel = (k, v = claude.prefs[k]) => T(`board.style.${k}.${v.replace(".", "_")}`);
+  /* A pill's menu in the card, as the chat's are: its choices, the one in use ticked; pressed again, or b null, it shuts. */
+  function styleMenu(b) {
+    const m = vpop().querySelector(".bd-ask-menu"), was = m && m.dataset.k;
+    if (!m) return;
+    for (const x of vpop().querySelectorAll(".bd-ask-pill")) x.setAttribute("aria-expanded", "false");
+    delete m.dataset.open; m.dataset.k = "";
+    if (!b || was === b.dataset.k) return;
+    const k = b.dataset.k;
+    m.innerHTML = `<h6>${esc(T("board.style." + k))}</h6>` + STYLE[k].map((v) => `<button type="button" role="menuitemradio" data-opt="${k}" data-v="${v}" aria-checked="${claude.prefs[k] === v}">${I.check}<span>${esc(styleLabel(k, v))}</span></button>`).join("");
+    m.style.left = b.offsetLeft + "px";
+    m.dataset.k = k; m.dataset.open = "";
+    b.setAttribute("aria-expanded", "true");
+  }
   /* What the style says to Claude, after what the user asked, and what it does to the steps themselves (aiSteps). */
   const styleAsk = () => (claude.prefs.kit === "all" ? "\n\n(Texts, sticky notes, shapes, lines and tables may be used wherever they suit, besides ink.)" : "") + (claude.prefs.font === "script" ? "\n\n(Write in joined-up script: \"style\":\"script\".)" : "");
   const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || p.font, mess: Number(p.mess) } : step; };
   const claude = {
     prefs: null, // (styleOf(), when first asked for)
-    styling: false, // whether the style's choices are open in the card
     job: null, // the answer coming in: { id, ai, steps, s }
     typed: "", // what was typed into the field, kept until it was asked
     pt: null, // where the right button was pressed, when it was asked from its menu

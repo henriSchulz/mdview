@@ -595,9 +595,9 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
   motion is reduced). While it thinks, then draws, the button stops it and a line under it says so; what it said stands in that
   line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
-  the empty board, shuts the field (and the chat). **Style** at the field's foot opens how Claude draws and writes, kept on the computer: the writing (print or
-  script), the hand (careful, natural, hurried) and with what (ink only, or shapes, texts and sticky notes too); the
-  pill says what is chosen. Things chosen: their bar has Ask
+  the empty board, shuts the field (and the chat). At the field's foot, beside the chat's button, three quiet pills say how Claude draws and writes, each with a small
+  menu of its choices (the one in use ticked), kept on the computer: the writing (print or script), the hand (careful,
+  natural, hurried) and with what (ink only, or shapes, texts and sticky notes too). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
