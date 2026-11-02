@@ -412,6 +412,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     wherever something waits on it** — the share window names the conflict (`sync::stuck`), never
     only "once this is sent". `held_back_by_a_conflict_the_window_says_where`, `share.test.mjs`.
 
+93. **A message a handler file answers is routed to it in `on_message`** (#29, Henri: „im chat: hinzufügen von externen
+    datei klappt nicht“). Since the shell was split into files (2026-10-11), `on_message` (shell/messages.rs) hands a
+    message to project.rs or claude.rs only by its name in a list; "ai-picked" — the files chosen in the system's window,
+    which the shell sends itself — had an arm in claude.rs and no place in the list, so what was chosen never reached the
+    chat. A new arm in a handler goes into the list in the same change; messages.rs's test
+    (`every_message_of_claude_rs_is_routed_to_it`) holds it for claude.rs.
+
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
 81. **What the share server does not find, it may forget for a while — never an id it handed

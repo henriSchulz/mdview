@@ -16,7 +16,7 @@ impl Win {
         match text_of("type") {
             // (a project's history, its other side, sharing: project.rs — what Claude is asked: claude.rs)
             t if t.starts_with("history-") || t.starts_with("sync-") || t.starts_with("github-") || t.starts_with("share-") || t.starts_with("paste-") => self.on_project_message(app, msg),
-            "graphic" | "graphic-cancel" | "ai-ask" | "ai-pick" | "ai-stop" | "graphic-image" | "graphic-save" | "complete" => self.on_claude_message(app, msg),
+            "graphic" | "graphic-cancel" | "ai-ask" | "ai-pick" | "ai-picked" | "ai-stop" | "graphic-image" | "graphic-save" | "complete" => self.on_claude_message(app, msg),
             // (tab: true — a tab of its own, always; "own" — the tab the file has already, else a new one)
             "link" => self.handle_link(app, text_of("href"), truthy(&msg["tab"]), msg["tab"] == "own"),
             "wikilink" => self.open_wikilink(app, text_of("target"), truthy(&msg["tab"]), msg["tab"] == "own"),
@@ -272,5 +272,23 @@ impl Win {
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// What claude.rs answers is handed to it: every message its `on_claude_message` matches stands in the list on_message
+    /// routes to it — "ai-picked", the files chosen for the chat, was left out of it when the shell was split into files,
+    /// and what was chosen never came to the chat (#29).
+    #[test]
+    fn every_message_of_claude_rs_is_routed_to_it() {
+        let claude = include_str!("claude.rs");
+        let body = &claude[claude.find("fn on_claude_message").unwrap()..];
+        let body = &body[..body.find("\n    }\n").unwrap_or(body.len())];
+        let arms: Vec<&str> = body.lines().map(str::trim_start).filter(|l| l.starts_with('"')).filter_map(|l| l[1..].split('"').next()).collect();
+        assert!(arms.len() >= 8, "{arms:?}");
+        let routing = include_str!("messages.rs").lines().find(|l| l.contains("=> self.on_claude_message")).unwrap();
+        let missing: Vec<&&str> = arms.iter().filter(|a| !routing.contains(&format!("\"{a}\""))).collect();
+        assert!(missing.is_empty(), "matched in claude.rs, never routed there: {missing:?}");
     }
 }
