@@ -457,7 +457,10 @@
   }
   /* The board moved or sized under the hand (fingers, a wheel): drawing all its ink anew for every step of the way is what a
    * tablet cannot keep up with. So the ink as it was drawn last is moved and sized as a picture, once a frame, with the things on
-   * the board and the dots; it is drawn anew when the hand has come to rest. (Anything else that changes the view draws at once.) */
+   * the board and the dots; it is drawn anew when the hand has come to rest. (Anything else that changes the view draws at once.)
+   * The picture reaches past the window on each side (reach), and is drawn anew while the hand goes on — before what it holds
+   * beyond the window runs out, or once it is shown too far from its own size — as often as drawing it lets the frames go on:
+   * drawn only at rest, the ink came into a part moved into sight, or sharp after a zoom, only when the hand stopped (#35). */
   function viewMoved() {
     if (!S) return;
     if (!fast || !inkAt || S.ruler) return paint();
@@ -475,11 +478,27 @@
     if (dots.dataset.gap !== String(gap)) { dots.dataset.gap = gap; dots.style.backgroundSize = `${gap}px ${gap}px`; dots.style.inset = `0 ${-gap}px ${-gap}px 0`; }
     dots.style.transform = `translate(${off(v.x)}px, ${off(v.y)}px)`;
   }
+  const reach = (s) => Math.round(Math.min(s.w, s.h) / 4); // (how far, in CSS pixels, the ink's picture reaches past the window)
+  /* The ink, drawn for the view as it is now: over the window and as far again as reach on each side. added: a stroke just let
+   * go — where the ink is drawn for this view already, only it is drawn, over the rest. */
+  function inkNow(added = null) {
+    const v = S.view, s = size(), m = reach(s), c = el.querySelector(".bd-ink"), t0 = performance.now(), dpr = window.devicePixelRatio || 1, at = { x: v.x - m / v.z, y: v.y - m / v.z, z: v.z };
+    if (added && inkAt && inkAt.x === v.x && inkAt.y === v.y && inkAt.z === v.z && inkAt.w === s.w && inkAt.h === s.h && inkAt.dpr === dpr && !c.style.transform) return B.ink.more(c, added, at, auto());
+    if (c.dataset.at !== `${s.w}:${s.h}`) { c.dataset.at = `${s.w}:${s.h}`; Object.assign(c.style, { left: -m + "px", top: -m + "px", width: s.w + 2 * m + "px", height: s.h + 2 * m + "px" }); }
+    B.ink.draw(c, S.model.items, at, { w: s.w + 2 * m, h: s.h + 2 * m }, auto(), null);
+    c.style.transform = "";
+    const t1 = performance.now();
+    inkAt = { x: v.x, y: v.y, z: v.z, m, w: s.w, h: s.h, dpr, cost: t1 - t0, at: t1 };
+  }
   function slide() {
     slideFrame = 0;
     if (!S || !inkAt) return;
-    const v = S.view;
-    el.querySelector(".bd-ink").style.transform = `translate(${(inkAt.x - v.x) * v.z}px, ${(inkAt.y - v.y) * v.z}px) scale(${v.z / inkAt.z})`;
+    const v = S.view, k = v.z / inkAt.z, m = inkAt.m, s = size();
+    const x0 = (inkAt.x - v.x) * v.z - m * k, y0 = (inkAt.y - v.y) * v.z - m * k; // (the picture's top left corner on the screen)
+    const room = Math.min(-x0, -y0, x0 + k * (inkAt.w + 2 * m) - s.w, y0 + k * (inkAt.h + 2 * m) - s.h); // (what it holds beyond the window, on its shortest side)
+    // (drawn anew at most once in three times as long as a drawing took: the frames between are the picture moved)
+    if ((room < m / 2 || Math.abs(Math.log(k)) > 0.08) && performance.now() - inkAt.at >= 2 * inkAt.cost && s.w === inkAt.w && s.h === inkAt.h) inkNow();
+    else el.querySelector(".bd-ink").style.transform = `translate(${x0 + m}px, ${y0 + m}px) scale(${k})`;
     el.querySelector(".bd-world").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
     sheets(v, true);
     grid(v, stage());
@@ -487,14 +506,12 @@
     if (S.pick.length || sel.joints) sel.paint();
   }
   /* Everything the window shows, from what is so. */
-  function paint() {
+  function paint(added = null) {
     if (!S) return;
     const fgInk = S.book ? B.paper.ink(S.model.board.paper) : "var(--fg)"; // (what "auto" is drawn in, shown in the wells: on a notebook's dark paper light)
     clearTimeout(rested); cancelAnimationFrame(slideFrame); slideFrame = 0;
     const v = S.view, st = stage(), s = size();
-    B.ink.draw(el.querySelector(".bd-ink"), S.model.items, v, s, auto(), null);
-    inkAt = { x: v.x, y: v.y, z: v.z };
-    el.querySelector(".bd-ink").style.transform = "";
+    inkNow(added);
     B.items.relink(S.model.items); // (lines joined to items: their ends where the items are now)
     el.querySelector('[data-do="connect"]').setAttribute("aria-pressed", String(!!S.connect && S.mode === "select"));
     const world = el.querySelector(".bd-world");
@@ -1482,7 +1499,7 @@
     const item = act.stroke.item;
     S.model.items.push(item);
     did({ undo: () => { S.model.items = S.model.items.filter((it) => it !== item); }, redo: () => { S.model.items.push(item); } });
-    paint(); // (the stroke is in the ink before the one under the hand is taken away: no frame without it)
+    paint(item); // (the stroke is in the ink before the one under the hand is taken away: no frame without it)
     live(null);
   }
   function cancel() {

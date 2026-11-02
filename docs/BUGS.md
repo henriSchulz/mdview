@@ -378,6 +378,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     moves over the text while a pointer pulls (the rectangle, the fields of selected blocks, a
     board's dots) is a layer of its own (`will-change: transform`), or each step paints the text
     under it anew. `rig.sh blockperf`, `boardperf`.
+98. **What is moved as a picture to save drawing holds more than the window, and is drawn anew before it runs out** (#35,
+    Henri: „whiteboards und notebook usw rendern viel zu langsam ihre inhalte“). A board under the hand moves its ink as
+    a picture and drew it anew only once the hand rested: a part moved into sight stayed empty, and a zoom blurred, until
+    then — on every machine, the fast ones too. The ink's picture reaches past the window by a quarter of it on each side,
+    and is drawn anew while the hand goes on, once less than half of that is left beyond the window or it is shown more
+    than 8 % from its own size — at most once in three times as long as a drawing takes (board.js: `inkNow`, `slide`).
+    `rig.sh boardperf` asks of every frame of a move and a zoom how much of the window has no ink and how far it is sized.
 84. **What a finger or a pointer moves step by step is never set on the root.** A custom property
     on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
     computed anew when it changes: the block swiped by a finger set its offset there at each step,

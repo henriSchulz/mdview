@@ -40,6 +40,13 @@
     }
     ctx.globalAlpha = 1;
   }
+  /* One stroke more over the ink drawn for the view: a stroke let go lies over all the others, so the rest need not be drawn again. */
+  function more(canvas, it, view, auto) {
+    const k = (window.devicePixelRatio || 1) * view.z, ctx = canvas.getContext("2d");
+    ctx.setTransform(k, 0, 0, k, -view.x * k, -view.y * k);
+    trace(ctx, it, auto);
+    ctx.globalAlpha = 1;
+  }
   /* A stroke being drawn: begin(tool, set, pt) → { add(pt), item }. set: the tool's colour, width
    * and opacity. Points are the board's. */
   function begin(tool, set, first, zoom) {
@@ -111,5 +118,5 @@
     }
     return out;
   }
-  B.ink = { draw, begin, touched, circled, holds, moved, within, trace, TOOLS };
+  B.ink = { draw, more, begin, touched, circled, holds, moved, within, trace, TOOLS };
 })();
