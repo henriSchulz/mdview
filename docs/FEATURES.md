@@ -681,7 +681,8 @@ and shut back into it — or a file of the folder, of its own.
   stand. A shape that is only an outline is met at its outline: a click within it still
   chooses it, a pull within it is a box over what stands in it, and once chosen it is moved
   from anywhere within. What is chosen is pulled to another place — several
-  things, or strokes, anywhere in their frame —, copied (`Ctrl+D`), deleted (`Delete`), nudged
+  things, or strokes, anywhere in their frame; pulled to the window's edge, the board runs along
+  under it, the faster the nearer the edge —, copied (`Ctrl+D`), deleted (`Delete`), nudged
   with the arrow keys (`Shift`: ten pixels). Strokes alone are pulled larger or smaller at the
   corners of their frame, and take another colour in the small bar beside them. `Esc`, or a
   click or tap on the bare board, lets go.
@@ -792,6 +793,41 @@ and shut back into it — or a file of the folder, of its own.
   taken out of the note it goes to the trash after an hour, as a pasted picture does.
 
 Not there yet: a table's single rows and columns pulled to size or put in between others; a preview of the page behind a link's card.
+
+### Notebooks
+
+A notebook is a whiteboard of pages, as GoodNotes has its notebooks: sheets of A4 one under the
+other, on GoodNotes' writing paper, written and drawn on with everything a whiteboard has — the
+pens, the eraser, the lasso, text, shapes, pictures, the ruler, undo (no connectors: the button for
+them is not there).
+
+- **Making one**: New Notebook — the sidebar's `+`, a right click on a folder or the empty room,
+  the `+` of All Notes. It is asked for its name, made in that folder (`Name.board.svg`, as a
+  whiteboard's file) with one white squared page, and opened. It is listed, opened, embedded in a
+  note, renamed, moved and trashed as a whiteboard that is a file is (All Notes › *Whiteboards*
+  shows it too).
+- **The paper** (the button at the bottom right): GoodNotes' writing papers, each shown as a small
+  page — Blank; Dotted and Squared (5 mm); Narrow Ruled (7.1 mm) and Wide Ruled (8.7 mm) under a
+  head; Legal (wide lines under a deeper head, a double red margin); Cornell (the head, the cue
+  column at the left, the summary at the foot); Music (staves of five lines) — and its colour:
+  White, Yellow or Dark. For every page of the notebook; `Ctrl+Z` takes it back. Black ink is
+  dark on white and yellow paper and light on dark paper, whatever the theme.
+- **A page more**: the page button beside undo at the top, the sheet with Add Page under the last
+  page, Add Page in the paper's menu, or Page under `+` — at the end, and the view goes to it.
+  `Ctrl+Z` takes it away again. What is drawn stays where it was drawn.
+- **A page's own menu** (a right click on the bare page): Insert Page Before, Insert Page After,
+  Delete Page. What lies on the pages after it moves with them; what lay on a page that is deleted
+  goes with it, and `Ctrl+Z` brings both back. Delete Page is in the paper's menu too, for the page
+  in sight (a tablet has no right click). The one page left cannot be deleted.
+- **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
+  on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 %; `Ctrl+0` shows
+  the page in sight whole. It opens with the page it was left at whole in the window.
+- **The file**: a whiteboard's file whose first line says it is a notebook — its paper, its colour,
+  its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
+  picture, in the sidebar, in All Notes and in a note, is its first page.
+
+Not there yet: a page of its own paper, pages moved to another place, pages of another size or
+lying across, a sign of its own in the sidebar, a page's menu under a held finger.
 
 ### Links between notes
 
@@ -962,10 +998,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   Tab, Reopen Closed Tab, Close Tab, Close Other Tabs. The tabs of a folder are there again the
   next time it is opened.
 - **Sidebar** (`Ctrl+Alt+S`, or the button at the left of the tabs — not shown over All Notes):
-  everything that lies in the folder — notes, folders, and every other file. The clock is the folder's history (below). `+` makes a note, a folder or a whiteboard, or
+  everything that lies in the folder — notes, folders, and every other file. The clock is the folder's history (below). `+` makes a note, a folder, a whiteboard or a notebook, or
   adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
-  click on the empty room has New Note, New Folder, New Whiteboard, Add Files…, Paste and the
+  click on the empty room has New Note, New Folder, New Whiteboard, New Notebook, Add Files…, Paste and the
   order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
   the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
   opened out of All Notes show without it; a note chosen in it leaves it open, and the quick

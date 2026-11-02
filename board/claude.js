@@ -25,12 +25,14 @@
 
   // ---------------------------------------------------------------- what Claude is told
   /* The board as lines of text: where the window looks, what is chosen, the pages of a PDF under it, every thing on it.
-   * o: { view: [x, y, w, h], pick: [ids], pages: [{ n, x, y, w, h }] } */
+   * o: { view: [x, y, w, h], pick: [ids], pages: [{ n, x, y, w, h }], paper: a notebook's paper (board/paper.js), when it is one } */
   function describe(model, o = {}) {
     const out = [];
     if (o.view) out.push(`The window shows x ${Math.round(o.view[0])} to ${Math.round(o.view[0] + o.view[2])}, y ${Math.round(o.view[1])} to ${Math.round(o.view[1] + o.view[3])}.`);
     if (o.pages && o.pages.length) {
-      out.push(`The board lies over a PDF of ${o.pages.length} page${o.pages.length === 1 ? "" : "s"}; each page as a box on the board (x, y, width, height):`);
+      const n = `${o.pages.length} page${o.pages.length === 1 ? "" : "s"}`;
+      out.push(o.paper ? `The board is a notebook of ${n} of ${o.paper.bg === "blank" ? "blank" : o.paper.bg} paper (${o.paper.color}), A4, one under the other; write and draw on the pages, within their margins, as on paper. Each page as a box on the board (x, y, width, height):`
+        : `The board lies over a PDF of ${n}; each page as a box on the board (x, y, width, height):`);
       for (const p of o.pages.slice(0, 400)) out.push(`page ${p.n}: ${Math.round(p.x)}, ${Math.round(p.y)}, ${Math.round(p.w)}, ${Math.round(p.h)}`);
     }
     const items = model.items || [];

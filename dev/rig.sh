@@ -19,7 +19,7 @@
 #   dev/rig.sh ghost [real]          the continuation offered while typing (a fixed answer; `real`: the model itself)
 #   dev/rig.sh pdf                   PDFs: embeds in a note, the viewer, highlights from links, a link to a selection, outline, pages
 #   dev/rig.sh wikiroot [DIR NOTE]   a note of a subfolder, its links to notes and PDFs of other folders (assets/…): found, PDF parts drawn — in a vault, in a repository; DIR: a copy of a real folder, NOTE in it
-#   dev/rig.sh board-ai [real]       Claude draws on a whiteboard: its button, what is chosen, the chat over the board; a note's board, a PDF
+#   dev/rig.sh board-ai [real]       Claude draws on a whiteboard: its button, what is chosen, the chat over the board; a note's board, a PDF, a notebook
 #   dev/rig.sh pdfink                a PDF drawn on: the whiteboard over its pages, a stroke kept in .mdview/pdf, the PDF untouched, there again after a restart, nothing kept once it is rubbed out
 #   dev/rig.sh boardperf             a whiteboard written full: a pen's lag and the frames while drawing, moving and zooming it
 #   dev/rig.sh blockperf             a long note: blocks selected with a rectangle, a block dragged by its handle (a mouse of 240 Hz): frames
@@ -989,20 +989,24 @@ PY
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.board-graphic.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   board-ai)
     # Claude draws on a whiteboard: asked from the board's button and about what is chosen, the chat over the board — on a note's
-    # new board, then on a PDF (the model is a fixed answer; `real`: Claude itself)
+    # new board, then on a PDF, then on a notebook opened from the note (the model is a fixed answer; `real`: Claude itself)
     rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/m5.md" "$R/work/m5.md"; python3 "$D/gen-pdf.py" "$R/work/paper.pdf" 3
-    rm -f "$R/out"/{m5.md,paper.pdf}.{styling,asking,drawing,stroking,drawn,chat,board-ai-note,board-ai-pdf}.json; fail=0
+    printf '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><metadata id="mdview-board"><![CDATA[\n{"board":1,"bg":"auto","grid":false,"paper":{"bg":"grid","color":"white","size":"a4","n":2}}\n]]></metadata></svg>\n' > "$R/work/Heft.board.svg"
+    rm -f "$R/out"/{m5.md,paper.pdf,Heft.board.svg}.{styling,asking,drawing,stroking,drawn,chat,board-ai-note,board-ai-pdf,board-ai-book}.json; fail=0
     steps=$'{"add":"shape","as":"walls","shape":"rect","x":-120,"y":160,"w":240,"h":160}\n{"add":"ink","tool":"pen","c":"#e5372c","w":4,"d":"M -140 160 L 0 50 L 140 160"}\n{"add":"sticky","as":"note","x":160,"y":40,"w":160,"h":120,"text":"A house"}'
     more=$'{"add":"line","p":[170,160,120,200],"arrow":true,"from":{"id":"note"},"to":{"id":"walls"}}\n{"move":"note","dx":20,"dy":0}\n{"set":"walls","fill":"#b5dcff"}\n{"add":"write","x":-120,"y":340,"text":"Mein Haus – grün & groß","size":28}'
     fake=$'Here is a house, PICTURE.\n<board>\n'"$steps"$'\n'"$more"$'\n</board>'
     chat=$'x||Done.\n<board>\n{"add":"sticky","x":-300,"y":40,"text":"From the chat","fill":"#bfe8b0"}\n</board>'
     real=(); [[ ${2:-} == real ]] && { { echo 'window.__boardAiReal = true;'; cat "$D/probe-board-ai.js"; } > "$R/probe-board-ai-real.js"; real=(real); }
     probe="$D/probe-board-ai.js"; [[ -n ${real[*]} ]] && probe="$R/probe-board-ai-real.js"
-    for file in m5.md paper.pdf; do
-      where=note; [[ $file == *.pdf ]] && where=pdf
+    { echo 'window.__boardAiBook = true;'; cat "$probe"; } > "$R/probe-board-ai-book.js"
+    for file in m5.md paper.pdf Heft.board.svg; do
+      where=note; [[ $file == *.pdf ]] && where=pdf; [[ $file == *.board.svg ]] && where=book
+      p="$probe"; [[ $where == book ]] && { p="$R/probe-board-ai-book.js"; file=m5.md; }
+      rm -f "$R/out/$file".{styling,asking,drawing,stroking,drawn,chat}.json # (the notebook's run opens it from the note: the note's moments anew)
       st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st" # (one window: the file's)
-      if [[ -n ${real[*]} ]]; then app 600 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$file"
-      else app 120 MDVIEW_PROBE="$probe" MDVIEW_PROBE_OUT="$R/out" MDVIEW_BOARD_FAKE="$fake" MDVIEW_TALK_FAKE="$chat" -- "$R/work/$file"; fi
+      if [[ -n ${real[*]} ]]; then app 600 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$file"
+      else app 120 MDVIEW_PROBE="$p" MDVIEW_PROBE_OUT="$R/out" MDVIEW_BOARD_FAKE="$fake" MDVIEW_TALK_FAKE="$chat" -- "$R/work/$file"; fi
       for v in styling asking drawing stroking drawn chat; do for _ in $(seq 6000); do [[ -f $R/out/$file.$v.json || -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done; sleep 0.3; shot "$R/out/board-ai-$where-$v.png"; done
       for _ in $(seq 3000); do [[ -f $R/out/$file.board-ai-$where.json ]] && break; sleep 0.1; done
       pkill -f "^$APP" 2>/dev/null; sleep 1

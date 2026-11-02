@@ -207,7 +207,7 @@
   document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
 
   // --- new note
-  /* A new folder or whiteboard is asked for in a small window of its own — from the sidebar's +, from
+  /* A new folder, whiteboard or notebook is asked for in a small window of its own — from the sidebar's +, from
    * All Notes, from a menu: its name, and where it goes. Enter makes it, Esc (or a click beside the
    * window) does not. A new note is not asked for (openNewNote). */
   let newKind = "note", newDir = null, newDlg = null, newBack = null;
@@ -243,6 +243,8 @@
       closeNewNote(false);
       // (a whiteboard as a file of its own: the page writes what an empty one holds, the host makes the file and it opens)
       if (kind === "board") { P.loadBoard().then(() => post("newboard", { name, dir: here, text: window.MdBoard.emptyText() })).catch(() => P.toast(T("Couldn't make the whiteboard"))); return; }
+      // (a notebook is a whiteboard of pages, made and opened as one: board/paper.js)
+      if (kind === "notebook") { P.loadBoard().then(() => post("newboard", { name, dir: here, text: window.MdBoard.notebookText() })).catch(() => P.toast(T("Couldn't make the notebook"))); return; }
       post("newfolder", { name, dir: here });
     });
   }
@@ -264,11 +266,11 @@
     newKind = kind; newDir = dir;
     const input = newDlg.querySelector("#new-name");
     const where = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
-    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : ICON.board;
-    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : "new.board");
+    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : kind === "notebook" ? ICON.notebook : ICON.board;
+    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : kind === "notebook" ? "new.notebook" : "new.board");
     newDlg.querySelector(".new-where").textContent = T("new.in", where === P.folder.root ? P.folder.name : where.slice(P.folder.root.length + 1));
-    input.placeholder = kind === "folder" ? "Folder name" : "Whiteboard name";
-    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : "New whiteboard name");
+    input.placeholder = kind === "folder" ? "Folder name" : kind === "notebook" ? "Notebook name" : "Whiteboard name";
+    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : kind === "notebook" ? "New notebook name" : "New whiteboard name");
     input.value = "";
     newDlg.querySelector(".btn.primary").disabled = true;
     closeCtx(false);

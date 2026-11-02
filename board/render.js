@@ -111,21 +111,27 @@
    * data and </svg>. An empty board is a faint sign of one, so that the note shows where it is. */
   function picture(model) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, body = "";
+    const paper = model.board && model.board.paper && B.paper && B.pdf ? B.paper.norm(model.board.paper) : null, ink = paper ? B.paper.ink(paper) : AUTO; // (on a notebook's dark paper "auto" ink is light)
     // what stands on the board first, in its order; the ink lies over it, as it does on the screen
     for (const it of [...model.items.filter((i) => i.k !== "ink"), ...model.items.filter((i) => i.k === "ink")]) {
       const b = B.format.boundsOf(it);
       if (!b) continue;
       if (b[0] < x0) x0 = b[0]; if (b[1] < y0) y0 = b[1]; if (b[2] > x1) x1 = b[2]; if (b[3] > y1) y1 = b[3];
-      if (it.k !== "ink") { body += B.items.svg(it); continue; }
+      if (it.k !== "ink") { body += B.items.svg(it, ink); continue; }
       const o = outline(it), op = it.o < 1 ? ` opacity="${n(it.o)}"` : "";
       if (it.t === "pencil" && o.stroke) {
-        const look = `d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="round" stroke-linejoin="round"`;
+        const look = `d="${o.d}" fill="none" stroke="${colorOf(it, ink)}" stroke-width="${n(o.stroke)}" stroke-linecap="round" stroke-linejoin="round"`;
         body += `<g id="${it.id}"${op}><path ${look} opacity="0.5"/><path ${look} opacity="0.6" stroke-dasharray="${grain(o.stroke).join(" ")}"/></g>\n`;
         continue;
       }
       body += o.stroke
-        ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
-        : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it)}"${it.t === "pencil" ? ` opacity="${n(it.o * 0.6)}"` : op}/>\n`;
+        ? `<path id="${it.id}" d="${o.d}" fill="none" stroke="${colorOf(it, ink)}" stroke-width="${n(o.stroke)}" stroke-linecap="${o.cap}" stroke-linejoin="round"${op}/>\n`
+        : `<path id="${it.id}" d="${o.d}" fill="${colorOf(it, ink)}"${it.t === "pencil" ? ` opacity="${n(it.o * 0.6)}"` : op}/>\n`;
+    }
+    // a notebook (paper.js) shows its first page, as a notebook's cover is its first page: the sheet, its paper, what is on it
+    if (paper) {
+      const p = B.paper.pages(paper)[0], box = [Math.floor(p.x), Math.floor(p.y), Math.ceil(p.w), Math.ceil(p.h)];
+      return { w: box[2], h: box[3], box, body: B.paper.svg(p, paper.bg, paper.color) + body, empty: !body };
     }
     if (!body) {
       const [x, y, w, h] = EMPTY, cx = x + w / 2, cy = y + h / 2;

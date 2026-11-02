@@ -358,10 +358,11 @@
     return { badge: (ext || "file").slice(0, 4).toUpperCase(), title: dot > 0 ? it.src.slice(0, dot) : it.src, sub: it.src };
   }
   /* The item in the board's picture. */
-  function svg(it) {
-    const strokeOf = (s) => (s && s.c !== "none" ? ` stroke="${s.c === "auto" ? INK : s.c}" stroke-width="${n(s.w)}" stroke-linejoin="round"` : "");
+  /* ink: what "auto" is drawn in (a notebook's dark paper: light — paper.js). */
+  function svg(it, ink = INK) {
+    const strokeOf = (s) => (s && s.c !== "none" ? ` stroke="${s.c === "auto" ? ink : s.c}" stroke-width="${n(s.w)}" stroke-linejoin="round"` : "");
     if (it.k === "line") {
-      const c = it.stroke.c === "auto" || it.stroke.c === "none" ? INK : it.stroke.c, l = lineDraw(it);
+      const c = it.stroke.c === "auto" || it.stroke.c === "none" ? ink : it.stroke.c, l = lineDraw(it);
       return `<g id="${it.id}"><path d="${l.d}" fill="none" stroke="${c}" stroke-width="${n(it.stroke.w)}" stroke-linejoin="round" stroke-linecap="${it.ends.includes("arrow") ? "butt" : "round"}"/>` + l.heads.filter(Boolean).map((h) => `<path d="${h}" fill="${c}"/>`).join("") + "</g>\n";
     }
     if (it.k === "table") return tableSvg(it);
@@ -388,7 +389,7 @@
       const top = it.k === "text" ? it.y + PAD : it.y + Math.max(PAD, (it.h - block) / 2);
       const x = it.ts.align === "left" ? it.x + PAD : it.ts.align === "right" ? it.x + it.w - PAD : cx;
       const look = `font-family='${FONT}' font-size="${n(it.ts.size)}"${it.ts.bold ? ' font-weight="600"' : ""}${it.ts.italic ? ' font-style="italic"' : ""}${it.ts.underline ? ' text-decoration="underline"' : ""}`;
-      body += `<text ${look} fill="${textColor(it)}" text-anchor="${{ left: "start", center: "middle", right: "end" }[it.ts.align]}" xml:space="preserve">` +
+      body += `<text ${look} fill="${textColor(it, ink)}" text-anchor="${{ left: "start", center: "middle", right: "end" }[it.ts.align]}" xml:space="preserve">` +
         ls.map((l, i) => `<tspan x="${n(x)}" y="${n(top + lead * (i + 0.76))}">${xml(l)}</tspan>`).join("") + "</text>";
     }
     return `<g id="${it.id}"${turn}>${body}</g>\n`;

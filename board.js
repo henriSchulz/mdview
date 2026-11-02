@@ -28,6 +28,8 @@
     lasso: svg('<path d="M10.5 13.6C7 13.2 4.5 11.5 4.5 9.2c0-2.6 3.4-4.7 7.5-4.7s7.5 2.1 7.5 4.7c0 .9-.4 1.7-1.1 2.4" stroke-dasharray="2.6 2.4"/><path d="M12.5 11v8.5l2.3-2.1 1.5 3.1 1.6-.8-1.5-3 3.1-.3z"/>'),
     image: svg('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="8.6" cy="10" r="1.6"/><path d="m4.5 17 4.6-4.2 3.4 3 2.6-2.2 4.4 3.9"/>'),
     plus: svg('<path d="M12 5.5v13M5.5 12h13"/>'),
+    paper: svg('<rect x="5.5" y="3.5" width="13" height="17" rx="2"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5"/>'),
+    page: svg('<path d="M13.5 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5z"/><path d="M13.5 3.5v5h5M12 11.5v6M9 14.5h6"/>'),
     auto: svg('<path d="M5 14.5C4 9.5 7.5 5.5 12 5.5s7.5 3 7.5 6.6-3.2 6.4-7.4 6.4c-2.6 0-4.9-1-6.3-2.8" stroke-dasharray="2.8 2.4"/><path d="m3.5 11.2 1.5 3.3 3.2-1.6"/>'),
     eraseAll: svg('<path d="M4 15c2.8-7 4.8-7 6.6-2.4S14.6 17 19.5 7"/><path d="M5.5 5.5l13 13"/>'),
     erasePart: svg('<path d="M4 15c1.8-4.6 3.2-6.2 4.6-5.4M15 13.6c1.4-.4 2.8-2.6 4.5-6.6"/><circle cx="11.8" cy="12.4" r="2.6" stroke-dasharray="1.8 1.6"/>'),
@@ -200,7 +202,8 @@
     said.t = setTimeout(() => { delete hud.dataset.on; }, 900);
   }
   const size = () => ({ w: el.clientWidth, h: el.clientHeight });
-  const auto = () => (S && S.pdf ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on a PDF's pages: ink for paper, whatever the theme)
+  const paged = () => S && (S.pdf || S.book); // (pages under the board: a PDF's, or a notebook's — paper.js)
+  const auto = () => (S && S.book ? B.paper.ink(S.model.board.paper) : paged() ? B.render.AUTO : getComputedStyle(el).getPropertyValue("--fg").trim() || "#1d1d1f"); // (on pages: ink for paper, whatever the theme)
   const button = (name, key, more = "") => `<button type="button" class="bd-btn" data-do="${name}" title="${esc(T(key))}" aria-label="${esc(T(key))}"${more}>${I[name] || ""}</button>`;
   const DRAWS = ["pen", "mono", "marker", "pencil"], ALL = [...DRAWS, "eraser"];
   /* What the hand does on the board, chosen in the bar at the top: choose and move (lasso), draw (pen), rub out (eraser), put a
@@ -224,7 +227,7 @@
       `<div class="bd-bar bd-fbar" role="toolbar" hidden></div><div class="bd-fpop ui-menu ui-popover"></div>` +
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
-      `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
+      `<div class="bd-bar bd-actions" role="toolbar">${button("page", "board.page.add")}<span class="bd-sep" data-for="book"></span>${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
       `<div class="bd-vpop ui-menu ui-popover" role="menu"></div><div class="bd-claude-note" role="status"></div><i class="bd-claude-tip" aria-hidden="true"></i>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
@@ -241,7 +244,7 @@
       `<button type="button" class="bd-shrunk" data-do="tray-max" title="${esc(T("board.tray.max"))}" aria-label="${esc(T("board.tray.max"))}"></button>` +
       `<div class="bd-pop ui-menu ui-popover" role="dialog" aria-label="${esc(T("board.options"))}"></div>` +
       `<div class="bd-bar bd-zoom" role="toolbar"><button type="button" class="bd-btn bd-wide" data-do="zoom" title="${esc(T("board.zoom"))}"></button>${button("fit", "board.fit")}<span class="bd-sep"></span>${button("prev", "board.scene.prev")}${button("scenes", "board.scenes")}${button("next", "board.scene.next")}</div>` +
-      `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}</div>` +
+      `<div class="bd-bar bd-viewbar" role="toolbar">${button("connect", "board.connect")}${button("grid", "board.grid")}${button("paper", "board.paper")}</div>` +
       `<div class="bd-cpop ui-menu ui-popover" role="menu" aria-label="${esc(T("board.insert.shape"))}">${B.items.SHAPES.map((k) => `<button type="button" class="bd-tile" data-next="${k}" title="${esc(T("board.shape." + k))}" aria-label="${esc(T("board.shape." + k))}"><svg viewBox="-2 -2 32 32"><path d="${B.items.shapePath(k, 28, k === "rect" || k === "round" ? 20 : 28)}" transform="translate(0 ${k === "rect" || k === "round" ? 4 : 0})"/></svg></button>`).join("")}</div>`;
     document.body.appendChild(el);
     el.addEventListener("click", (e) => {
@@ -249,7 +252,7 @@
       if (!b || !S) return;
       if (b.closest(".bd-fbar, .bd-fpop")) return void sel.click(b);
       if (b.closest(".bd-vpop")) return void picked(b);
-      if (["zoom", "more", "scenes", "plus"].includes(b.dataset.do)) return menu(b.dataset.do, b);
+      if (["zoom", "more", "scenes", "plus", "paper"].includes(b.dataset.do)) return menu(b.dataset.do, b);
       if (b.dataset.do === "claude") return claude.job ? claude.stop() : claude.open(b);
       if (b.dataset.kind) return setKind(b.dataset.kind);
       if (b.dataset.do === "hues") return options(b, false, "hues");
@@ -274,15 +277,16 @@
       if (b.dataset.ink) { hue(b.dataset.ink); return options(null); }
       if (b.dataset.w) return setWidth(Number(b.dataset.w));
       if (b.dataset.mode) return setErase(b.dataset.mode);
-      ({ back: () => B.close(), undo: () => step(-1), redo: () => step(1), fit: () => S.view.fit(bounds()), actual: () => { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, 1); },
+      ({ back: () => B.close(), page: () => addPage(), undo: () => step(-1), redo: () => step(1), fit: () => S.view.fit(bounds()), actual: () => { const s = size(); S.view.zoomAt(s.w / 2, s.h / 2, 1); },
         grid: () => { S.model.board.grid = !S.model.board.grid; changed(); paint(); } })[b.dataset.do]?.();
     });
     el.querySelector(".bd-file").addEventListener("change", (e) => { if (S && !S.readonly) put([...(e.target.files || [])]); });
     el.querySelector(".bd-pop").addEventListener("input", (e) => { if (S && e.target.matches("input[type=range]")) setOpacity(Number(e.target.value) / 100); else if (S && e.target.matches("input[type=color]")) hue(e.target.value); });
     // the options shut when anything beside them is touched
     el.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".bd-addpage")) e.stopPropagation(); // (the way to a page more, under the last one: a button, not the board — no stroke begins on it)
       if (popOpen() && !e.target.closest(".bd-pop, .bd-tool, .bd-hue, .bd-size-now, [data-fav]")) options(null);
-      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="plus"], [data-do="claude"], [data-f="claude"]')) menu(null);
+      if (!e.target.closest('.bd-vpop, [data-do="zoom"], [data-do="more"], [data-do="scenes"], [data-do="plus"], [data-do="paper"], [data-do="claude"], [data-f="claude"]')) menu(null);
       if (S && sel.pending && !e.target.closest(".bd-cpop")) { delete el.querySelector(".bd-cpop").dataset.open; sel.connectTo(null); } // (no shape chosen for a connector's end: it ends where it was let go)
       if (S && e.target.closest(".bd-bar") && !e.target.closest(".bd-fbar") && !(S.kind === "text" && e.target.closest(".bd-palette"))) sel.finish(); // (a bar touched while text is typed: the text is done — but not the text tool's own tray, which sets how it looks)
     }, true);
@@ -369,7 +373,7 @@
       if (pt.type === "touch" && pens.seen && !pens.finger) return "pan";
       return S.kind === "shape" ? shapeStart(pt) : start(pt);
     };
-    hands = B.pointer.attach(stage(), { start: begun, move: (pts, e, ahead) => (sel.busy ? sel.move(pts, e) : move(pts, e, ahead)), end: () => (sel.busy ? sel.end() : end()), cancel: () => (sel.busy ? sel.cancel() : cancel()), hover, space: () => space,
+    hands = B.pointer.attach(stage(), { start: begun, move: (pts, e, ahead) => (sel.busy ? (sel.move(pts, e), edgeAt(pts[pts.length - 1], e)) : move(pts, e, ahead)), end: () => { edgeAt(null); return sel.busy ? sel.end() : end(); }, cancel: () => { edgeAt(null); return sel.busy ? sel.cancel() : cancel(); }, hover, space: () => space,
       hold: (pt, e) => (mine() ? sel.hold(pt, e) : false),
       // A finger tapped (it did not draw: a pen is about, or it met nothing). With the text tool: a text there. With a tool that draws
       // in hand: the thing under it is chosen — the finger moves it, the pen pulls it to size — and the tool stays in hand (back): the
@@ -386,15 +390,37 @@
       menu: (pt, e) => {
         if (!S || S.readonly || sel.busy || !core.menuAt) return;
         if (S.mode !== "select") { if (sel.thingAt(pt)) setKind("lasso", S.kind); else sel.pick([]); }
-        core.menuAt(e.clientX, e.clientY, sel.context(pt));
+        const rows = sel.context(pt), on = S.book && !S.pick.length ? pageAt(S.view.toBoard(pt.x, pt.y)[1]) : -1;
+        core.menuAt(e.clientX, e.clientY, on < 0 ? rows : [...rows, null, ...pageRows(on)]);
       },
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
       pan: (dx, dy) => { if (S) { fast = true; S.view.panBy(dx, dy); fast = false; } },
-      coasts: () => !!(S && S.pdf), // (over a PDF the wheel's push runs on: rule 26 keeps a whiteboard where two fingers left it)
+      coasts: () => !!paged(), // (over pages the wheel's push runs on: rule 26 keeps a whiteboard where two fingers left it)
       zoom: (f, cx, cy, notch) => { if (!S) return; if (notch && !calm.matches) return glideTo(f, cx, cy); gliding = null; fast = true; S.view.zoomAt(cx, cy, S.view.z * f); fast = false; } });
     // where the pointer is: what a touchpad's pinch makes larger and smaller is what lies under it (the host says how much, not where) — where it was last seen: a pinch may begin with the pointer said to have left
     el.addEventListener("pointermove", (e) => { const r = el.getBoundingClientRect(); aim = { x: e.clientX - r.left, y: e.clientY - r.top }; }, true);
+  }
+  /* Something pulled to the window's edge — a thing moved (onto the next page), a box, a shape pulled open: the board runs along under
+   * it, the faster the nearer the edge, as a list does under a row that is dragged; what is pulled stays under the hand. */
+  const EDGE = 56, RUN = 18; // (how near the edge it begins, in the window's pixels; how far a frame goes at the edge itself)
+  let edge = null;
+  function edgeAt(pt, e) {
+    if (!pt) { if (edge) cancelAnimationFrame(edge.frame); edge = null; return; }
+    if (!edge) edge = { frame: 0 };
+    edge.pt = pt; edge.e = e;
+    if (!edge.frame) edge.frame = requestAnimationFrame(edgeRun);
+  }
+  function edgeRun() {
+    if (!edge) return;
+    edge.frame = 0;
+    if (!S || !sel.pulling) return;
+    const s = size(), pt = edge.pt, by = (a, n) => (a < EDGE ? (EDGE - Math.max(0, a)) / EDGE : a > n - EDGE ? -(EDGE - Math.max(0, n - a)) / EDGE : 0);
+    const dx = by(pt.x, s.w), dy = by(pt.y, s.h);
+    if (!dx && !dy) return;
+    fast = true; S.view.panBy(dx * RUN, dy * RUN); fast = false;
+    sel.move([pt], edge.e); // (the hand stood still while the board went on: what it holds goes with the board)
+    edge.frame = requestAnimationFrame(edgeRun);
   }
   /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
    * goes only moves where it is going. */
@@ -421,12 +447,13 @@
     }
     return b;
   }
-  const bounds = () => (S.pdf ? B.pdf.boxOf(B.pdf.near(S.pdf.pages, S.view, size())) : boundsOf(S.model.items)); // (over a PDF: the page in sight)
-  /* The PDF's pages under the board: moved and sized with it, drawn anew where the view asks for more (board/pdf.js). */
+  const bounds = () => (paged() ? B.pdf.boxOf(B.pdf.near(paged().pages, S.view, size())) : boundsOf(S.model.items)); // (over pages: the page in sight)
+  /* The pages under the board — a PDF's, a notebook's: moved and sized with it, a PDF's drawn anew where the view asks for more (board/pdf.js). */
   function sheets(v, moving = false) {
-    if (!S.pdf) return;
+    const on = paged();
+    if (!on) return;
     el.querySelector(".bd-paper").style.transform = `translate(${-v.x * v.z}px, ${-v.y * v.z}px) scale(${v.z})`;
-    S.pdf.paper.show(v, size(), moving);
+    on.paper.show(v, size(), moving);
   }
   /* The board moved or sized under the hand (fingers, a wheel): drawing all its ink anew for every step of the way is what a
    * tablet cannot keep up with. So the ink as it was drawn last is moved and sized as a picture, once a frame, with the things on
@@ -462,6 +489,7 @@
   /* Everything the window shows, from what is so. */
   function paint() {
     if (!S) return;
+    const fgInk = S.book ? B.paper.ink(S.model.board.paper) : "var(--fg)"; // (what "auto" is drawn in, shown in the wells: on a notebook's dark paper light)
     clearTimeout(rested); cancelAnimationFrame(slideFrame); slideFrame = 0;
     const v = S.view, st = stage(), s = size();
     B.ink.draw(el.querySelector(".bd-ink"), S.model.items, v, s, auto(), null);
@@ -491,12 +519,12 @@
     const shown = kind === "text" ? text.color : kind === "shape" ? drawn.c : strokes.length ? (strokes.every((it) => it.c === strokes[0].c) ? strokes[0].c : null) : (S.tools[S.pen] || {}).c;
     const mini = el.querySelector(".bd-shrunk"), inHand = kind === "pen" ? S.pen : kind;
     if (mini.dataset.shows !== inHand) { mini.dataset.shows = inHand; mini.innerHTML = kind === "pen" ? I[inHand] : I[KICON[kind]]; mini.toggleAttribute("data-flat", true); }
-    mini.style.setProperty("--band", !shown || shown === "auto" ? "var(--fg)" : shown);
-    el.querySelector(".bd-hue").style.setProperty("--ink", !shown || shown === "auto" ? "var(--fg)" : shown);
+    mini.style.setProperty("--band", !shown || shown === "auto" ? fgInk : shown);
+    el.querySelector(".bd-hue").style.setProperty("--ink", !shown || shown === "auto" ? fgInk : shown);
     for (const b of el.querySelectorAll("[data-tool]")) {
       b.setAttribute("aria-checked", String(b.dataset.tool === S.pen));
       const c = (S.tools[b.dataset.tool] || {}).c;
-      b.style.setProperty("--band", !c || c === "auto" ? "var(--fg)" : c);
+      b.style.setProperty("--band", !c || c === "auto" ? fgInk : c);
     }
     for (const b of el.querySelectorAll(".bd-palette [data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === S.tools.eraser.mode));
     for (const b of el.querySelectorAll("[data-form]")) b.setAttribute("aria-checked", String(b.dataset.form === form));
@@ -504,14 +532,14 @@
     for (const b of el.querySelectorAll(".bd-type [data-style]")) b.setAttribute("aria-pressed", String(!!text[b.dataset.style]));
     for (const b of el.querySelectorAll(".bd-type [data-align]")) b.setAttribute("aria-pressed", String(text.align === b.dataset.align));
     // how broad: the pen's line, the eraser, a shape's outline
-    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"), c = S.tools[S.pen].c; dot.style.width = dot.style.height = d + "px"; dot.style.setProperty("--d", d + "px"); dot.style.setProperty("--ink", !c || c === "auto" ? "var(--fg)" : c); }
+    { const w = S.tools[S.pen].w, most = Math.max(...B.ink.TOOLS[S.pen].widths), d = Math.max(3, Math.round((w / most) * 22)), dot = el.querySelector(".bd-size-now i"), c = S.tools[S.pen].c; dot.style.width = dot.style.height = d + "px"; dot.style.setProperty("--d", d + "px"); dot.style.setProperty("--ink", !c || c === "auto" ? fgInk : c); }
     const sizes = el.querySelector(".bd-sizes"), list = kind === "shape" ? B.items.WIDTHS : kind === "eraser" ? B.ink.TOOLS.eraser.widths : B.ink.TOOLS[S.pen].widths, now = kind === "shape" ? drawn.w : kind === "eraser" ? S.tools.eraser.w : S.tools[S.pen].w, sig = list.join() + ":" + now;
     if (sizes.dataset.sig !== sig) {
       sizes.dataset.sig = sig;
       const most = Math.max(...list);
       sizes.innerHTML = list.map((w) => { const d = Math.max(3, Math.round((w / most) * 22)); return `<button type="button" class="bd-width" role="radio" data-w="${w}" aria-checked="${w === now}" aria-label="${w}"><i style="width:${d}px;height:${d}px"></i></button>`; }).join("");
     }
-    for (const b of el.querySelectorAll("[data-fav]")) { const c = favs[S.pen][Number(b.dataset.fav)]; b.style.setProperty("--ink", c === "auto" ? "var(--fg)" : c); b.dataset.ink = c; b.setAttribute("aria-checked", String(c === shown)); }
+    for (const b of el.querySelectorAll("[data-fav]")) { const c = favs[S.pen][Number(b.dataset.fav)]; b.style.setProperty("--ink", c === "auto" ? fgInk : c); b.dataset.ink = c; b.setAttribute("aria-checked", String(c === shown)); }
     st.dataset.tool = S.readonly ? "look" : S.kind === "lasso" ? "select" : S.kind === "text" || S.kind === "shape" ? S.kind : S.tool;
     const rule = el.querySelector(".bd-ruler"), ruled = !!S.ruler && S.mode === "draw" && !S.readonly;
     rule.hidden = !ruled;
@@ -751,7 +779,14 @@
     let html = "";
     if (kind === "zoom") html = `<div class="bd-list">${B.view.STEPS.map((z) => row(`data-zoom="${z}"`, Math.round(z * 100) + " %", Math.abs(S.view.z - z) < 0.005)).join("")}<hr>${row('data-m="fit"', T("board.fit"))}${row('data-m="actual"', T("board.actual"))}</div>`;
     else if (kind === "more") html = `<div class="bd-list">${S.pdf ? "" : row('data-m="copy"', T("board.copyPicture")) + row('data-m="print"', T("board.print"))}${S.readonly ? "" : (S.pdf ? "" : "<hr>") + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
-    else if (kind === "plus") html = `<div class="bd-list">${row('data-m="sticky"', T("board.insert.sticky"))}${row('data-m="table"', T("board.insert.table"))}${row('data-m="linkask"', T("board.insert.link"))}</div>`;
+    else if (kind === "plus") html = `<div class="bd-list">${row('data-m="sticky"', T("board.insert.sticky"))}${row('data-m="table"', T("board.insert.table"))}${row('data-m="linkask"', T("board.insert.link"))}${S.book ? "<hr>" + row('data-m="page"', T("board.insert.page")) : ""}</div>`;
+    else if (kind === "paper") { // (a notebook's: its paper, as GoodNotes' writing paper — each a small picture of a page —, its colour, and one more page)
+      const now = S.model.board.paper, page = B.paper.pages({ ...now, n: 1 })[0], off = S.readonly ? " disabled" : "";
+      const tile = (k) => `<button type="button" class="bd-ptile" role="menuitemradio" data-paper="${k}" aria-checked="${k === now.bg}"${off}><svg viewBox="${page.x} ${page.y} ${page.w} ${page.h}" aria-hidden="true">${B.paper.svg(page, k, now.color, 3)}</svg><span>${esc(T("board.paper." + k))}</span></button>`;
+      const tone = (c) => `<button type="button" class="bd-ptone" role="menuitemradio" data-tone="${c}" aria-checked="${c === now.color}" title="${esc(T("board.paper.color." + c))}" aria-label="${esc(T("board.paper.color." + c))}" style="--tone:${B.paper.COLORS[c].sheet}"${off}></button>`;
+      html = `<div class="bd-papers">${B.paper.KINDS.map(tile).join("")}</div><div class="bd-ptones"><span>${esc(T("board.paper.color"))}</span>${B.paper.TONES.map(tone).join("")}</div>` +
+        (S.readonly ? "" : `<div class="bd-pacts"><button type="button" class="bd-wide-btn" data-m="page">${esc(T("board.page.add"))}</button><button type="button" class="bd-wide-btn" data-m="page-del"${now.n < 2 ? " disabled" : ""}>${esc(T("board.page.delete"))}</button></div>`);
+    }
     else if (kind === "scenes") {
       html = (S.model.scenes.length ? `<div class="bd-scenes">${S.model.scenes.map((sc, i) => `<div class="bd-scene"${i === S.scene ? " data-now" : ""}><button type="button" class="bd-scene-go" data-scene="${sc.id}">${esc(sc.name || T("board.scene"))}</button>` +
           (S.readonly ? "" : `<button type="button" class="bd-btn" data-scene-name="${sc.id}" title="${esc(T("board.scene.rename"))}" aria-label="${esc(T("board.scene.rename"))}">${I.rename}</button><button type="button" class="bd-btn" data-scene-set="${sc.id}" title="${esc(T("board.scene.replace"))}" aria-label="${esc(T("board.scene.replace"))}">${I.frame}</button><button type="button" class="bd-btn" data-scene-del="${sc.id}" title="${esc(T("board.delete"))}" aria-label="${esc(T("board.delete"))}">${I.trash}</button>`) + `</div>`).join("")}</div>`
@@ -796,6 +831,9 @@
     if (d.sceneDel) return scenesDo(() => { S.model.scenes = S.model.scenes.filter((x) => x.id !== d.sceneDel); S.scene = -1; });
     if (d.m === "scene-add") return scenesDo(() => { S.model.scenes.push({ id: B.format.id(), name: T("board.scene.n", S.model.scenes.length + 1), view: sceneNow() }); S.scene = S.model.scenes.length - 1; });
     if (d.m === "link-add") return linkAdd();
+    if (d.paper || d.tone) { setPaper(d.paper || S.model.board.paper.bg, d.tone || S.model.board.paper.color); return menu("paper", null, true); }
+    if (d.m === "page") { menu(null); return addPage(); }
+    if (d.m === "page-del") { menu(null); return pageGone(B.pdf.near(S.book.pages, S.view, size()).n - 1); } // (the page in sight)
     if (d.m === "ask-go") return claude.go();
     if (d.m === "ask-pill") return styleMenu(b);
     if (d.opt) { // (one of the style's choices: kept for the next question, and on this computer; its pill says it)
@@ -844,6 +882,75 @@
     S.view.fit([sc.view[0], sc.view[1], sc.view[0] + sc.view[2], sc.view[1] + sc.view[3]], 0, B.view.MAX);
   }
   function sceneStep(dir) { const n = S.model.scenes.length; if (n) sceneGo(((S.scene < 0 ? (dir > 0 ? -1 : 0) : S.scene) + dir + n) % n); }
+  // ---------------------------------------------------------------- a notebook's pages (board/paper.js)
+  /* The pages laid out anew from the paper the head says: their sheets under the board. */
+  function pagesNow() {
+    const paper = S.model.board.paper;
+    S.book.pages = B.paper.pages(paper);
+    S.book.paper.set(S.book.pages, paper);
+    el.dataset.tone = paper.color;
+  }
+  /* The notebook's paper (one of GoodNotes' writing papers) and its colour, for every page. */
+  function setPaper(bg, color) {
+    const paper = S.model.board.paper, was = [paper.bg, paper.color];
+    if (S.readonly || !B.paper.KINDS.includes(bg) || !B.paper.TONES.includes(color) || (bg === was[0] && color === was[1])) return;
+    const to = (k, c) => () => { Object.assign(S.model.board.paper, { bg: k, color: c }); pagesNow(); };
+    to(bg, color)();
+    did({ undo: to(...was), redo: to(bg, color) });
+    paint();
+  }
+  /* One more page at the end, and the view on it — as large as it was, where the page fits so. */
+  function addPage() {
+    const paper = S.model.board.paper;
+    if (S.readonly || paper.n >= B.paper.MAX) return;
+    // (the view goes with it: to the page that came, and back to the last one when it is taken away again)
+    const n = paper.n, to = (k) => () => { S.model.board.paper.n = k; pagesNow(); S.view.fit(B.pdf.boxOf(S.book.pages[k - 1]), 64, S.view.z); };
+    to(n + 1)();
+    did({ undo: to(n), redo: to(n + 1) });
+    paint();
+  }
+  /* Which page a place on the board belongs to (y in the board's pixels): the page it lies on, or the one the gap above belongs to. */
+  function pageAt(y) {
+    const pages = S.book.pages;
+    for (let i = pages.length - 1; i >= 0; i--) if (y >= pages[i].y) return i;
+    return 0;
+  }
+  /* Pages put in or taken out at i: what lies on the pages from there on moves with them (by a page and its gap, every page
+   * being as large as the others), what lay on a page taken out goes with it. One step back brings all of it again. */
+  function pagesShift(i, by) {
+    const paper = S.model.board.paper, step = S.book.pages.length > 1 ? S.book.pages[1].y - S.book.pages[0].y : S.book.pages[0].h + B.pdf.GAP;
+    if (S.readonly || paper.n + by < 1 || paper.n + by > B.paper.MAX) return;
+    sel.cancel(); sel.finish(); sel.pick([]);
+    const before = { ...sel.snap(), n: paper.n }, middle = (it) => { const b = B.format.boundsOf(it); return b ? (b[1] + b[3]) / 2 : null; };
+    const gone = by < 0 ? S.model.items.filter((it) => { const m = middle(it); return m != null && pageAt(m) === i; }) : [];
+    const moving = S.model.items.filter((it) => { const m = middle(it); return m != null && !gone.includes(it) && pageAt(m) >= (by < 0 ? i + 1 : i); });
+    S.model.items = S.model.items.filter((it) => !gone.includes(it));
+    for (const it of moving) {
+      if (it.k === "ink") B.ink.moved(it, ([x, y]) => [x, y + by * step]);
+      else B.items.moveBy(it, 0, by * step);
+    }
+    paper.n += by;
+    pagesNow();
+    const after = { ...sel.snap(), n: paper.n }, back = (s) => () => { sel.restore(s); S.model.board.paper.n = s.n; pagesNow(); };
+    did({ undo: back(before), redo: back(after) });
+    paint();
+  }
+  /* A page put in at i (0: before the first), and the view on it. */
+  function pageIn(i) {
+    pagesShift(i, 1);
+    if (S.book.pages[i]) S.view.fit(B.pdf.boxOf(S.book.pages[i]), 64, S.view.z);
+  }
+  /* Page i taken out, with what is on it. */
+  function pageGone(i) {
+    pagesShift(i, -1);
+    const pages = S.book.pages, last = pages[pages.length - 1];
+    if (S.view.y > last.y + last.h) S.view.fit(B.pdf.boxOf(last), 64, S.view.z); // (the last page was taken out under the view: the one before it)
+  }
+  /* The rows a right click on page i adds to the board's menu. */
+  const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), ""], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), ""],
+    null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger"]];
+  const nameOf = (ref) => { const n = String(ref || "").split("/").pop().replace(/\.board\.svg$/i, ""); return /^board-/.test(n) ? "" : n; }; // (one a note keeps is named board-…: no name to show)
+
   /* A scene's name, typed where it stands in the list. */
   function sceneName(id, b) {
     const sc = S.model.scenes.find((x) => x.id === id), go = b.parentNode.querySelector(".bd-scene-go");
@@ -890,18 +997,18 @@
 
   // ---------------------------------------------------------------- Claude on the board (board/claude.js; ai.js asks, the shell's channel "board")
   /* What is told of the board: its things, where the window looks, what is chosen, a PDF's pages — and a point asked at. */
-  const aiBoard = (pt = null) => B.claude.describe(S.model, { view: sceneNow(), pick: S.pick.map((it) => it.id), pages: S.pdf ? S.pdf.pages : null }) +
+  const aiBoard = (pt = null) => B.claude.describe(S.model, { view: sceneNow(), pick: S.pick.map((it) => it.id), pages: S.pdf ? S.pdf.pages : S.book ? S.book.pages : null, paper: S.book ? S.model.board.paper : null }) +
     (pt ? `\nThe user asked at x ${Math.round(pt.x)}, y ${Math.round(pt.y)} on the board (“here”).` : "");
   /* What the window shows, as a PNG's base64 for Claude to look at: the PDF's pages as they are drawn now, the board's things
    * and ink over them (the board's own picture, cut to the window) — on white, as the file's picture is drawn. */
   // (only where the board's text does not say all of it — strokes, pictures, a PDF's pages: a picture makes Claude think before
   // it begins, measured some five seconds; an empty board, or one of texts and shapes, is begun on at once)
-  const aiSees = () => !!S.pdf || S.model.items.some((it) => it.k === "ink" || it.k === "image");
+  const aiSees = () => !!S.pdf || S.model.items.some((it) => it.k === "ink" || it.k === "image"); // (a notebook's empty pages: said in words)
   async function aiPicture() {
     const s = size(), v = S.view, k = Math.min(2, 1600 / Math.max(s.w, s.h, 1)), c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(s.w * k)); c.height = Math.max(1, Math.round(s.h * k));
     const g = c.getContext("2d"), at = (x, y) => [(x - v.x) * v.z * k, (y - v.y) * v.z * k];
-    g.fillStyle = S.pdf ? "#e9e9ec" : "#ffffff"; // (around a PDF's pages: a grey for the paper to stand on)
+    g.fillStyle = paged() ? "#e9e9ec" : "#ffffff"; // (around the pages of a PDF or a notebook: a grey for the paper to stand on)
     g.fillRect(0, 0, c.width, c.height);
     for (const sheet of el.querySelectorAll(".bd-paper .bd-sheet")) {
       const x = parseFloat(sheet.style.left), y = parseFloat(sheet.style.top), w = parseFloat(sheet.style.width), h = parseFloat(sheet.style.height), [sx, sy] = at(x, y);
@@ -911,8 +1018,16 @@
         const dx = parseFloat(pic.style.left) || 0, dy = parseFloat(pic.style.top) || 0, dw = parseFloat(pic.style.width) || w, dh = parseFloat(pic.style.height) || h, [px, py] = at(x + dx, y + dy);
         try { g.drawImage(pic, px, py, dw * v.z * k, dh * v.z * k); } catch (e) { /* (a page not drawn yet) */ }
       }
+      // (a notebook's page: its paper, an SVG of its own — paper.js)
+      const paper = sheet.querySelector(":scope > svg");
+      if (paper) {
+        const url = URL.createObjectURL(new Blob([paper.outerHTML], { type: "image/svg+xml" })), img = new Image();
+        try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; }); g.drawImage(img, sx, sy, w * v.z * k, h * v.z * k); } catch (e) { /* (the pages are told as text all the same) */ }
+        URL.revokeObjectURL(url);
+      }
     }
-    const pic = B.render.picture(S.model), vb = [v.x, v.y, s.w / v.z, s.h / v.z].map((n) => Math.round(n * 10) / 10).join(" ");
+    // (the things and the ink over them; a notebook's picture of its own would put its first page over all of it)
+    const pic = B.render.picture(S.book ? { ...S.model, board: { ...S.model.board, paper: null } } : S.model), vb = [v.x, v.y, s.w / v.z, s.h / v.z].map((n) => Math.round(n * 10) / 10).join(" ");
     if (!pic.empty) {
       const url = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" width="${c.width}" height="${c.height}" viewBox="${vb}">${pic.body}</svg>`], { type: "image/svg+xml" })), img = new Image();
       try { await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; }); g.drawImage(img, 0, 0, c.width, c.height); } catch (e) { /* (the things as text are told all the same) */ }
@@ -1463,7 +1578,7 @@
     if (!el) build();
     el.querySelector(".bd-paper").replaceChildren();
     if (pdf) { const pages = B.pdf.layout(pdf.sizes); pdf = { ...pdf, pages, paper: B.pdf.paper(el.querySelector(".bd-paper"), pdf.doc, pages, pdf.seed) }; }
-    const s = (S = { ref, img, pdf, readonly: !!((window.MdHost || {}).reading || (!pdf && cur.readonly)), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
+    const s = (S = { ref, img, pdf, book: null, readonly: !!((window.MdHost || {}).reading || (!pdf && cur.readonly)), model: B.format.fresh(), view: B.view.make(size, viewMoved), undo: [], redo: [], dirty: false, timer: 0, kind: "lasso", back: null, fav: null, pen: "pen", tool: "pen", tools: toolsNow(), act: null, mode: "select", pick: [], connect: false, scene: -1, ruler: null, crop: null });
     inkAt = null;
     core.lockScroll(true);
     post("board-open", { on: true });
@@ -1471,6 +1586,8 @@
     el.querySelector(".bd-name").textContent = pdf ? pdf.name : T("board.name");
     el.toggleAttribute("data-readonly", s.readonly);
     el.toggleAttribute("data-pdf", !!pdf);
+    el.removeAttribute("data-book");
+    delete el.dataset.tone;
     { const back = el.querySelector('[data-do="back"]'), name = T(pdf ? "board.back.pdf" : "board.back"); back.title = name; back.setAttribute("aria-label", name); }
     note("");
     options(null);
@@ -1481,7 +1598,17 @@
       const model = text != null ? B.format.parse(text) : B.format.fresh();
       if (S !== s) return false;
       s.model = model;
-      if (pdf) { // (the pages where they stood in the window: one goes on where one was)
+      if (!pdf && model.board.paper && B.paper) { // a notebook: its pages under the board, as a PDF's lie (board/paper.js)
+        const pages = B.paper.pages(model.board.paper);
+        s.book = { pages, paper: B.paper.paper(el.querySelector(".bd-paper"), pages, model.board.paper, s.readonly ? "" : T("board.page.add")) };
+        el.toggleAttribute("data-book", true);
+        el.dataset.tone = model.board.paper.color;
+        el.querySelector(".bd-name").textContent = nameOf(ref) || T("board.name.book");
+        model.board.grid = false;
+        s.view.max = 16; // (a page is written on closer than a board is looked at: board/pdf.js)
+        const was = model.board.view; // (the page it was left at, whole in the window)
+        s.view.fit(B.pdf.boxOf(was ? B.pdf.near(pages, was, size()) : pages[0]));
+      } else if (pdf) { // (the pages where they stood in the window: one goes on where one was)
         model.board.grid = false;
         s.view.max = 16; // (a page is read and written on far closer than a board is looked at: sixteen times, sharp all the way — board/pdf.js)
         const p = pdf.pages[Math.max(0, Math.min(pdf.pages.length - 1, (pdf.at.n || 1) - 1))], z = pdf.at.width / p.w;
@@ -1571,7 +1698,7 @@
     asking: el.querySelector(".bd-cpop").hasAttribute("data-open"),
     view: { x: S.view.x, y: S.view.y, z: S.view.z }, mode: S.mode, picked: S.pick.map((it) => it.id),
     things: S.model.items.filter((it) => it.k !== "ink").map((it) => JSON.parse(JSON.stringify(it))),
-    editing: sel.editing, ref: S.ref, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
+    editing: sel.editing, ref: S.ref, book: S.book ? { pages: S.book.pages.length, bg: S.model.board.paper.bg, color: S.model.board.paper.color, drawn: S.book.paper.state() } : null, pdf: S.pdf ? { path: S.pdf.path, pages: S.pdf.pages.length, drawn: S.pdf.paper.state(), sharp: S.pdf.paper.sharp() } : null, items: S.model.items.filter((it) => it.k === "ink").length,
     tool: S.tool, ink: (S.tools[S.pen] || {}).c, tools: S.tools, kind: S.kind, back: S.back, form,
     chosen: S.pick.filter((it) => it.k === "ink").length,
     chosenBox: S.pick.some((it) => it.k === "ink") ? boundsOf(S.pick.filter((it) => it.k === "ink")).map(Math.round) : null,
@@ -1579,8 +1706,11 @@
     kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
     lost: S.model.lost, claude: { busy: el.hasAttribute("data-claude"), chip: claude.note } } : null);
+  B.page = (op, i) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i) })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */
   B.emptyText = () => B.format.empty();
+  /* … and a new notebook's: one page of the paper asked for (board/paper.js). */
+  B.notebookText = (bg) => { const m = B.format.fresh(); m.board.paper = B.paper.fresh(bg); m.board.grid = false; return B.format.write(m); };
 })();

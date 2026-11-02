@@ -436,3 +436,54 @@ test("a PDF's pages on the board: one under the other, and what is drawn is on i
   assert.doesNotThrow(() => new JSDOM(pic, { contentType: "image/svg+xml" }));
   assert.equal(P.picture(pages[0], by.get(9)), "");
 });
+
+// A notebook (board/paper.js): a whiteboard whose head says it has pages of paper — they lie as a
+// PDF's do, the head keeps the paper and how many pages, and the file's picture is the first page.
+test("a notebook: its paper is kept in the head, its pages lie as a PDF's, its picture is its first page", () => {
+  const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
+  w.window = w;
+  vm.createContext(w);
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/pdf.js", "board/paper.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  const { format: F, paper: Pa, pdf: P } = w.MdBoard;
+  // GoodNotes' writing paper, in its three colours
+  assert.deepEqual(plain(Pa.KINDS), ["blank", "dots", "grid", "narrow", "wide", "legal", "cornell", "music"]);
+  assert.deepEqual(plain(Pa.TONES), ["white", "yellow", "dark"]);
+  assert.deepEqual(plain(Pa.norm({ bg: "dots", n: 3 })), { bg: "dots", color: "white", size: "a4", n: 3 });
+  assert.deepEqual(plain(Pa.norm({ bg: "zigzag", n: -4, size: "x", color: "pink" })), { bg: "grid", color: "white", size: "a4", n: 1 }); // (what cannot be read: one white squared page of A4)
+  assert.equal(Pa.norm({ bg: "lines" }).bg, "wide"); // (a first version's name)
+  assert.equal(Pa.norm(null), null);
+  assert.equal(Pa.norm([1]), null);
+  // the pages: A4, one under the other, laid out as a PDF of A4 pages
+  const paper = { bg: "cornell", color: "dark", size: "a4", n: 3 }, pages = plain(Pa.pages(paper));
+  assert.equal(pages.length, 3);
+  assert.deepEqual(pages, plain(P.layout([[595.28, 841.89], [595.28, 841.89], [595.28, 841.89]])));
+  // written and read back; a board without paper stays one
+  const m = F.fresh();
+  m.board.paper = paper;
+  m.items.push(ink("a1", [[-100, 50, 0.5, 0], [100, 80, 0.5, 8]]));
+  const text = F.write(m), back = F.parse(text);
+  assert.match(text, /\{"board":1,[^\n]*"paper":\{"bg":"cornell","color":"dark","size":"a4","n":3\}/);
+  assert.deepEqual(plain(back.board.paper), paper);
+  assert.equal(F.parse(F.empty()).board.paper, undefined);
+  assert.doesNotMatch(F.empty(), /paper/);
+  // the picture: the first page, its dark sheet, its lines, the ink on it light ("auto" on dark paper)
+  const pic = new JSDOM(text, { contentType: "image/svg+xml" }).window.document.documentElement, p = pages[0];
+  assert.equal(pic.getAttribute("viewBox"), [Math.floor(p.x), Math.floor(p.y), Math.ceil(p.w), Math.ceil(p.h)].join(" "));
+  assert.ok(pic.querySelector(`g.paper rect[fill='${Pa.COLORS.dark.sheet}']`));
+  assert.ok(pic.querySelector("g.paper path"), "the Cornell page has its lines");
+  const inkOf = (el) => [el.getAttribute("fill"), el.getAttribute("stroke")].find((c) => c && c !== "none");
+  assert.equal(inkOf(pic.querySelector("path#a1")), Pa.COLORS.dark.ink);
+  m.board.paper = { ...paper, color: "white" };
+  assert.equal(inkOf(new JSDOM(F.write(m), { contentType: "image/svg+xml" }).window.document.querySelector("path#a1")), "#1d1d1f");
+  // each paper draws what it is
+  const lines = (bg) => (Pa.svg(p, bg).match(/H-?[\d.]+/g) || []).length, ups = (bg) => (Pa.svg(p, bg).match(/V-?[\d.]+/g) || []).length;
+  assert.doesNotMatch(Pa.svg(p, "blank"), /<path/);
+  assert.match(Pa.svg(p, "dots"), /stroke-linecap="round"/);
+  assert.ok(lines("grid") > 50 && ups("grid") > 30, "squares: lines both ways");
+  assert.ok(lines("narrow") > lines("wide"), "narrow ruled has more lines than wide");
+  assert.equal(ups("narrow"), 0);
+  assert.equal(ups("legal"), 2, "legal: the double margin");
+  assert.equal(ups("cornell"), 1, "Cornell: the cue column");
+  assert.equal(lines("music") % 5, 0, "music: staves of five lines");
+  assert.match(Pa.svg(p, "grid", "yellow"), new RegExp(`fill="${Pa.COLORS.yellow.sheet}"`));
+});

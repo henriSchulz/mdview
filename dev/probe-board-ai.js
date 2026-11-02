@@ -11,12 +11,19 @@
   const REAL = !!window.__boardAiReal;
   const ok = (name, cond, detail) => o.steps.push((cond ? "ok   " : "FAIL ") + name + (cond ? "" : "  " + JSON.stringify(detail)));
   const pdf = /\.pdf$/i.test(location.search + (window.MdView?.core?.current?.path || "")) || !!(window.MdPdf && MdPdf.shown);
-  const where = pdf ? "pdf" : "note";
+  let where = pdf ? "pdf" : "note";
   try {
     await document.fonts.ready;
     await sleep(800);
     const B = () => window.MdBoard, st = () => B() && B().shown && B().state(), el = () => document.getElementById("board");
-    if (pdf || (window.MdPdf && MdPdf.shown)) {
+    // (a notebook, a whiteboard's file opened by itself: its board opens with it)
+    // (the rig's third file: a notebook beside the note — opened as the sidebar opens one, over the window)
+    const heft = window.__boardAiBook && String(window.MdView?.core?.current?.path || "").replace(/[^/]*$/, "Heft.board.svg");
+    if (heft) MdPage.openBoardFile(heft);
+    const book = !!heft && await until(() => B() && B().shown && B().state().book, 15000);
+    o.opened = { path: String(window.MdView?.core?.current?.path || ""), shown: !!(B() && B().shown), book: B() && B().shown ? B().state().book : null };
+    if (book) where = "book";
+    else if (pdf || (window.MdPdf && MdPdf.shown)) {
       ok("the PDF is shown", await until(() => window.MdPdf && MdPdf.shown && MdPdf.shown.pages[0].state === "done"), !!window.MdPdf);
       MdPdf.shown.bar.querySelector('[data-do="draw"]').click();
     } else {
@@ -27,6 +34,7 @@
       MdActive.context.INSERT.board(MdActive.view.pm);
     }
     ok("the board opens", await until(() => st() && el().hasAttribute("data-ready")), st());
+    if (book) ok("a notebook: its pages are told to Claude, as paper", /notebook of 2 pages of grid paper/.test(MdBoard.claudeChat ? (await MdBoard.claudeChat.context()).board : ""), (await MdBoard.claudeChat.context()).board.slice(0, 300));
     await sleep(900);
     const btn = () => el().querySelector('.bd-actions [data-do="claude"]'), seen = (e) => !!e && e.getClientRects().length > 0;
     ok("the board's bar has Ask Claude, with its sign", seen(btn()) && btn().getAttribute("aria-label") === "Ask Claude" && !!btn().querySelector("svg path"), btn() && btn().outerHTML.slice(0, 120));
@@ -66,7 +74,7 @@
         after.things.some((t) => t.k === "shape" && t.fill === "#b5dcff") && after.things.some((t) => t.k === "sticky" && t.text === "A house" && t.x === 180) &&
         after.things.some((t) => t.k === "line" && t.from && t.to), o.drawn);
       // (a picture goes with the question only where the text does not say all: a PDF's pages, ink — an empty board none)
-      ok("what Claude said shows under its button — a picture went along only over the PDF", (pdf ? /Here is a house, with a picture/ : /Here is a house, without a picture/).test(after.claude.chip), after.claude.chip);
+      ok("what Claude said shows under its button — a picture went along only over the PDF", (where === "pdf" ? /Here is a house, with a picture/ : /Here is a house, without a picture/).test(after.claude.chip), after.claude.chip);
     } else ok("Claude drew something", after.things.length + after.items > before.things.length + before.items, o.drawn);
     ok("all of it is one step back", after.undo === before.undo + 1, [before.undo, after.undo]);
     el().querySelector('[data-do="undo"]').click();
