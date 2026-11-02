@@ -40,11 +40,14 @@
     out("asking", {}); await sleep(900);
     const before = st();
     input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-    ok("asked: the field goes, the button is Stop, the title says Claude draws", await until(() => !pop().hasAttribute("data-open") && st().claude.busy && btn().getAttribute("aria-label") === "Stop Claude" && /Claude is drawing/.test(st().claude.chip), 3000), st().claude);
+    ok("asked: the field goes, the button is Stop, the title says Claude draws", await until(() => !pop().hasAttribute("data-open") && st().claude.busy && btn().getAttribute("aria-label") === "Stop Claude" && /Claude is (thinking|drawing)/.test(st().claude.chip), 3000), st().claude);
     out("drawing", {});
     // (the fake answer comes in two halves, 200 ms apart: what came first is on the board before the rest)
     if (!REAL) ok("its steps are done as they come: the first before the answer is over", await until(() => st().things.length + st().items > before.things.length + before.items && st().claude.busy, 3000), [st().things.length, st().items]);
-    ok("the answer is over", await until(() => !st().claude.busy, REAL ? 300000 : 8000), st().claude);
+    // (while it draws: the strokes come one after another, the pen's tip goes with them)
+    const counts = new Set(), tipSeen = { on: false };
+    ok("the answer is over", await until(() => { counts.add(st().items); if (el().querySelector(".bd-claude-tip[data-on]") && st().items > before.items + 6 && !tipSeen.on) { tipSeen.on = true; out("stroking", {}); } return !st().claude.busy; }, REAL ? 300000 : 20000), st().claude);
+    if (!REAL) ok("the strokes came one after another, the pen's tip with them", counts.size >= 5 && tipSeen.on, [counts.size, tipSeen.on]);
     await sleep(900);
     const after = st();
     out("drawn", {});
@@ -93,7 +96,7 @@
     const had = st();
     field.value = REAL ? "Add a sun in the top right corner of what the window shows" : "Add a sticky note";
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-    ok("the chat's answer: its steps done on the board", await until(() => !MdAi.state().talking && st().things.length + st().items > had.things.length + had.items, REAL ? 300000 : 8000), [st().things.length, st().items]);
+    ok("the chat's answer: its steps done on the board", await until(() => !MdAi.state().talking && st().things.length + st().items > had.things.length + had.items, REAL ? 300000 : 12000), [st().things.length, st().items]);
     await sleep(500);
     const last = MdAi.state().talk.at(-1) || {};
     ok("… the chat says so, and shows no steps as text", last.drew >= 1 && /Drawn on the whiteboard/.test(chat().querySelector(".ai-log").textContent) && !/"add"/.test(chat().querySelector(".ai-log").textContent), [last.drew, chat().querySelector(".ai-log").textContent.slice(-200)]);

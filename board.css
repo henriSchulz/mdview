@@ -486,3 +486,8 @@ body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do
 #board[data-pdf] .bd-claude-note { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 @media (prefers-reduced-motion: reduce) { .bd-claude-note, .bd-claude-note[data-on] { scale: 1; } }
 @media (max-width: 560px) { .bd-claude-note { top: calc(var(--bd-inset) + 2 * var(--bd-bar-h) + 16px + env(safe-area-inset-top, 0px)); } } /* (the tools' bar is the second row there) */
+/* … and the tip of its pen while it draws: a point of the ink's colour going with the stroke (board.js: aiSteps) */
+.bd-claude-tip { position: absolute; left: 0; top: 0; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; pointer-events: none;
+  background: var(--tip, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tip, var(--accent)) 22%, transparent), 0 0 14px color-mix(in srgb, var(--tip, var(--accent)) 50%, transparent);
+  opacity: 0; transition: opacity var(--dur-fast) var(--ease-exit); }
+.bd-claude-tip[data-on] { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }

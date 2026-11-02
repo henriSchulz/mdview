@@ -221,7 +221,7 @@
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
       `<div class="bd-bar bd-actions" role="toolbar">${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
-      `<div class="bd-vpop ui-menu ui-popover" role="menu"></div><div class="bd-claude-note" role="status"></div>` +
+      `<div class="bd-vpop ui-menu ui-popover" role="menu"></div><div class="bd-claude-note" role="status"></div><i class="bd-claude-tip" aria-hidden="true"></i>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
           `<button type="button" class="bd-btn bd-tool bd-rule" data-ruler="1" aria-pressed="false" title="${esc(T("board.tool.ruler"))}" aria-label="${esc(T("board.tool.ruler"))}">${I.ruler}</button></span>` +
@@ -905,35 +905,67 @@
   /* The steps of one answer, done on the board as they come: each as soon as its line is whole, a stroke drawn along its way
    * (quickly; at once where motion is reduced). All of them are one step back. end(cut): the answer is over — or stopped:
    * what is drawing is drawn whole, what was still to come is left. → how many steps were done */
-  function aiSteps(s) {
+  function aiSteps(s, first = null) {
     const before = sel.snapshot(), names = new Map(), r = B.claude.reader(), still = () => S === s && !over;
     let queue = Promise.resolve(), n = 0, over = false;
     const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const grow = (inks) => new Promise((done) => {
-      const full = inks.map((it) => it.pts), most = Math.max(...full.map((p) => p.length)), ms = calm() ? 0 : Math.min(700, 120 + most * 3), t0 = performance.now();
-      const frame = (t) => {
-        const f = !still() || !ms ? 1 : Math.min(1, (t - t0) / ms);
-        inks.forEach((it, i) => { it.pts = f >= 1 ? full[i] : full[i].slice(0, Math.max(2, Math.ceil(full[i].length * f))); it.path = null; it.box = null; });
-        if (S === s) paint();
-        if (f >= 1) done(); else requestAnimationFrame(frame);
-      };
-      frame(t0);
+    const wait = (ms) => new Promise((res) => setTimeout(res, calm() || !still() ? 0 : ms));
+    const frames = (ms, f) => new Promise((done) => { // f(0…1) each frame for ms; at once where motion is reduced or the answer was stopped
+      const t0 = performance.now(), go = (t) => { const k = !still() || calm() || ms <= 0 ? 1 : Math.min(1, (t - t0) / ms); f(k); if (k >= 1) done(); else requestAnimationFrame(go); };
+      go(t0);
     });
+    // the pen's tip, where Claude draws now: a point of the ink's colour that goes with the stroke (board.css: .bd-claude-tip)
+    const tip = el.querySelector(".bd-claude-tip");
+    const tipAt = (it, p) => { const v = S.view; tip.style.translate = `${(p[0] - v.x) * v.z}px ${(p[1] - v.y) * v.z}px`; tip.style.setProperty("--tip", it.c === "auto" ? auto() : it.c); tip.toggleAttribute("data-on", !calm()); };
+    /* Strokes drawn one after the other, each along its way at a hand's pace — handwriting a little slower, letter by letter —
+     * however many: a step takes some six seconds at most. */
+    async function draw(inks) {
+      const full = inks.map((it) => it.pts), len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0) * S.view.z;
+      s.model.items = s.model.items.filter((it) => !inks.includes(it)); // (not there until their turn)
+      const lens = full.map(len), hand = inks[0].group ? 0.55 : 1.3, all = lens.reduce((a, b) => a + b, 0) / hand + inks.length * 30, speed = hand * Math.max(1, all / 6000);
+      for (let i = 0; i < inks.length; i++) {
+        const it = inks[i], pts = full[i];
+        if (!s.model.items.includes(it)) s.model.items.push(it);
+        await frames(Math.min(900, Math.max(30, lens[i] / speed)), (k) => {
+          it.pts = k >= 1 ? pts : pts.slice(0, Math.max(2, Math.ceil(pts.length * k)));
+          it.path = null; it.box = null;
+          tipAt(it, it.pts[it.pts.length - 1]);
+          if (S === s) paint();
+        });
+        await wait(inks[0].group ? 18 : 40); // (the pen lifted)
+      }
+    }
+    /* A thing put on the board: it grows into its place (its element, board/layer.js). */
+    function arrive(items) {
+      if (calm()) return;
+      const css = getComputedStyle(document.documentElement), duration = parseFloat(css.getPropertyValue("--spring-snappy-dur")) || 400, easing = css.getPropertyValue("--spring-snappy").trim() || "ease-out"; // (motion.css)
+      for (const it of items) el.querySelector(`.bd-item[data-id="${it.id}"]`)?.animate([{ opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1 }], { duration, easing });
+    }
     const one = (step) => { queue = queue.then(async () => {
       if (!still()) return;
       const got = B.claude.apply(s.model, step, names);
       if (!got) return;
-      n++;
+      if (!n++ && first) first();
       s.pick = s.pick.filter((it) => s.model.items.includes(it));
-      const inks = got.added.filter((it) => it.k === "ink");
-      if (inks.length) await grow(inks); else { paint(); await new Promise((res) => setTimeout(res, calm() ? 0 : 60)); }
+      const inks = got.added.filter((it) => it.k === "ink"), things = got.added.filter((it) => it.k !== "ink");
+      if (things.length) { paint(); arrive(things); tip.removeAttribute("data-on"); await wait(220); }
+      if (inks.length) await draw(inks);
+      if (typeof step.move === "string" && got.changed.length && !calm()) { // (moved: it glides there)
+        const dx = Number(step.dx) || 0, dy = Number(step.dy) || 0, by = (fx, fy) => { for (const it of got.changed) { if (it.k === "ink") B.ink.moved(it, (p) => [p[0] + fx, p[1] + fy]); else B.items.moveBy(it, fx, fy); } };
+        const there = got.changed.map((it) => (it.k === "ink" ? it.pts : JSON.stringify(B.items.data(it)))); // (where it ends: exactly, whatever the frames added up to)
+        by(-dx, -dy);
+        let was = 0;
+        await frames(320, (k) => { const e = 1 - Math.pow(1 - k, 3); by(dx * (e - was), dy * (e - was)); was = e; if (S === s) paint(); });
+        got.changed.forEach((it, i) => { if (it.k === "ink") { it.pts = there[i]; it.path = null; it.box = null; } else { for (const key of Object.keys(it)) delete it[key]; Object.assign(it, JSON.parse(there[i])); } });
+        if (S === s) paint();
+      } else if (!things.length && !inks.length) { paint(); await wait(120); }
       changed();
     }); };
     return {
       feed: (text) => r.feed(text).forEach(one),
       end(cut = false) {
         if (cut) over = true; else r.end().forEach(one);
-        return queue.then(() => { over = true; if (S === s && n) { sel.commitSince(before); paint(); } return n; });
+        return queue.then(() => { over = true; tip.removeAttribute("data-on"); if (S === s && n) { sel.commitSince(before); paint(); } return n; });
       },
     };
   }
@@ -964,8 +996,9 @@
       if (S !== s) return;
       if (!ai || !ai.ask) { busy(false); return note(T("board.ask.failed"), true); }
       claude.typed = "";
-      const steps = aiSteps(s);
-      const job = { ai, steps, s };
+      const steps = aiSteps(s, () => { if (claude.job === job) note(T("board.ask.busy")); });
+      const job = { ai, s };
+      job.steps = steps;
       job.id = ai.ask("board", { board, picture, instruction: text }, (piece) => steps.feed(piece), async (whole, error) => {
         const n = await steps.end();
         if (claude.job === job) { claude.job = null; busy(false); }
@@ -993,7 +1026,7 @@
     b.title = T(on ? "board.ask.stop" : "board.claude"); b.setAttribute("aria-label", b.title);
     b.toggleAttribute("data-busy", on);
     el.toggleAttribute("data-claude", on);
-    note(on ? T("board.ask.busy") : "");
+    note(on ? T("board.ask.thinking") : ""); // (until the first step: then it draws)
   }
   /* What the line under Claude's button says: that it draws, what it said, why it could not. */
   function note(text, bad = false) {
