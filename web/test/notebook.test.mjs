@@ -189,3 +189,57 @@ test("what is pulled to the window's edge takes the board along: a stroke moved 
   assert.equal((await page.evaluate(() => MdBoard.state().view)).y, v2.y);
   assert.deepEqual(problems, []);
 });
+
+test("a page is put in before or after another, or deleted, from its menu — what is on the pages moves with them", async () => {
+  if (await page.evaluate(() => MdBoard.shown)) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 }); }
+  await page.evaluate((p) => MdPage.openBoardFile(p), `${R}/Heft.board.svg`);
+  await boardOpen();
+  await page.waitForFunction(() => MdBoard.state().book && MdBoard.state().items === 1, null, { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.click('#board [data-kind="lasso"]');
+  const strokeTop = async () => { await page.keyboard.press("Control+a"); const b = await page.evaluate(() => MdBoard.state().chosenBox); await page.keyboard.press("Escape"); return b[1]; };
+  const pages = () => page.evaluate(() => MdBoard.state().book.pages);
+  const n0 = await pages(), top0 = await strokeTop(), step = await page.evaluate(() => { const s = document.querySelectorAll("#board .bd-sheet"); return s[1].offsetTop - s[0].offsetTop; });
+  assert.ok(step > 1000, "A4 and its gap");
+  const pageOfStroke = Math.min(n0 - 1, Math.max(0, Math.floor(top0 / step))); // (0-based: the page the stroke is on — below the last one: that one)
+  // a right click on the bare page the stroke is on: the page's rows in the board's menu
+  const sheet = await page.evaluate((i) => { const r = document.querySelectorAll("#board .bd-sheet")[i].getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }, pageOfStroke);
+  await page.mouse.click(sheet[0] + 30, Math.max(sheet[1] + 30, 120), { button: "right" });
+  const item = (label) => page.locator(".menu-item", { hasText: label }).first();
+  await item("Insert Page Before").waitFor({ timeout: 4000 });
+  assert.ok(await item("Insert Page After").isVisible());
+  assert.ok(await item("Delete Page").isEnabled());
+  await item("Insert Page Before").click();
+  await until(async () => (await pages()) === n0 + 1, "the page put in (once the row has blinked)", 3000);
+  assert.ok(Math.abs((await strokeTop()) - (top0 + step)) < 2, "the stroke went down with its page");
+  // taken back: the page out again, the stroke where it was
+  await page.keyboard.press("Control+z");
+  assert.equal(await pages(), n0);
+  assert.ok(Math.abs((await strokeTop()) - top0) < 1);
+  // a page put in after it leaves the stroke where it is
+  await page.evaluate((i) => MdBoard.page("after", i), pageOfStroke);
+  assert.equal(await pages(), n0 + 1);
+  assert.ok(Math.abs((await strokeTop()) - top0) < 1);
+  await page.keyboard.press("Control+z");
+  // the page deleted: the stroke on it goes with it; one step back brings both
+  await page.evaluate((i) => MdBoard.page("delete", i), pageOfStroke);
+  assert.equal(await pages(), n0 - 1);
+  assert.equal(await page.evaluate(() => MdBoard.state().items), 0);
+  await page.keyboard.press("Control+z");
+  assert.equal(await pages(), n0);
+  assert.equal(await page.evaluate(() => MdBoard.state().items), 1);
+  // a page above it deleted: the stroke moves up with its page
+  if (pageOfStroke > 0) {
+    await page.evaluate(() => MdBoard.page("delete", 0));
+    assert.ok(Math.abs((await strokeTop()) - (top0 - step)) < 2, "the stroke went up with its page");
+    await page.keyboard.press("Control+z");
+  }
+  // … and from the paper's menu (a tablet has no right click): the page in sight
+  await page.click('#board [data-do="paper"]');
+  assert.ok(await page.locator('#board .bd-vpop [data-m="page-del"]').isEnabled());
+  await page.click('#board .bd-vpop [data-m="page-del"]');
+  assert.equal(await pages(), n0 - 1);
+  await page.keyboard.press("Control+z");
+  await until(() => head().paper && head().paper.n === n0, "kept as it was after the steps back", 8000);
+  assert.deepEqual(problems, []);
+});

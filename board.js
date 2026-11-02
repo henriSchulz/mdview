@@ -380,7 +380,8 @@
       menu: (pt, e) => {
         if (!S || S.readonly || sel.busy || !core.menuAt) return;
         if (S.mode !== "select") { if (sel.thingAt(pt)) setKind("lasso", S.kind); else sel.pick([]); }
-        core.menuAt(e.clientX, e.clientY, sel.context(pt));
+        const rows = sel.context(pt), on = S.book && !S.pick.length ? pageAt(S.view.toBoard(pt.x, pt.y)[1]) : -1;
+        core.menuAt(e.clientX, e.clientY, on < 0 ? rows : [...rows, null, ...pageRows(on)]);
       },
       // two fingers tapped: the last step is taken back; three: done again (as drawing on a tablet has it)
       taps: (n) => { if (!S || S.readonly || S.act || sel.busy || sel.editing) return; const list = n === 2 ? S.undo : S.redo; if (!list.length) return; step(n === 2 ? -1 : 1); said(T(n === 2 ? "board.undo" : "board.redo")); },
@@ -774,7 +775,7 @@
       const tile = (k) => `<button type="button" class="bd-ptile" role="menuitemradio" data-paper="${k}" aria-checked="${k === now.bg}"${off}><svg viewBox="${page.x} ${page.y} ${page.w} ${page.h}" aria-hidden="true">${B.paper.svg(page, k, now.color, 3)}</svg><span>${esc(T("board.paper." + k))}</span></button>`;
       const tone = (c) => `<button type="button" class="bd-ptone" role="menuitemradio" data-tone="${c}" aria-checked="${c === now.color}" title="${esc(T("board.paper.color." + c))}" aria-label="${esc(T("board.paper.color." + c))}" style="--tone:${B.paper.COLORS[c].sheet}"${off}></button>`;
       html = `<div class="bd-papers">${B.paper.KINDS.map(tile).join("")}</div><div class="bd-ptones"><span>${esc(T("board.paper.color"))}</span>${B.paper.TONES.map(tone).join("")}</div>` +
-        (S.readonly ? "" : `<button type="button" class="bd-wide-btn" data-m="page">${esc(T("board.page.add"))}</button>`);
+        (S.readonly ? "" : `<div class="bd-pacts"><button type="button" class="bd-wide-btn" data-m="page">${esc(T("board.page.add"))}</button><button type="button" class="bd-wide-btn" data-m="page-del"${now.n < 2 ? " disabled" : ""}>${esc(T("board.page.delete"))}</button></div>`);
     }
     else if (kind === "scenes") {
       html = (S.model.scenes.length ? `<div class="bd-scenes">${S.model.scenes.map((sc, i) => `<div class="bd-scene"${i === S.scene ? " data-now" : ""}><button type="button" class="bd-scene-go" data-scene="${sc.id}">${esc(sc.name || T("board.scene"))}</button>` +
@@ -804,6 +805,7 @@
     if (d.m === "link-add") return linkAdd();
     if (d.paper || d.tone) { setPaper(d.paper || S.model.board.paper.bg, d.tone || S.model.board.paper.color); return menu("paper", null, true); }
     if (d.m === "page") { menu(null); return addPage(); }
+    if (d.m === "page-del") { menu(null); return pageGone(B.pdf.near(S.book.pages, S.view, size()).n - 1); } // (the page in sight)
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
     if (d.m === "fit") { S.view.fit(bounds()); return menu(null); }
@@ -869,6 +871,46 @@
     did({ undo: to(n), redo: to(n + 1) });
     paint();
   }
+  /* Which page a place on the board belongs to (y in the board's pixels): the page it lies on, or the one the gap above belongs to. */
+  function pageAt(y) {
+    const pages = S.book.pages;
+    for (let i = pages.length - 1; i >= 0; i--) if (y >= pages[i].y) return i;
+    return 0;
+  }
+  /* Pages put in or taken out at i: what lies on the pages from there on moves with them (by a page and its gap, every page
+   * being as large as the others), what lay on a page taken out goes with it. One step back brings all of it again. */
+  function pagesShift(i, by) {
+    const paper = S.model.board.paper, step = S.book.pages.length > 1 ? S.book.pages[1].y - S.book.pages[0].y : S.book.pages[0].h + B.pdf.GAP;
+    if (S.readonly || paper.n + by < 1 || paper.n + by > B.paper.MAX) return;
+    sel.cancel(); sel.finish(); sel.pick([]);
+    const before = { ...sel.snap(), n: paper.n }, middle = (it) => { const b = B.format.boundsOf(it); return b ? (b[1] + b[3]) / 2 : null; };
+    const gone = by < 0 ? S.model.items.filter((it) => { const m = middle(it); return m != null && pageAt(m) === i; }) : [];
+    const moving = S.model.items.filter((it) => { const m = middle(it); return m != null && !gone.includes(it) && pageAt(m) >= (by < 0 ? i + 1 : i); });
+    S.model.items = S.model.items.filter((it) => !gone.includes(it));
+    for (const it of moving) {
+      if (it.k === "ink") B.ink.moved(it, ([x, y]) => [x, y + by * step]);
+      else B.items.moveBy(it, 0, by * step);
+    }
+    paper.n += by;
+    pagesNow();
+    const after = { ...sel.snap(), n: paper.n }, back = (s) => () => { sel.restore(s); S.model.board.paper.n = s.n; pagesNow(); };
+    did({ undo: back(before), redo: back(after) });
+    paint();
+  }
+  /* A page put in at i (0: before the first), and the view on it. */
+  function pageIn(i) {
+    pagesShift(i, 1);
+    if (S.book.pages[i]) S.view.fit(B.pdf.boxOf(S.book.pages[i]), 64, S.view.z);
+  }
+  /* Page i taken out, with what is on it. */
+  function pageGone(i) {
+    pagesShift(i, -1);
+    const pages = S.book.pages, last = pages[pages.length - 1];
+    if (S.view.y > last.y + last.h) S.view.fit(B.pdf.boxOf(last), 64, S.view.z); // (the last page was taken out under the view: the one before it)
+  }
+  /* The rows a right click on page i adds to the board's menu. */
+  const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), ""], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), ""],
+    null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger"]];
   const nameOf = (ref) => { const n = String(ref || "").split("/").pop().replace(/\.board\.svg$/i, ""); return /^board-/.test(n) ? "" : n; }; // (one a note keeps is named board-…: no name to show)
 
   /* A scene's name, typed where it stands in the list. */
@@ -1385,6 +1427,7 @@
     kinds: S.model.items.filter((it) => it.k === "ink").map((it) => it.t + (it.sharp ? "!" : "") + ":" + it.pts.length),
     zoom: S.view.z, dirty: S.dirty, readonly: S.readonly, undo: S.undo.length, redo: S.redo.length,
     lost: S.model.lost } : null);
+  B.page = (op, i) => { if (S && S.book) ({ before: () => pageIn(i), after: () => pageIn(i + 1), delete: () => pageGone(i) })[op]?.(); }; // (for the tests: what the page's menu does, page i counted from 0)
   B.put = (kind, more = {}) => { if (S && !S.readonly) { setMode("select"); sel.insert(kind, more); } }; // (for the tests: a thing of a kind in the middle of what is seen, as the keys and the menus put one there)
   B.pick = (ids) => { if (S) { if (S.mode !== "select") setMode("select"); sel.pick(S.model.items.filter((it) => ids.includes(it.id))); } }; // (for the tests: chosen by name, whatever lies over it)
   /* A new board's text, and what a board's picture shows, for those who put one into a note. */

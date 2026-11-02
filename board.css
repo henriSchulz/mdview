@@ -267,6 +267,8 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-ptile[aria-checked="true"] svg { box-shadow: 0 0 0 2px var(--accent); }
 .bd-ptile[aria-checked="true"] span { color: var(--accent); font-weight: 600; }
 .bd-ptile span { white-space: nowrap; }
+.bd-pacts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bd-pacts .bd-wide-btn:disabled { opacity: 0.4; }
 .bd-ptones { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
 .bd-ptones > span { flex: 1; color: var(--fg); }
 .bd-ptone { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--tone); box-shadow: inset 0 0 0 0.5px var(--line-strong); cursor: default; }

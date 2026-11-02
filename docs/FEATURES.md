@@ -781,6 +781,10 @@ them is not there).
 - **A page more**: the page button beside undo at the top, the sheet with Add Page under the last
   page, Add Page in the paper's menu, or Page under `+` — at the end, and the view goes to it.
   `Ctrl+Z` takes it away again. What is drawn stays where it was drawn.
+- **A page's own menu** (a right click on the bare page): Insert Page Before, Insert Page After,
+  Delete Page. What lies on the pages after it moves with them; what lay on a page that is deleted
+  goes with it, and `Ctrl+Z` brings both back. Delete Page is in the paper's menu too, for the page
+  in sight (a tablet has no right click). The one page left cannot be deleted.
 - **Moving about** as on a PDF's pages: two fingers or the wheel move down the pages (a push runs
   on), a pinch or `Ctrl` with the wheel makes them larger and smaller, up to 1600 %; `Ctrl+0` shows
   the page in sight whole. It opens with the page it was left at whole in the window.
@@ -788,8 +792,8 @@ them is not there).
   its size, how many pages (`"paper":{"bg":"grid","color":"white","size":"a4","n":2}`). Its
   picture, in the sidebar, in All Notes and in a note, is its first page.
 
-Not there yet: a page of its own paper, a page put in between others or taken out, pages of
-another size or lying across, a sign of its own in the sidebar.
+Not there yet: a page of its own paper, pages moved to another place, pages of another size or
+lying across, a sign of its own in the sidebar, a page's menu under a held finger.
 
 ### Links between notes
 
