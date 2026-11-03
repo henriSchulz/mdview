@@ -441,6 +441,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (the rig draws without the GPU), memory of the whole system while a scan was scrolled and zoomed: 6.5 GB in eight
     seconds before, at most 0.9 GB after, as much as a PDF without pictures. Check: `rig.sh pdfscan` (no picture made for
     the pages larger than 17 million pixels, the page drawn).
+106. **A canvas a PDF's page is drawn in is the processor's, not the GPU's** (#45, Henri: „bei jedem scrollen verschwindet
+    alles (weiß) und man sieht nichts mehr … was kommt auch nicht wieder teilweise manchmal“). With WebKit's GPU renderer a
+    PDF scrolled to its end and back left the window white for more than a second, its pages drawn and in sight — on
+    `main` and with a PDF of no pictures alike; without the GPU renderer, or with the canvases the processor's, not. The
+    canvases of the pages, the panel's small pages and a PDF's region in a note are made with `willReadFrequently`
+    (`paper` in pdfview.js); drawn as quickly as before. Seen only on the desktop, filmed (a touchpad's scroll sent to the
+    window, a screenshot every 100 ms: how much of the window has ink); in the rig, which draws without the GPU, the check
+    is whose the canvases are: `rig.sh pdfscroll`.
 84. **What a finger or a pointer moves step by step is never set on the root.** A custom property
     on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
     computed anew when it changes: the block swiped by a finger set its offset there at each step,

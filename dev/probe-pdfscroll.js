@@ -2,7 +2,8 @@
  * thousands of words over each page) is not drawn while the pages move — where WebKit draws without its GPU way, the window is
  * drawn anew at each step and those words halved the rate (on Henri's screen 52 ms a frame, 17 without) — and it is back,
  * to be chosen and copied, as soon as the hand rests. Henri, 2026-10-15: "the PDF still lags badly when scrolling and
- * zooming". Evaluated by the shell (MDVIEW_PROBE). */
+ * zooming". Its pages are drawn in canvases of the processor: on the GPU's the window went white while they were scrolled
+ * (#45, Henri: „bei jedem scrollen verschwindet alles (weiß)“). Evaluated by the shell (MDVIEW_PROBE). */
 (async () => {
   const out = (o) => window.MdHost.post(JSON.stringify({ type: "probe", name: "pdfscroll", text: JSON.stringify(o) }));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -14,6 +15,10 @@
     const root = document.querySelector(".pdfv"), sc = document.scrollingElement;
     const layer = () => [...document.querySelectorAll(".pdfv .textLayer")].find((l) => { const r = l.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; });
     ok("the page's words are there to select", layer() && layer().querySelectorAll("span").length > 300, layer() && layer().querySelectorAll("span").length);
+    // (a page's canvas on the GPU: with WebKit's GPU renderer the window went white for a second and more when the pages were
+    // scrolled to their end and back — #45; the rig draws without it, so what is asked here is whose the canvas is)
+    const held = [...document.querySelectorAll(".pdfv canvas.pdf-canvas")].map((c) => { const a = c.getContext("2d").getContextAttributes ? c.getContext("2d").getContextAttributes() : null; return a ? a.willReadFrequently : "unknown"; });
+    ok("the pages are drawn in canvases of the processor, not the GPU's", held.length && held.every((w) => w === true), held);
     const frames = async (n, f) => { const gaps = [], hidden = []; let last = 0, i = 0; await new Promise((done) => { const step = (t) => { if (last) gaps.push(t - last); last = t; f(i); const l = layer(); if (i > 1 && l) hidden.push(getComputedStyle(l).visibility === "hidden"); if (++i < n) requestAnimationFrame(step); else done(); }; requestAnimationFrame(step); }); gaps.sort((a, b) => a - b); return { median: Math.round(gaps[gaps.length >> 1]), hidden: hidden.every(Boolean) && hidden.length > 0 }; };
     const y0 = sc.scrollTop + 200;
     const s = await frames(60, (i) => { sc.scrollTop = y0 + 150 * Math.sin(i / 8); });

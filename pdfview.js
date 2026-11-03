@@ -78,6 +78,10 @@
   // larger is made smaller as it is read. pdf.js left it as large as the browser's canvas allows — a scan at 1200 dpi is 157
   // million pixels a page, and four such pages held 13 GB of the GPU's memory until the whole session went down (#44).
   const IMAGE_BYTES = 4 * 16 * 1024 * 1024;
+  // A canvas a page is drawn in and shown is the processor's (willReadFrequently), not the GPU's: with WebKit's GPU renderer
+  // the window went white for a second and more when the pages were scrolled to their end and back, drawn as they were, and
+  // some did not come back (#45). (What is only made into a picture, pageShot, needs it not.)
+  const paper = (canvas) => canvas.getContext("2d", { willReadFrequently: true });
   const docs = new Map(); // path -> { key, promise } (the last few)
   function docOf(path, key = "") {
     const have = docs.get(path);
@@ -349,7 +353,7 @@
       const ratio = Math.min(window.devicePixelRatio || 1, Math.sqrt(16e6 / (vp.width * vp.height)));
       const canvas = el("canvas", { class: "pdf-canvas" });
       canvas.width = Math.floor(vp.width * ratio); canvas.height = Math.floor(vp.height * ratio);
-      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp, transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null }).promise;
+      await page.render({ canvasContext: paper(canvas), viewport: vp, transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null }).promise;
       // (its text to select is laid out when the hand rests: while the pages move it is not drawn anyway — v.moving)
       if (v.root.hasAttribute("data-moving")) { pg.div.replaceChildren(canvas); await new Promise((ok) => { const wait = () => (V !== v || !v.root.hasAttribute("data-moving") ? ok() : setTimeout(wait, 60)); wait(); }); }
       const text = pg.text || (pg.text = await page.getTextContent());
@@ -656,7 +660,7 @@
     const vp = page.getViewport({ scale: 150 / page.getViewport({ scale: 1 }).width });
     const c = el("canvas");
     c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
-    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    await page.render({ canvasContext: paper(c), viewport: vp }).promise;
     if (t.isConnected) t.firstChild.replaceChildren(c);
   }
   // the notes that link here: those of the page on screen first
@@ -939,7 +943,7 @@
       const vp = page.getViewport({ scale: k, offsetX: -ox, offsetY: -oy });
       const shown = document.createElement("canvas");
       shown.width = Math.max(1, Math.floor(cut[2] * k)); shown.height = Math.max(1, Math.floor(cut[3] * k));
-      const ctx = shown.getContext("2d");
+      const ctx = paper(shown);
       await page.render({ canvasContext: ctx, viewport: vp }).promise;
       if (boxes.length) { // the selection, highlighted as in the viewer
         ctx.globalCompositeOperation = "multiply";
