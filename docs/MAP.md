@@ -176,6 +176,7 @@ or the tests see the old ones.
 | `board.js` | the whiteboard: a board that stands in a note as a picture (a file *.board.svg, see board/format.js) is … |
 | `board/claude.js` | a whiteboard drawn on by Claude: what it is told of the board, and what it answers, done on the board. |
 | `board/format.js` | a whiteboard's file: an SVG picture that carries its own data. |
+| `board/glyphs.js` | signs of the hand's own, as Henri passed them in the Hand Lab (dev/hand-lab.html; |
 | `board/hand.js` | the hand that writes for Claude on a whiteboard: a line of a letter (or a sign, or a stroke Claude drew) is … |
 | `board/ink.js` | a whiteboard's ink: strokes drawn on a canvas from the same paths the file's picture is made of (render.js), … |
 | `board/items.js` | what stands on a whiteboard beside the ink: text boxes, sticky notes, shapes, lines and arrows. |

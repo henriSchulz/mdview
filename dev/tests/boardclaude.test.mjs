@@ -10,7 +10,7 @@ function load() {
   const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
   w.window = w;
   vm.createContext(w);
-  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "vendor/hershey.js", "board/hand.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "vendor/hershey.js", "board/hand.js", "board/glyphs.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
   return w.MdBoard;
 }
 const B = load(), C = B.claude;

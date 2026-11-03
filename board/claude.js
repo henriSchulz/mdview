@@ -205,6 +205,8 @@
   /* One letter: its strokes in the font's units (the line it stands on at y 21), and how far the next stands. */
   function letter(font, ch) {
     if (ch === " " || ch === "\t") return { runs: [], adv: SPACE * UNIT };
+    const own = B.glyphs && (B.glyphs[font === fontOf("script") ? "script" : "hand"] || {})[ch]; // (passed in the Hand Lab: board/glyphs.js)
+    if (own) return { runs: flatten(own[0], 0.7), adv: own[1] * UNIT };
     if (ch === "ß") return { runs: flatten(ESZETT[0], 0.7), adv: ESZETT[1] * UNIT };
     if (SIGNS[ch]) return { runs: flatten(SIGNS[ch][0], 0.7), adv: SIGNS[ch][1] * UNIT };
     if (RAISED[ch]) { const g = letter(font, RAISED[ch]); return { runs: g.runs.map((r) => r.map(([x, y]) => [x * 0.6, y * 0.6 - 1])), adv: g.adv * 0.65 }; }
@@ -693,5 +695,7 @@
 
   // every sign the hand can write (dev/hand-lab.html shows them one by one)
   const signs = () => [...Array.from({ length: 94 }, (_v, i) => String.fromCharCode(33 + i)), ...Object.keys(DOTS), "ß", ...Object.keys(SIGNS).filter((c) => !/^[ -~]$/.test(c))];
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, signs, formula: (tex, style) => formula(fontOf(style), tex), units, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
+  // a sign's skeleton as the hand reads it, in the font's units: [path, o] (the Hand Lab shows it to Claude, to draw anew)
+  const skeleton = (ch, style) => { const g = letter(fontOf(style), ch), r1 = (v) => Math.round(v * 10) / 10; return [g.runs.map((run) => "M" + B.hand.aims(run, 0.25).map(([x, y]) => `${r1(x)},${r1(y)}`).join(" L")).join(" "), r1(g.adv / UNIT)]; };
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, signs, skeleton, formula: (tex, style) => formula(fontOf(style), tex), units, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
 })();
