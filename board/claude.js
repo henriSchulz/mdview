@@ -411,7 +411,7 @@
     // (a line with a fraction in it stands taller: the lines after it further down)
     let extra = 0;
     const tops = lines.map((line) => { const fs = units(line).filter((u) => u.tex != null).map((u) => formula(font, u.tex)), up = Math.max(0, 1 - Math.min(1, ...fs.map((f) => f.top))) * k, down = Math.max(0, Math.max(28, ...fs.map((f) => f.bot)) - 28) * k; const at = extra + up; extra += up + down; return at; });
-    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(5, size / 11)), made = [], inLine = [];
+    const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(6, size * B.hand.styleOf(o.style === "script" ? "script" : "hand").pen)), made = [], inLine = [];
     lines.forEach((line, n) => {
       let at = x0 + shake(size * 0.15 * mess) * (n ? 1 : 0); // (a new line begins where the hand comes back to — about)
       const base = wander(size * 7), lean = wander(size * 9), warpX = wander(size * 1.3), warpY = wander(size * 1.1); // (no bow a circle: the line's letters bent, softly, here one way, there another)

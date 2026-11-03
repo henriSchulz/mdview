@@ -258,7 +258,9 @@ test("#36: a formula is written as a hand sets it — a fraction over its bar, e
   const m = C.formula("\\frac{e^{2it} - 1}{e^{it} - e^{-it}} = e^{it}").runs.length;
   for (let i = 0; i < 20; i++) {
     const made = C.write({ text: "$\\frac{e^{2it} - 1}{e^{it} - e^{-it}} = e^{it}$, analog", x: 0, y: 0, size: 24, mess: 1.4 });
-    const end = Math.max(...made.slice(0, m).flatMap((it) => it.pts.map((p) => p[0]))), next = Math.min(...made.slice(m).flatMap((it) => it.pts.map((p) => p[0])));
+    // (at the comma's height: a raised exponent leans over it as letters lean, and that is no overlap — Henri's print leans far)
+    const comma = made[m].pts, lo = Math.min(...comma.map((p) => p[1])) - 4, hi = Math.max(...comma.map((p) => p[1])) + 4;
+    const end = Math.max(...made.slice(0, m).flatMap((it) => it.pts.filter((p) => p[1] >= lo && p[1] <= hi).map((p) => p[0]))), next = Math.min(...made.slice(m).flatMap((it) => it.pts.map((p) => p[0])));
     assert.ok(next > end - 1, "the comma after the formula: " + [end, next]);
   }
 });
@@ -283,11 +285,14 @@ test("#39: a thick stroke whose points lie close is not a row of beads: its brea
 });
 
 test("#39: Claude's words are written as a hand moves: slower where it turns, and heavier where it is slow", () => {
+  // (the hand itself, with a style whose pressure follows the speed: Henri's print, set in the Hand Lab, hardly lets it)
+  const st = { ...B.hand.styles.hand, heavy: 0.2 }, size = 40, k = size / 21;
   let diff = 0;
   for (let n = 0; n < 3; n++) {
-    const m = board(), its = C.apply(m, { add: "write", x: 0, y: 0, size: 40, text: "Handschrift sauber geschrieben" }, new Map()).added, pairs = [];
-    for (const it of its) {
-      const p = it.pts, len = p.length;
+    const runs = [..."Handschrift"].flatMap((ch, i) => C.letter(ch, "hand").runs.map((r) => r.map(([x, y]) => [x * k + i * 30, y * k])));
+    const pairs = [];
+    for (const run of runs) {
+      const p = B.hand.write(run, { size, style: st }), len = p.length;
       for (let i = Math.max(1, Math.floor(len * 0.2)); i < Math.ceil(len * 0.8); i++) { const dt = p[i][3] - p[i - 1][3]; if (dt > 0) pairs.push([Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]) / dt, p[i][2]]); }
     }
     pairs.sort((a, b) => a[0] - b[0]);
@@ -295,6 +300,12 @@ test("#39: Claude's words are written as a hand moves: slower where it turns, an
     diff += (mean(pairs.slice(0, q)) - mean(pairs.slice(-q))) / 3;
   }
   assert.ok(diff > 0.02, `the slowest quarter of the way is heavier than the fastest by ${diff.toFixed(3)} only`);
+});
+
+test("#39: \"%\" as Henri passed it in the Hand Lab: its upper ring stands by itself, not joined to the stroke", () => {
+  const runs = C.letter("%", "hand").runs, ring = runs.find((r) => r.some(([x, y]) => x < 8 && y < 6));
+  assert.equal(runs.length, 3);
+  assert.ok(ring && Math.max(...ring.map((p) => p[0])) < 12, `the ring reaches x ${ring && Math.max(...ring.map((p) => p[0]))}`);
 });
 
 test("#39: a letter, a formula's sign and a stroke Claude drew go through the one hand (board/hand.js)", () => {

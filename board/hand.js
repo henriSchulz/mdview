@@ -29,10 +29,12 @@
    *   slant, slantVar   the lean of its letters (a share of their height) and how much it varies from text to text
    *   wide, apart       how wide its letters, and how far apart (shares of the font's)
    *   wobble  how unlike each other its letters are (size, width, lean, turn; 1 as most write)
-   *   drift   how much its line wanders up and down and its letters bend (1 as most write) */
+   *   drift   how much its line wanders up and down and its letters bend (1 as most write)
+   *   pen     how broad its pen is, a share of the size (2.9 px at 28 px)
+   * Print as Henri set it in the Hand Lab (2026-11-03): leaning further, heavier, its pressure hardly following the speed. */
   const styles = {
-    hand: { aim: 0.014, miss: 0.012, flow: 0.68, bow: 1, press: 0.48, heavy: 0.2, slant: 0.095, slantVar: 0.065, wide: 0.86, apart: 0.95, wobble: 1, drift: 1 },
-    script: { aim: 0.014, miss: 0.012, flow: 0.68, bow: 1, press: 0.48, heavy: 0.2, slant: 0.05, slantVar: 0.03, wide: 0.98, apart: 0.95, wobble: 1, drift: 1 },
+    hand: { aim: 0.014, miss: 0.012, flow: 0.68, bow: 1, press: 0.67, heavy: 0.03, slant: 0.195, slantVar: 0.1, wide: 0.86, apart: 0.95, wobble: 1, drift: 1, pen: 2.9 / 28 },
+    script: { aim: 0.014, miss: 0.012, flow: 0.68, bow: 1, press: 0.48, heavy: 0.2, slant: 0.05, slantVar: 0.03, wide: 0.98, apart: 0.95, wobble: 1, drift: 1, pen: 1 / 11 },
   };
   const styleOf = (name) => styles[name] || styles.hand;
 
