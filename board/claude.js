@@ -378,39 +378,12 @@
     return (s) => w.reduce((a, x) => a + x.a * Math.sin(s * x.f + x.p), 0) / all;
   };
   const shake = (a) => (Math.random() * 2 - 1) * a;
-  /* A stroke of the font made as a hand makes it (px, [[x, y]] → [[x, y, p]]): no corner quite sharp, the line wandering a
-   * little and trembling less, its ends a touch long or short, its pressure rising as the pen comes down, varying on the way
-   * and easing off as it leaves. mess: 0.5 careful … 1 as most write … 1.4 in a hurry. */
-  function hand(run, size, mess, ends = true) {
-    const len = (pts) => pts.reduce((a, p, i) => a + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0);
-    // points every so far along it
-    const step = Math.max(0.8, size / 28), even = [run[0]];
-    for (let i = 1; i < run.length; i++) {
-      const a = run[i - 1], b = run[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.round(d / step));
-      for (let k = 1; k <= n; k++) even.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
-    }
-    if (even.length < 2) return even.map((p) => [...p, 0.5]);
-    // corners rounded: each point drawn a little toward its neighbours (the ends stay)
-    let pts = even;
-    for (let pass = 0; pass < 2; pass++) pts = pts.map((p, i) => (i === 0 || i === pts.length - 1 ? p : [(pts[i - 1][0] + 2 * p[0] + pts[i + 1][0]) / 4, (pts[i - 1][1] + 2 * p[1] + pts[i + 1][1]) / 4]));
-    // a touch long or short at its ends: the pen overshoots, or lifts early
-    const L = len(pts), tip = (a, b, by) => { const d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; return [a[0] + ((a[0] - b[0]) / d) * by, a[1] + ((a[1] - b[1]) / d) * by]; };
-    if (ends && L > size * 0.3 && pts.length > 3) {
-      const end = shake(size * 0.05 * mess);
-      if (end > 0) pts.push(tip(pts[pts.length - 1], pts[pts.length - 2], end)); else pts = pts.slice(0, Math.max(2, pts.length - Math.round((-end / L) * pts.length)));
-      if (Math.random() < 0.5) { const start = Math.random() * size * 0.03 * mess; pts.unshift(tip(pts[0], pts[1], start)); }
-    }
-    // it wanders, slowly, and trembles a little; its pressure comes and goes
-    const drift = wander(size * 0.9), press = wander(size * 1.4), all = len(pts);
-    let s = 0;
-    return pts.map((p, i) => {
-      if (i) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / d, ny = (b[0] - a[0]) / d;
-      const off = drift(s) * size * 0.022 * mess + shake(0.1 * mess);
-      const down = Math.min(1, s / Math.max(2, size * 0.12)), up = Math.min(1, (all - s) / Math.max(2, size * 0.18));
-      const pr = (0.42 + 0.12 * press(s)) * (0.45 + 0.55 * down) * (0.35 + 0.65 * up);
-      return [p[0] + nx * off, p[1] + ny * off, Math.max(0.08, Math.min(1, pr))];
-    });
+  /* A stroke of the font written by the hand (board/hand.js): what is kept of the font's line is where the hand means to go,
+   * and it moves there as a hand moves — curves, corners, speed and pressure come of the movement (px, [[x, y]] → [[x, y, p]]).
+   * mess: 0.5 careful … 1 as most write … 1.4 in a hurry; ends: false where the stroke must end where it was put (an arrow
+   * meets its point); round: 1 for writing, less for a drawing's corners. */
+  function hand(run, size, mess, ends = true, round = 1) {
+    return B.hand.write(run, { size, mess, ends, round, press: 0.48, wander: wander(size * 1.4) });
   }
   /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", mess (0.5 careful …
    * 1.4 hurried; 1), maxw (where lines break), tool, c, w } → strokes, all of one writing. Each text is written by a hand of
@@ -471,13 +444,14 @@
 
   // ---------------------------------------------------------------- the steps, done
   /* A stroke from points [[x, y], …] ([x, y, p] where the pressure is given): pressure as a hand that starts and ends light,
-   * time as a hand that moves on evenly. */
+   * time as a hand that moves on evenly (or as the hand moved: [x, y, p, ms]). */
   function stroke(pts, o) {
     const tool = INKS.includes(o.tool) ? o.tool : INKS.includes(o.t) ? o.t : "pen", def = B.ink.TOOLS[tool];
     const n = pts.length;
     let t = 0;
     const out = pts.map((p, i) => {
-      if (i) t += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) / 1.2; // (1.2 board pixels a millisecond)
+      if (Number.isFinite(p[3])) t = p[3]; // (the hand's own time: board/hand.js)
+      else if (i) t += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) / 1.2; // (1.2 board pixels a millisecond)
       const ends = Math.min(i, n - 1 - i), p0 = Number.isFinite(p[2]) ? p[2] / 0.6 : Math.min(1, 0.35 + ends * 0.08); // (a pressure given: the hand's)
       return [r1(p[0]), r1(p[1]), Math.round(Math.min(1, p0 * 0.6) * 100) / 100, Math.round(t)];
     });
@@ -501,7 +475,7 @@
         const runs = Array.isArray(step.pts) ? [step.pts.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))] : flatten(step.d);
         // (Claude's own strokes, as a pen leaves them: the pressure rising, varying, easing off — and a hand's touch more of
         // wandering where it was asked to write in a hurry; a straight stroke stays straight)
-        const pen = (run) => (step.sharp === true || run.length < 2 ? run : hand(run, 30, Number.isFinite(step.mess) ? step.mess * 0.3 : 0.3, false)); // (its ends where Claude put them: an arrow meets its point)
+        const pen = (run) => (step.sharp === true || run.length < 2 ? run : hand(run, 30, Number.isFinite(step.mess) ? step.mess * 0.3 : 0.3, false, 0.45)); // (its ends where Claude put them: an arrow meets its point)
         for (const run of runs) if (run.length > 1 || (run.length === 1 && Array.isArray(step.pts))) made.push(stroke(run.length > 1 ? pen(run) : [run[0], run[0]], step));
         // (an underline Claude put where a line of words would end, under a line with a fraction: under the fraction, not through it —
         // Claude cannot know how far a formula reaches; #36)

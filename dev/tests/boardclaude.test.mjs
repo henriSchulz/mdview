@@ -10,7 +10,7 @@ function load() {
   const w = { Math, JSON, String, Number, Object, Array, Map, Set, Error, Infinity };
   w.window = w;
   vm.createContext(w);
-  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "vendor/hershey.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
+  for (const f of ["board/format.js", "board/render.js", "board/shape.js", "board/items.js", "board/ink.js", "vendor/hershey.js", "board/hand.js", "board/claude.js"]) vm.runInContext(readFileSync(new URL(f, root), "utf8"), w, { filename: f });
   return w.MdBoard;
 }
 const B = load(), C = B.claude;
@@ -271,4 +271,41 @@ test("#36: an underline put where a line of words would end goes under the line'
   assert.ok(b[1] > low, "under the denominator: " + [b[1], low]);
   const far = C.apply(m, { add: "ink", d: "M 0 200 L 400 200" }, names);
   assert.ok(Math.abs(B.format.boundsOf(far.added[0])[1] - 200) < 4, "a line elsewhere stays where it was drawn");
+});
+
+test("#39: a thick stroke whose points lie close is not a row of beads: its breadth is evened out along a stretch of it, not over five points", () => {
+  // (a pen's stroke along x, a point every 0.75 px as the hand gives them, its pressure going up and down from one to the next)
+  const it = { k: "ink", t: "pen", w: 8, c: "auto", o: 1, ch: "xypt", pts: Array.from({ length: 200 }, (_v, i) => [i * 0.75, 0, i % 2 ? 0.7 : 0.3, i * 6]) };
+  const nums = B.render.outline(it).d.match(/-?\d+(\.\d+)?/g).map(Number), edge = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) if (nums[i + 1] > 0 && nums[i] > 20 && nums[i] < 130) edge.push(nums[i + 1]); // (its upper edge, away from the ends)
+  const most = Math.max(...edge.slice(1).map((y, i) => Math.abs(y - edge[i])));
+  assert.ok(edge.length > 50 && most < 0.1, `the edge goes up and down by ${most} px from one point to the next`);
+});
+
+test("#39: Claude's words are written as a hand moves: slower where it turns, and heavier where it is slow", () => {
+  let diff = 0;
+  for (let n = 0; n < 3; n++) {
+    const m = board(), its = C.apply(m, { add: "write", x: 0, y: 0, size: 40, text: "Handschrift sauber geschrieben" }, new Map()).added, pairs = [];
+    for (const it of its) {
+      const p = it.pts, len = p.length;
+      for (let i = Math.max(1, Math.floor(len * 0.2)); i < Math.ceil(len * 0.8); i++) { const dt = p[i][3] - p[i - 1][3]; if (dt > 0) pairs.push([Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]) / dt, p[i][2]]); }
+    }
+    pairs.sort((a, b) => a[0] - b[0]);
+    const q = Math.floor(pairs.length / 4), mean = (a) => a.reduce((x, y) => x + y[1], 0) / a.length;
+    diff += (mean(pairs.slice(0, q)) - mean(pairs.slice(-q))) / 3;
+  }
+  assert.ok(diff > 0.02, `the slowest quarter of the way is heavier than the fastest by ${diff.toFixed(3)} only`);
+});
+
+test("#39: a letter, a formula's sign and a stroke Claude drew go through the one hand (board/hand.js)", () => {
+  let calls = 0;
+  const own = B.hand.write;
+  B.hand.write = (...a) => { calls++; return own(...a); };
+  try {
+    const m = board();
+    C.apply(m, { add: "write", x: 0, y: 0, size: 28, text: "a $\\int_0^1 x\\,dx$" }, new Map());
+    const words = calls;
+    C.apply(m, { add: "ink", d: "M 0 0 C 40 -30, 80 30, 120 0" }, new Map());
+    assert.ok(words >= 6 && calls === words + 1, `the hand wrote ${words} strokes of the words and ${calls - words} of the drawing`);
+  } finally { B.hand.write = own; }
 });

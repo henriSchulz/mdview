@@ -18,6 +18,19 @@
     if (it.t === "pencil") { const i = it.ch ? it.ch.indexOf("i") : -1, tilt = i < 0 ? 0 : pt[i] || 0; return (it.w / 2) * (1 + (Math.max(0, tilt - FLAT) / (90 - FLAT)) * 4); }
     return radius(it, pt[2]);
   }
+  /* The breadth (half of it) at each point of a stroke: what the pen said there, evened out over a stretch of about the
+   * stroke's breadth to either side (weighted to the middle), never over a fixed count of points. */
+  function breadths(it) {
+    const pts = it.pts, raw = pts.map((p) => reach(it, p)), at = [0];
+    for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const reachOf = Math.max(1.5, it.w * 0.9);
+    return raw.map((_r, i) => {
+      let sum = 0, k = 0;
+      for (let j = i; j >= 0 && at[i] - at[j] <= reachOf; j--) { const wt = 1 - (at[i] - at[j]) / (reachOf * 1.01); sum += raw[j] * wt; k += wt; }
+      for (let j = i + 1; j < pts.length && at[j] - at[i] <= reachOf; j++) { const wt = 1 - (at[j] - at[i]) / (reachOf * 1.01); sum += raw[j] * wt; k += wt; }
+      return sum / k;
+    });
+  }
   const even = (it) => (it.t === "pen" ? it.pts.every((p) => p[2] === it.pts[0][2]) : it.t === "pencil" ? !(it.ch && it.ch.includes("i")) || it.pts.every((p) => (p[it.ch.indexOf("i")] || 0) <= FLAT) : true);
   /* A pencil's stroke is its line twice: once whole and faint, once darker and broken into short
    * pieces — the grain of graphite on paper. → the dashes for the second, by the stroke's width. */
@@ -76,11 +89,15 @@
       return { d: d + `L${n(z[0])} ${n(z[1])}`, stroke: w, cap };
     }
     // A band along the stroke: its one edge forwards, round the end, its other edge back, round the beginning. The breadth at
-    // each point is the mean of what the pen said there and just before and after — taken point by point, a line is a row of
-    // beads (so it looked on the first iPad). Where the stroke turns sharply the band ends and a new one begins: their round
-    // ends lie on each other at the turn. All bands are wound the same way; filled together they are the stroke.
+    // each point is the mean of what the pen said along a stretch of the stroke about as long as the stroke is broad — taken
+    // point by point, a line is a row of beads (so it looked on the first iPad), and so it is over a few points where they lie
+    // close (Henri, 2026-11-03: „schon wieder so gepunktet“ — five points were three pixels of a thick stroke). Where the
+    // stroke turns sharply the band ends and a new one begins: their round ends lie on each other at the turn. All bands are
+    // wound the same way; filled together they are the stroke.
     const f = (v) => String(Math.round(v * 100) / 100), last = pts.length - 1;
-    const raw = pts.map((p) => reach(it, p)), rs = raw.map((_r, i) => { let sum = 0, k = 0; for (let j = Math.max(0, i - 2); j <= Math.min(last, i + 2); j++) { sum += raw[j]; k++; } return sum / k; });
+    const rs = breadths(it), at = [0];
+    for (let i = 1; i <= last; i++) at.push(at[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const span = Math.max(1, it.w * 0.5); // (the way the stroke goes at a point: over about half its breadth, not to the next point)
     const dir = (a, z) => { const dx = pts[z][0] - pts[a][0], dy = pts[z][1] - pts[a][1], len = Math.hypot(dx, dy); return len < 0.01 ? null : [dx / len, dy / len]; };
     // an edge: through the middles between its points, each point pulling the line (as the stroke of one width is drawn)
     const edge = (e) => { let out = ""; for (let i = 1; i < e.length - 1; i++) out += `Q${f(e[i][0])} ${f(e[i][1])} ${f((e[i][0] + e[i + 1][0]) / 2)} ${f((e[i][1] + e[i + 1][1]) / 2)}`; return out + `L${f(e[e.length - 1][0])} ${f(e[e.length - 1][1])}`; };
@@ -88,7 +105,10 @@
       const left = [], right = [];
       let was = null;
       for (let i = from; i <= to; i++) {
-        const t = dir(Math.max(from, i - 1), Math.min(to, i + 1)) || was || [1, 0];
+        let a = Math.max(from, i - 1), z = Math.min(to, i + 1);
+        while (a > from && at[i] - at[a] < span) a--;
+        while (z < to && at[z] - at[i] < span) z++;
+        const t = dir(a, z) || was || [1, 0];
         was = t;
         left.push([pts[i][0] - t[1] * rs[i], pts[i][1] + t[0] * rs[i]]);
         right.push([pts[i][0] + t[1] * rs[i], pts[i][1] - t[0] * rs[i]]);
@@ -142,5 +162,5 @@
     return { w: x1 - x0, h: y1 - y0, box: [x0, y0, x1 - x0, y1 - y0], body, empty: false };
   }
 
-  B.render = { outline, radius, reach, colorOf, picture, grain, AUTO };
+  B.render = { outline, breadths, radius, reach, colorOf, picture, grain, AUTO };
 })();

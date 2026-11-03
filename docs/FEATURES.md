@@ -589,9 +589,12 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   the board **as they come**, and it works **by hand**: drawings are strokes of ink drawn along
   their way (sketches, arrows, frames, a marker over a line of the PDF), words are
   **handwriting** — strokes of a pen's font (Hershey's, `vendor/hershey.js`; print, or joined-up),
-  made as a hand makes them: each text written by a hand of its own (slant, width, spacing), the line drifting, words
-  and letters a little larger, smaller, turned and bent, no corner sharp, every stroke wandering and trembling a little,
-  its ends a touch long or short, its pressure rising, varying and easing off, dots put as short dashes; umlauts, ß, accented letters (é ñ ç å),
+  written as a hand writes them (`board/hand.js`): the font's line only says where the hand means to go, and it moves
+  there as a hand moves — curves round, a corner rounded where it goes on and a point where it turns back, faster on a
+  long stroke, heavier where it is slow, the pressure rising as it comes down and easing off as it leaves; each text by a
+  hand of its own (slant, width, spacing), the line drifting, words and letters a little larger, smaller, turned and
+  bent, its ends a touch long or short, dots put as short dashes. The signs of a formula and the strokes Claude draws go
+  through the same hand; umlauts, ß, accented letters (é ñ ç å),
   arrows (→ ⇒ ↔ …), ✓ ✗ ° ≈ ≤ ≥ ± √ ∞ € and raised digits (² ³) with them — what it has not (an emoji) is left out, never
   a question mark — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves
   or takes away the whole when asked. Texts, sticky notes, shapes, lines

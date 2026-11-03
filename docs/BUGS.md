@@ -116,6 +116,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     fraction stands taller, and an underline Claude put where a line of words would end goes under the fraction
     (Claude cannot know how far it reaches). Checks: `dev/tests/boardclaude.test.mjs` (#36, #37); the real model
     by hand (`claude -p` with the board's prompt, its answer drawn).
+100. **A stroke is evened out along its length, never over a count of its points, and Claude's writing is written, not
+    traced** (#39, Henri: „sieht schon wieder so gepunktet aus“ — „das soll nicht aussehen wie in einem Font“). The breadth
+    of a stroke was the mean of five points; a pen and Claude's hand give a point every pixel or less, so a thick stroke's
+    edge rose and fell with every change of pressure — beads. Breadth and direction are taken over a stretch about as long
+    as the stroke is broad (`breadths`, `outline` in `board/render.js`). And the hand laid trembling over a font's line:
+    every letter, every sign of a formula and every stroke Claude draws goes through the one hand of `board/hand.js` — the
+    line's skeleton aimed at, moved to as a hand moves (lognormal movements, bowed, overlapping), the pressure following its
+    speed — so that they belong together. Checks: `dev/tests/boardclaude.test.mjs` (#39).
 
 ### Markdown that is rendered somewhere new
 
