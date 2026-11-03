@@ -999,7 +999,10 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   note that leads to another note or a PDF opens it in a tab of its own (the tab it has already,
   if it has one), so the note the link stands in stays open. `+` (`Ctrl+T`)
   makes an empty tab, which shows All Notes to choose from; the house before the tabs shows All
-  Notes over the note. The ✕ in the icon's place under the pointer, the middle button or `Ctrl+W`
+  Notes over the note. **A folder in a tab**: `Ctrl`+click or the middle button on a folder — its
+  row in the sidebar, its tile — opens a tab named after it, with the folder's sign, that shows All
+  Notes in that folder (and where one went from there in it, when it is come back to); a note chosen
+  among its tiles takes the tab, as in an empty one. It is kept with the other tabs. The ✕ in the icon's place under the pointer, the middle button or `Ctrl+W`
   closes a tab (the last one leaves an empty tab with All Notes; closed once more, the window
   goes), `Ctrl+Shift+T` opens the one closed last again.
   `Ctrl+Tab` and `Ctrl+Shift+Tab` go to the next and the one before, `Ctrl+1` … `8` to a tab by
@@ -1011,10 +1014,12 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   adds files; a right click on a file has Open in New Tab, Open in Default App, Open With…, Show in
   Finder, Copy, Cut, Duplicate, Copy Path, Rename (`F2`), Hide, Move to Trash (`Del`); a right
   click on the empty room has New Note, New Folder, New Whiteboard, New Notebook, Add Files…, Paste and the
-  order of the notes. Its edge can be pulled wider or away. `Aa` switches between file names and
+  order of the notes. Its edge can be pulled wider or away — peeking out too, where it goes on
+  peeking at its new width. `Aa` switches between file names and
   the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
   opened out of All Notes show without it; a note chosen in it leaves it open, and the quick
-  notes keep theirs. **Open, it is pinned and makes room** (as Notion has it): a card that floats
+  notes keep theirs. **Over All Notes there is none**: All Notes shown shuts it (the tiles show the
+  folder already); it still peeks out, and `Ctrl+Alt+S` still pins it. **Open, it is pinned and makes room** (as Notion has it): a card that floats
   in the window, and the note's column centres itself in what is left, All Notes begins beside it,
   the halves of a split share the rest — they glide there, and the line at the window's top stays
   there. **Shut, it peeks out**: the pointer at the window's left edge, or resting on its button a
@@ -1747,8 +1752,8 @@ glass, menus of the same glass), and two more on top of Velum, after the Velum l
   assistant opens over the bar, in the middle. With **Home** on, Home is the lab's start: a greeting, a large field that opens
   *Go to…*, the folders as chips, the notes opened last and those changed this week, each a row with its first words.
 
-What both have, as the lab draws them: the note set at 15 px, headings 30 / 20; the island without back and forward
-(`Alt+←` `→` still go), the modes with reading first, the assistant's button beside find (the bubble at the corner goes);
+What both have, as the lab draws them: the note set at 15 px, headings 30 / 20; the island — in Focus without back and
+forward (`Alt+←` `→` still go; Refined keeps them beside the sidebar's button), the modes with reading first, the assistant's button beside find (the bubble at the corner goes);
 callouts as cards (where *Callouts and Focus* is left at Box); the formatting bar of the variant's glass with **Ask AI**
 first (Transform with AI on what is selected, while AI is on); the `/` menu as tall as what it shows, each sign on a small
 tile; find a field of glass; the sidebar's Library with **All Notes, Recents, Today, With Tasks, Shared** (the Library

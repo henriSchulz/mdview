@@ -603,3 +603,69 @@ test("the sidebar peeking out at the window's edge is pulled wider at its edge, 
   await page.mouse.move(900, 400);
   await page.waitForFunction(() => document.body.dataset.sidebar === "closed", null, { timeout: 4000 });
 });
+
+test("Ctrl and a click opens a note, or a folder, in a tab of its own; a folder's tab shows All Notes there, and is there again after a reload (#38)", async () => {
+  put("sub/Gamma.md", "# Gamma\n\nin a folder\n");
+  put("sub/deep/Delta.md", "# Delta\n\ndeeper\n");
+  await open("Alpha.md");
+  const labels = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab:not(.leaving) .tab-label")].map((e) => e.textContent));
+  const shownTab = () => page.evaluate(() => document.querySelector('#tabs .tab[aria-selected="true"] .tab-label')?.textContent);
+  const ovAt = () => page.evaluate((R) => window.MdOverview && MdOverview.isOpen ? [...document.querySelectorAll("#overview .ov-item")].map((t) => t.dataset.path.slice(R.length + 1)).sort() : null, R);
+  const was = (await labels()).length;
+  // a note, from the sidebar
+  await row("Beta.md").click({ modifiers: ["Control"] });
+  await untilNote("Beta.md");
+  await until(async () => (await labels()).length === was + 1, "a tab more, for the note");
+  assert.ok((await labels()).includes("Alpha"), "the note before keeps its tab");
+  // a folder, from the sidebar: a tab named after it, All Notes in it
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); });
+  await row("sub").click({ modifiers: ["Control"] });
+  await until(async () => (await shownTab()) === "sub", "the folder's tab, shown");
+  await until(async () => (await ovAt())?.includes("sub/Gamma.md"), "All Notes in the folder");
+  assert.equal((await labels()).length, was + 2);
+  // a folder, from its tile
+  await page.locator(`#overview .ov-item[data-path="${R}/sub/deep"]`).click({ modifiers: ["Control"] });
+  await until(async () => (await shownTab()) === "deep", "the deeper folder's tab");
+  await until(async () => (await ovAt())?.includes("sub/deep/Delta.md"), "All Notes in it");
+  assert.deepEqual((await labels()).slice(-2), ["sub", "deep"]);
+  // away to a note's tab and back: the folder again
+  await page.click('#tabs .tab:has(.tab-label:text-is("Alpha"))');
+  await untilNote("Alpha.md");
+  await page.click('#tabs .tab:has(.tab-label:text-is("sub"))');
+  await until(async () => (await ovAt())?.includes("sub/Gamma.md") && !(await ovAt()).includes("sub/deep/Delta.md"), "the folder's tab shows its folder");
+  if (process.env.MDVIEW_SHOTS) await page.locator("#tabs").screenshot({ path: process.env.MDVIEW_SHOTS + "/web-folder-tabs.png" });
+  // the next opening: the folders' tabs are folders still
+  await page.reload();
+  await page.waitForFunction(() => window.MdView && document.querySelectorAll("#tabs .tab").length > 0, null, { timeout: 15000 });
+  await until(async () => { const l = await labels(); return l.includes("sub") && l.includes("deep"); }, "the folders' tabs after a reload");
+  await until(async () => (await ovAt())?.includes("sub/Gamma.md"), "the tab shown, its folder");
+  // done: back to one tab
+  for (const name of ["deep", "sub", "Beta"]) {
+    await page.click(`#tabs .tab:has(.tab-label:text-is("${name}"))`);
+    await page.keyboard.press("Control+w");
+    await until(async () => !(await labels()).includes(name), "closed: " + name);
+  }
+});
+
+test("Ctrl and a click in the sidebar's sheets, in Velum Refined: a note and a folder each in a tab of its own (#38)", async () => {
+  put("sub/Gamma.md", "# Gamma\n\nin a folder\n");
+  await open("Alpha.md");
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "refined", sidebarLayout: "sheets" }); });
+  await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined" && document.getElementById("sidebar").dataset.layout === "sheets", null, { timeout: 4000 });
+  await page.waitForTimeout(400);
+  const labels = () => page.evaluate(() => [...document.querySelectorAll("#tabs .tab:not(.leaving) .tab-label")].map((e) => e.textContent));
+  const was = (await labels()).length;
+  await page.locator(`#sidebar .sb-item[data-key="${R}/Beta.md"] .sb-row`).first().click({ modifiers: ["Control"] });
+  await untilNote("Beta.md");
+  await until(async () => (await labels()).length === was + 1, "a tab more, for the note");
+  await page.evaluate(() => { if (document.body.dataset.sidebar !== "open") document.querySelector('#tabs [data-act="sidebar"]').click(); });
+  await page.waitForTimeout(400);
+  await page.locator(`#sidebar .sb-item[data-key="${R}/sub"] .sb-row`).first().click({ modifiers: ["Control"] });
+  await until(async () => (await labels()).length === was + 2 && (await labels()).includes("sub"), "a tab more, for the folder");
+  for (const name of ["sub", "Beta"]) {
+    await page.click(`#tabs .tab:has(.tab-label:text-is("${name}"))`);
+    await page.keyboard.press("Control+w");
+    await until(async () => !(await labels()).includes(name), "closed: " + name);
+  }
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "app", sidebarLayout: "source" }); });
+});

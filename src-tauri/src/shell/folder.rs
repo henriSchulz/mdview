@@ -298,6 +298,7 @@ impl Win {
         };
         self.back.iter_mut().for_each(swap);
         self.fwd.iter_mut().for_each(swap);
+        self.dir_tab.iter_mut().for_each(swap);
         for t in &mut self.tabs {
             // (the one shown is written down from the window again)
             t.path.iter_mut().for_each(swap);
@@ -385,6 +386,9 @@ impl Win {
         }
         self.back.retain(|p| !gone(p, &done));
         self.fwd.retain(|p| !gone(p, &done));
+        if self.dir_tab.as_ref().is_some_and(|p| gone(p, &done)) {
+            self.dir_tab = None; // (the folder of the tab shown: an empty tab now)
+        }
         if !self.tabs.is_empty() {
             // other tabs: none stays on what is gone, none goes back to it
             self.stash_tab();

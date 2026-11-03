@@ -295,10 +295,11 @@
     return { path: dec(u.pathname.slice(new URL(files).pathname.length)), fragment: u.hash.length > 1 ? dec(u.hash.slice(1)) : null };
   }
 
-  /* The tabs of a repository's window, as the shell keeps them: each a note (or none) with the way
-   * back and forward of its own. Every change answers what is to be shown now:
+  /* The tabs of a repository's window, as the shell keeps them: each a note (or none, or a folder —
+   * isDir says which paths are folders: All Notes in it, #38) with the way back and forward of its
+   * own. Every change answers what is to be shown now:
    * { show: path | null, fragment?, push? } — or null where nothing changes on screen. */
-  function tabs(kept) {
+  function tabs(kept, isDir = () => false) {
     let seq = 0, at = 0, closed = [];
     const make = (path) => ({ id: ++seq, path: path || null, back: [], fwd: [] });
     let list = (kept && kept.paths ? kept.paths : []).map((p) => make(p || null));
@@ -309,11 +310,11 @@
     return {
       get list() { return list; }, get current() { return cur(); }, get closed() { return closed.length > 0; },
       kept: () => ({ paths: list.map((t) => t.path || ""), active: at }),
-      told: () => ({ tabs: list.map((t) => ({ id: t.id, path: t.path, name: t.path ? nameOf(t.path) : "" })), active: cur().id, closed: closed.length > 0 }),
+      told: () => ({ tabs: list.map((t) => ({ id: t.id, path: t.path, name: t.path ? nameOf(t.path) : "", ...(t.path && isDir(t.path) ? { dir: true } : {}) })), active: cur().id, closed: closed.length > 0 }),
       /* the note shown in the tab on screen is another one now (push: the one before can be gone back to) */
       open(path, push) {
         const t = cur();
-        if (push && t.path && t.path !== path) { t.back.push(t.path); t.fwd = []; }
+        if (push && t.path && t.path !== path && !isDir(t.path)) { t.back.push(t.path); t.fwd = []; } // (a folder's tab is gone back to by the page: All Notes)
         t.path = path;
       },
       find: (path) => list.findIndex((t, k) => k !== at && t.path === path),
@@ -366,8 +367,8 @@
         t.path = to;
         return { show: to, fragment: null };
       },
-      /* a note has another name: every tab and every way back knows it by the new one */
-      rename(old, now) { const swap = (p) => (p === old ? now : p); for (const t of list) { t.path = t.path && swap(t.path); t.back = t.back.map(swap); t.fwd = t.fwd.map(swap); } closed = closed.map(([p, i]) => [swap(p), i]); },
+      /* a note has another name: every tab and every way back knows it by the new one (a folder: what is in it, and its tab) */
+      rename(old, now) { const swap = (p) => (p === old ? now : p && p.startsWith(old + "/") ? now + p.slice(old.length) : p); for (const t of list) { t.path = t.path && swap(t.path); t.back = t.back.map(swap); t.fwd = t.fwd.map(swap); } closed = closed.map(([p, i]) => [swap(p), i]); },
       /* a note was deleted here: the tabs that showed it go — but for the one on screen, which is given another note */
       drop(path) {
         const shownId = cur().id;

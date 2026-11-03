@@ -815,6 +815,7 @@
   function moveFolder(path, to, inside) {
     for (const p of inside) relocate(p, to + p.slice(path.length));
     for (const k of [...keptDirs]) if (k === path || k.startsWith(path + "/")) { keptDirs.delete(k); keptDirs.add(to + k.slice(path.length)); }
+    tabs.rename(path, to); // (a folder's tab, and one of a folder in it)
   }
 
   // ------------------------------------------------------------ what the page says
@@ -970,17 +971,17 @@
       if (!["md", "pdf"].includes(C.kindOf(p))) return openFile(p);
       if (tab && !(tab === "own" && onScreen === p)) apply(linkTab(p, heading, tab)); else openPath(p, heading, true);
     },
-    tab({ op, id, to }) {
+    tab({ op, id, to, dir }) {
       const which = id != null && id !== "" ? Number(id) : tabs.current.id;
       if (op === "select") apply(tabs.select(which));
-      else if (op === "new") apply(tabs.add(null));
+      else if (op === "new") apply(tabs.add(dir && isDir(dir) ? dir : null)); // (dir: a folder's tab — All Notes in it)
       else if (op === "close") apply(tabs.close(which));
       else if (op === "others") apply(tabs.others(which));
       else if (op === "reopen") apply(tabs.reopen(exists));
       else if (op === "move" && to != null && !Number.isNaN(Number(to))) apply(tabs.move(which, Math.trunc(Number(to))));
     },
-    back() { const now = tabs.go(true); if (now) { onScreen = null; openPath(now.show, null, false); } },
-    forward() { const now = tabs.go(false); if (now) { onScreen = null; openPath(now.show, null, false); } },
+    back() { const now = tabs.go(true); if (now) { onScreen = null; if (isDir(now.show)) showNothing(); else openPath(now.show, null, false); } },
+    forward() { const now = tabs.go(false); if (now) { onScreen = null; if (isDir(now.show)) showNothing(); else openPath(now.show, null, false); } },
     async resolve({ target }) {
       const p = target ? C.resolver(BASE, paths(), noteDir()).resolve(target) : null, text = p && C.kindOf(p) === "file" ? await fileText(p) : null;
       tell("linkResolved", target, p ? (text != null ? { path: p, url: fileUrl(p), kind: "text", text } : { path: p, url: fileUrl(p), kind: C.kindOf(p) }) : null);
@@ -1582,9 +1583,9 @@
     }
     const wanted = new URLSearchParams(location.search).get("n");
     const good = (p) => p && exists(p) && ["md", "pdf"].includes(C.kindOf(p));
-    const kept = here.tabs && Array.isArray(here.tabs.paths) ? { paths: here.tabs.paths.filter((p, i) => good(p) || (!p && i === here.tabs.active)), active: 0 } : null;
+    const kept = here.tabs && Array.isArray(here.tabs.paths) ? { paths: here.tabs.paths.filter((p, i) => good(p) || isDir(p) || (!p && i === here.tabs.active)), active: 0 } : null;
     if (kept) kept.active = Math.max(0, kept.paths.indexOf(here.tabs.paths[here.tabs.active] || ""));
-    tabs = C.tabs(kept && kept.paths.length ? kept : null);
+    tabs = C.tabs(kept && kept.paths.length ? kept : null, isDir);
     if (here.sidebar.titles) await loadAll();
     sendFolder();
     // a start opens on All Notes, in the repository itself (Henri, 2026-10-14) — not on the note last shown: the tabs as they
@@ -1592,7 +1593,7 @@
     // reload shows what was shown (the tab it was on).
     const reload = ((performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || {}).type === "reload";
     const first = wanted && good(BASE + "/" + wanted) ? BASE + "/" + wanted : reload && good(tabs.current.path) ? tabs.current.path : null;
-    if (!first && !(reload && !tabs.current.path)) {
+    if (!first && !(reload && (!tabs.current.path || isDir(tabs.current.path)))) {
       const blank = tabs.kept().paths.indexOf("");
       if (blank >= 0) tabs.selectAt(blank); else if (tabs.current.path) tabs.add(null, null, Infinity);
     }
