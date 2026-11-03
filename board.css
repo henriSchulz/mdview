@@ -412,7 +412,7 @@ body[data-flat] .bd-ruler { background-color: color-mix(in srgb, var(--bd-tool-b
 .bd-marks { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
 .bd-marks[hidden] { display: none; }
 .bd-marks path { fill: none; stroke: var(--accent); stroke-linejoin: round; }
-.bd-mark-ink { opacity: 0.4; }
+.bd-mark-inks { opacity: 0.4; } /* (one group faint, not each stroke's mark: half a page of them was as many layers, #43) */
 .bd-mark-ink[data-shape] { fill: var(--accent); }
 .bd-pick[data-kind="many"], .bd-pick[data-kind="ink"] { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 2px; }
 /* strokes alone, chosen: dots at the four corners of their frame */

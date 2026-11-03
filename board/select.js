@@ -61,7 +61,7 @@
     function change(f) { const before = snap(); f(S().pick); commit(before); ctx.paint(); bar(true); }
 
     // ------------------------------------------------------------ what is chosen
-    const withGroup = (items) => { const st = S(), groups = new Set(items.map((it) => it.group).filter(Boolean)); return st.model.items.filter((it) => items.includes(it) || (it.group && groups.has(it.group))); };
+    const withGroup = (items) => { const st = S(), has = new Set(items), groups = new Set(items.map((it) => it.group).filter(Boolean)); return st.model.items.filter((it) => has.has(it) || (it.group && groups.has(it.group))); };
     function pick(items) { S().pick = withGroup(items); closePop(); ctx.paint(); }
     const pickBox = (items = S().pick) => { let b = null; for (const it of items) { const c = I.bounds(it); b = b ? [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[2]), Math.max(b[3], c[3])] : [...c]; } return b; };
     /* What lies at (x, y): the ink first (it lies over everything), then the items from the front — each where it is drawn
@@ -216,23 +216,60 @@
       ctx.paint();
     }
     const twisted = () => end();
-    function move(pts, e) {
+    /* A box, a loop or what is chosen pulled across the board: a move notes where the hand is, and the work is done with the next
+     * frame — a pen sends four samples a frame, and with half a page of handwriting each of them took longer than a frame (#43).
+     * run(): that work now (a let-go before the frame came, the board run along at the window's edge). */
+    const soon = () => { if (!act.frame) act.frame = requestAnimationFrame(run); };
+    function run() {
       if (!act) return;
-      const st = S(), p = ctx.onBoard(pts[pts.length - 1]);
+      cancelAnimationFrame(act.frame); act.frame = 0;
+      if (act.kind === "box" || act.kind === "loop") gather();
+      else if (act.kind === "move") moving();
+    }
+    /* What the box or the loop holds: chosen, and shown — the frame and the marks, not the ink, which a choice does not change (the
+     * whole board is drawn when the hand lets go). */
+    function gather() {
+      const st = S();
       if (act.kind === "box") {
-        const b = [Math.min(act.from[0], p.x), Math.min(act.from[1], p.y), Math.max(act.from[0], p.x), Math.max(act.from[1], p.y)];
+        if (!act.to) return;
+        const p = act.to, b = [Math.min(act.from[0], p[0]), Math.min(act.from[1], p[1]), Math.max(act.from[0], p[0]), Math.max(act.from[1], p[1])];
         act.rect = b;
         // everything the box touches — the thing itself, not the box around it: any part of a stroke or a line (the whole of it is taken), a thing's outline or what is filled of it
         st.pick = withGroup([...act.keep, ...st.model.items.filter((it) => I.crosses(it, b))]);
-        return ctx.paint();
-      }
-      if (act.kind === "loop") {
-        for (const pt of pts) { const q2 = ctx.onBoard(pt); act.pts.push([q2.x, q2.y]); }
+      } else {
         ctx.loop(act.pts);
         // every stroke with any part of itself inside it, and every thing whose middle is, or two corners of its outline
         if (act.pts.length > 3) st.pick = withGroup([...act.keep, ...B.ink.circled(st.model.items, act.pts), ...plain(st).filter((it) => !it.foreign && B.ink.holds(act.pts, I.middle(it), I.outline(it)))]);
-        return ctx.paint();
       }
+      paint();
+    }
+    /* What is chosen, where the hand has it now: along the guides or onto the grid. A stroke keeps the outline it was drawn with,
+     * moved (made anew for each of half a page of strokes at every step, it was most of the time a move took). */
+    function moving() {
+      const st = S(), t = act.to;
+      if (!t) return;
+      let dx = t.x - act.from[0], dy = t.y - act.from[1];
+      if (!act.moved && Math.hypot(dx, dy) * z() < 3) return; // (a click with an unsteady hand moves nothing)
+      if (!act.moved) act.drawn = new Map(act.was.filter(([it]) => it.k === "ink" && it.path).map(([it]) => [it, { path: it.path, stroke: it.stroke, cap: it.cap }]));
+      act.moved = true;
+      if (t.shift) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; } // straight along or straight up
+      // onto the grid, where the board says so: the top left corner of what is moved comes to rest on a dot (no guides then)
+      const GRID = 20, grid = st.model.board.snap && !t.alt ? { dx: Math.round((act.box[0] + dx) / GRID) * GRID - (act.box[0] + dx), dy: Math.round((act.box[1] + dy) / GRID) * GRID - (act.box[1] + dy), v: null, h: null } : null;
+      const g = grid || (t.alt ? { dx: 0, dy: 0, v: null, h: null } : guides([act.box[0] + dx, act.box[1] + dy, act.box[2] + dx, act.box[3] + dy]));
+      dx = Math.round((dx + g.dx) * 10) / 10; dy = Math.round((dy + g.dy) * 10) / 10;
+      for (const [it, was] of act.was) {
+        Object.assign(it, I.data(was)); I.moveBy(it, dx, dy);
+        const d = act.drawn.get(it);
+        if (d) try { const path = new Path2D(); path.addPath(d.path, new DOMMatrix([1, 0, 0, 1, dx, dy])); Object.assign(it, { path, stroke: d.stroke, cap: d.cap }); } catch (x) { /* (drawn from its points) */ }
+      }
+      act.guide = g;
+      ctx.paint();
+    }
+    function move(pts, e) {
+      if (!act) return;
+      const st = S(), p = ctx.onBoard(pts[pts.length - 1]);
+      if (act.kind === "box") { act.to = [p.x, p.y]; return soon(); }
+      if (act.kind === "loop") { for (const pt of pts) { const q2 = ctx.onBoard(pt); act.pts.push([q2.x, q2.y]); } return soon(); }
       if (act.kind === "inksize") {
         const [ax, ay] = act.anchor, k = Math.max(0.05, Math.hypot(p.x - ax, p.y - ay) / act.from);
         for (const w of act.was) { w.it.pts = w.pts; w.it.w = w.w; B.ink.moved(w.it, (q2) => [ax + (q2[0] - ax) * k, ay + (q2[1] - ay) * k], k); }
@@ -258,17 +295,8 @@
       }
       if (act.kind === "move") {
         if (locked()) return;
-        let dx = p.x - act.from[0], dy = p.y - act.from[1];
-        if (!act.moved && Math.hypot(dx, dy) * z() < 3) return; // (a click with an unsteady hand moves nothing)
-        act.moved = true;
-        if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; } // straight along or straight up
-        // onto the grid, where the board says so: the top left corner of what is moved comes to rest on a dot (no guides then)
-        const GRID = 20, grid = st.model.board.snap && !e.altKey ? { dx: Math.round((act.box[0] + dx) / GRID) * GRID - (act.box[0] + dx), dy: Math.round((act.box[1] + dy) / GRID) * GRID - (act.box[1] + dy), v: null, h: null } : null;
-        const g = grid || (e.altKey ? { dx: 0, dy: 0, v: null, h: null } : guides([act.box[0] + dx, act.box[1] + dy, act.box[2] + dx, act.box[3] + dy]));
-        dx += g.dx; dy += g.dy;
-        for (const [it, was] of act.was) { Object.assign(it, I.data(was)); I.moveBy(it, Math.round(dx * 10) / 10, Math.round(dy * 10) / 10); }
-        act.guide = g;
-        return ctx.paint();
+        act.to = { x: p.x, y: p.y, shift: e.shiftKey, alt: e.altKey };
+        return soon();
       }
       if (act.kind === "conn") {
         act.line.p = [act.line.p[0], act.line.p[1], Math.round(p.x), Math.round(p.y)];
@@ -350,6 +378,7 @@
     }
     function end() {
       if (!act) return;
+      if (act.frame) run(); // (let go before the frame came: what the hand held where it let go)
       const a = act;
       act = null;
       // (a click within a bare outline, nothing pulled: the shape is chosen — with Shift, as well, or no more)
@@ -385,6 +414,7 @@
     }
     function cancel() {
       if (!act) return;
+      cancelAnimationFrame(act.frame);
       const a = act;
       act = null;
       if (a.before) restore(a.before);
@@ -740,6 +770,7 @@
      * (Drawn in the board's own measures and moved with the view; made anew only when what is chosen changed. Not while the
      * choice is being moved: the frame has no dots then either.) */
     let marked = "";
+    const markOf = new WeakMap(); // a thing → its mark: { key, el }
     function marks(p, frame) {
       const svg = q(root(), ".bd-marks"), g = svg.firstChild, kind = frame.dataset.kind;
       const none = !p.length || (kind !== "ink" && kind !== "many") || frame.hasAttribute("data-busy");
@@ -747,13 +778,34 @@
       if (none) return;
       const v = S().view, zz = z(), r = (n) => Math.round(n * 10) / 10;
       g.setAttribute("transform", `matrix(${zz} 0 0 ${zz} ${-v.x * zz} ${-v.y * zz})`);
-      const sig = zz + "|" + p.map((it) => it.k === "ink" ? `${it.id}:${it.pts.length}:${it.pts[0][0]},${it.pts[0][1]},${it.pts[it.pts.length - 1][0]},${it.pts[it.pts.length - 1][1]}:${it.w}` : `${it.id}:${I.outline(it).flat().map(r).join(",")}`).join("|");
+      const keys = p.map((it) => zz + ":" + (it.k === "ink" ? `${it.id}:${it.pts.length}:${it.pts[0][0]},${it.pts[0][1]},${it.pts[it.pts.length - 1][0]},${it.pts[it.pts.length - 1][1]}:${it.w}` : `${it.id}:${I.outline(it).flat().map(r).join(",")}`)), sig = keys.join("|");
       if (sig === marked) return;
       marked = sig;
-      g.innerHTML = p.map((it) => {
-        if (it.k === "ink") { const o = B.render.outline(it); return `<path class="bd-mark-ink"${o.stroke ? "" : " data-shape"} stroke-width="${r(o.stroke + 6 / zz)}" stroke-linecap="${o.cap}" d="${o.d}"/>`; } // (the way the ink itself is drawn, a little wider)
-        return `<path class="bd-mark" stroke-width="${r(1.5 / zz)}" d="M${I.outline(it).map((pt) => r(pt[0]) + " " + r(pt[1])).join("L")}${it.k === "line" ? "" : "Z"}"/>`;
-      }).join("");
+      let inks = g.querySelector(".bd-mark-inks"); // (the strokes' marks: faint together)
+      if (!inks) { inks = document.createElementNS("http://www.w3.org/2000/svg", "g"); inks.setAttribute("class", "bd-mark-inks"); g.appendChild(inks); }
+      // (each thing's mark kept as long as the thing and the size stay as they were: a choice that grows stroke by stroke over half
+      // a page made every mark anew for every stroke that joined it, #43)
+      const want = new Set();
+      p.forEach((it, i) => {
+        let m = markOf.get(it);
+        if (!m || m.key !== keys[i]) {
+          const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          if (it.k === "ink") { // (the way the ink itself is drawn, a little wider)
+            const o = B.render.outline(it);
+            el.setAttribute("class", "bd-mark-ink"); if (!o.stroke) el.setAttribute("data-shape", "");
+            el.setAttribute("stroke-width", r(o.stroke + 6 / zz)); el.setAttribute("stroke-linecap", o.cap); el.setAttribute("d", o.d);
+          } else {
+            el.setAttribute("class", "bd-mark"); el.setAttribute("stroke-width", r(1.5 / zz));
+            el.setAttribute("d", `M${I.outline(it).map((pt) => r(pt[0]) + " " + r(pt[1])).join("L")}${it.k === "line" ? "" : "Z"}`);
+          }
+          if (m) m.el.remove();
+          markOf.set(it, (m = { key: keys[i], el }));
+        }
+        want.add(m.el);
+        const into = it.k === "ink" ? inks : g;
+        if (m.el.parentNode !== into) into.appendChild(m.el);
+      });
+      for (const el of [...g.children, ...inks.children]) if (el !== inks && !want.has(el)) el.remove();
     }
     function paint() {
       const st = S(), el = root(), frame = q(el, ".bd-pick"), band = q(el, ".bd-band"), gv = q(el, ".bd-guide-v"), gh = q(el, ".bd-guide-h"), tip = q(el, ".bd-angle");
@@ -876,7 +928,7 @@
       return false;
     }
 
-    return { hover, context, snap, restore, snapshot: snap, commitSince: commit, thingAt: (pt) => { const p = ctx.onBoard(pt); return under(p.x, p.y) || shellAt(p.x, p.y); }, get joints() { const it = act ? null : jointed(); return it ? { id: it.id, at: SIDES.map(([side, hx, hy]) => { const m = I.mid(it), r = ((it.r || 0) * Math.PI) / 180, lx = hx * (it.w / 2 + JOINT / z()), ly = hy * (it.h / 2 + JOINT / z()); return [side, ...toScreen(m[0] + lx * Math.cos(r) - ly * Math.sin(r), m[1] + lx * Math.sin(r) + ly * Math.cos(r))]; }) } : null; }, make, put, type, grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; },
+    return { hover, context, snap, restore, run, snapshot: snap, commitSince: commit, thingAt: (pt) => { const p = ctx.onBoard(pt); return under(p.x, p.y) || shellAt(p.x, p.y); }, get joints() { const it = act ? null : jointed(); return it ? { id: it.id, at: SIDES.map(([side, hx, hy]) => { const m = I.mid(it), r = ((it.r || 0) * Math.PI) / 180, lx = hx * (it.w / 2 + JOINT / z()), ly = hy * (it.h / 2 + JOINT / z()); return [side, ...toScreen(m[0] + lx * Math.cos(r) - ly * Math.sin(r), m[1] + lx * Math.sin(r) + ly * Math.cos(r))]; }) } : null; }, make, put, type, grabs, itemAt, hold, twist, twisting, twisted, cards, start, move, end, cancel, key, paint, click, insert, finish, pick, closePop, paste, pictures, connectTo, get pending() { return !!pending; }, get clip() { return clip.length; }, tab, get cell() { return edit ? edit.cell : null; }, get editing() { return edit ? edit.it.id : null; }, get busy() { return !!act; },
     // (what is being pulled across the board — a thing moved, a box, a shape pulled open, a size, a line's end: board.js runs the board along at the window's edge)
     get pulling() { return !!act && ["move", "box", "make", "size", "inksize", "conn", "end"].includes(act.kind) && (act.kind !== "move" || act.moved); } };
   }

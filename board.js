@@ -420,7 +420,7 @@
     const dx = by(pt.x, s.w), dy = by(pt.y, s.h);
     if (!dx && !dy) return;
     fast = true; S.view.panBy(dx * RUN, dy * RUN); fast = false;
-    sel.move([pt], edge.e); // (the hand stood still while the board went on: what it holds goes with the board)
+    sel.move([pt], edge.e); sel.run(); // (the hand stood still while the board went on: what it holds goes with the board — in this frame)
     edge.frame = requestAnimationFrame(edgeRun);
   }
   /* A notch of a mouse's wheel is a large step: the size goes there as a glide, around the pointer — and a notch more while it
