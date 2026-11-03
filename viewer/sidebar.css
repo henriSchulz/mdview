@@ -62,7 +62,7 @@ body:is([data-sidebar="open"], [data-sidebar="peek"]) .sb-list { padding-bottom:
 /* its edge, to pull it wider, narrower, away — and, from the window's edge, out again (the pointer says so) */
 #sb-grip { position: fixed; top: 0; bottom: 0; left: 0; z-index: 16; width: 6px; cursor: col-resize; display: none; }
 body[data-folder] #sb-grip { display: block; }
-body[data-sidebar="open"] #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; }
+body:is([data-sidebar="open"], [data-sidebar="peek"]) #sb-grip { left: calc(var(--sb-w) - 4px); width: 8px; } /* (peeking too: pulled wider there — #38) */
 body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
 @media print { #sb-grip { display: none !important; } }
 /* Pinned in a window wide enough, the sidebar makes room, as in Finder or Notes (Henri, 2026-10-26: Notion's way — pinned it

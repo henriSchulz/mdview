@@ -68,8 +68,21 @@
     pasteWanted = true;
     post("tab", { op: "new" });
   }
+  /* A folder in a tab (#38, Henri: „Man soll auch Ordner als Tab angezeigt haben können“): Ctrl and a click — or the middle
+   * button — on a folder's row or tile. The application keeps it as it keeps a note's tab (its path is the folder's, `dir`),
+   * and the page shows All Notes in it: in the folder, or where one went from there in that tab. */
+  function folderTab(path) {
+    if (P.folder && path.startsWith(P.folder.root + "/") && tabsOn()) post("tab", { op: "new", dir: path });
+  }
+  // where All Notes stands in a folder's tab: where one went in it, else the folder (its names below the window's folder)
+  function folderPlace(t) {
+    const h = navs.get(String(t.id))?.here;
+    if (h && !h.note) return { at: h.at || [], scope: h.scope || "folders" };
+    return { at: P.folder && t.path.startsWith(P.folder.root + "/") ? t.path.slice(P.folder.root.length + 1).split("/") : [], scope: "folders" };
+  }
   function tabLabel(t) {
     if (!t.path) return T(pasteTabs.has(t.id) ? "Pasteboard" : "All Notes");
+    if (t.dir) return t.name;
     let title = "";
     if (P.sbTitles && P.folder) { // as the sidebar names it
       const find = (dir) => dir.notes.find((n) => n.real === t.path) || dir.dirs.reduce((hit, d) => hit || find(d), null);
@@ -81,7 +94,8 @@
     const label = tabLabel(t), text = el.lastChild;
     if (el.dataset.path !== (t.path || "")) {
       el.dataset.path = t.path || "";
-      el.firstChild.innerHTML = t.path ? rowIcon(t.path) : pasteTabs.has(t.id) ? ICON.clip || ICON.apps : ICON.apps;
+      el.toggleAttribute("data-dir", !!t.dir);
+      el.firstChild.innerHTML = t.dir ? ICON.folder : t.path ? rowIcon(t.path) : pasteTabs.has(t.id) ? ICON.clip || ICON.apps : ICON.apps;
       if (t.path) el.dataset.tip = P.folder && t.path.startsWith(P.folder.root + "/") ? t.path.slice(P.folder.root.length + 1) : t.path; else delete el.dataset.tip;
     }
     if (text.textContent !== label) {
@@ -144,7 +158,7 @@
       el.classList.add("leaving");
       setTimeout(() => el.remove(), motionMs("--dur-base", 240));
     }
-    const was = tabShown, wasPath = tabs.find((t) => t.id === was)?.path;
+    const was = tabShown, wasTab = tabs.find((t) => t.id === was), wasPath = wasTab && !wasTab.dir && wasTab.path;
     tabs = d.tabs; tabActive = tabShown = d.active; tabClosed = !!d.closed;
     markTabs();
     tabGlide(stood);
@@ -152,18 +166,23 @@
     // an empty tab shows all notes; a tab come to shows its note, not the tiles
     const now = tabs.find((t) => t.id === tabShown);
     if (window.MdOverview && now) {
-      if (!now.path && (was !== tabShown || wasPath)) { if (MdOverview.isOpen) MdOverview.close(false); MdOverview.open(pasteTabs.has(now.id) ? "paste" : null); } // (from one empty tab to another: All Notes, or the pasteboard)
+      if (now.dir) { if (was !== tabShown || wasPath) { // (a folder's tab: All Notes in it — not the folders on the way there, which are no step back)
+        const pl = folderPlace(now);
+        navTo = placeKey({ all: true, ...pl }); navUntil = performance.now() + 2500;
+        MdOverview.showAt(pl.at, pl.scope);
+      } }
+      else if (!now.path && (was !== tabShown || wasPath)) { if (MdOverview.isOpen) MdOverview.close(false); MdOverview.open(pasteTabs.has(now.id) ? "paste" : null); } // (from one empty tab to another: All Notes, or the pasteboard)
       else if (now.path && (was !== tabShown || !wasPath)) MdOverview.close(false); // (… and an empty tab given a note — a start's, from the sidebar: the note, not the tiles over it)
     }
   }
   function selectTab(id) {
     const t = tabs.find((x) => x.id === id);
     // the tab of the note that lies under all notes: back to the note
-    if (t && id === tabActive && t.path && window.MdOverview && MdOverview.isOpen) { MdOverview.close(); return; }
+    if (t && id === tabActive && t.path && !t.dir && window.MdOverview && MdOverview.isOpen) { MdOverview.close(); return; }
     if (!t || id === tabActive) return;
     tabActive = id; // marked at once; the application answers with the tabs as they then are
     markTabs();
-    if (t.path) going(t.path);
+    if (t.path && !t.dir) going(t.path);
     post("tab", { op: "select", id });
   }
   const closeTab = (id) => post("tab", { op: "close", id });
@@ -313,7 +332,7 @@
     navClosed = setTimeout(() => { if (!document.body.hasAttribute("data-overview") && P.current && P.current.path) navHere({ note: P.current.path }); }, 400);
   }).observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
 
-  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, pasteTab, navHere, navGo, navPaint });
+  Object.assign(P, { tabbar, tabRow, tabsOn, topRoom, tabEls, paintTab, setTabs, pasteTab, folderTab, navHere, navGo, navPaint });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     tabs: [() => tabs],

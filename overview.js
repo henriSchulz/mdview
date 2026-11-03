@@ -592,6 +592,7 @@
   const toggle = () => (!isOpen() ? open() : core.current ? close() : false);
   // tab: in a tab of its own (Ctrl held, the middle button)
   function go(tile, tab = false) {
+    if (tile.dataset.dir && tab && core.folderTab) { core.folderTab(tile.dataset.path); return; } // (a folder in a tab of its own: viewer/tabs.js)
     if (tile.dataset.dir) { if (scope === "home") { scope = "folders"; at = []; } at.push(tile.dataset.dir); picked.clear(); rebuild(); return; }
     const path = tile.dataset.path;
     // (a picture, a film, any other file opens in its own application: the tiles stay)

@@ -527,8 +527,9 @@
   sbGrip.addEventListener("mousedown", (e) => {
     if (e.button !== 0 || !folder) return;
     e.preventDefault();
-    const was = sbWidth(), wasOpen = sidebarOpen();
-    let gone = !wasOpen, moved = false;
+    // (peeking, its edge is pulled as the pinned one's — #38: it goes on peeking, wider or narrower, and only its width is told)
+    const was = sbWidth(), wasOpen = sidebarOpen(), peeked = document.body.dataset.sidebar === "peek";
+    let gone = !wasOpen && !peeked, moved = false;
     sbDragging = true;
     document.body.classList.add("sb-sizing");
     sidebar.classList.add("no-anim");
@@ -536,7 +537,7 @@
       moved = true;
       const x = ev.clientX;
       if (x < SB_GONE) { if (!gone) { gone = true; document.body.dataset.sidebar = "closed"; } return; }
-      if (gone) { gone = false; document.body.dataset.sidebar = "open"; }
+      if (gone) { gone = false; document.body.dataset.sidebar = peeked ? "peek" : "open"; }
       document.documentElement.style.setProperty("--sb-w", Math.round(Math.max(SB_MIN, Math.min(sbMax(), x))) + "px");
     };
     const up = (ev) => {
@@ -548,6 +549,7 @@
       sidebar.classList.remove("no-anim");
       if (!moved) return;
       if (gone) document.documentElement.style.setProperty("--sb-w", was + "px"); // (it comes back as wide as it was)
+      if (peeked && !gone) { post("sidebar", { width: Math.round(sbWidth()) }); return; } // (peeking moves nothing: no room to make anew)
       post("sidebar", { width: Math.round(sbWidth()), visible: !gone });
       window.dispatchEvent(new Event("resize")); // (what fits itself to the column's width does so again)
     };
@@ -871,7 +873,7 @@
     // Shift+click: one more selected, or one less — nothing opens (as among the tiles of All Notes)
     if (e.shiftKey) { const now = new Set(sbPicked); if (!now.delete(item.dataset.key)) now.add(item.dataset.key); pickRows(now); return; }
     if (sbPicked.size) pickRows([]);
-    if (item.classList.contains("is-dir")) { if (sbLayout() === "sheets") setHere(item.dataset.key, false); else toggleDir(item); } // (among the sheets a folder is gone into)
+    if (item.classList.contains("is-dir")) { if ((e.ctrlKey || e.metaKey) && P.folderTab) P.folderTab(item.dataset.key); else if (sbLayout() === "sheets") setHere(item.dataset.key, false); else toggleDir(item); } // (among the sheets a folder is gone into; with Ctrl, a tab of its own: viewer/tabs.js)
     else if (!row.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(item, e.ctrlKey || e.metaKey);
   });
   /* Several rows at once. What is done to one of them — by the menu, a key, a pull — is done to all. */
@@ -916,9 +918,9 @@
   sbList.addEventListener("mousedown", (e) => { if (e.button === 1 && e.target.closest(".sb-row")) e.preventDefault(); }); // (no scrolling by the middle button here)
   sbList.addEventListener("auxclick", (e) => {
     const item = e.button === 1 && e.target.closest(".sb-row")?.closest(".sb-item");
-    if (!item || item.classList.contains("is-dir")) return;
+    if (!item) return;
     e.preventDefault();
-    openRow(item, true);
+    if (item.classList.contains("is-dir")) { if (P.folderTab) P.folderTab(item.dataset.key); } else openRow(item, true);
   });
   // Ctrl+Z and Ctrl+Shift+Z (Ctrl+Y) over All Notes or in the sidebar: what was done to the files — moved, renamed, trashed,
   // made, hidden — taken back and done again. The shell keeps that history (shell/undo.rs); the browser's host has none (a
@@ -1157,7 +1159,7 @@
     }
     if (kind === "tab") for (const el of ctxItems) { // what there is nothing to do for stands dimmed
       // (beside the note: a tab that is not the one in the window, and makes a note and a PDF with it — viewer/split.js)
-      const split = P.splitState && P.splitState(), beside = !!item.dataset.path && P.splitFor(item.dataset.path);
+      const split = P.splitState && P.splitState(), beside = !!item.dataset.path && !item.hasAttribute("data-dir") && P.splitFor(item.dataset.path);
       const off = (el.dataset.cmd === "tab:reopen" && !P.tabClosed) || (el.dataset.cmd === "tab:others" && P.tabs.length < 2) || (el.dataset.cmd === "tab:split" && !beside);
       el.disabled = off; el.classList.toggle("off", off);
       if (el.dataset.cmd === "tab:unsplit") el.hidden = !split; // (only while two are side by side)

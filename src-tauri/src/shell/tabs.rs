@@ -8,6 +8,11 @@ impl Win {
         Tab { id: self.tab_seq, path: path.map(resolve), back: vec![], fwd: vec![] }
     }
 
+    /// A folder below the window's (a folder's tab shows one: #38).
+    pub(super) fn dir_of_folder(&self, dir: &Path) -> bool {
+        dir.is_dir() && self.folder.as_deref().is_some_and(|f| dir != f && dir.starts_with(f))
+    }
+
     pub(super) fn tab_index(&self, id: u64) -> Option<usize> {
         self.tabs.iter().position(|t| t.id == id)
     }
@@ -15,7 +20,7 @@ impl Win {
     /// What the window shows, written into its tab.
     pub(super) fn stash_tab(&mut self) {
         if let Some(t) = self.tabs.get_mut(self.tab) {
-            t.path = self.path.clone();
+            t.path = self.path.clone().or_else(|| self.dir_tab.clone());
             t.back = self.back.clone();
             t.fwd = self.fwd.clone();
         }
@@ -40,7 +45,13 @@ impl Win {
             return;
         }
         let payload = json!({
-            "tabs": self.tabs.iter().map(|t| json!({ "id": t.id, "path": t.path.as_deref().map(s), "name": t.path.as_deref().map(name_of).unwrap_or_default() })).collect::<Vec<_>>(),
+            "tabs": self.tabs.iter().map(|t| {
+                let mut told = json!({ "id": t.id, "path": t.path.as_deref().map(s), "name": t.path.as_deref().map(name_of).unwrap_or_default() });
+                if t.path.as_deref().is_some_and(|p| p.is_dir()) {
+                    told["dir"] = json!(true); // (a folder's tab: the page shows All Notes in it)
+                }
+                told
+            }).collect::<Vec<_>>(),
             "active": self.tabs[self.tab].id,
             "closed": !self.closed_tabs.is_empty(),
         });
@@ -57,9 +68,19 @@ impl Win {
         let t = &self.tabs[i];
         self.back = t.back.clone();
         self.fwd = t.fwd.clone();
-        match t.path.clone().filter(|p| p.is_file()) {
-            Some(path) => self.open_path(app, &path, fragment, false),
-            None => self.show_nothing(app), // an empty tab, or its file is gone
+        let path = t.path.clone();
+        match path {
+            Some(path) if path.is_file() => self.open_path(app, &path, fragment, false),
+            Some(dir) if self.dir_of_folder(&dir) => {
+                // a folder's tab (#38): nothing of a note, and the page shows All Notes in the folder
+                self.dir_tab = Some(dir.clone());
+                self.show_nothing(app);
+                self.set_title(name_of(&dir));
+            }
+            _ => {
+                self.dir_tab = None;
+                self.show_nothing(app) // an empty tab, or its file is gone
+            }
         }
     }
 
@@ -137,7 +158,7 @@ impl Win {
 
     pub(super) fn reopen_tab(&mut self, app: &mut App) {
         while let Some((path, at)) = self.closed_tabs.pop() {
-            if path.is_file() {
+            if path.is_file() || self.dir_of_folder(&path) {
                 return self.new_tab(app, Some(&path), None, Some(at));
             }
         }
@@ -167,7 +188,11 @@ impl Win {
         .unwrap_or(self.tabs[self.tab].id);
         match msg["op"].as_str() {
             Some("select") => self.select_tab(app, id),
-            Some("new") => self.new_tab(app, None, None, None),
+            Some("new") => {
+                // (dir: a folder's tab — #38)
+                let dir = msg["dir"].as_str().map(|d| resolve(Path::new(d))).filter(|d| self.dir_of_folder(d));
+                self.new_tab(app, dir.as_deref(), None, None)
+            }
             Some("close") => self.close_tab(app, id),
             Some("others") => self.close_other_tabs(app, id),
             Some("reopen") => self.reopen_tab(app),

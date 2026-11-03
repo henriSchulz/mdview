@@ -479,6 +479,7 @@ pub struct Win {
     tab_seq: u64,
     tabs_json: Option<String>,
     closed_tabs: Vec<(PathBuf, usize)>, // (path, place) of tabs closed here, for Ctrl+Shift+T
+    dir_tab: Option<PathBuf>, // the tab shown is a folder's: All Notes in it (#38) — written into the tab as its path is
     resolver: Option<Resolver>,
     editing: bool,
     board_open: bool, // a whiteboard is open over the note: closing asks the page first, as while a note is written
@@ -652,6 +653,7 @@ impl Win {
             tab_seq: 0,
             tabs_json: None,
             closed_tabs: vec![],
+            dir_tab: None,
             resolver: None,
             editing: false,
             board_open: false,
@@ -787,6 +789,7 @@ impl Win {
 
     fn open_path(&mut self, app: &mut App, path: &Path, fragment: Option<String>, push: bool) {
         let path = resolve(path);
+        self.dir_tab = None; // (a file in the tab: no longer a folder's)
         if self.fresh.is_some() && self.fresh == self.path && self.path.as_deref() != Some(path.as_path()) {
             self.settle_fresh(app, true); // (a new note left: named after its title, for good)
         }
@@ -915,7 +918,8 @@ impl Win {
                 let shown = saved.get("active").and_then(Value::as_u64) == Some(i as u64);
                 let Some(p) = p.as_str() else { continue };
                 let opens = !p.is_empty() && Path::new(p).is_file() && matches!(file_kind(Path::new(p)), "md" | "pdf" | "slides");
-                if opens || (p.is_empty() && shown) {
+                let dir = !p.is_empty() && self.dir_of_folder(Path::new(p)); // (a folder's tab: #38)
+                if opens || dir || (p.is_empty() && shown) {
                     if shown {
                         self.tab = self.tabs.len();
                     }

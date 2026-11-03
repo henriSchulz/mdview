@@ -22,7 +22,7 @@ export const FROM_PAGE: Record<string, [Does, string]> = {
   link: ["answer", "a link was clicked: a note of the repository, a place in it, or an address elsewhere"],
   wikilink: ["answer", "a [[wikilink]] was clicked"],
   note: ["answer", "a note was chosen in the sidebar or among the tiles"],
-  tab: ["answer", "tabs: new, select, close, move, reopen"],
+  tab: ["answer", "tabs: new (or a folder's: dir), select, close, move, reopen"],
   back: ["answer", "the note shown before"],
   forward: ["answer", "… and after"],
   resolve: ["answer", "where a link in a field being edited leads (the link popover)"],

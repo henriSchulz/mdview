@@ -17,6 +17,8 @@
   const press = (el) => { const r = el.getBoundingClientRect(); for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); };
   try {
     await sleep(1200);
+    // (a folder opens on All Notes, in an empty tab — Henri, 2026-10-14: the first note is chosen in the sidebar, into that tab)
+    if (!cur()) { row("basics.md").click(); await sleep(1200); }
     const strip = document.getElementById("tabs");
     ok("a folder window has the strip: the house, one tab, a plus", document.body.hasAttribute("data-tabs") && strip.getBoundingClientRect().height > 40 && els().length === 1 && !!strip.querySelector(".tab-home") && !!strip.querySelector(".tab-new"), els().length);
     const first = cur();
@@ -142,6 +144,17 @@
       const first = fits(), other = [...list.querySelectorAll(".tab")].find((t) => t !== on());
       ok("the tab in hand lies on a lifted plate in the tabs' track", first.every((d) => d < 1.5) && plate === list.lastElementChild && getComputedStyle(plate).opacity === "1" && getComputedStyle(on()).backgroundColor === "rgba(0, 0, 0, 0)", [first, getComputedStyle(on()).backgroundColor]);
       if (other) { press(other); other.click(); await sleep(900); ok("another tab chosen: the plate has gone to it", fits().every((d) => d < 1.5) && on() === other, fits()); }
+    }
+    // a folder in a tab of its own (#38): Ctrl and a click on its row — named after it, All Notes in it, there again when come back to
+    {
+      const dir = [...document.querySelectorAll(".sb-item.is-dir")].find((i) => i.dataset.key.endsWith("/sub")), n = els().length;
+      dir.querySelector(".sb-row").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true })); await sleep(1200);
+      const t = els()[shown()], inSub = () => window.MdOverview && MdOverview.isOpen && !!document.querySelector('#overview .ov-item[data-path$="/sub/footnotes.md"]') && !document.querySelector('#overview .ov-item[data-path$="/basics.md"]');
+      ok("Ctrl+click on a folder: a tab of its own, named after it, All Notes in the folder", els().length === n + 1 && t.hasAttribute("data-dir") && t.querySelector(".tab-label").textContent === "sub" && inSub(), [labels(), inSub()]);
+      press(els()[0]); await sleep(900);
+      ok("another tab: its note", !MdOverview.isOpen && !!cur(), [cur(), MdOverview.isOpen]);
+      const back = els().find((x) => x.hasAttribute("data-dir")); press(back); await sleep(1200);
+      ok("the folder's tab again: All Notes in the folder", inSub(), labels());
     }
   } catch (e) { o.error = String(e.stack || e); }
   out("tabs", o);
