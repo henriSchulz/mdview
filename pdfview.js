@@ -74,11 +74,15 @@
     for (const c of w.chunks) { all.set(c, at); at += c.length; }
     w.resolve(all);
   }
+  // A picture in a PDF is taken at most this large (four bytes a pixel: 16 million pixels, a page of A4 at 300 dpi and more); one
+  // larger is made smaller as it is read. pdf.js left it as large as the browser's canvas allows — a scan at 1200 dpi is 157
+  // million pixels a page, and four such pages held 13 GB of the GPU's memory until the whole session went down (#44).
+  const IMAGE_BYTES = 4 * 16 * 1024 * 1024;
   const docs = new Map(); // path -> { key, promise } (the last few)
   function docOf(path, key = "") {
     const have = docs.get(path);
     if (have && have.key === key) return have.promise;
-    const promise = bytesOf(path).then((data) => lib.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise);
+    const promise = bytesOf(path).then((data) => lib.getDocument({ data, isEvalSupported: false, useSystemFonts: true, canvasMaxAreaInBytes: IMAGE_BYTES }).promise);
     docs.delete(path);
     docs.set(path, { key, promise });
     promise.catch(() => docs.delete(path));

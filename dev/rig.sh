@@ -51,6 +51,7 @@
 #   dev/rig.sh docstyle              the document's style (ground, width) beside the source and the source with its reading: the panel, written into the head, Ctrl+Z, both sheets
 #   dev/rig.sh scrollperf [pdf]      frames while a long note on each ground is scrolled in each mode, and a PDF of sixty pages: median, p95, long ones; no ground held at the window
 #   dev/rig.sh pdfscroll             a PDF full of words scrolled and zoomed: its text layer not drawn meanwhile, back to select after
+#   dev/rig.sh pdfscan               a scan at 1200 dpi (one bit a pixel): its pages drawn, and no picture made for them larger than a page is drawn
 #   dev/rig.sh switchlag             a long note from mode to mode: the thumb glides on, the page holds only when nothing moves
 #   dev/rig.sh sblag                 a long note scrolled, the sidebar opened and shut, in each layout: frames as even as with it shut
 #   dev/rig.sh idle                  a window at rest costs next to nothing (CPU of the app and its web process over 5 s)
@@ -512,6 +513,17 @@ case "${1:-}" in
     pkill -f "^$APP" 2>/dev/null
     f=$(ls "$R/out"/*.pdfscroll.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty), "  (a frame: scrolled \(.scroll) ms, zoomed \(.zoom) ms)"' "$f"
+    jq -e .pass "$f" >/dev/null ;;
+  pdfscan)
+    # (a PDF of a scan at 1200 dpi, pictures of one bit a pixel, Group 4 as scanners write them: #44)
+    rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.pdfscan.json
+    magick -size 10200x13200 xc:white -fill black -draw "rectangle 600,600 9600,700" -draw "circle 5100,7000 5100,9000" -fill white -draw "circle 5100,7000 5100,8800" \
+      -monochrome -density 1200 -units PixelsPerInch -compress Group4 "$R/work/scan.pdf"
+    app 60 MDVIEW_PROBE="$D/probe-pdfscan.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/scan.pdf"
+    for _ in $(seq 500); do ls "$R/out"/*.pdfscan.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    f=$(ls "$R/out"/*.pdfscan.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '(.results[] | (if .ok then "ok   " else "FAIL " end) + .name + (if .ok then "" else "  " + (.detail | tostring) end)), (.error // empty)' "$f"
     jq -e .pass "$f" >/dev/null ;;
   switchlag)
     # (a long note, changed from mode to mode by the switch: the page's long hold comes when nothing on the screen moves)
