@@ -382,8 +382,8 @@
    * and it moves there as a hand moves — curves, corners, speed and pressure come of the movement (px, [[x, y]] → [[x, y, p]]).
    * mess: 0.5 careful … 1 as most write … 1.4 in a hurry; ends: false where the stroke must end where it was put (an arrow
    * meets its point); round: 1 for writing, less for a drawing's corners. */
-  function hand(run, size, mess, ends = true, round = 1) {
-    return B.hand.write(run, { size, mess, ends, round, press: 0.48, wander: wander(size * 1.4) });
+  function hand(run, size, mess, ends = true, round = 1, style = "hand") {
+    return B.hand.write(run, { size, mess, ends, round, style, wander: wander(size * 1.4) });
   }
   /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", mess (0.5 careful …
    * 1.4 hurried; 1), maxw (where lines break), tool, c, w } → strokes, all of one writing. Each text is written by a hand of
@@ -394,7 +394,8 @@
     const size = Number.isFinite(o.size) ? Math.max(8, Math.min(200, o.size)) : 28, k = size / 21, lead = size * 1.75;
     const mess = Number.isFinite(o.mess) ? Math.max(0.3, Math.min(1.5, o.mess)) : 1;
     const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = Number.isFinite(o.y) ? o.y : 0, maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
-    const script = o.style === "script", slant = script ? 0.02 + Math.random() * 0.06 : 0.03 + Math.random() * 0.13, wide = (script ? 0.92 : 0.8) + Math.random() * 0.12, apart = 0.9 + Math.random() * 0.1;
+    const st = B.hand.styleOf(o.style === "script" ? "script" : "hand"), wob = st.wobble, dri = st.drift; // (the style's numbers: board/hand.js)
+    const slant = st.slant + shake(st.slantVar), wide = st.wide + shake(0.06), apart = st.apart + shake(0.05);
     const glyphOf = (u) => (u.tex != null ? formula(font, u.tex) : letter(font, u.ch));
     const wide1 = (text) => units(text).reduce((a, u) => a + glyphOf(u).adv, 0) * k * wide * apart;
     // the lines: as written, and broken where a word would go past maxw (never inside a formula)
@@ -417,18 +418,18 @@
         if (u.ch === " " || at === x0) word = { grow: 1 + shake(0.05 * mess), lift: shake(size * 0.03 * mess) };
         // (a formula is one unit, as long as many letters: its size, its turn and the room after it are a hand's over a whole word,
         // not a letter's — a letter's chance on its width put what follows into its end)
-        const g = glyphOf(u), f = u.tex != null ? 0.25 : 1, grow = word.grow * (1 + shake(0.06 * mess * f)), across = wide * (1 + shake(0.08 * mess * f)), tall = 1 + shake(0.08 * mess * f), skew = shake(0.08 * mess * f), turn = shake(0.035 * mess * f);
-        const sl = slant + lean(at - x0) * 0.04 * mess, lift = word.lift + base(at - x0) * size * 0.05 * mess + shake(size * 0.02 * mess), cos = Math.cos(turn), sin = Math.sin(turn);
+        const g = glyphOf(u), f = u.tex != null ? 0.25 : 1, grow = word.grow * (1 + shake(0.06 * mess * f * wob)), across = wide * (1 + shake(0.08 * mess * f * wob)), tall = 1 + shake(0.08 * mess * f * wob), skew = shake(0.08 * mess * f * wob), turn = shake(0.035 * mess * f * wob);
+        const sl = slant + lean(at - x0) * 0.04 * mess * dri, lift = word.lift + base(at - x0) * size * 0.05 * mess * dri + shake(size * 0.02 * mess * wob), cos = Math.cos(turn), sin = Math.sin(turn);
         for (const run of g.runs) {
           let px = run.map(([gx, gy]) => {
             const ly = (gy - 21) * k * grow * tall, lx = gx * k * grow * across - ly * (sl + skew); // (about the letter's foot)
             const x = at + lx * cos - ly * sin, y = y0 + n * lead + tops[n] + size + lift + lx * sin + ly * cos;
-            return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess];
+            return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess * dri, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess * dri];
           });
           // (a dot — of an i, a j, an umlaut, a full stop — is a short dash as a pen puts it, not a round)
           const xs = px.map((p) => p[0]), ys = px.map((p) => p[1]), dot = Math.max(...xs) - Math.min(...xs) < size * 0.14 && Math.max(...ys) - Math.min(...ys) < size * 0.14;
           if (dot) { const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, d = size * (0.04 + Math.random() * 0.04), a = -0.5 + shake(0.6); px = [[cx - Math.cos(a) * d, cy - Math.sin(a) * d], [cx + Math.cos(a) * d, cy + Math.sin(a) * d]]; }
-          const it = stroke(hand(px, size, dot ? mess * 0.3 : mess), { tool: o.tool || "pen", c: o.c, w });
+          const it = stroke(hand(px, size, dot ? mess * 0.3 : mess, true, 1, o.style === "script" ? "script" : "hand"), { tool: o.tool || "pen", c: o.c, w });
           it.of = of;
           made.push(it);
           if (u.tex != null) (inLine[n] = inLine[n] || []).push(it);
@@ -690,5 +691,7 @@
     return null;
   }
 
-  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, formula: (tex, style) => formula(fontOf(style), tex), units, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
+  // every sign the hand can write (dev/hand-lab.html shows them one by one)
+  const signs = () => [...Array.from({ length: 94 }, (_v, i) => String.fromCharCode(33 + i)), ...Object.keys(DOTS), "ß", ...Object.keys(SIGNS).filter((c) => !/^[ -~]$/.test(c))];
+  B.claude = { describe, lineOf, reader, words, flatten, stroke, write, apply, signs, formula: (tex, style) => formula(fontOf(style), tex), units, letter: (ch, style) => letter(fontOf(style), ch), smooth, simplify, tellPick, refine };
 })();
