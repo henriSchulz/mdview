@@ -493,7 +493,7 @@
     if (!font || typeof o.text !== "string" || !o.text.trim()) return [];
     const size = Number.isFinite(o.size) ? Math.max(8, Math.min(200, o.size)) : 28, k = size / 21, lead = size * 1.75;
     const mess = Number.isFinite(o.mess) ? Math.max(0.3, Math.min(1.5, o.mess)) : 1;
-    const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = (Number.isFinite(o.y) ? o.y : 0) + (names ? flowAt(names, Number.isFinite(o.y) ? o.y : 0) : 0), maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
+    const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = (Number.isFinite(o.y) ? o.y : 0) + (names ? flowAt(names, Number.isFinite(o.y) ? o.y : 0) : 0) + (o.push || 0), maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
     const st = B.hand.styleOf(o.style === "script" ? "script" : "hand"), wob = st.wobble, dri = st.drift; // (the style's numbers: board/hand.js)
     const slant = st.slant + shake(st.slantVar), wide = st.wide + shake(0.06), apart = st.apart + shake(0.05);
     const glyphOf = (u) => (u.tex != null ? formula(font, u.tex) : letter(font, u.ch));
@@ -514,7 +514,7 @@
     const tall = lines.map((line) => { const fs = units(line).filter((u) => u.tex != null).map((u) => formula(font, u.tex)); return { up: Math.max(0, 1 - Math.min(1, ...fs.map((f) => f.top))) * k, down: Math.max(0, Math.max(28, ...fs.map((f) => f.bot)) - 28) * k }; });
     lines.forEach((line, n) => {
       if (book) {
-        const base = y0 + n * lead + tops[n] + size + drop, d = intoPage(book, base - size * 1.1 - tall[n].up, base + size * 0.45 + tall[n].down);
+        const base = y0 + n * lead + tops[n] + size + drop, d = intoPage(book, base - size * 1.35 - tall[n].up, base + size * 0.5 + tall[n].down); // (room for an umlaut's dots and a word lifted a little)
         if (d > 0) { drop += d; if (names) names.set("\u0000drops", [...(names.get("\u0000drops") || []), { from: (Number.isFinite(o.y) ? o.y : 0) + n * lead + tops[n], by: d }]); }
       }
       dropAt[n] = drop;
@@ -577,7 +577,24 @@
     if (typeof step.add === "string") {
       const k = step.add === "stroke" ? "ink" : step.add, made = [];
       if (k === "write" || k === "hand") {
-        const w = write(step, o.book || null, names);
+        /* Text never lands on text this answer wrote before it (#42, Henri: headings over the last lines of the part before —
+         * Claude counts a part's lines by its "\n", the lines its words break into at maxw it cannot know): where it would, it
+         * goes under it, and what the answer puts after it goes down as far. A frame, an underline, a marker over words are
+         * meant to lie on them: they only go along (flowAt). */
+        const texts = names.get("\u0000texts") || [], drops0 = names.get("\u0000drops"), yOf = Number.isFinite(step.y) ? step.y : 0;
+        let w = null, push = 0;
+        for (let tries = 0; tries < 6; tries++) {
+          if (drops0) names.set("\u0000drops", drops0); else names.delete("\u0000drops"); // (a try's page breaks, undone)
+          w = write({ ...step, push }, o.book || null, names);
+          const bs = w.map((it) => B.format.boundsOf(it)).filter(Boolean);
+          if (!bs.length) break;
+          const box = [Math.min(...bs.map((b) => b[0])), Math.min(...bs.map((b) => b[1])), Math.max(...bs.map((b) => b[2])), Math.max(...bs.map((b) => b[3]))], size = Number.isFinite(step.size) ? step.size : 28;
+          const under = texts.filter((t) => Math.min(t[2], box[2]) - Math.max(t[0], box[0]) > 4 && Math.min(t[3], box[3]) - Math.max(t[1], box[1]) > 2);
+          if (!under.length) { texts.push(box); break; }
+          push += Math.max(...under.map((t) => t[3])) + size * 0.5 - box[1];
+        }
+        if (push > 0) names.set("\u0000drops", [...(names.get("\u0000drops") || []), { from: yOf, by: push }]);
+        names.set("\u0000texts", texts);
         made.push(...w);
         if (w.rows.length) names.set("\u0000rows", [...(names.get("\u0000rows") || []), ...w.rows]);
       } else if (k === "ink") {

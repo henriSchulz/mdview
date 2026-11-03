@@ -136,6 +136,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     geometry (`TEX`, drawn in `SIGNS`), `\not`, and the marks over or under what they mark (`ACC`: bar, overline, hat,
     tilde, vec, dot, ddot, underline). A new command: its sign drawn too, or it is a name on the page again. Checks:
     `dev/tests/boardclaude.test.mjs` (#41).
+103. **Text Claude writes never lands on text the same answer wrote** (#42, Henri: the headings of a study sheet over the
+    last lines of the part before them). Claude places each step at a y of its own reckoning and counts a part's lines by its
+    "\n"; the lines its words break into at `maxw` it cannot know, and it draws the whole answer before it sees any of it. A
+    "write" that would lie on an earlier one goes under it, and what the answer puts after it goes down as far
+    (`"\u0000texts"`, `flowAt` in `board/claude.js`) — a frame, an underline or a marker over words is meant to lie on them
+    and only goes along. Checks: `dev/tests/boardclaude.test.mjs` (#42).
 
 ### Markdown that is rendered somewhere new
 

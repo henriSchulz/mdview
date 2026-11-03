@@ -362,3 +362,20 @@ test("#41: a formula's commands are signs, never their names written out — \\o
   assert.equal(C.formula("x \\not= y").adv, C.formula("x \\ne y").adv, "\\not= is ≠");
   assert.ok(C.formula("\\|v\\|").adv < C.formula("|v|").adv + 6 && C.formula("\\|v\\|").runs.length > C.formula("|v|").runs.length, "\\| is ‖");
 });
+
+test("#42: a heading put where Claude thought the part before it ended goes under that part, and the parts after it with it — text never lies on text", () => {
+  const book = { y: 0, h: 1123, step: 1139 }, names = new Map(), mdl = board(), groups = [];
+  const put = (step) => { const got = C.apply(mdl, step, names, { book }); groups.push(got.added); };
+  put({ add: "write", x: 40, y: 80, size: 24, c: "#2563eb", text: "1. Was ist Synthese?" });
+  // (three lines by its "\n" — they break at maxw into more, as the hand writes them)
+  put({ add: "write", x: 40, y: 125, size: 18, maxw: 560, text: "· Übersetzung einer RTL-Beschreibung (VHDL/Verilog: Register + Logik dazwischen) in eine Gatter-Netzliste\n· Eingaben: RTL-Code, Zellbibliothek (.lib), Constraints (Takt, Timing, Fläche); Ausgabe: Netzliste aus Standardzellen\n· Ziel: funktional gleiche Schaltung, die Timing, Fläche und Leistung optimiert" });
+  put({ add: "write", x: 40, y: 125 + 3 * 18 * 1.75 + 10, size: 24, c: "#2563eb", text: "2. Ablauf der Synthese" });
+  put({ add: "write", x: 40, y: 125 + 3 * 18 * 1.75 + 55, size: 18, maxw: 560, text: "RTL → Elaboration → generische Logik → Logikoptimierung → Technology Mapping → Netzliste" });
+  put({ add: "ink", d: `M 40 ${125 + 3 * 18 * 1.75 + 42} L 320 ${125 + 3 * 18 * 1.75 + 42}`, c: "#2563eb" }); // (an underline under the heading, as Claude put it)
+  const box = (its) => { const bs = its.map((it) => B.format.boundsOf(it)); return [Math.min(...bs.map((b) => b[0])), Math.min(...bs.map((b) => b[1])), Math.max(...bs.map((b) => b[2])), Math.max(...bs.map((b) => b[3]))]; };
+  const [h1, body1, h2, body2, line] = groups.map(box);
+  assert.ok(h2[1] >= body1[3] + 4, `the heading under the part before it: ${Math.round(h2[1])} against its end ${Math.round(body1[3])}`);
+  assert.ok(body2[1] >= h2[3] + 2, `the part after it under the heading: ${Math.round(body2[1])} against ${Math.round(h2[3])}`);
+  assert.ok(line[1] > (h2[1] + h2[3]) / 2 && line[3] < body2[1] + 4, `the underline went along, under its heading: ${[line[1], line[3]].map(Math.round)} — heading ${Math.round(h2[3])}, next ${Math.round(body2[1])}`);
+  assert.ok(h1[3] < body1[1] + 4, "the first heading stays where it was put");
+});
