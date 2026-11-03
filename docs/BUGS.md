@@ -446,9 +446,13 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     PDF scrolled to its end and back left the window white for more than a second, its pages drawn and in sight — on
     `main` and with a PDF of no pictures alike; without the GPU renderer, or with the canvases the processor's, not. The
     canvases of the pages, the panel's small pages and a PDF's region in a note are made with `willReadFrequently`
-    (`paper` in pdfview.js); drawn as quickly as before. Seen only on the desktop, filmed (a touchpad's scroll sent to the
-    window, a screenshot every 100 ms: how much of the window has ink); in the rig, which draws without the GPU, the check
-    is whose the canvases are: `rig.sh pdfscroll`.
+    (`paper` in pdfview.js). It happened where the scroll ran into the PDF's end (`overscroll-behavior` there stopped the
+    scroll itself). Such a canvas is painted anew whenever its size changes: a pinch that laid the pages out at every step
+    was then more than a frame a step (Henri: „das zoomen fühlt sich nicht flüssig an“) — while the size is pulled the pages
+    are stretched as a whole by a transform around the place the hand holds (`stretch`), and laid out and drawn at their
+    size when it rests, that place kept. Seen only on the desktop, filmed (a touchpad's scroll sent to the window, a
+    screenshot every 100 ms: how much of the window has ink) and the pinch's frames counted; in the rig, which draws without
+    the GPU, the checks are whose the canvases are and that a pull stretches: `rig.sh pdfscroll`.
 84. **What a finger or a pointer moves step by step is never set on the root.** A custom property
     on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
     computed anew when it changes: the block swiped by a finger set its offset there at each step,

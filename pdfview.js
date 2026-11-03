@@ -395,10 +395,11 @@
     }
     return n;
   }
-  let drawLater = 0;
   /* at: { x, y } in the window — the place that stays where it is while the pages grow or shrink around it: the pointer's, where a
    * hand pulls the size (the wheel, a pinch); none: the middle of the window's top edge, as the keys and the bar's buttons mean it. */
   function zoomTo(what, live = false, at = null) {
+    if (live) return stretch(what, at);
+    if (V.live) { clearTimeout(stretchEnd); V.live = null; unstretch(V); }
     const v = V, box = v.box.getBoundingClientRect(), ax = at ? at.x : box.left + box.width / 2, ay = at ? at.y : topRoom();
     // (one pull of the hand holds one place: asked anew at every step it would drift wherever the pages cannot follow — a page
     // narrower than the window stands in its middle — and never come back under the pointer once they can)
@@ -407,16 +408,41 @@
     const fx = held ? held.fx : (ax - r.left) / r.width, fy = held ? held.fy : (ay - r.top) / r.height; // where in the page the place is
     v.hold = at ? { x: ax, y: ay, pg, fx, fy, t: now } : null;
     if (typeof what === "number") { v.fit = null; v.scale = Math.max(0.25, Math.min(5, what)); } else v.fit = what;
-    if (live) v.moving();
     layout();
-    // (while the size is being pulled — a pinch, the wheel — the pages are only stretched; they are drawn anew when it rests)
-    clearTimeout(drawLater);
-    if (live) drawLater = setTimeout(() => { if (V === v) v.pages.forEach((x) => { if (x.near) draw(x); }); }, 140);
-    else v.pages.forEach((x) => { if (x.near) draw(x); });
+    v.pages.forEach((x) => { if (x.near) draw(x); });
     const r2 = pg.div.getBoundingClientRect();
     window.scrollBy({ top: r2.top - (fy >= 0 ? ay - fy * r2.height : r.top), behavior: "instant" }); // (above the first page: its top stays)
     v.box.scrollLeft += r2.left - (ax - fx * r2.width); // (pages broader than the window are moved sideways in their own box: pdfview.css)
     v.bar.querySelectorAll("[data-fit]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.fit === v.fit)));
+  }
+  /* While the size is pulled the pages are stretched as a whole, around the place the hand holds — a transform, which the
+   * compositor does — and laid out and drawn at their new size when the hand rests. (Laid out anew at every step, each
+   * page's canvas was painted anew in every frame: since they are the processor's, #45, that was more than a frame.) */
+  let stretchEnd = 0;
+  const unstretch = (v) => { v.box.style.transform = v.box.style.transformOrigin = v.box.style.willChange = ""; };
+  function stretch(scale, at) {
+    const v = V, want = Math.max(0.25, Math.min(5, scale));
+    v.moving();
+    if (!v.live) {
+      const r = v.box.getBoundingClientRect(), a = at || { x: r.left + r.width / 2, y: topRoom() };
+      v.live = { from: v.scale, at: a, ox: a.x - r.left, oy: a.y - r.top };
+      v.box.style.willChange = "transform";
+    }
+    const L = v.live;
+    L.want = want;
+    // (around the place the hand holds, which zoomTo keeps where it is once they are laid out)
+    v.box.style.transformOrigin = `${L.ox}px ${L.oy}px`;
+    v.box.style.transform = `scale(${want / L.from})`;
+    const z = v.bar.querySelector(".pdf-zoom");
+    if (z) z.textContent = Math.round(want * 100) + "%";
+    clearTimeout(stretchEnd);
+    stretchEnd = setTimeout(() => {
+      if (V !== v || !v.live) return;
+      const { want: to, at: place } = v.live;
+      v.live = null;
+      unstretch(v);
+      zoomTo(to, false, place);
+    }, 140);
   }
   // a place in the PDF: page, and optionally how far down it (in PDF points from the page's top)
   function go(n, top = null, remember = false) {
@@ -1057,7 +1083,7 @@
   }
   function pinch(phase, scale) {
     if (!shown() || (window.MdBoard && window.MdBoard.shown)) return;
-    if (phase === "begin") { pinchBase = V.scale; return; }
+    if (phase === "begin") { pinchBase = V.live ? V.live.want : V.scale; return; }
     if (scale > 0 && Number.isFinite(scale)) pull(pinchBase * scale, V.aim); // (the host says how much, not where: around the pointer, where it was last seen over the PDF)
   }
   // (On the viewer itself, never on the window: a wheel listener that may hold the wheel back makes
@@ -1065,7 +1091,7 @@
   function onWheel(e) {
     if (!e.ctrlKey || !shown()) return;
     e.preventDefault(); e.stopPropagation();
-    pull((zoomFrame ? zoomWant : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX, y: e.clientY });
+    pull((zoomFrame ? zoomWant : V.live ? V.live.want : V.scale) * Math.exp(-Math.max(-240, Math.min(240, e.deltaY)) * 0.0015), { x: e.clientX, y: e.clientY });
   }
 
   /* A PDF's page shown elsewhere — beside a note (viewer/split.js), as a picture `width` wide: what lies over it here too — its

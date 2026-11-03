@@ -26,10 +26,18 @@
     await sleep(400);
     ok("… and back when the hand rests", getComputedStyle(layer()).visibility === "visible" && !root.hasAttribute("data-moving"));
     const wheel = () => root.dispatchEvent(new WheelEvent("wheel", { clientX: innerWidth / 2, clientY: innerHeight / 2, deltaY: -30, ctrlKey: true, bubbles: true, cancelable: true }));
+    // (the place under the hand: which page, and where in it)
+    const box = root.querySelector(".pdf-pages"), hx = innerWidth / 2, hy = innerHeight / 2;
+    const under = () => { const p = [...root.querySelectorAll(".pdf-page")].find((d) => d.getBoundingClientRect().bottom > hy), r = p.getBoundingClientRect(); return [p.dataset.page, (hx - r.left) / r.width, (hy - r.top) / r.height]; };
+    const was = under(), wide = root.querySelector(".pdf-page").style.width;
     const z = await frames(30, wheel);
     ok("while the pages are zoomed, their words are not drawn", z.hidden, z);
+    // (laid out anew at every step, the processor's canvases were painted anew in every frame: #45)
+    ok("while the size is pulled the pages are stretched as a whole, not laid out", /scale\(/.test(box.style.transform) && root.querySelector(".pdf-page").style.width === wide, [box.style.transform, wide, root.querySelector(".pdf-page").style.width]);
     for (let i = 0; i < 60 && (root.hasAttribute("data-moving") || !layer() || !layer().querySelector("span")); i++) await sleep(100);
     await sleep(600);
+    const now = under();
+    ok("… laid out at their size when the hand rests, the place under it kept", !box.style.transform && root.querySelector(".pdf-page").style.width !== wide && now[0] === was[0] && Math.abs(now[1] - was[1]) < 0.01 && Math.abs(now[2] - was[2]) < 0.01, [was, now, box.style.transform]);
     const l = layer(), span = l && [...l.querySelectorAll("span")].find((x) => x.textContent.trim().length > 4);
     ok("drawn anew at the new size, with its words", !!span && getComputedStyle(l).visibility === "visible");
     if (span) {
