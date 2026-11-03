@@ -239,8 +239,9 @@
 :root[data-velum][data-velum-look] :is(#content, #active) h2 { font-size: 1.333em; line-height: 1.25; letter-spacing: -0.006em; }
 :root[data-velum][data-velum-look] :is(#content, #active) h3 { font-size: 1.133em; line-height: 1.3; }
 
-/* the island: no back and forward (Alt+← → stay), the modes first among the tools, the assistant beside find — the bubble goes */
-:root[data-velum][data-velum-look] .tab-nav { display: none; }
+/* the island: the modes first among the tools, the assistant beside find — the bubble goes; Focus without back and forward
+ * (Alt+← → stay) — Refined keeps them beside the sidebar's button, from a note back to its folder (#38) */
+:root[data-velum][data-velum-look="focus"] .tab-nav { display: none; }
 :root[data-velum][data-velum-look] #toolbar .seg { order: -1; margin-right: var(--v-space-4); }
 :root[data-velum][data-velum-look] body[data-ai] #toolbar .tb-ai { display: grid; }
 :root[data-velum][data-velum-look] #ai-bubble { display: none !important; }

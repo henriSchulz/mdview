@@ -550,3 +550,56 @@ test("Sync Now stands in the tabs' strip beside All Notes, not in the sidebar: i
   await page.waitForFunction(() => /Up to date|Syncing/.test(document.querySelector("#toast")?.textContent || ""), null, { timeout: 8000 });
   await page.keyboard.press("Escape");
 });
+
+test("Velum Refined has back and forward: from a note opened out of a folder's tiles back to that folder (#38)", async () => {
+  put("sub/Gamma.md", "# Gamma\n\nin a folder\n");
+  await open("Alpha.md");
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "refined" }); });
+  await page.waitForFunction(() => document.documentElement.dataset.velumLook === "refined", null, { timeout: 4000 });
+  await allNotes();
+  await page.click('#overview [data-seg="scope"] .ov-opt[data-v="folders"]');
+  await page.click(`#overview .ov-folder[data-path="${R}/sub"]`);
+  await page.locator(`#overview .ov-item[data-path="${R}/sub/Gamma.md"]`).click();
+  await untilNote("Gamma.md");
+  const back = '#tabs [data-act="navback"]';
+  const seen = () => page.evaluate((s) => { const b = document.querySelector(s); const r = b.getBoundingClientRect(); return getComputedStyle(b).display !== "none" && r.width > 0 && !b.disabled; }, back);
+  if (process.env.MDVIEW_SHOTS) await page.locator("#tabs").screenshot({ path: process.env.MDVIEW_SHOTS + "/web-refined-nav.png" });
+  assert.ok(await seen(), "the way back, in sight and to be clicked");
+  await page.click(back);
+  await page.waitForFunction((R) => window.MdOverview && MdOverview.isOpen && !!document.querySelector(`#overview .ov-item[data-path="${R}/sub/Gamma.md"]`), R, { timeout: 8000 });
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => { MdView.setPrefs({ ...MdPrefs, look: "app" }); });
+  await page.waitForFunction(() => !document.documentElement.dataset.velumLook, null, { timeout: 4000 });
+});
+
+test("the sidebar pinned over a note is shut when All Notes is shown: there is none over All Notes (#38)", async () => {
+  await open("Alpha.md");
+  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "open");
+  await page.click('#tabs [data-act="overview"]');
+  await page.waitForFunction(() => window.MdOverview && MdOverview.isOpen, null, { timeout: 8000 });
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "closed");
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("mdview:octo/notes") || "{}").sidebar?.visible), false, "told the host: shut");
+  await page.keyboard.press("Escape");
+});
+
+test("the sidebar peeking out at the window's edge is pulled wider at its edge, and goes on peeking (#38)", async () => {
+  await open("Alpha.md");
+  await page.evaluate(() => MdPage.showSidebar(false, false));
+  await page.mouse.move(400, 400);
+  await page.mouse.move(1, 400);
+  await page.waitForFunction(() => document.body.dataset.sidebar === "peek", null, { timeout: 4000 });
+  await page.waitForTimeout(600); // (slid in)
+  const card = () => page.evaluate(() => document.getElementById("sidebar").getBoundingClientRect().right);
+  const edge = await card(), grip = await page.evaluate(() => { const r = document.getElementById("sb-grip").getBoundingClientRect(); return { x: (r.left + r.right) / 2, w: r.width }; });
+  assert.ok(Math.abs(grip.x - edge) <= 6, `the edge to pull at the card's: ${JSON.stringify({ edge, grip })}`);
+  await page.mouse.move(grip.x, 400);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(grip.x + i * 10, 400);
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  assert.ok(await card() >= edge + 60, `wider: ${edge} → ${await card()}`);
+  assert.equal(await page.evaluate(() => document.body.dataset.sidebar), "peek", "still peeking, not pinned");
+  await page.mouse.move(900, 400);
+  await page.waitForFunction(() => document.body.dataset.sidebar === "closed", null, { timeout: 4000 });
+});
