@@ -422,6 +422,25 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     and is drawn anew while the hand goes on, once less than half of that is left beyond the window or it is shown more
     than 8 % from its own size — at most once in three times as long as a drawing takes (board.js: `inkNow`, `slide`).
     `rig.sh boardperf` asks of every frame of a move and a zoom how much of the window has no ink and how far it is sized.
+104. **What a choice costs grows with what is chosen, not with every sample of the hand** (#43, Henri: „wenn man viel text
+    auswählt z.B. eine halbe seite handschrift im notebook laggt dies extremst“). The lasso around half a page of
+    handwriting (600 strokes) worked out what it held at every sample of the pen — WebKitGTK bundles none, four a frame —,
+    drew the whole ink anew each time, and made the mark of every chosen stroke anew whenever one more joined: 58,000
+    outlines for one loop, 1.5 s of hand took 4.5 s. Moving the choice made every stroke's outline anew at every step. A
+    box, a loop and a move are worked out once a frame (rule 77; at the window's edge in the same frame, `sel.run()`); a
+    choice changes the frame and the marks, never the ink; a mark is kept as long as its stroke is as it was, and a stroke
+    moved keeps its outline, shifted (`moving` in board/select.js). Faint is one group of marks, not each one by itself.
+    Check: `web/test/board-pick.test.mjs` (counts what is worked out and drawn per frame).
+105. **A picture in a PDF is taken no larger than a page is drawn** (#44, Henri: „gerade gab es einen absturz. ich glaube im
+    zusammenhang mit einer laggy pdf in mdview“). pdf.js makes a picture smaller only past what the browser's canvas can
+    hold — in WebKit more than a scan at 1200 dpi, 157 million pixels a page, 630 MB as the browser holds it, in the GPU's
+    memory: four such pages held 13 GB and the out-of-memory killer took the session down. `canvasMaxAreaInBytes` (16
+    million pixels, pdfview.js) sets the size; the vendored worker (vendor/README.md says where it is changed) decodes a
+    picture at that size at once, and one of a bit a pixel — a scan — is made smaller in the script before the browser
+    decodes any of it: decoded at its own size first, four at once, it was 2.5 GB for a moment. Measured on the desktop
+    (the rig draws without the GPU), memory of the whole system while a scan was scrolled and zoomed: 6.5 GB in eight
+    seconds before, at most 0.9 GB after, as much as a PDF without pictures. Check: `rig.sh pdfscan` (no picture made for
+    the pages larger than 17 million pixels, the page drawn).
 84. **What a finger or a pointer moves step by step is never set on the root.** A custom property
     on `<html>` that the page inherits (`@property … inherits: true`) has every element's style
     computed anew when it changes: the block swiped by a finger set its offset there at each step,
