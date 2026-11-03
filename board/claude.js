@@ -408,15 +408,29 @@
   function hand(run, size, mess, ends = true, round = 1, style = "hand") {
     return B.hand.write(run, { size, mess, ends, round, style, wander: wander(size * 1.4) });
   }
+  /* A notebook's pages (#40, Henri: „die KI hat zwischen die Seiten geschrieben, das sollte eigentlich gar nicht gehen“):
+   * book { y (the first page's top), h (a page's height), step (from one page's top to the next's) }. What is written
+   * stays inside a page, within its margins: → how far down a box [top, bot] must go for that (0: it fits where it is;
+   * the next page's top margin where it would reach into the foot, the gap or the next page's head). */
+  const ROOM = 0.045; // (a page's margins at its head and foot, a share of its height)
+  function intoPage(book, top, bot) {
+    if (!book || !(book.h > 0) || !(book.step > 0) || bot - top > book.h * (1 - 2 * ROOM)) return 0; // (taller than a page: as it is)
+    const m = book.h * ROOM, k = Math.max(0, Math.floor((top - book.y) / book.step)), py = book.y + k * book.step;
+    if (top < py + m) return py + m - top; // (in the head's margin, or above the first page)
+    if (bot <= py + book.h - m) return 0;
+    return py + book.step + m - top; // (into the foot, the gap or the next page: onto the next page)
+  }
+  // how far what Claude puts at y goes down, for what this answer moved onto a next page before it (names: "\u0000drops")
+  const flowAt = (names, y) => (names.get("\u0000drops") || []).reduce((a, d) => (y >= d.from ? a + d.by : a), 0);
   /* o: { x, y (the top of the first line), text, size (a capital's height, px), style "hand" | "script", mess (0.5 careful …
    * 1.4 hurried; 1), maxw (where lines break), tool, c, w } → strokes, all of one writing. Each text is written by a hand of
    * its own: its slant, how wide and how far apart its letters, a line that drifts, words a little larger or smaller. */
-  function write(o) {
+  function write(o, book = null, names = null) {
     const font = fontOf(o.style);
     if (!font || typeof o.text !== "string" || !o.text.trim()) return [];
     const size = Number.isFinite(o.size) ? Math.max(8, Math.min(200, o.size)) : 28, k = size / 21, lead = size * 1.75;
     const mess = Number.isFinite(o.mess) ? Math.max(0.3, Math.min(1.5, o.mess)) : 1;
-    const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = Number.isFinite(o.y) ? o.y : 0, maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
+    const x0 = Number.isFinite(o.x) ? o.x : 0, y0 = (Number.isFinite(o.y) ? o.y : 0) + (names ? flowAt(names, Number.isFinite(o.y) ? o.y : 0) : 0), maxw = Number.isFinite(o.maxw) && o.maxw > size ? o.maxw : Infinity;
     const st = B.hand.styleOf(o.style === "script" ? "script" : "hand"), wob = st.wobble, dri = st.drift; // (the style's numbers: board/hand.js)
     const slant = st.slant + shake(st.slantVar), wide = st.wide + shake(0.06), apart = st.apart + shake(0.05);
     const glyphOf = (u) => (u.tex != null ? formula(font, u.tex) : letter(font, u.ch));
@@ -433,7 +447,14 @@
     let extra = 0;
     const tops = lines.map((line) => { const fs = units(line).filter((u) => u.tex != null).map((u) => formula(font, u.tex)), up = Math.max(0, 1 - Math.min(1, ...fs.map((f) => f.top))) * k, down = Math.max(0, Math.max(28, ...fs.map((f) => f.bot)) - 28) * k; const at = extra + up; extra += up + down; return at; });
     const of = B.format.id(), w = Number.isFinite(o.w) ? o.w : Math.max(1.2, Math.min(6, size * B.hand.styleOf(o.style === "script" ? "script" : "hand").pen)), made = [], inLine = [];
+    let drop = 0; const dropAt = []; // (on a notebook: how far the lines from here on went down, onto the next page — intoPage)
+    const tall = lines.map((line) => { const fs = units(line).filter((u) => u.tex != null).map((u) => formula(font, u.tex)); return { up: Math.max(0, 1 - Math.min(1, ...fs.map((f) => f.top))) * k, down: Math.max(0, Math.max(28, ...fs.map((f) => f.bot)) - 28) * k }; });
     lines.forEach((line, n) => {
+      if (book) {
+        const base = y0 + n * lead + tops[n] + size + drop, d = intoPage(book, base - size * 1.1 - tall[n].up, base + size * 0.45 + tall[n].down);
+        if (d > 0) { drop += d; if (names) names.set("\u0000drops", [...(names.get("\u0000drops") || []), { from: (Number.isFinite(o.y) ? o.y : 0) + n * lead + tops[n], by: d }]); }
+      }
+      dropAt[n] = drop;
       let at = x0 + shake(size * 0.15 * mess) * (n ? 1 : 0); // (a new line begins where the hand comes back to — about)
       const base = wander(size * 7), lean = wander(size * 9), warpX = wander(size * 1.3), warpY = wander(size * 1.1); // (no bow a circle: the line's letters bent, softly, here one way, there another)
       let word = { grow: 1, lift: 0 };
@@ -446,7 +467,7 @@
         for (const run of g.runs) {
           let px = run.map(([gx, gy]) => {
             const ly = (gy - 21) * k * grow * tall, lx = gx * k * grow * across - ly * (sl + skew); // (about the letter's foot)
-            const x = at + lx * cos - ly * sin, y = y0 + n * lead + tops[n] + size + lift + lx * sin + ly * cos;
+            const x = at + lx * cos - ly * sin, y = y0 + n * lead + tops[n] + drop + size + lift + lx * sin + ly * cos;
             return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess * dri, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess * dri];
           });
           // (a dot — of an i, a j, an umlaut, a full stop — is a short dab as a pen puts it, not a round; not a dash either — #39)
@@ -461,7 +482,7 @@
       }
     });
     // (where a line's formulas reach above and below it: apply keeps an underline out of a fraction)
-    made.rows = inLine.map((its, n) => { if (!its) return null; const bs = its.map((it) => B.format.boundsOf(it)); return { x0: Math.min(...bs.map((b) => b[0])), x1: Math.max(...bs.map((b) => b[2])), base: y0 + n * lead + tops[n] + size, bot: Math.max(...bs.map((b) => b[3])), size }; }).filter(Boolean);
+    made.rows = inLine.map((its, n) => { if (!its) return null; const bs = its.map((it) => B.format.boundsOf(it)); return { x0: Math.min(...bs.map((b) => b[0])), x1: Math.max(...bs.map((b) => b[2])), base: y0 + n * lead + tops[n] + size + dropAt[n], bot: Math.max(...bs.map((b) => b[3])), size }; }).filter(Boolean);
     if (made.length) made[0].said = o.text.slice(0, 400); // (what was written, told back to Claude while the board is open — not kept in the file)
     return made;
   }
@@ -485,14 +506,15 @@
   }
   /* A step done on the model: → { added: [items], changed: [items], removed: [items] }, or null when it could not be done.
    * names: Claude's own names ("as") → the ids they were given, kept over one answer. */
-  function apply(model, step, names = new Map()) {
+  /* o.book: a notebook's pages (intoPage), for what is put on them to stay on a page. */
+  function apply(model, step, names = new Map(), o = {}) {
     const items = model.items, id = (v) => (typeof v === "string" ? names.get(v) || v : null), find = (v) => items.find((it) => it.id === id(v));
     const every = (v) => { const want = id(v), one = items.find((it) => it.id === want); return one ? [one] : items.filter((it) => it.k === "ink" && it.of === want); }; // (words written by hand: all their strokes)
     const ends = (o) => { for (const e of ["from", "to"]) if (o[e] && typeof o[e].id === "string") o[e] = { ...o[e], id: id(o[e].id) }; return o; };
     if (typeof step.add === "string") {
       const k = step.add === "stroke" ? "ink" : step.add, made = [];
       if (k === "write" || k === "hand") {
-        const w = write(step);
+        const w = write(step, o.book || null, names);
         made.push(...w);
         if (w.rows.length) names.set("\u0000rows", [...(names.get("\u0000rows") || []), ...w.rows]);
       } else if (k === "ink") {
@@ -523,6 +545,14 @@
         if (it) made.push(it);
       }
       if (!made.length) return null;
+      if (o.book && k !== "write" && k !== "hand") { // (a drawing, a shape, a thing: as a whole onto a page — after what this answer moved down before it)
+        const bs = made.map((it) => B.format.boundsOf(it)).filter(Boolean), top = Math.min(...bs.map((b) => b[1])), bot = Math.max(...bs.map((b) => b[3]));
+        const flow = flowAt(names, top), dy = flow + intoPage(o.book, top + flow, bot + flow);
+        if (dy > 0) {
+          for (const it of made) { if (it.k === "ink") B.ink.moved(it, (p) => [p[0], p[1] + dy]); else B.items.moveBy(it, 0, dy); }
+          if (dy > flow) names.set("\u0000drops", [...(names.get("\u0000drops") || []), { from: top, by: dy - flow }]);
+        }
+      }
       if (typeof step.as === "string" && step.as) names.set(step.as, made[0].of || made[0].id);
       items.push(...made);
       return { added: made, changed: [], removed: [] };

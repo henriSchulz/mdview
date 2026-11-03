@@ -1124,6 +1124,8 @@
       for (const x of els) x.style.opacity = "";
       s.model.items = after;
     }
+    // (a notebook's pages, for Claude's steps to stay on them: the first one's top, a page's height, a page's top to the next's)
+    function bookOf(s) { const ps = B.paper.pages(s.model.board.paper), p = ps[0]; return { y: p.y, h: p.h, step: ps.length > 1 ? ps[1].y - p.y : p.h + B.pdf.GAP }; }
     /* A notebook: pages enough for what was just put below its last page (board/paper.js) — the answer writes on, page after page. */
     function grow(added) {
       const paper = s.model.board.paper;
@@ -1142,7 +1144,7 @@
     const one = (step) => { queue = queue.then(async () => {
       if (!still()) return;
       const was = [...s.model.items];
-      const got = B.claude.apply(s.model, styled(step), names);
+      const got = B.claude.apply(s.model, styled(step), names, { book: s.book ? bookOf(s) : null }); // (on a notebook: on a page, never across two — #40)
       if (!got) return;
       if (got.removed.length) await fadeOut(was, got.removed); // (taken away: all of it at once, fading — not stroke by stroke, #33)
       if (s.book && got.added.length) grow(got.added);

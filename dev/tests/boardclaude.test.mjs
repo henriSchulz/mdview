@@ -334,3 +334,17 @@ test("#39: a sum is written taller than the letters, its limits under and over i
   const n = C.formula("e^{x}").runs.length, zero = C.formula("e^{x_0}").runs.slice(n).flat(), high = Math.max(...zero.map((p) => p[1])) - Math.min(...zero.map((p) => p[1]));
   assert.ok(high > 10, `the 0 under the raised x is ${high.toFixed(1)} units high (a letter: 21), not a speck`);
 });
+
+test("#40: on a notebook what Claude writes stays on a page — a line that would run into the foot, the gap or the next page's head goes onto the next page, and what follows with it", () => {
+  const book = { y: 0, h: 1123, step: 1139 }, m = book.h * 0.045, names = new Map(), mdl = board();
+  const out = (y) => { const k = Math.floor(y / book.step), py = k * book.step; return y > py + book.h - m + 2 || y < py + m - 2; }; // (in a page's foot, the gap, or a page's head)
+  C.apply(mdl, { add: "write", x: 40, y: 960, size: 24, maxw: 700, text: "Periodisches Signal (Periode T) → Fourier-Reihe, diskrete Frequenzen $k\\omega_0$: so geht es weiter, Zeile um Zeile, bis die Seite voll ist und darüber hinaus" }, names, { book });
+  C.apply(mdl, { add: "write", x: 40, y: 1080, size: 24, text: "$f(t) = \\sum_{k=-\\infty}^{\\infty} c_k e^{ik\\omega_0 t}$" }, names, { book }); // (Claude's next line, where it thought the last one ended)
+  C.apply(mdl, { add: "shape", shape: "rect", x: 40, y: 1170, w: 200, h: 60 }, names, { book }); // (under that line, as Claude put it)
+  const pts = mdl.items.flatMap((it) => (it.k === "ink" ? it.pts.map((p) => p[1]) : [it.y, it.y + it.h]));
+  const bad = pts.filter(out);
+  assert.equal(bad.length, 0, `${bad.length} points off the pages' writing room, e.g. y ${bad.slice(0, 3).map(Math.round)}`);
+  // … and nothing written over what came before it
+  const boxes = mdl.items.map((it) => B.format.boundsOf(it)), firsts = boxes.slice(0, -1), last = boxes.at(-1);
+  assert.ok(firsts.every((b) => b[3] <= last[1] + 1 || b[1] >= last[3] - 1 || b[2] <= last[0] || b[0] >= last[2]), "the frame lies over no writing");
+});

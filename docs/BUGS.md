@@ -124,6 +124,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     every letter, every sign of a formula and every stroke Claude draws goes through the one hand of `board/hand.js` — the
     line's skeleton aimed at, moved to as a hand moves (lognormal movements, bowed, overlapping), the pressure following its
     speed — so that they belong together. Checks: `dev/tests/boardclaude.test.mjs` (#39).
+101. **On a notebook what Claude puts stays on a page** (#40, Henri: „die KI hat zwischen die Seiten geschrieben, das sollte
+    eigentlich gar nicht gehen“). Claude is told the pages and their margins, and places by its own reckoning — which a
+    hand's writing, a line taller for a formula, outruns. The app keeps it there: a line of words that would reach into a
+    page's foot, the gap or the next page's head goes onto the next page and the lines after it with it; a drawing or a
+    thing goes over as a whole; and what the same answer puts later goes down as far (`intoPage`, `flowAt` in
+    `board/claude.js`; the pages from `board.js`: `bookOf`). Checks: `dev/tests/boardclaude.test.mjs` (#40).
 
 ### Markdown that is rendered somewhere new
 
