@@ -594,7 +594,8 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   long stroke, heavier where it is slow, the pressure rising as it comes down and easing off as it leaves; each text by a
   hand of its own (slant, width, spacing), the line drifting, words and letters a little larger, smaller, turned and
   bent, its ends a touch long or short, dots put as short dashes. The signs of a formula and the strokes Claude draws go
-  through the same hand. On a notebook it all stays on the pages: a line that would run past a page's foot goes onto
+  through the same hand, and what a formula says in LaTeX is its sign — ⊕ ⊗ ⊥ ∥ ∅ ⊇ ≅ ∼ ≪ ⇔ ↦ ∮ ℓ ℏ, ‖ ⌊ ⌋, `\not=`, a bar,
+  hat, tilde, arrow or dot over what it marks — never the command's name. On a notebook it all stays on the pages: a line that would run past a page's foot goes onto
   the next page, and what follows with it; umlauts, ß, accented letters (é ñ ç å),
   arrows (→ ⇒ ↔ …), ✓ ✗ ° ≈ ≤ ≥ ± √ ∞ € and raised digits (² ³) with them — what it has not (an emoji) is left out, never
   a question mark — strokes as the user's own, chosen and rubbed out one by one; Claude knows them as one writing, and changes, moves

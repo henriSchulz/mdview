@@ -348,3 +348,17 @@ test("#40: on a notebook what Claude writes stays on a page — a line that woul
   const boxes = mdl.items.map((it) => B.format.boundsOf(it)), firsts = boxes.slice(0, -1), last = boxes.at(-1);
   assert.ok(firsts.every((b) => b[3] <= last[1] + 1 || b[1] >= last[3] - 1 || b[2] <= last[0] || b[0] >= last[2]), "the frame lies over no writing");
 });
+
+test("#41: a formula's commands are signs, never their names written out — \\oplus is ⊕, \\bar{a} an a with a bar, and every sign they stand for is drawn", () => {
+  const SYMS = ["oplus", "otimes", "odot", "ominus", "perp", "parallel", "angle", "emptyset", "varnothing", "supset", "supseteq", "setminus", "mp", "cong", "sim", "simeq", "ll", "gg",
+    "star", "ast", "oint", "iint", "aleph", "ell", "hbar", "therefore", "because", "top", "vdash", "models", "Vert", "lfloor", "rfloor", "lceil", "rceil", "dagger", "mapsto", "Leftrightarrow", "Upsilon", "nexists", "complement", "ni"];
+  const named = (name) => JSON.stringify(C.formula(name).runs); // (the name, written out as letters)
+  const bad = SYMS.filter((c) => { const f = C.formula("\\" + c); return !f.runs.length || JSON.stringify(f.runs) === named(c); });
+  assert.deepEqual(bad, [], "written as their names, or not drawn at all");
+  for (const acc of ["bar", "overline", "hat", "tilde", "vec", "dot", "ddot", "underline"]) {
+    const a = C.formula("a"), m = C.formula(`\\${acc}{a}`);
+    assert.ok(m.adv < a.adv + 3 && m.runs.length > a.runs.length, `\\${acc}{a}: an a with its mark (${m.adv} wide, ${m.runs.length} strokes; an a: ${a.adv}, ${a.runs.length})`);
+  }
+  assert.equal(C.formula("x \\not= y").adv, C.formula("x \\ne y").adv, "\\not= is ≠");
+  assert.ok(C.formula("\\|v\\|").adv < C.formula("|v|").adv + 6 && C.formula("\\|v\\|").runs.length > C.formula("|v|").runs.length, "\\| is ‖");
+});

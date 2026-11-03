@@ -130,6 +130,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     page's foot, the gap or the next page's head goes onto the next page and the lines after it with it; a drawing or a
     thing goes over as a whole; and what the same answer puts later goes down as far (`intoPage`, `flowAt` in
     `board/claude.js`; the pages from `board.js`: `bookOf`). Checks: `dev/tests/boardclaude.test.mjs` (#40).
+102. **A command of a formula is its sign, never its name** (#41, Henri: „hier fehlen Zeichen“ — „p = aoplusb“, „barab“).
+    A command the hand did not know was written out as its name, as a hand would copy it: `\oplus` as „oplus“, `\bar{a}` as
+    „bara“. What Claude writes in LaTeX is what a mathematician writes, so the hand knows it: the signs of logic, sets and
+    geometry (`TEX`, drawn in `SIGNS`), `\not`, and the marks over or under what they mark (`ACC`: bar, overline, hat,
+    tilde, vec, dot, ddot, underline). A new command: its sign drawn too, or it is a name on the page again. Checks:
+    `dev/tests/boardclaude.test.mjs` (#41).
 
 ### Markdown that is rendered somewhere new
 

@@ -154,6 +154,46 @@
   const DOTS = { ä: "a", ö: "o", ü: "u", Ä: "A", Ö: "O", Ü: "U" };
   // signs a keyboard has not, drawn by hand in the font's units (the line at y 21, a capital from y 1): [path, o]
   const SIGNS = {
+    // (signs of logic, sets and geometry a formula needs — #41: \\oplus and the like were written out as their names)
+    "Υ": ["M3,4 C5,1 9,2 10,8 L10,22 M17,4 C15,1 11,2 10,8", 10], "∄": ["M4,1 L16,1 L16,22 L4,22 M7,11.5 L16,11.5 M18,-1 L3,24", 11],
+    "∁": ["M16,4 C14,2 12,1 10,1 C5,1 3,6 3,11.5 C3,17 5,22 10,22 C12,22 14,21 16,19", 10], "∋": ["M4,6 L10,6 C14,6 17,9 17,13 C17,17 14,20 10,20 L4,20 M17,13 L6,13", 11],
+    "⊕": ["M12,6 C8.1,6 5,9.1 5,13 C5,16.9 8.1,20 12,20 C15.9,20 19,16.9 19,13 C19,9.1 15.9,6 12,6 M12,6 L12,20 M5,13 L19,13", 13],
+    "⊗": ["M12,6 C8.1,6 5,9.1 5,13 C5,16.9 8.1,20 12,20 C15.9,20 19,16.9 19,13 C19,9.1 15.9,6 12,6 M7,8 L17,18 M17,8 L7,18", 13],
+    "⊙": ["M12,6 C8.1,6 5,9.1 5,13 C5,16.9 8.1,20 12,20 C15.9,20 19,16.9 19,13 C19,9.1 15.9,6 12,6 M12,13 L12.6,13.6", 13],
+    "⊖": ["M12,6 C8.1,6 5,9.1 5,13 C5,16.9 8.1,20 12,20 C15.9,20 19,16.9 19,13 C19,9.1 15.9,6 12,6 M5,13 L19,13", 13],
+    "⊥": ["M12,4 L12,21 M4,21 L20,21", 13],
+    "∥": ["M9,4 L9,22 M15,4 L15,22", 10],
+    "∠": ["M19,6 L4,21 L20,21", 13],
+    "∅": ["M12,5.5 C7.9,5.5 4.5,8.9 4.5,13 C4.5,17.1 7.9,20.5 12,20.5 C16.1,20.5 19.5,17.1 19.5,13 C19.5,8.9 16.1,5.5 12,5.5 M18,3 L6,23", 13],
+    "⊃": ["M4,5 L10,5 C14,5 17,8 17,12.5 C17,17 14,20 10,20 L4,20", 11],
+    "⊇": ["M4,3 L10,3 C14,3 17,6 17,10 C17,14 14,17 10,17 L4,17 M4,22 L17,22", 11],
+    "∖": ["M5,4 L17,22", 11],
+    "∓": ["M5,7 L19,7 M12,11 L12,22 M5,16 L19,16", 13],
+    "≅": ["M4,8 C7,5.5 9,5.5 12,8 C15,10.5 17,10.5 20,8 M4,14 L20,14 M4,19 L20,19", 13],
+    "∼": ["M4,14 C7,11 9,11 12,14 C15,17 17,17 20,14", 13],
+    "≃": ["M4,11 C7,8 9,8 12,11 C15,14 17,14 20,11 M4,17 L20,17", 13],
+    "≪": ["M14,7 L5,13 L14,19 M21,7 L12,13 L21,19", 14],
+    "≫": ["M5,7 L14,13 L5,19 M12,7 L21,13 L12,19", 14],
+    "⋆": ["M12.0,7.0 L13.5,11.4 L18.2,11.5 L14.5,14.3 L15.8,18.8 L12.0,16.1 L8.2,18.8 L9.5,14.3 L5.8,11.5 L10.5,11.4 L12.0,7.0", 13],
+    "∗": ["M12,8 L12,18 M7.7,10.5 L16.3,15.5 M16.3,10.5 L7.7,15.5", 13],
+    "∮": ["M15,-1 C13,-2 11,-1 10,2 L8,25 C7,28 5,29 3,28 M9,9.3 C7.2,9.3 5.8,10.7 5.8,12.5 C5.8,14.3 7.2,15.7 9,15.7 C10.8,15.7 12.2,14.3 12.2,12.5 C12.2,10.7 10.8,9.3 9,9.3", 9],
+    "∬": ["M15,-1 C13,-2 11,-1 10,2 L8,25 C7,28 5,29 3,28 M21,-1 C19,-2 17,-1 16,2 L14,25 C13,28 11,29 9,28", 12.5],
+    "ℵ": ["M5,4 L17,21 M5,21 C5,16 7,13 10,12.5 M17,4 C17,8 15,10.5 13,12", 12],
+    "ℓ": ["M6,20 C9,18 14,11 14,6 C14,3 13,1 11.5,1 C9.5,1 8,4 8,10 C8,16 9,21 12,21 C13.5,21 15,20 16,19", 10],
+    "ℏ": ["M5,1 L5,22 M5,14 C7,10 9,9 12,9 C15,9 16,11 16,14 L16,22 M1,8 L10,4", 10.5],
+    "∴": ["M12,7 L12.6,7.6 M6,19 L6.6,19.6 M18,19 L18.6,19.6", 13],
+    "∵": ["M6,7 L6.6,7.6 M18,7 L18.6,7.6 M12,19 L12.6,19.6", 13],
+    "⊤": ["M4,4 L20,4 M12,4 L12,21", 13],
+    "⊢": ["M5,4 L5,21 M5,12.5 L19,12.5", 12],
+    "⊨": ["M5,4 L5,21 M5,10 L19,10 M5,15 L19,15", 12],
+    "‖": ["M3,-3 L3,29 M7,-3 L7,29", 5.5],
+    "⌊": ["M7,-2 L7,26 L13,26", 9],
+    "⌋": ["M11,-2 L11,26 L5,26", 9],
+    "⌈": ["M13,-2 L7,-2 L7,26", 9],
+    "⌉": ["M5,-2 L11,-2 L11,26", 9],
+    "†": ["M10,1 L10,22 M5,7 L15,7", 10],
+    "⇔": ["M7,8 L1,14 L7,20 M17,8 L23,14 L17,20 M3,11 L21,11 M3,17 L21,17", 14],
+    "↦": ["M3,10 L3,18 M3,14 L20,14 M14,9 L20,14 L14,19", 12],
     ",": ["M5.6,19.2 C6.6,20.2 6.4,23.2 3.8,26", 6], // (a comma as a pen swings it: the font's was a hook too small to read — #39)
     "→": ["M2,14 L20,14 M14,9 L20,14 L14,19", 12], "←": ["M20,14 L2,14 M8,9 L2,14 L8,19", 12], "↑": ["M8,22 L8,4 M3,9 L8,4 L13,9", 9], "↓": ["M8,4 L8,22 M3,17 L8,22 L13,17", 9],
     "↔": ["M2,14 L22,14 M7,9 L2,14 L7,19 M17,9 L22,14 L17,19", 14], "⇒": ["M2,11 L18,11 M2,17 L18,17 M14,8 L21,14 L14,20", 13], "⇐": ["M22,11 L6,11 M22,17 L6,17 M10,8 L3,14 L10,20", 13],
@@ -236,14 +276,22 @@
     pi: "π", rho: "ρ", varrho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ", phi: "φ", varphi: "φ", chi: "χ", psi: "ψ", omega: "ω",
     Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ", Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
     cdot: "·", times: "×", pm: "±", div: "÷", le: "≤", leq: "≤", ge: "≥", geq: "≥", ne: "≠", neq: "≠", approx: "≈", equiv: "≡", propto: "∝", infty: "∞",
-    to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒", implies: "⇒", Leftarrow: "⇐", leftrightarrow: "↔", Leftrightarrow: "↔", iff: "↔", mapsto: "→",
+    to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒", implies: "⇒", Leftarrow: "⇐", leftrightarrow: "↔", Leftrightarrow: "⇔", iff: "⇔", mapsto: "↦",
     in: "∈", notin: "∉", forall: "∀", exists: "∃", int: "∫", sum: "∑", prod: "∏", partial: "∂", nabla: "∇", subset: "⊂", subseteq: "⊆", cup: "∪", cap: "∩",
     land: "∧", wedge: "∧", lor: "∨", vee: "∨", neg: "¬", lnot: "¬", circ: "°", degree: "°", ldots: "…", dots: "…", cdots: "…", lbrace: "{", rbrace: "}",
-    "{": "{", "}": "}", "|": "|", "%": "%", "$": "$", "&": "&", "#": "#", "_": "_", langle: "<", rangle: ">", vert: "|", mid: "|",
+    "{": "{", "}": "}", "|": "‖", "%": "%", "$": "$", "&": "&", "#": "#", "_": "_", langle: "<", rangle: ">", vert: "|", mid: "|",
+    oplus: "⊕", otimes: "⊗", odot: "⊙", ominus: "⊖", bigoplus: "⊕", bigotimes: "⊗", perp: "⊥", bot: "⊥", top: "⊤", parallel: "∥", angle: "∠",
+    emptyset: "∅", varnothing: "∅", supset: "⊃", supseteq: "⊇", setminus: "∖", mp: "∓", cong: "≅", sim: "∼", simeq: "≃", ll: "≪", gg: "≫",
+    star: "⋆", ast: "∗", oint: "∮", iint: "∬", aleph: "ℵ", ell: "ℓ", hbar: "ℏ", therefore: "∴", because: "∵", vdash: "⊢", models: "⊨",
+    Vert: "‖", lVert: "‖", rVert: "‖", lvert: "|", rvert: "|", lfloor: "⌊", rfloor: "⌋", lceil: "⌈", rceil: "⌉", dagger: "†", prime: "′",
+    uparrow: "↑", downarrow: "↓", longrightarrow: "→", Longrightarrow: "⇒", longleftarrow: "←", Longleftarrow: "⇐", Longleftrightarrow: "⇔",
+    longleftrightarrow: "↔", longmapsto: "↦", hookrightarrow: "→", gets: "←", bigcup: "∪", bigcap: "∩", bigvee: "∨", bigwedge: "∧", bullet: "•",
+    sqcup: "∪", uplus: "∪", vartheta: "θ", varsigma: "σ", varpi: "π", Upsilon: "Υ", nexists: "∄", complement: "∁", ni: "∋",
     quad: " ", qquad: "  ", ",": " ", ";": " ", ":": " ", " ": " ", "!": "", displaystyle: "", limits: "", nolimits: "", backslash: "\\" };
+  const ACC = { bar: "bar", overline: "bar", hat: "hat", widehat: "hat", tilde: "tilde", widetilde: "tilde", vec: "vec", overrightarrow: "vec", dot: "dot", ddot: "ddot", underline: "under", check: "check", breve: "check" };
   const FN = new Set(["sin", "cos", "tan", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "log", "ln", "lg", "exp", "lim", "max", "min", "sup", "inf", "det", "dim", "ker", "deg", "gcd", "arg", "mod", "Re", "Im"]);
   const BB = { R: "ℝ", N: "ℕ", Z: "ℤ", Q: "ℚ", C: "ℂ" };
-  const OPS = new Set([..."=+−<>≤≥≠≈≡∝→←⇒⇐↔∈∉⊂⊆∪∩∧∨±×÷"]); // (room on either side, as a hand leaves it)
+  const OPS = new Set([..."=+−<>≤≥≠≈≡∝→←⇒⇐↔⇔↦∈∉⊂⊆⊃⊇∪∩∧∨±∓×÷⊕⊗⊙⊖≅∼≃≪≫⊢⊨∖"]); // (room on either side, as a hand leaves it)
   // the large signs, as a hand writes them taller than the letters beside them ([across, tall]); a sum's and a product's
   // limits under and over them, as on paper (Henri, #39: Σ as small as a letter, its limits beside it)
   const BIG = { "∑": [1.45, 1.45], "∏": [1.45, 1.45], "∫": [1.1, 1.7], "∮": [1.1, 1.7] }, UNDER = new Set(["∑", "∏"]);
@@ -265,6 +313,8 @@
       if (/^(left|right|big|Big|bigg|Bigg)[lr]?$/.test(name)) { skip(); if (s[i] === "\\") { const d = command(); return d && d.k === "ch" ? d : null; } const d = s[i++]; return d && d !== "." ? { k: "ch", ch: d } : null; }
       if (["text", "textrm", "mathrm", "operatorname", "mathit", "mathbf", "textbf", "boldsymbol", "mathsf", "mbox"].includes(name)) return word(raw());
       if (name === "mathbb") return word([...raw()].map((ch) => BB[ch] || ch).join(""));
+      if (ACC[name]) return { k: "acc", arg: arg(), mark: ACC[name] }; // (a bar, a hat, an arrow over what it marks — #41)
+      if (name === "not") { skip(); const n = s[i] === "\\" ? command() : { k: "ch", ch: s[i++] }; const neg = { "=": "≠", "∈": "∉", "∃": "∄" }; return n && n.k === "ch" && neg[n.ch] ? { k: "ch", ch: neg[n.ch] } : n; }
       if (FN.has(name)) { const f = word(name); f.items.unshift({ k: "gap", w: 4 }); f.items.push({ k: "gap", w: 5 }); if (name === "lim") f.under = true; return f; } // (2x cos t, not 2xcost; lim's limit under it)
       if (name in TEX) return TEX[name] ? { k: "ch", ch: TEX[name] } : null;
       return word(name); // (a command it does not know: its name, as a hand would write it)
@@ -351,6 +401,19 @@
         put(runs, n, 3 + (w - n.w) / 2, ny); put(runs, d, 3 + (w - d.w) / 2, dy);
         runs.push([[3, axis], [3 + w, axis]]);
         b = { runs, w: w + 6, top: ny + n.top, bot: dy + d.bot, ch: null };
+      } else if (a.k === "acc") { // (its mark over it — or under it — as wide as what it marks, a short one over one letter)
+        const x = row(a.arg.items || a.arg), runs = [...x.runs], w = x.w, one = w < 16, l = one ? w / 2 - 3.5 : 1, r = one ? w / 2 + 3.5 : w - 1, mid = (l + r) / 2, y = x.top - 3;
+        let top = x.top, bot = x.bot;
+        const MARK = {
+          bar: () => [[[l, y], [r, y]]], hat: () => [[[mid - 3.5, y + 1.5], [mid, y - 2], [mid + 3.5, y + 1.5]]], check: () => [[[mid - 3.5, y - 2], [mid, y + 1.5], [mid + 3.5, y - 2]]],
+          tilde: () => [[[l, y + 0.5], [l + (r - l) * 0.3, y - 1.5], [l + (r - l) * 0.7, y + 1], [r, y - 1]]],
+          vec: () => [[[l, y], [r, y]], [[r - 3, y - 2.5], [r, y], [r - 3, y + 2.5]]],
+          dot: () => [[[mid, y], [mid + 0.6, y + 0.6]]], ddot: () => [[[mid - 2.5, y], [mid - 1.9, y + 0.6]], [[mid + 2.5, y], [mid + 3.1, y + 0.6]]],
+          under: () => [[[l, x.bot + 3], [r, x.bot + 3]]],
+        };
+        runs.push(...(MARK[a.mark] || MARK.bar)());
+        if (a.mark === "under") bot = x.bot + 4; else top = y - 2.5;
+        b = { runs, w, top, bot, ch: null };
       } else if (a.k === "sqrt") {
         const x = row(a.arg.items || a.arg), top = x.top - 3, runs = [[[0, -7], [3, -9], [7, x.bot + 1], [11, top], [15 + x.w, top]]];
         put(runs, x, 13, 0);
