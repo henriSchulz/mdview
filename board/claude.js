@@ -154,6 +154,7 @@
   const DOTS = { ä: "a", ö: "o", ü: "u", Ä: "A", Ö: "O", Ü: "U" };
   // signs a keyboard has not, drawn by hand in the font's units (the line at y 21, a capital from y 1): [path, o]
   const SIGNS = {
+    ",": ["M5.6,19.2 C6.6,20.2 6.4,23.2 3.8,26", 6], // (a comma as a pen swings it: the font's was a hook too small to read — #39)
     "→": ["M2,14 L20,14 M14,9 L20,14 L14,19", 12], "←": ["M20,14 L2,14 M8,9 L2,14 L8,19", 12], "↑": ["M8,22 L8,4 M3,9 L8,4 L13,9", 9], "↓": ["M8,4 L8,22 M3,17 L8,22 L13,17", 9],
     "↔": ["M2,14 L22,14 M7,9 L2,14 L7,19 M17,9 L22,14 L17,19", 14], "⇒": ["M2,11 L18,11 M2,17 L18,17 M14,8 L21,14 L14,20", 13], "⇐": ["M22,11 L6,11 M22,17 L6,17 M10,8 L3,14 L10,20", 13],
     "✓": ["M3,14 L8,20 L19,5", 12], "✔": ["M3,14 L8,20 L19,5", 12], "✗": ["M4,6 L18,20 M18,6 L4,20", 12], "✘": ["M4,6 L18,20 M18,6 L4,20", 12],
@@ -243,6 +244,9 @@
   const FN = new Set(["sin", "cos", "tan", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "log", "ln", "lg", "exp", "lim", "max", "min", "sup", "inf", "det", "dim", "ker", "deg", "gcd", "arg", "mod", "Re", "Im"]);
   const BB = { R: "ℝ", N: "ℕ", Z: "ℤ", Q: "ℚ", C: "ℂ" };
   const OPS = new Set([..."=+−<>≤≥≠≈≡∝→←⇒⇐↔∈∉⊂⊆∪∩∧∨±×÷"]); // (room on either side, as a hand leaves it)
+  // the large signs, as a hand writes them taller than the letters beside them ([across, tall]); a sum's and a product's
+  // limits under and over them, as on paper (Henri, #39: Σ as small as a letter, its limits beside it)
+  const BIG = { "∑": [1.45, 1.45], "∏": [1.45, 1.45], "∫": [1.1, 1.7], "∮": [1.1, 1.7] }, UNDER = new Set(["∑", "∏"]);
   /* LaTeX → atoms: { k: "ch", ch } | { k: "row", items } | { k: "frac", num, den } | { k: "sqrt", arg, n }, each with sup and sub. */
   function texParse(src) {
     const s = String(src);
@@ -261,7 +265,7 @@
       if (/^(left|right|big|Big|bigg|Bigg)[lr]?$/.test(name)) { skip(); if (s[i] === "\\") { const d = command(); return d && d.k === "ch" ? d : null; } const d = s[i++]; return d && d !== "." ? { k: "ch", ch: d } : null; }
       if (["text", "textrm", "mathrm", "operatorname", "mathit", "mathbf", "textbf", "boldsymbol", "mathsf", "mbox"].includes(name)) return word(raw());
       if (name === "mathbb") return word([...raw()].map((ch) => BB[ch] || ch).join(""));
-      if (FN.has(name)) { const f = word(name); f.items.unshift({ k: "gap", w: 4 }); f.items.push({ k: "gap", w: 5 }); return f; } // (2x cos t, not 2xcost)
+      if (FN.has(name)) { const f = word(name); f.items.unshift({ k: "gap", w: 4 }); f.items.push({ k: "gap", w: 5 }); if (name === "lim") f.under = true; return f; } // (2x cos t, not 2xcost; lim's limit under it)
       if (name in TEX) return TEX[name] ? { k: "ch", ch: TEX[name] } : null;
       return word(name); // (a command it does not know: its name, as a hand would write it)
     }
@@ -293,6 +297,8 @@
   }
   /* Atoms laid out in the font's units about their baseline (y 0, upward negative): { runs, w, top, bot, ch }. */
   function texBox(font, atoms) {
+    let depth = 0; // (how deep in scripts: a script of a script is set not much smaller again — 0.68, then 0.53 of the line)
+    const script = (items) => { const f = depth ? 0.78 : 0.68; depth++; const b = scaled(row(items), f); depth--; return b; };
     const put = (into, b, dx, dy) => { for (const r of b.runs) into.push(r.map(([x, y]) => [x + dx, y + dy])); };
     const scaled = (b, f) => ({ runs: b.runs.map((r) => r.map(([x, y]) => [x * f, y * f])), w: b.w * f, top: b.top * f, bot: b.bot * f, ch: b.ch });
     const glyph = (ch) => {
@@ -329,7 +335,15 @@
     }
     function atom(a) {
       let b;
-      if (a.k === "ch") b = glyph(a.ch);
+      if (a.k === "ch") {
+        b = glyph(a.ch);
+        const big = BIG[a.ch];
+        if (big) { // (taller about the middle of a capital, so that it stands over and under the line alike)
+          b.runs = b.runs.map((r) => r.map(([x, y]) => [x * big[0], -9.5 + (y + 9.5) * big[1]]));
+          const ys = b.runs.flat().map((p) => p[1]);
+          b = { runs: b.runs, w: b.w * big[0], top: Math.min(...ys), bot: Math.max(...ys), ch: a.ch };
+        }
+      }
       else if (a.k === "gap") b = { runs: [], w: a.w, top: -13, bot: 0, ch: null };
       else if (a.k === "frac") {
         const n = scaled(row(a.num.items || a.num), 0.88), d = scaled(row(a.den.items || a.den), 0.88), w = Math.max(n.w, d.w) + 8, axis = -8, runs = [];
@@ -343,11 +357,18 @@
         if (a.n) { const nb = scaled(row(texParse(a.n)), 0.5); put(runs, nb, 0, -10); }
         b = { runs, w: x.w + 17, top: top - 1, bot: x.bot + 1, ch: null };
       } else b = row(a.items || []);
-      if (a.sup || a.sub) {
-        const runs = [...b.runs], end = b.w;
+      if ((a.sup || a.sub) && (UNDER.has(a.ch) || a.under)) { // (limits under and over it, in its middle)
+        const sup = a.sup && script(a.sup), sub = a.sub && script(a.sub), W = Math.max(b.w, sup ? sup.w : 0, sub ? sub.w : 0), runs = [];
+        put(runs, b, (W - b.w) / 2, 0);
+        let top = b.top, bot = b.bot;
+        if (sup) { const y = b.top - 2 - sup.bot; put(runs, sup, (W - sup.w) / 2, y); top = y + sup.top; }
+        if (sub) { const y = b.bot + 2 - sub.top; put(runs, sub, (W - sub.w) / 2, y); bot = y + sub.bot; }
+        b = { runs, w: W + 1, top, bot, ch: null };
+      } else if (a.sup || a.sub) {
+        const runs = [...b.runs], end = b.w, tall = !!BIG[a.ch]; // (an integral's limits at its top and its foot)
         let w = b.w, top = b.top, bot = b.bot;
-        if (a.sup) { const s = scaled(row(a.sup), 0.62), y = Math.min(-10, b.top + 8); put(runs, s, end + 1, y); w = Math.max(w, end + 1 + s.w); top = Math.min(top, y + s.top); }
-        if (a.sub) { const s = scaled(row(a.sub), 0.62), y = Math.max(5, b.bot + 3); put(runs, s, end + 1, y); w = Math.max(w, end + 1 + s.w); bot = Math.max(bot, y + s.bot); }
+        if (a.sup) { const s = script(a.sup), y = Math.min(-10, b.top + 8); put(runs, s, end + 1, y); w = Math.max(w, end + 1 + s.w); top = Math.min(top, y + s.top); }
+        if (a.sub) { const s = script(a.sub), y = tall ? b.bot - 2 : Math.max(5, b.bot + 3), x = tall ? end - 3 : end + 1; put(runs, s, x, y); w = Math.max(w, x + s.w); bot = Math.max(bot, y + s.bot); }
         b = { runs, w: w + 1, top, bot, ch: null };
       }
       return b;
@@ -428,9 +449,9 @@
             const x = at + lx * cos - ly * sin, y = y0 + n * lead + tops[n] + size + lift + lx * sin + ly * cos;
             return [x + warpX(x * 0.8 + y * 0.4) * size * 0.04 * mess * dri, y + warpY(x * 0.5 - y * 0.7) * size * 0.035 * mess * dri];
           });
-          // (a dot — of an i, a j, an umlaut, a full stop — is a short dash as a pen puts it, not a round)
+          // (a dot — of an i, a j, an umlaut, a full stop — is a short dab as a pen puts it, not a round; not a dash either — #39)
           const xs = px.map((p) => p[0]), ys = px.map((p) => p[1]), dot = Math.max(...xs) - Math.min(...xs) < size * 0.14 && Math.max(...ys) - Math.min(...ys) < size * 0.14;
-          if (dot) { const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, d = size * (0.04 + Math.random() * 0.04), a = -0.5 + shake(0.6); px = [[cx - Math.cos(a) * d, cy - Math.sin(a) * d], [cx + Math.cos(a) * d, cy + Math.sin(a) * d]]; }
+          if (dot) { const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cy = (Math.max(...ys) + Math.min(...ys)) / 2, d = size * (0.016 + Math.random() * 0.018), a = -0.5 + shake(0.6); px = [[cx - Math.cos(a) * d, cy - Math.sin(a) * d], [cx + Math.cos(a) * d, cy + Math.sin(a) * d]]; }
           const it = stroke(hand(px, size, dot ? mess * 0.3 : mess, true, 1, o.style === "script" ? "script" : "hand"), { tool: o.tool || "pen", c: o.c, w });
           it.of = of;
           made.push(it);

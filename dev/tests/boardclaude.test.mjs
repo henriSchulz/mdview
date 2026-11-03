@@ -320,3 +320,17 @@ test("#39: a letter, a formula's sign and a stroke Claude drew go through the on
     assert.ok(words >= 6 && calls === words + 1, `the hand wrote ${words} strokes of the words and ${calls - words} of the drawing`);
   } finally { B.hand.write = own; }
 });
+
+test("#39: a sum is written taller than the letters, its limits under and over it; an integral tall, its limits at its top and foot; a script of a script still to be read", () => {
+  const box = (tex) => { const f = C.formula(tex), ys = f.runs.flat().map((p) => p[1]), xs = f.runs.flat().map((p) => p[0]); return { f, top: Math.min(...ys), bot: Math.max(...ys), x0: Math.min(...xs), x1: Math.max(...xs) }; };
+  const a = box("a"), sum = box("\\sum"), lim = box("\\sum_{k=0}^{n}"), int = box("\\int");
+  assert.ok((sum.bot - sum.top) > (a.bot - a.top) * 1.3 + 4, `the sum ${sum.bot - sum.top} high, an a ${a.bot - a.top}`);
+  assert.ok(int.bot - int.top > 30, `the integral ${int.bot - int.top} high`);
+  assert.ok(lim.bot > sum.bot + 3 && lim.top < sum.top - 3, `its limits under and over it: ${[lim.top, lim.bot]} against ${[sum.top, sum.bot]}`);
+  const mid = (pts) => (Math.min(...pts.map((p) => p[0])) + Math.max(...pts.map((p) => p[0]))) / 2, all = lim.f.runs.flat();
+  const sign = all.filter((p) => p[1] >= sum.top && p[1] <= sum.bot), under = all.filter((p) => p[1] > sum.bot + 3);
+  assert.ok(under.length && Math.abs(mid(under) - mid(sign)) < 4, `the limit under the sum's middle, not beside it: ${[mid(under), mid(sign)]}`);
+  // e^{i ω_0 t}: the 0, a script of a script, is more than half the size of a letter's script
+  const n = C.formula("e^{x}").runs.length, zero = C.formula("e^{x_0}").runs.slice(n).flat(), high = Math.max(...zero.map((p) => p[1])) - Math.min(...zero.map((p) => p[1]));
+  assert.ok(high > 10, `the 0 under the raised x is ${high.toFixed(1)} units high (a letter: 21), not a speck`);
+});
