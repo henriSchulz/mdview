@@ -653,6 +653,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     Henri's own boards on the desktop (all drew); in the browser a board's file that GitHub does not have yet, or one
     that cannot be read, fails so. An `<img>` that stands for a file — a tile, a sheet in the sidebar — has an `error`
     handler that puts the sign there instead. `web/test/notebook.test.mjs` (a board's file that is no picture).
+113. **What a view asks the application for is asked on every way into it** (#55, Henri: „wenn man auf whiteboards
+    klickt in der sitenliste lädt es ewig“). All Notes asked for the whiteboards in `open()` and when its own choice
+    was clicked; the sidebar's Whiteboards row came in by `showAt()`, which set the choice and drew it — "Looking for
+    Whiteboards…", and nothing asked. What a view waits for is asked where the view is set to it, whatever set it, not
+    in one of the ways there. `web/test/library.test.mjs` (the Library's rows).
+114. **Controls that belong together wrap together** (#56, Henri: „hier ist das ui schlecht angeordnet“). All Notes'
+    head, narrower than its wide layout, let the view, the pasteboard and "…" wrap one by one — "…" alone on a line —
+    and New stood beside them at half the height of two lines. The view and its two buttons are one group
+    (`.ov-acts`, never broken), New stands at the title's right, the choices on a line of their own under it.
+    `web/test/library.test.mjs` (the head beside the sidebar at every width, Home among the choices).
 
 ### Touch (iPad)
 

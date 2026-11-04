@@ -113,6 +113,29 @@ test("the library: search, the Library's rows, the folder's own folders and no n
   assert.deepEqual(foot, { gearRight: true, gearLow: true, newLeft: true });
 });
 
+test("All Notes' head beside the sidebar, at every width: the view, the pasteboard and \"…\" on one line, New beside the title (#56)", async () => {
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); s.ovHome = true; localStorage.setItem("mdview:set", JSON.stringify(s)); }); // (Home among the choices: the widest of them, as Henri has it)
+  await page.goto(`${base}/r/octo/notes?n=Inbox.md`);
+  await untilNote("Inbox.md");
+  await opened();
+  await page.click('#sidebar [data-smart="boards"]');
+  await page.waitForFunction(() => MdOverview.where()?.scope === "boards", null, { timeout: 5000 });
+  const wrong = [];
+  for (let w = 1280; w >= 400; w -= 20) {
+    await page.setViewportSize({ width: w, height: 800 });
+    await page.waitForTimeout(60);
+    const at = await page.evaluate(() => {
+      const r = (s) => document.querySelector("#overview .ov-head " + s).getBoundingClientRect(), mid = (b) => Math.round(b.top + b.height / 2);
+      const view = r('[data-seg="layout"]'), paste = r(".ov-pastebtn"), more = r(".ov-more"), add = r(".ov-add"), title = r(".ov-title"), count = r(".ov-count");
+      return { together: Math.abs(mid(more) - mid(view)) <= 1 && Math.abs(mid(paste) - mid(view)) <= 1, addByTitle: mid(add) >= title.top && mid(add) <= count.bottom };
+    });
+    if (!at.together || !at.addByTitle) wrong.push({ w, ...at });
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); delete s.ovHome; localStorage.setItem("mdview:set", JSON.stringify(s)); });
+  assert.deepEqual(wrong, []);
+});
+
 test("nothing was refused or thrown along the way", () => {
   assert.deepEqual(problems.filter((p) => !/favicon|404/.test(p)), []);
 });

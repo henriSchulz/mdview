@@ -341,6 +341,7 @@
 :root[data-velum][data-velum-look] #overview .ov-count { grid-area: count; color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
 :root[data-velum][data-velum-look] #overview .ov-space { display: none; }
 :root[data-velum][data-velum-look] #overview .ov-tools { grid-area: tools; display: flex; align-items: center; gap: var(--v-space-6); }
+:root[data-velum][data-velum-look] #overview .ov-acts { display: flex; align-items: center; gap: var(--v-space-6); }
 :root[data-velum][data-velum-look] #overview .ov-add { grid-area: add; display: inline-flex; align-items: center; gap: var(--v-space-4); width: auto; height: var(--v-control-height); padding: 0 var(--v-space-12) 0 var(--v-space-8); border-radius: var(--v-radius-control);
   font: var(--v-weight-medium) var(--v-type-body) / 1 var(--ui);
   background: linear-gradient(var(--v-accent-top), var(--v-accent-base)); color: var(--v-ink-on-accent); box-shadow: none; }
@@ -450,9 +451,10 @@
 :root[data-velum][data-velum-look] #overview .ov-title .ov-sep::before { content: "\200b"; }
 :root[data-velum][data-velum-look] #overview .ov-title .ov-sep svg { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
 @container ov (max-width: 860px) {
-  :root[data-velum][data-velum-look] #overview .ov-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title title" "count count" "tools add"; row-gap: var(--v-space-4); }
-  :root[data-velum][data-velum-look] #overview .ov-tools { margin-top: var(--v-space-8); flex-wrap: wrap; }
-  :root[data-velum][data-velum-look] #overview .ov-add { margin-top: var(--v-space-8); }
+  /* (narrower: New at the title's right, the choices on a line of their own below — they wrap as two groups, the
+     scope and the rest, never "…" alone with New beside it at half height: #56) */
+  :root[data-velum][data-velum-look] #overview .ov-head { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title add" "count add" "tools tools"; row-gap: 0; }
+  :root[data-velum][data-velum-look] #overview .ov-tools { margin-top: var(--v-space-12); flex-wrap: wrap; row-gap: var(--v-space-8); }
 }
 @container ov (max-width: 520px) {
   :root[data-velum][data-velum-look] #overview .ov-opt { padding: 0 var(--v-space-6); }

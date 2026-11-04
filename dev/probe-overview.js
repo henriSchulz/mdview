@@ -23,7 +23,7 @@
     btn.click();
     await sleep(1500);
     { const look = (x) => { const c = getComputedStyle(x); return [c.backgroundColor, c.boxShadow, c.borderRadius, x.offsetHeight].join(" "); };
-      const tools = [...ov.querySelectorAll(".ov-head .ov-tools > *")], mid = (x) => { const r = x.getBoundingClientRect(); return Math.round(r.top + r.height / 2); };
+      const tools = [...ov.querySelectorAll(".ov-head .ov-tools :is(.ov-seg, .ov-pastebtn, .ov-more)")], mid = (x) => { const r = x.getBoundingClientRect(); return Math.round(r.top + r.height / 2); };
       ok("the pasteboard's button looks as \"…\" beside it does", look(ov.querySelector(".ov-pastebtn")) === look(ov.querySelector(".ov-more")), [look(ov.querySelector(".ov-pastebtn")), look(ov.querySelector(".ov-more"))]);
       ok("the choices and the buttons stand on one line, together", tools.length === 4 && tools.every((x) => Math.abs(mid(x) - mid(tools[0])) <= 1), tools.map(mid)); }
     ok("the house opens it on the folders, whatever was shown last", ov.querySelector('[data-seg="scope"] [aria-checked="true"]')?.dataset.v === "folders");

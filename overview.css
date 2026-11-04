@@ -323,7 +323,7 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
  * for the order and for what is listed beside the notes. (Sizes are layout; times, curves and
  * radii the central ones.) */
 .ov-head { align-items: center; gap: 12px; }
-.ov-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; } /* (the choices and the buttons after them go to a new line together; only a line too narrow for all of them breaks them up) */
+.ov-tools, .ov-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; } .ov-acts { flex-wrap: nowrap; } /* (the choices and the buttons after them go to a new line together; only a line too narrow for all of them breaks them up) */
 .ov-count { align-self: center; padding-top: 6px; }
 .ov-add, .ov-more, .ov-pastebtn {
   width: 34px; height: 34px; background: var(--raised); color: var(--fg);
