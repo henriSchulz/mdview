@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="de" class="boot" data-velum="opal" data-appearance="light">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mdview – Block-Dialog, sechs Ansätze</title>
+<!-- Der Dialog, in dem ein Block (Code, Formel, Figur) bearbeitet wird: der heutige (0) und sechs im Grundgedanken
+     verschiedene Ansätze, alle größer. Nichts hier schreibt in eine echte Notiz: Done schreibt in die Beispielnotiz.
+     Tasten: 0–6 wechseln (auch bei offenem Dialog, mit Alt), C / F / G öffnen Code / Formel / Figur, D dunkel,
+     Esc verwirft, Ctrl+Enter übernimmt. Nicht ausgeliefert. -->
+<link rel="stylesheet" href="../motion.css">
+<link rel="stylesheet" href="../velum.css">
+<link rel="stylesheet" href="../vendor/katex/katex.min.css">
+<script src="../vendor/katex/katex.min.js"></script>
+<script src="../vendor/highlight.min.js"></script>
+<style>
+  :root {
+    --bg: var(--v-bg-window); --page: var(--v-bg-content); --raised: var(--v-bg-raised);
+    --fg: var(--v-ink-primary); --fg2: var(--v-ink-secondary); --fg3: var(--v-ink-tertiary);
+    --accent: var(--v-accent-base); --accent-text: var(--v-accent-text); --on-accent: var(--v-ink-on-accent);
+    --line: var(--v-line-base); --line-strong: var(--v-line-strong);
+    --hover: var(--v-fill-hover); --pressed: var(--v-fill-pressed); --field: var(--v-fill-field);
+    --glass: var(--v-popover-bg); --glass-shadow: var(--v-popover-shadow);
+    --ui: "SF Pro Text", "SF Pro", "Inter", system-ui, sans-serif;
+    --mono: "SF Mono", "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, monospace;
+    --top: 52px;   /* die Leiste des Labors: das "Fenster" beginnt darunter */
+    --c-orange: #c26a12; --c-blue: #2f6fd6; --c-purple: #8a4fb8;
+    --code-bg: color-mix(in srgb, var(--fg) 4%, var(--page));
+  }
+  :root[data-appearance="dark"] { --c-orange: #f0a04b; --c-blue: #6ea8ff; --c-purple: #c89cf0; }
+  * { box-sizing: border-box; }
+  html.boot, html.boot * { transition: none !important; animation: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg); font: 400 13px/1.45 var(--ui); -webkit-font-smoothing: antialiased; transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out); }
+  svg.i { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; }
+  input, textarea { font: inherit; color: inherit; }
+
+  /* ---------------------------------------------------------------- Leiste des Labors */
+  #bar { position: fixed; inset: 0 0 auto 0; height: var(--top); z-index: 100; display: flex; align-items: center; gap: 14px; padding: 0 18px; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); border-bottom: 1px solid var(--line); }
+  #bar h1 { margin: 0; font-size: 13px; font-weight: 650; white-space: nowrap; }
+  #tabs { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: var(--hover); position: relative; }
+  #tabs button { position: relative; z-index: 1; padding: 4px 11px; border-radius: var(--radius-pill); font-weight: 500; color: var(--fg2); transition: color var(--dur-fast) var(--ease-out); white-space: nowrap; }
+  #tabs button b { font-weight: 650; margin-right: 5px; font-variant-numeric: tabular-nums; }
+  #tabs button[aria-pressed="true"] { color: var(--fg); }
+  #tabs .glide { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: var(--radius-pill); background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.12); transition: transform var(--spring-smooth-dur) var(--spring-smooth), width var(--spring-smooth-dur) var(--spring-smooth); }
+  #idea { flex: 1; min-width: 0; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #bar .lb { height: 26px; padding: 0 10px; border-radius: var(--radius-control); color: var(--fg2); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  #bar .lb:hover { background: var(--hover); color: var(--fg); }
+  #bar .lb kbd { font: 500 11px var(--ui); color: var(--fg3); }
+
+  /* ---------------------------------------------------------------- die Notiz */
+  #win { padding: calc(var(--top) + 28px) 24px 120px; }
+  #sheet { position: relative; width: min(820px, 100%); margin: 0 auto; padding: 56px 64px 64px; background: var(--page); border-radius: 12px; box-shadow: var(--v-card-shadow); font: 400 15.5px/1.62 var(--ui); transform-origin: 50% 0; }
+  #sheet > * { transition: opacity var(--dur-base) var(--ease-out); }
+  #sheet.dim > *:not(.dlg) { opacity: 0.28; }
+  #sheet h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 700; }
+  #sheet .sub { color: var(--fg3); margin: 0 0 26px; font-size: 13px; }
+  #sheet h2 { font-size: 20px; letter-spacing: -0.01em; margin: 30px 0 8px; font-weight: 650; }
+  #sheet p { margin: 0 0 12px; }
+  .blk { position: relative; margin: 14px -14px; padding: 8px 14px; border-radius: 10px; cursor: pointer; outline: none; transition: background-color var(--dur-fast) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
+  .blk:hover, .blk:focus-visible { background: var(--hover); }
+  .blk.editing { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .blk.hidden { opacity: 0; }
+  .blk[data-kind="formula"] { text-align: center; font-size: 17px; }
+  .blk pre { margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--code-bg); font: 400 13px/1.55 var(--mono); overflow: auto; }
+  .blk[data-kind="code"] { padding: 4px 14px; }
+  .blk figure { margin: 0; }
+  .blk figure .art { display: grid; place-items: center; }
+  .blk figure .art svg { max-width: 100%; height: auto; }
+  .blk figcaption { text-align: center; color: var(--fg2); font-size: 13px; margin-top: 4px; }
+  .blk .err { color: var(--v-danger); font: 12px var(--mono); }
+  .hljs-keyword, .hljs-built_in { color: var(--c-purple); }
+  .hljs-string, .hljs-attr { color: var(--c-orange); }
+  .hljs-number, .hljs-literal { color: var(--c-blue); }
+  .hljs-comment { color: var(--fg3); font-style: italic; }
+  .hljs-title, .hljs-name, .hljs-tag { color: var(--accent-text); }
+  .hljs-params { color: inherit; }
+
+  /* ---------------------------------------------------------------- gemeinsame Teile des Dialogs */
+  #scrim { position: fixed; inset: var(--top) 0 0 0; z-index: 60; background: rgb(0 0 0 / 0.22); opacity: 0; pointer-events: none; }
+  :root[data-appearance="dark"] #scrim { background: rgb(0 0 0 / 0.42); }
+  #scrim.on { pointer-events: auto; }
+  .dlg { position: fixed; z-index: 61; display: grid; min-width: 0; min-height: 0; color: var(--fg); font: 400 13px/1.45 var(--ui); user-select: none; -webkit-user-select: none; outline: none; }
+  .d-head { grid-area: head; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .d-title { font-weight: 650; white-space: nowrap; }
+  .d-title small { font-weight: 400; color: var(--fg3); margin-left: 6px; }
+  .d-tools { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 6px; min-width: 0; }
+  .d-ed { grid-area: ed; position: relative; display: flex; min-height: 0; min-width: 0; border-radius: var(--radius-control); background: var(--field); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+  .d-gut { flex: none; padding: 10px 8px 10px 12px; text-align: right; color: var(--fg3); font: 400 var(--efs, 13px)/var(--elh, 1.55) var(--mono); white-space: pre; user-select: none; overflow: hidden; display: none; }
+  .gut .d-gut { display: block; }
+  .d-ed .wrap { position: relative; flex: 1; min-width: 0; overflow: auto; overscroll-behavior: contain; }
+  .d-ed pre, .d-ed textarea { margin: 0; padding: 10px 12px; font: 400 var(--efs, 13px)/var(--elh, 1.55) var(--mono); white-space: pre; tab-size: 4; border: 0; min-height: 100%; }
+  .d-ed pre { pointer-events: none; color: var(--fg); }
+  .d-ed textarea { position: absolute; inset: 0; width: 100%; height: 100%; resize: none; outline: none; background: transparent; color: transparent; caret-color: var(--accent); overflow: hidden; user-select: text; -webkit-user-select: text; }
+  .d-ed textarea::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); color: transparent; }
+  .d-ed .cur { position: absolute; left: 0; right: 0; height: calc(var(--efs, 13px) * var(--elh, 1.55)); background: color-mix(in srgb, var(--fg) 4%, transparent); pointer-events: none; display: none; }
+  .gut .d-ed .cur { display: block; }
+  .soft .d-ed pre, .soft .d-ed textarea { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .soft .d-ed .cur { display: none; }
+  .d-pv { grid-area: pv; position: relative; display: grid; place-items: center; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: 14px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--fg) 3%, transparent); user-select: text; transition: opacity var(--dur-fast) var(--ease-out); }
+  .d-pv .katex-display { margin: 0; }
+  .d-pv .katex { font-size: 1.35em; }
+  .d-pv figure, .d-pv .art { width: 100%; margin: 0; display: flex; justify-content: center; }
+  .d-pv .pvc { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .d-pv svg { display: block; width: min(100%, 560px); height: auto; max-height: 100%; }
+  .d-pv.stale > :not(.perr) { opacity: 0.4; }
+  .d-pv .perr { position: absolute; left: 12px; right: 12px; bottom: 8px; color: var(--v-danger); font: 11.5px var(--mono); text-align: left; }
+  .d-pv .pvl { position: absolute; top: 8px; left: 12px; font-size: 11px; font-weight: 600; color: var(--fg3); letter-spacing: 0.02em; text-transform: uppercase; }
+  .d-cap { grid-area: cap; display: flex; align-items: center; gap: 8px; color: var(--fg2); }
+  .d-cap input { flex: 1; min-width: 0; }
+  .d-foot { grid-area: foot; display: flex; align-items: center; gap: 8px; }
+  .d-info { flex: 1; display: flex; gap: 12px; color: var(--fg2); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+  .d-info .k { color: var(--fg3); }
+  .btn { height: var(--v-control-height); padding: 0 12px; border-radius: var(--v-radius-control); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 500; font-size: 13px; background: var(--raised); box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 1.5px rgb(0 0 0 / 0.08); white-space: nowrap; transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-instant) var(--ease-out); }
+  .btn:hover { background: color-mix(in srgb, var(--fg) 5%, var(--raised)); }
+  .btn:active { transform: scale(var(--press-scale)); }
+  .btn.sm { height: 24px; padding: 0 9px; font-size: 12px; }
+  .btn.ic { width: var(--v-control-height); padding: 0; }
+  .btn.sm.ic { width: 24px; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.12); }
+  .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--fg)); }
+  .btn.plain { background: transparent; box-shadow: none; color: var(--fg2); }
+  .btn.plain:hover { background: var(--hover); color: var(--fg); }
+  .fld { height: 24px; padding: 0 8px; border-radius: var(--radius-control); border: 0; outline: none; background: var(--field); box-shadow: inset 0 0 0 1px var(--line-strong); font-size: 12px; user-select: text; }
+  .fld:focus { box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--v-radius-segment); background: var(--v-segment-track); }
+  .seg button { height: 22px; padding: 0 10px; border-radius: var(--v-radius-segment-plate); font-size: 12px; font-weight: 500; color: var(--fg2); }
+  .seg button[aria-checked="true"] { background: var(--v-segment-plate); color: var(--fg); box-shadow: var(--v-segment-plate-shadow); }
+  #toast { position: fixed; left: 50%; bottom: 26px; z-index: 200; transform: translate(-50%, 10px); padding: 8px 16px; border-radius: var(--radius-pill); background: var(--v-tooltip-bg); color: var(--v-tooltip-ink); font-weight: 500; opacity: 0; pointer-events: none; transition: opacity var(--dur-fast) var(--ease-exit), transform var(--dur-fast) var(--ease-exit); }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+
+  /* ---------------------------------------------------------------- 0 · Heute */
+  .s0 { inset: 0; margin: auto; height: fit-content; max-height: 90vh; top: var(--top); grid-template: "head" auto "ed" minmax(0, auto) "pv" auto "cap" auto "foot" auto / minmax(0, 1fr); row-gap: 8px; padding: 0; border-radius: var(--v-radius-panel); background: var(--page); box-shadow: 0 20px 60px rgb(0 0 0 / 0.25), 0 0 0 0.5px var(--line-strong); }
+  .s0 .d-head { padding: 12px 14px 2px; }
+  .s0 .d-ed, .s0 .d-pv, .s0 .d-cap { margin: 0 14px; }
+  .s0 .d-ed { max-height: 46vh; }
+  .s0 .d-pv { min-height: 3.2em; }
+  .s0 .d-foot { padding: 4px 14px 12px; }
+  .s0 .btn { --v-control-height: 28px; }
+  .s0 .d-cap .lbl { display: none; }
+
+  /* ---------------------------------------------------------------- 1 · Bühne */
+  .s1 { inset: calc(var(--top) + 26px) 32px 26px; grid-template: "head head" auto "ed pv" minmax(0, 1fr) "cap cap" auto "foot foot" auto / minmax(0, 1.05fr) minmax(0, 1fr); border-radius: var(--v-radius-window); background: var(--page); box-shadow: 0 30px 90px rgb(0 0 0 / 0.3), 0 0 0 0.5px var(--line-strong); overflow: hidden; --efs: 14px; }
+  .s1.nopv { grid-template: "head" auto "ed" minmax(0, 1fr) "foot" auto / minmax(0, 1fr); }
+  .s1 .d-head { height: 52px; padding: 0 12px 0 20px; border-bottom: 1px solid var(--line); }
+  .s1 .d-ed { border-radius: 0; box-shadow: none; background: var(--code-bg); }
+  .s1 .d-pv { border-radius: 0; background: var(--page); border-left: 1px solid var(--line); background-image: radial-gradient(var(--line) 1px, transparent 1.3px); background-size: 16px 16px; }
+  .s1 .d-pv .katex { font-size: 2.2em; }
+  .s1 .d-pv svg { width: 94%; }
+  .s1 .d-cap { padding: 10px 20px; border-top: 1px solid var(--line); }
+  .s1 .d-foot { height: 52px; padding: 0 12px 0 20px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--fg) 2%, var(--page)); }
+
+  /* ---------------------------------------------------------------- 2 · Sheet */
+  .s2 { top: var(--top); left: 0; right: 0; margin: 0 auto; width: min(1040px, 94vw); height: min(80vh, calc(100vh - var(--top) - 40px)); grid-template: "head" auto "pv" minmax(120px, 0.9fr) "ed" minmax(0, 1.2fr) "cap" auto "foot" auto / minmax(0, 1fr); row-gap: 12px; padding: 18px 22px 18px; border-radius: 0 0 var(--v-radius-window) var(--v-radius-window); background: var(--page); box-shadow: 0 24px 70px rgb(0 0 0 / 0.28), 0 0 0 0.5px var(--line-strong); --efs: 13.5px; }
+  .s2.nopv { grid-template: "head" auto "ed" minmax(0, 1fr) "foot" auto / minmax(0, 1fr); }
+  .s2 .d-title { font-size: 15px; }
+  .s2 .d-pv { border-radius: 12px; }
+  .s2 .d-pv .katex { font-size: 1.9em; }
+  .s2 .d-pv svg { width: 70%; }
+  .s2 .d-foot .btn:not(.plain) { min-width: 84px; }
+
+  /* ---------------------------------------------------------------- 3 · Aufklappen */
+  .s3 { position: absolute; z-index: 5; grid-template: "pv" minmax(90px, auto) "ed" minmax(0, 1fr) "cap" auto "foot" auto / minmax(0, 1fr); row-gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--page); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent), 0 18px 50px rgb(0 0 0 / 0.16); --efs: 13.5px; }
+  .s3.nopv { grid-template: "head" auto "ed" minmax(0, 1fr) "foot" auto / minmax(0, 1fr); }
+  .s3 .d-head { display: none; }
+  .s3.nopv .d-head { display: flex; }
+  .s3 .d-pv { background: none; padding: 6px; }
+  .s3 .d-pv .katex { font-size: 1.25em; }
+  .s3 .d-ed { background: var(--code-bg); box-shadow: none; }
+  .s3 .d-foot .tl { display: flex; gap: 6px; }
+  .s3 .d-cap .lbl { display: none; }
+
+  /* ---------------------------------------------------------------- 4 · Inspektor */
+  .s4 { top: calc(var(--top) + 10px); right: 10px; bottom: 10px; width: min(620px, 50vw); grid-template: "head" auto "note" auto "ed" minmax(0, 1fr) "cap" auto "foot" auto / minmax(0, 1fr); row-gap: 12px; padding: 16px 16px 14px; border-radius: var(--v-radius-panel); background: var(--glass); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); box-shadow: var(--glass-shadow); --efs: 13.5px; }
+  .s4 .d-head { flex-wrap: wrap; row-gap: 8px; }
+  .s4 .d-title { font-size: 15px; flex: 1; }
+  .s4 .d-tools { flex: 1 0 100%; justify-content: flex-start; }
+  .s4 .d-pv { display: none; }
+  .s4 .note { grid-area: note; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--v-radius-row); background: var(--v-fill-selected); color: var(--accent-text); font-size: 12px; font-weight: 500; }
+  .s4 .d-ed { background: var(--field); }
+  .s4 .d-foot .btn:not(.plain) { flex: 1; }
+  .s4 .d-info { display: none; }
+  .note { display: none; }
+  #sheet.aside { box-shadow: var(--v-card-shadow), 0 0 0 1px var(--line); }
+
+  /* ---------------------------------------------------------------- 5 · Glas */
+  .s5 { inset: calc(var(--top) + 34px) 7vw 34px; grid-template: "ed pv" minmax(0, 1fr) / minmax(0, 1fr) var(--pvw, 38%); border-radius: 26px; background: var(--page); box-shadow: 0 40px 100px rgb(0 0 0 / 0.32), 0 0 0 0.5px var(--line-strong); overflow: hidden; --efs: 14px; --elh: 1.6; }
+  .s5.nopv, .s5.pvoff { --pvw: 0px; }
+  .s5 .d-ed { border-radius: 0; box-shadow: none; background: var(--page); }
+  .s5 .d-ed .wrap pre, .s5 .d-ed textarea { padding-top: 76px; padding-bottom: 90px; }
+  .s5 .d-gut { padding-top: 76px; }
+  .s5 .d-pv { margin: 70px 14px 84px 0; border-radius: 20px; background: color-mix(in srgb, var(--fg) 3.5%, var(--page)); box-shadow: inset 0 0 0 1px var(--line); }
+  .s5.nopv .d-pv, .s5.pvoff .d-pv { opacity: 0; }
+  .s5 .d-pv .katex { font-size: 1.3em; }
+  .s5 .d-head { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); gap: 4px; padding: 5px 5px 5px 16px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); box-shadow: var(--glass-shadow); max-width: calc(100% - 40px); }
+  .s5 .d-head .d-title { margin-right: 8px; }
+  .s5 .d-head .btn, .s5 .d-foot .btn { border-radius: var(--radius-pill); }
+  .s5 .d-head .fld { border-radius: var(--radius-pill); }
+  .s5 .d-head .seg, .s5 .d-head .seg button { border-radius: var(--radius-pill); }
+  .s5 .d-tools { flex: none; }
+  .s5 .d-head, .s5 .d-cap, .s5 .d-foot { grid-area: auto; z-index: 2; }
+  .s5 .d-cap { position: absolute; left: 20px; bottom: 20px; width: min(420px, 40%); padding: 5px 5px 5px 14px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); box-shadow: var(--glass-shadow); }
+  .s5 .d-cap .fld { border-radius: var(--radius-pill); box-shadow: none; background: transparent; }
+  .s5 .d-foot { position: absolute; right: 20px; bottom: 20px; padding: 5px; gap: 4px; border-radius: var(--radius-pill); background: var(--glass); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); box-shadow: var(--glass-shadow); }
+  .s5 .d-info { padding: 0 8px 0 10px; flex: none; }
+  .s5 .btn { --v-control-height: 32px; }
+  .s5 .glass-in { animation: rise var(--spring-snappy-dur) var(--spring-snappy) both; }
+  @keyframes rise { from { opacity: 0; translate: 0 8px; scale: 0.96; } }
+
+  /* ---------------------------------------------------------------- 6 · Fokus */
+  .s6 { inset: var(--top) 0 0 0; grid-template: ". head ." 64px ". pv ." minmax(0, 0.8fr) ". ed ." minmax(0, 1.25fr) ". cap ." auto ". foot ." 64px / minmax(24px, 1fr) minmax(0, 940px) minmax(24px, 1fr); row-gap: 14px; background: var(--page); --efs: 15.5px; --elh: 1.65; }
+  .s6.nopv { grid-template: ". head ." 64px ". ed ." minmax(0, 1fr) ". foot ." 64px / minmax(24px, 1fr) minmax(0, 940px) minmax(24px, 1fr); }
+  .s6 .d-title { font-size: 17px; }
+  .s6 .d-pv { background: none; border-radius: 0; }
+  .s6 .d-pv .katex { font-size: 2.6em; }
+  .s6 .d-pv svg { width: 100%; }
+  .s5 .d-pv svg { width: 92%; }
+  .s6 .d-ed { background: none; box-shadow: none; border-radius: 0; border-top: 1px solid var(--line); }
+  .s6 .d-cap { justify-content: center; }
+  .s6 .d-cap .fld { text-align: center; max-width: 520px; height: 30px; font-size: 13.5px; box-shadow: none; background: transparent; }
+  .s6 .d-cap .lbl { display: none; }
+  .s6 .d-foot { border-top: 1px solid var(--line); }
+</style>
+
+<header id="bar">
+  <h1>Block-Dialog</h1>
+  <div id="tabs" role="toolbar"><span class="glide"></span></div>
+  <span id="idea"></span>
+  <button class="lb" data-open="code">Code <kbd>C</kbd></button>
+  <button class="lb" data-open="formula">Formel <kbd>F</kbd></button>
+  <button class="lb" data-open="figure">Figur <kbd>G</kbd></button>
+  <button class="lb" id="mode" title="Hell/Dunkel (D)"></button>
+</header>
+
+<main id="win">
+  <article id="sheet">
+    <h1>Fourier-Reihen</h1>
+    <p class="sub">Analysis II · Woche 9</p>
+    <p>Eine <em>T</em>-periodische, stückweise stetige Funktion lässt sich als Summe von Sinus- und Kosinusschwingungen schreiben, deren Frequenzen ganzzahlige Vielfache von 1/<em>T</em> sind:</p>
+    <div class="blk" data-kind="formula" tabindex="0"></div>
+    <p>Die Koeffizienten <em>a<sub>n</sub></em> und <em>b<sub>n</sub></em> sind Skalarprodukte mit den Basisfunktionen. Numerisch genügt die Trapezregel über eine Periode:</p>
+    <div class="blk" data-kind="code" tabindex="0"></div>
+    <h2>Gibbs-Phänomen</h2>
+    <p>An einer Sprungstelle schießt jede Partialsumme um etwa 9 % der Sprunghöhe über – egal, wie viele Glieder man mitnimmt. Die Spitze wandert nur näher an den Sprung.</p>
+    <div class="blk" data-kind="figure" tabindex="0"></div>
+    <p>Im Mittel konvergiert die Reihe trotzdem: der quadratische Fehler geht gegen null (Parseval).</p>
+  </article>
+</main>
+<div id="scrim"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const root = document.documentElement;
+const sheet = $("#sheet"), scrim = $("#scrim");
+const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+const ms = (n) => parseFloat(css(n)) || 250;
+
+const ICON = {
+  copy: '<svg class="i" viewBox="0 0 16 16"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.8A1.8 1.8 0 0 0 8.7 2H3.8A1.8 1.8 0 0 0 2 3.8v4.9a1.8 1.8 0 0 0 1.8 1.8H5"/></svg>',
+  hide: '<svg class="i" viewBox="0 0 16 16"><path d="M2 2l12 12M6.6 3.6A6.8 6.8 0 0 1 8 3.5c3.3 0 5.6 2.6 6.4 4.5a7.6 7.6 0 0 1-1.9 2.6M10.1 10.4A3 3 0 0 1 5.6 6.1M4 5A7.6 7.6 0 0 0 1.6 8c.8 1.9 3.1 4.5 6.4 4.5a6.6 6.6 0 0 0 2.4-.4"/></svg>',
+  pic: '<svg class="i" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><circle cx="6" cy="6.5" r="1.2"/><path d="M2.5 12l3.6-3.6 2.4 2.4 2-2 3 3"/></svg>',
+  split: '<svg class="i" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M9.5 2.5v11"/></svg>',
+  x: '<svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  check: '<svg class="i" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></svg>',
+  eye: '<svg class="i" viewBox="0 0 16 16"><path d="M1.6 8c.8-1.9 3.1-4.5 6.4-4.5s5.6 2.6 6.4 4.5c-.8 1.9-3.1 4.5-6.4 4.5S2.4 9.9 1.6 8z"/><circle cx="8" cy="8" r="2.2"/></svg>',
+  sun: '<svg class="i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>',
+  moon: '<svg class="i" viewBox="0 0 16 16"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1z"/></svg>',
+};
+
+// ------------------------------------------------------------------ die Blöcke der Beispielnotiz
+const BLOCKS = {
+  formula: {
+    title: "Formula", lang: "latex",
+    src: "f(x) = \\frac{a_0}{2} + \\sum_{n=1}^{\\infty} \\left( a_n \\cos\\frac{2\\pi n x}{T} + b_n \\sin\\frac{2\\pi n x}{T} \\right)",
+    caption: "",
+  },
+  code: {
+    title: "Code Block", lang: "python",
+    src: `import numpy as np
+
+def fourier_coefficients(f, T, n_max, samples=4096):
+    """a_n and b_n of f over one period T, by the trapezoid rule."""
+    x = np.linspace(0, T, samples, endpoint=False)
+    y = f(x)
+    w = 2 * np.pi / T
+    a = [2 / T * np.trapz(y * np.cos(w * n * x), x) for n in range(n_max + 1)]
+    b = [2 / T * np.trapz(y * np.sin(w * n * x), x) for n in range(n_max + 1)]
+    return np.array(a), np.array(b)
+
+square = lambda x: np.sign(np.sin(x))
+a, b = fourier_coefficients(square, 2 * np.pi, 9)
+print(np.round(b, 3))   # only odd n remain: 4 / (pi n)`,
+  },
+  figure: {
+    title: "Figure", lang: "svg",
+    src: `<svg viewBox="0 0 560 200" xmlns="http://www.w3.org/2000/svg" font-family="system-ui" font-size="12">
+  <line x1="20" y1="100" x2="540" y2="100" stroke="#9a948b" stroke-width="1"/>
+  <line x1="20" y1="20" x2="20" y2="180" stroke="#9a948b" stroke-width="1"/>
+  <path d="M20 150 H150 V50 H280 V150 H410 V50 H540" fill="none"
+        stroke="#c26a12" stroke-width="2" stroke-dasharray="5 4"/>
+  <path d="M20 100 C40 30 60 42 85 40 S130 30 150 100 S170 160 215 160
+           S260 170 280 100 S300 30 345 40 S390 30 410 100 S430 170 475 160 S520 170 540 100"
+        fill="none" stroke="#138474" stroke-width="2.5"/>
+  <circle cx="160" cy="36" r="4" fill="#138474"/>
+  <text x="168" y="32" fill="#138474">Overshoot ≈ 9 %</text>
+  <text x="430" y="44" fill="#c26a12">f(x)</text>
+  <text x="430" y="188" fill="#138474">S₉(x)</text>
+</svg>`,
+    caption: "Square wave and its partial sum up to n = 9",
+  },
+};
+
+function renderInto(elm, kind, src, caption) {
+  if (kind === "formula") {
+    try { katex.render(src, elm, { displayMode: true, throwOnError: true }); return null; }
+    catch (e) { return e.message.replace(/^KaTeX parse error: /, ""); }
+  }
+  if (kind === "code") { elm.innerHTML = `<pre>${hljs.highlight(src, { language: "python" }).value}</pre>`; return null; }
+  if (kind === "figure") {
+    const ok = /^\s*<svg[\s\S]*<\/svg>\s*$/.test(src) && new DOMParser().parseFromString(src, "image/svg+xml").querySelector("parsererror") == null;
+    if (!ok) return "The SVG does not parse.";
+    elm.innerHTML = `<figure><div class="art">${src}</div>${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
+    return null;
+  }
+}
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const blockEl = (kind) => sheet.querySelector(`.blk[data-kind="${kind}"]`);
+for (const k of Object.keys(BLOCKS)) renderInto(blockEl(k), k, BLOCKS[k].src, BLOCKS[k].caption);
+
+function highlight(src, lang) {
+  if (lang === "latex") return esc(src).replace(/(\\(?:[a-zA-Z]+|.))|([{}[\]^_])|(\b\d+\b)/g, (m, c, b, n) =>
+    c ? `<span class="hljs-keyword">${c}</span>` : b ? `<span class="hljs-tag">${b}</span>` : `<span class="hljs-number">${n}</span>`);
+  return hljs.highlight(src, { language: lang === "svg" ? "xml" : lang }).value;
+}
+
+// ------------------------------------------------------------------ die sechs Ansätze
+const STYLES = [
+  ["Heute", "So, wie die App ihn heute zeichnet: so breit wie die Seite, so hoch wie der Inhalt, die Vorschau unter dem Code."],
+  ["Bühne", "Fast das ganze Fenster: Code links mit Zeilennummern, rechts die Vorschau so groß wie möglich auf einem Raster, unten eine Statuszeile."],
+  ["Sheet", "Ein macOS-Sheet fällt aus der Leiste herab, 80 % hoch: oben die Vorschau als Bühne, darunter der Code, Abbrechen und Fertig unten rechts."],
+  ["Aufklappen", "Kein Fenster: der Block klappt in der Seite selbst auf, wird hoch und bekommt den Editor, die Notiz darum tritt zurück."],
+  ["Inspektor", "Eine hohe Glas-Leiste von rechts, die Notiz rückt zur Seite und bleibt lesbar – der Block in ihr ist die Vorschau, live beim Tippen."],
+  ["Glas", "Ein großes randloses Fenster: der Code bis an die Kanten, Werkzeuge und Knöpfe schweben als Glas-Kapseln darüber, die Vorschau als Karte, ein-/ausblendbar."],
+  ["Fokus", "Das ganze Fenster wird zum Editor: die Notiz blendet weg, große Schrift, die Vorschau groß darüber, sonst nur Titel und Fertig."],
+];
+let style = Number(sessionStorageGet("modal-lab-style") ?? 1) || 0;
+function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
+function sessionStorageSet(k, v) { try { sessionStorage.setItem(k, v); } catch {} }
+
+const tabs = $("#tabs"), glide = $(".glide", tabs);
+STYLES.forEach(([n], i) => {
+  const b = document.createElement("button");
+  b.innerHTML = `<b>${i}</b>${n}`;
+  b.onclick = () => setStyle(i);
+  tabs.appendChild(b);
+});
+function setStyle(i) {
+  style = i;
+  sessionStorageSet("modal-lab-style", i);
+  const bs = tabs.querySelectorAll("button");
+  bs.forEach((b, j) => b.setAttribute("aria-pressed", j === i));
+  glide.style.width = bs[i].offsetWidth + "px";
+  glide.style.transform = `translateX(${bs[i].offsetLeft}px)`;
+  $("#idea").textContent = STYLES[i][1];
+  if (open) { const k = open.kind; close(false, () => openDialog(k)); }
+}
+
+// ------------------------------------------------------------------ der Dialog
+let open = null;
+
+function build(kind) {
+  const B = BLOCKS[kind], s = style;
+  const d = document.createElement("div");
+  d.className = `dlg s${s}` + (kind === "code" ? " nopv" : "") + (kind === "formula" ? " soft" : "") + ([1, 3, 5, 6].includes(s) ? " gut" : "");
+  d.setAttribute("role", "dialog");
+  d.setAttribute("aria-modal", "true");
+  d.tabIndex = -1;
+  const tools = [];
+  if (kind === "code") tools.push(`<input class="fld" style="width:120px" value="${B.lang}" aria-label="Language" spellcheck="false">`, `<button class="btn sm" data-t="copy">${ICON.copy}Copy</button>`, `<button class="btn sm" data-t="hide">${ICON.hide}Hide Code</button>`);
+  if (kind === "formula") tools.push(`<div class="seg" role="radiogroup"><button role="radio" aria-checked="true">Block</button><button role="radio" aria-checked="false">Inline</button></div>`, `<button class="btn sm" data-t="copy">${ICON.copy}Copy LaTeX</button>`, `<button class="btn sm" data-t="pic">${ICON.pic}Copy as Picture</button>`);
+  if (kind === "figure") tools.push(`<button class="btn sm" data-t="hide">${ICON.hide}Hide Code</button>`);
+  if (s === 5 && kind !== "code") tools.push(`<button class="btn sm ic" data-t="pv" title="Preview">${ICON.split}</button>`);
+  const cancel = s === 6 ? `<button class="btn plain" data-do="cancel">Cancel</button>` : `<button class="btn${s === 5 ? " plain" : ""}" data-do="cancel">Cancel</button>`;
+  d.innerHTML =
+    `<header class="d-head"><span class="d-title">${B.title}${s === 6 || s === 1 ? `<small>Fourier-Reihen.md</small>` : ""}</span><div class="d-tools">${tools.join("")}</div></header>` +
+    `<div class="note">${ICON.eye}The block in the note shows what you write.</div>` +
+    `<div class="d-ed"><div class="d-gut"></div><div class="wrap"><span class="cur"></span><pre></pre><textarea spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></div></div>` +
+    (kind === "code" ? "" : `<div class="d-pv">${s === 1 || s === 2 ? '<span class="pvl">Preview</span>' : ""}<div class="pvc"></div></div>`) +
+    (kind === "figure" || kind === "formula" ? `<label class="d-cap"><span class="lbl">Caption</span><input class="fld" placeholder="Caption" value="${esc(B.caption || "")}" spellcheck="false"></label>` : "") +
+    `<footer class="d-foot"><div class="d-info"></div>${cancel}<button class="btn primary" data-do="done">Done</button></footer>`;
+  return d;
+}
+
+function wire(d, kind) {
+  const ta = $("textarea", d), pre = $("pre", d), gut = $(".d-gut", d), cur = $(".cur", d), wrap = $(".wrap", d);
+  const pv = $(".pvc", d), info = $(".d-info", d), cap = $(".d-cap input", d);
+  const B = BLOCKS[kind];
+  ta.value = B.src;
+  let t = 0;
+  const paint = () => {
+    pre.innerHTML = highlight(ta.value, B.lang) + "\n";
+    const n = ta.value.split("\n").length;
+    gut.textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
+    // (the textarea has the size of what it holds: the wrap scrolls both, the gutter follows)
+    ta.style.height = pre.offsetHeight + "px";
+    ta.style.width = (kind === "formula" ? wrap.clientWidth : Math.max(pre.scrollWidth, wrap.clientWidth)) + "px";
+    caret();
+  };
+  const caret = () => {
+    const before = ta.value.slice(0, ta.selectionStart).split("\n");
+    const ln = before.length, col = before[before.length - 1].length + 1;
+    const lh = parseFloat(getComputedStyle(pre).lineHeight);
+    cur.style.top = (10 + (ln - 1) * lh) + "px";
+    const lines = ta.value.split("\n").length;
+    const parts = [`<span>Ln ${ln}, Col ${col}</span>`, `<span>${lines} ${lines === 1 ? "line" : "lines"}</span>`];
+    if (style !== 5) parts.push(`<span class="k">${B.lang === "latex" ? "LaTeX" : B.lang === "svg" ? "SVG" : "Python"}</span>`);
+    if (style === 0 || style === 1) parts.push(`<span class="k">Ctrl+Enter takes it</span>`);
+    info.innerHTML = style === 5 ? parts.slice(0, 1).join("") : parts.join("");
+  };
+  const preview = () => {
+    if (style === 4) { // the note's block is the preview
+      const err = renderInto(blockEl(kind), kind, ta.value, cap ? cap.value : "");
+      blockEl(kind).querySelector(".err")?.remove();
+      if (err) blockEl(kind).insertAdjacentHTML("beforeend", `<div class="err">${esc(err)}</div>`);
+      return;
+    }
+    if (!pv) return;
+    const box = pv.parentElement;
+    const tmp = document.createElement("div");
+    const err = renderInto(tmp, kind, ta.value, "");
+    box.querySelector(".perr")?.remove();
+    if (err) { box.classList.add("stale"); box.insertAdjacentHTML("beforeend", `<div class="perr">${esc(err)}</div>`); }
+    else { box.classList.remove("stale"); pv.replaceChildren(...tmp.childNodes); }
+  };
+  ta.addEventListener("input", () => { paint(); clearTimeout(t); t = setTimeout(preview, 90); });
+  ta.addEventListener("keyup", caret);
+  ta.addEventListener("click", caret);
+  wrap.addEventListener("scroll", () => { gut.scrollTop = wrap.scrollTop; });
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Tab" && !e.ctrlKey) { e.preventDefault(); document.execCommand("insertText", false, "    "); }
+  });
+  cap?.addEventListener("input", () => style === 4 && preview());
+  d.querySelectorAll(".seg").forEach((sg) => sg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    sg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", x === b));
+  }));
+  d.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-do],[data-t]"); if (!b) return;
+    if (b.dataset.do === "done") close(true);
+    else if (b.dataset.do === "cancel") close(false);
+    else if (b.dataset.t === "pv") d.classList.toggle("pvoff");
+    else if (b.dataset.t === "copy") toast("Copied");
+    else if (b.dataset.t === "pic") toast("Picture copied");
+    else if (b.dataset.t === "hide") toast("Code hidden in the note");
+  });
+  return { ta, cap, paint, preview };
+}
+
+// (Web Animations with the app's timing — transform and opacity only)
+const SPRING = (n) => ({ easing: css(`--spring-${n}`), duration: ms(`--spring-${n}-dur`) });
+const EXIT = () => ({ easing: css("--ease-exit"), duration: ms("--dur-slow") * 0.7 });
+const FADE_IN = () => ({ easing: css("--ease-out"), duration: ms("--dur-fast") });
+function anim(elm, frames, opts) { return elm.animate(frames, { fill: "both", ...opts }); }
+
+// from the block to the dialog: where the dialog would stand if it were the block
+function growFrom(d, br) {
+  const r = d.getBoundingClientRect();
+  const s = Math.max(0.5, Math.min(1, br.width / r.width));
+  const sy = Math.max(0.25, Math.min(1, br.height / r.height));
+  const dx = br.left + br.width / 2 - (r.left + r.width / 2), dy = br.top + br.height / 2 - (r.top + r.height / 2);
+  return `translate(${dx}px, ${dy}px) scale(${s}, ${sy})`;
+}
+
+function openDialog(kind) {
+  if (open) return;
+  const blk = blockEl(kind);
+  const s = style;
+  const d = build(kind);
+  const saved = { src: BLOCKS[kind].src, caption: BLOCKS[kind].caption };
+  if (s === 3) {
+    // in the page: from the block's top, the sheet's width, scrolled so it stands near the window's top
+    const y = blk.offsetTop;
+    const want = Math.min(Math.max(innerHeight * 0.68, 420), innerHeight - 120);
+    Object.assign(d.style, { left: "18px", right: "18px", top: (y - 10) + "px", height: want + "px" });
+    sheet.appendChild(d);
+    sheet.style.minHeight = (y - 10 + want + 40) + "px"; // (room under it, so the note can scroll it up)
+    const top = blk.getBoundingClientRect().top + scrollY - parseFloat(css("--top")) - 26;
+    scrollTo({ top, behavior: "smooth" });
+  } else {
+    document.body.appendChild(d);
+    if (s === 0) { // the page's width, as today
+      const pr = sheet.getBoundingClientRect();
+      Object.assign(d.style, { width: pr.width + "px", left: pr.left + "px", right: "auto" });
+    }
+  }
+  const W = wire(d, kind);
+  W.paint(); W.preview();
+  if (s !== 3) blk.scrollIntoView({ block: "nearest" });
+  const br = blk.getBoundingClientRect();
+  blk.classList.add("editing");
+  open = { kind, d, W, saved, blk, s };
+
+  const sc = s === 3 ? [] : [anim(scrim, [{ opacity: 0 }, { opacity: s === 4 ? 0.35 : s === 6 ? 0 : 1 }], { easing: css("--ease-out"), duration: ms("--dur-slow") })];
+  scrim.classList.toggle("on", s !== 3);
+  if (s === 0 || s === 1) {
+    anim(d, [{ transform: growFrom(d, br) }, { transform: "none" }], SPRING("gentle"));
+    anim(d, [{ opacity: 0 }, { opacity: 1 }], FADE_IN());
+    if (s === 0) blk.classList.add("hidden");
+  } else if (s === 2) {
+    anim(d, [{ transform: "translateY(-104%)" }, { transform: "none" }], SPRING("smooth"));
+  } else if (s === 3) {
+    const h = d.offsetHeight, bh = br.height + 20;
+    anim(d, [{ clipPath: `inset(0 0 ${h - bh}px 0 round 14px)` }, { clipPath: "inset(0 0 0 0 round 14px)" }], SPRING("smooth"));
+    anim(d, [{ opacity: 0 }, { opacity: 1 }], FADE_IN());
+    blk.classList.add("hidden");
+    sheet.classList.add("dim");
+  } else if (s === 4) {
+    const pw = d.getBoundingClientRect();
+    const sr = sheet.getBoundingClientRect();
+    const room = pw.left - 24;           // what is left of the window beside the panel
+    const k = Math.min(1, room / sr.width);
+    const shift = (room - sr.width * k) / 2 + 24 - sr.left;
+    open.sheetT = `translateX(${shift}px) scale(${k})`;
+    sheet.style.transformOrigin = `0 ${br.top + scrollY - sheet.offsetTop}px`;
+    anim(sheet, [{ transform: "none" }, { transform: open.sheetT }], SPRING("smooth"));
+    anim(d, [{ transform: "translateX(calc(100% + 24px))" }, { transform: "none" }], SPRING("smooth"));
+    sheet.classList.add("aside");
+  } else if (s === 5) {
+    anim(d, [{ transform: growFrom(d, br) }, { transform: "none" }], SPRING("snappy"));
+    anim(d, [{ opacity: 0 }, { opacity: 1 }], FADE_IN());
+    d.querySelectorAll(".d-head, .d-foot, .d-cap").forEach((x, i) => { x.style.animationDelay = (90 + i * 40) + "ms"; x.classList.add("glass-in"); });
+    blk.classList.add("hidden");
+  } else if (s === 6) {
+    anim(sheet, [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.97)" }], { easing: css("--ease-out"), duration: ms("--dur-slow") });
+    anim(d, [{ opacity: 0, transform: "scale(1.015)" }, { opacity: 1, transform: "none" }], { easing: css("--ease-out"), duration: ms("--dur-slow"), delay: 40 });
+  }
+  setTimeout(() => { W.ta.focus({ preventScroll: true }); W.ta.setSelectionRange(0, 0); }, 30);
+}
+
+function close(take, then) {
+  if (!open) return;
+  const { kind, d, W, saved, blk, s } = open;
+  open = null;
+  if (take) { BLOCKS[kind].src = W.ta.value; if (W.cap) BLOCKS[kind].caption = W.cap.value; }
+  else { BLOCKS[kind].src = saved.src; BLOCKS[kind].caption = saved.caption; }
+  const err = renderInto(blk, kind, BLOCKS[kind].src, BLOCKS[kind].caption);
+  blk.querySelector(".err")?.remove();
+  if (err) blk.insertAdjacentHTML("beforeend", `<div class="err">${esc(err)}</div>`);
+  if (take) toast("Written into the note");
+  const br = blk.getBoundingClientRect();
+  scrim.classList.remove("on");
+  if (s !== 3) anim(scrim, [{ opacity: getComputedStyle(scrim).opacity }, { opacity: 0 }], EXIT());
+  let a;
+  if (s === 0 || s === 1 || s === 5) { d.getAnimations().forEach((x) => x.cancel()); a = anim(d, [{ transform: "none", opacity: 1 }, { transform: growFrom(d, br), opacity: 0 }], EXIT()); }
+  else if (s === 2) a = anim(d, [{ transform: "none" }, { transform: "translateY(-104%)" }], EXIT());
+  else if (s === 3) {
+    const h = d.offsetHeight, bh = Math.min(h, br.height + 20);
+    a = anim(d, [{ clipPath: "inset(0 0 0 0 round 14px)", opacity: 1 }, { clipPath: `inset(0 0 ${h - bh}px 0 round 14px)`, opacity: 0 }], EXIT());
+    sheet.classList.remove("dim");
+    a.finished.then(() => { sheet.style.minHeight = ""; });
+  } else if (s === 4) {
+    a = anim(d, [{ transform: "none" }, { transform: "translateX(calc(100% + 24px))" }], EXIT());
+    const from = getComputedStyle(sheet).transform;
+    sheet.getAnimations().forEach((x) => x.cancel());
+    anim(sheet, [{ transform: from }, { transform: "none" }], SPRING("smooth")).finished.then((x) => { x.cancel(); sheet.style.transformOrigin = ""; });
+    sheet.classList.remove("aside");
+  } else if (s === 6) {
+    a = anim(d, [{ opacity: 1 }, { opacity: 0 }], EXIT());
+    sheet.getAnimations().forEach((x) => x.cancel());
+    anim(sheet, [{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }], { easing: css("--ease-out"), duration: ms("--dur-slow"), delay: 60 }).finished.then((x) => x.cancel());
+  }
+  blk.classList.remove("hidden");
+  blk.classList.remove("editing");
+  a.finished.then(() => { d.remove(); scrim.getAnimations().forEach((x) => x.cancel()); then?.(); });
+}
+
+// ------------------------------------------------------------------ Tasten, Klicks
+sheet.addEventListener("click", (e) => { const b = e.target.closest(".blk"); if (b && !open) openDialog(b.dataset.kind); });
+sheet.addEventListener("keydown", (e) => { const b = e.target.closest(".blk"); if (b && !open && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openDialog(b.dataset.kind); } });
+scrim.addEventListener("click", () => close(true)); // (a click beside it takes what was entered, as in the app)
+document.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => open ? close(false, () => openDialog(b.dataset.open)) : openDialog(b.dataset.open));
+addEventListener("keydown", (e) => {
+  if (open) {
+    if (e.key === "Escape") { e.preventDefault(); close(false); }
+    else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); close(true); }
+    else if (e.altKey && /^[0-6]$/.test(e.key)) { e.preventDefault(); setStyle(+e.key); }
+    return;
+  }
+  if (e.target.matches("input, textarea") || e.ctrlKey || e.metaKey) return;
+  if (/^[0-6]$/.test(e.key)) setStyle(+e.key);
+  else if (e.key === "c") openDialog("code");
+  else if (e.key === "f") openDialog("formula");
+  else if (e.key === "g") openDialog("figure");
+  else if (e.key === "d") setMode(root.dataset.appearance === "dark" ? "light" : "dark");
+});
+
+let toastT = 0;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1400); }
+function setMode(m) {
+  root.dataset.appearance = m;
+  $("#mode").innerHTML = m === "dark" ? ICON.sun : ICON.moon;
+  sessionStorageSet("modal-lab-mode", m);
+}
+setMode(sessionStorageGet("modal-lab-mode") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+$("#mode").onclick = () => setMode(root.dataset.appearance === "dark" ? "light" : "dark");
+addEventListener("resize", () => { if (open && open.s === 0) { const pr = sheet.getBoundingClientRect(); open.d.style.width = pr.width + "px"; open.d.style.left = pr.left + "px"; } });
+document.fonts.ready.then(() => { setStyle(style); requestAnimationFrame(() => root.classList.remove("boot")); });
+</script>
