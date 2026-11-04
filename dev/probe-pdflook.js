@@ -40,6 +40,19 @@
     await sleep(600);
     ok("the toolbar has the PDF's controls again", !!V.bar.querySelector('[data-do="in"]').offsetWidth && V.bar.querySelector('[data-do="draw"]').getAttribute("aria-pressed") === "false");
     await shot("back");
+    // (scrolled down, then drawn on: the pages go on under the tabs as they do while read — no edge where the board begins, #47)
+    window.scrollBy({ top: 500, behavior: "instant" }); await sleep(500);
+    await shot("read");
+    V.bar.querySelector('[data-do="draw"]').click();
+    await until(() => MdBoard.shown && document.querySelector("#board[data-open][data-pdf]"), 5000);
+    await sleep(900);
+    { const st = document.querySelector("#board .bd-stage"), fade = getComputedStyle(st, "::after"), b = document.getElementById("board").getBoundingClientRect();
+      ok("scrolled, then drawn on: under the tabs the pages fade out as they do while read, not cut at a line", Math.abs(b.top - strip.getBoundingClientRect().bottom) <= 2 && fade.content !== "none" && parseFloat(fade.height) >= 12 && /gradient/.test(fade.backgroundImage) && fade.top === "0px", [b.top, fade.content, fade.height, fade.backgroundImage.slice(0, 60), fade.top]); }
+    await shot("scrolled");
+    V.bar.querySelector('[data-do="draw"]').click();
+    await until(() => !MdBoard.shown, 3000);
+    await sleep(600);
+    window.scrollTo({ top: 0, behavior: "instant" }); await sleep(300);
     // the sidebar pinned (#3): the board begins beside its card, not over it, and the pages stay where they stood
     MdPage.showSidebar(true, false); await sleep(800);
     const sb = document.getElementById("sidebar").getBoundingClientRect(), page = V.pages[0].div.getBoundingClientRect();

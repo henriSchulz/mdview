@@ -1132,7 +1132,7 @@ PY
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.tabs, .opened, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
     rm -f "$R/out"/*.look-*.json "$R/out"/*.pdflook.json
     app 90 MDVIEW_PROBE="$D/probe-pdflook.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/notes"
-    for v in view side draw marker back; do
+    for v in view side draw marker back read scrolled; do
       for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.look-$v.json "$R/out"/*.pdflook.json 2>/dev/null) ]] && break; sleep 0.1; done; sleep 0.4; shot "$R/out/pdflook-$v.png"
     done
     for _ in $(seq 300); do ls "$R/out"/*.pdflook.json >/dev/null 2>&1 && break; sleep 0.1; done

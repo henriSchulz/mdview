@@ -284,6 +284,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (`rig.sh pdfink`).
     What the tabs take of the window's top (`topRoom`) is down to the strip's lower edge, not its height: Velum's
     strip floats below the top, and a board that began at its height lay into it (web `pdfdraw.test.mjs`, #14).
+    Where it begins at the tabs' lower edge, what lies under them fades out there as the pages do while they are read (the
+    band of `viewer/look.css`, `body[data-tabs]::after`): begun at that line with nothing more, a PDF scrolled and then drawn
+    on was cut off at it — an edge between the document and the tabs (#47, Henri: „der übergang zwischen dokument und
+    menubar, das ist eine kante“). `rig.sh pdflook` ("scrolled, then drawn on").
 
 60. **A drag is checked with a real pointer.** Made-up drag events (a DataTransfer of the page's
     own, dispatched) are taken whatever they say; the browser's own drag takes a drop only where the

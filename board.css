@@ -157,6 +157,10 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
  * stand left of it (--bd-pdf-tb: how far from the window's right edge it reaches) */
 #board[data-pdf] { top: var(--bd-pdf-top, 0px); left: var(--bd-pdf-left, 0px); }
 #board[data-pdf] .bd-title { display: none; }
+/* (… where it begins at the tabs' lower edge, what lies under them fades out there as the pages do while they are read — the band
+ * of viewer/look.css, body[data-tabs]::after, and of viewer/tabs.css, #tabs::after —, not cut off at a line: #47) */
+body[data-tabs] #board[data-pdf] .bd-stage::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(var(--bg), transparent); pointer-events: none; }
+:root[data-velum][data-look="velum"] body[data-tabs] #board[data-pdf] .bd-stage::after { height: var(--v-space-16); background: linear-gradient(var(--v-bg-content), transparent); }
 #board[data-pdf] .bd-actions { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 .bd-item { position: absolute; box-sizing: border-box; }
 .bd-item[data-k="sticky"] { border-radius: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.10), 0 4px 10px rgb(0 0 0 / 0.08); }
