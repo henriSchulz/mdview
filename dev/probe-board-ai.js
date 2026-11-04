@@ -55,6 +55,9 @@
     pop().querySelector('.bd-ask-pill[data-k="font"]').click();
     ok("the writing's pill opens its menu: drawn, print, script, the one in use ticked", await until(() => pop().querySelector(".bd-ask-menu[data-open]") && pop().querySelectorAll(".bd-ask-menu button").length === 3 && pop().querySelectorAll('.bd-ask-menu [aria-checked="true"]').length === 1, 1000), pop().querySelector(".bd-ask-menu")?.outerHTML.slice(0, 200));
     out("styling", {}); await sleep(900);
+    pop().querySelector('.bd-ask-pill[data-k="pace"]').click(); // (the speed: normal, three, five, ten times as fast)
+    ok("the speed's pill: normal and three faster ones", await until(() => pop().querySelectorAll('.bd-ask-menu [data-opt="pace"]').length === 4, 1000) && /10×/.test(pop().querySelector(".bd-ask-menu").textContent), pop().querySelector(".bd-ask-menu")?.textContent);
+    pop().querySelector('.bd-ask-pill[data-k="font"]').click();
     // (real: Claude draws its letters itself — the writing in its own hand; else a font's, to see it chosen)
     const font = REAL ? ["claude", /Drawn/] : ["script", /Script/];
     pop().querySelector(`.bd-ask-menu [data-v="${font[0]}"]`).click();

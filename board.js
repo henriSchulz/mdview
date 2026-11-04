@@ -1064,7 +1064,7 @@
     const pages0 = s.book ? s.model.board.paper.n : 0; // (a notebook's pages before: what the answer writes below the last one gets pages of its own)
     let queue = Promise.resolve(), n = 0, over = false;
     const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const pace = Number((claude.prefs || styleOf()).pace) || 1; // (the fast way: every moment of it a third as long)
+    const pace = Number((claude.prefs || styleOf()).pace) || 1; // (faster: every moment of it so many times shorter — three, five, ten)
     const wait = (ms) => new Promise((res) => setTimeout(res, calm() || !still() ? 0 : ms / pace));
     const frames = (ms, f) => new Promise((done) => { // f(0…1) each frame for ms; at once where motion is reduced or the answer was stopped
       ms /= pace;
@@ -1191,7 +1191,7 @@
   /* How Claude draws and writes, chosen in its card: the font of its handwriting, how careful the hand, whether it may use
    * the board's things (texts, sticky notes, shapes, tables) besides ink, and how fast it is drawn (Henri, 2026-11-04: „ein
    * fast modus, wo die schreib-animation deutlich schneller ist“). Kept on this computer. */
-  const STYLE = { font: ["claude", "hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"], pace: ["1", "3"] }; // (font "claude": Claude draws the letters itself; pace: how many times as fast as a hand it is drawn)
+  const STYLE = { font: ["claude", "hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"], pace: ["1", "3", "5", "10"] }; // (font "claude": Claude draws the letters itself; pace: how many times as fast as a hand it is drawn)
   function styleOf() {
     let kept = {};
     try { kept = JSON.parse(localStorage.getItem("mdview:board-claude") || "{}") || {}; } catch (e) { /* (none kept, or no storage) */ }

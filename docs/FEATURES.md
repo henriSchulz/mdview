@@ -616,7 +616,7 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   labels and short notes letter by letter itself as strokes, the default, and longer text — a study sheet's body —
   in the pen's font, so a large sheet is written whole and soon —, or print or script set in a pen's
   font), the hand (careful, natural, hurried), with what (ink only, or shapes, texts and sticky notes too) and the speed (normal,
-  or fast: everything Claude draws, at three times a hand's pace). Things chosen: their bar has Ask
+  or three, five or ten times as fast: everything Claude draws, the ways between strokes and the pauses too). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys
