@@ -124,6 +124,12 @@
   }
   /* A notebook's paper (paper.js), where the head has one; loaded without paper.js it is carried as it is. */
   const paperOf = (o) => (!o || typeof o !== "object" || Array.isArray(o) ? {} : { paper: B.paper ? B.paper.norm(o) : JSON.parse(JSON.stringify(o)) });
+  /* A stroke's points that go on in time: those an iPad took twice ran back over the points before them (#51), and its edge
+   * was knobbed. (Points of one time — a shape made clean — stay.) */
+  function onward(pts) {
+    let last = -Infinity;
+    return pts.filter((p) => { if (!(p[3] < last)) { last = p[3]; return true; } return false; });
+  }
   /* The file's text → { board, items, lost }. lost: how many lines could not be read. Throws where
    * the text is no board at all. */
   function parse(text) {
@@ -152,6 +158,7 @@
       let it = null;
       try { it = itemOf(o); } catch (e) { it = null; }
       if (!it) { out.lost++; continue; }
+      if (it.k === "ink" && it.pts.length > 1) it.pts = onward(it.pts);
       if (at.has(it.id)) out.items[at.get(it.id)] = null; // (the same id twice: the later line stands, where it stands)
       at.set(it.id, out.items.length);
       out.items.push(it);

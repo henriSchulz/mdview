@@ -113,6 +113,16 @@ test("a marker's stroke is round, a stroke made straight keeps its corners — i
   assert.equal(F.write(F.parse(F.write(back))), F.write(back));
 });
 
+// #51: strokes an iPad took twice ran back over their last points at every step (the same samples handed over again); read
+// from the file, such a stroke keeps the points that go on in time — and a shape made clean, all its points of one time, stays.
+test("a stroke whose points ran back in time is read with those that go on", () => {
+  const model = F.fresh(), at = (x, t) => [x, 0, 0.5, t];
+  model.items.push(ink("aaaaaaa1", [at(0, 0), at(2, 4), at(4, 8), at(2, 4), at(4, 8), at(6, 12), at(8, 16), at(6, 12), at(8, 16)]), ink("aaaaaaa2", [[0, 0, 0.5, 0], [100, 0, 0.5, 0], [100, 60, 0.5, 0], [0, 0, 0.5, 0]], { t: "mono", sharp: true }));
+  const back = F.parse(F.write(model));
+  assert.deepEqual(plain(back.items[0].pts.map((p) => p[0])), [0, 2, 4, 4, 6, 8, 8]);
+  assert.equal(back.items[1].pts.length, 4);
+});
+
 // #52 (Henri: „der Textmarker ist immer noch eckig, es soll rund sein, 1:1 wie bei GoodNotes“): a marker's line is as broad as
 // the marker everywhere, round at its ends and where it turns, whichever way the hand turned at its end.
 test("a marker's line is round at its ends and turns, as GoodNotes draws one", () => {

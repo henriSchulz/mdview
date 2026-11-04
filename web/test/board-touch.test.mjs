@@ -205,6 +205,46 @@ test("a pen: it draws wherever it comes down, with its pressure and how it is he
   await context.close();
 });
 
+// #51: an iPad's WebKit hands the same samples of the Pencil over twice — two moves in one frame, each with the same bundle.
+// Taken twice, the stroke ran back over its last points at every step, and its edge was knobbed (Henri: „die komischen kleinen
+// Punkte“). Each sample is a point of the stroke once, and its points go on in time.
+test("a pen: samples handed over twice are taken once", async () => {
+  const { page, context, st, kind, sleep } = await open("tablet");
+  await kind("pen");
+  await sleep(600);
+  const before = (await st()).kinds.length;
+  await page.evaluate(() => {
+    const s = document.querySelector("#board .bd-stage"), r = s.getBoundingClientRect();
+    let t = performance.now(); // (each sample its own time, 4 ms after the one before, as a Pencil's)
+    const ev = (type, x, y) => { const e = new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: "pen", pointerId: 7, isPrimary: true, button: type === "pointermove" ? -1 : 0, buttons: type === "pointerup" ? 0 : 1, pressure: 0.4, clientX: r.left + x, clientY: r.top + y }); Object.defineProperty(e, "timeStamp", { value: (t += 4) }); return e; };
+    s.dispatchEvent(ev("pointerdown", 100, 400));
+    let x = 100;
+    for (let frame = 0; frame < 4; frame++) {
+      const bundle = [1, 2, 3, 4].map(() => ev("pointermove", (x += 6), 400 + Math.sin(x / 30) * 10));
+      for (let twice = 0; twice < 2; twice++) { const m = ev("pointermove", x, 400 + Math.sin(x / 30) * 10); m.getCoalescedEvents = () => bundle; s.dispatchEvent(m); }
+    }
+    s.dispatchEvent(ev("pointerup", x, 400));
+  });
+  await sleep(120);
+  assert.equal((await st()).kinds.length, before + 1);
+  await page.waitForFunction(() => { try { return MdBoard.format.parse(localStorage.getItem("mdview-lab:board")).items.some((it) => it.k === "ink"); } catch (x) { return false; } }, null, { timeout: 5000 }); // (the lab keeps the board a moment after)
+  const pts = await page.evaluate(() => { const items = MdBoard.format.parse(localStorage.getItem("mdview-lab:board")).items.filter((it) => it.k === "ink"); return items[items.length - 1].pts; });
+  assert.equal(pts.length, 17, `a point per sample: ${pts.length}`);
+  assert.ok(pts.every((p, i) => i === 0 || (p[0] > pts[i - 1][0] && p[3] >= pts[i - 1][3])), `the stroke never runs back: ${JSON.stringify(pts.map((p) => p[0]))}`);
+  // … and samples of one millisecond are all the hand's (WebKitGTK counts whole milliseconds: a busy page takes several in one)
+  await page.evaluate(() => {
+    const s = document.querySelector("#board .bd-stage"), r = s.getBoundingClientRect(), t = performance.now();
+    const ev = (type, x) => { const e = new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: "pen", pointerId: 8, isPrimary: true, button: type === "pointermove" ? -1 : 0, buttons: type === "pointerup" ? 0 : 1, pressure: 0.4, clientX: r.left + x, clientY: r.top + 600 }); Object.defineProperty(e, "timeStamp", { value: t }); return e; };
+    s.dispatchEvent(ev("pointerdown", 100));
+    for (let x = 106; x <= 160; x += 6) s.dispatchEvent(ev("pointermove", x));
+    s.dispatchEvent(ev("pointerup", 160));
+  });
+  await page.waitForFunction(() => MdBoard.format.parse(localStorage.getItem("mdview-lab:board")).items.filter((it) => it.k === "ink").length === 2, null, { timeout: 5000 });
+  const one = await page.evaluate(() => MdBoard.format.parse(localStorage.getItem("mdview-lab:board")).items.filter((it) => it.k === "ink")[1].pts.length);
+  assert.equal(one, 11, "samples of one millisecond");
+  await context.close();
+});
+
 test("pen and fingers together: a finger moves what the lasso holds, a finger's tap chooses a thing, the pen pulls it to size, and draws on beside it", async () => {
   const { page, context, st, fingers, at, sleep, kind, w, h } = await open("tablet");
   const cdp = await context.newCDPSession(page), cx = w / 2, cy = h / 2;

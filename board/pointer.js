@@ -69,6 +69,7 @@
     }
     // fingers that only touched the board together: how many there were at most, when the first came down, whether any moved
     let touched = null;
+    let taken = -Infinity; // when the newest sample the stroke under the hand has was taken
     const at = (e) => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     /* How hard the pointer presses, as the stroke is to take it. A mouse says 0.5 while a button is down. A pen says what it
      * feels — but not with every sample (the samples a browser bundles may come without it, as 0), and what it says jumps:
@@ -139,7 +140,7 @@
         capture(e); e.preventDefault();
         return;
       }
-      tool = e.pointerId; toolType = e.pointerType;
+      tool = e.pointerId; toolType = e.pointerType; taken = e.timeStamp;
       capture(e); e.preventDefault();
     });
     stage.addEventListener("pointermove", (e) => {
@@ -177,6 +178,13 @@
         let all = null;
         try { all = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null; } catch (x) { all = null; }
         if (!all || !all.length || !all.every((c) => Number.isFinite(c.clientX) && c.pointerId === e.pointerId)) all = [e];
+        // … each once: an iPad's WebKit hands a Pencil's bundle over again with a second move of the same frame — taken twice, the
+        // stroke ran back over its last points at every step and its edge was knobbed (#51). Only what is older goes: WebKitGTK
+        // counts whole milliseconds, and samples of one millisecond are all the hand's (the newest again, at its place, is no
+        // new point: ink.js, GAP)
+        all = all.filter((c) => c.timeStamp >= taken);
+        if (!all.length) return;
+        taken = all[all.length - 1].timeStamp;
         // … and where the browser thinks the pointer is going: drawn ahead of the stroke, never kept
         let ahead = [];
         try { ahead = typeof e.getPredictedEvents === "function" ? e.getPredictedEvents().filter((c) => Number.isFinite(c.clientX)).map(point) : []; } catch (x) { ahead = []; }
