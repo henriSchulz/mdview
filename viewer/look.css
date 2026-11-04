@@ -307,15 +307,16 @@
 :root[data-velum][data-velum-look] #palette .pal-foot { display: flex; flex-wrap: wrap; gap: var(--v-space-16); margin-top: var(--v-space-4); padding: var(--v-space-6) var(--v-space-10) var(--v-space-4);
   border-top: 0.5px solid var(--v-popover-line); color: var(--v-popover-ink-secondary); font-size: var(--v-type-caption); }
 
-/* the sidebar: folders on a square of their colour, the history's state at the foot beside the gear */
-:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon {
+/* the sidebar: folders on a square of their colour (the list's; the library's are the lab's plain signs — Henri, 2026-11-04: "die
+ * ordner symbole gefallen mir überhaupt nicht"), the history's state at the foot beside the gear */
+:root[data-velum][data-velum-look] #sidebar[data-layout="source"] .sb-item.is-dir > .sb-in > .sb-row .sb-icon {
   display: grid; place-items: center; flex: none; width: calc(var(--v-layout-icon-regular) + 2px); height: calc(var(--v-layout-icon-regular) + 2px);
   border-radius: calc(var(--v-layout-icon-regular) * 0.32); background: var(--fc, var(--v-accent-base)); color: var(--v-ink-on-accent);
 }
-:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg {
+:root[data-velum][data-velum-look] #sidebar[data-layout="source"] .sb-item.is-dir > .sb-in > .sb-row .sb-icon svg {
   width: calc(var(--v-layout-icon-regular) * 0.7); height: calc(var(--v-layout-icon-regular) * 0.7); fill: none; stroke: currentColor; stroke-width: 1.9;
 }
-:root[data-velum][data-velum-look] #sidebar:is([data-layout="library"], [data-layout="source"]) .sb-item.is-dir > .sb-in > .sb-row .sb-icon .sf { font-size: calc(var(--v-layout-icon-regular) * 0.62); color: inherit; }
+:root[data-velum][data-velum-look] #sidebar[data-layout="source"] .sb-item.is-dir > .sb-in > .sb-row .sb-icon .sf { font-size: calc(var(--v-layout-icon-regular) * 0.62); color: inherit; }
 :root[data-velum][data-velum-look] #sidebar .sb-cap { color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
 :root[data-velum][data-velum-look] .sb-lib-n { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
 :root[data-velum][data-velum-look] #sidebar .sb-status:not([hidden]) {
