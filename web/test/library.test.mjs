@@ -106,6 +106,8 @@ test("the library: search, the Library's rows, the folder's own folders and no n
   await page.click('#sidebar [data-smart="boards"]');
   await page.waitForFunction(() => MdOverview.where()?.scope === "boards", null, { timeout: 5000 });
   assert.deepEqual((await seen()).on, ["Whiteboards"]);
+  // and they are asked for: the list comes, not "Looking for Whiteboards…" for ever (#55)
+  await page.waitForFunction(() => !/Looking for Whiteboards/.test(document.querySelector("#overview .ov-body").textContent), null, { timeout: 5000 });
   // the gear at its lower right, New at its foot
   const foot = await page.evaluate(() => { const sb = document.getElementById("sidebar").getBoundingClientRect(), g = document.getElementById("settings-btn").getBoundingClientRect(), n = document.querySelector('#sidebar [data-act="newmenu"]').getBoundingClientRect(); return { gearRight: g.right > sb.right - 60 && g.right <= sb.right, gearLow: g.bottom > sb.bottom - 40, newLeft: n.left < sb.left + 40 && n.bottom > sb.bottom - 50 }; });
   assert.deepEqual(foot, { gearRight: true, gearLow: true, newLeft: true });

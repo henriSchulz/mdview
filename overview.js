@@ -1057,6 +1057,7 @@
     at = [...where];
     picked.clear();
     rebuild();
+    askBoards(); // (the whiteboards: open() asked for them only if they were what it opened on — the sidebar's row opens on them here, #55)
   }
   window.MdOverview = { open, close, showAt, toggle, where: () => (isOpen() ? { scope, at: [...at] } : null), previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { refresh(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();
