@@ -608,13 +608,15 @@ anywhere, in no menu, and the application asks nothing. Claude's model is chosen
   away with it). What it does can be watched as a pen draws: each stroke slower where it bends and quicker where it runs straight, the
   pen's tip going through the air to the next one and resting a moment, longer where a word ends, a point
   of the ink's colour goes with the pen's tip, things grow into their place and what is moved glides there (at once where
-  motion is reduced). While it thinks, then draws, the button stops it and a line under it says so; what it said stands in that
-  line afterwards. All its steps are **one step of Undo**. The star pressed again, or a press on
-  the empty board, shuts the field (and the chat). At the field's foot, beside the chat's button, three quiet pills say how Claude draws and writes, each with a small
+  motion is reduced). While it thinks, then draws, a line under the button says so, with a small stop at its end (the button
+  itself stays the way into the field and the chat meanwhile); what it said stands in that line afterwards, and the board's
+  menus and the chat stand over it. All its steps are **one step of Undo**. The star opens what was used last, the field or the chat (kept on the
+  computer); pressed again, or a press on the empty board, it shuts the field (and the chat). At the field's foot, beside the chat's button, four quiet pills say how Claude draws and writes, each with a small
   menu of its choices (the one in use ticked), kept on the computer: the writing (drawn — Claude draws titles, headings,
   labels and short notes letter by letter itself as strokes, the default, and longer text — a study sheet's body —
   in the pen's font, so a large sheet is written whole and soon —, or print or script set in a pen's
-  font), the hand (careful, natural, hurried) and with what (ink only, or shapes, texts and sticky notes too). Things chosen: their bar has Ask
+  font), the hand (careful, natural, hurried), with what (ink only, or shapes, texts and sticky notes too) and the speed (normal,
+  or fast: everything Claude draws, at three times a hand's pace). Things chosen: their bar has Ask
   Claude, and the field asks what to do with them (“make these blue”); the right button's menu
   has it too, at the point pressed (“here”). The field's second button, **Talk about it in the
   Chat**, opens the chat over the board: while a board is open the chat stays over it (the keys

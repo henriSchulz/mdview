@@ -506,12 +506,22 @@ body:not([data-ai]) #board [data-do="claude"], #board[data-mode="look"] [data-do
 .bd-ask-chat:focus-visible, .bd-ask-send:focus-visible { outline: var(--focus-ring, 2px) solid var(--accent); outline-offset: 1px; }
 /* … and what it says, in a line under its button: that it draws, then the sentence it answered with (board.js: note) */
 .bd-claude-note { position: absolute; right: calc(var(--bd-inset) + env(safe-area-inset-right, 0px)); top: calc(var(--bd-inset) + var(--bd-bar-h) + 8px + env(safe-area-inset-top, 0px));
-  max-width: min(420px, 60vw); box-sizing: border-box; padding: 6px 12px; border-radius: var(--radius-pill); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px; max-width: min(420px, 60vw); box-sizing: border-box; padding: 6px 12px; border-radius: var(--radius-pill); white-space: nowrap;
   background: var(--glass); backdrop-filter: var(--glass-filter); -webkit-backdrop-filter: var(--glass-filter); box-shadow: var(--shadow-capsule);
   color: var(--fg2); font-size: 12.5px; pointer-events: none; transform-origin: top right;
   opacity: 0; scale: 0.96; transition: opacity var(--dur-fast) var(--ease-exit), scale var(--dur-fast) var(--ease-exit); }
 .bd-claude-note[data-on] { opacity: 1; scale: 1; transition: opacity var(--dur-fast) var(--ease-out), scale var(--spring-snappy-dur) var(--spring-snappy); }
 .bd-claude-note[data-bad] { color: var(--c-red); }
+.bd-claude-said { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* (while Claude works the line has its stop at its end: Claude's button stays the way into the card and the chat) */
+.bd-claude-stop { display: none; flex: none; width: 22px; height: 22px; margin: -3px -8px -3px 0; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--fg2); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.bd-claude-note[data-busy] .bd-claude-stop { display: inline-flex; }
+.bd-claude-note[data-on][data-busy] .bd-claude-stop { pointer-events: auto; }
+.bd-claude-stop > svg { width: 12px; height: 12px; }
+.bd-claude-stop:hover { background: var(--fill-hover); color: var(--fg); transition-duration: var(--dur-instant); }
+.bd-claude-stop:active { background: var(--fill-pressed); transform: scale(var(--press-scale)); transition-duration: var(--dur-instant); }
+.bd-claude-stop:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 1px; }
 #board[data-pdf] .bd-claude-note { right: calc(var(--bd-pdf-tb, 0px) + var(--bd-inset) + env(safe-area-inset-right, 0px)); }
 @media (prefers-reduced-motion: reduce) { .bd-claude-note, .bd-claude-note[data-on] { scale: 1; } }
 @media (max-width: 560px) { .bd-claude-note { top: calc(var(--bd-inset) + 2 * var(--bd-bar-h) + 16px + env(safe-area-inset-top, 0px)); } } /* (the tools' bar is the second row there) */

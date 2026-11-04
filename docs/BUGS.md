@@ -76,6 +76,16 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     tab (#18). The parent's `visibility` hides all of it only if no child sets its own.
     `web/test/write.test.mjs` ("the panel at the right, closed again") clicks where it was.
 
+107. **What only tells stands under what is used, and a button that is the way in stays the way in** (#46, Henri: „menu /
+    chat sollen immer über dieser claude nachricht sein … da soll nicht der claude stop button sein, sonst hat man keine
+    möglichkeit in den chat zu gehen während es rattert“). The line „Claude is thinking…“ came after the board's menus in
+    the page and lay over the More menu; and while Claude worked, its button was its stop — no way into the card or the
+    chat until it was done. A line that only tells comes before the menus in the board's markup; the button stays what it
+    is, the stop is a small button of its own at the line's end. A stop pressed before the answer is even asked holds too
+    (`claude.pending`). Check: `rig.sh board-ai` (More over the line is what is under the pointer there — with the line
+    made to take the pointer for the moment, since `pointer-events: none` hides it from `elementFromPoint`; the button
+    stays Ask Claude; the line's stop stops).
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that

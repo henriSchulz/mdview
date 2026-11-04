@@ -14,7 +14,7 @@
   let where = pdf ? "pdf" : "note";
   try {
     // (the chat in its Edit mode, as it is kept from a note: over a board it draws all the same — #34)
-    try { localStorage.setItem("mdview:ai-edit", "1"); } catch (e) { /* (none) */ }
+    try { localStorage.setItem("mdview:ai-edit", "1"); localStorage.removeItem("mdview:board-claude-way"); } catch (e) { /* (none) */ } // (and no way to Claude used yet: its button opens the card)
     await document.fonts.ready;
     await sleep(800);
     const B = () => window.MdBoard, st = () => B() && B().shown && B().state(), el = () => document.getElementById("board");
@@ -50,8 +50,8 @@
     input().dispatchEvent(new Event("input", { bubbles: true }));
     const input0 = input().value.trim();
     ok("typed: the round button may send", !pop().querySelector(".bd-ask-send").hasAttribute("data-idle"));
-    // (the style: a pill for each — writing, hand, with what —, each a small menu; what is chosen is said on its pill and kept)
-    ok("the card's foot: Chat and three pills of the style", pop().querySelectorAll(".bd-ask-pill").length === 3 && !!pop().querySelector('[data-m="ask-chat"]'), pop().querySelector(".bd-ask-foot")?.textContent);
+    // (the style: a pill for each — writing, hand, with what, how fast —, each a small menu; what is chosen is said on its pill and kept)
+    ok("the card's foot: Chat and four pills of the style, the speed among them", pop().querySelectorAll(".bd-ask-pill").length === 4 && !!pop().querySelector('[data-m="ask-chat"]') && !!pop().querySelector('.bd-ask-pill[data-k="pace"]'), pop().querySelector(".bd-ask-foot")?.textContent);
     pop().querySelector('.bd-ask-pill[data-k="font"]').click();
     ok("the writing's pill opens its menu: drawn, print, script, the one in use ticked", await until(() => pop().querySelector(".bd-ask-menu[data-open]") && pop().querySelectorAll(".bd-ask-menu button").length === 3 && pop().querySelectorAll('.bd-ask-menu [aria-checked="true"]').length === 1, 1000), pop().querySelector(".bd-ask-menu")?.outerHTML.slice(0, 200));
     out("styling", {}); await sleep(900);
@@ -62,7 +62,20 @@
     out("asking", {}); await sleep(900);
     const before = st();
     input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-    ok("asked: the field goes, the button is Stop, the title says Claude draws", await until(() => !pop().hasAttribute("data-open") && st().claude.busy && btn().getAttribute("aria-label") === "Stop Claude" && /Claude is (thinking|drawing)/.test(st().claude.chip), 3000), st().claude);
+    // (while it works Claude's button stays the way into the card and the chat; the line under it has the stop — Henri, 2026-11-04)
+    const note = () => el().querySelector(".bd-claude-note"), stopper = () => note().querySelector(".bd-claude-stop");
+    ok("asked: the field goes, the line says Claude draws, with its stop; the button stays Ask Claude", await until(() => !pop().hasAttribute("data-open") && st().claude.busy && btn().getAttribute("aria-label") === "Ask Claude" && /Claude is (thinking|drawing)/.test(st().claude.chip) && seen(stopper()), 3000), [st().claude, btn().getAttribute("aria-label")]);
+    { // (the menus stand over that line: More opened over it is what is under the pointer there)
+      el().querySelector('[data-do="more"]').click();
+      await until(() => pop().hasAttribute("data-open") && pop().dataset.kind === "more", 1000);
+      const a = note().getBoundingClientRect(), b = pop().getBoundingClientRect(), x = (Math.max(a.left, b.left) + Math.min(a.right, b.right)) / 2, y = (Math.max(a.top, b.top) + Math.min(a.bottom, b.bottom)) / 2;
+      note().style.pointerEvents = "auto"; // (the line takes no pointer: only so is what lies on top under it)
+      const hit = a.right > b.left && b.right > a.left && a.bottom > b.top && b.bottom > a.top ? document.elementFromPoint(x, y) : pop();
+      note().style.pointerEvents = "";
+      ok("… More opened over the line is over it", !!hit && !!hit.closest(".bd-vpop"), [hit && hit.className, [a.left, a.top, a.right, a.bottom].map(Math.round), [b.left, b.top, b.right, b.bottom].map(Math.round)]);
+      el().querySelector('[data-do="more"]').click();
+      await until(() => !pop().hasAttribute("data-open"), 1000);
+    }
     out("drawing", {});
     // (the fake answer comes in two halves, 200 ms apart: what came first is on the board before the rest)
     if (!REAL) ok("its steps are done as they come: the first before the answer is over", await until(() => st().things.length + st().items > before.things.length + before.items && st().claude.busy, 3000), [st().things.length, st().items]);
@@ -137,6 +150,12 @@
     await until(() => MdAi.chat.open, 2000);
     press(el().querySelector(".bd-stage"), 200, 300);
     ok("a press on the empty board shuts the chat", await until(() => !MdAi.chat.open, 2000));
+    // (the chat was the way used last: the star opens it again, and that is kept on this computer)
+    click(btn());
+    ok("the star opens the chat again: it was used last, and that is kept", await until(() => MdAi.chat.open, 2000) && localStorage.getItem("mdview:board-claude-way") === "chat", localStorage.getItem("mdview:board-claude-way"));
+    click(btn());
+    await until(() => !MdAi.chat.open, 2000);
+    localStorage.setItem("mdview:board-claude-way", "card"); // (the card used last)
     click(btn());
     ok("the star opens the field", await until(() => pop().hasAttribute("data-open") && pop().dataset.kind === "ask", 2000));
     click(btn());
@@ -145,6 +164,16 @@
     await until(() => pop().hasAttribute("data-open"), 2000);
     press(el().querySelector(".bd-stage"), 200, 300);
     ok("… and so does a press on the empty board", await until(() => !pop().hasAttribute("data-open"), 2000));
+    if (!REAL) { // (the line's stop stops it)
+      click(btn());
+      await until(() => pop().hasAttribute("data-open") && input(), 2000);
+      input().value = "Draw a house"; input().dispatchEvent(new Event("input", { bubbles: true }));
+      input().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      await until(() => st().claude.busy && seen(stopper()), 3000);
+      click(stopper());
+      ok("the line's stop stops Claude", await until(() => !st().claude.busy && !seen(stopper()), 3000), st().claude);
+      await sleep(300);
+    }
     ok("nothing was thrown", !errs.length, errs);
   } catch (e) {
     o.error = String((e && e.stack) || e);

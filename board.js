@@ -40,6 +40,7 @@
     get claude() { return this.spark; }, // (Ask Claude's button)
     font: svg('<path d="M4 18 9 6l5 12M5.8 14h6.4"/><path d="M15 17.5c1.2-.4 1.6-1.6 2-3.2s.8-3.3 2.6-3.3c.9 0 1.4.6 1.4 1.4"/>'),
     mess: svg('<path d="M3 14c2-4 3.5-4 5 0s3 4 4.5 0 3-4 4.5 0 2.5 2.5 4 1"/>'),
+    pace: svg('<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>'),
     kit: svg('<path d="M5 17c2.5-6 5-9 8-9"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><circle cx="17" cy="17" r="3"/>'),
     check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
     send: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
@@ -229,7 +230,7 @@
       `<div class="bd-bar bd-insert" role="toolbar" aria-label="${esc(T("board.modes"))}"><span role="radiogroup" class="bd-kinds">${KINDS.map((k) => `<button type="button" class="bd-btn" role="radio" data-kind="${k}" title="${esc(T("board.kind." + k))}" aria-label="${esc(T("board.kind." + k))}">${I[KICON[k]]}</button>`).join("")}</span>${button("image", "board.insert.image")}<span class="bd-sep"></span>${button("plus", "board.insert.more")}<input type="file" class="bd-file" accept="image/*" multiple hidden></div>` +
       `<div class="bd-bar bd-title" role="toolbar">${button("back", "board.back")}<span class="bd-name"></span><span class="bd-chip" hidden></span></div>` +
       `<div class="bd-bar bd-actions" role="toolbar">${button("page", "board.page.add")}<span class="bd-sep" data-for="book"></span>${button("undo", "board.undo")}${button("redo", "board.redo")}<span class="bd-sep"></span>${button("claude", "board.claude")}${button("more", "board.more")}</div>` +
-      `<div class="bd-vpop ui-menu ui-popover" role="menu"></div><div class="bd-claude-note" role="status"></div><i class="bd-claude-tip" aria-hidden="true"></i>` +
+      `<div class="bd-claude-note" role="status"><span class="bd-claude-said"></span><button type="button" class="bd-claude-stop" data-do="claude-stop" title="${esc(T("board.ask.stop"))}" aria-label="${esc(T("board.ask.stop"))}">${I.stop}</button></div><div class="bd-vpop ui-menu ui-popover" role="menu"></div><i class="bd-claude-tip" aria-hidden="true"></i>` +
       `<div class="bd-bar bd-palette" role="toolbar" aria-label="${esc(T("board.tools"))}">` +
         `<span role="radiogroup" class="bd-set bd-tools" data-for="pen">${DRAWS.map((t) => `<button type="button" class="bd-btn bd-tool" role="radio" data-tool="${t}" title="${esc(T("board.tool." + t))}" aria-label="${esc(T("board.tool." + t))}">${I[t]}</button>`).join("")}` +
           `<button type="button" class="bd-btn bd-tool bd-rule" data-ruler="1" aria-pressed="false" title="${esc(T("board.tool.ruler"))}" aria-label="${esc(T("board.tool.ruler"))}">${I.ruler}</button></span>` +
@@ -254,7 +255,8 @@
       if (b.closest(".bd-fbar, .bd-fpop")) return void sel.click(b);
       if (b.closest(".bd-vpop")) return void picked(b);
       if (["zoom", "more", "scenes", "plus", "paper"].includes(b.dataset.do)) return menu(b.dataset.do, b);
-      if (b.dataset.do === "claude") return claude.job ? claude.stop() : claude.open(b);
+      if (b.dataset.do === "claude") return claude.open(b);
+      if (b.dataset.do === "claude-stop") return claude.stop();
       if (b.dataset.kind) return setKind(b.dataset.kind);
       if (b.dataset.do === "hues") return options(b, false, "hues");
       if (b.dataset.fav) { // one of the three colours at hand: taken up — the one in use, pressed again, is changed for another
@@ -861,7 +863,7 @@
       styleMenu(null);
       return vpop().querySelector(".bd-ask-field")?.focus();
     }
-    if (d.m === "ask-chat") { menu(null); return void core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {}); }
+    if (d.m === "ask-chat") return chatOpen();
     if (d.m === "sticky" || d.m === "table") { menu(null); setMode("select"); return void sel.insert(d.m); }
     if (d.m === "linkask") return menu("link", el.querySelector('[data-do="plus"]'));
     if (d.m === "fit") { S.view.fit(bounds()); return menu(null); }
@@ -1062,8 +1064,10 @@
     const pages0 = s.book ? s.model.board.paper.n : 0; // (a notebook's pages before: what the answer writes below the last one gets pages of its own)
     let queue = Promise.resolve(), n = 0, over = false;
     const calm = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const wait = (ms) => new Promise((res) => setTimeout(res, calm() || !still() ? 0 : ms));
+    const pace = Number((claude.prefs || styleOf()).pace) || 1; // (the fast way: every moment of it a third as long)
+    const wait = (ms) => new Promise((res) => setTimeout(res, calm() || !still() ? 0 : ms / pace));
     const frames = (ms, f) => new Promise((done) => { // f(0…1) each frame for ms; at once where motion is reduced or the answer was stopped
+      ms /= pace;
       const t0 = performance.now(), go = (t) => { const k = !still() || calm() || ms <= 0 ? 1 : Math.min(1, (t - t0) / ms); f(k); if (k >= 1) done(); else requestAnimationFrame(go); };
       go(t0);
     });
@@ -1184,9 +1188,10 @@
       },
     };
   }
-  /* How Claude draws and writes, chosen in its card: the font of its handwriting, how careful the hand, and whether it may use
-   * the board's things (texts, sticky notes, shapes, tables) besides ink. Kept on this computer. */
-  const STYLE = { font: ["claude", "hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"] }; // (font "claude": Claude draws the letters itself)
+  /* How Claude draws and writes, chosen in its card: the font of its handwriting, how careful the hand, whether it may use
+   * the board's things (texts, sticky notes, shapes, tables) besides ink, and how fast it is drawn (Henri, 2026-11-04: „ein
+   * fast modus, wo die schreib-animation deutlich schneller ist“). Kept on this computer. */
+  const STYLE = { font: ["claude", "hand", "script"], mess: ["0.55", "1", "1.4"], kit: ["hand", "all"], pace: ["1", "3"] }; // (font "claude": Claude draws the letters itself; pace: how many times as fast as a hand it is drawn)
   function styleOf() {
     let kept = {};
     try { kept = JSON.parse(localStorage.getItem("mdview:board-claude") || "{}") || {}; } catch (e) { /* (none kept, or no storage) */ }
@@ -1215,9 +1220,19 @@
         : `\n\n(Write words with the step "write"${p.font === "script" ? ', in joined-up script: "style":"script"' : ""}.)`);
   };
   const styled = (step) => { const p = (claude.prefs = claude.prefs || styleOf()); return step.add === "write" || step.add === "hand" ? { ...step, style: step.style || (p.font === "script" ? "script" : "hand"), mess: Number(p.mess) } : step.add === "ink" || step.add === "stroke" ? { ...step, mess: Number(p.mess) } : step; };
+  /* Which way to Claude was used last: "card" or "chat" (its button opens that one). */
+  const WAY = "mdview:board-claude-way";
+  const lastWay = () => { try { return localStorage.getItem(WAY) === "chat" ? "chat" : "card"; } catch (e) { return "card"; } };
+  const keepWay = (way) => { try { localStorage.setItem(WAY, way); } catch (e) { /* (not kept: it holds for now) */ } };
+  function chatOpen() {
+    menu(null);
+    keepWay("chat");
+    core.ai.load().then((ai) => { if (!ai.chat.open) ai.chat.toggle(); }).catch(() => {});
+  }
   const claude = {
     prefs: null, // (styleOf(), when first asked for)
     job: null, // the answer coming in: { id, ai, steps, s }
+    pending: false, // asked, while what goes with the question is being made
     typed: "", // what was typed into the field, kept until it was asked
     pt: null, // where the right button was pressed, when it was asked from its menu
     note: "", // what the title says of Claude now: that it draws, what it said, why it could not
@@ -1230,6 +1245,8 @@
       claude.prefs = claude.prefs || styleOf();
       const chat = window.MdAi && MdAi.chat.open;
       if (anchor && ((vpop().dataset.open != null && vpop().dataset.kind === "ask") || chat)) { menu(null); if (chat) MdAi.chat.close(); return; }
+      // (its button opens what was used last, the card or the chat — kept on this computer; the right button's menu, the card)
+      if (anchor && lastWay() === "chat") return chatOpen();
       claude.pt = pt ? onBoard(pt) : null;
       menu("ask", anchor || el.querySelector('[data-do="claude"]'), true);
     },
@@ -1238,10 +1255,14 @@
       if (!text) { if (input) { input.focus(); input.classList.remove("bd-shake"); void input.offsetWidth; input.classList.add("bd-shake"); } return; }
       if (claude.job || !claude.on()) return;
       menu(null);
+      keepWay("card");
       const s = S, board = aiBoard(claude.pt);
       busy(true);
+      claude.pending = true; // (asked, not yet sent: stopped meanwhile, it is never sent)
       let ai = null, picture = "";
       try { [ai, picture] = await Promise.all([core.ai.load(), aiSees() ? aiPicture().catch(() => "") : ""]); } catch (e) { /* (ai.js could not be loaded) */ }
+      if (!claude.pending) return;
+      claude.pending = false;
       if (S !== s) return;
       if (!ai || !ai.ask) { busy(false); return note(T("board.ask.failed"), true); }
       claude.typed = "";
@@ -1262,6 +1283,7 @@
     },
     stop() {
       const job = claude.job;
+      if (!job && claude.pending) { claude.pending = false; busy(false); return; }
       if (!job) return;
       claude.job = null;
       job.ai.stop(job.id);
@@ -1269,13 +1291,12 @@
       busy(false);
     },
   };
-  /* While Claude draws: its button is one to stop it, and the title says so. */
+  /* While Claude draws: its button stays the way to the card and the chat (as its stop it left no way into the chat while it
+   * worked — Henri, 2026-11-04); the line under it says so, and has the stop. */
   function busy(on) {
-    const b = el.querySelector('[data-do="claude"]');
-    b.innerHTML = on ? I.stop : I.spark;
-    b.title = T(on ? "board.ask.stop" : "board.claude"); b.setAttribute("aria-label", b.title);
-    b.toggleAttribute("data-busy", on);
+    el.querySelector('[data-do="claude"]').toggleAttribute("data-busy", on);
     el.toggleAttribute("data-claude", on);
+    el.querySelector(".bd-claude-note").toggleAttribute("data-busy", on);
     note(on ? T("board.ask.thinking") : ""); // (until the first step: then it draws)
   }
   /* What the line under Claude's button says: that it draws, what it said, why it could not. */
@@ -1283,7 +1304,7 @@
     clearTimeout(claude.said);
     claude.note = text;
     const n = el.querySelector(".bd-claude-note");
-    if (text) n.textContent = text;
+    if (text) n.firstChild.textContent = text;
     n.toggleAttribute("data-bad", bad);
     n.toggleAttribute("data-on", !!text);
   }
