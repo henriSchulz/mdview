@@ -231,7 +231,10 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
 .ov-file .ov-sheet { padding: 0; }
 .ov-file .ov-sheet::after { content: none; }
 .ov-pic { position: absolute; inset: 0; display: grid; place-items: center; color: var(--fg3); }
-.ov-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* (the picture fills its frame by itself, not as the grid's item: a height of 100% in a row of no height of its own was laid out
+ * by WebKit as the picture's own height, and a sheet broader than the picture — Velum Refined's — had it moved down by the
+ * difference and cut off at its foot, #54) */
+.ov-pic img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .ov-pic .ov-icon svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
 .ov-pic .ov-icon .sf { font-size: 40px; }
 /* a whiteboard: all of its picture, on the sheet */

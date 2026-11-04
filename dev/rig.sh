@@ -1514,6 +1514,7 @@ PY
   ovlook)
     # All Notes as it looks, on a copy of FOLDER (default: the overview's notes): screenshots only, ovlook-*.png
     src="${2:-$D/tests/overview-notes}"; rm -rf "$R/work"; mkdir -p "$R/work"; rsync -a --exclude .git "$src/" "$R/work/Notes/"
+    ls "$R/work/Notes/"*.board.svg >/dev/null 2>&1 || cp "$D/tests/fixtures/Heft.board.svg" "$R/work/Notes/" # (a notebook among them: its picture is checked)
     rm -f "$R/out"/*.ovlook.json "$R/out"/*.shot-*.json "$R/out"/ovlook-*.png; done_shots=" "
     app 180 MDVIEW_PROBE="$D/probe-ovlook.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/Notes"
     for _ in $(seq 1500); do
@@ -1525,7 +1526,8 @@ PY
     done
     pkill -f "^$APP" 2>/dev/null
     st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active)' "$st" > "$st.new" && mv "$st.new" "$st"
-    jq -r '.error // "ok"' "$R/out"/*.ovlook.json ;;
+    jq -r '(.steps // [])[], (.error // empty | "FAIL " + .)' "$R/out"/*.ovlook.json
+    ! jq -e '(.error != null) or any((.steps // [])[]; startswith("FAIL"))' "$R/out"/*.ovlook.json >/dev/null ;;
   panel)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".*.json
     app 90 MDVIEW_PROBE="$D/probe-panel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

@@ -518,6 +518,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     chat. A new arm in a handler goes into the list in the same change; messages.rs's test
     (`every_message_of_claude_rs_is_routed_to_it`) holds it for claude.rs.
 
+108. **A picture fills its frame by itself, never as a grid's item of `height: 100%`** (#54, Henri: „vorschau verbuggt“). All
+    Notes' tile of a whiteboard was its picture in a frame that is a grid (`place-items: center`, for the sign of a file
+    without one); a height of 100% in a row with none of its own was laid out by WebKit as the picture's own height, so on
+    Velum Refined's broader sheets the page stood lower by what the sheet is broader, cut off at its foot — on the taller
+    sheets of the other looks it hardly showed. `.ov-pic img` is `position: absolute; inset: 0`. Check: `rig.sh ovlook`
+    (a whiteboard's picture lies where its frame is, in Refined's look too; a notebook is put among the notes where the
+    folder has none).
+
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
 81. **What the share server does not find, it may forget for a while — never an id it handed
