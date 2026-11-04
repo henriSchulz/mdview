@@ -210,9 +210,9 @@
   document.addEventListener("click", (e) => { const b = e.target.closest?.('[data-empty="folder"], [data-empty="file"]'); if (b) { e.preventDefault(); post(b.dataset.empty === "folder" ? "folder" : "open"); } });
 
   // --- new note
-  /* A new folder, whiteboard or notebook is asked for in a small window of its own — from the sidebar's +, from
-   * All Notes, from a menu: its name, and where it goes. Enter makes it, Esc (or a click beside the
-   * window) does not. A new note is not asked for (openNewNote). */
+  /* A new folder is asked for in a small window of its own — from the sidebar's +, from All Notes, from
+   * a menu: its name, and where it goes. Enter makes it, Esc (or a click beside the window) does not.
+   * A new note, whiteboard or notebook is not asked for (openNewNote). */
   let newKind = "note", newDir = null, newDlg = null, newBack = null;
   const newOpen = () => !!newDlg && newDlg.hasAttribute("data-open");
   function buildNewNote() {
@@ -244,12 +244,19 @@
       // next to the note on screen, if that one lives in this folder
       const here = newDir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
       closeNewNote(false);
-      // (a whiteboard as a file of its own: the page writes what an empty one holds, the host makes the file and it opens)
-      if (kind === "board") { P.loadBoard().then(() => post("newboard", { name, dir: here, text: window.MdBoard.emptyText() })).catch(() => P.toast(T("Couldn't make the whiteboard"))); return; }
-      // (a notebook is a whiteboard of pages, made and opened as one: board/paper.js)
-      if (kind === "notebook") { P.loadBoard().then(() => post("newboard", { name, dir: here, text: window.MdBoard.notebookText() })).catch(() => P.toast(T("Couldn't make the notebook"))); return; }
       post("newfolder", { name, dir: here });
     });
+  }
+  /* A whiteboard or a notebook is made at once, nothing asked (Henri, 2026-11-04): "Untitled Whiteboard",
+   * "Untitled Notebook" — a number after it where that is taken (the host) —, and it opens. Its name is
+   * given on the board, in its menu (board.js: nameField). */
+  function newBoardFile(kind, dir) {
+    const here = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
+    const book = kind === "notebook";
+    closeCtx(false);
+    // (the page writes what an empty one holds, the host makes the file and it opens; a notebook is a whiteboard of pages: board/paper.js)
+    P.loadBoard().then(() => post("newboard", { name: T(book ? "new.notebook.untitled" : "new.board.untitled"), dir: here, text: book ? window.MdBoard.notebookText() : window.MdBoard.emptyText() }))
+      .catch(() => P.toast(T(book ? "Couldn't make the notebook" : "Couldn't make the whiteboard")));
   }
   function openNewNote(kind = "note", dir = null) {
     if (!P.folder || newOpen()) return;
@@ -265,15 +272,16 @@
       if (P.folder.quick) post("quicknote"); else post("newnote", { name: "", dir: here });
       return;
     }
+    if (kind === "board" || kind === "notebook") return newBoardFile(kind, dir);
     if (!newDlg) buildNewNote();
     newKind = kind; newDir = dir;
     const input = newDlg.querySelector("#new-name");
     const where = dir || (P.current && P.current.path.startsWith(P.folder.root + "/") && !document.body.hasAttribute("data-overview") ? P.current.path.replace(/\/[^/]*$/, "") : P.folder.root);
-    newDlg.querySelector(".new-sign").innerHTML = kind === "folder" ? ICON.folder : kind === "notebook" ? ICON.notebook : ICON.board;
-    newDlg.querySelector("#new-title").textContent = T(kind === "folder" ? "new.folder" : kind === "notebook" ? "new.notebook" : "new.board");
+    newDlg.querySelector(".new-sign").innerHTML = ICON.folder;
+    newDlg.querySelector("#new-title").textContent = T("new.folder");
     newDlg.querySelector(".new-where").textContent = T("new.in", where === P.folder.root ? P.folder.name : where.slice(P.folder.root.length + 1));
-    input.placeholder = kind === "folder" ? "Folder name" : kind === "notebook" ? "Notebook name" : "Whiteboard name";
-    input.setAttribute("aria-label", kind === "folder" ? "New folder name" : kind === "notebook" ? "New notebook name" : "New whiteboard name");
+    input.placeholder = "Folder name";
+    input.setAttribute("aria-label", "New folder name");
     input.value = "";
     newDlg.querySelector(".btn.primary").disabled = true;
     closeCtx(false);

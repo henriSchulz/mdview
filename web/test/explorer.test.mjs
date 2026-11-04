@@ -88,14 +88,18 @@ test("a whiteboard is made as a file from the sidebar's menu, drawn on, kept in 
   assert.deepEqual(await rows(), ["Alpha.md", "Beta.md", "sub/", "sub/Loose.board.svg"]);
   await blank();
   assert.deepEqual((await menu()).filter((c) => !c.startsWith("sort:")).slice(0, 3), ["newnote", "newfolder", "newboard"]);
+  // (made at once, no name asked for: "Untitled Whiteboard", named in the board's menu)
   await choose("newboard");
-  await page.waitForSelector("#newdlg[data-open] #new-name", { timeout: 4000 });
-  await page.fill("#new-name", "Plan");
-  await page.keyboard.press("Enter");
   await boardOpen(0);
-  await until(() => text("Plan.board.svg") !== undefined, "the board's file in the repository");
+  await until(() => text("Untitled Whiteboard.board.svg") !== undefined, "the board's file in the repository");
+  assert.deepEqual([gh.commits.at(-1).headline, gh.commits.at(-1).added], ["Untitled Whiteboard.board.svg", ["Untitled Whiteboard.board.svg"]]);
+  await page.waitForTimeout(400);
+  await page.click('#board [data-do="more"]');
+  await page.fill("#board .bd-name-field", "Plan");
+  await page.keyboard.press("Enter");
+  await until(() => text("Plan.board.svg") !== undefined && text("Untitled Whiteboard.board.svg") === undefined, "the board renamed in the repository", 12000);
+  await page.waitForFunction(() => MdBoard.state().ref.endsWith("/Plan.board.svg"), null, { timeout: 8000 });
   assert.match(text("Plan.board.svg"), /<metadata id="mdview-board">/);
-  assert.deepEqual([gh.commits.at(-1).headline, gh.commits.at(-1).added], ["Plan.board.svg", ["Plan.board.svg"]]);
   assert.equal(JSON.parse(text(ATTACH))["Plan.board.svg"], undefined); // (no note's: a file of its own)
   await page.waitForTimeout(700); // (grown to the window's size)
   await page.click('#board [data-kind="pen"]');

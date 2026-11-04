@@ -798,7 +798,7 @@
     const row = (attr, label, on = false, more = "") => `<button type="button" ${attr} role="menuitem"${on ? ' aria-checked="true"' : ""}${more}>${esc(label)}</button>`;
     let html = "";
     if (kind === "zoom") html = `<div class="bd-list">${B.view.STEPS.map((z) => row(`data-zoom="${z}"`, Math.round(z * 100) + " %", Math.abs(S.view.z - z) < 0.005)).join("")}<hr>${row('data-m="fit"', T("board.fit"))}${row('data-m="actual"', T("board.actual"))}</div>`;
-    else if (kind === "more") html = `<div class="bd-list">${S.pdf ? "" : row('data-m="copy"', T("board.copyPicture")) + row('data-m="print"', T("board.print"))}${S.readonly ? "" : (S.pdf ? "" : "<hr>") + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
+    else if (kind === "more") html = (named() ? `<label class="bd-naming"><span>${esc(T("board.rename"))}</span><input type="text" class="bd-scene-input bd-name-field" maxlength="200" spellcheck="false" aria-label="${esc(T(S.book ? "board.rename.book" : "board.rename.board"))}"></label>` : "") + `<div class="bd-list">${S.pdf ? "" : row('data-m="copy"', T("board.copyPicture")) + row('data-m="print"', T("board.print"))}${S.readonly ? "" : (S.pdf ? "" : "<hr>") + row('data-m="snap"', T("board.snap"), !!S.model.board.snap) + (pens.seen ? "<hr>" + row('data-m="finger"', T("board.pen.finger"), pens.finger) : "")}</div>`;
     else if (kind === "plus") html = `<div class="bd-list">${row('data-m="sticky"', T("board.insert.sticky"))}${row('data-m="table"', T("board.insert.table"))}${row('data-m="linkask"', T("board.insert.link"))}${S.book ? "<hr>" + row('data-m="page"', T("board.insert.page")) : ""}</div>`;
     else if (kind === "paper") { // (a notebook's: its paper, as GoodNotes' writing paper — each a small picture of a page —, its colour, and one more page)
       const now = S.model.board.paper, page = B.paper.pages({ ...now, n: 1 })[0], off = S.readonly ? " disabled" : "";
@@ -833,6 +833,7 @@
       // (Enter asks, Shift+Enter breaks the line, Esc shuts it — as in the chat)
       field.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); claude.go(); } else if (e.key === "Escape") { if (p.querySelector(".bd-ask-menu[data-open]")) styleMenu(null); else menu(null); } });
     }
+    if (kind === "more" && named()) nameField(p.querySelector(".bd-name-field"));
     if (kind === "link") { const input = p.querySelector("input"); setTimeout(() => input.focus(), 0); input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") linkAdd(); else if (e.key === "Escape") menu(null); }); }
     const a = anchor || el.querySelector(`[data-do="${kind === "link" ? "plus" : kind === "ask" ? "claude" : kind}"]`), r = a.getBoundingClientRect(), box = el.getBoundingClientRect(), up = r.top > box.height / 2;
     p.style.left = Math.round(Math.max(8, Math.min(box.width - p.offsetWidth - 8, r.left - box.left + r.width / 2 - p.offsetWidth / 2))) + "px";
@@ -970,6 +971,37 @@
   const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), ""], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), ""],
     null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger"]];
   const nameOf = (ref) => { const n = String(ref || "").split("/").pop().replace(/\.board\.svg$/i, ""); return /^board-/.test(n) ? "" : n; }; // (one a note keeps is named board-…: no name to show)
+
+  /* A whiteboard or a notebook that is a file of its own is named on the board, in its menu (Henri, 2026-11-04:
+   * none is asked for when one is made — viewer/drawer.js). The host renames the file, as the sidebar's
+   * Rename does, and says so (B.renamed); a save meanwhile waits for the new path. */
+  const named = () => !!S && !S.pdf && !S.readonly && !!nameOf(S.ref);
+  function nameField(input) {
+    const s = S, was = nameOf(s.ref);
+    input.value = was;
+    let done = false;
+    const end = (keep) => {
+      if (done) return;
+      done = true;
+      const name = input.value.trim();
+      if (!keep || !name || name === was || S !== s) return;
+      save(); // (what is drawn goes to the file under its old name first)
+      s.naming = setTimeout(() => { if (s.naming) { s.naming = 0; if (S === s && s.dirty) save(); } }, 3000); // (not renamed — the name taken: saved where it is)
+      window.MdHost?.post(JSON.stringify({ type: "rename", path: s.ref, name })); // (not post's: a rename leaves the note — viewer/base.js: LEAVING — and would shut the board being named)
+    };
+    const shut = () => { menu(null); el.focus({ preventScroll: true }); }; // (the keys are the board's again: Esc shuts it)
+    input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter" && !e.isComposing) { end(true); shut(); } else if (e.key === "Escape") { end(false); shut(); } });
+    input.addEventListener("blur", () => end(true));
+  }
+  /* The host renamed a file (viewer/menus.js: noteRenamed): the board open from it goes on under the new name. */
+  B.renamed = (r) => {
+    for (const [from, to] of [[r.old, r.path], [r.oldReal, r.real]]) if (kept.has(from)) { kept.set(to, kept.get(from)); kept.delete(from); }
+    if (!S || (S.ref !== r.old && S.ref !== r.oldReal)) return;
+    S.ref = r.path;
+    if (S.img && S.img.dataset.board) S.img.dataset.board = r.path;
+    if (!S.pdf) el.querySelector(".bd-name").textContent = nameOf(S.ref) || T(S.book ? "board.name.book" : "board.name");
+    if (S.naming) { clearTimeout(S.naming); S.naming = 0; if (S.dirty) save(); }
+  };
 
   /* A scene's name, typed where it stands in the list. */
   function sceneName(id, b) {
@@ -1436,7 +1468,7 @@
     paint();
   }
   function save() {
-    if (!S || !S.dirty || S.readonly) return;
+    if (!S || !S.dirty || S.readonly || S.naming) return; // (being renamed: kept for the new path — B.renamed)
     clearTimeout(S.timer);
     S.dirty = false;
     const s = S, v = s.view;
@@ -1759,7 +1791,7 @@
     core.lockScroll(true);
     post("board-open", { on: true });
     el.setAttribute("aria-label", T("board.name"));
-    el.querySelector(".bd-name").textContent = pdf ? pdf.name : T("board.name");
+    el.querySelector(".bd-name").textContent = pdf ? pdf.name : nameOf(ref) || T("board.name"); // (a whiteboard of its own by its name; one a note keeps has none)
     el.toggleAttribute("data-readonly", s.readonly);
     el.toggleAttribute("data-pdf", !!pdf);
     el.removeAttribute("data-book");

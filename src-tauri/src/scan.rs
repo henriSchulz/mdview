@@ -80,6 +80,16 @@ pub fn is_board(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n.to_string_lossy().to_lowercase().ends_with(".board.svg"))
 }
 
+/// A notebook: a whiteboard whose head says how its paper is (board/paper.js) — the head is the
+/// first line of the data, near the file's start, so its beginning is all that is read.
+pub fn is_notebook(path: &Path) -> bool {
+    let mut head = [0u8; 4096];
+    let Ok(mut f) = fs::File::open(path) else { return false };
+    let n = f.read(&mut head).unwrap_or(0);
+    let head = String::from_utf8_lossy(&head[..n]);
+    head.find("<![CDATA[").and_then(|at| head[at..].lines().nth(1)).is_some_and(|line| line.starts_with("{\"board\"") && line.contains("\"paper\":{"))
+}
+
 pub fn file_kind(path: &Path) -> &'static str {
     let ext = ext_of(path);
     let ext = ext.as_str();
@@ -287,6 +297,8 @@ pub struct Note {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<&'static str>,
     #[serde(skip_serializing_if = "is_false")]
+    pub book: bool, // (a whiteboard that is a notebook: is_notebook)
+    #[serde(skip_serializing_if = "is_false")]
     pub hidden: bool, // (put away — by hand, by its name, as something the application keeps for a note: listed only where that is asked for)
     pub opened: i64,
 }
@@ -406,6 +418,7 @@ impl Scan<'_> {
                     mtime: Some(since.as_secs() as i64),
                     pdf: false,
                     kind: None,
+                    book: false,
                     hidden: away,
                     opened: 0,
                 });
@@ -416,7 +429,8 @@ impl Scan<'_> {
                 let kind = if is_board(&path) { "board" } else { file_kind(&path) };
                 // (a whiteboard by its name alone: its sign says what it is)
                 let name = if kind == "board" { name[..name.len() - ".board.svg".len()].to_string() } else { name };
-                node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), hidden: away, opened: 0 });
+                let book = kind == "board" && is_notebook(&path);
+                node.notes.push(Note { name, path: s(&path), real, title: None, mtime: None, pdf: true, kind: Some(kind), book, hidden: away, opened: 0 });
             }
             self.count += 1;
         }
@@ -779,15 +793,18 @@ mod tests {
         for f in ["a.md", "b.pdf", "c.board.svg", ".env", "assets/kept.png", "sub/s.txt", "sub/away.zip", "node_modules/x/i.js"] {
             fs::write(d.join(f), "x").unwrap();
         }
+        // (a notebook is a whiteboard whose head has paper: told apart, so that All Notes names it so)
+        fs::write(d.join("n.board.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\">\n<metadata id=\"mdview-board\"><![CDATA[\n{\"board\":1,\"bg\":\"auto\",\"grid\":false,\"paper\":{\"bg\":\"grid\",\"color\":\"white\",\"size\":\"a4\",\"n\":1}}\n]]></metadata>\n</svg>\n").unwrap();
         let put_away: HashSet<String> = [s(&d.join("assets/kept.png")), s(&d.join("sub/away.zip"))].into();
         let (mut cache, keep) = (TitleCache::new(), HashSet::new());
         let (tree, _) = scan_folder(&d, &mut cache, false, &keep, &put_away, false);
         // (a folder left with nothing because all in it is put away goes with it; one that is empty stays)
-        assert_eq!(names(&tree), ["a", "b.pdf", "c", "empty/", "sub/", "sub/s.txt"]);
-        assert_eq!(tree.notes.iter().map(|n| n.kind.unwrap_or("md")).collect::<Vec<_>>(), ["md", "pdf", "board"]);
+        assert_eq!(names(&tree), ["a", "b.pdf", "c", "n", "empty/", "sub/", "sub/s.txt"]);
+        assert_eq!(tree.notes.iter().map(|n| n.kind.unwrap_or("md")).collect::<Vec<_>>(), ["md", "pdf", "board", "board"]);
+        assert_eq!(tree.notes.iter().map(|n| n.book).collect::<Vec<_>>(), [false, false, false, true]);
         let (tree, _) = scan_folder(&d, &mut cache, false, &keep, &put_away, true);
         // (all: these too, marked — what is built and a repository's own folder are named, not gone into)
-        assert_eq!(names(&tree), [".env*", "a", "b.pdf", "c", ".git/*", "assets/", "assets/kept.png*", "empty/", "node_modules/*", "sub/", "sub/away.zip*", "sub/s.txt"]);
+        assert_eq!(names(&tree), [".env*", "a", "b.pdf", "c", "n", ".git/*", "assets/", "assets/kept.png*", "empty/", "node_modules/*", "sub/", "sub/away.zip*", "sub/s.txt"]);
         let _ = fs::remove_dir_all(&d);
     }
 }

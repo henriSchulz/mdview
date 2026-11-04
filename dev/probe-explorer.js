@@ -102,10 +102,14 @@
 
     // a whiteboard that is a file of its own
     menu(document.querySelector("#sidebar .sb-list"), 40, document.querySelector("#sidebar .sb-list").clientHeight - 6); // (the empty room)
-    ok("the empty room's menu has New Whiteboard", await choose("newboard") && await until(() => document.querySelector("#newdlg[data-open]")));
-    const name = document.querySelector("#new-name");
-    name.value = "Skizze"; name.dispatchEvent(new Event("input", { bubbles: true }));
-    document.querySelector("#newdlg form").requestSubmit();
+    // (made at once, no name asked for — Henri, 2026-11-04: "Untitled Whiteboard", named in the board's menu)
+    ok("the empty room's menu has New Whiteboard: no name asked, the board opens", await choose("newboard") && await until(() => window.MdBoard && MdBoard.shown && document.querySelector("#board[data-ready]") && MdBoard.state().ref.endsWith("/Untitled Whiteboard.board.svg"), 8000) && !document.querySelector("#newdlg[data-open]"));
+    await sleep(400);
+    document.querySelector('#board [data-do="more"]').click(); await sleep(200);
+    const name = document.querySelector("#board .bd-name-field");
+    ok("its menu has its name, to be changed", !!name && name.value === "Untitled Whiteboard", name && name.value);
+    name.value = "Skizze"; name.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    ok("… renamed: the board goes on under the new name", await until(() => MdBoard.state().ref.endsWith("/Skizze.board.svg") && document.querySelector("#board .bd-name").textContent === "Skizze", 6000), MdBoard.state().ref);
     ok("New Whiteboard: its file is made, listed by its name, and the board opens", await until(() => window.MdBoard && MdBoard.shown && item("Skizze.board.svg"), 8000) && row("Skizze.board.svg").querySelector(".sb-label").textContent === "Skizze" && MdBoard.state().ref === root + "/Skizze.board.svg", window.MdBoard && MdBoard.state() && MdBoard.state().ref);
     await until(() => document.querySelector("#board[data-ready]"), 4000); // (what the file holds is on it: only then is something put there)
     MdBoard.put("sticky"); await sleep(400);

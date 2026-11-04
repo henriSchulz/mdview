@@ -45,8 +45,9 @@
    * away: what is put away beside the names with a dot and the folders tools make — hidden by
    * hand, kept for a note (paths below the base; a folder's: all that is in it). all: these too,
    * each marked `hidden`; what tools make is named then and not gone into. (scan.rs: walk)
-   * coming: files on their way into the repository (paths below the base), each marked so. */
-  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false, coming = null } = {}) {
+   * coming: files on their way into the repository (paths below the base), each marked so.
+   * books: whiteboards that are notebooks (paths below the base), each marked `book`. */
+  function buildTree(base, files, { show = ["pdf"], titles = null, opened = {}, changed = null, keep = [], away = null, all = false, coming = null, books = null } = {}) {
     const put = away instanceof Set ? away : new Set(away || []);
     const isAway = (rel) => { const parts = rel.split("/"); return parts.some((p, i) => p.startsWith(".") || (put.size > 0 && put.has(parts.slice(0, i + 1).join("/")))); };
     const node = (path) => ({ name: nameOf(path), path, dirs: [], notes: [], ...(path !== base && isAway(path.slice(base.length + 1)) ? { hidden: true } : {}) });
@@ -69,7 +70,7 @@
         if (!show.includes(group)) continue;
         // (a whiteboard — a picture by its ending — by its name alone, as the desktop app lists it)
         const board = /\.board\.svg$/i.test(rel);
-        dir(dirOf(path)).notes.push({ name: board ? nameOf(rel).slice(0, -".board.svg".length) : nameOf(rel), path, real: path, title: null, pdf: true, kind: board ? "board" : kind, ...mark, opened: opened[path] || 0 });
+        dir(dirOf(path)).notes.push({ name: board ? nameOf(rel).slice(0, -".board.svg".length) : nameOf(rel), path, real: path, title: null, pdf: true, kind: board ? "board" : kind, ...(board && books && books.has(rel) ? { book: true } : {}), ...mark, opened: opened[path] || 0 });
       }
       count++;
     }
@@ -267,6 +268,14 @@
   const hiddenText = (hidden) => JSON.stringify({ version: 1, hidden: [...hidden].sort() }, null, 2) + "\n";
   // a file or a folder under another path — or gone (now: null): what was hidden of it stays hidden, what is gone is named no more
   const hiddenMoved = (hidden, was, now) => new Set([...hidden].flatMap((k) => (k !== was && !k.startsWith(was + "/") ? [k] : now == null ? [] : [now + k.slice(was.length)])));
+  /* A whiteboard's text says it is a notebook: its head, the first line of its data, has paper
+   * (board/paper.js; scan.rs: is_notebook). */
+  function isNotebook(text) {
+    const at = typeof text === "string" ? text.indexOf("<![CDATA[") : -1;
+    if (at < 0 || at > 4096) return false;
+    const line = text.slice(at, at + 4096).split("\n")[1] || "";
+    return line.startsWith('{"board"') && line.includes('"paper":{');
+  }
   /* A file's name in two: what is kept when a number is put in, and its ending — a whiteboard's
    * both ("a.board.svg": "a", ".board.svg"); a folder's name is whole. (folder.rs: name_parts) */
   function nameParts(name, folder) {
@@ -468,5 +477,5 @@
     return { parts };
   }
 
-  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, titleName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
+  root.MdWebCore = { FOLDERS, looksOf, looksText, lookSet, looksMoved, HIDDEN, hiddenOf, hiddenText, hiddenMoved, nameParts, freeName, isNotebook, ATTACH, attachOf, attachText, mentions, KEPT, foundIn, cleanName, titleName, toggleTask, subject, merge3, MD_EXT, nameOf, dirOf, extOf, stemOf, kindOf, isMd, naturalCmp, shown, buildTree, notesOf, noteTitle, resolver, wikiTargets, pdfBacklinks, SHARES, sharesOf, sharesText, shareOf, linkPath, tabs };
 })(typeof window !== "undefined" ? window : globalThis);

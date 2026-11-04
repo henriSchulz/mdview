@@ -101,7 +101,7 @@
   const says = ([notes, files]) => [notes || !files ? T(notes === 1 ? "1 note" : "{0} notes", notes) : "", files ? T(files === 1 ? "1 file" : "{0} files", files) : ""].filter(Boolean).join(", ");
   const KIND = { pdf: "PDF", slides: "Presentation", image: "Picture", audio: "Sound", video: "Video", board: "Whiteboard" };
   const paged = (kind) => kind === "pdf" || kind === "slides"; // (shown in the PDF viewer: a PDF, a presentation as the PDF made of it)
-  const kindOf = (n) => KIND[n.kind] || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
+  const kindOf = (n) => (n.book ? "Notebook" : KIND[n.kind]) || ((/\.([A-Za-z0-9]{1,8})$/.exec(n.name) || [, ""])[1].toUpperCase() + " file").trim();
   // when a note was changed, as the sidebar says it — today's with the word before the time
   const when = (secs) => { const w = core.when(secs), d = new Date(); return w && secs * 1000 >= new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() ? T("Today") + ", " + w : w; };
   /* A PDF shows its first page, as a note shows its beginning: drawn when its tile comes near the window (viewer/modes.js: pdfShot
@@ -120,10 +120,16 @@
   }
   // a file's picture: shown when it has come (overview.css), also one that was there before the tile was
   el.addEventListener("load", (e) => { if (e.target.tagName === "IMG" && e.target.closest(".ov-pic, .ov-mini")) e.target.classList.add("on"); }, true);
-  el.addEventListener("error", (e) => { if (e.target.tagName === "IMG" && e.target.closest(".ov-pic, .ov-mini")) e.target.classList.add("on"); }, true);
+  /* … and one that cannot be shown has the file's sign in its place: not the web view's broken picture,
+   * a "?" (Henri, 2026-11-04, a notebook's tile). */
+  el.addEventListener("error", (e) => {
+    const img = e.target, box = img.tagName === "IMG" && img.closest(".ov-pic, .ov-mini"), t = box && img.closest(".ov-item");
+    if (t) box.innerHTML = `<span class="ov-icon">${signOf(t.dataset.book != null ? { book: true } : { path: t.dataset.path })}</span>`;
+  }, true);
   const shotNear = typeof IntersectionObserver === "function" ? new IntersectionObserver((list) => {
     for (const e of list) if (e.isIntersecting) { shotNear.unobserve(e.target); shoot(e.target); }
   }, { rootMargin: "300px 0px" }) : null;
+  const signOf = (n) => (n.book ? ICON.notebook : core.rowIcon(n.path)); // (a file's sign: a notebook's its own, though its file is a whiteboard's)
   const urlOf = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
   // the folder shown (scope "folders"): as far down `at` as the tree still goes
   function place(tree) {
@@ -165,6 +171,7 @@
     t.style.setProperty("--i", Math.min(i, 10)); // (the first ones come one after the other, the rest together)
     const file = !dir && n.pdf; // (not a note: a PDF, a picture, any other file)
     if (file) { t.classList.add("ov-file"); t.dataset.kind = n.kind || "file"; }
+    if (n.book) t.dataset.book = ""; // (a whiteboard of pages: named and signed so)
     if (picked.has(n.path)) t.classList.add("picked");
     if (n.hidden) t.classList.add("is-hidden"); // (put away, and shown all the same: dimmed)
     if (n.coming) t.classList.add("is-coming"); // (on its way into the repository)
@@ -173,7 +180,7 @@
     const name = esc(dir ? n.name : n.title || n.name), sub = dir ? says(count(n)) : n.says != null ? esc(n.says) : file ? esc(kindOf(n)) : "";
     const look = dir ? core.folderLook(n.path) : null; // (a folder's own colour and sign, as the sidebar has them)
     if (look && look.color) t.style.setProperty("--c", look.color);
-    const sign = `<span class="ov-icon">${dir ? look.sign : file ? core.rowIcon(n.path) : ICON.note}</span>`;
+    const sign = `<span class="ov-icon">${dir ? look.sign : file ? signOf(n) : ICON.note}</span>`;
     const shot = file && paged(n.kind) ? shotOf(n) : null; // (a PDF's first page, where it was drawn before; a presentation's first slide)
     const pic = shot ? `<img src="${esc(shot)}" alt="" draggable="false">` : file && (n.kind === "image" || n.kind === "board") ? `<img src="${esc(urlOf(n.path) + (n.v ? "?v=" + n.v : ""))}" alt="" loading="lazy" draggable="false">` : "";
     if (file && paged(n.kind) && !shot) { t.dataset.shot = String(n.mtime || n.v || 0); t.dataset.file = n.real || n.path; }
@@ -213,7 +220,7 @@
       // the folder's whiteboards: asked for when they are shown, drawn when they come
       const all = boardList || [], name = (p) => p.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
       const shown = all.filter((b) => boardShow === "all" || (boardShow === "embedded") === b.in.length > 0);
-      const notes = shown.map((b) => ({ path: b.path, real: b.path, name: b.name.replace(/\.board\.svg$/i, ""), pdf: true, kind: "board", v: Math.round(b.mtime), kept: b.kept, note: b.in[0] || "",
+      const notes = shown.map((b) => ({ path: b.path, real: b.path, name: b.name.replace(/\.board\.svg$/i, ""), pdf: true, kind: "board", book: !!b.book, v: Math.round(b.mtime), kept: b.kept, note: b.in[0] || "",
         says: b.in.length ? T("In “{0}”", name(b.in[0])) + (b.in.length > 1 ? " +" + (b.in.length - 1) : "") : T("In no note") }));
       title.textContent = folder.name;
       el.querySelector(".ov-count").textContent = boardList ? T(shown.length === 1 ? "1 whiteboard" : "{0} whiteboards", shown.length) : "";

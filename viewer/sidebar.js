@@ -96,7 +96,7 @@
     item.className = e.dir ? "sb-item sb-fold is-dir" : "sb-item sb-fold";
     item.dataset.key = e.key;
     item.innerHTML = `<div class="sb-in"><button class="sb-row" type="button" style="--depth:${depth}">` +
-      (e.dir ? `<span class="sb-chev">${ICON.chevron}</span>` : "") + `<span class="sb-icon">${e.dir ? ICON.folder : rowIcon(e.key)}</span><span class="sb-label"></span></button>` +
+      (e.dir ? `<span class="sb-chev">${ICON.chevron}</span>` : "") + `<span class="sb-icon">${e.dir ? ICON.folder : e.note && e.note.book ? ICON.notebook : rowIcon(e.key)}</span><span class="sb-label"></span></button>` +
       (e.dir ? `<div class="sb-kids sb-fold"><div class="sb-in"></div></div>` : "") + `</div>`;
     item.firstChild.firstChild.draggable = true; // (into another folder: moving, below)
     if (e.note) item.firstChild.firstChild.dataset.real = e.note.real;
@@ -233,6 +233,11 @@
    * lines, any other file its sign. */
   const fileUrl = (path) => (window.MdHost?.files || "file://") + path.split("/").map(encodeURIComponent).join("/");
   let shotSoon = 0;
+  // (a picture that cannot be shown: the file's sign in its place, not the web view's broken picture, a "?" — Henri, 2026-11-04)
+  sbList.addEventListener("error", (e) => {
+    const img = e.target, box = img.tagName === "IMG" && img.closest(".sb-sheet-in.is-pic"), key = box && img.closest(".sb-item")?.dataset.key;
+    if (key) { box.className = "sb-sheet-in is-sign"; box.innerHTML = rowIcon(key); }
+  }, true);
   function sheetOf(n) {
     const s = sbSeen.get(n.path), pic = (src, kind) => `<span class="sb-sheet-in is-pic" data-kind="${kind}"><img src="${esc(src)}" alt="" draggable="false"></span>`;
     if (n.kind === "image" || n.kind === "board") return pic(fileUrl(n.path) + (n.mtime ? "?v=" + Math.round(n.mtime) : ""), n.kind);
@@ -242,7 +247,7 @@
       // (asked for once; when it is there the sheets are dressed again)
       if (!P.pdfShot.known(n.path, n.mtime)) P.pdfShot(n.path, n.mtime).then((src) => { if (!src || sbLayout() !== "sheets") return; clearTimeout(shotSoon); shotSoon = setTimeout(() => { if (folder && !folder.quick) syncList(false); }, 60); });
     }
-    if (n.pdf) return `<span class="sb-sheet-in is-sign">${rowIcon(n.path)}</span>`;
+    if (n.pdf) return `<span class="sb-sheet-in is-sign">${n.book ? ICON.notebook : rowIcon(n.path)}</span>`;
     if (s && s.html) return `<span class="sb-sheet-in is-real"><span class="ov-prev sb-prev" inert>${s.html}</span></span>`;
     return `<span class="sb-sheet-in"><b>${esc(noteLabel(n))}</b>` + (s ? [...s.shape].map((l) => `<i class="${l}"></i>`).join("") : "") + "</span>";
   }

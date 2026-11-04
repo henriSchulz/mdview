@@ -288,6 +288,9 @@ body[data-mode="dark"] .bd-fbar .bd-btn[data-f="remove"] { color: var(--c-bright
 .bd-scene .bd-btn:hover { opacity: 1; }
 .bd-scene .bd-btn svg { width: 15px; height: 15px; }
 .bd-scene-input { flex: 1; min-width: 96px; height: var(--control-height); box-sizing: border-box; padding: 0 7px; border: 0; border-radius: var(--menu-row-radius); background: var(--bg); color: var(--fg); font: inherit; outline: var(--focus-ring) solid var(--accent); user-select: text; -webkit-user-select: text; }
+/* a board's name, at the head of its menu (board.js: nameField) */
+.bd-naming { display: flex; flex-direction: column; gap: 6px; color: var(--fg2); }
+.bd-naming .bd-scene-input { width: 220px; flex: none; }
 .bd-hint { margin: 0; max-width: 220px; color: var(--fg2); }
 .bd-zoom .bd-btn[hidden] { display: none; }
 /* printed: the board's picture alone on the page */

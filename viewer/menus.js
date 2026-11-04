@@ -300,6 +300,7 @@
       document.title = r.name;
     }
     if (P.edPath === r.oldReal) P.edPath = r.real;
+    window.MdBoard?.renamed?.(r); // (a whiteboard open from the file: saved under its new name)
   }
 
   // --- file names <-> titles: the list crossfades, since every row may move

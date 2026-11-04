@@ -59,13 +59,22 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   await page.evaluate(() => MdPage.sbList.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 120, clientY: 600 })));
   await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
   assert.deepEqual((await menu()).filter((c) => !c.startsWith("sort:")).slice(0, 4), ["newnote", "newfolder", "newboard", "newbook"]);
+  // made at once, no name asked for (Henri, 2026-11-04): "Untitled Notebook", named on the board, in its menu
   await page.click('#ctxmenu[data-open] .menu-item[data-cmd="newbook"]');
-  await page.waitForSelector("#newdlg[data-open] #new-name", { timeout: 4000 });
-  assert.equal(await page.textContent("#new-title"), "New Notebook");
-  await page.fill("#new-name", "Heft");
-  await page.keyboard.press("Enter");
   await boardOpen();
-  await until(() => text("Heft.board.svg") !== undefined, "the notebook's file in the repository");
+  assert.ok(!(await page.evaluate(() => document.getElementById("newdlg")?.hasAttribute("data-open"))), "no window asks for a name");
+  await page.waitForFunction(() => MdBoard.state().ref.endsWith("/Untitled Notebook.board.svg"), null, { timeout: 8000 });
+  assert.equal(await page.textContent("#board .bd-name"), "Untitled Notebook");
+  await until(() => text("Untitled Notebook.board.svg") !== undefined, "the notebook's file in the repository");
+  await page.waitForTimeout(400);
+  await page.click('#board [data-do="more"]');
+  await page.waitForSelector("#board .bd-vpop[data-open] .bd-name-field", { timeout: 4000 });
+  assert.equal(await page.inputValue("#board .bd-name-field"), "Untitled Notebook");
+  assert.equal(await page.getAttribute("#board .bd-name-field", "aria-label"), "Name of the notebook");
+  await page.fill("#board .bd-name-field", "Heft");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => MdBoard.state().ref.endsWith("/Heft.board.svg"), null, { timeout: 8000 });
+  await until(() => text("Heft.board.svg") !== undefined && text("Untitled Notebook.board.svg") === undefined, "the file renamed in the repository", 12000);
   // one squared page of A4 to begin with: in the file's head, and as a sheet under the board
   assert.deepEqual(head().paper, { bg: "grid", color: "white", size: "a4", n: 1 });
   assert.deepEqual(await book(), { pages: 1, bg: "grid", color: "white", drawn: [1] });
@@ -141,11 +150,16 @@ test("a notebook is made from the sidebar's menu: pages of paper, the paper chos
   await page.evaluate(() => MdPage.sbList.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 120, clientY: 600 })));
   await page.waitForSelector("#ctxmenu[data-open]", { timeout: 4000 });
   await page.click('#ctxmenu[data-open] .menu-item[data-cmd="newboard"]');
-  await page.waitForSelector("#newdlg[data-open] #new-name", { timeout: 4000 });
-  await page.fill("#new-name", "Tafel");
-  await page.keyboard.press("Enter");
   await boardOpen();
-  await page.waitForFunction(() => MdBoard.state().ref.endsWith("Tafel.board.svg"), null, { timeout: 8000 });
+  await page.waitForFunction(() => MdBoard.state().ref.endsWith("/Untitled Whiteboard.board.svg"), null, { timeout: 8000 });
+  await page.waitForTimeout(400);
+  await page.click('#board [data-do="more"]');
+  await page.waitForSelector("#board .bd-vpop[data-open] .bd-name-field", { timeout: 4000 });
+  assert.equal(await page.getAttribute("#board .bd-name-field", "aria-label"), "Name of the whiteboard");
+  await page.fill("#board .bd-name-field", "Tafel");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => MdBoard.state().ref.endsWith("/Tafel.board.svg"), null, { timeout: 8000 });
+  assert.equal(await page.textContent("#board .bd-name"), "Tafel");
   assert.equal(await book(), null);
   assert.equal(await page.locator("#board .bd-sheet").count(), 0);
   assert.ok(!(await shown('#board [data-do="paper"]')));
@@ -274,4 +288,41 @@ test("Claude's steps in a notebook: what it writes below the last page gets page
   });
   assert.deepEqual(seen.sort(), [items0, items0 + 3].sort(), `three, then none of them — never one by one: ${seen}`);
   assert.deepEqual(problems, []);
+});
+
+test("All Notes names a notebook a notebook, after a reload too; a picture that cannot be shown is its sign, not a \"?\"; two made unnamed are numbered", async () => {
+  if (await page.evaluate(() => MdBoard.shown)) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 }); }
+  put("Kaputt.board.svg", "not a picture"); // (a board's file that no browser can draw)
+  await page.goto(`${base}/r/octo/notes?n=Alpha.md`); // (afresh: no board's text known to the page — the notebook is told by its file's head)
+  await page.waitForFunction(() => window.MdView && MdView.core.current && MdView.core.current.name === "Alpha.md", null, { timeout: 15000 });
+  problems.length = 0; // (the test before watched the board in a loop of its own, which ends with the page: not the app's)
+  await page.click('#tabs [data-act="overview"]');
+  const tile = (name) => page.locator(`#overview .ov-item[data-path="${R}/${name}"]`);
+  await page.waitForFunction((p) => document.querySelector(`#overview .ov-item[data-path="${p}"][data-book]`), `${R}/Heft.board.svg`, { timeout: 10000 });
+  assert.equal(await tile("Tafel.board.svg").getAttribute("data-book"), null);
+  // the broken one: its sign in place of its picture
+  await page.waitForFunction((p) => { const t = document.querySelector(`#overview .ov-item[data-path="${p}"]`); return t && !t.querySelector("img") && t.querySelector(".ov-pic .ov-icon svg"); }, `${R}/Kaputt.board.svg`, { timeout: 8000 });
+  // the list says each file's kind
+  await page.click('#overview [data-seg="layout"] [data-v="list"]');
+  await page.waitForFunction((p) => document.querySelector(`#overview .ov-row[data-path="${p}"][data-book]`), `${R}/Heft.board.svg`, { timeout: 8000 });
+  assert.equal(await tile("Heft.board.svg").locator(".ov-snip").innerText(), "Notebook");
+  assert.equal(await tile("Tafel.board.svg").locator(".ov-snip").innerText(), "Whiteboard");
+  await page.click('#overview [data-seg="layout"] [data-v="tiles"]');
+  // the folder's whiteboards: the notebook is one too, signed as a notebook
+  await page.click('#overview [data-seg="scope"] [data-v="boards"]');
+  await page.waitForFunction((p) => document.querySelector(`#overview .ov-item[data-path="${p}"][data-book]`), `${R}/Heft.board.svg`, { timeout: 10000 });
+  assert.equal(await page.evaluate((p) => document.querySelector(`#overview .ov-item[data-path="${p}"]`).hasAttribute("data-book"), `${R}/Tafel.board.svg`), false);
+  await page.click('#overview [data-seg="scope"] [data-v="folders"]');
+  // two whiteboards made without a name: the second gets a number
+  for (const n of ["", " 2"]) {
+    await page.click("#overview .ov-add");
+    await page.waitForSelector('#ctxmenu[data-open] .menu-item[data-cmd="newboard"]', { timeout: 4000 });
+    await page.click('#ctxmenu[data-open] .menu-item[data-cmd="newboard"]');
+    await boardOpen();
+    await page.waitForFunction((want) => MdBoard.state().ref.endsWith(want), `/Untitled Whiteboard${n}.board.svg`, { timeout: 8000 });
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !MdBoard.shown, null, { timeout: 5000 });
+  }
+  await until(() => text("Untitled Whiteboard.board.svg") !== undefined && text("Untitled Whiteboard 2.board.svg") !== undefined, "both in the repository", 12000);
+  assert.deepEqual(problems.filter((p) => !/Kaputt|Failed to load resource/.test(p)), []);
 });

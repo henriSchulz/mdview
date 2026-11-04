@@ -648,8 +648,10 @@ and shut back into it — or a file of the folder, of its own.
   is the note's: kept where the note's pictures go, in no list of the folder, and gone when the
   note no longer shows it.
 - **Making one as a file**: New Whiteboard — the sidebar's `+`, a right
-  click on a folder or the empty room, the `+` of All Notes. It is asked for its name, made in
-  that folder (`Name.board.svg`) and opened. It is listed like any file, under its name with a
+  click on a folder or the empty room, the `+` of All Notes. Nothing is asked: it is made in that
+  folder as "Untitled Whiteboard" ("Untitled Whiteboard 2" … where that is taken,
+  `Untitled Whiteboard.board.svg`) and opened; its name is given on the board, in More. It is
+  listed like any file, under its name with a
   sign of its own; a click opens it over the window, and it is renamed, moved, copied, hidden
   and trashed like any file. (In the browser too: there it is a commit at once.)
 - **A whiteboard file shown in a note**: its menu › Embed in This Note puts it in at the caret
@@ -658,7 +660,10 @@ and shut back into it — or a file of the folder, of its own.
   a file of its own: several notes can show the same board.
 - **All of the folder's whiteboards**: All Notes › *Whiteboards* shows them and nothing else —
   those that are files and those a note keeps — each with the note it stands in, or "In no
-  note" — all of them alike, with no choice among them. A click opens the board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
+  note" — all of them alike, with no choice among them. A notebook among them has a notebook's
+  sign, and is called Notebook, not Whiteboard, wherever All Notes and the sidebar say a file's kind
+  (told by its file's head; in the browser that is read for the list). A board whose picture
+  cannot be shown has its sign on its tile, never the web view's broken picture. A click opens the board. A board a note keeps has Show the Note It Is In and Keep as a File of Its Own in its
   menu (from then on it is listed in the folder, and stays when the note lets it go).
 - **In the note** it stands as a picture of what is on it, in a frame — in every mode, in the
   browser and in a shared note. A click opens it (in the active mode too; the block is chosen by
@@ -798,7 +803,9 @@ and shut back into it — or a file of the folder, of its own.
   under a name; a click on a scene, or the arrows beside the list, goes back to it. A scene is
   renamed, replaced with the present view, or deleted from its row.
 - **The size shown**, clicked, lists sizes to choose, Show Everything and Actual Size.
-- **More** (`…`, top right): Copy as Picture puts the board on the clipboard; Print… prints the
+- **More** (`…`, top right): at its head the board's name (a whiteboard or notebook that is a file
+  of its own): changed there, the file is renamed (Enter or a click elsewhere; Esc keeps the old
+  one), and the name at the top left follows. Copy as Picture puts the board on the clipboard; Print… prints the
   board's picture alone on the page (or keeps it as a PDF, from the system's print window);
   Snap to Grid makes what is moved come to rest on the dots. With three or more chosen,
   Arrange also spreads them at equal distances.
@@ -830,8 +837,9 @@ pens, the eraser, the lasso, text, shapes, pictures, the ruler, undo (no connect
 them is not there).
 
 - **Making one**: New Notebook — the sidebar's `+`, a right click on a folder or the empty room,
-  the `+` of All Notes. It is asked for its name, made in that folder (`Name.board.svg`, as a
-  whiteboard's file) with one white squared page, and opened. It is listed, opened, embedded in a
+  the `+` of All Notes. Nothing is asked: it is made in that folder as "Untitled Notebook" (a
+  number after it where that is taken; `Untitled Notebook.board.svg`, as a whiteboard's file)
+  with one white squared page, and opened; its name is given in the notebook's More. It is listed, opened, embedded in a
   note, renamed, moved and trashed as a whiteboard that is a file is (All Notes › *Whiteboards*
   shows it too).
 - **The paper** (the button at the bottom right): GoodNotes' writing papers, each shown as a small
@@ -1095,8 +1103,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   folder's row, and the name is changed there).
   - **Sheets** (the default, on every device until another is chosen; a rail kept from the days
     it was the default gave way to it once): a sheet of paper for each file that shows what it is — a note its beginning, small,
-    as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves; any
-    other file its sign — and a folder for each folder. One
+    as All Notes' tiles show it; a PDF its first page; a whiteboard and a picture themselves (one
+    that cannot be shown: its sign); any other file its sign — and a folder for each folder. One
     folder at a time: a click goes in, the name at the top left leads back.
   - **Tiles**: four smart lists as tiles — All, Today (changed today), Shared, With Tasks (something
     left to do) — each with how many notes it holds; a click shows its notes in one list. Under

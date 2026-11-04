@@ -635,6 +635,18 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     from the folder's window, there is no note to change, so the chat refused — its toast under the board, the text left
     in the field, nothing sent. Over a whiteboard the chat draws whatever the mode (ai.js: `say`). A refusal is said where
     it is seen, and leaves nothing as though it went. `rig.sh board-ai` asks with the chat in Edit mode.
+111. **A file is named for what it is, not for the ending it shares** (#48, Henri: „Notizbücher werden in der all notes
+    ansicht als Whiteboard angezeigt“). A notebook is a whiteboard's file (`*.board.svg`) whose head has paper; All
+    Notes went by the ending alone and called it Whiteboard, with the board's sign. What tells two kinds apart that share
+    an ending is read where the list is made — the file's head (`scan.rs: is_notebook`; in the browser the first 4 KB
+    of each board, once a blob: `host.js: booksNow`) — and every place that names or signs a file asks for it
+    (`n.book`), not for the ending. `cargo test` (`a_folder_lists_everything…`), `web/test/notebook.test.mjs`.
+112. **A picture that cannot be shown leaves its place to the file's sign** (#49, Henri: „teilweise wird bei der vorschau
+    ein fragezeichen angezeigt“). All Notes faded every tile's picture in on `load` and on `error` alike: one that
+    failed showed the web view's broken picture, a "?" (Safari draws one, WebKitGTK an icon). Not reproduced with
+    Henri's own boards on the desktop (all drew); in the browser a board's file that GitHub does not have yet, or one
+    that cannot be read, fails so. An `<img>` that stands for a file — a tile, a sheet in the sidebar — has an `error`
+    handler that puts the sign there instead. `web/test/notebook.test.mjs` (a board's file that is no picture).
 
 ### Touch (iPad)
 

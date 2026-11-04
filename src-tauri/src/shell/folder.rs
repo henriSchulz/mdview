@@ -678,12 +678,11 @@ impl Win {
             }
         }
         let stem = if stem.is_empty() { "Whiteboard".to_string() } else { stem };
-        let path = into.join(format!("{stem}.board.svg"));
-        match fs::OpenOptions::new().write(true).create_new(true).open(&path).and_then(|mut f| f.write_all(text.as_bytes())) {
-            Ok(()) => self.did(undo::Step::Made(vec![path.clone()])),
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => self.toast(format!("“{}” already exists", name_of(&path))),
+        let path = match board_free(&into, &stem, text) {
+            Ok(path) => path,
             Err(e) => return self.toast(format!("Couldn't create the whiteboard: {}", strerror(&e))),
-        }
+        };
+        self.did(undo::Step::Made(vec![path.clone()]));
         self.rescan(app);
         self.board_paths.insert(s(&path));
         self.js("MdView.revealRows", &[json!([s(&path)])]);
@@ -703,7 +702,7 @@ impl Win {
             }
         });
         let owned = attachments();
-        let mut out: Vec<Value> = boards.iter().map(|b| json!({ "path": s(b), "name": name_of(b), "url": file_url(b), "mtime": mtime(b).unwrap_or(0.0), "kept": owned.owner(b).is_some(), "in": [] })).collect();
+        let mut out: Vec<Value> = boards.iter().map(|b| json!({ "path": s(b), "name": name_of(b), "url": file_url(b), "mtime": mtime(b).unwrap_or(0.0), "kept": owned.owner(b).is_some(), "book": scan::is_notebook(b), "in": [] })).collect();
         if !boards.is_empty() {
             let names: Vec<String> = boards.iter().map(|b| name_of(b)).collect();
             for note in &notes {
@@ -816,6 +815,19 @@ fn title_name(text: &str) -> String {
     name.trim().trim_end_matches('.').to_string()
 }
 
+/// A new whiteboard's file, made without asking for a name ("Untitled Whiteboard"): under the first
+/// name that is free — a number after it where it is taken.
+fn board_free(into: &Path, stem: &str, text: &str) -> std::io::Result<PathBuf> {
+    for n in 1..1000 {
+        let path = into.join(if n == 1 { format!("{stem}.board.svg") } else { format!("{stem} {n}.board.svg") });
+        match fs::OpenOptions::new().write(true).create_new(true).open(&path).and_then(|mut f| f.write_all(text.as_bytes())) {
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            done => return done.map(|()| path),
+        }
+    }
+    Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "no free name"))
+}
+
 /// The first name beside the note that is free for `name` ("name.md", "name 2.md" …) — the note's own counts as free.
 fn free_name(path: &Path, name: &str) -> Option<PathBuf> {
     let dir = dir_of(path);
@@ -825,6 +837,18 @@ fn free_name(path: &Path, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_whiteboard_takes_the_first_free_name() {
+        let d = std::env::temp_dir().join(format!("mdview-newboard-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        // (no name asked for: "Untitled Whiteboard", then "… 2" — the one there is left as it is)
+        assert_eq!(board_free(&d, "Untitled Whiteboard", "one").unwrap(), d.join("Untitled Whiteboard.board.svg"));
+        assert_eq!(board_free(&d, "Untitled Whiteboard", "two").unwrap(), d.join("Untitled Whiteboard 2.board.svg"));
+        assert_eq!(fs::read_to_string(d.join("Untitled Whiteboard.board.svg")).unwrap(), "one");
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn a_title_names_a_note_and_a_name_taken_gets_a_number() {

@@ -190,8 +190,7 @@ The whiteboard in the note (tap it to open it):
       if (!SAMPLES || typeof text !== "string") return toast("The sample notes stay as they are.");
       let stem = C.cleanName(String(name || "")) || "Whiteboard";
       for (const ending of [".board.svg", ".svg", ".board"]) if (stem.toLowerCase().endsWith(ending)) stem = stem.slice(0, -ending.length).trimEnd();
-      const path = `${BASE}/${stem || "Whiteboard"}.board.svg`;
-      if (exists(path)) return toast(`“${C.nameOf(path)}” already exists`);
+      const path = `${BASE}/${C.freeName(`${stem || "Whiteboard"}.board.svg`, false, false, (n) => exists(`${BASE}/${n}`))}`;
       others.add(path); boards.set(path, text); sendFolder();
       tell("revealRows", [path]); tell("openBoardFile", path);
     },

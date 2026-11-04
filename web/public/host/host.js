@@ -207,7 +207,48 @@
   /* … and what the list leaves out beside the names with a dot: that, and what the app keeps for a
    * note — a picture pasted, a whiteboard made in it — as the desktop app's list does (folder.rs: rescan). */
   const putAway = () => new Set([...hiddenNow(), ...Object.keys(C.attachOf(textNow(C.ATTACH) ?? ""))]);
-  const treeNow = (more) => C.buildTree(BASE, every(), { away: putAway(), ...more });
+  /* The whiteboards that are notebooks: by their text where it is here (made, opened, drawn on), else by
+   * their head — the beginning of the file, read once for each blob (a board can be large: not read
+   * whole for the list); the list is sent again when a notebook is found among those. */
+  const heads = new Map(); // blob → a notebook (true, false), or a promise while its head is being read
+  const isBoardFile = (r) => /\.board\.svg$/i.test(r);
+  function bookOf(r) {
+    const text = drafts.has(r) ? drafts.get(r).text : texts.get((blobOf(r) || {}).sha);
+    if (text != null) return C.isNotebook(text);
+    const h = heads.get((blobOf(r) || {}).sha);
+    return h instanceof Promise ? undefined : h;
+  }
+  async function headOf(r) {
+    const res = await ask(fileUrl(BASE + "/" + r));
+    if (!res.ok || !res.body) return false;
+    const reader = res.body.getReader(), parts = [];
+    let got = 0;
+    while (got < 4096) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; }
+    reader.cancel().catch(() => {});
+    const bytes = new Uint8Array(got);
+    let at = 0;
+    for (const p of parts) { bytes.set(p, at); at += p.length; }
+    return C.isNotebook(new TextDecoder().decode(bytes));
+  }
+  function readHeads(list) {
+    return Promise.all(list.map((r) => {
+      const sha = (blobOf(r) || {}).sha;
+      if (!sha) return false;
+      if (!heads.has(sha)) heads.set(sha, headOf(r).catch(() => false).then((book) => { heads.set(sha, book); return book; }));
+      return heads.get(sha);
+    }));
+  }
+  function booksNow() {
+    const out = new Set(), unknown = [];
+    for (const r of every()) {
+      if (!isBoardFile(r)) continue;
+      const book = bookOf(r);
+      if (book) out.add(r); else if (book === undefined && (blobOf(r) || {}).sha && !heads.has(blobOf(r).sha)) unknown.push(r);
+    }
+    if (unknown.length) readHeads(unknown).then((found) => { if (found.some(Boolean)) sendFolder(); });
+    return out;
+  }
+  const treeNow = (more) => C.buildTree(BASE, every(), { away: putAway(), books: booksNow(), ...more });
   // a folder under another path keeps its look
   function looksFollow(was, to) {
     const looks = looksNow(), a = rel(was);
@@ -1241,8 +1282,11 @@
       if (typeof text !== "string" || !text.includes(BOARD_MARK) || !mayWrite()) return;
       let stem = C.cleanName(name);
       for (const ending of [".board.svg", ".svg", ".board"]) if (stem.toLowerCase().endsWith(ending)) stem = stem.slice(0, -ending.length).trimEnd();
-      const path = `${targetDir(dir)}/${stem || "Whiteboard"}.board.svg`;
-      if (exists(path)) toast(`“${C.nameOf(path)}” already exists`); else { write(rel(path), text); commit(); }
+      // (made without asking for a name — "Untitled Whiteboard": the first one free, a number after it where it is taken)
+      const into = targetDir(dir), free = C.freeName(`${stem || "Whiteboard"}.board.svg`, false, false, (n) => exists(`${into}/${n}`));
+      if (!free) return toast("Couldn't create the whiteboard: no free name");
+      const path = `${into}/${free}`;
+      write(rel(path), text); commit();
       sendFolder();
       tell("revealRows", [path]);
       tell("openBoardFile", path);
@@ -1256,6 +1300,8 @@
       const all = await owned();
       // (mtime: what tells the page a picture is another by now, as a tile's — previews)
       const out = boards.map((r) => ({ path: BASE + "/" + r, name: C.nameOf(r), url: fileUrl(BASE + "/" + r), mtime: drafts.has(r) ? drafts.get(r).at || 1 : parseInt(((blobOf(r) || {}).sha || "0").slice(0, 12), 16), kept: Object.hasOwn(all, r), in: [] }));
+      await readHeads(boards.filter((r) => bookOf(r) === undefined));
+      for (const b of out) b.book = !!bookOf(b.path.slice(BASE.length + 1));
       if (out.length) {
         await loadAll(); // (every note's text: which of them names a board)
         for (const n of notes) {
@@ -1385,9 +1431,10 @@
         commit();
         return;
       }
-      const suffix = path.slice(path.lastIndexOf("."));
+      const suffix = C.nameParts(C.nameOf(path), false)[1]; // (what a name ends with stays: a whiteboard's two endings both — folder.rs: rename_note)
       let stem = C.cleanName(name);
       if (stem.toLowerCase().endsWith(suffix.toLowerCase())) stem = stem.slice(0, -suffix.length).trimEnd();
+      if (suffix.toLowerCase() === ".board.svg" && stem.toLowerCase().endsWith(".board")) stem = stem.slice(0, -".board".length).trimEnd(); // (… or the first of its two alone)
       const now = `${C.dirOf(path)}/${stem}${suffix}`;
       if (!stem || now === path) return;
       if (exists(now)) return toast(`“${C.nameOf(now)}” already exists`);
