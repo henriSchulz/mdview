@@ -152,6 +152,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     "write" that would lie on an earlier one goes under it, and what the answer puts after it goes down as far
     (`"\u0000texts"`, `flowAt` in `board/claude.js`) — a frame, an underline or a marker over words is meant to lie on them
     and only goes along. Checks: `dev/tests/boardclaude.test.mjs` (#42).
+108. **A marker is round, as GoodNotes draws one** (#52, Henri: „der Textmarker ist immer noch eckig, es soll rund sein, 1:1 wie
+    bei GoodNotes“). It was made a chisel held one way, on a guess from a screenshot (the register, „strange shape … big
+    highlighter“): its ends upright and flat. A marker's line is one line as broad as the marker, round at its ends and where
+    it turns, its opacity one for all of it (`outline`, `board/render.js`). Checks: `dev/tests/board.test.mjs` ("as GoodNotes").
 
 ### Markdown that is rendered somewhere new
 

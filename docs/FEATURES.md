@@ -674,7 +674,7 @@ and shut back into it — or a file of the folder, of its own.
   board opens), the pens (`P`), the eraser (`E`), text (`T`), shapes (`S`), then Picture, and
   under `+` a sticky note (`N`), a table and a link. Each tool but the lasso has a small tray
   of its own with what it is set to; the tray changes with the tool.
-- **The pens**: pen (`P`), fineliner (`F`), marker (`M`, see-through; its sign a round marker
+- **The pens**: pen (`P`), fineliner (`F`), marker (`M`, see-through, its line round at its ends and turns as GoodNotes draws one; its sign a round marker
   with a round tip in its colour) and pencil (`B`, with a grain), and the ruler. Under them how
   broad the line is, in the pen's colour (upright, as a stroke of that breadth) — pressed, the
   widths open, and how see-through the line is (a press on the pen in hand opens the same) —
