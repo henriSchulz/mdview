@@ -243,23 +243,90 @@ body[data-mode="dark"] #dlg-scrim { background: rgb(0 0 0 / 0.35); }
 .dlg-preview.stale { opacity: 0.45; }
 /* code beside the picture it draws (a picture of svg, a diagram): a dialog large enough for both — the code as high as the
  * dialog, the picture whole beside it */
-#dlg[data-split]:not(.sized) { width: min(1120px, 94vw); height: min(720px, 88vh); }
+#dlg[data-split]:not([data-canvas]):not(.sized) { width: min(1120px, 94vw); height: min(720px, 88vh); }
 /* (the size kept is one for all dialogs: pulled small on a formula's, code beside its picture keeps room to write and to see) */
-#dlg[data-split].sized { min-width: min(720px, 94vw); min-height: min(480px, 88vh); }
-#dlg[data-split] .dlg-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 10px; overflow: hidden; }
-#dlg[data-split] .ce { max-height: none; min-height: 0; height: 100%; box-sizing: border-box; }
-#dlg[data-split] .dlg-preview { display: grid; place-items: center; height: 100%; box-sizing: border-box; min-height: 0; overflow: auto; }
-#dlg[data-split] .dlg-preview > svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }
-#dlg[data-split] .dlg-caption { grid-column: 1 / -1; grid-row: 2; } /* (a caption under the code and its picture: islands.js, captionField) */
+#dlg[data-split]:not([data-canvas]).sized { min-width: min(720px, 94vw); min-height: min(480px, 88vh); }
+#dlg[data-split]:not([data-canvas]) .dlg-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 10px; overflow: hidden; }
+#dlg[data-split]:not([data-canvas]) .ce { max-height: none; min-height: 0; height: 100%; box-sizing: border-box; }
+#dlg[data-split]:not([data-canvas]) .dlg-preview { display: grid; place-items: center; height: 100%; box-sizing: border-box; min-height: 0; overflow: auto; }
+#dlg[data-split]:not([data-canvas]) .dlg-preview > svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+#dlg[data-split]:not([data-canvas]) .dlg-caption { grid-column: 1 / -1; grid-row: 2; } /* (a caption under the code and its picture: islands.js, captionField) */
 /* (a dialog as narrow as the block it stands over has the picture under the code, as a narrow window has) */
 #dlg { container: dlg / inline-size; }
 @container dlg (max-width: 640px) {
-  #dlg[data-split] .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
-  #dlg[data-split] .dlg-caption { grid-row: 3; }
+  #dlg[data-split]:not([data-canvas]) .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+  #dlg[data-split]:not([data-canvas]) .dlg-caption { grid-row: 3; }
 }
 @media (max-width: 760px) {
-  #dlg[data-split] .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
+  #dlg[data-split]:not([data-canvas]) .dlg-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.4fr) minmax(0, 1fr); }
 }
+/* A dialog that edits a block is the whole window (Henri, 2026-11-04: the Leinwand of dev/modal-lab-2.html): what the
+ * block shows stands on a canvas over all of it, the code lies under it in a console of glass that its grip pulls
+ * higher or lower (dialog.js, `canvas`). Without a picture the console is all of the canvas. */
+#dlg[data-canvas] {
+  inset: 0;
+  margin: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-radius: 0;
+  box-shadow: none;
+  background: radial-gradient(var(--line-strong) 1px, transparent 1.3px) 0 0 / 18px 18px, var(--bg);
+}
+#dlg[data-canvas] .dlg-head { min-height: 60px; box-sizing: border-box; flex-wrap: wrap; row-gap: 6px; padding: 12px 16px 10px 24px; gap: 8px; }
+#dlg[data-canvas] .dlg-head .btn, #dlg[data-canvas] .dlg-head .dlg-seg .btn { white-space: nowrap; }
+#dlg[data-canvas] .dlg-tools { flex-wrap: wrap; row-gap: 6px; } /* (a narrow window: the tools go onto a second line, never over the title) */
+#dlg[data-canvas] #dlg-title { flex: none; font-size: 17px; }
+#dlg[data-canvas] .dlg-head > .btn { margin-left: 2px; }
+#dlg[data-canvas] .dlg-head > [data-do="cancel"] { margin-left: 10px; background: transparent; box-shadow: none; color: var(--fg2); }
+#dlg[data-canvas] .dlg-head > [data-do="cancel"]:hover { background: var(--fill-hover, color-mix(in srgb, var(--fg) 6%, transparent)); color: var(--fg); }
+#dlg[data-canvas] .dlg-body { display: flex; flex-direction: column; gap: 10px; padding: 0 16px; overflow: hidden; }
+#dlg[data-canvas] .dlg-body > * { order: 1; flex: none; }
+/* the canvas: the picture as large as the room lets it be, in its middle */
+#dlg[data-canvas] .dlg-preview { order: 0; flex: 1 1 0; min-height: 0; display: grid; place-items: center; padding: 16px 40px; border-radius: 0; background: none; }
+#dlg[data-canvas] .dlg-preview > svg, #dlg[data-canvas] .dlg-preview img { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+#dlg[data-canvas] .dlg-preview.math { font-size: 30px; }
+#dlg[data-canvas] .dlg-preview.doc { place-items: start center; font-size: 16px; }
+#dlg[data-canvas] .dlg-preview.doc > * { width: min(100%, 760px); }
+#dlg[data-canvas] .dlg-caption, #dlg[data-canvas] .dlg-symbols, #dlg[data-canvas] .dlg-hint, #dlg[data-canvas] .dlg-error { align-self: center; width: min(100%, 560px); }
+#dlg[data-canvas] .dlg-caption { text-align: center; background: transparent; box-shadow: none; }
+#dlg[data-canvas] .dlg-caption:focus { box-shadow: inset 0 0 0 1px var(--line-strong); }
+#dlg[data-canvas] .dlg-symbols { justify-content: center; }
+#dlg[data-canvas] .dlg-error { text-align: center; }
+/* the console */
+#dlg[data-canvas] .ce {
+  order: 2;
+  flex: 0 0 var(--console, 300px);
+  min-height: 0;
+  max-height: none;
+  padding-top: 12px;
+  border-radius: 20px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--shadow-popover);
+  font-size: 14px;
+}
+#dlg[data-canvas] .fm-form { order: 2; flex: 1 1 0; min-height: 0; overflow: auto; align-self: center; align-content: start; width: min(100%, 760px); padding-top: 24px; }
+#dlg[data-canvas]:not(:has(.dlg-preview)) .ce { flex: 1 1 0; }
+#dlg[data-canvas] .dlg-foot { padding: 6px 24px 10px; min-height: 18px; }
+#dlg[data-canvas] .dlg-grip { display: none; }
+.dlg-pull { display: none; }
+#dlg[data-canvas] .dlg-pull:not([hidden]) { display: block; position: absolute; z-index: 3; left: 50%; width: 120px; height: 18px; translate: -50% 0; cursor: ns-resize; touch-action: none; }
+.dlg-pull::before { content: ""; position: absolute; left: 42px; right: 42px; top: 7px; height: 5px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 22%, transparent); transition: background-color var(--dur-fast) var(--ease-out); }
+.dlg-pull:hover::before, .dlg-pull.pulling::before { background: color-mix(in srgb, var(--fg) 40%, transparent); }
+/* no scrollbars to be seen in it: a thin bar only while something scrolls (dialog.js, `bar`), as macOS shows one */
+#dlg[data-canvas] * { scrollbar-width: none; }
+#dlg[data-canvas] ::-webkit-scrollbar { display: none; }
+.dlg-bar { position: absolute; z-index: 4; top: 0; left: 0; width: 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--fg) 34%, transparent); opacity: 0; pointer-events: none;
+  transform: translate(var(--x, 0), var(--y, 0)) scaleX(var(--sx, 1)); transform-origin: 100% 50%;
+  transition: opacity var(--dur-base) var(--ease-exit), transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.dlg-bar.on { opacity: 1; pointer-events: auto; transition: opacity var(--dur-instant) var(--ease-out), transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.dlg-bar:hover, .dlg-bar.pulling { --sx: 1.45; background: color-mix(in srgb, var(--fg) 50%, transparent); }
+.dlg-bar.pulling { transition: opacity var(--dur-instant) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
 .dlg-preview.stale[data-error]::after { content: attr(data-error); display: block; margin-top: 6px; color: var(--c-red); font-size: 12px; opacity: 1; }
 .dlg-error { min-height: 1.3em; color: var(--c-red); font-size: 12px; user-select: text; -webkit-user-select: text; }
 .dlg-hint { color: var(--fg2); font-size: 12px; }

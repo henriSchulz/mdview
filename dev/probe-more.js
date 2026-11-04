@@ -88,23 +88,26 @@
     key(dlg, "Escape");
     await sleep(350);
 
-    // --- a dialog pulled larger, kept
-    A.islands.open(view, island("code"));
+    // --- the console of a block's dialog pulled higher, kept (the Leinwand, 2026-11-04: a block's dialog is the whole window, its console has the grip)
+    A.islands.open(view, island("math"));
     await sleep(600);
-    const grip = dlg.querySelector(".dlg-grip"), g = grip.getBoundingClientRect(), w0 = dlg.offsetWidth;
-    grip.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, clientX: g.left + 6, clientY: g.top + 6 })); await sleep(30);
-    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: g.left + 46, clientY: g.top + 66 })); await sleep(30);
-    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX: g.left + 46, clientY: g.top + 66 })); await sleep(300);
-    const w1 = dlg.offsetWidth;
-    ok("pulled at its corner, the dialog grows", w1 > w0 + 40, [w0, w1]);
+    const pe = (el, type, y) => { const r = el.getBoundingClientRect(); el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, clientX: r.left + 60, clientY: y })); };
+    const ceH = () => [...dlg.querySelectorAll(".ce")].find((c) => !c.hidden).offsetHeight;
+    const pull = dlg.querySelector(".dlg-pull"), y0 = pull.getBoundingClientRect().top + 9, h0 = ceH();
+    ok("the console has its grip on its top edge", !pull.hidden && Math.abs(y0 - [...dlg.querySelectorAll(".ce")].find((c) => !c.hidden).getBoundingClientRect().top) <= 2, [y0]);
+    pe(pull, "pointerdown", y0); await sleep(30);
+    pe(pull, "pointermove", y0 - 80); await sleep(30);
+    pe(pull, "pointerup", y0 - 80); await sleep(300);
+    const h1 = ceH();
+    ok("pulled at its grip, the console grows", h1 > h0 + 40, [h0, h1]);
     key(dlg, "Escape");
     await sleep(400);
-    A.islands.open(view, island("code"));
+    A.islands.open(view, island("math"));
     await sleep(600);
-    ok("… and opens at that size again", Math.abs(dlg.offsetWidth - w1) < 2, [dlg.offsetWidth, w1]);
-    dlg.querySelector(".dlg-grip").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    ok("… and opens at that height again", Math.abs(ceH() - h1) < 2, [ceH(), h1]);
+    dlg.querySelector(".dlg-pull").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     await sleep(100);
-    ok("a double click on the corner: its own size again", Math.abs(dlg.offsetWidth - w0) < 2 && window.MdPrefs.dialogWidth === 0, [dlg.offsetWidth, w0]);
+    ok("a double click on the grip: its own height again", Math.abs(ceH() - h0) < 2 && window.MdPrefs.consoleHeight === 0, [ceH(), h0]);
     key(dlg, "Escape");
     await sleep(400);
 

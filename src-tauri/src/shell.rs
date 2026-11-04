@@ -121,6 +121,7 @@ fn default_prefs() -> Map<String, Value> {
         "style": "auto",        // new Markdown: "auto" (as the document does it) | "fixed" (the choices below)
         "bullet": "-", "emphasis": "*", "strongMark": "**", "ordered": ".",
         "dialogWidth": 0, "dialogHeight": 0,  // a dialog's size, once one was pulled to another (0: its own)
+        "consoleHeight": 0,   // the console of a block's dialog (the whole window), once its grip pulled it (0: its own, 300 px)
         // the formula editor (LaTeX Suite): snippets, "/" makes a fraction, matrix keys, Tab leaves
         // brackets, brackets grow around sums, bracket pairs coloured, "mk" / "dm" in the text
         "latexSnippets": true, "latexFraction": true, "latexMatrix": true, "latexTabout": true,

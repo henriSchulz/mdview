@@ -7,7 +7,7 @@
   const DEFAULTS = {
     lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0,
     images: "assets", style: "auto", bullet: "-", emphasis: "*", strongMark: "**", ordered: ".",
-    dialogWidth: 0, dialogHeight: 0,
+    dialogWidth: 0, dialogHeight: 0, consoleHeight: 0,
     latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
     sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
     aiOn: true, aiClaude: "", aiComplete: false, aiModel: "", historyQuiet: 30, deviceName: "",

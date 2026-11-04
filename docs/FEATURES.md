@@ -971,11 +971,13 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   be dragged to move it.
 - **Code blocks, block formulas, properties, raw HTML** open in a dialog with an editor (bracket
   matching, `Ctrl+F`, LaTeX completion) and a live preview for formulas, Mermaid and SVG.
-  The dialog grows out of the block and stands over it exactly as wide as the page the note is
-  on — the sheet's left and right edges are its own, however narrow the block (no narrower than
-  380 px, never past the window's edges); its
-  corner pulls it higher (kept for all dialogs) and wider to the right (for this time only).
-  Code beside its picture (SVG, Mermaid) stands one above the other in a dialog under 640 px.
+  The dialog of a block is the whole window (the Leinwand): what the block shows stands large on
+  a canvas of dots, the code lies under it in a console of glass, whose grip at its top edge pulls
+  it higher or lower (kept for all such dialogs; a double click: 300 px again); without a picture
+  the console is all of it. Title and tools stand in its head with Cancel and Done; no scrollbar
+  is seen in it — a thin bar shows while something scrolls and can be pulled. It fades in over the
+  note and out again. A dialog without a block (an inline formula, a footnote) keeps its own size
+  in the middle of the window; its corner pulls it higher and wider (kept for those dialogs).
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work
   in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.

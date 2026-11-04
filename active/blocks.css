@@ -210,9 +210,9 @@ body.blk-pulling { cursor: default; user-select: none; -webkit-user-select: none
 @media print { .blk-band { display: none !important; } }
 
 /* the formula dialog: room for the formula and for writing it (a size pulled by hand stays) */
-#dlg[data-kind="math"] { width: min(1040px, 94vw); max-height: 90vh; }
-#dlg[data-kind="math"] .dlg-preview.math { min-height: 7em; font-size: 20px; display: grid; align-items: center; }
-#dlg[data-kind="math"] .ce { min-height: 240px; max-height: 56vh; }
+#dlg[data-kind="math"]:not([data-canvas]) { width: min(1040px, 94vw); max-height: 90vh; }
+#dlg[data-kind="math"]:not([data-canvas]) .dlg-preview.math { min-height: 7em; font-size: 20px; display: grid; align-items: center; }
+#dlg[data-kind="math"]:not([data-canvas]) .ce { min-height: 240px; max-height: 56vh; }
 /* LaTeX Suite: places still to fill in, bracket pairs by depth */
 .ce-stop { border-radius: 2px; background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
 .ce-stop.none { display: inline-block; width: 0; height: 0.5em; vertical-align: baseline; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }

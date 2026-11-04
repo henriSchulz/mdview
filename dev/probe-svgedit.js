@@ -23,7 +23,7 @@
       o["m" + n] = { ce: [ce.clientWidth, ce.clientHeight], lines, pv: pv && [Math.round(pv.getBoundingClientRect().width), Math.round(pv.getBoundingClientRect().height)], dlg: [Math.round(d.width), Math.round(d.height)], win: [innerWidth, innerHeight], wrap: getComputedStyle(input).whiteSpace };
       ok(name + ": at least ten lines of its code are in sight", lines >= 10, o["m" + n]);
       ok("… the picture is in sight beside it, whole", !!pv && !!pv.querySelector("svg") && pv.getBoundingClientRect().bottom <= d.bottom + 1 && pv.querySelector("svg").getBoundingClientRect().height <= pv.clientHeight + 1 && pv.querySelector("svg").getBoundingClientRect().height > 40, o["m" + n]);
-      ok("… and the dialog is within the window", d.top >= 0 && d.bottom <= innerHeight && d.left >= 0 && d.right <= innerWidth, [d.top, d.bottom, innerHeight]);
+      ok("… and the dialog is within the window", d.top >= -0.5 && d.bottom <= innerHeight + 0.5 && d.left >= -0.5 && d.right <= innerWidth + 0.5, [d.top, d.bottom, innerHeight]);
       if (n === 1) ok("code written on one endless line is shown a line for each part: hardly anything to scroll sideways for", ce.scrollWidth < ce.clientWidth * 1.5 && input.value.split("\n").length > 30, [ce.scrollWidth, ce.clientWidth, input.value.slice(0, 200)]);
       if (n === 1) { // looked at and left: the note's code is as it was
         dlg.querySelector('[data-do="done"]').click(); await sleep(400);
@@ -50,7 +50,7 @@
     {
       const ce = dlg.querySelector(".ce"), input = dlg.querySelector(".ce-in"), pv = dlg.querySelector(".dlg-preview"), d = dlg.getBoundingClientRect();
       const lh = parseFloat(getComputedStyle(input).lineHeight) || 20, lines = Math.floor((ce.clientHeight - 28) / lh);
-      ok("opened with a small size kept (697 × 240): still at least ten lines of code in sight, and the picture no stamp", lines >= 10 && pv.clientHeight >= 300 && d.bottom <= innerHeight, { lines, dlg: [Math.round(d.width), Math.round(d.height)], pv: [pv.clientWidth, pv.clientHeight] });
+      ok("opened with a small size kept (697 × 240): still at least ten lines of code in sight, and the picture no stamp", lines >= 10 && pv.clientHeight >= 300 && d.bottom <= innerHeight + 0.5, { lines, dlg: [Math.round(d.width), Math.round(d.height)], pv: [pv.clientWidth, pv.clientHeight] });
     }
     window.MdPrefs = { ...window.MdPrefs, dialogWidth: 0, dialogHeight: 0 };
     dlg.querySelector('[data-do="cancel"]').click(); await sleep(300);

@@ -44,13 +44,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 47. **A size is kept only when it was chosen, and looked at when it is read.** A press that pulls
     nowhere keeps nothing; a kept value no hand could have made (lower than the least the corner
     pulls to) is no value. One wrong number in the settings is every dialog's.
-82. **A dialog that edits a block stands over it with the page's left and right edges**
-    (`place`, dialog.js): its width is the page's — the sheet the note is on (`#active`,
-    `#content`, `#editor`, inside its border) — not the block's, a kind's own or one kept from the
-    corner, clamped only by the least a dialog can be and the window's edges (#25, Henri: the
-    block's own width was not what he meant). A block is what is not inline (an inline formula
-    keeps a dialog of its own width). `tests/dialogwidth.test.mjs` holds the width; `rig.sh
-    islands` measures the edges for a code block, code in a list, a formula and a diagram.
+82. **A dialog that edits a block is the whole window** (`canvas`, dialog.js; Henri, 2026-11-04, chose the
+    Leinwand of `dev/modal-lab-2.html`, after #25 had it as wide as the page): it takes no width,
+    place or kept size of its own, its Cancel and Done stand in its head (and go back to the foot for a
+    dialog without a block), and the rules a dialog of its own size needs (`data-split`, a kind's width,
+    `.sized`) are written `:not([data-canvas])` — else one of them, later in the sheets, wins over the
+    canvas (a formula's dialog stood at 94 vw). A block is what is not inline (an inline formula and a
+    footnote keep a dialog of their own size). A size the shell stores is one it knows: a new one is
+    named in `default_prefs` (shell.rs), `DEFAULTS` (prefs.js) and `PREFS` (web/lib/page.ts), else
+    it is dropped and never comes back (`consoleHeight`). `tests/dialogwidth.test.mjs`; `rig.sh
+    islands` (the whole window, the picture over the console, the grip on its edge), `rig.sh more`
+    (the console pulled higher, kept, a double click).
 
 54. **One menu for a thing, wherever it is met.** The file menu's entries say for *what* they are
     (`data-for`: a file, a folder, many, the empty room) — never *where* (a row, the rail, a tile).
@@ -248,7 +252,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     while it is typed (debounced `input`), not only on `change`, which never comes when the
     field is replaced.
 
-43. **The size a dialog was pulled to is kept for all dialogs, so a dialog that needs room has a
+43. **The size a dialog was pulled to is kept for all dialogs of their own size (not a block's, 82), so a dialog that needs room has a
     floor of its own** (`#dlg[data-split].sized`): a size right for a formula is no size for code
     beside its picture. A dialog that is not to be pulled at all (Transform with AI) hides the
     corner and takes no kept size.

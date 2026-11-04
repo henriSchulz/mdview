@@ -439,6 +439,78 @@
     applySize();
     if (open) place(open.opts.anchor());
   });
+  /* A dialog that edits a block is the whole window (Henri, 2026-11-04: the Leinwand of dev/modal-lab-2.html): what the
+   * block shows on a canvas, the code under it in a console its grip pulls higher or lower — that height kept for all
+   * of them. Cancel and Done stand in the head. A dialog without a block (an inline formula, a footnote, Transform with
+   * AI, a figure drawn by Claude) keeps its own size in the middle of the window, its corner and the size kept from it. */
+  const pull = el("div", { class: "dlg-pull", "aria-hidden": "true", hidden: "" });
+  dlg.appendChild(pull);
+  const CONSOLE = 300, LOWEST = 140; // px: the console's height to begin with, and the least it is pulled to
+  const consoleHeight = () => { const h = Number((window.MdPrefs || {}).consoleHeight) || 0; return h >= LOWEST ? h : CONSOLE; };
+  const isCanvas = () => dlg.dataset.canvas != null;
+  // (the grip stands on the console's top edge, when there is a picture over it to make room for)
+  function placePull() {
+    const ce = isCanvas() && body.querySelector(".dlg-preview") && [...body.querySelectorAll(".ce")].find((c) => !c.hidden && c.offsetParent);
+    pull.hidden = !ce;
+    if (ce) pull.style.top = (ce.offsetParent === dlg ? ce.offsetTop : ce.getBoundingClientRect().top - dlg.getBoundingClientRect().top) - 9 + "px"; // (offsets: not what the opening's scale makes of them)
+  }
+  pull.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { pull.setPointerCapture(e.pointerId); } catch (_) { /* (a pointer that is not the hand's own) */ }
+    pull.classList.add("pulling");
+    let pulled = false;
+    pull.onpointermove = (ev) => {
+      const b = body.getBoundingClientRect();
+      pulled = true;
+      dlg.style.setProperty("--console", Math.round(Math.max(LOWEST, Math.min(b.height - 120, b.bottom - ev.clientY - 9))) + "px");
+      placePull();
+    };
+    pull.onpointerup = pull.onpointercancel = () => {
+      pull.onpointermove = pull.onpointerup = pull.onpointercancel = null;
+      pull.classList.remove("pulling");
+      if (!pulled) return;
+      const prefs = { consoleHeight: parseFloat(dlg.style.getPropertyValue("--console")) };
+      window.MdPrefs = { ...(window.MdPrefs || {}), ...prefs };
+      window.MdHost?.post(JSON.stringify({ type: "prefs", prefs }));
+    };
+  });
+  pull.addEventListener("dblclick", () => {
+    window.MdPrefs = { ...(window.MdPrefs || {}), consoleHeight: 0 };
+    window.MdHost?.post(JSON.stringify({ type: "prefs", prefs: { consoleHeight: 0 } }));
+    dlg.style.setProperty("--console", CONSOLE + "px");
+    placePull();
+  });
+  // no scrollbar to be seen in it: whatever scrolls shows a thin bar while it does, and a while after (as macOS does); the bar can be pulled
+  const bar = el("div", { class: "dlg-bar", "aria-hidden": "true" });
+  dlg.appendChild(bar);
+  let barOf = null, barHide = 0, barDrag = null;
+  function showBar(sc) {
+    if (!isCanvas() || !sc || sc === dlg) return;
+    const range = sc.scrollHeight - sc.clientHeight;
+    if (range <= 1) return;
+    barOf = sc;
+    const r = sc.getBoundingClientRect(), d = dlg.getBoundingClientRect();
+    const track = sc.clientHeight - 8, h = Math.max(30, track * sc.clientHeight / sc.scrollHeight);
+    bar.style.height = h + "px";
+    bar.style.setProperty("--x", (r.right - d.left - 11) + "px");
+    bar.style.setProperty("--y", (r.top - d.top + 4 + (track - h) * Math.min(1, sc.scrollTop / range)) + "px");
+    bar.classList.add("on");
+    clearTimeout(barHide);
+    barHide = setTimeout(() => { if (!barDrag && !bar.matches(":hover")) bar.classList.remove("on"); }, 900);
+  }
+  dlg.addEventListener("scroll", (e) => showBar(e.target), true);
+  bar.addEventListener("pointerleave", () => showBar(barOf));
+  bar.addEventListener("pointerdown", (e) => {
+    if (!barOf) return;
+    e.preventDefault();
+    try { bar.setPointerCapture(e.pointerId); } catch (_) { /* (a pointer that is not the hand's own) */ }
+    const sc = barOf, track = sc.clientHeight - 8, h = bar.offsetHeight;
+    barDrag = { y: e.clientY, top: sc.scrollTop, k: (sc.scrollHeight - sc.clientHeight) / Math.max(1, track - h) };
+    bar.classList.add("pulling");
+    bar.onpointermove = (ev) => { sc.scrollTop = barDrag.top + (ev.clientY - barDrag.y) * barDrag.k; };
+    bar.onpointerup = bar.onpointercancel = () => { bar.onpointermove = bar.onpointerup = bar.onpointercancel = null; barDrag = null; bar.classList.remove("pulling"); showBar(sc); };
+  });
   // what a dialog held when it was left with Esc: offered again the next time the same block is opened
   let discarded = null;
   document.body.append(scrim, dlg);
@@ -473,9 +545,10 @@
     dlg.style.right = "auto";
     dlg.dataset.block = "";
   }
-  addEventListener("resize", () => { if (open && dlg.dataset.block != null) place(open.opts.anchor()); });
+  addEventListener("resize", () => { if (open && dlg.dataset.block != null) place(open.opts.anchor()); if (open) placePull(); });
   // where the dialog comes from and goes back to: the island's box, as a transform of the dialog's own
   function from(anchor) {
+    if (isCanvas()) return "scale(1.015)"; // (the whole window: it fades in over the note, as it was a little nearer)
     const a = anchor && anchor.isConnected ? anchor.getBoundingClientRect() : null;
     const d = dlg.getBoundingClientRect();
     if (!a || !a.width || a.height > innerHeight * 0.6 || a.bottom < 0 || a.top > innerHeight) return "translateY(-18px) scale(0.98)"; // a sheet from above
@@ -504,7 +577,7 @@
     fitTimer = setTimeout(fitNow, 30);
   }
   dlg.addEventListener("load", fit, true);
-  new MutationObserver(fit).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "src"] });
+  new MutationObserver(() => { fit(); if (open) placePull(); }).observe(body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "src", "hidden"] });
   function show(opts) {
     if (open) return;
     title.textContent = opts.title;
@@ -516,10 +589,23 @@
     // (what is costly in a dialog — a PDF page drawn, a diagram — waits until it has opened: `settled`)
     const turn = ++shows;
     settled = new Promise((resolve) => setTimeout(() => resolve(shows === turn && !!open), SETTLE));
-    applySize();
+    const canvas = !!blockOf(opts.anchor());
+    if (canvas) {
+      dlg.dataset.canvas = "";
+      for (const k of ["width", "height", "maxHeight", "left", "right", "minWidth"]) dlg.style[k] = "";
+      dlg.classList.remove("sized");
+      delete dlg.dataset.block;
+      dlg.style.setProperty("--console", consoleHeight() + "px");
+      dlg.querySelector(".dlg-head").append(...dlg.querySelectorAll(".dlg-foot > [data-do]"));
+    } else {
+      delete dlg.dataset.canvas;
+      dlg.querySelector(".dlg-foot").append(...dlg.querySelectorAll(".dlg-head > [data-do]"));
+      applySize();
+    }
+    bar.classList.remove("on");
     const parts = opts.build(body, tools, info);
     open = { opts, parts };
-    place(opts.anchor());
+    if (!canvas) place(opts.anchor());
     if (opts.key != null && discarded && discarded.key === opts.key && parts.setText) {
       const back = el("button", { class: "btn", type: "button" }, esc(T("dialog.restore")));
       const text = discarded.text;
@@ -539,6 +625,7 @@
     // dialog itself takes the focus meanwhile, for the keys of a keyboard attached — Esc, Ctrl+Enter)
     if (!window.MdView.core.byFinger()) parts.focus(); else { if (!dlg.hasAttribute("tabindex")) dlg.tabIndex = -1; dlg.focus({ preventScroll: true }); }
     fit();
+    placePull();
   }
   function close(how) {
     if (!open) return;
