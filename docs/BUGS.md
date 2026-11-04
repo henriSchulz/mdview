@@ -86,6 +86,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     made to take the pointer for the moment, since `pointer-events: none` hides it from `elementFromPoint`; the button
     stays Ask Claude; the line's stop stops).
 
+113. **A menu with signs has a sign in every row** (#53, Henri: „kontext menu wenn man rechts klick auf ausgewählte
+    blöcke macht: icon bug“). The menu of selected blocks took its middle rows from the "/" menu, each with its sign,
+    and set its own rows (Transform with AI, Cut, Copy, Paste, Duplicate, Delete) without one: the menu draws a column
+    of signs once one row has one, and those stood there as empty boxes. A row put beside rows of another menu brings
+    its sign (`active/blocks.js: menuItems`). `dev/tests/blockkeys.test.mjs` (every row has its sign).
+
 ### What is drawn while something is coming in
 
 4. **Never rebuild a whole container at every piece of a stream.** Redraw only the part that

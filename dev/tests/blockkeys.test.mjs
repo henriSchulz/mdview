@@ -431,3 +431,13 @@ test("items of a list and other blocks, selected together, are moved and copied 
   A.blocks.select(v, two, true);
   assert.equal(A.blocks.picked(v.state).map((x) => x.node.textContent).join("|"), "Head|one|two");
 });
+
+// #53 (Henri: „kontext menu wenn man rechts klick auf ausgewählte blöcke macht: icon bug“): the menu of selected blocks
+// has a column of signs once one of its rows has one — every row of it has its own, none an empty box.
+test("the menu of selected blocks: every row has its sign", () => {
+  const v = open("one\n\ntwo words\n\nthree\n", "two");
+  assert.ok(v.key("Escape"));
+  const rows = A.blocks.menuItems(v).filter(Boolean);
+  assert.ok(rows.some((r) => r.icon), "a column of signs");
+  assert.equal(rows.filter((r) => !r.icon).map((r) => r.label).join(", "), "");
+});

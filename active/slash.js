@@ -292,5 +292,5 @@
     }),
   });
 
-  A.slash = { plugin, typed, entries, bar, BLOCK };
+  A.slash = { plugin, typed, entries, bar, BLOCK, icons: I };
 })();

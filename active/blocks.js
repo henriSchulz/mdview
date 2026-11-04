@@ -688,17 +688,19 @@
       if (what === "cut") key("Delete")();
     };
     const post = (type) => window.MdHost?.post(JSON.stringify({ type }));
+    // (each row its sign: the rows from the "/" menu have theirs, and a row without one stood beside them as an empty box — #53)
+    const UI = window.MdView.core.UI, I = (A.slash && A.slash.icons) || {};
     return [
       // Claude asked to work on the selected blocks (ai.js)
-      ...(window.MdView.core.ai.on() ? [{ label: T("ai.transform") + "…", run: () => window.MdView.core.ai.transform(v) }, null] : []),
-      { label: T("menu.cut"), run: clip("cut"), key: "Ctrl+X" },
-      { label: T("menu.copy"), run: clip("copy"), key: "Ctrl+C" },
-      { label: T("menu.paste"), run: () => { v.focus(); post("pasteclip"); }, key: "Ctrl+V" },
-      { label: T("slash.duplicate"), run: key("d", { ctrlKey: true }), key: "Ctrl+D" },
+      ...(window.MdView.core.ai.on() ? [{ label: T("ai.transform") + "…", icon: UI.spark, run: () => window.MdView.core.ai.transform(v) }, null] : []),
+      { label: T("menu.cut"), icon: UI.cut, run: clip("cut"), key: "Ctrl+X" },
+      { label: T("menu.copy"), icon: UI.copy, run: clip("copy"), key: "Ctrl+C" },
+      { label: T("menu.paste"), icon: UI.clip, run: () => { v.focus(); post("pasteclip"); }, key: "Ctrl+V" },
+      { label: T("slash.duplicate"), icon: I.duplicate || UI.copy, run: key("d", { ctrlKey: true }), key: "Ctrl+D" },
       null,
       ...(slashItems(v) || []),
       null,
-      { label: T("menu.delete"), run: key("Delete"), danger: true, key: "⌫" },
+      { label: T("menu.delete"), icon: I.remove || UI.trash, run: key("Delete"), danger: true, key: "⌫" },
     ];
   }
   function toClipboard(v, e, cut) {
