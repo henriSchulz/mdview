@@ -152,7 +152,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     "write" that would lie on an earlier one goes under it, and what the answer puts after it goes down as far
     (`"\u0000texts"`, `flowAt` in `board/claude.js`) — a frame, an underline or a marker over words is meant to lie on them
     and only goes along. Checks: `dev/tests/boardclaude.test.mjs` (#42).
-107. **Each sample of a pen is a point of the stroke once** (#51, Henri: „mit dem Apple Pencil immer noch die komischen kleinen
+109. **Each sample of a pen is a point of the stroke once** (#51, Henri: „mit dem Apple Pencil immer noch die komischen kleinen
     Punkte“). An iPad's WebKit hands a Pencil's bundle of samples over again with a second move of the same frame; taken twice,
     the stroke ran back over its last four points at every step, and its edge was a row of knobs — no evening out of breadth
     (rule 100) helps against that. A sample older than the newest one taken is left (`taken`, `board/pointer.js`) — older, not of the same time: WebKitGTK
@@ -160,7 +160,7 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     a file whose points run back in time is read with those that go on (`onward`, `board/format.js`). Found in Henri's own
     strokes (the times in the file), not guessed. Checks: `web/test/board-touch.test.mjs` ("taken once"),
     `dev/tests/board.test.mjs` ("ran back").
-108. **A marker is round, as GoodNotes draws one** (#52, Henri: „der Textmarker ist immer noch eckig, es soll rund sein, 1:1 wie
+110. **A marker is round, as GoodNotes draws one** (#52, Henri: „der Textmarker ist immer noch eckig, es soll rund sein, 1:1 wie
     bei GoodNotes“). It was made a chisel held one way, on a guess from a screenshot (the register, „strange shape … big
     highlighter“): its ends upright and flat. A marker's line is one line as broad as the marker, round at its ends and where
     it turns, its opacity one for all of it (`outline`, `board/render.js`). Checks: `dev/tests/board.test.mjs` ("as GoodNotes").
