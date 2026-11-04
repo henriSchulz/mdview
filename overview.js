@@ -589,6 +589,7 @@
     pasteSend(); // (what was typed last goes before the field is out of sight)
     core.lockScroll(false);
     delete document.body.dataset.overview;
+    document.dispatchEvent(new Event("mdoverview"));
     pressed(false);
     if (refocus && focusBack && focusBack.isConnected && focusBack !== document.body) focusBack.focus({ preventScroll: true });
     focusBack = null;
@@ -1047,7 +1048,7 @@
   document.getElementById("sidebar")?.addEventListener("click", (e) => { if (e.target.closest(".sb-item:not(.is-dir) > .sb-in > .sb-row")) close(false); });
 
   // where one is, for back and forward (viewer/tabs.js): this choice, in this folder
-  const saidWhere = () => { core.navHere({ all: true, at: scope === "folders" ? [...at] : [], scope }); }; // (built: open, or opening)
+  const saidWhere = () => { core.navHere({ all: true, at: scope === "folders" ? [...at] : [], scope }); document.dispatchEvent(new Event("mdoverview")); }; // (built: open, or opening — and the sidebar's library marks its row: viewer/sidebar.js)
   /* Back or forward to All Notes as it stood: that choice, in that folder (viewer/tabs.js) */
   function showAt(where, sc = "folders") {
     if (!core.folder) return;
@@ -1057,5 +1058,5 @@
     picked.clear();
     rebuild();
   }
-  window.MdOverview = { open, close, showAt, toggle, previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { refresh(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
+  window.MdOverview = { open, close, showAt, toggle, where: () => (isOpen() ? { scope, at: [...at] } : null), previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { refresh(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();

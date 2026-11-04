@@ -38,7 +38,7 @@ before(async () => {
   browser = await chromium.launch({ executablePath: browserPath, headless: true });
   context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: "mdview", value: cookie.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
-  await context.addInitScript(() => { if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })); if (localStorage.getItem("mdview:attach-grace") == null) localStorage.setItem("mdview:attach-grace", "0"); }); // (a commit a second after the last change)
+  await context.addInitScript(() => { localStorage.setItem("mdview:library-first", "1"); if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside", sidebarLayout: "sheets" })); if (localStorage.getItem("mdview:attach-grace") == null) localStorage.setItem("mdview:attach-grace", "0"); }); // (a commit a second after the last change)
   page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
@@ -202,7 +202,7 @@ test("what is written and no commit yet survives the tab", async () => {
   await page.keyboard.press("Control+s"); // (and Ctrl+S keeps it now, whatever the quiet while)
   await until(() => /not kept yet/.test(text("Beta.md")), "the commit after Ctrl+S");
   assert.ok(gh.commits.length <= before + 1);
-  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })));
+  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside", sidebarLayout: "sheets" })));
 });
 
 test("a task ticked, a note made, renamed and deleted", async () => {
@@ -482,7 +482,7 @@ test("a commit whose answer never came, and the note written on: no conflict of 
   await post({ type: "history-now" });
   await until(() => text("Lost.md") === "# Lost\n\na line, a third time and a fourth\n", "the fourth, after the reload");
   assert.equal(await page.evaluate(() => document.querySelector('[data-act="historymenu"]').classList.contains("warn")), false);
-  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })));
+  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside", sidebarLayout: "sheets" })));
 });
 
 test("two tabs on one repository: each keeps what was typed in it, and what a closed one left is taken over", async () => {
@@ -519,7 +519,7 @@ test("two tabs on one repository: each keeps what was typed in it, and what a cl
   await third.evaluate(() => MdHost.post(JSON.stringify({ type: "history-now" })));
   await until(() => /left behind/.test(text("Twice.md") || ""), "what the closed tab left, as a commit");
   await third.close();
-  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside" })));
+  await page.evaluate(() => localStorage.setItem("mdview:set", JSON.stringify({ historyQuiet: 1, images: "beside", sidebarLayout: "sheets" })));
 });
 
 test("a note's history: its versions, what each changed, one put back", async () => {

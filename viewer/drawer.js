@@ -191,8 +191,9 @@
   }
   /* Over All Notes there is no sidebar (#38, Henri: „bleibt geöffnet wenn man in All Notes wechselt, obwohl es dort keine
    * Seitenleiste geben soll“ — the tiles show the folder already, and its button is not there): All Notes shown shuts it
-   * as a note shown does. It still peeks out at the edge (a tile pulled there), and Ctrl+Alt+S still pins it. */
-  new MutationObserver(() => { if (document.body.hasAttribute("data-overview") || P.current) noteShown(true); })
+   * as a note shown does. It still peeks out at the edge (a tile pulled there), and Ctrl+Alt+S still pins it. — Not in the
+   * library (the default since 2026-11-04): there the sidebar is where All Notes is gone to, a folder at a time, and it stays. */
+  new MutationObserver(() => { if (document.body.hasAttribute("data-overview") ? document.body.dataset.sbLayout !== "library" : P.current) noteShown(true); })
     .observe(document.body, { attributes: true, attributeFilter: ["data-overview"] });
 
   /* A folder with no note in it: said, and a note offered — the first thing a new folder shows.

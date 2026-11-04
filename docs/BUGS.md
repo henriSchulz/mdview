@@ -24,7 +24,8 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 ### Anything that floats over the note
 
 40. **The lower left corner of the sidebar is the settings' gear's** (`#settings-btn`, fixed to the
-    window, not in the sidebar). Whatever is put at the sidebar's foot leaves its room.
+    window, not in the sidebar) — in the Library layout its lower right, as the Velum lab has it
+    (`layouts.css`). Whatever is put at the sidebar's foot leaves its room.
 
 1. **A new overlay is named in three places**, or the note under it reacts to what is done on it:
    `CHROME` in `active/blocks.js` (else a press on it starts the rectangle that selects blocks and
@@ -593,9 +594,10 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 70. **A default that changes reaches everyone who did not choose; a value kept from the old
     default is let go once.** The shell keeps only what differs from the defaults, the browser
     only what was chosen — but a value that was once a choice stays one. Where Henri says the new
-    default is for everyone, the old value is taken out once, under a marker (`sheets_first` in
-    `state.json`, `mdview:sheets-first` in the browser; `lists_all` before it) — never at every
-    start, or a choice made after it could not be kept.
+    default is for everyone, the old value is taken out once, under a marker (`library_first` in
+    `state.json`, `mdview:library-first` in the browser; `sheets_first` and `lists_all` before it) — never at every
+    start, or a choice made after it could not be kept. (A test that wants an old default sets the marker too, or the
+    value it set is let go: `web/test/read.test.mjs`; the change itself: `library.test.mjs`, `cargo test`.)
 
 86. **What builds a list anew keeps the keyboard where it was** (#11): All Notes' tiles were made
     again when the folder changed (a paste), the focus went with the old tile to the page, and the

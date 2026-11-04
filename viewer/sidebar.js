@@ -22,9 +22,9 @@
     `<button class="tb" data-act="historymenu">${ICON.history}</button>` +
     // (only where the folder has another side to be brought in line with: a project linked to a repository, a repository in the browser)
     `` +
-    `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}</button>` +
+    `<button class="tb" data-act="newmenu" title="${esc(T("New note or folder"))}" aria-label="${esc(T("New note or folder"))}">${ICON.plus}<span class="sb-new-l">${esc(T("New"))}</span></button>` +
     `</header>` +
-    `<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off">` +
+    `<label class="sb-search">${ICON.search}<input class="sb-field qn-search" type="search" placeholder="${esc(T("Search"))}" aria-label="${esc(T("Search the quick notes"))}" spellcheck="false" autocomplete="off"></label>` +
     // (what the layouts add around the list — viewer.js: "the sidebar's layouts"; each shows its own)
     `<nav class="sb-rail" aria-label="${esc(T("Folders"))}"></nav>` +
     `<div class="sb-crumb"></div>` +
@@ -170,12 +170,15 @@
    *   sheets  a sheet of paper for each note (drawn as the note is built), a folder for each
    *           folder: one folder at a time, a click goes in
    *   tiles   smart lists as tiles — all, today, shared, with tasks — above the folders
-   *   library as the Velum lab's sidebar: a Library of rows — All Notes, Recents — then the Folders, each row
-   *           its sign, its name and how many notes it holds
+   *   library the Velum lab's sidebar (~/Projects/velum/lab/web/app.html — Henri, 2026-11-04: "der neue
+   *           Standard"): search at its head, a Library of rows — All Notes, Recents, … Whiteboards — then
+   *           the Folders, the folder's own and no deeper, each its sign, its name and how many notes it holds;
+   *           no note stands in it: a folder chosen is All Notes in that folder, beside it (as Things, Notes,
+   *           Mail have it). New and the history at its foot, the gear at its lower right.
    * The quick notes are a list of their own ("plain"). A folder has a colour and a sign of its
    * own where one was chosen (right click › Colour and Icon…): kept in the folder, folder.looks. */
-  const SB_LAYOUTS = ["source", "rail", "sheets", "tiles", "library"];
-  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "sheets");
+  const SB_LAYOUTS = ["library", "source", "rail", "sheets", "tiles"];
+  const sbLayout = () => (!folder || folder.quick ? "plain" : SB_LAYOUTS.includes(window.MdPrefs?.sidebarLayout) ? MdPrefs.sidebarLayout : "library");
   const FOLDER_ICONS = {
     book: svg('<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v14H6.5A1.5 1.5 0 0 0 5 18.5z"/><path d="M5 18.5A1.5 1.5 0 0 0 6.5 20H19v-3"/>'),
     cap: svg('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>'),
@@ -336,14 +339,30 @@
     sbRecent.hidden = !recent.length;
     // the smart lists (tiles): how many notes each holds
     const tiles = lay === "tiles" ? SMART.filter((x) => x[0] !== "recent").map(([id, label, color, test]) => [id, label, color, all.filter(test).length])
-      // (the library: the lab's rows — All Notes, Recents, Today, With Tasks, Shared)
-      : lay === "library" ? ["all", "recent", "today", "tasks", "shared"].map((id) => SMART.find((x) => x[0] === id)).map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : id === "recent" ? "Recents" : label, color, all.filter(test).length]) : [];
+      // (the library: the lab's rows — All Notes, Recents, Today, With Tasks, Shared, and the folder's whiteboards: All Notes shows them)
+      : lay === "library" ? [...["all", "recent", "today", "tasks", "shared"].map((id) => SMART.find((x) => x[0] === id)).map(([id, label, color, test]) => [id, id === "all" ? "All Notes" : id === "recent" ? "Recents" : label, color, all.filter(test).length]),
+        ["boards", "Whiteboards", "", all.filter((n) => n.kind === "board").length]] : [];
     const tilesKey = JSON.stringify(tiles);
-    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id]}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
+    if (sbSmartBox.dataset.key !== tilesKey) { sbSmartBox.dataset.key = tilesKey; sbSmartBox.innerHTML = lay === "library" ? `<div class="sb-cap">${esc(T("Library"))}</div>` + tiles.map(([id, label, , n]) => `<button class="sb-lib" type="button" data-smart="${id}"><span class="sb-icon">${SMART_ICONS[id] || ICON.board}</span><span class="sb-label">${esc(T(label))}</span><span class="sb-lib-n">${n || ""}</span></button>`).join("") : tiles.map(([id, label, color, n]) => `<button class="sb-tile" type="button" data-smart="${id}" style="--fc: var(--c-${color}, var(--fg2))"><span class="sb-tile-dot">${SMART_ICONS[id]}</span><span class="sb-tile-n">${n}</span><span class="sb-tile-name">${esc(T(label))}</span></button>`).join(""); }
     for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { const on = !query && b.dataset.smart === sbSmart; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); }
     for (const row of sidebar.querySelectorAll(".sb-extra .sb-row[data-loose]")) row.classList.toggle("active", !!P.current && row.dataset.loose === P.current.path);
+    libMark();
     sbAsk(lay, here);
   }
+  /* The library's row that stands for what is shown: All Notes or the whiteboards, a folder's row where All Notes is in that
+   * folder (or a note of it is shown), a list chosen (Recents …) — one row, as a sidebar of macOS marks one. */
+  function libMark() {
+    const lib = folder && !folder.quick && sbLayout() === "library", w = lib && window.MdOverview?.where ? MdOverview.where() : null;
+    const rel = lib && P.current && P.current.path.startsWith(folder.root + "/") ? relOf(P.current.path).split("/") : [];
+    let on = null, dir = null;
+    if (!lib || quickFilter) on = null; // (what was searched for: none of them)
+    else if (sbSmart !== "all") on = sbSmart;
+    else if (w) { on = w.scope === "boards" ? "boards" : w.scope === "paste" || w.at.length ? null : "all"; dir = w.scope === "folders" && w.at.length ? folder.root + "/" + w.at[0] : null; }
+    else if (rel.length > 1) dir = folder.root + "/" + rel[0];
+    if (lib) for (const b of sbSmartBox.querySelectorAll("[data-smart]")) { b.classList.toggle("on", b.dataset.smart === on); b.setAttribute("aria-pressed", String(b.dataset.smart === on)); }
+    for (const el of sbList.querySelectorAll(":scope > .sb-item.is-dir")) el.firstChild.firstChild.classList.toggle("on", el.dataset.key === dir);
+  }
+  document.addEventListener("mdoverview", libMark); // (All Notes built or closed: overview.js)
   // the beginnings of the notes a layout draws from: the sheets of the folder shown; for the tiles all of them (which have tasks)
   function sbAsk(lay, here) {
     if (sbAsking.size || (lay !== "sheets" && lay !== "tiles" && lay !== "library")) return;
@@ -384,6 +403,7 @@
     if (!t || !folder) return;
     const here = t.closest("[data-go]"), smart = t.closest("[data-smart]"), loose = t.closest(".sb-extra .sb-row"), foot = t.closest("[data-sb]");
     if (here) setHere(here.dataset.go, here.classList.contains("sb-back"));
+    else if (smart && sbLayout() === "library" && (smart.dataset.smart === "all" || smart.dataset.smart === "boards") && window.MdOverview) { sbSmart = "all"; layoutSync(); MdOverview.showAt([], smart.dataset.smart === "boards" ? "boards" : "all"); } // (the library: All Notes, the whiteboards — shown beside it)
     else if (smart) { sbSmart = smart.dataset.smart; layoutSync(); }
     else if (loose) { if (!loose.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(loose.closest(".sb-item"), e.ctrlKey || e.metaKey); }
     else if (foot && foot.dataset.sb === "new") P.openNewNote("note", sbHere);
@@ -846,6 +866,7 @@
   function markActiveNote(reveal) {
     markShared(); // (the share button says whether the note now shown is shared)
     if (!folder) return;
+    libMark();
     if (reveal && P.current) {
       const before = sbOpen.size;
       openAncestors();
@@ -878,7 +899,7 @@
     // Shift+click: one more selected, or one less — nothing opens (as among the tiles of All Notes)
     if (e.shiftKey) { const now = new Set(sbPicked); if (!now.delete(item.dataset.key)) now.add(item.dataset.key); pickRows(now); return; }
     if (sbPicked.size) pickRows([]);
-    if (item.classList.contains("is-dir")) { if ((e.ctrlKey || e.metaKey) && P.folderTab) P.folderTab(item.dataset.key); else if (sbLayout() === "sheets") setHere(item.dataset.key, false); else toggleDir(item); } // (among the sheets a folder is gone into; with Ctrl, a tab of its own: viewer/tabs.js)
+    if (item.classList.contains("is-dir")) { if ((e.ctrlKey || e.metaKey) && P.folderTab) P.folderTab(item.dataset.key); else if (sbLayout() === "sheets") setHere(item.dataset.key, false); else if (sbLayout() === "library" && window.MdOverview) MdOverview.showAt(relOf(item.dataset.key).split("/"), "folders"); else toggleDir(item); } // (among the sheets a folder is gone into; with Ctrl, a tab of its own: viewer/tabs.js)
     else if (!row.classList.contains("active") || e.ctrlKey || e.metaKey) openRow(item, e.ctrlKey || e.metaKey);
   });
   /* Several rows at once. What is done to one of them — by the menu, a key, a pull — is done to all. */

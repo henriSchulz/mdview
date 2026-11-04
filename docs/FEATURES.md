@@ -1047,7 +1047,7 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   peeking at its new width. `Aa` switches between file names and
   the notes' titles. **In a note it is shut to begin with**: the window's first note and a note
   opened out of All Notes show without it; a note chosen in it leaves it open, and the quick
-  notes keep theirs. **Over All Notes there is none**: All Notes shown shuts it (the tiles show the
+  notes keep theirs. **Over All Notes there is none** (but in the Library layout, below): All Notes shown shuts it (the tiles show the
   folder already); it still peeks out, and `Ctrl+Alt+S` still pins it. **Open, it is pinned and makes room** (as Notion has it): a card that floats
   in the window, and the note's column centres itself in what is left, All Notes begins beside it,
   the halves of a split share the rest — they glide there, and the line at the window's top stays
@@ -1087,7 +1087,17 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
     says so. What is hidden is kept in the folder itself (`.mdview/hidden.json`), so another
     device hides the same.
 - **Its layout** (settings › Sidebar › Layout) — the rows, and what a click, a pull, a right click
-  does on them, are the same in all four:
+  does on them, are the same in all of them:
+  - **Library** (the default since 2026-11-04, as the Velum lab's app shell draws a sidebar): the
+    search at its head; the Library — All Notes, Recents, Today, With Tasks, Shared, Whiteboards,
+    each with how many it holds (nothing where none) —; under **Folders** the folder's own folders,
+    no deeper and no note, each in its colour and sign and with how many notes it holds. A folder
+    chosen is All Notes in that folder, beside the sidebar; All Notes and Whiteboards are All Notes
+    and its whiteboards; Recents, Today, With Tasks and Shared list their notes in the sidebar in
+    place of the folders. The row of what is shown is marked (the folder a note lies in, while the
+    note shows). Over All Notes it stays, with its button. At its foot **New** (a note, a folder, a
+    whiteboard, a notebook …) and the history's clock; the gear at its lower right. A sheets or
+    rail layout kept from the days they were the default gives way to it once; chosen again, it stays.
   - **List**: the folders as a tree; above it
     **Recent**, the three notes opened last; New Note and the order of the notes at its foot.
   - **Rail**: the favourite folders as signs in a narrow rail at the left (All Notes above them); beside
@@ -1744,7 +1754,7 @@ the right. A change takes effect at once.
 | Group | What is set |
 |---|---|
 | General | language of the app's texts (English, German), the mode a new window starts in |
-| Appearance | text size of a note, the look (Markdown Notes, Velum, Velum Refined, Velum Focus — where Velum is installed: *Look* above), how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
+| Appearance | text size of a note, the look (Markdown Notes, Velum, Velum Refined, Velum Focus — where Velum is installed: *Look* above), how callouts and Focus look (Box, Tip, Label), the sidebar's layout (Library, Sheets, Rail, List, Tiles), sharper text (letters on whole pixels; at the next start) |
 | Sidebar | order of the notes, which kinds it lists beside notes (PDFs, pictures, sound and video, whiteboards, other files — all of them at first), hidden items |
 | All Notes | Home (it opens on a page of cards), all notes, one folder at a time or the whiteboards; tiles or a list; which kinds it lists beside notes |
 | History | the folder's history at a glance (turning it on and off, linking it to a repository on GitHub), how long a change waits to be kept, this device's name, signing in with GitHub and getting a repository |

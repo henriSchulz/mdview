@@ -48,6 +48,8 @@ before(async () => {
   browser = await chromium.launch({ executablePath: browserPath, headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies([{ name: "mdview", value: session.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
+  // (the tests here go to notes by their rows in the sidebar: the sheets, the default before the library, have them — the library has only folders: library.test.mjs)
+  await context.addInitScript(() => { localStorage.setItem("mdview:library-first", "1"); if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ sidebarLayout: "sheets" })); });
   page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(m.text()); });
   page.on("pageerror", (e) => problems.push(String(e)));
@@ -272,22 +274,6 @@ test("ordered by when a note was last changed: the time of the commit that chang
   assert.deepEqual(await top(), ["New here", "Second note", "Home", "paper.pdf", "pic.png"]);
   assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("mdview:octo/notes:dates"))).length > 3), true);
   await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarSort: "name" } })));
-});
-
-test("the sheets are the sidebar's layout to begin with; a rail kept from before is let go once, chosen again it stays", async () => {
-  const layout = () => page.evaluate(() => [window.MdPrefs.sidebarLayout, document.getElementById("sidebar").dataset.layout]);
-  assert.deepEqual(await layout(), ["sheets", "sheets"]); // (Henri, 2026-10-20: "the sidebar's layout should always be the sheets")
-  // a browser that chose the rail while it was the default, before this
-  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); s.sidebarLayout = "rail"; localStorage.setItem("mdview:set", JSON.stringify(s)); localStorage.removeItem("mdview:sheets-first"); });
-  await page.reload(); await untilNote("Second note.md");
-  assert.deepEqual(await layout(), ["sheets", "sheets"]);
-  assert.equal(await page.evaluate(() => "sidebarLayout" in JSON.parse(localStorage.getItem("mdview:set") || "{}")), false);
-  // chosen again: it stays
-  await page.evaluate(() => MdHost.post(JSON.stringify({ type: "prefs", prefs: { sidebarLayout: "rail" } })));
-  await page.reload(); await untilNote("Second note.md");
-  assert.deepEqual(await layout(), ["rail", "rail"]);
-  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("mdview:set") || "{}"); delete s.sidebarLayout; localStorage.setItem("mdview:set", JSON.stringify(s)); });
-  await page.reload(); await untilNote("Second note.md");
 });
 
 test("the repositories on their way: the window says so at once — a ring, until the list is there", async () => {

@@ -902,6 +902,7 @@
       "Move to Trash": "In den Papierkorb legen",
       "New Folder": "Neuer Ordner",
       "New Note": "Neue Notiz",
+      "New": "Neu",
       "New Tab": "Neuer Tab",
       "New note or folder": "Neue Notiz oder neuer Ordner",
       "New tab": "Neuer Tab",

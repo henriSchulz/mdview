@@ -23,7 +23,8 @@
     const until = async (f, ms = 6000) => { for (let t = 0; t < ms; t += 50) { try { if (f()) return true; } catch (_e) { /* not yet */ } await sleep(50); } return false; };
 
     // ---- what a folder opens in: the rail
-    ok("a folder opens with the sheets (Henri, 2026-10-20: the rail before)", sb.dataset.layout === "sheets", sb.dataset.layout);
+    ok("a folder opens with the library (Henri, 2026-11-04: the sheets before, the rail before them)", sb.dataset.layout === "library", sb.dataset.layout);
+    await layout("sheets");
     // (the folder's name at the head, beside the button that opens another — in the rail's layout too: it was hidden there, Henri 2026-10-14)
     { const nm = q(".sb-folder-name"); ok("… the folder's name at the head, beside Open Another Folder", !!nm && nm.textContent.trim() !== "" && nm.offsetWidth > 20 && getComputedStyle(nm).display !== "none", nm && [nm.textContent, nm.offsetWidth, getComputedStyle(nm).display]); }
     await layout("source");

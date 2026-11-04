@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en" data-velum="opal" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidebar Lab</title>
+<link rel="stylesheet" href="../velum.css">
+<style>
+  /* The sidebar made anew, closer to Apple: six proposals, all grown from the Velum lab's sidebar (its app shell,
+   * ~/Projects/velum/lab/web/app.html) — a card inset in the window, search at its head, rows of glyph + name + count,
+   * quiet section heads, + and the gear at its foot. They differ in what the sidebar is for. Roles only (--v-*) in the
+   * mock window; literal values only for the lab's own bar and the wallpaper. Keys: 1–6 proposal, D appearance. */
+  html, body { margin: 0; height: 100%; }
+  * { box-sizing: border-box; }
+  body { display: flex; flex-direction: column; font-family: var(--v-font-sans); font-size: var(--v-type-body); color: var(--v-ink-primary); background: var(--v-bg-window); -webkit-font-smoothing: antialiased; }
+  .sf { display: inline-grid; place-items: center; flex: none; width: 20px; font: 400 15px/1 ".SF Symbols Fallback"; font-style: normal; }
+  .sf::before { content: attr(data-g); }
+
+  /* ---------------------------------------------------------------- lab chrome (literal values allowed) */
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 20px 4px; }
+  #bar h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  #bar h1 small { margin-left: 8px; font-weight: 400; color: var(--v-ink-tertiary); }
+  #bar .grp { display: inline-flex; align-items: center; gap: 4px; color: var(--v-ink-secondary); font-size: 11px; }
+  #bar .grp > span { margin-right: 4px; }
+  #bar button { font: inherit; padding: 3px 9px; border-radius: 6px; border: 0; background: var(--v-fill-field); color: var(--v-ink-secondary); box-shadow: 0 0 0 0.5px var(--v-line-base); cursor: default; }
+  #bar button.on { background: var(--v-accent-base); color: var(--v-ink-on-accent); box-shadow: none; }
+  #bar select { font: inherit; }
+  #bar .keys { margin-left: auto; color: var(--v-ink-tertiary); font-size: 11px; }
+  #why { margin: 0; padding: 2px 20px 10px; max-width: 1180px; color: var(--v-ink-secondary); font-size: 12px; line-height: 1.5; min-height: 46px; }
+  #why b { color: var(--v-ink-primary); }
+  #stage { flex: 1; min-height: 0; padding: 14px 20px 20px; display: flex; justify-content: center;
+    background: radial-gradient(circle at 15% 20%, #f6c7a8 0, transparent 45%), radial-gradient(circle at 85% 30%, #a9c4ff 0, transparent 45%),
+                radial-gradient(circle at 50% 100%, #c9a8ee 0, transparent 55%), #c8d3e8; }
+  [data-appearance="dark"] #stage { background: radial-gradient(circle at 15% 20%, #5a3a2a 0, transparent 45%), radial-gradient(circle at 85% 30%, #26365c 0, transparent 45%), #15161c; }
+
+  /* ---------------------------------------------------------------- the window (roles only from here) */
+  .win { position: relative; display: flex; width: 100%; max-width: 1240px; height: 100%; min-height: 520px; overflow: hidden;
+         border-radius: var(--v-radius-window); background: var(--v-bg-window); box-shadow: 0 0 0 0.5px rgb(0 0 0 / .16), 0 30px 80px -20px rgb(0 0 0 / .42); }
+  .glass { background: var(--v-popover-bg); color: var(--v-popover-ink); box-shadow: var(--v-popover-shadow);
+           -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); }
+  .btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: var(--v-space-6); height: var(--v-control-height); min-width: var(--v-control-height); padding: 0 var(--v-space-6);
+         border-radius: var(--v-radius-control); color: inherit; cursor: default; flex: none; white-space: nowrap; font-size: var(--v-type-callout); }
+  .btn:hover { background: var(--v-fill-hover); }
+  .btn .sf { font-size: 16px; }
+
+  /* the sidebar: the Velum lab's card */
+  .side { flex: none; display: flex; flex-direction: column; width: calc(var(--v-sidebar-width) + var(--v-space-24)); margin: var(--v-sidebar-inset) 0 var(--v-sidebar-inset) var(--v-sidebar-inset);
+          padding: var(--v-space-8) 0; border-radius: var(--v-radius-sidebar); background: var(--v-bg-sidebar); box-shadow: var(--v-sidebar-shadow), 0 0 0 0.5px var(--v-line-base); overflow: hidden; user-select: none; z-index: 2; }
+  .side .scroll { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; padding-bottom: var(--v-space-8); }
+  .head { display: flex; align-items: center; padding: var(--v-space-12) var(--v-space-16) var(--v-space-4) calc(var(--v-space-10) + var(--v-space-8)); font-size: var(--v-type-small); font-weight: var(--v-weight-semibold); color: var(--v-ink-tertiary); }
+  .head .tgl { margin-left: auto; opacity: 0; font-weight: var(--v-weight-medium); }
+  .head:hover .tgl { opacity: 1; }
+  .head .chev { width: 12px; font-size: 9px; margin-left: 4px; transition: transform var(--v-dur-fast) var(--v-ease-out); }
+  .sect.shut .head .chev { transform: rotate(-90deg); }
+  .sect.shut .rows { display: none; }
+  .row { display: flex; align-items: center; gap: var(--v-space-8); height: var(--v-row-height); margin: 0 var(--v-space-10); padding: 0 var(--v-space-8);
+         border-radius: var(--v-radius-row); color: var(--v-ink-sidebar); cursor: default; white-space: nowrap; transition: background-color var(--v-dur-fast) var(--v-ease-out); }
+  .row .sf { color: var(--v-ink-sidebar-glyph); font-size: 16px; }
+  .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .row .cnt { color: var(--v-ink-tertiary); font-size: var(--v-type-small); font-variant-numeric: tabular-nums; }
+  .row.sel { background: var(--v-fill-selected); color: var(--v-ink-primary); transition-duration: var(--v-dur-instant); }
+  .row.sel > .sf:not(.dis) { color: var(--v-accent-base); }
+  .row .dis { width: 12px; font-size: 9px; color: var(--v-ink-tertiary); margin-right: -4px; transition: transform var(--v-dur-fast) var(--v-ease-out); }
+  .row .dis.open { transform: rotate(90deg); }
+  .row .dis.none { visibility: hidden; }
+  .row.note .sf:not(.dis) { color: var(--v-ink-tertiary); font-size: 14px; }
+  .row.note.sel .sf:not(.dis) { color: var(--v-accent-base); }
+  .kids { display: none; } .kids.open { display: block; }
+  .field { display: flex; align-items: center; gap: var(--v-space-6); height: var(--v-control-height); padding: 0 var(--v-space-8); margin: var(--v-space-2) var(--v-space-10) var(--v-space-8);
+           border-radius: var(--v-radius-control); background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-strong); color: var(--v-ink-tertiary); font-size: var(--v-type-callout); white-space: nowrap; }
+  .field .sf { font-size: 13px; width: 16px; }
+  .field kbd { margin-left: auto; font: inherit; font-size: var(--v-type-caption); padding: 1px 5px; border-radius: 5px; background: var(--v-fill-pressed); }
+  .foot { display: flex; align-items: center; gap: var(--v-space-2); padding: var(--v-space-6) var(--v-space-10) 0; color: var(--v-ink-secondary); }
+  .foot .sp { flex: 1; }
+  .foot .btn.t { font-size: var(--v-type-small); padding: 0 var(--v-space-4); }
+
+  /* the note beside it */
+  .main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .island { position: absolute; z-index: 3; top: var(--v-space-10); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--v-space-2); padding: var(--v-space-4);
+            border-radius: var(--v-radius-sidebar); }
+  .tab { display: flex; align-items: center; gap: var(--v-space-6); height: calc(var(--v-control-height) - 2px); padding: 0 var(--v-space-12); border-radius: var(--v-radius-control); font-size: var(--v-type-callout); color: var(--v-popover-ink-secondary); white-space: nowrap; }
+  .tab .sf { font-size: 13px; width: 16px; }
+  .tab.on { background: var(--v-segment-plate); color: var(--v-popover-ink); box-shadow: var(--v-segment-plate-shadow); }
+  .page { flex: 1; overflow: auto; scrollbar-width: none; padding: calc(var(--v-control-height) + var(--v-space-32) + var(--v-space-16)) var(--v-space-32) var(--v-space-32); }
+  .paper { max-width: 640px; margin: 0 auto; line-height: 1.6; font-size: 15px; }
+  .paper .crumb { color: var(--v-ink-tertiary); font-size: var(--v-type-small); margin-bottom: var(--v-space-6); display: flex; align-items: center; gap: 4px; }
+  .paper .crumb .sf { width: auto; font-size: 10px; }
+  .paper h1 { margin: 0 0 var(--v-space-16); font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; }
+  .paper h2 { font-size: 19px; margin: var(--v-space-24) 0 var(--v-space-8); }
+  .paper p { margin: 0 0 var(--v-space-12); color: var(--v-ink-primary); }
+  .paper .def { padding: var(--v-space-12) var(--v-space-16); border-radius: var(--v-radius-row); background: color-mix(in srgb, var(--v-accent-base) 8%, transparent); margin: var(--v-space-16) 0; }
+  .paper .def b { color: var(--v-accent-text); }
+  .paper i.m { font-family: "Latin Modern Math", "STIX Two Math", serif; font-style: italic; font-size: 1.05em; }
+
+  /* ---- 3 · Notes.app: a column of the folder's notes between sidebar and note */
+  .list { flex: none; width: 290px; display: flex; flex-direction: column; padding: var(--v-space-12) 0 0; border-right: 0.5px solid var(--v-line-base); }
+  .list .lh { padding: var(--v-space-4) var(--v-space-16) var(--v-space-8) var(--v-space-20); }
+  .list .lh b { display: block; font-size: var(--v-type-title3); font-weight: var(--v-weight-bold); }
+  .list .lh small { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+  .list .grp { padding: var(--v-space-12) var(--v-space-20) var(--v-space-4); font-size: var(--v-type-small); font-weight: var(--v-weight-semibold); color: var(--v-ink-tertiary); }
+  .item { margin: 0 var(--v-space-10); padding: var(--v-space-8) var(--v-space-10); border-radius: var(--v-radius-row); position: relative; }
+  .item + .item::before { content: ""; position: absolute; left: var(--v-space-10); right: var(--v-space-10); top: 0; border-top: 0.5px solid var(--v-line-base); }
+  .item.sel::before, .item.sel + .item::before { display: none; }
+  .item b { display: block; font-weight: var(--v-weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item span { display: block; color: var(--v-ink-secondary); font-size: var(--v-type-small); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .item span em { font-style: normal; color: var(--v-ink-primary); margin-right: 6px; }
+  .item.sel { background: var(--v-fill-selected); }
+  .p3 .page { padding-left: var(--v-space-24); padding-right: var(--v-space-24); }
+
+  /* ---- 4 · Reminders: smart tiles above the folders */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--v-space-8); margin: var(--v-space-2) var(--v-space-10) var(--v-space-4); }
+  .tile { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; padding: var(--v-space-8) var(--v-space-10) var(--v-space-6); border-radius: var(--v-radius-control);
+          background: var(--v-bg-raised); box-shadow: 0 0 0 0.5px var(--v-line-base), 0 1px 2px rgb(0 0 0 / .04); }
+  .tile .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+  .tile .dot .sf { font-size: 13px; color: #fff; }
+  .tile .n { justify-self: end; font-size: 20px; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
+  .tile .l { grid-column: 1 / -1; margin-top: var(--v-space-4); font-size: var(--v-type-callout); font-weight: var(--v-weight-semibold); color: var(--v-ink-secondary); }
+  .tile.sel { background: var(--v-accent-base); box-shadow: none; } .tile.sel .n, .tile.sel .l { color: var(--v-ink-on-accent); } .tile.sel .dot { background: #fff !important; } .tile.sel .dot .sf { color: var(--v-accent-base); }
+  .row .disc { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .row .disc .sf { color: #fff !important; font-size: 11px; width: auto; }
+  .tagdot { width: 10px; height: 10px; border-radius: 50%; margin: 0 5px; flex: none; }
+
+  /* ---- 5 · Liquid Glass: the note runs under a sidebar of glass */
+  .p5 .main { position: absolute; inset: 0; }
+  .p5 .page { padding-left: calc(var(--v-sidebar-width) + var(--v-space-24) + var(--v-space-48, 48px)); }
+  .p5 .page::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 46%; pointer-events: none;
+                      background: radial-gradient(circle at 10% 30%, color-mix(in srgb, var(--v-accent-base) 30%, transparent) 0, transparent 50%), radial-gradient(circle at 30% 85%, color-mix(in srgb, #e87a5a 26%, transparent) 0, transparent 45%); }
+  .p5 .main { background: var(--v-bg-content); }
+  .p5 .side { position: relative; background: var(--v-popover-bg); box-shadow: var(--v-popover-shadow);
+              -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); }
+  .p5 .row.sel { background: color-mix(in srgb, var(--v-accent-base) 16%, transparent); }
+  .p5 .row { border-radius: calc(var(--v-row-height) / 2); }
+  .p5 .field { border-radius: calc(var(--v-control-height) / 2); background: color-mix(in srgb, var(--v-popover-ink) 7%, transparent); box-shadow: none; margin-top: var(--v-space-6); }
+  .p5 .island { left: calc(50% + (var(--v-sidebar-width) + var(--v-space-24)) / 2); }
+  .p5 .head { cursor: default; }
+  .p5 .head .chev { margin-left: auto; opacity: 0; } .p5 .head:hover .chev { opacity: 1; }
+  .p5 .foot .btn { border-radius: 50%; }
+  .p5 .foot .pill { border-radius: calc(var(--v-control-height) / 2); background: color-mix(in srgb, var(--v-popover-ink) 7%, transparent); padding: 0 var(--v-space-12) 0 var(--v-space-8); }
+
+  /* ---- 6 · Navigator: the sidebar's places as a segmented control, a filter at the foot */
+  .navseg { display: flex; margin: var(--v-space-2) var(--v-space-10) var(--v-space-8); padding: var(--v-segment-pad); border-radius: var(--v-radius-segment); background: var(--v-segment-track); }
+  .navseg span { flex: 1; display: grid; place-items: center; height: calc(var(--v-control-height) - 2 * var(--v-segment-pad)); border-radius: var(--v-radius-segment-plate); color: var(--v-ink-secondary); }
+  .navseg span .sf { font-size: 14px; }
+  .navseg span.on { background: var(--v-segment-plate); color: var(--v-accent-base); box-shadow: var(--v-segment-plate-shadow); }
+  .p6 .row { height: calc(var(--v-row-height) - 6px); }
+  .p6 .row.note .sf:not(.dis) { font-size: 13px; }
+  .outline .row { color: var(--v-ink-secondary); }
+  .outline .row.h2 { padding-left: calc(var(--v-space-8) + 16px); }
+  .outline .row .hn { width: 20px; color: var(--v-ink-tertiary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
+  .ver { display: grid; grid-template-columns: 14px 1fr; gap: 0 var(--v-space-8); margin: 0 var(--v-space-10); padding: var(--v-space-6) var(--v-space-8); border-radius: var(--v-radius-row); }
+  .ver i { grid-row: 1 / 3; align-self: start; margin-top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--v-line-strong); justify-self: center; }
+  .ver b { font-weight: var(--v-weight-medium); } .ver small { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+  .ver.sel { background: var(--v-fill-selected); } .ver.sel i { background: var(--v-accent-base); }
+  .p6 .field { margin-top: var(--v-space-4); margin-bottom: 0; height: calc(var(--v-control-height) - 2px); }
+  .p6 .foot { padding-top: var(--v-space-6); }
+</style>
+</head>
+<body>
+<div id="bar">
+  <h1>Sidebar<small>six proposals, Apple-faithful, grown from the Velum lab</small></h1>
+  <span class="grp" id="o-p"><span>Proposal</span></span>
+  <span class="grp" id="o-a"><span>Appearance</span><button data-v="light">Light</button><button data-v="dark">Dark</button></span>
+  <span class="grp"><span>Variant</span><select id="vsel"><option>opal</option><option>pearl</option><option>glass</option><option>paper</option><option>slate</option></select></span>
+  <span class="keys">1–6 proposal · D appearance</span>
+</div>
+<p id="why"></p>
+<div id="stage"><div class="win" id="win"></div></div>
+
+<script>
+// SF Symbols codepoints (~/Projects/velum/icons/sf.json; the font is local only, as in the app)
+const G = { search: "1002AB", inbox: "100223", recents: "10042B", star: "1002C2", starF: "1002C3", folder: "100215", folderF: "100216", note: "10023F", noteF: "100240",
+  scribble: "1004E8", book: "10025A", tag: "1002E1", plus: "10017C", settings: "1008CB", right: "10018A", down: "100188", trash: "100211", tiles: "1003DD",
+  compose: "10020E", sidebar: "1003DA", heading: "100150", list: "1002F2", clock: "10042B", sparkle: "100AF8", flask: "101C0D", code: "10065A", net: "1001AA",
+  work: "10039C", fn: "101444", cloud: "1001C2", share: "100202", more: "100360", archive: "10022D", filter: "100308", image: "1003C5", link: "100263" };
+const sf = (n, cls) => `<i class="sf${cls ? " " + cls : ""}" data-g="${String.fromCodePoint(parseInt(G[n], 16))}"></i>`;
+
+// a folder of Henri's notes (made up for the lab)
+const KIND = { md: "note", board: "scribble", book: "book", pdf: "image" };
+const FOLDERS = [
+  { n: "Analysis II", g: "fn", c: "#138474", open: true, notes: [["Uniform convergence", "md", "10:42", "A sequence of functions converges uniformly when one N serves every x", "Today"], ["Exercise sheet 8", "md", "09:15", "Problems 3 to 5 — Weierstrass M-test, Dini", "Today"], ["Proof sketch: Dini's theorem", "board", "Yesterday", "Whiteboard", "Previous 7 Days"], ["Lecture 08", "book", "Mon", "Notebook · 6 pages", "Previous 7 Days"], ["Blatt 08.pdf", "pdf", "Mon", "PDF · 2 pages", "Previous 7 Days"]] },
+  { n: "Linear Algebra", g: "folder", c: "#3b6fd8", notes: [["Jordan normal form", "md", "Fri", "", ""], ["Eigenvalues cheat sheet", "md", "Thu", "", ""]] },
+  { n: "Velum", g: "code", c: "#8a5cd0", notes: [["Opal tokens", "md", "Sun", "", ""], ["Sidebar ideas", "board", "Sat", "", ""]] },
+  { n: "Lisbon trip", g: "net", c: "#e0803a", notes: [["Packing list", "md", "Oct 28", "", ""], ["Alfama flat", "md", "Oct 27", "", ""]] },
+  { n: "Werkstudent", g: "work", c: "#c94f6d", notes: [["Cover letter", "md", "Oct 20", "", ""]] },
+];
+const counts = { all: 64, recents: 8, fav: 3, boards: 6, books: 2, pdfs: 11 };
+const TAGS = [["exam", "#d9534f", 12], ["proof", "#3b6fd8", 9], ["todo", "#e0a03a", 5], ["velum", "#8a5cd0", 7]];
+const SEL = "Uniform convergence";
+
+const WHY = {
+  1: "<b>1 · Library — wie das Velum-Lab.</b> Die Seitenleiste aus deinem Bild, eins zu eins: Suche mit Taste oben, darunter feste Orte (All Notes, Recents, Favourites, Whiteboards, Notebooks, PDFs) mit Anzahl, unter <i>Folders</i> die Ordner flach mit Glyphe und Zahl, am Fuß „+ New Note“ und das Zahnrad. Notizen stehen nicht in der Leiste: ein Ordner zeigt seine Notizen als All Notes daneben (wie Things, Notes, Mail).",
+  2: "<b>2 · Finder-Baum.</b> Dieselbe Karte und dieselben Zeilen, aber die Leiste bleibt der Dateibaum, wie mdview ihn heute hat — nur ganz in macOS' Sprache: Abschnitte <i>Favourites</i> und der Ordnername als Kopf (Show/Hide beim Darüberfahren), Aufklapp-Pfeile links, Notizen als leisere Zeilen, die gewählte Notiz akzentgetönt. Der kleinste Schritt von heute.",
+  3: "<b>3 · Notes.app.</b> Drei Spalten wie Apples Notizen: die Karte trägt nur Orte und Ordner, daneben eine Spalte mit den Notizen des Ordners — Titel fett, Zeit und erste Zeile darunter, gruppiert nach <i>Today / Previous 7 Days</i> —, rechts die Notiz. Ordner wechseln, ohne All Notes zu öffnen; die Leiste wird nie lang.",
+  4: "<b>4 · Reminders.</b> Oben die festen Orte als vier Kacheln mit großer Zahl (All Notes, Recents, Favourites, Whiteboards), die gewählte voll im Akzent; darunter <i>My Folders</i> mit runden Farbmarken wie Erinnerungslisten, unter <i>Tags</i> farbige Punkte. Am Fuß „+ Add Folder“. Am meisten Farbe, Ordnerfarben tragen.",
+  5: "<b>5 · Liquid Glass (macOS 26).</b> Die Leiste ist Glas, die Notiz läuft randlos darunter durch und färbt sie leicht. Zeilen und Suchfeld kapselrund, Auswahl als getönte Kapsel, Abschnittsköpfe klappen mit dem Pfeil beim Darüberfahren. Am Fuß ein runder +-Knopf und „New Note“ als Kapsel. Das Neueste von Apple, am stärksten Opal.",
+  6: "<b>6 · Navigator (Xcode, Pages).</b> Oben ein Segment mit vier Orten der Leiste: Dateien, Tags, Gliederung der Notiz, Verlauf — alles, was heute verstreut ist, an einem Platz. Dichtere Zeilen, der Filter steht wie in Xcode am Fuß. Klick die Segmente.",
+};
+
+const S = { p: 1, nav: "files", open: new Set(["Analysis II"]), shut: new Set(), selFolder: "Analysis II", selRow: SEL };
+const root = document.documentElement, win = document.getElementById("win");
+const params = new URLSearchParams(location.search);
+if (params.get("p")) S.p = +params.get("p");
+if (params.get("a")) root.dataset.appearance = params.get("a");
+
+const row = (g, t, opts = {}) => `<div class="row${opts.sel ? " sel" : ""}${opts.cls ? " " + opts.cls : ""}" data-k="${opts.k || t}">${opts.pre || ""}${opts.icon || sf(g)}<span class="lbl">${t}</span>${opts.cnt != null ? `<span class="cnt">${opts.cnt}</span>` : ""}</div>`;
+const sect = (id, title, body, tgl) => `<div class="sect${S.shut.has(id) ? " shut" : ""}" data-s="${id}"><div class="head">${title}${tgl ? `<span class="tgl">${S.shut.has(id) ? "Show" : "Hide"}</span>` : sf("down", "chev")}</div><div class="rows">${body}</div></div>`;
+const search = (k = "Ctrl K") => `<div class="field">${sf("search")}Search<kbd>${k}</kbd></div>`;
+const foot = (label) => `<div class="foot"><span class="btn">${sf("plus")}</span><span class="btn t">${label}</span><span class="sp"></span><span class="btn">${sf("settings")}</span></div>`;
+const library = (sel) => [["tiles", "All Notes", counts.all], ["recents", "Recents", counts.recents], ["star", "Favourites", counts.fav], ["scribble", "Whiteboards", counts.boards], ["book", "Notebooks", counts.books], ["image", "PDFs", counts.pdfs]]
+  .map(([g, t, n]) => row(g, t, { cnt: n, sel: sel === t })).join("");
+const folderRows = (sel) => FOLDERS.map(f => row(f.g, f.n, { cnt: f.notes.length + (f.n === "Analysis II" ? 9 : 3), sel: sel === f.n })).join("");
+function tree(depthNotes = true) {
+  return FOLDERS.map(f => {
+    const open = S.open.has(f.n);
+    const kids = f.notes.map(([t, k]) => row(KIND[k], t, { cls: "note", sel: S.selRow === t, pre: `<span style="width:20px;flex:none"></span>` })).join("");
+    return row(f.g === "folder" ? "folder" : "folder", f.n, { k: "dir:" + f.n, pre: sf("right", "dis" + (open ? " open" : "")), cnt: open ? null : f.notes.length }) + `<div class="kids${open ? " open" : ""}">${kids}</div>`;
+  }).join("") + row("note", "Inbox", { cls: "note", pre: sf("right", "dis none"), sel: S.selRow === "Inbox" }) + row("note", "README", { cls: "note", pre: sf("right", "dis none"), sel: S.selRow === "README" });
+}
+
+function sidebar() {
+  switch (S.p) {
+    case 1: return `<aside class="side">${search()}<div class="scroll">${library(S.selRow === SEL ? null : S.selRow)}${sect("f", "Folders", folderRows(S.selFolder), true)}</div>${foot("New Note")}</aside>`;
+    case 2: return `<aside class="side">${search()}<div class="scroll">${sect("fav", "Favourites", row("starF", "Uniform convergence", { cls: "note", sel: false, k: "fav1" }) + row("starF", "Opal tokens", { cls: "note", k: "fav2" }), true)}${sect("t", "Studium", tree(), true)}</div>${foot("New Note")}</aside>`;
+    case 3: return `<aside class="side">${search()}<div class="scroll">${library(null)}${sect("f", "Folders", folderRows(S.selFolder), true)}</div>${foot("New Folder")}</aside>`;
+    case 4: {
+      const T = [["tiles", "All Notes", counts.all, "#3b6fd8"], ["recents", "Recents", counts.recents, "#e0803a"], ["starF", "Favourites", counts.fav, "#e0a03a"], ["scribble", "Whiteboards", counts.boards, "#8a5cd0"]];
+      const tiles = `<div class="tiles">${T.map(([g, t, n, c]) => `<div class="tile${S.selRow === t ? " sel" : ""}" data-k="${t}"><span class="dot" style="background:${c}">${sf(g)}</span><span class="n">${n}</span><span class="l">${t}</span></div>`).join("")}</div>`;
+      const folders = FOLDERS.map(f => row(f.g, f.n, { icon: `<span class="disc" style="background:${f.c}">${sf(f.g === "folder" ? "list" : f.g)}</span>`, cnt: f.notes.length + 3, sel: S.selFolder === f.n && !["All Notes", "Recents", "Favourites", "Whiteboards"].includes(S.selRow) })).join("");
+      const tags = TAGS.map(([t, c, n]) => row("", t, { icon: `<span class="tagdot" style="background:${c}"></span>`, cnt: n })).join("");
+      return `<aside class="side">${search()}<div class="scroll">${tiles}${sect("f", "My Folders", folders, true)}${sect("tags", "Tags", tags, true)}</div>${foot("Add Folder")}</aside>`;
+    }
+    case 5: {
+      const lib = [["tiles", "All Notes"], ["recents", "Recents"], ["star", "Favourites"], ["scribble", "Whiteboards"]].map(([g, t]) => row(g, t, { sel: S.selRow === t })).join("");
+      return `<aside class="side">${search()}<div class="scroll">${sect("l", "Library", lib)}${sect("f", "Folders", folderRows(S.selFolder))}${sect("tags", "Tags", TAGS.map(([t, c]) => row("", t, { icon: `<span class="tagdot" style="background:${c}"></span>` })).join(""))}</div>
+        <div class="foot"><span class="btn pill">${sf("compose")}New Note</span><span class="sp"></span><span class="btn">${sf("settings")}</span></div></aside>`;
+    }
+    case 6: {
+      const segs = [["files", "folder"], ["tags", "tag"], ["outline", "list"], ["history", "clock"]].map(([k, g]) => `<span data-nav="${k}" class="${S.nav === k ? "on" : ""}" title="${k}">${sf(g)}</span>`).join("");
+      let body = "";
+      if (S.nav === "files") body = sect("t", "Studium", tree());
+      if (S.nav === "tags") body = sect("tags", "Tags", TAGS.map(([t, c, n]) => row("tag", t, { cnt: n })).join("")) + sect("in", "In this note", row("tag", "exam", {}) + row("tag", "proof", {}));
+      if (S.nav === "outline") body = `<div class="outline">${sect("o", "Uniform convergence", [["Definition", 2], ["Pointwise is not enough", 2], ["Example: xⁿ on [0, 1]", 3], ["The M-test", 2], ["Exercise 8.3", 3]].map(([t, l], i) => row("", t, { icon: `<span class="hn">H${l}</span>`, cls: l === 3 ? "h2" : "", sel: i === 0 })).join(""))}</div>`;
+      if (S.nav === "history") body = sect("h", "Versions", [["Today, 10:42", "Edited · 3 lines", 1], ["Today, 09:58", "Edited · Definition"], ["Yesterday, 21:14", "Created from Lecture 08"], ["Mon, 18:02", "Committed to GitHub"]].map(([t, s, on]) => `<div class="ver${on ? " sel" : ""}"><i></i><b>${t}</b><small>${s}</small></div>`).join(""));
+      return `<aside class="side"><div class="navseg">${segs}</div><div class="scroll">${body}</div><div class="field">${sf("filter")}Filter</div>${foot("New Note")}</aside>`;
+    }
+  }
+}
+
+function notesColumn() {
+  const f = FOLDERS.find(x => x.n === S.selFolder) || FOLDERS[0];
+  let h = `<div class="list"><div class="lh"><b>${f.n}</b><small>${f.notes.length} notes</small></div><div class="scroll" style="overflow:auto;flex:1">`, g = null;
+  for (const [t, k, when, snip, grp] of f.notes) {
+    if ((grp || "Earlier") !== g) { g = grp || "Earlier"; h += `<div class="grp">${g}</div>`; }
+    h += `<div class="item${S.selRow === t ? " sel" : ""}" data-k="${t}"><b>${t}</b><span><em>${when}</em>${snip || "No additional text"}</span></div>`;
+  }
+  return h + "</div></div>";
+}
+
+const NOTE = `<div class="paper"><div class="crumb">Analysis II ${sf("right")} Uniform convergence</div><h1>Uniform convergence</h1>
+  <p>A sequence of functions <i class="m">f<sub>n</sub></i> converges <b>pointwise</b> to <i class="m">f</i> when it does so at every point on its own. That leaves each <i class="m">x</i> its own <i class="m">N</i> — and continuity can be lost in the limit.</p>
+  <div class="def"><b>Definition.</b> <i class="m">f<sub>n</sub> → f</i> uniformly on <i class="m">D</i> if for every <i class="m">ε &gt; 0</i> there is one <i class="m">N</i> with <i class="m">|f<sub>n</sub>(x) − f(x)| &lt; ε</i> for all <i class="m">n ≥ N</i> and all <i class="m">x ∈ D</i>.</div>
+  <h2>Pointwise is not enough</h2><p>On <i class="m">[0, 1]</i>, <i class="m">xⁿ</i> tends to 0 for <i class="m">x &lt; 1</i> and to 1 at <i class="m">x = 1</i>: every <i class="m">f<sub>n</sub></i> is continuous, the limit is not.</p>
+  <h2>The M-test</h2><p>If <i class="m">|f<sub>n</sub>(x)| ≤ M<sub>n</sub></i> on <i class="m">D</i> and <i class="m">Σ M<sub>n</sub></i> converges, then <i class="m">Σ f<sub>n</sub></i> converges uniformly on <i class="m">D</i>.</p></div>`;
+const island = `<div class="island glass"><span class="btn">${sf("sidebar")}</span><span class="tab on">${sf("note")}Uniform convergence</span><span class="tab">${sf("note")}Exercise sheet 8</span><span class="btn">${sf("plus")}</span></div>`;
+
+function render() {
+  win.className = "win p" + S.p;
+  win.innerHTML = sidebar() + (S.p === 3 ? notesColumn() : "") + `<div class="main">${island}<div class="page">${NOTE}</div></div>`;
+  document.getElementById("why").innerHTML = WHY[S.p];
+  document.querySelectorAll("#o-p button").forEach(b => b.classList.toggle("on", +b.dataset.v === S.p));
+  document.querySelectorAll("#o-a button").forEach(b => b.classList.toggle("on", b.dataset.v === root.dataset.appearance));
+}
+
+document.getElementById("o-p").insertAdjacentHTML("beforeend", [1, 2, 3, 4, 5, 6].map(n => `<button data-v="${n}">${n} · ${["Library", "Finder tree", "Notes.app", "Reminders", "Liquid Glass", "Navigator"][n - 1]}</button>`).join(""));
+document.getElementById("o-p").onclick = e => { const b = e.target.closest("button"); if (b) { S.p = +b.dataset.v; render(); } };
+document.getElementById("o-a").onclick = e => { const b = e.target.closest("button"); if (b) { root.dataset.appearance = b.dataset.v; render(); } };
+document.getElementById("vsel").onchange = e => { root.dataset.velum = e.target.value; };
+addEventListener("keydown", e => {
+  if (/^[1-6]$/.test(e.key)) { S.p = +e.key; render(); }
+  if (e.key === "d" || e.key === "D") { root.dataset.appearance = root.dataset.appearance === "dark" ? "light" : "dark"; render(); }
+});
+win.addEventListener("click", e => {
+  const nav = e.target.closest("[data-nav]"); if (nav) { S.nav = nav.dataset.nav; return render(); }
+  const head = e.target.closest(".head"); if (head) { const id = head.parentElement.dataset.s; S.shut.has(id) ? S.shut.delete(id) : S.shut.add(id); return render(); }
+  const r = e.target.closest("[data-k]"); if (!r) return;
+  const k = r.dataset.k;
+  if (k.startsWith("dir:")) { const n = k.slice(4); S.open.has(n) ? S.open.delete(n) : S.open.add(n); return render(); }
+  if (FOLDERS.some(f => f.n === k)) { S.selFolder = k; S.selRow = S.p === 3 ? (FOLDERS.find(f => f.n === k).notes[0] || [])[0] : k; }
+  else S.selRow = k;
+  render();
+});
+render();
+</script>
+</body>
+</html>

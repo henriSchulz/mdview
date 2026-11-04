@@ -56,6 +56,7 @@ async function device(name) {
   const touch = !["wide", "desk", "mid"].includes(name);
   const context = await browser.newContext({ viewport: SIZES[name], hasTouch: touch, isMobile: touch && name !== "tablet", deviceScaleFactor: 2 });
   await context.addCookies([{ name: "mdview", value: session.slice("mdview=".length), url: base, httpOnly: true, sameSite: "Lax" }]);
+  await context.addInitScript(() => { localStorage.setItem("mdview:library-first", "1"); if (!localStorage.getItem("mdview:set")) localStorage.setItem("mdview:set", JSON.stringify({ sidebarLayout: "sheets" })); }); // (rows of notes to tap, and the sidebar shut over All Notes: the sheets', the default before the library — which keeps it there, library.test.mjs)
   const page = await context.newPage();
   page.on("console", (m) => { if (m.type() === "error") problems.push(`${name}: ${m.text()}`); });
   page.on("pageerror", (e) => problems.push(`${name}: ${e}`));

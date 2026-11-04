@@ -169,21 +169,50 @@ body[data-sidebar="open"][data-sb-layout="source"] #settings-btn { bottom: calc(
   .sl-more-colors { animation: none; }
 }
 
-/* ------------------------------------------------------------- library: the Velum lab's sidebar
- * A Library of rows — All Notes, Recents — above the folders' tree; each row its sign, its name and, at its end, how many notes
- * it holds (a folder's too: viewer/sidebar.js, dressRow). The rows are the tree's rows in size and shape. */
-#sidebar[data-layout="library"] .sb-smart { display: flex; flex-direction: column; gap: 1px; padding: 0 var(--sb-pad) 4px; }
-#sidebar[data-layout="library"] .sb-smart .sb-cap { padding-left: 8px; padding-right: 8px; }
+/* ------------------------------------------------------------- library: the Velum lab's sidebar — the default
+ * ~/Projects/velum/lab/web/app.html (Henri, 2026-11-04: "die soll apple getreuer aussehen … wir bauen den neuen Standard"): the
+ * search at its head, a Library of rows — All Notes, Recents, Today, With Tasks, Shared, Whiteboards —, then the Folders: the
+ * folder's own, no deeper, and no note (a folder chosen is All Notes in it, beside the sidebar: viewer/sidebar.js). New and the
+ * history at its foot (the head, put last), the gear at its lower right. The rows are a macOS sidebar's: no hover, the one that
+ * stands for what is shown marked — a quiet fill, its sign in the accent —; signs in the sidebar's ink, a folder in its colour
+ * where one was chosen; at a row's end how many notes it holds. */
+.sb-search { display: contents; }
+.sb-search > :is(svg, .sf), .sb-new-l { display: none; }
+#sidebar[data-layout="library"] .sb-search { display: flex; align-items: center; position: relative; margin: 2px var(--sb-pad) 8px; }
+#sidebar[data-layout="library"] .sb-search > :is(svg, .sf) { display: block; position: absolute; left: 8px; width: 14px; height: 14px; color: var(--fg-quiet); pointer-events: none; }
+#sidebar[data-layout="library"] .sb-search > svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+#sidebar[data-layout="library"] .sb-search > .sf { width: auto; height: auto; font-size: 13px; }
+#sidebar[data-layout="library"] .qn-search { display: block; width: 100%; margin: 0; padding-left: 28px; }
+#sidebar[data-layout="library"] .sb-smart { display: flex; flex-direction: column; gap: 0; padding: 0 var(--sb-pad); }
+#sidebar[data-layout="library"] :is(.sb-smart, .sb-extra) .sb-cap, #sidebar[data-layout="library"] .sb-cap-folders { padding: 12px calc(var(--sb-pad) + 8px) 4px; font-size: 11px; font-weight: 600; color: var(--fg3); }
+#sidebar[data-layout="library"] .sb-smart .sb-cap { display: none; } /* (the Library's own rows need no head: the lab has none) */
+#sidebar[data-layout="library"] .sb-list, body:is([data-sidebar="open"], [data-sidebar="peek"]) #sidebar[data-layout="library"] .sb-list { padding-top: 0; padding-bottom: 8px; } /* (the gear's room is the foot's) */
+/* the folders: the folder's own — what is deeper, and the notes, are All Notes' */
+#sidebar[data-layout="library"] .sb-list :is(.sb-item:not(.is-dir), .sb-kids, .sb-chev) { display: none; }
+#sidebar[data-layout="library"] .sb-list .sb-row { padding-left: 8px; }
 .sb-lib {
-  display: flex; align-items: center; gap: 7px; box-sizing: border-box; width: 100%; height: var(--sb-row);
-  padding: 0 8px 0 10px; border: 0; border-radius: var(--radius-row); background: transparent;
-  color: var(--sb-ink, var(--fg)); font: inherit; text-align: left; cursor: default;
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  display: flex; align-items: center; box-sizing: border-box; width: 100%; padding: 0 8px; border: 0; background: transparent;
+  font: inherit; text-align: left; cursor: default; transition: background-color var(--dur-fast) var(--ease-out);
 }
-.sb-lib:hover { background: var(--sb-hover); color: var(--fg); transition-duration: var(--dur-instant); }
-.sb-lib.on { background: var(--sb-selected); color: var(--fg); }
-.sb-lib .sb-icon { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--sb-glyph, var(--accent-text)); }
-.sb-lib.on .sb-icon { color: var(--accent-text); }
-.sb-lib .sb-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sb-lib .sb-icon { display: grid; place-items: center; flex: none; }
+.sb-lib .sb-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .sb-lib .sb-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.sb-lib-n { flex: none; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; }
+.sb-lib-n { flex: none; font-variant-numeric: tabular-nums; }
+.sb-lib.on { transition-duration: var(--dur-instant); }
+/* one row and the other alike: a Library's and a folder's */
+#sidebar[data-layout="library"] :is(.sb-lib, .sb-list .sb-row) { gap: 8px; height: var(--sb-row); padding-right: 8px; border-radius: var(--radius-row); color: var(--sb-ink, var(--fg2)); font-weight: 400; }
+#sidebar[data-layout="library"] :is(.sb-lib, .sb-list .sb-row):not(.picked):hover { background: transparent; color: var(--sb-ink, var(--fg2)); }
+#sidebar[data-layout="library"] :is(.sb-lib, .sb-list .sb-row):active { background: var(--sb-hover); }
+#sidebar[data-layout="library"] :is(.sb-lib.on, .sb-list .sb-row.on), #sidebar[data-layout="library"] :is(.sb-lib.on, .sb-list .sb-row.on):hover { background: var(--sb-selected); color: var(--fg); }
+#sidebar[data-layout="library"] :is(.sb-lib, .sb-list .sb-row) .sb-icon { width: 20px; height: 20px; color: var(--sb-glyph, var(--fg2)); }
+#sidebar[data-layout="library"] .sb-list .sb-item.is-dir > .sb-in > .sb-row .sb-icon { color: var(--fc, var(--sb-glyph, var(--fg2))); }
+#sidebar[data-layout="library"] .sb-list .sb-item.is-dir > .sb-in > .sb-row:not([style*="--fc"]) .sb-icon svg { fill: none; }
+#sidebar[data-layout="library"] :is(.sb-lib.on, .sb-list .sb-row.on) .sb-icon { color: var(--accent-text); }
+#sidebar[data-layout="library"] :is(.sb-lib-n, .sb-list .sb-tail) { font-size: 11px; color: var(--fg3); }
+/* the foot: New (its menu: a note, a folder, a whiteboard, a notebook) at the left, the history, then the gear's room */
+#sidebar[data-layout="library"] .sb-head { order: 1; gap: 2px; padding: 6px calc(var(--sb-pad) + var(--control-height, 28px) + 4px) 8px var(--sb-pad); }
+#sidebar[data-layout="library"] .sb-head :is(.sb-folder, [data-act="titles"]) { display: none; }
+#sidebar[data-layout="library"] .sb-head [data-act="newmenu"] { order: -1; display: inline-flex; flex-direction: row; align-items: center; width: auto; gap: 6px; margin-right: auto; padding: 0 10px 0 6px; color: var(--fg2); }
+#sidebar[data-layout="library"] .sb-head [data-act="newmenu"] .sb-new-l { display: inline; font: 400 12px var(--ui); }
+#sidebar[data-layout="library"] .sb-head .tb { color: var(--fg2); }
+body:is([data-sidebar="open"], [data-sidebar="peek"])[data-sb-layout="library"] #settings-btn { left: calc(var(--sb-w) - var(--sb-pad) - var(--control-height, 28px)); bottom: calc(var(--sb-inset) + 8px); }

@@ -21,7 +21,7 @@ export const PREFS = {
   lang: "en", startMode: "last", bar: true, slash: true, syntax: false, quotes: false, wrap: 0, images: "assets", style: "auto",
   bullet: "-", emphasis: "*", strongMark: "**", ordered: ".", dialogWidth: 0, dialogHeight: 0, consoleHeight: 0,
   latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, latexBrackets: true, latexText: true,
-  pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "sheets",
+  pdfFormat: "callout", pdfAuto: false, sidebarPdf: true, sidebarImages: true, sidebarMedia: true, sidebarBoards: true, sidebarOther: true, showHidden: false, sidebarSort: "name", sidebarLayout: "library",
   aiComplete: false, panel: false, panelTab: "insert", ovScope: "all", ovLayout: "tiles", ovPdf: true, ovImages: true, ovMedia: true, ovBoards: true, ovOther: true, ovBoardsShow: "all", ovHome: false, look: "refined", calloutStyle: "box", docZoom: 100, hinting: false, aiModel: "",
 };
 
@@ -30,12 +30,15 @@ export const PREFS = {
 // settings were kept as they stood ("mdview:prefs"), the defaults of that day among them: of
 // those, what differs from today's defaults is taken over once — but not pictures "beside" the
 // note, which was the default then and nobody's choice.
-// The sheets are the sidebar's layout to begin with (Henri, 2026-10-20): the rail, chosen while it
-// was the default, is let go once ("mdview:sheets-first") — chosen again after that, it stays.
+// The sheets were the sidebar's layout to begin with (Henri, 2026-10-20): the rail, chosen while it
+// was the default, is let go once ("mdview:sheets-first") — chosen again after that, it stays. Since
+// 2026-11-04 the library is (Henri: "wir bauen den neuen Standard"): the sheets and the rail kept
+// from before are let go once ("mdview:library-first").
 const CHOSEN =
   `(function(d){var s=null;try{s=JSON.parse(localStorage.getItem("mdview:set"));if(!s||typeof s!=="object"){s={};var o=JSON.parse(localStorage.getItem("mdview:prefs"))||{};` +
   `for(var k in o)if(o[k]!==d[k]&&!(k==="images"&&o[k]==="beside"))s[k]=o[k];localStorage.setItem("mdview:set",JSON.stringify(s));localStorage.removeItem("mdview:prefs")}` +
-  `if(!localStorage.getItem("mdview:sheets-first")){if(s.sidebarLayout==="rail"){delete s.sidebarLayout;localStorage.setItem("mdview:set",JSON.stringify(s))}localStorage.setItem("mdview:sheets-first","1")}}catch(e){s=s||{}}return Object.assign(d,s)})`;
+  `if(!localStorage.getItem("mdview:sheets-first")){if(s.sidebarLayout==="rail"){delete s.sidebarLayout;localStorage.setItem("mdview:set",JSON.stringify(s))}localStorage.setItem("mdview:sheets-first","1")}` +
+  `if(!localStorage.getItem("mdview:library-first")){if(s.sidebarLayout==="sheets"||s.sidebarLayout==="rail"){delete s.sidebarLayout;localStorage.setItem("mdview:set",JSON.stringify(s))}localStorage.setItem("mdview:library-first","1")}}catch(e){s=s||{}}return Object.assign(d,s)})`;
 
 // The colours: the desktop's light theme, and a dark one of the same hues.
 export const LIGHT = { background: "#f5f5f7", foreground: "#1d1d1f", accent: "#0071e3", muted: "#a1a1a6", selection: "#b4d5fe", red: "#d70015", green: "#248a3d", yellow: "#a05a00", orange: "#c93400", blue: "#0071e3", cyan: "#0071a4", magenta: "#8944ab", brown: "#7f6545", bright_red: "#ff3b30", bright_green: "#34c759", bright_yellow: "#d18b00", bright_blue: "#0a84ff", bright_magenta: "#af52de", bright_cyan: "#30b0c7" };

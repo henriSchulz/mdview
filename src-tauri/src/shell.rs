@@ -133,7 +133,7 @@ fn default_prefs() -> Map<String, Value> {
         // PDFs, pictures, sound and film, whiteboards, everything else
         "sidebarPdf": true, "sidebarImages": true, "sidebarMedia": true, "sidebarBoards": true, "sidebarOther": true,
         "showHidden": false,      // … and what is put away: hidden by hand, named with a dot, built, kept for a note (shown dimmed)
-        "sidebarLayout": "sheets", // how the sidebar is laid out: "sheets" (a sheet of paper each) | "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "tiles" (smart lists as tiles above the folders)
+        "sidebarLayout": "library", // how the sidebar is laid out: "library" (the Velum lab's: search, a Library of rows, the folders) | "sheets" (a sheet of paper each) | "source" (a tree, what was open last above it) | "rail" (the folders as signs beside their notes) | "tiles" (smart lists as tiles above the folders)
         "sidebarSort": "name",  // the notes of a folder, in the sidebar and the tiles: "name" (at first) | "opened" (last opened first) | "modified"
         // a continuation suggested while typing (the text around the caret goes to the model's maker)
         "aiOn": true,             // AI in the app at all: Transform with AI, the chat, graphics by Claude, suggestions
@@ -541,6 +541,18 @@ fn sheets_first(state: &mut Map<String, Value>) {
     }
 }
 
+/// The library is the sidebar's layout to begin with (Henri, 2026-11-04: "wir bauen den neuen Standard"). The sheets and
+/// the rail, kept from the days they were the default, are let go once — chosen again after that, they stay.
+fn library_first(state: &mut Map<String, Value>) {
+    if state.insert("library_first".into(), json!(true)).is_none() {
+        if let Some(kept) = state.get_mut("active").and_then(Value::as_object_mut) {
+            if matches!(kept.get("sidebarLayout").and_then(Value::as_str), Some("sheets" | "rail")) {
+                kept.remove("sidebarLayout");
+            }
+        }
+    }
+}
+
 pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
     let mut state = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).unwrap_or_default();
     // Since a folder's list shows everything that is not taken out, what was chosen while it showed
@@ -551,6 +563,7 @@ pub fn run(handle: AppHandle, tx: Sender<Event>, rx: Receiver<Event>) {
         }
     }
     sheets_first(&mut state);
+    library_first(&mut state);
     let mut app = App {
         file_clip: (vec![], false),
         update: json!({ "state": "idle" }),
@@ -1403,6 +1416,22 @@ mod tests {
     }
 
     #[test]
+    fn the_sheets_kept_from_before_give_way_to_the_library_once() {
+        let mut state: Map<String, Value> = serde_json::from_value(json!({ "sheets_first": true, "active": { "sidebarLayout": "sheets", "docZoom": 110 } })).unwrap();
+        library_first(&mut state);
+        assert_eq!(state["active"], json!({ "docZoom": 110 }));
+        assert_eq!(state["library_first"], json!(true));
+        // chosen again after that: it stays
+        state["active"]["sidebarLayout"] = json!("sheets");
+        library_first(&mut state);
+        assert_eq!(state["active"]["sidebarLayout"], json!("sheets"));
+        // another layout chosen is never touched
+        let mut other: Map<String, Value> = serde_json::from_value(json!({ "active": { "sidebarLayout": "tiles" } })).unwrap();
+        library_first(&mut other);
+        assert_eq!(other["active"]["sidebarLayout"], json!("tiles"));
+    }
+
+    #[test]
     fn a_link_to_a_file_beside_the_note_names_it_as_windows_does() {
         // (Henri, 2026-10-26, Windows: "a link to a text file in the same folder opens Explorer
         // without the file" — the page's address of it gave "C:/…/notes.txt", which Explorer
@@ -1419,7 +1448,7 @@ mod tests {
     }
 
     #[test]
-    fn the_sheets_are_the_default_layout() {
-        assert_eq!(default_prefs()["sidebarLayout"], json!("sheets"));
+    fn the_library_is_the_default_layout() {
+        assert_eq!(default_prefs()["sidebarLayout"], json!("library"));
     }
 }

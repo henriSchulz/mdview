@@ -90,7 +90,8 @@ body.sb-sizing { cursor: col-resize; user-select: none; -webkit-user-select: non
 /* (the sidebar's button: at the left, first in the strip of tabs — not among these; all notes: the house beside it) */
 .tab-side { width: 38px; color: var(--fg2); }
 body[data-sidebar="open"] .tab-side { color: var(--fg); }
-/* (over All Notes no button for the sidebar: the tiles show the folder already — Henri, 2026-10-25; Ctrl+Alt+S still works) */
-body[data-overview] .tab-side { display: none; }
+/* (over All Notes no button for the sidebar: the tiles show the folder already — Henri, 2026-10-25; Ctrl+Alt+S still works.
+ * The library's sidebar is where All Notes is gone to: it stays, and so does its button — layouts.css) */
+body[data-overview]:not([data-sb-layout="library"]) .tab-side { display: none; }
 /* (the history's status line: Velum Refined and Focus show it at the foot — viewer/look.css) */
 .sb-status { display: none; }
