@@ -16,7 +16,7 @@
   const GTK = !!(window.MdHand && MdHand.GTK);
   const APP = P.DESKTOP || !!(window.MdHand && MdHand.GTK); // (the application; a browser on a touch screen keeps the menus a finger holds)
   const on = () => IPAD || (APP && root.hasAttribute("data-finger") && wide.matches);
-  // <html data-tiles> while it holds: the rail at the bottom right, the bars' look (viewer/tablet.css)
+  // <html data-tiles> while it holds: the bars' look (viewer/tablet.css); what stands in the window stays where it is, a press would move it under the finger
   const mark = () => { if (on() !== root.hasAttribute("data-tiles")) root.toggleAttribute("data-tiles", on()); };
   new MutationObserver(mark).observe(root, { attributes: true, attributeFilter: ["data-finger"] });
   wide.addEventListener("change", mark);

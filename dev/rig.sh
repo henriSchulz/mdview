@@ -44,6 +44,7 @@
 #   dev/rig.sh ovlook [FOLDER]       All Notes as it looks (tiles, list, subfolders) on a copy of FOLDER: screenshots only
 #   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
 #   dev/rig.sh pagestyles            a page's line as a sheet, a preview, a widget
+#   dev/rig.sh fingerstill           a finger's press moves nothing in the window: in Velum Refined and in the app's own look, the note in the active mode
 #   dev/rig.sh gtktouch              fingers on a touch screen in WebKitGTK (dev/gtktouch): after a tap no mouse of its own making, two fingers the page's and not the window's zoom, the hand known as a finger, a bar of tiles answers a tap
 #   dev/rig.sh board-hand            a whiteboard under a mouse: things met where they are drawn, arrows joined as drawn, joints, the right button's menu, the board moved with it (a real pointer)
 #   dev/rig.sh explorer              the folder's list works with files: everything listed, hide, copy / cut / paste, duplicate, files pulled in, several rows; whiteboards as files and among All Notes
@@ -325,6 +326,20 @@ case "${1:-}" in
     f=$(ls "$R/work/assets"/*.board.svg 2>/dev/null | head -1)
     [[ -n $f ]] && grep -q '"from":{"id"' "$f" && ! grep -q '"sides"' "$f" && echo "ok   the file says what each line is joined to, and nothing that is worked out" || echo "FAIL the file's lines"
     ! { jq -r '.steps[], (.error // "ok")' "$R/out/$name.board-connect.json"; } | grep -qv '^ok' ;;
+  fingerstill)
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; cp "$D/tests/fixtures/basics.md" "$N/a.md"
+    fail=0; st="$R/state/mdview/state.json"
+    for look in refined app; do
+      rm -f "$R/out"/*.fingerstill.json; mkdir -p "$R/state/mdview"; [[ -s $st ]] || echo '{}' > "$st"
+      jq --arg l "$look" 'del(.opened, .tabs, .last_notes) | .active = ((.active // {}) + {look: $l})' "$st" > "$st.new" && mv "$st.new" "$st"
+      app 40 MDVIEW_PROBE="$D/probe-fingerstill.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+      for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.fingerstill.json 2>/dev/null) ]] && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null; sleep 0.5
+      f=$(ls "$R/out"/*.fingerstill.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL $look: no report"; tail -5 "$R/app.log"; fail=1; continue; }
+      jq -r --arg l "$look" '(.steps[] | sub("^(?<k>ok   |FAIL )"; "\(.k)\($l): ")), (.error // empty | "FAIL " + .)' "$f"
+      jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1
+    done
+    exit $fail ;;
   gtktouch)
     # fingers on a touch screen in WebKitGTK, the application's web view (dev/gtktouch: a window of it that is handed a touch
     # screen's touches from a script, its two fingers taken as host.rs takes them) — over the hand alone (dev/gtktouch/page.html),

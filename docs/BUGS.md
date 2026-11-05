@@ -719,6 +719,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     WebKitGTK sends no click after a tap whose pointerdown was prevented: what keeps the note's selection
     that way (the bars, their panels) takes the finger's lift as the click (viewer/touch.js `tapped`) —
     checked in WebKitGTK (`rig.sh gtktouch`, after `rig.sh start`), Chromium shows nothing of it.
+    **What the hand is at the moment moves nothing in the window** (Henri, 2026-11-05, on the tablet: "wenn man
+    klickt, dann springen die button und das ui komisch rum"). `data-finger` comes with the press itself, before
+    the lift that makes the click, and goes with a wheel or a touchpad's press: the look (Velum Refined to the app's,
+    the modes in another order) and the rail (top right to bottom right) changed with it, under the finger. What
+    only a finger has may come with the hand — the bars, what a held finger does —, what stands in the window is
+    chosen once: the look by the settings, the rail's place by the device (`data-ipad`). `rig.sh fingerstill`.
     What a bar's tile does is asked of the selection when it is tapped, not when the bar came: blocks
     are added to a selection without the bar coming again (a swipe on one more). A check of it chooses
     by swipes, not by `MdActive.blocks.select` — that one hands the bar the whole selection at once.

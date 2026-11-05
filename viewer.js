@@ -205,13 +205,14 @@
     if (diagrams) drawDiagrams(el);
   }
   const mdHtml = (text) => md.render(stripComments(String(text)), { links: {}, outline: [], depth: 1, lineOffset: 0 });
-  /* The look (Settings › Appearance › Look: viewer/look.css) — not under the finger's layout: an iPad, the tiles and bars a
-   * finger has on Linux, a coarse pointer keep the layout made for them (viewer/tablet.css, touch.js), whatever is chosen. Run
-   * when the settings change and when that layout comes or goes. */
+  /* The look (Settings › Appearance › Look: viewer/look.css) — not on an iPad or under a coarse pointer, which keep the layout
+   * made for them (viewer/tablet.css, touch.js), whatever is chosen. What the hand is at the moment does not choose it: a finger
+   * on Linux sets data-finger with its press, and a look changed then moves the whole window under that finger. Run when the
+   * settings change and when that layout comes or goes. */
   const coarse = window.matchMedia ? matchMedia("(pointer: coarse)") : null;
   function applyLook() {
     const root = document.documentElement;
-    const finger = root.hasAttribute("data-ipad") || root.hasAttribute("data-tiles") || root.hasAttribute("data-finger") || !!(coarse && coarse.matches);
+    const finger = root.hasAttribute("data-ipad") || !!(coarse && coarse.matches);
     const chosen = ["velum", "refined", "focus"].includes(window.MdPrefs?.look) ? MdPrefs.look : "app", look = finger ? "app" : chosen;
     if (root.dataset.look !== (look === "app" ? "app" : "velum")) root.dataset.look = look === "app" ? "app" : "velum"; // (the Velum look: viewer/look.css)
     if (look === "refined" || look === "focus") { if (root.dataset.velumLook !== look) root.dataset.velumLook = look; } else delete root.dataset.velumLook; // (… and Refined or Focus on top of it)
@@ -224,7 +225,7 @@
     const callout = lab && (window.MdPrefs?.calloutStyle || "box") === "box" ? "card" : window.MdPrefs?.calloutStyle; // (the default box is the lab's card in its looks)
     if (CALLOUT_STYLES.includes(callout)) root.dataset.callout = callout; else delete root.dataset.callout; // (how callouts and Focus look: viewer/*.css)
   }
-  new MutationObserver(applyLook).observe(document.documentElement, { attributes: true, attributeFilter: ["data-ipad", "data-tiles", "data-finger"] });
+  new MutationObserver(applyLook).observe(document.documentElement, { attributes: true, attributeFilter: ["data-ipad"] });
   if (coarse && coarse.addEventListener) coarse.addEventListener("change", applyLook);
   function prefsChanged() {
     aiShown();

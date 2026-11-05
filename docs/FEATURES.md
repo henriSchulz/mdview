@@ -1452,10 +1452,10 @@ counts — and has no writing help by a model.
   Blocks chosen have the bar of tiles at the foot (Text Style, Format, Insert, Copy, Cut,
   Duplicate, Actions, Delete) with its panels; a finger held on the note's text or on a block's
   handle opens no menu; a finger on the handle lifts the block at once, a tap on it, or a hold
-  let go in place, selects the block. The rail (insert, format, style, information) lies at the
-  bottom right as a capsule, its panel above it, and a tile of Insert held a moment goes with the
-  finger and is put where it is let go. A mouse's press, a wheel or a touchpad's two fingers and
-  it is as before: the rail at the top right, the menus, the handle's menu. In All Notes a tile
+  let go in place, selects the block. The rail (insert, format, style, information) stays at the
+  top right, where it is for a mouse too, and nothing in the window moves as the hand changes; a
+  tile of Insert held a moment goes with the finger and is put where it is let go. A mouse's press,
+  a wheel or a touchpad's two fingers and it is as before: the menus, the handle's menu. In All Notes a tile
   held is chosen, a tap then chooses more or lets one go, and the bar at the foot has the file
   menu's entries for them (Done ends it; a mouse still drags the tiles). The sidebar and the tabs
   keep the menu a held finger opens. A browser on a touch screen (no iPad) keeps its menus.

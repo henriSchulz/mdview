@@ -6,8 +6,8 @@
 // - a finger in use makes the PDF's bar and a whiteboard's bars a finger's size, though the pointer is said to be a fine one;
 //   a wheel turned makes them a mouse's again;
 // - the note in the active mode as the iPad has it while the hand is a finger (Henri, 2026-10-25: viewer/touch.js) — chosen
-//   blocks have the bar of tiles and its panels, no menu under a held finger, the handle held lifts its block, the rail lies
-//   at the bottom right and a tile of Insert is put in by the finger; a mouse's press, and the menus are back;
+//   blocks have the bar of tiles and its panels, no menu under a held finger, the handle held lifts its block, the rail stays
+//   where it stands (#57) and a tile of Insert is put in by the finger; a mouse's press, and the menus are back;
 // - All Notes under a finger: a tile held is chosen, a tap chooses more, the bar has what the file menu has for them.
 // Run: npm run build && npm test
 import assert from "node:assert/strict";
@@ -148,12 +148,12 @@ test("linux: under a finger the note has the iPad's bars — chosen blocks, no m
   await p.waitForTimeout(700);
   assert.equal(await p.evaluate(() => document.documentElement.hasAttribute("data-ipad")), false, "no iPad: the application's own layout");
   assert.equal(await shown("#tabs"), true, "the tabs stay");
-  // a finger in the note: the rail goes to the bottom right, as a capsule
+  // a finger in the note: the rail stays where it stands, a press would move it under the finger (#57)
   const railBefore = await rect("#rrail");
   await tap("#active .pm > p:nth-of-type(2)");
   assert.ok(await finger(), "the hand is a finger");
   const rail = await rect("#rrail");
-  assert.ok(rail.bottom > 800 - 40 && rail.right > 1280 - 40 && rail.w > rail.h, `the rail lies at the bottom right: ${JSON.stringify(railBefore)} → ${JSON.stringify(rail)}`);
+  assert.deepEqual(rail, railBefore, "the rail stays where it stands");
   // the AI button (on in the application) beside it, not over it (#4)
   await p.evaluate(() => document.body.setAttribute("data-ai", ""));
   await p.waitForTimeout(400);
@@ -200,7 +200,7 @@ test("linux: under a finger the note has the iPad's bars — chosen blocks, no m
   await tap('#rrail .rp-tab[data-tab="insert"]');
   assert.equal(await p.evaluate(() => document.body.hasAttribute("data-panel")), true, "the Insert panel is open");
   const panel = await rect("#rpanel");
-  assert.ok(panel.bottom <= rail.y - 8, `the panel above the rail: ${JSON.stringify(panel)}`);
+  assert.ok(panel.right <= rail.x || panel.y >= rail.bottom, `the panel clear of the rail: ${JSON.stringify(panel)} / ${JSON.stringify(rail)}`);
   const from = await p.evaluate(() => { const t = [...document.querySelectorAll("#rpanel .rp-tile")].find((x) => x.querySelector(".rp-name").textContent === "Table"); const r = t.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
   const [gap, first] = await p.evaluate((left) => { const ps = [...document.querySelectorAll("#active .pm > p")]; for (let i = 0; i + 1 < ps.length; i++) { const r = ps[i].getBoundingClientRect(); if (r.bottom > 250 && r.bottom < innerHeight - 250 && r.left + 80 < left - 10) return [[r.left + 80, r.bottom - 3], ps[i].textContent.slice(0, 13)]; } return [null, null]; }, panel.x);
   assert.ok(gap, "two paragraphs in the middle of the window, clear of the panel");

@@ -61,6 +61,7 @@ every check.
 ./rig.sh pdfink                                         # a PDF drawn on: the whiteboard over its pages, kept in .mdview/pdf, the PDF untouched, there again after a restart
 ./rig.sh pdflook                                        # a PDF in a folder window as it looks: its controls in the toolbar beside the tabs, the panel at the left, the board under the tabs, the pens' tray
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
+./rig.sh fingerstill                                    # a finger's press moves nothing in the window, in Velum Refined and the app's own look; the rail's panel opens
 ./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's, a bar of tiles answers a tap
 ./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming
 ./rig.sh update                                         # a newer version: the notice and the settings (a .deb told by a latest.json of the rig's own), offline, a checkout's build that is never told
