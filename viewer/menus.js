@@ -191,6 +191,11 @@
       const shown = window.MdPrefs?.props !== false;
       rows.push(null, [window.MdStrings.t(shown ? "menu.propsHide" : "menu.propsShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), props: !shown }; post("prefs", { prefs: { props: !shown } }); P.prefsChanged(); }]);
     }
+    // beside the note, where the look has its outline at the right: put away, or shown again (for every note)
+    if (!field && !href && !img && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share, #dlg, #settings") && P.railList().length) {
+      const shown = window.MdPrefs?.outline !== false;
+      rows.push(null, [window.MdStrings.t(shown ? "menu.outlineHide" : "menu.outlineShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), outline: !shown }; post("prefs", { prefs: { outline: !shown } }); P.prefsChanged(); }]);
+    }
     // beside the note's text (not in a field, not on a link or a picture): the settings, as from the gear
     if (!field && !href && !img && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share, #dlg, #settings")) rows.push(null, [window.MdStrings.t("prefs.open"), "Ctrl+,", true, () => P.openSettings()]);
     menuAt(e.clientX, e.clientY, rows);

@@ -261,9 +261,12 @@
   rail.setAttribute("aria-label", T("Outline"));
   document.body.appendChild(rail);
   let railCur = -2, railFrame = 0;
+  // the headings the look shows there (only where Velum is: viewer/look.css; one heading is no outline)
+  const railList = () => { const list = document.documentElement.dataset.velumLook && document.documentElement.dataset.velum ? P.outline || [] : []; return list.length < 2 ? [] : list; };
+  const railOff = () => window.MdPrefs?.outline === false; // (put away from the menu of a right click beside the note: viewer/menus.js)
   function railOutline() {
-    const list = document.documentElement.dataset.velumLook && document.documentElement.dataset.velum ? P.outline || [] : []; // (only where Velum is: viewer/look.css)
-    rail.hidden = list.length < 2; // (one heading is no outline)
+    const list = railList();
+    rail.hidden = !list.length || railOff(); // (hidden, the note takes back the room it made: viewer/look.css)
     if (rail.hidden) { rail.textContent = ""; return; }
     const min = Math.min(...list.map((o) => o.level));
     rail.innerHTML = `<div class="or-head">${esc(T("Outline"))}</div>` +
@@ -393,7 +396,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { toolbar, outlinePop, findBar, findInput, toast, updateNotice, outlineOpen, findOpen, showToolbar,
-    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind, railOutline, openPalette, closePalette, palOpen });
+    buildOutline, openOutline, closeOutline, runFind, focusHit, openFind, closeFind, railOutline, railList, openPalette, closePalette, palOpen });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     hitIdx: [() => hitIdx],

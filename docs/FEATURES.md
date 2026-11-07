@@ -1783,7 +1783,8 @@ glass, menus of the same glass), and two more on top of Velum, after the Velum l
   their colour (the accent where none was chosen), the note's properties are one quiet line of name and value with the tags
   as chips (folded, their head is there to open them again), and the note's **outline stands at the right** where the
   window has the room (1100 px with the sidebar shut, 1240 with it pinned): its headings, the one being read marked, a
-  click goes there. Not beside a PDF, a split, the panel or All Notes.
+  click goes there. Not beside a PDF, a split, the panel or All Notes. A right click beside the note › *Hide Outline*
+  puts it away for every note, and the note takes back its room; *Show Outline* from the same menu brings it back.
 - **Velum Focus** (proposal C): writing first — the tabs a capsule of glass in the middle of the top with a round sidebar
   button at the window's top left and a round *Go to…* button at its top right; the toolbar one bar of glass at the window's
   foot, beginning with All Notes, then the modes (the outline's list opens above it); the outline as marks at the window's

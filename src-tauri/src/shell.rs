@@ -161,6 +161,8 @@ fn default_prefs() -> Map<String, Value> {
     m.insert("quickNew".into(), json!("Ctrl+N"));
     // a newer version of the app looked for by itself, a few seconds after the start and every six hours (update.rs)
     m.insert("updateAuto".into(), json!(true));
+    // the outline at the right, in the looks that have one (false: put away, from the menu of a right click beside the note)
+    m.insert("outline".into(), json!(true));
     m
 }
 
