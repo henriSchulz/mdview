@@ -1465,6 +1465,19 @@ counts — and has no writing help by a model.
   held is chosen, a tap then chooses more or lets one go, and the bar at the foot has the file
   menu's entries for them (Done ends it; a mouse still drags the tiles). The sidebar and the tabs
   keep the menu a held finger opens. A browser on a touch screen (no iPad) keeps its menus.
+- **In tablet mode** (the desktop's: Velum's `tablet-mode`, switched while the app runs) the
+  window is laid out for a finger whatever the hand is at the moment, as on a touch screen
+  that says so: toolbar buttons 40 px, sidebar rows 44 px, tabs 40 px, menu rows 40 px, a
+  block's handle 30 × 34 px, a toast's and the update's buttons 36 px, fields 16 px; code shows
+  its language and Copy without a hover; a tap is a tap (no wait for a second one), and a
+  finger resting on a button, a row or a title selects nothing. The chosen tab has its ✕ in
+  the sign's place, as large as a finger (the others are closed from their menu). A finger
+  drawn in from the window's left edge brings the shut sidebar out over the note, one drawn
+  back over it to the left puts it away, a tap beside it too. Two fingers drawn sideways over
+  the note go back (to the right) and forward (to the left), as a mouse's side buttons: a
+  chevron comes in from that side and takes the accent where letting go goes; let go before,
+  nothing happens. When the desktop's keyboard comes up and the window grows shorter, the
+  caret (or the field) stays in sight.
 - **Reading**: the sidebar, tabs, the four modes, wikilinks, pictures, formulas, PDFs, finding
   and All Notes — with the repository's pasteboard — as here. An address names the note it shows, to keep or send.
 - **Writing**: what is typed is kept in the browser at once — a reload or a crash loses nothing —

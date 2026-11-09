@@ -120,7 +120,7 @@ body[data-mode="dark"] .bd-chip[data-bad] { color: var(--c-bright-red, var(--c-r
 
 /* a finger: where the system says the pointer is one, and where it does not but a finger is in use (the application on Linux:
  * viewer/hand.js) */
-@media (pointer: coarse) {
+:where(:root[data-touch]) {
   #board { --bd-bar-h: 44px; --bd-bar-btn: 40px; --bd-inset: 16px; --bd-well: 28px; --bd-palette-h: 92px; --bd-tool-w: 44px; --bd-handle: 12px; }
 }
 :where(:root[data-finger]) #board { --bd-bar-h: 44px; --bd-bar-btn: 40px; --bd-inset: 16px; --bd-well: 28px; --bd-palette-h: 92px; --bd-tool-w: 44px; --bd-handle: 12px; }

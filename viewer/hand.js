@@ -14,7 +14,13 @@
  *   That press takes the finger away from nothing: the menu it opens is the finger's (the edit menu, viewer/touch.js).
  * - makes the whole page larger under two fingers (its own gesture) where the page does not take them: they are taken
  *   (a whiteboard, a PDF move and size what they show themselves: board/pointer.js, pdfview.js).
- * dev/rig.sh gtktouch tries it in WebKitGTK with a touch screen. */
+ * dev/rig.sh gtktouch tries it in WebKitGTK with a touch screen.
+ *
+ * What stands in the window is sized by the device, never by the hand (docs/BUGS.md 76): `<html data-touch>` says the
+ * window is laid out for a finger — larger targets, a tab's cross on the chosen tab, a row's "…", the sidebar pulled from
+ * the edge. It holds where the system says the pointer is a coarse one, and in the application while the desktop is in
+ * tablet mode (Velum's settings, "tablet": the host writes it on <html> and hands a change to setTheme). Not on an iPad,
+ * whose layout is its own (viewer/tablet.css). */
 "use strict";
 (() => {
   const root = document.documentElement;
@@ -41,7 +47,37 @@
   // a mouse's own press (or a touchpad's) takes it away too: the menus are back (viewer/touch.js)
   addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e)) && !heldPress(e)) finger(false); }, true);
 
-  window.MdHand = { GTK, down: () => down.size, heldPress };
+  // the window laid out for a finger: a coarse pointer, or the desktop's tablet mode (set by the host)
+  const coarse = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : null;
+  let tablet = root.hasAttribute("data-touch");
+  const sized = () => { const on = !root.hasAttribute("data-ipad") && (tablet || !!(coarse && coarse.matches)); if (on !== root.hasAttribute("data-touch")) { root.toggleAttribute("data-touch", on); dispatchEvent(new Event("mdtouch")); } };
+  sized();
+  if (coarse && coarse.addEventListener) coarse.addEventListener("change", sized);
+  const setTablet = (on) => { tablet = !!on; sized(); };
+
+  window.MdHand = { GTK, down: () => down.size, heldPress, touch: () => root.hasAttribute("data-touch"), setTablet };
+
+  /* The desktop's keyboard (Velum's, in tablet mode) takes the foot of the screen for itself: the window grows shorter under
+   * it. Where the caret was then is kept in sight — it would stand under the keyboard, and the next letter typed blind. */
+  let tall = innerHeight;
+  addEventListener("resize", () => {
+    const was = tall; tall = innerHeight;
+    if (!root.hasAttribute("data-touch") || tall >= was) return;
+    const el = document.activeElement;
+    if (!el || !(el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.tagName))) return;
+    requestAnimationFrame(() => {
+      let r = null;
+      const sel = getSelection();
+      if (el.isContentEditable && sel && sel.rangeCount) { const rs = sel.getRangeAt(0).getClientRects(); r = rs.length ? rs[rs.length - 1] : null; }
+      if (!r || !r.height) r = el.isContentEditable ? null : el.getBoundingClientRect();
+      if (!r) return;
+      const over = r.bottom + 24 - innerHeight;
+      if (over <= 0) return;
+      let box = el;
+      while (box && box !== document.body && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+      (box && box !== document.body ? box : document.scrollingElement).scrollBy({ top: over });
+    });
+  });
   if (!GTK) return;
   for (const type of ["pointerover", "pointerenter", "pointermove", "pointerdown", "pointerup", "pointerout", "pointerleave"]) addEventListener(type, (e) => { if (madeUp(e)) e.stopImmediatePropagation(); }, true);
   // two fingers: the page's, never the web view's zoom of the whole

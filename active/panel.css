@@ -60,7 +60,7 @@ body:is([data-overview], .pdf-open) :is(#rrail, #rpanel) { opacity: 0; visibilit
 .rp-tab[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-text, var(--accent)); }
 .rp-tab:disabled { opacity: 0.4; pointer-events: none; } /* (beside the reading view: nothing is put in or formatted there) */
 .rp-tab:focus-visible { outline: var(--focus-ring) solid var(--accent); outline-offset: 1px; }
-@media (pointer: coarse) { .rp-tab { width: 44px; height: 44px; } :root { --rail-w: 64px; } }
+:where(:root[data-touch]) { .rp-tab { width: 44px; height: 44px; } &:root { --rail-w: 64px; } }
 .rp-title { flex: none; margin: 0 16px; padding: 16px 0 10px; font: 600 15px/1.3 var(--ui); color: var(--fg); }
 /* the two tabs lie on each other: the one chosen shows (a crossfade). The one chosen is `inherit`, not `visible`: a child
  * that says visible stays there in a parent that is hidden — the panel closed, its tab could still be clicked through the

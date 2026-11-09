@@ -729,6 +729,17 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     are added to a selection without the bar coming again (a swipe on one more). A check of it chooses
     by swipes, not by `MdActive.blocks.select` — that one hands the bar the whole selection at once.
 
+116. **A window laid out for a finger is said by the device, never by the hand** (Henri, 2026-11-09: "mdview noch mehr auf
+    touch optimieren im tablet modus"). `<html data-touch>` (viewer/hand.js) holds where `pointer: coarse` does and in
+    the application while the desktop is in tablet mode (Velum's settings.json `"tablet"`, read by theme.rs, on `<html>`
+    at the start and through `setTheme` when it changes; `MDVIEW_TOUCH=1` for the rig) — not on an iPad, whose layout is
+    its own (69). Every rule that sizes for a finger stands under `:where(:root[data-touch])`, not under
+    `@media (pointer: coarse)`, which never holds in WebKitGTK (76): `:where` keeps the rules as weak as the media query
+    was; what was set on `:root` there is set on `&:root`, or a plain `:root` elsewhere wins over it. JS asks
+    `MdHand.touch()`, never `matchMedia("(pointer: coarse)")`. Gestures that begin where the note's own swipe would (the
+    sidebar from the left edge, viewer/drawer.js) stop the touch in the capture phase before it reaches the note (73).
+    `rig.sh touchmode`.
+
 115. **The edit menu under a held finger is the application's own, and only over text that can be edited** (Henri,
     2026-11-09: "the touch edit menu often opens in places where it shouldn't; it should only open in text fields").
     The desktop's edit menu (Velum's henri.keyboard-v3) asked only whether some field had the focus — in mdview the note

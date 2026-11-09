@@ -172,6 +172,49 @@
     if (e.button === 3) { if (!P.navGo(-1)) post("back"); }
     else if (e.button === 4) { if (!P.navGo(1)) post("forward"); }
   });
+  /* Two fingers drawn sideways over the note go back and forward, as a mouse's side buttons do (a window laid out for a finger:
+   * <html data-touch>, viewer/hand.js — WebKitGTK gives a page two fingers only as touches). Drawn right, back; left, forward.
+   * A chevron comes in from the side the fingers come from and grows with the way; let go before it is full, nothing happens.
+   * Not where two fingers are the page's own already: a whiteboard, a PDF, a dialog. */
+  const NAV_GO = 96, swipeNav = document.createElement("div");
+  swipeNav.id = "swipenav";
+  swipeNav.setAttribute("aria-hidden", "true");
+  swipeNav.innerHTML = P.ICON.chevron;
+  document.body.appendChild(swipeNav);
+  let nav = null;
+  const mid = (ts) => [(ts[0].clientX + ts[1].clientX) / 2, (ts[0].clientY + ts[1].clientY) / 2];
+  function navShow(dx) {
+    const back = dx > 0, k = Math.min(1, Math.abs(dx) / NAV_GO);
+    swipeNav.dataset.side = back ? "left" : "right";
+    swipeNav.toggleAttribute("data-full", k >= 1);
+    swipeNav.style.setProperty("--k", k.toFixed(3));
+    swipeNav.toggleAttribute("data-on", k > 0.05);
+  }
+  addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 2 || !document.documentElement.hasAttribute("data-touch") || e.target.closest?.("#board, .pdfv, [aria-modal=\"true\"], #sidebar, #tabs")) { if (e.touches.length > 2) nav = null; return; }
+    nav = { at: mid(e.touches), dx: 0, side: null };
+  }, { capture: true, passive: true });
+  addEventListener("touchmove", (e) => {
+    if (!nav || e.touches.length !== 2) return;
+    const [x, y] = mid(e.touches), dx = x - nav.at[0], dy = y - nav.at[1];
+    if (!nav.side) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { nav = null; return; } // (up or down: a scroll)
+      if (Math.abs(dx) < 12) return;
+      nav.side = dx > 0 ? "back" : "forward";
+    }
+    nav.dx = nav.side === "back" ? Math.max(0, dx) : Math.min(0, dx);
+    navShow(nav.dx);
+  }, { capture: true, passive: true });
+  const navEnd = (e) => {
+    if (!nav || (e.type === "touchend" && e.touches.length > 1)) return;
+    const go = Math.abs(nav.dx) >= NAV_GO ? (nav.dx > 0 ? -1 : 1) : 0;
+    nav = null;
+    swipeNav.removeAttribute("data-on"); swipeNav.removeAttribute("data-full");
+    if (go < 0) { if (!P.navGo(-1)) post("back"); }
+    else if (go > 0) { if (!P.navGo(1)) post("forward"); }
+  };
+  addEventListener("touchend", navEnd, { capture: true, passive: true });
+  addEventListener("touchcancel", navEnd, { capture: true, passive: true });
 
   /* --- A note larger and smaller: Ctrl or Super with + and −, Ctrl+0 for its own size. Only the
    * note's text is scaled (the settings' docZoom, in percent) — the toolbar, the sidebar, menus and

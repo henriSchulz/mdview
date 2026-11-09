@@ -69,9 +69,7 @@ html[data-velum][data-look="velum"] {
   --press-scale: var(--v-scale-press);
 }
 /* a control's height, where a finger is not the pointer (narrow.css gives a finger its own sizes, at :root) */
-@media not (pointer: coarse) {
-  html[data-velum][data-look="velum"] { --control-height: var(--v-control-height); }
-}
+html[data-velum][data-look="velum"]:not([data-touch]) { --control-height: var(--v-control-height); }
 /* page.css sets a few of these anew under a dark body; the roles already carry light and dark
  * (data-appearance), so the dark overrides give way too. */
 html[data-velum][data-look="velum"] body {

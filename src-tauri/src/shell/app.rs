@@ -287,7 +287,7 @@ impl App {
             if let Some(window) = &w.window {
                 let _ = window.set_background_color(Some(tauri::window::Color(r, g, b, 255)));
             }
-            w.js("MdView.setTheme", &[json!(css), json!(self.theme.mode)]);
+            w.js("MdView.setTheme", &[json!(css), json!(self.theme.mode), json!(self.theme.tablet)]);
         }
     }
 

@@ -52,7 +52,7 @@
 .menu-bar-btn b { font: 650 12px/1 var(--ui); letter-spacing: -0.01em; }
 .menu-bar-btn.on { color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 16%, transparent); }
 .menu-bar-btn.hl { background: var(--accent); color: var(--on-accent, #fff); }
-@media (pointer: coarse) { .menu-bar-btn { height: 38px; } }
+:where(:root[data-touch]) { .menu-bar-btn { height: 38px; } }
 .menu-search { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; box-sizing: border-box; height: 36px; margin: calc(-1 * var(--menu-pad)) calc(-1 * var(--menu-pad)) var(--menu-pad); padding: 0 16px; border-bottom: 1px solid var(--line); background: inherit; font: 500 14px/1.45 var(--ui); color: var(--fg); }
 .menu-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--fg3, var(--fg2)); stroke-width: 2; stroke-linecap: round; }
 .menu-search-q { display: flex; align-items: center; white-space: pre; overflow: hidden; }

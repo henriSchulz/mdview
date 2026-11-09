@@ -102,8 +102,8 @@ details.props .callout-fold .sf { font-size: 10px; }
   :is(#content, #active, #editor) { padding-bottom: max(40vh, 120px); }
 }
 /* a finger for a pointer: what is pressed is as large as a finger, and what a hover would show is there */
-@media (pointer: coarse) {
-  :root { --control-height: 40px; --sb-row: 44px; --tab-h: 40px; --tabs-h: 58px; }
+:where(:root[data-touch]) {
+  &:root { --control-height: 40px; --sb-row: 44px; --tab-h: 40px; --tabs-h: 58px; }
   .tb svg { width: 20px; height: 20px; }
   .ui-menu .menu-item, #ctxmenu .menu-item, .actmenu .menu-item { min-height: 40px; }
   /* (code: its language and Copy stand over it, in a line of their own — no hover brings them) */
@@ -113,8 +113,14 @@ details.props .callout-fold .sf { font-size: 10px; }
   /* (a finger held on a row or a tab asks for its menu, not for the system's own or a selection) */
   .sb-row, .ov-item, .tab, .tab-home, #toolbar { -webkit-touch-callout: none; }
   /* (a tab's cross comes under a pointer that rests on the tab: a finger never does — unseen, it would be hit by
-   * the tap that chooses the tab. A tab is closed from its menu: a finger held on it.) */
+   * the tap that chooses the tab. So it stands on the chosen tab only, where a tap has nothing left to choose, in the
+   * sign's place and as large as a finger, as Safari's on the iPad; the others are closed from their menu: a finger held on one.) */
   .tab-x { display: none; }
+  .tab[aria-selected="true"]:not(.leaving) .tab-x { display: grid; opacity: 1; left: 0; top: calc(50% - 20px); width: 40px; height: 40px; }
+  .tab[aria-selected="true"]:not(.leaving) .tab-x svg { width: 14px; height: 14px; }
+  .tab[aria-selected="true"]:not(.leaving):has(.tab-x) .tab-icon { opacity: 0; }
+  /* (a toast's and the update's buttons: a finger's height) */
+  :is(#toast, #update) button { height: 36px; padding: 0 12px; }
 }
 
 /* Sync Now (#30): in the tabs' strip beside All Notes, on an iPad beside the button of four parts — there only where the folder has
@@ -126,8 +132,8 @@ details.props .callout-fold .sf { font-size: 10px; }
 
 /* ---- under a finger (a tablet, a phone): what is pulled is wide enough to be met, what is typed in does not make the page
  * larger (a field under 16 px does, on an iPhone), and a tap is a tap — no grey flash, no wait for a second one */
-@media (pointer: coarse) {
-  html { -webkit-tap-highlight-color: transparent; }
+:where(:root[data-touch]) {
+  &:root { -webkit-tap-highlight-color: transparent; }
   button, a, [role="button"], .sb-row, .tab, .menu-item, .tb { touch-action: manipulation; }
   input[type="text"], input[type="search"], input[type="url"], input[type="email"], input[type="password"], input:not([type]), textarea, select { font-size: 16px !important; } /* (whatever a field's own rule says) */
   #sb-grip { width: 22px; touch-action: none; }
@@ -137,8 +143,8 @@ details.props .callout-fold .sf { font-size: 10px; }
 
 /* ---- under a finger it is an app, not a page: the window is not pinched larger or made larger by a double tap, and only what
  * is the note's — its text, a field — is selected; a finger resting on a button, a row, a title selects nothing */
-@media (pointer: coarse) {
-  html { touch-action: pan-x pan-y; }
+:where(:root[data-touch]) {
+  &:root { touch-action: pan-x pan-y; }
   body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   #content, #active .pm, #editor, .pdf-pages, input, textarea, [contenteditable]:not([contenteditable="false"]), .code-block pre { -webkit-user-select: text; user-select: text; }
 }
@@ -173,3 +179,20 @@ body:not([data-ai]) [data-needs-ai] { display: none !important; }
 body[data-overview] #ai-bubble, body[data-overview]:not(:has(#board[data-open])) #ai-chat { display: none; } /* (but over a whiteboard opened from All Notes — a notebook from the folder's window — the chat is the board's: #31) */
 @media print { #ai-bubble { display: none !important; } }
 @media (max-width: 640px) { #ai-bubble { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); right: 12px; } }
+
+/* ---- two fingers drawn sideways over the note (viewer/toolbar.js): a chevron comes in from that side, grows with the way, and
+ * takes the accent when letting go would go back (or forward). Only transform and opacity move; it follows the fingers at once
+ * and leaves on a spring. */
+#swipenav {
+  position: fixed; top: calc(50% - 22px); z-index: 60; display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 50%; background: var(--raised); color: var(--fg2); box-shadow: var(--shadow-popover);
+  pointer-events: none; opacity: 0; --k: 0;
+  transition: opacity var(--dur-fast) var(--ease-exit), transform var(--spring-snappy-dur) var(--spring-snappy), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+#swipenav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#swipenav[data-side="left"] { left: 0; transform: translateX(calc(-48px + var(--k) * 64px)) scale(calc(0.7 + var(--k) * 0.3)); }
+#swipenav[data-side="left"] svg { rotate: 180deg; }
+#swipenav[data-side="right"] { right: 0; transform: translateX(calc(48px - var(--k) * 64px)) scale(calc(0.7 + var(--k) * 0.3)); }
+#swipenav[data-on] { opacity: 1; transition-duration: 0s, 0s, var(--dur-fast), var(--dur-fast); }
+#swipenav[data-full] { background: var(--accent); color: var(--on-accent); }
+@media (prefers-reduced-motion: reduce) { #swipenav { transition: opacity var(--dur-fast) var(--ease-exit); } }

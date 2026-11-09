@@ -341,6 +341,19 @@ case "${1:-}" in
       jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1
     done
     exit $fail ;;
+  touchmode)
+    # the window laid out for a finger in the desktop's tablet mode (MDVIEW_TOUCH=1 as Velum's "tablet": true): dev/probe-touchmode.js
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; cp "$D/tests/fixtures/basics.md" "$N/a.md"; cp "$D/tests/fixtures/basics.md" "$N/b.md"
+    rm -f "$R/out"/*.touchmode.json; st="$R/state/mdview/state.json"; mkdir -p "$R/state/mdview"; [[ -s $st ]] || echo '{}' > "$st"
+    jq 'del(.opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st"
+    app 40 MDVIEW_TOUCH=1 MDVIEW_PROBE="$D/probe-touchmode.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    rm -f "$R/out"/*.{peek,chevron}.json
+    for v in peek chevron; do for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.$v.json 2>/dev/null) ]] && break; sleep 0.1; done; for _ in 1 2 3 4 5; do sleep 0.2; shot "$R/out/touchmode-$v.png"; done; done # (the hidden window gets a frame a picture)
+    for _ in $(seq 300); do [[ -n $(ls "$R/out"/*.touchmode.json 2>/dev/null) ]] && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null; sleep 0.5
+    f=$(ls "$R/out"/*.touchmode.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f"
+    ! jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' ;;
   gtktouch)
     # fingers on a touch screen in WebKitGTK, the application's web view (dev/gtktouch: a window of it that is handed a touch
     # screen's touches from a script, its two fingers taken as host.rs takes them) — over the hand alone (dev/gtktouch/page.html),

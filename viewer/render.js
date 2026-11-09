@@ -446,8 +446,9 @@
     document.documentElement.style.setProperty("--on-accent", 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.05 ? "#fff" : "#000");
   }
   setOnAccent();
-  function setTheme(css, mode) {
+  function setTheme(css, mode, tablet) {
     document.getElementById("theme").textContent = css;
+    if (typeof tablet === "boolean" && window.MdHand) MdHand.setTablet(tablet); // (the desktop's tablet mode: viewer/hand.js)
     document.body.dataset.mode = mode;
     setOnAccent();
     if (current && mode === "read" && content.querySelector(".mermaid-block")) draw(current, captureAnchor());

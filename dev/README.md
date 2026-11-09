@@ -62,6 +62,7 @@ every check.
 ./rig.sh pdflook                                        # a PDF in a folder window as it looks: its controls in the toolbar beside the tabs, the panel at the left, the board under the tabs, the pens' tray
 ./rig.sh pdflag                                         # how late what is drawn on a PDF shows: from a pen's sample to the frame, bare page, quick work, a page written full, far in
 ./rig.sh fingerstill                                    # a finger's press moves nothing in the window, in Velum Refined and the app's own look; the rail's panel opens
+./rig.sh touchmode                                      # the desktop's tablet mode (MDVIEW_TOUCH=1): finger sizes, the chosen tab's cross, sidebar from the left edge, two fingers for back/forward
 ./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's, a bar of tiles answers a tap, a field held has the edit menu
 ./rig.sh editmenu                                       # the edit menu under a held finger: on the note's text and a field only, its words and what they do (EDITMENU_SHOTS=dir: its pictures, each look dark and light)
 ./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming

@@ -45,6 +45,9 @@ pub struct Theme {
     /// The desktop's Velum variant ("opal", "pearl" …) when the colours are Velum's; the page then
     /// takes Velum's roles (velum.css, viewer/roles.css).
     pub variant: Option<String>,
+    /// The desktop is in tablet mode (Velum's settings, "tablet"; `tablet-mode` switches it): the page is laid out for a
+    /// finger — larger targets, no hover-only controls (`<html data-touch>`, viewer/touchsize.css).
+    pub tablet: bool,
 }
 
 impl Theme {
@@ -59,9 +62,10 @@ impl Theme {
 
     /// What the page's <html> carries for Velum: the variant and the appearance, or nothing.
     pub fn html_attrs(&self) -> String {
+        let touch = if self.tablet { " data-touch" } else { "" };
         match &self.variant {
-            Some(v) => format!(" data-velum='{}' data-appearance='{}'", v, self.mode),
-            None => String::new(),
+            Some(v) => format!(" data-velum='{}' data-appearance='{}'{touch}", v, self.mode),
+            None => touch.to_string(),
         }
     }
 }
@@ -103,6 +107,18 @@ fn velum_variant(colors: &std::path::Path) -> Option<String> {
     let json: serde_json::Value = serde_json::from_str(&text).ok()?;
     let v = json.get("variant")?.as_str()?.trim().to_string();
     (!v.is_empty() && v.chars().all(|c| c.is_ascii_lowercase())).then_some(v)
+}
+
+/// Whether the desktop is in tablet mode (Velum's settings, "tablet"); MDVIEW_TOUCH=1/0 says it for the rig.
+fn velum_tablet() -> bool {
+    if let Some(v) = std::env::var_os("MDVIEW_TOUCH").filter(|v| !v.is_empty()) {
+        return v != "0";
+    }
+    let Some(dir) = velum_dir() else { return false };
+    let Some(json) = fs::read_to_string(dir.join("settings.json")).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) else {
+        return false;
+    };
+    json.get("tablet").and_then(|t| t.as_bool()).unwrap_or(false)
 }
 
 /// Velum's colours when its file is there, else the Omarchy theme's.
@@ -147,7 +163,7 @@ pub fn load_theme() -> Theme {
             }
         }
     }
-    let mut theme = Theme { mode: String::new(), colors, variant: velum_variant(&file) };
+    let mut theme = Theme { mode: String::new(), colors, variant: velum_variant(&file), tablet: velum_tablet() };
     theme.mode = match data.get("mode").and_then(|m| m.as_str()) {
         Some(m @ ("light" | "dark")) => m.to_string(),
         _ => if luminance(theme.color("background")) > 0.5 { "light" } else { "dark" }.to_string(),
@@ -191,6 +207,9 @@ mod tests {
         let theme = super::load_theme();
         assert_eq!(theme.variant.as_deref(), Some("opal"));
         assert_eq!(theme.html_attrs(), " data-velum='opal' data-appearance='light'");
+        // tablet mode: the page is laid out for a finger
+        fs::write(base.join("settings.json"), "{\"variant\": \"opal\", \"appearance\": \"light\", \"tablet\": true}").unwrap();
+        assert_eq!(super::load_theme().html_attrs(), " data-velum='opal' data-appearance='light' data-touch");
         // no settings file: colours still Velum's, no variant
         fs::remove_file(base.join("settings.json")).unwrap();
         assert_eq!(super::load_theme().variant, None);

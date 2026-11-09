@@ -88,7 +88,7 @@
     handle.dataset.on = "";
   }
   let leaving = 0;
-  const COARSE = typeof matchMedia === "function" ? matchMedia("(pointer: coarse)") : { matches: false };
+  const COARSE = { get matches() { return document.documentElement.hasAttribute("data-touch") || (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches); } }; // (a window laid out for a finger: viewer/hand.js)
   /* Under a finger, blocks that are chosen keep their handle: there it is the way to drag them and to their menu.
    * -> whether there are any (and the handle stands with them) */
   function showHeld() {

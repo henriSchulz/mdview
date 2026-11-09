@@ -182,6 +182,28 @@
     if (peeking() && !e.target.closest?.("#sidebar, #sb-grip, .tab-side, #ctxmenu, #sblook, .ui-popover")) peek(false);
   }, true);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && peeking() && !busy()) peek(false); });
+  /* Under a finger (a window laid out for one: <html data-touch>, viewer/hand.js) no pointer rests at the edge: a finger drawn in
+   * from the window's left edge brings the sidebar out as the pointer would, and one drawn back over it to the left puts it
+   * away (the iPad's way with a sidebar). Held from the first move, before the note's own swipe that chooses a block (rule 73). */
+  const SWIPE_EDGE = 20, SWIPE_GO = 36;
+  let edge = null;
+  document.addEventListener("touchstart", (e) => {
+    edge = null;
+    if (e.touches.length !== 1 || !document.documentElement.hasAttribute("data-touch")) return;
+    const t = e.touches[0];
+    if (peeking()) { if (sidebar.contains(e.target)) edge = { x: t.clientX, y: t.clientY, open: false }; return; }
+    if (t.clientX > SWIPE_EDGE || !canPeek()) return;
+    edge = { x: t.clientX, y: t.clientY, open: true };
+    e.stopPropagation(); // (the note's swipe never begins at the edge)
+  }, { capture: true, passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!edge) return;
+    const t = e.touches[0], dx = t.clientX - edge.x, dy = t.clientY - edge.y;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) { edge = null; return; } // (up or down: a scroll)
+    if (edge.open) { e.stopPropagation(); if (e.cancelable) e.preventDefault(); }
+    if (edge.open ? dx > SWIPE_GO : dx < -SWIPE_GO) { const open = edge.open; edge = null; peek(open); }
+  }, { capture: true, passive: false });
+  document.addEventListener("touchend", () => { edge = null; }, { capture: true, passive: true });
   /* In a note the sidebar is shut to begin with (Henri, 2026-10-25: "standardmäßig zu, wenn man in einer Notiz ist"): the
    * window's first note, and a note come to out of All Notes. A note chosen in the sidebar leaves it as it is; the quick notes
    * keep theirs (it is their list). Told to the host as a hand that shut it would: the folder sent again shows it as it stood. */
