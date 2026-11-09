@@ -40,6 +40,7 @@
 #   dev/rig.sh zoom                  a note larger and smaller: Ctrl or Super with + − 0, the settings' text size
 #   dev/rig.sh adjust                a PDF embed's region adjusted in its dialog, with the real pointer
 #   dev/rig.sh textmenu              the menu for text in the reading view and in a field
+#   dev/rig.sh editmenu              the edit menu under a held finger: on the note's text and a field only, its words, what they do; a picture of it in each look (EDITMENU_SHOTS=dir)
 #   dev/rig.sh shots                 screenshots of the newer parts, for looking at
 #   dev/rig.sh ovlook [FOLDER]       All Notes as it looks (tiles, list, subfolders) on a copy of FOLDER: screenshots only
 #   dev/rig.sh paste                 a project's pasteboard: none without a sign-in, blocks made here and at the server (with their origin), written there and here, cleared; its copy in the project; mdview paste
@@ -370,6 +371,15 @@ case "${1:-}" in
     git -C "$D/.." show "${GTKTOUCH_BEFORE:-babba6e}:viewer/touch.js" > "$R/touch-before.js" 2>/dev/null && { PAGE="file://$D/gtktouch/tiles.html?src=file://$R/touch-before.js"; mapfile -t tilesBefore < <(run X=1); }
     ok "a tile tapped opens its panel; its row tapped, and a tile without one, do their work" '[[ ${tiles[0]} == true && $(jq -c . <<<"${tiles[1]}") == "[\"heading\",\"copy\"]" ]]' 'echo "${tiles[*]}"'
     ok "  (before 2026-10-25 a tap did nothing there: no click after a prevented pointerdown)" '[[ ${tilesBefore[0]} == false && $(jq -c . <<<"${tilesBefore[1]}") == "[]" ]]' 'echo "${tilesBefore[*]}"'
+    # the edit menu (viewer/touch.js): a finger held on a field — WebKitGTK makes it a right click there — opens it, a word tapped does its work.
+    # (here the web view tells of the held finger only with the next finger's lift: its long press as gtktouch's touches make it)
+    { echo "size 1000 700"; echo "w 300"; echo "d 0 120 300"; echo "w 900"; echo "u 0"; echo "w 300"; echo "d 1 700 600"; echo "w 40"; echo "u 1"; echo "w 500"
+      echo 'js [em.hasAttribute("data-open"), words(), menus]'; echo "d 0 525 125"; echo "w 40"; echo "u 0"; echo "w 600"; echo 'js [ran, em.hasAttribute("data-open"), document.activeElement.id]'; echo q; } > "$S"
+    PAGE="file://$D/gtktouch/editmenu.html"; mapfile -t em < <(run X=1)
+    PAGE="file://$D/gtktouch/editmenu.html?nohold"; mapfile -t emBefore < <(run X=1)
+    ok "a finger held on a field: the edit menu (Paste, Select All), no other menu" '[[ $(jq -c . <<<"${em[0]}") == "[true,[\"menu.paste\",\"menu.selectAll\"],0]" ]]' 'echo "${em[*]}"'
+    ok "  (the right click WebKitGTK makes of it taken for a mouse's: no edit menu)" '[[ $(jq -c ".[0]" <<<"${emBefore[0]}") == false ]]' 'echo "${emBefore[*]}"'
+    ok "a word tapped does its work, in the field, and the menu goes" '[[ $(jq -c . <<<"${em[1]}") == "[[\"editcmd SelectAll\"],false,\"f\"]" ]]' 'echo "${em[*]}"'
     exit $fail ;;
   board-hand)
     # what a mouse meets on a whiteboard (a thing where it is drawn, not the box around it), arrows joined as they are drawn, joints, the right button's menu, the board moved with it — the last with a real pointer (dev/vptr)
@@ -1410,6 +1420,28 @@ PY
     [[ -f $R/out/note.md.adjust.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json"
     ! jq -r '.steps[], (.error // empty)' "$R/out/note.md.adjust.json" | grep -qv '^ok' ;;
+  editmenu)
+    # the edit menu under a held finger (viewer/touch.js), in the app's own look and in Velum Refined, each dark and light — a picture of it in each
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N"; cp "$D/tests/fixtures/m5.md" "$N/m5.md"; printf '# Other\n\nSome text.\n' > "$N/Other.md"
+    shots="${EDITMENU_SHOTS:-$R/out}"; mkdir -p "$shots" "$R/velum-em"; fail=0; st="$R/state/mdview/state.json"
+    mkdir -p "$R/theme-em/theme"; printf '%s\n' 'mode = "light"' 'background = "#fbfaf8"' 'foreground = "#1c1a17"' 'accent = "#138474"' | tee "$R/theme-em/theme/colors.toml" > "$R/velum-em/colors.toml"; echo '{"variant":"opal","appearance":"light"}' > "$R/velum-em/settings.json"
+    for run in app:dark app:light refined:dark refined:light; do
+      look=${run%%:*}; tone=${run##*:}; envs=()
+      [[ $look == app && $tone == light ]] && envs+=(MDVIEW_THEME_DIR="$R/theme-em") # (a light theme of the rig's own: without one the fallback follows the system's dark)
+      [[ $look == refined && $tone == light ]] && envs+=(MDVIEW_VELUM_STATE="$R/velum-em")
+      rm -f "$R/out"/*.editmenu.json "$R/out"/*.editmenu-shot.json; mkdir -p "$R/state/mdview"; [[ -s $st ]] || echo '{}' > "$st"
+      jq --arg l "$look" 'del(.opened, .tabs, .last_notes) | .active = ((.active // {}) + {look: $l})' "$st" > "$st.new" && mv "$st.new" "$st"
+      app 90 "${envs[@]}" MDVIEW_PROBE="$D/probe-editmenu.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+      for _ in $(seq 400); do [[ -n $(ls "$R/out"/*.editmenu-shot.json "$R/out"/*.editmenu.json 2>/dev/null) ]] && break; sleep 0.1; done
+      [[ -n $(ls "$R/out"/*.editmenu-shot.json 2>/dev/null) ]] && for _ in 1 2 3 4 5; do sleep 0.35; shot "$shots/editmenu-$look-$tone.png"; done # (the hidden window gets a frame a picture: the last is the page as it is)
+      for _ in $(seq 600); do [[ -n $(ls "$R/out"/*.editmenu.json 2>/dev/null) ]] && break; sleep 0.1; done
+      pkill -f "^$APP" 2>/dev/null; sleep 0.5
+      f=$(ls "$R/out"/*.editmenu.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL $run: no report"; tail -5 "$R/app.log"; fail=1; continue; }
+      jq -r --arg l "$run" '(.steps[] | sub("^(?<k>ok   |FAIL )"; "\(.k)\($l): ")), (.error // empty | "FAIL " + .)' "$f"
+      jq -r '.steps[], (.error // empty | "FAIL " + .)' "$f" | grep -q '^FAIL' && fail=1
+    done
+    jq '.active.look = "app"' "$st" > "$st.new" && mv "$st.new" "$st" # (the other cases measure the app's own look)
+    exit $fail ;;
   textmenu)
     name=m5.md; rm -rf "$R/work"; mkdir -p "$R/work"; cp "$D/tests/fixtures/$name" "$R/work/$name"; rm -f "$R/out/$name".textmenu.json
     app 60 MDVIEW_PROBE="$D/probe-textmenu.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"

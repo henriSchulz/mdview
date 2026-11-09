@@ -10,6 +10,8 @@
  *   pointer events of a mouse (WebKitGTK alone: Chromium and Safari send only the older mouse events, which stay). Taken
  *   for a mouse's, the whiteboard would have done the tap a second time and the page would think the hand a mouse. They are
  *   not passed on; the click after them is.
+ * - makes a held finger a mouse's right click where it is (its long press): a right button pressed, then "contextmenu".
+ *   That press takes the finger away from nothing: the menu it opens is the finger's (the edit menu, viewer/touch.js).
  * - makes the whole page larger under two fingers (its own gesture) where the page does not take them: they are taken
  *   (a whiteboard, a PDF move and size what they show themselves: board/pointer.js, pdfview.js).
  * dev/rig.sh gtktouch tries it in WebKitGTK with a touch screen. */
@@ -22,15 +24,24 @@
   const down = new Set(); // fingers on the screen
   let lifted = null; // where and when the last finger left it
   const finger = (on) => { if (on !== root.hasAttribute("data-finger")) root.toggleAttribute("data-finger", on); };
-  addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") { down.add(e.pointerId); finger(true); } }, true);
+  const presses = []; // where fingers came down of late (a held one gets a right click of WebKitGTK's own there)
+  addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    down.add(e.pointerId); finger(true);
+    presses.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+    if (presses.length > 4) presses.shift();
+  }, true);
   for (const type of ["pointerup", "pointercancel"]) addEventListener(type, (e) => { if (e.pointerType === "touch" && down.delete(e.pointerId)) lifted = { t: e.timeStamp, x: e.clientX, y: e.clientY }; }, true);
   addEventListener("wheel", (e) => { if (!e.ctrlKey && !down.size && (!lifted || e.timeStamp - lifted.t > 1500)) finger(false); }, { capture: true, passive: true });
   // the mouse made up after a tap (WebKitGTK): where the finger left, at once after it
   const madeUp = (e) => e.pointerType === "mouse" && !!lifted && e.timeStamp - lifted.t < 600 && Math.hypot(e.clientX - lifted.x, e.clientY - lifted.y) < 24;
+  // the right click WebKitGTK makes of a held finger (its long press): a mouse's right button where a finger came down a
+  // moment before — then the "contextmenu" (Henri, 2026-11-09: the edit menu under a held finger, viewer/touch.js)
+  const heldPress = (e) => GTK && e.pointerType === "mouse" && e.button === 2 && presses.some((p) => e.timeStamp - p.t < 3000 && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 24);
   // a mouse's own press (or a touchpad's) takes it away too: the menus are back (viewer/touch.js)
-  addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e))) finger(false); }, true);
+  addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && !down.size && !(GTK && madeUp(e)) && !heldPress(e)) finger(false); }, true);
 
-  window.MdHand = { GTK, down: () => down.size };
+  window.MdHand = { GTK, down: () => down.size, heldPress };
   if (!GTK) return;
   for (const type of ["pointerover", "pointerenter", "pointermove", "pointerdown", "pointerup", "pointerout", "pointerleave"]) addEventListener(type, (e) => { if (madeUp(e)) e.stopImmediatePropagation(); }, true);
   // two fingers: the page's, never the web view's zoom of the whole

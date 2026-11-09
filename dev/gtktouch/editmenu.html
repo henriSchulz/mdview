@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>gtktouch edit menu</title>
+<!-- The edit menu under a held finger in WebKitGTK (dev/rig.sh gtktouch; viewer/touch.js): WebKitGTK makes a held finger a
+     mouse's right click where it is (its long press), and that still counts as the finger's — the menu opens over the field;
+     a word tapped does its work (the lift is the click: WebKitGTK sends none after a prevented pointerdown). -->
+<style>
+  body { margin: 0; font: 15px sans-serif; }
+  #f { position: fixed; left: 20px; top: 280px; width: 400px; height: 40px; font: 20px sans-serif; }
+  #editmenu { position: fixed; display: flex; } #editmenu:not([data-open]) { display: none; }
+  #editmenu .em-word { width: 150px; height: 50px; }
+</style>
+<body>
+<input id="f" value="hello world">
+<script src="../../viewer/hand.js"></script>
+<script>
+  // (what touch.js takes of the page: viewer/base.js)
+  window.MdPage = { T: (k) => k, esc: (s) => String(s), ICON: {}, DESKTOP: true, svg: () => "", motionMs: () => 70, post: (type, d) => ran.push(type + " " + (d.cmd || "")) };
+  window.ran = []; window.errors = []; addEventListener("error", (e) => errors.push(e.message));
+  if (/nohold/.test(location.search)) MdHand.heldPress = null; // (?nohold: the right click a held finger makes taken for a mouse's, as before 2026-11-09)
+  window.menus = 0; addEventListener("contextmenu", (e) => { if (!e.defaultPrevented) menus++; }); // (a contextmenu nobody took: the browser's own menu, or the page's text menu)
+</script>
+<script src="../../viewer/touch.js"></script>
+<script>
+  window.em = document.getElementById("editmenu");
+  window.words = () => [...em.querySelectorAll(".em-word")].map((b) => b.textContent);
+  // (put where the script taps it)
+  new MutationObserver(() => { if (em.hasAttribute("data-open")) { em.style.left = "300px"; em.style.top = "100px"; } }).observe(em, { attributes: true, attributeFilter: ["data-open"] });
+</script>
+</body>
+</html>

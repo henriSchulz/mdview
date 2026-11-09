@@ -1450,8 +1450,14 @@ counts — and has no writing help by a model.
   mac-cast — or on Windows): while the hand is a finger and the window is wide, the
   note in the active mode has the iPad's ways, the sidebar and the tabs staying as they are.
   Blocks chosen have the bar of tiles at the foot (Text Style, Format, Insert, Copy, Cut,
-  Duplicate, Actions, Delete) with its panels; a finger held on the note's text or on a block's
-  handle opens no menu; a finger on the handle lifts the block at once, a tap on it, or a hold
+  Duplicate, Actions, Delete) with its panels; a finger held on the note's text opens the edit
+  menu, as the iPad has it: one row of words over the finger (under it at the window's top) — Cut
+  and Copy when something is selected, Paste, Select All (the note's blocks, as wholes) —, the
+  text keeping its focus and selection; a word chosen blinks once and the menu fades, a tap
+  beside it shuts it and does nothing else. A field held (the find bar's, the sidebar's search,
+  the source editor) has the same menu, for its text. Held beside the text, on a code block, a
+  formula or a picture, or on blocks chosen (their bar has it), and on a block's
+  handle, a finger opens no menu; a finger on the handle lifts the block at once, a tap on it, or a hold
   let go in place, selects the block. The rail (insert, format, style, information) stays at the
   top right, where it is for a mouse too, and nothing in the window moves as the hand changes; a
   tile of Insert held a moment goes with the finger and is put where it is let go. A mouse's press,

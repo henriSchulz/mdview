@@ -502,5 +502,5 @@
     },
   });
 
-  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setAlign, setDeco, setCallout, setFold, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems };
+  A.context = { plugin, markActive, blockKind, toggle, toMath, run, setAlign, setDeco, setCallout, setFold, putBlock, island, PARAGRAPH, INSERT, textItems, nodeItems, clipboard };
 })();

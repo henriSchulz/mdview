@@ -92,3 +92,22 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 .menu-item.danger { color: var(--c-red); }
 .menu-item.hl .menu-key, .menu-item.danger.hl { color: var(--on-accent, #fff); }
 .menu-rule { height: 1px; margin: 5px 10px; background: var(--line); }
+/* the edit menu under a held finger (viewer/touch.js, iPadOS's): one row of words over the finger, hairlines between them, on the
+ * menus' material (.actmenu); sizes are Velum's surface.editMenu. It opens with no movement and fades as a menu closes. */
+#editmenu {
+  position: fixed; z-index: 63; display: flex; box-sizing: border-box; height: var(--v-edit-menu-height); padding: 0; overflow: hidden;
+  border-radius: var(--v-edit-menu-radius); user-select: none; -webkit-user-select: none;
+  opacity: 0; visibility: hidden;
+  transition: opacity calc(var(--v-menu-close-dur) * var(--v-exit)) var(--v-menu-close-ease), visibility 0s linear calc(var(--v-menu-close-dur) * var(--v-exit));
+}
+#editmenu[data-open] { opacity: 1; visibility: visible; transition: none; }
+#editmenu .em-word {
+  flex: none; height: 100%; margin: 0; padding: 0 var(--v-edit-menu-pad-x); border: 0; border-radius: 0; background: none; outline: 0;
+  color: inherit; font: inherit; font-size: var(--v-edit-menu-font); font-weight: var(--v-weight-medium); white-space: nowrap; cursor: default;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#editmenu .em-word + .em-word { border-left: var(--em-hair, 1px) solid var(--line); }
+#editmenu .em-word.hl { background: var(--accent); color: var(--on-accent); }
+#editmenu:not([data-open]) { pointer-events: none; }
+/* (while it is open, the formatting bar of a selection steps back: one menu over the text at a time) */
+body[data-editmenu] #fmtbar { visibility: hidden; opacity: 0; pointer-events: none; transition: none; }

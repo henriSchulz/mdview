@@ -1,6 +1,7 @@
 /* mdview, the page — what a finger has in the note, as the iPad has it (Craft's): no menu under a held finger, bars of tiles
  * at the foot instead, with panels rising from them; a tile of the Insert panel held and put into the note by the finger;
- * in All Notes a tile held is chosen, and the bar has what the file menu has for what is chosen.
+ * in All Notes a tile held is chosen, and the bar has what the file menu has for what is chosen; on text that can be edited a
+ * held finger has the edit menu, a row of words over it (Cut · Copy · Paste · Select All).
  * On an iPad always (`<html data-ipad>`: its own layout, viewer/tablet.js); in the application (and WebKitGTK, its web view)
  * while the hand is a finger (`<html data-finger>`: viewer/hand.js) — Henri, 2026-10-25: the application on Linux under the
  * tablet's fingers; not in a narrow window, which has the phone's layout. A mouse or a touchpad there, and the menus are
@@ -9,7 +10,7 @@
 (() => {
   const P = window.MdPage;
   const root = document.documentElement;
-  const { T, esc, ICON } = P; // viewer/base.js
+  const { T, esc, ICON, post, motionMs } = P; // viewer/base.js
   const body = document.body;
   const IPAD = root.hasAttribute("data-ipad");
   const wide = window.matchMedia ? matchMedia("(min-width: 761px) and (min-height: 600px)") : { matches: false, addEventListener() {} }; // (a phone, a narrow window: its own layout stays — viewer/narrow.css)
@@ -167,9 +168,115 @@
 
   // --- no menu under a held finger (Henri, 2026-10-20): what the menus had is in the bars. A secondary click (a trackpad) still has its menu.
   // (in the application, the note in the active mode and All Notes' tiles only: the sidebar and the tabs keep theirs — no bars there)
+  // Held on text that can be edited, the edit menu instead (below).
   let touched = false;
-  addEventListener("pointerdown", (e) => { touched = e.pointerType === "touch"; }, true);
-  addEventListener("contextmenu", (e) => { if (touched && on() && (IPAD || (e.target instanceof Element && e.target.closest("#active, .blk-h, #overview .ov-item")))) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  // (WebKitGTK's own right click for a held finger is the finger's, not a mouse's: viewer/hand.js)
+  addEventListener("pointerdown", (e) => { if (!(window.MdHand && MdHand.heldPress && MdHand.heldPress(e))) touched = e.pointerType === "touch"; }, true);
+  addEventListener("contextmenu", (e) => {
+    if (!touched || !on()) return;
+    const text = textAt(e.target, e.clientX, e.clientY);
+    if (text || IPAD || (e.target instanceof Element && e.target.closest("#active, .blk-h, #overview .ov-item"))) { e.preventDefault(); e.stopImmediatePropagation(); }
+    if (text) openEdit(text, e.clientX, e.clientY);
+  }, true);
+
+  /* --- the edit menu (iPadOS's): a finger held on text that can be edited — the note in the active mode, a field — has one row
+   * of words over it, Cut · Copy · Paste · Select All (Henri, 2026-11-09: the desktop's own, which opened wherever a field had the
+   * focus — the sidebar, the tiles, beside the note —, leaves the application alone: WebKitGTK names its caret too late for it).
+   * In the application while the hand is a finger (on an iPad, Safari has its own). Sizes: Velum's surface.editMenu
+   * (--v-edit-menu-*); the material is the menus' (.actmenu: the app's plate, Velum's glass in its look). It opens with no
+   * movement, as every menu; a word chosen blinks once, then the menu fades as a menu closes. The text keeps the focus and its
+   * selection; what a word does is what the app's own menus do there (active/context.js, viewer/menus.js). A tap beside it
+   * shuts it and does nothing else. */
+  const em = document.createElement("div");
+  em.id = "editmenu";
+  em.className = "surface actmenu";
+  em.setAttribute("role", "menu");
+  body.appendChild(em);
+  let emRun = [], emBusy = false, emSwallow = 0, emHeld = false;
+  const emOpen = () => em.hasAttribute("data-open");
+  // text under a held finger that can be edited: { view, pos } in the note (the active mode), { field } in a field — else null
+  function textAt(t, x, y) {
+    if (IPAD || !APP) return null;
+    if (t && t.nodeType !== 1) t = t.parentElement;
+    if (!(t instanceof Element) || t.closest("#editmenu, #board")) return null;
+    const field = t.closest("input, textarea");
+    if (field) return field.readOnly || field.disabled || (field.tagName === "INPUT" && !/^(text|search|url|email|tel|password|)$/.test(field.type)) ? null : { field };
+    const v = window.MdActive && MdActive.view && MdActive.view.pm;
+    if (!v || P.mode !== "active" || !v.editable || t === v.dom || t.closest(".pm") !== v.dom) return null;
+    if (v.dom.classList.contains("has-blocksel") || t.closest('.isl, .ia, .im, [contenteditable="false"]')) return null; // (blocks chosen have their bar; a code block, a formula, a picture are no text)
+    const at = v.posAtCoords({ left: x, top: y });
+    return at && v.state.doc.resolve(at.pos).parent.inlineContent ? { view: v, pos: at.pos } : null;
+  }
+  function openEdit(text, x, y) {
+    const rows = [];
+    if (text.view) {
+      const v = text.view, C = MdActive.context, { from, to } = v.state.selection;
+      // (held outside the selection: the caret goes there, as with the menu of a right click)
+      if (text.pos < from || text.pos > to) v.dispatch(v.state.tr.setSelection(PM.state.TextSelection.near(v.state.doc.resolve(text.pos))));
+      if (!v.state.selection.empty) rows.push(["menu.cut", () => C.clipboard(v, "cut")], ["menu.copy", () => C.clipboard(v, "copy")]);
+      rows.push(["menu.paste", () => { v.focus(); post("pasteclip"); }], ["menu.selectAll", () => MdActive.blocks.selectAll(v)]); // (the note's blocks, as wholes)
+    } else {
+      const f = text.field, edit = (cmd) => () => { if (document.activeElement !== f) f.focus({ preventScroll: true }); post("editcmd", { cmd }); };
+      let some = false;
+      try { some = document.activeElement === f && f.selectionStart !== f.selectionEnd && f.type !== "password"; } catch { /* (a field without a selection) */ }
+      if (some) rows.push(["menu.cut", edit("Cut")], ["menu.copy", edit("Copy")]);
+      rows.push(["menu.paste", edit("Paste")], ["menu.selectAll", edit("SelectAll")]);
+    }
+    emRun = rows.map((r) => r[1]);
+    em.innerHTML = rows.map(([key], i) => `<button type="button" class="em-word" role="menuitem" tabindex="-1" data-i="${i}">${esc(T(key))}</button>`).join("");
+    em.style.setProperty("--em-hair", 1 / (window.devicePixelRatio || 1) + "px"); // (a hairline is one pixel of the screen)
+    emBusy = false; emHeld = true;
+    em.setAttribute("data-open", "");
+    body.setAttribute("data-editmenu", ""); // (one menu over the text at a time: the formatting bar steps back meanwhile)
+    // over the finger, kept off the window's edges; under it where there is no room above
+    const cs = getComputedStyle(em), px = (name) => parseFloat(cs.getPropertyValue(name)) || 0;
+    const m = px("--v-edit-menu-margin"), lift = px("--v-edit-menu-lift"), w = em.offsetWidth, h = em.offsetHeight;
+    em.style.left = Math.round(Math.max(m, Math.min(innerWidth - m - w, x - w / 2))) + "px";
+    em.style.top = Math.round(y - lift - h >= m ? y - lift - h : Math.min(innerHeight - m - h, y + lift)) + "px";
+  }
+  function closeEdit() {
+    if (!emOpen()) return false;
+    em.removeAttribute("data-open");
+    body.removeAttribute("data-editmenu");
+    return true;
+  }
+  // a word: lit while pressed; chosen, it blinks once (off, on), then the menu goes and the word does its work
+  function chooseEdit(i) {
+    const b = em.querySelector(`[data-i="${i}"]`);
+    if (emBusy || !b || !emRun[i]) return;
+    emBusy = true;
+    const flash = motionMs("--flash-duration", 70);
+    for (const x of em.querySelectorAll(".hl")) x.classList.remove("hl");
+    setTimeout(() => b.classList.add("hl"), flash);
+    setTimeout(() => { closeEdit(); emRun[i](); }, flash * 2);
+  }
+  tapped(em, (e) => { const b = e.target.closest?.(".em-word"); if (b) chooseEdit(+b.dataset.i); });
+  em.addEventListener("pointerdown", (e) => { const b = e.target.closest(".em-word"); if (b && !emBusy) b.classList.add("hl"); });
+  for (const type of ["pointerup", "pointercancel", "pointerleave"]) em.addEventListener(type, () => { if (!emBusy) for (const x of em.querySelectorAll(".hl")) x.classList.remove("hl"); });
+  em.addEventListener("mousedown", (e) => e.preventDefault()); // (the focus, and with it the selection, stays where it is)
+  em.addEventListener("contextmenu", (e) => e.preventDefault());
+  // while it is open: a press beside it shuts it and does nothing else (a right button goes on to its own menu)
+  addEventListener("pointerdown", (e) => {
+    if (!emOpen() || em.contains(e.target) || (window.MdHand && MdHand.heldPress && MdHand.heldPress(e))) return;
+    closeEdit();
+    if (e.button > 0) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    emSwallow = performance.now();
+  }, true);
+  // (the finger that held lifts: what WebKitGTK makes of the lift is not a tap on the text)
+  addEventListener("pointerup", (e) => { if (emHeld && e.pointerType === "touch") { emHeld = false; if (emOpen()) emSwallow = performance.now(); } }, true);
+  for (const type of ["mousedown", "mouseup", "click"]) addEventListener(type, (e) => {
+    if (emSwallow && performance.now() - emSwallow < 600 && !em.contains(e.target)) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  addEventListener("keydown", (e) => {
+    if (!emOpen()) return;
+    closeEdit();
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); } // (any other key is the text's)
+  }, true);
+  for (const type of ["blur", "resize"]) addEventListener(type, closeEdit);
+  addEventListener("scroll", closeEdit, true);
+  addEventListener("wheel", closeEdit, { capture: true, passive: true });
+  new MutationObserver(() => closeEdit()).observe(body, { attributes: true, attributeFilter: ["data-view", "data-overview"] });
 
   // --- the Insert panel under a finger: a tile held a moment is lifted and goes with the finger; the note's line shows where it
   // goes (the panel's own: gapAt, showLine), the note scrolls along near its edges, and letting go puts it there — as a drag
@@ -353,5 +460,5 @@
   // (a mouse again: the tiles stay chosen, as a click chooses them; the bar goes — a right click has the menu)
   new MutationObserver(() => { if (!on() && picking()) unpick(false); }).observe(root, { attributes: true, attributeFilter: ["data-tiles"] });
 
-  P.tiles = { on, panel, fillBar, barClick, closePanel };
+  P.tiles = { on, panel, fillBar, barClick, closePanel, textAt, editMenu: { open: openEdit, close: closeEdit, isOpen: emOpen } };
 })();

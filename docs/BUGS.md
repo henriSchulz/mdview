@@ -729,6 +729,21 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     are added to a selection without the bar coming again (a swipe on one more). A check of it chooses
     by swipes, not by `MdActive.blocks.select` — that one hands the bar the whole selection at once.
 
+115. **The edit menu under a held finger is the application's own, and only over text that can be edited** (Henri,
+    2026-11-09: "the touch edit menu often opens in places where it shouldn't; it should only open in text fields").
+    The desktop's edit menu (Velum's henri.keyboard-v3) asked only whether some field had the focus — in mdview the note
+    nearly always has it, so a held finger on the sidebar, a tile or the margin opened it too; and the caret WebKit2GTK
+    4.1 tells the compositor comes one focus change late, so the desktop cannot ask where the text is. The desktop leaves
+    mdview alone (`dev.henri.MdView` in its ownMenu list); mdview opens the menu itself where the finger holds editable
+    text — the note's text in the active mode, a field — and nowhere else (viewer/touch.js `textAt`). WebKitGTK makes a
+    held finger a mouse's right click where it is (a right button pressed, then `contextmenu`): that press is the
+    finger's (`MdHand.heldPress`), or the page takes the hand for a mouse and the menu for a right click's. Its words run
+    what the app's own menus run there (active/context.js `clipboard`, `post("pasteclip")`, `A.blocks.selectAll`;
+    `editcmd` in a field), so undo and the selection are as after the keys. `rig.sh editmenu` (made-up fingers: on the
+    text and a field, its words, what they do, a tap beside it; nothing beside the text, on a code block, in the sidebar,
+    in the reading view; a mouse's right click keeps its menu; a picture in each look), `rig.sh gtktouch` (WebKitGTK's
+    own long press on a field, a word tapped).
+
 ### Releases and installs
 
 28. **The Windows installer is tried before it is released** (`windows-tried` in `build.yml`).

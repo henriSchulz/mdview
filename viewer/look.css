@@ -125,6 +125,8 @@
 :root[data-velum][data-look="velum"] :is(#ctxmenu, .actmenu) .menu-item { min-height: var(--v-menu-row); font-size: var(--v-menu-font); font-weight: var(--v-menu-weight); }
 :root[data-velum][data-look="velum"] :is(#ctxmenu, .actmenu) .menu-item.danger:not(.hl) { color: var(--v-menu-danger); }
 :root[data-velum][data-look="velum"] .menu-item.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+:root[data-velum][data-look="velum"] #editmenu .em-word { font-weight: var(--v-menu-weight); }
+:root[data-velum][data-look="velum"] #editmenu .em-word.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
 
 /* ---- the one primary action: the accent rising to its top */
 :root[data-velum][data-look="velum"] .btn.primary { background: linear-gradient(var(--v-accent-top), var(--v-accent-base)); color: var(--v-ink-on-accent); }
