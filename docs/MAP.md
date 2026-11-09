@@ -98,7 +98,7 @@ or the tests see the old ones.
 
 | File | What is in it |
 |---|---|
-| `velum.css` | Velum roles for the page: a copy of ~/Projects/velum/dist/css/velum.css (velum 994fb87), kept by … |
+| `velum.css` | Velum roles for the page: a copy of ~/Projects/velum/dist/css/velum.css (velum 0ae9b0f), kept by … |
 | `motion.css` | how the app moves, and the sizes its controls share: durations, curves, springs, corners. One place for them; |
 | `viewer/blocks.css` | tables, formulas and diagrams, callouts. |
 | `viewer/chrome.css` | what stands around the note: the toolbar, find, the outline, the toast, overlays. |
