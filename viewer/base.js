@@ -101,6 +101,39 @@
     history: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
     share: svg('<path d="M12 15V3.5M8 7l4-4 4 4"/><path d="M7.5 11H6a1.5 1.5 0 0 0-1.5 1.5v6A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-6A1.5 1.5 0 0 0 18 11h-1.5"/>'),
     spark: svg('<path d="M12 3l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 2.1a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-2.1a2 2 0 0 0 1.3-1.3Z"/>'),
+    // the rows of the menus (sign, below)
+    pastePlain: svg('<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M8.5 11.5h7M8.5 15.5h4.5"/>'),
+    select: svg('<rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 3.4"/>'),
+    link: svg('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>'),
+    zoom: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/>'),
+    resize: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
+    sizeS: svg('<rect x="8" y="8" width="8" height="8" rx="1.5"/>'),
+    sizeM: svg('<rect x="6" y="6" width="12" height="12" rx="2"/>'),
+    sizeL: svg('<rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/>'),
+    sizeFull: svg('<path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/>'),
+    turnLeft: svg('<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/>'),
+    turnRight: svg('<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>'),
+    crop: svg('<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>'),
+    caption: svg('<rect x="3.5" y="4" width="17" height="11" rx="2"/><path d="M7 19.5h10"/>'),
+    duplicate: svg('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2M14 11v6M11 14h6"/>'),
+    front: svg('<rect x="8" y="8" width="8" height="8" rx="2"/><path d="M10 4.5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h.5M14 19.5v.5a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-.5"/>'),
+    back: svg('<rect x="14" y="14" width="8" height="8" rx="2"/><rect x="2" y="2" width="8" height="8" rx="2"/><path d="M7 14v1a2 2 0 0 0 2 2h1M14 7h1a2 2 0 0 1 2 2v1"/>'),
+    group: svg('<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="7" height="5" rx="1"/><rect x="10" y="12" width="7" height="5" rx="1"/>'),
+    ungroup: svg('<rect x="4" y="4" width="9" height="6" rx="1"/><rect x="11" y="14" width="9" height="6" rx="1"/>'),
+    lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'),
+    unlock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-.9"/>'),
+    brush: svg('<path d="m14.5 9.5 5-5a2 2 0 0 1 2.8 2.8l-5 5M9 12.5a3 3 0 0 0-3 3c0 1.7-1 2.5-3 3.5 3 1.5 7 .5 8.5-1a3 3 0 0 0-2.5-5.5ZM10.5 11l3 3"/>'),
+    connect: svg('<circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="5.5" r="2.5"/><path d="m7.3 16.7 9.4-9.4"/>'),
+    chat: svg('<path d="M21 12a8.5 8.5 0 0 1-12.4 7.6L3.5 21l1.4-5A8.5 8.5 0 1 1 21 12Z"/>'),
+    pageBefore: svg('<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M12 2.5v5M9.5 5h5"/>'),
+    pageAfter: svg('<rect x="5" y="3" width="14" height="11" rx="2"/><path d="M12 16.5v5M9.5 19h5"/>'),
+    row: svg('<rect x="3" y="8" width="18" height="8" rx="2.5"/><path d="M7 12h6"/>'),
+    card: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 14h8M8 17h5"/>'),
+    widget: svg('<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M8 9h4M8 15h8"/>'),
+    rowAbove: svg('<rect x="3" y="12" width="18" height="8" rx="2"/><path d="M12 2.5v6M9 5.5h6"/>'),
+    rowBelow: svg('<rect x="3" y="4" width="18" height="8" rx="2"/><path d="M12 15.5v6M9 18.5h6"/>'),
+    colLeft: svg('<rect x="12" y="3" width="8" height="18" rx="2"/><path d="M2.5 12h6M5.5 9v6"/>'),
+    colRight: svg('<rect x="4" y="3" width="8" height="18" rx="2"/><path d="M15.5 12h6M18.5 9v6"/>'),
   };
   // The app's own signs — toolbar, sidebar, menus, the tiles — are SF Symbols where the machine has
   // that font (mdview.py says so: body[data-sf]): set as text, they are drawn with the text's
@@ -117,6 +150,23 @@
   };
   const ICON = !document.body.hasAttribute("data-sf") ? SVG_ICON
     : Object.fromEntries(Object.entries(SVG_ICON).map(([k, v]) => [k, SF[k] ? `<span class="sf" aria-hidden="true" data-g="${String.fromCodePoint(SF[k])}"></span>` : v]));
+  /* Every row of a menu has its sign (Henri: „überall icons rein“; a menu draws a column of signs once one row has one,
+   * docs/BUGS.md 113). A row names its sign by the key of its name (strings.js); the same entry has the same sign in
+   * every menu. The active mode adds the signs of what only the note's menus hold (active/menu.js). */
+  const SIGN = {
+    "menu.cut": "cut", "Cut": "cut", "menu.copy": "copy", "Copy": "copy", "menu.copyMarkdown": "copy", "menu.paste": "clip", "Paste": "clip",
+    "menu.pastePlain": "pastePlain", "menu.selectAll": "select", "Select All": "select",
+    "menu.openLink": "external", "Copy Link": "link", "Copy Image": "picture", "Go to PDF": "pdf", "menu.openPdf": "pdf",
+    "Show Large": "zoom", "menu.showLarge": "zoom", "menu.propsHide": "eyeOff", "menu.propsShow": "eye",
+    "menu.outlineHide": "eyeOff", "menu.outlineShow": "eye", "prefs.open": "gear",
+    "menu.delete": "trash", "ai.transform": "spark",
+    // a whiteboard's (board/select.js: context; board.js: pageRows)
+    "board.duplicate": "duplicate", "board.front": "front", "board.toBack": "back", "board.link": "connect",
+    "board.group": "group", "board.ungroup": "ungroup", "board.lock": "lock", "board.unlock": "unlock",
+    "board.copyStyle": "brush", "board.pasteStyle": "brush", "board.improve": "spark", "board.claude": "chat",
+    "board.delete": "trash", "board.page.before": "pageBefore", "board.page.after": "pageAfter", "board.page.delete": "trash",
+  };
+  const sign = (key) => ICON[SIGN[key]] || "";
   // Code in languages the bundle has under another name, or not at all. SystemVerilog is what
   // highlight.js calls verilog (its grammar has SystemVerilog's words). A filelist — the .f file
   // a simulator or a synthesis tool is handed: one source or option a line — is its own.
@@ -196,7 +246,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { NONCE, DESKTOP, FILEWORK, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
-    ICON, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, CALLOUT_BADGE, slugify,
+    ICON, SIGN, sign, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, CALLOUT_BADGE, slugify,
     inlineText, inSource });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({

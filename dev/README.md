@@ -34,6 +34,7 @@ jsdom, so they run against the parser exactly as the app configures it.
 | `tests/docmodes.test.mjs` | the document's style in every mode: the panel beside the source and the source with its reading, a ground and a width written into the source's head as an edit (the rest as it was, the caret kept, saved) |
 | `tests/update.test.mjs` | a newer version of the app: the notice (Restart to Update, Download, Later, What's new) and the settings' rows — there only where the shell says the install looks for one |
 | `tests/latest-json.test.mjs` | `packaging/latest-json.mjs`: latest.json for the app's updater from a release's signatures (fake ones), only what was released |
+| `tests/menusigns.test.mjs` | every row of every menu has its sign: the right click over text and the menus beside it, a thing's, a table's, the page's own, a whiteboard's names |
 | `tests/twin.test.mjs` | the fourth mode, the source beside its reading: its place in the switch, its keys, the right half following what is typed (layout and scrolling: `web/test/write.test.mjs`) |
 
 Without `corpus/` the spec and real-document tests are skipped. Notes that

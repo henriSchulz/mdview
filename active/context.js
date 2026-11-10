@@ -185,7 +185,7 @@
   };
 
   // ------------------------------------------------------------ the menu
-  const item = (key, runIt, more) => ({ label: T(key), run: runIt, ...more });
+  const item = (key, runIt, more) => ({ id: key, label: T(key), run: runIt, ...more }); // (id: its sign, active/menu.js)
   function clipboard(view, what) {
     view.focus();
     if (document.execCommand(what)) return;
@@ -214,13 +214,13 @@
     const file = fileBlockAt(state.selection.$from.parent);
     if (file) {
       const size = fileSizeOf(state.selection.$from.parent);
-      items.push({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => setFileSize(view, v), { checked: size === v })) });
+      items.push({ id: "dialog.size", label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => setFileSize(view, v), { checked: size === v })) });
     }
     // (a picture's file: "Show as Picture", the way back from "Show as File")
     if (file && EMBEDS.test(file.split(/[?#]/)[0])) items.push(item(PICTURE.test(file.split(/[?#]/)[0]) ? "menu.asPicture" : "menu.embedFile", () => embedFile(view)));
     else if (file && window.MdView.core.codeLang(file) != null) items.push(item("menu.embedCode", () => embedFile(view))); // (a file of text: as the code it is)
     items.push(item(link ? "menu.editLink" : "menu.link", () => { view.focus(); A.link.edit(view); }, { key: "Ctrl+K", disabled: !b.textblock }), null);
-    items.push({ label: T("menu.format"), disabled: !b.textblock, items: [
+    items.push({ id: "menu.format", label: T("menu.format"), disabled: !b.textblock, items: [
       item("menu.bold", () => toggle(view, "strong"), { key: "Ctrl+B", checked: markActive(state, M.strong) }),
       item("menu.italic", () => toggle(view, "em"), { key: "Ctrl+I", checked: markActive(state, M.em) }),
       item("menu.strike", () => toggle(view, "s"), { key: "Ctrl+Shift+X", checked: markActive(state, M.s) }),
@@ -229,13 +229,13 @@
       item("menu.math", () => toMath(view), { disabled: empty }),
     ] });
     if (!b.cell) {
-      items.push({ label: T("menu.paragraph"), items: [
+      items.push({ id: "menu.paragraph", label: T("menu.paragraph"), items: [
         para("text", "menu.text"),
         ...[1, 2, 3, 4, 5, 6].map((n) => item("menu.heading", go(PARAGRAPH["h" + n]), { label: T("menu.heading", n), checked: b.kind === "h" + n })),
         null,
         para("bullet", "menu.bullet"), para("ordered", "menu.ordered"), para("task", "menu.task"), para("quote", "menu.quote"),
       ] });
-      items.push({ label: T("menu.insert"), items: [
+      items.push({ id: "menu.insert", label: T("menu.insert"), items: [
         item("menu.codeBlock", () => INSERT.code(view)), item("menu.formula", () => INSERT.math(view)),
         item("menu.table", () => INSERT.table(view)), item("menu.rule", () => INSERT.rule(view)),
         item("menu.image", () => INSERT.image(view)),
@@ -246,16 +246,16 @@
       ] });
     } else {
       const cell = A.tableui.cellAt(state.selection.$from);
-      items.push(null, { label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { label: T("table.column"), items: A.tableui.colItems(view, cell) },
+      items.push(null, { id: "table.row", label: T("table.row"), items: A.tableui.rowItems(view, cell) }, { id: "table.column", label: T("table.column"), items: A.tableui.colItems(view, cell) },
         item("table.wide", () => A.tableui.wide(view, cell), { checked: !!cell.table.attrs.wide }),
-        { label: T("table.head"), items: A.tableui.headItems(view, cell) },
+        { id: "table.head", label: T("table.head"), items: A.tableui.headItems(view, cell) },
         ...A.tableui.captionItems(view, cell),
         item("table.delete", () => A.tableui.change(view, cell.tablePos, A.tableui.ops.remove()), { danger: true }));
     }
     // in a column: what can be done with the columns (the "/" menu's entries for them)
     if (A.columns.at(state)) {
       const group = A.slash.entries(view).find((e) => e && e.key === "slash.columns");
-      if (group) items.push(null, { label: T("slash.columns"), items: group.items.map((e) => e && { label: e.label || T(e.key, e.n), run: () => e.act(view), disabled: e.disabled, danger: e.danger }) });
+      if (group) items.push(null, { id: "slash.columns", label: T("slash.columns"), items: group.items.map((e) => e && { id: e.key, icon: e.icon, label: e.label || T(e.key, e.n), run: () => e.act(view), disabled: e.disabled, danger: e.danger }) });
     }
     items.push(null, item("prefs.open", () => A.prefs.open(), { key: "Ctrl+," }));
     return items;
@@ -306,8 +306,8 @@
           });
         }, { label: T("menu.pageRename") + "…" }),
         null,
-        { label: T("menu.pageStyle"), items: P.STYLES.map((s) => item("page.style." + s, set({ style: s }), { checked: look.style === s })) },
-        { label: T("slash.color"), items: [item("slash.colorDefault", set({ color: "" }), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, set({ color: c }), { checked: look.color === c }))] },
+        { id: "menu.pageStyle", label: T("menu.pageStyle"), items: P.STYLES.map((s) => item("page.style." + s, set({ style: s }), { checked: look.style === s })) },
+        { id: "slash.color", label: T("slash.color"), items: [item("slash.colorDefault", set({ color: "" }), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, set({ color: c }), { checked: look.color === c }))] },
         null,
         item("menu.cut", () => { copy(whole); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
         item("menu.copyMarkdown", () => { copy(whole); view.focus(); }, { key: "Ctrl+C" }),
@@ -316,7 +316,7 @@
       ];
     }
     // a link to a note: in the text, or a block of its own that looks as a page's line does — a row, a card
-    const L = P.link, linkStyle = (now, set) => ({ label: T("menu.pageStyle"), items: ["inline", ...L.STYLES].map((s) => item(s === "inline" ? "link.style.inline" : "page.style." + s, () => set(s), { checked: now === s })) });
+    const L = P.link, linkStyle = (now, set) => ({ id: "menu.pageStyle", label: T("menu.pageStyle"), items: ["inline", ...L.STYLES].map((s) => item(s === "inline" ? "link.style.inline" : "page.style." + s, () => set(s), { checked: now === s })) });
     if (node.type === N.island && L.isRow(raw)) {
       const inner = L.innerOf(raw), look = L.lookOf(raw), put = (md) => { A.islands.replace(view, pos, md); view.focus(); };
       return [
@@ -334,7 +334,7 @@
         }),
         null,
         linkStyle(look.style, (s) => put(s === "inline" ? `[[${inner}]]` : L.mark(inner, { ...look, style: s }))),
-        { label: T("slash.color"), items: [item("slash.colorDefault", () => put(L.mark(inner, { ...look, color: "" })), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, () => put(L.mark(inner, { ...look, color: c })), { checked: look.color === c }))] },
+        { id: "slash.color", label: T("slash.color"), items: [item("slash.colorDefault", () => put(L.mark(inner, { ...look, color: "" })), { checked: !look.color }), ...window.MdView.core.DECO_COLORS.map((c) => item("color." + c, () => put(L.mark(inner, { ...look, color: c })), { checked: look.color === c }))] },
         null,
         item("menu.cut", () => { copy(raw); view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize)); view.focus(); }, { key: "Ctrl+X" }),
         item("menu.copyMarkdown", () => { copy(raw); view.focus(); }, { key: "Ctrl+C" }),
@@ -344,7 +344,7 @@
     }
     const wiki = node.type === N.iatom && node.attrs.kind === "wikilink";
     // a diagram or a drawing (a fence of Mermaid or SVG): large, as a picture is by a double click
-    const sizes = (now, set) => ({ label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => set(v), { checked: now === v })) });
+    const sizes = (now, set) => ({ id: "dialog.size", label: T("dialog.size"), items: [["small", "file.small"], ["", "file.medium"], ["large", "file.large"]].map(([v, key]) => item(key, () => set(v), { checked: now === v })) });
     const cap = editable ? A.islands.caption(view, pos, node) : null; // a picture, a code block, a formula: a caption under it
     const fc = editable ? A.islands.fileCode(view, pos, node) : null; // a file shown as code: put away like a code block, its card as large
     const dom = node.type === N.island ? view.nodeDOM(pos) : null, figure = dom && dom.querySelector ? window.MdView.core.zoomFigureAt(dom.querySelector(".mermaid-block > svg, .svg-block > svg")) : null;
@@ -355,7 +355,7 @@
       // a whiteboard: drawn clean by Claude (the desktop application runs the claude command; a browser has none)
       ...(editable && node.type === N.island && /\.board\.svg/i.test(String(raw)) && window.MdView.core.ai.on() ? [item("menu.boardGraphic", () => INSERT.boardGraphic(view, pos, node))] : []),
       ...(wiki ? [linkStyle("inline", (s) => { if (s !== "inline") linkBlock(view, pos, node, s); })] : []),
-      ...(pic ? [null, { label: T("dialog.size"), items: pic.sizes.map(([v, label]) => item("dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
+      ...(pic ? [null, { id: "dialog.size", label: T("dialog.size"), items: pic.sizes.map(([v, label, key]) => item(key || "dialog.size", () => pic.setSize(v), { label, checked: v === pic.size })) },
         ...(pic.turnBy ? [item("menu.turnLeft", () => pic.turnBy(-90)), item("menu.turnRight", () => pic.turnBy(90))] : []),
         ...(pic.pdf ? [item("dialog.adjust", () => A.islands.adjust(view, pos), { label: T("dialog.adjust") + "…" })] : []),
         ...(pic.target ? [item("menu.openPdf", () => post("wikilink", { target: pic.target, tab: "own" }), { key: "Ctrl+Click" })] : [])] : []),

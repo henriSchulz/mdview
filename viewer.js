@@ -342,7 +342,7 @@
       rename: (raw, name) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark(pageLook(m[1]), pageName(name) || m[2], m[3]) : raw; }, titleOf: (raw) => (PAGE_ROW.exec(String(raw || "").trim()) || [])[2] || "",
       withLook: (raw, look) => { const m = PAGE_ROW.exec(String(raw || "").trim()); return m ? pageMark({ ...pageLook(m[1]), ...look }, m[2], m[3]) : raw; },
       // … and the page as it stands in the file, for the clipboard
-      markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && P.pagesShown && P.pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++P.pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, DECO_COLORS, callout: { kind: calloutKind,
+      markdownOf: (raw) => { const m = PAGE_ROW.exec(String(raw || "").trim()), page = m && P.pagesShown && P.pagesShown.byId.get(m[3]); return page ? pageLines(page).join("\n").replace(/\r/g, "") : m ? pageMark(pageLook(m[1]), m[2]) + "\n\n<!-- /page -->" : String(raw || ""); }, fresh: () => "x" + ++P.pageFresh, open: (id) => pageOpen(id) }, isExternal, slugify, inlineText, esc, ICON: SVG_ICON, UI: ICON, SIGN: P.SIGN, sign: P.sign, DECO_COLORS, callout: { kind: calloutKind,
         title: calloutTitle, icon: CALLOUT_ICON, badge: CALLOUT_BADGE }, keys, follow, tex, mermaidSvg, toast,
       copy: (text) => post("copy", { text }), menuAt: (x, y, rows) => P.menuAt(x, y, rows), post, touching, byFinger, mdHtml, mdInto, drawDiagrams, fenceSvg, noteText,
       // (the folder's notes, for what the chat may be given to read: { path, name, dir })

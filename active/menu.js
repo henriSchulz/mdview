@@ -7,6 +7,35 @@
 (() => {
   const A = window.MdActive;
   const { ICON, keys: signs } = window.MdView.core;
+  /* Each row's sign (Henri: „überall icons rein“): its own (icon), else the one of its id — the name's key in strings.js,
+   * the same entry with the same sign in every menu. Here what only the note's menus hold; the rest is the page's
+   * (viewer/base.js: SIGN). A menu draws a column of signs once one row has one, so every row needs its own (BUGS.md 113). */
+  let SIGNS = null;
+  function signTable() {
+    const core = window.MdView.core, UI = core.UI, I = A.slash.icons, size = { small: UI.sizeS, medium: UI.sizeM, large: UI.sizeL };
+    return {
+      ...Object.fromEntries(core.DECO_COLORS.map((c) => ["color." + c, I.dot(c)])),
+      "menu.link": UI.link, "menu.editLink": UI.link, "menu.asPicture": UI.picture, "menu.embedFile": I.image, "menu.embedCode": I.codeBlock,
+      "dialog.size": UI.resize, "file.small": size.small, "file.medium": size.medium, "file.large": size.large,
+      "size.auto": UI.picture, "size.small": size.small, "size.medium": size.medium, "size.large": size.large, "size.full": UI.sizeFull,
+      "menu.format": I.style, "menu.bold": I.format, "menu.italic": I.italic, "menu.strike": I.strike, "menu.code": I.code, "menu.math": I.formula,
+      "menu.paragraph": I.text, "menu.text": I.text, "menu.heading": I.heading, "menu.bullet": I.list, "menu.ordered": I.ordered, "menu.task": I.task, "menu.quote": I.quote,
+      "menu.insert": UI.plus, "menu.codeBlock": I.codeBlock, "menu.formula": I.formula, "menu.table": I.table, "menu.rule": I.rule, "menu.image": I.image,
+      "menu.file": UI.file, "menu.graphic": I.graphic, "menu.board": I.board, "menu.footnote": I.footnote, "slash.columns": I.columns,
+      "menu.pageOpen": UI.note, "menu.noteOpen": UI.note, "menu.pageRename": UI.rename, "menu.edit": UI.pencil, "menu.propsEdit": UI.pencil,
+      "menu.pageStyle": I.block, "page.style.row": UI.row, "page.style.card": UI.card, "page.style.sheet": UI.file, "page.style.preview": UI.picture,
+      "page.style.widget": UI.widget, "link.style.inline": I.text, "slash.color": I.color, "slash.colorDefault": I.noColor,
+      "menu.boardGraphic": I.graphic, "menu.turnLeft": UI.turnLeft, "menu.turnRight": UI.turnRight, "dialog.adjust": UI.crop,
+      "menu.caption.add": UI.caption, "menu.caption.remove": UI.caption, "menu.asFile": UI.file, "menu.hideCode": UI.eyeOff, "menu.delete": I.remove,
+      // a table's
+      "table.row": I.row, "table.column": I.column, "table.wide": I.wide, "table.head": I.color, "table.head.none": I.noColor, "table.head.own": UI.palette,
+      "table.caption.edit": UI.caption, "table.delete": I.remove, "table.rowAbove": UI.rowAbove, "table.rowBelow": UI.rowBelow,
+      "table.rowUp": I.moveUp, "table.rowDown": I.moveDown, "table.rowDelete": I.remove, "table.colLeft": UI.colLeft, "table.colRight": UI.colRight,
+      "table.colMoveLeft": I.left, "table.colMoveRight": I.right, "table.align.left": I.alignL, "table.align.center": I.alignC, "table.align.right": I.alignR,
+      "table.colDelete": I.remove,
+    };
+  }
+  const signOf = (item) => item.icon || (SIGNS || (SIGNS = signTable()))[item.id] || window.MdView.core.sign(item.id);
   /* How long the pointer has to rest on something before what belongs to it shows (a block's
    * handle, a table's handles, the grip between columns): the central time for small changes.
    * Moved across the text in passing, the pointer sets nothing off. */
@@ -76,7 +105,7 @@
       }
       p.el.appendChild(row);
     }
-    const icons = items.some((item) => item && item.icon);
+    const icons = items.some((item) => item && signOf(item));
     if (!items.length) { const none = document.createElement("div"); none.className = "menu-empty"; none.textContent = window.MdStrings.t("menu.none"); p.el.appendChild(none); }
     for (const item of items) {
       if (!item) { const rule = document.createElement("div"); rule.className = "menu-rule"; p.el.appendChild(rule); continue; }
@@ -89,7 +118,7 @@
       // as a macOS menu: the tick in a column before the label, the shortcut (or the arrow to a menu beside it) behind
       const part = (cls, html) => { const el = document.createElement("span"); el.className = cls; if (html) el.innerHTML = html; return b.appendChild(el); };
       part("menu-check", ICON.check);
-      if (icons) part("menu-icon", item.icon || ""); // (a column: the names stand in one line)
+      if (icons) part("menu-icon", signOf(item)); // (a column: the names stand in one line)
       part("menu-label").textContent = item.label;
       if (item.key) part("menu-key").textContent = signs(item.key);
       if (item.items) part("menu-more", ICON.chevron);
@@ -110,7 +139,7 @@
     p.el.dataset.open = "";
   }
   /* items: { label, key, danger, disabled, checked, run } or { label, items } for a menu beside it,
-   * or null for a rule; icon: a sign before the name. closed: called when the menu goes without a choice.
+   * or null for a rule; id: the name's key in strings.js, which gives its sign; icon: a sign of its own. closed: called when the menu goes without a choice.
    * typing: the document keeps the typing, the menu only the keys it is moved by.
    * steady: no taller than a few entries, and as tall as it opens whatever it is filled with later
    * (a menu filtered while one types does not jump under the eyes).
@@ -268,5 +297,5 @@
     root.el.style.left = Math.max(8, Math.min(parseFloat(root.el.style.left), innerWidth - root.el.offsetWidth - 8)) + "px";
     if (root.above != null) root.el.style.top = root.above - root.el.offsetHeight + "px"; // it stays on the line it stands on
   }
-  A.menu = { open, close, refill, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
+  A.menu = { open, close, refill, signOf, el: root.el, sub: sub.el, get isOpen() { return isOpen(); }, get panel() { return !isOpen() ? null : keys === sub && isOpen(sub) ? "sub" : "root"; } };
 })();

@@ -968,8 +968,8 @@
     if (S.view.y > last.y + last.h) S.view.fit(B.pdf.boxOf(last), 64, S.view.z); // (the last page was taken out under the view: the one before it)
   }
   /* The rows a right click on page i adds to the board's menu. */
-  const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), ""], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), ""],
-    null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger"]];
+  const pageRows = (i) => S.readonly ? [] : [[esc(T("board.page.before")), "", true, () => pageIn(i), "", core.sign("board.page.before")], [esc(T("board.page.after")), "", true, () => pageIn(i + 1), "", core.sign("board.page.after")],
+    null, [esc(T("board.page.delete")), "", S.model.board.paper.n > 1, () => pageGone(i), "danger", core.sign("board.page.delete")]];
   const nameOf = (ref) => { const n = String(ref || "").split("/").pop().replace(/\.board\.svg$/i, ""); return /^board-/.test(n) ? "" : n; }; // (one a note keeps is named board-…: no name to show)
 
   /* A whiteboard or a notebook that is a file of its own is named on the board, in its menu (Henri, 2026-11-04:

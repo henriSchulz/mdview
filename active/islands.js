@@ -636,7 +636,8 @@
    * column. Written as Obsidian writes a width — ![[tree.png|400]], ![a tree|400](tree.png) — and
    * |full for the column's width. */
   const SIZES = [["", "size.auto"], ["240", "size.small"], ["400", "size.medium"], ["640", "size.large"], ["full", "size.full"]];
-  const sizeOptions = (now) => [...SIZES.map(([v, k]) => [v, T(k)]), ...(now && !SIZES.some(([v]) => v === now) ? [[now, /^\d+$/.test(now) ? now + " px" : now]] : [])];
+  const sizeOptions = (now) => [...SIZES.map(([v, k]) => [v, T(k), k]), // ([value, name, the name's key: its sign in a menu])
+    ...(now && !SIZES.some(([v]) => v === now) ? [[now, /^\d+$/.test(now) ? now + " px" : now]] : [])];
   // what is written is one picture or one embed of a picture or a PDF: [before, size, after] of its size
   const WIKI_PIC = /^(\s*!\[\[[^\]|]+\.(?:png|jpe?g|gif|webp|svg|avif|bmp|pdf)(?:#[^\]|]*)?)(?:\|([^\]]*))?(\]\]\s*)$/i, MD_PIC = /^(\s*!\[[^\]]*?)((?:\|(?:r(?:90|180|270)|\d+|full))*)(\]\([^)]*\)\s*)$/i;
   /* … and how it is turned, by quarters, written before the size: ![[tree.png|r90|400]] (viewer/markdown.js: picTail). What is

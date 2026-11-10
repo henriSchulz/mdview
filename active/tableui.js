@@ -132,7 +132,7 @@
   }
 
   // ------------------------------------------------------------ menu
-  const item = (key, run, more) => ({ label: T(key), run, ...more });
+  const item = (key, run, more) => ({ id: key, label: T(key), run, ...more }); // (id: its sign, active/menu.js)
   // the table as wide as the text column, or as wide as what it holds
   const wide = (view, cell) => {
     view.dispatch(view.state.tr.setNodeMarkup(cell.tablePos, null, { ...cell.table.attrs, wide: !cell.table.attrs.wide }).setMeta("step", true));
@@ -191,11 +191,11 @@
   function tableItems(view, cell) {
     return [
       item("table.wide", () => wide(view, cell), { checked: !!cell.table.attrs.wide }),
-      { label: T("table.head"), items: headItems(view, cell) },
+      { id: "table.head", label: T("table.head"), items: headItems(view, cell) },
       ...captionItems(view, cell),
       null,
-      { label: T("table.row"), items: rowItems(view, cell) },
-      { label: T("table.column"), items: colItems(view, cell) },
+      { id: "table.row", label: T("table.row"), items: rowItems(view, cell) },
+      { id: "table.column", label: T("table.column"), items: colItems(view, cell) },
       null,
       item("table.delete", () => change(view, cell.tablePos, ops.remove()), { danger: true }),
     ];

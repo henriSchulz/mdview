@@ -887,7 +887,7 @@
       const it = under(p.x, p.y) || shellAt(p.x, p.y);
       if (it && !st.pick.includes(it)) pick([it]);
       else if (!it && !(st.pick.length && inBox(p))) pick([]);
-      const pk = st.pick, free = !locked(), things = pk.filter((i) => i.k !== "ink"), grouped = pk.some((i) => i.group), row = (name, keys, on, f, cls = "") => [esc(T(name)), keys, on, f, cls];
+      const pk = st.pick, free = !locked(), things = pk.filter((i) => i.k !== "ink"), grouped = pk.some((i) => i.group), row = (name, keys, on, f, cls = "") => [esc(T(name)), keys, on, f, cls, window.MdView.core.sign(name)];
       const claude = ctx.claude && ctx.claude.on() ? [null, ...(st.pick.some((i) => i.k === "ink") ? [row("board.improve", "", !ctx.improve.job, () => ctx.improve.go())] : []), row("board.claude", "", true, () => ctx.claude.open(null, pt))] : [];
       if (!pk.length) return [row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), null, row("menu.selectAll", "Ctrl+A", st.model.items.some((i) => !i.foreign), () => ctx.all()), ...claude];
       const rows = [row("menu.cut", "Ctrl+X", free, () => copy(true)), row("menu.copy", "Ctrl+C", true, () => copy(false)), row("menu.paste", "Ctrl+V", ctx.canPaste(), () => ctx.paste()), row("board.duplicate", "Ctrl+D", true, duplicate)];

@@ -3,7 +3,7 @@
 "use strict";
 (() => {
   const P = window.MdPage;
-  const { post, T, esc, motionMs, keys, ICON } = P; // viewer/base.js
+  const { post, T, esc, motionMs, keys, ICON, sign } = P; // viewer/base.js
   const { zoomFigure, zoomFigureAt } = P; // viewer/modes.js
   const { sbList, sbTitlesBtn, ctx, subOpen, openSub, closeSub, setCtxHl, runCtx } = P; // viewer/sidebar.js
 
@@ -173,38 +173,39 @@
     const href = link && !link.getAttribute("href").startsWith("#") ? link.href : null;
     const edit = (cmd) => () => post("editcmd", { cmd });
     const rows = [];
-    if (editable) rows.push([T("Cut"), "Ctrl+X", selected, edit("Cut")]);
-    rows.push([T("Copy"), "Ctrl+C", selected, edit("Copy")]);
-    if (editable) rows.push([T("Paste"), "Ctrl+V", true, edit("Paste")]);
-    if (pdf) rows.push([T("Go to PDF"), "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" })], null);
+    if (editable) rows.push([T("Cut"), "Ctrl+X", selected, edit("Cut"), "", sign("Cut")]);
+    rows.push([T("Copy"), "Ctrl+C", selected, edit("Copy"), "", sign("Copy")]);
+    if (editable) rows.push([T("Paste"), "Ctrl+V", true, edit("Paste"), "", sign("Paste")]);
+    if (pdf) rows.push([T("Go to PDF"), "", true, () => post("wikilink", { target: pdf.dataset.wiki, tab: "own" }), "", sign("Go to PDF")], null);
     const fig = img || field || t.closest(".pm") ? null : zoomFigureAt(t);
-    if (fig) rows.push([T("Show Large"), "", true, () => zoomFigure(fig)], null);
+    if (fig) rows.push([T("Show Large"), "", true, () => zoomFigure(fig), "", sign("Show Large")], null);
     if (href || (img && img.src)) rows.push(null);
-    if (href) rows.push([T("Copy Link"), "", true, () => post("copy", { text: href })]);
-    if (img && img.src) rows.push([T("Copy Image"), "", true, () => post("copyimage", { src: img.src })]);
+    if (href) rows.push([T("Copy Link"), "", true, () => post("copy", { text: href }), "", sign("Copy Link")]);
+    if (img && img.src) rows.push([T("Copy Image"), "", true, () => post("copyimage", { src: img.src }), "", sign("Copy Image")]);
     rows.push(null);
     // (in the active mode, beside the text or on it: the note's blocks as wholes, not its text — a field's text stays text)
     const blocks = !field && P.mode === "active" && window.MdActive && MdActive.view.pm && MdActive.blocks && (t.closest(".pm") || !t.closest("#sidebar, #overview, #tabs, #rpanel, #dlg, #settings, #history, #share, #ai-chat"));
-    rows.push([T("Select All"), "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll")]);
+    rows.push([T("Select All"), "Ctrl+A", true, blocks ? () => MdActive.blocks.selectAll(MdActive.view.pm) : edit("SelectAll"), "", sign("Select All")]);
     // a note with properties, clicked beside its text: they are put away, or shown again (for every note)
     if (!field && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share") && document.querySelector('#content details.props, #active .isl[data-kind="frontmatter"]')) {
       const shown = window.MdPrefs?.props !== false;
-      rows.push(null, [window.MdStrings.t(shown ? "menu.propsHide" : "menu.propsShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), props: !shown }; post("prefs", { prefs: { props: !shown } }); P.prefsChanged(); }]);
+      rows.push(null, [window.MdStrings.t(shown ? "menu.propsHide" : "menu.propsShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), props: !shown }; post("prefs", { prefs: { props: !shown } }); P.prefsChanged(); }, "", sign(shown ? "menu.propsHide" : "menu.propsShow")]);
     }
     // beside the note, where the look has its outline at the right: put away, or shown again (for every note)
     if (!field && !href && !img && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share, #dlg, #settings") && P.railList().length) {
       const shown = window.MdPrefs?.outline !== false;
-      rows.push(null, [window.MdStrings.t(shown ? "menu.outlineHide" : "menu.outlineShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), outline: !shown }; post("prefs", { prefs: { outline: !shown } }); P.prefsChanged(); }]);
+      rows.push(null, [window.MdStrings.t(shown ? "menu.outlineHide" : "menu.outlineShow"), "", true, () => { window.MdPrefs = { ...(window.MdPrefs || {}), outline: !shown }; post("prefs", { prefs: { outline: !shown } }); P.prefsChanged(); }, "", sign(shown ? "menu.outlineHide" : "menu.outlineShow")]);
     }
     // beside the note's text (not in a field, not on a link or a picture): the settings, as from the gear
-    if (!field && !href && !img && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share, #dlg, #settings")) rows.push(null, [window.MdStrings.t("prefs.open"), "Ctrl+,", true, () => P.openSettings()]);
+    if (!field && !href && !img && !t.closest("#sidebar, #overview, #tabs, .ui-menu, #share, #dlg, #settings")) rows.push(null, [window.MdStrings.t("prefs.open"), "Ctrl+,", true, () => P.openSettings(), "", sign("prefs.open")]);
     menuAt(e.clientX, e.clientY, rows);
   });
   /* The same menu for another part of the page (a whiteboard's right click): rows of [name, keys, whether it can be chosen
-   * now, what it does, a class of its own ("danger")], null for a rule; at a point of the window. */
+   * now, what it does, a class of its own ("danger"), its sign], null for a rule; at a point of the window. */
   function menuAt(x, y, rows) {
     tDo = {};
-    tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item${r[4] ? " " + r[4] : ""}" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}><span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
+    const icons = rows.some((r) => r && r[5]); // (a column: the names stand in one line)
+    tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item${r[4] ? " " + r[4] : ""}" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}>${icons ? `<span class="menu-icon">${r[5] || ""}</span>` : ""}<span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");
     rows.forEach((r, i) => { if (r) tDo[i] = r[3]; });
     tItems = [...tmenu.querySelectorAll(".menu-item")];
     tSetHl(-1);

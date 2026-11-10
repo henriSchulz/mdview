@@ -96,6 +96,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     and set its own rows (Transform with AI, Cut, Copy, Paste, Duplicate, Delete) without one: the menu draws a column
     of signs once one row has one, and those stood there as empty boxes. A row put beside rows of another menu brings
     its sign (`active/blocks.js: menuItems`). `dev/tests/blockkeys.test.mjs` (every row has its sign).
+117. **Every menu has a sign in every row, and an entry has the same sign wherever it stands** (Henri, 2026-11-10, on the
+    right click over text: „warum fehlen hier überall icons?“ — „ja, überall icons rein“). The menu of a right click over
+    text had no sign at all, beside the menu of selected blocks with signs for the same entries. A row names its sign by
+    the key of its name in `strings.js` — `id` in the note's menus (`active/menu.js: signOf`, its own table and then the
+    page's), the sixth place of a row in `menuAt` (`viewer/menus.js`: the reading view's, a field's, a whiteboard's) —
+    and the key's sign is written once (`viewer/base.js: SIGN`). A new entry gets its key a sign there, or its own
+    `icon`. `dev/tests/menusigns.test.mjs` (the right click over text and its menus beside it, a thing's, a table's,
+    the page's, a whiteboard's names, the bar's styles).
 
 ### What is drawn while something is coming in
 

@@ -945,7 +945,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   chooses. Typing a letter takes the bar away (the entries are then what is found), deleting it brings it back.
 - **Formatting bar** over a selection: bold, italic, strikethrough, code, link, formula, paragraph style.
 - **Context menu** (right click): cut, copy, paste, paste and match style, add link, format,
-  paragraph, insert, settings.
+  paragraph, insert, settings — each row with its sign, as in every menu of the app (the same entry, the
+  same sign).
 - **Blocks as wholes**: a handle beside each block selects and drags it; `Esc` takes the block the
   caret is in. On selected blocks: arrows move among them, `Alt+↑/↓` moves them, `Ctrl+D` duplicates,
   `Space` adds an empty block below, `Backspace` deletes, `Tab` and `Shift+Tab` stand them
