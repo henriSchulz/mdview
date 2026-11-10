@@ -13,6 +13,7 @@
 #   dev/rig.sh islands               dialogs for code, formulas, properties, raw Markdown; popovers (on a copy)
 #   dev/rig.sh m4                    tables, footnotes, paste and copy (on a copy)
 #   dev/rig.sh m5                    context menu, formatting bar, undo and caret across modes, closing question, start mode
+#   dev/rig.sh rightsel              a right click on text selected with a real pointer: it stays text, the menu is the text's
 #   dev/rig.sh perf FILE…            the spec's performance figures, measured (on a copy)
 #   dev/rig.sh graphic [real]        a figure drawn by Claude: dialog, draw, change, reference, insert
 #   dev/rig.sh ghostmath             a continuation that closes a formula: taken, it is one
@@ -763,6 +764,21 @@ PY
     pkill -f "^$APP" 2>/dev/null
     [[ -f $R/out/$name.dragreal.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
     ! jq -r '.steps[], (.error // empty)' "$R/out/$name.dragreal.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
+  rightsel)
+    # a right click on text selected with a real pointer (dev/vptr): the text stays selected as text, the menu is the text's
+    V="$R/vptr"; [[ -x $V && $V -nt $D/vptr/vptr.c ]] || { (cd "$D/vptr" && wayland-scanner client-header wlr-virtual-pointer-unstable-v1.xml "$R/vp.h" && wayland-scanner private-code wlr-virtual-pointer-unstable-v1.xml "$R/vp.c" && cc -O1 -I"$R" -o "$V" vptr.c "$R/vp.c" $(pkg-config --cflags --libs wayland-client)) || { echo "vptr not built"; exit 1; }; }
+    name=rightsel.md; rm -rf "$R/work"; mkdir -p "$R/work"; { printf '# Right\n\n'; for i in $(seq 12); do printf 'Filler paragraph %s with some words in it.\n\n' "$i"; done; } > "$R/work/$name"; rm -f "$R/out/$name".plan*.json "$R/out/$name".rightsel.json
+    app 90 MDVIEW_PROBE="$D/probe-rightsel.js" MDVIEW_PROBE_OUT="$R/out" -- "$R/work/$name"
+    read -r MW MH < <(hyprctl -i "$(sig)" monitors -j | jq -r '.[0] | "\(.width) \(.height)"')
+    n=1
+    for _ in $(seq 900); do
+      [[ -f $R/out/$name.rightsel.json ]] && break
+      if [[ -f $R/out/$name.plan$n.json ]]; then sleep 0.15; read -r -a cmd < <(jq -r '.cmd' "$R/out/$name.plan$n.json"); WAYLAND_DISPLAY="$(wl)" "$V" "$MW" "$MH" "${cmd[@]}"; n=$((n + 1)); else sleep 0.1; fi
+    done
+    shot "$R/out/rightsel.png"
+    pkill -f "^$APP" 2>/dev/null
+    [[ -f $R/out/$name.rightsel.json ]] || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    ! jq -r '.steps[], (.error // empty)' "$R/out/$name.rightsel.json" | tee /dev/stderr | grep -q '^FAIL\|Error' ;;
   colwidth)
     V="$R/vptr"; [[ -x $V ]] || { echo "run rig.sh railfav or dragreal once (it builds vptr)"; exit 1; }
     rm -rf "$R/work"; mkdir -p "$R/work"; rm -f "$R/out"/*.plan*.json "$R/out"/*.colwidth.json

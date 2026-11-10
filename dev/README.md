@@ -65,6 +65,7 @@ every check.
 ./rig.sh fingerstill                                    # a finger's press moves nothing in the window, in Velum Refined and the app's own look; the rail's panel opens
 ./rig.sh touchmode                                      # the desktop's tablet mode (MDVIEW_TOUCH=1): finger sizes, the chosen tab's cross, sidebar from the left edge, two fingers for back/forward
 ./rig.sh gtktouch                                       # fingers on a touch screen in WebKitGTK itself (dev/gtktouch): no mouse made up after a tap, two fingers the page's, a bar of tiles answers a tap, a field held has the edit menu
+./rig.sh rightsel                                       # a right click on text selected with a real pointer (pulled, a double and a triple click): it stays text, the menu is the text's
 ./rig.sh editmenu                                       # the edit menu under a held finger: on the note's text and a field only, its words and what they do (EDITMENU_SHOTS=dir: its pictures, each look dark and light)
 ./rig.sh boardperf                                      # a whiteboard written full: a pen's lag, frames while drawing, moving, zooming
 ./rig.sh update                                         # a newer version: the notice and the settings (a .deb told by a latest.json of the rig's own), offline, a checkout's build that is never told
