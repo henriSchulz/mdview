@@ -1,0 +1,1014 @@
+<!doctype html>
+<html lang="en" data-velum="opal" data-appearance="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search Lab</title>
+<link rel="stylesheet" href="../velum.css">
+<link rel="stylesheet" href="../vendor/katex/katex.min.css">
+<script src="../vendor/katex/katex.min.js"></script>
+<style>
+  /* A search over all notes, for the desktop: six proposals. Each finds whole notes (a note matches when its name or its
+   * text has every word) and single blocks (a heading, a paragraph, a list item, a task, code, a formula, a callout that
+   * has every word itself). They differ in where the search lives and how a result looks. The notes are made up; nothing
+   * is written. Roles only (--v-*) in the mock window; literal values only for the lab's bar and the wallpaper.
+   * Keys: 1–6 proposal (Alt+1–6 in a field), D appearance, Ctrl+K search, Tab Notes/Blocks, ↑ ↓ Enter, Esc. Not shipped. */
+  html, body { margin: 0; height: 100%; }
+  * { box-sizing: border-box; }
+  body { display: flex; flex-direction: column; font-family: var(--v-font-sans); font-size: var(--v-type-body); color: var(--v-ink-primary); background: var(--v-bg-window); -webkit-font-smoothing: antialiased; }
+  .sf { display: inline-grid; place-items: center; flex: none; width: 20px; font: 400 15px/1 ".SF Symbols Fallback"; font-style: normal; }
+  .sf::before { content: attr(data-g); }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; }
+  input { font: inherit; color: inherit; }
+
+  /* ---------------------------------------------------------------- lab chrome (literal values allowed) */
+  #bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 20px 4px; }
+  #bar h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  #bar h1 small { margin-left: 8px; font-weight: 400; color: var(--v-ink-tertiary); }
+  #bar .grp { display: inline-flex; align-items: center; gap: 4px; color: var(--v-ink-secondary); font-size: 11px; }
+  #bar .grp > span { margin-right: 4px; }
+  #bar button { padding: 3px 9px; border-radius: 6px; background: var(--v-fill-field); color: var(--v-ink-secondary); box-shadow: 0 0 0 0.5px var(--v-line-base); }
+  #bar button.on { background: var(--v-accent-base); color: var(--v-ink-on-accent); box-shadow: none; }
+  #bar .keys { margin-left: auto; color: var(--v-ink-tertiary); font-size: 11px; }
+  #why { margin: 0; padding: 2px 20px 10px; max-width: 1180px; color: var(--v-ink-secondary); font-size: 12px; line-height: 1.5; min-height: 46px; }
+  #why b { color: var(--v-ink-primary); }
+  #stage { flex: 1; min-height: 0; padding: 14px 20px 20px; display: flex; justify-content: center;
+    background: radial-gradient(circle at 15% 20%, #f6c7a8 0, transparent 45%), radial-gradient(circle at 85% 30%, #a9c4ff 0, transparent 45%),
+                radial-gradient(circle at 50% 100%, #c9a8ee 0, transparent 55%), #c8d3e8; }
+  [data-appearance="dark"] #stage { background: radial-gradient(circle at 15% 20%, #5a3a2a 0, transparent 45%), radial-gradient(circle at 85% 30%, #26365c 0, transparent 45%), #15161c; }
+
+  /* ---------------------------------------------------------------- the window (roles only from here) */
+  .win { position: relative; display: flex; width: 100%; max-width: 1240px; height: 100%; min-height: 560px; overflow: hidden;
+         border-radius: var(--v-radius-window); background: var(--v-bg-window); box-shadow: 0 0 0 0.5px rgb(0 0 0 / .16), 0 30px 80px -20px rgb(0 0 0 / .42); }
+  .glass { background: var(--v-popover-bg); color: var(--v-popover-ink); box-shadow: var(--v-popover-shadow);
+           -webkit-backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); backdrop-filter: blur(var(--v-popover-blur)) saturate(var(--v-popover-saturate)); }
+  .btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: var(--v-space-6); height: var(--v-control-height); min-width: var(--v-control-height); padding: 0 var(--v-space-6);
+         border-radius: var(--v-radius-control); flex: none; white-space: nowrap; font-size: var(--v-type-callout); }
+  .btn:hover { background: var(--v-fill-hover); }
+  mark { background: color-mix(in srgb, var(--v-accent-base) 24%, transparent); color: inherit; border-radius: 3px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--v-accent-base) 24%, transparent); }
+  mark.cur { background: var(--v-accent-base); color: var(--v-ink-on-accent); box-shadow: 0 0 0 1px var(--v-accent-base); }
+  .hl mark, .sel.inv mark { background: color-mix(in srgb, var(--v-menu-highlight-ink) 30%, transparent); box-shadow: none; }
+
+  /* the segmented control: Notes | Blocks */
+  .seg { display: inline-flex; flex: none; gap: 1px; padding: var(--v-segment-pad); border-radius: var(--v-radius-segment); background: var(--v-segment-track); font-size: var(--v-type-small); font-weight: var(--v-weight-medium); }
+  .seg button { padding: 2px var(--v-space-10); border-radius: var(--v-radius-segment-plate); color: var(--v-ink-secondary); white-space: nowrap; }
+  .seg button.on { background: var(--v-segment-plate); color: var(--v-ink-primary); box-shadow: var(--v-segment-plate-shadow); }
+  .seg button i { font-style: normal; color: var(--v-ink-tertiary); margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  /* the sidebar: the app's Library layout */
+  .side { flex: none; display: flex; flex-direction: column; width: calc(var(--v-sidebar-width) + var(--v-space-24)); margin: var(--v-sidebar-inset) 0 var(--v-sidebar-inset) var(--v-sidebar-inset);
+          padding: var(--v-space-8) 0; border-radius: var(--v-radius-sidebar); background: var(--v-bg-sidebar); box-shadow: var(--v-sidebar-shadow), 0 0 0 0.5px var(--v-line-base); overflow: hidden; user-select: none; z-index: 2; }
+  .side .scroll { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; padding-bottom: var(--v-space-8); }
+  .head { display: flex; align-items: center; gap: var(--v-space-6); padding: var(--v-space-12) var(--v-space-16) var(--v-space-4) calc(var(--v-space-10) + var(--v-space-8)); font-size: var(--v-type-small); font-weight: var(--v-weight-semibold); color: var(--v-ink-tertiary); }
+  .head .r { margin-left: auto; font-weight: var(--v-weight-regular); }
+  .row { display: flex; align-items: center; gap: var(--v-space-8); height: var(--v-row-height); margin: 0 var(--v-space-10); padding: 0 var(--v-space-8);
+         border-radius: var(--v-radius-row); color: var(--v-ink-sidebar); white-space: nowrap; }
+  .row .sf { color: var(--v-ink-sidebar-glyph); font-size: 16px; }
+  .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .row .cnt { color: var(--v-ink-tertiary); font-size: var(--v-type-small); font-variant-numeric: tabular-nums; }
+  .row.sel { background: var(--v-fill-selected); color: var(--v-ink-primary); }
+  .row .sq { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; flex: none; }
+  .row .sq .sf { color: var(--v-ink-on-accent); font-size: 11px; width: auto; }
+  .field { display: flex; align-items: center; gap: var(--v-space-6); height: var(--v-control-height); padding: 0 var(--v-space-8); margin: var(--v-space-2) var(--v-space-10) var(--v-space-8);
+           border-radius: var(--v-radius-control); background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-strong); color: var(--v-ink-tertiary); font-size: var(--v-type-callout); white-space: nowrap; }
+  .field .sf { font-size: 13px; width: 16px; }
+  .field kbd { margin-left: auto; font: inherit; font-size: var(--v-type-caption); padding: 1px 5px; border-radius: 5px; background: var(--v-fill-pressed); }
+  .field input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--v-ink-primary); caret-color: var(--v-accent-base); }
+  .field input::placeholder { color: var(--v-ink-tertiary); }
+  .field .x { color: var(--v-ink-tertiary); font-size: 13px; }
+  .field:focus-within { box-shadow: 0 0 0 0.5px var(--v-line-strong), 0 0 0 3px color-mix(in srgb, var(--v-accent-base) 32%, transparent); }
+  .foot { display: flex; align-items: center; gap: var(--v-space-2); padding: var(--v-space-6) var(--v-space-10) 0; color: var(--v-ink-secondary); }
+  .foot .sp { flex: 1; }
+
+  /* the note beside it */
+  .main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .island { position: absolute; z-index: 3; top: var(--v-space-10); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--v-space-2); padding: var(--v-space-4); border-radius: var(--v-radius-sidebar); }
+  .tab { display: flex; align-items: center; gap: var(--v-space-6); height: calc(var(--v-control-height) - 2px); padding: 0 var(--v-space-12); border-radius: var(--v-radius-control); font-size: var(--v-type-callout); color: var(--v-popover-ink-secondary); white-space: nowrap; }
+  .tab .sf { font-size: 13px; width: 16px; }
+  .tab.on { background: var(--v-segment-plate); color: var(--v-popover-ink); box-shadow: var(--v-segment-plate-shadow); }
+  .island .btn { height: calc(var(--v-control-height) - 2px); color: var(--v-popover-ink-secondary); }
+  .page { flex: 1; overflow: auto; scrollbar-width: none; padding: calc(var(--v-control-height) + var(--v-space-32) + var(--v-space-16)) var(--v-space-32) var(--v-space-32); }
+  .paper { position: relative; max-width: 640px; margin: 0 auto; line-height: 1.6; font-size: 15px; }
+  .crumb { color: var(--v-ink-tertiary); font-size: var(--v-type-small); margin-bottom: var(--v-space-6); display: flex; align-items: center; gap: 4px; }
+  .crumb .sf { width: auto; font-size: 10px; }
+  .crumb .back { display: inline-flex; align-items: center; gap: 2px; color: var(--v-accent-text); margin-right: var(--v-space-8); }
+  .doc h1 { margin: 0 0 var(--v-space-16); font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; }
+  .doc h2 { font-size: 20px; line-height: 1.3; margin: var(--v-space-24) 0 var(--v-space-8); }
+  .doc h3 { font-size: 17px; margin: var(--v-space-16) 0 var(--v-space-6); }
+  .doc p { margin: 0 0 var(--v-space-12); }
+  .doc .li { position: relative; padding-left: 22px; margin: 0 0 var(--v-space-4); }
+  .doc .li::before { content: ""; position: absolute; left: 8px; top: 0.7em; width: 5px; height: 5px; border-radius: 50%; background: var(--v-ink-secondary); }
+  .doc .task { display: flex; gap: var(--v-space-8); align-items: flex-start; margin: 0 0 var(--v-space-4); }
+  .doc .task .box { flex: none; width: 16px; height: 16px; margin-top: 0.22em; border-radius: var(--v-layout-checkbox-radius); box-shadow: inset 0 0 0 1.5px var(--v-line-strong); display: grid; place-items: center; }
+  .doc .task.done .box { background: var(--v-accent-base); box-shadow: none; }
+  .doc .task.done .box::before { content: ""; width: 4px; height: 8px; margin-top: -2px; border: solid var(--v-ink-on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .doc .task.done > span:last-child { color: var(--v-ink-tertiary); text-decoration: line-through; }
+  .doc pre { position: relative; margin: 0 0 var(--v-space-12); padding: var(--v-space-12) var(--v-space-16); border-radius: var(--v-radius-control); background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-base);
+             font: 13px/1.55 var(--v-font-mono); white-space: pre-wrap; overflow: hidden; }
+  .doc pre .lang { position: absolute; top: var(--v-space-6); right: var(--v-space-10); font: var(--v-type-caption) var(--v-font-sans); color: var(--v-ink-tertiary); }
+  .doc .math { margin: 0 0 var(--v-space-12); padding: var(--v-space-6) 0; text-align: center; overflow-x: auto; scrollbar-width: none; }
+  .doc .math.hit { border-radius: var(--v-radius-control); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v-accent-base) 45%, transparent); }
+  .doc .callout { margin: 0 0 var(--v-space-12); padding: var(--v-space-10) var(--v-space-16); border-radius: var(--v-radius-control); background: color-mix(in srgb, var(--v-accent-base) 8%, transparent); }
+  .doc .callout.tip { background: color-mix(in srgb, var(--v-success-base) 10%, transparent); }
+  .doc .callout.warn { background: color-mix(in srgb, var(--v-danger) 8%, transparent); }
+  .doc .callout .ct { display: flex; align-items: center; gap: 2px; font-weight: var(--v-weight-semibold); color: var(--v-accent-text); }
+  .doc .callout.tip .ct { color: var(--v-success-base); } .doc .callout.warn .ct { color: var(--v-danger); }
+  .doc .callout .ct .sf { font-size: 13px; }
+  .doc .callout p { margin: var(--v-space-2) 0 0; }
+  .doc blockquote { margin: 0 0 var(--v-space-12); padding-left: var(--v-space-16); border-left: 3px solid var(--v-line-strong); color: var(--v-ink-secondary); font-style: italic; }
+  .doc [data-b]:not(blockquote) { border-radius: var(--v-radius-row); }
+  .doc .flash { animation: flash calc(var(--v-dur-slower) * 4) var(--v-ease-out); }
+  @keyframes flash { 0%, 30% { background: color-mix(in srgb, var(--v-accent-base) 16%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--v-accent-base) 16%, transparent); } }
+  .doc .focus { box-shadow: 0 0 0 5px var(--v-bg-content), 0 0 0 7px color-mix(in srgb, var(--v-accent-base) 55%, transparent); }
+
+  /* the hits in an open note: a capsule at the page's top right (all proposals) */
+  .hits { position: absolute; z-index: 4; top: var(--v-space-10); right: var(--v-space-16); display: flex; align-items: center; gap: var(--v-space-2); height: calc(var(--v-control-height) + var(--v-space-8)); padding: 0 var(--v-space-4) 0 var(--v-space-12);
+          border-radius: var(--v-radius-sidebar); font-size: var(--v-type-callout); white-space: nowrap; }
+  .hits b { font-weight: var(--v-weight-semibold); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  .hits small { color: var(--v-popover-ink-secondary); margin: 0 var(--v-space-6) 0 var(--v-space-8); font-variant-numeric: tabular-nums; }
+  .hits .btn { height: calc(var(--v-control-height) - 2px); min-width: calc(var(--v-control-height) - 2px); color: var(--v-popover-ink-secondary); }
+
+  .toast { position: absolute; z-index: 30; left: 50%; bottom: var(--v-space-24); transform: translateX(-50%); padding: var(--v-space-8) var(--v-space-16); border-radius: var(--v-radius-pill); font-size: var(--v-type-callout);
+           opacity: 0; transition: opacity var(--v-dur-base) var(--v-ease-out); pointer-events: none; }
+  .toast.on { opacity: 1; }
+  .empty { padding: var(--v-space-24) var(--v-space-16); color: var(--v-ink-tertiary); text-align: center; font-size: var(--v-type-callout); }
+  .empty b { display: block; color: var(--v-ink-secondary); font-weight: var(--v-weight-semibold); margin-bottom: var(--v-space-4); }
+  .kg { color: var(--v-ink-tertiary); font-size: 13px; }
+  .snip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snip.mono { font-family: var(--v-font-mono); font-size: 0.92em; }
+
+  /* the menu of a popup button (6) */
+  .menu { position: absolute; z-index: 40; min-width: var(--v-menu-min-width); padding: var(--v-menu-pad); border-radius: var(--v-radius-menu); background: var(--v-menu-bg); color: var(--v-menu-ink); box-shadow: var(--v-menu-shadow);
+          -webkit-backdrop-filter: blur(var(--v-menu-blur)) saturate(var(--v-menu-saturate)); backdrop-filter: blur(var(--v-menu-blur)) saturate(var(--v-menu-saturate)); font-size: var(--v-menu-font); }
+  .menu div { display: flex; align-items: center; gap: var(--v-layout-menu-glyph-gap); height: var(--v-menu-row); padding: 0 var(--v-layout-menu-item-pad-x); border-radius: var(--v-radius-menu-row); white-space: nowrap; }
+  .menu div .ck { width: 12px; visibility: hidden; } .menu div.on .ck { visibility: visible; }
+  .menu div:hover { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+  .menu div small { margin-left: auto; padding-left: var(--v-space-16); opacity: .6; font-variant-numeric: tabular-nums; }
+
+  /* ---- 1 · Go to, grown: today's palette with a section of blocks */
+  .pal { position: absolute; z-index: 10; top: 14%; left: 50%; transform: translateX(-50%); width: min(620px, calc(100% - var(--v-space-32))); padding: var(--v-popover-pad); border-radius: var(--v-radius-popover); }
+  .pal .pf { display: flex; align-items: center; gap: var(--v-space-8); height: calc(var(--v-control-height) + var(--v-space-10)); padding: 0 var(--v-space-6) 0 var(--v-space-10); }
+  .pal .pf > .sf { color: var(--v-popover-ink-secondary); font-size: 17px; }
+  .pal .pf input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: var(--v-type-title3); caret-color: var(--v-accent-base); }
+  .pal .pf input::placeholder { color: var(--v-popover-ink-secondary); }
+  .pal .pl { max-height: 52vh; overflow-y: auto; scrollbar-width: none; margin-top: var(--v-space-2); padding-top: var(--v-space-4); border-top: 0.5px solid var(--v-popover-line); }
+  .pal .ph { display: flex; padding: var(--v-space-6) var(--v-space-10) var(--v-space-2); color: var(--v-popover-ink-secondary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
+  .pal .ph span { margin-left: auto; font-weight: var(--v-weight-regular); }
+  .pal .pr { display: flex; align-items: center; gap: var(--v-space-10); height: calc(var(--v-control-height) + var(--v-space-4)); padding: 0 var(--v-space-10); border-radius: var(--v-radius-menu-row); }
+  .pal .pr > .sf { color: var(--v-popover-ink-secondary); font-size: 14px; }
+  .pal .pr .t { flex: none; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal .pr.blk .t { flex: 1; max-width: none; }
+  .pal .pr small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--v-popover-ink-secondary); font-size: var(--v-type-small); }
+  .pal .pr.blk small { flex: none; max-width: 34%; }
+  .pal .pr kbd { margin-left: auto; font: inherit; font-size: var(--v-type-small); color: var(--v-popover-ink-secondary); }
+  .pal .pr.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+  .pal .pr.hl :is(.sf, small, kbd) { color: inherit; }
+  .pal .pr .more { margin-left: auto; color: var(--v-popover-ink-secondary); font-size: var(--v-type-small); }
+  .pal .pft { display: flex; flex-wrap: wrap; gap: var(--v-space-16); margin-top: var(--v-space-4); padding: var(--v-space-6) var(--v-space-10) var(--v-space-4); border-top: 0.5px solid var(--v-popover-line); color: var(--v-popover-ink-secondary); font-size: var(--v-type-small); }
+  .pal .pft .n { margin-left: auto; }
+
+  /* ---- 2 · Spotlight: the list at the left, the note at the right */
+  .spot { position: absolute; z-index: 10; top: 7%; bottom: 7%; left: 50%; transform: translateX(-50%); width: min(900px, calc(100% - var(--v-space-32))); display: flex; flex-direction: column; border-radius: var(--v-radius-popover); overflow: hidden; }
+  .spot .pf { display: flex; align-items: center; gap: var(--v-space-10); height: 58px; padding: 0 var(--v-space-12) 0 var(--v-space-16); border-bottom: 0.5px solid var(--v-popover-line); }
+  .spot .pf > .sf { color: var(--v-popover-ink-secondary); font-size: 20px; width: 24px; }
+  .spot .pf input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: var(--v-type-title2); font-weight: var(--v-weight-regular); caret-color: var(--v-accent-base); }
+  .spot .pf input::placeholder { color: var(--v-popover-ink-secondary); }
+  .spot .sb { flex: 1; min-height: 0; display: grid; grid-template-columns: 330px 1fr; }
+  .spot .sl { overflow-y: auto; scrollbar-width: none; padding: var(--v-space-6); border-right: 0.5px solid var(--v-popover-line); }
+  .spot .sh { padding: var(--v-space-8) var(--v-space-8) var(--v-space-2); color: var(--v-popover-ink-secondary); font-size: var(--v-type-caption); font-weight: var(--v-weight-semibold); }
+  .spot .sr { display: grid; grid-template-columns: 20px 1fr; gap: 0 var(--v-space-8); padding: var(--v-space-6) var(--v-space-8); border-radius: var(--v-radius-menu-row); }
+  .spot .sr > .sf { grid-row: 1 / 3; align-self: start; margin-top: 1px; color: var(--v-popover-ink-secondary); font-size: 14px; }
+  .spot .sr b { font-weight: var(--v-weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spot .sr small { color: var(--v-popover-ink-secondary); font-size: var(--v-type-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spot .sr.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+  .spot .sr.hl :is(.sf, small) { color: inherit; }
+  .spot .pv { position: relative; overflow: hidden; background: var(--v-bg-content); }
+  .spot .pv .pvs { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; padding: var(--v-space-24) var(--v-space-32) 40%; }
+  .spot .pv .doc { font-size: 13.5px; line-height: 1.55; } .spot .pv .doc h1 { font-size: 24px; } .spot .pv .doc h2 { font-size: 17px; }
+  .spot .pv .pvh { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: var(--v-space-8); padding: var(--v-space-8) var(--v-space-16); font-size: var(--v-type-small); color: var(--v-popover-ink-secondary); border-top: 0.5px solid var(--v-popover-line); }
+  .spot .pv .pvh span:last-child { margin-left: auto; }
+
+  /* ---- 3 · In the sidebar: the field at its head searches everything */
+  .p3 .side { width: calc(var(--v-sidebar-width) + var(--v-space-24) + 64px); }
+  .sscope { display: flex; align-items: center; gap: var(--v-space-8); padding: 0 var(--v-space-10) var(--v-space-6) var(--v-space-12); color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+  .sscope .seg { flex: 1; } .sscope .seg button { flex: 1; }
+  .grp3 { display: flex; align-items: center; gap: var(--v-space-6); height: var(--v-row-height); margin: var(--v-space-4) var(--v-space-10) 0; padding: 0 var(--v-space-8) 0 var(--v-space-4); border-radius: var(--v-radius-row); color: var(--v-ink-primary); font-weight: var(--v-weight-semibold); font-size: var(--v-type-callout); white-space: nowrap; }
+  .grp3 .dis { width: 14px; font-size: 9px; color: var(--v-ink-tertiary); transition: transform var(--v-dur-fast) var(--v-ease-out); transform: rotate(90deg); }
+  .grp3.shut .dis { transform: none; }
+  .grp3 .sf:not(.dis) { color: var(--v-ink-tertiary); font-size: 14px; }
+  .grp3 .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .grp3 .cnt { color: var(--v-ink-tertiary); font-weight: var(--v-weight-regular); font-size: var(--v-type-small); }
+  .hit3 { display: grid; grid-template-columns: 16px 1fr; gap: 0 var(--v-space-6); margin: 0 var(--v-space-10); padding: var(--v-space-4) var(--v-space-8) var(--v-space-4) var(--v-space-24); border-radius: var(--v-radius-row); font-size: var(--v-type-small); line-height: 1.4; color: var(--v-ink-secondary); }
+  .hit3 .sf { width: 16px; font-size: 11px; color: var(--v-ink-tertiary); margin-top: 2px; align-self: start; }
+  .hit3 span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hit3 span.mono { font-family: var(--v-font-mono); font-size: 11px; }
+  .hit3.sel, .item3.sel { background: var(--v-fill-selected); color: var(--v-ink-primary); }
+  .item3 { margin: 0 var(--v-space-10); padding: var(--v-space-6) var(--v-space-10); border-radius: var(--v-radius-row); position: relative; }
+  .item3 + .item3::before { content: ""; position: absolute; left: var(--v-space-10); right: var(--v-space-10); top: 0; border-top: 0.5px solid var(--v-line-base); }
+  .item3.sel::before, .item3.sel + .item3::before { display: none; }
+  .item3 b { display: flex; gap: var(--v-space-6); font-weight: var(--v-weight-semibold); white-space: nowrap; overflow: hidden; }
+  .item3 b span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .item3 b small { margin-left: auto; color: var(--v-ink-tertiary); font-weight: var(--v-weight-regular); font-size: var(--v-type-small); }
+  .item3 > small { display: block; color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+  .item3 > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--v-ink-secondary); font-size: var(--v-type-small); line-height: 1.4; margin-top: 2px; }
+
+  /* ---- 4 · A page of its own, as All Notes */
+  .spage { flex: 1; overflow: auto; scrollbar-width: none; padding: var(--v-space-32) var(--v-space-32) var(--v-space-32); }
+  .spage .sph { display: flex; align-items: flex-end; gap: var(--v-space-16); max-width: 960px; margin: 0 auto var(--v-space-12); }
+  .spage .sph b { font-size: var(--v-type-large-title); font-weight: var(--v-weight-bold); letter-spacing: -0.02em; line-height: 1.1; }
+  .spage .sph small { display: block; color: var(--v-ink-tertiary); font-size: var(--v-type-callout); margin-top: var(--v-space-4); }
+  .spage .sph #segh { margin-left: auto; } .spage .sph .seg { font-size: var(--v-type-callout); }
+  .spage .bigf { display: flex; align-items: center; gap: var(--v-space-8); max-width: 960px; margin: 0 auto var(--v-space-12); height: calc(var(--v-control-height) + var(--v-space-12)); padding: 0 var(--v-space-12);
+                 border-radius: var(--v-radius-panel); background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-strong); }
+  .spage .bigf:focus-within { box-shadow: 0 0 0 0.5px var(--v-line-strong), 0 0 0 3px color-mix(in srgb, var(--v-accent-base) 32%, transparent); }
+  .spage .bigf .sf { color: var(--v-ink-tertiary); font-size: 16px; }
+  .spage .bigf input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: var(--v-type-title3); caret-color: var(--v-accent-base); }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--v-space-6); max-width: 960px; margin: 0 auto var(--v-space-20); }
+  .chip { display: inline-flex; align-items: center; gap: var(--v-space-4); height: calc(var(--v-control-height) - 2px); padding: 0 var(--v-space-10) 0 var(--v-space-6); border-radius: var(--v-radius-pill); background: var(--v-fill-field); box-shadow: 0 0 0 0.5px var(--v-line-base);
+          font-size: var(--v-type-small); color: var(--v-ink-secondary); }
+  .chip .sf { font-size: 11px; width: 16px; color: var(--v-ink-tertiary); }
+  .chip i { font-style: normal; color: var(--v-ink-tertiary); font-variant-numeric: tabular-nums; }
+  .chip.on { background: var(--v-accent-base); color: var(--v-ink-on-accent); box-shadow: none; } .chip.on :is(.sf, i) { color: inherit; opacity: .85; }
+  .chip.off { opacity: .45; }
+  .tiles4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--v-space-16); max-width: 960px; margin: 0 auto; }
+  .tile4 { display: flex; flex-direction: column; gap: var(--v-space-6); }
+  .tile4 .sheet { height: 168px; overflow: hidden; padding: var(--v-space-12) var(--v-space-12) 0; border-radius: var(--v-radius-control); background: var(--v-bg-content); box-shadow: 0 0 0 0.5px var(--v-line-base), var(--v-card-shadow);
+                  font-size: 10.5px; line-height: 1.45; -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
+  .tile4 .sheet .doc h1 { font-size: 15px; margin-bottom: var(--v-space-6); } .tile4 .sheet .doc h2 { font-size: 12px; margin: var(--v-space-6) 0 var(--v-space-2); } .tile4 .sheet .doc p { margin-bottom: var(--v-space-4); }
+  .tile4 .sheet .doc pre { font-size: 9.5px; padding: var(--v-space-6); } .tile4 .sheet .doc .task .box { width: 10px; height: 10px; }
+  .tile4.sel .sheet { box-shadow: 0 0 0 2px var(--v-accent-base), var(--v-card-shadow); }
+  .tile4 b { font-size: var(--v-type-callout); font-weight: var(--v-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--v-space-2); }
+  .tile4 small { color: var(--v-ink-tertiary); font-size: var(--v-type-small); padding: 0 var(--v-space-2); margin-top: calc(-1 * var(--v-space-4)); }
+  .cards4 { columns: 2 300px; column-gap: var(--v-space-16); max-width: 960px; margin: 0 auto; }
+  .card4 { break-inside: avoid; margin-bottom: var(--v-space-16); padding: var(--v-space-10) var(--v-space-16) var(--v-space-6); border-radius: var(--v-radius-panel); background: var(--v-bg-content); box-shadow: 0 0 0 0.5px var(--v-line-base), var(--v-card-shadow); }
+  .card4.sel { box-shadow: 0 0 0 2px var(--v-accent-base), var(--v-card-shadow); }
+  .card4 .crumb { margin-bottom: var(--v-space-6); }
+  .card4 .doc { font-size: 14px; line-height: 1.55; } .card4 .doc h2 { margin-top: 0; font-size: 18px; } .card4 .doc h3 { margin-top: 0; }
+  .grouph4 { max-width: 960px; margin: var(--v-space-8) auto var(--v-space-10); color: var(--v-ink-tertiary); font-size: var(--v-type-small); font-weight: var(--v-weight-semibold); }
+
+  /* ---- 5 · The results as one note: the island becomes the field */
+  .sisland { position: absolute; z-index: 5; top: var(--v-space-10); left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - var(--v-space-32))); display: flex; align-items: center; gap: var(--v-space-6);
+             height: calc(var(--v-control-height) + var(--v-space-12)); padding: 0 var(--v-space-6) 0 var(--v-space-12); border-radius: var(--v-radius-sidebar); }
+  .sisland > .sf { color: var(--v-popover-ink-secondary); font-size: 15px; }
+  .sisland input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-size: var(--v-type-callout); caret-color: var(--v-accent-base); }
+  .sisland input::placeholder { color: var(--v-popover-ink-secondary); }
+  .sisland .btn { height: calc(var(--v-control-height) - 2px); color: var(--v-popover-ink-secondary); }
+  .stream .sth { margin: 0 0 var(--v-space-24); }
+  .stream .sth b { display: block; font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; }
+  .stream .sth small { color: var(--v-ink-tertiary); font-size: var(--v-type-callout); }
+  .stream section { margin: 0 0 var(--v-space-32); }
+  .stream .nh { display: flex; align-items: center; gap: var(--v-space-6); padding-bottom: var(--v-space-6); margin-bottom: var(--v-space-10); border-bottom: 0.5px solid var(--v-line-base); }
+  .stream .nh .sf { color: var(--v-ink-tertiary); font-size: 14px; }
+  .stream .nh b { font-size: var(--v-type-title3); font-weight: var(--v-weight-semibold); }
+  .stream .nh small { color: var(--v-ink-tertiary); font-size: var(--v-type-small); }
+  .stream .nh .btn { margin-left: auto; color: var(--v-accent-text); font-size: var(--v-type-small); }
+  .stream .sblk { position: relative; padding: var(--v-space-2) var(--v-space-10); margin: 0 calc(-1 * var(--v-space-10)) var(--v-space-6); border-radius: var(--v-radius-row); }
+  .stream .sblk:hover { background: var(--v-fill-hover); }
+  .stream .sblk.sel { background: var(--v-fill-selected); }
+  .stream .sblk .hd { display: flex; align-items: center; gap: 4px; color: var(--v-ink-tertiary); font-size: var(--v-type-caption); margin-bottom: 1px; }
+  .stream .sblk .hd .sf { width: auto; font-size: 9px; }
+  .stream .sblk .go { position: absolute; top: var(--v-space-2); right: var(--v-space-6); opacity: 0; height: calc(var(--v-control-height) - 4px); font-size: var(--v-type-small); color: var(--v-accent-text); }
+  .stream .sblk:hover .go, .stream .sblk.sel .go { opacity: 1; }
+  .stream .sblk > :is(p, .li, .task, pre, .math, .callout, blockquote, h2, h3):last-child { margin-bottom: var(--v-space-4); }
+  .stream .sblk h2, .stream .sblk h3 { margin-top: 0; }
+  .stream .task .box { cursor: pointer; }
+  .stream .lines { margin: 0; padding: 0; list-style: none; }
+  .stream .lines li { display: flex; gap: var(--v-space-8); padding: var(--v-space-2) 0; color: var(--v-ink-secondary); font-size: var(--v-type-callout); }
+  .stream .lines li .sf { font-size: 12px; color: var(--v-ink-tertiary); width: 16px; }
+
+  /* ---- 6 · Search with words and filters, the results as a list (Finder) */
+  .qbar { display: flex; align-items: center; gap: var(--v-space-8); padding: var(--v-space-10) var(--v-space-16) var(--v-space-8); }
+  .qbar .field { flex: 1; margin: 0; height: calc(var(--v-control-height) + var(--v-space-6)); font-size: var(--v-type-body); position: relative; }
+  .qbar .field .tok { cursor: default; padding: 0 var(--v-space-6); border-radius: var(--v-radius-chip); background: color-mix(in srgb, var(--v-accent-base) 14%, transparent); color: var(--v-accent-text); font-size: var(--v-type-small); font-weight: var(--v-weight-medium); white-space: nowrap; }
+  .qbar .sugg { position: absolute; top: calc(100% + var(--v-space-4)); left: var(--v-space-24); }
+  .scope6 { display: flex; align-items: center; gap: var(--v-space-8); padding: 0 var(--v-space-16) var(--v-space-8); font-size: var(--v-type-small); color: var(--v-ink-tertiary); border-bottom: 0.5px solid var(--v-line-base); }
+  .pop { display: inline-flex; align-items: center; gap: var(--v-space-4); height: calc(var(--v-control-height) - 4px); padding: 0 var(--v-space-6) 0 var(--v-space-10); border-radius: var(--v-radius-control); background: var(--v-fill-field);
+         box-shadow: 0 0 0 0.5px var(--v-line-strong); color: var(--v-ink-primary); font-size: var(--v-type-small); }
+  .pop .sf { width: 12px; font-size: 8px; color: var(--v-ink-tertiary); }
+  .pop.set { box-shadow: 0 0 0 1px var(--v-accent-base); color: var(--v-accent-text); }
+  .scope6 .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .tbl { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; font-size: var(--v-type-callout); }
+  .tbl table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .tbl th { position: sticky; top: 0; z-index: 1; text-align: left; font-weight: var(--v-weight-medium); font-size: var(--v-type-small); color: var(--v-ink-secondary); padding: var(--v-space-4) var(--v-space-8); background: var(--v-bg-window); border-bottom: 0.5px solid var(--v-line-base); white-space: nowrap; }
+  .tbl th .sf { width: 12px; font-size: 8px; } .tbl th:first-child, .tbl td:first-child { padding-left: var(--v-space-16); }
+  .tbl td { padding: 0 var(--v-space-8); height: calc(var(--v-row-height) + var(--v-space-4)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tbl td .sf { font-size: 13px; color: var(--v-ink-tertiary); vertical-align: -1px; margin-right: var(--v-space-4); width: 16px; }
+  .tbl td.dim { color: var(--v-ink-secondary); font-size: var(--v-type-small); }
+  .tbl tr:nth-child(even) td { background: color-mix(in srgb, var(--v-ink-primary) 2.5%, transparent); }
+  .tbl tr.sel td { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
+  .tbl tr.sel td :is(.sf, .dim) , .tbl tr.sel td.dim { color: inherit; }
+  .tbl tr.sel mark { background: color-mix(in srgb, var(--v-menu-highlight-ink) 30%, transparent); box-shadow: none; }
+  .pathbar { display: flex; align-items: center; gap: 4px; padding: var(--v-space-6) var(--v-space-16); border-top: 0.5px solid var(--v-line-base); color: var(--v-ink-secondary); font-size: var(--v-type-small); white-space: nowrap; overflow: hidden; }
+  .pathbar .sf { width: auto; font-size: 9px; color: var(--v-ink-tertiary); }
+  .pathbar .sf.k { font-size: 12px; width: 16px; }
+  .pathbar .r { margin-left: auto; color: var(--v-ink-tertiary); }
+</style>
+</head>
+<body>
+<div id="bar">
+  <h1>Search<small>across all notes — whole notes or single blocks · six proposals</small></h1>
+  <span class="grp" id="o-p"><span>Proposal</span></span>
+  <span class="grp" id="o-q"><span>Try</span></span>
+  <span class="grp" id="o-a"><span>Appearance</span><button data-v="light">Light</button><button data-v="dark">Dark</button></span>
+  <span class="keys">1–6 proposal · Ctrl+K search · Tab Notes/Blocks · ↑↓ ↵ · Esc · D appearance</span>
+</div>
+<p id="why"></p>
+<div id="stage"><div class="win" id="win"></div></div>
+
+<script>
+// SF Symbols codepoints (~/Projects/velum/icons/sf.json; the font is local only, as in the app)
+const G = { search: "1002AB", inbox: "100223", clock: "10042B", star: "1002C2", folder: "100215", note: "10023F", scribble: "1004E8", plus: "10017C", settings: "1008CB",
+  right: "10018A", left: "100189", down: "100188", up: "100187", close: "100184", heading: "100150", text: "100152", quote: "1002FF", code: "10065A", callout: "100174",
+  todo: "1000F2", todoF: "1000F3", fn: "101444", list: "1002F2", share: "100202", tiles: "1003DD", sidebar: "1003DA", ext: "100114", newtab: "1000DC", filter: "100308",
+  pencil: "10020A", book: "10025A", work: "10039C", net: "1001AA", code2: "10065A", sparkle: "100AF8", check: "100185", chevud: "10018F" };
+const sf = (n, cls) => `<i class="sf${cls ? " " + cls : ""}" data-g="${String.fromCodePoint(parseInt(G[n], 16))}"></i>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+// ---------------------------------------------------------------- the notes (made up for the lab; newest first)
+const H = (t, l = 2) => ({ k: "h", l, t }), Pa = (t) => ({ k: "p", t }), L = (t) => ({ k: "li", t }), T = (t, done = false) => ({ k: "task", t, done }),
+  C = (t, lang = "") => ({ k: "code", t, lang }), M = (t) => ({ k: "math", t }), Co = (title, t, tone = "") => ({ k: "callout", title, t, tone }), Q = (t) => ({ k: "quote", t });
+const FOLDERS = [["Analysis II", "fn", "#138474"], ["Linear Algebra", "folder", "#3b6fd8"], ["Velum", "code", "#8a5cd0"], ["Lisbon trip", "net", "#e0803a"], ["Werkstudent", "work", "#c94f6d"]];
+const NOTES = [
+  { id: "uc", t: "Uniform convergence", f: "Analysis II", d: "Today, 10:42", b: [
+    Pa("A sequence of functions f_n converges uniformly to f on D when one N serves every x at once — pointwise convergence lets N depend on x."),
+    Co("Definition", "f_n → f uniformly on D ⇔ sup over x ∈ D of |f_n(x) − f(x)| tends to 0."),
+    H("Why it matters"),
+    L("The uniform limit of continuous functions is continuous."),
+    L("Limit and integral may be swapped on a compact interval when the convergence is uniform."),
+    M("\\sup_{x \\in [0,1)} |x^n - 0| = 1 \\not\\to 0"),
+    Pa("So x^n converges pointwise on [0, 1) but not uniformly: the sup stays 1."),
+    H("Tests"),
+    L("Weierstrass M-test: |f_n(x)| ≤ M_n and Σ M_n < ∞ give uniform convergence of Σ f_n."),
+    L("Dini: monotone, continuous, compact domain, continuous limit ⇒ uniform convergence."),
+    T("Redo the proof of Dini's theorem without looking"),
+  ] },
+  { id: "s8", t: "Exercise sheet 8", f: "Analysis II", d: "Today, 09:15", b: [
+    H("Problem 3"),
+    Pa("Show that Σ xⁿ/n² converges uniformly on [−1, 1]. Use the Weierstrass M-test with M_n = 1/n²."),
+    M("\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6} < \\infty"),
+    T("Problem 3 written up", true),
+    H("Problem 4"),
+    Pa("f_n(x) = x / (1 + n x²) on ℝ: find the pointwise limit and decide whether the convergence is uniform."),
+    Co("Hint", "Maximise |f_n| with the derivative: the sup is 1/(2√n), which tends to 0 — so the convergence is uniform.", "tip"),
+    T("Problem 4 — check the maximum at x = 1/√n"),
+    H("Problem 5"),
+    Pa("Dini's theorem: why does the domain have to be compact? Find a counterexample on [0, ∞)."),
+    T("Problem 5 — counterexample for Dini on a non-compact domain"),
+  ] },
+  { id: "dini", t: "Dini's theorem", f: "Analysis II", d: "Yesterday", b: [
+    Co("Theorem", "Let K be compact, f_n : K → ℝ continuous with f_n ≤ f_{n+1}, and f_n → f pointwise with f continuous. Then f_n → f uniformly."),
+    H("Proof"),
+    Pa("Put g_n = f − f_n. Then g_n ≥ 0 is continuous, decreasing in n, and g_n → 0 pointwise."),
+    Pa("For ε > 0 the sets U_n = {x : g_n(x) < ε} are open, increase and cover K. By compactness one U_N covers K, so g_n < ε for all n ≥ N — the convergence is uniform."),
+    Q("Compactness turns a pointwise statement into a uniform one."),
+    H("Counterexamples"),
+    L("On [0, 1): f_n(x) = xⁿ decreases to 0 pointwise but not uniformly — the domain is not compact."),
+    L("Without monotonicity: bumps of height 1 moving to the right converge pointwise to 0, never uniformly."),
+  ] },
+  { id: "week", t: "Weekly review", f: "", d: "Mon", b: [
+    H("Done"),
+    L("Analysis sheet 8, problems 1–3."),
+    L("Opal live on the desktop."),
+    H("Next"),
+    T("Finish sheet 8 (problems 4 and 5)"),
+    T("Book the Fado table in Lisbon"),
+    Pa("Exam in five weeks: uniform convergence, power series and Dini's theorem are the big topics."),
+  ] },
+  { id: "ps", t: "Power series", f: "Analysis II", d: "Mon", b: [
+    Pa("A power series Σ a_n (x − x₀)ⁿ converges absolutely inside its radius of convergence R and diverges outside."),
+    M("R = \\frac{1}{\\limsup_{n\\to\\infty} \\sqrt[n]{|a_n|}}"),
+    H("Uniform on compact subsets"),
+    Pa("On every closed disc of radius r < R the series converges uniformly (M-test with M_n = |a_n| rⁿ). So the sum is continuous and may be differentiated term by term."),
+    T("Learn the Cauchy–Hadamard proof for the exam"),
+    C("def partial_sum(a, x, n):\n    return sum(a[k] * x**k for k in range(n + 1))", "python"),
+  ] },
+  { id: "opal", t: "Opal tokens", f: "Velum", d: "Sun", b: [
+    Pa("Opal is Velum's second line: warm stone tones, lensed glass, one accent called Lagoon."),
+    C("--v-accent-base: #138474;\n--v-bg-window: #efede8;\n--v-popover-blur: 28px;", "css"),
+    H("Rules"),
+    L("Components use roles only — never a raw colour, duration or curve."),
+    L("A missing value becomes a token, with its source in $extensions."),
+    Co("Note", "Half-transparent roles are always mixed over their ground in apps."),
+    T("Check the contrast of the sidebar ink on the stone background", true),
+    T("A token for the search highlight colour"),
+  ] },
+  { id: "side", t: "Sidebar ideas", f: "Velum", d: "Sat", b: [
+    Pa("Library at the head: All Notes, Recents, Today, With Tasks, Shared. The folders below, each on a square of its colour."),
+    L("Search at the very top, Ctrl+K anywhere."),
+    L("The gear at the lower right, the history's clock beside New."),
+    T("Try search results right in the sidebar"),
+    Q("The sidebar should feel like Finder, not like a file tree."),
+  ] },
+  { id: "jnf", t: "Jordan normal form", f: "Linear Algebra", d: "Fri", b: [
+    Pa("Every square matrix over ℂ is similar to a block diagonal matrix of Jordan blocks J_k(λ), one chain for each eigenvalue λ."),
+    M("J_3(\\lambda) = \\begin{pmatrix} \\lambda & 1 & 0 \\\\ 0 & \\lambda & 1 \\\\ 0 & 0 & \\lambda \\end{pmatrix}"),
+    H("Recipe"),
+    L("Find the eigenvalues from the characteristic polynomial."),
+    L("For each eigenvalue, compute the dimensions of ker (A − λI)^k until they stop growing."),
+    L("The jumps of these dimensions give the number and the sizes of the Jordan blocks."),
+    Co("Careful", "The algebraic multiplicity is the sum of the block sizes, the geometric one the number of blocks.", "warn"),
+    T("Jordan form of the 4×4 matrix from sheet 7"),
+  ] },
+  { id: "eig", t: "Eigenvalues cheat sheet", f: "Linear Algebra", d: "Thu", b: [
+    L("λ is an eigenvalue of A ⇔ det(A − λI) = 0."),
+    L("Trace = sum of the eigenvalues, determinant = their product."),
+    L("Symmetric real matrices: real eigenvalues and an orthonormal eigenbasis."),
+    M("A v = \\lambda v, \\quad v \\neq 0"),
+    C("import numpy as np\nw, v = np.linalg.eig(A)  # eigenvalues w, eigenvectors as the columns of v", "python"),
+    H("Diagonalisable when"),
+    Pa("A is diagonalisable exactly when algebraic and geometric multiplicity agree for every eigenvalue — then all Jordan blocks have size 1."),
+  ] },
+  { id: "pack", t: "Packing list", f: "Lisbon trip", d: "Oct 28", b: [
+    T("Passport", true),
+    T("Adapter? — Portugal has the same plugs, no adapter needed", true),
+    T("Light jacket for the evenings by the river"),
+    T("Sunscreen"),
+    T("Print the flat's address in Alfama"),
+    Pa("Flight TP 573 leaves Berlin at 06:40 — be at the airport by 05:15."),
+  ] },
+  { id: "alf", t: "Alfama flat", f: "Lisbon trip", d: "Oct 27", b: [
+    Pa("Rua de São Miguel 14, 2nd floor. Key box by the door, the code is in the booking mail."),
+    H("Nearby"),
+    L("Miradouro de Santa Luzia — five minutes up the hill, best at sunset."),
+    L("Tram 28 stops at Largo das Portas do Sol."),
+    Co("Tip", "Fado in the evening: Mesa de Frades, book a table a day ahead.", "tip"),
+  ] },
+  { id: "cv", t: "Anschreiben", f: "Werkstudent", d: "Oct 20", b: [
+    Pa("Sehr geehrte Damen und Herren, mit großem Interesse habe ich Ihre Ausschreibung für eine Werkstudentenstelle in der Softwareentwicklung gelesen."),
+    Pa("Im Studium der Mathematik habe ich gelernt, Probleme genau zu fassen; in eigenen Projekten — einem Markdown-Editor und einem Desktop-Framework — habe ich gelernt, sie zu Ende zu bauen."),
+    T("Anschreiben auf eine Seite kürzen"),
+    T("Zeugnis als PDF anhängen", true),
+  ] },
+  { id: "iv", t: "Interview prep", f: "Werkstudent", d: "Oct 18", b: [
+    H("Questions they may ask"),
+    L("Tell us about a project you finished — the Markdown editor, its search and its sync."),
+    L("How do you test a UI? — a rig with a hidden compositor, screenshots, real input."),
+    H("Questions to ask"),
+    L("How large is the team, and who reviews the code?"),
+    T("Read about the company's product before Thursday"),
+    C("git log --oneline --since=2.weeks | wc -l", "sh"),
+  ] },
+];
+NOTES.forEach((n, ni) => (n.ni = ni));
+
+// ---------------------------------------------------------------- the search (shared by all six)
+const KINDS = [["h", "Headings", "heading"], ["p", "Text", "text"], ["li", "Lists", "list"], ["task", "Tasks", "todo"], ["code", "Code", "code"], ["math", "Math", "fn"], ["callout", "Callouts", "callout"], ["quote", "Quotes", "quote"]];
+const KG = Object.fromEntries(KINDS.map(([k, , g]) => [k, g])), KN = Object.fromEntries(KINDS.map(([k, n]) => [k, n]));
+const IS = { heading: "h", headings: "h", text: "p", list: "li", task: "task", tasks: "task", code: "code", math: "math", callout: "callout", quote: "quote" };
+const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const btext = (b) => (b.k === "callout" ? b.title + " " + b.t : b.t);
+const kg = (b) => (b.k === "task" && b.done ? "todoF" : KG[b.k]);
+
+// The words, and what `is:` and `in:` ask for (all six read them; 6 shows them)
+function parse(q) {
+  const o = { terms: [], kinds: new Set(), open: null, folder: null, toks: [] };
+  for (const m of q.matchAll(/"([^"]+)"|(\S+)/g)) {
+    if (m[2]) {
+      const f = /^(is|in):(.+)$/i.exec(m[2]);
+      if (f) {
+        const v = norm(f[2]);
+        if (f[1].toLowerCase() === "in") { const fo = FOLDERS.find(([n]) => norm(n).startsWith(v)); if (fo) { o.folder = fo[0]; o.toks.push(m[0]); continue; } }
+        else if (IS[v]) { o.kinds.add(IS[v]); o.toks.push(m[0]); continue; }
+        else if (v === "open" || v === "done") { o.kinds.add("task"); o.open = v === "open"; o.toks.push(m[0]); continue; }
+      }
+    }
+    o.terms.push(norm(m[1] ?? m[2]));
+  }
+  if (S.kind) o.kinds.add(S.kind);
+  if (S.openF != null) { o.kinds.add("task"); o.open = S.openF; }
+  if (S.folder) o.folder = S.folder;
+  o.filtered = o.kinds.size > 0 || o.folder != null;
+  return o;
+}
+const count = (tx, terms) => terms.reduce((a, t) => { let c = 0, p = 0; while ((p = tx.indexOf(t, p)) >= 0) { c++; p += t.length; } return a + c; }, 0);
+function blockHits(pq) {
+  const out = [];
+  if (!pq.terms.length && !pq.filtered) return out;
+  for (const n of NOTES) {
+    if (pq.folder && n.f !== pq.folder) continue;
+    n.b.forEach((b, i) => {
+      if (pq.kinds.size && !pq.kinds.has(b.k)) return;
+      if (pq.open != null && b.done === pq.open) return;
+      const tx = norm(btext(b));
+      if (!pq.terms.every((t) => tx.includes(t))) return;
+      out.push({ type: "block", n, i, b, score: count(tx, pq.terms) + (b.k === "h" ? 3 : 0) });
+    });
+  }
+  return out;
+}
+function noteHits(pq, blocks) {
+  const out = [];
+  if (!pq.terms.length && !pq.filtered) return out;
+  for (const n of NOTES) {
+    if (pq.folder && n.f !== pq.folder) continue;
+    const mine = blocks.filter((r) => r.n === n);
+    const title = norm(n.t), all = title + " " + n.b.map((b) => norm(btext(b))).join(" ");
+    const ok = pq.kinds.size ? mine.length > 0 : pq.terms.every((t) => all.includes(t));
+    if (!ok) continue;
+    const inTitle = pq.terms.filter((t) => title.includes(t)).length;
+    const best = mine[0] ? mine[0].i : n.b.findIndex((b) => pq.terms.some((t) => norm(btext(b)).includes(t)));
+    out.push({ type: "note", n, i: best, blocks: mine.length, count: count(all, pq.terms), inTitle, score: inTitle * 10 + count(all, pq.terms) });
+  }
+  return out.sort((a, b) => b.score - a.score || a.n.ni - b.n.ni);
+}
+function run() {
+  const pq = parse(S.q), blocks = blockHits(pq), notes = noteHits(pq, blocks);
+  return { pq, blocks, notes, ranked: [...blocks].sort((a, b) => b.score - a.score || a.n.ni - b.n.ni || a.i - b.i) };
+}
+
+// The words marked in a text; a line cut so that the first word shows
+function ranges(text, terms) {
+  const low = norm(text), r = [];
+  for (const t of terms) if (t) { let p = 0; while ((p = low.indexOf(t, p)) >= 0) { r.push([p, p + t.length]); p += t.length; } }
+  r.sort((a, b) => a[0] - b[0]);
+  const m = [];
+  for (const x of r) if (m.length && x[0] <= m[m.length - 1][1]) m[m.length - 1][1] = Math.max(m[m.length - 1][1], x[1]); else m.push(x);
+  return m;
+}
+function mark(text, terms) {
+  let out = "", at = 0;
+  for (const [a, b] of ranges(text, terms)) { out += esc(text.slice(at, a)) + "<mark>" + esc(text.slice(a, b)) + "</mark>"; at = b; }
+  return out + esc(text.slice(at));
+}
+function snippet(text, terms, lead = 30) {
+  text = text.replace(/\s*\n\s*/g, " ⏎ ");
+  const r = ranges(text, terms)[0];
+  if (!r || r[0] <= lead) return mark(text, terms);
+  const sp = text.lastIndexOf(" ", r[0] - lead);
+  return sp < 0 ? mark(text, terms) : "…" + mark(text.slice(sp + 1), terms);
+}
+const snipOf = (b, terms, lead) => (b.k === "callout" ? `<b>${mark(b.title, terms)}</b> ` + snippet(b.t, terms, lead) : snippet(b.t, terms, lead));
+const headOf = (n, i) => { for (let j = i - 1; j >= 0; j--) if (n.b[j].k === "h") return n.b[j].t; return ""; };
+const where = (n) => n.f || "Notes";
+const pl = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const found = (notes, blocks) => (S.scope === "notes" ? pl(notes.length, "note") : `${pl(blocks.length, "block")} in ${pl(new Set(blocks.map((r) => r.n)).size, "note")}`);
+
+// A block as the note draws it
+function blockHTML(b, terms, i, cls = "") {
+  const a = `data-b="${i}"`, c = (x) => `class="${[x, cls].filter(Boolean).join(" ")}"`;
+  switch (b.k) {
+    case "h": return `<h${b.l + 0} ${a} ${c("")}>${mark(b.t, terms)}</h${b.l}>`;
+    case "p": return `<p ${a} ${c("")}>${mark(b.t, terms)}</p>`;
+    case "li": return `<div ${a} ${c("li")}>${mark(b.t, terms)}</div>`;
+    case "task": return `<div ${a} ${c("task" + (b.done ? " done" : ""))}><span class="box"></span><span>${mark(b.t, terms)}</span></div>`;
+    case "code": return `<pre ${a} ${c("")}><span class="lang">${esc(b.lang)}</span><code>${mark(b.t, terms)}</code></pre>`;
+    case "math": {
+      let h; try { h = katex.renderToString(b.t, { displayMode: true, throwOnError: false }); } catch { h = esc(b.t); }
+      return `<div ${a} ${c("math" + (terms.length && terms.every((t) => norm(b.t).includes(t)) ? " hit" : ""))}>${h}</div>`;
+    }
+    case "callout": return `<div ${a} ${c("callout " + b.tone)}><div class="ct">${sf("callout")}${mark(b.title, terms)}</div><p>${mark(b.t, terms)}</p></div>`;
+    case "quote": return `<blockquote ${a} ${c("")}>${mark(b.t, terms)}</blockquote>`;
+  }
+}
+const noteBody = (n, terms, focus) => `<div class="doc"><h1>${mark(n.t, terms)}</h1>${n.b.map((b, i) => blockHTML(b, terms, i, i === focus ? "focus" : "")).join("")}</div>`;
+
+// ---------------------------------------------------------------- the lab's state
+const S = { p: 1, q: "uniform", scope: "all", openF: null, hl: 0, open: true, view: "results", note: "uc", flash: -1, markQ: "", kind: null, folder: null, shut: new Set(), sort: "rank", cur: 0, list: [] };
+const root = document.documentElement, win = document.getElementById("win");
+const WHY = {
+  1: "<b>1 · Go to, grown.</b> Today's palette (Ctrl+K, the island's search) keeps its place and its keys; under the notes whose names match come the notes whose <i>text</i> matches, and a section <i>Blocks</i>: one line each, the block's sign, the words marked, the note at the right. <i>All · Notes · Blocks</i> in the field (Tab) narrows it. The smallest step from what is there.",
+  2: "<b>2 · Spotlight with a look inside.</b> A wider panel: the results at the left in two lines (note and heading above, the line below), at the right the note itself, scrolled to the block, the block outlined, every word marked — ↑ ↓ goes through them without opening anything. Enter opens there, Ctrl+Enter in a new tab. As macOS' Spotlight and Raycast do.",
+  3: "<b>3 · In the sidebar.</b> The field at the sidebar's head searches every note (today it only narrows the folder's names). <i>Notes</i>: the notes as rows with a line of their text; <i>Blocks</i>: under each note its blocks, folded open, two lines each. ↑ ↓ opens each in the note beside it at once, the words marked, the hits of the note counted at the top right. As Xcode's and VS Code's find in files, but quiet.",
+  4: "<b>4 · A page of its own.</b> Search is a place like All Notes: a large title, a wide field, <i>Notes · Blocks</i> at the right. Notes show as sheets of paper with their beginning; blocks as cards drawn as the note draws them (code as code, a formula set, a task with its box), the note and heading above. Chips narrow to a kind of block. A click opens the note, “‹ Search” leads back.",
+  5: "<b>5 · The results are a note.</b> The island becomes the field; below it the hits read as one page: for each note its title and then its blocks, full size, as they stand there — the heading they are under above each. A task can be ticked right there; “Open” over a block goes to its place. <i>Notes</i> folds every note to its lines. Closest to how one reads, furthest from a list.",
+  6: "<b>6 · Words and filters, a list (Finder).</b> A field above the note that also takes <code>is:task</code>, <code>is:open</code>, <code>is:code</code>, <code>in:velum</code> (closed by a space they turn into tokens before the words — Backspace takes one back, Tab completes), and Finder's scope bar: <i>Notes · Blocks</i>, Kind, Folder. The results are a sortable list — what, kind, note, folder, changed — and the path of the chosen one at the foot. For finding all open tasks, or every formula with λ.",
+};
+const TRY = ["uniform", "dini proof", "eigen", "is:task is:open", "lagoon", "Gespräch", "in:velum token"];
+
+// ---------------------------------------------------------------- the window's parts
+function library(fieldHTML) {
+  const counts = [["inbox", "All Notes", NOTES.length], ["clock", "Recents", 8], ["star", "Today", 2], ["todo", "With Tasks", 11], ["scribble", "Whiteboards", 2]];
+  return `${fieldHTML}<div class="scroll"><div class="head">Library</div>${counts.map(([g, l, c], i) => `<div class="row${i === 0 && !S.note ? " sel" : ""}">${sf(g)}<span class="lbl">${l}</span><span class="cnt">${c}</span></div>`).join("")}
+    <div class="head">Folders</div>${FOLDERS.map(([n, g, c]) => `<div class="row${S.note && note().f === n ? " sel" : ""}"><span class="sq" style="background:${c}">${sf(g)}</span><span class="lbl">${n}</span><span class="cnt">${NOTES.filter((x) => x.f === n).length}</span></div>`).join("")}</div>
+    <div class="foot"><span class="btn">${sf("plus")}</span><span class="btn">${sf("clock")}</span><span class="sp"></span><span class="btn">${sf("settings")}</span></div>`;
+}
+const fakeField = () => `<div class="field" data-act="search">${sf("search")}<span class="snip">${S.q ? esc(S.q) : "Search"}</span><kbd>⌃K</kbd></div>`;
+const island = (extra = "") => `<div class="island glass"><span class="btn">${sf("sidebar")}</span><span class="tab on">${sf("note")}Read</span><span class="tab">${sf("pencil")}Edit</span><span class="tab">${sf("code")}Source</span><span class="btn" data-act="search" title="Search (Ctrl+K)">${sf("search")}</span>${extra}</div>`;
+const note = () => NOTES.find((n) => n.id === S.note);
+const seg = (list, counts = {}) => `<span class="seg">${list.map(([v, l]) => `<button data-scope="${v}" class="${S.scope === v ? "on" : ""}">${l}${counts[v] != null ? `<i>${counts[v]}</i>` : ""}</button>`).join("")}</span>`;
+const SC2 = [["notes", "Notes"], ["blocks", "Blocks"]], SC3 = [["all", "All"], ...SC2];
+const scopes = () => (S.p <= 2 ? SC3 : SC2);
+
+// the note in the page, its hits marked and counted
+function drawNote() {
+  const paper = document.getElementById("paper"); if (!paper) return;
+  const n = note(), terms = S.markQ ? parse(S.markQ).terms : [];
+  const back = S.p >= 4 && S.q ? `<span class="back" data-act="back">${sf("left")}${S.p === 4 ? "Search" : "Results"}</span>` : "";
+  paper.innerHTML = `<div class="crumb">${back}${sf("folder")}${esc(where(n))}${sf("right")}${esc(n.t)}</div>` + noteBody(n, terms, -1);
+  const page = document.getElementById("page"), marks = [...paper.querySelectorAll("mark, .math.hit")];
+  S.marks = marks;
+  let target = S.flash >= 0 ? paper.querySelector(`[data-b="${S.flash}"]`) : null;
+  S.cur = target ? Math.max(0, marks.findIndex((m) => target.contains(m) || m === target)) : 0;
+  if (target) { target.classList.remove("flash"); void target.offsetWidth; target.classList.add("flash"); scrollInto(page, target); }
+  else page.scrollTop = 0;
+  hitsCapsule();
+}
+function scrollInto(box, el, at = 0.33) { const r = el.getBoundingClientRect(), b = box.getBoundingClientRect(); box.scrollTop += r.top - b.top - box.clientHeight * at; }
+function hitsCapsule() {
+  const main = win.querySelector(".main"); if (!main) return;
+  main.querySelector(".hits")?.remove();
+  if (!S.markQ || !S.marks || !S.marks.length || (S.p >= 4 && S.view === "results")) return;
+  S.marks.forEach((m, i) => m.classList.toggle("cur", i === S.cur && m.tagName === "MARK"));
+  main.insertAdjacentHTML("beforeend", `<div class="hits glass">${sf("search")}<b>${esc(S.markQ)}</b><small>${S.cur + 1} of ${S.marks.length}</small><span class="btn" data-act="hprev">${sf("up")}</span><span class="btn" data-act="hnext">${sf("down")}</span><span class="btn" data-act="hclose">${sf("close")}</span></div>`);
+}
+function stepHit(d) {
+  if (!S.marks?.length) return;
+  S.cur = (S.cur + d + S.marks.length) % S.marks.length;
+  scrollInto(document.getElementById("page"), S.marks[S.cur], 0.4); hitsCapsule();
+}
+
+let toastT;
+function toast(t) { const el = win.querySelector(".toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1600); }
+
+// opening a result: the note, at the block, the words marked
+function openResult(r, newTab) {
+  if (!r) return;
+  if (r.type === "cmd") return r.run();
+  if (newTab) { toast(`“${r.n.t}” opened in a new tab`); return; }
+  S.note = r.n.id; S.flash = r.i; S.markQ = S.q;
+  if (S.p <= 2) { S.open = false; frame(); return; }
+  if (S.p === 3) { S.picked = true; update(); drawNote(); return; }
+  S.view = "note"; frame();
+}
+
+// ---------------------------------------------------------------- 1 · Go to, grown
+const P1 = {
+  frame: () => `<aside class="side">${library(fakeField())}</aside><section class="main">${island()}<div class="page" id="page"><article class="paper" id="paper"></article></div>
+    ${S.open ? `<div class="pal glass"><div class="pf">${sf("search")}<input id="q" spellcheck="false" autocomplete="off" placeholder="Search notes, blocks and commands"><span id="segh"></span></div><div class="pl" id="list"></div>
+    <div class="pft"><span>↑↓ choose</span><span>↵ open</span><span>⌃↵ new tab</span><span>⇥ All · Notes · Blocks</span><span>esc close</span><span class="n" id="cnt"></span></div></div>` : ""}</section>`,
+  update() {
+    if (!S.open) return;
+    const { pq, blocks, notes, ranked } = run(), q = S.q.trim(), list = [];
+    document.getElementById("segh").innerHTML = seg(SC3);
+    let html = "";
+    const head = (t, r = "") => (html += `<div class="ph">${t}${r ? `<span>${r}</span>` : ""}</div>`);
+    const row = (it, inner, cls = "") => { list.push(it); html += `<div class="pr${cls}" data-i="${list.length - 1}">${inner}</div>`; };
+    if (!q) {
+      head("Recent");
+      NOTES.slice(0, 6).forEach((n) => row({ type: "note", n, i: -1 }, `${sf("note")}<span class="t">${esc(n.t)}</span><small>${esc(where(n))}</small>`));
+    } else {
+      const nMax = S.scope === "notes" ? 14 : S.scope === "all" ? 4 : 0, bMax = S.scope === "blocks" ? 16 : S.scope === "all" ? 7 : 0;
+      if (nMax && notes.length) {
+        head("Notes", notes.length > nMax ? `${notes.length}` : "");
+        notes.slice(0, nMax).forEach((r) => row(r, `${sf("note")}<span class="t">${mark(r.n.t, pq.terms)}</span><small>${r.inTitle ? esc(where(r.n)) : snipOf(r.n.b[r.i] || { t: "" }, pq.terms, 18)}</small><span class="more">${r.count > 1 ? r.count + " matches" : ""}</span>`));
+      }
+      if (bMax && ranked.length) {
+        head("Blocks", ranked.length > bMax ? `${ranked.length} — Tab shows all` : "");
+        ranked.slice(0, bMax).forEach((r) => row(r, `${sf(kg(r.b))}<span class="t snip${r.b.k === "code" || r.b.k === "math" ? " mono" : ""}">${snipOf(r.b, pq.terms, 26)}</span><small>${esc(r.n.t)}</small>`, " blk"));
+      }
+      if (S.scope === "all") {
+        head("Commands");
+        row({ type: "cmd", run: () => toast(`New note “${q}”`) }, `${sf("plus")}<span class="t">New Note “${esc(q)}”</span><kbd>⌃N</kbd>`);
+        row({ type: "cmd", run: () => toast(`Find “${q}” in this note`) }, `${sf("search")}<span class="t">Find “${esc(q)}” in this note</span><kbd>⌃F</kbd>`);
+      }
+      if (!list.length) html = `<div class="empty"><b>Nothing found</b>No note has “${esc(q)}”.</div>`;
+    }
+    S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1));
+    const el = document.getElementById("list"); el.innerHTML = html;
+    el.querySelector(`[data-i="${S.hl}"]`)?.classList.add("hl");
+    document.getElementById("cnt").textContent = q ? `${notes.length} note${notes.length === 1 ? "" : "s"} · ${blocks.length} block${blocks.length === 1 ? "" : "s"}` : "";
+  },
+  hl() { const el = document.getElementById("list"); el.querySelectorAll(".pr").forEach((r) => r.classList.toggle("hl", +r.dataset.i === S.hl)); el.querySelector(".hl")?.scrollIntoView({ block: "nearest" }); },
+  esc() { S.open = false; frame(); },
+};
+
+// ---------------------------------------------------------------- 2 · Spotlight with a look inside
+const P2 = {
+  frame: () => `<aside class="side">${library(fakeField())}</aside><section class="main">${island()}<div class="page" id="page"><article class="paper" id="paper"></article></div>
+    ${S.open ? `<div class="spot glass"><div class="pf">${sf("search")}<input id="q" spellcheck="false" autocomplete="off" placeholder="Search all notes"><span id="segh"></span></div>
+    <div class="sb"><div class="sl" id="list"></div><div class="pv" id="pv"></div></div></div>` : ""}</section>`,
+  update() {
+    if (!S.open) return;
+    const { pq, blocks, notes, ranked } = run(), q = S.q.trim(), list = [];
+    document.getElementById("segh").innerHTML = seg(SC3, q ? { notes: notes.length, blocks: blocks.length } : {});
+    let html = "";
+    const row = (it, g, top, bottom) => { list.push(it); html += `<div class="sr" data-i="${list.length - 1}">${sf(g)}<b>${top}</b><small>${bottom}</small></div>`; };
+    if (!q) { html += `<div class="sh">Recent</div>`; NOTES.slice(0, 8).forEach((n) => row({ type: "note", n, i: -1 }, "note", esc(n.t), `${esc(where(n))} · ${esc(n.d)}`)); }
+    else {
+      if (S.scope !== "blocks" && notes.length) { html += `<div class="sh">Notes</div>`; notes.slice(0, S.scope === "all" ? 4 : 40).forEach((r) => row(r, "note", mark(r.n.t, pq.terms), r.i >= 0 && !r.inTitle ? snipOf(r.n.b[r.i], pq.terms, 14) : `${esc(where(r.n))} · ${r.count} match${r.count === 1 ? "" : "es"}`)); }
+      if (S.scope !== "notes" && ranked.length) { html += `<div class="sh">Blocks</div>`; ranked.slice(0, 40).forEach((r) => { const h = headOf(r.n, r.i); row(r, kg(r.b), `${esc(r.n.t)}${h ? ` <span style="font-weight:400;opacity:.7">› ${esc(h)}</span>` : ""}`, snipOf(r.b, pq.terms, 16)); }); }
+      if (!list.length) html = `<div class="empty"><b>Nothing found</b>No note has “${esc(q)}”.</div>`;
+    }
+    S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1));
+    document.getElementById("list").innerHTML = html;
+    this.hl();
+  },
+  hl() {
+    const el = document.getElementById("list"); el.querySelectorAll(".sr").forEach((r) => r.classList.toggle("hl", +r.dataset.i === S.hl)); el.querySelector(".hl")?.scrollIntoView({ block: "nearest" });
+    const pv = document.getElementById("pv"), r = S.list[S.hl];
+    if (!r) { pv.innerHTML = ""; return; }
+    const terms = parse(S.q).terms;
+    pv.innerHTML = `<div class="pvs">${noteBody(r.n, terms, r.type === "block" ? r.i : -1)}</div><div class="pvh">${sf("folder")}<span>${esc(where(r.n))} › ${esc(r.n.t)}</span><span>↵ open · ⌃↵ new tab</span></div>`;
+    const box = pv.querySelector(".pvs"), t = r.i >= 0 ? box.querySelector(`[data-b="${r.i}"]`) : null;
+    if (t) scrollInto(box, t, 0.3);
+  },
+  esc() { S.open = false; frame(); },
+};
+
+// ---------------------------------------------------------------- 3 · In the sidebar
+const P3 = {
+  frame: () => `<aside class="side"><label class="field">${sf("search")}<input id="q" spellcheck="false" autocomplete="off" placeholder="Search all notes"><span class="x" data-act="clear">${S.q ? sf("close") : ""}</span></label><div id="sbody" class="scroll" style="display:flex;flex-direction:column"></div></aside>
+    <section class="main">${island()}<div class="page" id="page"><article class="paper" id="paper"></article></div></section>`,
+  update() {
+    const body = document.getElementById("sbody"), q = S.q.trim();
+    win.querySelector(".side .x").innerHTML = S.q ? sf("close") : "";
+    if (!q) { body.innerHTML = library("").replace(/^<div class="scroll">/, "<div>"); S.list = []; return; }
+    const { pq, blocks, notes } = run(), list = [];
+    let html = `<div class="sscope">${seg(SC2, { notes: notes.length, blocks: blocks.length })}</div>`;
+    if (S.scope === "notes") {
+      notes.forEach((r) => { list.push(r); const s = r.i >= 0 ? snipOf(r.n.b[r.i], pq.terms, 20) : ""; html += `<div class="item3" data-i="${list.length - 1}"><b><span>${mark(r.n.t, pq.terms)}</span><small>${r.count}</small></b><small>${esc(where(r.n))} · ${esc(r.n.d)}</small>${s ? `<span>${s}</span>` : ""}</div>`; });
+    } else {
+      for (const n of NOTES) {
+        const mine = blocks.filter((r) => r.n === n); if (!mine.length) continue;
+        const shut = S.shut.has(n.id);
+        html += `<div class="grp3${shut ? " shut" : ""}" data-fold="${n.id}">${sf("right", "dis")}${sf("note")}<span class="lbl">${mark(n.t, pq.terms)}</span><span class="cnt">${mine.length}</span></div>`;
+        if (!shut) mine.forEach((r) => { list.push(r); html += `<div class="hit3" data-i="${list.length - 1}">${sf(kg(r.b))}<span${r.b.k === "code" || r.b.k === "math" ? ' class="mono"' : ""}>${snipOf(r.b, pq.terms, 22)}</span></div>`; });
+      }
+    }
+    if (!list.length && !blocks.length && !notes.length) html += `<div class="empty"><b>No results</b>No note has “${esc(q)}”.</div>`;
+    body.innerHTML = html; S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1));
+    this.hl(false);
+  },
+  hl(open = true) {
+    const body = document.getElementById("sbody");
+    body.querySelectorAll("[data-i]").forEach((r) => r.classList.toggle("sel", +r.dataset.i === S.hl && S.picked));
+    body.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+    if (open && S.list[S.hl]) { S.picked = true; const r = S.list[S.hl]; S.note = r.n.id; S.flash = r.i; S.markQ = S.q; body.querySelectorAll("[data-i]").forEach((x) => x.classList.toggle("sel", +x.dataset.i === S.hl)); drawNote(); }
+  },
+  esc() { S.q = ""; S.markQ = ""; S.picked = false; document.getElementById("q").value = ""; update(); drawNote(); },
+};
+
+// ---------------------------------------------------------------- 4 · A page of its own
+const P4 = {
+  frame: () => `<aside class="side">${library(fakeField())}</aside><section class="main">${S.view === "results"
+    ? `<div class="spage" id="spage"><div class="sph"><div><b>Search</b><small id="cnt"></small></div><span id="segh"></span></div>
+       <label class="bigf">${sf("search")}<input id="q" spellcheck="false" autocomplete="off" placeholder="Search all notes"></label><div class="chips" id="chips"></div><div id="list"></div></div>`
+    : `${island()}<div class="page" id="page"><article class="paper" id="paper"></article></div>`}</section>`,
+  update() {
+    if (S.view !== "results") return;
+    const { pq, blocks, notes } = run(), q = S.q.trim(), list = [];
+    document.getElementById("segh").innerHTML = seg(SC2, { notes: notes.length, blocks: blocks.length });
+    document.getElementById("cnt").textContent = q || pq.filtered ? `${found(notes, blocks)}${q ? ` for “${q}”` : ""}` : "All notes, all blocks";
+    // the kinds of block, each with how many it has (without the kind chosen, so the others still count)
+    const save = S.kind; S.kind = null; const every = blockHits(parse(S.q)); S.kind = save;
+    document.getElementById("chips").innerHTML = S.scope === "blocks" && (q || pq.filtered) ? `<button class="chip${!S.kind ? " on" : ""}" data-kind="">All<i>${every.length}</i></button>` +
+      KINDS.map(([k, l, g]) => { const c = every.filter((r) => r.b.k === k).length; return `<button class="chip${S.kind === k ? " on" : ""}${c ? "" : " off"}" data-kind="${k}">${sf(g)}${l}<i>${c}</i></button>`; }).join("") : "";
+    let html = "";
+    if (!q && !pq.filtered) html = `<div class="empty"><b>Search every note</b>Words find notes and the blocks in them; a chip narrows to headings, tasks, code, formulas …</div>`;
+    else if (S.scope === "notes") {
+      html = `<div class="tiles4">${notes.map((r) => { list.push(r); return `<div class="tile4" data-i="${list.length - 1}"><div class="sheet">${noteBody(r.n, pq.terms, -1)}</div><b>${mark(r.n.t, pq.terms)}</b><small>${esc(where(r.n))} · ${r.count} match${r.count === 1 ? "" : "es"}</small></div>`; }).join("")}</div>`;
+    } else {
+      html = `<div class="cards4">${blocks.map((r) => { list.push(r); const h = headOf(r.n, r.i); return `<div class="card4" data-i="${list.length - 1}"><div class="crumb">${sf("note")}${esc(r.n.t)}${h ? `${sf("right")}${esc(h)}` : ""}<span style="margin-left:auto">${esc(r.n.d)}</span></div><div class="doc">${blockHTML(r.b, pq.terms, r.i)}</div></div>`; }).join("")}</div>`;
+    }
+    if ((q || pq.filtered) && !list.length) html = `<div class="empty"><b>No results</b>No note has “${esc(q)}”.</div>`;
+    document.getElementById("list").innerHTML = html;
+    S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1)); this.hl();
+  },
+  hl() { const el = document.getElementById("list"); el.querySelectorAll("[data-i]").forEach((r) => r.classList.toggle("sel", +r.dataset.i === S.hl && S.picked)); el.querySelector(".sel")?.scrollIntoView({ block: "nearest" }); },
+  esc() { if (S.view === "note") { S.view = "results"; frame(); } else { S.q = ""; document.getElementById("q").value = ""; update(); } },
+};
+
+// ---------------------------------------------------------------- 5 · The results are a note
+const P5 = {
+  frame: () => `<aside class="side">${library(fakeField())}</aside><section class="main">
+    <div class="sisland glass">${S.view === "note" && S.q ? `<span class="btn" data-act="back" title="Back to the results">${sf("left")}</span>` : sf("search")}<input id="q" spellcheck="false" autocomplete="off" placeholder="Search all notes"><span id="segh"></span><span class="btn" data-act="clear" title="Close">${sf("close")}</span></div>
+    <div class="page" id="page"><article class="paper" id="paper"></article></div></section>`,
+  update() {
+    document.getElementById("segh").innerHTML = S.q.trim() ? seg(SC2) : "";
+    if (S.view === "note" || !S.q.trim()) { if (S.view !== "note") { S.view = "note"; drawNote(); } S.list = []; return; }
+    const { pq, blocks, notes } = run(), list = [];
+    const paper = document.getElementById("paper");
+    let html = `<div class="stream doc"><div class="sth"><b>“${esc(S.q.trim())}”</b><small>${found(notes, blocks)}</small></div>`;
+    const order = S.scope === "notes" ? notes.map((r) => r.n) : NOTES.filter((n) => blocks.some((r) => r.n === n));
+    for (const n of order) {
+      const mine = blocks.filter((r) => r.n === n), nr = notes.find((r) => r.n === n);
+      html += `<section><div class="nh">${sf("note")}<b>${mark(n.t, pq.terms)}</b><small>${esc(where(n))} · ${esc(n.d)}</small><span class="btn" data-open="${n.id}">Open ${sf("ext")}</span></div>`;
+      if (S.scope === "notes") {
+        const lines = mine.length ? mine : nr && nr.i >= 0 ? [{ n, i: nr.i, b: n.b[nr.i] }] : [];
+        list.push(nr || { type: "note", n, i: -1 });
+        html += `<ul class="lines">${lines.map((r) => `<li>${sf(kg(r.b))}<span class="snip">${snipOf(r.b, pq.terms, 30)}</span></li>`).join("")}</ul>`;
+      } else {
+        let lastH = null;
+        for (const r of mine) {
+          list.push(r);
+          const h = headOf(n, r.i), hd = r.b.k !== "h" && h && h !== lastH ? `<div class="hd">${sf("right")}${esc(h)}</div>` : "";
+          lastH = r.b.k === "h" ? r.b.t : h;
+          html += `<div class="sblk" data-i="${list.length - 1}">${hd}${blockHTML(r.b, pq.terms, r.i)}<span class="btn go" data-go="${list.length - 1}">Open ${sf("ext")}</span></div>`;
+        }
+      }
+      html += `</section>`;
+    }
+    if (!order.length) html += `<div class="empty"><b>No results</b>No note has “${esc(S.q.trim())}”.</div>`;
+    paper.innerHTML = html + "</div>";
+    S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1)); this.hl();
+    win.querySelector(".main .hits")?.remove();
+  },
+  hl() { const el = document.getElementById("paper"); el.querySelectorAll(".sblk").forEach((r) => r.classList.toggle("sel", +r.dataset.i === S.hl && S.picked)); const s = el.querySelector(".sblk.sel"); if (s) scrollInto(document.getElementById("page"), s, 0.35); },
+  esc() { if (S.view === "note" && S.q) { S.view = "results"; frame(); } else { S.q = ""; S.markQ = ""; S.view = "note"; frame(); } },
+};
+
+// ---------------------------------------------------------------- 6 · Words and filters, a list
+const COLS = [["what", "Match"], ["kind", "Kind"], ["note", "Note"], ["folder", "Folder"], ["changed", "Changed"]];
+const P6 = {
+  frame: () => `<aside class="side">${library(fakeField())}</aside><section class="main" style="padding-top:var(--v-space-4)">${S.view === "results"
+    ? `<div class="qbar"><label class="field">${sf("search")}<span id="toks" style="display:contents"></span><input id="q" spellcheck="false" autocomplete="off" placeholder="Search — words, is:task, is:open, is:code, in:folder"><span class="x" data-act="clear">${sf("close")}</span><div class="sugg" id="sugg"></div></label></div>
+       <div class="scope6"><span>Search:</span><span id="segh"></span><span style="width:var(--v-space-8)"></span><button class="pop" data-pop="kind" id="pk"></button><button class="pop" data-pop="folder" id="pf"></button><span class="n" id="cnt"></span></div>
+       <div class="tbl" id="tbl"></div><div class="pathbar" id="path"></div>`
+    : `${island()}<div class="page" id="page"><article class="paper" id="paper"></article></div>`}</section>`,
+  update() {
+    if (S.view !== "results") return;
+    const { pq, blocks, notes } = run(), q = S.q.trim(), list = [];
+    document.getElementById("segh").innerHTML = seg(SC2, { notes: notes.length, blocks: blocks.length });
+    // the field's filters as tokens: what is written stays text, a filter from a popup shows as a token before it
+    document.getElementById("toks").innerHTML = tokens().map((t, i) => `<span class="tok" data-tok="${i}" title="Click to remove">${esc(t)}</span>`).join("");
+    const kindTok = [...pq.kinds].map((k) => KN[k]).join(", ") + (pq.open != null ? (pq.open ? " (open)" : " (done)") : "");
+    const pk = document.getElementById("pk"), pf = document.getElementById("pf");
+    pk.innerHTML = `Kind: ${pq.kinds.size ? esc(kindTok) : "Any"} ${sf("chevud")}`; pk.classList.toggle("set", pq.kinds.size > 0);
+    pf.innerHTML = `Folder: ${pq.folder ? esc(pq.folder) : "All"} ${sf("chevud")}`; pf.classList.toggle("set", !!pq.folder);
+    document.getElementById("cnt").textContent = q || pq.filtered ? found(notes, blocks) : "";
+    // the suggestions for is: and in:
+    const last = /(?:^|\s)((?:is|in):\S*)$/i.exec(S.q), sugg = document.getElementById("sugg");
+    S.sugg = [];
+    if (last) {
+      const [p, v] = [last[1].slice(0, 3).toLowerCase(), norm(last[1].slice(3))];
+      S.sugg = (p === "is:" ? ["task", "open", "done", "heading", "code", "math", "callout", "list", "quote", "text"].map((x) => "is:" + x) : FOLDERS.map(([n]) => "in:" + n.split(" ")[0].toLowerCase())).filter((x) => norm(x.slice(3)).startsWith(v) && norm(x.slice(3)) !== v);
+    }
+    sugg.innerHTML = S.sugg.length ? `<div class="menu" style="position:static">${S.sugg.slice(0, 7).map((x, i) => `<div data-sugg="${esc(x)}"><span class="ck"></span>${esc(x)}${i === 0 ? "<small>⇥</small>" : ""}</div>`).join("")}</div>` : "";
+    // the list
+    const rows = S.scope === "notes" ? notes : blocks;
+    const key = { what: (r) => (r.type === "note" ? r.n.t : btext(r.b)).toLowerCase(), kind: (r) => (r.type === "note" ? "" : KN[r.b.k]), note: (r) => r.n.t.toLowerCase(), folder: (r) => where(r.n), changed: (r) => r.n.ni, n: (r) => -r.count };
+    const sorted = S.sort === "rank" ? (S.scope === "notes" ? rows : [...rows].sort((a, b) => b.score - a.score || a.n.ni - b.n.ni || a.i - b.i)) : [...rows].sort((a, b) => { const x = key[S.sort](a), y = key[S.sort](b); return x < y ? -1 : x > y ? 1 : 0; });
+    const cols = S.scope === "notes" ? [["what", "Note", "52%"], ["folder", "Folder", "18%"], ["changed", "Changed", "16%"], ["n", "Matches", "14%"]] : [["what", "Match", "50%"], ["kind", "Kind", "11%"], ["note", "Note", "19%"], ["folder", "Folder", "11%"], ["changed", "Changed", "9%"]];
+    let html = `<table><colgroup>${cols.map((c) => `<col style="width:${c[2]}">`).join("")}</colgroup><tr>${cols.map(([k, l]) => `<th data-sort="${k}">${l} ${S.sort === k ? sf("down") : ""}</th>`).join("")}</tr>`;
+    for (const r of sorted) {
+      list.push(r);
+      html += S.scope === "notes"
+        ? `<tr data-i="${list.length - 1}"><td>${sf("note")}${mark(r.n.t, pq.terms)}${r.i >= 0 && !r.inTitle ? ` <span class="dim">— ${snipOf(r.n.b[r.i], pq.terms, 16)}</span>` : ""}</td><td class="dim">${esc(where(r.n))}</td><td class="dim">${esc(r.n.d)}</td><td class="dim">${r.count}</td></tr>`
+        : `<tr data-i="${list.length - 1}"><td${r.b.k === "code" || r.b.k === "math" ? ' style="font-family:var(--v-font-mono);font-size:12px"' : ""}>${sf(kg(r.b))}${snipOf(r.b, pq.terms, 24)}</td><td class="dim">${KN[r.b.k].replace(/s$/, "")}</td><td class="dim">${esc(r.n.t)}</td><td class="dim">${esc(where(r.n))}</td><td class="dim">${esc(r.n.d)}</td></tr>`;
+    }
+    html += "</table>";
+    if (!q && !pq.filtered) html += `<div class="empty"><b>Search every note</b>Words, or a filter: <code>is:task is:open</code> lists every open task.</div>`;
+    else if (!list.length) html += `<div class="empty"><b>No results</b></div>`;
+    document.getElementById("tbl").innerHTML = html;
+    S.list = list; S.hl = Math.min(S.hl, Math.max(0, list.length - 1)); this.hl();
+  },
+  hl() {
+    const el = document.getElementById("tbl"); el.querySelectorAll("tr[data-i]").forEach((r) => r.classList.toggle("sel", +r.dataset.i === S.hl));
+    el.querySelector("tr.sel")?.scrollIntoView({ block: "nearest" });
+    const r = S.list[S.hl], h = r && r.i >= 0 ? headOf(r.n, r.i) : "";
+    document.getElementById("path").innerHTML = r ? `${sf("folder")}${esc(where(r.n))}${sf("right")}${sf("note", "k")}${esc(r.n.t)}${h ? `${sf("right")}${esc(h)}` : ""}${r.type === "block" ? `${sf("right")}${sf(kg(r.b), "k")}${KN[r.b.k].replace(/s$/, "")}` : ""}<span class="r">↵ open · ⌃↵ new tab · double-click opens</span>` : "";
+  },
+  esc() { if (S.view === "note") { S.view = "results"; frame(); } else if (S.sugg?.length) { S.sugg = []; document.getElementById("sugg").innerHTML = ""; } else { S.q = ""; S.kind = null; S.folder = null; S.openF = null; document.getElementById("q").value = ""; update(); } },
+};
+
+// ---------------------------------------------------------------- driving it
+const PS = { 1: P1, 2: P2, 3: P3, 4: P4, 5: P5, 6: P6 };
+const cur = () => PS[S.p];
+function frame() {
+  win.className = "win p" + S.p;
+  if (!scopes().some(([v]) => v === S.scope)) S.scope = "blocks";
+  win.innerHTML = cur().frame() + `<div class="toast glass"></div>`;
+  const q = document.getElementById("q");
+  if (q) { q.value = S.q; bindInput(q); }
+  drawNote();
+  update();
+  if (q && (S.p !== 3 || !S.picked)) { q.focus({ preventScroll: true }); q.setSelectionRange(q.value.length, q.value.length); }
+  document.getElementById("why").innerHTML = WHY[S.p];
+  document.querySelectorAll("#o-p button").forEach((b) => b.classList.toggle("on", +b.dataset.p === S.p));
+}
+function update() {
+  cur().update();
+  const f = win.querySelector('.field[data-act="search"] .snip'); if (f) f.textContent = [...tokens(), S.q].join(" ").trim() || "Search";
+}
+function go(p) { if (S.p !== p && (S.p === 6 || S.p === 4)) untokenize(); if (p === 6) tokenize(true); S.p = p; S.hl = 0; S.picked = false; S.open = true; S.view = p === 5 && !S.q.trim() ? "note" : "results"; frame(); }
+function setScope(v) { S.scope = v; S.hl = 0; S.picked = false; update(); }
+function openSearch() {
+  if (S.p <= 2) { S.open = true; frame(); }
+  else if (S.p >= 4 && S.view === "note" && S.p !== 5) { S.view = "results"; frame(); }
+  else if (S.p === 5 && S.view === "note" && S.q) { S.view = "results"; frame(); }
+  const q = document.getElementById("q"); q?.focus(); q?.select();
+}
+function bindInput(q) {
+  q.addEventListener("input", () => {
+    S.q = q.value; S.hl = 0; S.picked = false;
+    if (S.p === 6 && tokenize(false)) q.value = S.q;
+    if (S.p === 5 && S.view === "note" && S.q.trim()) S.view = "results";
+    if (S.p === 5) { const pg = document.getElementById("page"); if (pg) pg.scrollTop = 0; }
+    update();
+  });
+  q.addEventListener("keydown", (e) => {
+    if (e.altKey && /^[1-6]$/.test(e.key)) return; // (the lab's keys: the document takes them)
+    const n = S.list.length;
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && n) {
+      e.preventDefault();
+      if (!S.picked && S.p >= 3 && S.p <= 5) { S.picked = true; S.hl = e.key === "ArrowDown" ? 0 : n - 1; }
+      else S.hl = (S.hl + (e.key === "ArrowDown" ? 1 : -1) + n) % n;
+      cur().hl();
+    } else if (e.key === "Enter") { e.preventDefault(); openResult(S.list[S.hl], e.ctrlKey || e.metaKey); }
+    else if (e.key === "Tab") {
+      e.preventDefault();
+      if (S.p === 6 && S.sugg?.length) { S.q = S.q.replace(/(?:is|in):\S*$/i, S.sugg[0] + " "); q.value = S.q; update(); return; }
+      const sc = scopes().map(([v]) => v), i = sc.indexOf(S.scope);
+      setScope(sc[(i + (e.shiftKey ? -1 : 1) + sc.length) % sc.length]);
+    } else if (e.key === "Escape") { e.preventDefault(); cur().esc(); }
+    else if (e.key === "Backspace" && S.p === 6 && q.selectionStart === 0 && q.selectionEnd === 0 && tokens().length) {
+      e.preventDefault(); const t = tokens().pop();
+      if (t.startsWith("in:")) S.folder = null; else { S.kind = null; S.openF = null; }
+      update();
+    }
+  });
+}
+
+// 6: a filter written and closed by a space (or all of them, on arriving) becomes a token; leaving 6 (or 4) writes them back as words
+const tokens = () => [S.openF != null ? (S.openF ? "is:open" : "is:done") : S.kind ? "is:" + KN[S.kind].toLowerCase().replace(/s$/, "") : "", S.folder ? "in:" + S.folder.split(" ")[0].toLowerCase() : ""].filter(Boolean);
+function tokenize(all) {
+  let changed = false;
+  S.q = S.q.replace(all ? /(^|\s)(is|in):(\S+)(?=\s|$)/gi : /(^|\s)(is|in):(\S+)(?=\s)/gi, (m, pre, k, v) => {
+    const n = norm(v);
+    if (k.toLowerCase() === "in") { const fo = FOLDERS.find(([f]) => norm(f).startsWith(n)); if (!fo) return m; S.folder = fo[0]; }
+    else if (n === "open" || n === "done") { S.openF = n === "open"; S.kind = null; }
+    else if (IS[n]) { S.kind = IS[n]; S.openF = null; }
+    else return m;
+    changed = true; return pre;
+  });
+  if (changed) S.q = S.q.replace(/^\s+/, "").replace(/\s{2,}/g, " ");
+  return changed;
+}
+function untokenize() { const t = tokens(); S.kind = null; S.folder = null; S.openF = null; if (t.length) S.q = (t.join(" ") + " " + S.q).trim(); }
+
+// the menu of a popup button (6)
+function popMenu(btn, items, pick) {
+  win.querySelector(".menu.pm")?.remove();
+  const r = btn.getBoundingClientRect(), w = win.getBoundingClientRect();
+  win.insertAdjacentHTML("beforeend", `<div class="menu pm" style="left:${r.left - w.left}px;top:${r.bottom - w.top + 4}px">${items.map(([v, l, on, c], i) => `<div data-v="${i}" class="${on ? "on" : ""}"><span class="ck">${sf("check")}</span>${esc(l)}${c != null ? `<small>${c}</small>` : ""}</div>`).join("")}</div>`);
+  const m = win.querySelector(".menu.pm");
+  m.addEventListener("mousedown", (e) => { const d = e.target.closest("[data-v]"); if (d) { e.preventDefault(); const it = items[+d.dataset.v]; m.remove(); pick(it[0]); } });
+}
+
+win.addEventListener("mousedown", (e) => {
+  const t = e.target;
+  if (!t.closest(".menu.pm") && !t.closest("[data-pop]")) win.querySelector(".menu.pm")?.remove();
+  // a press beside the palette closes it (as the app's Go to…)
+  if (S.p <= 2 && S.open && !t.closest(".pal, .spot") && !t.closest('[data-act="search"]')) { S.open = false; frame(); return; }
+  const sc = t.closest("[data-scope]"); if (sc) { e.preventDefault(); setScope(sc.dataset.scope); return; }
+  const act = t.closest("[data-act]")?.dataset.act;
+  if (act === "search") { e.preventDefault(); openSearch(); return; }
+  if (act === "hprev" || act === "hnext") { e.preventDefault(); stepHit(act === "hprev" ? -1 : 1); return; }
+  if (act === "hclose") { e.preventDefault(); S.markQ = ""; S.flash = -1; drawNote(); return; }
+  if (act === "clear") { e.preventDefault(); if (S.p === 5) { S.q = ""; S.markQ = ""; S.view = "note"; frame(); } else cur().esc(); return; }
+  if (act === "back") { e.preventDefault(); S.view = "results"; frame(); return; }
+  const sg = t.closest("[data-sugg]"); if (sg) { e.preventDefault(); S.q = S.q.replace(/(?:is|in):\S*$/i, sg.dataset.sugg + " "); const q = document.getElementById("q"); q.value = S.q; q.focus(); update(); return; }
+  const pop = t.closest("[data-pop]");
+  if (pop) {
+    e.preventDefault();
+    const save = [S.kind, S.folder, S.openF]; S.kind = null; S.folder = null; S.openF = null; const all = blockHits(parse(S.q)); [S.kind, S.folder, S.openF] = save;
+    if (pop.dataset.pop === "kind") popMenu(pop, [[null, "Any", !S.kind, all.length], ...KINDS.map(([k, l]) => [k, l, S.kind === k, all.filter((r) => r.b.k === k).length])], (v) => { S.kind = v; S.openF = null; S.hl = 0; update(); });
+    else popMenu(pop, [[null, "All folders", !S.folder], ...FOLDERS.map(([n]) => [n, n, S.folder === n, all.filter((r) => r.n.f === n).length])], (v) => { S.folder = v; S.hl = 0; update(); });
+    return;
+  }
+  const tk = t.closest("[data-tok]"); if (tk) { e.preventDefault(); const x = tokens()[+tk.dataset.tok]; if (x.startsWith("in:")) S.folder = null; else { S.kind = null; S.openF = null; } update(); return; }
+  const kc = t.closest("[data-kind]"); if (kc) { e.preventDefault(); S.kind = kc.dataset.kind || null; S.hl = 0; update(); return; }
+  const fold = t.closest("[data-fold]"); if (fold) { e.preventDefault(); const id = fold.dataset.fold; S.shut.has(id) ? S.shut.delete(id) : S.shut.add(id); update(); return; }
+  const srt = t.closest("[data-sort]"); if (srt) { e.preventDefault(); S.sort = S.sort === srt.dataset.sort ? "rank" : srt.dataset.sort; update(); return; }
+  const op = t.closest("[data-open]"); if (op) { e.preventDefault(); openResult({ type: "note", n: NOTES.find((n) => n.id === op.dataset.open), i: -1 }, e.ctrlKey); return; }
+  const go = t.closest("[data-go]"); if (go) { e.preventDefault(); openResult(S.list[+go.dataset.go], e.ctrlKey); return; }
+  // a task is ticked in the results (5)
+  const box = t.closest(".stream .task .box"); if (box) { e.preventDefault(); const r = S.list[+box.closest("[data-i]").dataset.i]; r.b.done = !r.b.done; update(); return; }
+  const row = t.closest("[data-i]");
+  if (row && S.list[+row.dataset.i]) {
+    e.preventDefault(); S.hl = +row.dataset.i; S.picked = true;
+    if (S.p === 3) cur().hl(true);
+    else if (S.p === 6 && e.detail < 2) cur().hl();
+    else if ((S.p === 2 || S.p === 5) && e.detail < 2) cur().hl();
+    else openResult(S.list[S.hl], e.ctrlKey);
+  }
+});
+win.addEventListener("mousemove", (e) => {
+  if (S.p > 2) return;
+  const r = e.target.closest("[data-i]"); if (r && +r.dataset.i !== S.hl) { S.hl = +r.dataset.i; cur().hl(); }
+});
+
+document.addEventListener("keydown", (e) => {
+  const typing = e.target.closest?.("input");
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openSearch(); return; }
+  if (/^[1-6]$/.test(e.key) && (!typing || e.altKey)) { e.preventDefault(); go(+e.key); return; }
+  if (typing) return;
+  if (e.key === "d" || e.key === "D") { setAppearance(root.dataset.appearance === "dark" ? "light" : "dark"); return; }
+  if (e.key === "Escape" && S.p >= 4 && S.view === "note" && S.q) { S.view = "results"; frame(); }
+});
+
+// the lab's bar
+function setAppearance(v) { root.dataset.appearance = v; document.querySelectorAll("#o-a button").forEach((b) => b.classList.toggle("on", b.dataset.v === v)); }
+document.getElementById("o-p").insertAdjacentHTML("beforeend", [1, 2, 3, 4, 5, 6].map((p) => `<button data-p="${p}">${p}</button>`).join(""));
+document.getElementById("o-q").insertAdjacentHTML("beforeend", TRY.map((t) => `<button data-q="${esc(t)}">${esc(t)}</button>`).join(""));
+document.getElementById("bar").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.p) go(+b.dataset.p);
+  if (b.dataset.v) setAppearance(b.dataset.v);
+  if (b.dataset.q != null) { S.q = b.dataset.q; S.hl = 0; S.picked = false; S.kind = null; S.folder = null; S.openF = null; S.open = true; if (S.p >= 4) S.view = "results"; if (S.p === 6) tokenize(true); frame(); }
+});
+setAppearance(matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+frame();
+</script>
+</body>
+</html>
