@@ -71,6 +71,7 @@
 #   dev/rig.sh navigate              back and forward through notes and All Notes' folders: the arrows, Alt+← and Alt+→
 #   dev/rig.sh panelfine             the panel at the right: closed by a press outside it (the note, the toolbar), kept by one on it, its rail, a menu; none in All Notes, nor its rail, nor the sidebar's button
 #   dev/rig.sh railfav               a folder pulled onto the sidebar's rail with a real pointer: a favourite (builds dev/vptr as dragreal does)
+#   dev/rig.sh search                Search in a folder window (Ctrl+K): among 400 notes, whole and by blocks, the note beside scrolled to the block; Enter opens it there, Ctrl+Enter in a tab
 #   dev/rig.sh sidebar               the sidebar's layouts, the search, a folder's colour and sign
 #   dev/rig.sh more                  formula shape switch and picture copy, dialog size, editor search / brackets / completion, tick, tooltips
 #   dev/rig.sh dnd                   moving a block by its handle, dropping picture files (on a copy)
@@ -686,6 +687,38 @@ PY
     f=$(ls "$R/out"/*.panelfine.json 2>/dev/null | head -1); [[ -n $f ]] || { echo "FAIL no report"; tail -5 "$R/app.log"; exit 1; }
     jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f" | grep -q '^FAIL' ;;
+  search)
+    # Search (viewer/search.js, search.rs): a folder of 400 notes, four of them with the word; one of those long, under properties
+    rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"
+    python3 - "$N" <<'PY'
+import sys, random
+n = sys.argv[1]; random.seed(4)
+words = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua".split()
+for i in range(400):
+    open(f"{n}/filler {i:03}.md", "w").write(f"# Filler {i}\n\n" + "\n\n".join(" ".join(random.choice(words) for _ in range(40)) for _ in range(6)) + "\n")
+far = "\n\n".join(f"Paragraph {k}: " + " ".join(random.choice(words) for _ in range(30)) for k in range(40))
+open(f"{n}/Uniform convergence.md", "w").write("---\ntags: [analysis]\n---\n# Uniform convergence\n\nOne N serves every x at once.\n\n- [ ] Learn the uniform bound by heart\n\n" + far + "\n\nThe far uniform paragraph stands here, under forty others.\n\n" + far + "\n\n## Closing uniform remarks\n\nThe end.\n")
+open(f"{n}/Sheet 8.md", "w").write("# Sheet 8\n\n> [!tip] Hint\n> the convergence is uniform: the sup tends to 0\n")
+open(f"{n}/Weekly review.md", "w").write("# Weekly review\n\n- exam topics: uniform convergence, power series\n")
+open(f"{n}/Dini.md", "w").write("# Dini\n\nThe proof, compact sets.\n")
+open(f"{n}/sub/Deep.md", "w").write("# Deep\n\n```python\nuniform_bound = 3\n```\n")
+PY
+    rm -f "$R/out"/*.search.json "$R/out"/*.shot-search.json "$R/out/search.png"
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (what an earlier run opened is not this one's)
+    # (the desktop's own Velum, as Henri has it — copied, so nothing of it is written — or, without one, Opal in the light)
+    rm -rf "$R/velum-search"; mkdir -p "$R/velum-search"
+    if [[ -f $HOME/.local/state/velum/settings.json ]]; then cp "$HOME/.local/state/velum/colors.toml" "$R/velum-search/" 2>/dev/null; jq '.tablet = false' "$HOME/.local/state/velum/settings.json" > "$R/velum-search/settings.json" # (the desktop, not its tablet mode)
+    else printf '%s\n' 'mode = "light"' 'background = "#fbfaf8"' 'foreground = "#1c1a17"' 'accent = "#138474"' > "$R/velum-search/colors.toml"; echo '{"variant":"opal","appearance":"light"}' > "$R/velum-search/settings.json"; fi
+    app 150 MDVIEW_VELUM_STATE="$R/velum-search" MDVIEW_PROBE="$D/probe-search.js" MDVIEW_PROBE_OUT="$R/out" -- "$N"
+    for _ in $(seq 900); do { ls "$R/out"/*.shot-search.json || ls "$R/out"/*.search.json; } >/dev/null 2>&1 && break; sleep 0.1; done; sleep 1; shot "$R/out/search.png"
+    for _ in $(seq 900); do ls "$R/out"/*.search.json >/dev/null 2>&1 && break; sleep 0.1; done
+    pkill -f "^$APP" 2>/dev/null
+    st="$R/state/mdview/state.json"; [[ -f $st ]] && jq 'del(.active, .opened, .tabs, .last_notes)' "$st" > "$st.new" && mv "$st.new" "$st" # (the settings of the test never stay)
+    ls "$R/out"/*.search.json >/dev/null 2>&1 || { echo "no report"; tail -5 "$R/app.log"; exit 1; }
+    jq -r '.steps[], (.error // empty)' "$R/out"/*.search.json
+    echo "picture: $R/out/search.png"
+    ! jq -r '.steps[]' "$R/out"/*.search.json | grep -q '^FAIL' && ! jq -e '.error' "$R/out"/*.search.json >/dev/null
+    ;;
   sidebar)
     # the sidebar's layouts over one folder, the search, a folder's colour and sign
     rm -rf "$R/work"; mkdir -p "$R/work/notes/Studium" "$R/work/notes/Projekte/Deep"

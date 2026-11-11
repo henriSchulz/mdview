@@ -123,7 +123,16 @@ impl Win {
         self.js("MdView.quickFresh", &[json!(s(&path))]);
     }
 
-    pub(super) fn open_note(&mut self, app: &mut App, path: &str, tab: bool) {
+    /// Search (search.rs, viewer/search.js): the window's notes that have every word, with their text.
+    pub(super) fn search(&self, q: &str, id: &Value) {
+        let paths: Vec<String> = self.note_paths.iter().cloned().collect();
+        let (hits, found) = crate::search::search(&paths, q);
+        let notes: Vec<Value> = hits.into_iter().map(|h| json!({ "path": h.path, "text": h.text, "mtime": h.mtime })).collect();
+        self.js("MdView.searchResults", &[id.clone(), json!({ "notes": notes, "found": found })]);
+    }
+
+    /// A note chosen (the sidebar, a tile, Search) — at a place in it, where one is named (`fragment`: `^line=12`, a heading).
+    pub(super) fn open_note(&mut self, app: &mut App, path: &str, tab: bool, fragment: Option<String>) {
         if self.folder.is_none() || !self.knows(path) {
             return;
         }
@@ -144,12 +153,12 @@ impl Win {
         let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
         let there = self.tabs.iter().enumerate().position(|(k, t)| k != self.tab && t.path.as_ref() == Some(&real));
         if tab {
-            self.new_tab(app, Some(&real), None, None);
+            self.new_tab(app, Some(&real), fragment, None);
         } else if let Some(there) = there {
             self.stash_tab();
-            self.show_tab(app, there, None);
+            self.show_tab(app, there, fragment);
         } else {
-            self.open_path(app, path, None, true);
+            self.open_path(app, path, fragment, true);
         }
     }
 

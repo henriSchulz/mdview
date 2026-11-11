@@ -1825,3 +1825,17 @@ and **+ New Note** at the right). **Go to…** (the island's search, or `Ctrl+K`
 is typed (the ones opened last first), the headings of the note on screen that have it, and *New Note*, *Ask the
 assistant*, *Find in this note*; `↑` `↓` choose, `Enter` opens, `Ctrl+Enter` in a new tab, `Esc` closes. The search in
 the toolbar opens it; `Ctrl+F` is still find in the note.
+
+**Search** (Henri, 2026-11-11, proposal 2 of `dev/search-lab.html`): in a folder window of the application, in every look,
+`Ctrl+K` (outside a text field) and the island's search open Search in place of Go to — every note of the folder, as a
+whole or by its blocks. A wide panel in the middle of the room beside the sidebar: the field, and **All · Notes · Blocks**
+(`Tab`, `Shift+Tab`); under it the results at the left, each in two lines, and at the right the note itself, scrolled to
+what was found, the block outlined and the words marked. A note is found when its name or its text has every word
+(anywhere in it); a block — a heading, a paragraph, an item of a list, a task, code, a formula, a quote or callout, a
+table — when it has every word itself, the note and the heading it stands under above it. Words are split at spaces;
+"words in quotes" are one; small and capital letters are the same. *All* shows the first five notes, then the blocks,
+then what Go to offers (*New Note “…”*, *Find “…” in this note*, *Ask the assistant*); with nothing typed, the notes opened
+last. `↑` `↓` go through them (the note at the right follows, nothing opens); `Enter` or a click opens the note at the
+block, `Ctrl+Enter` in a new tab; a block of the note on screen is only scrolled to. `Esc` or a press beside it closes it.
+The words of a note's name as its first heading are the note, not a block of it. The browser and a window of a single
+note keep Go to.

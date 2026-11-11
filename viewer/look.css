@@ -304,6 +304,7 @@
 :root[data-velum][data-velum-look] #palette .pal-row small { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--v-popover-ink-secondary); font-size: var(--v-type-small); }
 :root[data-velum][data-velum-look] #palette :is(.pal-row, .pal-foot) kbd { margin-left: auto; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; font-size: var(--v-type-small); color: var(--v-popover-ink-secondary); }
 :root[data-velum][data-velum-look] #palette .pal-row em { font-style: normal; font-weight: var(--v-weight-semibold); }
+:root[data-velum] #search .sr-row.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); } /* (Search: the palette's rows) */
 :root[data-velum][data-velum-look] #palette .pal-row.hl { background: linear-gradient(var(--v-menu-highlight-top), var(--v-menu-highlight)); color: var(--v-menu-highlight-ink); }
 :root[data-velum][data-velum-look] #palette .pal-row.hl :is(svg, .sf, small, kbd) { color: inherit; }
 :root[data-velum][data-velum-look] #palette .pal-foot { display: flex; flex-wrap: wrap; gap: var(--v-space-16); margin-top: var(--v-space-4); padding: var(--v-space-6) var(--v-space-10) var(--v-space-4);

@@ -280,7 +280,7 @@
     }
     if (e.key === "F11" || (mod && e.shiftKey && !e.altKey && k === "f")) { e.preventDefault(); setFocus(!focusOn()); return; }
     if (mod && e.shiftKey && k === "o") { e.preventDefault(); actions.outline(); return; }
-    if (mod && !e.shiftKey && !e.altKey && k === "k" && !typing && labLook()) { e.preventDefault(); actions.palette(); return; } // (Go to…; in a field Ctrl+K is the link's)
+    if (mod && !e.shiftKey && !e.altKey && k === "k" && !typing && (labLook() || P.searchHere())) { e.preventDefault(); actions.palette(); return; } // (Go to…, in a folder window Search; in a field Ctrl+K is the link's)
     if (mod && e.shiftKey && k === "e") { e.preventDefault(); post("external"); return; }
     if (mod && e.altKey && !e.shiftKey && k === "s") { e.preventDefault(); actions.sidebar(); return; }
     if (mod && e.altKey && !e.shiftKey && k === "g") { e.preventDefault(); if (P.folder && window.MdOverview) MdOverview.toggle(); return; } // (the key goes there and back)

@@ -25,6 +25,7 @@ mod host;
 mod looks;
 mod paste;
 mod scan;
+mod search;
 mod share;
 mod slides;
 mod shell;

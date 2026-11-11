@@ -82,6 +82,7 @@ or the tests see the old ones.
 | `viewer/modes.js` | what is loaded when first used and shown over or instead of the note: the active mode (active/*.js), … |
 | `viewer/prep.js` | a note's text before it is rendered: frontmatter and comments taken off, the pages inside a note (parsed, … |
 | `viewer/render.js` | rendering: a note drawn into #content, the place in it kept across a redraw, the way to a heading or a line, … |
+| `viewer/search.js` | Search: every note of the folder, as a whole or by its blocks (Henri, 2026-11-11: "eine globale Suchfunktion, … |
 | `viewer/sidebar.js` | the sidebar of a folder window: the folder's notes as a tree reconciled by path, its layouts, sorting, the … |
 | `viewer/split.js` | two things side by side: a note and a PDF, and nothing else (Henri, 2026-10-26: "two notes side by side … |
 | `viewer/tablet.js` | the iPad's own layout (Henri chose it, 2026-10-20: Craft's look, and no sidebar). |
@@ -212,6 +213,7 @@ or the tests see the old ones.
 | `src-tauri/src/looks.rs` | How the folders of a folder look in the sidebar — a colour, a sign — as the folder says itself, in … |
 | `src-tauri/src/paste.rs` | A project's pasteboard: a small chat of blocks of text for a project that is linked to a repository on … |
 | `src-tauri/src/scan.rs` | What is read off the disk without a window: a folder's notes as a tree, a note's title, where a wikilink … |
+| `src-tauri/src/search.rs` | Search (viewer/search.js, Ctrl+K in a folder window): the notes whose name or text has every word asked for. |
 | `src-tauri/src/share.rs` | Sharing a note: a link under which anyone can read it in the web app, with a password if one is set — and … |
 | `src-tauri/src/slides.rs` | A presentation (PowerPoint, Impress) shown as the PDF LibreOffice makes of it: made once, in a thread of its … |
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |

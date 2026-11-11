@@ -70,7 +70,7 @@
 }
 /* the focus mode (viewer/toolbar.js, F11 / Ctrl+Shift+F): only the note on the screen — no control, and the room the tabs took
  * at the top given back to the note */
-body[data-focus] :is(#toolbar, #tabs, #sidebar, #sb-grip, #sblook, #settings-btn, #rrail, #rpanel, #update, #outline, #orail, #palette, #pal-btn, #findbar) { display: none !important; }
+body[data-focus] :is(#toolbar, #tabs, #sidebar, #sb-grip, #sblook, #settings-btn, #rrail, #rpanel, #update, #outline, #orail, #palette, #search, #pal-btn, #findbar) { display: none !important; }
 body[data-focus][data-tabs] :is(#content, #active, #editor) { padding-top: 56px; }
 body[data-focus][data-tabs] :is(#twin, #split) { top: 0; }
 .tb {
@@ -330,3 +330,51 @@ body[data-update] #toast { bottom: 64px; }
 body:is([data-nonote], [data-overview]) #toolbar { display: none; }
 /* (the bar's assistant and Go to…: Velum Refined and Focus only — viewer/look.css shows them) */
 #toolbar .tb-ai, #palette, #pal-btn { display: none; }
+
+/* Search (viewer/search.js: Go to in a folder window on the desktop, every look): in the middle of the room beside the
+ * sidebar — the field and All · Notes · Blocks, the results at the left in two lines, the note at the right, scrolled to
+ * what was found. The popover's material (.surface); the rows' highlight is the menus'. */
+#search { display: none; }
+#search[data-open] {
+  display: flex; flex-direction: column; position: fixed; z-index: 60; left: 0; right: 0; top: 8vh; margin: 0 auto;
+  width: min(900px, calc(100vw - 48px)); height: min(640px, 84vh); box-sizing: border-box; overflow: hidden;
+  border-radius: var(--radius-popover, 12px); color: var(--fg); font: 400 14px/1.35 var(--ui); user-select: none; -webkit-user-select: none;
+}
+body[data-sidebar="open"] #search[data-open] { left: var(--sb-w); width: min(900px, calc(100vw - var(--sb-w) - 48px)); } /* (beside the pinned sidebar) */
+#search .sr-field { flex: none; display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 12px 0 16px; border-bottom: 0.5px solid var(--line); }
+#search :is(.sr-field, .sr-row) > svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#search .sr-field > svg { flex: none; width: 20px; height: 20px; color: var(--fg2); }
+#search .sr-field > .sf { flex: none; color: var(--fg2); font-size: 18px; }
+#search .sr-field input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: inherit; font: 400 20px/1.2 var(--ui); caret-color: var(--accent); }
+#search .sr-field input::placeholder { color: var(--fg2); }
+#search .sr-seg { flex: none; display: flex; gap: 1px; padding: 2px; border-radius: var(--radius-chip, 7px); background: color-mix(in srgb, var(--fg) 7%, transparent); font-size: 12px; font-weight: 500; }
+#search .sr-seg button { border: 0; background: none; color: var(--fg2); font: inherit; padding: 3px 10px; border-radius: calc(var(--radius-chip, 7px) - 2px); cursor: default; white-space: nowrap; }
+#search .sr-seg button[aria-selected="true"] { background: var(--raised, var(--bg)); color: var(--fg); box-shadow: 0 0.5px 2px rgb(0 0 0 / 0.16); }
+#search .sr-seg i { font-style: normal; color: var(--fg2); margin-left: 5px; font-variant-numeric: tabular-nums; }
+#search .sr-seg i:empty { display: none; }
+#search .sr-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 37%) minmax(0, 1fr); }
+#search .sr-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 6px; border-right: 0.5px solid var(--line); }
+#search .sr-h { padding: 8px 8px 3px; color: var(--fg2); font-size: 11px; font-weight: 600; }
+#search .sr-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: var(--menu-row-radius, 6px); }
+#search .sr-row > svg { grid-row: 1 / 3; align-self: start; width: 16px; height: 16px; margin-top: 1px; color: var(--fg2); }
+#search .sr-row > .sf { grid-row: 1 / 3; align-self: start; color: var(--fg2); font-size: 14px; }
+#search .sr-row.cmd { align-items: center; }
+#search .sr-row.cmd > :is(svg, .sf) { grid-row: auto; margin-top: 0; align-self: center; }
+#search .sr-row b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#search .sr-row small { grid-column: 2; font-size: 12px; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#search .sr-head { font-weight: 400; color: var(--fg2); }
+#search mark { background: color-mix(in srgb, var(--accent) 24%, transparent); color: inherit; border-radius: 2px; }
+#search .sr-row.hl { background: var(--accent); color: var(--on-accent, #fff); }
+#search .sr-row.hl :is(svg, .sf, small, .sr-head) { color: inherit; }
+#search .sr-row.hl mark { background: color-mix(in srgb, var(--on-accent, #fff) 28%, transparent); }
+#search .sr-none { padding: 18px 12px; color: var(--fg2); text-align: center; font-size: 13px; }
+#search .sr-peek { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+#search .sr-doc { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 20px 28px 40%; font-size: 13.5px; line-height: 1.55; }
+#search .sr-doc > * { pointer-events: none; } /* (what the note holds is to be seen here: a box, a link takes no click) */
+#search .sr-doc .sr-at { border-radius: var(--menu-row-radius, 6px); box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent); }
+#search.sr-empty .sr-doc { visibility: hidden; }
+#search .sr-foot { flex: none; display: flex; gap: 12px; padding: 7px 14px; border-top: 0.5px solid var(--line); color: var(--fg2); font-size: 11px; white-space: nowrap; }
+#search .sr-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#search .sr-keys { margin-left: auto; }
+::highlight(search-hit) { background-color: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 45%, transparent); }
+@media (max-width: 720px) { #search .sr-body { grid-template-columns: minmax(0, 1fr); } #search .sr-peek { display: none; } #search .sr-list { border-right: 0; } }

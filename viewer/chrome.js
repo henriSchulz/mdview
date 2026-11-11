@@ -206,7 +206,7 @@
   palBtn.addEventListener("click", () => (palOpen() ? closePalette() : openPalette()));
   document.body.appendChild(palBtn);
   let palItems = [], palHl = 0;
-  const palOpen = () => pal.hasAttribute("data-open");
+  const palOpen = () => pal.hasAttribute("data-open") || !!(P.searchShown && P.searchShown());
   const allNotes = () => { const out = [], walk = (n) => { if (!n) return; for (const x of n.notes || []) if (!x.pdf || x.kind === "pdf") out.push(x); for (const d of n.dirs || []) walk(d); }; walk(P.folder && (P.folder.all || P.folder.tree)); return out; };
   const mark = (text, q) => { const i = q ? text.toLowerCase().indexOf(q) : -1; return i < 0 ? esc(text) : esc(text.slice(0, i)) + "<em>" + esc(text.slice(i, i + q.length)) + "</em>" + esc(text.slice(i + q.length)); };
   function palBuild() {
@@ -233,12 +233,13 @@
   }
   function palSet(i) { palHl = i; palList.querySelectorAll(".pal-row").forEach((r) => r.classList.toggle("hl", Number(r.dataset.i) === i)); palList.querySelector(".pal-row.hl")?.scrollIntoView({ block: "nearest" }); }
   function openPalette() {
+    if (P.searchHere && P.searchHere()) { closeOutline(); return P.openSearch(); } // (in a folder window on the desktop: Search, viewer/search.js)
     closeFind(false); closeOutline();
     palInput.value = ""; palHl = 0; palBuild();
     pal.dataset.open = "";
     palInput.focus({ preventScroll: true });
   }
-  function closePalette() { if (!palOpen()) return false; delete pal.dataset.open; return true; }
+  function closePalette() { if (P.searchShown && P.searchShown()) return P.closeSearch(); if (!palOpen()) return false; delete pal.dataset.open; return true; }
   palInput.addEventListener("input", () => { palHl = 0; palBuild(); });
   palInput.addEventListener("keydown", (e) => {
     e.stopPropagation(); // (the note's keys stay the note's: BUGS.md rule 1)

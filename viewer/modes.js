@@ -574,14 +574,14 @@
   // ---------------------------------------------------------------- what a file shows of itself, small
   /* All Notes' tiles and the sidebar's sheets show a note by its beginning and a PDF by its first page. */
   // the beginning of a note as the reading view would show it — without what only works in a note on screen
-  function previewOf(path, text, more = {}) { // more: { whole: the note as it reads, its name too; links: what its links lead to }
+  function previewOf(path, text, more = {}) { // more: { whole: the note as it reads, its name too; links: what its links lead to; lines: each block keeps the line it begins at (data-line: viewer/search.js) }
     const fm = stripFrontmatter(text.replace(/\r\n?/g, "\n"));
     let html = "";
-    try { html = md.render(stripComments(fm.body), { lineOffset: 0, links: more.links || {}, outline: [], depth: 1 }); } catch (e) { html = ""; }
+    try { html = md.render(stripComments(fm.body), { lineOffset: more.lines ? fm.offset : 0, links: more.links || {}, outline: [], depth: more.lines ? 0 : 1 }); } catch (e) { html = ""; }
     const box = document.createElement("template");
     box.innerHTML = html;
     const dir = (window.MdHost?.files || "file://") + path.replace(/\/[^/]*$/, "").split("/").map(encodeURIComponent).join("/") + "/";
-    for (const x of box.content.querySelectorAll("[id], [data-line]")) { x.removeAttribute("id"); x.removeAttribute("data-line"); }
+    for (const x of box.content.querySelectorAll(more.lines ? "[id], input[data-line]" : "[id], [data-line]")) { x.removeAttribute("id"); x.removeAttribute("data-line"); }
     for (const x of box.content.querySelectorAll("script, iframe, video, audio, .code-tools")) x.remove();
     for (const img of box.content.querySelectorAll("img")) {
       const src = img.getAttribute("src") || "";

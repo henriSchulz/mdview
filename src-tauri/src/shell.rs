@@ -99,6 +99,7 @@ const SCRIPTS: &[&str] = &[
     "viewer/touch.js",
     "viewer/tablet.js",
     "viewer/tour.js",
+    "viewer/search.js",
     "viewer.js",
     "overview.js",
     "viewer/meter.js",

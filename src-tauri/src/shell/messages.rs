@@ -103,7 +103,8 @@ impl Win {
                     host::open_in_editor(path);
                 }
             }
-            "note" => self.open_note(app, text_of("path"), truthy(&msg["tab"])),
+            "note" => self.open_note(app, text_of("path"), truthy(&msg["tab"]), msg["fragment"].as_str().filter(|f| !f.is_empty()).map(String::from)),
+            "search" => self.search(text_of("q"), &msg["id"]),
             "resolve" => {
                 // a link written after the note was read: where it points
                 let target = text_of("target");
