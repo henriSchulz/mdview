@@ -557,6 +557,14 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     (a whiteboard's picture lies where its frame is, in Refined's look too; a notebook is put among the notes where the
     folder has none).
 
+118. **What marks many places in a copy marks them with elements, not with highlights** (#58, Henri: „laggt extrem bei tippen
+    jeder buchstabe kommt mit sekunden langer verzögerung“). Search marked the words in the note at its right as find does, with
+    the CSS Custom Highlight API: a letter typed alone was two thousand ranges, and WebKit took 2.3 s to paint each frame — the
+    letters came seconds late; a longer note stopped the window. Where the text is a copy of its own (Search's look inside),
+    the words get a `<mark>` each (viewer/search.js: `markPeek`), and no more than 400. A highlight stays for the note itself,
+    whose text may not be changed, and with few ranges. Check: `dev/rig.sh search` (a letter at a time over a note full of it:
+    no frame longer than 600 ms), `dev/tests/search.test.mjs`.
+
 ### The page (`viewer.js`, `viewer/*.js`) and the hosts
 
 81. **What the share server does not find, it may forget for a while — never an id it handed

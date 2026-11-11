@@ -688,7 +688,8 @@ PY
     jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f"
     ! jq -r '.steps[], (.error // empty | "FAIL " + .), (.errors[]? | "FAIL page error: " + .)' "$f" | grep -q '^FAIL' ;;
   search)
-    # Search (viewer/search.js, search.rs): a folder of 400 notes, four of them with the word; one of those long, under properties
+    # Search (viewer/search.js, search.rs): a folder of 400 notes, four of them with the word; one of those long, under properties;
+    # one long note full of the letter typed first (#58: every letter seconds late)
     rm -rf "$R/work"; N="$R/work/notes"; mkdir -p "$N/sub"
     python3 - "$N" <<'PY'
 import sys, random
@@ -701,6 +702,7 @@ open(f"{n}/Uniform convergence.md", "w").write("---\ntags: [analysis]\n---\n# Un
 open(f"{n}/Sheet 8.md", "w").write("# Sheet 8\n\n> [!tip] Hint\n> the convergence is uniform: the sup tends to 0\n")
 open(f"{n}/Weekly review.md", "w").write("# Weekly review\n\n- exam topics: uniform convergence, power series\n")
 open(f"{n}/Dini.md", "w").write("# Dini\n\nThe proof, compact sets.\n")
+open(f"{n}/Membrane notes.md", "w").write("# Membrane notes\n\n" + "\n\n".join(" ".join(random.choice(words) for _ in range(30)) for _ in range(300)) + "\n") # (thousands of m: #58)
 open(f"{n}/sub/Deep.md", "w").write("# Deep\n\n```python\nuniform_bound = 3\n```\n")
 PY
     rm -f "$R/out"/*.search.json "$R/out"/*.shot-search.json "$R/out/search.png"

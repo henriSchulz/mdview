@@ -32,6 +32,18 @@
     const r = box.getBoundingClientRect();
     ok("… in the middle of the room beside the sidebar, the note at its right", r.width > 600 && r.top > 0 && r.bottom < innerHeight && shown(box.querySelector(".sr-peek")), [r.left, r.width, innerWidth]);
 
+    // ---- typing a letter at a time: each answered, and the window never stands still (#58, Henri: „laggt extrem bei tippen jeder
+    // buchstabe kommt mit sekunden langer verzögerung“ — a single letter marked thousands of times in the note at the right)
+    {
+      const gaps = []; let last = performance.now(), on = true;
+      const tick = (t) => { gaps.push(t - last); last = t; if (on) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      for (const q of ["m", "me", "mem", "memb", "membr"]) { input.value = q; input.dispatchEvent(new Event("input", { bubbles: true })); await sleep(160); }
+      await sleep(1500); on = false;
+      o.times.typingWorstFrame = Math.round(Math.max(...gaps));
+      ok("typing a letter at a time: no frame longer than 600 ms (" + o.times.typingWorstFrame + " ms; #58)", o.times.typingWorstFrame < 600 && /Membrane notes/.test(box.querySelector(".sr-where").textContent), [o.times.typingWorstFrame, box.querySelector(".sr-where").textContent]);
+    }
+
     // ---- a word among four hundred notes
     o.times.uniform = await type("uniform");
     ok("the notes with the word, found among 400 in a moment (" + o.times.uniform + " ms, 90 of them the page's wait for the last key)", o.times.uniform < 600 && rows().some((x) => x.startsWith("Uniform convergence")) && rows().some((x) => x.startsWith("Sheet 8")), [o.times.uniform, rows().slice(0, 6)]);
@@ -48,7 +60,7 @@
     const at = box.querySelector(".sr-doc .sr-at"), doc = box.querySelector(".sr-doc");
     const inView = (el, sc) => { const a = el.getBoundingClientRect(), b = sc.getBoundingClientRect(); return a.top >= b.top - 1 && a.bottom <= b.bottom + 1; };
     ok("↓ to it: the note at the right scrolled to the block, which is outlined", !!at && /far uniform paragraph/i.test(at.textContent) && inView(at, doc) && doc.scrollTop > 200, [at && at.textContent.slice(0, 60), doc.scrollTop]);
-    ok("… and the words marked there", typeof CSS !== "undefined" && CSS.highlights && CSS.highlights.has("search-hit") && CSS.highlights.get("search-hit").size >= 3, CSS.highlights && CSS.highlights.get("search-hit") && CSS.highlights.get("search-hit").size);
+    ok("… and the words marked there", doc.querySelectorAll("mark").length >= 3 && [...doc.querySelectorAll("mark")].every((m) => m.textContent.toLowerCase() === "uniform"), doc.querySelectorAll("mark").length);
     out("shot-search", {}); await sleep(2500);
 
     // ---- Enter: the note at the block

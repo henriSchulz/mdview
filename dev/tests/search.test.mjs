@@ -104,6 +104,19 @@ test("the note at the right is drawn with each block's line, scrolled to the one
   assert.match(at.textContent, /redo the uniform proof/);
   assert.equal(box.querySelector(".sr-doc input[data-line]"), null); // (a box in the look inside is no box of the note on screen)
   assert.equal(box.querySelector(".sr-where").textContent, "dini");
+  const marks = [...box.querySelectorAll(".sr-doc mark")].map((m) => m.textContent.toLowerCase());
+  assert.ok(marks.includes("redo") && marks.includes("uniform") && marks.every((m) => m === "redo" || m === "uniform"), marks.join());
+});
+
+test("a letter alone is marked as elements in the copy, and no more than 400 times (#58: as highlights, seconds a frame)", async () => {
+  const { w, P, posted, box } = await page();
+  P.openSearch();
+  const many = "# Many\n\n" + Array.from({ length: 60 }, () => "mmmmm mmmmm mmmmm mmmmm mmmmm").join("\n\n") + "\n";
+  await ask(w, posted, "m", { notes: [{ path: "/x/many.md", text: many, mtime: 5 }], found: 1 });
+  await sleep(50);
+  assert.equal(box.querySelector(".sr-where").textContent, "many");
+  assert.equal(box.querySelectorAll(".sr-doc mark").length, 400);
+  assert.ok(!w.CSS || !w.CSS.highlights || !w.CSS.highlights.has("search-hit"));
 });
 
 test("an answer to an earlier question is not drawn over the later one", async () => {

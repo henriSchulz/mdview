@@ -117,17 +117,30 @@
     const sp = text.lastIndexOf(" ", first - lead);
     return sp < 0 ? mark(text.slice(0, 400), words) : "…" + mark(text.slice(sp + 1, sp + 400), words);
   }
-  // … and in the note at the right, as find marks (the CSS Custom Highlight API: the note's text untouched)
-  const canHighlight = typeof Highlight !== "undefined" && typeof CSS !== "undefined" && CSS.highlights;
+  // … and in the note at the right: a <mark> round each, in that copy of the note (#58: as a highlight of the CSS Custom Highlight
+  // API — find's way — a letter typed alone was thousands of ranges, and WebKit took seconds to paint each frame; elements are
+  // painted as text is). No more than MARKS, the first in the note.
+  const MARKS = 400;
   function markPeek(words) {
-    if (!canHighlight) return;
-    const ranges = [];
-    const walker = document.createTreeWalker(peek, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest(".katex-mathml, style, script") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
-    for (let n = walker.nextNode(); n && ranges.length < 2000; n = walker.nextNode()) {
-      const low = n.data.toLowerCase();
-      for (const w of words) for (let i = low.indexOf(w); i >= 0; i = low.indexOf(w, i + w.length)) { const r = new Range(); r.setStart(n, i); r.setEnd(n, Math.min(n.data.length, i + w.length)); ranges.push(r); }
+    const found = [];
+    const walker = document.createTreeWalker(peek, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest(".katex, style, script, svg, mark") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+    let left = MARKS;
+    for (let n = walker.nextNode(); n && left > 0; n = walker.nextNode()) {
+      const low = n.data.toLowerCase(), r = [];
+      for (const w of words) for (let i = low.indexOf(w); i >= 0; i = low.indexOf(w, i + w.length)) r.push([i, i + w.length]);
+      if (!r.length) continue;
+      r.sort((a, b) => a[0] - b[0]);
+      const parts = [];
+      let at = 0;
+      for (const [a, b] of r) { if (a < at || left <= 0) continue; parts.push(n.data.slice(at, a), [n.data.slice(a, b)]); at = b; left--; }
+      parts.push(n.data.slice(at));
+      found.push([n, parts]);
     }
-    if (ranges.length) CSS.highlights.set("search-hit", new Highlight(...ranges)); else CSS.highlights.delete("search-hit");
+    for (const [n, parts] of found) { // (written after the walk: a node replaced under the walker would end it)
+      const frag = document.createDocumentFragment();
+      for (const p of parts) { if (Array.isArray(p)) { const m = document.createElement("mark"); m.textContent = p[0]; frag.appendChild(m); } else if (p) frag.appendChild(document.createTextNode(p)); }
+      n.replaceWith(frag);
+    }
   }
 
   // ---------------------------------------------------------------- the results
@@ -296,7 +309,6 @@
     delete box.dataset.open;
     clearTimeout(askTimer); cancelAnimationFrame(peekTimer);
     peek.innerHTML = ""; list.innerHTML = ""; S.shown = "";
-    if (canHighlight) CSS.highlights.delete("search-hit");
     return true;
   }
 

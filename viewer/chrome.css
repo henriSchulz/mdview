@@ -376,5 +376,4 @@ body[data-sidebar="open"] #search[data-open] { left: var(--sb-w); width: min(900
 #search .sr-foot { flex: none; display: flex; gap: 12px; padding: 7px 14px; border-top: 0.5px solid var(--line); color: var(--fg2); font-size: 11px; white-space: nowrap; }
 #search .sr-where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #search .sr-keys { margin-left: auto; }
-::highlight(search-hit) { background-color: color-mix(in srgb, var(--c-bright-yellow, #ffd60a) 45%, transparent); }
 @media (max-width: 720px) { #search .sr-body { grid-template-columns: minmax(0, 1fr); } #search .sr-peek { display: none; } #search .sr-list { border-right: 0; } }
