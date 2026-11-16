@@ -1,26 +1,83 @@
-// One window: a WKWebView with the page, and the shell's half of the conversation — what the page
-// says (MdHost.post -> `on`) and what the shell tells it (`js` -> MdView.…). The Rust original is
-// src-tauri/src/shell.rs and shell/messages.rs; this takes the messages over one at a time.
+// One window: a WKWebView with the page, and the shell's half of the conversation — what the page says
+// (MdHost.post -> `on`) and what the shell tells it (`js` -> MdView.…). The Rust original is src-tauri/src/shell.rs
+// with shell/{messages,folder,tabs}.rs. The window's state lives here; what an area does is in its own file
+// (Folder.swift, Tabs.swift, Files.swift, Search.swift, History.swift, Assistant.swift, System.swift).
 import AppKit
 import WebKit
+
+struct Tab {
+    var id: Int
+    var path: String?
+    var back: [String] = []
+    var fwd: [String] = []
+}
 
 final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     let window: NSWindow
     let web: WKWebView
     let scheme = SchemeHandler()
+
+    // the note and the ways back
     var path: String?
+    var back: [String] = []
+    var fwd: [String] = []
     var shell = 0
     var ready = false
-    var back: [String] = []
+    var editing = false
+    var modeGiven = false
+    var saveSeq: Any = 0
+    var pendingFragment: String?
+    var ownWrite: Data?
+    var ownText: String?
+    var renamedFrom: String?
+    var fresh: String?
+    var freshTurn = 0
+    var resolver: Resolver?
+
+    // the folder
+    var folder: String?
+    var quick = false
+    var tree: [String: Any]?
+    var notePaths: Set<String> = []
+    var boardPaths: Set<String> = []
+    var boardDirs: Set<String> = []
+    var boardOpen = false
+    var keptDirs: Set<String> = []
+    var dirWatch: Set<String> = []
+    let scanner = Scanner()
+    var treeJSON: String?
+    var tabsJSON: String?
+
+    // tabs
+    var tabs: [Tab] = []
+    var tab = 0
+    var tabSeq = 0
+    var closedTabs: [(String, Int)] = []
+    var dirTab: String?
+
+    // timers and watching
+    var reloadItem: DispatchWorkItem?
+    var rescanItem: DispatchWorkItem?
+    var freshItem: DispatchWorkItem?
+    var stream: FSEventStreamRef?
+    var watchedRoots: Set<String> = []
+    var closing = false
+
+    // state of the areas
+    let filesS = FilesState()
+    let searchS = SearchState()
+    let historyS = HistoryState()
+    let aiS = AIState()
+    let sysS = SystemState()
+
     var onClose: ((NoteWindow) -> Void)?
 
-    init(path: String?) {
-        self.path = path
+    init(path: String?, folder: String?) {
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(scheme, forURLScheme: "md")
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
         web = WKWebView(frame: .zero, configuration: cfg)
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 760),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: folder != nil ? 1180 : 980, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
@@ -30,73 +87,237 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         window.contentView = web
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.title = path.map { ($0 as NSString).lastPathComponent } ?? "Markdown Notes"
-        window.setFrameAutosaveName("NoteWindow")
+        window.title = "Markdown Notes"
+        window.tabbingMode = .disallowed
         window.center()
-        loadShell()
+        if let folder { setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
         window.makeKeyAndOrderFront(nil)
     }
 
     var dark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
+    var store: Store { Store.shared }
 
-    func loadShell() {
+    // MARK: loading the page
+
+    func loadShell(force: Bool = false) {
+        if ready && !force { return render() }
+        let dir = path.map { Lib.dir($0) } ?? folder ?? Lib.home()
+        treeJSON = nil; tabsJSON = nil
         ready = false
+        editing = false
         shell += 1
-        let dir = path.map { ($0 as NSString).deletingLastPathComponent } ?? NSHomeDirectory()
         let route = "/shell/\(shell)"
-        scheme.pages[route] = Page.html(prefs: jsonString(Store.shared.prefs), baseDir: dir, dark: dark,
-                                        mode: dark ? "dark" : "light")
+        scheme.pages[route] = Page.html(prefs: jsonString(store.prefs), baseDir: dir, dark: dark, mode: dark ? "dark" : "light")
         web.load(URLRequest(url: URL(string: Page.origin + route)!))
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard !ready, web.url?.path == "/shell/\(shell)" else { return }
+        ready = true
+        sendFolder()
+        sendTabs()
+        let frag = pendingFragment; pendingFragment = nil
+        render(fragment: frag)
+        if path == nil && folder == nil { js("MdView.clear", [["recents": store.recents()]]) }
+        pageLoaded()
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        // the page leaves by messages, never by a link followed in the view
+        if action.navigationType == .linkActivated, let u = action.request.url { link(u.absoluteString, tab: false, own: false) }
+        decisionHandler(action.navigationType == .linkActivated ? .cancel : .allow)
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { loadShell(force: true) }
+
     // MARK: the shell tells the page
 
-    func js(_ fn: String, _ args: [Any]) {
+    func js(_ fn: String, _ args: [Any] = []) {
         let a = args.map { jsonString($0) }.joined(separator: ",")
         web.evaluateJavaScript("\(fn)(\(a))", completionHandler: nil)
     }
 
     func toast(_ text: String) { js("MdView.toast", [text]) }
 
-    func render(keepScroll: Bool = false, fragment: String? = nil) {
+    func setTitle(_ t: String) { window.title = t }
+
+    // MARK: the note
+
+    func newResolver() {
+        resolver = path.map { Resolver(noteDir: Lib.dir($0), base: folder) }
+    }
+
+    func render(keepScroll: Bool = false, fragment: String? = nil, toEnd: Bool = false) {
         guard ready, let path else { return }
-        var text = "", error: Any = NSNull()
-        let isText = !(path.hasSuffix(".md") || path.hasSuffix(".markdown"))
-        if let data = FileManager.default.contents(atPath: path) {
+        if Lib.shownAsPDF(path) { return renderPDF(fragment: fragment) }
+        var text = "", error: Any = NSNull(), readonly: Any = NSNull()
+        if let data = Lib.fm.contents(atPath: path) {
             text = String(decoding: data, as: UTF8.self)
-        } else {
+            if !Lib.fm.isWritableFile(atPath: path) { readonly = "file is read-only" }
+        } else if !Lib.exists(path) {
             error = "File not found: \(path)"
-        }
+        } else { error = "Can't read file: \(path)"; readonly = "file can't be read" }
+        let plain = Lib.isText(path)
+        let links: [String: Any] = (!plain && text.contains("[[")) ? buildLinks(text) : [:]
         var payload: [String: Any] = [
-            "kind": isText ? "text" : NSNull(), "text": text, "name": (path as NSString).lastPathComponent,
-            "path": path, "base": Page.fileURL((path as NSString).deletingLastPathComponent) + "/",
-            "readonly": NSNull(), "vault": false, "links": [String: String](), "keepScroll": keepScroll,
-            "fragment": fragment ?? NSNull(), "toEnd": false, "error": error, "canBack": !back.isEmpty, "seq": 0,
+            "kind": plain ? "text" : NSNull(), "text": text, "name": Lib.name(path), "path": path,
+            "base": Page.fileURL(Lib.dir(path)) + "/", "readonly": readonly, "vault": resolver?.vault != nil,
+            "links": links, "keepScroll": keepScroll, "fragment": fragment ?? NSNull(), "toEnd": toEnd, "error": error,
+            "canBack": !back.isEmpty, "seq": saveSeq,
         ]
-        if let m = Store.shared.state["mode"] { payload["startMode"] = m }
+        if !modeGiven {
+            let start = (store.prefs["startMode"] as? String) ?? "last"
+            payload["startMode"] = start == "last" ? (store.state["mode"] ?? "read") : start
+        }
+        modeGiven = true
         js("MdView.render", [payload])
     }
 
-    func open(_ p: String, fragment: String? = nil, push: Bool = true) {
-        if push, let old = path, old != p { back.append(old) }
+    /// Where the wikilinks of a note lead (shell.rs `build_links`).
+    func buildLinks(_ text: String) -> [String: Any] {
+        guard let r = resolver else { return [:] }
+        var out: [String: Any] = [:]
+        let rx = Lib.rx(#"!?\[\[([^\[\]\n]+?)\]\]"#)
+        for m in rx.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let rg = Range(m.range(at: 1), in: text) else { continue }
+            let inner = String(text[rg])
+            var target = inner.components(separatedBy: "|")[0]
+            if let h = target.firstIndex(of: "#") { target = String(target[..<h]) }
+            target = target.trimmingCharacters(in: .whitespaces)
+            if target.isEmpty || out[target] != nil { continue }
+            if let p = r.resolve(target) {
+                out[target] = ["path": p, "url": Page.fileURL(p), "kind": Lib.kind(p)]
+            } else { out[target] = NSNull() }
+        }
+        return out
+    }
+
+    func openPath(_ p: String, fragment: String? = nil, push: Bool = true) {
+        let p = Lib.resolve(p)
+        dirTab = nil
+        if let f = fresh, f == path, path != p { settleFresh(last: true) }
+        touch(p)
+        let same = path == p
+        if !same { renamedFrom = nil }
+        if push && !same, let old = path { back.append(old); fwd.removeAll() }
         path = p
-        window.title = (p as NSString).lastPathComponent
+        setTitle(Lib.name(p))
         window.representedFilename = p
-        render(fragment: fragment)
+        newResolver()
+        if !same { ownText = nil; watch() }
+        if let folder, p.hasPrefix(folder + "/") { store.put("last_notes", folder, p) }
+        if !tabs.isEmpty { sendTabs() }
+        store.put("opened", p, Int(Date().timeIntervalSince1970))
+        if ready { render(fragment: fragment) } else { pendingFragment = fragment; loadShell() }
     }
 
-    // MARK: WKNavigationDelegate
+    /// Something of the note's project was touched: the page's `opened` stamps follow (app.touch).
+    func touch(_ p: String) {}
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard !ready, web.url?.path == "/shell/\(shell)" else { return }
-        ready = true
-        if path != nil { render() } else { js("MdView.clear", [["recents": [Any]()]]) }
+    func showNothing() {
+        if fresh != nil, fresh == path { settleFresh(last: true) }
+        renamedFrom = nil
+        path = nil
+        watch()
+        back.removeAll(); fwd.removeAll()
+        let f = folder ?? ""
+        setTitle(Lib.name(f).isEmpty ? f : Lib.name(f))
+        if ready { js("MdView.clear", []) } else { loadShell() }
+        sendTabs()
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // the page leaves by messages, never by a link followed in the view
-        decisionHandler(action.navigationType == .linkActivated ? .cancel : .allow)
+    func go(back isBack: Bool) {
+        guard let to = isBack ? back.popLast() : fwd.popLast() else { return }
+        if let here = path { if isBack { fwd.append(here) } else { back.append(here) } }
+        openPath(to, push: false)
+    }
+
+    func saveText(_ text: String, exact: Bool) {
+        guard let path, !Lib.shownAsPDF(path) else { return }
+        if exact {
+            do { try writeWhole(path, Data(text.utf8)); ownWrite = Data(text.utf8) } catch { js("MdView.saveFailed", [error.localizedDescription]) }
+            return
+        }
+        let old = Lib.fm.contents(atPath: path) ?? Data()
+        let crlf = old.range(of: Data("\r\n".utf8)) != nil
+        let data = Data((crlf ? text.replacingOccurrences(of: "\n", with: "\r\n") : text).utf8)
+        if data != old {
+            do { try writeWhole(path, data) } catch { return js("MdView.saveFailed", [error.localizedDescription]) }
+        }
+        ownText = text
+    }
+
+    /// Written whole: a link is followed, the permissions stay.
+    func writeWhole(_ p: String, _ data: Data) throws {
+        try data.write(to: URL(fileURLWithPath: Lib.resolve(p)), options: .atomic)
+    }
+
+    func toggleTask(line: Int, checked: Bool) {
+        guard let path, line >= 0, let text = Lib.read(path) else { return }
+        var lines = text.components(separatedBy: "\n")
+        guard line < lines.count else { return }
+        let rx = Lib.rx(#"^([\s>]*(?:[-*+]|\d+[.)])\s+\[)(.)(\])"#)
+        let l = lines[line]
+        guard let m = rx.firstMatch(in: l, range: NSRange(l.startIndex..., in: l)), let r = Range(m.range(at: 2), in: l) else { return }
+        lines[line] = l.replacingCharacters(in: r, with: checked ? "x" : " ")
+        let new = lines.joined(separator: "\n")
+        ownWrite = Data(new.utf8)
+        try? writeWhole(path, Data(new.utf8))
+    }
+
+    // MARK: links
+
+    func link(_ href: String, tab useTab: Bool, own: Bool) {
+        guard let url = URL(string: href) else { return }
+        let frag = url.fragment?.removingPercentEncoding.flatMap { $0.isEmpty ? nil : $0 }
+        guard url.scheme == "md" || url.scheme == "file" else {
+            if url.scheme != "about" && url.scheme != nil { NSWorkspace.shared.open(url) }
+            return
+        }
+        var file: String
+        if url.scheme == "md" {
+            guard url.path.hasPrefix("/file/") else { return }
+            file = String(url.path.dropFirst(5))
+        } else { file = url.path }
+        file = file.removingPercentEncoding ?? file
+        if !Lib.exists(file), !Lib.isMd(file), Lib.exists(file + ".md") { file += ".md" }
+        if !Lib.exists(file) { file = foundAsset(file) }
+        let useTab = useTab && !tabs.isEmpty
+        if path == file && (!useTab || own) {
+            if let frag { js("MdView.scrollToFragment", [frag, true]) }
+            return
+        }
+        guard Lib.exists(file) else { return toast("Not found: \(Lib.name(file))") }
+        if Lib.isFile(file) && (Lib.isMd(file) || Lib.isText(file) || Lib.shownAsPDF(file)) {
+            useTab ? linkTab(file, frag, own: own) : openPath(file, fragment: frag)
+        } else { NSWorkspace.shared.open(URL(fileURLWithPath: file)) }
+    }
+
+    func wikilink(_ target: String, tab useTab: Bool, own: Bool) {
+        let heading = target.firstIndex(of: "#").map { String(target[target.index(after: $0)...]) }
+        guard let p = resolver?.resolve(target) else {
+            return toast("Note “\(target.components(separatedBy: "#")[0])” doesn't exist")
+        }
+        if !["md", "pdf", "slides"].contains(Lib.kind(p)) && !Lib.isText(p) { NSWorkspace.shared.open(URL(fileURLWithPath: p)) }
+        else if useTab && !tabs.isEmpty && !(own && path == p) { linkTab(p, heading, own: own) }
+        else if path == p, let h = heading { js("MdView.scrollToFragment", [h, true]) }
+        else { openPath(p, fragment: heading) }
+    }
+
+    /// A file kept in the base folder's assets, named from a subfolder (scan.rs `found`).
+    func foundAsset(_ p: String) -> String {
+        if Lib.isFile(p) { return p }
+        let name = Lib.name(p)
+        var d = Lib.dir(p)
+        let top = folder ?? ""
+        while d.count > 1 {
+            let there = Lib.join(Lib.join(d, Lib.assets), name)
+            if there != p, Lib.isFile(there) { return there }
+            if d == top { break }
+            d = Lib.dir(d)
+        }
+        return p
     }
 
     // MARK: the page tells the shell
@@ -106,86 +327,142 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         on(type, msg)
     }
 
+    func truthy(_ v: Any?) -> Bool {
+        switch v {
+        case let b as Bool: return b
+        case let n as NSNumber: return n.doubleValue != 0
+        case let s as String: return !s.isEmpty && s != "0" && s != "false"
+        case nil, is NSNull: return false
+        default: return true
+        }
+    }
+
     func on(_ type: String, _ msg: [String: Any]) {
         let str = { (k: String) in msg[k] as? String ?? "" }
+        // what writes into the folder: its project's snapshot follows (history, area C)
+        if ["save", "toggle", "pasteimage", "dropfiles", "graphic-save", "board-new", "board-save", "pdfink-save", "note-save",
+            "board-paste", "board-drop", "newnote", "quicknote", "newfolder", "rename", "move", "trash", "untrash", "pastefiles",
+            "duplicate", "import", "newboard", "hide"].contains(type) {
+            if let p = path ?? folder { touch(p) }
+        }
+        if type.hasPrefix("history-") || type.hasPrefix("sync-") || type.hasPrefix("github-") || type.hasPrefix("share-") || type.hasPrefix("paste-") {
+            _ = handleHistory(type, msg); return
+        }
         switch type {
-        case "save":
-            // a late autosave must not land in whatever note is open by now
-            if let at = msg["path"] as? String, at != path { return }
-            guard let path, let text = msg["text"] as? String else { return }
-            do { try text.write(toFile: path, atomically: true, encoding: .utf8) }
-            catch { js("MdView.saveFailed", [error.localizedDescription]) }
-        case "link": link(str("href"), fragment: nil)
-        case "wikilink": wikilink(str("target"))
-        case "reload": render(keepScroll: true)
-        case "back": if let p = back.popLast() { open(p, push: false) }
+        case "link": link(str("href"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
+        case "wikilink": wikilink(str("target"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
+        case "tab": tabOp(msg)
+        case "toggle": toggleTask(line: (msg["line"] as? Int) ?? -1, checked: truthy(msg["checked"]))
         case "copy":
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(str("text"), forType: .string)
         case "mode":
-            if let name = msg["name"] as? String, ["read", "edit", "active", "split"].contains(name), !(msg["plain"] as? Bool ?? false) {
-                Store.shared.state["mode"] = name
-            }
+            editing = truthy(msg["edit"])
+            let name = truthy(msg["plain"]) ? "" : str("name")
+            if ["read", "edit", "active", "split"].contains(name), store.string("mode") != name { store.set("mode", name) }
         case "prefs":
             if let new = msg["prefs"] as? [String: Any] {
-                Store.shared.prefs.merge(new) { _, n in n }
-                AppDelegate.shared.eachWindow { $0.js("MdView.setPrefs", [Store.shared.prefs]) }
+                let prefs = store.store(prefs: new)
+                let lists = new.keys.contains { $0.hasPrefix("sidebar") || $0 == "showHidden" }
+                AppDelegate.shared.eachWindow { w in
+                    w.js("MdView.setPrefs", [prefs])
+                    if lists && w.folder != nil { w.rescan() }
+                }
             }
-        case "open", "folder": AppDelegate.shared.openPanel()
-        case "close": window.performClose(nil)
-        default: break // the messages not yet taken over (docs/MACOS.md lists them)
+        case "note": openNote(str("path"), tab: truthy(msg["tab"]), fragment: (msg["fragment"] as? String).flatMap { $0.isEmpty ? nil : $0 })
+        case "resolve":
+            let target = str("target")
+            var info: Any = NSNull()
+            if !target.isEmpty, let p = resolver?.resolve(target) {
+                info = ["path": p, "url": Page.fileURL(p), "kind": Lib.kind(p)]
+            }
+            js("MdView.linkResolved", [target, info])
+        case "painted": break
+        case "pdfnote":
+            let p = str("path")
+            if Lib.isFile(p) && Lib.isMd(p) { openPath(p, fragment: "^line=\(Int((msg["line"] as? Double) ?? 0))", push: true) }
+        case "board-open": boardOpen = truthy(msg["on"])
+        case "board-watch":
+            boardDirs = Set((msg["paths"] as? [String] ?? []).prefix(16).map { foundAsset(Lib.resolve($0)) }.filter { Lib.isBoard($0) && Lib.isFile($0) }.map { Lib.dir($0) })
+            watch()
+        case "newnote": newNote(name: str("name"), wanted: msg["dir"] as? String)
+        case "quicknote": newQuick()
+        case "newfolder": newFolder(name: str("name"), wanted: msg["dir"] as? String)
+        case "rename": renameNote(str("path"), str("name"))
+        case "move": moveTo(str("path"), str("dir"))
+        case "trash":
+            if let many = msg["paths"] as? [String] { trashPaths(many) } else { trashPaths([str("path")]) }
+        case "sidebar": sidebarPref(msg)
+        case "folder":
+            if truthy(msg["here"]), folder == nil, let p = path { setFolder(Lib.dir(p)) } else { AppDelegate.shared.openPanel() }
+        case "recent":
+            let f = Lib.resolve(str("path"))
+            if Lib.isDir(f), path == nil, folder == nil { setFolder(f) }
+        case "open": AppDelegate.shared.openPanel()
+        case "reload": newResolver(); render(keepScroll: true)
+        case "help":
+            let guide = Page.root.appendingPathComponent("docs/FEATURES.md").path
+            if Lib.isFile(guide), path != guide { AppDelegate.shared.openWindow(guide) }
+        case "external":
+            if let p = path { NSWorkspace.shared.open(URL(fileURLWithPath: p)) }
+        case "close": close()
+        case "closehold": closing = false
+        case "back": go(back: true)
+        case "forward": go(back: false)
+        case "save":
+            // a late autosave must not land in whatever note is open by now
+            // (… but one sent under the name the note on screen had a moment ago is its own: renamed meanwhile)
+            let at = msg["path"] as? String
+            if at == nil || at == path || (at != nil && at == renamedFrom) {
+                if truthy(msg["seq"]) { saveSeq = msg["seq"] as Any }
+                saveText(str("text"), exact: truthy(msg["exact"]))
+                if let f = fresh, f == path {
+                    freshTurn += 1
+                    let turn = freshTurn
+                    freshItem?.cancel()
+                    let item = DispatchWorkItem { [weak self] in if let self, self.freshTurn == turn { self.settleFresh(last: false) } }
+                    freshItem = item
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: item)
+                }
+            }
+        default:
+            if handleFiles(type, msg) || handleSearch(type, msg) || handleAssistant(type, msg) || handleSystem(type, msg) { return }
         }
     }
 
-    func link(_ href: String, fragment: String?) {
-        guard let url = URL(string: href) else { return }
-        var frag = url.fragment?.removingPercentEncoding
-        if url.scheme == "md" || url.scheme == "file" {
-            let p = url.scheme == "md" ? String(url.path.dropFirst(5)) : url.path
-            var file = p.removingPercentEncoding ?? p
-            let fm = FileManager.default
-            if !fm.fileExists(atPath: file), fm.fileExists(atPath: file + ".md") { file += ".md" }
-            guard fm.fileExists(atPath: file) else { return toast("Not found: \((file as NSString).lastPathComponent)") }
-            if file.hasSuffix(".md") || file.hasSuffix(".markdown") || file.hasSuffix(".txt") {
-                if file == path, let f = frag { js("MdView.scrollToFragment", [f, true]) } else { open(file, fragment: frag) }
-            } else { NSWorkspace.shared.open(URL(fileURLWithPath: file)) }
-            frag = nil
-        } else if url.scheme != "about" {
-            NSWorkspace.shared.open(url)
+    // MARK: closing
+
+    /// The window is to go. While a note is being written the page hands over unsaved text first.
+    func close() {
+        if (editing || boardOpen) && ready && !closing {
+            closing = true
+            js("MdView.flush", [true])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.closeNow() }
+            return
         }
+        closeNow()
     }
 
-    func wikilink(_ target: String) {
-        guard let path else { return }
-        let name = target.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? target
-        let dir = (path as NSString).deletingLastPathComponent
-        for cand in [name, name + ".md"] {
-            let p = (dir as NSString).appendingPathComponent(cand)
-            if FileManager.default.fileExists(atPath: p) { return open(p) }
-        }
-        toast("Note “\(name)” doesn't exist")
+    func closeNow() {
+        guard window.isVisible || closing else { return }
+        closing = false
+        window.close()
     }
 
-    func windowWillClose(_ n: Notification) { onClose?(self) }
-}
+    func windowWillClose(_ n: Notification) {
+        _ = settleQuick()
+        settleFresh(last: true)
+        stopWatching()
+        store.set(folder != nil ? "folder_width" : "width", Int(window.frame.width))
+        store.set(folder != nil ? "folder_height" : "height", Int(window.frame.height))
+        onClose?(self)
+    }
 
-/// What is kept between starts: ~/Library/Application Support/MdView/state.json.
-final class Store {
-    static let shared = Store()
-    var prefs: [String: Any] = ["lang": "en", "startMode": "last"] { didSet { save() } }
-    var state: [String: Any] = [:] { didSet { save() } }
-    private let file: URL = {
-        let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MdView")
-        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
-        return d.appendingPathComponent("state.json")
-    }()
-    init() {
-        if let d = try? Data(contentsOf: file), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
-            prefs.merge(o["prefs"] as? [String: Any] ?? [:]) { _, n in n }
-            state = o["state"] as? [String: Any] ?? [:]
-        }
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if (editing || boardOpen) && ready && !closing { close(); return false }
+        return true
     }
-    private func save() {
-        if let d = try? JSONSerialization.data(withJSONObject: ["prefs": prefs, "state": state]) { try? d.write(to: file) }
-    }
+
+    /// Hooks the areas may fill when the page is up (a new page for a window).
+    func pageLoaded() {}
 }

@@ -11,7 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppDelegate.shared = self
         buildMenu()
         let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
-        if windows.isEmpty { args.isEmpty ? openWindow(nil) : args.forEach { openWindow(($0 as NSString).standardizingPath) } }
+        if windows.isEmpty {
+            if args.isEmpty { openWindow(nil) }
+            else { args.forEach { openWindow($0.hasPrefix("/") ? $0 : Lib.join(FileManager.default.currentDirectoryPath, $0)) } }
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -22,7 +25,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
 
     func openWindow(_ path: String?) {
-        let w = NoteWindow(path: path)
+        var file = path, folder: String? = nil
+        if let p = path.map(Lib.resolve), Lib.isDir(p) { folder = p; file = nil } else if let p = path { file = Lib.resolve(p) }
+        // a window that shows it already comes forward
+        if let f = folder, let w = windows.first(where: { $0.folder == f }) { w.window.makeKeyAndOrderFront(nil); return }
+        if let f = file, let w = windows.first(where: { $0.path == f }) { w.window.makeKeyAndOrderFront(nil); return }
+        let w = NoteWindow(path: file, folder: folder)
         w.onClose = { [weak self] w in self?.windows.removeAll { $0 === w } }
         windows.append(w)
     }
