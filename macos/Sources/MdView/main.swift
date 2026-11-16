@@ -1,98 +1,150 @@
-// Markdown Notes, native: the app, its menu, and the windows. Run: `swift run`, or ./build.sh and open MdView.app.
+// Markdown Notes, native: the app, its windows, the Dock. Run: `swift run`, or ./build.sh and open MdView.app.
+// The menu bar is in Menu.swift, the theme in Theme.swift, what the page asks of the system in System.swift.
 import AppKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     nonisolated(unsafe) static var shared: AppDelegate!
     var windows: [NoteWindow] = []
+    private var idleItem: DispatchWorkItem?
+    /// How long the app stays when the last window is closed, so that opening one again is instant (shell.rs RESIDENT_MS).
+    private var resident: TimeInterval {
+        (ProcessInfo.processInfo.environment["MDVIEW_RESIDENT_MS"].flatMap(Double.init) ?? 15 * 60 * 1000) / 1000
+    }
 
     func eachWindow(_ f: (NoteWindow) -> Void) { windows.forEach(f) }
 
+    /// The window the user is in: the key one, else the last made.
+    var keyNote: NoteWindow? {
+        (NSApp.keyWindow?.delegate as? NoteWindow) ?? (NSApp.mainWindow?.delegate as? NoteWindow) ?? windows.last
+    }
+
     func applicationDidFinishLaunching(_ n: Notification) {
         AppDelegate.shared = self
+        ThemeCenter.shared.start()
         buildMenu()
-        let args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
-        if windows.isEmpty {
-            if args.isEmpty { openWindow(nil) }
-            else { args.forEach { openWindow($0.hasPrefix("/") ? $0 : Lib.join(FileManager.default.currentDirectoryPath, $0)) } }
+        let args = Array(CommandLine.arguments.dropFirst())
+        let files = args.filter { !$0.hasPrefix("-") }
+        if args.contains("--quick") { openQuick() }
+        else if windows.isEmpty {
+            if files.isEmpty { if !launchedByOpen { openWindow(nil) } }
+            else { files.forEach { openArg($0) } }
         }
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func application(_ app: NSApplication, open urls: [URL]) {
-        for u in urls where u.isFileURL { openWindow(u.path) }
+    /// Started by a file or an address (open events come right after launch): no bare window of its own then.
+    private var launchedByOpen = false
+    func applicationWillFinishLaunching(_ n: Notification) {
+        NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(handleURL(_:reply:)), forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+    func openArg(_ a: String) {
+        if a.contains("://"), let u = URL(string: a) { return openURL(u) }
+        openWindow(a.hasPrefix("/") ? a : Lib.join(FileManager.default.currentDirectoryPath, a))
+    }
+
+    func application(_ app: NSApplication, open urls: [URL]) {
+        launchedByOpen = true
+        for u in urls { openURL(u) }
+    }
+
+    @objc func handleURL(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
+        launchedByOpen = true
+        if let s = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue, let u = URL(string: s) { openURL(u) }
+    }
+
+    /// A file, or mdview://quick, mdview://open?path=… (what `mdview-mac` and other programs hand over).
+    func openURL(_ u: URL) {
+        if u.isFileURL { return openWindow(u.path) }
+        guard u.scheme == "mdview" || u.scheme == "mdnotes" else { return }
+        let c = URLComponents(url: u, resolvingAgainstBaseURL: false)
+        if u.host == "quick" { return openQuick() }
+        if let p = c?.queryItems?.first(where: { $0.name == "path" })?.value { openWindow(p) }
+        else { newWindow(nil) }
+    }
+
+    func applicationShouldHandleReopen(_ app: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { windows.isEmpty ? openWindow(nil) : windows.last?.window.makeKeyAndOrderFront(nil) }
+        return true
+    }
+
+    // The app stays a while after its last window, so that the next one is instant; then it goes (README: resident).
+    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { false }
+
+    private func scheduleIdleExit() {
+        idleItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in if self?.windows.isEmpty == true { NSApp.terminate(nil) } }
+        idleItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + resident, execute: item)
+    }
+
+    /// Quitting hands unsaved text over first (the page's flush), as closing a window does.
+    func applicationShouldTerminate(_ app: NSApplication) -> NSApplication.TerminateReply {
+        let writing = windows.filter { $0.editing || $0.boardOpen }
+        if writing.isEmpty { return .terminateNow }
+        writing.forEach { $0.js("MdView.flush", [true]) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { NSApp.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
+    }
 
     func openWindow(_ path: String?) {
         var file = path, folder: String? = nil
         if let p = path.map(Lib.resolve), Lib.isDir(p) { folder = p; file = nil } else if let p = path { file = Lib.resolve(p) }
+        idleItem?.cancel()
         // a window that shows it already comes forward
-        if let f = folder, let w = windows.first(where: { $0.folder == f }) { w.window.makeKeyAndOrderFront(nil); return }
-        if let f = file, let w = windows.first(where: { $0.path == f }) { w.window.makeKeyAndOrderFront(nil); return }
+        if let f = folder, let w = windows.first(where: { $0.folder == f }) { w.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
+        if let f = file, let w = windows.first(where: { $0.path == f }) { w.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
         let w = NoteWindow(path: file, folder: folder)
-        w.onClose = { [weak self] w in self?.windows.removeAll { $0 === w } }
+        w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
+        sizeWindow(w, folder: folder != nil)
+        w.onClose = { [weak self] w in
+            guard let self else { return }
+            self.windows.removeAll { $0 === w }
+            if self.windows.isEmpty { self.scheduleIdleExit() }
+        }
         windows.append(w)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// The size the window was last left with (state: folder_width/height, width/height), kept on a screen it is on; cascaded from the last one.
+    private func sizeWindow(_ w: NoteWindow, folder: Bool) {
+        let st = Store.shared.state
+        let num = { (k: String) in (st[k] as? NSNumber)?.doubleValue }
+        let width = folder ? (num("folder_width") ?? 1180) : (num("width") ?? 980)
+        let height = folder ? (num("folder_height") ?? 800) : (num("height") ?? 800)
+        let screen = (w.window.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let size = NSSize(width: min(max(width, 480), screen.width), height: min(max(height, 360), screen.height))
+        w.window.setContentSize(size)
+        if let last = windows.last?.window, last.isVisible {
+            var p = last.frame.origin
+            p.x += 28; p.y -= 28
+            w.window.setFrameOrigin(p)
+            if !screen.intersects(w.window.frame) || w.window.frame.maxX > screen.maxX || w.window.frame.minY < screen.minY { w.window.center() }
+        } else { w.window.center() }
+    }
+
+    /// The quick notes: their folder, in a window of its own kind (`mdview --quick`).
+    func openQuick() {
+        let q = Store.shared.prefs["quickDir"] as? String ?? ""
+        let dir = q.isEmpty ? Lib.join(Lib.home(), "Documents/Notizen/QuickNotes") : q
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        openWindow(dir)
     }
 
     @objc func newWindow(_ s: Any?) { openWindow(nil) }
 
-    @objc func openPanel() {
+    /// Files and folders, chosen in the system's window (the page's Open and Open Another Folder).
+    @objc func openPanel() { openPanel(folders: false) }
+
+    func openPanel(folders: Bool) {
         let p = NSOpenPanel()
-        p.allowedContentTypes = [.plainText, .data]
-        p.allowsMultipleSelection = true
-        p.canChooseDirectories = false
+        p.allowsMultipleSelection = !folders
+        p.canChooseDirectories = true
+        p.canChooseFiles = !folders
+        p.canCreateDirectories = folders
+        p.prompt = folders ? "Open Folder" : "Open"
+        if let d = keyNote?.folder ?? keyNote?.path.map({ Lib.dir($0) }) { p.directoryURL = URL(fileURLWithPath: d) }
         if p.runModal() == .OK { p.urls.forEach { openWindow($0.path) } }
-    }
-
-    @objc func reload(_ s: Any?) { (NSApp.keyWindow?.delegate as? NoteWindow)?.render(keepScroll: true) }
-
-    func buildMenu() {
-        let main = NSMenu()
-        func item(_ m: NSMenu, _ title: String, _ sel: Selector?, _ key: String = "", _ mods: NSEvent.ModifierFlags = .command) {
-            let i = m.addItem(withTitle: title, action: sel, keyEquivalent: key)
-            i.keyEquivalentModifierMask = mods
-        }
-        func submenu(_ title: String, _ fill: (NSMenu) -> Void) {
-            let m = NSMenu(title: title)
-            let top = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            top.submenu = m
-            main.addItem(top)
-            fill(m)
-        }
-        submenu("MdView") { m in
-            item(m, "About Markdown Notes", #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
-            m.addItem(.separator())
-            item(m, "Hide Markdown Notes", #selector(NSApplication.hide(_:)), "h")
-            item(m, "Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option])
-            m.addItem(.separator())
-            item(m, "Quit Markdown Notes", #selector(NSApplication.terminate(_:)), "q")
-        }
-        submenu("File") { m in
-            item(m, "New Window", #selector(newWindow(_:)), "n")
-            item(m, "Open…", #selector(openPanel), "o")
-            m.addItem(.separator())
-            item(m, "Close Window", #selector(NSWindow.performClose(_:)), "w")
-        }
-        submenu("Edit") { m in
-            item(m, "Undo", Selector(("undo:")), "z")
-            item(m, "Redo", Selector(("redo:")), "z", [.command, .shift])
-            m.addItem(.separator())
-            item(m, "Cut", #selector(NSText.cut(_:)), "x")
-            item(m, "Copy", #selector(NSText.copy(_:)), "c")
-            item(m, "Paste", #selector(NSText.paste(_:)), "v")
-            item(m, "Select All", #selector(NSText.selectAll(_:)), "a")
-        }
-        submenu("View") { m in
-            item(m, "Reload Note", #selector(reload(_:)), "r")
-            item(m, "Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])
-        }
-        submenu("Window") { m in
-            item(m, "Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")
-            item(m, "Zoom", #selector(NSWindow.performZoom(_:)))
-            NSApp.windowsMenu = m
-        }
-        NSApp.mainMenu = main
     }
 }
 

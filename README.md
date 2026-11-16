@@ -31,7 +31,7 @@ beside the notes. The command and the repository are still called `mdview`;
 **Installers.** A tagged version is built on GitHub (`.github/workflows/build.yml`) and stands
 under *Releases*: `.deb`, `.rpm` and an AppImage for Linux (x64 and arm64), and an installer for
 Windows — installed and started on GitHub's Windows before it is released, but not signed, so
-Windows warns before it runs it. macOS is not built for now. Which file is whose: the download
+Windows warns before it runs it. macOS has a native Swift shell around the same page, built from the sources (below, `docs/MACOS.md`); it is not in the releases. Which file is whose: the download
 page, https://md.henrischulz.com/download.
 
 **Updates.** The AppImage and the Windows installer update themselves: a newer release is
@@ -46,6 +46,9 @@ it anew from the download page. Built from the sources, the app never looks. (Th
 git clone https://github.com/henriSchulz/mdview
 mdview/bin/mdview-install
 ```
+
+**macOS** (from the sources): `macos/build.sh --install` builds `MdView.app` (Xcode's command line tools; the page is read from the
+checkout, as on Linux), `bin/mdview-mac` starts it — see `docs/MACOS.md`.
 
 The installer builds the program (`cargo build --release` in `src-tauri`), which then runs out
 of the checkout — move or delete the checkout and it is gone. Besides that it links the launcher

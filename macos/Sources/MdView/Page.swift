@@ -36,32 +36,21 @@ enum Page {
         return origin + "/file" + (path.addingPercentEncoding(withAllowedCharacters: allowed) ?? path)
     }
 
-    /// The colours of the theme (--c-*), by the system's appearance, until the Velum roles take over.
-    static func themeCSS(dark: Bool) -> String {
-        let c: [String: String] = dark
-            ? ["background": "#1c1c1e", "foreground": "#e5e5e7", "muted": "#8e8e93", "accent": "#0a84ff", "selection": "#3a3a5c",
-               "red": "#ff453a", "orange": "#ff9f0a", "yellow": "#ffd60a", "green": "#32d74b", "cyan": "#64d2ff",
-               "blue": "#0a84ff", "magenta": "#bf5af2", "brown": "#ac8e68", "bright-red": "#ff6961", "bright-yellow": "#ffe066"]
-            : ["background": "#ffffff", "foreground": "#1d1d1f", "muted": "#6e6e73", "accent": "#007aff", "selection": "#cfe0ff",
-               "red": "#d70015", "orange": "#c93400", "yellow": "#a05a00", "green": "#248a3d", "cyan": "#0071a4",
-               "blue": "#0040dd", "magenta": "#ad0e98", "brown": "#7f6545", "bright-red": "#ff3b30", "bright-yellow": "#b38600"]
-        let body = c.sorted { $0.key < $1.key }.map { "--c-\($0.key):\($0.value)" }.joined(separator: ";")
-        return ":root{\(body);color-scheme:\(dark ? "dark" : "light")}"
-    }
-
+    /// `dark` and `mode` are the caller's guess; the page takes the theme of ThemeCenter (Velum, else the system's appearance).
     static func html(prefs: String, baseDir: String, dark: Bool, mode: String) -> String {
+        let theme = ThemeCenter.shared.current
         let a = origin + "/app"
-        let host = "window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")) };"
+        let host = "window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {}; window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")) };"
         var scr = "<script>\(host)window.MdPrefs = \(prefs);</script>"
         for s in scripts { scr += "<script src=\"\(a)/\(s)\"></script>" }
         let base = escape(fileURL(baseDir) + "/")
         let links = styles.map { "<link rel='stylesheet' href='\(a)/viewer/\($0).css'>" }.joined()
-        return "<!doctype html><html lang='en'><head><meta charset='utf-8'><base href='\(base)'>"
+        return "<!doctype html><html lang='en'\(theme.htmlAttrs)><head><meta charset='utf-8'><base href='\(base)'>"
             + "<link rel='stylesheet' href='\(a)/velum.css'><link rel='stylesheet' href='\(a)/motion.css'>"
-            + "<style id='theme'>\(themeCSS(dark: dark))</style>"
+            + "<style id='theme'>\(theme.css)</style>"
             + "<link rel='stylesheet' href='\(a)/vendor/katex/katex.min.css'>\(links)"
             + "<link rel='stylesheet' href='\(a)/overview.css'></head>"
-            + "<body data-mode='\(dark ? "dark" : "light")'><main id='content'></main>\(scr)</body></html>"
+            + "<body data-mode='\(theme.mode)'><main id='content'></main>\(scr)</body></html>"
     }
 
     static func escape(_ s: String) -> String {

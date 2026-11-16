@@ -76,7 +76,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(scheme, forURLScheme: "md")
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        web = WKWebView(frame: .zero, configuration: cfg)
+        web = FilesWebView(frame: .zero, configuration: cfg)   // (Files.swift: takes files dropped from Finder)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: folder != nil ? 1180 : 980, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
@@ -174,23 +174,37 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         js("MdView.render", [payload])
     }
 
-    /// Where the wikilinks of a note lead (shell.rs `build_links`).
+    /// Where the wikilinks of a note lead (shell.rs `build_links`), embedded notes followed into.
     func buildLinks(_ text: String) -> [String: Any] {
         guard let r = resolver else { return [:] }
         var out: [String: Any] = [:]
+        var texts = [text]
         let rx = Lib.rx(#"!?\[\[([^\[\]\n]+?)\]\]"#)
-        for m in rx.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-            guard let rg = Range(m.range(at: 1), in: text) else { continue }
-            let inner = String(text[rg])
-            var target = inner.components(separatedBy: "|")[0]
-            if let h = target.firstIndex(of: "#") { target = String(target[..<h]) }
-            target = target.trimmingCharacters(in: .whitespaces)
-            if target.isEmpty || out[target] != nil { continue }
-            if let p = r.resolve(target) {
-                out[target] = ["path": p, "url": Page.fileURL(p), "kind": Lib.kind(p)]
-            } else { out[target] = NSNull() }
+        let limit = 200_000
+        while let chunk = texts.popLast() {
+            for m in rx.matches(in: chunk, range: NSRange(chunk.startIndex..., in: chunk)) {
+                guard let rg = Range(m.range(at: 1), in: chunk), let whole = Range(m.range, in: chunk) else { continue }
+                let target = chunk[rg].components(separatedBy: "|")[0].trimmingCharacters(in: .whitespaces)
+                if out[target] != nil || target.hasPrefix("#") { continue }
+                guard let p = r.resolve(target) else { out[target] = NSNull(); continue }
+                var kind = Lib.kind(p)
+                var info: [String: Any] = ["path": p, "url": Page.fileURL(p), "kind": kind]
+                let embed = chunk[whole].hasPrefix("!")
+                if kind == "md" && embed && out.count < 400 {
+                    if let t = Lib.read(p, limit: limit) { info["text"] = t; texts.append(t) }
+                } else if kind == "file" && embed, let t = embeddedText(p, limit: limit) {
+                    kind = "text"; info["kind"] = kind; info["text"] = t
+                }
+                out[target] = info
+            }
         }
         return out
+    }
+
+    /// The text of a file that is one — UTF-8 without a NUL, not too large — for showing it in a note as code.
+    func embeddedText(_ p: String, limit: Int) -> String? {
+        guard let d = Lib.fm.contents(atPath: p), d.count <= limit, !d.contains(0) else { return nil }
+        return String(data: d, encoding: .utf8)
     }
 
     func openPath(_ p: String, fragment: String? = nil, push: Bool = true) {
@@ -323,7 +337,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     // MARK: the page tells the shell
 
     func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let msg = message.body as? [String: Any], let type = msg["type"] as? String else { return }
+        // (the page posts its message as JSON text: MdHost.post(JSON.stringify({ type, … })) — viewer/base.js)
+        var body = message.body
+        if let text = body as? String, let data = text.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: data) { body = o }
+        guard let msg = body as? [String: Any], let type = msg["type"] as? String else { return }
         on(type, msg)
     }
 
@@ -416,6 +433,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             if at == nil || at == path || (at != nil && at == renamedFrom) {
                 if truthy(msg["seq"]) { saveSeq = msg["seq"] as Any }
                 saveText(str("text"), exact: truthy(msg["exact"]))
+                if truthy(msg["exact"]) { tidyAttachments(msg["text"] as? String) }   // (the active mode: what it no longer shows goes)
                 if let f = fresh, f == path {
                     freshTurn += 1
                     let turn = freshTurn

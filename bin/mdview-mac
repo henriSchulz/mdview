@@ -1,0 +1,13 @@
+#!/bin/sh
+# Starts (or tells) the macOS app: mdview-mac [file-or-folder …] | --quick
+# The app is ~/Applications/MdView.app (macos/build.sh --install) or the one built in the checkout.
+here=$(cd "$(dirname "$0")/.." && pwd)
+app="$HOME/Applications/MdView.app"
+[ -d "$app" ] || app="$here/macos/MdView.app"
+[ -d "$app" ] || { echo "mdview-mac: no MdView.app — run macos/build.sh --install" >&2; exit 1; }
+if [ "$1" = "--quick" ]; then exec open -a "$app" "mdview://quick"; fi
+if [ $# -eq 0 ]; then exec open -a "$app"; fi
+for f in "$@"; do
+  case "$f" in /*|*://*) ;; *) f="$(pwd)/$f" ;; esac
+  open -a "$app" "$f"
+done

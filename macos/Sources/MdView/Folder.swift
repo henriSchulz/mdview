@@ -149,6 +149,7 @@ extension NoteWindow {
         if !untitled && name != stem { if last { fresh = nil }; return }
         guard !name.isEmpty, name != stem, let target = Lib.freeName(f, name), target != f, let folder else { return }
         relocate(folder, f, target, "rename")
+        filesNamed(old: f, new: Lib.resolve(target))
         fresh = last ? nil : path
     }
 
@@ -364,6 +365,7 @@ extension NoteWindow {
 
     func onFS(_ paths: [String]) {
         let real = paths.map { Lib.resolve($0) }
+        for p in paths { touch(p) } // (a change in a project: its snapshot follows once it is quiet)
         for p in paths where Lib.isBoard(p) && Lib.isFile(p) { js("MdView.boardChanged", [p]) }
         if let cur = path, paths.contains(cur) || real.contains(cur) {
             // editors save by delete + rename; wait for the dust to settle

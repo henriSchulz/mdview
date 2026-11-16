@@ -187,8 +187,16 @@ enum Lib {
         try fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
         for n in 1..<tries {
             let target = join(folder, name(n))
-            if fm.createFile(atPath: target, contents: nil), (try? data.write(to: URL(fileURLWithPath: target))) != nil { return target }
-            if !exists(target) { break }
+            let fd = open(target, O_WRONLY | O_CREAT | O_EXCL, 0o644)   // never over a file that is there
+            if fd < 0 { if errno == EEXIST { continue }; throw CocoaError(.fileWriteUnknown) }
+            defer { close(fd) }
+            let ok = data.withUnsafeBytes { buf -> Bool in
+                var off = 0
+                while off < buf.count { let w = write(fd, buf.baseAddress! + off, buf.count - off); if w <= 0 { return false }; off += w }
+                return true
+            }
+            if !ok { throw CocoaError(.fileWriteUnknown) }
+            return target
         }
         throw CocoaError(.fileWriteFileExists)
     }

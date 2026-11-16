@@ -14,6 +14,7 @@ const GROUPS = [
   ["The active mode (loaded when first used)", ["active/*.js", "active/*.css"]],
   ["All Notes, PDFs, AI, whiteboards (each loaded when first used)", ["overview.js", "pdfview.js", "ai.js", "board.js", "board/*.js"]],
   ["The shell (Rust)", ["src-tauri/src/main.rs", "src-tauri/src/shell.rs", "src-tauri/src/shell/*.rs", "src-tauri/src/*.rs"]],
+  ["The macOS shell (Swift, a WKWebView around the same page)", ["macos/Sources/MdView/*.swift"]],
   ["The web app (the same page in a browser)", ["web/lib/*.ts", "web/lib/mcp/*.ts", "web/host/*.ts", "web/public/host/*.js", "web/proxy.ts"]],
 ];
 const files = (pattern) => {
@@ -37,7 +38,7 @@ function ignored(file) {
 function about(text, file) {
   let head = "";
   if (file.endsWith(".rs")) head = text.split("\n").filter((l, i, a) => a.slice(0, i + 1).every((x) => x.startsWith("//!"))).map((l) => l.slice(3).trim()).join(" ");
-  else if (file.endsWith(".ts")) head = (/^(?:\/\/.*\n)+/.exec(text) || [""])[0].replace(/^\/\/ ?/gm, "").replace(/\n/g, " ");
+  else if (file.endsWith(".ts") || file.endsWith(".swift")) head = (/^(?:\/\/.*\n)+/.exec(text) || [""])[0].replace(/^\/\/ ?/gm, "").replace(/\n/g, " ");
   else head = (/^\s*\/\*([\s\S]*?)\*\//.exec(text) || ["", ""])[1].replace(/^\s*\* ?/gm, "").replace(/-{5,}/g, "").replace(/\n/g, " ");
   head = head.replace(/\s+/g, " ").trim().replace(/^mdview(,? (the page|styles|active mode|active mode, styles|on the web))? ?(—|-|:) ?/i, "").replace(/ \(One of several sheets[^)]*\)/, "");
   if (head.length <= 110) return head;

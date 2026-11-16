@@ -27,6 +27,9 @@ out of bugs: [`BUGS.md`](BUGS.md).
   gives. A name from a file loaded later, and state that changes, is written `P.name`.
 - **The active mode** (`active/*.js`), **All Notes**, **PDFs**, **AI** and **whiteboards** are
   loaded when first used (`viewer/modes.js`, `viewer.js`) and build on `MdView.core`.
+- **The macOS shell** (`macos/`, Swift) does the same as the Rust shell for a window: a WKWebView, `md://` for the
+  page's files, `MdHost.post` taken by `NoteWindow.on` (`macos/Sources/MdView/NoteWindow.swift`), `MdView.…` called by
+  `js`. One file per area (the list below); how to build and what differs: [`MACOS.md`](MACOS.md).
 - **The web app** (`web/`) shows the same page in a browser; `web/public/host/host.js` stands
   where the shell does, and `web/host/contract.ts` lists every message and what the web does with it.
 
@@ -55,6 +58,7 @@ or the tests see the old ones.
 | `viewer.js`, `viewer/*`, `active/*`, `strings.js` | `cd dev && npm test`; `dev/rig.sh regress dev/tests/fixtures/basics.md`; the rig cases of the part (`dev/rig.sh` lists them at its head: `sidebar`, `tabs`, `edit`, …) |
 | `board*`, `pdfview.*`, `overview.*`, `ai.*` | the rig cases of that name; whiteboards on touch: `cd web && npm test` |
 | what a finger does in the application on Linux (`viewer/hand.js`, `host.rs`'s pinch, a PDF's fingers) | `dev/rig.sh gtktouch`; `cd web && npm test` (`linux-touch.test.mjs`) |
+| `macos/` | `cd macos && swift build`; `macos/build.sh` and the app started on a folder (`docs/MACOS.md`) |
 | `src-tauri/src` | `cd src-tauri && cargo test`; the rig cases of what the change is about |
 | `web/`, or a message between page and shell | `cd web && npm test` |
 | a release's files (`packaging/release-name.sh`, `packaging/latest-json.mjs`, the Release steps of `.github/workflows/build.yml`) | `cd dev && npm test` (`release-name.test.mjs`, `latest-json.test.mjs`); the download page that reads them: `cd web && npm test` (`download.test.mjs`) |
@@ -219,6 +223,39 @@ or the tests see the old ones.
 | `src-tauri/src/sync.rs` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
 | `src-tauri/src/theme.rs` | Colours follow the desktop: Velum's current colours when Velum is installed … |
 | `src-tauri/src/update.rs` | Updates of an install that was downloaded: the AppImage and the Windows installer update themselves … |
+
+### The macOS shell (Swift, a WKWebView around the same page)
+
+| File | What is in it |
+|---|---|
+| `macos/Sources/MdView/Assistant.swift` | The AI of the app (area D): the chat, "Transform with AI", the whiteboard's questions, figures drawn by a … |
+| `macos/Sources/MdView/AssistantPrompts.swift` | What the models are told — src-tauri/src/ai.rs, word for word (the page's chat, Transform, whiteboard and … |
+| `macos/Sources/MdView/DefaultPrefs.swift` | Defaults of the settings (src-tauri/src/shell.rs default_prefs), as the page expects them. |
+| `macos/Sources/MdView/Files.swift` | Files (area A): what is done to the files of the folder from its list and All Notes — copy, cut, paste, … |
+| `macos/Sources/MdView/FilesStores.swift` | What the folder says about itself and what the application keeps for notes (area A) — hidden.rs … |
+| `macos/Sources/MdView/FilesWeb.swift` | The web view that takes files dropped from Finder (their addresses go to the page as text/uri-list, as the … |
+| `macos/Sources/MdView/Folder.swift` | A folder window's folder: its notes sent to the sidebar, a note or a folder made, renamed, moved, put in the … |
+| `macos/Sources/MdView/History.swift` | A folder's history, its other side, and sharing (area C). |
+| `macos/Sources/MdView/HistoryCore.swift` | A folder's history: a project is a folder that holds both the app's marker (.mdview/project.json) and a Git … |
+| `macos/Sources/MdView/HistoryGit.swift` | The git command line, as the history reaches a repository (the Rust shell links libgit2; |
+| `macos/Sources/MdView/HistoryGitHub.swift` | Signing in with GitHub, for a linked project's other side. |
+| `macos/Sources/MdView/HistoryShare.swift` | Sharing a note: a link under which anyone can read it in the web app, with a password if one is set — and … |
+| `macos/Sources/MdView/HistorySync.swift` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
+| `macos/Sources/MdView/Lib.swift` | Small things about files and names that the shell shares — src-tauri/src/scan.rs (the kinds, the order, a … |
+| `macos/Sources/MdView/Menu.swift` | The menu bar. Where a command is the page's (the modes, the sidebar, Find …) the item sends the key the page … |
+| `macos/Sources/MdView/NoteWindow.swift` | One window: a WKWebView with the page, and the shell's half of the conversation — what the page says … |
+| `macos/Sources/MdView/Page.swift` | The page a window shows — what src-tauri/src/shell.rs `load_shell` builds: the scripts and sheets in their … |
+| `macos/Sources/MdView/Resolver.swift` | Where a [[wikilink]] leads, as Obsidian does it: next to the note, at the vault root, then anywhere below the … |
+| `macos/Sources/MdView/Scan.swift` | The folder as a tree for the sidebar — src-tauri/src/scan.rs `scan_folder`. |
+| `macos/Sources/MdView/Scheme.swift` | md://localhost/… — what the page asks for: /app/<file of the checkout>, /file/<any file>, /shell/<n> (the … |
+| `macos/Sources/MdView/Search.swift` | Search, previews, the note beside, whiteboards and PDFs (area B). |
+| `macos/Sources/MdView/SearchBoards.swift` | Whiteboards (board.js): a board for a note, a board's text for the page and back, pictures put on it, the … |
+| `macos/Sources/MdView/SearchPDF.swift` | A PDF in the window: the page gets its name and the links to it, the bytes on request — and a presentation … |
+| `macos/Sources/MdView/Store.swift` | What is kept between starts: ~/Library/Application Support/MdView/state.json — the settings of the active … |
+| `macos/Sources/MdView/System.swift` | The app and the system around the page (area E): what the page asks of the system — print, full screen, a … |
+| `macos/Sources/MdView/Tabs.swift` | The tabs of a folder window: made, shown, chosen, closed, opened again, moved. Rust: shell/tabs.rs. |
+| `macos/Sources/MdView/Theme.swift` | Colours follow the desktop: Velum's current colours when Velum is installed … |
+| `macos/Sources/MdView/main.swift` | Markdown Notes, native: the app, its windows, the Dock. Run: `swift run`, or ./build.sh and open MdView.app. |
 
 ### The web app (the same page in a browser)
 
