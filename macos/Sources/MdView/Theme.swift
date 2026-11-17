@@ -141,6 +141,7 @@ final class ThemeCenter: NSObject {
         current = t
         watchVelum()
         guard !same else { return }
+        AppDelegate.shared?.dropSpare() // (its page was made in the theme before)
         AppDelegate.shared?.eachWindow { $0.applyTheme(t) }
     }
 }

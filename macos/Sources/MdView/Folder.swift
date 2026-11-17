@@ -45,14 +45,40 @@ extension NoteWindow {
         return out
     }
 
+    /// The folder read again, now — what a step of the window's own needs at once (a note made, renamed, moved: then
+    /// shown, revealed, opened).
     func rescan() {
         rescanItem?.cancel()
         guard let folder, !gone else { return }
-        let titles = store.bool("sidebar_titles")
+        scanGen += 1
+        let (titles, away, all) = scanInputs(folder)
+        took(scanner.scan(root: folder, titles: titles, keep: keptDirs, putAway: away, all: all))
+    }
+
+    /// The folder read again off the main thread — what a change on the disk sets off (a save among them, while one
+    /// types): the window answers keys and draws meanwhile. Its tree is taken only if no reading came after it began.
+    func rescanQuietly() {
+        rescanItem?.cancel()
+        guard let folder, !gone else { return }
+        scanGen += 1
+        let gen = scanGen, keep = keptDirs, scanner = quietScanner
+        let (titles, away, all) = scanInputs(folder)
+        NoteWindow.scanQueue.async {
+            let r = scanner.scan(root: folder, titles: titles, keep: keep, putAway: away, all: all)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.scanGen == gen, self.folder == folder, !self.gone else { return }
+                self.took(r)
+            }
+        }
+    }
+
+    private func scanInputs(_ folder: String) -> (Bool, Set<String>, Bool) {
         var away = hiddenListed(folder)
         away.formUnion(attachmentsOwned())
-        let all = truthy(store.prefs["showHidden"])
-        let r = scanner.scan(root: folder, titles: titles, keep: keptDirs, putAway: away, all: all)
+        return (store.bool("sidebar_titles"), away, truthy(store.prefs["showHidden"]))
+    }
+
+    private func took(_ r: ScanResult) {
         tree = r.tree
         notePaths = Set(r.notes.compactMap { $0["path"] as? String })
         dirWatch = Set(r.walked.prefix(watchLimit))
@@ -385,7 +411,7 @@ extension NoteWindow {
         }
         if folder != nil, paths.contains(where: { dirWatch.contains($0) || dirWatch.contains(Lib.dir($0)) }) {
             rescanItem?.cancel()
-            let item = DispatchWorkItem { [weak self] in self?.rescan() }
+            let item = DispatchWorkItem { [weak self] in self?.rescanQuietly() }
             rescanItem = item
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: item)
         }
