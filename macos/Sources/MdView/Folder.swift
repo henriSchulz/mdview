@@ -121,18 +121,28 @@ extension NoteWindow {
         return (try? Lib.fm.moveItem(atPath: p, toPath: t)) != nil
     }
 
+    /// A new quick note (shell/folder.rs new_quick): empty — one left as it is goes again —, the one before settled first
+    /// (empty: it goes; else named after what its first line says), in the active mode with the caret in it. In another
+    /// window it is made in the quick notes' own. (Review 2026-11-17: it was "# ", never empty and never named — a
+    /// "2026-… .md" stayed for ever; the one before kept its time for a name; a note's window became the quick folder.)
     func newQuick() {
         let dir = quickDir()
         try? Lib.fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        if folder == nil { setFolder(dir) }
-        guard quick, let folder else { return AppDelegate.shared.openWindow(dir) }
+        guard quick, let folder else {
+            AppDelegate.shared.openWindow(dir)
+            AppDelegate.shared.windows.first { $0 !== self && $0.quick }?.newQuick()
+            return
+        }
+        settleQuick()
         let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd HH-mm-ss"
         let stem = df.string(from: Date())
-        guard let p = try? Lib.writeNew(folder, data: Data("# ".utf8), name: { $0 == 1 ? "\(stem).md" : "\(stem) \($0).md" }) else { return }
+        guard let p = try? Lib.writeNew(folder, data: Data(), name: { $0 == 1 ? "\(stem).md" : "\(stem) \($0).md" }) else {
+            return toast("Couldn't create note")
+        }
         rescan()
         openPath(p)
-        fresh = path
-        js("MdView.titleFresh", [Lib.resolve(p)])
+        js("MdView.setMode", ["active"])
+        js("MdView.quickFresh", [Lib.resolve(p)])
     }
 
     // MARK: a new note named after its title
