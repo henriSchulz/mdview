@@ -450,6 +450,13 @@ impl App {
                 _ => {}
             },
             Event::SyncTick => {
+                // (the renewal's timer counts awake time only — a laptop shut overnight woke with the token run out and
+                // its renewal hours away, and every sync said "sign in again"; review 2026-11-17. By the wall's clock,
+                // a sign-in that has run out or will within ten minutes is renewed now.)
+                if self.signing.is_none() && self.session.as_ref().is_some_and(|s| s.expires.saturating_sub(now()) < 600) {
+                    self.renew_turn += 1;
+                    github::resume(self.tx.clone(), self.keyring_place());
+                }
                 self.sync_shown();
                 self.after(self.sync_ms(), Event::SyncTick);
             }
