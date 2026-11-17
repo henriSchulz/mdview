@@ -316,7 +316,29 @@ enum Hist {
         let slot = Lib.join(aside, "\(name.replacingOccurrences(of: "/", with: "-"))-\(df.string(from: Date()))")
         try fm.moveItem(atPath: Lib.join(child, ".git"), toPath: slot)
         try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: slot)
+        keepOn(root, child: child, name: name)
         try fm.removeItem(atPath: Lib.join(child, ".mdview"))
+        _ = try? snapshot(root, stamp) // (what came over is kept as the outer project's at once)
+    }
+
+    /// What the inner project kept of its own goes on as the outer one's — it was deleted with its marker (review
+    /// 2026-11-17): the ink drawn on its PDFs (named by what a PDF holds: the same name in the outer folder; one there
+    /// already stays), which of its files are hidden and how its folders look (by their path in it: now below its folder).
+    /// Its links shared stay with its repository, which is aside now.
+    static func keepOn(_ root: String, child: String, name: String) {
+        let inner = Lib.join(child, ".mdview/pdf"), outer = Lib.join(root, ".mdview/pdf")
+        if let inks = try? fm.contentsOfDirectory(atPath: inner), !inks.isEmpty {
+            try? fm.createDirectory(atPath: outer, withIntermediateDirectories: true)
+            for f in inks where !Lib.exists(Lib.join(outer, f)) { try? fm.moveItem(atPath: Lib.join(inner, f), toPath: Lib.join(outer, f)) }
+        }
+        let hidden = Hidden.read(child)
+        if !hidden.isEmpty { try? Hidden.write(root, Hidden.read(root).union(hidden.map { "\(name)/\($0)" })) }
+        let looks = Looks.read(child)
+        if !looks.isEmpty {
+            var all = Looks.read(root)
+            for (k, v) in looks { let key = k.isEmpty ? name : "\(name)/\(k)"; if all[key] == nil { all[key] = v } }
+            try? Looks.write(root, all)
+        }
     }
 
     // MARK: versions
