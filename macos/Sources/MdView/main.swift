@@ -129,6 +129,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         spareSoon()
     }
 
+    /// Settings changed — in a window's page or in the settings window: kept, told to every window (and the settings window),
+    /// the folders listed anew where what is listed changed; the spare goes (its page holds the settings it was made with).
+    @discardableResult func applyPrefs(_ new: [String: Any]) -> [String: Any] {
+        let prefs = Store.shared.store(prefs: new)
+        dropSpare()
+        let lists = new.keys.contains { $0.hasPrefix("sidebar") || $0 == "showHidden" }
+        eachWindow { w in
+            w.js("MdView.setPrefs", [prefs])
+            if lists && w.folder != nil { w.rescan() }
+        }
+        SettingsWindow.shared.model.took(prefs)
+        return prefs
+    }
+
     // MARK: the spare window
 
     /// A window whose page is loaded before it is asked for (NoteWindow.isSpare): the next one opened is there at once,

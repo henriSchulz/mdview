@@ -320,6 +320,7 @@
     settingsInfo: (d) => window.MdActive && MdActive.prefs && MdActive.prefs.info(d),
     tour: () => P.tour.start(), // (the tour of the controls: viewer/tour.js)
     warm: () => P.warm(), // (a page loaded ahead of its window: what it would fetch later, fetched now — viewer/render.js)
+    settingsSchema: () => P.loadActive().then(() => MdActive.prefs.schema()), // (the settings, for a window of the host's own: active/prefs.js)
     historyKept: () => window.MdActive && MdActive.prefs && MdActive.prefs.stale(),
     history: (d) => window.MdActive && MdActive.history && MdActive.history.got(d),
     historyText: (d) => window.MdActive && MdActive.history && MdActive.history.gotText(d),

@@ -10,7 +10,8 @@
 // works with the files as files (viewer/base.js: FILEWORK), which the page's menus go by. A host
 // may also show the page's menus of plain rows as the system's own: MdHost.menu(spec) answers
 // the way to the row chosen (the macOS shell's NSMenu; viewer/base.js hostMenu) — the web's has
-// none, and the page draws its own there.
+// none, and the page draws its own there. So too its settings: MdHost.settings() opens a window
+// of the host's (macOS), drawn from MdView.settingsSchema; without it the page's own open.
 //
 //   answer   the web host does what the shell does, against the repository
 //   write    as answer, but it changes the repository: refused while the web app only reads
@@ -150,6 +151,7 @@ export const TO_PAGE: Record<string, [Does, string]> = {
   setTheme: ["answer", "the colours: light or dark, as the system has it"],
   setPreviews: ["answer", "the beginnings of notes asked for"],
   settingsInfo: ["answer", "what only the host knows, for the settings"],
+  settingsSchema: ["none", "what the settings are, for a host with a settings window of its own (the macOS shell's) — the browser's are the page's"],
   warm: ["none", "a page loaded ahead of its window (the macOS shell's spare) fetches and compiles what it would later: the active mode, mermaid, the Markdown renderer — a browser loads its page when it is asked for"],
   tour: ["answer", "the tour of the controls (viewer/tour.js), once, at the first note this browser shows of any repository — not under a test's browser (navigator.webdriver)"],
   toast: ["answer", "a word shown for a moment"],

@@ -501,15 +501,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             let name = truthy(msg["plain"]) ? "" : str("name")
             if ["read", "edit", "active", "split"].contains(name), store.string("mode") != name { store.set("mode", name) }
         case "prefs":
-            if let new = msg["prefs"] as? [String: Any] {
-                let prefs = store.store(prefs: new)
-                AppDelegate.shared.dropSpare() // (its page holds the settings it was made with)
-                let lists = new.keys.contains { $0.hasPrefix("sidebar") || $0 == "showHidden" }
-                AppDelegate.shared.eachWindow { w in
-                    w.js("MdView.setPrefs", [prefs])
-                    if lists && w.folder != nil { w.rescan() }
-                }
-            }
+            if let new = msg["prefs"] as? [String: Any] { AppDelegate.shared.applyPrefs(new) }
+        case "opensettings": SettingsWindow.shared.open(from: self)
         case "note": openNote(str("path"), tab: truthy(msg["tab"]), fragment: (msg["fragment"] as? String).flatMap { $0.isEmpty ? nil : $0 })
         case "resolve":
             let target = str("target")

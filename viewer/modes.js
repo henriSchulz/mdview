@@ -341,6 +341,7 @@
   }
   function openSettings() {
     if (window.MdHost && window.MdHost.reading) return; // (a note that is only read: no settings, by the gear or by Ctrl+,)
+    if (window.MdHost && MdHost.settings) return MdHost.settings(); // (a host with a settings window of its own: the macOS shell's)
     loadActive().then(() => { if (!MdActive.dialog.open) MdActive.prefs.open(); }, () => toast(T("active.loadFailed")));
   }
   let activeLoad = null, preloadTimer = 0;
