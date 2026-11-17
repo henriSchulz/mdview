@@ -270,17 +270,22 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         try data.write(to: URL(fileURLWithPath: Lib.resolve(p)), options: .atomic)
     }
 
+    /// A task ticked in the reading view: written into the file, and the note drawn anew from it — the page has only
+    /// ticked the box, its text is still the one before (shell.rs `toggle_task`, where the watcher draws it).
     func toggleTask(line: Int, checked: Bool) {
         guard let path, line >= 0, let text = Lib.read(path) else { return }
         var lines = text.components(separatedBy: "\n")
-        guard line < lines.count else { return }
+        guard line < lines.count else { return render(keepScroll: true) }
         let rx = Lib.rx(#"^([\s>]*(?:[-*+]|\d+[.)])\s+\[)(.)(\])"#)
         let l = lines[line]
-        guard let m = rx.firstMatch(in: l, range: NSRange(l.startIndex..., in: l)), let r = Range(m.range(at: 2), in: l) else { return }
+        guard let m = rx.firstMatch(in: l, range: NSRange(l.startIndex..., in: l)), let r = Range(m.range(at: 2), in: l) else {
+            return render(keepScroll: true)
+        }
         lines[line] = l.replacingCharacters(in: r, with: checked ? "x" : " ")
-        let new = lines.joined(separator: "\n")
-        ownWrite = Data(new.utf8)
-        try? writeWhole(path, Data(new.utf8))
+        let new = Data(lines.joined(separator: "\n").utf8)
+        do { try writeWhole(path, new); ownWrite = new } // (the watcher's echo of it: no second drawing)
+        catch { toast("Couldn't save: \(error.localizedDescription)") }
+        render(keepScroll: true)
     }
 
     // MARK: links
