@@ -37,6 +37,23 @@ enum Page {
     }
 
     /// `dark` and `mode` are the caller's guess; the page takes the theme of ThemeCenter (Velum, else the system's appearance).
+    /// The user's own LaTeX snippets (`snippets.js` in the config folder: `export default [ … ]`, or the list alone), as
+    /// the page takes them — window.MdSnippets (shell.rs user_snippets). They were never handed to the page here
+    /// (review 2026-11-17: FEATURES' own snippets did nothing on macOS).
+    static func userSnippets() -> String {
+        guard let source = Lib.read(Lib.join(AIKey.configDir, "snippets.js")),
+              !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        let body: String
+        if let r = source.range(of: #"export\s+default"#, options: .regularExpression) {
+            body = source.replacingCharacters(in: r, with: "return ")
+        } else {
+            var t = source
+            while let last = t.last, last.isWhitespace || last == ";" { t.removeLast() }
+            body = "return (\(t)\n)"
+        }
+        return "window.MdSnippets = function (require) {\n\(body.replacingOccurrences(of: "</", with: "<\\/"))\n};"
+    }
+
     static func html(prefs: String, baseDir: String, dark: Bool, mode: String) -> String {
         let theme = ThemeCenter.shared.current
         let a = origin + "/app"
@@ -48,6 +65,8 @@ enum Page {
             + "img-src md: data: blob: https: http:; font-src md: data:; media-src md: https: http:; connect-src 'none'"
         let prefs = prefs.replacingOccurrences(of: "</", with: "<\\/")
         var scr = "<script nonce=\"\(nonce)\">\(host)window.MdPrefs = \(prefs);</script>"
+        let own = userSnippets()
+        if !own.isEmpty { scr += "<script nonce=\"\(nonce)\">\(own)</script>" }
         for s in scripts { scr += "<script nonce=\"\(nonce)\" src=\"\(a)/\(s)\"></script>" }
         let base = escape(fileURL(baseDir) + "/")
         let links = styles.map { "<link rel='stylesheet' href='\(a)/viewer/\($0).css'>" }.joined()
