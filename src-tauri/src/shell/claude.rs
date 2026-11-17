@@ -16,7 +16,7 @@ impl Win {
                 previous: msg["previous"].as_str().filter(|p| !p.is_empty()).map(String::from),
                 change: Some(take(text_of("change"), 3000)).filter(|c| !c.is_empty()),
             }),
-            "graphic-cancel" => app.illustrator.stop(),
+            "graphic-cancel" => app.illustrator.stop(&self.label),
             // Claude asked about a part of the note (transform), the whole of it (chat) or the whiteboard that is open (board):
             // its answer comes in pieces (MdView.aiDelta) and ends (MdView.aiDone). Not where AI is turned off in the settings.
             "ai-ask" => {
@@ -115,7 +115,7 @@ impl Win {
                 }
                 self.js("MdView.aiPicked", &[json!(list)]);
             }
-            "ai-stop" => app.talker.stop(text_of("channel")),
+            "ai-stop" => app.talker.stop(&self.label, text_of("channel")),
             "graphic-image" => self.graphic_image(app, text_of("how"), text_of("data")),
             "graphic-save" => self.save_graphic(app, text_of("svg"), text_of("name")),
             "complete" => {

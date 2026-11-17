@@ -139,11 +139,15 @@ pub struct Talk {
 }
 
 /// Claude asked through the command line tool, its answer handed on as it comes. One talk for each
-/// channel: a new one, or stop, ends the one before.
+/// window and channel: a new one there, or stop, ends the one before — and only that one. (Review
+/// 2026-11-17: one for each channel of the whole app — a chat asked in window B killed window A's,
+/// whose page then waited for ever, and A's Stop ended B's answer.)
+type Running = Mutex<HashMap<(String, String), (u64, Option<u32>)>>; // (window, channel) → (whose answer counts, its process)
+
 pub struct Talker {
     tx: Sender<Event>,
     turn: Arc<AtomicU64>,
-    running: Arc<Mutex<HashMap<String, (u64, Option<u32>)>>>, // channel → (whose answer counts, its process)
+    running: Arc<Running>,
 }
 
 impl Talker {
@@ -151,29 +155,37 @@ impl Talker {
         Talker { tx, turn: Arc::new(AtomicU64::new(0)), running: Arc::new(Mutex::new(HashMap::new())) }
     }
 
-    pub fn stop(&self, channel: &str) {
-        if let Some((_, Some(pid))) = self.running.lock().unwrap().remove(channel) {
+    pub fn stop(&self, label: &str, channel: &str) {
+        if let Some((_, Some(pid))) = self.running.lock().unwrap().remove(&(label.to_string(), channel.to_string())) {
             kill(pid);
         }
     }
 
     pub fn ask(&self, t: Talk) {
-        self.stop(&t.channel);
+        self.stop(&t.label, &t.channel);
         let mine = self.turn.fetch_add(1, Ordering::SeqCst) + 1;
-        self.running.lock().unwrap().insert(t.channel.clone(), (mine, None));
+        let key = (t.label.clone(), t.channel.clone());
+        self.running.lock().unwrap().insert(key.clone(), (mine, None));
         let (tx, running) = (self.tx.clone(), self.running.clone());
         std::thread::spawn(move || {
-            let (label, id, channel) = (t.label.clone(), t.id.clone(), t.channel.clone());
-            let current = |running: &Mutex<HashMap<String, (u64, Option<u32>)>>| running.lock().unwrap().get(&channel).is_some_and(|(turn, _)| *turn == mine);
+            let (label, id) = (t.label.clone(), t.id.clone());
+            let current = |running: &Running| running.lock().unwrap().get(&key).is_some_and(|(turn, _)| *turn == mine);
             let said = talk(&t, &tx, |pid| {
-                if let Some(slot) = running.lock().unwrap().get_mut(&channel).filter(|(turn, _)| *turn == mine) {
-                    slot.1 = pid;
+                let mut all = running.lock().unwrap();
+                match all.get_mut(&key).filter(|(turn, _)| *turn == mine) {
+                    Some(slot) => slot.1 = pid,
+                    // (stopped before its process was known: it ends now, not after its ten minutes)
+                    None => {
+                        if let Some(p) = pid {
+                            kill(p);
+                        }
+                    }
                 }
             }, || current(&running));
             if !current(&running) {
                 return; // stopped, or another question took its place
             }
-            running.lock().unwrap().remove(&channel);
+            running.lock().unwrap().remove(&key);
             let (text, error) = match said {
                 Ok(text) => (Some(text), None),
                 Err(e) => (None, Some(e)),
@@ -210,7 +222,8 @@ fn talk(t: &Talk, tx: &Sender<Event>, pid: impl Fn(Option<u32>), current: impl F
         return Ok(said);
     }
     let exe = find_claude().ok_or("The claude command was not found. Install Claude Code, or turn AI off in the settings.")?;
-    let work = std::env::temp_dir().join(format!("mdview-talk-{}-{}", std::process::id(), t.channel));
+    // (a folder of its own each time: named by the channel, a talk's start deleted the files another one was reading)
+    let work = std::env::temp_dir().join(format!("mdview-talk-{}-{}", std::process::id(), uuid::Uuid::new_v4()));
     fs::create_dir_all(&work).map_err(|e| format!("Couldn't run claude: {e}"))?;
     // (files to read: copies in its own folder, the only place its one tool may look)
     let mut attached = Vec::new();
@@ -555,29 +568,38 @@ pub struct Drawing {
 }
 
 /// Has Claude draw a figure (the claude command line tool, without its tools — only reading
-/// the reference picture, when there is one). One at a time; a new request or stop ends the old.
+/// the reference picture, when there is one). One at a time in each window; a new request there or
+/// stop ends the old (one for the whole app ended another window's figure: review 2026-11-17).
+type Slot = (Arc<AtomicU64>, Arc<Mutex<Option<u32>>>); // which request is the one whose answer counts, the process drawing now
+
 pub struct Illustrator {
     tx: Sender<Event>,
-    turn: Arc<AtomicU64>,          // which request is the one whose answer counts
-    pid: Arc<Mutex<Option<u32>>>,  // the process drawing now
+    slots: Mutex<HashMap<String, Slot>>, // window → its slot
 }
 
 impl Illustrator {
     pub fn new(tx: Sender<Event>) -> Self {
-        Illustrator { tx, turn: Arc::new(AtomicU64::new(0)), pid: Arc::new(Mutex::new(None)) }
+        Illustrator { tx, slots: Mutex::new(HashMap::new()) }
     }
 
-    pub fn stop(&self) {
-        self.turn.fetch_add(1, Ordering::SeqCst);
-        if let Some(pid) = self.pid.lock().unwrap().take() {
-            kill(pid);
+    fn slot(&self, label: &str) -> Slot {
+        self.slots.lock().unwrap().entry(label.to_string()).or_insert_with(|| (Arc::new(AtomicU64::new(0)), Arc::new(Mutex::new(None)))).clone()
+    }
+
+    pub fn stop(&self, label: &str) {
+        let (turn, pid) = self.slot(label);
+        turn.fetch_add(1, Ordering::SeqCst);
+        let running = pid.lock().unwrap().take();
+        if let Some(p) = running {
+            kill(p);
         }
     }
 
     pub fn draw(&self, d: Drawing) {
-        self.stop();
-        let mine = self.turn.load(Ordering::SeqCst);
-        let (tx, turn, pid) = (self.tx.clone(), self.turn.clone(), self.pid.clone());
+        self.stop(&d.label);
+        let (turn, pid) = self.slot(&d.label);
+        let mine = turn.load(Ordering::SeqCst);
+        let tx = self.tx.clone();
         std::thread::spawn(move || {
             let (label, id) = (d.label.clone(), d.id.clone());
             if let Some((svg, error)) = run(d, mine, &turn, &pid) {
@@ -609,7 +631,7 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
     let Some(exe) = find_claude() else {
         return Some((None, Some("The claude command was not found".into())));
     };
-    let work = std::env::temp_dir().join(format!("mdview-graphic-{}-{mine}", std::process::id()));
+    let work = std::env::temp_dir().join(format!("mdview-graphic-{}-{}", std::process::id(), uuid::Uuid::new_v4()));
     let result = (|| -> std::io::Result<Option<(Option<String>, Option<String>)>> {
         fs::create_dir_all(&work)?;
         let mut tools: Vec<String> = vec!["--tools".into(), "".into()];
@@ -642,7 +664,17 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
             cmd.process_group(0);
         }
         let mut child = cmd.spawn()?;
-        *pid.lock().unwrap() = Some(child.id());
+        {
+            let mut slot = pid.lock().unwrap();
+            // (stopped while it was being started: it ends now, not after its five minutes)
+            if turn.load(Ordering::SeqCst) != mine {
+                drop(slot);
+                let _ = child.kill();
+                let _ = child.wait();
+                return Ok(None);
+            }
+            *slot = Some(child.id());
+        }
         let read = |pipe: Option<Box<dyn Read + Send>>| {
             std::thread::spawn(move || {
                 let mut text = String::new();
@@ -691,5 +723,50 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
     match result {
         Ok(r) => r,
         Err(e) => Some((None, Some(format!("Couldn't run claude: {e}")))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc::{channel, Receiver};
+
+    fn asked(label: &str) -> Talk {
+        Talk { label: label.into(), id: json!(label), channel: "chat".into(), system: String::new(), prompt: "hello".into(), model: String::new(), attach: vec![], picture: None, effort: "" }
+    }
+    /// The windows whose talk came to an end within a while, in turn.
+    fn ended(rx: &Receiver<Event>, n: usize) -> Vec<String> {
+        let (mut done, end) = (vec![], Instant::now() + Duration::from_secs(4));
+        while done.len() < n && Instant::now() < end {
+            if let Ok(Event::AiDone { label, error, .. }) = rx.recv_timeout(Duration::from_millis(50)) {
+                assert!(error.is_none(), "{label}: {error:?}");
+                done.push(label);
+            }
+        }
+        done.sort();
+        done
+    }
+
+    // Review of 2026-11-17: one talk for each channel of the whole app — a chat asked in window B ended window A's, and A
+    // waited for ever; A's Stop ended B's.
+    #[test]
+    fn a_talk_in_one_window_leaves_the_talk_of_another_alone() {
+        std::env::set_var("MDVIEW_TALK_FAKE", "transform||chat answer");
+        let (tx, rx) = channel();
+        let talker = Talker::new(tx);
+        talker.ask(asked("a"));
+        std::thread::sleep(Duration::from_millis(50));
+        talker.ask(asked("b"));
+        assert_eq!(ended(&rx, 2), ["a", "b"], "a talk asked in b ended a's");
+        // stopped in its window, a talk ends there alone
+        talker.ask(asked("a"));
+        talker.ask(asked("b"));
+        talker.stop("a", "chat");
+        assert_eq!(ended(&rx, 2), ["b"], "a's Stop ended b's talk");
+        // a new question in the same window still takes the place of the one before
+        talker.ask(asked("a"));
+        std::thread::sleep(Duration::from_millis(50));
+        talker.ask(asked("a"));
+        assert_eq!(ended(&rx, 2), ["a"]);
     }
 }
