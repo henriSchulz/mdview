@@ -245,10 +245,30 @@
   // the modes in which the source editor holds the note: the source alone, and the source beside its reading (viewer/twin.js)
   const inSource = (m = P.mode) => m === "edit" || m === "split";
 
+  /* A menu the host shows as the system's own (the macOS shell: MdHost.menu, an NSMenu — its menus look and move as every
+   * other application's there). rows: { label (text), key ("Ctrl+X", as keys() takes it), on (can be chosen), check, danger,
+   * svg (the row's sign as drawn here), id (what the row is: a command, a key of strings.js — the host may have a sign of
+   * its own for it), sub: [rows] } or null for a rule; x, y: the point of the window it is asked at
+   * (a right click: where the system puts its menu for it), at: the rect of a button it hangs from ({ x, y, w, h, right }).
+   * The answer: the way to the row chosen ([i], or [i, j] in a row's sub), null for none. Where the host has no menus of its
+   * own: null at once, and the page draws its own. While it is open, hostMenuOpen() holds (what closes on its own waits). */
+  const signNames = new Map();
+  for (const [k, v] of Object.entries(ICON)) if (!signNames.has(v)) signNames.set(v, k);
+  let hostMenuOpen = false;
+  const textOf = (html) => { const d = document.createElement("div"); d.innerHTML = String(html || ""); return d.textContent.trim(); };
+  function hostMenu(rows, x, y, at = null) {
+    if (!(window.MdHost && MdHost.menu)) return null;
+    const out = (r) => (r ? { id: r.id || "", label: r.label != null ? String(r.label) : "", key: r.key || "", on: r.on !== false, check: !!r.check, danger: !!r.danger,
+      sign: r.sign || signNames.get(r.svg) || "", svg: r.svg || "", ...(r.sub ? { sub: r.sub.map(out) } : {}) } : null);
+    hostMenuOpen = true;
+    return Promise.resolve().then(() => MdHost.menu({ x: Math.round(x), y: Math.round(y), at, rows: rows.map(out) }))
+      .catch(() => null).then((v) => { hostMenuOpen = false; return Array.isArray(v) && v.length ? v : null; });
+  }
+
   // what the page's other files use of this one
   Object.assign(P, { NONCE, DESKTOP, FILEWORK, ASSETS, content, baseEl, post, T, esc, motionMs, keys, svg, SVG_ICON,
     ICON, SIGN, sign, fileHref, fileSize, fileExt, PDF_COLORS, DECO_COLORS, CALLOUT_ALIAS, CALLOUT_ICON, CALLOUT_BADGE, slugify,
-    inlineText, inSource });
+    inlineText, inSource, hostMenu, hostMenuOpen: () => hostMenuOpen, textOf });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     leaving: [() => leaving, (v) => { leaving = v; }],

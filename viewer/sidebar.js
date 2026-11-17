@@ -1007,7 +1007,7 @@
   // row or on a tile — is said where it is carried out: runCtx, by ctxTile and ctxFrom. dev/rig.sh sidebar holds the three
   // places to the same entries.)
   const entry = (cmd, icon, label, on, key = "", cls = "", more = "") =>
-    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}"${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
+    `<button class="menu-item${cls}" role="menuitem" data-cmd="${cmd}" data-for="${on}" data-sign="${icon}"${key ? ` data-key="${key}"` : ""}${more}><span class="menu-icon">${ICON[icon]}</span><span class="menu-label">${label}</span>${key ? `<span class="menu-key">${keys(key)}</span>` : ""}</button>`;
   ctx.innerHTML =
     entry("open", "note", T("Open"), "file dir") +
     entry("opentab", "plus", T("Open in New Tab"), "file") +
@@ -1106,14 +1106,23 @@
   function runSub(i) {
     const el = subItems[i];
     if (!el) return;
-    const flash = motionMs("--flash-duration", 70), key = el.dataset.pref || subWhere + GROUPS.find((x) => x[0] === el.dataset.group)[1], on = el.dataset.pref ? !(window.MdPrefs || {})[key] : !groupOn(subWhere, el.dataset.group);
+    const flash = motionMs("--flash-duration", 70);
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
-    setTimeout(() => {
-      closeCtx(false);
-      window.MdPrefs = { ...(window.MdPrefs || {}), [key]: on };
-      post("prefs", { prefs: { [key]: on } }); // (the application lists anew: what either wants)
-    }, flash * 2);
+    setTimeout(() => actSub(el.dataset.group, el.dataset.pref), flash * 2);
+  }
+  // a kind listed or not (group), or what is put away (pref: showHidden)
+  function actSub(group, pref) {
+    const key = pref || subWhere + GROUPS.find((x) => x[0] === group)[1], on = pref ? !(window.MdPrefs || {})[key] : !groupOn(subWhere, group);
+    closeCtx(false);
+    window.MdPrefs = { ...(window.MdPrefs || {}), [key]: on };
+    post("prefs", { prefs: { [key]: on } }); // (the application lists anew: what either wants)
+  }
+  // what "Show" holds: a tick for each kind that is listed, and what is put away (openSub, and the system's menu)
+  function subRows() {
+    subWhere = ctxFor && ctxFor.closest("#overview") ? "ov" : "sidebar";
+    return [...GROUPS.map(([g, , label]) => ({ group: g, label: T(label), on: groupOn(subWhere, g) })),
+      ...(FILEWORK ? [null, { pref: "showHidden", label: T("Hidden Items"), on: !!(window.MdPrefs || {}).showHidden }] : [])];
   }
   ctxSub.addEventListener("mousemove", (e) => { const i = subItems.indexOf(e.target.closest(".menu-item")); if (i !== subHl) setSubHl(i); });
   ctxSub.addEventListener("mouseleave", () => setSubHl(-1));
@@ -1195,6 +1204,40 @@
     }
     ctxItems = ctxItems.filter((el) => !el.disabled && !el.hidden);
     const hangs = kind === "new" || kind === "history"; // (from a button of the sidebar's head)
+    // where the host shows menus of its own (the system's, on a Mac): the entries as they stand go to it (base.js hostMenu)
+    if (window.MdHost && MdHost.menu) {
+      const shown = [...ctx.children].filter((el) => !el.hidden), sub = subRows();
+      const rows = shown.map((el) => {
+        if (el.classList.contains("menu-rule")) return null;
+        const tick = el.getAttribute("role") === "menuitemradio";
+        const cmd = el.dataset.cmd + (el.dataset.cmd === "fav" ? (el.getAttribute("aria-checked") === "true" ? ":on" : ":off") : "");
+        return { id: "ctx:" + cmd, label: el.querySelector(".menu-label").textContent, key: el.dataset.key || "", on: !el.disabled, danger: el.classList.contains("danger"),
+          check: tick && el.getAttribute("aria-checked") === "true", sign: tick ? "" : el.dataset.sign || "", svg: tick ? "" : el.querySelector(".menu-icon").innerHTML,
+          ...(el.dataset.cmd.startsWith("sub:") ? { sub: sub.map((r) => r && { label: r.label, check: r.on }) } : {}) };
+      });
+      const r = hangs && item.getBoundingClientRect ? item.getBoundingClientRect() : null;
+      const hosted = P.hostMenu(rows, x, y, r ? { x: r.left, y: r.top, w: r.width, h: r.height, right: true } : null);
+      if (hosted) {
+        if (!hangs && kind !== "blank" || item.matches(".ov-more")) item.classList.add("ctx-target");
+        ctx.dataset.hosted = "";
+        ctx.dataset.open = ""; // (open meanwhile, unseen: what closes by itself waits — the sidebar peeking)
+        hosted.then((way) => {
+          delete ctx.dataset.hosted;
+          if (!way) return closeCtx(true);
+          const el = shown[way[0]];
+          if (way.length > 1) { const r = sub[way[1]]; if (r) actSub(r.group, r.pref); return; }
+          // (the folder read anew while the menu was open made its rows anew: the one it was for, found again by its path)
+          let it = item;
+          if (!it.isConnected && it.dataset) {
+            const key = it.dataset.key || it.dataset.path;
+            const again = key && document.querySelector(`#sidebar [data-key="${CSS.escape(key)}"], #overview .ov-item[data-path="${CSS.escape(key)}"]`);
+            if (again) { it = again; ctxFor = again; }
+          }
+          if (el && !el.disabled) actCtx(el, it); else closeCtx(true);
+        });
+        return;
+      }
+    }
     ctx.style.setProperty("--origin", hangs ? "top right" : "top left");
     if (!hangs && kind !== "blank" || item.matches(".ov-more")) item.classList.add("ctx-target");
     setCtxHl(-1);
@@ -1220,50 +1263,52 @@
     const flash = motionMs("--flash-duration", 70); // blink once, then act — like NSMenu
     el.classList.remove("hl");
     setTimeout(() => el.classList.add("hl"), flash);
-    setTimeout(() => {
-      const kind = ctxKind, dir = ctxDir, from = ctxFrom;
-      closeCtx(false);
-      if (!item.isConnected) return;
-      const cmd = el.dataset.cmd, tile = ctxTile && (kind === "file" || kind === "dir"), path = tile ? item.dataset.path : item.dataset.key;
-      if (kind === "many" && ctxTile) { if (!fileCmd(cmd, MdOverview.picked)) MdOverview.many(cmd); else if (cmd !== "copyf") MdOverview.pick([]); return; } // (what is selected in All Notes, all of it)
-      if (kind === "many") { // (… and in the sidebar)
-        if (cmd === "opentab") { for (const p of sbPicked) if (/\.(md|markdown)$/i.test(p)) post("note", { path: p, tab: true }); }
-        else fileCmd(cmd, [...sbPicked]);
-        if (cmd !== "copyf") pickRows([]);
-        return;
-      }
-      const into = kind === "dir" ? path : kind === "blank" || kind === "new" ? dir : null;
-      if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard" || cmd === "newbook") P.openNewNote({ newfolder: "folder", newboard: "board", newbook: "notebook" }[cmd] || "note", into);
-      else if (cmd === "embed") P.embedBoard(path);
-      else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
-      else if (cmd === "boardfree") post("board-free", { path });
-      else if (fileCmd(cmd, [path], into || (path ? parentOf(path) : folder.root))) { /* done */ }
-      else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
-      else if (cmd === "history:show") openHistory();
-      else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast(T("Only notes can be shared")); }
-      else if (cmd === "history:conflicts") openConflicts();
-      else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
-      else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
-      else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
-      else if (cmd === "opentab") post("note", { path, tab: true });
-      else if (cmd === "settings") P.openSettings();
-      else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
-      else if (cmd === "download") post("download", { path });
-      else if (cmd === "tab:split") P.splitOpen({ path: item.dataset.path });
-      else if (cmd === "tab:unsplit") P.splitClose();
-      else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
-      else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
-      else if (cmd === "fav") favour(path, !lookOf(path).fav);
-      else if (cmd === "rename") {
-        if (tile) MdOverview.rename(item);
-        else if (from) { // (met in the rail, it has no row on screen: All Notes shows every folder's row, and the name is changed there)
-          sbRail.querySelector('.sb-rt[data-go=""]')?.click();
-          requestAnimationFrame(() => { const row = [...sbList.querySelectorAll(".sb-item.is-dir")].find((x) => x.dataset.key === path); if (row) { row.scrollIntoView({ block: "nearest" }); P.startRename(row); } });
-        } else P.startRename(item);
-      }
-      else if (cmd === "trash") post("trash", { path });
-      else post("fileop", { op: cmd, path });
-    }, flash * 2);
+    setTimeout(() => actCtx(el, item), flash * 2);
+  }
+  /* What an entry of the file menu does (chosen in it, or in the system's menu it was shown as: no blink then). */
+  function actCtx(el, item) {
+    const kind = ctxKind, dir = ctxDir, from = ctxFrom;
+    closeCtx(false);
+    if (!item.isConnected) return;
+    const cmd = el.dataset.cmd, tile = ctxTile && (kind === "file" || kind === "dir"), path = tile ? item.dataset.path : item.dataset.key;
+    if (kind === "many" && ctxTile) { if (!fileCmd(cmd, MdOverview.picked)) MdOverview.many(cmd); else if (cmd !== "copyf") MdOverview.pick([]); return; } // (what is selected in All Notes, all of it)
+    if (kind === "many") { // (… and in the sidebar)
+      if (cmd === "opentab") { for (const p of sbPicked) if (/\.(md|markdown)$/i.test(p)) post("note", { path: p, tab: true }); }
+      else fileCmd(cmd, [...sbPicked]);
+      if (cmd !== "copyf") pickRows([]);
+      return;
+    }
+    const into = kind === "dir" ? path : kind === "blank" || kind === "new" ? dir : null;
+    if (cmd === "newnote" || cmd === "newfolder" || cmd === "newboard" || cmd === "newbook") P.openNewNote({ newfolder: "folder", newboard: "board", newbook: "notebook" }[cmd] || "note", into);
+    else if (cmd === "embed") P.embedBoard(path);
+    else if (cmd === "boardnote") { MdOverview.close(false); post("note", { path: item.dataset.note }); }
+    else if (cmd === "boardfree") post("board-free", { path });
+    else if (fileCmd(cmd, [path], into || (path ? parentOf(path) : folder.root))) { /* done */ }
+    else if (cmd.startsWith("sort:")) setSort(cmd.slice(5));
+    else if (cmd === "history:show") openHistory();
+    else if (cmd === "share") { if (/\.(md|markdown)$/i.test(path)) openShare(path); else toast(T("Only notes can be shared")); }
+    else if (cmd === "history:conflicts") openConflicts();
+    else if (cmd === "history:off") post("history-disable"); // (its versions stay; nothing more is kept)
+    else if (cmd === "history:on") post("history-enable", { root: folder.root }); // (a repository that is there: the shell asks first)
+    else if (cmd === "open") { if (tile) MdOverview.go(item); else (from || item.firstChild.firstChild).click(); } // (as a click on it does, where it is)
+    else if (cmd === "opentab") post("note", { path, tab: true });
+    else if (cmd === "settings") P.openSettings();
+    else if (cmd === "openbeside") { if (tile && window.MdOverview) MdOverview.close(false); P.splitOpen({ path }); } // (beside the note: viewer/split.js)
+    else if (cmd === "download") post("download", { path });
+    else if (cmd === "tab:split") P.splitOpen({ path: item.dataset.path });
+    else if (cmd === "tab:unsplit") P.splitClose();
+    else if (cmd.startsWith("tab:")) post("tab", { op: cmd.slice(4), id: item.dataset.id });
+    else if (cmd === "look") openLook(path, from || (tile ? item : item.firstChild.firstChild));
+    else if (cmd === "fav") favour(path, !lookOf(path).fav);
+    else if (cmd === "rename") {
+      if (tile) MdOverview.rename(item);
+      else if (from) { // (met in the rail, it has no row on screen: All Notes shows every folder's row, and the name is changed there)
+        sbRail.querySelector('.sb-rt[data-go=""]')?.click();
+        requestAnimationFrame(() => { const row = [...sbList.querySelectorAll(".sb-item.is-dir")].find((x) => x.dataset.key === path); if (row) { row.scrollIntoView({ block: "nearest" }); P.startRename(row); } });
+      } else P.startRename(item);
+    }
+    else if (cmd === "trash") post("trash", { path });
+    else post("fileop", { op: cmd, path });
   }
   sidebar.addEventListener("contextmenu", (e) => {
     e.preventDefault();

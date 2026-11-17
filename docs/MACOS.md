@@ -64,6 +64,12 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).
 - **Files** are opened from Finder (Open With, document types for Markdown, text, folders, PDFs), from
   `bin/mdview-mac`, or by `mdview://open?path=…` / `mdview://quick`. A second start hands its files to the running app.
+- **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
+  the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
+  shell (`MdHost.menu`, viewer/base.js `hostMenu`; NativeMenu.swift) and shown as an NSMenu: the Finder's signs (SF
+  Symbols, by command — the page's own drawing where there is none), its keys as the system shows them (Ctrl is ⌘), ticks,
+  a menu beside, the system's highlight. The page's own stays "open", unseen (`data-hosted`), for whatever waits for it to
+  go. Menus with more than rows (the "/" menu, a searched one, colours and signs, a choice in a field) stay the page's.
 - **The start screen** (a window with nothing open) is drawn by the system, not by the page (`StartView.swift`;
   the page's own is hidden): the app's icon, Open Folder… and Open File… as the system's buttons, the folders opened
   last (up to six, fewer in a low window) with Finder's icon for each and where it lies. A click opens a folder in

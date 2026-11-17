@@ -145,6 +145,25 @@
    * (a menu filtered while one types does not jump under the eyes).
    * find: the menu is searched — find(q) gives the entries for what was typed ("" at first). */
   function open({ x, y, items, bar = [], origin = "top left", closed = null, typing = false, above = null, steady = false, find = null }) {
+    // a menu of plain rows, where the host shows menus of its own (the system's, on a Mac: viewer/base.js hostMenu) — this
+    // one stays "open" meanwhile, unseen, for those who wait for it to go (the table's handles, the bar)
+    if (!bar.length && !find && !typing && !steady) {
+      const rowsOf = (list) => list.map((it) => it && { id: it.id || "", label: it.label, key: it.key, on: !it.disabled, check: !!it.checked, danger: !!it.danger,
+        svg: signOf(it), ...(it.items ? { sub: rowsOf(it.items) } : {}) });
+      const hosted = window.MdPage.hostMenu && window.MdPage.hostMenu(rowsOf(items), x, y);
+      if (hosted) {
+        close();
+        root.el.dataset.hosted = "";
+        root.el.dataset.open = "";
+        hosted.then((way) => {
+          delete root.el.dataset.open;
+          delete root.el.dataset.hosted;
+          const it = way && (way.length > 1 ? ((items[way[0]] || {}).items || [])[way[1]] : items[way[0]]);
+          if (it && !it.disabled && it.run) it.run(); else if (closed) closed();
+        });
+        return;
+      }
+    }
     closeSub();
     search = find ? { find, q: "", head: searchHead() } : null;
     if (find) items = find("");

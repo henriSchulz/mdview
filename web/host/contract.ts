@@ -7,7 +7,10 @@
 // has that (the web's; the desktop's is told their addresses, dropfiles) — and so are files
 // dropped on the folder's list or on All Notes' tiles, MdHost.addFiles(transfer, dir) (the
 // desktop's: import). And one thing is said before the page is there: MdHost.filework — the host
-// works with the files as files (viewer/base.js: FILEWORK), which the page's menus go by.
+// works with the files as files (viewer/base.js: FILEWORK), which the page's menus go by. A host
+// may also show the page's menus of plain rows as the system's own: MdHost.menu(spec) answers
+// the way to the row chosen (the macOS shell's NSMenu; viewer/base.js hostMenu) — the web's has
+// none, and the page draws its own there.
 //
 //   answer   the web host does what the shell does, against the repository
 //   write    as answer, but it changes the repository: refused while the web app only reads
