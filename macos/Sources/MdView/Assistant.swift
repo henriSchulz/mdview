@@ -276,6 +276,15 @@ extension NoteWindow {
 
     // MARK: chat, Transform, board, Improve
 
+    /// Every talk and figure of the window ended (it closes: nobody waits for them any more).
+    func stopAssistant() {
+        aiS.lock.lock()
+        let channels = Array(aiS.talks.keys)
+        aiS.lock.unlock()
+        channels.forEach(stopTalk)
+        stopFigure()
+    }
+
     func stopTalk(_ channel: String) {
         aiS.lock.lock()
         let pid = aiS.talks.removeValue(forKey: channel)?.pid
@@ -377,6 +386,9 @@ extension NoteWindow {
         let setPid: (Int32?) -> Void = { pid in
             state.lock.lock(); defer { state.lock.unlock() }
             if state.talks[t.channel]?.turn == mine { state.talks[t.channel]?.pid = pid }
+            // (stopped before its process was known — Stop right after asking: it ends now, not after ten minutes of
+            // tokens nobody reads; review 2026-11-17)
+            else if let pid { Claude.kill(pid: pid) }
         }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let piece: (String) -> Void = { text in
@@ -556,7 +568,7 @@ extension NoteWindow {
             let args = ["-p", "--system-prompt", AIPrompts.graphic] + tools
                 + ["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "text"] + AIPrompts.settings
             let r = try Claude.run(args: args, cwd: work, input: Data(prompt.utf8), timeout: 300, pid: { pid in
-                state.lock.lock(); if state.drawTurn == mine { state.drawPid = pid }; state.lock.unlock()
+                state.lock.lock(); if state.drawTurn == mine { state.drawPid = pid } else if let pid { Claude.kill(pid: pid) }; state.lock.unlock()
             })
             if !still() { return nil }   // stopped: whoever stopped it has taken the process
             let err = r.timedOut ? "It took longer than five minutes" : r.err

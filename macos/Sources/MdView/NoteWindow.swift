@@ -542,6 +542,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     }
 
     func windowWillClose(_ n: Notification) {
+        stopAssistant() // (its talks and figures: run on for minutes with nobody to answer — review 2026-11-17)
         _ = settleQuick()
         settleFresh(last: true)
         stopWatching()
