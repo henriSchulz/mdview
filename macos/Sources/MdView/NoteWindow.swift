@@ -93,6 +93,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     private(set) var isSpare = false
     /// The window's bar, the system's (MacChrome.swift).
     var chrome: MacChrome?
+    /// The sidebar's card, the system's (NativeSidebar.swift) — in the Library layout.
+    var sidebarCard: NativeSidebar?
 
     init(path: String?, folder: String?, spare: Bool = false) {
         let cfg = WKWebViewConfiguration()
@@ -103,6 +105,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         // (the start screen is the system's here — StartView.swift — and not the page's)
         cfg.userContentController.addUserScript(WKUserScript(source: NoteWindow.noPageStart, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         cfg.userContentController.addUserScript(WKUserScript(source: MacChrome.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(WKUserScript(source: NativeSidebar.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         web = FilesWebView(frame: .zero, configuration: cfg)   // (Files.swift: takes files dropped from Finder)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: folder != nil ? 1180 : 980, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -122,10 +125,13 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         window.isReleasedWhenClosed = false
         window.title = "Markdown Notes"
         window.tabbingMode = .disallowed
-        chrome = MacChrome(self)
         window.center()
         // (a folder's page is asked for before its scan: the web process starts and the page comes while the folder is read)
         if let folder { loadShell(); setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
+        // (the window's bar and the sidebar's card are made once the page is asked for: the web process starts meanwhile —
+        // made before, they held its asking back by 60–90 ms)
+        chrome = MacChrome(self)
+        sidebarCard = NativeSidebar(self)
         updateStart()
         isSpare = spare
         window.isExcludedFromWindowsMenu = spare
@@ -482,6 +488,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         switch type {
         case "startcovered": startCovered(truthy(msg["on"]))
         case "macbar": chrome?.update(msg)
+        case "macsb": sidebarCard?.update(msg)
         case "link": link(str("href"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "wikilink": wikilink(str("target"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "tab": tabOp(msg)

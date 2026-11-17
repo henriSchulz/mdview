@@ -75,6 +75,17 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   start screen has no bar; full screen and the focus mode have none either. The colours of the system are the page's:
   its accent and its highlight (System Settings › Appearance, followed live), where Velum gives none. A folder's or a
   note's window opens where it was closed, as large as it was (state: `frames`); a new one, a step down from the last.
+- **The sidebar is the system's** in the Library layout (NativeSidebar.swift): a card of Liquid Glass (NSGlassEffectView;
+  before macOS 26 the sidebar's material) over the page, with a search field, the Library's rows and their counts (SF
+  Symbols), the folders in their colours, and New, the history and the settings at its foot. The page stays its owner —
+  its card is there, unseen (`data-mac-sb`): it counts, sorts, searches, marks the row shown, pins, peeks; a row of the
+  system's clicks the page's, a right click opens the page's menu for it (as the system's), what is typed is typed into
+  the page's search. The page says what its card holds and how it stands (`macsb`): how it stands at once, so the system's
+  card glides with the page's (0.45 s, the page's curve near enough), what it holds once the page is at rest (120 ms —
+  read without asking for the page's layout). While it peeks, the pointer on it is told to the page (the page would put
+  it away, seeing the pointer gone). Files dropped on a folder's row are moved there (the folder's own) or taken in.
+  The other layouts and the quick notes keep the page's card. Its cost: the bar and the card are made with a window,
+  some 60–90 ms of the main thread a window not made ahead (the first after the app's start) pays.
 - **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
   the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
   shell (`MdHost.menu`, viewer/base.js `hostMenu`; NativeMenu.swift) and shown as an NSMenu: the Finder's signs (SF
