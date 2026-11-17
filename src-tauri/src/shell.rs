@@ -285,37 +285,53 @@ fn can_write(path: &Path) -> bool {
     }
 }
 
-/// Why the file can't be edited in place, or None if it can.
 /// A file written whole or not at all: beside it under another name first, then put in its place
-/// — a full disk or a crash in the middle leaves the file as it was, not cut off. A link is
-/// followed (the file it names is what is written), the file keeps its permissions; where no file
-/// can be made beside it, it is written in place as before.
+/// — a full disk, a quota run out or a crash in the middle leaves the file as it was, not cut off.
+/// A link is followed (the file it names is what is written), the file keeps its permissions. Only
+/// where no file may be made beside it (a folder that is not the writer's), or the one made may not
+/// be put in its place, is the file written in place as before: anything else that goes wrong once
+/// the file beside it was begun is an error, and the file stays as it was. (Review 2026-11-17: every
+/// error but errno 28 fell back to writing in place — a full disk on Windows, a quota, EFBIG, EIO —
+/// and that cut the note off, the very thing this is for.)
 fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::ErrorKind;
     let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
     let Some(name) = real.file_name().map(|n| n.to_string_lossy().into_owned()) else { return fs::write(path, data) };
     let beside = real.with_file_name(format!(".{name}.mdview-{}", std::process::id()));
+    let refused = |e: &std::io::Error| e.kind() == ErrorKind::PermissionDenied;
+    let open = || fs::OpenOptions::new().write(true).create_new(true).open(&beside);
+    // (one left over by a run that ended in the middle, under this process's number: it goes)
+    let opened = open().or_else(|e| if e.kind() == ErrorKind::AlreadyExists && fs::remove_file(&beside).is_ok() { open() } else { Err(e) });
+    let mut f = match opened {
+        Ok(f) => f,
+        Err(e) if refused(&e) => return fs::write(path, data),
+        Err(e) => return Err(e),
+    };
     let made = (|| -> std::io::Result<()> {
-        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&beside)?;
         f.write_all(data)?;
         f.sync_all()?;
         if let Ok(meta) = fs::metadata(&real) {
             let _ = fs::set_permissions(&beside, meta.permissions());
         }
-        fs::rename(&beside, &real)
+        Ok(())
     })();
-    match made {
+    drop(f);
+    if let Err(e) = made {
+        let _ = fs::remove_file(&beside);
+        return Err(e);
+    }
+    match fs::rename(&beside, &real) {
         Ok(()) => Ok(()),
         Err(e) => {
             let _ = fs::remove_file(&beside);
-            // (the disk is full: nothing is tried in place — that would cut the file off)
-            if e.raw_os_error() == Some(28) && real.exists() {
-                return Err(e);
-            }
-            fs::write(path, data)
+            // (it may not take the file's place — a folder whose files only their owners may replace: written in
+            // place, the room of the one beside it given back first; it was written whole, so there is the room)
+            if refused(&e) { fs::write(path, data) } else { Err(e) }
         }
     }
 }
 
+/// Why the file can't be edited in place, or None if it can.
 fn readonly_reason(path: &Path, raw: Option<&[u8]>) -> Option<&'static str> {
     let Some(raw) = raw else {
         return (!can_write(&dir_of(path))).then_some("folder is read-only");
@@ -1401,6 +1417,45 @@ impl Win {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Review of 2026-11-17: once the file beside it was begun, anything that went wrong but errno 28 fell back to
+    // writing the note in place — the very way a note is cut off.
+    #[test]
+    fn a_note_is_written_whole_or_left_as_it_was() {
+        let dir = std::env::temp_dir().join(format!("mdview-whole-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let note = dir.join("Note.md");
+        fs::write(&note, "old text").unwrap();
+        // written whole: the new text, and nothing left beside it
+        write_whole(&note, b"new text").unwrap();
+        assert_eq!(fs::read_to_string(&note).unwrap(), "new text");
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1);
+        // the file beside it cannot be made (a folder that will not go stands under its name): an error, and the
+        // note as it was — not written in place
+        let beside = fs::canonicalize(&dir).unwrap().join(format!(".Note.md.mdview-{}", std::process::id()));
+        fs::create_dir(&beside).unwrap();
+        fs::write(beside.join("x"), "").unwrap();
+        assert!(write_whole(&note, b"cut off").is_err());
+        assert_eq!(fs::read_to_string(&note).unwrap(), "new text");
+        fs::remove_dir_all(&beside).unwrap();
+        // one left over by an earlier run under the same number goes
+        fs::write(&beside, "left over").unwrap();
+        write_whole(&note, b"again").unwrap();
+        assert_eq!(fs::read_to_string(&note).unwrap(), "again");
+        assert!(!beside.exists());
+        #[cfg(unix)]
+        {
+            // a folder where no file may be made: the note is written in place, as before
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o555)).unwrap();
+            let r = write_whole(&note, b"in place");
+            fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+            r.unwrap();
+            assert_eq!(fs::read_to_string(&note).unwrap(), "in place");
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn the_rail_kept_from_before_gives_way_to_the_sheets_once() {
