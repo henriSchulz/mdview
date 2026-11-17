@@ -272,15 +272,16 @@ extension NoteWindow {
         sendTabs()
     }
 
-    func trashPaths(_ paths: [String]) {
-        guard let folder else { return }
+    /// → what went to the Trash, and where the Trash keeps it (for Undo)
+    @discardableResult func trashPaths(_ paths: [String]) -> [(String, URL?)] {
+        guard let folder else { return [] }
         var going: [(String, String, Bool)] = []   // (as named, as it is, a folder)
         for p in paths {
             let isDir = Lib.isDir(p) && p.hasPrefix(folder + "/") && p != folder
             if !isDir && !knows(p) { continue }
             going.append((p, Lib.resolve(p), isDir))
         }
-        if going.isEmpty { return }
+        if going.isEmpty { return [] }
         func gone(_ q: String, _ list: [(String, String, Bool)]) -> Bool { list.contains { q == $0.1 || ($0.2 && q.hasPrefix($0.1 + "/")) } }
         let wasCurrent = path.map { gone($0, going) } ?? false
         var next: String?
@@ -291,12 +292,13 @@ extension NoteWindow {
                 next = notes[(i + 1)...].first(where: stays) ?? notes[..<i].reversed().first(where: stays)
             }
         }
-        var done: [(String, String, Bool)] = []
+        var done: [(String, String, Bool)] = [], kept: [(String, URL?)] = []
         for g in going {
-            do { try Lib.fm.trashItem(at: URL(fileURLWithPath: g.0), resultingItemURL: nil); done.append(g) }
+            var into: NSURL?
+            do { try Lib.fm.trashItem(at: URL(fileURLWithPath: g.0), resultingItemURL: &into); done.append(g); kept.append((g.0, into as URL?)) }
             catch { toast("Couldn't move “\(Lib.name(g.0))” to Trash: \(error.localizedDescription)") }
         }
-        if done.isEmpty { return }
+        if done.isEmpty { return [] }
         back.removeAll { gone($0, done) }; fwd.removeAll { gone($0, done) }
         if let d = dirTab, gone(d, done) { dirTab = nil }
         if !tabs.isEmpty {
@@ -308,12 +310,13 @@ extension NoteWindow {
             closedTabs.removeAll { gone($0.0, done) }
         }
         for d in done { keptDirs.remove(d.0); filesMoved(folder: folder, old: d.0, new: nil) }
-        did(.trashed(done.map { $0.0 }))
+        did(.trashed(kept))
         toast(done.count == 1 ? "Moved “\(Lib.name(done[0].0))” to Trash" : "Moved \(done.count) items to Trash")
         let currentGone = path.map { gone($0, done) } ?? false
         rescan()
-        if !currentGone { return sendTabs() }
-        if let next { openPath(next, push: false) } else { showNothing() }
+        if !currentGone { sendTabs() }
+        else if let next { openPath(next, push: false) } else { showNothing() }
+        return kept
     }
 
     func sidebarPref(_ msg: [String: Any]) {

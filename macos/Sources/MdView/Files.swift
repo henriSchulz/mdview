@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 enum UndoStep {
     case made([String])
     case moved([(String, String)], String)   // (old, new) pairs, "rename" | "move"
-    case trashed([String])
+    case trashed([(String, URL?)])           // (where it stood, where the Trash keeps it)
     case hidden([String], Bool)              // what was hidden (true) or shown again (false)
 }
 
@@ -86,7 +86,7 @@ extension NoteWindow {
         let each = { (step: UndoStep) -> UndoStep in
             switch step {
             case .moved(let pairs, let how): return .moved(pairs.map { (swap($0.0), swap($0.1)) }, how)
-            case .trashed(let p): return .trashed(p.map(swap))
+            case .trashed(let p): return .trashed(p.map { (swap($0.0), $0.1) })
             case .made(let p): return .made(p.map(swap))
             case .hidden(let p, let on): return .hidden(p.map(swap), on)
             }
@@ -333,7 +333,7 @@ extension NoteWindow {
         switch step {
         case .moved(let p, "rename"): verb = "Rename of"; paths = p.map { $0.0 }
         case .moved(let p, _): verb = "Move of"; paths = p.map { $0.0 }
-        case .trashed(let p): verb = "Move to Trash of"; paths = p
+        case .trashed(let p): verb = "Move to Trash of"; paths = p.map { $0.0 }
         case .made(let p): verb = "Making of"; paths = p
         case .hidden(let p, true): verb = "Hiding of"; paths = p
         case .hidden(let p, false): verb = "Showing of"; paths = p
@@ -376,8 +376,8 @@ extension NoteWindow {
         case .made(let paths):
             let there = paths.filter(exists)
             if there.isEmpty { toast("It is no longer there"); return nil }
-            trashPaths(there)
-            return .trashed(there.filter { !exists($0) })
+            let gone = trashPaths(there)
+            return gone.isEmpty ? nil : .trashed(gone)
         case .hidden(let paths, let on):
             do { try Hidden.set(folder, paths, on: !on) } catch { toast("Couldn't change it: \(error.localizedDescription)"); return nil }
             rescanFolderWindows(folder)
@@ -385,34 +385,20 @@ extension NoteWindow {
         }
     }
 
-    /// Files and folders put in the Trash taken out again, where they stood: the newest item of the Trash that has their
-    /// name (or the name the Trash gave it when the name was taken). → what came back (nil: nothing could, and the toast says why)
-    func restoreFromTrash(_ wanted: [String]) -> [String]? {
-        let trash = URL(fileURLWithPath: Lib.join(Lib.home(), ".Trash"))
-        guard let items = try? Lib.fm.contentsOfDirectory(at: trash, includingPropertiesForKeys: [.addedToDirectoryDateKey, .contentModificationDateKey], options: []) else {
-            toast("Things in the Trash can't be put back from here")
-            return nil
-        }
+    /// Files and folders put in the Trash taken out again, where they stood: the very item the Trash made of each — never
+    /// another one of a name like it. → what came back (nil: nothing could, and the toast says why)
+    func restoreFromTrash(_ wanted: [(String, URL?)]) -> [String]? {
         var back: [String] = []
-        for p in wanted {
-            let name = Lib.name(p), (stem, ending) = Lib.nameParts(p)
-            let hits = items.filter { u in
-                let n = u.lastPathComponent
-                return n == name || (n.hasPrefix(stem + " ") && n.hasSuffix(ending) && n.count > stem.count + ending.count + 1)
-            }
-            let newest = hits.max { a, b in
-                let da = (try? a.resourceValues(forKeys: [.addedToDirectoryDateKey]).addedToDirectoryDate) ?? .distantPast
-                let db = (try? b.resourceValues(forKeys: [.addedToDirectoryDateKey]).addedToDirectoryDate) ?? .distantPast
-                return da < db
-            }
-            guard let item = newest, !Lib.exists(p) else { continue }
+        for (p, kept) in wanted {
+            guard let kept, Lib.exists(kept.path) else { continue }
+            if Lib.exists(p) { toast("“\(Lib.name(p))” is there again: not put back"); continue }
             do {
                 try Lib.fm.createDirectory(atPath: Lib.dir(p), withIntermediateDirectories: true)
-                try Lib.fm.moveItem(at: item, to: URL(fileURLWithPath: p))
+                try Lib.fm.moveItem(at: kept, to: URL(fileURLWithPath: p))
                 back.append(p)
             } catch { toast("Couldn't put it back: \(error.localizedDescription)") }
         }
-        if back.isEmpty { toast("It is no longer in the Trash"); return nil }
+        if back.isEmpty { if wanted.allSatisfy({ !Lib.exists($0.0) }) { toast("It is no longer in the Trash") }; return nil }
         for p in back where Lib.isDir(p) { keptDirs.insert(p) }   // (a folder that was empty is listed again)
         rescan()
         return back
