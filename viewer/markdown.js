@@ -531,6 +531,16 @@
         if (/^on/i.test(a.name) || (/^(xlink:)?href$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name);
       }
     }
+    // A <style> in the picture is the window's once the picture stands in it: "path { stroke: red }" made every icon of
+    // the toolbar and the sidebar red (review 2026-11-17). Its rules hold for this picture alone — named by what it is.
+    const styles = [...root.getElementsByTagName("style")];
+    if (styles.length) {
+      let h = 5381;
+      for (let i = 0; i < code.length; i++) h = ((h * 33) ^ code.charCodeAt(i)) >>> 0;
+      const id = "f" + h.toString(36);
+      root.setAttribute("data-fig", id);
+      for (const st of styles) st.textContent = `@scope (svg[data-fig="${id}"]) {\n${st.textContent}\n}`;
+    }
     return new XMLSerializer().serializeToString(root);
   }
 
