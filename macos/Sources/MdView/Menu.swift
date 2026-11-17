@@ -210,7 +210,7 @@ extension AppDelegate {
         menu.removeAllItems()
         for r in Store.shared.recents() {
             guard let p = r["path"] as? String else { continue }
-            let a = MenuAction { [unowned self] in self.openWindow(p) }
+            let a = MenuAction { [unowned self] in self.openChosen([URL(fileURLWithPath: p)]) }
             AppDelegate.holders.append(a)
             let i = NSMenuItem(title: Lib.name(p), action: #selector(MenuAction.fire(_:)), keyEquivalent: "")
             i.target = a

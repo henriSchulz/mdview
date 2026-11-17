@@ -155,7 +155,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         p.canCreateDirectories = folders
         p.prompt = folders ? "Open Folder" : "Open"
         if let d = keyNote?.folder ?? keyNote?.path.map({ Lib.dir($0) }) { p.directoryURL = URL(fileURLWithPath: d) }
-        if p.runModal() == .OK { p.urls.forEach { openWindow($0.path) } }
+        if p.runModal() == .OK { openChosen(p.urls) }
+    }
+
+    /// What was chosen to open: into the window in front if that has nothing open yet (its start screen), else each in a window.
+    func openChosen(_ urls: [URL]) {
+        if let k = keyNote, k.path == nil, k.folder == nil, !k.gone { k.openHere(urls) } else { urls.forEach { openWindow($0.path) } }
     }
 }
 

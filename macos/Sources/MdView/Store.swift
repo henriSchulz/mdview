@@ -74,6 +74,14 @@ final class Store {
         return all.prefix(12).map { ["name": Lib.name($0), "path": $0] }
     }
 
+    /// A folder off the list of those opened last (the start screen's Remove from List).
+    func forgetFolder(_ folder: String) {
+        let r = recents().compactMap { $0["path"] as? String }.filter { $0 != folder }
+        state["folder"] = r.first
+        state["recents"] = r
+        save()
+    }
+
     func rememberFolder(_ folder: String) {
         var r = recents().compactMap { $0["path"] as? String }.filter { $0 != folder }
         r.insert(folder, at: 0)

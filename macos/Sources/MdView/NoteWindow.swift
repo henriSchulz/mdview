@@ -3,6 +3,7 @@
 // with shell/{messages,folder,tabs}.rs. The window's state lives here; what an area does is in its own file
 // (Folder.swift, Tabs.swift, Files.swift, Search.swift, History.swift, Assistant.swift, System.swift).
 import AppKit
+import SwiftUI
 import WebKit
 
 struct Tab {
@@ -18,7 +19,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     let scheme = SchemeHandler()
 
     // the note and the ways back
-    var path: String?
+    var path: String? { didSet { if (oldValue == nil) != (path == nil) { updateStart() } } }
     var back: [String] = []
     var fwd: [String] = []
     var shell = 0
@@ -35,7 +36,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var resolver: Resolver?
 
     // the folder
-    var folder: String?
+    var folder: String? { didSet { if (oldValue == nil) != (folder == nil) { updateStart() } } }
+    /// The start screen over the page, while the window has nothing open (StartView.swift).
+    var startHost: StartHost?
+    var pageCovers = false
     var quick = false
     var tree: [String: Any]?
     var notePaths: Set<String> = []
@@ -80,6 +84,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(scheme, forURLScheme: "md")
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        // (the start screen is the system's here — StartView.swift — and not the page's)
+        cfg.userContentController.addUserScript(WKUserScript(source: NoteWindow.noPageStart, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = FilesWebView(frame: .zero, configuration: cfg)   // (Files.swift: takes files dropped from Finder)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: folder != nil ? 1180 : 980, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -89,16 +95,37 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         cfg.userContentController.add(self, name: "msg")
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
-        window.contentView = web
+        let ground = NSView()
+        window.contentView = ground
+        web.frame = ground.bounds
+        web.autoresizingMask = [.width, .height]
+        ground.addSubview(web)
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.title = "Markdown Notes"
         window.tabbingMode = .disallowed
         window.center()
         if let folder { setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
+        updateStart()
         if Lib.headless { window.alphaValue = 0; window.ignoresMouseEvents = true; window.orderBack(nil) }
         else { window.makeKeyAndOrderFront(nil) }
     }
+
+    /// What the page is told on macOS (StartView.swift): its start screen is not shown, and it says when something of its
+    /// own is open over the middle of the window.
+    static let noPageStart = """
+    (function () {
+      var s = document.createElement("style");
+      s.textContent = "#content .start-state{display:none!important}";
+      document.documentElement.appendChild(s);
+      var was = false;
+      var look = function () {
+        var on = !!document.querySelector("[data-open]:not(#toast):not(#update):not(#apptip):not(#acttip)");
+        if (on !== was) { was = on; window.webkit.messageHandlers.msg.postMessage({ type: "startcovered", on: on }); }
+      };
+      new MutationObserver(look).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ["data-open"], childList: true });
+    })();
+    """
 
     deinit { stopStream() } // (closed, it was stopped already: windowWillClose)
 
@@ -379,6 +406,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
             _ = handleHistory(type, msg); return
         }
         switch type {
+        case "startcovered": startCovered(truthy(msg["on"]))
         case "link": link(str("href"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "wikilink": wikilink(str("target"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "tab": tabOp(msg)

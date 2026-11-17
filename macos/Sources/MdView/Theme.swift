@@ -149,6 +149,7 @@ extension NoteWindow {
     /// The window and its page take a theme: the ground, the colours, Velum's variant on <html>.
     func applyTheme(_ t: Theme) {
         window.backgroundColor = t.backgroundColor
+        startHost?.appearance = NSAppearance(named: t.mode == "dark" ? .darkAqua : .aqua)
         guard ready else { return }
         let attrs = "var h=document.documentElement;" + (t.variant.map { "h.dataset.velum=\(jsonString($0));h.dataset.appearance=\(jsonString(t.mode));" } ?? "delete h.dataset.velum;delete h.dataset.appearance;")
         web.evaluateJavaScript(attrs, completionHandler: nil)

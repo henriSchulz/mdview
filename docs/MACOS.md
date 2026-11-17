@@ -49,6 +49,13 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).
 - **Files** are opened from Finder (Open With, document types for Markdown, text, folders, PDFs), from
   `bin/mdview-mac`, or by `mdview://open?path=…` / `mdview://quick`. A second start hands its files to the running app.
+- **The start screen** (a window with nothing open) is drawn by the system, not by the page (`StartView.swift`;
+  the page's own is hidden): the app's icon, Open Folder… and Open File… as the system's buttons, the folders opened
+  last (up to six, fewer in a low window) with Finder's icon for each and where it lies. A click opens a folder in
+  that window; its context menu also opens it in a new window, shows it in Finder or takes it off the list. A folder
+  or file dropped on it opens there; the Open window comes as a sheet of it, and File › Open… and Open Recent fill it
+  too. It steps back while the page has something open over it (Settings, the assistant), and takes the mouse only
+  where it stands, so the page's buttons at the foot stay at hand.
 - **State** is `~/Library/Application Support/MdView/state.json`.
 
 Not done: the rig (`dev/rig.sh` drives the GTK build) does not drive this app; there is no notarization or

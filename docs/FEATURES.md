@@ -1188,7 +1188,8 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
 - **Started by itself** (no file or folder given — the last folder is not reopened), the app says
   in its window what can be opened: the folders opened last (up to eight, newest first, each with
   its place; one click opens it in that window), and under them Open Folder… and Open File…. Started
-  again by itself while that window waits, the app shows it instead of making another. A note opened
+  again by itself while that window waits, the app shows it instead of making another. (On macOS
+  this window is the system's own — docs/MACOS.md.) A note opened
   by itself has no sidebar; the folder button in its
   toolbar opens the folder the note lies in beside it, and the sidebar shows its notes.
 - **Open another folder**: `Ctrl+Alt+O`. **New note**: `Ctrl+N`.
