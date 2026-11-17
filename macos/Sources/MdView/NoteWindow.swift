@@ -84,6 +84,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(scheme, forURLScheme: "md")
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        // (a window nobody sees — the tests' — runs its page's timers as a seen one does: WebKit would hold them)
+        if Lib.headless, #available(macOS 14, *) { cfg.preferences.inactiveSchedulingPolicy = .none }
         // (the start screen is the system's here — StartView.swift — and not the page's)
         cfg.userContentController.addUserScript(WKUserScript(source: NoteWindow.noPageStart, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = FilesWebView(frame: .zero, configuration: cfg)   // (Files.swift: takes files dropped from Finder)

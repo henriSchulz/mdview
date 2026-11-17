@@ -1467,8 +1467,17 @@
     changed();
     paint();
   }
-  function save() {
+  /* now: the page is going away — a gesture under way is taken back first, and what stood before it is kept.
+   * (A gesture under way — the eraser going through, a selection being moved — is not the board's yet: kept in the middle
+   * of it, a second finger that takes it back left the file with half of it, and nothing was kept again — review 2026-11-17.
+   * The board is kept once it is done, or taken back.) */
+  function save(now = false) {
     if (!S || !S.dirty || S.readonly || S.naming) return; // (being renamed: kept for the new path — B.renamed)
+    if (S.act || sel.busy) {
+      if (!now) { clearTimeout(S.timer); S.timer = setTimeout(save, SAVE_MS); return; }
+      if (S.act) cancel();
+      sel.cancel();
+    }
     clearTimeout(S.timer);
     S.dirty = false;
     const s = S, v = s.view;
@@ -1738,6 +1747,7 @@
     if (e.key === " ") { space = false; delete stage().dataset.space; }
   }
   const hidden = () => { if (document.visibilityState === "hidden") save(); };
+  const saveNow = () => save(true), saveLater = () => save();
 
   // ---------------------------------------------------------------- opening and closing
   /* The place the board grows out of and goes back into: its picture in the note. */
@@ -1847,8 +1857,8 @@
     addEventListener("keydown", keydown, true);
     addEventListener("keyup", keyup, true);
     document.addEventListener("visibilitychange", hidden);
-    addEventListener("pagehide", save);
-    addEventListener("blur", save);
+    addEventListener("pagehide", saveNow);
+    addEventListener("blur", saveLater);
     document.addEventListener("paste", pasted, true);
     el.focus({ preventScroll: true });
     if (!early) { // (a slow read — over a network: it comes when it comes)
@@ -1871,8 +1881,8 @@
     removeEventListener("keydown", keydown, true);
     removeEventListener("keyup", keyup, true);
     document.removeEventListener("visibilitychange", hidden);
-    removeEventListener("pagehide", save);
-    removeEventListener("blur", save);
+    removeEventListener("pagehide", saveNow);
+    removeEventListener("blur", saveLater);
     document.removeEventListener("paste", pasted, true);
     core.lockScroll(false);
     post("board-open", { on: false });
