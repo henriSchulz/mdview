@@ -500,10 +500,13 @@ fn checkout(repo: &Repository, tree: &git2::Tree) -> bool {
 }
 
 /// An address on GitHub itself (https://github.com/…, with or without a name before the host).
+/// The host is what stands before the path, the query or the fragment — whichever begins first —
+/// after any name: "https://elsewhere.example?@github.com/…" is elsewhere.example's, where git goes
+/// and where the token would have gone (review 2026-11-17: only "/" ended it).
 fn github_url(url: &str) -> bool {
     let rest = url.strip_prefix("https://").unwrap_or("");
-    let host = rest.split('/').next().unwrap_or("");
-    let host = host.rsplit('@').next().unwrap_or(host);
+    let authority = rest.split(['/', '?', '#', '\\']).next().unwrap_or("");
+    let host = authority.rsplit('@').next().unwrap_or(authority);
     // (… or the GitHub the app was pointed at instead: the rig's own, dev/fake-github.py)
     host.eq_ignore_ascii_case("github.com") || std::env::var("MDVIEW_GITHUB_WEB").is_ok_and(|w| !w.is_empty() && url.starts_with(&w))
 }
@@ -513,6 +516,25 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+
+    // Review of 2026-11-17: a "?" or a "#" before an "@" made another host GitHub, and it would have had the token.
+    #[test]
+    fn only_an_address_on_github_itself_is_github() {
+        for url in ["https://github.com/henri/notes.git", "https://x-access-token@github.com/henri/notes", "https://GitHub.com/henri/notes"] {
+            assert!(github_url(url), "{url}");
+        }
+        for url in [
+            "https://elsewhere.example?@github.com/henri/notes",
+            "https://elsewhere.example#@github.com/henri/notes",
+            "https://elsewhere.example\\@github.com/henri/notes",
+            "https://github.com@elsewhere.example/henri/notes",
+            "https://github.com.elsewhere.example/henri/notes",
+            "http://github.com/henri/notes",
+            "git@github.com:henri/notes.git",
+        ] {
+            assert!(!github_url(url), "{url}");
+        }
+    }
 
     thread_local! {
         /// The projects made durable (sync::durable), in turn.
