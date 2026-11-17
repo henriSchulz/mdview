@@ -24,6 +24,9 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var fwd: [String] = []
     var shell = 0
     var ready = false
+    /// A page on its way (loadShell, until didFinish): another asked for meanwhile would only start it again — what is to
+    /// be shown by then is shown when it is there.
+    var loading = false
     var editing = false
     var modeGiven = false
     var saveSeq: Any = 0
@@ -49,6 +52,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var keptDirs: Set<String> = []
     var dirWatch: Set<String> = []
     let scanner = Scanner()
+    /// The scanner of the folder read off the main thread (rescanQuietly) — its own, used on `scanQueue` alone.
+    let quietScanner = Scanner()
+    static let scanQueue = DispatchQueue(label: "mdview.scan", qos: .utility)
+    /// Counts the folder's readings: a quiet one's tree is taken only if no other reading came after it began.
+    var scanGen = 0
     var treeJSON: String?
     var tabsJSON: String?
 
@@ -80,7 +88,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
 
     var onClose: ((NoteWindow) -> Void)?
 
-    init(path: String?, folder: String?) {
+    /// A window made before it is asked for (AppDelegate.spare): its page loaded, nothing shown, not on the screen and
+    /// not among the app's windows — taken over by the next window opened (takeOver), so that one is there at once.
+    private(set) var isSpare = false
+
+    init(path: String?, folder: String?, spare: Bool = false) {
         let cfg = WKWebViewConfiguration()
         cfg.setURLSchemeHandler(scheme, forURLScheme: "md")
         cfg.preferences.setValue(true, forKey: "developerExtrasEnabled")
@@ -107,11 +119,32 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         window.title = "Markdown Notes"
         window.tabbingMode = .disallowed
         window.center()
-        if let folder { setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
+        // (a folder's page is asked for before its scan: the web process starts and the page comes while the folder is read)
+        if let folder { loadShell(); setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
         updateStart()
+        isSpare = spare
+        window.isExcludedFromWindowsMenu = spare
+        if spare { return }
+        show()
+    }
+
+    private func show() {
         if Lib.headless { window.alphaValue = 0; window.ignoresMouseEvents = true; window.orderBack(nil) }
         else { window.makeKeyAndOrderFront(nil) }
     }
+
+    /// The spare takes what a new window was asked to show, and comes on the screen.
+    func takeOver(path: String?, folder: String?) {
+        isSpare = false
+        window.isExcludedFromWindowsMenu = false
+        if let folder { setFolder(folder) }
+        else if let path { openPath(path, push: false) }
+        else if ready { js("MdView.clear", [["recents": store.recents()]]) } // (the start screen: the folders opened by now)
+        show()
+    }
+
+    /// A spare no longer wanted (the theme or the settings changed under its page): closed without a trace.
+    func dispose() { window.close() }
 
     /// What the page is told on macOS (StartView.swift): its start screen is not shown, and it says when something of its
     /// own is open over the middle of the window.
@@ -138,6 +171,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
 
     func loadShell(force: Bool = false) {
         if ready && !force { return render() }
+        if loading && !force { return }
+        loading = true
         let dir = path.map { Lib.dir($0) } ?? folder ?? Lib.home()
         treeJSON = nil; tabsJSON = nil
         ready = false
@@ -151,11 +186,13 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard !ready, web.url?.path == "/shell/\(shell)" else { return }
         ready = true
+        loading = false
         sendFolder()
         sendTabs()
         let frag = pendingFragment; pendingFragment = nil
         render(fragment: frag)
         if path == nil && folder == nil { js("MdView.clear", [["recents": store.recents()]]) }
+        if isSpare { js("MdView.warm") } // (what the first note and mode would load, loaded while nobody waits)
         pageLoaded()
     }
 
@@ -169,6 +206,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { loadShell(force: true) }
+
+    // (a page that did not come is asked for again by the next that needs it — not held off as though it were on its way)
+    private func failed(_ error: Error) { if !ready && (error as NSError).code != NSURLErrorCancelled { loading = false } }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
 
     // MARK: the shell tells the page
 
@@ -447,6 +489,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         case "prefs":
             if let new = msg["prefs"] as? [String: Any] {
                 let prefs = store.store(prefs: new)
+                AppDelegate.shared.dropSpare() // (its page holds the settings it was made with)
                 let lists = new.keys.contains { $0.hasPrefix("sidebar") || $0 == "showHidden" }
                 AppDelegate.shared.eachWindow { w in
                     w.js("MdView.setPrefs", [prefs])
@@ -552,8 +595,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         web.configuration.userContentController.removeScriptMessageHandler(forName: "msg")
         web.navigationDelegate = nil
         web.stopLoading()
-        store.set(folder != nil ? "folder_width" : "width", Int(window.frame.width))
-        store.set(folder != nil ? "folder_height" : "height", Int(window.frame.height))
+        // (a spare was never seen: its size is nobody's)
+        if !isSpare {
+            store.set(folder != nil ? "folder_width" : "width", Int(window.frame.width))
+            store.set(folder != nil ? "folder_height" : "height", Int(window.frame.height))
+        }
         onClose?(self)
     }
 

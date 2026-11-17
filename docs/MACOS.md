@@ -46,6 +46,21 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   typed a moment ago is saved before the note is left). The page gets a key first; the menu only when
   the page does not take it.
 - **Stays resident** 15 minutes after the last window (`MDVIEW_RESIDENT_MS`), so the next one opens at once.
+- **A window is there at once** (`AppDelegate.spare`, main.swift): a window is made 1.5 s after the last one opened, its
+  page loaded and warmed (`MdView.warm`: the active mode's scripts, mermaid, the Markdown renderer — viewer/render.js),
+  never shown and not among the app's windows; the next window opened takes it over (`NoteWindow.takeOver`) — its note on
+  the screen in some 80 ms instead of 650. A change of the theme or the settings lets it go (`dropSpare`), and another
+  is made later. A folder's own window asks for its page before it reads the folder (`loading`: asked for once).
+- **The folder is read aside** when it changes on the disk (`rescanQuietly`, Folder.swift: a save among the changes, while
+  one types): its tree is taken on the main thread only if no reading of the window's own came after. A step of the
+  window's own (a note made, renamed, moved) reads it at once, as before (`rescan`). One reading lists each folder in
+  one call with what is needed of its files (Scan.swift). The page's own files are read once for all windows
+  (`AppFiles`, Scheme.swift; checked against their time at each asking).
+- **Numbers** for how quick it is: `MDVIEW_PERF=<a copy of notes> swift test --filter PerfTests` (a new window, a
+  folder's, a note switched to, the sidebar's glide, the modes, typing while the folder is read, scrolling, a window
+  pulled, All Notes, a diagram, the spare). A window nobody sees is painted as a seen one there (`paint`, Harness.swift).
+  In Low Power Mode WebKit holds a page to 30 frames a second (requestAnimationFrame; Safari does the same) — what the
+  page draws frame by frame is half as smooth on battery then; the system's own controls are not held so.
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).
 - **Files** are opened from Finder (Open With, document types for Markdown, text, folders, PDFs), from
   `bin/mdview-mac`, or by `mdview://open?path=…` / `mdview://quick`. A second start hands its files to the running app.
