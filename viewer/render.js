@@ -446,10 +446,11 @@
     document.documentElement.style.setProperty("--on-accent", 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.05 ? "#fff" : "#000");
   }
   setOnAccent();
-  function setTheme(css, mode, tablet) {
+  // look: "light" | "dark". (It was called mode, and hid the view's mode below: the diagrams were never drawn anew.)
+  function setTheme(css, look, tablet) {
     document.getElementById("theme").textContent = css;
     if (typeof tablet === "boolean" && window.MdHand) MdHand.setTablet(tablet); // (the desktop's tablet mode: viewer/hand.js)
-    document.body.dataset.mode = mode;
+    document.body.dataset.mode = look;
     setOnAccent();
     if (current && mode === "read" && content.querySelector(".mermaid-block")) draw(current, captureAnchor());
     if (P.twinRedraw) P.twinRedraw(); // (the source's reading beside it: its diagrams in the new colours)
