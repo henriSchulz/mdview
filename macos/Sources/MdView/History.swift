@@ -382,7 +382,7 @@ extension NoteWindow {
             // (only a note this window knows, written as any change from outside: the watcher shows it)
             let known = path == p || notePaths.contains(p)
             if known, Lib.isMd(p), let bytes = try? Hist.text(p, id: str("id"), at: msg["at"] as? String) {
-                do { try bytes.write(to: URL(fileURLWithPath: p)); hub.touch(p); js("MdView.historyRestored", [["path": p, "id": str("id")]]) }
+                do { try Lib.writeWhole(p, bytes); hub.touch(p); js("MdView.historyRestored", [["path": p, "id": str("id")]]) }
                 catch { toast("Couldn't restore: \(error.localizedDescription)") }
             } else { toast("Couldn't restore this version") }
         // Sync Now (the sidebar's button): what waits in the project is kept at once, and the project brought in line with its other side

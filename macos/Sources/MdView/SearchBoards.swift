@@ -153,7 +153,7 @@ extension NoteWindow {
         let p = foundAsset(Lib.resolve(path))
         var err: String?
         if !Lib.isBoard(p) || !Lib.isFile(p) || !text.contains(boardMark) { err = "not a whiteboard" }
-        else { do { try Data(text.utf8).write(to: URL(fileURLWithPath: p)) } catch { err = searchErr(error) } }
+        else { do { try Lib.writeWhole(p, Data(text.utf8)) } catch { err = searchErr(error) } } // (whole, its tags kept)
         js("MdView.boardSaved", [id, err as Any? ?? NSNull()])
     }
 
@@ -341,7 +341,7 @@ extension NoteWindow {
                 } else if !text.contains(boardMark) { err = "not a whiteboard" }
                 else {
                     try Lib.fm.createDirectory(atPath: Lib.dir(f), withIntermediateDirectories: true)
-                    try Data(text.utf8).write(to: URL(fileURLWithPath: f))
+                    try Lib.writeWhole(f, Data(text.utf8))
                 }
             } catch { err = searchErr(error) }
         } else { err = "not a PDF file" }

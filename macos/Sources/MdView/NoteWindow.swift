@@ -319,10 +319,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         ownText = text
     }
 
-    /// Written whole: a link is followed, the permissions stay.
-    func writeWhole(_ p: String, _ data: Data) throws {
-        try data.write(to: URL(fileURLWithPath: Lib.resolve(p)), options: .atomic)
-    }
+    /// Written whole: a link is followed, the permissions, Finder's tags and the rest of what the system keeps stay (Lib).
+    func writeWhole(_ p: String, _ data: Data) throws { try Lib.writeWhole(p, data) }
 
     /// A task ticked in the reading view: written into the file, and the note drawn anew from it — the page has only
     /// ticked the box, its text is still the one before (shell.rs `toggle_task`, where the watcher draws it).

@@ -86,6 +86,23 @@ enum Lib {
         ((try? fm.attributesOfItem(atPath: p)[.modificationDate]) as? Date)?.timeIntervalSince1970 ?? 0
     }
 
+    /// A file written whole or not at all (a full disk or a crash in the middle leave it as it was), a link followed —
+    /// and keeping what the system knows of it: its permissions, Finder's tags and other extended attributes, the date it
+    /// was made (FileManager.replaceItemAt, as a document macOS saves keeps them; Data's .atomic made a new file without
+    /// them: every save took a note's tags off — review 2026-11-17).
+    static func writeWhole(_ p: String, _ data: Data) throws {
+        let url = URL(fileURLWithPath: resolve(p))
+        guard fm.fileExists(atPath: url.path) else { return try data.write(to: url, options: .atomic) }
+        // (where the volume has no place for it, or will not exchange the two — as before: whole, without them)
+        guard let dir = try? fm.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: url, create: true) else {
+            return try data.write(to: url, options: .atomic)
+        }
+        defer { try? fm.removeItem(at: dir) }
+        let tmp = dir.appendingPathComponent(url.lastPathComponent)
+        try data.write(to: tmp)
+        do { _ = try fm.replaceItemAt(url, withItemAt: tmp) } catch { try data.write(to: url, options: .atomic) }
+    }
+
     static func read(_ p: String, limit: Int? = nil) -> String? {
         guard let h = FileHandle(forReadingAtPath: p) else { return nil }
         defer { try? h.close() }

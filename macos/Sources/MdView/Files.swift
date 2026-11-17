@@ -514,7 +514,7 @@ extension NoteWindow {
         var new = Data(old.prefix(end))
         if !new.isEmpty { new.append(nl); new.append(nl) }
         new.append(Data(markup.utf8)); new.append(nl)
-        do { try new.write(to: URL(fileURLWithPath: note)) } catch {
+        do { try Lib.writeWhole(note, new) } catch {
             toast("Couldn't save: \(error.localizedDescription)")
             try? Lib.fm.removeItem(atPath: target)
             return
