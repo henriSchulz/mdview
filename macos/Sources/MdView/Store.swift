@@ -2,6 +2,7 @@
 // active mode ("active", only what differs from the defaults) and the shell's own state (the folder
 // last shown, recent folders, tabs per folder, the sidebar, notes opened last …), as state.json of the Rust shell.
 import Foundation
+import AppKit
 
 final class Store {
     static let shared = Store()
@@ -27,6 +28,19 @@ final class Store {
     }
 
     func set(_ key: String, _ value: Any?) { state[key] = value; save() }
+
+    /// Where the window of a folder or a note stood when it was last closed (state: frames — the last 40).
+    func frame(of key: String) -> NSRect? {
+        guard let f = (state["frames"] as? [String: Any])?[key] as? [NSNumber], f.count == 4 else { return nil }
+        return NSRect(x: f[0].doubleValue, y: f[1].doubleValue, width: f[2].doubleValue, height: f[3].doubleValue)
+    }
+    func keep(frame r: NSRect, of key: String) {
+        var all = (state["frames"] as? [String: Any]) ?? [:]
+        all[key] = nil
+        if all.count >= 40, let drop = all.keys.first { all[drop] = nil }
+        all[key] = [r.minX, r.minY, r.width, r.height].map { Double(Int($0)) }
+        set("frames", all)
+    }
     func string(_ key: String) -> String? { state[key] as? String }
     func bool(_ key: String, default d: Bool = false) -> Bool { (state[key] as? Bool) ?? d }
 

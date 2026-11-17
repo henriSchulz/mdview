@@ -64,6 +64,17 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).
 - **Files** are opened from Finder (Open With, document types for Markdown, text, folders, PDFs), from
   `bin/mdview-mac`, or by `mdview://open?path=…` / `mdview://quick`. A second start hands its files to the running app.
+- **The window's bar is the system's** (MacChrome.swift): the title bar is clear and holds no title; an NSToolbar holds
+  what the page's strip and capsule held — the sidebar, back and forward, All Notes (Sync Now while linked, Open Its
+  Folder in a note's own window); the outline, find, share and the modes — as SF Symbols, in the row of the window's
+  buttons, which stand in the sidebar's card while it is pinned. A button of the bar clicks the page's own (unseen,
+  still laid out: what hangs from one hangs under the bar's), and the page says how its buttons stand (`macbar`, from a
+  script of the window's: MacChrome.script) — what they do is the page's alone. The page is told the bar's height
+  (`--mac-bar`); the note, the sidebar and All Notes begin under it and go on under it, seen through a blurred band
+  (`#mac-bar`). Two tabs or more stand in a row under the bar (`data-mac-tabs`), as the Finder's and Safari's. The
+  start screen has no bar; full screen and the focus mode have none either. The colours of the system are the page's:
+  its accent and its highlight (System Settings › Appearance, followed live), where Velum gives none. A folder's or a
+  note's window opens where it was closed, as large as it was (state: `frames`); a new one, a step down from the last.
 - **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
   the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
   shell (`MdHost.menu`, viewer/base.js `hostMenu`; NativeMenu.swift) and shown as an NSMenu: the Finder's signs (SF
