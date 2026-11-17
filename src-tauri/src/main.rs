@@ -241,7 +241,9 @@ fn main() {
         let _ = git2::opts::set_server_timeout_in_milliseconds(30_000);
     }
     let (tx, rx) = std::sync::mpsc::channel::<Event>();
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // (a name that is not UTF-8 — Latin-1, from an old zip or a Samba share — is taken as near as it goes: env::args
+    // panicked on it, and the app was gone at its start. Review 2026-11-17.)
+    let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     // (`mdview paste …`: a command, no window — the running application is asked, paste.rs)
     if args.first().is_some_and(|a| a == "paste") {
         std::process::exit(paste::cli(&args[1..]));
