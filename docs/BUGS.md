@@ -117,6 +117,15 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
 7. **A page is as wide with little on it as with much**, and as wide in one layout as in another:
    scroll containers that can be short or long reserve the scrollbar's room
    (`overflow-y: scroll`), and two layouts of the same page share one `max-width`.
+119. **A list of hundreds is made a part at a time, and nothing asks for its layout before the first frame** (2026-11-17,
+    Henri: „vor allem eine crispy cleane Performance“ — measured, not reported). All Notes over a folder of 417 notes made
+    every row and asked for their layout to start their fading in (`el.offsetHeight`), and again to put the scroll back to
+    the top: 104–180 ms before the first frame, 300–415 ms to the second. The first rows are made at once and the rest in
+    the frames after (`build`, `BUILD_FIRST`) — whole only where the list is made anew in place (`refresh`: the window
+    stays scrolled); a fading start takes the styles (`getComputedStyle`), not the layout; shut, All Notes rests
+    (`data-rest`: content-visibility). A formatter is made once (`quickWhen`: `toLocaleDateString` made one at each call,
+    33 ms for 417 dates), and a diagram is drawn after the note is on the screen (`renderMermaid`). Check:
+    `macos/Tests/MdViewTests/PerfTests.swift` (I: All Notes over a copy of the notes; K: the spare window).
 67. **What comes in later is drawn again everywhere it shows, not only where it was asked for.**
     Lucide's folder signs load when a folder first needs one (`folderGlyph`, `viewer/sidebar.js`);
     whoever asked, the sidebar *and* All Notes (`MdOverview.folderChanged`) are drawn again when
