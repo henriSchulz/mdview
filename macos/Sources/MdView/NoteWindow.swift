@@ -62,6 +62,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var stream: FSEventStreamRef?
     var watchedRoots: Set<String> = []
     var closing = false
+    /// Counts the times the window was to go: a later close, or the page holding it to ask, makes an older wait come to nothing.
+    var closeTurn = 0
     /// Closed: nothing is watched, scanned or drawn for it any more (what was on its way when it closed comes to nothing).
     var gone = false
 
@@ -434,7 +436,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         case "external":
             if let p = path { NSWorkspace.shared.open(URL(fileURLWithPath: p)) }
         case "close": close()
-        case "closehold": closing = false
+        case "closehold":
+            // the page has a question to ask before the window may go (shell/messages.rs) — and before the app may quit
+            closeTurn += 1
+            closing = false
+            AppDelegate.shared?.quitHeld = true
         case "back": go(back: true)
         case "forward": go(back: false)
         case "save":
@@ -465,10 +471,13 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     func close() {
         if (editing || boardOpen) && ready && !closing {
             closing = true
+            closeTurn += 1
+            let turn = closeTurn
             js("MdView.flush", [true])
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.closeNow() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in if let self, self.closeTurn == turn { self.closeNow() } }
             return
         }
+        closeTurn += 1
         closeNow()
     }
 

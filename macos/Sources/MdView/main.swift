@@ -78,14 +78,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + resident, execute: item)
     }
 
+    /// How the app's answer to quitting is given (the tests listen to it instead).
+    var answerQuit: (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) }
+
     /// Quitting hands unsaved text over first (the page's flush), as closing a window does.
     func applicationShouldTerminate(_ app: NSApplication) -> NSApplication.TerminateReply {
         let writing = windows.filter { $0.editing || $0.boardOpen }
         if writing.isEmpty { return .terminateNow }
+        quitHeld = false
         writing.forEach { $0.js("MdView.flush", [true]) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { NSApp.reply(toApplicationShouldTerminate: true) }
+        // (a page with a question to ask first holds its window, and the quitting with it: the app stays, the page asks)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self else { return }
+            self.answerQuit(!self.quitHeld)
+        }
         return .terminateLater
     }
+
+    /// A page held its window to ask, while the app was to quit (NoteWindow "closehold").
+    var quitHeld = false
 
     func openWindow(_ path: String?) {
         var file = path, folder: String? = nil
