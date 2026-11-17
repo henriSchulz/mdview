@@ -61,13 +61,25 @@
     });
     // (two blocks that are still the kinds they were stand as they stood)
     const rekinded = (n) => { const was = d.loaded.get(n.node.attrs.bid); return !was || kind(was) !== kind(n.node); };
+    // (a list's last item, and a footnote's definition, take an indented line below them as their own)
+    const runsOn = (n) => /_list$/.test(n.node.type.name) || (n.node.type.name === "hidden" && /^ {0,3}\[\^[^\]]+\]:/.test(n.node.attrs.raw || ""));
+    // (the two stood one after the other in the file, as the kinds they are: what stood between them there — a
+    // comment in the separator — still does)
+    const neighbours = (a, b) => d.loaded.has(a.node.attrs.bid) && d.loaded.has(b.node.attrs.bid) && b.node.attrs.bid === a.node.attrs.bid + 1 && !rekinded(a) && !rekinded(b);
     const parts = nodes.map((n, i) => {
       const prev = nodes[i - 1];
-      // Code by indentation right after a list would read as part of the last item. Where the two
-      // stood like that in the file it worked; behind a list that is new there, it gets a fence.
-      if (prev && /_list$/.test(prev.node.type.name) && (rekinded(prev) || rekinded(n)) && kind(n.node) === "island:code" && !/^ {0,3}(```|~~~)/.test(n.node.attrs.raw)) {
+      // Code by indentation right after a list or a footnote's definition would read as part of it. Where the
+      // two stood like that in the file it worked; brought together — what stood between deleted, one moved,
+      // one new or of another kind — the code gets a fence. (Review 2026-11-17: "- item", a paragraph, code;
+      // the paragraph deleted, the code was the item's.)
+      if (prev && runsOn(prev) && !neighbours(prev, n) && kind(n.node) === "island:code" && !/^ {0,3}(```|~~~)/.test(n.node.attrs.raw)) {
         const c = A.islands.parseCode(n.node.attrs.raw);
         return { id: n.node.attrs.bid, text: A.islands.buildCode({ ...c, indented: false }) };
+      }
+      // A comment that is not closed (<!-- with no -->) runs to the end of the file as a code block does: with
+      // something below it, it is closed.
+      if (i + 1 < nodes.length && kind(n.node) === "island:html" && /^ {0,3}<!--/.test(n.node.attrs.raw) && !/-->/.test(n.node.attrs.raw)) {
+        return { id: n.node.attrs.bid, text: n.node.attrs.raw.replace(/\n+$/, "") + "\n-->" };
       }
       // A code block that is not closed runs to the end of the file. With something below it
       // (it was the last block when it was loaded), it has to end: its fence is closed.
