@@ -203,7 +203,21 @@ extension NoteWindow {
         if from.isEmpty { return toast("No files to paste") }
         if cut {
             FilesState.clip = ([], false)
-            for p in from where Lib.dir(p) != into { moveTo(p, into) }
+            var moved: [String] = []
+            for p in from where Lib.dir(p) != into {
+                if knows(p) || (Lib.isDir(p) && p.hasPrefix(folder + "/")) { moveTo(p, into); continue }
+                if Lib.isDir(p) && isUnder(into, p) { toast("“\(Lib.name(p))” can't be moved into itself"); continue }
+                // cut in another window: moved here all the same (moveTo takes only this window's own — the paste did
+                // nothing, said nothing, and the cut was forgotten; review 2026-11-17)
+                do { moved.append(try Lib.moveFree(p, into: into)) }
+                catch { toast("Couldn't move “\(Lib.name(p))”: \(error.localizedDescription)") }
+            }
+            if !moved.isEmpty {
+                toast(moved.count == 1 ? "Moved “\(Lib.name(moved[0]))”" : "Moved \(moved.count) items")
+                touch(into)
+                rescan()
+                js("MdView.revealRows", [moved])
+            }
             return
         }
         bringIn(from, into: into, how: "Pasted")

@@ -224,6 +224,19 @@ enum Lib {
         throw CocoaError(.fileWriteFileExists)
     }
 
+    /// src moved into dir under the first free name ("Name 2.x"): renamed where it can be (FileManager.moveItem copies
+    /// across volumes and takes the original away once the copy is whole).
+    static func moveFree(_ src: String, into dir: String) throws -> String {
+        let (stem, ending) = nameParts(src)
+        for n in 1..<1000 {
+            let target = join(dir, n == 1 ? "\(stem)\(ending)" : "\(stem) \(n)\(ending)")
+            if (try? fm.attributesOfItem(atPath: target)) != nil { continue }
+            try fm.moveItem(atPath: src, toPath: target)
+            return target
+        }
+        throw CocoaError(.fileWriteFileExists)
+    }
+
     static func copyTree(_ src: String, _ target: String, _ depth: Int) throws {
         let t = try fm.attributesOfItem(atPath: src)[.type] as? FileAttributeType
         if t == .typeDirectory {

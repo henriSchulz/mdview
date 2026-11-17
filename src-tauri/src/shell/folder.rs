@@ -584,10 +584,29 @@ impl Win {
         }
         if cut {
             app.file_clip = (vec![], false);
+            let mut moved = vec![];
             for p in &from {
-                if p.parent() != Some(into.as_path()) {
-                    self.move_to(app, &s(p), &s(&into));
+                if p.parent() == Some(into.as_path()) {
+                    continue;
                 }
+                if self.knows(&s(p)) || (p.is_dir() && p.starts_with(&folder) && *p != folder) {
+                    self.move_to(app, &s(p), &s(&into));
+                } else if p.is_dir() && into.starts_with(p) {
+                    self.toast(format!("“{}” can't be moved into itself", name_of(p)));
+                } else {
+                    // cut in another window: moved here all the same (move_to takes only this window's own — the paste
+                    // did nothing, said nothing, and the cut was forgotten; review 2026-11-17)
+                    match move_free(p, &into) {
+                        Ok(target) => moved.push(target),
+                        Err(e) => self.toast(format!("Couldn't move “{}”: {}", name_of(p), strerror(&e))),
+                    }
+                }
+            }
+            if !moved.is_empty() {
+                self.toast(if moved.len() == 1 { format!("Moved “{}”", name_of(&moved[0])) } else { format!("Moved {} items", moved.len()) });
+                app.touch(&into);
+                self.rescan(app);
+                self.js("MdView.revealRows", &[json!(moved.iter().map(|p| s(p)).collect::<Vec<_>>())]);
             }
             return;
         }
@@ -799,6 +818,25 @@ fn copy_free(src: &Path, dir: &Path, copy: bool) -> std::io::Result<PathBuf> {
     Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "no free name"))
 }
 
+/// A file or folder moved into `dir` under the first free name ("Name 2.pdf"): renamed where it can be, else copied and
+/// the original taken away once the copy is whole (another volume).
+fn move_free(src: &Path, dir: &Path) -> std::io::Result<PathBuf> {
+    let (stem, ending) = name_parts(src);
+    let target = (1..1000)
+        .map(|n| dir.join(if n == 1 { format!("{stem}{ending}") } else { format!("{stem} {n}{ending}") }))
+        .find(|t| fs::symlink_metadata(t).is_err())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::AlreadyExists, "no free name"))?;
+    if fs::rename(src, &target).is_ok() {
+        return Ok(target);
+    }
+    if let Err(e) = copy_tree(src, &target, 0) {
+        let _ = if target.is_dir() { fs::remove_dir_all(&target) } else { fs::remove_file(&target) };
+        return Err(e);
+    }
+    if src.is_dir() { fs::remove_dir_all(src)? } else { fs::remove_file(src)? }
+    Ok(target)
+}
+
 fn copy_tree(src: &Path, target: &Path, depth: usize) -> std::io::Result<()> {
     let meta = fs::symlink_metadata(src)?;
     if meta.is_dir() {
@@ -849,6 +887,25 @@ fn free_name(path: &Path, name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Review of 2026-11-17: what was cut in one window and pasted in another stayed where it was.
+    #[test]
+    fn what_is_moved_in_from_elsewhere_takes_a_free_name() {
+        let d = std::env::temp_dir().join(format!("mdview-movefree-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("a/folder")).unwrap();
+        fs::create_dir_all(d.join("b")).unwrap();
+        fs::write(d.join("a/Note.md"), "from a").unwrap();
+        fs::write(d.join("a/folder/x.md"), "x").unwrap();
+        fs::write(d.join("b/Note.md"), "b's own").unwrap();
+        assert_eq!(move_free(&d.join("a/Note.md"), &d.join("b")).unwrap(), d.join("b/Note 2.md"));
+        assert_eq!(fs::read_to_string(d.join("b/Note 2.md")).unwrap(), "from a");
+        assert_eq!(fs::read_to_string(d.join("b/Note.md")).unwrap(), "b's own");
+        assert!(!d.join("a/Note.md").exists());
+        assert_eq!(move_free(&d.join("a/folder"), &d.join("b")).unwrap(), d.join("b/folder"));
+        assert!(d.join("b/folder/x.md").is_file() && !d.join("a/folder").exists());
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn a_new_whiteboard_takes_the_first_free_name() {
