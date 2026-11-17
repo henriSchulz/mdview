@@ -654,10 +654,12 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
             },
         };
         let mut cmd = Command::new(exe);
-        cmd.arg("-p").arg(prompt).arg("--system-prompt").arg(GRAPHIC_SYSTEM).args(&tools);
+        // (the question on the way in, not as an argument: with the figure before it, it may be longer than a command
+        // line may be — 32 KB on Windows, 128 KB for one argument on Linux; review 2026-11-17)
+        cmd.arg("-p").arg("--system-prompt").arg(GRAPHIC_SYSTEM).args(&tools);
         cmd.args(["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "text"]);
         cmd.args(SETTINGS);
-        cmd.current_dir(&work).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        cmd.current_dir(&work).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
         #[cfg(unix)]
         {
             use std::os::unix::process::CommandExt;
@@ -674,6 +676,9 @@ fn run(d: Drawing, mine: u64, turn: &AtomicU64, pid: &Mutex<Option<u32>>) -> Opt
                 return Ok(None);
             }
             *slot = Some(child.id());
+        }
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(prompt.as_bytes()); // (closed as it goes: the question is all there is)
         }
         let read = |pipe: Option<Box<dyn Read + Send>>| {
             std::thread::spawn(move || {
@@ -745,6 +750,34 @@ mod tests {
         }
         done.sort();
         done
+    }
+
+    // Review of 2026-11-17: the figure to be changed went to claude as an argument — too long for a command line once it
+    // is a detailed one. It goes in on its way in, as a talk's question does.
+    #[test]
+    fn a_figure_to_be_changed_goes_to_claude_on_its_way_in() {
+        let dir = std::env::temp_dir().join(format!("mdview-fakeclaude-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let fake = dir.join("claude");
+        let (args, input) = (dir.join("args"), dir.join("stdin"));
+        fs::write(&fake, format!("#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\ncat > '{}'\nprintf '%s' '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\"><path d=\"M0 0L10 10\"/></svg>'\n", args.display(), input.display())).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&fake, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        std::env::set_var("PATH", std::env::join_paths(std::iter::once(dir.clone()).chain(std::env::split_paths(&path))).unwrap());
+        let previous = format!("<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>", "<path d=\"M0 0L1 1\"/>".repeat(12_000)); // (some 260 KB)
+        let d = Drawing { label: "a".into(), id: json!(1), text: String::new(), image: None, previous: Some(previous.clone()), change: Some("make it red".into()) };
+        let got = run(d, 0, &AtomicU64::new(0), &Mutex::new(None));
+        std::env::set_var("PATH", path);
+        let (svg, error) = got.expect("stopped");
+        assert!(error.is_none() && svg.is_some(), "{error:?}");
+        let said = fs::read_to_string(&args).unwrap();
+        assert!(!said.contains("M0 0L1 1"), "the figure was an argument");
+        assert!(fs::read_to_string(&input).unwrap().contains(&previous), "the figure did not go in");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     // Review of 2026-11-17: one talk for each channel of the whole app — a chat asked in window B ended window A's, and A
