@@ -43,7 +43,12 @@ final class FilesWebView: WKWebView {
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { super.draggingUpdated(sender) }
     override func draggingExited(_ sender: NSDraggingInfo?) { forget(); super.draggingExited(sender) }
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool { let r = super.performDragOperation(sender); forget(); return r }
-    override func draggingEnded(_ sender: NSDraggingInfo) { forget(); super.draggingEnded(sender) }
+    /// (WKWebView has no draggingEnded: of its own — handed on, it was an unknown selector, and the app was gone at the end
+    /// of every drag over the window: a block moved, a file dropped. Handed on only where WebKit has one.)
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        forget()
+        if WKWebView.instancesRespond(to: #selector(NSDraggingDestination.draggingEnded(_:))) { super.draggingEnded(sender) }
+    }
 }
 
 /// The system's clipboard.
