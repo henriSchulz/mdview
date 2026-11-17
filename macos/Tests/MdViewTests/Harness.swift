@@ -78,6 +78,20 @@ class ShellTest: XCTestCase {
         return w
     }
 
+    /// A window nobody sees that WebKit paints all the same, as a seen one (for pictures and timings): opaque, behind
+    /// every other window, and its view told not to stop drawing when it is covered (a private switch of WKWebView's).
+    /// `screencapture -l <windowNumber>` takes a picture of it then.
+    func paint(_ w: NoteWindow) {
+        let sel = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        if w.web.responds(to: sel) {
+            typealias Set = @convention(c) (AnyObject, Selector, Bool) -> Void
+            unsafeBitCast(w.web.method(for: sel), to: Set.self)(w.web, sel, false)
+        }
+        w.window.collectionBehavior.formUnion([.transient, .ignoresCycle])
+        w.window.alphaValue = 1
+        w.window.orderBack(nil)
+    }
+
     /// What a script says in the window's page (a promise is waited for).
     func page(_ w: NoteWindow, _ script: String) -> Any? {
         var result: Any?
