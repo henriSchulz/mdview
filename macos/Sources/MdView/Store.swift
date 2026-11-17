@@ -7,7 +7,9 @@ final class Store {
     static let shared = Store()
     var state: [String: Any] = [:]
     let dir: URL = {
-        let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MdView")
+        // (MDVIEW_STATE_DIR: another place, for the tests — never the user's own state)
+        let given = ProcessInfo.processInfo.environment["MDVIEW_STATE_DIR"].flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) }
+        let d = given ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MdView")
         try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d
     }()

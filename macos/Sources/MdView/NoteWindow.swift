@@ -91,7 +91,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         window.tabbingMode = .disallowed
         window.center()
         if let folder { setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
-        window.makeKeyAndOrderFront(nil)
+        if Lib.headless { window.alphaValue = 0; window.ignoresMouseEvents = true; window.orderBack(nil) }
+        else { window.makeKeyAndOrderFront(nil) }
     }
 
     var dark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }

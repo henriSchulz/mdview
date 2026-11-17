@@ -6,5 +6,9 @@ import PackageDescription
 let package = Package(
     name: "MdView",
     platforms: [.macOS(.v13)],
-    targets: [.executableTarget(name: "MdView", path: "Sources/MdView")]
+    targets: [
+        .executableTarget(name: "MdView", path: "Sources/MdView"),
+        // `swift test`: the shell driven in windows nobody sees, with the page of this checkout (Tests/MdViewTests/Harness.swift)
+        .testTarget(name: "MdViewTests", dependencies: ["MdView"], path: "Tests/MdViewTests"),
+    ]
 )

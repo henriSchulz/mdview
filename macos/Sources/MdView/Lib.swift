@@ -13,6 +13,8 @@ enum Lib {
     static let assets = "assets"
 
     static let fm = FileManager.default
+    /// MDVIEW_HEADLESS: windows that are there but never seen and never take the focus (the tests, macos/Tests).
+    static let headless = ProcessInfo.processInfo.environment["MDVIEW_HEADLESS"] != nil
 
     static func ext(_ p: String) -> String { (p as NSString).pathExtension.lowercased() }
     static func name(_ p: String) -> String { (p as NSString).lastPathComponent }
