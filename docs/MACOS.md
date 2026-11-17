@@ -42,7 +42,8 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
   exists (`Theme.swift`; the Omarchy theme is Linux's).
 - **Keys.** The page reads `Ctrl` and `Cmd` alike. Its `Ctrl+Alt+…` keys arrive on a Mac as composed characters
   (⌥S is `ß`), so the menu bar sends the key the page waits for (`Menu.swift`): the modes ⌘⌥1–4, the sidebar ⌘⌥S,
-  All Notes ⌘⌥G, the panel ⌘⌥P, history ⌘⌥H, Open Folder ⌘⌥O. The page gets a key first; the menu only when
+  All Notes ⌘⌥G, the panel ⌘⌥P, history ⌘⌥H, Open Folder ⌘⌥O, Back and Forward ⌘[ ⌘] (the page's ⌥← ⌥→: what was
+  typed a moment ago is saved before the note is left). The page gets a key first; the menu only when
   the page does not take it.
 - **Stays resident** 15 minutes after the last window (`MDVIEW_RESIDENT_MS`), so the next one opens at once.
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).

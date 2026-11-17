@@ -20,11 +20,27 @@ final class MenuAction: NSObject {
 extension AppDelegate {
     private static var holders: [MenuAction] = []
 
-    func sendKey(_ spec: (key: String, code: String?, shift: Bool, alt: Bool), to w: NoteWindow?) {
+    func sendKey(_ spec: (key: String, code: String?, shift: Bool, alt: Bool), ctrl: Bool = true, to w: NoteWindow?) {
         guard let w else { return }
         let code = spec.code.map { jsonString($0) } ?? "''"
-        let script = "(function(){var e=new KeyboardEvent('keydown',{key:\(jsonString(spec.key)),code:\(code),ctrlKey:true,shiftKey:\(spec.shift),altKey:\(spec.alt),bubbles:true,cancelable:true});(document.activeElement||document.body).dispatchEvent(e);})()"
+        let script = "(function(){var e=new KeyboardEvent('keydown',{key:\(jsonString(spec.key)),code:\(code),ctrlKey:\(ctrl),shiftKey:\(spec.shift),altKey:\(spec.alt),bubbles:true,cancelable:true});(document.activeElement||document.body).dispatchEvent(e);})()"
         w.web.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Back and Forward as the page has them (Alt+←/→): among the pages of the note first, then the places of a folder
+    /// window, then the shell's — and what was typed a moment ago is handed over before the note is left (base.js LEAVING).
+    func step(_ dir: Int) {
+        guard let w = keyNote else { return }
+        guard w.ready else { return w.on(dir < 0 ? "back" : "forward", [:]) }
+        let key = dir < 0 ? "ArrowLeft" : "ArrowRight"
+        sendKey((key, key, false, true), ctrl: false, to: w)
+    }
+
+    /// What the shell does when the page has handed over what is not saved yet (a message the page itself would post
+    /// through base.js `post`, which saves first for those that leave the note).
+    func afterFlush(_ w: NoteWindow?, _ then: @escaping () -> Void) {
+        guard let w, w.ready else { return then() }
+        w.web.evaluateJavaScript("MdView.flush(false)") { _, _ in then() } // (the page's save message is handled before this answer)
     }
 
     func buildMenu() {
@@ -77,7 +93,10 @@ extension AppDelegate {
 
         _ = submenu("File") { m in
             page(m, "New Note", "n")
-            add(m, "New Quick Note") { [unowned self] in self.keyNote?.on("quicknote", [:]) ?? self.openQuick() }
+            add(m, "New Quick Note") { [unowned self] in
+                guard let w = self.keyNote else { return self.openQuick() }
+                self.afterFlush(w) { w.on("quicknote", [:]) }
+            }
             add(m, "New Window", "n", [.command, .shift]) { [unowned self] in self.openWindow(nil) }
             page(m, "New Tab", "t")
             m.addItem(.separator())
@@ -99,7 +118,7 @@ extension AppDelegate {
                 if let p = w.path { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: p)]) }
                 else if let f = w.folder { NSWorkspace.shared.open(URL(fileURLWithPath: f)) }
             }
-            add(m, "Open in Default App", "o", [.command, .shift]) { [unowned self] in self.keyNote?.on("external", [:]) }
+            page(m, "Open in Default App", "o", [.command, .shift], send: "e") // (the page's Ctrl+Shift+E: saved first)
             m.addItem(.separator())
             page(m, "Print…", "p")
         }
@@ -145,13 +164,13 @@ extension AppDelegate {
             page(m, "Zoom In", "=")
             page(m, "Zoom Out", "-")
             m.addItem(.separator())
-            add(m, "Reload Note", "r") { [unowned self] in self.keyNote?.on("reload", [:]) }
+            page(m, "Reload Note", "r")
             std(m, "Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control])
         }
 
         _ = submenu("Go") { m in
-            add(m, "Back", "[") { [unowned self] in self.keyNote?.on("back", [:]) }
-            add(m, "Forward", "]") { [unowned self] in self.keyNote?.on("forward", [:]) }
+            add(m, "Back", "[") { [unowned self] in self.step(-1) }
+            add(m, "Forward", "]") { [unowned self] in self.step(1) }
             m.addItem(.separator())
             page(m, "Next Tab", "\t", [.control], send: "Tab")
             page(m, "Previous Tab", "\t", [.control, .shift], send: "Tab")
