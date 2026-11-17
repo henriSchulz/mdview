@@ -18,42 +18,67 @@
   const prefs = () => ({ latexSnippets: true, latexFraction: true, latexMatrix: true, latexTabout: true, latexEnlarge: true, ...(window.MdPrefs || {}) });
   const key = new PluginKey("mathtext");
 
-  /* The formula the selection is in, if it is in one:
+  /* A formula is being typed only where its dollar was typed: here, in this paragraph, the caret still behind it.
+   * A dollar that stood in the text before — "$HOME", "a$b", a price — opens nothing, and what is typed after it
+   * stays text (review 2026-11-17: any lone "$" earlier in a paragraph made all typing after it LaTeX —
+   * "different" became "d\iff erent" — and turned off the rules for lists, bold and links). */
+  const openKey = new PluginKey("mathopen");
+  // the position of a "$" just typed at the caret (by a key or an input method), or null
+  function typedDollar(tr) {
+    if (!tr.docChanged || tr.steps.length !== 1 || tr.getMeta("mathtext") || tr.getMeta("step") || tr.getMeta("paste") || tr.getMeta("uiEvent") || tr.getMeta("history$")) return null;
+    const st = tr.steps[0], sl = st.slice;
+    if (!sl || sl.openStart || sl.openEnd || sl.content.childCount !== 1 || !sl.content.firstChild.isText || sl.content.firstChild.text !== "$") return null;
+    const $c = tr.selection.$cursor;
+    return $c && $c.pos === st.from + 1 ? st.from : null;
+  }
+  const opened = new Plugin({
+    key: openKey,
+    state: {
+      init: () => null,
+      apply(tr, at, old, state) {
+        const typed = typedDollar(tr);
+        // (the second dollar of "$$", or one that closes the formula being typed, is that formula's)
+        if (typed != null && !(at != null && mathAt(old, at))) at = typed;
+        else if (at != null && tr.docChanged) at = tr.mapping.map(at, 1);
+        if (at == null || at >= state.doc.content.size || state.doc.textBetween(at, at + 1) !== "$") return null;
+        const { $from } = state.selection;
+        return $from.parent.isTextblock && at >= $from.start() && at < $from.pos ? at : null;
+      },
+    },
+  });
+
+  /* The formula the selection is in, if it is in one — the one whose dollar was typed (at: its position):
    * { base (position of the block's content), start, end (offsets of the formula's text in the
    *   block), dbl ($$), closed, text, from, to (the selection, as offsets in the formula) } */
-  function mathAt(state) {
+  function mathAt(state, at = openKey.getState(state)) {
+    if (at == null) return null;
     const { $from, $to } = state.selection;
     const block = $from.parent;
     if (!block.isTextblock || block.type.spec.code || !$from.sameParent($to)) return null;
     if ($from.marks().some((m) => m.type.name === "code")) return null;
+    const base = $from.start(), o = at - base;
     const text = block.textBetween(0, block.content.size, null, "￼");
     const off = $from.parentOffset, offTo = $to.parentOffset;
-    let open = -1, dbl = false, code = false;
-    for (let i = 0; i < off; ) {
-      const ch = text[i];
-      if (ch === "\\") { i += 2; continue; }
-      if (ch === "`") { code = !code; i++; continue; }
-      if (ch === "$" && !code) {
-        const two = text[i + 1] === "$";
-        if (open < 0) {
-          const next = text[i + (two ? 2 : 1)];
-          // ("5 $ and" opens nothing, and neither does a price: "$5 and $10")
-          if (two || (next === undefined ? i + 1 === off : next !== " " && !/\d/.test(next))) { open = i; dbl = two; }
-          i += two ? 2 : 1;
-        } else if (!dbl || two) { open = -1; i += dbl ? 2 : 1; } else i++;
-        continue;
-      }
-      i++;
-    }
-    if (open < 0 || code) return null;
-    const start = open + (dbl ? 2 : 1);
+    if (o < 0 || o >= off || text[o] !== "$") return null;
+    let code = false; // (a dollar in a code span still being typed — `echo $HOME` — opens nothing)
+    for (let i = 0; i < o; i++) { if (text[i] === "\\") { i++; continue; } if (text[i] === "`") code = !code; }
+    if (code) return null;
+    const dbl = text[o + 1] === "$", start = o + (dbl ? 2 : 1);
     if (off < start) return null;
+    // ("5 $ and" opens nothing, and neither does a price: "$5 and $10")
+    const next = text[start];
+    if (!dbl && next !== undefined && (next === " " || /\d/.test(next))) return null;
+    // (closed before the caret: the caret is behind the formula)
+    for (let i = start; i < off; i++) {
+      if (text[i] === "\\") { i++; continue; }
+      if (text[i] === "$" && (!dbl || text[i + 1] === "$")) return null;
+    }
     let end = text.length, closed = false;
     for (let i = offTo; i < text.length; i++) {
       if (text[i] === "\\") { i++; continue; }
       if (text[i] === "$" && (!dbl || text[i + 1] === "$")) { end = i; closed = true; break; }
     }
-    return { base: $from.start(), start, end, dbl, closed, text: text.slice(start, end), from: off - start, to: offTo - start };
+    return { base, start, end, dbl, closed, text: text.slice(start, end), from: off - start, to: offTo - start };
   }
 
   // state: tabstops as positions in the document — groups of ranges, and the group the caret is in
@@ -202,5 +227,5 @@
     },
   });
 
-  A.mathtext = { plugin, at: mathAt, stops: stopsOf };
+  A.mathtext = { plugin, opened, at: mathAt, stops: stopsOf };
 })();

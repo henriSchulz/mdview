@@ -944,6 +944,7 @@
       A.blocks.selPlugin, // (before the key maps: with blocks selected, the keys are theirs)
       A.ghost.plugin,     // (with a suggestion shown, Tab, Ctrl+→ and Esc are the suggestion's — in a formula too)
       A.mathtext.plugin,  // (in a formula being typed in the text: LaTeX Suite's keys)
+      A.mathtext.opened,  // (… which is one whose dollar was typed)
       (typed = IR.inputRules({ rules: [...rules, A.notes.rule] })), caught,
       keymap(keys),
       keymap(C.baseKeymap),

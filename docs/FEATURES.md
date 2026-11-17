@@ -980,7 +980,9 @@ Raw HTML in a note is rendered (`<br>`, `<details>`, `<img>`, inline `<svg>` …
   note and out again. A dialog without a block (an inline formula, a footnote) keeps its own size
   in the middle of the window; its corner pulls it higher and wider (kept for those dialogs).
 - **Formula dialog**: block or in the line, Copy LaTeX, Copy as Picture. LaTeX Suite snippets work
-  in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`).
+  in it and between dollars in the text (own snippets: `~/.config/mdview/snippets.js`) — a dollar
+  typed there, in that paragraph, while the caret has not gone before it or out of the paragraph;
+  a dollar that already stood in the text (`$HOME`, a price) opens no formula.
 - **Links**: `Ctrl+K`; with the caret in a link a small popover shows its target.
 - **Panel at the right** (`Ctrl+Alt+P`), opened from the rail of four signs at the window's
   right edge — a press on a sign opens the panel at that part, a press on the sign of the part
