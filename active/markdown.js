@@ -72,14 +72,14 @@
     return s;
   }
   /* Does this line begin a block of its own right under a paragraph's line (CommonMark: what may interrupt a
-   * paragraph)? A heading by #, a rule of * or _ (one of - is the paragraph's underline), a fence, a quote, a list
+   * paragraph)? A heading by #, a rule of * or _ (one of - is the paragraph's underline), a fence or $$, a quote, a list
    * item with text (an ordered one only from 1), an HTML block of kinds 1–6, a table. Not: an underline, indented
    * code, an empty item, "3.", a link's definition — those go on with the paragraph. */
   const HTML_BLOCK = /^<\/?(address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(\s|\/?>|$)/i;
   function breaksIn(line) {
     const l = line.replace(/^ {0,3}/, "");
     if (/^ {4}|^\t/.test(line)) return false;
-    return /^#{1,6}([ \t]|$)/.test(l) || /^(\*[ \t]*){3,}$|^(_[ \t]*){3,}$/.test(l) || /^(```|~~~)/.test(l) || /^>/.test(l)
+    return /^#{1,6}([ \t]|$)/.test(l) || /^(\*[ \t]*){3,}$|^(_[ \t]*){3,}$/.test(l) || /^(```|~~~|\$\$)/.test(l) || /^>/.test(l)
       || /^[-*+][ \t]+\S/.test(l) || /^1[.)][ \t]+\S/.test(l) || /^\|/.test(l)
       || /^<(script|pre|style|textarea)([\s>]|$)/i.test(l) || /^<!--|^<\?|^<![A-Za-z]|^<!\[CDATA\[/.test(l) || HTML_BLOCK.test(l);
   }
