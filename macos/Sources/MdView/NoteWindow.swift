@@ -193,9 +193,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         var text = "", error: Any = NSNull(), readonly: Any = NSNull()
         if let data = Lib.fm.contents(atPath: path) {
             text = String(decoding: data, as: UTF8.self)
-            if !Lib.fm.isWritableFile(atPath: path) { readonly = "file is read-only" }
+            readonly = readonlyReason(path, data).map { $0 as Any } ?? NSNull()
         } else if !Lib.exists(path) {
             error = "File not found: \(path)"
+            readonly = readonlyReason(path, nil).map { $0 as Any } ?? NSNull()
         } else { error = "Can't read file: \(path)"; readonly = "file can't be read" }
         let plain = Lib.isText(path)
         let links: [String: Any] = (!plain && text.contains("[[")) ? buildLinks(text) : [:]
@@ -286,8 +287,25 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         openPath(to, push: false)
     }
 
+    /// How large a note may be to be edited (shell.rs EDIT_LIMIT).
+    static let editLimit = 2 * 1024 * 1024
+
+    /// Why the note can't be edited, or nil (shell.rs readonly_reason). A file that is not UTF-8 — Latin-1, UTF-16 — is
+    /// shown as its letters read as UTF-8: written back, every letter that is not became U+FFFD (review 2026-11-17).
+    func readonlyReason(_ path: String, _ data: Data?) -> String? {
+        guard let data else { return Lib.fm.isWritableFile(atPath: Lib.dir(path)) ? nil : "folder is read-only" }
+        if !Lib.fm.isWritableFile(atPath: path) { return "file is read-only" }
+        if data.count > NoteWindow.editLimit { return "file is too large" }
+        if String(data: data, encoding: .utf8) == nil { return "file is not UTF-8" }
+        return nil
+    }
+
     func saveText(_ text: String, exact: Bool) {
         guard let path, !Lib.shownAsPDF(path) else { return }
+        // (shown read-only for it — and never written over, whatever the page sends: its letters would be lost)
+        if let old = Lib.fm.contents(atPath: path), String(data: old, encoding: .utf8) == nil {
+            return js("MdView.saveFailed", ["Can't edit: file is not UTF-8"])
+        }
         if exact {
             do { try writeWhole(path, Data(text.utf8)); ownWrite = Data(text.utf8) } catch { js("MdView.saveFailed", [error.localizedDescription]) }
             return
@@ -309,7 +327,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     /// A task ticked in the reading view: written into the file, and the note drawn anew from it — the page has only
     /// ticked the box, its text is still the one before (shell.rs `toggle_task`, where the watcher draws it).
     func toggleTask(line: Int, checked: Bool) {
-        guard let path, line >= 0, let text = Lib.read(path) else { return }
+        guard let path, line >= 0, let data = Lib.fm.contents(atPath: path) else { return }
+        // (a note that is only read — not UTF-8, too large, not to be written: shell.rs toggle_task)
+        if let why = readonlyReason(path, data) { toast("Can't edit: \(why)"); return render(keepScroll: true) }
+        let text = String(decoding: data, as: UTF8.self)
         var lines = text.components(separatedBy: "\n")
         guard line < lines.count else { return render(keepScroll: true) }
         let rx = Lib.rx(#"^([\s>]*(?:[-*+]|\d+[.)])\s+\[)(.)(\])"#)
