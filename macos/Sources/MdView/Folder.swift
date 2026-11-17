@@ -263,7 +263,11 @@ extension NoteWindow {
         if !isDir {
             js("MdView.noteRenamed", [["old": old, "path": new, "oldReal": oldReal, "real": newReal, "name": Lib.name(newReal)]])
         } else if let p = path, p.hasPrefix(oldReal + "/") {
+            // the note on screen is in the folder: under its new path — and a save the page sent under the old one is its
+            // own (rule 69, as for a note renamed: it was dropped, and the last edits with it; review 2026-11-17)
             let was = p, now = newReal + p.dropFirst(oldReal.count)
+            renamedFrom = was
+            ownWrite = Lib.fm.contents(atPath: String(now))
             path = String(now); watch()
             store.put("last_notes", folder, String(now))
             js("MdView.noteRenamed", [["old": was, "path": String(now), "oldReal": was, "real": String(now), "name": Lib.name(String(now))]])

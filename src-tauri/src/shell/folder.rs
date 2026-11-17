@@ -330,8 +330,11 @@ impl Win {
         if !is_dir {
             self.js("MdView.noteRenamed", &[json!({ "old": s(&old), "path": s(&new), "oldReal": s(&old_real), "real": s(&new_real), "name": name_of(&new_real) })]);
         } else if let Some(rest) = self.path.as_ref().and_then(|p| p.strip_prefix(&old_real).ok().map(Path::to_path_buf)) {
-            // the note on screen is in the folder: it stays as it is, under its new path
+            // the note on screen is in the folder: it stays as it is, under its new path — and a save the page sent under
+            // the old one is its own (rule 69, as for a note renamed: dropped, the last edits were lost; review 2026-11-17)
             let (was, now) = (old_real.join(&rest), new_real.join(&rest));
+            self.renamed_from = Some(was.clone());
+            self.own_write = fs::read(&now).ok();
             self.path = Some(now.clone());
             self.watch();
             app.sub("last_notes").insert(s(folder), json!(s(&now)));
