@@ -71,6 +71,18 @@
     }
     return s;
   }
+  /* Does this line begin a block of its own right under a paragraph's line (CommonMark: what may interrupt a
+   * paragraph)? A heading by #, a rule of * or _ (one of - is the paragraph's underline), a fence, a quote, a list
+   * item with text (an ordered one only from 1), an HTML block of kinds 1–6, a table. Not: an underline, indented
+   * code, an empty item, "3.", a link's definition — those go on with the paragraph. */
+  const HTML_BLOCK = /^<\/?(address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(\s|\/?>|$)/i;
+  function breaksIn(line) {
+    const l = line.replace(/^ {0,3}/, "");
+    if (/^ {4}|^\t/.test(line)) return false;
+    return /^#{1,6}([ \t]|$)/.test(l) || /^(\*[ \t]*){3,}$|^(_[ \t]*){3,}$/.test(l) || /^(```|~~~)/.test(l) || /^>/.test(l)
+      || /^[-*+][ \t]+\S/.test(l) || /^1[.)][ \t]+\S/.test(l) || /^\|/.test(l)
+      || /^<(script|pre|style|textarea)([\s>]|$)/i.test(l) || /^<!--|^<\?|^<![A-Za-z]|^<!\[CDATA\[/.test(l) || HTML_BLOCK.test(l);
+  }
   // What would start another kind of block at the beginning of a line.
   function guardLine(line, first) {
     return line
@@ -287,10 +299,17 @@
       }
       case "horizontal_rule": return [node.attrs.markup || cx.profile.rule];
       case "blockquote": {
-        const lines = children(node, cx, false).map((l) => (l ? "> " + l : ">"));
+        const inner = children(node, cx, false), lines = inner.map((l) => (l ? "> " + l : ">"));
         // a decoration says what it is in a line of its own before the text
-        if (node.attrs.callout) return ["> [!" + node.attrs.callout + "]" + (node.attrs.fold || "") + (node.attrs.title ? " " + node.attrs.title : "")].concat(lines);
-        return node.attrs.deco ? ["> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]"].concat(lines) : lines;
+        const head = node.attrs.callout ? "> [!" + node.attrs.callout + "]" + (node.attrs.fold || "") + (node.attrs.title ? " " + node.attrs.title : "")
+          : node.attrs.deco ? "> [!" + node.attrs.deco + (node.attrs.color ? "|" + node.attrs.color : "") + "]" : null;
+        if (!head) return lines;
+        // That line is the first of a paragraph: a first block that cannot break into one would be read as going on
+        // with it — "Title" over "===" made a heading of "[!indent] Title", "3. three" its text, an empty "-" an
+        // underline, indented code its words (review 2026-11-17). An empty line keeps them apart.
+        const first = node.firstChild;
+        const apart = !!first && first.type.name !== "paragraph" && inner.length > 0 && !breaksIn(inner[0]);
+        return [head].concat(apart ? [">"] : [], lines);
       }
       case "columns": {
         // a part of a row (a selection that reaches into one column of it): its blocks, no row — one
