@@ -45,7 +45,18 @@ final class HistoryHub {
             self?.wait()
         }
         GitHub.resume(place: keyringPlace) { [weak self] news in DispatchQueue.main.async { self?.onGitHub(news) } } // (a sign-in kept from before)
+        // (awake again: a token that ran out meanwhile, or soon will, is renewed now — before the next sync asks with it)
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.renewIfDue()
+        }
         scheduleSyncTick()
+    }
+
+    /// The sign-in renewed now if it has run out or is about to (within ten minutes); nothing if not signed in.
+    func renewIfDue() {
+        guard let s = session, signing == nil, s.expires - GitHub.now() < 600 else { return }
+        renewTurn += 1
+        GitHub.resume(place: keyringPlace) { [weak self] n in self?.tell(n) }
     }
 
     var windows: [NoteWindow] { AppDelegate.shared?.windows ?? [] }
@@ -290,10 +301,12 @@ final class HistoryHub {
         case .code(let c, let u): if signing != nil { signing?.shown = (c, u) }
         case .signedIn(let s, let note):
             // (renewed a while before it ends; a linked project's other side is looked at now)
+            // (by the wall's clock: the other one stands still while the Mac sleeps — the lid shut overnight, the token
+            // ran out hours before its renewal came, and every sync said "sign in again"; review 2026-11-17)
             let left = max(60, s.expires - GitHub.now() - 600)
             renewTurn += 1
             let turn = renewTurn
-            DispatchQueue.main.asyncAfter(deadline: .now() + left) { [weak self] in
+            DispatchQueue.main.asyncAfter(wallDeadline: .now() + left) { [weak self] in
                 guard let self, self.renewTurn == turn else { return }
                 GitHub.resume(place: self.keyringPlace) { n in self.tell(n) }
             }
@@ -320,7 +333,7 @@ final class HistoryHub {
         case .later:
             renewTurn += 1
             let turn = renewTurn
-            DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+            DispatchQueue.main.asyncAfter(wallDeadline: .now() + 60) { [weak self] in
                 guard let self, self.renewTurn == turn else { return }
                 GitHub.resume(place: self.keyringPlace) { n in self.tell(n) }
             }
