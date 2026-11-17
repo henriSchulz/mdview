@@ -101,6 +101,13 @@ enum AIKey {
 // MARK: - the claude command line tool
 
 enum Claude {
+    /// A folder of its own for one talk or one figure: its files to read, where claude runs. Named by the window's channel
+    /// or turn, two windows shared one — a chat in B deleted the files of A's chat while it ran, and A's end deleted B's
+    /// (review 2026-11-17; Rust's are app-wide).
+    static func workDir(_ kind: String) -> String {
+        NSTemporaryDirectory() + "mdview-\(kind)-\(ProcessInfo.processInfo.processIdentifier)-\(UUID().uuidString)"
+    }
+
     /// The login shell's PATH: an app started from the Dock has the system's own, short one.
     static let loginPath: String = {
         let base = ["\(Lib.home())/.local/bin", "\(Lib.home())/.claude/local", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
@@ -409,7 +416,7 @@ extension NoteWindow {
             return said
         }
         guard Claude.find() != nil else { throw fail("The claude command was not found. Install Claude Code, or turn AI off in the settings.") }
-        let work = NSTemporaryDirectory() + "mdview-talk-\(ProcessInfo.processInfo.processIdentifier)-\(t.channel)"
+        let work = Claude.workDir("talk")
         try? Lib.fm.removeItem(atPath: work)
         do { try Lib.fm.createDirectory(atPath: work, withIntermediateDirectories: true) } catch { throw fail("Couldn't run claude: \(error.localizedDescription)") }
         defer { try? Lib.fm.removeItem(atPath: work) }
@@ -527,7 +534,7 @@ extension NoteWindow {
             return still() ? (AISVG.clean(fake.replacingOccurrences(of: "TAG", with: tag)), nil) : nil
         }
         guard Claude.find() != nil else { return (nil, "The claude command was not found") }
-        let work = NSTemporaryDirectory() + "mdview-graphic-\(ProcessInfo.processInfo.processIdentifier)-\(mine)"
+        let work = Claude.workDir("graphic")
         try? Lib.fm.removeItem(atPath: work)
         defer { try? Lib.fm.removeItem(atPath: work) }
         do {
