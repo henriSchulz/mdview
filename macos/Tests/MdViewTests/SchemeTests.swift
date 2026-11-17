@@ -35,6 +35,18 @@ final class SchemeTests: ShellTest {
         XCTAssertTrue(wait(5) { self.shown(w) }, "the picture is not shown")
     }
 
+    /// Review of 2026-11-17: a path was decoded twice — a picture named "Shot%202024.png" (a "%20" in its own name,
+    /// as a download may be named) was looked for as "Shot 2024.png", and a link to such a note led nowhere.
+    func testAFileWithAPercentInItsNameIsFound() {
+        picture("Shot%202024.png")
+        let other = write("Re%20ply.md", "# Reply\n")
+        let note = write("Note.md", "# Note\n\n![](Shot%25202024.png)\n\n[the reply](Re%2520ply.md)\n")
+        let w = open(note)
+        XCTAssertTrue(wait(5) { self.shown(w) }, "the picture is not shown")
+        w.link(Page.fileURL(other), tab: false, own: false)
+        XCTAssertTrue(wait(5) { w.path == other }, "the note was not opened: \(w.path ?? "nil")")
+    }
+
     /// Where the link says, it is taken from there (and not from the base folder's assets).
     func testAPictureWhereTheLinkSaysIsTakenFromThere() {
         picture("Sub/assets/z.png")

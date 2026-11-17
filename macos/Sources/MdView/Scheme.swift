@@ -14,7 +14,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler {
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url else { return task.didFailWithError(URLError(.badURL)) }
-        let path = url.path.removingPercentEncoding ?? url.path
+        let path = url.path // (decoded once: a "%20" in a file's own name stays — review 2026-11-17, it was decoded twice)
         if let html = pages[path] {
             return respond(task, url, Data(html.utf8), "text/html")
         } else if path.hasPrefix("/app/") {

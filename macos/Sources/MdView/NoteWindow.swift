@@ -356,8 +356,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         if url.scheme == "md" {
             guard url.path.hasPrefix("/file/") else { return }
             file = String(url.path.dropFirst(5))
-        } else { file = url.path }
-        file = file.removingPercentEncoding ?? file
+        } else { file = url.path } // (URL.path is decoded: once more, a "%20" in a file's own name was a space)
         if !Lib.exists(file), !Lib.isMd(file), Lib.exists(file + ".md") { file += ".md" }
         if !Lib.exists(file) { file = foundAsset(file) }
         let useTab = useTab && !tabs.isEmpty
