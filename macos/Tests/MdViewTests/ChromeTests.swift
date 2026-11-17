@@ -100,6 +100,10 @@ final class ChromeTests: ShellTest {
             shoot(w, look + "-note")
             _ = page(w, "(MdPage.showSidebar(true, false), 1)")
             shoot(w, look + "-sidebar")
+            if look == "dark" {
+                w.chrome?.act("outline"); shoot(w, look + "-outline"); w.chrome?.act("outline")
+                w.chrome?.act("find"); shoot(w, look + "-find"); _ = page(w, "(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 1)")
+            }
             if look == "light" {
                 w.on("tab", ["op": "new"])
                 wait(1)
