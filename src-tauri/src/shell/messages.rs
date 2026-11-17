@@ -138,7 +138,8 @@ impl Win {
             "board-pick" => self.board_pick(app, text_of("path"), &msg["id"]),
             "board-watch" => {
                 // the whiteboards the note shows: their folders are looked at (no more than a few, and only where a board is)
-                self.board_dirs = msg["paths"].as_array().map(Vec::as_slice).unwrap_or_default().iter().filter_map(Value::as_str).map(|p| scan::found(&resolve(Path::new(p)))).filter(|p| is_board(p) && p.is_file()).map(|p| dir_of(&p)).take(8).collect();
+                let paths: Vec<&str> = msg["paths"].as_array().map(Vec::as_slice).unwrap_or_default().iter().filter_map(Value::as_str).collect();
+                self.board_dirs = boards_watched(&paths, |p| scan::found(p));
                 self.watch();
             }
             "pdfdata" => {
@@ -276,8 +277,49 @@ impl Win {
     }
 }
 
+/// The folders of the whiteboards a note shows (no more than eight). One that is not where its link says is looked for —
+/// a walk of the base folder, up to 200 ms each — for a few of them only: for every one, a note naming fifteen boards that
+/// are not there (deleted, not synced yet) held the shell for some three seconds at each change (review 2026-11-17).
+fn boards_watched(paths: &[&str], mut found: impl FnMut(&Path) -> PathBuf) -> HashSet<PathBuf> {
+    let mut looked = 0;
+    paths
+        .iter()
+        .take(16)
+        .filter_map(|p| {
+            let at = resolve(Path::new(p));
+            if at.is_file() {
+                return Some(at);
+            }
+            if looked >= 3 {
+                return None;
+            }
+            looked += 1;
+            Some(found(&at))
+        })
+        .filter(|p| is_board(p) && p.is_file())
+        .map(|p| dir_of(&p))
+        .take(8)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::boards_watched;
+
+    // Review of 2026-11-17: every board not where its link says was looked for, a walk each.
+    #[test]
+    fn boards_that_are_not_there_are_looked_for_a_few_times_only() {
+        let missing: Vec<String> = (0..15).map(|i| format!("/nowhere/mdview-test/b{i}.board.svg")).collect();
+        let paths: Vec<&str> = missing.iter().map(String::as_str).collect();
+        let mut walks = 0;
+        let dirs = boards_watched(&paths, |p| {
+            walks += 1;
+            p.to_path_buf()
+        });
+        assert!(dirs.is_empty());
+        assert_eq!(walks, 3, "every missing board was looked for");
+    }
+
     /// What claude.rs answers is handed to it: every message its `on_claude_message` matches stands in the list on_message
     /// routes to it — "ai-picked", the files chosen for the chat, was left out of it when the shell was split into files,
     /// and what was chosen never came to the chat (#29).
