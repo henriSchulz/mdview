@@ -214,6 +214,7 @@ private struct RecentRow: View {
 extension NoteWindow {
     /// The start screen stands over the page while the window has nothing open, and goes when it has.
     func updateStart() {
+        if let c = chrome { c.update(c.state) } // (the bar: there with a note or a folder, not over the start screen)
         let want = path == nil && folder == nil && !gone
         if !want {
             startHost?.removeFromSuperview()

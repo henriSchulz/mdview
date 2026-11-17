@@ -112,12 +112,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             spare = nil
             w = s
             w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
-            sizeWindow(w, folder: folder != nil)
+            sizeWindow(w, folder: folder, file: file)
             w.takeOver(path: file, folder: folder)
         } else {
             w = NoteWindow(path: file, folder: folder)
             w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
-            sizeWindow(w, folder: folder != nil)
+            sizeWindow(w, folder: folder, file: file)
         }
         w.onClose = { [weak self] w in
             guard let self else { return }
@@ -160,7 +160,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// The size the window was last left with (state: folder_width/height, width/height), kept on a screen it is on; cascaded from the last one.
-    private func sizeWindow(_ w: NoteWindow, folder: Bool) {
+    private func sizeWindow(_ w: NoteWindow, folder f: String?, file: String?) {
+        // (a folder or a note opened before: its window where it stood, as large as it was — on a screen it is on)
+        if let key = f ?? file, let r = Store.shared.frame(of: key),
+           NSScreen.screens.contains(where: { $0.visibleFrame.intersection(r).width > 120 && $0.visibleFrame.intersection(r).height > 120 }),
+           !windows.contains(where: { $0.window.isVisible && $0.window.frame.origin == r.origin }) {
+            return w.window.setFrame(r, display: false)
+        }
+        let folder = f != nil
         let st = Store.shared.state
         let num = { (k: String) in (st[k] as? NSNumber)?.doubleValue }
         let width = folder ? (num("folder_width") ?? 1180) : (num("width") ?? 980)

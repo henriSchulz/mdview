@@ -92,6 +92,17 @@ class ShellTest: XCTestCase {
         w.window.orderBack(nil)
     }
 
+    /// A window as `open` makes it, painted from its start (`paint`: a window first held unseen stays so to WebKit).
+    func openPainted(_ path: String? = nil, folder: String? = nil, file: StaticString = #filePath, line: UInt = #line) -> NoteWindow {
+        let w = NoteWindow(path: path, folder: folder)
+        paint(w)
+        windows.append(w)
+        AppDelegate.shared.windows.append(w)
+        w.onClose = { w in AppDelegate.shared.windows.removeAll { $0 === w } }
+        XCTAssertTrue(wait(15) { w.ready }, "the page did not come up", file: file, line: line)
+        return w
+    }
+
     /// What a script says in the window's page (a promise is waited for).
     func page(_ w: NoteWindow, _ script: String) -> Any? {
         var result: Any?
