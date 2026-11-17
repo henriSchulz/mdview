@@ -78,7 +78,7 @@ fn ink_save(pdf: &Path, base: &Path, text: &str, empty: bool) -> Result<(), Stri
     if !text.contains(BOARD_MARK) {
         return Err("not a whiteboard".into());
     }
-    fs::create_dir_all(dir_of(&file)).and_then(|()| fs::write(&file, text.as_bytes())).map_err(|e| strerror(&e))
+    fs::create_dir_all(dir_of(&file)).and_then(|()| write_whole(&file, text.as_bytes())).map_err(|e| strerror(&e))
 }
 
 impl Win {
@@ -194,7 +194,7 @@ impl Win {
         }
         new.extend_from_slice(markup.as_bytes());
         new.extend_from_slice(nl);
-        if let Err(e) = fs::write(&note, &new) {
+        if let Err(e) = write_whole(&note, &new) {
             self.toast(format!("Couldn't save: {}", strerror(&e)));
             let _ = fs::remove_file(&target);
             return;
@@ -336,7 +336,7 @@ impl Win {
         let done = if !is_board(&p) || !p.is_file() || !text.contains(BOARD_MARK) {
             Err("not a whiteboard".to_string())
         } else {
-            fs::write(&p, text.as_bytes()).map_err(|e| strerror(&e))
+            write_whole(&p, text.as_bytes()).map_err(|e| strerror(&e)) // (whole or not at all: a full disk left a board cut off)
         };
         self.js("MdView.boardSaved", &[id.clone(), done.err().map(|e| json!(e)).unwrap_or(Value::Null)]);
     }

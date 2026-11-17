@@ -47,7 +47,7 @@ fn read(root: &Path) -> BTreeMap<String, Value> {
 /// change different lines.
 fn write(root: &Path, shares: &BTreeMap<String, Value>) -> Result<(), String> {
     let text = serde_json::to_string_pretty(&json!({ "version": 1, "shares": shares })).map_err(|e| e.to_string())? + "\n";
-    fs::create_dir_all(root.join(".mdview")).and_then(|()| fs::write(root.join(FILE), text)).map_err(|e| e.to_string())
+    fs::create_dir_all(root.join(".mdview")).and_then(|()| crate::shell::write_whole(&root.join(FILE), text.as_bytes())).map_err(|e| e.to_string())
 }
 
 fn find(shares: &BTreeMap<String, Value>, rel: &str) -> Option<String> {

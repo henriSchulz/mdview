@@ -88,7 +88,7 @@ impl Store {
         if let Some(dir) = self.file.parent() {
             let _ = fs::create_dir_all(dir);
         }
-        let _ = fs::write(&self.file, Value::Object(all.clone()).to_string());
+        let _ = crate::shell::write_whole(&self.file, Value::Object(all.clone()).to_string().as_bytes());
     }
 
     fn stashed(&self, file: &Path) -> PathBuf {

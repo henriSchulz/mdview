@@ -26,7 +26,7 @@ impl Win {
                 // (only a note this window knows, written as any change from outside: the watcher shows it)
                 let known = self.path.as_deref() == Some(path.as_path()) || self.note_paths.contains(text_of("path"));
                 match history::text(&path, text_of("id"), msg["at"].as_str()).ok().filter(|_| known && is_md(&path)) {
-                    Some(bytes) => match fs::write(&path, bytes) {
+                    Some(bytes) => match write_whole(&path, &bytes) {
                         Ok(()) => {
                             app.touch(&path);
                             self.js("MdView.historyRestored", &[json!({ "path": s(&path), "id": text_of("id") })]);

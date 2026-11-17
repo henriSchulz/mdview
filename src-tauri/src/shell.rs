@@ -285,6 +285,13 @@ fn can_write(path: &Path) -> bool {
     }
 }
 
+/// The mark of the file write_whole makes beside the one it writes (".Note.md.mdview-<pid>"): no file of the
+/// folder, and never kept in its history (history.rs snapshot).
+pub(crate) const BESIDE: &str = ".mdview-";
+pub(crate) fn is_beside(name: &str) -> bool {
+    name.starts_with('.') && name.rsplit_once(BESIDE).is_some_and(|(_, pid)| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// A file written whole or not at all: beside it under another name first, then put in its place
 /// — a full disk, a quota run out or a crash in the middle leaves the file as it was, not cut off.
 /// A link is followed (the file it names is what is written), the file keeps its permissions. Only
@@ -293,11 +300,11 @@ fn can_write(path: &Path) -> bool {
 /// the file beside it was begun is an error, and the file stays as it was. (Review 2026-11-17: every
 /// error but errno 28 fell back to writing in place — a full disk on Windows, a quota, EFBIG, EIO —
 /// and that cut the note off, the very thing this is for.)
-fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_whole(path: &Path, data: &[u8]) -> std::io::Result<()> {
     use std::io::ErrorKind;
     let real = crate::scan::canon(path).unwrap_or_else(|_| path.to_path_buf());
     let Some(name) = real.file_name().map(|n| n.to_string_lossy().into_owned()) else { return fs::write(path, data) };
-    let beside = real.with_file_name(format!(".{name}.mdview-{}", std::process::id()));
+    let beside = real.with_file_name(format!(".{name}{BESIDE}{}", std::process::id()));
     let refused = |e: &std::io::Error| e.kind() == ErrorKind::PermissionDenied;
     let open = || fs::OpenOptions::new().write(true).create_new(true).open(&beside);
     // (one left over by a run that ended in the middle, under this process's number: it goes)

@@ -282,6 +282,10 @@ pub fn snapshot(root: &Path, stamp: &Stamp) -> Res<Snapshot> {
                 if inner.has(path) {
                     return 1; // (another repository's: a project of its own, or someone's)
                 }
+                // (a file being written whole, beside the one it will be: never kept — review 2026-11-17)
+                if path.file_name().is_some_and(|n| crate::shell::is_beside(&n.to_string_lossy())) {
+                    return 1;
+                }
                 let big = fs::metadata(root.join(path)).is_ok_and(|m| m.is_file() && m.len() > BIG);
                 if big {
                     skipped.push(path.to_string_lossy().into_owned());
@@ -848,6 +852,22 @@ mod tests {
         assert_eq!(snapshot(&d.0, &stamp()).unwrap().commit, None);
         assert_eq!(place_of(&inner), Place::Project(d.0.join("own"))); // (it is its own project's)
         assert!(snapshot(&d.0.join("own"), &stamp()).unwrap().commit.is_some());
+    }
+
+    // Review of 2026-11-17: a file being written whole lies beside the note for a moment — and a snapshot then took it in.
+    #[test]
+    fn a_file_being_written_whole_is_never_kept() {
+        let d = Dir::new();
+        d.write("Note.md", "one\n");
+        d.write(".Note.md.mdview-4242", "half of it");
+        d.write(".notes.mdview-folder", "a file of the user's, named so"); // (no number after it: not one of ours)
+        enable(&d.0).unwrap();
+        snapshot(&d.0, &stamp()).unwrap();
+        let repo = Repository::open(&d.0).unwrap();
+        let tree = repo.head().unwrap().peel_to_tree().unwrap();
+        assert!(tree.get_path(Path::new("Note.md")).is_ok());
+        assert!(tree.get_path(Path::new(".Note.md.mdview-4242")).is_err(), "the file being written was kept");
+        assert!(tree.get_path(Path::new(".notes.mdview-folder")).is_ok());
     }
 
     // Review of 2026-11-17: what the inner project kept of its own was deleted with its marker.

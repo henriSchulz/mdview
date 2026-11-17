@@ -37,7 +37,7 @@ fn write(root: &Path, hidden: &BTreeSet<String>) -> Result<(), String> {
         return Ok(());
     }
     let text = serde_json::to_string_pretty(&json!({ "version": 1, "hidden": hidden })).map_err(|e| e.to_string())? + "\n";
-    fs::create_dir_all(root.join(".mdview")).and_then(|()| fs::write(root.join(FILE), text)).map_err(|e| e.to_string())
+    fs::create_dir_all(root.join(".mdview")).and_then(|()| crate::shell::write_whole(&root.join(FILE), text.as_bytes())).map_err(|e| e.to_string())
 }
 
 /// What is hidden, as whole paths (as the scan names what it walks).
