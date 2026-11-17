@@ -1747,7 +1747,8 @@
     if (e.key === " ") { space = false; delete stage().dataset.space; }
   }
   const hidden = () => { if (document.visibilityState === "hidden") save(); };
-  const saveNow = () => save(true), saveLater = () => save();
+  // (the window left with Space held: its keyup comes to another app — every pull moved the board until Space was pressed again)
+  const saveNow = () => save(true), saveLater = () => { space = false; if (S) delete stage().dataset.space; save(); };
 
   // ---------------------------------------------------------------- opening and closing
   /* The place the board grows out of and goes back into: its picture in the note. */

@@ -47,4 +47,19 @@ final class BoardTests: ShellTest {
         XCTAssertEqual(kept.count, 2, "the file does not hold the board as it is shown:\n" + kept.joined(separator: "\n"))
         XCTAssertTrue(kept.contains(first[0]), "the first stroke is not in the file as it was drawn")
     }
+
+    /// Review of 2026-11-17: Space held to move the board, the window left, Space let go in another app — every pull moved
+    /// the board from then on, and nothing could be drawn until Space was pressed again.
+    func testSpaceHeldWhenTheWindowIsLeftIsLetGo() throws {
+        let sample = Lib.join(ShellTest.checkout, "web/public/welcome/samples/Empty.board.svg")
+        let board = write("assets/S.board.svg", read(sample))
+        let w = open(write("N.md", "# Sketch\n\n![](assets/S.board.svg)\n"))
+        page(w, "(MdPage.openBoardFile(\(jsonString(board))), 1)")
+        XCTAssertTrue(wait(10) { (self.page(w, "!!document.querySelector('#board[data-ready]')") as? Bool) == true }, "the board did not open")
+        page(w, "(document.getElementById('board').dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true })), 1)")
+        XCTAssertEqual(page(w, "document.querySelector('#board .bd-stage').dataset.space !== undefined") as? Bool, true, "Space did not take hold")
+        page(w, "(dispatchEvent(new Event('blur')), 1)")
+        XCTAssertEqual(page(w, "document.querySelector('#board .bd-stage').dataset.space === undefined") as? Bool, true, "Space is still held after the window was left")
+    }
 }
+

@@ -99,6 +99,7 @@
       if (e.pointerType === "pen") { // the pen comes down: whatever fingers were doing is over (they are the hand that holds it)
         pen.down = true; pen.last = e.timeStamp;
         if (fingers.size) { fingers.clear(); pinch = null; if (twist) { twist = null; on.twisted(); } }
+        touched = null; // (the hand's touches are no tap of so many fingers: lifted, they undid the stroke just drawn — review 2026-11-17)
         if (drag) { clearTimeout(drag.hold); drag = null; delete stage.dataset.panning; }
         if (tool != null && toolType === "touch") { tool = null; on.cancel(); }
       }
@@ -197,6 +198,8 @@
     const up = (e, cancelled) => {
       if (e.pointerType === "pen") { pen.down = false; pen.last = e.timeStamp; }
       if (fingers.delete(e.pointerId) && fingers.size < 2) { pinch = null; if (twist) { twist = null; on.twisted(); } }
+      // (three were down, two are left: the pinch goes on from where these two are — from the two before, the board jumped)
+      if (fingers.size === 2 && pinch) pinch = span();
       // (two fingers leave the board where they left it: they never lift together, and what the one left behind does last —
       // the middle between them jumping to it — is no direction to run on in)
       // two fingers, or three, that touched the board and left it at once without moving: a tap of so many fingers

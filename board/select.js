@@ -38,7 +38,8 @@
     // ------------------------------------------------------------ changes that can be taken back
     const plain = (s) => s.model.items.filter((it) => it.k !== "ink");
     // (an item as its text; a stroke of ink by what can change of it here — where its points are, its colour — which is cheap to keep for many)
-    const snap = () => ({ items: [...S().model.items], data: new Map(S().model.items.map((it) => [it, it.k === "ink" ? { pts: it.pts, c: it.c, w: it.w } : JSON.stringify(it)])) });
+    // (and what its points are: Improve draws a pencil's stroke anew with fewer channels — taken back without them, its tilt was lost)
+    const snap = () => ({ items: [...S().model.items], data: new Map(S().model.items.map((it) => [it, it.k === "ink" ? { pts: it.pts, ch: it.ch, c: it.c, w: it.w } : JSON.stringify(it)])) });
     function restore(s) {
       const st = S();
       st.model.items = [...s.items];
@@ -49,7 +50,7 @@
       }
       st.pick = st.pick.filter((it) => st.model.items.includes(it));
     }
-    const alike = (x, y) => (typeof x === "string" || typeof y === "string" ? x === y : !!x && !!y && x.pts === y.pts && x.c === y.c && x.w === y.w);
+    const alike = (x, y) => (typeof x === "string" || typeof y === "string" ? x === y : !!x && !!y && x.pts === y.pts && x.ch === y.ch && x.c === y.c && x.w === y.w);
     const same = (a, b) => a.items.length === b.items.length && a.items.every((it, i) => it === b.items[i]) && [...b.data].every(([it, now]) => alike(a.data.get(it), now));
     /* What was done since `before` is one step. → whether anything was. */
     function commit(before) {
