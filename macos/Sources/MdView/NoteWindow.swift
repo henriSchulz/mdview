@@ -91,6 +91,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     /// A window made before it is asked for (AppDelegate.spare): its page loaded, nothing shown, not on the screen and
     /// not among the app's windows — taken over by the next window opened (takeOver), so that one is there at once.
     private(set) var isSpare = false
+    /// The window's bar, the system's (MacChrome.swift).
+    var chrome: MacChrome?
 
     init(path: String?, folder: String?, spare: Bool = false) {
         let cfg = WKWebViewConfiguration()
@@ -100,6 +102,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         if Lib.headless, #available(macOS 14, *) { cfg.preferences.inactiveSchedulingPolicy = .none }
         // (the start screen is the system's here — StartView.swift — and not the page's)
         cfg.userContentController.addUserScript(WKUserScript(source: NoteWindow.noPageStart, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(WKUserScript(source: MacChrome.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         web = FilesWebView(frame: .zero, configuration: cfg)   // (Files.swift: takes files dropped from Finder)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: folder != nil ? 1180 : 980, height: 780),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -107,6 +110,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         super.init()
         scheme.topOf = { [weak self] p in self?.topOf(p) }
         cfg.userContentController.add(self, name: "msg")
+        cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "ask") // (what the page waits for: NativeMenu.swift)
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         let ground = NSView()
@@ -118,6 +122,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         window.isReleasedWhenClosed = false
         window.title = "Markdown Notes"
         window.tabbingMode = .disallowed
+        chrome = MacChrome(self)
         window.center()
         // (a folder's page is asked for before its scan: the web process starts and the page comes while the folder is read)
         if let folder { loadShell(); setFolder(folder) } else if let path { openPath(path, push: false) } else { loadShell() }
@@ -192,6 +197,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         let frag = pendingFragment; pendingFragment = nil
         render(fragment: frag)
         if path == nil && folder == nil { js("MdView.clear", [["recents": store.recents()]]) }
+        chrome?.tellHeight()
         if isSpare { js("MdView.warm") } // (what the first note and mode would load, loaded while nobody waits)
         pageLoaded()
     }
@@ -475,6 +481,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         }
         switch type {
         case "startcovered": startCovered(truthy(msg["on"]))
+        case "macbar": chrome?.update(msg)
         case "link": link(str("href"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "wikilink": wikilink(str("target"), tab: truthy(msg["tab"]), own: (msg["tab"] as? String) == "own")
         case "tab": tabOp(msg)
@@ -593,10 +600,12 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         reloadItem?.cancel(); rescanItem?.cancel(); freshItem?.cancel()
         // (the page's message handler holds the window: without this, no closed window — nor its page — is ever let go)
         web.configuration.userContentController.removeScriptMessageHandler(forName: "msg")
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "ask", contentWorld: .page)
         web.navigationDelegate = nil
         web.stopLoading()
         // (a spare was never seen: its size is nobody's)
         if !isSpare {
+            if let key = folder ?? path { store.keep(frame: window.frame, of: key) } // (the next opening of it stands here)
             store.set(folder != nil ? "folder_width" : "width", Int(window.frame.width))
             store.set(folder != nil ? "folder_height" : "height", Int(window.frame.height))
         }

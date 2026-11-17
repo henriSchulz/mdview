@@ -64,6 +64,23 @@ in `NoteWindow.on` or handed to the area's `handleFiles` / `handleSearch` / `han
 - **No updates**: a build from the sources never looks for a newer version (no notice, Settings › About says so).
 - **Files** are opened from Finder (Open With, document types for Markdown, text, folders, PDFs), from
   `bin/mdview-mac`, or by `mdview://open?path=…` / `mdview://quick`. A second start hands its files to the running app.
+- **The window's bar is the system's** (MacChrome.swift): the title bar is clear and holds no title; an NSToolbar holds
+  what the page's strip and capsule held — the sidebar, back and forward, All Notes (Sync Now while linked, Open Its
+  Folder in a note's own window); the outline, find, share and the modes — as SF Symbols, in the row of the window's
+  buttons, which stand in the sidebar's card while it is pinned. A button of the bar clicks the page's own (unseen,
+  still laid out: what hangs from one hangs under the bar's), and the page says how its buttons stand (`macbar`, from a
+  script of the window's: MacChrome.script) — what they do is the page's alone. The page is told the bar's height
+  (`--mac-bar`); the note, the sidebar and All Notes begin under it and go on under it, seen through a blurred band
+  (`#mac-bar`). Two tabs or more stand in a row under the bar (`data-mac-tabs`), as the Finder's and Safari's. The
+  start screen has no bar; full screen and the focus mode have none either. The colours of the system are the page's:
+  its accent and its highlight (System Settings › Appearance, followed live), where Velum gives none. A folder's or a
+  note's window opens where it was closed, as large as it was (state: `frames`); a new one, a step down from the last.
+- **Menus are the system's.** A menu of plain rows the page would draw — the right click on text, a file or a folder (in
+  the sidebar, on a tile, on a tab), the "+" and history buttons, a block's or a table's, a whiteboard's — is handed to the
+  shell (`MdHost.menu`, viewer/base.js `hostMenu`; NativeMenu.swift) and shown as an NSMenu: the Finder's signs (SF
+  Symbols, by command — the page's own drawing where there is none), its keys as the system shows them (Ctrl is ⌘), ticks,
+  a menu beside, the system's highlight. The page's own stays "open", unseen (`data-hosted`), for whatever waits for it to
+  go. Menus with more than rows (the "/" menu, a searched one, colours and signs, a choice in a field) stay the page's.
 - **The start screen** (a window with nothing open) is drawn by the system, not by the page (`StartView.swift`;
   the page's own is hidden): the app's icon, Open Folder… and Open File… as the system's buttons, the folders opened
   last (up to six, fewer in a low window) with Finder's icon for each and where it lies. A click opens a folder in

@@ -31,6 +31,14 @@ final class FilesWebView: WKWebView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    /// The last right click on the page: a menu the page asks for after it is shown where the system shows its own
+    /// (NativeMenu.swift).
+    var lastRightDown: NSEvent?
+    override func rightMouseDown(with event: NSEvent) {
+        lastRightDown = event
+        super.rightMouseDown(with: event)
+    }
+
     private func lend(_ info: NSDraggingInfo?) {
         let urls = (info?.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
         evaluateJavaScript("window.__mdDropURIs=\(jsonString(urls.map { $0.absoluteString }))", completionHandler: nil)

@@ -66,6 +66,12 @@ struct Theme {
         }
         var colors = dark ? Theme.dark : Theme.light
         for k in keys { if let v = data[k], let i = colors.firstIndex(where: { $0.0 == k }) { colors[i].1 = v } }
+        if !velum {
+            // (the system's own accent and highlight, as every application of the Mac takes them — System Settings › Appearance)
+            for (k, c) in [("accent", NSColor.controlAccentColor), ("selection", NSColor.selectedTextBackgroundColor)] {
+                if let v = hex(c, dark: dark), let i = colors.firstIndex(where: { $0.0 == k }) { colors[i].1 = v }
+            }
+        }
         var theme = Theme(mode: dark ? "dark" : "light", colors: colors, variant: nil)
         if let m = data["mode"], m == "light" || m == "dark" { theme.mode = m }
         else if let bg = colors.first(where: { $0.0 == "background" }) { theme.mode = luminance(bg.1) > 0.5 ? "light" : "dark" }
@@ -75,6 +81,17 @@ struct Theme {
             theme.tablet = (j["tablet"] as? Bool) ?? false
         }
         return theme
+    }
+
+    /// A colour of the system's as the page writes colours, in the light or dark it is shown in.
+    static func hex(_ c: NSColor, dark: Bool) -> String? {
+        var out: String?
+        NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            guard let s = c.usingColorSpace(.sRGB) else { return }
+            let v = { (x: CGFloat) in Int((max(0, min(1, x)) * 255).rounded()) }
+            out = String(format: "#%02x%02x%02x", v(s.redComponent), v(s.greenComponent), v(s.blueComponent))
+        }
+        return out
     }
 
     func color(_ k: String) -> String { colors.first { $0.0 == k }?.1 ?? "#ffffff" }
@@ -111,6 +128,7 @@ final class ThemeCenter: NSObject {
         current = Theme.load()
         observer = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in DispatchQueue.main.async { self?.changed() } }
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(changedNote), name: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(changedNote), name: NSColor.systemColorsDidChangeNotification, object: nil) // (the accent chosen anew)
         watchVelum()
     }
 

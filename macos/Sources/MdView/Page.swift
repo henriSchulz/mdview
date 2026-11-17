@@ -57,7 +57,7 @@ enum Page {
     static func html(prefs: String, baseDir: String, dark: Bool, mode: String) -> String {
         let theme = ThemeCenter.shared.current
         let a = origin + "/app"
-        let host = "window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {}; window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")) };"
+        let host = "window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {}; window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")), menu: (spec) => window.webkit.messageHandlers.ask.postMessage({ type: 'menu', spec }) };"
         // Only the page's own scripts run — those it loads later carry the same nonce (viewer/base.js NONCE) —,
         // never a handler or a javascript: link in a note's HTML (shell.rs load_shell: the same policy).
         let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
