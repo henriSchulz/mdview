@@ -732,13 +732,16 @@
     if (seen) return seen;
     return { title: /^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}/.test(n.name) ? T("New Note") : n.name, says: "" }; // (until its beginning is read: its file's name — the time it was made at says nothing)
   }
+  // (made once: toLocaleDateString makes a formatter at every call — All Notes' 417 rows took 33 ms for their dates, 1 ms so)
+  let whenFmt = null;
   function quickWhen(secs) {
     if (!secs) return "";
     const d = new Date(secs * 1000), now = new Date(), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(), days = Math.round((day(now) - day(d)) / 86400000);
-    if (days <= 0) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    whenFmt = whenFmt || { time: new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }), day: new Intl.DateTimeFormat(undefined, { weekday: "long" }), date: new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "2-digit" }) };
+    if (days <= 0) return whenFmt.time.format(d);
     if (days === 1) return T("Yesterday");
-    if (days < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
-    return d.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "2-digit" });
+    if (days < 7) return whenFmt.day.format(d);
+    return whenFmt.date.format(d);
   }
   let quickAsked = false, quickFilter = "";
   function quickPaint() {

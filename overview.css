@@ -13,6 +13,7 @@
   visibility: hidden;
   transition: opacity var(--dur-overview-exit) var(--ease-out), visibility 0s linear var(--dur-overview-exit);
 }
+#overview[data-rest] { content-visibility: hidden; } /* (shut and faded: neither styled nor laid out — overview.js close) */
 #overview[data-open] { opacity: 1; visibility: visible; transition: opacity var(--dur-overview) var(--ease-in-out), visibility 0s; }
 /* (the note under it does not scroll along: overview.js holds it, lockScroll — a rule that takes
  * the page's scrollbar away would lay the whole note out anew, twice) */
@@ -194,6 +195,9 @@ body[data-mode="dark"] .ov-thumb { background: color-mix(in srgb, var(--fg) 18%,
   opacity: 0;
   transition: opacity var(--dur-overview-exit) var(--ease-out);
 }
+/* (a row out of sight is laid out and drawn when it comes near — All Notes over 417 notes, each row with its beginning in
+ * small, laid out what shows: content-visibility; its height until then is a row's, and once seen its own) */
+.ov-row { content-visibility: auto; contain-intrinsic-size: auto 60px; }
 #overview[data-open] .ov-row { opacity: 1; transition: opacity var(--dur-base) var(--ease-out) calc(var(--i, 0) * var(--stagger-step)), background-color var(--dur-fast) var(--ease-out), outline-color var(--dur-fast) var(--ease-out); }
 #overview[data-open] .ov-row:hover, .ov-row.ctx-target { background: var(--sb-hover); transition-duration: var(--dur-base), var(--dur-instant), var(--dur-instant); }
 #overview[data-open] .ov-row:active { background: var(--sb-selected); }
