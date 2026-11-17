@@ -421,6 +421,21 @@ fn beside(path: &str, device: &str) -> String {
     format!("{}{}{stem} ({}){ext}", dir, if dir.is_empty() { "" } else { "/" }, if device.is_empty() { "other device" } else { &device })
 }
 
+/// … a name for it that no file of the joined tree has, nor one on the disk: "Note (Laptop) 2.md" where
+/// "Note (Laptop).md" is — an earlier conflict's copy, perhaps written in since, which "both" replaced
+/// in the join (review 2026-11-17).
+fn free_beside(joined: &git2::Index, root: &Path, path: &str, device: &str) -> String {
+    let first = beside(path, device);
+    let taken = |p: &str| joined.get_path(Path::new(p), 0).is_some() || root.join(p).exists();
+    if !taken(&first) {
+        return first;
+    }
+    let (dir, name) = first.rsplit_once('/').map_or(("", first.as_str()), |(d, n)| (d, n));
+    let (stem, ext) = name.rsplit_once('.').filter(|(s, _)| !s.is_empty()).map_or((name, String::new()), |(s, e)| (s, format!(".{e}")));
+    let slash = if dir.is_empty() { "" } else { "/" };
+    (2..).map(|n| format!("{dir}{slash}{stem} {n}{ext}")).find(|c| !taken(c)).unwrap_or(first.clone())
+}
+
 /// The user said how it is to be: for every file in conflict a pick — { text } (what the file
 /// is to be), or { take: "mine" | "theirs" | "both" } (both: theirs beside mine, under a name
 /// with their device in it). Joined with those, the folder follows and it goes over. expect:
@@ -460,7 +475,8 @@ fn resolve_in(root: &Path, expect: &str, picks: &serde_json::Map<String, Value>,
             (Some("mine"), None, _) | (Some("theirs"), _, None) => {} // (deleted on that side: gone)
             (Some("both"), Some(o), Some(t)) => {
                 put(&mut joined, entry(&path, o.id, o.mode))?;
-                put(&mut joined, entry(beside(&name, &their_device).as_bytes(), t.id, t.mode))?;
+                let free = free_beside(&joined, root, &name, &their_device);
+                put(&mut joined, entry(free.as_bytes(), t.id, t.mode))?;
             }
             (Some("both"), Some(e), None) | (Some("both"), None, Some(e)) => put(&mut joined, entry(&path, e.id, e.mode))?, // (the one that is there)
             _ => return Err(format!("nothing said for {name}")),
@@ -866,6 +882,19 @@ mod tests {
         assert_eq!(sync(&b, "b"), Standing::Pulled(2));
         assert_eq!(read(&b, "note.md"), read(&a, "note.md"));
         assert!(b.join("pic (b).png").exists());
+    }
+
+    // Review of 2026-11-17: "both" put theirs under the name an earlier conflict's copy has — and replaced it in the join.
+    #[test]
+    fn both_kept_never_takes_the_place_of_an_earlier_copy() {
+        let d = Dir::new();
+        let (_hub, a, _b) = at_odds(&d);
+        fs::write(a.join("pic (b).png"), [1u8, 1, 1]).unwrap(); // (the copy an earlier conflict left, written in since)
+        let expect = conflicts(&a).unwrap()["theirs"].as_str().unwrap().to_string();
+        let picks = json!({ "note.md": { "take": "mine" }, "pic.png": { "take": "both" }, "gone.md": { "take": "theirs" } });
+        assert!(matches!(resolve(&a, &expect, picks.as_object().unwrap(), &Access::default(), &stamp("a")), Standing::Pushed(_)));
+        assert_eq!(fs::read(a.join("pic (b).png")).unwrap(), [1u8, 1, 1], "the earlier copy was replaced");
+        assert_eq!(fs::read(a.join("pic (b) 2.png")).unwrap(), [0u8, 9, 9, 9]);
     }
 
     #[test]
