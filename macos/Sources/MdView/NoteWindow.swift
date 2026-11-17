@@ -125,9 +125,11 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // the page leaves by messages, never by a link followed in the view
-        if action.navigationType == .linkActivated, let u = action.request.url { link(u.absoluteString, tab: false, own: false) }
-        decisionHandler(action.navigationType == .linkActivated ? .cancel : .allow)
+        // the page leaves by messages, never by a link followed in the view — and the view shows nothing but the page
+        if action.navigationType == .linkActivated, let u = action.request.url { link(u.absoluteString, tab: false, own: false); return decisionHandler(.cancel) }
+        let u = action.request.url
+        let ownPage = u?.scheme == "md" && u?.host == "localhost" && (u?.path.hasPrefix("/shell/") ?? false)
+        decisionHandler(action.targetFrame?.isMainFrame == false || ownPage ? .allow : .cancel)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { loadShell(force: true) }

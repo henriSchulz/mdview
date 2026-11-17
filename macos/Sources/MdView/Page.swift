@@ -41,11 +41,18 @@ enum Page {
         let theme = ThemeCenter.shared.current
         let a = origin + "/app"
         let host = "window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {}; window.MdHost = { post: (m) => { window.webkit.messageHandlers.msg.postMessage(m); }, files: \(jsonString(origin + "/file")) };"
-        var scr = "<script>\(host)window.MdPrefs = \(prefs);</script>"
-        for s in scripts { scr += "<script src=\"\(a)/\(s)\"></script>" }
+        // Only the page's own scripts run — those it loads later carry the same nonce (viewer/base.js NONCE) —,
+        // never a handler or a javascript: link in a note's HTML (shell.rs load_shell: the same policy).
+        let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let csp = "default-src 'none'; script-src 'nonce-\(nonce)'; style-src 'unsafe-inline' md: https:; "
+            + "img-src md: data: blob: https: http:; font-src md: data:; media-src md: https: http:; connect-src 'none'"
+        let prefs = prefs.replacingOccurrences(of: "</", with: "<\\/")
+        var scr = "<script nonce=\"\(nonce)\">\(host)window.MdPrefs = \(prefs);</script>"
+        for s in scripts { scr += "<script nonce=\"\(nonce)\" src=\"\(a)/\(s)\"></script>" }
         let base = escape(fileURL(baseDir) + "/")
         let links = styles.map { "<link rel='stylesheet' href='\(a)/viewer/\($0).css'>" }.joined()
-        return "<!doctype html><html lang='en'\(theme.htmlAttrs)><head><meta charset='utf-8'><base href='\(base)'>"
+        return "<!doctype html><html lang='en'\(theme.htmlAttrs)><head><meta charset='utf-8'>"
+            + "<meta http-equiv='Content-Security-Policy' content=\"\(csp)\"><base href='\(base)'>"
             + "<link rel='stylesheet' href='\(a)/velum.css'><link rel='stylesheet' href='\(a)/motion.css'>"
             + "<style id='theme'>\(theme.css)</style>"
             + "<link rel='stylesheet' href='\(a)/vendor/katex/katex.min.css'>\(links)"
