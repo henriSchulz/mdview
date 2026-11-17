@@ -207,7 +207,12 @@ enum Paste {
     /// Is this the pasteboard's copy? Its changing is no change of the project.
     static func isCopy(_ path: String) -> Bool { Lib.name(path).hasPrefix("pasteboard.md") && Lib.name(Lib.dir(path)) == ".mdview" }
 
+    /// One at a time: a put and the waiting get it releases come back together, on two threads — `kept` was changed by
+    /// both at once (a dictionary written from two threads), and an older text could be written last (review 2026-11-17).
+    private static let keeping = NSLock()
+
     static func keep(_ root: String, _ text: String, _ rev: Int) {
+        keeping.lock(); defer { keeping.unlock() }
         if let last = kept[root], last > rev { return }
         kept[root] = rev
         let f = Lib.join(root, file)
