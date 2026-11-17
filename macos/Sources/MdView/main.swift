@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             else { files.forEach { openArg($0) } }
         }
         NSApp.activate(ignoringOtherApps: true)
+        spareSoon()
     }
 
     /// Started by a file or an address (open events come right after launch): no bare window of its own then.
@@ -105,9 +106,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // a window that shows it already comes forward
         if let f = folder, let w = windows.first(where: { $0.folder == f }) { w.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
         if let f = file, let w = windows.first(where: { $0.path == f }) { w.window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
-        let w = NoteWindow(path: file, folder: folder)
-        w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
-        sizeWindow(w, folder: folder != nil)
+        let w: NoteWindow
+        if let s = spare, s.ready {
+            // the page of the spare is up already: what is asked for is shown in it, now
+            spare = nil
+            w = s
+            w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
+            sizeWindow(w, folder: folder != nil)
+            w.takeOver(path: file, folder: folder)
+        } else {
+            w = NoteWindow(path: file, folder: folder)
+            w.window.backgroundColor = ThemeCenter.shared.current.backgroundColor
+            sizeWindow(w, folder: folder != nil)
+        }
         w.onClose = { [weak self] w in
             guard let self else { return }
             self.windows.removeAll { $0 === w }
@@ -115,6 +126,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         windows.append(w)
         NSApp.activate(ignoringOtherApps: true)
+        spareSoon()
+    }
+
+    // MARK: the spare window
+
+    /// A window whose page is loaded before it is asked for (NoteWindow.isSpare): the next one opened is there at once,
+    /// not half a second later. One at a time; made a while after a window opened (not to slow that one down).
+    var spare: NoteWindow?
+    /// Off in the tests unless a test turns it on (MDVIEW_HEADLESS windows are made by the tests themselves).
+    var sparesOn = !Lib.headless
+    private var spareItem: DispatchWorkItem?
+
+    func spareSoon(after: Double = 1.5) {
+        guard sparesOn, spare == nil else { return }
+        spareItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in self?.makeSpare() }
+        spareItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + after, execute: item)
+    }
+
+    func makeSpare() {
+        guard sparesOn, spare == nil else { return }
+        spare = NoteWindow(path: nil, folder: nil, spare: true)
+    }
+
+    /// The spare's page no longer is what a new one would be (the theme, the settings): it goes, another comes later.
+    func dropSpare() {
+        spareItem?.cancel()
+        spare?.dispose()
+        spare = nil
+        spareSoon(after: 3)
     }
 
     /// The size the window was last left with (state: folder_width/height, width/height), kept on a screen it is on; cascaded from the last one.

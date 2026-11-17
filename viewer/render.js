@@ -335,6 +335,19 @@
     if (img && !img.complete) img.addEventListener("load", go, { once: true });
   }
 
+  /* A page loaded ahead of its window (the macOS shell's spare window, MdView.warm): what the first note and the first
+   * change of mode would fetch and compile is fetched and compiled now, while nobody waits for it — the active mode's
+   * scripts, mermaid with a diagram drawn once, and the Markdown renderer once over a little of everything. Nothing of
+   * it is shown, and nothing is said to the host. */
+  const WARM = "---\ntags: [a]\n---\n# A\n\nText with **bold**, *it*, `code`, [a link](x.md), [[Note]] and $x^2$.\n\n" +
+    "- [ ] a task\n- item\n  1. inner\n\n> [!note] A callout\n> its text\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n" +
+    "```js\nconst a = 1;\n```\n\n$$\n\\int_0^1 x\\,dx\n$$\n\nA note.[^1]\n\n[^1]: Its text.\n";
+  function warm() {
+    if (!P.activeLoad) P.loadActive().catch(() => {});
+    try { noteHtml({ links: {} }, WARM); } catch (e) {}
+    loadMermaid().then(() => { configureMermaid(); return mermaid.render("mdwarm" + Date.now(), "graph TD\n  a --> b"); }).catch(() => {});
+  }
+
   // --- mermaid (loaded on demand, ~2.7 MB)
   let mermaidLoad = null, mermaidKey = "", mermaidSeq = 0;
   const mermaidCache = new Map();
@@ -397,6 +410,12 @@
     }
     if (gen !== generation) return;
     configureMermaid();
+    // (a diagram to be drawn takes a tenth of a second and more, all of it in one go: the note is put on the screen
+    // first — with mermaid there already (a page warmed, MdView.warm) it would wait for its diagrams, unseen)
+    if (blocks.some((pre) => !mermaidCache.has(pre.textContent))) {
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+      if (gen !== generation) return;
+    }
     for (const pre of blocks) {
       const host = pre.parentElement, src = pre.textContent;
       let out = mermaidCache.get(src);
@@ -458,7 +477,7 @@
 
   // what the page's other files use of this one
   Object.assign(P, { markNote, placeOf, going, render, clear, draw, noteHtml, shownRoot, captureAnchor, restoreAnchor,
-    elementById, scrollToFragment, reducedMotion, scrollToEnd, renderMermaid, mermaidSvg, setTheme });
+    elementById, scrollToFragment, reducedMotion, scrollToEnd, renderMermaid, mermaidSvg, setTheme, warm });
   // … and what changes while the page runs (set from elsewhere where a second function is given)
   P.live({
     current: [() => current],

@@ -4,6 +4,25 @@ import Foundation
 import UniformTypeIdentifiers
 import WebKit
 
+/// The page's own files (/app/…), read once for every window: a window's page asks for some 60 of them, mermaid's 2.7 MB
+/// among them, and each was read from the disk on the main thread again. What is kept is checked against the file's time
+/// and size at each asking (one stat), so a change to `viewer/*` still shows in the next window, as it always did.
+final class AppFiles {
+    static let shared = AppFiles()
+    private var kept: [String: (mtime: Double, size: Int, data: Data)] = [:]
+
+    func data(_ rel: String) -> Data? {
+        let p = Page.root.appendingPathComponent(rel).path
+        var st = stat()
+        guard stat(p, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { kept[rel] = nil; return nil }
+        let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1e9, size = Int(st.st_size)
+        if let k = kept[rel], k.mtime == mtime, k.size == size { return k.data }
+        guard let d = try? Data(contentsOf: URL(fileURLWithPath: p)) else { kept[rel] = nil; return nil }
+        kept[rel] = (mtime, size, d)
+        return d
+    }
+}
+
 final class SchemeHandler: NSObject, WKURLSchemeHandler {
     var pages: [String: String] = [:]   // path -> html
     /// The base folder of a file the page asks for (NoteWindow.topOf): where what a note names is looked for (Lib.found).
@@ -19,7 +38,7 @@ final class SchemeHandler: NSObject, WKURLSchemeHandler {
             return respond(task, url, Data(html.utf8), "text/html")
         } else if path.hasPrefix("/app/") {
             let rel = String(path.dropFirst(5))
-            guard !rel.contains(".."), let data = try? Data(contentsOf: Page.root.appendingPathComponent(rel)) else { return notFound(task, url) }
+            guard !rel.contains(".."), let data = AppFiles.shared.data(rel) else { return notFound(task, url) }
             return respond(task, url, data, mime(URL(fileURLWithPath: rel)))
         } else if path.hasPrefix("/file/") {
             // a file of the user's: read beside the window (it may be large, or looked for — Lib.found), answered on the main thread

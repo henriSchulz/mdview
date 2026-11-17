@@ -192,7 +192,9 @@
       `<div class="ov-name">${name}</div><div class="ov-sub">${!dir && n.says == null && labLook() ? esc(folderOf(n) + " · " + when(n.mtime || n.v)) : dir || file ? sub : esc(when(n.mtime))}</div>`; // (what a tile says of itself — a whiteboard's note — stays)
     return t;
   }
-  function build() {
+  /* done: called once every tile is there (they are made a part at a time — all at once where they are made anew in place,
+   * whole: the list must not grow shorter under a window scrolled down it). */
+  function build(done, whole = false) {
     const folder = core.folder;
     if (!folder) return;
     setSegs();
@@ -211,11 +213,11 @@
       items = [];
       if (pasteEl.parentNode !== body) { body.textContent = ""; body.appendChild(pasteEl); }
       saidWhere();
-      return;
+      return built(done);
     }
     if (scope === "home" && !homeOn()) scope = "folders"; // (the setting turned off while Home showed)
     if (scope !== "home") delete el.dataset.home;
-    if (scope === "home") { buildHome(); return; }
+    if (scope === "home") { buildHome(); return built(done); }
     if (scope === "boards") {
       // the folder's whiteboards: asked for when they are shown, drawn when they come
       const all = boardList || [], name = (p) => p.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
@@ -228,7 +230,7 @@
       tiles.clear();
       items = [];
       setSegs();
-      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); saidWhere(); return; }
+      if (!shown.length) { body.insertAdjacentHTML("beforeend", `<div class="empty-state"><div class="empty-icon">${ICON.board}</div><b>${esc(T(boardList ? "No Whiteboards" : "Looking for Whiteboards…"))}</b>` + (boardList ? `<p>${esc(T("A whiteboard is made with the + above, or in a note with /whiteboard."))}</p>` : "") + `</div>`); saidWhere(); return built(done); }
       const grid = document.createElement("div");
       grid.className = layout === "list" ? "ov-list" : "ov-grid";
       notes.forEach((n, i) => { const t = item(n, i, false); grid.appendChild(t); items.push(t); });
@@ -236,7 +238,7 @@
       const there = new Set(items.map((t) => t.dataset.path));
       for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
       saidWhere();
-      return;
+      return built(done);
     }
     if (scope === "folders") {
       const node = place(tree());
@@ -257,35 +259,67 @@
     body.textContent = "";
     tiles.clear();
     items = [];
-    if (!total) { body.innerHTML = core.emptyState(); saidWhere(); return; }
-    let i = 0;
-    const later = [];
+    const run = ++buildRun;
+    if (!total) { body.innerHTML = core.emptyState(); saidWhere(); built(done); return; }
+    // the folders' headings, the folders and the notes in their order — made a part at a time: the first ones at once, the
+    // rest in the frames after (a folder's 417 notes made and laid out in one go held the first frame back 300 ms and more)
+    const steps = [];
     for (const g of gs) {
-      if (g.label) { const h = document.createElement("h2"); h.className = "ov-dir"; h.textContent = g.label; body.appendChild(h); }
-      const grid = document.createElement("div");
-      grid.className = layout === "list" ? "ov-list" : "ov-grid";
-      for (const d of g.dirs || []) { const t = item(d, i++, true); grid.appendChild(t); items.push(t); }
-      for (const n of g.notes) {
-        const t = item(n, i++, false);
-        if (n.real === here || n.path === here) t.setAttribute("aria-current", "page");
-        const known = !n.pdf && cache.get(n.path);
+      steps.push(["group", g]);
+      for (const d of g.dirs || []) steps.push(["dir", d]);
+      for (const n of g.notes) steps.push(["note", n]);
+    }
+    let i = 0, grid = null, at0 = 0;
+    const later = [];
+    const make = (count) => {
+      let made = 0;
+      for (; at0 < steps.length && made < count; at0++) {
+        const [kind, x] = steps[at0];
+        if (kind === "group") {
+          if (x.label) { const h = document.createElement("h2"); h.className = "ov-dir"; h.textContent = x.label; body.appendChild(h); }
+          grid = document.createElement("div");
+          grid.className = layout === "list" ? "ov-list" : "ov-grid";
+          body.appendChild(grid);
+          continue;
+        }
+        made++;
+        if (kind === "dir") { const t = item(x, i++, true); grid.appendChild(t); items.push(t); continue; }
+        const t = item(x, i++, false);
+        if (x.real === here || x.path === here) t.setAttribute("aria-current", "page");
+        const known = !x.pdf && cache.get(x.path);
         if (known) { if (i <= FIRST) paint(t, known); else later.push([t, known]); } // (the first at once, the rest a few at a time: paintLater)
         grid.appendChild(t);
         if (t.dataset.shot && shotNear) shotNear.observe(t);
-        if (!n.pdf) tiles.set(n.path, t); // (a note: its beginning is asked for)
+        if (!x.pdf) tiles.set(x.path, t); // (a note: its beginning is asked for)
         items.push(t);
       }
-      body.appendChild(grid);
-    }
-    // (what is selected and no longer there is selected no more)
-    const there = new Set(items.map((t) => t.dataset.path));
-    for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
-    for (const img of body.querySelectorAll(":is(.ov-pic, .ov-mini) > img")) if (img.complete) img.classList.add("on");
-    queue = [...tiles.keys()];
-    paintLater(later);
+      for (const img of body.querySelectorAll(":is(.ov-pic, .ov-mini) > img:not(.on)")) if (img.complete) img.classList.add("on");
+    };
+    const finish = () => {
+      // (what is selected and no longer there is selected no more)
+      const there = new Set(items.map((t) => t.dataset.path));
+      for (const p of [...picked]) if (!there.has(p)) picked.delete(p);
+      queue = [...queue, ...[...tiles.keys()].filter((p) => !first.has(p))];
+      paintLater(later);
+      ask();
+      built(done);
+    };
+    make(whole ? steps.length : BUILD_FIRST);
+    const first = new Set(tiles.keys());
+    queue = [...first]; // (the beginnings of the first asked for at once)
     saidWhere();
     ask();
+    if (at0 >= steps.length) return finish();
+    const more = () => {
+      if (run !== buildRun) return;
+      make(BUILD_EACH);
+      if (at0 < steps.length) requestAnimationFrame(more); else finish();
+    };
+    requestAnimationFrame(more);
   }
+  const BUILD_FIRST = 48, BUILD_EACH = 96;
+  let buildRun = 0;
+  const built = (done) => { if (done) done(); };
   /* The beginnings already known, put into their sheets a few at a time after the first ones — so that the tiles come at once
    * (Henri, 2026-10-14: switching to All Notes "always lags"); the ones under the window are not wanted yet anyway. A build anew
    * stops what the last one had left. */
@@ -303,17 +337,18 @@
   // a choice at the head, or a folder gone into or left: built anew, the keyboard's place kept in it
   function rebuild(focus) {
     const had = el.contains(document.activeElement);
-    build();
+    let stand = null; // (the tile the keyboard was put on while the one it is to be on was not made yet)
+    build(() => { const to = stand && focus && items.find(focus); if (to && document.activeElement === stand) to.focus({ preventScroll: true }); });
     el.scrollTop = 0;
     const to = (focus && items.find(focus)) || body.querySelector(".ov-item[aria-current]") || items[0];
-    if (had && to) to.focus({ preventScroll: true });
+    if (had && to) { to.focus({ preventScroll: true }); if (focus && !focus(to)) stand = to; }
   }
   /* The folder changed under the tiles (a paste, a file from elsewhere): built anew where they stand, the keyboard on the tile
    * it was on (Henri, 2026-10-28: "Strg + C, Strg + V, Strg + X klappt nicht im All notes view", #11 — the tiles were new and
    * the focus on none of them: the next keys went to the page, not to All Notes). */
   function refresh() {
     const on = el.contains(document.activeElement) && document.activeElement.closest(".ov-item"), path = on && on.dataset.path;
-    build();
+    build(null, true); // (in place: whole, the window stays where it is scrolled to)
     if (!on) return;
     const to = items.find((t) => t.dataset.path === path) || body.querySelector(".ov-item[aria-current]") || items[0];
     if (to) to.focus({ preventScroll: true });
@@ -556,36 +591,47 @@
   }
 
   /* want: "paste" — the tab is the pasteboard's (viewer/tabs.js); else All Notes opens on the folders, whatever was shown last. */
-  function open(want = null) {
+  function open(want = null, to = null) {
     if (isOpen() || !core.folder) return;
     focusBack = document.activeElement;
     const prefs = window.MdPrefs || {};
-    scope = want === "paste" ? "paste" : homeOn() ? "home" : "folders";
+    scope = to ? to.scope : want === "paste" ? "paste" : homeOn() ? "home" : "folders";
     boardShow = "all"; // (every whiteboard of the folder: in a note or not, they are listed alike)
     boardList = null;
     layout = prefs.ovLayout === "list" ? "list" : "tiles";
     // it opens where the note on screen lies (place() drops what the tree does not have)
     const root = core.folder.root, shown = core.current && core.current.path;
-    at = shown && shown.startsWith(root + "/") ? shown.slice(root.length + 1).split("/").slice(0, -1) : [];
+    at = to ? to.at : shown && shown.startsWith(root + "/") ? shown.slice(root.length + 1).split("/").slice(0, -1) : [];
     picked.clear();
-    build();
-    void el.offsetHeight; // (the tiles are there, unseen: from here they come in)
+    clearTimeout(restTimer);
+    delete el.dataset.rest;
+    let stand = null; // (the note on screen among the tiles made later: the keyboard and the eye go to it once it is there)
+    build(() => { const cur = stand && body.querySelector(".ov-item[aria-current]"); if (cur && document.activeElement === stand) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); } });
+    // (the tiles are there, unseen: from here they come in — their styles taken as they are before, not their layout: the
+    // layout of 417 rows asked for here, and again by a scroll put back to the top, took 130 ms before the first frame)
+    void getComputedStyle(el).opacity;
     el.dataset.open = "";
     delete el.dataset.keys;
     core.lockScroll(true); // (the note under the tiles holds still)
     document.body.dataset.overview = "";
     pressed(scope !== "paste"); // (the house is All Notes', not the pasteboard's)
-    el.scrollTop = 0;
+    if (scrolled) { el.scrollTop = 0; scrolled = false; }
     const cur = body.querySelector('.ov-item[aria-current]') || items[0];
-    if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); }
+    if (cur) { cur.focus({ preventScroll: true }); cur.scrollIntoView({ block: "nearest" }); if (!cur.hasAttribute("aria-current") && core.current) stand = cur; }
     ask();
     askBoards();
     pasteWatch();
     if (scope === "paste") pasteText.focus({ preventScroll: true });
   }
+  /* Shut, All Notes rests once it has faded: what is in it is neither styled nor laid out again (data-rest: content-visibility)
+   * — every row of a folder's 400 notes was laid out anew at each change of the window's size, unseen. */
+  let restTimer = 0, scrolled = false;
+  el.addEventListener("scroll", () => { scrolled = el.scrollTop > 0; }, { passive: true });
   function close(refocus = true) {
     if (!isOpen()) return false;
     delete el.dataset.open;
+    clearTimeout(restTimer);
+    restTimer = setTimeout(() => { if (!isOpen()) el.dataset.rest = ""; }, 700); // (once its fading — --dur-overview-exit — is long over)
     pasteSend(); // (what was typed last goes before the field is out of sight)
     core.lockScroll(false);
     delete document.body.dataset.overview;
@@ -1052,12 +1098,15 @@
   /* Back or forward to All Notes as it stood: that choice, in that folder (viewer/tabs.js) */
   function showAt(where, sc = "folders") {
     if (!core.folder) return;
-    if (!isOpen()) open(sc === "paste" ? "paste" : null);
-    scope = ["folders", "all", "boards", "paste"].includes(sc) ? sc : "folders";
-    at = [...where];
+    const to = { scope: ["folders", "all", "boards", "paste"].includes(sc) ? sc : "folders", at: [...where] };
+    // (shut, it opens right there — built once: built where the note lies and then again here, a folder's row in the sidebar
+    // took twice the time of its tiles)
+    if (!isOpen()) return open(to.scope === "paste" ? "paste" : null, to); // (open asks for the whiteboards of what it opens on, #55)
+    scope = to.scope;
+    at = to.at;
     picked.clear();
     rebuild();
-    askBoards(); // (the whiteboards: open() asked for them only if they were what it opened on — the sidebar's row opens on them here, #55)
+    askBoards(); // (the whiteboards: the sidebar's row opens on them here, #55)
   }
   window.MdOverview = { open, close, showAt, toggle, where: () => (isOpen() ? { scope, at: [...at] } : null), previews, go, rename, many, boards, pasteboard, pasted, pasteMerge, pasteDecode, pasteEncode, boardsStale: () => askBoards(true), get picked() { return [...picked]; }, pick, folderChanged: () => { if (isOpen()) { refresh(); askBoards(true); } pasteWatch(); }, get isOpen() { return isOpen(); } };
 })();
