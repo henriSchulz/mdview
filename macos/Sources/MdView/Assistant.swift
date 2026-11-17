@@ -133,7 +133,7 @@ enum Claude {
 
     static func runs(_ p: String) -> Bool { Lib.fm.isExecutableFile(atPath: p) && Lib.isFile(p) }
 
-    private static var cached: String?
+    static var cached: String? // (a test's own stand-in may be set here)
     /// The claude command line tool: on the PATH (the login shell's too), or where its installers put it.
     static func find() -> String? {
         if let c = cached, runs(c) { return c }
@@ -525,7 +525,7 @@ extension NoteWindow {
     }
 
     /// (svg, error) for the page, or nil when the request was stopped meanwhile.
-    private static func drawRun(text: String, image: String?, previous: String?, change: String?, mine: Int, state: AIState) -> (String?, String?)? {
+    static func drawRun(text: String, image: String?, previous: String?, change: String?, mine: Int, state: AIState) -> (String?, String?)? {
         let still: () -> Bool = { state.lock.lock(); defer { state.lock.unlock() }; return state.drawTurn == mine }
         if let fake = ProcessInfo.processInfo.environment["MDVIEW_GRAPHIC_FAKE"] {
             // (tests: no model, a known figure)
@@ -551,9 +551,11 @@ extension NoteWindow {
                 let how = text.isEmpty ? "." : ", following this description: \(text)"
                 prompt = "A reference picture is at \(reference) — read it first. Redraw what it shows as a clean figure in your style\(how)"
             } else { prompt = text.isEmpty ? "" : "Draw: \(text)" }
-            let args = ["-p", prompt, "--system-prompt", AIPrompts.graphic] + tools
+            // (the question on its way in, not as an argument: with the figure before it, it may be longer than a command
+            // line may be — review 2026-11-17, as shell.rs's)
+            let args = ["-p", "--system-prompt", AIPrompts.graphic] + tools
                 + ["--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence", "--output-format", "text"] + AIPrompts.settings
-            let r = try Claude.run(args: args, cwd: work, input: nil, timeout: 300, pid: { pid in
+            let r = try Claude.run(args: args, cwd: work, input: Data(prompt.utf8), timeout: 300, pid: { pid in
                 state.lock.lock(); if state.drawTurn == mine { state.drawPid = pid }; state.lock.unlock()
             })
             if !still() { return nil }   // stopped: whoever stopped it has taken the process
