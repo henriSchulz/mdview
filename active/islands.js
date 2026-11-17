@@ -277,7 +277,9 @@
   /* The formula with its error, if it has one: { html, error, pos }. */
   function mathPreview(src, display) {
     try {
-      return { html: katex.renderToString(src, { displayMode: display, throwOnError: true, strict: "ignore", output: "html" }) };
+      // (s_\max as LaTeX reads it: viewer/markdown.js texHtml)
+      const core = window.MdView.core;
+      return { html: core.texHtml ? core.texHtml(src, display, true) : katex.renderToString(src, { displayMode: display, throwOnError: true, strict: "ignore", output: "html" }) };
     } catch (e) {
       return { error: String(e.message || e).replace(/^KaTeX parse error: /, ""), pos: typeof e.position === "number" ? e.position : null };
     }

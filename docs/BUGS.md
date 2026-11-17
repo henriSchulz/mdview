@@ -196,6 +196,12 @@ app itself. Where what is in the code: [`MAP.md`](MAP.md).
     taken for "other" — its dialog was the raw Markdown's, the caption no field of its own. Kind
     comes from what is inside (`A.store.typeOf`), and the caption is taken off before the block is
     taken apart (`parseCode`, `parseMath`) and put back after.
+119. **A formula LaTeX reads is drawn, where KaTeX alone would not** (Henri, 2026-11-17: `s_\max`
+    and every formula with it red). KaTeX takes no function of its own (`\max`, `\min`, `\sin`) as a
+    sub- or superscript without braces; LaTeX does. Every formula goes through `core.texHtml`
+    (`viewer/markdown.js`), which gives what KaTeX names its braces and draws it again — only a
+    formula that failed costs a second try. The note keeps what was written.
+    `dev/tests/texscripts.test.mjs`.
 
 ### What the pointer does
 

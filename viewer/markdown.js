@@ -28,9 +28,31 @@
   md.linkify.set({ fuzzyLink: false });
 
   // --- math ($…$, $$…$$, ```math)
+  /* What LaTeX reads and KaTeX does not: a function of KaTeX's own as a sub- or superscript without braces — "s_\max",
+   * "a_\min", "e^\sin x" — which LaTeX takes as "s_{\max}" (Henri, 2026-11-17: "s_\max" and every formula with it
+   * were shown red). Where KaTeX names such a function, it gets its braces and the formula is drawn again (only a formula
+   * that failed costs a second try). loud: the error of one that is wrong all the same is thrown (the formula dialog's
+   * preview says it), else KaTeX shows it in the formula, red. */
+  function texHtml(src, display, loud) {
+    const opts = { displayMode: display, strict: "ignore", output: "html" };
+    let s = src;
+    for (let tries = 0; ; tries++) {
+      try {
+        return katex.renderToString(s, { ...opts, throwOnError: true });
+      } catch (e) {
+        const m = tries < 8 && /Got function '(\\[A-Za-z]+)' with no arguments as (?:sub|super)script/.exec((e && e.message) || "");
+        const next = m ? s.replace(new RegExp(`([_^])\\s*(${m[1].replace(/\\/g, "\\\\")})(?![A-Za-z])`, "g"), "$1{$2}") : s;
+        if (next === s) {
+          if (loud) throw e;
+          return katex.renderToString(s, { ...opts, throwOnError: false });
+        }
+        s = next;
+      }
+    }
+  }
   const tex = (src, display) => {
     try {
-      return katex.renderToString(src, { displayMode: display, throwOnError: false, strict: "ignore", output: "html" });
+      return texHtml(src, display, false);
     } catch (e) {
       return `<code class="math-error">${esc(src)}</code>`;
     }
@@ -764,6 +786,6 @@
   };
 
   // what the page's other files use of this one
-  Object.assign(P, { md, safeHtml, tex, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
+  Object.assign(P, { md, safeHtml, tex, texHtml, imageSize, picTail, picText, alignMark, calloutKind, calloutTitle, LINK_ROW, linkMark,
     svgPicture, codeHidden, codeLang, plainCode, headColor, tableLook, tableMark, tableStyle, colsOf, ruleLook, isExternal });
 })();
