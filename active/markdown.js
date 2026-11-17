@@ -561,6 +561,8 @@
   };
   function shape(node) {
     if (node.type.name === "heading" && !node.content.size) return ["island", ["#".repeat(node.attrs.level)], []];
+    // (a picture alone in its paragraph is the island that holds its line: lonePicture)
+    if (lonePicture(node)) return ["island", [canonical(node, { profile: profileOf(""), level: 0 }).replace(/[ \t]+$/gm, "").trim()], []];
     if (node.isTextblock) {
       // runs of text with the same marks. White space carries no formatting worth telling apart, a
       // line break carries none, and where exactly a space sits between two runs says nothing:
@@ -642,7 +644,6 @@
     && node.content.content.filter((c) => !(c.isText && !c.text.trim()) && c.type.name !== "hard_break").every((c, i, all) => all.length === 1 && c.type.name === "image");
   function says(text, node, store) {
     const parsed = parseBlock(text, store);
-    if (parsed && lonePicture(node) && parsed.type.name === "island" && parsed.attrs.kind === "paragraph" && String(parsed.attrs.raw).trim() === text.trim()) return true;
     return !!parsed && same(parsed, node);
   }
 
