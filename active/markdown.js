@@ -635,8 +635,14 @@
     d.doc.forEach((n) => { if (!(n.type.name === "island" && n.attrs.virtual)) blocks.push(n); });
     return blocks.length === 1 ? blocks[0] : null;
   }
+  /* A picture alone in its paragraph (edit.js splits one off that way) is read back as a picture block — an island that
+   * holds the line: the same picture, the same text. (Review 2026-11-17: taken for another block, every save of a note
+   * with a picture put in mid-line said "Markdown cannot write part of this the way it is shown".) */
+  const lonePicture = (node) => node.type.name === "paragraph" && node.childCount > 0
+    && node.content.content.filter((c) => !(c.isText && !c.text.trim()) && c.type.name !== "hard_break").every((c, i, all) => all.length === 1 && c.type.name === "image");
   function says(text, node, store) {
     const parsed = parseBlock(text, store);
+    if (parsed && lonePicture(node) && parsed.type.name === "island" && parsed.attrs.kind === "paragraph" && String(parsed.attrs.raw).trim() === text.trim()) return true;
     return !!parsed && same(parsed, node);
   }
 
