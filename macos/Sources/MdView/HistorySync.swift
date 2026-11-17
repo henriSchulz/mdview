@@ -47,7 +47,9 @@ enum Sync {
     /// An address on GitHub itself (https://github.com/…, with or without a name before the host).
     static func githubURL(_ url: String) -> Bool {
         guard url.hasPrefix("https://") else { return false }
-        var host = String(url.dropFirst(8)).components(separatedBy: "/")[0]
+        // (the host ends where the path, the query or the fragment begins: "https://elsewhere?@github.com/…" is elsewhere's —
+        // git sends the header to elsewhere by its own reading of the address, not by this; sync.rs github_url likewise)
+        var host = String(url.dropFirst(8).prefix { !"/?#\\".contains($0) })
         host = host.components(separatedBy: "@").last ?? host
         if host.lowercased() == "github.com" { return true }
         let w = Hosts.current.web
@@ -75,7 +77,7 @@ enum Sync {
 
     /// The branches the repository at an address has (none: it is empty). Throws where it cannot be reached.
     static func branches(_ url: String, _ access: Access) throws -> [String] {
-        let r = Git.run(Git.auth(githubURL(url) ? access.token : nil) + ["ls-remote", "--heads", url])
+        let r = Git.run(["ls-remote", "--heads", url], env: Git.auth(githubURL(url) ? access.token : nil))
         if !r.ok { throw HistoryError(say(r)) }
         return r.raw.split(separator: "\n").compactMap { l in
             let p = l.split(whereSeparator: { $0 == "\t" || $0 == " " })
@@ -95,7 +97,7 @@ enum Sync {
             try link(into, url)
         } else {
             let b = there.contains(branch) ? branch : there[0]
-            let r = Git.run(Git.auth(githubURL(url) ? access.token : nil) + ["clone", "-q", "--branch", b, url, into])
+            let r = Git.run(["clone", "-q", "--branch", b, url, into], env: Git.auth(githubURL(url) ? access.token : nil))
             if !r.ok { throw HistoryError(say(r)) }
         }
         try Hist.enable(into) // (the marker, where the repository did not bring one)
@@ -106,7 +108,7 @@ enum Sync {
     @discardableResult
     static func fetch(_ root: String, _ access: Access) -> GitResult {
         let url = linked(root) ?? ""
-        return Git.run(Git.auth(githubURL(url) ? access.token : nil) + ["fetch", "-q", "--prune", "--no-tags", remote], in: root)
+        return Git.run(["fetch", "-q", "--prune", "--no-tags", remote], in: root, env: Git.auth(githubURL(url) ? access.token : nil))
     }
 
     /// What is to go to the other side is on the disk first, not only in the system's memory.
@@ -117,7 +119,7 @@ enum Sync {
         durable()
         guard let ref = Git.run(["symbolic-ref", "-q", "HEAD"], in: root).text as String?, !ref.isEmpty else { throw HistoryError("no branch") }
         let url = linked(root) ?? ""
-        let r = Git.run(Git.auth(githubURL(url) ? access.token : nil) + ["push", "-q", remote, "\(ref):\(ref)"], in: root)
+        let r = Git.run(["push", "-q", remote, "\(ref):\(ref)"], in: root, env: Git.auth(githubURL(url) ? access.token : nil))
         if !r.ok { throw HistoryError(say(r)) }
     }
 

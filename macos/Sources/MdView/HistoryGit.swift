@@ -13,7 +13,7 @@ struct GitResult {
 }
 
 enum Git {
-    static let exe = FileManager.default.isExecutableFile(atPath: "/usr/bin/git") ? "/usr/bin/git" : "/opt/homebrew/bin/git"
+    static var exe = FileManager.default.isExecutableFile(atPath: "/usr/bin/git") ? "/usr/bin/git" : "/opt/homebrew/bin/git" // (a test's own: GitAuthTests)
 
     /// Runs git in `dir` (nil: where the app is). `env` adds to the environment, `input` goes to its standard input.
     @discardableResult
@@ -46,12 +46,18 @@ enum Git {
 
     static func lines(_ r: GitResult) -> [String] { r.raw.split(separator: "\n", omittingEmptySubsequences: true).map(String.init) }
 
-    /// The arguments that carry a token to GitHub, and only to GitHub.
-    static func auth(_ token: String?) -> [String] {
-        guard let token, !token.isEmpty else { return ["-c", "credential.helper="] }
-        let b = Data("x-access-token:\(token)".utf8).base64EncodedString()
-        let host = Hosts.current.web
-        return ["-c", "credential.helper=", "-c", "http.\(host)/.extraHeader=Authorization: Basic \(b)"]
+    /// What carries a token to GitHub, and only to GitHub: git's configuration in its environment (GIT_CONFIG_COUNT,
+    /// _KEY_n, _VALUE_n), not on its command line — that every user of the Mac sees with `ps` (review 2026-11-17: the
+    /// header with the token stood in the arguments). A process's environment is its own user's to read.
+    static func auth(_ token: String?) -> [String: String] {
+        var kv = [("credential.helper", "")]
+        if let token, !token.isEmpty {
+            let b = Data("x-access-token:\(token)".utf8).base64EncodedString()
+            kv.append(("http.\(Hosts.current.web)/.extraHeader", "Authorization: Basic \(b)"))
+        }
+        var e = ["GIT_CONFIG_COUNT": "\(kv.count)"]
+        for (i, (k, v)) in kv.enumerated() { e["GIT_CONFIG_KEY_\(i)"] = k; e["GIT_CONFIG_VALUE_\(i)"] = v }
+        return e
     }
 }
 
