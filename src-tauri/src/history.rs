@@ -393,7 +393,25 @@ pub fn merge(root: &Path, child: &Path, stamp: &Stamp) -> Res<()> {
     let slot = aside.join(format!("{}-{}", name.replace('/', "-"), chrono::Utc::now().format("%Y%m%d-%H%M%S")));
     fs::rename(child.join(".git"), &slot).map_err(say)?;
     let _ = fs::File::open(&slot).and_then(|f| f.set_modified(SystemTime::now())); // (kept from now)
-    fs::remove_dir_all(child.join(".mdview")).map_err(say)
+    // What the inner project kept of its own goes on as the outer one's — it was deleted with its marker (review
+    // 2026-11-17): the ink drawn on its PDFs (named by what a PDF holds: the same name here; one there already stays),
+    // which of its files are hidden, how its folders look (by their path in it: now below its folder). Its links shared
+    // stay with its repository, set aside above.
+    if let Ok(inks) = fs::read_dir(child.join(".mdview/pdf")) {
+        let outer = root.join(".mdview/pdf");
+        let _ = fs::create_dir_all(&outer);
+        for e in inks.flatten() {
+            let to = outer.join(e.file_name());
+            if !to.exists() {
+                let _ = fs::rename(e.path(), &to);
+            }
+        }
+    }
+    crate::hidden::taken_in(root, child);
+    crate::looks::taken_in(root, child);
+    fs::remove_dir_all(child.join(".mdview")).map_err(say)?;
+    let _ = snapshot(root, stamp); // (what came over is kept as the outer project's at once)
+    Ok(())
 }
 
 /// The repository a file is in, and the file's path in it.
@@ -830,6 +848,27 @@ mod tests {
         assert_eq!(snapshot(&d.0, &stamp()).unwrap().commit, None);
         assert_eq!(place_of(&inner), Place::Project(d.0.join("own"))); // (it is its own project's)
         assert!(snapshot(&d.0.join("own"), &stamp()).unwrap().commit.is_some());
+    }
+
+    // Review of 2026-11-17: what the inner project kept of its own was deleted with its marker.
+    #[test]
+    fn what_a_project_taken_in_kept_of_its_own_goes_on() {
+        let d = Dir::new();
+        d.write("top.md", "top\n");
+        d.write("Uni/Docs/secret.md", "secret\n");
+        let sub = d.0.join("Uni");
+        enable(&sub).unwrap();
+        snapshot(&sub, &stamp()).unwrap();
+        d.write("Uni/.mdview/pdf/0123abcd.board.svg", "<svg>ink</svg>\n");
+        crate::hidden::set(&sub, &[&sub.join("Docs/secret.md")], true).unwrap();
+        crate::looks::set(&sub, &sub.join("Docs"), "red", "", false).unwrap();
+        enable(&d.0).unwrap();
+        merge(&d.0, &sub, &stamp()).unwrap();
+        assert!(!sub.join(".mdview").exists());
+        assert_eq!(fs::read_to_string(d.0.join(".mdview/pdf/0123abcd.board.svg")).unwrap(), "<svg>ink</svg>\n", "the ink on the PDF is gone");
+        assert!(crate::hidden::listed(&d.0).contains(&crate::scan::s(&d.0.join("Uni/Docs/secret.md"))), "the hidden file shows again");
+        assert!(crate::looks::listed(&d.0).get("Uni/Docs").is_some(), "the folder's look is gone");
+        assert_eq!(snapshot(&d.0, &stamp()).unwrap().commit, None); // (kept as the outer project's at once)
     }
 
     #[test]

@@ -54,6 +54,18 @@ pub fn set(root: &Path, paths: &[&Path], on: bool) -> Result<(), String> {
     write(root, &hidden)
 }
 
+/// A project below this one taken in (history.rs merge): what it hid stays hidden, under its folder's path here.
+pub fn taken_in(root: &Path, child: &Path) {
+    let Some(at) = below(root, child) else { return };
+    let inner = read(child);
+    if inner.is_empty() {
+        return;
+    }
+    let mut hidden = read(root);
+    hidden.extend(inner.into_iter().map(|rel| format!("{at}/{rel}")));
+    let _ = write(root, &hidden);
+}
+
 /// A file or a folder under another path (renamed, moved) — or gone (new: None): what was
 /// hidden of it stays hidden, what is gone is no longer named.
 pub fn moved(root: &Path, old: &Path, new: Option<&Path>) {

@@ -73,6 +73,21 @@ pub fn set(root: &Path, dir: &Path, color: &str, icon: &str, fav: bool) -> Resul
     write(root, &looks)
 }
 
+/// A project below this one taken in (history.rs merge): how its folders look stays, under its folder's path here
+/// (a folder chosen for here already keeps its own).
+pub fn taken_in(root: &Path, child: &Path) {
+    let Some(at) = below(root, child) else { return };
+    let inner = read(child);
+    if inner.is_empty() {
+        return;
+    }
+    let mut looks = read(root);
+    for (k, v) in inner {
+        looks.entry(format!("{at}/{k}")).or_insert(v);
+    }
+    let _ = write(root, &looks);
+}
+
 /// A folder under another path (renamed, moved): its look, and that of the folders in it, go along.
 pub fn moved(root: &Path, old: &Path, new: &Path) {
     let (Some(was), Some(now)) = (below(root, old), below(root, new)) else { return };
