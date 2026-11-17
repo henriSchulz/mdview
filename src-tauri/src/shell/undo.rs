@@ -122,8 +122,9 @@ impl Win {
                     if !fs::symlink_metadata(&to).is_ok() {
                         continue;
                     }
-                    self.relocate(app, &folder, &to, &from, how);
-                    if fs::symlink_metadata(&from).is_ok() {
+                    // (only what did move back: another file under the old name now — "already exists" — was counted as
+                    // taken back, "Undid Move of X" said, though X had not moved; review 2026-11-17)
+                    if self.relocate(app, &folder, &to, &from, how) {
                         back.push((to, from));
                     }
                 }

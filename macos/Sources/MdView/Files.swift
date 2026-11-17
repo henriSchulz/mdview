@@ -379,8 +379,9 @@ extension NoteWindow {
             var back: [(String, String)] = []
             for (from, to) in pairs.reversed() {
                 if !exists(to) { continue }
-                relocate(folder, to, from, how)
-                if exists(from) { back.append((to, from)) }
+                // (only what did move back: another file under the old name now — "already exists" — was counted as
+                // taken back, "Undid Move of X" said, though X had not moved; review 2026-11-17)
+                if relocate(folder, to, from, how) { back.append((to, from)) }
             }
             back.reverse()
             return back.isEmpty ? nil : .moved(back, how)

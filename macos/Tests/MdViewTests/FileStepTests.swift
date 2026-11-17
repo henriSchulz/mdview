@@ -34,4 +34,23 @@ final class FileStepTests: ShellTest {
         w.fileStep(back: true)
         XCTAssertEqual(read(note), "the note itself\n", "the second Undo did not bring it back")
     }
+
+    /// Review of 2026-11-17: a move taken back where another file now has the old name — "already exists" — was said to be
+    /// taken back ("Undid Move of X"), though X had not moved.
+    func testAMoveThatCannotBeTakenBackIsNotSaidToBe() {
+        let note = write("A/X.md", "the moved one\n")
+        write("B/keep.md", "# keep\n")
+        let w = open(folder: dir)
+        XCTAssertTrue(wait(5) { w.knows(note) })
+        w.moveTo(note, Lib.join(dir, "B"))
+        XCTAssertEqual(read(Lib.join(dir, "B/X.md")), "the moved one\n")
+        write("A/X.md", "a new one under the old name\n")
+        w.fileStep(back: true)
+        XCTAssertEqual(read(Lib.join(dir, "B/X.md")), "the moved one\n")
+        XCTAssertTrue(wait(2) { ((self.page(w, "document.getElementById('toast') ? document.getElementById('toast').textContent : ''") as? String) ?? "").contains("already exists") })
+        wait(0.3)
+        let said = (page(w, "document.getElementById('toast') ? document.getElementById('toast').textContent : ''") as? String) ?? ""
+        XCTAssertFalse(said.contains("Undid"), "it said the move was taken back: \(said)")
+    }
 }
+

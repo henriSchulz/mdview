@@ -273,17 +273,20 @@ impl Win {
 
     /// A file or a folder under another path, and everything that knew it by the old one told:
     /// the ways back, the tabs, the note on screen, what was shared of it, the page.
-    pub(super) fn relocate(&mut self, app: &mut App, folder: &Path, old: &Path, new: &Path, how: &str) {
+    /// → whether it moved (Undo counts only what did: review 2026-11-17).
+    pub(super) fn relocate(&mut self, app: &mut App, folder: &Path, old: &Path, new: &Path, how: &str) -> bool {
         let (old, new) = (old.to_path_buf(), new.to_path_buf());
         let is_dir = old.is_dir();
         let old_real = crate::scan::canon(&old).unwrap_or_else(|_| old.clone());
         // (a name that differs only in case is the same file where the file system says so)
         let taken = fs::symlink_metadata(&new).is_ok() && crate::scan::canon(&new).ok().as_ref() != Some(&old_real);
         if taken {
-            return self.toast(format!("“{}” already exists", name_of(&new)));
+            self.toast(format!("“{}” already exists", name_of(&new)));
+            return false;
         }
         if let Err(e) = fs::rename(&old, &new) {
-            return self.toast(format!("Couldn't {how}: {}", strerror(&e)));
+            self.toast(format!("Couldn't {how}: {}", strerror(&e)));
+            return false;
         }
         self.did(undo::Step::Moved(vec![(old.clone(), new.clone())], if how == "rename" { "rename" } else { "move" }));
         let new_real = crate::scan::canon(&new).unwrap_or_else(|_| new.clone());
@@ -343,6 +346,7 @@ impl Win {
         }
         self.rescan(app);
         self.send_tabs(app);
+        true
     }
 
     pub(super) fn trash_note(&mut self, app: &mut App, path: &str) {

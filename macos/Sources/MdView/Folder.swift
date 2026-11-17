@@ -267,12 +267,13 @@ extension NoteWindow {
 
     /// A file or a folder under another path, and everything that knew it by the old one told:
     /// the ways back, the tabs, the note on screen, the page.
-    func relocate(_ folder: String, _ old: String, _ new: String, _ how: String) {
+    /// → whether it moved (Undo counts only what did: review 2026-11-17).
+    @discardableResult func relocate(_ folder: String, _ old: String, _ new: String, _ how: String) -> Bool {
         let isDir = Lib.isDir(old)
         let oldReal = Lib.resolve(old)
         let taken = Lib.exists(new) && Lib.resolve(new) != oldReal
-        if taken { return toast("“\(Lib.name(new))” already exists") }
-        do { try Lib.fm.moveItem(atPath: old, toPath: new) } catch { return toast("Couldn't \(how): \(error.localizedDescription)") }
+        if taken { toast("“\(Lib.name(new))” already exists"); return false }
+        do { try Lib.fm.moveItem(atPath: old, toPath: new) } catch { toast("Couldn't \(how): \(error.localizedDescription)"); return false }
         did(.moved([(old, new)], how == "rename" ? "rename" : "move"))
         let newReal = Lib.resolve(new)
         filesMoved(folder: folder, old: old, new: new)
@@ -310,6 +311,7 @@ extension NoteWindow {
         }
         rescan()
         sendTabs()
+        return true
     }
 
     /// → what went to the Trash, and where the Trash keeps it (for Undo)
