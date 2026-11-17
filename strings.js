@@ -1493,6 +1493,8 @@
       const s = (TABLES[S.lang] && TABLES[S.lang][key]) ?? TABLES.en[key] ?? key;
       return s.replace(/\{(\d+)\}/g, (_m, i) => values[i] ?? "");
     },
+    // the keys that begin so (a host that draws some of the settings itself takes their words with them: active/prefs.js schema)
+    keys: (prefix) => Object.keys(TABLES.en).filter((k) => k.startsWith(prefix)),
   };
   window.MdStrings = S;
 })();

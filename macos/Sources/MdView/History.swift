@@ -456,7 +456,7 @@ extension NoteWindow {
                 let panel = NSOpenPanel()
                 panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
                 panel.prompt = "Choose"; panel.message = "Choose the folder to put “\(name)” in"
-                panel.beginSheetModal(for: window) { [weak self] r in
+                panel.beginSheetModal(for: sheetHost) { [weak self] r in
                     guard let self, r == .OK, let parent = panel.url?.path, let g = self.historyS.getting else { self?.historyS.getting = nil; return }
                     self.historyS.getting = nil
                     hub.fetch(window: self, url: g.url, into: Lib.join(parent, g.name), branch: g.branch)
@@ -570,7 +570,7 @@ extension NoteWindow {
         a.messageText = "Use This Repository for History?"
         a.informativeText = "“\(Lib.name(root))” is a Git repository already. As a project, Markdown Notes keeps every change in it as a commit of its own\(onto), a little while after it was made."
         a.addButton(withTitle: "Use Repository"); a.addButton(withTitle: "Cancel")
-        a.beginSheetModal(for: window) { [weak self] r in
+        a.beginSheetModal(for: sheetHost) { [weak self] r in
             if r == .alertFirstButtonReturn { _ = self?.handleHistory("history-enable", ["type": "history-enable", "root": root, "sure": true]) }
         }
         return true
@@ -585,7 +585,7 @@ extension NoteWindow {
         a.messageText = "Projects in This Folder"
         a.informativeText = "\(names.joined(separator: ", ")) in this folder \(they). Taken in, \(their) history becomes a part of this project's, and there is one project from now on. Left separate, each keeps a history of its own."
         a.addButton(withTitle: "Take In"); a.addButton(withTitle: "Leave Separate"); a.addButton(withTitle: "Cancel")
-        a.beginSheetModal(for: window) { [weak self] r in
+        a.beginSheetModal(for: sheetHost) { [weak self] r in
             let nested: String
             switch r { case .alertFirstButtonReturn: nested = "merge"; case .alertSecondButtonReturn: nested = "separate"; default: return }
             _ = self?.handleHistory("history-enable", ["type": "history-enable", "root": root, "sure": true, "nested": nested])

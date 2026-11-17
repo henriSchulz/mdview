@@ -36,6 +36,7 @@ extension NoteWindow {
         ]
         for (k, v) in settingsExtras() { info[k] = v }
         js("MdView.settingsInfo", [info])
+        SettingsWindow.shared.heard(info, from: self) // (the settings window, where it was opened from this window)
     }
 
     /// What the other areas know of the settings: the history of the folder, the AI's key (kept by them).
