@@ -47,7 +47,7 @@ extension NoteWindow {
 
     func rescan() {
         rescanItem?.cancel()
-        guard let folder else { return }
+        guard let folder, !gone else { return }
         let titles = store.bool("sidebar_titles")
         var away = hiddenListed(folder)
         away.formUnion(attachmentsOwned())
@@ -339,6 +339,7 @@ extension NoteWindow {
     // MARK: watching the files (FSEvents)
 
     func watch() {
+        if gone { return }
         var want = dirWatch
         if let p = path { want.insert(Lib.dir(p)) }
         want.formUnion(boardDirs)
@@ -367,6 +368,7 @@ extension NoteWindow {
     func stopWatching() { stopStream(); watchedRoots = [] }
 
     func onFS(_ paths: [String]) {
+        if gone { return }
         let real = paths.map { Lib.resolve($0) }
         for p in paths { touch(p) } // (a change in a project: its snapshot follows once it is quiet)
         for p in paths where Lib.isBoard(p) && Lib.isFile(p) { js("MdView.boardChanged", [p]) }

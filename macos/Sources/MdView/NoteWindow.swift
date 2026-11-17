@@ -62,6 +62,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
     var stream: FSEventStreamRef?
     var watchedRoots: Set<String> = []
     var closing = false
+    /// Closed: nothing is watched, scanned or drawn for it any more (what was on its way when it closed comes to nothing).
+    var gone = false
 
     // state of the areas
     let filesS = FilesState()
@@ -95,6 +97,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         if Lib.headless { window.alphaValue = 0; window.ignoresMouseEvents = true; window.orderBack(nil) }
         else { window.makeKeyAndOrderFront(nil) }
     }
+
+    deinit { stopStream() } // (closed, it was stopped already: windowWillClose)
 
     var dark: Bool { NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua }
     var store: Store { Store.shared }
@@ -478,6 +482,12 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         _ = settleQuick()
         settleFresh(last: true)
         stopWatching()
+        gone = true
+        reloadItem?.cancel(); rescanItem?.cancel(); freshItem?.cancel()
+        // (the page's message handler holds the window: without this, no closed window — nor its page — is ever let go)
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "msg")
+        web.navigationDelegate = nil
+        web.stopLoading()
         store.set(folder != nil ? "folder_width" : "width", Int(window.frame.width))
         store.set(folder != nil ? "folder_height" : "height", Int(window.frame.height))
         onClose?(self)

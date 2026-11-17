@@ -34,6 +34,7 @@ class ShellTest: XCTestCase {
         let d = NSTemporaryDirectory() + "mdview-test-\(UUID().uuidString)"
         try? FileManager.default.createDirectory(atPath: d, withIntermediateDirectories: true)
         dir = Lib.resolve(d)
+        Store.shared.state = [:] // (each test begins as at a first start: no mode, tabs or notes kept from another)
     }
 
     override func tearDown() {
