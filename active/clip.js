@@ -187,7 +187,8 @@
     let doc;
     try { doc = state.schema.topNodeType.createChecked(null, content); } catch (_e) { return slice.content.textBetween(0, slice.content.size, "\n\n"); }
     // a block cut open by the selection is not the block that was loaded (it is written by what it holds)
-    return A.document.serialize({ ...d, store: { ...d.store, head: { raw: "", orig: "" } } }, doc, false).replace(/^\n+|\s+$/g, "");
+    // (a part of the note: the comments of the rest stay in the note — store.js `partial`)
+    return A.document.serialize({ ...d, store: { ...d.store, head: { raw: "", orig: "" }, partial: true } }, doc, false).replace(/^\n+|\s+$/g, "");
   }
   // … for the clipboard: a page on it is the page and what is on it, not its line (the id in the line means something in this note only)
   const copyText = (state, slice) => window.MdView.core.pages.copy(markdownOf(state, slice));

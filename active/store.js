@@ -208,7 +208,8 @@
    * one that was changed (id: where it came from, if anywhere; text with "\n"
    * line ends; blank: it needs a blank line before it). Neighbours that were
    * neighbours on load keep their separator; anything else gets a blank line. Called without `parts` it returns the
-   * loaded document. starts: if given, filled with the offset of every part. */
+   * loaded document. starts: if given, filled with the offset of every part. A store marked `partial` writes a part of
+   * the note (a copy: clip.js markdownOf): what stands between its own blocks, and nothing of the rest of the note. */
   function serialize(store, parts, exact = true, starts = null) {
     const pick = (s) => (exact ? s.orig : s.raw);
     const nl = exact ? store.eol : "\n";
@@ -223,19 +224,24 @@
     const loaded = store.count ?? segs.length, worded = (id) => id != null && id < loaded && /\S/.test(segs[id].sep.raw);
     const words = (id) => pick(segs[id].sep).replace(/^\s+|\s+$/g, ""), told = new Set();
     const there = new Set(parts.map((p) => p.id).filter((id) => id != null));
+    // (a block may be several parts now — split in two, an item lifted out of its list: what followed it follows the last)
+    const lastOf = new Map();
+    parts.forEach((p, i) => { if (p.id != null) lastOf.set(p.id, i); });
     const orphans = [];
-    for (let id = 0; id < loaded; id++) if (worded(id) && !there.has(id)) orphans.push(id);
+    if (!store.partial) for (let id = 0; id < loaded; id++) if (worded(id) && !there.has(id)) orphans.push(id);
     let out = "";
     parts.forEach((p, i) => {
       const prev = i ? parts[i - 1] : null;
       if (!i) out += pick(store.head);
-      else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) { out += pick(segs[prev.id].sep); told.add(prev.id); }
-      else if (worded(prev.id) && !told.has(prev.id)) { out += nl + nl + words(prev.id) + nl + nl; told.add(prev.id); }
+      else if (prev.id != null && lastOf.get(prev.id) !== i - 1) out += nl + nl;
+      else if (prev.id != null && p.id != null && prev.id + 1 === p.id && !told.has(prev.id) && !(p.blank && !/\n[ \t>]*\n/.test(segs[prev.id].sep.raw))) { out += pick(segs[prev.id].sep); told.add(prev.id); }
+      else if (!store.partial && worded(prev.id) && !told.has(prev.id)) { out += nl + nl + words(prev.id) + nl + nl; told.add(prev.id); }
       else out += nl + nl;
       while (p.id != null && orphans.length && orphans[0] < p.id) out += words(orphans.shift()) + nl + nl;
       if (starts) starts.push(out.length);
       out += p.text != null ? eol(p.text) : pick(segs[p.id]);
     });
+    if (store.partial) return out;
     const last = parts[parts.length - 1];
     if (last.id !== loaded - 1 && worded(last.id) && !told.has(last.id)) out += nl + nl + words(last.id);
     for (const id of orphans) if (id !== loaded - 1 || last.id !== id) out += nl + nl + words(id);
