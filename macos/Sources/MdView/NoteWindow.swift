@@ -287,6 +287,8 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         openPath(to, push: false)
     }
 
+    static let gone = "the note is no longer there (moved or deleted outside this window)"
+
     /// How large a note may be to be edited (shell.rs EDIT_LIMIT).
     static let editLimit = 2 * 1024 * 1024
 
@@ -302,6 +304,10 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
 
     func saveText(_ text: String, exact: Bool) {
         guard let path, !Lib.shownAsPDF(path) else { return }
+        // (gone from the disk — renamed or deleted elsewhere: another window, Finder, a sync from another device. Written
+        // again it came back under its old name, and went to every device (review 2026-11-17). What is typed stays in
+        // the editor, and the page says why it is not kept.)
+        guard Lib.exists(path) else { return js("MdView.saveFailed", [NoteWindow.gone]) }
         // (shown read-only for it — and never written over, whatever the page sends: its letters would be lost)
         if let old = Lib.fm.contents(atPath: path), String(data: old, encoding: .utf8) == nil {
             return js("MdView.saveFailed", ["Can't edit: file is not UTF-8"])

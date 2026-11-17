@@ -1306,6 +1306,12 @@ impl Win {
         if shows_as_pdf(&path) {
             return; // (never the text of a note into a PDF — or a presentation)
         }
+        // (gone from the disk — renamed or deleted elsewhere: another window, a sync from another device. Written again it
+        // came back under its old name, and the next snapshot sent it to every device (review 2026-11-17). What is typed
+        // stays in the editor, and the page says why it is not kept.)
+        if !path.exists() {
+            return self.js("MdView.saveFailed", &[json!("the note is no longer there (moved or deleted outside this window)")]);
+        }
         if exact {
             match write_whole(&path, text.as_bytes()) {
                 Ok(()) => self.own_write = Some(text.as_bytes().to_vec()), // the watcher will report it: nothing to reload
@@ -1315,7 +1321,6 @@ impl Win {
         }
         let old = match fs::read(&path) {
             Ok(old) => old,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => vec![],
             Err(e) => return self.js("MdView.saveFailed", &[json!(strerror(&e))]),
         };
         // (Written whole — write_whole: a link is followed, the permissions stay.) Line endings are kept.
