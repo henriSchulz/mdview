@@ -8,6 +8,8 @@ final class Resolver {
     var base: String?
     private var index: [String: [String]]?
     private var retried = false
+    /// The index is an older walk's, or one cut short: a name not in it may yet be on the disk.
+    private var mayBeStale = false
     private static var kept: [String: (Date, [String: [String]])] = [:]
 
     init(noteDir: String, base: String?) {
@@ -35,18 +37,22 @@ final class Resolver {
 
     private func buildIndex() -> [String: [String]] {
         if let i = index { return i }
-        if let (at, idx) = Resolver.kept[root], Date().timeIntervalSince(at) < 8 { index = idx; return idx }
+        if let (at, idx) = Resolver.kept[root], Date().timeIntervalSince(at) < 8 { index = idx; mayBeStale = true; return idx }
         var idx: [String: [String]] = [:]
         let deadline = Date().addingTimeInterval(2.5)
         var stack = [root], count = 0
         while let dir = stack.popLast(), Date() < deadline, count < 200_000 {
             for name in (try? Lib.fm.contentsOfDirectory(atPath: dir)) ?? [] {
                 let p = Lib.join(dir, name)
+                let link = ((try? Lib.fm.attributesOfItem(atPath: p))?[.type] as? FileAttributeType) == .typeSymbolicLink
                 if Lib.isDir(p) {
-                    if !name.hasPrefix(".") && !Lib.skipDirs.contains(name) { stack.append(p) }
+                    // (a link to a folder is not gone into: a loop walked until the deadline — scan.rs files_under)
+                    if !link && !name.hasPrefix(".") && !Lib.skipDirs.contains(name) { stack.append(p) }
                 } else { idx[name.lowercased(), default: []].append(p); count += 1 }
             }
         }
+        mayBeStale = !stack.isEmpty // (cut short)
+        if Resolver.kept.count > 16 { Resolver.kept.removeAll() } // (never pruned before)
         Resolver.kept[root] = (Date(), idx)
         index = idx
         return idx
@@ -54,7 +60,9 @@ final class Resolver {
 
     func resolve(_ target: String) -> String? {
         if let f = lookFor(target) { return f }
-        if index != nil, !retried {
+        // (once more only where the index may not say all — an older walk's, or one cut short: after a fresh whole walk a
+        // name not in it is not there, and a dangling [[link]] cost two walks a drawing; scan.rs alike)
+        if index != nil, !retried, mayBeStale {
             retried = true
             Resolver.kept[root] = nil
             index = nil

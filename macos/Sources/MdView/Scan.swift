@@ -36,8 +36,10 @@ final class Scanner {
             let path = Lib.join(d, name)
             var isLink = false
             if let t = (try? Lib.fm.attributesOfItem(atPath: path))?[.type] as? FileAttributeType { isLink = t == .typeSymbolicLink }
-            let isDir = Lib.isDir(path)
-            _ = isLink
+            // (a link to a folder is not gone into — `Code -> ~/Projects` filled the sidebar with all of it, `self -> .`
+            // repeated the folder twelve deep; scan.rs takes the entry's own type alike. Review 2026-11-17.)
+            if isLink && Lib.isDir(path) { continue }
+            let isDir = !isLink && Lib.isDir(path)
             let heavy = isDir && (Lib.skipDirs.contains(name) || name == ".git")
             let away = hidden || heavy || name.hasPrefix(".") || putAway.contains(path)
             if away && !all { leftOut = true; continue }
