@@ -243,6 +243,7 @@ or the tests see the old ones.
 | `macos/Sources/MdView/HistorySync.swift` | A project and the repository it is linked to: what is fetched from there and pushed to it. |
 | `macos/Sources/MdView/Lib.swift` | Small things about files and names that the shell shares — src-tauri/src/scan.rs (the kinds, the order, a … |
 | `macos/Sources/MdView/Menu.swift` | The menu bar. Where a command is the page's (the modes, the sidebar, Find …) the item sends the key the page … |
+| `macos/Sources/MdView/NativeMenu.swift` | The page's menus as the system's own (MdHost.menu — viewer/base.js hostMenu): the page hands over rows, the … |
 | `macos/Sources/MdView/NoteWindow.swift` | One window: a WKWebView with the page, and the shell's half of the conversation — what the page says … |
 | `macos/Sources/MdView/Page.swift` | The page a window shows — what src-tauri/src/shell.rs `load_shell` builds: the scripts and sheets in their … |
 | `macos/Sources/MdView/Resolver.swift` | Where a [[wikilink]] leads, as Obsidian does it: next to the note, at the vault root, then anywhere below the … |

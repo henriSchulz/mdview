@@ -107,6 +107,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         super.init()
         scheme.topOf = { [weak self] p in self?.topOf(p) }
         cfg.userContentController.add(self, name: "msg")
+        cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "ask") // (what the page waits for: NativeMenu.swift)
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         let ground = NSView()
@@ -592,6 +593,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         reloadItem?.cancel(); rescanItem?.cancel(); freshItem?.cancel()
         // (the page's message handler holds the window: without this, no closed window — nor its page — is ever let go)
         web.configuration.userContentController.removeScriptMessageHandler(forName: "msg")
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "ask", contentWorld: .page)
         web.navigationDelegate = nil
         web.stopLoading()
         // (a spare was never seen: its size is nobody's)

@@ -203,6 +203,9 @@
   /* The same menu for another part of the page (a whiteboard's right click): rows of [name, keys, whether it can be chosen
    * now, what it does, a class of its own ("danger"), its sign], null for a rule; at a point of the window. */
   function menuAt(x, y, rows) {
+    // (where the host shows menus of its own — the system's, on a Mac — the rows go to it: base.js hostMenu)
+    const hosted = P.hostMenu(rows.map((r) => r && { label: P.textOf(r[0]), key: r[1], on: !!r[2], danger: r[4] === "danger", svg: r[5] }), x, y);
+    if (hosted) { hosted.then((way) => { const r = way && rows[way[0]]; if (r && r[2]) r[3](); }); return; }
     tDo = {};
     const icons = rows.some((r) => r && r[5]); // (a column: the names stand in one line)
     tmenu.innerHTML = rows.map((r, i) => (r ? `<button class="menu-item${r[4] ? " " + r[4] : ""}" role="menuitem" type="button" data-cmd="${i}"${r[2] ? "" : " disabled"}>${icons ? `<span class="menu-icon">${r[5] || ""}</span>` : ""}<span class="menu-label">${r[0]}</span>${r[1] ? `<span class="menu-key">${keys(r[1])}</span>` : ""}</button>` : `<div class="menu-rule"></div>`)).join("");

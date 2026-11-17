@@ -111,3 +111,6 @@ body[data-mode="dark"] .pop:hover { background: color-mix(in srgb, var(--fg) 16%
 #editmenu:not([data-open]) { pointer-events: none; }
 /* (while it is open, the formatting bar of a selection steps back: one menu over the text at a time) */
 body[data-editmenu] #fmtbar { visibility: hidden; opacity: 0; pointer-events: none; transition: none; }
+/* A menu the host shows as the system's own (viewer/base.js hostMenu): this one holds its place as open, for those who wait
+   for it to go, and is not drawn. */
+[data-hosted] { visibility: hidden !important; pointer-events: none !important; }
