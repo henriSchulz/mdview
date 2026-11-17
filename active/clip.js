@@ -212,7 +212,10 @@
       return true;
     }
     // blocks selected as wholes: what is pasted is not put in their place — it goes below them, as blocks (blocks.js: pasteBelow)
-    if (text && A.blocks.pasteBelow(view, blocksOf(view.state, text))) return true;
+    // (made only then: made before the question, every paste took the text in twice, and an HTML paste — its plain text
+    // never used — left that text's "[x]: …" definitions in the note's, so "[x]" was written "\[x\]" from then on;
+    // review 2026-11-17)
+    if (text && A.blocks.state(view.state) && A.blocks.pasteBelow(view, blocksOf(view.state, text))) return true;
     if (M.code.isInSet(view.state.storedMarks || $from.marks())) return insertPlain(view, text);
     if (!empty && ADDRESS.test(text.trim()) && $from.sameParent(view.state.selection.$to) && $from.parent.inlineContent) {
       const href = text.trim(), { from, to } = view.state.selection;
