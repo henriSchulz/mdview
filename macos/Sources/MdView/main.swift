@@ -159,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 }
 
+_ = Pipes.safe // (a child that went before reading its input does not take the app with it)
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

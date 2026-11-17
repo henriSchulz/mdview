@@ -247,3 +247,18 @@ enum Lib {
 
     static func home() -> String { NSHomeDirectory() }
 }
+
+/// What is written into a child's stdin (git, claude). A child that goes before it has read all of it closes the pipe:
+/// the write then fails (EPIPE) — and must not kill the app with SIGPIPE, which a Rust program ignores from its start and
+/// a Swift one does not. (FileHandle.write(_:) raises an exception there, so `write(contentsOf:)`, which throws.)
+enum Pipes {
+    static let safe: Void = { signal(SIGPIPE, SIG_IGN) }()
+
+    /// Written, and the pipe closed; whether all of it went.
+    @discardableResult static func feed(_ h: FileHandle, _ data: Data, close: Bool = true) -> Bool {
+        _ = safe
+        let all = (try? h.write(contentsOf: data)) != nil
+        if close { try? h.close() }
+        return all
+    }
+}

@@ -38,7 +38,7 @@ enum Git {
         do { try p.run() } catch { return GitResult(status: 127, out: Data(), err: error.localizedDescription) }
         g.enter(); DispatchQueue.global().async { outData = out.fileHandleForReading.readDataToEndOfFile(); g.leave() }
         g.enter(); DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); g.leave() }
-        if let input { inp.fileHandleForWriting.write(input); try? inp.fileHandleForWriting.close() }
+        if let input { Pipes.feed(inp.fileHandleForWriting, input) }
         p.waitUntilExit()
         g.wait()
         return GitResult(status: p.terminationStatus, out: outData, err: String(decoding: errData, as: UTF8.self))
@@ -67,6 +67,7 @@ final class BatchCheck {
         p.arguments = ["cat-file", "--batch-check"]
         p.currentDirectoryURL = URL(fileURLWithPath: repo)
         p.standardInput = inp; p.standardOutput = out; p.standardError = FileHandle.nullDevice
+        _ = Pipes.safe
         try? p.run()
     }
 
@@ -76,7 +77,7 @@ final class BatchCheck {
     func blob(_ commit: String, _ rel: String) -> String? {
         let key = "\(commit):\(rel)"
         if let c = cache[key] { return c }
-        inp.fileHandleForWriting.write(Data((key + "\n").utf8))
+        guard Pipes.feed(inp.fileHandleForWriting, Data((key + "\n").utf8), close: false) else { return nil } // (the process is gone)
         var line = ""
         while true {
             if let r = buffer.firstIndex(of: 10) {

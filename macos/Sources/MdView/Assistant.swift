@@ -161,7 +161,7 @@ enum Claude {
         try p.run()
         pid(p.processIdentifier)
         if let input {
-            DispatchQueue.global().async { inP.fileHandleForWriting.write(input); try? inP.fileHandleForWriting.close() }
+            DispatchQueue.global().async { Pipes.feed(inP.fileHandleForWriting, input) }
         }
         var errText = ""
         let errDone = DispatchSemaphore(value: 0)
