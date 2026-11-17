@@ -81,6 +81,7 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
         super.init()
+        scheme.topOf = { [weak self] p in self?.topOf(p) }
         cfg.userContentController.add(self, name: "msg")
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
@@ -327,19 +328,17 @@ final class NoteWindow: NSObject, NSWindowDelegate, WKScriptMessageHandler, WKNa
         else { openPath(p, fragment: heading) }
     }
 
-    /// A file kept in the base folder's assets, named from a subfolder (scan.rs `found`).
-    func foundAsset(_ p: String) -> String {
-        if Lib.isFile(p) { return p }
-        let name = Lib.name(p)
-        var d = Lib.dir(p)
-        let top = folder ?? ""
-        while d.count > 1 {
-            let there = Lib.join(Lib.join(d, Lib.assets), name)
-            if there != p, Lib.isFile(there) { return there }
-            if d == top { break }
-            d = Lib.dir(d)
-        }
-        return p
+    /// The file a note names, where it is (Lib.found): a picture named `assets/x.png` from a subfolder is the base folder's.
+    func foundAsset(_ p: String) -> String { Lib.found(p, top: topOf(p)) }
+
+    /// The base folder a path lies in, as far as can be told (scan.rs `top_of`): the project's root, else a folder a
+    /// window shows, else a repository's or a vault's above it.
+    func topOf(_ p: String) -> String? {
+        if case .project(let root) = Hist.placeOf(p) { return root }
+        let shown = Set([folder].compactMap { $0 } + (AppDelegate.shared?.windows.compactMap { $0.folder } ?? []))
+        let above = sequence(first: Lib.dir(p)) { $0.count > 1 ? Lib.dir($0) : nil }.prefix(32)
+        return above.first { shown.contains($0) }
+            ?? above.first { Lib.exists(Lib.join($0, ".git")) || Lib.isDir(Lib.join($0, ".obsidian")) }
     }
 
     // MARK: the page tells the shell

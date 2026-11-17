@@ -6,27 +6,45 @@ import WebKit
 
 final class SchemeHandler: NSObject, WKURLSchemeHandler {
     var pages: [String: String] = [:]   // path -> html
+    /// The base folder of a file the page asks for (NoteWindow.topOf): where what a note names is looked for (Lib.found).
+    var topOf: ((String) -> String?)?
+    /// What is being read for the page, until it is answered — or stopped by the page (then it is not answered at all).
+    private var running: [ObjectIdentifier: WKURLSchemeTask] = [:]
+    private static let io = DispatchQueue(label: "mdview.files", qos: .userInitiated, attributes: .concurrent)
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         guard let url = task.request.url else { return task.didFailWithError(URLError(.badURL)) }
         let path = url.path.removingPercentEncoding ?? url.path
-        var file: URL?
         if let html = pages[path] {
             return respond(task, url, Data(html.utf8), "text/html")
         } else if path.hasPrefix("/app/") {
             let rel = String(path.dropFirst(5))
-            if !rel.contains("..") { file = Page.root.appendingPathComponent(rel) }
+            guard !rel.contains(".."), let data = try? Data(contentsOf: Page.root.appendingPathComponent(rel)) else { return notFound(task, url) }
+            return respond(task, url, data, mime(URL(fileURLWithPath: rel)))
         } else if path.hasPrefix("/file/") {
-            file = URL(fileURLWithPath: String(path.dropFirst(5)))
+            // a file of the user's: read beside the window (it may be large, or looked for — Lib.found), answered on the main thread
+            let asked = String(path.dropFirst(5)), top = topOf?(asked)
+            let key = ObjectIdentifier(task)
+            running[key] = task
+            Self.io.async {
+                let real = Lib.found(asked, top: top)
+                let data = try? Data(contentsOf: URL(fileURLWithPath: real))
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.running.removeValue(forKey: key) != nil else { return }
+                    if let data { self.respond(task, url, data, self.mime(URL(fileURLWithPath: real))) } else { self.notFound(task, url) }
+                }
+            }
+            return
         }
-        guard let f = file, let data = try? Data(contentsOf: f) else {
-            let r = HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!
-            task.didReceive(r); task.didReceive(Data()); return task.didFinish()
-        }
-        respond(task, url, data, mime(f))
+        notFound(task, url)
     }
 
-    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {}
+    func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) { running[ObjectIdentifier(task)] = nil }
+
+    private func notFound(_ task: WKURLSchemeTask, _ url: URL) {
+        let r = HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!
+        task.didReceive(r); task.didReceive(Data()); task.didFinish()
+    }
 
     private func respond(_ task: WKURLSchemeTask, _ url: URL, _ data: Data, _ type: String) {
         let r = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,

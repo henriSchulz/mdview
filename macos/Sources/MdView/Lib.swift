@@ -30,6 +30,40 @@ enum Lib {
     static func isFile(_ p: String) -> Bool { var d: ObjCBool = false; return fm.fileExists(atPath: p, isDirectory: &d) && !d.boolValue }
     static func exists(_ p: String) -> Bool { fm.fileExists(atPath: p) }
 
+    /// The file a note names, where it is (scan.rs `found`, BUGS.md rule 50): where the link says — else, by its name, in
+    /// the `assets` of a folder above it, up to the base folder's (`top`), and last in an `assets` anywhere in the base
+    /// folder (the one nearest the top; of two as near, the first by name; looked for 200 ms at most). Nothing found: the
+    /// path as it came. (Any thread: it reads the disk and nothing else.)
+    static func found(_ p: String, top: String?) -> String {
+        if isFile(p) { return p }
+        guard let top else { return p }
+        let n = name(p)
+        var d = dir(p)
+        while d == top || d.hasPrefix(top + "/") {
+            let there = join(join(d, assets), n)
+            if there != p, isFile(there) { return there }
+            if d == top { break }
+            d = dir(d)
+        }
+        let deadline = Date().addingTimeInterval(0.2)
+        var hits: [String] = [], stack = [top]
+        while let d = stack.popLast() {
+            if name(d) == assets, isFile(join(d, n)) { hits.append(join(d, n)) }
+            if Date() > deadline { break }
+            let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey]
+            guard let kids = try? fm.contentsOfDirectory(at: URL(fileURLWithPath: d), includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { continue }
+            let dirs = kids.filter { u in
+                let v = try? u.resourceValues(forKeys: Set(keys))
+                return v?.isDirectory == true && v?.isSymbolicLink != true && !skipDirs.contains(u.lastPathComponent)
+            }.map(\.path).sorted()
+            stack.append(contentsOf: dirs.reversed())
+        }
+        return hits.min { a, b in
+            let (ca, cb) = (a.split(separator: "/").count, b.split(separator: "/").count)
+            return ca != cb ? ca < cb : a < b
+        } ?? p
+    }
+
     static func kind(_ p: String) -> String {
         let e = ext(p)
         if mdExt.contains(e) { return "md" }
